@@ -406,6 +406,14 @@ is under "Next".
   - M3.F4: `plan/adr/0007-egui-shell-over-the-catalog.md`, status **Proposed**: options
     (A: minimal egui shell in M3 = M3.F5; B: defer to M4; C: iced, Slint, web), costs, and
     the recommendation B. Awaiting the owner's M3.O6; M3.F5 is gated on it. No UI code.
+  - M3.G1 `papyrus.compile` takes `sources_zip` (`kit papyrus compile ... --sources-zip
+    <Tools\ContentResources.zip>`): the zip's 5,034 `Scripts/Source` `.psc`/`.flg` files
+    (12.3 MB) are extracted once into the KitCraft cache, keyed by name, size and CRC-32,
+    hostile names refused before any write, and imported after `imports` (zip crate 9,
+    deflate only). PapyrusCompiler 4.7.0.5 with only the zip: DefaultAliasOnActivate,
+    DefaultCounterQuestA and the noc patch's nocOutfitChangerQuest,
+    nocOutfitChangerContainer, SQ_Airlock_QuestScript, CS7_SpaceshipLandingQuestScript all
+    compile (first call 14.5 s with the extraction, then 1-2 s each). Gaps row closed.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in

@@ -574,15 +574,26 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   `opcode`, `op`, `args` / `varargs` as `{type, value, text}`), and `summary` = the text
   without its final newline, so `kit papyrus disasm x.pex` prints what `pexdis.py x.pex`
   prints. Structs are in the model, not the text (a limitation when present).
-- `papyrus.compile {source, out_dir, imports?, flags?, compiler?, optimize = false}`; CLI
-  `kit papyrus compile <source> <out_dir> --imports <dir> ...`. Runs Bethesda's
+- `papyrus.compile {source, out_dir, imports?, sources_zip?, flags?, compiler?, optimize =
+  false}`; CLI `kit papyrus compile <source> <out_dir> [--imports <dir> ...]
+  [--sources-zip <Tools\ContentResources.zip>]`. Runs Bethesda's
   `PapyrusCompiler.exe` (black box) on one script by name: a `.psc` path becomes its name
   with its folder imported first; `.ppj` projects are refused. Arguments are only the
   object, `-f=`, `-i=`, `-o=` and `-op`; release and final mode can never be requested
   (any extra argument such as `release` is `invalid_args`). The flags file defaults to
   `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
-  the `Scripts\Source` folder of `Tools\ContentResources.zip`, extracted by the caller.
-  `data`: `source`, `script`, `out_dir`, `compiler`, `args`, `exit_code`, `passed` (the
+  the `Scripts\Source` folder of `Tools\ContentResources.zip`: with `sources_zip` (M3.G1)
+  its `.psc` and `.flg` files are extracted once into the KitCraft cache
+  (`KITCRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitcraft\cache`, folder
+  `papyrus-sources\<key>`, keyed by every entry's name, size and CRC-32, written under a
+  temporary name and renamed when complete) and imported after `imports`; the zip is
+  read in place, its entry names are checked (ASCII letters, digits, `_`, `-`, `.`,
+  spaces; no `..`, device names or case collisions) and sizes capped before anything is
+  written. The first call extracts 5,034 files (12.3 MB, about 10 s); later calls only
+  read the zip's directory. Without `sources_zip` the caller passes an extraction in
+  `imports`. `data`: `source`, `script`, `out_dir`, `compiler`, `sources_zip` (`zip`,
+  `dir`, `files`, `bytes`, `skipped`, `cached`, or `null`; the zip is the first
+  `evidence` entry), `args`, `exit_code`, `passed` (the
   compiler's success; `kit` exits 1 when false), `stdout`, `stderr`, `pex` (`path`,
   `bytes`, `parsed`, `text`: the output disassembled through `kitcraft-pex`) and
   `summary`. A missing compiler is a `failed` error naming every path looked at
