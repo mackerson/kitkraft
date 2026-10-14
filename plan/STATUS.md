@@ -154,7 +154,11 @@ is under "Next".
   `Starfield.esm` entries and every small-file record equal the streaming parse); M2.A5
   plugin builder and streaming upsert (replacing one record of each small file changes
   only that record and its ancestors' size fields; top-level group order checked against
-  all 14 files). TES4 flag constants named from the pinned xEdit definitions.
+  all 14 files); M2.A6 record edit API (set, insert, remove; edited compressed corpus
+  records decompress to the edits, every other record keeps its bytes); M2.A3 typed decode
+  check in the driver (all 14 files: 13,168 typed records, 0 conflicts); M2.A4 `XXXX`
+  writer policy in `docs/corpus.md`. TES4 flag constants named from the pinned xEdit
+  definitions. Full release roundtrip at b27d0dc: 14/14 identical, 16.7 s, 1,394 MiB.
 
 ## In progress
 
@@ -330,8 +334,21 @@ Agents append here when they need a change in a crate they do not own.
   `Plugin::typed(&record, &DecodeLimits) -> Result<Option<TypedRecord>>` decodes
   compressed records on the fly. `Subrecord::from_owned` / `set_typed` choose `XXXX` by
   size; unchanged subrecords keep their bytes. FormIDs are copied as stored; remapping is
-  E4's (via B3).
+  E4's (via B3). M2.A6 edit API (decodes a compressed record on first edit, recompresses
+  only if changed): `Record::find_subrecord(sig, nth) -> Option<usize>`,
+  `set_subrecord(index, data, &DecodeLimits) -> Result<bool /* changed */>`,
+  `insert_subrecord(index, Subrecord, &limits)`, `remove_subrecord(index, &limits)`,
+  `edit_subrecords(&limits) -> Result<&mut Vec<Subrecord>>`; out-of-range is
+  `Error::NoSuchSubrecord`.
+- **Lane A -> lanes D, F (M2.A3 landed).** Typed decode check: `Record::check_typed(ctx)` /
+  `bridge::check_subrecords(sig, &subs, ctx) -> Result<TypedCheck, NotTyped>`
+  (`subrecords`, `placed`, `conflicts: Vec<TypedConflict { index, signature, offset,
+  kind: NotDecoded | Reencoded }>`); `RoundtripOptions { typed: true, .. }` fills
+  `Stats::{typed_records, typed_subrecords, typed_unchecked, typed_failed_records,
+  typed_conflicts, typed_conflict_list}` for `coverage` and `cargo xtask parity` (M2.F9).
+  On all 14 files today: 13,168 typed records, 0 conflicts (`docs/corpus.md`).
 - **Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
   kept: `generated::records::Record::extra(&self) -> &[(usize, OwnedSub)]`. Until then
-  `esm::bridge::check_typed` matches the five variants generated today to find payloads
-  that did not decode, and cannot see them for a new record type.
+  `esm::bridge::check_subrecords` matches the five variants generated today to find
+  payloads that did not decode, and cannot see them for a new record type (it still
+  catches re-encoding differences for every type).
