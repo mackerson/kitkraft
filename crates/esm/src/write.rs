@@ -18,9 +18,12 @@
 
 use std::collections::HashMap;
 use std::io::Write;
+use std::sync::Arc;
 
-use crate::model::{Body, Encoding, Entry, Group, Inflated, Plugin, Record, Subrecord, HEADER_LEN};
-use crate::{Error, Result, Signature, FLAG_COMPRESSED};
+use crate::model::{
+    Body, Encoding, Entry, Group, Inflated, Plugin, Recompressed, Record, Subrecord, HEADER_LEN,
+};
+use crate::{Error, Result, Signature, FLAG_COMPRESSED, MAX_DEPTH_CAP};
 
 /// Writer settings.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,7 +77,7 @@ impl Plugin<'_> {
         let header = self.header_for_write()?;
         writer.write_record(&header, &mut out)?;
         for entry in &self.entries {
-            writer.write_entry(entry, &mut out)?;
+            writer.write_entry(entry, &mut out, 1)?;
         }
         Ok(out.pos)
     }
@@ -97,15 +100,17 @@ impl Entry<'_> {
         options: &WriteOptions,
     ) -> Result<u64> {
         let mut out = Out::new(w, pos);
-        Writer::new(options).write_entry(self, &mut out)?;
+        Writer::new(options).write_entry(self, &mut out, 1)?;
         Ok(out.pos.saturating_sub(pos))
     }
 
     /// Number of bytes [`Entry::write_to`] would write, header included. Unmodified nodes
     /// answer from the sizes they were read with; a modified compressed record is
-    /// serialized and compressed to find out.
+    /// serialized and compressed to find out. The compressed body is kept with the
+    /// record's decompressed bytes, so a following [`Entry::write_to`] at the same level
+    /// does not compress it again.
     pub fn encoded_len(&self, options: &WriteOptions) -> Result<u64> {
-        Writer::new(options).entry_len(self, 0)
+        Writer::new(options).entry_len(self, 0, 1)
     }
 }
 
@@ -114,7 +119,7 @@ enum Packed {
     /// Its subrecords serialize to the bytes they were decoded from: emit `original`.
     Original,
     /// Recompressed bytes.
-    Recompressed(Vec<u8>),
+    Recompressed(Arc<Vec<u8>>),
 }
 
 /// State of one write: options and memoized sizes of modified nodes, so each modified node
@@ -141,24 +146,25 @@ impl<'o> Writer<'o> {
         }
     }
 
-    /// Size of `entry` when written at output offset `pos`.
-    fn entry_len(&mut self, entry: &Entry<'_>, pos: u64) -> Result<u64> {
+    /// Size of `entry` when written at output offset `pos`; `depth` is 1 at the top level.
+    fn entry_len(&mut self, entry: &Entry<'_>, pos: u64, depth: usize) -> Result<u64> {
         match entry {
-            Entry::Group(g) => self.group_len(g, pos),
+            Entry::Group(g) => self.group_len(g, pos, depth),
             Entry::Record(r) => self.record_len(r, pos),
         }
     }
 
-    fn group_len(&mut self, g: &Group<'_>, pos: u64) -> Result<u64> {
+    fn group_len(&mut self, g: &Group<'_>, pos: u64, depth: usize) -> Result<u64> {
         if let (false, Some(size)) = (g.is_modified(), g.size) {
             return Ok(u64::from(size));
         }
         if let Some(len) = self.group_lens.get(&key(g)) {
             return Ok(*len);
         }
+        check_depth(depth, pos)?;
         let mut total = HEADER_LEN as u64;
         for child in &g.children {
-            let len = self.entry_len(child, pos.saturating_add(total))?;
+            let len = self.entry_len(child, pos.saturating_add(total), depth.saturating_add(1))?;
             total = total.saturating_add(len);
         }
         self.group_lens.insert(key(g), total);
@@ -211,7 +217,9 @@ impl<'o> Writer<'o> {
         Ok(len)
     }
 
-    /// Serialize decoded subrecords; recompress unless they reproduce `inflated`.
+    /// Serialize decoded subrecords; recompress unless they reproduce `inflated`. A
+    /// recompressed body is cached with `inflated` (keyed by level and serialized bytes),
+    /// so measuring and then writing a record compresses it once.
     fn pack(
         &self,
         subs: &[Subrecord<'_>],
@@ -232,17 +240,29 @@ impl<'o> Writer<'o> {
         if inflated.is_some_and(|i| i.bytes() == fields.as_slice()) {
             return Ok(Packed::Original);
         }
-        crate::compress::deflate(&fields, self.options.compression_level, pos)
-            .map(Packed::Recompressed)
+        let level = self.options.compression_level;
+        if let Some(body) = inflated.and_then(|i| i.cached(level, &fields)) {
+            return Ok(Packed::Recompressed(body));
+        }
+        let body = Arc::new(crate::compress::deflate(&fields, level, pos)?);
+        if let Some(i) = inflated {
+            i.cache(Recompressed {
+                level,
+                fields,
+                body: Arc::clone(&body),
+            });
+        }
+        Ok(Packed::Recompressed(body))
     }
 
     fn write_entry<W: Write + ?Sized>(
         &mut self,
         entry: &Entry<'_>,
         out: &mut Out<'_, W>,
+        depth: usize,
     ) -> Result<()> {
         match entry {
-            Entry::Group(g) => self.write_group(g, out),
+            Entry::Group(g) => self.write_group(g, out, depth),
             Entry::Record(r) => self.write_record(r, out),
         }
     }
@@ -251,11 +271,13 @@ impl<'o> Writer<'o> {
         &mut self,
         g: &Group<'_>,
         out: &mut Out<'_, W>,
+        depth: usize,
     ) -> Result<()> {
+        check_depth(depth, out.pos)?;
         let size = match (g.is_modified(), g.size) {
             (false, Some(size)) => size,
             _ => {
-                let len = self.group_len(g, out.pos)?;
+                let len = self.group_len(g, out.pos, depth)?;
                 u32::try_from(len).map_err(|_| Error::TooLarge {
                     offset: out.pos,
                     what: "group",
@@ -265,7 +287,7 @@ impl<'o> Writer<'o> {
         };
         group_header(g, size, out)?;
         for child in &g.children {
-            self.write_entry(child, out)?;
+            self.write_entry(child, out, depth.saturating_add(1))?;
         }
         Ok(())
     }
@@ -303,9 +325,26 @@ impl<'o> Writer<'o> {
                 ..
             } => match self.packed.get(&key(r)) {
                 Some(Packed::Recompressed(bytes)) => out.put(bytes),
-                Some(Packed::Original) | None => out.put(original),
+                Some(Packed::Original) => out.put(original),
+                // `body_len` above packs every decoded compressed record it measures.
+                None => Err(Error::Internal {
+                    offset: out.pos,
+                    message: "compressed record body written before it was measured",
+                }),
             },
         }
+    }
+}
+
+/// In-memory trees can nest deeper than any parse allows; the writer recurses per level.
+fn check_depth(depth: usize, pos: u64) -> Result<()> {
+    if depth > MAX_DEPTH_CAP {
+        Err(Error::TooDeep {
+            offset: pos,
+            max: MAX_DEPTH_CAP,
+        })
+    } else {
+        Ok(())
     }
 }
 
@@ -714,6 +753,72 @@ mod tests {
             plugin.to_bytes(),
             Err(Error::ReservedSignature { .. })
         ));
+    }
+
+    /// Review round 3, finding 7: the writer recursed once per level of an in-memory tree.
+    #[test]
+    fn writing_an_in_memory_tree_deeper_than_the_cap_is_an_error() {
+        let mut plugin = Plugin::parse(&fixture::plugin(&[])).unwrap().into_owned();
+        let build = |levels: usize| {
+            let mut entry = Entry::Group(Group::new(GroupHeader::default()));
+            for _ in 1..levels {
+                let mut g = Group::new(GroupHeader::default());
+                g.children_mut().push(entry);
+                entry = Entry::Group(g);
+            }
+            entry
+        };
+        plugin.entries_mut().push(build(crate::MAX_DEPTH_CAP));
+        assert!(plugin.to_bytes().is_ok());
+        plugin.entries_mut()[0] = build(crate::MAX_DEPTH_CAP + 1);
+        let options = WriteOptions::default();
+        assert!(matches!(
+            plugin.entries()[0].encoded_len(&options),
+            Err(Error::TooDeep { max: 64, .. })
+        ));
+        assert!(matches!(
+            plugin.to_bytes(),
+            Err(Error::TooDeep { max: 64, .. })
+        ));
+    }
+
+    /// Review round 3, finding 10: measuring then writing a modified compressed record
+    /// compressed it twice.
+    #[test]
+    fn a_modified_compressed_record_is_compressed_once_for_measure_and_write() {
+        use crate::compress::DEFLATE_CALLS;
+        let fields = sub(b"EDID", b"before\0");
+        let rec = fixture::compressed_record_stored(b"LAND", 7, &fields);
+        let bytes = fixture::plugin(&[group(b"LAND", 0, &rec)]);
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let r = first_record(&mut plugin);
+        r.decompress(&DecodeLimits::default()).unwrap();
+        r.subrecords_mut().unwrap()[0].set_data(&b"after\0"[..]);
+        let options = WriteOptions::default();
+        let before = DEFLATE_CALLS.with(std::cell::Cell::get);
+        let entry = &plugin.entries()[0];
+        let len = entry.encoded_len(&options).unwrap();
+        let mut out = Vec::new();
+        assert_eq!(entry.write_to(&mut out, 0, &options).unwrap(), len);
+        assert_eq!(DEFLATE_CALLS.with(std::cell::Cell::get) - before, 1);
+        // Another level is another body; the same level again is still cached.
+        let fast = WriteOptions {
+            compression_level: 1,
+        };
+        entry.encoded_len(&fast).unwrap();
+        entry.encoded_len(&options).unwrap();
+        assert_eq!(DEFLATE_CALLS.with(std::cell::Cell::get) - before, 3);
+        let reparsed = Plugin::parse(&plugin.to_bytes().unwrap())
+            .unwrap()
+            .into_owned();
+        let Entry::Group(g) = &reparsed.entries()[0] else {
+            panic!()
+        };
+        let Entry::Record(r) = &g.children()[0] else {
+            panic!()
+        };
+        let decoded = r.decode(&DecodeLimits::default()).unwrap().unwrap();
+        assert_eq!(decoded[0].data(), b"after\0");
     }
 
     #[test]

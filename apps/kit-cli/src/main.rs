@@ -9,7 +9,10 @@
 //! Exit codes: 0 success or help; 1 the command ran and its check failed (`data.passed`
 //! is `false`: a `roundtrip --verify` mismatch, later validation findings); 2 usage error,
 //! unknown command, invalid arguments, a command that is not implemented yet (including
-//! a stub result from a `Planned` command), a failed command, or `kit mcp` before M2.
+//! a stub result from a `Planned` command, and a `Deferred` one), or a failed command.
+//! `kit mcp [--profile DIR]` serves MCP on stdio until stdin closes (exit 0; 2 on an I/O
+//! error); a failed `--profile` preload is reported on stderr and in the server's
+//! instructions, and the server starts with an empty session.
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
@@ -51,10 +54,7 @@ fn main() -> ExitCode {
             print_catalog_help();
             ExitCode::SUCCESS
         }
-        Some(("mcp", _)) => {
-            eprintln!("kit: `kit mcp` is not implemented until M2 (see docs/mcp.md)");
-            ExitCode::from(EXIT_ERROR)
-        }
+        Some(("mcp", sub)) => run_mcp(sub.get_one::<String>("profile").map(String::as_str)),
         Some((word, sub)) => {
             let mut words = vec![word.to_string()];
             words.extend(
@@ -65,6 +65,41 @@ fn main() -> ExitCode {
             );
             let (words, json_after) = strip_json_flag(words);
             run(&words, json || json_after)
+        }
+    }
+}
+
+/// `kit mcp`: one engine (one session) for the life of the process, served on stdio.
+/// stdout carries only MCP messages; everything human goes to stderr.
+fn run_mcp(profile: Option<&str>) -> ExitCode {
+    let mut server = kitcraft_mcp::Server::new(kitcraft_engine::Engine::with_default_handlers());
+    if let Some(profile) = profile {
+        match server
+            .backend()
+            .engine()
+            .execute("load", json!({ "profile": profile }))
+        {
+            Ok(_) => {
+                eprintln!("kit mcp: loaded profile {profile}");
+                server.add_note(format!(
+                    "The profile {profile} was loaded at startup (see kitcraft://load-order)."
+                ));
+            }
+            Err(err) => {
+                eprintln!(
+                    "kit mcp: preloading --profile failed: {err}; serving with an empty session"
+                );
+                server.add_note(format!(
+                    "Preloading the profile {profile} at startup failed ({err}); the session is empty."
+                ));
+            }
+        }
+    }
+    match kitcraft_mcp::serve_stdio(&mut server) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("kit mcp: stdio error: {err}");
+            ExitCode::from(EXIT_ERROR)
         }
     }
 }
@@ -93,8 +128,13 @@ fn cli() -> Command {
         )
         .subcommand(
             Command::new("mcp")
-                .about("Serve the same catalog over MCP on stdio (not implemented until M2)")
-                .arg(Arg::new("profile").long("profile").value_name("DIR")),
+                .about("Serve the same catalog over MCP on stdio (see docs/mcp.md)")
+                .arg(
+                    Arg::new("profile")
+                        .long("profile")
+                        .value_name("DIR")
+                        .help("MO2 profile to load (through `load`) before serving"),
+                ),
         )
         .subcommand(passthrough(
             "help",
@@ -304,7 +344,7 @@ fn print_catalog_help() {
     println!("COMMANDS:");
     print!("{}", cmdline::catalog_help());
     println!(
-        "  {:<18} Serve the same catalog over MCP on stdio (not implemented until M2)",
+        "  {:<18} Serve the same catalog over MCP on stdio (kit mcp [--profile DIR])",
         "mcp"
     );
     println!();
