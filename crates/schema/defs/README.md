@@ -319,7 +319,10 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
 | `AMMO.toml` `AMDL.toml` `COBJ.toml` `OMOD.toml` `ZOOM.toml` | record | corpus scan | Inventories (M2.B2): universal subrecords typed, the rest opaque until lane B round 3 |
 | `WEAP.toml` | record    | corpus scan                              | Inventory; universal subrecords typed (M2.B2); the body layout waits for lane B round 3 (`xedit:`) |
+| `WRLD.toml` `CELL.toml` `REFR.toml` `ACHR.toml` `NAVM.toml` `LCTN.toml` `LCRT.toml` | record | xedit (pinned) + corpus (`tests/world_family.rs`) | World family: typed from xEdit, checked on every official record; VMAD, NVNM, NAVM MNAM, XSL1, XTV2, XNSE and unknowns opaque; CELL/REFR/ACHR member order is the best linear fit (xEdit marks them unordered). `docs/schema/world-family.md` |
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
+| `common/PositionRotation.toml` `OwnerData` `EnableParent` `ColorRgb` `ColorRgba` `PropertyValue` `RagdollBone` | type | xedit (pinned) + corpus | Shared payload layouts of the world family |
+| `common/LinkedReferences.toml` `GroupedPackIn.toml` | group | xedit (pinned) + corpus | XLKR*/XLKT and the XWPK..XWPK pack-in block |
 | `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |
 | `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |
 
