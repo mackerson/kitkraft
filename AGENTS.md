@@ -77,7 +77,7 @@ Every user-visible action is exactly one `CommandSpec` in `kitcraft_engine::cata
 | `aliases`     | Other names accepted by the CLI, `command_line`, and the palette            |
 | `summary`     | One line for `kit help` and MCP tool listings                               |
 | `args_schema` | JSON Schema for the arguments object                                        |
-| `status`      | `Planned` or `Implemented`                                                  |
+| `status`      | `Implemented`, `Deferred { reason, milestone }`, or `Planned` (none at M2)  |
 
 Execution takes the JSON arguments and returns a JSON result. **`execute` never opens a
 dialog, prompts, or blocks on input.** Interactive front ends collect arguments first, then
@@ -104,7 +104,8 @@ catalog instead of acting on data, so they are plain CLI subcommands and need no
 
 - **Sources follow the owner's four-level hierarchy** (ADR 0004, decided 2026-10-14; ADR 0005
   Amendment 2): (1) container: UESP's Skyrim pages, validated on the Starfield corpus;
-  (2) record definitions: upstream xEdit `Core/wbDefinitionsSF1.pas` pinned at
+  (2) record definitions: upstream xEdit `Core/wbDefinitionsSF1.pas` and the helpers it
+  uses in `Core/wbDefinitionsCommon.pas`, both pinned at the same SHA
   `9fb016884bec138ea6c7b872cec831537d464c3e` (`docs/xedit-reference.md`); (3) empirical
   validation: corpus statistics, CK differential observation, differential comparison
   against SF1Edit; (4) secondary: UESP's Starfield pages on starfieldwiki.net (thin; cite as
@@ -113,11 +114,15 @@ catalog instead of acting on data, so they are plain CLI subcommands and need no
   the tiebreaker. Record facts in `crates/schema` definitions with their `source`,
   `evidence` and `confidence` (`reference`, `corpus`, `ck-diff`, `verified`); never paste
   prose or code from any source, and never write a Starfield layout from memory.
-- **xEdit's Pascal is source material only.** Read the pinned `wbDefinitionsSF1.pas` from a
-  copy outside the repo (`*.pas` is gitignored; delete it after use), and write our TOML
-  independently: no code or comments copied, no reproduction of xEdit's architecture, no
-  runtime or build dependency on Pascal. Cite `xedit: wbDefinitionsSF1.pas@<sha>#L<a>-L<b>`.
-  Other xEdit files are not covered yet.
+- **xEdit's Pascal is source material only.** Read the pinned `wbDefinitionsSF1.pas` and
+  `wbDefinitionsCommon.pas` from copies outside the repo (`*.pas` is gitignored; delete them
+  after use), and write our TOML independently: no code or comments copied, no
+  reproduction of xEdit's architecture, no runtime or build dependency on Pascal. Cite
+  `xedit: wbDefinitionsSF1.pas@<sha>#L<a>-L<b>` (or `wbDefinitionsCommon.pas@<sha>...`),
+  both at the same pinned SHA. A common-file helper is cited only for what a Starfield
+  definition uses it for. Another upstream helper file needs only a documented dependency
+  (`docs/xedit-reference.md`, `docs/source-registry.md`) under the same rules (ADR 0004,
+  "Owner approval 2026-10-14").
 - **Never use a Skyrim definition for a Starfield record body.** Skyrim facts describe the
   shared container only, with `confidence = "corpus"` or better.
 - **CreationKit.exe may be run and observed as a black box only**: open plugins, save, take
@@ -194,8 +199,9 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
 
 1. Project name (`KitCraft` is a placeholder).
 2. xEdit MPL source policy: **decided 2026-10-14** (`plan/adr/0004-xedit-source-policy.md`).
-   Still the owner's: changing the pinned revision, or extending the reference beyond
-   `wbDefinitionsSF1.pas`.
+   Still the owner's: changing the pinned revision, or a source file with a materially
+   different license or source category (`wbDefinitionsSF1.pas` and
+   `wbDefinitionsCommon.pas` are approved at the same SHA).
 3. Which video critique is the design brief for the gun overhaul.
 4. License (proposed MIT OR Apache-2.0; scaffolded that way).
 5. Whether and when to contact kinggath about Sim Settlements 2.
