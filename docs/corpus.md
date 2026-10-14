@@ -314,3 +314,23 @@ archive is version 1. Facts the crate relies on (`corpus:` in `crates/ba2`):
   map). Formats seen: 10, 11, 28, 29, 31, 61, 71, 72, 77, 78, 80, 84, 87, 95, 98, 99.
 
 Differential checks against `Archive2.exe` 1.2.0.1 (black box): see `plan/STATUS.md`.
+
+## Writing rules (M2.E3)
+
+What a patch plugin written by `set` and `build` follows, and where each rule comes from.
+Corpus rules are asserted by `crates/engine/tests/writing_rules.rs` (fast tests in every
+gate; `corpus_onam_inventory_full` is `#[ignore]`, release, 2.6 s). The `ck-diff` half
+(what the Creation Kit writes for a new non-localized plugin, M2.O4) is not observed yet;
+until it is, `set` and `build` name it in `limitations`.
+
+| Rule | Source |
+| ---- | ------ |
+| **`HEDR` record count**: records including `TES4`, groups not counted (the meaning 12 of the 14 files use; the two BlueprintShips files count records excluding `TES4` plus groups). A new plugin gets this count; a streamed rewrite that adds a record recomputes it (`crates/esm/src/tes4.rs`, lane A). | `corpus:` TES4 header inventory above |
+| **`HEDR` version 0.96** in all 14 files: a new plugin writes 0.96. | `corpus:` `corpus_new_plugin_header_facts` |
+| **`HEDR` next object ID** `0xFF001000` in 12 of 14 files: a new plugin writes it. Patches add no new forms in M2, so nothing reads it; what the CK writes is a `ck-diff` question. | `corpus:` TES4 header inventory |
+| **Form version** of a new `TES4`: 582, the newest in the corpus (`HeaderSpec::new`). A copied record keeps its own form version (581 for `Starfield.esm` records). | `corpus:` TES4 header inventory |
+| **Master flag**: every official file is an `.esm` with flag 0x1. A patch written as `.esm` sets 0x1; as `.esp` it does not. `.esl` (and the small/medium bits 0x100/0x400) is refused until M2.D3 (c) has a source. | `corpus:` `corpus_new_plugin_header_facts` |
+| **Localized flag**: every official file sets 0x80; a patch never does (M2: no string tables are written). Every lstring of a copied record is written as inline text: the edited value, or the source text looked up in the source plugin's string tables. | `corpus:` same test; plan "Not in M2" |
+| **String ID 0** is in no `starfield_en` table (`.strings` lowest ID 22, `.dlstrings` 3607, `.ilstrings` 7): an lstring holding ID 0 has no text, and is written inline as the empty string. | `corpus:` `corpus_string_id_zero_has_no_text` (`starfield_en` in `Starfield - Localization.ba2`) |
+| **`ONAM` is not needed for an override of a top-level record.** In the 5 files with an `ONAM` (SFBGS003, SFBGS006, SFBGS00D, SFBGS050, ShatteredSpace) every listed FormID is a record of the same file in a group of type 7 (topic children: INFO), 9 (cell temporary children: REFR, ACHR, NAVM) or 10 (DIAL, SCEN); no top-level record is listed, although 10 files override 853 top-level master records between them (SFBGS003 58, SFBGS004 20, SFBGS006 15, SFBGS008 8, SFBGS00D 133, SFBGS047 1, SFBGS050 142, ShatteredSpace 86, BlueprintShips 357 and 33). Patches therefore write no `ONAM`. Not every overridden temporary child is listed (SFBGS050 overrides 9 type-9 NAVM records it does not list), so what decides membership is open; a patch that overrides cell children would need it (not in M2). | `corpus:` `corpus_onam_inventory_full` |
+| **Inline text encoding**: UTF-8, NUL-terminated (the string tables hold UTF-8, `crates/strings`). Whether the game reads inline FULL as UTF-8 or a code page is a `ck-diff` / in-game fact (M2.O4, M2.O6); ASCII names are unaffected. | `corpus:` string tables; open |
