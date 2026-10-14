@@ -3,6 +3,9 @@
 - Status: Accepted
 - Date: 2026-10-14
 - Amends: ADR 0001 §2 (specification sources), ADR 0003 §5 (`source` key)
+- Amended: 2026-10-14 by Amendment 1 below (UESP's Starfield pages exist at
+  starfieldwiki.net; `uesp-starfield:` source form; `/CTDA` forbidden). The Context section
+  is kept as written; where it says UESP has no Starfield page, Amendment 1 corrects it.
 
 ## Context
 
@@ -96,7 +99,9 @@ Never used to author or check anything in `crates/schema/defs/`, generated code,
 - **xEdit**: source code, including `wbDefinitionsSF1.pas` (MPL-2.0), unless and until ADR 0004
   is decided otherwise by the owner, and then only as that decision allows.
 - Summaries, tables, or field lists derived from any of the above (for example the WEAP field
-  list that was in `PLAN.md` before this ADR).
+  list that was in `PLAN.md` before this ADR). This includes the UESP Starfield page
+  `Starfield_Mod:Mod_File_Format/CTDA`, which says it is derived from xEdit (added by
+  Amendment 1), and any other page whose own attribution names one of these tools.
 - An agent's own recall of Starfield field layouts. If a layout cannot be cited to a permitted
   source in the table above, it is not written down.
 - Disassembly, decompilation, debugging, or memory inspection of `CreationKit.exe` or
@@ -111,3 +116,57 @@ Never used to author or check anything in `crates/schema/defs/`, generated code,
   for Starfield-only records wait for CK observations. Until then those subrecords are opaque,
   which keeps the roundtrip byte-identical.
 - `docs/ck-observations.md` becomes the evidence log for every Starfield-specific layout.
+
+## Amendment 1 (2026-10-14): the UESP Starfield pages
+
+### Finding
+
+A survey on 2026-10-14 found that UESP's Starfield wiki does exist, on its own host:
+
+- Host <https://starfieldwiki.net>, namespace "Starfield Mod" (namespace id 106), content
+  licensed CC BY-SA 4.0. The `en.uesp.net/wiki/Starfield_Mod:` URLs checked earlier return
+  404 because the namespace is not served there.
+- 23 pages exist under `Starfield_Mod:Mod_File_Format`: the main index, and:
+
+| Page                    | Content                                                                                   | Status under this ADR                                   |
+| ----------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| `/Raw_Data`             | A subrecord census of `Starfield.esm` (676 KB): subrecord names, counts, min/max/avg sizes; no layouts | Allowed, as an inventory cross-check only (below) |
+| `/CTDA`                 | Condition data; its own attribution says it is derived from xEdit                          | **Forbidden** (§3)                                      |
+| `/GMST`                 | Game setting values                                                                        | Allowed                                                 |
+| `/PERK`                 | Despite its title, documents `OMOD`: typed `DATA`, include and property layouts            | Available, **not used** until the owner decides OMOD scope |
+| `/AMMO`                 | Thin: `EDID`, `FULL`, an 8-byte `DATA`, `DESC`, `MODL`, `ONAM`                            | Allowed                                                 |
+| `/EQUP`                 | The `EQUP` record                                                                          | Allowed                                                 |
+| Stubs: `/ALCH` `/ARMO` `/AVIF` `/BOIM` `/BOOK` `/CELL` `/CLAS` `/ENCH` `/FACT` `/FLOR` `/GBFM` `/LCTN` `/LSCR` `/MGEF` `/TERM` `/TMLM` | Little or no content | Allowed for whatever they state |
+
+- There is no page for `TES4`, `WEAP`, `PROJ`, `AMDL`, `COBJ`, `ZOOM`, or `OMOD` under its
+  own title. Those stay on the sources in §1 (UESP Skyrim container pages, corpus, CK
+  differential observation, CK wiki).
+
+### Decision
+
+1. New source form `uesp-starfield: <page URL>`, with URLs of the form
+   `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/<Page>`. The schema loader
+   accepts it and rejects a citation of `/CTDA`.
+2. A `uesp-starfield` page is treated like a `uesp-skyrim` page: the structured facts it
+   states (subrecord order, field widths and names for its record type) are a hypothesis
+   until the corpus agrees on every occurrence, and the corpus is the tiebreaker. Facts are
+   recorded in our own words and structure; page prose (CC BY-SA) is never copied.
+3. `/Raw_Data` is an allowed cross-check for inventory facts (signatures, counts, size
+   ranges). Our own corpus scan stays the inventory source cited in definitions: the census
+   describes one version of `Starfield.esm` and gives no order or layouts.
+4. Before citing any page, check its attribution. A page that says it is derived from
+   xEdit, Mutagen, Spriggit, or another source §3 forbids is forbidden too, like `/CTDA`.
+5. The `OMOD` layout on `/PERK` is listed as available but is not used until the owner
+   decides whether OMOD is in scope.
+
+| Fact                                                                 | Permitted source                                          | `source` key form              |
+| -------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------ |
+| Record layouts stated on a UESP Starfield page (except `/CTDA`, and `/PERK` until decided) | UESP `Starfield_Mod:Mod_File_Format/<Page>`, confirmed against the corpus | `uesp-starfield: <page URL>` |
+| Inventory cross-check                                                | UESP `Starfield_Mod:Mod_File_Format/Raw_Data`, alongside our own corpus scan | `uesp-starfield: <page URL>` in `evidence` |
+
+### Consequences
+
+- AGENTS.md ("Clean room") still says UESP has no Starfield format page; it should point
+  here (requested in `plan/STATUS.md`).
+- No definition cites a `uesp-starfield` page yet; current definitions remain corpus
+  inventories and UESP Skyrim container facts.
