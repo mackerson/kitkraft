@@ -137,6 +137,24 @@ Corpus confirmation (`crates/doc/tests/corpus.rs`, `corpus:` source):
   the master; the 15 are `SFBGS050.esm` records addressed to `SFBGS00D.esm` objects that
   file does not contain (5 REFR, 9 NAVM, 1 PROJ).
 
+### Own records stored full-style (assumption `full-style-self`)
+
+Ortham's article also gives a medium plugin whose new record is stored `02051808` and
+appears in game as `FD011808`: a small or medium file may store its *own* records in the
+full class, with the index equal to its number of full masters. No official file does
+this (`crates/doc/tests/corpus.rs` asserts zero), but on the owner's Default profile 27
+third-party small or medium plugins do (for example `Resupply.esm` stores `01000CA6` with
+one full master; `Hatch-22.esm`, masters `Starfield.esm` (full) and `SFBGS006.esm`
+(medium), stores its own records `01xxxxxx`, so the index counts full masters only).
+KitCraft resolves these to the file itself, counts them per plugin
+(`full_style_self_records` in `load`) and names the plugins in a limitation. Third-party
+files are the user's load order here, not evidence for the rule (M2.O5); the rule's source
+is Ortham's example.
+
+Still unresolved on the Default profile: the 4 records of `HG_ShipCargoHoldAtHome.esm`,
+which has one master and stores its records `02xxxxxx`. They stay typed errors (left out of
+overrides and queries, named in `load`'s limitations).
+
 FormIDs inside subrecord payloads follow the same encoding but are only reachable once
 typed layouts say where they are (M2.A3, M2.B3); until then `diff` and `conflicts` compare
 payload bytes as stored and say so.
@@ -163,4 +181,12 @@ Timings (release, this machine):
 
 | Load | Cold (no cache) | Warm |
 | ---- | --------------- | ---- |
-| 14 official files | 6.8 s | 0.65 s |
+| 14 official files (`crates/doc/tests/corpus.rs`) | 6.8 s | 0.65 s |
+| Default profile, 84 plugins, 7,739,193 records (`kit load --profile`, wall clock) | 6.0 s | 0.68 s |
+
+On the warm Default profile (release, `kit` wall clock including the load): `query --type
+WEAP --where "FULL ~ 'Old Earth Hunting Rifle'"` 0.76 s (541 candidates, 415 unknown
+because `Starfield.esm` is localized and string tables are not loaded yet), `inspect
+Starfield.esm:001116` 0.8 s, `conflicts --count-classes` (15,586 overridden forms, 15,893
+override records: 8,206 deleted, 6,031 differs, 1,641 identical to the previous version,
+15 first versions without a base record) 2.8 s.
