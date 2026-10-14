@@ -1,0 +1,34 @@
+# FurnitureMarkerParameter: one element of the SNAM marker list of furniture and terminals:
+# the marker's offset and rotation, its keyword, and which sides an actor may enter and
+# leave by.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L6881-L6892 - three offset floats, a Z rotation
+#     (an angle float), a KYWD FormID, then (from form version 125) an entry-side byte with
+#     three padding bytes and (from form version 555) an exit-side byte with three padding
+#     bytes. The side bits are L6868-L6878: front, rear, right, left, other; bits 5-7 are
+#     unnamed upstream (and noted there as normally set) and stay unnamed here.
+#   corpus: SNAM in the FURN and TERM records of the 14 official ESMs (2026-10-14 scan,
+#     ITEMS/WORKSHOP family): every payload is a multiple of 28 bytes (one element: 28),
+#     and every record is form version 581 or 582, so both version-gated pairs are always
+#     present. The rotation slot is 4 bytes in every element.
+name = "FurnitureMarkerParameter"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6881-L6892"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6868-L6878",
+  "corpus: SNAM in the FURN and TERM records of the 14 official ESMs, 2026-10-14 scan: every payload a multiple of 28 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "OffsetX", type = "f32" },
+  { name = "OffsetY", type = "f32" },
+  { name = "OffsetZ", type = "f32" },
+  { name = "RotationZ", type = "f32", note = "an angle; upstream displays it in degrees" },
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
+  { name = "EntryTypes", type = "flags", base = "u8", bits = [["Front", 0x1], ["Rear", 0x2], ["Right", 0x4], ["Left", 0x8], ["OtherSide", 0x10]] },
+  { name = "Unused1", type = "opaque", size = 3 },
+  { name = "ExitTypes", type = "flags", base = "u8", bits = [["Front", 0x1], ["Rear", 0x2], ["Right", 0x4], ["Left", 0x8], ["OtherSide", 0x10]] },
+  { name = "Unused2", type = "opaque", size = 3 },
+]

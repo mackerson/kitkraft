@@ -1,0 +1,52 @@
+# FurnitureMarkerFlags: the MNAM payload of furniture and terminals: which of the 20
+# interaction points are active, plus behaviour flags.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L6834-L6866 - a u32 of flags: bits 0-19 the
+#     interaction points, then the behaviour bits named below. Bit 29 is an unnamed
+#     placeholder upstream and is left unnamed (preserved as a raw bit). Upstream marks the
+#     name of bit 30 as uncertain.
+#   corpus: MNAM in the FURN and TERM records of the 14 official ESMs (2026-10-14 scan,
+#     ITEMS/WORKSHOP family): every payload is 4 bytes.
+name = "FurnitureMarkerFlags"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6834-L6866"
+evidence = [
+  "corpus: MNAM in the FURN and TERM records of the 14 official ESMs, 2026-10-14 scan: all 4 bytes",
+]
+confidence = "corpus"
+type = "flags"
+base = "u32"
+bits = [
+  ["InteractionPoint0", 0x1],
+  ["InteractionPoint1", 0x2],
+  ["InteractionPoint2", 0x4],
+  ["InteractionPoint3", 0x8],
+  ["InteractionPoint4", 0x10],
+  ["InteractionPoint5", 0x20],
+  ["InteractionPoint6", 0x40],
+  ["InteractionPoint7", 0x80],
+  ["InteractionPoint8", 0x100],
+  ["InteractionPoint9", 0x200],
+  ["InteractionPoint10", 0x400],
+  ["InteractionPoint11", 0x800],
+  ["InteractionPoint12", 0x1000],
+  ["InteractionPoint13", 0x2000],
+  ["InteractionPoint14", 0x4000],
+  ["InteractionPoint15", 0x8000],
+  ["InteractionPoint16", 0x10000],
+  ["InteractionPoint17", 0x20000],
+  ["InteractionPoint18", 0x40000],
+  ["InteractionPoint19", 0x80000],
+  ["AllowClothSim", 0x100000],
+  ["DisablePhysics", 0x200000],
+  ["AllowAwakeSound", 0x400000],
+  ["EnterWithWeaponDrawn", 0x800000],
+  ["PlayAnimWhenFull", 0x1000000],
+  ["DisablesActivation", 0x2000000],
+  ["IsPerch", 0x4000000],
+  ["MustExitToTalk", 0x8000000],
+  ["UseStaticAvoidNode", 0x10000000],
+  ["HasModel", 0x40000000],
+  ["IsSleepFurniture", 0x80000000],
+]
