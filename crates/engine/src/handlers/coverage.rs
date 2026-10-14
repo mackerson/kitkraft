@@ -478,11 +478,11 @@ mod tests {
         assert_eq!(data["subrecords"], 10);
         assert_eq!(
             data["occurrences"],
-            json!({"typed": 6, "opaque": 2, "unknown": 2})
+            json!({"typed": 7, "opaque": 1, "unknown": 2})
         );
         assert_eq!(result["coverage"]["status"], "partial");
-        assert_eq!(result["coverage"]["decoded_subrecords"], 6);
-        assert_eq!(result["coverage"]["opaque_subrecords"], 4);
+        assert_eq!(result["coverage"]["decoded_subrecords"], 7);
+        assert_eq!(result["coverage"]["opaque_subrecords"], 3);
         assert_eq!(result["coverage"]["not_examined"], json!([]));
         assert_eq!(result["limitations"], json!([BY_SIGNATURE]));
 

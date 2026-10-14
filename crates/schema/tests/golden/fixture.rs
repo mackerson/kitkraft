@@ -4,6 +4,7 @@
 // - common Marker (corpus: synthetic test fixture, not game data; corpus)
 // - common Point (corpus: synthetic test fixture, not game data; corpus)
 // - EMPT (corpus: synthetic test fixture, not game data; corpus)
+// - UUUU (corpus: synthetic test fixture, not game data; corpus)
 // - VVVV (corpus: synthetic test fixture, not game data; corpus)
 // - YYYY (corpus: synthetic test fixture, not game data; corpus)
 // - ZZZZ (corpus: synthetic test fixture, not game data; corpus)
@@ -22,6 +23,9 @@ pub enum DecodeError {
     Unterminated { field: &'static str },
     /// The count for the array `field` is negative or does not fit in `usize`.
     BadCount { field: &'static str, offset: usize },
+    /// The union `field` has no layout for this record: no `EDID`, or an EditorID prefix
+    /// no variant names.
+    Undecided { field: &'static str },
 }
 
 impl std::fmt::Display for DecodeError {
@@ -36,6 +40,9 @@ impl std::fmt::Display for DecodeError {
             Self::Unterminated { field } => write!(f, "{field}: string has no terminating NUL"),
             Self::BadCount { field, offset } => {
                 write!(f, "{field}: invalid element count at offset {offset}")
+            }
+            Self::Undecided { field } => {
+                write!(f, "{field}: no layout for this record's EditorID prefix")
             }
         }
     }
@@ -787,6 +794,83 @@ pub fn push<T: Field>(
     }
 }
 
+/// A union payload whose layout the record's EditorID prefix selects (`type = "union"`,
+/// `decider = "edid-prefix"`).
+pub trait ByPrefix: Sized {
+    /// Reads the variant that EditorID prefix byte `prefix` selects.
+    fn read_for(
+        prefix: u8,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError>;
+}
+
+/// The first byte of the first `EDID` payload in `subs`.
+pub fn edid_prefix(subs: &[RawSub<'_>]) -> Option<u8> {
+    subs.iter()
+        .find(|s| s.signature == *b"EDID")
+        .and_then(|s| s.data.first().copied())
+}
+
+/// Decodes a whole union payload by the record's EditorID prefix.
+pub fn decode_by_prefix<T: ByPrefix>(
+    subs: &[RawSub<'_>],
+    data: &[u8],
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<T, DecodeError> {
+    let prefix = edid_prefix(subs).ok_or(DecodeError::Undecided { field })?;
+    let mut r = Reader::new(data);
+    let value = T::read_for(prefix, &mut r, field, ctx)?;
+    r.finish(field)?;
+    Ok(value)
+}
+
+/// [`put`] for a union member: decodes by the EditorID prefix, or keeps the subrecord raw.
+pub fn put_by_prefix<T: ByPrefix>(
+    slot: &mut Option<Sub<T>>,
+    subs: &[RawSub<'_>],
+    index: usize,
+    field: &'static str,
+    ctx: Ctx,
+    extra: &mut Vec<(usize, OwnedSub)>,
+) {
+    let Some(sub) = subs.get(index) else {
+        return;
+    };
+    match decode_by_prefix::<T>(subs, sub.data, field, ctx) {
+        Ok(value) if slot.is_none() => {
+            *slot = Some(Sub {
+                value,
+                oversized: sub.oversized,
+            });
+        }
+        _ => extra.push((index, OwnedSub::from(sub))),
+    }
+}
+
+/// [`push`] for a repeated union member.
+pub fn push_by_prefix<T: ByPrefix>(
+    list: &mut Vec<Sub<T>>,
+    subs: &[RawSub<'_>],
+    index: usize,
+    field: &'static str,
+    ctx: Ctx,
+    extra: &mut Vec<(usize, OwnedSub)>,
+) {
+    let Some(sub) = subs.get(index) else {
+        return;
+    };
+    match decode_by_prefix::<T>(subs, sub.data, field, ctx) {
+        Ok(value) => list.push(Sub {
+            value,
+            oversized: sub.oversized,
+        }),
+        Err(_) => extra.push((index, OwnedSub::from(sub))),
+    }
+}
+
 /// Keeps subrecord `index` raw on a list, `oversized` included.
 pub fn push_raw(list: &mut Vec<OwnedSub>, subs: &[RawSub<'_>], index: usize) {
     if let Some(sub) = subs.get(index) {
@@ -1020,6 +1104,297 @@ impl EmptRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("EMPT", &mut out);
+        out
+    }
+}
+
+/// A payload whose layout the record's EditorID prefix selects (union). A payload no
+/// variant claims is kept raw in the record's `extra`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum UuuuValue {
+    /// EditorID starting with `f`.
+    Float(f32),
+    /// EditorID starting with `i`.
+    Int(i32),
+    /// EditorID starting with `s`.
+    Text(LString),
+    /// EditorID starting with `r`.
+    Ref(FormId),
+}
+
+impl UuuuValue {
+    /// The EditorID prefix byte that selects this variant.
+    pub fn prefix(&self) -> u8 {
+        match self {
+            Self::Float(_) => b'f',
+            Self::Int(_) => b'i',
+            Self::Text(_) => b's',
+            Self::Ref(_) => b'r',
+        }
+    }
+}
+
+impl ByPrefix for UuuuValue {
+    fn read_for(
+        prefix: u8,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match prefix {
+            b'f' => Field::read(r, field, ctx).map(Self::Float),
+            b'i' => Field::read(r, field, ctx).map(Self::Int),
+            b's' => Field::read(r, field, ctx).map(Self::Text),
+            b'r' => Field::read(r, field, ctx).map(Self::Ref),
+            _ => Err(DecodeError::Undecided { field }),
+        }
+    }
+}
+
+impl Field for UuuuValue {
+    /// Unions are read with [`ByPrefix::read_for`]; without the decider there is no layout.
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Err(DecodeError::Undecided { field })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Float(value) => value.write(out),
+            Self::Int(value) => value.write(out),
+            Self::Text(value) => value.write(out),
+            Self::Ref(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for UuuuValue {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::Ref(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::Ref(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        if let Self::Text(value) = self {
+            visit_lstrings(value, path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        if let Self::Text(value) = self {
+            visit_lstrings_mut(value, path, out);
+        }
+    }
+}
+
+/// A payload whose layout the record's EditorID prefix selects (union). A payload no
+/// variant claims is kept raw in the record's `extra`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum UuuuItems {
+    /// EditorID starting with `f`.
+    Small(u8),
+    /// EditorID starting with `r`.
+    Form(FormId),
+}
+
+impl UuuuItems {
+    /// The EditorID prefix byte that selects this variant.
+    pub fn prefix(&self) -> u8 {
+        match self {
+            Self::Small(_) => b'f',
+            Self::Form(_) => b'r',
+        }
+    }
+}
+
+impl ByPrefix for UuuuItems {
+    fn read_for(
+        prefix: u8,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match prefix {
+            b'f' => Field::read(r, field, ctx).map(Self::Small),
+            b'r' => Field::read(r, field, ctx).map(Self::Form),
+            _ => Err(DecodeError::Undecided { field }),
+        }
+    }
+}
+
+impl Field for UuuuItems {
+    /// Unions are read with [`ByPrefix::read_for`]; without the decider there is no layout.
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Err(DecodeError::Undecided { field })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Small(value) => value.write(out),
+            Self::Form(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for UuuuItems {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::Form(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::Form(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UuuuRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `DATA`, required.
+    pub value: Option<Sub<UuuuValue>>,
+    /// `LIST`, repeated.
+    pub items: Vec<Sub<UuuuItems>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl UuuuRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"LIST",
+            card: Card::Repeated,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "UUUU.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put_by_prefix(&mut self.value, subs, *index, "UUUU.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    push_by_prefix(&mut self.items, subs, *index, "UUUU.LIST", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"DATA", self.value.as_ref());
+        for value in &self.items {
+            emit(out, *b"LIST", Some(value));
+        }
+    }
+}
+
+impl Visit for UuuuRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.value, "UUUU.DATA", out);
+        visit_form_ids(&self.items, "UUUU.LIST", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.value, "UUUU.DATA", out);
+        visit_form_ids_mut(&mut self.items, "UUUU.LIST", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.value, "UUUU.DATA", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.value, "UUUU.DATA", out);
+    }
+}
+
+impl UuuuRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"UUUU";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("UUUU", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("UUUU", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("UUUU", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("UUUU", &mut out);
         out
     }
 }
@@ -2685,6 +3060,7 @@ impl ZzzzRecord {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Record {
     Empt(Box<EmptRecord>),
+    Uuuu(Box<UuuuRecord>),
     Vvvv(Box<VvvvRecord>),
     Yyyy(Box<YyyyRecord>),
     Zzzz(Box<ZzzzRecord>),
@@ -2693,6 +3069,7 @@ pub enum Record {
 /// The member list of every defined record type, by signature.
 pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"EMPT", EmptRecord::MEMBERS),
+    (*b"UUUU", UuuuRecord::MEMBERS),
     (*b"VVVV", VvvvRecord::MEMBERS),
     (*b"YYYY", YyyyRecord::MEMBERS),
     (*b"ZZZZ", ZzzzRecord::MEMBERS),
@@ -2704,6 +3081,7 @@ impl Record {
     pub fn decode(signature: Sig, subs: &[RawSub<'_>], ctx: Ctx) -> Option<Self> {
         Some(match &signature {
             b"EMPT" => Self::Empt(Box::new(EmptRecord::decode(subs, ctx))),
+            b"UUUU" => Self::Uuuu(Box::new(UuuuRecord::decode(subs, ctx))),
             b"VVVV" => Self::Vvvv(Box::new(VvvvRecord::decode(subs, ctx))),
             b"YYYY" => Self::Yyyy(Box::new(YyyyRecord::decode(subs, ctx))),
             b"ZZZZ" => Self::Zzzz(Box::new(ZzzzRecord::decode(subs, ctx))),
@@ -2715,6 +3093,7 @@ impl Record {
     pub fn encode(&self) -> Vec<OwnedSub> {
         match self {
             Self::Empt(record) => record.encode(),
+            Self::Uuuu(record) => record.encode(),
             Self::Vvvv(record) => record.encode(),
             Self::Yyyy(record) => record.encode(),
             Self::Zzzz(record) => record.encode(),
@@ -2725,6 +3104,7 @@ impl Record {
     pub fn signature(&self) -> Sig {
         match self {
             Self::Empt(_) => EmptRecord::SIGNATURE,
+            Self::Uuuu(_) => UuuuRecord::SIGNATURE,
             Self::Vvvv(_) => VvvvRecord::SIGNATURE,
             Self::Yyyy(_) => YyyyRecord::SIGNATURE,
             Self::Zzzz(_) => ZzzzRecord::SIGNATURE,
@@ -2735,6 +3115,7 @@ impl Record {
     pub fn form_ids(&self) -> FormIds<'_> {
         match self {
             Self::Empt(record) => record.form_ids(),
+            Self::Uuuu(record) => record.form_ids(),
             Self::Vvvv(record) => record.form_ids(),
             Self::Yyyy(record) => record.form_ids(),
             Self::Zzzz(record) => record.form_ids(),
@@ -2745,6 +3126,7 @@ impl Record {
     pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
         match self {
             Self::Empt(record) => record.form_ids_mut(),
+            Self::Uuuu(record) => record.form_ids_mut(),
             Self::Vvvv(record) => record.form_ids_mut(),
             Self::Yyyy(record) => record.form_ids_mut(),
             Self::Zzzz(record) => record.form_ids_mut(),
@@ -2755,6 +3137,7 @@ impl Record {
     pub fn lstrings(&self) -> LStrings<'_> {
         match self {
             Self::Empt(record) => record.lstrings(),
+            Self::Uuuu(record) => record.lstrings(),
             Self::Vvvv(record) => record.lstrings(),
             Self::Yyyy(record) => record.lstrings(),
             Self::Zzzz(record) => record.lstrings(),
@@ -2765,6 +3148,7 @@ impl Record {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         match self {
             Self::Empt(record) => record.lstrings_mut(),
+            Self::Uuuu(record) => record.lstrings_mut(),
             Self::Vvvv(record) => record.lstrings_mut(),
             Self::Yyyy(record) => record.lstrings_mut(),
             Self::Zzzz(record) => record.lstrings_mut(),
@@ -2776,6 +3160,7 @@ impl Record {
     pub fn extra(&self) -> &[(usize, OwnedSub)] {
         match self {
             Self::Empt(record) => &record.extra,
+            Self::Uuuu(record) => &record.extra,
             Self::Vvvv(record) => &record.extra,
             Self::Yyyy(record) => &record.extra,
             Self::Zzzz(record) => &record.extra,

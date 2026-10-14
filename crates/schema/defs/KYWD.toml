@@ -1,5 +1,9 @@
-# KYWD: subrecord inventory. The universal subrecords (EDID, and FULL where present) are
-# typed (M2.B2, sources on each member); every other payload is opaque until sourced.
+# KYWD: subrecord inventory. The universal subrecords (EDID, FULL) are typed (M2.B2,
+# sources on each member). M2.B9 found no permitted source for CNAM, DNAM, TNAM, FNAM, DATA
+# or ENAM that this round could read (the UESP Skyrim KYWD page and the pinned xEdit file
+# were not available to it), so they stay opaque (docs/gaps.md). Corpus facts for the next
+# round: CNAM is 4 bytes in every record with a last byte of 0 (6,824) or 0xFF (141); DNAM
+# and ENAM are NUL-terminated text in every observed sample; TNAM and FNAM are 4 bytes.
 #
 # Source (ADR 0005 "inventory" row): corpus scan of the KYWD top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):

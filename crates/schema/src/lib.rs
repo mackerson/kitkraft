@@ -30,9 +30,9 @@ pub use load::{
     FORBIDDEN_UESP_STARFIELD_PAGES, MAX_DEPTH, SOURCE_PREFIXES, XEDIT_FILES, XEDIT_REVISION,
 };
 pub use model::{
-    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Definition, FieldDef,
-    FieldType, GroupDef, HeaderDef, Member, NamedValue, Provenance, RecordDef, Scalar, Schema,
-    Signature, SubrecordDef, VersionedSize,
+    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
+    FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, Provenance, RecordDef, Scalar,
+    Schema, Signature, SubrecordDef, UnionVariant, VersionedSize,
 };
 
 /// The checked-in definition files (`crates/schema/defs/*.toml` and

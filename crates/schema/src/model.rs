@@ -284,6 +284,40 @@ pub enum FieldType {
     Empty,
     /// A shared type from `defs/common/` (`type = "ref:Name"`), resolved at load time.
     Ref { name: String, ty: Box<FieldType> },
+    /// A whole-subrecord payload whose layout is chosen by `decider` (a discriminated
+    /// union). A payload no variant claims stays raw.
+    Union {
+        decider: Decider,
+        variants: Vec<UnionVariant>,
+    },
+}
+
+/// What selects the variant of a [`FieldType::Union`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Decider {
+    /// The first byte of the record's first `EDID` payload (`decider = "edid-prefix"`).
+    EditorIdPrefix,
+}
+
+impl Decider {
+    /// The TOML spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::EditorIdPrefix => "edid-prefix",
+        }
+    }
+}
+
+/// One layout of a [`FieldType::Union`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnionVariant {
+    /// The decider value that selects this layout (for `edid-prefix`, one ASCII letter or
+    /// digit, compared exactly).
+    pub when: u8,
+    /// PascalCase name, unique in the union.
+    pub name: String,
+    pub ty: FieldType,
+    pub note: Option<String>,
 }
 
 impl FieldType {
@@ -316,6 +350,11 @@ impl FieldType {
             Self::Opaque { size } => *size,
             Self::Empty => Some(0),
             Self::Ref { ty, .. } => ty.fixed_size(form_version),
+            Self::Union { variants, .. } => {
+                let mut sizes = variants.iter().map(|v| v.ty.fixed_size(form_version));
+                let first = sizes.next()??;
+                sizes.all(|s| s == Some(first)).then_some(first)
+            }
         }
     }
 
@@ -333,6 +372,7 @@ impl FieldType {
                 .last()
                 .is_some_and(|f| f.if_remaining || f.ty.reads_to_end()),
             Self::Ref { ty, .. } => ty.reads_to_end(),
+            Self::Union { variants, .. } => variants.iter().any(|v| v.ty.reads_to_end()),
             Self::Scalar(_)
             | Self::FormId { .. }
             | Self::Sig

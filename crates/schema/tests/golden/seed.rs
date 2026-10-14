@@ -6,7 +6,7 @@
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
-// - GMST (corpus: GMST records of the official ESMs (12 files with a GMST group); corpus)
+// - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
@@ -25,6 +25,9 @@ pub enum DecodeError {
     Unterminated { field: &'static str },
     /// The count for the array `field` is negative or does not fit in `usize`.
     BadCount { field: &'static str, offset: usize },
+    /// The union `field` has no layout for this record: no `EDID`, or an EditorID prefix
+    /// no variant names.
+    Undecided { field: &'static str },
 }
 
 impl std::fmt::Display for DecodeError {
@@ -39,6 +42,9 @@ impl std::fmt::Display for DecodeError {
             Self::Unterminated { field } => write!(f, "{field}: string has no terminating NUL"),
             Self::BadCount { field, offset } => {
                 write!(f, "{field}: invalid element count at offset {offset}")
+            }
+            Self::Undecided { field } => {
+                write!(f, "{field}: no layout for this record's EditorID prefix")
             }
         }
     }
@@ -790,6 +796,83 @@ pub fn push<T: Field>(
     }
 }
 
+/// A union payload whose layout the record's EditorID prefix selects (`type = "union"`,
+/// `decider = "edid-prefix"`).
+pub trait ByPrefix: Sized {
+    /// Reads the variant that EditorID prefix byte `prefix` selects.
+    fn read_for(
+        prefix: u8,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError>;
+}
+
+/// The first byte of the first `EDID` payload in `subs`.
+pub fn edid_prefix(subs: &[RawSub<'_>]) -> Option<u8> {
+    subs.iter()
+        .find(|s| s.signature == *b"EDID")
+        .and_then(|s| s.data.first().copied())
+}
+
+/// Decodes a whole union payload by the record's EditorID prefix.
+pub fn decode_by_prefix<T: ByPrefix>(
+    subs: &[RawSub<'_>],
+    data: &[u8],
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<T, DecodeError> {
+    let prefix = edid_prefix(subs).ok_or(DecodeError::Undecided { field })?;
+    let mut r = Reader::new(data);
+    let value = T::read_for(prefix, &mut r, field, ctx)?;
+    r.finish(field)?;
+    Ok(value)
+}
+
+/// [`put`] for a union member: decodes by the EditorID prefix, or keeps the subrecord raw.
+pub fn put_by_prefix<T: ByPrefix>(
+    slot: &mut Option<Sub<T>>,
+    subs: &[RawSub<'_>],
+    index: usize,
+    field: &'static str,
+    ctx: Ctx,
+    extra: &mut Vec<(usize, OwnedSub)>,
+) {
+    let Some(sub) = subs.get(index) else {
+        return;
+    };
+    match decode_by_prefix::<T>(subs, sub.data, field, ctx) {
+        Ok(value) if slot.is_none() => {
+            *slot = Some(Sub {
+                value,
+                oversized: sub.oversized,
+            });
+        }
+        _ => extra.push((index, OwnedSub::from(sub))),
+    }
+}
+
+/// [`push`] for a repeated union member.
+pub fn push_by_prefix<T: ByPrefix>(
+    list: &mut Vec<Sub<T>>,
+    subs: &[RawSub<'_>],
+    index: usize,
+    field: &'static str,
+    ctx: Ctx,
+    extra: &mut Vec<(usize, OwnedSub)>,
+) {
+    let Some(sub) = subs.get(index) else {
+        return;
+    };
+    match decode_by_prefix::<T>(subs, sub.data, field, ctx) {
+        Ok(value) => list.push(Sub {
+            value,
+            oversized: sub.oversized,
+        }),
+        Err(_) => extra.push((index, OwnedSub::from(sub))),
+    }
+}
+
 /// Keeps subrecord `index` raw on a list, `oversized` included.
 pub fn push_raw(list: &mut Vec<OwnedSub>, subs: &[RawSub<'_>], index: usize) {
     if let Some(sub) = subs.get(index) {
@@ -1342,7 +1425,7 @@ pub struct GlobRecord {
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `FLTV`, required.
-    pub fltv: Option<Sub<Bytes>>,
+    pub value: Option<Sub<f32>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -1385,7 +1468,7 @@ impl GlobRecord {
                     self.bfcb_block.push(group);
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.fltv, subs, *index, "GLOB.FLTV", ctx, extra)
+                    put(&mut self.value, subs, *index, "GLOB.FLTV", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -1397,7 +1480,7 @@ impl GlobRecord {
         for group in &self.bfcb_block {
             group.emit(out);
         }
-        emit(out, *b"FLTV", self.fltv.as_ref());
+        emit(out, *b"FLTV", self.value.as_ref());
     }
 }
 
@@ -1462,6 +1545,84 @@ impl GlobRecord {
     }
 }
 
+/// A payload whose layout the record's EditorID prefix selects (union). A payload no
+/// variant claims is kept raw in the record's `extra`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum GmstValue {
+    /// EditorID starting with `b`.
+    Bool(u32),
+    /// EditorID starting with `f`.
+    Float(f32),
+    /// EditorID starting with `i`.
+    Int(i32),
+    /// EditorID starting with `s`.
+    String(LString),
+    /// EditorID starting with `u`.
+    Unsigned(u32),
+}
+
+impl GmstValue {
+    /// The EditorID prefix byte that selects this variant.
+    pub fn prefix(&self) -> u8 {
+        match self {
+            Self::Bool(_) => b'b',
+            Self::Float(_) => b'f',
+            Self::Int(_) => b'i',
+            Self::String(_) => b's',
+            Self::Unsigned(_) => b'u',
+        }
+    }
+}
+
+impl ByPrefix for GmstValue {
+    fn read_for(
+        prefix: u8,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match prefix {
+            b'b' => Field::read(r, field, ctx).map(Self::Bool),
+            b'f' => Field::read(r, field, ctx).map(Self::Float),
+            b'i' => Field::read(r, field, ctx).map(Self::Int),
+            b's' => Field::read(r, field, ctx).map(Self::String),
+            b'u' => Field::read(r, field, ctx).map(Self::Unsigned),
+            _ => Err(DecodeError::Undecided { field }),
+        }
+    }
+}
+
+impl Field for GmstValue {
+    /// Unions are read with [`ByPrefix::read_for`]; without the decider there is no layout.
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Err(DecodeError::Undecided { field })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Bool(value) => value.write(out),
+            Self::Float(value) => value.write(out),
+            Self::Int(value) => value.write(out),
+            Self::String(value) => value.write(out),
+            Self::Unsigned(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for GmstValue {
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        if let Self::String(value) = self {
+            visit_lstrings(value, path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        if let Self::String(value) = self {
+            visit_lstrings_mut(value, path, out);
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct GmstRecord {
     /// `EDID`, required.
@@ -1469,7 +1630,7 @@ pub struct GmstRecord {
     /// `XALG`, optional.
     pub xalg: Option<Sub<Bytes>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub value: Option<Sub<GmstValue>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -1510,7 +1671,7 @@ impl GmstRecord {
                     put(&mut self.xalg, subs, *index, "GMST.XALG", ctx, extra)
                 }
                 Hit::Sub { member: 2, index } => {
-                    put(&mut self.data, subs, *index, "GMST.DATA", ctx, extra)
+                    put_by_prefix(&mut self.value, subs, *index, "GMST.DATA", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -1520,11 +1681,19 @@ impl GmstRecord {
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
         emit(out, *b"XALG", self.xalg.as_ref());
-        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"DATA", self.value.as_ref());
     }
 }
 
-impl Visit for GmstRecord {}
+impl Visit for GmstRecord {
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.value, "GMST.DATA", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.value, "GMST.DATA", out);
+    }
+}
 
 impl GmstRecord {
     /// Record signature.

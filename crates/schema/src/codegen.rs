@@ -19,7 +19,7 @@ use std::fmt::Write as _;
 
 use crate::model::{
     ArrayCount, Cardinality, CommonBody, FieldDef, FieldType, HeaderDef, Member, NamedValue,
-    RecordDef, Schema, Signature, SubrecordDef,
+    RecordDef, Schema, Signature, SubrecordDef, UnionVariant,
 };
 use crate::names::{const_ident, field_ident, signature_type_name};
 
@@ -43,6 +43,7 @@ pub enum CodegenError {
 /// would generate one of these is rejected.
 pub const RESERVED_TYPE_NAMES: &[&str] = &[
     "BString",
+    "ByPrefix",
     "Bytes",
     "Card",
     "Ctx",
@@ -218,7 +219,128 @@ impl Gen {
                 self.struct_type(type_name, fields, path)?;
                 type_name.to_owned()
             }
+            FieldType::Union { variants, .. } => {
+                self.union_type(type_name, variants, path)?;
+                type_name.to_owned()
+            }
         })
+    }
+
+    /// An enum with one variant per layout, read through `ByPrefix` (the decider) rather
+    /// than `Field::read`, which cannot see the record's EditorID.
+    fn union_type(
+        &mut self,
+        name: &str,
+        variants: &[UnionVariant],
+        path: &str,
+    ) -> Result<(), CodegenError> {
+        self.claim(name)?;
+        let mut decls = String::new();
+        let mut prefixes = String::new();
+        let mut reads = String::new();
+        let mut writes = String::new();
+        let mut visits: [String; 4] = Default::default();
+        let wants = [Want::FormId, Want::FormId, Want::LString, Want::LString];
+        let methods = [
+            ("visit_form_ids", "&'a self", "FormIds"),
+            ("visit_form_ids_mut", "&'a mut self", "FormIdsMut"),
+            ("visit_lstrings", "&'a self", "LStrings"),
+            ("visit_lstrings_mut", "&'a mut self", "LStringsMut"),
+        ];
+        for v in variants {
+            if v.name == "Self" {
+                return Err(CodegenError::BadIdentifier(v.name.clone()));
+            }
+            let inner = self.payload_type(&v.ty, &format!("{name}{}", v.name), path)?;
+            let when = char::from(v.when);
+            let _ = writeln!(
+                decls,
+                "    /// EditorID starting with `{when}`.\n    {}({inner}),",
+                v.name
+            );
+            let _ = writeln!(prefixes, "            Self::{}(_) => b'{when}',", v.name);
+            let _ = writeln!(
+                reads,
+                "            b'{when}' => Field::read(r, field, ctx).map(Self::{}),",
+                v.name
+            );
+            let _ = writeln!(
+                writes,
+                "            Self::{}(value) => value.write(out),",
+                v.name
+            );
+            for ((body, want), (method, _, _)) in visits.iter_mut().zip(wants).zip(methods) {
+                if type_has(&v.ty, want) {
+                    let _ = writeln!(
+                        body,
+                        "        if let Self::{}(value) = self {{\n            {method}(value, path, out);\n        }}",
+                        v.name
+                    );
+                }
+            }
+        }
+        let _ = write!(
+            self.out,
+            "
+/// A payload whose layout the record's EditorID prefix selects (union). A payload no
+/// variant claims is kept raw in the record's `extra`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum {name} {{
+{decls}}}
+
+impl {name} {{
+    /// The EditorID prefix byte that selects this variant.
+    pub fn prefix(&self) -> u8 {{
+        match self {{
+{prefixes}        }}
+    }}
+}}
+
+impl ByPrefix for {name} {{
+    fn read_for(
+        prefix: u8,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {{
+        match prefix {{
+{reads}            _ => Err(DecodeError::Undecided {{ field }}),
+        }}
+    }}
+}}
+
+impl Field for {name} {{
+    /// Unions are read with [`ByPrefix::read_for`]; without the decider there is no layout.
+    fn read(_r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {{
+        Err(DecodeError::Undecided {{ field }})
+    }}
+
+    fn write(&self, out: &mut Vec<u8>) {{
+        match self {{
+{writes}        }}
+    }}
+}}
+"
+        );
+        let mut bodies = Vec::new();
+        for (body, (method, receiver, alias)) in visits.iter().zip(methods) {
+            if body.is_empty() {
+                continue;
+            }
+            bodies.push(format!(
+                "    fn {method}<'a>({receiver}, path: &'static str, out: &mut {alias}<'a>) {{\n{body}    }}\n"
+            ));
+        }
+        if bodies.is_empty() {
+            let _ = writeln!(self.out, "\nimpl Visit for {name} {{}}");
+        } else {
+            let _ = writeln!(
+                self.out,
+                "\nimpl Visit for {name} {{\n{}}}",
+                bodies.join("\n")
+            );
+        }
+        Ok(())
     }
 
     fn enum_type(
@@ -753,6 +875,12 @@ impl {name} {{
                     let ty =
                         self.subrecord_type(sub, &format!("{prefix}{}", sub.name), &sub_path)?;
                     let sig = sig_lit(sub.signature);
+                    let is_union = matches!(sub.ty, FieldType::Union { .. });
+                    let (push_fn, put_fn) = if is_union {
+                        ("push_by_prefix", "put_by_prefix")
+                    } else {
+                        ("push", "put")
+                    };
                     let _ = writeln!(
                         decls,
                         "    /// `{}`, {}.",
@@ -768,7 +896,7 @@ impl {name} {{
                         let _ = writeln!(decls, "    pub {ident}: Vec<Sub<{ty}>>,");
                         arms.push_str(&call_arm(
                             &format!("Hit::Sub {{ member: {index}, index }}"),
-                            "push",
+                            push_fn,
                             &[
                                 &format!("&mut self.{ident}"),
                                 "subs",
@@ -786,7 +914,7 @@ impl {name} {{
                         let _ = writeln!(decls, "    pub {ident}: Option<Sub<{ty}>>,");
                         arms.push_str(&call_arm(
                             &format!("Hit::Sub {{ member: {index}, index }}"),
-                            "put",
+                            put_fn,
                             &[
                                 &format!("&mut self.{ident}"),
                                 "subs",
@@ -982,6 +1110,7 @@ fn type_has(ty: &FieldType, want: Want) -> bool {
         FieldType::Array { element, .. } => type_has(element, want),
         FieldType::Struct { fields } => fields.iter().any(|f| type_has(&f.ty, want)),
         FieldType::Ref { ty, .. } => type_has(ty, want),
+        FieldType::Union { variants, .. } => variants.iter().any(|v| type_has(&v.ty, want)),
         _ => false,
     }
 }

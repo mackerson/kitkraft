@@ -404,7 +404,7 @@ fn record_dispatch() {
     assert_eq!(rec.encode(), subs);
     assert!(Record::decode(*b"NONE", &raws, ctx(15, false)).is_none());
     let sigs: Vec<[u8; 4]> = RECORDS.iter().map(|(sig, _)| *sig).collect();
-    assert_eq!(sigs, [*b"EMPT", *b"VVVV", *b"YYYY", *b"ZZZZ"]);
+    assert_eq!(sigs, [*b"EMPT", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]);
     assert!(rec.extra().is_empty());
 }
 
@@ -630,23 +630,48 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gv");
     assert_eq!(rec.bfcb_block.len(), 1);
     assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
-    assert_eq!(rec.fltv.as_ref().unwrap().0.len(), 4);
+    assert_eq!(**rec.value.as_ref().unwrap(), 1.0);
     assert_eq!(rec.encode(), glob);
     let bare = vec![s(b"FLTV", &[0; 4])];
     let rec = GlobRecord::decode(&seed_raw(&bare), Ctx::default());
-    assert!(rec.editor_id.is_none() && rec.fltv.is_some() && rec.extra.is_empty());
+    assert!(rec.editor_id.is_none() && rec.value.is_some() && rec.extra.is_empty());
 
-    // GMST "EDID XALG DATA".
+    // GMST "EDID XALG DATA": the EditorID prefix picks the DATA layout (M2.B9).
+    let localized = Ctx {
+        form_version: 582,
+        localized: true,
+    };
     let gmst = vec![
         s(b"EDID", b"fX\0"),
         s(b"XALG", &[0; 8]),
         s(b"DATA", &[0, 0, 128, 63]),
     ];
-    let rec = GmstRecord::decode(&seed_raw(&gmst), Ctx::default());
+    let rec = GmstRecord::decode(&seed_raw(&gmst), localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert!(rec.xalg.is_some());
-    assert_eq!(rec.data.as_ref().unwrap().0, [0, 0, 128, 63]);
+    assert_eq!(**rec.value.as_ref().unwrap(), seed::GmstValue::Float(1.0));
     assert_eq!(rec.encode(), gmst);
+    for (edid, data, value) in [
+        (&b"bOn\0"[..], 1u32.to_le_bytes(), seed::GmstValue::Bool(1)),
+        (b"iCount\0", (-3i32).to_le_bytes(), seed::GmstValue::Int(-3)),
+        (b"uSize\0", 9u32.to_le_bytes(), seed::GmstValue::Unsigned(9)),
+        (
+            b"sLabel\0",
+            0x0003_3055u32.to_le_bytes(),
+            seed::GmstValue::String(seed::LString::Id(0x0003_3055)),
+        ),
+    ] {
+        let subs = vec![s(b"EDID", edid), s(b"DATA", &data)];
+        let rec = GmstRecord::decode(&seed_raw(&subs), localized);
+        assert_eq!(**rec.value.as_ref().unwrap(), value);
+        assert_eq!(rec.value.as_ref().unwrap().prefix(), edid[0]);
+        assert_eq!(rec.encode(), subs);
+    }
+    // A prefix no variant names keeps DATA raw, losslessly.
+    let odd = vec![s(b"EDID", b"xOdd\0"), s(b"DATA", &[1, 2, 3, 4])];
+    let rec = GmstRecord::decode(&seed_raw(&odd), localized);
+    assert!(rec.value.is_none() && rec.extra.len() == 1);
+    assert_eq!(rec.encode(), odd);
 
     // KYWD with a BFCB block, DNAM and FULL; a stray subrecord goes to extra.
     let kywd = vec![
@@ -753,4 +778,69 @@ fn visitors_yield_every_form_id_and_lstring_in_order() {
     // A record without FormID or lstring members gives empty lists.
     let empty = Record::decode(*b"EMPT", &[], ctx(1, true)).unwrap();
     assert!(empty.form_ids().is_empty() && empty.lstrings().is_empty());
+}
+
+/// M2.B9: `type = "union"` with `decider = "edid-prefix"`, once and repeated; FormID and
+/// lstring variants are visited; without a decider the payload stays raw.
+#[test]
+fn unions_follow_the_editor_id_prefix() {
+    use fixture::{UuuuItems, UuuuValue};
+    let id = |v: u32| v.to_le_bytes().to_vec();
+    let subs = vec![
+        sub(b"EDID", b"rLink\0"),
+        sub(b"DATA", &id(0x0100_0042)),
+        sub(b"LIST", &id(7)),
+        sub(b"LIST", &id(8)),
+    ];
+    let rec = Record::decode(*b"UUUU", &raw(&subs), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let Record::Uuuu(u) = &rec else {
+        panic!("UUUU");
+    };
+    assert_eq!(
+        **u.value.as_ref().unwrap(),
+        UuuuValue::Ref(FormId(0x0100_0042))
+    );
+    let items: Vec<UuuuItems> = u.items.iter().map(|s| s.value.clone()).collect();
+    assert_eq!(
+        items,
+        [UuuuItems::Form(FormId(7)), UuuuItems::Form(FormId(8))]
+    );
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("UUUU.DATA", 0x0100_0042),
+            ("UUUU.LIST", 7),
+            ("UUUU.LIST", 8)
+        ]
+    );
+    assert_eq!(rec.encode(), subs);
+
+    // A string variant is an lstring.
+    let text = vec![sub(b"EDID", b"sName\0"), sub(b"DATA", &id(99))];
+    let rec = Record::decode(*b"UUUU", &raw(&text), ctx(1, true)).unwrap();
+    assert_eq!(rec.lstrings().len(), 1);
+    assert!(rec.form_ids().is_empty());
+
+    // The variant's own size rule still applies: a 1-byte `f` item, a 2-byte one fails.
+    let small = vec![
+        sub(b"EDID", b"fX\0"),
+        sub(b"DATA", &1.5f32.to_le_bytes()),
+        sub(b"LIST", &[3]),
+        sub(b"LIST", &[3, 4]),
+    ];
+    let rec = Record::decode(*b"UUUU", &raw(&small), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 1);
+    assert_eq!(rec.extra()[0].0, 3);
+    assert_eq!(rec.encode(), small);
+
+    // No EDID: no layout, everything raw, nothing lost.
+    let bare = vec![sub(b"DATA", &id(1)), sub(b"LIST", &id(2))];
+    let rec = Record::decode(*b"UUUU", &raw(&bare), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 2);
+    assert_eq!(rec.encode(), bare);
+    let err = fixture::decode::<UuuuValue>(&id(1), "UUUU.DATA", ctx(1, true)).unwrap_err();
+    assert_eq!(err, DecodeError::Undecided { field: "UUUU.DATA" });
+    assert!(err.to_string().contains("EditorID prefix"));
 }

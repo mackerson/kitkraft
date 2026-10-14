@@ -169,6 +169,7 @@ names (WEAP has two `FLLD` slots).
 | `opaque`  | `size`  | `size` (omit for "rest of data")   | Bytes we do not decode yet. Never guess a layout         |
 | `empty`   | 0       | -                                  | Zero-length marker subrecord                             |
 | `ref:Name`| shared  | - (a member may add `size`)        | The shared type `common/Name.toml`                       |
+| `union`   | variant | `decider`, `variants`              | Subrecord members only; see Unions                       |
 
 `wstring` and `bstring` follow the string conventions on
 <https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions> (container fact, ADR 0005
@@ -208,10 +209,39 @@ Elements must not read to the end and must not be empty: scalars, `formid`, `sig
 Element keys (`targets`, `base`, `values`, `bits`, `field`) sit on the array itself;
 `element = "ref:Point"` uses a shared type.
 
+### Unions (`type = "union"`)
+
+A whole subrecord whose layout the record's EditorID selects (M2.B9, GMST `DATA`):
+
+```toml
+[[member]]
+sig = "DATA"
+name = "Value"
+type = "union"
+decider = "edid-prefix"
+variants = [
+  { when = "f", name = "Float", type = "f32" },
+  { when = "s", name = "String", type = "lstring" },
+]
+```
+
+- `decider = "edid-prefix"`: the first byte of the record's first `EDID` payload, compared
+  exactly with each variant's `when` (one ASCII letter or digit, unique). The record must
+  have an `EDID` member. It is the only decider so far.
+- Variants take `name`, `type` (anything but `struct`, `array` and `union`; `formid` may
+  have `targets`) and `note`.
+- Only on subrecord members (not on fields, array elements or shared types). A declared
+  `size` must match every variant, so it is not allowed when a variant is variable
+  (`lstring`).
+- Codegen emits an enum with one variant per layout (`GmstValue::Float(f32)`) and a
+  `prefix()` method. A payload whose record has no `EDID`, or whose prefix no variant
+  names, or that does not fit the chosen layout, stays raw in `extra`. Editing the EDID's
+  first letter does not change an already decoded value's variant.
+
 ### Not supported (stays opaque)
 
-Discriminated unions (a layout chosen by the value of another field or subrecord) are not
-expressible yet. Such payloads stay `opaque` until the format grows a construct for them.
+Unions decided by anything other than the EditorID prefix (the value of another field or
+subrecord) are not expressible yet. Such payloads stay `opaque`.
 
 ## Shared definitions (`common/`)
 
@@ -284,7 +314,9 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
 | `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
-| `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory: order and cardinality; universal subrecords typed (M2.B2), the rest opaque |
+| `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
+| `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB block opaque |
+| `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
 | `WEAP.toml` | record    | corpus scan                              | Inventory; universal subrecords typed (M2.B2); the body layout waits for lane B round 3 (`xedit:`) |
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
 | `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |

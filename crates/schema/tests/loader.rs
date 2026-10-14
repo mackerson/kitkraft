@@ -7,8 +7,8 @@ use std::path::Path;
 
 use kitcraft_schema::{
     load_dir, load_sources, parse_definition, ArrayCount, Cardinality, CommonBody, Confidence,
-    Definition, ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature, XEDIT_FILES,
-    XEDIT_REVISION,
+    Decider, Definition, ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature,
+    XEDIT_FILES, XEDIT_REVISION,
 };
 
 const FIXTURE: &str = include_str!("fixtures/ZZZZ.toml");
@@ -1034,6 +1034,113 @@ fn shared_members_keep_the_shared_provenance() {
     );
 }
 
+/// M2.B9: `type = "union"` (layout by EditorID prefix) on whole subrecord members only.
+#[test]
+fn union_rules() {
+    let edid = "[[member]]\nsig = \"EDID\"\nname = \"EditorId\"\ntype = \"zstring\"\n";
+    let union = |keys: &str| {
+        format!("{edid}[[member]]\nsig = \"DATA\"\nname = \"Value\"\ntype = \"union\"\n{keys}")
+    };
+    let ok = "decider = \"edid-prefix\"\nvariants = [\n\
+              { when = \"f\", name = \"Float\", type = \"f32\" },\n\
+              { when = \"s\", name = \"Text\", type = \"lstring\" },\n\
+              { when = \"r\", name = \"Ref\", type = \"formid\", targets = [\"KYWD\"] },\n]\n";
+    let Definition::Record(rec) = parse_definition("TEST.toml", &record(&union(ok))).unwrap()
+    else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[1] else {
+        panic!("DATA");
+    };
+    let FieldType::Union { decider, variants } = &data.ty else {
+        panic!("union");
+    };
+    assert_eq!(*decider, Decider::EditorIdPrefix);
+    assert_eq!(decider.as_str(), "edid-prefix");
+    let whens: Vec<u8> = variants.iter().map(|v| v.when).collect();
+    assert_eq!(whens, b"fsr");
+    // Variable (lstring) variant: no fixed size, and a declared size is rejected.
+    assert_eq!(data.ty.fixed_size(None), None);
+    assert!(matches!(
+        invalid(&union(&format!("size = 4\n{ok}"))),
+        ErrorKind::SizeOfVariable { declared: 4 }
+    ));
+    // Same-size variants have a fixed size.
+    let fixed = "decider = \"edid-prefix\"\nsize = 4\nvariants = [\n\
+                 { when = \"f\", name = \"Float\", type = \"f32\" },\n\
+                 { when = \"i\", name = \"Int\", type = \"i32\" },\n]\n";
+    parse_definition("TEST.toml", &record(&union(fixed))).unwrap();
+
+    let v = |entries: &str| format!("decider = \"edid-prefix\"\nvariants = [{entries}]\n");
+    assert_eq!(
+        invalid(&union(
+            "variants = [{ when = \"f\", name = \"F\", type = \"f32\" }]\n"
+        )),
+        ErrorKind::MissingKey("decider")
+    );
+    assert_eq!(
+        invalid(&union("decider = \"edid-prefix\"\n")),
+        ErrorKind::MissingKey("variants")
+    );
+    assert_eq!(
+        invalid(&union("decider = \"by-color\"\nvariants = []\n")),
+        ErrorKind::UnknownDecider("by-color".into())
+    );
+    assert_eq!(invalid(&union(&v(""))), ErrorKind::Empty);
+    assert_eq!(
+        invalid(&union(&v(
+            "{ when = \"ff\", name = \"F\", type = \"f32\" }"
+        ))),
+        ErrorKind::BadWhen("ff".into())
+    );
+    assert_eq!(
+        invalid(&union(&v("{ when = \"?\", name = \"F\", type = \"f32\" }"))),
+        ErrorKind::BadWhen("?".into())
+    );
+    assert_eq!(
+        invalid(&union(&v(
+            "{ when = \"f\", name = \"A\", type = \"f32\" }, { when = \"f\", name = \"B\", type = \"u32\" }"
+        ))),
+        ErrorKind::DuplicateValue(i128::from(b'f'))
+    );
+    assert_eq!(
+        invalid(&union(&v(
+            "{ when = \"f\", name = \"A\", type = \"f32\" }, { when = \"g\", name = \"A\", type = \"u32\" }"
+        ))),
+        ErrorKind::DuplicateName("A".into())
+    );
+    assert!(matches!(
+        invalid(&union(&v(
+            "{ when = \"f\", name = \"A\", type = \"struct\" }"
+        ))),
+        ErrorKind::UnexpectedKey { key: "type", .. }
+    ));
+    assert!(matches!(
+        invalid(&union(&format!("targets = [\"KYWD\"]\n{ok}"))),
+        ErrorKind::UnexpectedKey { key: "targets", .. }
+    ));
+    // Only on whole subrecords, and only in a record that has an EDID member.
+    assert_eq!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+             field = [{ name = \"A\", type = \"union\" }]\n"
+        ),
+        ErrorKind::UnionPlacement
+    );
+    assert_eq!(
+        invalid(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Value\"\ntype = \"union\"\n{ok}"
+        )),
+        ErrorKind::UnionWithoutEditorId
+    );
+    assert!(matches!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"u32\"\ndecider = \"edid-prefix\"\n"
+        ),
+        ErrorKind::UnexpectedKey { key: "decider", .. }
+    ));
+}
+
 #[test]
 fn load_dir_reads_common_definitions() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
@@ -1041,7 +1148,7 @@ fn load_dir_reads_common_definitions() {
     let names: Vec<&str> = schema.common.keys().map(String::as_str).collect();
     assert_eq!(names, ["Link", "Marker", "Point"]);
     let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
-    assert_eq!(sigs, ["EMPT", "VVVV", "YYYY", "ZZZZ"]);
+    assert_eq!(sigs, ["EMPT", "UUUU", "VVVV", "YYYY", "ZZZZ"]);
 }
 
 #[test]

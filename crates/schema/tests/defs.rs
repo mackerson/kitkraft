@@ -257,8 +257,8 @@ fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
     let expected: [(&str, &[&str]); 4] = [
-        ("GMST", &["EditorId"]),
-        ("GLOB", &["EditorId"]),
+        ("GMST", &["EditorId", "Value"]),
+        ("GLOB", &["EditorId", "Value"]),
         ("KYWD", &["EditorId", "Name"]),
         (
             "WEAP",
