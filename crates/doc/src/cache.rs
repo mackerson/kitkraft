@@ -2,13 +2,25 @@
 //!
 //! Location: `%LOCALAPPDATA%\kitcraft\cache` (override with `KITCRAFT_CACHE_DIR`, or pass a
 //! directory). Never inside the game Data dir or an MO2 profile. One file per plugin path,
-//! named by a hash of the path; an entry is used only when its stored path, file size,
-//! modification time and [`FORMAT_VERSION`] all match and its checksum verifies. Anything
-//! else (a stale, truncated or foreign file) is ignored and rebuilt, never trusted.
+//! named by a hash of the path.
+//!
+//! **Staleness rule.** An entry is used only when all of these hold, else it is ignored and
+//! rebuilt, never trusted:
+//!
+//! 1. its checksum verifies, and its [`FORMAT_VERSION`] and esm index format version match;
+//! 2. its stored absolute path equals the plugin's;
+//! 3. the plugin's current size and modification time (nanoseconds since the Unix epoch, as
+//!    the file system reports it) equal the stored ones;
+//! 4. a content sample equals the stored one: FNV-1a over the file's size and its first and
+//!    last [`SAMPLE_BYTES`] (the TES4 header, with masters and flags, is in the first part).
+//!
+//! A file whose modification time is unknown or 0 is never cached (an edit could keep it).
+//! An edit that keeps size and mtime and touches only bytes outside both sampled ends is
+//! not detected; tools that write plugins update the mtime.
 //!
 //! Layout (little-endian): magic `KCIDX\0\r\n`, `u32` format version, `u32` esm index
 //! format version, `u32` path length +
-//! path (UTF-8), `u64` size, `u64` mtime (ns), `u32` flags, `u16` form version, `u8` HEDR
+//! path (UTF-8), `u64` size, `u64` mtime (ns), `u64` content sample, `u32` flags, `u16` form version, `u8` HEDR
 //! present + `f32`/`u32`/`u32`, `u32` master count + (`u32` length + name) each, `u64` edid
 //! errors, `u64` record count + 32 bytes per record, `u64` EDID arena length + bytes, `u64`
 //! FNV-1a checksum of everything before it.
@@ -25,10 +37,35 @@ use crate::index::{file_stamp, HeaderInfo, HedrInfo, PluginIndex, RecordLoc};
 
 /// Bump when this layout changes. Entries also store the esm index format
 /// (`kitcraft_esm::index::INDEX_FORMAT_VERSION`); either changing rebuilds them.
-pub const FORMAT_VERSION: u32 = 2;
+pub const FORMAT_VERSION: u32 = 3;
+
+/// Bytes sampled at each end of a plugin for the staleness check.
+pub const SAMPLE_BYTES: u64 = 64 * 1024;
 
 const MAGIC: &[u8; 8] = b"KCIDX\0\r\n";
 const RECORD_BYTES: usize = 32;
+
+/// FNV-1a over the file's size, its first [`SAMPLE_BYTES`] and its last [`SAMPLE_BYTES`].
+pub fn content_sample(path: &Path) -> Result<u64> {
+    use std::io::{Read, Seek, SeekFrom};
+    let io = |e| DocError::io(path, e);
+    let mut file = std::fs::File::open(path).map_err(io)?;
+    let len = file.metadata().map_err(io)?.len();
+    let mut h = Fnv::new();
+    h.write_u64(len);
+    let mut buf = Vec::new();
+    (&mut file)
+        .take(SAMPLE_BYTES)
+        .read_to_end(&mut buf)
+        .map_err(io)?;
+    h.write(&buf);
+    buf.clear();
+    file.seek(SeekFrom::Start(len.saturating_sub(SAMPLE_BYTES)))
+        .map_err(io)?;
+    file.take(SAMPLE_BYTES).read_to_end(&mut buf).map_err(io)?;
+    h.write(&buf);
+    Ok(h.finish())
+}
 
 /// Where cache entries live.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -80,16 +117,28 @@ impl IndexCache {
     /// A valid cached index for `plugin`, if there is one.
     pub fn load(&self, plugin: &Path) -> Option<PluginIndex> {
         let stamp = file_stamp(plugin).ok()?;
+        if stamp.1 == 0 {
+            return None;
+        }
         let bytes = std::fs::read(self.entry_path(plugin)).ok()?;
-        decode(&bytes, plugin, stamp).ok()
+        let sample = content_sample(plugin).ok()?;
+        decode(&bytes, plugin, stamp, sample).ok()
     }
 
-    /// Write `index` as the entry for its path (atomically: temp file, then rename).
+    /// Write `index` as the entry for its path (atomically: temp file, then rename). A
+    /// plugin whose modification time is unknown or 0 is refused (module docs).
     pub fn store(&self, index: &PluginIndex) -> Result<()> {
+        if index.mtime_ns == 0 {
+            return Err(DocError::Invalid(format!(
+                "{}: modification time unknown or 0; not cached",
+                index.path.display()
+            )));
+        }
+        let sample = content_sample(&index.path)?;
         std::fs::create_dir_all(&self.dir).map_err(|e| DocError::io(&self.dir, e))?;
         let target = self.entry_path(&index.path);
         let tmp = target.with_extension(format!("tmp{}", std::process::id()));
-        let bytes = encode(index);
+        let bytes = encode(index, sample);
         let written = std::fs::File::create(&tmp)
             .and_then(|mut f| f.write_all(&bytes).and_then(|()| f.sync_all()));
         if let Err(e) = written {
@@ -139,7 +188,7 @@ fn put_str(out: &mut Vec<u8>, s: &str) {
     out.extend_from_slice(s.as_bytes());
 }
 
-fn encode(index: &PluginIndex) -> Vec<u8> {
+fn encode(index: &PluginIndex, sample: u64) -> Vec<u8> {
     let records_len = index.records.len().saturating_mul(RECORD_BYTES);
     let mut out = Vec::with_capacity(
         records_len
@@ -152,6 +201,7 @@ fn encode(index: &PluginIndex) -> Vec<u8> {
     put_str(&mut out, &path_key(&index.path));
     put_u64(&mut out, index.size);
     put_u64(&mut out, index.mtime_ns);
+    put_u64(&mut out, sample);
     let h = &index.header;
     put_u32(&mut out, h.flags.0);
     out.extend_from_slice(&h.form_version.to_le_bytes());
@@ -198,7 +248,7 @@ fn bad(what: &str) -> DocError {
     DocError::Invalid(format!("index cache entry: {what}"))
 }
 
-fn decode(bytes: &[u8], plugin: &Path, stamp: (u64, u64)) -> Result<PluginIndex> {
+fn decode(bytes: &[u8], plugin: &Path, stamp: (u64, u64), sample: u64) -> Result<PluginIndex> {
     let body_len = bytes.len().checked_sub(8).ok_or_else(|| bad("too short"))?;
     let (body, sum) = bytes.split_at(body_len);
     let mut h = Fnv::new();
@@ -224,8 +274,11 @@ fn decode(bytes: &[u8], plugin: &Path, stamp: (u64, u64)) -> Result<PluginIndex>
     }
     let size = r.u64().map_err(e)?;
     let mtime_ns = r.u64().map_err(e)?;
-    if (size, mtime_ns) != stamp {
+    if (size, mtime_ns) != stamp || mtime_ns == 0 {
         return Err(bad("stale"));
+    }
+    if r.u64().map_err(e)? != sample {
+        return Err(bad("content sample differs"));
     }
     let flags = PluginFlags(r.u32().map_err(e)?);
     let form_version = r.u16().map_err(e)?;
@@ -362,14 +415,19 @@ mod tests {
         let entry = cache.entry_path(&path);
         let good = std::fs::read(&entry).unwrap();
         let stamp = file_stamp(&path).unwrap();
+        let sample = content_sample(&path).unwrap();
+        assert!(decode(&good, &path, stamp, sample).is_ok());
         // Every truncation and a flip in every byte position are rejected.
         for cut in 0..good.len() {
-            assert!(decode(&good[..cut], &path, stamp).is_err(), "cut {cut}");
+            assert!(
+                decode(&good[..cut], &path, stamp, sample).is_err(),
+                "cut {cut}"
+            );
         }
         for i in 0..good.len() {
             let mut b = good.clone();
             b[i] ^= 0x41;
-            assert!(decode(&b, &path, stamp).is_err(), "flip {i}");
+            assert!(decode(&b, &path, stamp, sample).is_err(), "flip {i}");
         }
         std::fs::write(&entry, b"garbage").unwrap();
         assert_eq!(cache.get_or_build(&path).unwrap().1, CacheUse::Built);
@@ -379,7 +437,8 @@ mod tests {
     fn hostile_counts_with_valid_checksum_do_not_allocate() {
         let (path, cache) = sample();
         let (index, _) = cache.get_or_build(&path).unwrap();
-        let mut bytes = encode(&index);
+        let sample = content_sample(&path).unwrap();
+        let mut bytes = encode(&index, sample);
         // Find the record count (u64 = 2) and replace it with a huge value; re-sign.
         let at = bytes
             .windows(8)
@@ -391,6 +450,39 @@ mod tests {
         h.write(&bytes[..n]);
         let sum = h.finish().to_le_bytes();
         bytes[n..].copy_from_slice(&sum);
-        assert!(decode(&bytes, &path, file_stamp(&path).unwrap()).is_err());
+        assert!(decode(&bytes, &path, file_stamp(&path).unwrap(), sample).is_err());
+    }
+
+    /// Review round 2: an edit that keeps size and mtime is caught by the content sample.
+    #[test]
+    fn same_size_and_mtime_with_new_content_invalidates() {
+        let (path, cache) = sample();
+        cache.get_or_build(&path).unwrap();
+        let mtime = std::fs::metadata(&path).unwrap().modified().unwrap();
+        let mut bytes = std::fs::read(&path).unwrap();
+        let at = bytes.windows(4).position(|w| w == b"Gun\0").unwrap();
+        bytes[at + 2] = b'm';
+        std::fs::write(&path, &bytes).unwrap();
+        let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+        file.set_modified(mtime).unwrap();
+        drop(file);
+        let (index, used) = cache.get_or_build(&path).unwrap();
+        assert_eq!(used, CacheUse::Built);
+        assert_eq!(index.edid(&index.records[0]), Some("Gum"));
+    }
+
+    /// Review round 2: a plugin with mtime 0 is never cached (nor read from the cache).
+    #[test]
+    fn mtime_zero_is_never_cached() {
+        let (path, cache) = sample();
+        let file = std::fs::OpenOptions::new().write(true).open(&path).unwrap();
+        file.set_modified(std::time::UNIX_EPOCH).unwrap();
+        drop(file);
+        assert_eq!(file_stamp(&path).unwrap().1, 0);
+        assert_eq!(cache.get_or_build(&path).unwrap().1, CacheUse::Uncached);
+        assert!(!cache.entry_path(&path).exists());
+        assert_eq!(cache.get_or_build(&path).unwrap().1, CacheUse::Uncached);
+        let (index, _) = cache.get_or_build(&path).unwrap();
+        assert!(cache.store(&index).is_err());
     }
 }
