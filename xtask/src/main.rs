@@ -5,6 +5,7 @@
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //!
 //! The layer check has three parts.
 //!
@@ -27,7 +28,9 @@
 //! LAYER: TOOL
 
 mod codegen;
+mod evidence;
 mod graph;
+mod observe;
 mod parity;
 mod smuggle;
 
@@ -126,6 +129,10 @@ fn run() -> Result<()> {
             codegen::run(&workspace_root()?, check)
         }
         Some("parity") => parity::run(&workspace_root()?),
+        Some("observe") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            observe::run(&workspace_root()?, &rest)
+        }
         None | Some("help" | "-h" | "--help") => {
             print_help();
             Ok(())
@@ -144,6 +151,8 @@ fn print_help() {
     );
     println!("  parity   run `kit coverage` over the corpus (KITCRAFT_DATA_DIR) and write");
     println!("           docs/record-parity.md");
+    println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
+    println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
 }
 
 fn workspace_root() -> Result<PathBuf> {
