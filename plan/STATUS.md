@@ -555,7 +555,7 @@ is under "Next".
 | ---- | ----- |
 | M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitCraft's assumed runtime IDs, and the `fixture.toml` template |
 | M3.H2 `cargo xtask observe` | **done**: `cargo xtask observe <fixture-dir>` writes `report.md`/`report.json` in the fixture folder only (SHA-256 of every file; per plugin TES4, `roundtrip --verify`, `coverage`, `validate`; base, `[[compare]]` and `kit_equivalent` comparisons as byte runs, TES4 diff and `kit diff`, our equivalent in both styles with `ck` reported unavailable until M3.E5); `cargo xtask observe new <F-id>` writes the fixture's `fixture.toml`. Tests: synthetic fixture dirs with a fake `kit` (nothing written outside, rerun byte-identical) and the real `kit` when built |
-| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part blocked on M3.O3** (`cargo xtask oracle sf1edit` says so) |
+| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part done** (2026-10-14, after M3.O3): `cargo xtask oracle sf1edit [--official] [--synthetic] [<plugin>...] [--types ..] [--sample N]` runs xEdit 4.1.5f's console dumper (`xDump64.exe`; `KITCRAFT_SF1EDIT` = `xSFEdit64.exe` or the dumper) on a scratch Data copy and compares with `kit query`/`inspect`; the editor's script mode is **blocked** headless (Module Selection window; without `-script`, the developer message), documented in `docs/oracles.md`. Results: all records, FormIDs, signatures and EditorIDs agree where xEdit can read the file; 711 decoded members agree on `Starfield.esm` WEAP/AMMO/PROJ/COBJ/OMOD (50 each) and 191 on the four readable small official files (every record), 1 disagreement (X8, ours: lossy cp1252 lstring text); version skew: GPOG/GPOF unknown, SFBGS047 (light master) not loadable, 51 WEAPs with an undecodable component; the coverage-gap list per round 3 type is in `docs/oracles.md` for M3.B11 |
 | M3.H3 findings, M3.H5 CK feature ranking | **blocked on M3.O1** (the owner's CK session; `docs/ck-observations.md` has the resolved script, `cargo xtask observe new <id>` the templates) |
 
 ## Next
@@ -609,7 +609,7 @@ definition is checked against every corpus occurrence before it moves to
 | ----- | ----------------------------------------------------------- | -------------------------------------- |
 | M2.O1 | Approve ADR 0004, ADR 0005 Amendment 2, `docs/xedit-reference.md` | **done 2026-10-14** (with six clarifications) |
 | M2.O2 | Whether OMOD is in scope                                    | **done 2026-10-14**: in scope (M2.B7)  |
-| M2.O3 | Install SF1Edit (agents do not download executables)        | open; blocks M2.B11                    |
+| M2.O3 | Install SF1Edit (agents do not download executables)        | **done 2026-10-14 as M3.O3**: xEdit 4.1.5f at `C:\Modding\tools\xEdit\` (older than the pin; `docs/oracles.md`) |
 | M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), the `hardcoded-official-slots` check, M2.E3 `ck-diff` part |
 | M2.O5 | Third-party mod plugins as inventory evidence               | open; default **no**                   |
 | M2.O6 | In-game check of the rename plugin                          | **ready**: plugin built, steps below   |
@@ -661,6 +661,12 @@ wins") but still the owner's to confirm:
 - **To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Lane H -> lane D (strings), from the SF1Edit run (X8).** Some official string entries
+  are Windows-1252, not UTF-8 (`Starfield - Localization.ba2` dlstrings `0x000301B6` holds
+  byte `0x92` for an apostrophe); our `text` shows U+FFFD there while xEdit shows `’`.
+  A Windows-1252 fallback for non-UTF-8 entries (bytes stay in `Resolved.bytes`) would
+  make the text agree; until then the oracle counts it as one disagreement of ours.
 
 - **Lane A -> lane B (answer to the RawSub/XXXX request; re-checked after lane B round 2).**
   `esm::bridge` re-exports the generated `RawSub`/`OwnedSub`/`Ctx` (checked against `main`
