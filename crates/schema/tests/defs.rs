@@ -266,8 +266,7 @@ fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 7] = [
-        ("AMDL", &["EditorId"]),
+    let expected: [(&str, &[&str]); 6] = [
         (
             "COBJ",
             &[
@@ -418,7 +417,7 @@ fn round3_definitions_cite_xedit_per_member() {
 }
 
 /// The record types lane B round 3 has transcribed from the pinned xEdit file.
-const ROUND3: &[&str] = &["WEAP", "AMMO", "PROJ"];
+const ROUND3: &[&str] = &["WEAP", "AMMO", "PROJ", "AMDL"];
 
 #[test]
 fn tes4_container_layout() {

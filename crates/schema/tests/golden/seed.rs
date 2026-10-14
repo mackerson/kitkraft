@@ -11,7 +11,7 @@
 // - common Vec3 (xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740; reference)
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
-// - AMDL (corpus: AMDL records of the 14 official ESMs, scan 2026-10-14; corpus)
+// - AMDL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9387-L9409; corpus)
 // - AMMO (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9412-L9470; corpus)
 // - COBJ (corpus: COBJ records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
@@ -2479,12 +2479,105 @@ impl RecordHeader {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct AmdlData {
+    pub cone_of_fire_degrees_x: f32,
+    pub cone_of_fire_degrees_y: f32,
+    pub cone_of_fire_increase_per_shot: f32,
+    pub cone_of_fire_decrease_per_second: f32,
+    pub cone_of_fire_decrease_delay_seconds: f32,
+    pub cone_of_fire_sneak_mult: f32,
+    pub recoil_diminish_spring_force: f32,
+    pub recoil_diminish_sights_mult: f32,
+    pub recoil_degrees_per_shot_x: f32,
+    pub recoil_degrees_per_shot_y: f32,
+    pub recoil_hip_mult: f32,
+    pub recoil_shots_for_runaway: u32,
+    pub recoil_arc: f32,
+    pub recoil_arc_rotate: f32,
+    pub cone_of_fire_iron_sights_mult: f32,
+    pub recoil_base_stability: f32,
+    /// Present only when bytes remain in the payload.
+    pub cone_of_fire_ignores_movement: Option<Bool8>,
+}
+
+impl Field for AmdlData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "AMDL.ANAM.ConeOfFireDegreesX", ctx)?;
+        let f1 = f32::read(r, "AMDL.ANAM.ConeOfFireDegreesY", ctx)?;
+        let f2 = f32::read(r, "AMDL.ANAM.ConeOfFireIncreasePerShot", ctx)?;
+        let f3 = f32::read(r, "AMDL.ANAM.ConeOfFireDecreasePerSecond", ctx)?;
+        let f4 = f32::read(r, "AMDL.ANAM.ConeOfFireDecreaseDelaySeconds", ctx)?;
+        let f5 = f32::read(r, "AMDL.ANAM.ConeOfFireSneakMult", ctx)?;
+        let f6 = f32::read(r, "AMDL.ANAM.RecoilDiminishSpringForce", ctx)?;
+        let f7 = f32::read(r, "AMDL.ANAM.RecoilDiminishSightsMult", ctx)?;
+        let f8 = f32::read(r, "AMDL.ANAM.RecoilDegreesPerShotX", ctx)?;
+        let f9 = f32::read(r, "AMDL.ANAM.RecoilDegreesPerShotY", ctx)?;
+        let f10 = f32::read(r, "AMDL.ANAM.RecoilHipMult", ctx)?;
+        let f11 = u32::read(r, "AMDL.ANAM.RecoilShotsForRunaway", ctx)?;
+        let f12 = f32::read(r, "AMDL.ANAM.RecoilArc", ctx)?;
+        let f13 = f32::read(r, "AMDL.ANAM.RecoilArcRotate", ctx)?;
+        let f14 = f32::read(r, "AMDL.ANAM.ConeOfFireIronSightsMult", ctx)?;
+        let f15 = f32::read(r, "AMDL.ANAM.RecoilBaseStability", ctx)?;
+        let f16 = if !r.is_empty() {
+            Some(Field::read(r, "AMDL.ANAM.ConeOfFireIgnoresMovement", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            cone_of_fire_degrees_x: f0,
+            cone_of_fire_degrees_y: f1,
+            cone_of_fire_increase_per_shot: f2,
+            cone_of_fire_decrease_per_second: f3,
+            cone_of_fire_decrease_delay_seconds: f4,
+            cone_of_fire_sneak_mult: f5,
+            recoil_diminish_spring_force: f6,
+            recoil_diminish_sights_mult: f7,
+            recoil_degrees_per_shot_x: f8,
+            recoil_degrees_per_shot_y: f9,
+            recoil_hip_mult: f10,
+            recoil_shots_for_runaway: f11,
+            recoil_arc: f12,
+            recoil_arc_rotate: f13,
+            cone_of_fire_iron_sights_mult: f14,
+            recoil_base_stability: f15,
+            cone_of_fire_ignores_movement: f16,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.cone_of_fire_degrees_x.write(out);
+        self.cone_of_fire_degrees_y.write(out);
+        self.cone_of_fire_increase_per_shot.write(out);
+        self.cone_of_fire_decrease_per_second.write(out);
+        self.cone_of_fire_decrease_delay_seconds.write(out);
+        self.cone_of_fire_sneak_mult.write(out);
+        self.recoil_diminish_spring_force.write(out);
+        self.recoil_diminish_sights_mult.write(out);
+        self.recoil_degrees_per_shot_x.write(out);
+        self.recoil_degrees_per_shot_y.write(out);
+        self.recoil_hip_mult.write(out);
+        self.recoil_shots_for_runaway.write(out);
+        self.recoil_arc.write(out);
+        self.recoil_arc_rotate.write(out);
+        self.cone_of_fire_iron_sights_mult.write(out);
+        self.recoil_base_stability.write(out);
+        if let Some(value) = &self.cone_of_fire_ignores_movement {
+            value.write(out);
+        }
+    }
+}
+
+impl Visit for AmdlData {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct AmdlRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
     /// `ANAM`, required.
-    pub anam: Option<Sub<Bytes>>,
+    pub data: Option<Sub<AmdlData>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -2498,6 +2591,10 @@ impl AmdlRecord {
         MemberDesc::Sub {
             sig: *b"EDID",
             card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"ANAM",
@@ -2517,8 +2614,13 @@ impl AmdlRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "AMDL.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.anam, subs, *index, "AMDL.ANAM", ctx, extra)
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.data, subs, *index, "AMDL.ANAM", ctx, extra)
                 }
                 _ => unmatched(hit, subs, extra),
             }
@@ -2527,7 +2629,10 @@ impl AmdlRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"ANAM", self.anam.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"ANAM", self.data.as_ref());
     }
 }
 

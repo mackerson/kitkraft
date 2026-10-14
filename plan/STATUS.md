@@ -428,6 +428,8 @@ is under "Next".
     the BFCB component data; PROD's two particle define strings have a u32 length prefix,
     typed as a count field plus raw bytes (the format has no u32-prefixed string); the
     unused 0-byte DATA is an `empty` marker.
+  - **M3.B3 AMDL**: all 126 records (EDID + 65-byte ANAM, 17 fields typed; the last one
+    `if_remaining` as xEdit makes it optional).
 
 ## Next
 
