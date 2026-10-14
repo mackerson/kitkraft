@@ -1,0 +1,245 @@
+# MGEF: Magic Effect, the base effect a spell's effect entry points at (EFID): its
+# archetype, the actor value it changes, art, shaders, sounds, flags and casting data.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14360-L14554 - member order, MDOB, DATA (136
+#     bytes: field order, widths, archetype enum, flag bits), the counter effects, the
+#     sound list, DNAM and the conditions. Helpers: EDID (L3182), script data
+#     (L3393-L3411, kept opaque), the base form component block (L5984-L6832, kept raw),
+#     FULL (L3184), keywords (wbDefinitionsCommon.pas L8935-L8951), the actor value
+#     (L2271-L2274), the sound level enum (L2574-L2581), the cast and target enums
+#     (L4141-L4152), the sound reference (L2197-L2211, common/SoundReference.toml), the
+#     conditions (L4750-L4840, common/Condition.toml).
+#   corpus: the 989 MGEF records (Starfield.esm 853, SFBGS00D 75, ShatteredSpace 44,
+#     SFBGS050 10, SFBGS007 6, SFBGS003 1; form versions 581, 582), 2026-10-14: order EDID
+#     [VMAD] [BFCB block] [FULL] [KSIZ KWDA] DATA ESSH* DNAM CTDA*; DATA 136 bytes, ESSH 41,
+#     DNAM 4 (localized), CTDA 32. Every record decodes and re-encodes identically.
+#
+# What stays opaque, and why: VMAD, the component block, and three DATA slots that are
+# unions selected by the archetype (the associated item at offset 0, and the two
+# associated actor values at offsets 56 and 68); each is kept as its 4 raw bytes. Their
+# FormIDs (a light, weapon, NPC_, hazard, spell, damage type, enchantment, keyword or
+# actor value, depending on the archetype) stay raw.
+signature = "MGEF"
+name = "MagicEffect"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14360-L14554"
+evidence = [
+  "corpus: the 989 MGEF records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 192 records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed in 1 record"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+
+[[member]]
+sig = "MDOB"
+name = "MenuDisplayObject"
+type = "formid"
+targets = ["STAT"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official MGEF records"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 136
+field = [
+  { name = "AssociatedItem", type = "opaque", size = 4, note = "union by archetype: a light, bound weapon or armor, summoned NPC_, hazard, cloak spell, damage type, enchantment, peak keyword, tracked damage or gravity form" },
+  { name = "MagicSkill", type = "formid", targets = ["AVIF"], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274"] },
+  { name = "CastingArt", type = "formid", targets = ["ARTO"] },
+  { name = "MovementType", type = "formid", targets = ["MOVT"], note = "unnamed upstream (a MOVT target); named after its target type" },
+  { name = "HitShader", type = "formid", targets = ["EFSH"] },
+  { name = "EnchantShader", type = "formid", targets = ["EFSH"] },
+  { name = "EnchantArt", type = "formid", targets = ["ARTO"] },
+  { name = "EquipAbility", type = "formid", targets = ["SPEL"] },
+  { name = "Explosion", type = "formid", targets = ["EXPL"] },
+  { name = "HitEffectArt", type = "formid", targets = ["ARTO"] },
+  { name = "ImageSpaceModifier", type = "formid", targets = ["IMAD"] },
+  { name = "ImpactData", type = "formid", targets = ["IPDS"] },
+  { name = "CastingLight", type = "formid", targets = ["LIGH"] },
+  { name = "PerkToApply", type = "formid", targets = ["PERK"] },
+  { name = "AssociatedActorValue1", type = "opaque", size = 4, note = "union by archetype: unused, or an actor value (AVIF)" },
+  { name = "Projectile", type = "formid", targets = ["PROJ"] },
+  { name = "ResistValue", type = "formid", targets = ["AVIF"] },
+  { name = "AssociatedActorValue2", type = "opaque", size = 4, note = "union by archetype: unused, or a second actor value (AVIF)" },
+  { name = "ScriptEffectAi", type = "struct", field = [
+    { name = "DelayTime", type = "f32" },
+    { name = "Score", type = "f32" },
+  ] },
+  { name = "Archetype", type = "enum", base = "u32", values = [
+    ["ValueModifier", 0],
+    ["Script", 1],
+    ["Dispel", 2],
+    ["CureDisease", 3],
+    ["Absorb", 4],
+    ["DualValueModifier", 5],
+    ["Calm", 6],
+    ["Demoralize", 7],
+    ["Frenzy", 8],
+    ["Disarm", 9],
+    ["CommandSummoned", 10],
+    ["Invisibility", 11],
+    ["Light", 12],
+    ["Darkness", 13],
+    ["Nighteye", 14],
+    ["Lock", 15],
+    ["Open", 16],
+    ["BoundWeapon", 17],
+    ["SummonCreature", 18],
+    ["DetectLife", 19],
+    ["Telekinesis", 20],
+    ["Paralysis", 21],
+    ["Reanimate", 22],
+    ["SoulTrap", 23],
+    ["TurnUndead", 24],
+    ["Guide", 25],
+    ["SummonDuplicate", 26],
+    ["CureParalysis", 27],
+    ["CureAddiction", 28],
+    ["CurePoison", 29],
+    ["Concussion", 30],
+    ["Stimpak", 31],
+    ["AccumulateMagnitude", 32],
+    ["Stagger", 33],
+    ["PeakValueModifier", 34],
+    ["Cloak", 35],
+    ["Command", 36],
+    ["SlowTime", 37],
+    ["Rally", 38],
+    ["EnhanceWeapon", 39],
+    ["SpawnHazard", 40],
+    ["Etherealize", 41],
+    ["Banish", 42],
+    ["SpawnScriptedRef", 43],
+    ["Disguise", 44],
+    ["Damage", 45],
+    ["Immunity", 46],
+    ["PermanentReanimate", 47],
+    ["Boostpack", 48],
+    ["Chameleon", 49],
+    ["CapacityValueModifier", 50],
+    ["ResetFlora", 51],
+    ["DropResources", 52],
+    ["Antigravity", 53],
+    ["TrackDamage", 54],
+    ["GravityWielder", 55],
+  ] },
+  { name = "Spellmaking", type = "struct", field = [
+    { name = "Area", type = "f32" },
+    { name = "CastingTime", type = "f32" },
+  ] },
+  { name = "BaseCost", type = "f32" },
+  { name = "CastingSoundLevel", type = "enum", base = "u32", values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581"] },
+  { name = "CastingType", type = "enum", base = "u8", values = [["ConstantEffect", 0], ["FireAndForget", 1], ["Concentration", 2]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4141-L4145"] },
+  { name = "DeliveryType", type = "enum", base = "u8", values = [["SelfTarget", 0], ["Touch", 1], ["Aimed", 2], ["TargetActor", 3], ["TargetLocation", 4]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4147-L4152"] },
+  { name = "DualCastingScale", type = "f32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["Hostile", 0x1],
+    ["Recover", 0x2],
+    ["Detrimental", 0x4],
+    ["SnapToNavmesh", 0x8],
+    ["NoHitEvent", 0x10],
+    ["DynamicRestart", 0x20],
+    ["AnimateStartStopReaction", 0x40],
+    ["DispelWithKeywords", 0x100],
+    ["NoDuration", 0x200],
+    ["NoMagnitude", 0x400],
+    ["NoArea", 0x800],
+    ["FxPersist", 0x1000],
+    ["GoryVisuals", 0x4000],
+    ["HideInUi", 0x8000],
+    ["NoRecast", 0x20000],
+    ["DifficultyAffectsMagnitude", 0x80000],
+    ["DifficultyAffectsDuration", 0x100000],
+    ["PowerAffectsMagnitude", 0x200000],
+    ["PowerAffectsDuration", 0x400000],
+    ["Painless", 0x4000000],
+    ["NoHitEffect", 0x8000000],
+    ["NoDeathDispel", 0x10000000],
+  ], note = "unnamed upstream bits are kept as read" },
+  { name = "MinimumSkillLevel", type = "u32" },
+  { name = "Unused", type = "opaque", size = 2 },
+  { name = "SecondAvWeight", type = "f32" },
+  { name = "SkillUsageMultiplier", type = "f32" },
+  { name = "TaperCurve", type = "f32" },
+  { name = "TaperDuration", type = "f32" },
+  { name = "TaperWeight", type = "f32" },
+]
+
+[[member]]
+sig = "ESCE"
+name = "CounterEffects"
+type = "formid"
+targets = ["MGEF"]
+card = "repeated"
+confidence = "reference"
+note = "not present in the official MGEF records"
+
+[[member]]
+sig = "ESSH"
+name = "Sounds"
+type = "struct"
+size = 41
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2211"]
+note = "observed in 125 records, up to 3 per record"
+field = [
+  { name = "Type", type = "enum", base = "u8", values = [
+    ["DrawSheathe", 0],
+    ["Charge", 1],
+    ["Ready", 2],
+    ["Release", 3],
+    ["CastLoop", 4],
+    ["OnHit", 5],
+  ] },
+  { name = "Sound", type = "ref:SoundReference" },
+]
+
+[[member]]
+sig = "DNAM"
+name = "MagicItemDescription"
+type = "lstring"
+card = "optional"
+note = "present in every official record"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "without a CITC count; observed in 276 records"
