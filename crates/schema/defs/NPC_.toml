@@ -1,0 +1,1059 @@
+# NPC_: Non-Player Character, the base form of every actor (humans, creatures, robots,
+# crew and companions). A placed actor (ACHR) points at one. Templates let an NPC_ inherit
+# whole sections from another NPC_ or a leveled actor list (TPLT plus the per-section TPTA
+# slots and the ACBS template flags).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14993-L15426 - the record: member order, record
+#     flag, ACBS, the faction, template, override package list, perk, AI, reaction radius,
+#     flee, appearance, sound, outfit, tint, face morph and race override members.
+#     Helpers: EDID (L3182), script data (L3393-L3411, kept opaque), object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2
+#     (L3965-L3978), SNTP/SNBH (L3919-L3920), DEFL (L3963), XALG (L3230), the base form
+#     component block (L5984-L6832, kept raw), the faction entry (wbDefinitionsCommon.pas
+#     L8801-L8812), the template actor slot (wbDefinitionsCommon.pas L8548-L8552) and
+#     template flags (wbDefinitionsCommon.pas L8429-L8452), SPLO (L2255-L2256), the
+#     destructible block (L3829-L3889, kept opaque), attacks (L3592-L3655,
+#     common/AttackData.toml), PRPS (L5679-L5686 with the actor value at L2271-L2274),
+#     FTYP (L5699), NTRM (L5676), container items (L2304-L2327), AIDT (L7144-L7153) with
+#     its enums (wbDefinitionsCommon.pas L7247-L7255, L7297-L7304, L7523-L7532,
+#     L7950-L7974), keywords (wbDefinitionsCommon.pas L8935-L8951), APPR (L5698), the
+#     object template (L6961-L6973, OBTS kept opaque), FULL (L3184), the AVM group type
+#     (L7031-L7037), byte colours (wbDefinitionsCommon.pas L6954-L6968), ATTX (L5700), the
+#     sound reference (L2197-L2226, common/SoundReference.toml), the pronoun enum
+#     (L2956-L2961).
+#   corpus: the 8,447 NPC_ records (Starfield.esm 7,131, ShatteredSpace 679, SFBGS050 386,
+#     SFBGS00D 162, SFBGS003 88, SFBGS004 1; form versions 581, 582; every one compressed,
+#     decoded with the esm DecodeLimits defaults), 2026-10-14: every record fits the order
+#     below. Sizes: ACBS 16, SNAM 5, TPTA 60, PRKR 5, PRPS 12n, CNTO 8, AIDT 7, RDSA 80n,
+#     FLEE 24, OBTE 4 (always 1), DATA 0, DNAM 8, NAM5 2 (always FF 00), MWGT 12, CS3S 40,
+#     CS3F 1, EDCT 1, MNAM/INTV/NNAM 4, MRSV 20, STON 1 (0..8), PRON 1 (0..3).
+#
+# Corpus against upstream: EDID is absent from 1 record (optional); STOP occurs in 4,896
+# records and is not required; SPLO occurs without the SPCT count upstream names (SPCT is
+# not in the member list), so the effects are a plain list; no record carries DEST, attacks,
+# OCOR/GWOR/FCPL/RCLR/RPLD/RPLI, COED, CS3K, SNBH or DEFL (those members stay `reference`).
+#
+# What stays opaque, and why: VMAD (property values are unions), the component blocks,
+# ACBS's level (a union: a level, or a level multiplier when the PcLevelMult flag is set),
+# NAM5 (unnamed upstream), the object template OBTS payload (its own include and property
+# lists), the destructible block, and ONA2 after its flags (each override block is present
+# only when its flag bit is set, which the format cannot express).
+signature = "NPC_"
+name = "Npc"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14993-L15426"
+evidence = [
+  "corpus: the 8,447 NPC_ records of the 14 official ESMs (all compressed), 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
+]
+confidence = "corpus"
+flags = [["BleedoutOverride", 0x20000000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 255 records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; observed in 2 records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed in 156 records"
+
+[[member]]
+sig = "ACBS"
+name = "Configuration"
+type = "struct"
+size = 16
+field = [
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["Female", 0x1],
+    ["Essential", 0x2],
+    ["IsCharGenFacePreset", 0x4],
+    ["Respawn", 0x8],
+    ["AutoCalcStats", 0x10],
+    ["Unique", 0x20],
+    ["DoesntAffectStealthMeter", 0x40],
+    ["PcLevelMult", 0x80],
+    ["CalcForEachTemplate", 0x200],
+    ["Protected", 0x800],
+    ["Summonable", 0x4000],
+    ["DoesntBleed", 0x10000],
+    ["BleedoutOverride", 0x40000],
+    ["OppositeGenderAnims", 0x80000],
+    ["SimpleActor", 0x100000],
+    ["NoActivationOrHellos", 0x800000],
+    ["DiffuseAlphaTest", 0x1000000],
+    ["ForcedStartsDead", 0x2000000],
+    ["IsGhost", 0x20000000],
+    ["IgnoreFriendlyHits", 0x40000000],
+    ["Invulnerable", 0x80000000],
+  ], note = "unnamed upstream bits are kept as read" },
+  { name = "XpValueOffset", type = "i16" },
+  { name = "Level", type = "opaque", size = 2, note = "union: the level, or with PcLevelMult the level multiplier in thousandths" },
+  { name = "CalcMinLevel", type = "u16" },
+  { name = "CalcMaxLevel", type = "u16" },
+  { name = "DispositionBase", type = "i16" },
+  { name = "TemplateFlags", type = "flags", base = "u16", bits = [
+    ["Traits", 0x1],
+    ["Stats", 0x2],
+    ["Factions", 0x4],
+    ["SpellList", 0x8],
+    ["AiData", 0x10],
+    ["AiPackages", 0x20],
+    ["ModelAnimation", 0x40],
+    ["BaseData", 0x80],
+    ["Inventory", 0x100],
+    ["Script", 0x200],
+    ["DefPackList", 0x400],
+    ["AttackData", 0x800],
+    ["Keywords", 0x1000],
+    ["ReactionRadius", 0x2000],
+    ["CombatStyle", 0x4000],
+  ], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8429-L8452"], note = "which sections are taken from the template (TPLT, or the TPTA slot of that section)" },
+]
+
+[[member]]
+sig = "SNAM"
+name = "Factions"
+type = "struct"
+size = 5
+card = "repeated"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8801-L8812"]
+note = "one faction membership per subrecord; observed up to 26 per record"
+field = [
+  { name = "Faction", type = "formid", targets = ["FACT"] },
+  { name = "Rank", type = "i8" },
+]
+
+[[member]]
+sig = "INAM"
+name = "DeathItem"
+type = "formid"
+targets = ["LVLI"]
+card = "optional"
+
+[[member]]
+sig = "VTCK"
+name = "Voice"
+type = "formid"
+targets = ["VTYP"]
+card = "optional"
+
+[[member]]
+sig = "TPLT"
+name = "DefaultTemplate"
+type = "formid"
+targets = ["BMMO", "LVLN", "NPC_"]
+card = "optional"
+
+[[member]]
+sig = "LTPT"
+name = "LegendaryTemplate"
+type = "formid"
+targets = ["BMMO", "LVLN", "NPC_"]
+card = "optional"
+
+[[member]]
+sig = "LTPC"
+name = "LegendaryChance"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "TPTA"
+name = "TemplateActors"
+type = "struct"
+size = 60
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8548-L8552"]
+note = "one template per inheritable section, in template-flag order; 0 means none"
+field = [
+  { name = "Traits", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "Stats", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "Factions", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "SpellList", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "AiData", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "AiPackages", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "ModelAnimation", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "BaseData", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "Inventory", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "Script", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "DefPackList", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "AttackData", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "Keywords", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "ReactionRadius", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+  { name = "CombatStyle", type = "formid", targets = ["BMMO", "LVLN", "NPC_"] },
+]
+
+[[member]]
+sig = "RNAM"
+name = "Race"
+type = "formid"
+targets = ["RACE"]
+
+[[member]]
+sig = "SPLO"
+name = "ActorEffects"
+type = "formid"
+targets = ["SPEL", "LVSP"]
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2255-L2256"]
+note = "spells and abilities; no SPCT count precedes them"
+
+[[member]]
+group = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3889"]
+confidence = "reference"
+note = "not present in the official NPC_ records; payloads kept raw"
+
+[[member.member]]
+sig = "DEST"
+name = "Header"
+type = "opaque"
+
+[[member.member]]
+sig = "DAMC"
+name = "Resistances"
+type = "opaque"
+card = "optional"
+
+[[member.member]]
+sig = "DSDL"
+name = "SecondaryDamageList"
+type = "formid"
+targets = ["SDLT"]
+card = "optional"
+
+[[member.member]]
+group = "Stage"
+card = "repeated"
+
+[[member.member.member]]
+sig = "DSTD"
+name = "Data"
+type = "opaque"
+
+[[member.member.member]]
+sig = "DSTA"
+name = "AnimEvent"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "DMDL"
+name = "Model"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "opaque"
+card = "optional"
+
+[[member.member.member]]
+sig = "DMDS"
+name = "MaterialSwap"
+type = "formid"
+targets = ["MSWP"]
+card = "optional"
+
+[[member.member.member]]
+sig = "DSTF"
+name = "End"
+type = "empty"
+
+[[member]]
+sig = "WNAM"
+name = "Skin"
+type = "formid"
+targets = ["ARMO"]
+card = "optional"
+
+[[member]]
+sig = "ATKR"
+name = "AttackRace"
+type = "formid"
+targets = ["RACE"]
+card = "optional"
+
+[[member]]
+group_ref = "AttackData"
+name = "Attacks"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3592-L3655"]
+confidence = "reference"
+note = "not present in the official NPC_ records (races carry them)"
+
+[[member]]
+sig = "SPOR"
+name = "SpectatorOverridePackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+note = "observed in 1 record"
+
+[[member]]
+sig = "OCOR"
+name = "ObserveDeadBodyOverridePackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "GWOR"
+name = "GuardWarnOverridePackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "ECOR"
+name = "CombatOverridePackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "FCPL"
+name = "FollowerCommandPackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "RCLR"
+name = "FollowerElevatorPackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "RPLD"
+name = "SoundDetectionPackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+sig = "RPLI"
+name = "SightDetectionPackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member]]
+group = "Perks"
+card = "optional"
+note = "observed in 229 records"
+
+[[member.member]]
+sig = "PRKZ"
+name = "Count"
+type = "u32"
+note = "number of Perk subrecords that follow; stored, not derived"
+
+[[member.member]]
+sig = "PRKR"
+name = "Perk"
+type = "struct"
+size = 5
+card = "repeated"
+field = [
+  { name = "Perk", type = "formid", targets = ["PERK"] },
+  { name = "Rank", type = "u8" },
+]
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+]
+note = "actor value properties (base actor values); present in every official record; the curve table slot exists from form version 152"
+field = [
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "FTYP"
+name = "ForcedLocRefTypes"
+type = "array"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699"]
+
+[[member]]
+sig = "NTRM"
+name = "NativeTerminal"
+type = "formid"
+targets = ["TMLM"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5676-L5676"]
+
+[[member]]
+group = "ContainerItems"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2304-L2327"]
+note = "starting inventory; observed in 2,291 records"
+
+[[member.member]]
+sig = "COCT"
+name = "Count"
+type = "u32"
+note = "number of Item entries that follow; stored, not derived"
+
+[[member.member]]
+group = "Item"
+card = "repeated"
+
+[[member.member.member]]
+sig = "CNTO"
+name = "Item"
+type = "struct"
+size = 8
+field = [
+  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L53"] },
+  { name = "Count", type = "i32" },
+]
+
+[[member.member.member]]
+sig = "COED"
+name = "ExtraData"
+type = "opaque"
+card = "optional"
+confidence = "reference"
+note = "owner, a union of global or required rank, and item condition; not present in the official NPC_ records"
+
+[[member]]
+sig = "AIDT"
+name = "AiData"
+type = "struct"
+size = 7
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7144-L7153"]
+field = [
+  { name = "Aggression", type = "enum", base = "u8", values = [["Unaggressive", 0], ["Aggressive", 1], ["VeryAggressive", 2], ["Frenzied", 3]], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7247-L7255"] },
+  { name = "Confidence", type = "enum", base = "u8", values = [["Cowardly", 0], ["Cautious", 1], ["Average", 2], ["Brave", 3], ["Foolhardy", 4]], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7523-L7532"] },
+  { name = "EnergyLevel", type = "u8" },
+  { name = "Morality", type = "enum", base = "u8", values = [["AnyCrime", 0], ["ViolenceAgainstEnemies", 1], ["PropertyCrimeOnly", 2], ["NoCrime", 3]], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7965-L7974"] },
+  { name = "Mood", type = "enum", base = "u8", values = [["Neutral", 0], ["Angry", 1], ["Fear", 2], ["Happy", 3], ["Sad", 4], ["Surprised", 5], ["Puzzled", 6], ["Disgusted", 7]], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7950-L7962"] },
+  { name = "Assistance", type = "enum", base = "u8", values = [["HelpsNobody", 0], ["HelpsAllies", 1], ["HelpsFriendsAndAllies", 2]], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7297-L7304"] },
+  { name = "HasReactionRadiusBehavior", type = "u8", note = "0 or 1" },
+]
+
+[[member]]
+sig = "PKID"
+name = "Packages"
+type = "formid"
+targets = ["PACK"]
+card = "repeated"
+note = "AI packages in priority order; observed up to 13 per record"
+
+[[member]]
+sig = "RDSA"
+name = "ReactionRadiusBehavior"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+note = "80 bytes per entry; observed 1 to 7 entries"
+field = [
+  { name = "ReactionType", type = "enum", base = "u32", values = [["Warn", 0], ["WarnAndAttack", 1], ["Attack", 2], ["Curious", 3], ["Flee", 4], ["WarnAndAlarm", 5]] },
+  { name = "ReactionTarget", type = "enum", base = "u32", values = [["Player", 0], ["Enemies", 1], ["Neutral", 2], ["PlayerNeutralEnemies", 3], ["PlayerNeutral", 4], ["PlayerEnemies", 5], ["EnemiesNeutral", 6]] },
+  { name = "Packages", type = "formid", targets = ["FLST"] },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["UseGlobReactionRadius", 0x1],
+    ["UseGlobExitRadius", 0x2],
+    ["UseGlobMaxNumberOfTimesToReact", 0x4],
+    ["UseGlobMaxHerdMembersToAnimate", 0x8],
+    ["UseGlobNumberOfWarningsBeforeAttack", 0x10],
+    ["ReactionCenterOverride", 0x20],
+    ["UseLinkedReference", 0x40],
+    ["UseSpecificReference", 0x80],
+    ["NumberOfWarningsBeforeAttack", 0x100],
+    ["WarnTimerOnWarnAttack", 0x200],
+    ["UseGlobWarnTimerOnWarnAttack", 0x400],
+    ["AllReactionBehavior", 0x800],
+    ["AvoidTarget", 0x1000],
+    ["UseGlobCoolDownTimer", 0x2000],
+    ["FightBack", 0x4000],
+    ["DisallowThreatBackdown", 0x8000],
+  ] },
+  { name = "ReactionRadiusGlobal", type = "formid", targets = ["GLOB"] },
+  { name = "ExitRadiusGlobal", type = "formid", targets = ["GLOB"] },
+  { name = "MaxNumberOfTimesToReactGlobal", type = "formid", targets = ["GLOB"] },
+  { name = "MaxHerdMembersToAnimateGlobal", type = "formid", targets = ["GLOB"] },
+  { name = "NumberOfWarningsBeforeAttackGlobal", type = "formid", targets = ["GLOB"] },
+  { name = "MaxNumberOfTimesToReact", type = "f32" },
+  { name = "ReactionRadius", type = "f32" },
+  { name = "ExitRadius", type = "f32" },
+  { name = "MaxHerdMembersToAnimate", type = "f32" },
+  { name = "NumberOfWarningsBeforeAttack", type = "f32" },
+  { name = "LinkedRefKeyword", type = "formid", targets = ["KYWD"] },
+  { name = "SpecificReference", type = "formid", note = "any placed reference" },
+  { name = "WarnTimerOnWarnAttackGlobal", type = "formid", targets = ["GLOB"] },
+  { name = "WarnTimerOnWarnAttack", type = "f32" },
+  { name = "CoolDownTimer", type = "f32" },
+  { name = "CoolDownTimerGlobal", type = "formid", targets = ["GLOB"] },
+]
+
+[[member]]
+sig = "FLEE"
+name = "FleeSettings"
+type = "struct"
+size = 24
+card = "optional"
+note = "observed in 31 records"
+field = [
+  { name = "FleeDistanceGlobal", type = "formid", note = "a global per its name; upstream sets no target type" },
+  { name = "SafeTimerGlobal", type = "formid", note = "a global per its name; upstream sets no target type" },
+  { name = "ChanceOfDiversionAnimationGlobal", type = "formid", note = "a global per its name; upstream sets no target type" },
+  { name = "FleeDistance", type = "f32" },
+  { name = "SafeTimer", type = "f32" },
+  { name = "ChanceOfDiversionAnimation", type = "f32" },
+]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "APPR"
+name = "AttachParentSlots"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698"]
+
+[[member]]
+group = "ObjectTemplate"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6973"]
+note = "observed in 1,365 records, each with one combination"
+
+[[member.member]]
+sig = "OBTE"
+name = "Count"
+type = "u32"
+note = "number of Combinations that follow; stored, not derived"
+
+[[member.member]]
+group = "Combination"
+card = "repeated"
+
+[[member.member.member]]
+sig = "OBTF"
+name = "EditorOnly"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+confidence = "reference"
+note = "not present in the official NPC_ object templates"
+
+[[member.member.member]]
+sig = "OBTS"
+name = "Template"
+type = "opaque"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959"]
+note = "an object-mod template item with its own include and property lists, kept raw"
+
+[[member]]
+sig = "STOP"
+name = "ObjectTemplateEnd"
+type = "empty"
+card = "optional"
+note = "marker; upstream requires it, but 3,551 official records have none"
+
+[[member]]
+sig = "CNAM"
+name = "Class"
+type = "formid"
+targets = ["CLAS"]
+card = "optional"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+
+[[member]]
+sig = "SHRT"
+name = "ShortName"
+type = "lstring"
+card = "optional"
+
+[[member]]
+sig = "LNAM"
+name = "PluralName"
+type = "lstring"
+card = "optional"
+
+[[member]]
+sig = "DATA"
+name = "DataMarker"
+type = "empty"
+note = "marker; 0 bytes in every official record"
+
+[[member]]
+sig = "DNAM"
+name = "CalculatedStats"
+type = "struct"
+size = 8
+card = "optional"
+field = [
+  { name = "CalculatedHealth", type = "u16" },
+  { name = "CalculatedActionPoints", type = "u16" },
+  { name = "FarAwayModelDistance", type = "u16" },
+  { name = "GearedUpWeapons", type = "u8" },
+  { name = "Unused", type = "opaque", size = 1 },
+]
+
+[[member]]
+sig = "PNAM"
+name = "HeadParts"
+type = "formid"
+targets = ["HDPT"]
+card = "repeated"
+
+[[member]]
+sig = "ZNAM"
+name = "CombatStyle"
+type = "formid"
+targets = ["CSTY"]
+card = "optional"
+
+[[member]]
+sig = "NAM5"
+name = "Nam5"
+type = "opaque"
+size = 2
+note = "unnamed upstream; FF 00 in every official record"
+
+[[member]]
+sig = "NAM6"
+name = "HeightMin"
+type = "f32"
+
+[[member]]
+sig = "NAM4"
+name = "HeightMax"
+type = "f32"
+card = "optional"
+
+[[member]]
+sig = "MWGT"
+name = "Weight"
+type = "struct"
+size = 12
+card = "optional"
+field = [
+  { name = "Thin", type = "f32" },
+  { name = "Muscular", type = "f32" },
+  { name = "Fat", type = "f32" },
+]
+
+[[member]]
+group = "ActorSounds"
+card = "optional"
+note = "observed in 614 records"
+
+[[member.member]]
+sig = "CS3H"
+name = "Count"
+type = "u32"
+note = "number of Sounds that follow; stored, not derived"
+
+[[member.member]]
+group = "Sound"
+card = "repeated"
+
+[[member.member.member]]
+sig = "CS3K"
+name = "Archetype"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official NPC_ records"
+
+[[member.member.member]]
+sig = "CS3S"
+name = "Sound"
+type = "ref:SoundReference"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2226"]
+
+[[member.member]]
+sig = "CS3F"
+name = "StopConsciousLoopWhenUnconscious"
+type = "u8"
+note = "0 or 1"
+
+[[member.member]]
+sig = "CS3E"
+name = "End"
+type = "empty"
+
+[[member]]
+sig = "CSCR"
+name = "InheritsSoundsFrom"
+type = "formid"
+targets = ["NPC_"]
+card = "optional"
+
+[[member]]
+sig = "QSTA"
+name = "AffinityEventQuest"
+type = "formid"
+targets = ["QUST"]
+card = "optional"
+note = "observed in 5 records (companions)"
+
+[[member]]
+sig = "BNAM"
+name = "AffinityEventDialogue"
+type = "formid"
+targets = ["DLBR"]
+card = "optional"
+note = "observed in 5 records (companions)"
+
+[[member]]
+sig = "DOFT"
+name = "DefaultOutfit"
+type = "formid"
+targets = ["OTFT"]
+card = "optional"
+
+[[member]]
+sig = "SOFT"
+name = "SpaceOutfit"
+type = "formid"
+targets = ["OTFT"]
+card = "optional"
+
+[[member]]
+sig = "DPLT"
+name = "DefaultPackageList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "CRIF"
+name = "CrimeFaction"
+type = "formid"
+targets = ["FACT"]
+card = "optional"
+
+[[member]]
+sig = "HEFA"
+name = "FormationFaction"
+type = "formid"
+targets = ["FACT"]
+card = "optional"
+
+[[member]]
+sig = "EDCT"
+name = "TintCount"
+type = "u8"
+card = "optional"
+note = "present in every official record"
+
+[[member]]
+group = "Tint"
+card = "repeated"
+note = "observed up to 21 per record"
+
+[[member.member]]
+sig = "MNAM"
+name = "GroupType"
+type = "enum"
+base = "u32"
+values = [["None", 0], ["SimpleGroup", 1], ["ComplexGroup", 2], ["Modulation", 3]]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7031-L7037"]
+note = "AVM group type; 1 or 2 in the official records"
+
+[[member.member]]
+sig = "TNAM"
+name = "Group"
+type = "zstring"
+
+[[member.member]]
+sig = "QNAM"
+name = "TintName"
+type = "zstring"
+
+[[member.member]]
+sig = "VNAM"
+name = "Texture"
+type = "zstring"
+
+[[member.member]]
+sig = "NNAM"
+name = "Color"
+type = "struct"
+size = 4
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968"]
+field = [
+  { name = "Red", type = "u8" },
+  { name = "Green", type = "u8" },
+  { name = "Blue", type = "u8" },
+  { name = "Unused", type = "opaque", size = 1 },
+]
+
+[[member.member]]
+sig = "INTV"
+name = "Intensity"
+type = "u32"
+
+[[member]]
+sig = "MRSV"
+name = "BodyMorphRegionValues"
+type = "struct"
+size = 20
+card = "optional"
+field = [
+  { name = "Head", type = "f32" },
+  { name = "UpperTorso", type = "f32" },
+  { name = "Arms", type = "f32" },
+  { name = "LowerTorso", type = "f32" },
+  { name = "Legs", type = "f32" },
+]
+
+[[member]]
+group = "FaceDialPosition"
+card = "repeated"
+
+[[member.member]]
+sig = "FMSI"
+name = "Index"
+type = "u32"
+
+[[member.member]]
+sig = "FMRS"
+name = "Position"
+type = "f32"
+
+[[member]]
+group = "FaceMorph"
+card = "repeated"
+
+[[member.member]]
+sig = "FMRI"
+name = "Index"
+type = "u32"
+
+[[member.member]]
+group = "MorphGroup"
+card = "repeated"
+
+[[member.member.member]]
+sig = "FMRG"
+name = "Group"
+type = "zstring"
+
+[[member.member.member]]
+sig = "FMRS"
+name = "BlendIntensity"
+type = "f32"
+
+[[member]]
+group = "MorphBlend"
+card = "repeated"
+
+[[member.member]]
+sig = "BMPN"
+name = "Name"
+type = "zstring"
+
+[[member.member]]
+sig = "BMPV"
+name = "Intensity"
+type = "f32"
+
+[[member]]
+sig = "ATTX"
+name = "ActivateTextOverride"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5700-L5700"]
+
+[[member]]
+sig = "STON"
+name = "SkinToneIndex"
+type = "u8"
+card = "optional"
+note = "0..8 in the official records (upstream shows them as 1..9)"
+
+[[member]]
+sig = "HCOL"
+name = "HairColor"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "FHCL"
+name = "FacialHairColor"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "BCOL"
+name = "EyebrowColor"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "ECOL"
+name = "EyeColor"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "JCOL"
+name = "JewelryColor"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "TETC"
+name = "TeethColor"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "PRON"
+name = "Pronoun"
+type = "enum"
+base = "u8"
+values = [["Unspecified", 0], ["HeHim", 1], ["SheHer", 2], ["TheyThem", 3]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2956-L2961"]
+
+[[member]]
+sig = "ONA2"
+name = "RaceOverrides"
+type = "struct"
+card = "optional"
+note = "observed in 337 records"
+field = [
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["Size", 0x1],
+    ["Movement", 0x2],
+    ["Flight", 0x4],
+    ["UnarmedWeapon", 0x8],
+    ["FlagOverrides", 0x10],
+    ["Bleedout", 0x20],
+    ["General", 0x40],
+    ["Electromagnetic", 0x80],
+  ], note = "which override blocks follow" },
+  { name = "Overrides", type = "opaque", note = "one block per set flag, in flag order; presence decided by the flags, kept raw" },
+]

@@ -1,0 +1,31 @@
+# SoundReference: a sound reference payload, used whole as a subrecord (NPC_ CS3S, RACE
+# WED0/WED1, SPEL PUSH/PDSH) or as the tail of a larger struct (MGEF ESSH).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L2197-L2226 - the sound reference helper (both
+#     overloads describe the same payload): an event set of two Wwise event GUIDs and a
+#     condition form, then a start form. The GUID width is not stated in either pinned file
+#     (the GUID type is declared in another xEdit unit, not consulted); 16 bytes each is the
+#     corpus fact below, since the two FormIDs take the remaining 8 of 40.
+#   corpus: CS3S in the NPC_ records, WED0/WED1 in the RACE records, PUSH/PDSH in the SPEL
+#     records and the tail of every MGEF ESSH (2026-10-14): 40 bytes in all 932
+#     occurrences, and every one decodes and re-encodes identically through this type.
+#
+# The two GUIDs are kept as raw bytes: they name Wwise events, which KitCraft does not
+# resolve; byte order inside a GUID is not interpreted.
+name = "SoundReference"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2226"
+evidence = [
+  "corpus: CS3S (NPC_ 614), WED0/WED1 (RACE 92), PUSH/PDSH (SPEL 2) and the ESSH tail (MGEF 224) in the 14 official ESMs, 2026-10-14 scan: all 40 bytes; actorcheck typed pass decodes and re-encodes every one identically",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "EventSet", type = "struct", field = [
+    { name = "StartEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+    { name = "StopEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+    { name = "Condition", type = "formid", targets = ["CNDF"] },
+  ] },
+  { name = "StartForm", type = "formid", targets = ["WWED"] },
+]
