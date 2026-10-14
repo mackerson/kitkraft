@@ -422,6 +422,15 @@ is under "Next".
     limitations`, through `execute`) installs a schema whose GLOB `FLTV` cites xEdit at
     `reference` (a test-only session slot, `SchemaOverride`). `query` decodes through
     `search::run_page_with(.., schema)` (`run_page` keeps the builtin schema).
+  - M3.D6: `crates/doc/tests/typed_corpus.rs` (five small files fast, all 14 `#[ignore]`,
+    release 24 s): the interpreter `inspect`/`where`/`diff` decode with agrees with the
+    generated decoder behind `Plugin::typed` on all 20,423 records of defined types
+    (FormIDs and string IDs), and every lstring ID resolves except 181 pinned corpus facts
+    (85 ARMO FULL IDs of Starfield.esm; BlueprintShips-SFBGS050.esm ships no string
+    tables). Counts in `docs/corpus.md`; the stale schema/inspect row of `docs/gaps.md`
+    closed, the lstring row restated.
+  - Not done, gated: M3.D4 (`follow`, `refs`) needs M3.B1 and M3.B2 (typed WEAP, AMMO,
+    PROJ) on main; M3.D5 needs the owner sessions M3.O1 (F00) and M3.O2.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -629,6 +638,11 @@ Agents append here when they need a change in a crate they do not own.
   in game would show their slots. Lead: the CK's own `EditorDataFilesLoaded.txt` in the game
   dir lists each loaded file with its index and ID form (`001 - (FE000XXX) -
   'KZ_Mantis.esm'`); a CK session with the full profile would record the CK's order.
+- **Lane D -> lane H / owner (M3.O2 script, from M3.D6).** BlueprintShips-SFBGS050.esm is
+  localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
+  nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
+  `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
+  (30 of the 96 IDs exist there) or shows none.
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
   `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
