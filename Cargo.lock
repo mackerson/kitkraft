@@ -185,9 +185,11 @@ dependencies = [
 name = "kitcraft-doc"
 version = "0.0.0"
 dependencies = [
+ "kitcraft-ba2",
  "kitcraft-esm",
  "kitcraft-schema",
  "kitcraft-strings",
+ "thiserror",
 ]
 
 [[package]]
@@ -223,6 +225,7 @@ name = "kitcraft-io"
 version = "0.0.0"
 dependencies = [
  "kitcraft-doc",
+ "thiserror",
 ]
 
 [[package]]

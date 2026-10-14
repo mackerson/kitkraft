@@ -196,7 +196,7 @@ fn legacy_handshake_then_tools() {
     // inspect through `command_line`.
     let reply = client.request(
         "tools/call",
-        json!({"name": "command_line", "arguments": {"text": format!("inspect fTestValue \"{plugin}\"")}}),
+        json!({"name": "command_line", "arguments": {"text": format!("inspect fTestValue --plugin \"{plugin}\"")}}),
     );
     let got = envelope(&reply);
     assert_eq!(got["data"]["record"]["form_id"], "00000100");
