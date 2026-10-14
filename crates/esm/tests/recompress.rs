@@ -1,5 +1,5 @@
-//! Measurement, not a gate: how many compressed records `flate2` (default backend,
-//! miniz_oxide) recompresses to the exact original bytes, per zlib level. Results go in
+//! Measurement, not a gate: how many compressed records `flate2` (with the workspace's
+//! backend, zlib-rs) recompresses to the exact original bytes, per zlib level. Results go in
 //! docs/gaps.md.
 //!
 //! `cargo test -p kitcraft-esm --release -- --ignored corpus_recompression --nocapture`

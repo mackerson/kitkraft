@@ -11,8 +11,10 @@ use crate::model::{Body, Record, Subrecord, HEADER_LEN};
 use crate::parse::parse_subrecords;
 use crate::{Error, Reader, Result};
 
-/// zlib level used when a modified compressed record is recompressed.
-pub const DEFAULT_LEVEL: u32 = 6;
+/// zlib level used when a modified compressed record is recompressed. Every compressed record
+/// in the official ESMs carries zlib header `78 DA` (maximum compression); with the zlib-rs
+/// backend, level 9 reproduces 99.9% of them byte for byte (docs/gaps.md).
+pub const DEFAULT_LEVEL: u32 = 9;
 
 /// Default cap on one record's decompressed size: 64 MiB.
 pub const DEFAULT_MAX_DECOMPRESSED: u64 = 64 * 1024 * 1024;
