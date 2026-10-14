@@ -1,0 +1,85 @@
+# IDLE: Animation (idle), a node in the idle animation tree: conditions decide whether it
+# plays, ANAM links it to its parent and previous sibling (an IDLE or an actor action).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12667-L12685 - member order, DNAM, ENAM, ANAM
+#     (parent and previous, AACT or IDLE), FNAM and its bits, GNAM, FULL. Conditions:
+#     L4750-L4840 (common/Condition.toml; IDLE has no CITC count upstream).
+#   corpus: the 1,302 IDLE records (Starfield.esm 1,158, ShatteredSpace 94, SFBGS004 30,
+#     SFBGS050 15, SFBGS00D 5; form versions 581, 582), 2026-10-14: order [EDID] (CTDA
+#     [CIS1])* DNAM [ENAM] ANAM FNAM [GNAM] [FULL]; ANAM 8, FNAM 1, CTDA 32, no CITC and no
+#     CIS2. ANAM slots resolve to IDLE (740), AACT (437) or null (1,427). No record is
+#     compressed. Every record decodes and re-encodes identically. EDID is absent from 1
+#     record.
+#
+# FNAM bit 0x10 is unnamed upstream (set in 5 records) and stays unnamed.
+signature = "IDLE"
+name = "IdleAnimation"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12667-L12685"
+evidence = [
+  "corpus: the 1,302 IDLE records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "absent from 1 official record"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "observed in 445 records, without a CITC count"
+
+[[member]]
+sig = "DNAM"
+name = "BehaviorGraph"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "ENAM"
+name = "AnimationEvent"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "ANAM"
+name = "Links"
+type = "struct"
+size = 8
+field = [
+  { name = "Parent", type = "formid", targets = ["AACT", "IDLE"] },
+  { name = "Previous", type = "formid", targets = ["AACT", "IDLE"] },
+]
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["Loose", 0x1], ["Preview", 0x2]]
+
+[[member]]
+sig = "GNAM"
+name = "AnimationFile"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
