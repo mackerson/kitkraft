@@ -761,8 +761,10 @@ fn line_number(text: &str) -> Result<u32, &'static str> {
 /// The `confidence` levels of ADR 0005 Amendment 2, weakest first.
 const CONFIDENCE_LEVELS: &[&str] = &["reference", "corpus", "ck-diff", "verified"];
 
-/// `confidence` is required when any citation is `xedit:` or `uesp-skyrim:`, and the
-/// claimed level must be backed by matching citations (ADR 0005 Amendment 2).
+/// `confidence` is required when any citation is `xedit:`, optional otherwise, and when
+/// present the claimed level must be backed by matching citations; a `uesp-skyrim:` fact
+/// is never `reference` (ADR 0005 Amendment 2). Making it required for `uesp-skyrim:`
+/// citations waits until the container definitions carry it (`plan/STATUS.md`).
 fn check_confidence(cx: &Cx<'_, '_>, raw: &RawFile) -> Result<(), SchemaError> {
     let cites = |prefix: &str| {
         std::iter::once(&raw.source)
@@ -774,9 +776,6 @@ fn check_confidence(cx: &Cx<'_, '_>, raw: &RawFile) -> Result<(), SchemaError> {
     let Some(level) = raw.confidence.as_deref() else {
         if xedit {
             return Err(cx.err(ErrorKind::MissingConfidence("`xedit:`")));
-        }
-        if skyrim {
-            return Err(cx.err(ErrorKind::MissingConfidence("`uesp-skyrim:`")));
         }
         return Ok(());
     };

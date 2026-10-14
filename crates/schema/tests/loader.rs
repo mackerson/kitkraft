@@ -238,11 +238,16 @@ fn signature_and_name_rules() {
 
 #[test]
 fn source_forms_follow_adr_0005() {
-    for prefix in ["corpus: x", "ck-diff: obs-1", "ck-wiki: Weapon"] {
+    for prefix in [
+        "uesp-skyrim: x",
+        "corpus: x",
+        "ck-diff: obs-1",
+        "ck-wiki: Weapon",
+    ] {
         let text = format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"{prefix}\"\n");
         parse_definition("TEST.toml", &text).unwrap();
     }
-    // A Skyrim container fact needs `confidence = "corpus"` or better (Amendment 2).
+    // A Skyrim container fact may say `confidence = "corpus"` or better (Amendment 2).
     let skyrim = "signature = \"TEST\"\nname = \"Test\"\nsource = \"uesp-skyrim: x\"\n\
                   evidence = [\"corpus: walk\"]\nconfidence = \"corpus\"\n";
     parse_definition("TEST.toml", skyrim).unwrap();
@@ -799,18 +804,19 @@ fn confidence_is_required_for_xedit_and_backed_by_citations() {
         |source: &str, rest: &str| kind_of(parse_definition("TEST.toml", &cited(source, rest)));
     let x = xedit("L1-L2");
 
-    // Missing: an error for `xedit:` (in source or evidence) and `uesp-skyrim:` citations.
+    // Missing: an error for `xedit:` citations, in source or evidence.
     assert_eq!(check(&x, ""), ErrorKind::MissingConfidence("`xedit:`"));
     assert_eq!(
         check("corpus: c", &format!("evidence = [\"{x}\"]\n")),
         ErrorKind::MissingConfidence("`xedit:`")
     );
-    assert_eq!(
-        check("uesp-skyrim: x", "evidence = [\"corpus: walk\"]\n"),
-        ErrorKind::MissingConfidence("`uesp-skyrim:`")
-    );
-    // Optional elsewhere, but checked when present.
+    // Optional elsewhere (for now also on `uesp-skyrim:`), but checked when present.
     parse_definition("TEST.toml", &cited("corpus: c", "")).unwrap();
+    parse_definition(
+        "TEST.toml",
+        &cited("uesp-skyrim: x", "evidence = [\"corpus: walk\"]\n"),
+    )
+    .unwrap();
     parse_definition(
         "TEST.toml",
         &cited("corpus: c", "confidence = \"corpus\"\n"),

@@ -158,9 +158,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Schema Coverage",
         shortcut: None,
         aliases: &[],
-        summary: "Record types and subrecords in a plugin vs what the schema can decode",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"}},"required":["plugin"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Record types and subrecords in a plugin vs what the schema defines (typed, opaque, unknown)",
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"}},"required":["plugin"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "ba2.list",
@@ -324,7 +324,7 @@ mod execute_tests {
         let extract = crate::find_command("ba2.extract").unwrap();
         crate::prepare_args(extract, json!({"archive": "a.ba2", "out_dir": "o"})).unwrap();
         let coverage = crate::find_command("coverage").unwrap();
-        assert_eq!(coverage.status, Status::Planned);
+        assert_eq!(coverage.status, Status::Implemented);
     }
 
     #[test]
@@ -476,6 +476,7 @@ mod execute_tests {
         let engine = Engine::with_default_handlers();
         assert!(engine.has_handler("roundtrip"));
         assert!(engine.has_handler("inspect"));
+        assert!(engine.has_handler("coverage"));
         for spec in catalog() {
             assert_eq!(
                 spec.status == Status::Implemented,

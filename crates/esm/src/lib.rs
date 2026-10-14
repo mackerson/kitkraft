@@ -17,6 +17,8 @@
 pub mod compress;
 pub mod driver;
 mod error;
+/// Typed records generated from `crates/schema/defs/` by `cargo xtask codegen` (do not edit).
+pub mod generated;
 mod model;
 mod parse;
 mod reader;

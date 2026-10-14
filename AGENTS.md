@@ -107,11 +107,12 @@ catalog instead of acting on data, so they are plain CLI subcommands and need no
   (2) record definitions: upstream xEdit `Core/wbDefinitionsSF1.pas` pinned at
   `9fb016884bec138ea6c7b872cec831537d464c3e` (`docs/xedit-reference.md`); (3) empirical
   validation: corpus statistics, CK differential observation, differential comparison
-  against SF1Edit; (4) secondary: UESP's Starfield pages, the CK wiki, community docs. Our
-  own hex dumps of the official ESMs are the tiebreaker. Record facts in `crates/schema`
-  definitions with their `source`, `evidence` and `confidence` (`reference`, `corpus`,
-  `ck-diff`, `verified`); never paste prose or code from any source, and never write a
-  Starfield layout from memory.
+  against SF1Edit; (4) secondary: UESP's Starfield pages on starfieldwiki.net (thin; cite as
+  `uesp-starfield:`; `/Raw_Data` only cross-checks our corpus inventory; for `/CTDA` cite
+  xEdit instead), the CK wiki, community docs. Our own hex dumps of the official ESMs are
+  the tiebreaker. Record facts in `crates/schema` definitions with their `source`,
+  `evidence` and `confidence` (`reference`, `corpus`, `ck-diff`, `verified`); never paste
+  prose or code from any source, and never write a Starfield layout from memory.
 - **xEdit's Pascal is source material only.** Read the pinned `wbDefinitionsSF1.pas` from a
   copy outside the repo (`*.pas` is gitignored; delete it after use), and write our TOML
   independently: no code or comments copied, no reproduction of xEdit's architecture, no
