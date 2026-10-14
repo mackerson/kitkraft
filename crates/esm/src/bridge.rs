@@ -198,7 +198,7 @@ mod tests {
         let Typed::Gmst(gmst) = &typed else {
             panic!("{typed:?}")
         };
-        assert_eq!(gmst.edid.as_ref().unwrap().0, b"fFoo\0");
+        assert_eq!(gmst.editor_id.as_ref().unwrap().0, b"fFoo");
         // Undefined types have no typed form.
         let Entry::Group(cells) = &plugin.entries()[1] else {
             panic!()

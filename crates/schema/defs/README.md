@@ -284,13 +284,19 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
 | `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
-| `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory only: order and cardinality; every payload opaque |
-| `WEAP.toml` | record    | corpus scan                              | Inventory only; typed layout waits for lane B round 3 (`xedit:`) |
+| `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory: order and cardinality; universal subrecords typed (M2.B2), the rest opaque |
+| `WEAP.toml` | record    | corpus scan                              | Inventory; universal subrecords typed (M2.B2); the body layout waits for lane B round 3 (`xedit:`) |
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
-| `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; payloads opaque         |
+| `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |
+| `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |
 
-Inventory definitions name members after their signature (`Edid`, `Wfir`, `Flld2`). These
-are placeholders: giving a member a real name later is a breaking change for queries.
+Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
+is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`
+(`Count`, `Forms`). Each typed member carries its own `evidence` (the UESP string
+conventions page and the universal corpus scan of 2026-10-14) and `confidence = "corpus"`.
+
+Opaque inventory members are named after their signature (`Wfir`, `Flld2`). These are
+placeholders: giving a member a real name later is a breaking change for queries.
 
 ## Example
 

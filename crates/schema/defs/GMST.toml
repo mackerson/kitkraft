@@ -1,4 +1,5 @@
-# GMST: subrecord inventory only. Every payload is opaque until its layout is decided.
+# GMST: subrecord inventory. The universal subrecords (EDID, and FULL where present) are
+# typed (M2.B2, sources on each member); every other payload is opaque until sourced.
 #
 # Source (ADR 0005 "inventory" row): corpus scan of the GMST top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
@@ -13,9 +14,13 @@ confidence = "corpus"
 
 [[member]]
 sig = "EDID"
-name = "Edid"
-type = "opaque"
+name = "EditorId"
+type = "zstring"
 note = "observed 4..71 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
 
 [[member]]
 sig = "XALG"

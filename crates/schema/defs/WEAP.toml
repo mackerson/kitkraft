@@ -1,5 +1,6 @@
-# WEAP: subrecord inventory only. Layout pending ADR 0005: Starfield field layouts need
-# ck-diff observations, so every payload is opaque until one is recorded.
+# WEAP: subrecord inventory. The universal subrecords (EDID, FULL, DESC, and KSIZ/KWDA as
+# the shared Keywords group) are typed (M2.B2, sources on each member); every other payload
+# is opaque until the record layout is transcribed (lane B round 3, xEdit at the pin).
 #
 # Source (ADR 0005 "inventory" row): corpus scan of the WEAP top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
@@ -15,7 +16,7 @@
 # DAMA occurs with 12 or 24 bytes; without a source for its fields it stays opaque (an
 # `if_remaining` tail needs the field split as a sourced fact, not just two sizes).
 #
-# Member names are placeholders derived from the signature.
+# Opaque member names are placeholders derived from the signature.
 signature = "WEAP"
 name = "Weapon"
 source = "corpus: WEAP records of the official ESMs (12 files with a WEAP group)"
@@ -24,8 +25,12 @@ note = "layout pending ADR 0005"
 
 [[member]]
 sig = "EDID"
-name = "Edid"
-type = "opaque"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
 
 [[member]]
 sig = "OBND"
@@ -67,10 +72,13 @@ note = "observed up to 5 per record; bodies seen: REFL, ANAM BNAM [ENAM], QUPA, 
 
 [[member]]
 sig = "FULL"
-name = "Full"
-type = "opaque"
+name = "Name"
+type = "lstring"
 card = "optional"
-note = "observed 4 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
 
 [[member]]
 sig = "MODL"
@@ -134,24 +142,17 @@ card = "optional"
 note = "observed 40 bytes"
 
 [[member]]
-sig = "KSIZ"
-name = "Ksiz"
-type = "opaque"
+group_ref = "Keywords"
 card = "optional"
-note = "observed 4 bytes"
-
-[[member]]
-sig = "KWDA"
-name = "Kwda"
-type = "opaque"
-card = "optional"
-note = "observed multiples of 4 bytes"
 
 [[member]]
 sig = "DESC"
-name = "Desc"
-type = "opaque"
-note = "observed 4 bytes"
+name = "Description"
+type = "lstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
 
 [[member]]
 sig = "INRD"

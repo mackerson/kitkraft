@@ -562,17 +562,42 @@ fn seed_weap_inventory_shape() {
         b"DESC", b"OBTE", b"OBTF", b"FULL", b"OBTS", b"FULL", b"OBTS", b"STOP", b"NNAM", b"WFIR",
         b"FLLD", b"WTRM",
     ];
+    // Typed members (M2.B2) get well-formed payloads for a localized plugin; the opaque
+    // ones get arbitrary bytes.
+    let kwda = [7u32.to_le_bytes(), 0x0100_0009u32.to_le_bytes()].concat();
     let subs: Vec<seed::OwnedSub> = sigs
         .iter()
         .enumerate()
-        .map(|(i, sig)| s(sig, &vec![i as u8; i % 5]))
+        .map(|(i, sig)| match *sig {
+            b"EDID" => s(sig, b"Gun\0"),
+            b"FULL" | b"DESC" => s(sig, &(0x0100_0000 + i as u32).to_le_bytes()),
+            b"KSIZ" => s(sig, &2u32.to_le_bytes()),
+            b"KWDA" => s(sig, &kwda),
+            _ => s(sig, &vec![i as u8; i % 5]),
+        })
         .collect();
     let raws = seed_raw(&subs);
-    let rec = WeapRecord::decode(&raws, Ctx::default());
+    let localized = Ctx {
+        form_version: 582,
+        localized: true,
+    };
+    let rec = WeapRecord::decode(&raws, localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert_eq!(rec.bfcb_block.len(), 1);
     assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
-    assert!(rec.full.is_some());
+    assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gun");
+    assert_eq!(**rec.name.as_ref().unwrap(), seed::LString::Id(0x0100_0006));
+    let keywords = rec.keywords.as_ref().unwrap();
+    assert_eq!(**keywords.count.as_ref().unwrap(), 2);
+    assert_eq!(keywords.forms.as_ref().unwrap().0.len(), 2);
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(ids, [("Keywords.KWDA", 7), ("Keywords.KWDA", 0x0100_0009)]);
+    // FULL, DESC and the two FULL entries of the OBTE block.
+    assert_eq!(rec.lstrings().len(), 4);
+    // Without the localized flag a 4-byte FULL is no zstring: it stays raw, losslessly.
+    let plain = WeapRecord::decode(&raws, Ctx::default());
+    assert_eq!(plain.extra.len(), 4);
+    assert_eq!(plain.encode(), subs);
     let block = rec.obte_block.as_ref().unwrap();
     assert!(block.obte.is_some() && block.stop.is_some());
     assert_eq!(block.obts_entry.len(), 2);
@@ -602,14 +627,14 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     ];
     let rec = GlobRecord::decode(&seed_raw(&glob), Ctx::default());
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
-    assert_eq!(rec.edid.as_ref().unwrap().0, b"Gv\0");
+    assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gv");
     assert_eq!(rec.bfcb_block.len(), 1);
     assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
     assert_eq!(rec.fltv.as_ref().unwrap().0.len(), 4);
     assert_eq!(rec.encode(), glob);
     let bare = vec![s(b"FLTV", &[0; 4])];
     let rec = GlobRecord::decode(&seed_raw(&bare), Ctx::default());
-    assert!(rec.edid.is_none() && rec.fltv.is_some() && rec.extra.is_empty());
+    assert!(rec.editor_id.is_none() && rec.fltv.is_some() && rec.extra.is_empty());
 
     // GMST "EDID XALG DATA".
     let gmst = vec![

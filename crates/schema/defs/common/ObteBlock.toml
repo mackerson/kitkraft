@@ -5,7 +5,7 @@
 # follow; STOP (0 bytes) closes it. STOP also occurs on its own, in records without OBTE,
 # which is why OBTE is optional here. The meaning of the block is not sourced yet.
 #
-# Member names are placeholders derived from the signature.
+# Opaque member names are placeholders derived from the signature.
 name = "ObteBlock"
 kind = "group"
 source = "corpus: OBTE..STOP blocks in the WEAP records of the official ESMs"
@@ -32,9 +32,12 @@ note = "observed 0 bytes"
 
 [[member.member]]
 sig = "FULL"
-name = "Full"
-type = "opaque"
-note = "observed 4 bytes"
+name = "Name"
+type = "lstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types, these included) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
 
 [[member.member]]
 sig = "OBTS"
