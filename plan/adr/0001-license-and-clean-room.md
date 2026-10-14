@@ -32,10 +32,24 @@ and then writing "our own" version of the same thing makes the result arguably d
    - Copying UESP prose (CC BY-SA) into code, schema files, or docs. Facts (signatures,
      sizes, offsets, types, flag values) are recorded in our own words and structure.
    - Committing any Bethesda data or asset, including CK screenshots.
-4. **Allowed:** running Spriggit as an external binary to produce an oracle for comparison;
+4. **Allowed:** running Spriggit (or any other third-party tool) as an external binary;
    porting our own Python tools in `C:\Modding\scripts`; running REA-style analysis on our
    own binaries (crash triage).
+   - Third-party tool output may be used **for byte-level inventory facts only**: record
+     counts, FormIDs, EditorIDs, subrecord signatures and subrecord sizes.
+   - Its field names, YAML/JSON key structure, and struct layouts must not be used to author
+     or check anything in `crates/schema/defs/` (or generated code, or docs). Those come only
+     from the sources in ADR 0005.
+   - Spriggit is not an oracle for roundtrip correctness: it lost data on 2 of 5 real mods
+     tested (`docs/gaps.md`).
 5. Every non-code third-party asset is listed in `ATTRIBUTION.md` before commit.
+
+### Provenance of `C:\Modding\scripts`
+
+The Python tools in `C:\Modding\scripts` that the `ba2`, `pex` and `doc` crates port
+(`ba2x.py`, `pexdis.py`, `esmscan.py`) were written in-session from inspection of the files
+themselves, without xEdit or Mutagen source open. They are our own code and may be ported
+freely.
 
 ## Consequences
 

@@ -60,8 +60,12 @@ every layout inferred from CK observation.
    compare with schema definitions; output is `docs/record-parity.md`.
 3. **Hostile input (M1.7):** truncations and seeded bit flips of the small files must yield
    errors, never panics.
-4. **Oracle (optional):** Spriggit, run as an external binary, can turn a file into YAML for
-   spot comparisons with our decoded view. Its source is never read.
+4. **Third-party tool output (restricted):** Spriggit, run as an external binary, can turn a
+   file into YAML. Per ADR 0001 §4 that output may be used only for byte-level inventory
+   facts: record counts, FormIDs, EditorIDs, subrecord signatures and sizes. Its field names
+   and struct layouts are never used to author or check `crates/schema/defs/`, and it is not
+   a roundtrip oracle (it lost data on 2 of 5 real mods; see `docs/gaps.md`). Its source is
+   never read.
 
 ## Run log
 
