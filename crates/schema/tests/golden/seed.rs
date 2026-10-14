@@ -12,6 +12,7 @@
 // - AMDL (corpus: AMDL records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - AMMO (corpus: AMMO records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - COBJ (corpus: COBJ records of the 14 official ESMs, scan 2026-10-14; corpus)
+// - GBFM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12247-L12264; corpus)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
@@ -2691,6 +2692,348 @@ impl CobjRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("COBJ", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GbfmCombination {
+    /// `OBTF`, optional.
+    pub editor_only: Option<Sub<Empty>>,
+    /// `OBTS`, required.
+    pub item: Option<Sub<Bytes>>,
+}
+
+impl GbfmCombination {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"OBTF",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBTS",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.editor_only,
+                    subs,
+                    *index,
+                    "GBFM.Combination.OBTF",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.item,
+                    subs,
+                    *index,
+                    "GBFM.Combination.OBTS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"OBTF", self.editor_only.as_ref());
+        emit(out, *b"OBTS", self.item.as_ref());
+    }
+}
+
+impl Visit for GbfmCombination {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct GbfmRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FLTR`, optional.
+    pub filter: Option<Sub<ZString>>,
+    /// `ANAM`, required.
+    pub template: Option<Sub<FormId>>,
+    /// `STRV`, repeated.
+    pub instance_data: Vec<Sub<ZString>>,
+    /// `OBTE`, optional.
+    pub template_count: Option<Sub<u32>>,
+    /// Group `Combination`, repeated.
+    pub combination: Vec<GbfmCombination>,
+    /// `STOP`, required.
+    pub marker1: Option<Sub<Empty>>,
+    /// `STOP`, required.
+    pub marker2: Option<Sub<Empty>>,
+    /// `NVNM`, optional.
+    pub navmesh_geometry: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl GbfmRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"STRV",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBTE",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: GbfmCombination::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"STOP",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"STOP",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NVNM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "GBFM.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "GBFM.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "GBFM.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "GBFM.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "GBFM.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 5, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.filter, subs, *index, "GBFM.FLTR", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.template, subs, *index, "GBFM.ANAM", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => push(
+                    &mut self.instance_data,
+                    subs,
+                    *index,
+                    "GBFM.STRV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.template_count,
+                    subs,
+                    *index,
+                    "GBFM.OBTE",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 10, hits } => {
+                    let mut group = GbfmCombination::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.combination.push(group);
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.marker1, subs, *index, "GBFM.STOP", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.marker2, subs, *index, "GBFM.STOP", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.navmesh_geometry,
+                    subs,
+                    *index,
+                    "GBFM.NVNM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FLTR", self.filter.as_ref());
+        emit(out, *b"ANAM", self.template.as_ref());
+        for value in &self.instance_data {
+            emit(out, *b"STRV", Some(value));
+        }
+        emit(out, *b"OBTE", self.template_count.as_ref());
+        for group in &self.combination {
+            group.emit(out);
+        }
+        emit(out, *b"STOP", self.marker1.as_ref());
+        emit(out, *b"STOP", self.marker2.as_ref());
+        emit(out, *b"NVNM", self.navmesh_geometry.as_ref());
+    }
+}
+
+impl Visit for GbfmRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.template, "GBFM.ANAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.template, "GBFM.ANAM", out);
+    }
+}
+
+impl GbfmRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"GBFM";
+    /// Record-header flag.
+    pub const FLAG_UNIQUE: u32 = 0x4;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("GBFM", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("GBFM", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("GBFM", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("GBFM", &mut out);
         out
     }
 }
@@ -6694,6 +7037,7 @@ pub enum Record {
     Amdl(Box<AmdlRecord>),
     Ammo(Box<AmmoRecord>),
     Cobj(Box<CobjRecord>),
+    Gbfm(Box<GbfmRecord>),
     Glob(Box<GlobRecord>),
     Gmst(Box<GmstRecord>),
     Kywd(Box<KywdRecord>),
@@ -6713,6 +7057,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"AMDL", AmdlRecord::MEMBERS),
     (*b"AMMO", AmmoRecord::MEMBERS),
     (*b"COBJ", CobjRecord::MEMBERS),
+    (*b"GBFM", GbfmRecord::MEMBERS),
     (*b"GLOB", GlobRecord::MEMBERS),
     (*b"GMST", GmstRecord::MEMBERS),
     (*b"KYWD", KywdRecord::MEMBERS),
@@ -6735,6 +7080,7 @@ impl Record {
             b"AMDL" => Self::Amdl(Box::new(AmdlRecord::decode(subs, ctx))),
             b"AMMO" => Self::Ammo(Box::new(AmmoRecord::decode(subs, ctx))),
             b"COBJ" => Self::Cobj(Box::new(CobjRecord::decode(subs, ctx))),
+            b"GBFM" => Self::Gbfm(Box::new(GbfmRecord::decode(subs, ctx))),
             b"GLOB" => Self::Glob(Box::new(GlobRecord::decode(subs, ctx))),
             b"GMST" => Self::Gmst(Box::new(GmstRecord::decode(subs, ctx))),
             b"KYWD" => Self::Kywd(Box::new(KywdRecord::decode(subs, ctx))),
@@ -6757,6 +7103,7 @@ impl Record {
             Self::Amdl(record) => record.encode(),
             Self::Ammo(record) => record.encode(),
             Self::Cobj(record) => record.encode(),
+            Self::Gbfm(record) => record.encode(),
             Self::Glob(record) => record.encode(),
             Self::Gmst(record) => record.encode(),
             Self::Kywd(record) => record.encode(),
@@ -6778,6 +7125,7 @@ impl Record {
             Self::Amdl(_) => AmdlRecord::SIGNATURE,
             Self::Ammo(_) => AmmoRecord::SIGNATURE,
             Self::Cobj(_) => CobjRecord::SIGNATURE,
+            Self::Gbfm(_) => GbfmRecord::SIGNATURE,
             Self::Glob(_) => GlobRecord::SIGNATURE,
             Self::Gmst(_) => GmstRecord::SIGNATURE,
             Self::Kywd(_) => KywdRecord::SIGNATURE,
@@ -6799,6 +7147,7 @@ impl Record {
             Self::Amdl(record) => record.form_ids(),
             Self::Ammo(record) => record.form_ids(),
             Self::Cobj(record) => record.form_ids(),
+            Self::Gbfm(record) => record.form_ids(),
             Self::Glob(record) => record.form_ids(),
             Self::Gmst(record) => record.form_ids(),
             Self::Kywd(record) => record.form_ids(),
@@ -6820,6 +7169,7 @@ impl Record {
             Self::Amdl(record) => record.form_ids_mut(),
             Self::Ammo(record) => record.form_ids_mut(),
             Self::Cobj(record) => record.form_ids_mut(),
+            Self::Gbfm(record) => record.form_ids_mut(),
             Self::Glob(record) => record.form_ids_mut(),
             Self::Gmst(record) => record.form_ids_mut(),
             Self::Kywd(record) => record.form_ids_mut(),
@@ -6841,6 +7191,7 @@ impl Record {
             Self::Amdl(record) => record.lstrings(),
             Self::Ammo(record) => record.lstrings(),
             Self::Cobj(record) => record.lstrings(),
+            Self::Gbfm(record) => record.lstrings(),
             Self::Glob(record) => record.lstrings(),
             Self::Gmst(record) => record.lstrings(),
             Self::Kywd(record) => record.lstrings(),
@@ -6862,6 +7213,7 @@ impl Record {
             Self::Amdl(record) => record.lstrings_mut(),
             Self::Ammo(record) => record.lstrings_mut(),
             Self::Cobj(record) => record.lstrings_mut(),
+            Self::Gbfm(record) => record.lstrings_mut(),
             Self::Glob(record) => record.lstrings_mut(),
             Self::Gmst(record) => record.lstrings_mut(),
             Self::Kywd(record) => record.lstrings_mut(),
@@ -6884,6 +7236,7 @@ impl Record {
             Self::Amdl(record) => &record.extra,
             Self::Ammo(record) => &record.extra,
             Self::Cobj(record) => &record.extra,
+            Self::Gbfm(record) => &record.extra,
             Self::Glob(record) => &record.extra,
             Self::Gmst(record) => &record.extra,
             Self::Kywd(record) => &record.extra,

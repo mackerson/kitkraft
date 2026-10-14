@@ -150,8 +150,8 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN", "PCCN", "PCMT",
-            "PKIN", "TES4", "WEAP", "ZOOM"
+            "AMDL", "AMMO", "COBJ", "GBFM", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN", "PCCN",
+            "PCMT", "PKIN", "TES4", "WEAP", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
