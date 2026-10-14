@@ -141,7 +141,7 @@ fn builtin_set_loads_and_matches_the_directory() {
     let sigs: Vec<&str> = embedded.records.keys().map(Signature::as_str).collect();
     assert_eq!(
         sigs,
-        ["AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "TES4", "WEAP", "ZOOM"]
+        ["AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "PROJ", "TES4", "WEAP", "ZOOM"]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
@@ -266,18 +266,8 @@ fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 8] = [
+    let expected: [(&str, &[&str]); 7] = [
         ("AMDL", &["EditorId"]),
-        (
-            "AMMO",
-            &[
-                "EditorId",
-                "Name",
-                "Description",
-                "Keywords.Count",
-                "Keywords.Forms",
-            ],
-        ),
         (
             "COBJ",
             &[
@@ -428,7 +418,7 @@ fn round3_definitions_cite_xedit_per_member() {
 }
 
 /// The record types lane B round 3 has transcribed from the pinned xEdit file.
-const ROUND3: &[&str] = &["WEAP"];
+const ROUND3: &[&str] = &["WEAP", "AMMO", "PROJ"];
 
 #[test]
 fn tes4_container_layout() {

@@ -422,6 +422,12 @@ is under "Next".
     decided by the component type). New shared definitions: `Model`, `Destructible`,
     `SoundReference`, `ObjectModProperty`, `Vec3`, `Bool8`; `BfcbBlock` and `ObteBlock`
     typed (component type, end markers, object template items).
+  - **M3.B2 AMMO, PROJ**: all 154 AMMO and 299 PROJ records. AMMO: every member typed
+    except VMAD; DATA's weight is `if_remaining` (xEdit makes it optional). PROJ (no
+    inventory before; the corpus check is its inventory): every member typed except VMAD and
+    the BFCB component data; PROD's two particle define strings have a u32 length prefix,
+    typed as a count field plus raw bytes (the format has no u32-prefixed string); the
+    unused 0-byte DATA is an `empty` marker.
 
 ## Next
 
