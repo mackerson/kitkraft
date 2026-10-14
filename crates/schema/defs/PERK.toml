@@ -1,0 +1,332 @@
+# PERK: Perk, a skill, trait, background or crew ability. Each rank holds perk effects
+# (a quest stage, an ability spell, or an entry point that modifies a game value), rank
+# conditions, an optional activity tracker (the challenge that unlocks the next rank), a
+# description and its upgrade cost. NPC_ lists perks in PRKZ/PRKR.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15872-L15921 - member order, the record flag,
+#     DATA, TNAM/UNAM/GNAM, the rank group and the bonus perks. Helpers: EDID (L3182),
+#     the fragmented script data (L3476-L3482, kept opaque), FULL (L3184), DESC
+#     (L3186-L3193), the category and skill group enums (L2897-L2914), the perk effect
+#     (L7207-L7316) with its type (wbDefinitionsCommon.pas L8554-L8562) and perk
+#     conditions (L7201-L7205), the conditions (L4750-L4840, common/Condition.toml), CITC
+#     (L2251), the activity tracker (L5645-L5672).
+#   corpus: the 608 PERK records (Starfield.esm 502, SFBGS00D 74, ShatteredSpace 15,
+#     SFBGS050 7, SFBGS007 6, SFBGS003 2, SFBGS004 1, SFBGS047 1; form versions 581, 582),
+#     2026-10-14: every record fits the order below. The top-level DATA is 4 bytes in all
+#     608 records; PRKE 3; effect DATA 3 (2,097 entry points), 4 (118 abilities) or 6 (45
+#     quest stages); EPFT 1, EPFB 2, EPFD 4 or 8, EPF2 4 (localized), EPF3 2; PRKC 1;
+#     CTDA 32; PRUC 4; ATCP 4; ANAM 31. Every record decodes and re-encodes identically.
+#
+# What stays opaque, and why: VMAD (script fragments; property values are unions), the
+# effect DATA (a union selected by the effect type in PRKE), EPFD (a union selected by
+# EPFT), ATAV (activity configuration text without a terminator that may embed FormIDs).
+# The top-level DATA's crew requirement exists only in 4-byte payloads upstream; every
+# official payload has it, so it is typed here (a 3-byte DATA would stay raw).
+signature = "PERK"
+name = "Perk"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15872-L15921"
+evidence = [
+  "corpus: the 608 PERK records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
+]
+confidence = "corpus"
+flags = [["NonPlayable", 0x4]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3476-L3482"]
+note = "script data with perk script fragments; property values are unions by property type, kept raw; observed in 14 records"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3190-L3193"]
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 4
+field = [
+  { name = "Category", type = "enum", base = "u8", values = [
+    ["None", 0],
+    ["Combat", 1],
+    ["Science", 2],
+    ["Tech", 3],
+    ["Physical", 4],
+    ["Social", 5],
+    ["All", 6],
+    ["AllIncludingNone", 7],
+  ], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2897-L2906"] },
+  { name = "SkillGroup", type = "enum", base = "u8", values = [
+    ["None", 0],
+    ["Basic", 1],
+    ["Advanced", 2],
+    ["Expert", 3],
+    ["Master", 4],
+  ], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2908-L2914"] },
+  { name = "CrewAssignmentRequirement", type = "enum", base = "u8", values = [["AnyRole", 0], ["Ship", 1], ["Outpost", 2]], note = "upstream: present only when DATA is 4 bytes; every official DATA is" },
+  { name = "Flags", type = "flags", base = "u8", bits = [
+    ["Trait", 0x1],
+    ["Playable", 0x2],
+    ["Hidden", 0x4],
+    ["Crew", 0x8],
+    ["Background", 0x10],
+    ["HiddenOnDataMenu", 0x20],
+  ] },
+]
+
+[[member]]
+sig = "TNAM"
+name = "Restriction"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+note = "observed in 10 records"
+
+[[member]]
+sig = "UNAM"
+name = "Training"
+type = "formid"
+targets = ["PERK"]
+card = "optional"
+note = "observed in 16 records"
+
+[[member]]
+sig = "GNAM"
+name = "Icon"
+type = "zstring"
+card = "optional"
+note = "observed in 154 records"
+
+[[member]]
+group = "Rank"
+card = "repeated"
+note = "observed up to 10 per record (one rank per PRRK..PRRF)"
+
+[[member.member]]
+sig = "PRRK"
+name = "Start"
+type = "empty"
+
+[[member.member]]
+group = "Effect"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7207-L7316"]
+note = "observed up to 50 per record"
+
+[[member.member.member]]
+sig = "PRKE"
+name = "Header"
+type = "struct"
+size = 3
+field = [
+  { name = "Type", type = "enum", base = "u8", values = [["QuestStage", 0], ["Ability", 1], ["EntryPoint", 2]], evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8554-L8562"] },
+  { name = "Rank", type = "u8" },
+  { name = "Priority", type = "u8" },
+]
+
+[[member.member.member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+note = "union by Header.Type: a quest and stage (6 bytes), an ability spell (4), or an entry point, its function and condition tab count (3)"
+
+[[member.member.member]]
+group = "PerkCondition"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7201-L7205"]
+
+[[member.member.member.member]]
+sig = "PRKC"
+name = "RunOnTabIndex"
+type = "i8"
+
+[[member.member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "without a CITC count"
+
+[[member.member.member]]
+group = "FunctionParameters"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "EPFT"
+name = "Type"
+type = "enum"
+base = "u8"
+values = [
+  ["None", 0],
+  ["Float", 1],
+  ["FloatOrActorValueAndFloat", 2],
+  ["LeveledItem", 3],
+  ["SpellLabelAndFlags", 4],
+  ["Spell", 5],
+  ["Text", 6],
+  ["LocalizedText", 7],
+  ["ActorValue", 8],
+  ["ReplacementProjectile", 9],
+]
+note = "says how EPFD is laid out"
+
+[[member.member.member.member]]
+sig = "EPFB"
+name = "EntryId"
+type = "u16"
+card = "optional"
+note = "unique perk entry ID"
+
+[[member.member.member.member]]
+sig = "EPF2"
+name = "ButtonLabel"
+type = "lstring"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "EPF3"
+name = "ScriptFlags"
+type = "flags"
+base = "u16"
+bits = [["RunImmediately", 0x1], ["ReplaceDefault", 0x2]]
+card = "optional"
+
+[[member.member.member.member]]
+sig = "EPFD"
+name = "Data"
+type = "opaque"
+card = "optional"
+note = "union by EPFT: a float, two floats, a leveled item, a spell, text, an actor value and float, or a projectile"
+
+[[member.member.member]]
+sig = "PRKF"
+name = "End"
+type = "empty"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "rank conditions, without a CITC count"
+
+[[member.member]]
+group = "ActivityTracker"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5645-L5672"]
+note = "the challenge that unlocks the next rank; observed in 84 records"
+
+[[member.member.member]]
+sig = "ATCP"
+name = "Count"
+type = "u32"
+note = "number of Activities that follow; stored, not derived"
+
+[[member.member.member]]
+group = "Activity"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "ATAN"
+name = "Type"
+type = "zstring"
+
+[[member.member.member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+
+[[member.member.member.member]]
+group = "Argument"
+card = "repeated"
+note = "progression evaluator arguments"
+
+[[member.member.member.member.member]]
+sig = "DNAM"
+name = "Name"
+type = "zstring"
+
+[[member.member.member.member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of conditions that follow; stored, not derived"
+
+[[member.member.member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member.member.member.member]]
+sig = "ANAM"
+name = "Anam"
+type = "zstring"
+note = "unnamed upstream; 31 bytes in every official record"
+
+[[member.member.member.member]]
+sig = "ATAV"
+name = "Configuration"
+type = "opaque"
+note = "configuration text without a terminator, which may embed FormIDs; kept raw"
+
+[[member.member.member.member]]
+sig = "ATAF"
+name = "Ataf"
+type = "empty"
+note = "unnamed upstream; always empty"
+
+[[member.member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3186-L3189"]
+
+[[member.member]]
+sig = "PRUC"
+name = "UpgradeCost"
+type = "u32"
+card = "optional"
+note = "quantum essence upgrade cost; present in every official rank"
+
+[[member.member]]
+sig = "PRRF"
+name = "End"
+type = "empty"
+
+[[member]]
+sig = "RNAM"
+name = "BonusPerks"
+type = "formid"
+targets = ["PERK"]
+card = "repeated"
+note = "observed in 21 records"
