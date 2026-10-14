@@ -23,3 +23,19 @@ pub use model::{
     AnyUntilDef, ArrayCount, Cardinality, Definition, FieldDef, FieldType, GroupDef, HeaderDef,
     Member, NamedValue, RecordDef, Scalar, Schema, Signature, SubrecordDef, VersionedSize,
 };
+
+/// The checked-in definition files (`crates/schema/defs/*.toml`), embedded at build time.
+/// A test keeps this list in sync with the directory.
+pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
+    ("GLOB.toml", include_str!("../defs/GLOB.toml")),
+    ("GMST.toml", include_str!("../defs/GMST.toml")),
+    ("GRUP.toml", include_str!("../defs/GRUP.toml")),
+    ("KYWD.toml", include_str!("../defs/KYWD.toml")),
+    ("TES4.toml", include_str!("../defs/TES4.toml")),
+    ("WEAP.toml", include_str!("../defs/WEAP.toml")),
+];
+
+/// Loads and validates the embedded definition set.
+pub fn builtin() -> Result<Schema, SchemaError> {
+    load_sources(BUILTIN_DEFINITIONS.iter().copied())
+}

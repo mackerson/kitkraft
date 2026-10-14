@@ -1,0 +1,49 @@
+# GLOB: subrecord inventory only. Every payload is opaque until its layout is decided.
+#
+# Source: corpus scan of the GLOB top group in Starfield.esm, ShatteredSpace.esm,
+# Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
+# 3319 records, form versions 552/576/581/582. Shapes: "EDID FLTV" (3315), "FLTV" (3),
+# "EDID BFCB FLCS BFCE FLTV" (1). No FNAM occurs (unlike Skyrim's GLOB).
+# Cross-checked against the UESP Starfield raw-data dump
+# (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data).
+#
+# BFCB ... BFCE brackets a block of subrecords (BFCB holds a NUL-terminated type name in
+# every observed case); the block contents are kept as raw subrecords.
+#
+# Member names are placeholders derived from the signature.
+signature = "GLOB"
+name = "Global"
+source = "corpus: GLOB records of the official ESMs (12 files with a GLOB group)"
+evidence = ["UESP Starfield raw-data dump agrees: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data"]
+
+[[member]]
+sig = "EDID"
+name = "Edid"
+type = "opaque"
+card = "optional"
+note = "absent in 3 of 3319 records"
+
+[[member]]
+group = "BfcbBlock"
+card = "repeated"
+
+[[member.member]]
+sig = "BFCB"
+name = "Bfcb"
+type = "opaque"
+
+[[member.member]]
+any_until = "BFCE"
+name = "BfcbBody"
+
+[[member.member]]
+sig = "BFCE"
+name = "Bfce"
+type = "opaque"
+note = "observed 0 bytes"
+
+[[member]]
+sig = "FLTV"
+name = "Fltv"
+type = "opaque"
+note = "observed 4 bytes"

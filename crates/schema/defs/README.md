@@ -93,6 +93,18 @@ reserved. Fields take `name`, `type`, the type keys, `since`, `until` and `note`
 - Order comes from the source page or the corpus. Where two members never occur together,
   their relative order is unknown; say so in a `note`.
 
+## Current set
+
+| File        | Kind      | Source                                   | Layouts                                   |
+| ----------- | --------- | ---------------------------------------- | ----------------------------------------- |
+| `TES4.toml` | record    | UESP Skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
+| `GRUP.toml` | header    | UESP Skyrim Mod File Format page         | Fully typed (label kept as 4 raw bytes)   |
+| `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory only: order and cardinality; every payload opaque |
+| `WEAP.toml` | record    | corpus scan                              | Inventory only; layout pending ADR 0005   |
+
+Inventory definitions name members after their signature (`Edid`, `Wfir`, `Flld2`). These
+are placeholders: giving a member a real name later is a breaking change for queries.
+
 ## Example
 
 ```toml

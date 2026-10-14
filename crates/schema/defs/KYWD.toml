@@ -1,0 +1,86 @@
+# KYWD: subrecord inventory only. Every payload is opaque until its layout is decided.
+#
+# Source: corpus scan of the KYWD top group in Starfield.esm, ShatteredSpace.esm,
+# Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
+# 6965 records, form versions 552/581/582, 14 distinct subrecord sequences, all consistent
+# with the order below. DATA and ENAM never occur in the same record, so their relative
+# order is unknown. Cross-checked against the UESP Starfield raw-data dump
+# (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data).
+#
+# Member names are placeholders derived from the signature.
+signature = "KYWD"
+name = "Keyword"
+source = "corpus: KYWD records of the official ESMs (12 files with a KYWD group)"
+evidence = ["UESP Starfield raw-data dump agrees: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data"]
+
+[[member]]
+sig = "EDID"
+name = "Edid"
+type = "opaque"
+card = "optional"
+note = "absent in 3 of 6965 records"
+
+[[member]]
+group = "BfcbBlock"
+card = "repeated"
+
+[[member.member]]
+sig = "BFCB"
+name = "Bfcb"
+type = "opaque"
+
+[[member.member]]
+any_until = "BFCE"
+name = "BfcbBody"
+
+[[member.member]]
+sig = "BFCE"
+name = "Bfce"
+type = "opaque"
+note = "observed 0 bytes"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+card = "optional"
+note = "observed variable size"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes, in 14 records"
+
+[[member]]
+sig = "ENAM"
+name = "Enam"
+type = "opaque"
+card = "optional"
+note = "observed variable size"
+
+[[member]]
+sig = "FULL"
+name = "Full"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"

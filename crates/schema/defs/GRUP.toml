@@ -1,0 +1,36 @@
+# GRUP: the 24-byte group header. Groups hold records and nested groups.
+#
+# Source: UESP https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format (section "Groups").
+# UESP's Starfield wiki (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format) says
+# the overall file structure matches Skyrim's.
+#
+# GroupSize includes these 24 header bytes (record and subrecord sizes do not include
+# theirs). Label is four raw bytes whose meaning depends on GroupType: a record signature
+# for Top, a parent FormID for the *Children types, a block number for interior blocks, or
+# two i16 grid coordinates (Y then X) for exterior blocks. Starfield may use group types
+# beyond 0..9; unknown values are preserved.
+signature = "GRUP"
+name = "GroupHeader"
+kind = "header"
+source = "UESP: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format"
+size = 24
+field = [
+  { name = "Type", type = "sig", note = "always GRUP" },
+  { name = "GroupSize", type = "u32" },
+  { name = "Label", type = "opaque", size = 4 },
+  { name = "GroupType", type = "enum", base = "i32", values = [
+    ["Top", 0],
+    ["WorldChildren", 1],
+    ["InteriorCellBlock", 2],
+    ["InteriorCellSubBlock", 3],
+    ["ExteriorCellBlock", 4],
+    ["ExteriorCellSubBlock", 5],
+    ["CellChildren", 6],
+    ["TopicChildren", 7],
+    ["CellPersistentChildren", 8],
+    ["CellTemporaryChildren", 9],
+  ] },
+  { name = "Timestamp", type = "u16" },
+  { name = "VersionControl", type = "u16" },
+  { name = "Unknown", type = "u32" },
+]

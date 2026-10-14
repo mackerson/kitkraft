@@ -1,0 +1,106 @@
+# TES4: the plugin header record (first record of every plugin).
+#
+# Sources:
+#   UESP https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4 - subrecords, types, flags.
+#   UESP https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format - record-header flag table.
+#   UESP's Starfield wiki (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format)
+#   says the overall file structure matches Skyrim's; it has no TES4 page of its own.
+#   corpus: the TES4 record of all 14 official ESMs (scanned 2026-10-14) for order, which
+#   subrecords occur, and the Starfield-only TNAM, BNAM and CHGL (left opaque).
+#
+# Corpus observations (Starfield, form version 581/582):
+#   order HEDR CNAM SNAM MAST* ONAM? TNAM* BNAM INCC CHGL?
+#   MAST is never followed by DATA; INTV never occurs; BlueprintShips files have no SNAM/CHGL.
+signature = "TES4"
+name = "PluginHeader"
+source = "UESP: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4"
+evidence = [
+  "UESP: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format (record flags)",
+  "corpus: TES4 of Starfield.esm, ShatteredSpace.esm, Constellation.esm, OldMars.esm, SFBGS003/004/006/007/008/00D/047/050.esm, BlueprintShips-Starfield.esm, BlueprintShips-SFBGS050.esm",
+]
+flags = [["Master", 0x1], ["Localized", 0x80], ["Light", 0x200]]
+
+[[member]]
+sig = "HEDR"
+name = "Header"
+type = "struct"
+size = 12
+field = [
+  { name = "Version", type = "f32" },
+  { name = "RecordCount", type = "u32", note = "records and groups, excluding TES4 itself" },
+  { name = "NextObjectId", type = "u32" },
+]
+
+[[member]]
+sig = "CNAM"
+name = "Author"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "SNAM"
+name = "Description"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group = "Master"
+card = "repeated"
+note = "one entry per master file, in the load order the plugin was saved with"
+
+[[member.member]]
+sig = "MAST"
+name = "FileName"
+type = "zstring"
+
+[[member.member]]
+sig = "DATA"
+name = "FileSize"
+type = "u64"
+card = "optional"
+note = "UESP pairs DATA with every MAST; absent after every MAST in the Starfield corpus"
+
+[[member]]
+sig = "ONAM"
+name = "OverriddenForms"
+type = "array"
+element = "formid"
+targets = ["ACHR", "LAND", "NAVM", "PGRE", "PHZD", "REFR"]
+count = "rest"
+card = "optional"
+note = "target list is UESP's (Skyrim); Starfield may add reference types"
+
+[[member]]
+sig = "INTV"
+name = "TagifyCount"
+type = "u32"
+card = "optional"
+note = "UESP lists it after ONAM; not seen in the Starfield corpus, so its position relative to TNAM/BNAM is unknown"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+card = "repeated"
+note = "corpus only: Starfield.esm has two (1048 and 30412 bytes in the UESP raw-data dump); layout unknown"
+
+[[member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "optional"
+note = "corpus only: 9 bytes in every official ESM; layout unknown"
+
+[[member]]
+sig = "INCC"
+name = "Incc"
+type = "u32"
+card = "optional"
+note = "UESP: a counter of unclear meaning; 4 bytes in every official ESM"
+
+[[member]]
+sig = "CHGL"
+name = "Chgl"
+type = "opaque"
+card = "optional"
+note = "corpus only: 4 bytes where present; layout unknown"
