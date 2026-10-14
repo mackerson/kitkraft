@@ -160,6 +160,25 @@ is under "Next".
   writer policy in `docs/corpus.md`. TES4 flag constants named from the pinned xEdit
   definitions. Full release roundtrip at b27d0dc: 14/14 identical, 16.7 s, 1,394 MiB.
 
+- Lane B, M2 (`crates/schema`): **M2.B1** provenance on every node: `Provenance { source,
+  evidence, confidence }` on records, headers, shared definitions, members and fields
+  (members and fields may set their own keys or inherit); `confidence` required on every
+  file (so on every `uesp-skyrim:` citation too), ADR 0004 values; TES4/GRUP/RECORD say
+  `corpus`; loader accepts `wbDefinitionsCommon.pas` at the pin; `XEDIT_REVISION` and
+  `XEDIT_FILES` public. **M2.B2** universal subrecords typed with corpus evidence (scan of
+  all 14 ESMs: 265,346 EDID, 44,077 FULL and 16,434 DESC all 4 bytes, 110,383 KSIZ/KWDA
+  pairs consistent, 180,802 of 180,804 KWDA FormIDs resolve to KYWD): `EditorId`, `Name`,
+  `Description`, shared group `Keywords { Count, Forms }`; new inventory definitions for
+  AMMO, AMDL, COBJ, OMOD, ZOOM. **M2.B3** generated `form_ids()`/`form_ids_mut()`/
+  `lstrings()`/`lstrings_mut()` with member paths on every record and on `Record`, plus
+  `Record::extra()`. **M2.B9** GMST `DATA` as a union by EditorID prefix (new format
+  construct `type = "union"`, `decider = "edid-prefix"`: b/f/i/s/u), GLOB `FLTV` as `f32`;
+  KYWD bodies stay opaque (no readable source; `docs/gaps.md`). Corpus check through the
+  generated records: every AMDL (126), AMMO (154), COBJ (3,518), GLOB (3,319), GMST
+  (2,418), KYWD (6,965), OMOD (3,330), TES4 (14), WEAP (452) and ZOOM (141) record decodes
+  with an empty `extra` and re-encodes identical. `BUILTIN_DEFINITIONS` has a marked
+  generated region (answers lane C's request).
+
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -176,9 +195,12 @@ is under "Next".
      `--profile` preloading needs M2.D8).
   5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
      .mcp.json --allowedTools "mcp__kitcraft__*"`.
-- **M2.F9** waits for M2.A3 and M2.B1 on `main` (neither is there at fdd254e).
+- **M2.F9** waits for M2.A3 and M2.B1 on `main` (M2.B1 is in lane B's branch; the model
+  now carries `provenance.confidence` on every member).
 - **Lane B round 3** (M2.B4..B8, M2.B10): gate lifted by the owner approval of
-  2026-10-14; in progress in lane B's current worktree. OMOD (M2.B7) is in scope.
+  2026-10-14, but **blocked in the 2026-10-14 lane B session**: the session's permission
+  policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
+  WEAP). No layout was transcribed; see Blockers.
 
 ## Next
 
@@ -195,7 +217,7 @@ when M2 is broken down in `plan/execution-plan.md`.
 | edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
 | smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
 | container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
-| schema     | Round 3 (in progress): typed layouts from the pinned xEdit files (see below)                                   | `crates/schema` (lane B)                     |
+| schema     | Round 3 (blocked, see Blockers): typed layouts from the pinned xEdit files (see below)                         | `crates/schema` (lane B)                     |
 
 Lane B round 3 transcribes definitions from the pinned xEdit files (`xedit:` provenance,
 `confidence = "reference"` until the corpus confirms) in this priority: **WEAP, AMMO, PROJ,
@@ -205,7 +227,12 @@ definition is checked against every corpus occurrence before it moves to
 
 ## Blockers
 
-- None.
+- **Lane B round 3 needs the pinned xEdit files on disk.** Downloading
+  `Core/wbDefinitionsSF1.pas` and `Core/wbDefinitionsCommon.pas` at `9fb01688...` from
+  raw.githubusercontent.com (to the agent's target dir, outside version control) was denied
+  by the agent session's permission policy on 2026-10-14. The owner either allows that
+  fetch for the lane B agent, or places the two files (outside the repo) and names the
+  path. Until then M2.B4..B8 and M2.B10 cannot start.
 
 ## Open owner decisions
 
@@ -265,21 +292,14 @@ Agents append here when they need a change in a crate they do not own.
 - ~~Lane B -> owner / AGENTS.md maintainer: point AGENTS.md at ADR 0005 Amendment 1.~~
   Done 2026-10-14: AGENTS.md "Clean room" now states the Amendment 2 hierarchy, with UESP's
   Starfield pages at level 4.
-- **Policy -> lane B.** `confidence` is validated by the loader but not stored in the model
-  (the policy change was limited to `load.rs`). Add it to `RecordDef`/`HeaderDef`/`CommonDef`
-  so coverage can report it, and consider re-exporting the pinned revision for tools.
-  Then add `confidence = "corpus"` to `TES4`, `GRUP`, `RECORD` (their `corpus:` evidence
-  already claims it), make it required for `uesp-skyrim:` citations (ADR 0005 Amendment 2),
-  and rerun `cargo xtask codegen` (the defs hash changes). Not done in the policy change
-  because it would have touched `crates/esm/src/generated/`.
+- ~~**Policy -> lane B.** Store `confidence` in the model, `corpus` on TES4/GRUP/RECORD,
+  required on `uesp-skyrim:`, re-export the pin.~~ Done in M2.B1 (lane B branch):
+  `Provenance` on every node, `confidence` required on every file, `XEDIT_REVISION`.
 - **Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence` next to
   the source kind once the model carries it; `confidence = "reference"` values should surface as
   a `limitations[]` entry in `inspect`/`query` results.
-- **Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
-  `xedit:` citations: add it to `XEDIT_FILES` in `crates/schema/src/load.rs` (same pinned
-  SHA), update the error text, `crates/schema/tests/loader.rs` (a positive case for the
-  common file, the existing negative cases for other files) and `crates/schema/tests/defs.rs`,
-  and `crates/schema/defs/README.md`.
+- ~~**Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
+  `xedit:` citations.~~ Done in M2.B1 (loader, tests, README).
 - **Policy -> AGENTS.md / plan maintainer.** AGENTS.md "Clean room" ("Other xEdit files are
   not covered yet") and owner decision 2 ("extending the reference beyond
   `wbDefinitionsSF1.pas`"), ADR 0001 Amendment 1 (only the SF1 file), and
@@ -290,8 +310,21 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
-  signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
-  is a breaking change for `kit query`. Default: accept the rename when it happens.
+  signature (`Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
+  is a breaking change for `kit query`. Default: accept the rename when it happens. Done
+  for the universal subrecords in M2.B2: `Edid` is now `EditorId`, `Full` `Name`, `Desc`
+  `Description`, `Ksiz`/`Kwda` the group `Keywords { Count, Forms }`; GMST `Data` is
+  `Value`, GLOB `Fltv` is `Value`.
+- **Lane B -> lane A (FYI, done in lane B's branch).** The M2.B2 rename broke one line of
+  the bridge test (`gmst.edid` was opaque bytes); lane B changed it to
+  `gmst.editor_id ... == b"fFoo"` in `crates/esm/src/bridge.rs` so the gate stays green.
+  Generated API additions you may use: `Record::extra()`, the four visitors, and union
+  enums (`GmstValue`) decoded through `put_by_prefix` (a missing EDID keeps DATA raw).
+- **Lane B -> lane F / coverage owner (FYI, done in lane B's branch).** The engine coverage
+  test now counts EDID, FULL and GMST DATA as `typed` (expectations updated in
+  `crates/engine/src/handlers/coverage.rs`). For M2.F9: per-member confidence is
+  `SubrecordDef::provenance.confidence` (also on groups, fields, records); a union member
+  is `FieldType::Union`, not opaque.
 - **Lane F -> lanes D, E, G (session and catalog closure).** A handler that needs the
   load order is a `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` added to
   `handlers::session_defaults()` (stateless handlers stay in `defaults()`). Keep your
@@ -300,10 +333,13 @@ Agents append here when they need a change in a crate they do not own.
   When you flip a command to `Implemented`, removing its `PLANNED_IN_M2` line in
   `crates/engine/src/lib.rs` is optional (a stale entry only prints); a command you will
   not finish in M2 becomes `Status::Deferred { reason, milestone: "M3" }`.
-- **Lane C -> lane B.** `cargo xtask codegen` can own `BUILTIN_DEFINITIONS` once
-  `crates/schema/src/lib.rs` marks a generated region for it (for example
-  `// BEGIN generated by cargo xtask codegen` / `// END`); until then
-  `tests/defs.rs` is the guard and xtask leaves the file alone.
+- ~~**Lane C -> lane B.** Mark a generated region for `BUILTIN_DEFINITIONS`.~~ Done
+  (lane B, M2.B2 commit): the entries sit between
+  `    // BEGIN generated by cargo xtask codegen: BUILTIN_DEFINITIONS` and
+  `    // END generated by cargo xtask codegen: BUILTIN_DEFINITIONS` in
+  `crates/schema/src/lib.rs`, one rustfmt-formatted entry per file in file-name order
+  (top level, then `common/`). xtask (lane F) may rewrite exactly those lines;
+  `tests/defs.rs` checks the markers and stays the guard until it does.
 - **Lane A -> lane D (M2.A1, M2.A2 landed).** `kitcraft_esm::index`:
   `index_file(&Path, &IndexOptions) -> Result<PluginIndex>` (also `index_bytes`,
   `index_reader`). `PluginIndex { file_len, header: Record<'static> /* TES4, parsed */,
