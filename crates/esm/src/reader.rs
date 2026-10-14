@@ -116,6 +116,7 @@ impl<'a> Reader<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::Reader;
     use crate::{Error, Signature};

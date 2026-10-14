@@ -125,10 +125,99 @@ pub fn roundtrip_reader<R: Read>(
     mut sink: Option<&mut dyn Write>,
 ) -> Result<RoundtripReport> {
     let mut stats = Stats::default();
-    let mut offset: u64 = 0;
-    let mut header = [0u8; HEADER_LEN];
-    while offset < len {
-        let available = len.saturating_sub(offset);
+    let mut entries = TopLevelReader::new(&mut input, len);
+    while let Some((offset, buf)) = entries.next_entry()? {
+        let total = buf.len() as u64;
+        let entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
+        stats.top_level_entries = stats.top_level_entries.saturating_add(1);
+        stats.largest_top_level_entry = stats.largest_top_level_entry.max(total);
+        count_entry(&entry, &mut stats, options.decode.as_ref())?;
+
+        let mut cmp = Compare {
+            expected: &buf,
+            pos: 0,
+            diff: None,
+            extra: match sink {
+                Some(ref mut s) => Some(&mut **s),
+                None => None,
+            },
+        };
+        entry.write_to(&mut cmp, offset, &options.write)?;
+        let written = cmp.pos as u64;
+        let diff = cmp.diff.or_else(|| {
+            (cmp.pos != buf.len()).then(|| Diff {
+                at: cmp.pos.min(buf.len()),
+                actual: None,
+            })
+        });
+        if let Some(diff) = diff {
+            let at = offset.saturating_add(diff.at as u64);
+            return Ok(RoundtripReport {
+                input_len: len,
+                output_len: offset.saturating_add(written),
+                mismatch: Some(Mismatch {
+                    offset: at,
+                    expected: buf.get(diff.at).copied(),
+                    actual: diff.actual,
+                    path: locate(&entry, at),
+                }),
+                stats,
+            });
+        }
+    }
+    Ok(RoundtripReport {
+        input_len: len,
+        output_len: entries.offset,
+        mismatch: None,
+        stats,
+    })
+}
+
+/// Call `visit` with each top-level entry of the file at `path` (the `TES4` record first),
+/// parsed from a buffer holding only that entry.
+pub fn visit_file(
+    path: &Path,
+    options: &ParseOptions,
+    mut visit: impl FnMut(&Entry<'_>) -> Result<()>,
+) -> Result<()> {
+    let file = File::open(path).map_err(|source| Error::Io { offset: 0, source })?;
+    let len = file
+        .metadata()
+        .map_err(|source| Error::Io { offset: 0, source })?
+        .len();
+    let mut input = BufReader::with_capacity(1 << 20, file);
+    let mut entries = TopLevelReader::new(&mut input, len);
+    while let Some((offset, buf)) = entries.next_entry()? {
+        let entry = Entry::parse_one(&buf, offset, 1, options)?;
+        visit(&entry)?;
+    }
+    Ok(())
+}
+
+/// Reads a plugin one top-level entry at a time. Each entry's declared size is checked
+/// against the bytes left in the input before anything is allocated for it.
+struct TopLevelReader<R: Read> {
+    input: R,
+    len: u64,
+    offset: u64,
+}
+
+impl<R: Read> TopLevelReader<R> {
+    fn new(input: R, len: u64) -> TopLevelReader<R> {
+        TopLevelReader {
+            input,
+            len,
+            offset: 0,
+        }
+    }
+
+    /// The next entry's absolute offset and bytes, or `None` at the end of the input.
+    fn next_entry(&mut self) -> Result<Option<(u64, Vec<u8>)>> {
+        let offset = self.offset;
+        if offset >= self.len {
+            return Ok(None);
+        }
+        let available = self.len.saturating_sub(offset);
         if available < HEADER_LEN as u64 {
             return Err(Error::UnexpectedEof {
                 offset,
@@ -137,7 +226,8 @@ pub fn roundtrip_reader<R: Read>(
                 available,
             });
         }
-        input
+        let mut header = [0u8; HEADER_LEN];
+        self.input
             .read_exact(&mut header)
             .map_err(|source| Error::Io { offset, source })?;
         let mut r = crate::Reader::new(&header, offset);
@@ -175,7 +265,7 @@ pub fn roundtrip_reader<R: Read>(
         })?;
         let mut buf = Vec::with_capacity(total_usize);
         buf.extend_from_slice(&header);
-        (&mut input)
+        (&mut self.input)
             .take(total.saturating_sub(HEADER_LEN as u64))
             .read_to_end(&mut buf)
             .map_err(|source| Error::Io { offset, source })?;
@@ -187,51 +277,9 @@ pub fn roundtrip_reader<R: Read>(
                 available: buf.len() as u64,
             });
         }
-
-        let entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
-        stats.top_level_entries = stats.top_level_entries.saturating_add(1);
-        stats.largest_top_level_entry = stats.largest_top_level_entry.max(total);
-        count_entry(&entry, &mut stats, options.decode.as_ref())?;
-
-        let mut cmp = Compare {
-            expected: &buf,
-            pos: 0,
-            diff: None,
-            extra: match sink {
-                Some(ref mut s) => Some(&mut **s),
-                None => None,
-            },
-        };
-        entry.write_to(&mut cmp, offset, &options.write)?;
-        let written = cmp.pos as u64;
-        let diff = cmp.diff.or_else(|| {
-            (cmp.pos != buf.len()).then(|| Diff {
-                at: cmp.pos.min(buf.len()),
-                actual: None,
-            })
-        });
-        if let Some(diff) = diff {
-            let at = offset.saturating_add(diff.at as u64);
-            return Ok(RoundtripReport {
-                input_len: len,
-                output_len: offset.saturating_add(written),
-                mismatch: Some(Mismatch {
-                    offset: at,
-                    expected: buf.get(diff.at).copied(),
-                    actual: diff.actual,
-                    path: locate(&entry, at),
-                }),
-                stats,
-            });
-        }
-        offset = offset.saturating_add(total);
+        self.offset = offset.saturating_add(total);
+        Ok(Some((offset, buf)))
     }
-    Ok(RoundtripReport {
-        input_len: len,
-        output_len: offset,
-        mismatch: None,
-        stats,
-    })
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -390,6 +438,7 @@ fn contains(entry: &Entry<'_>, at: u64) -> bool {
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::{locate, roundtrip_bytes, RoundtripOptions};
     use crate::fixture::{self, group, sub};

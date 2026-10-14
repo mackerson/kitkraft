@@ -136,6 +136,7 @@ impl<'a> Record<'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::{deflate, inflate, DecodeLimits};
     use crate::fixture::{self, group, sub};

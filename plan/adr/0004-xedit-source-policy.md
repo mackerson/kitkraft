@@ -2,7 +2,7 @@
 
 - Status: **OPEN (owner decision)**
 - Date: 2026-10-14
-- Default until decided: **UESP only. Nobody reads xEdit source.**
+- Default until decided: **option A. Nobody reads xEdit source.**
 
 ## Context
 
@@ -20,7 +20,7 @@ ambiguities statistically.
 
 | Option | Description                                                                            | Risk       | Speed   |
 | ------ | -------------------------------------------------------------------------------------- | ---------- | ------- |
-| A      | UESP + corpus only; ambiguous fields stay opaque                                       | Lowest     | Slower  |
+| A      | ADR 0005 sources only (UESP Skyrim container, corpus, CK observation, CK wiki)         | Lowest     | Slowest |
 | B      | UESP first; xEdit as a tiebreak by a designated reader, logged per field, never copied | Low-medium | Faster  |
 | C      | xEdit as a primary reference                                                           | High       | Fastest |
 
@@ -34,3 +34,16 @@ and never pastes structure or names wholesale. Other agents never read xEdit.
 ## Decision
 
 Pending. Until the owner records a decision here, option A applies.
+
+## Update 2026-10-14
+
+Status unchanged: **OPEN, owner decision.** The owner has been asked.
+
+The context above assumed UESP documents Starfield records. It does not: there is no UESP
+Starfield format page, only the Skyrim pages for the shared container
+(`plan/adr/0005-spec-sources-per-fact.md`). That changes what option A costs. Under option A,
+**every Starfield-specific field layout comes only from CK differential observation** (one
+edit in the CK's UI, save, byte diff, cross-check with the corpus), with names from the CK
+wiki. That is correct and clean, but slow: one observation session per field or flag, and
+fields the CK UI does not expose stay opaque. Container work (M1 roundtrip) is not affected.
+The recommendation is unchanged; the speed column for option A now reads `Slowest`.

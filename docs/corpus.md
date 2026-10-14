@@ -48,14 +48,24 @@ cargo test -p kitcraft-esm --release -- --ignored corpus
 
 ## How it is used
 
+The corpus is a specification source in its own right (`plan/adr/0005-spec-sources-per-fact.md`):
+it is the only source for inventory facts (record types and counts, FormIDs, EditorIDs,
+subrecord signatures and sizes, header flag values and form versions as they occur), and the
+tiebreaker that confirms or rejects every container fact taken from UESP's Skyrim pages and
+every layout inferred from CK observation.
+
 1. **Roundtrip (M1):** parse each file, write it back, compare byte for byte. A mismatch is
    reported as file, absolute offset, and group/record path.
 2. **Coverage (M1.14):** count record types and subrecord signatures across the corpus and
    compare with schema definitions; output is `docs/record-parity.md`.
 3. **Hostile input (M1.7):** truncations and seeded bit flips of the small files must yield
    errors, never panics.
-4. **Oracle (optional):** Spriggit, run as an external binary, can turn a file into YAML for
-   spot comparisons with our decoded view. Its source is never read.
+4. **Third-party tool output (restricted):** Spriggit, run as an external binary, can turn a
+   file into YAML. Per ADR 0001 §4 that output may be used only for byte-level inventory
+   facts: record counts, FormIDs, EditorIDs, subrecord signatures and sizes. Its field names
+   and struct layouts are never used to author or check `crates/schema/defs/`, and it is not
+   a roundtrip oracle (it lost data on 2 of 5 real mods; see `docs/gaps.md`). Its source is
+   never read.
 
 ## Run log
 

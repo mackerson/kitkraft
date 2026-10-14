@@ -135,6 +135,7 @@ impl<'r, 'a> Tes4<'r, 'a> {
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::Tes4;
     use crate::{fixture, Plugin};

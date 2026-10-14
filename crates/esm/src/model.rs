@@ -399,7 +399,9 @@ impl<'a> Subrecord<'a> {
         } else {
             0
         };
-        prefix + SUBRECORD_HEADER_LEN as u64 + self.data.len() as u64
+        prefix
+            .saturating_add(SUBRECORD_HEADER_LEN as u64)
+            .saturating_add(self.data.len() as u64)
     }
 
     /// Copy borrowed data.

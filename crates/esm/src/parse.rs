@@ -221,6 +221,7 @@ pub(crate) fn parse_subrecords(data: &[u8], base: u64) -> Result<Vec<Subrecord<'
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use crate::fixture::{self, group, record, sub, xxxx_sub};
     use crate::model::{Body, Entry};

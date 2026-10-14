@@ -238,6 +238,7 @@ pub(crate) fn write_subrecord<W: Write + ?Sized>(
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use crate::fixture::{self, group, record, sub};
     use crate::model::{Entry, GroupHeader};

@@ -48,6 +48,7 @@ impl fmt::Debug for Signature {
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::Signature;
 

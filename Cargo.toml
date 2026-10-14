@@ -43,6 +43,10 @@ todo = "deny"
 unimplemented = "deny"
 unreachable = "deny"
 indexing_slicing = "deny"
+# Clippy has no allow-in-tests setting for this lint (clippy.toml covers the others), so test
+# code opts out explicitly: `#[allow(clippy::arithmetic_side_effects)]` on the `mod tests`
+# block, or `#![allow(clippy::arithmetic_side_effects)]` at the top of an integration test.
+arithmetic_side_effects = "deny"
 
 [profile.release]
 debug = 1

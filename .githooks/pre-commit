@@ -1,0 +1,7 @@
+#!/bin/sh
+# KitCraft pre-commit hook: the fast steps of `cargo xtask ci`.
+# Enable once per clone:  git config core.hooksPath .githooks
+# The full gate (clippy, tests) is still `cargo xtask ci` before every commit.
+set -e
+cargo xtask layers
+cargo fmt --all -- --check

@@ -1,6 +1,10 @@
 //! Synthetic plugin bytes for tests, built by hand from the documented layout.
 
-#![allow(clippy::unwrap_used, clippy::indexing_slicing)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
 
 /// A subrecord with a `u16` size.
 pub fn sub(sig: &[u8; 4], data: &[u8]) -> Vec<u8> {
