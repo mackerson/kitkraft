@@ -29,6 +29,9 @@ use crate::session::Session;
 
 const ID: &str = "set";
 
+/// Record flag "deleted" (UESP, Skyrim_Mod:Mod_File_Format, "Records").
+const DELETED: u32 = 0x0000_0020;
+
 /// The edits in a `fields` object; a bad path or value is `invalid_args` at
 /// `/<arg>/<path>` (JSON pointer, `~` and `/` escaped).
 pub(crate) fn edits(
@@ -101,6 +104,55 @@ pub(crate) fn find_form(
     ))
 }
 
+/// The text lane D's `load` puts in a limitation for active plugins with no file.
+const NO_FILE: &str = "active plugins with no file";
+
+/// Refuses a load order whose winners cannot be trusted yet (lane D round 2 pending): a
+/// plugin that failed to load, a plugin that loads before one of its masters or misses
+/// one, an active plugin with no file. `set` and `build` copy the winning version, so on
+/// such a load order they stop instead of guessing.
+pub(crate) fn verify_load_order(command: &str, loaded: &Loaded) -> Result<(), EngineError> {
+    let mut problems: Vec<String> = Vec::new();
+    for (i, p) in loaded.lo.plugins.iter().enumerate() {
+        if let Some(e) = &p.error {
+            problems.push(format!("{} failed to load ({e})", p.name));
+        }
+        let late = p.late_masters(u16::try_from(i).unwrap_or(u16::MAX));
+        if !late.is_empty() {
+            problems.push(format!(
+                "{} loads before its master(s) {}",
+                p.name,
+                late.join(", ")
+            ));
+        }
+        let missing = p.missing_masters();
+        if !missing.is_empty() {
+            problems.push(format!(
+                "{} misses master(s) {}",
+                p.name,
+                missing.join(", ")
+            ));
+        }
+    }
+    problems.extend(
+        loaded
+            .limitations
+            .iter()
+            .filter(|l| l.starts_with(NO_FILE))
+            .cloned(),
+    );
+    if problems.is_empty() {
+        return Ok(());
+    }
+    Err(failed(
+        command,
+        format!(
+            "load order unverified, so its winning versions are not a safe source: {} (fix the load order, or name the plugins with `plugins`)",
+            problems.join("; ")
+        ),
+    ))
+}
+
 /// Where the copied version came from, for the report.
 #[derive(Debug, Clone)]
 pub(crate) struct Origin {
@@ -143,6 +195,15 @@ pub(crate) fn winning_copy(
             .map_err(|e| failed(command, format!("{}: {e}", plugin.name)))
     };
     let record = read(loc.offset)?;
+    if record.header.flags & DELETED != 0 {
+        return Err(failed(
+            command,
+            format!(
+                "the winning version of {label} in {} is deleted (record flag 0x20); a patch does not edit a deleted record",
+                plugin.name
+            ),
+        ));
+    }
     let placement = placement_at(&plugin.path, loc.offset).map_err(|m| failed(command, m))?;
     let mut parents = Vec::new();
     for (depth, offset) in &placement.owners {
@@ -174,6 +235,17 @@ pub(crate) fn winning_copy(
         },
         origin,
     ))
+}
+
+/// The note for a copy from a small or medium plugin: its own records were found by
+/// lane D's `full-style-self` assumption (`docs/load-order.md`).
+pub(crate) fn scale_note(copy: &Copy) -> Option<String> {
+    copy.source.scaled().then(|| {
+        format!(
+            "{} is a small or medium plugin: its version of {} was found by the `full-style-self` assumption (docs/load-order.md), not yet observed in the CK or in game",
+            copy.source.name, copy.formref
+        )
+    })
 }
 
 /// Writes `copies` into `into` with the load order's string tables, protected files and
@@ -336,10 +408,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .ok_or_else(|| failed(ID, "argument `fields` is missing"))?;
     let edits = edits(ID, "/fields", fields)?;
     let loaded = acquire(session, args, ID)?;
+    verify_load_order(ID, loaded)?;
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
     let (copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
+    let mut limitations = loaded.limitations.clone();
+    limitations.extend(scale_note(&copy));
     let report = write(ID, loaded, &into, vec![copy])?;
-    let limitations = loaded.limitations.clone();
     Ok(outcome(&report, &[origin], limitations))
 }

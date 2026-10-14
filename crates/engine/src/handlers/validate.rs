@@ -90,7 +90,26 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
             .and_then(Value::as_str)
             .map(PathBuf::from),
         limits: kitcraft_esm::DecodeLimits::default(),
+        indexed: std::collections::HashMap::new(),
     })
+}
+
+/// The load order's (cached) record indexes, for [`Options::indexed`].
+pub(crate) fn indexes(
+    lo: &kitcraft_doc::LoadOrder,
+) -> std::collections::HashMap<String, std::sync::Arc<std::collections::HashMap<u32, u64>>> {
+    lo.plugins
+        .iter()
+        .filter_map(|p| {
+            let index = p.index.as_deref()?;
+            let ids = index
+                .records
+                .iter()
+                .map(|r| (r.form_id, r.offset))
+                .collect();
+            Some((p.name.to_ascii_lowercase(), std::sync::Arc::new(ids)))
+        })
+        .collect()
 }
 
 /// The handler. Masters come from the load order when one is named (`profile`,
@@ -102,6 +121,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     if named || session.get::<Loaded>().is_some() {
         let loaded = acquire(session, args, ID)?;
         options.plugins = loaded.lo.plugins.iter().map(|p| p.path.clone()).collect();
+        options.indexed = indexes(&loaded.lo);
         limitations.extend(loaded.limitations.iter().cloned());
     }
     let report = validate::validate(&options).map_err(|m| failed(ID, m))?;

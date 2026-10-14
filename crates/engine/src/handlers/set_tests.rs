@@ -227,3 +227,37 @@ fn set_errors() {
     assert!(err.to_string().contains("no load order"), "{err}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Until lane D's round 2: a load order with a plugin before its master (or missing one)
+/// is refused as a source, and so is a deleted winning version.
+#[test]
+fn unverified_load_orders_and_deleted_records_are_refused() {
+    let d = dir("set-unsafe");
+    let data = data(&d);
+    let target = d.join("P.esp");
+    let run = |plugins: Value, form: &str| {
+        execute(
+            "set",
+            json!({
+                "form": form, "fields": {"FULL": "x"}, "into": target.display().to_string(),
+                "plugins": plugins, "data_dir": data.display().to_string(), "no_cache": true,
+            }),
+        )
+    };
+    let err = run(json!(["Override.esp", "Source.esm"]), "OldRifle").unwrap_err();
+    let text = err.to_string();
+    assert!(
+        text.contains("load order unverified") && text.contains("Override.esp loads before"),
+        "{text}"
+    );
+    let err = run(json!(["Override.esp"]), "Override.esp:000801").unwrap_err();
+    assert!(err.to_string().contains("misses master"), "{err}");
+    // A deleted winner.
+    let mut gone = weapon(0x0000_0800, "OldRifle", 0x0002_E469);
+    gone.header.flags |= 0x20;
+    write_plugin(&data, "Delete.esp", &["Source.esm"], 0, vec![gone]);
+    let err = run(json!(["Source.esm", "Delete.esp"]), "Source.esm:000800").unwrap_err();
+    assert!(err.to_string().contains("deleted"), "{err}");
+    assert!(!target.exists());
+    let _ = std::fs::remove_dir_all(&d);
+}

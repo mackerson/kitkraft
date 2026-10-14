@@ -15,10 +15,11 @@ mod tests;
 use std::collections::{BTreeMap, HashMap};
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use kitcraft_esm::bridge::{has_definition, Ctx};
 use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::index::{index_file, read_indexed, read_record_at, IndexOptions, PluginIndex};
+use kitcraft_esm::index::{index_file, read_record_at, IndexOptions};
 use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
 use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
 use kitcraft_schema::FieldType;
@@ -147,6 +148,9 @@ pub struct Options {
     pub data_dir: Option<PathBuf>,
     /// Decompression bounds.
     pub limits: DecodeLimits,
+    /// Record indexes already built (lane D's load order): lower-case file name ->
+    /// every stored FormID with its record offset. Plugins not listed are indexed here.
+    pub indexed: HashMap<String, Arc<HashMap<u32, u64>>>,
 }
 
 /// A master as found.
@@ -211,9 +215,8 @@ struct MasterFile {
     path: Option<PathBuf>,
     flags: Option<u32>,
     masters: Vec<String>,
-    index: Option<PluginIndex>,
-    /// Stored FormID -> position in `index.records`.
-    ids: HashMap<u32, usize>,
+    /// Stored FormID -> record offset, once indexed.
+    ids: Option<Arc<HashMap<u32, u64>>>,
 }
 
 /// Runs the rules `options` selects.
@@ -279,6 +282,18 @@ fn find_plugin(name: &str, near: &Path, options: &Options) -> Option<PathBuf> {
     None
 }
 
+/// Every stored FormID of the plugin at `path` with its record offset (`TES4` excluded).
+fn index_ids(path: &Path) -> Result<HashMap<u32, u64>, String> {
+    let index = index_file(path, &IndexOptions::default())
+        .map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(index
+        .records
+        .iter()
+        .skip(1)
+        .map(|r| (r.form_id, r.offset))
+        .collect())
+}
+
 fn header_of(path: &Path) -> Result<(u32, Vec<String>), String> {
     let mut file = File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let header =
@@ -338,17 +353,17 @@ impl Pass<'_> {
     }
 
     /// Whether `owner` has the form `object_id` (`None`: cannot tell).
-    fn master_has(&self, owner: &str, object_id: u32) -> Option<(&MasterFile, usize)> {
+    fn master_has(&self, owner: &str, object_id: u32) -> Option<(&MasterFile, u64)> {
         let file = self.files.get(&owner.to_ascii_lowercase())?;
-        file.index.as_ref()?;
+        let ids = file.ids.as_ref()?;
         let raw = self.space_of(file).raw_for(owner, object_id)?;
-        file.ids.get(&raw).map(|i| (file, *i))
+        ids.get(&raw).map(|offset| (file, *offset))
     }
 
     fn can_check(&self, owner: &str, object_id: u32) -> bool {
         self.files
             .get(&owner.to_ascii_lowercase())
-            .filter(|f| f.index.is_some())
+            .filter(|f| f.ids.is_some())
             .is_some_and(|f| self.space_of(f).raw_for(owner, object_id).is_some())
     }
 }
@@ -389,8 +404,7 @@ fn validate_plugin(
                 path: found,
                 flags: mflags,
                 masters: mmasters,
-                index: None,
-                ids: HashMap::new(),
+                ids: None,
             },
         );
     }
@@ -398,17 +412,10 @@ fn validate_plugin(
     if needs_index {
         for key in &direct {
             if let Some(file) = files.get_mut(key) {
-                if let Some(p) = &file.path {
-                    let index = index_file(p, &IndexOptions::default())
-                        .map_err(|e| format!("{}: {e}", p.display()))?;
-                    file.ids = index
-                        .records
-                        .iter()
-                        .enumerate()
-                        .skip(1)
-                        .map(|(i, r)| (r.form_id, i))
-                        .collect();
-                    file.index = Some(index);
+                if let Some(ids) = options.indexed.get(key) {
+                    file.ids = Some(Arc::clone(ids));
+                } else if let Some(p) = &file.path {
+                    file.ids = Some(Arc::new(index_ids(p)?));
                 }
             }
         }
@@ -490,14 +497,8 @@ fn validate_plugin(
             })
             .collect(),
     };
-    let own_ids = if needs_index {
-        index_file(path, &IndexOptions::default())
-            .map_err(|e| format!("{}: {e}", path.display()))?
-            .records
-            .iter()
-            .skip(1)
-            .map(|r| r.form_id)
-            .collect()
+    let own_ids: std::collections::HashSet<u32> = if needs_index {
+        index_ids(path)?.into_keys().collect()
     } else {
         std::collections::HashSet::new()
     };
@@ -849,26 +850,24 @@ fn previous_has(
     owner_index: usize,
     wanted: [u8; 4],
 ) -> Option<(String, bool)> {
-    let mut last: Option<(&MasterFile, usize)> = None;
+    let mut last: Option<(&MasterFile, u64)> = None;
     for (name, _) in pass.space.masters.iter().skip(owner_index) {
         let Some(file) = pass.files.get(&name.to_ascii_lowercase()) else {
             continue;
         };
-        if file.index.is_none() {
+        let Some(ids) = file.ids.as_ref() else {
             continue;
-        }
+        };
         let Some(raw) = pass.space_of(file).raw_for(owner, object_id) else {
             continue;
         };
-        if let Some(i) = file.ids.get(&raw) {
-            last = Some((file, *i));
+        if let Some(offset) = ids.get(&raw) {
+            last = Some((file, *offset));
         }
     }
-    let (file, i) = last?;
-    let index = file.index.as_ref()?;
-    let loc = index.records.get(i)?;
+    let (file, offset) = last?;
     let mut input = File::open(file.path.as_ref()?).ok()?;
-    let record = read_indexed(&mut input, loc, Some(&pass.limits)).ok()?;
+    let record = read_record_at(&mut input, offset, Some(&pass.limits)).ok()?;
     let has = record
         .subrecords()
         .is_some_and(|subs| subs.iter().any(|s| s.signature().0 == wanted));

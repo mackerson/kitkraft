@@ -266,6 +266,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         Some(lo_args) => acquire(session, lo_args, ID)?,
         None => acquire(session, args, ID)?,
     };
+    super::set::verify_load_order(ID, loaded)?;
     let mut limitations = loaded.limitations.clone();
 
     // Expand: rules in order, then sets; one entry per form, edits merged.
@@ -331,6 +332,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .map(|v| v.iter().map(|(_, e)| e.clone()).collect())
             .unwrap_or_default();
         let (copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
+        if let Some(note) = super::set::scale_note(&copy) {
+            limitations.push(note);
+        }
         copies.push(copy);
         origins.push(origin);
     }
@@ -361,6 +365,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let options = Options {
         plugin: Some(temp.clone()),
         plugins,
+        indexed: super::validate::indexes(&loaded.lo),
         ..Options::default()
     };
     let checked = validate::validate(&options);

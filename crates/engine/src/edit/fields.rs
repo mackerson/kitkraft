@@ -19,7 +19,7 @@
 //! | `f32` / `f64`   | JSON number or decimal text; finite, and in range for `f32`     |
 //! | enum            | a value name (ASCII case-insensitive) or an integer             |
 //! | flags           | an integer, or bit names joined by `\|`                          |
-//! | FormID          | `Plugin.esm:00ABCDEF` (mapped to the target's master list) or a raw hex FormID, stored as given |
+//! | FormID          | `Plugin.esm:00ABCDEF` (mapped to the target's master list), a raw hex FormID stored as given, or `null` (FormID 0, no form; shown as `null`) |
 //! | `sig`           | four ASCII characters                                           |
 //! | zstring         | text (no NUL), written NUL-terminated                           |
 //! | lstring         | text, written as an inline zstring (patches are non-localized)  |
@@ -717,6 +717,7 @@ pub fn encode_value(
         }
         FieldType::FormId { .. } => {
             let text = match op {
+                Op::Set(Value::Null) => return Ok(0u32.to_le_bytes().to_vec()),
                 Op::Set(Value::String(t)) => t.as_str(),
                 _ => {
                     return Err(type_err(
@@ -924,6 +925,13 @@ fn parse_formid(path: &str, text: &str, ctx: &ValueCtx<'_>) -> Result<u32, Field
                 format!("`{text}`: a formref's object ID has at most 24 bits"),
             ));
         }
+        if id == 0 {
+            return Err(FieldError::new(
+                path,
+                "formref",
+                format!("`{text}`: object ID 0 is no form; set the field to null for none"),
+            ));
+        }
         return (ctx.formref)(plugin, id).map_err(|m| FieldError::new(path, "formref", m));
     }
     let digits = text
@@ -957,10 +965,11 @@ pub fn display(ty: &FieldType, bytes: &[u8], localized: bool) -> Value {
                 .find(|n| n.value == v)
                 .map_or_else(|| json!(v.to_string()), |n| json!(n.name))
         }),
-        FieldType::FormId { .. } => <[u8; 4]>::try_from(bytes).map_or_else(
-            |_| hex(),
-            |b| json!(format!("{:08X}", u32::from_le_bytes(b))),
-        ),
+        FieldType::FormId { .. } => match <[u8; 4]>::try_from(bytes).map(u32::from_le_bytes) {
+            Ok(0) => Value::Null,
+            Ok(raw) => json!(format!("{raw:08X}")),
+            Err(_) => hex(),
+        },
         FieldType::ZString => text_of(bytes).map_or_else(hex, Value::String),
         FieldType::LString if localized => <[u8; 4]>::try_from(bytes).map_or_else(
             |_| hex(),
@@ -1171,6 +1180,14 @@ mod tests {
             "formref"
         );
         assert_eq!(set(&form, json!(5)).unwrap_err().rule, "type");
+        // FormID 0 is null both ways, never a formref.
+        assert_eq!(set(&form, json!(null)).unwrap(), [0; 4]);
+        assert_eq!(
+            set(&form, json!("Starfield.esm:000000")).unwrap_err().rule,
+            "formref"
+        );
+        assert_eq!(display(&form, &[0; 4], false), json!(null));
+        assert_eq!(display(&form, &[1, 0, 0, 1], false), json!("01000001"));
         let opaque = FieldType::Opaque { size: Some(2) };
         assert_eq!(set(&opaque, json!("hex:0A 0b")).unwrap(), [10, 11]);
         assert_eq!(set(&opaque, json!("hex:0A")).unwrap_err().rule, "range");
