@@ -6,6 +6,10 @@
 - Amended: 2026-10-14 by Amendment 1 below (UESP's Starfield pages exist at
   starfieldwiki.net; `uesp-starfield:` source form; `/CTDA` forbidden). The Context section
   is kept as written; where it says UESP has no Starfield page, Amendment 1 corrects it.
+- Amended: 2026-10-14 by Amendment 2 below (owner decision in ADR 0004: four-level source
+  hierarchy with version-pinned xEdit definitions; `xedit:` source form and `confidence`).
+  Amendment 2 replaces the §1 per-fact table and the xEdit entry in §3; §2 (CK
+  differential observation) stays, as a validation method.
 
 ## Context
 
@@ -170,3 +174,104 @@ A survey on 2026-10-14 found that UESP's Starfield wiki does exist, on its own h
   here (requested in `plan/STATUS.md`).
 - No definition cites a `uesp-starfield` page yet; current definitions remain corpus
   inventories and UESP Skyrim container facts.
+
+## Amendment 2 (2026-10-14): the owner's source hierarchy
+
+### Why
+
+ADR 0004 was decided by the owner on 2026-10-14: the missing UESP Starfield format page
+was a source-policy blocker, not a missing specification. Upstream xEdit's
+`Core/wbDefinitionsSF1.pas`, pinned at `9fb016884bec138ea6c7b872cec831537d464c3e`, is now
+the reference for Starfield record definitions (constraints in ADR 0004; verification in
+`docs/xedit-reference.md`). This amendment replaces the §1 table ("one permitted source
+per fact") with the owner's four levels. A fact may now have several sources; the level
+says which wins, and `confidence` says how far it has been checked.
+
+### 1. Source hierarchy (replaces the §1 table)
+
+| Level | Layer                 | Source                                                                                   | `source` / `evidence` form |
+| ----- | --------------------- | ---------------------------------------------------------------------------------------- | -------------------------- |
+| 1     | Container             | Bethesda-family documentation, chiefly UESP's Skyrim pages (record, group and subrecord headers, `XXXX`, compression, TES4 flags), validated for Starfield against the corpus | `uesp-skyrim: <page URL>` |
+| 2     | Record definitions    | Upstream xEdit `wbDefinitionsSF1.pas` at the pinned revision                              | `xedit: wbDefinitionsSF1.pas@<sha>#L<start>-L<end>` |
+| 3     | Empirical validation  | Starfield plugin fixtures: corpus statistics over the 14 official ESMs and our synthetic plugins | `corpus: <evidence note>` |
+| 3     | Empirical validation  | CK differential observation (§2, unchanged)                                              | `ck-diff: <observation id>` |
+| 3     | Empirical validation  | Differential comparison against SF1Edit (§2a below)                                      | `corpus: <evidence note>` naming the SF1Edit build and the fixture |
+| 4     | Secondary references  | UESP's Starfield pages (Amendment 1), the Creation Kit wiki (names and meanings), other community documentation that names no forbidden source | `uesp-starfield: <page URL>`, `ck-wiki: <page title>` |
+
+Rules:
+
+- **Precedence.** Level 3 evidence overrules levels 1, 2 and 4: when the corpus or the CK's
+  own output disagrees with a definition, the bytes win and the conflict is noted in the
+  definition. Level 2 overrules level 4 for layouts. Level 4 never establishes a layout on
+  its own; it supplies names, meanings, and cross-checks.
+- **Confidence.** A definition carries `confidence`:
+  `reference` (from xEdit only), `corpus` (sizes, counts and order confirmed against the 14
+  official ESMs), `ck-diff` (confirmed by CK differential observation), `verified` (both).
+  It is required when any `source` or `evidence` entry is `xedit:` and optional otherwise.
+  The loader rejects a level the citations do not support (`reference` without an `xedit:`
+  citation, `corpus` without `corpus:`, `ck-diff` without `ck-diff:`, `verified` without
+  both).
+- **Skyrim definitions are for the shared container only.** A Skyrim (or other
+  Bethesda-family) fact may be used for the container layer, and each such use must carry
+  `confidence = "corpus"` or better after Starfield-specific validation; the loader rejects
+  a `uesp-skyrim:` citation without it. Skyrim definitions are **never** used for
+  Starfield record bodies, and never silently substituted where xEdit's Starfield
+  definition is missing or unclear: such bytes stay opaque.
+- **Names.** Field names come from the CK wiki or the CK's UI labels where they exist,
+  otherwise in our own words; a placeholder label from any source ("Unknown") never
+  becomes a name.
+- Facts are recorded in our own words and structure. No source's code, comments or prose
+  (xEdit's MPL code, UESP's or the CK wiki's text) is copied into code, schema files, or
+  docs.
+- Anything no level settles stays opaque and is preserved verbatim.
+
+### 2. CK differential observation (unchanged)
+
+§2 stays the procedure for CK observations. Its role changes from the only source of
+Starfield layouts to empirical validation: an observation confirms (or refutes) a
+definition and raises its `confidence` to `ck-diff`, or to `verified` with corpus
+agreement. Step 8 now reads: update the definition's `confidence` and add the `ck-diff:`
+citation to `evidence` (or to `source` when there is no xEdit definition).
+
+### 2a. Differential comparison against SF1Edit (new validation method)
+
+1. Run SF1Edit (xEdit's Starfield mode) as an external program on a fixture: one of the
+   official ESMs, read only, or a synthetic plugin of ours. Never bundle or redistribute
+   SF1Edit; running it creates no license obligation (MPL-2.0).
+2. Export or record its decoded view of the records under test (field values per record).
+3. Decode the same records with KitCraft and compare value by value. A difference is
+   either a transcription error on our side, a version skew (the SF1Edit build differs from
+   the pinned revision; record both), or an upstream defect (record it; the bytes decide).
+4. Record the run as `corpus:` evidence naming the SF1Edit build, the fixture, and the
+   result. Agreement on every occurrence in the corpus supports `confidence = "corpus"`.
+
+SF1Edit is **not installed** on this machine yet. Installing a build that matches the
+pinned revision (or recording the skew) is an M2 task. Release `4.1.5f` (2024) is 1,459
+commits behind the pin.
+
+### 3. Forbidden sources (replaces the xEdit entry in §3)
+
+- **xEdit is no longer forbidden.** `wbDefinitionsSF1.pas` at the pinned revision is level 2
+  under the ADR 0004 constraints (source material only; no Pascal coupling; no
+  reproduction of xEdit's architecture; no verbatim code or comment copying). Other xEdit
+  files (`wbDefinitionsCommon.pas`, the container code) are not covered until the owner
+  extends the decision.
+- **Mutagen and Spriggit** stay forbidden (GPL-3.0), as in §3, including Spriggit's output
+  field names and key structure.
+- Pages derived from xEdit: the starfieldwiki `/CTDA` page is no longer forbidden on its own,
+  since its source is now permitted, but it follows the stale `dev-4.1.5` branch; cite
+  xEdit at the pin instead. The loader keeps rejecting `uesp-starfield:` citations of
+  `/CTDA` for that reason. Pages derived from Mutagen or Spriggit stay forbidden.
+- An agent's own recall of Starfield layouts stays forbidden; every fact is cited.
+- Disassembly or debugging of `CreationKit.exe` or `Starfield.exe` stays forbidden.
+- Amendment 1's hold on the `/PERK` page's OMOD layout lapses: OMOD is in the lane B
+  priority list and is transcribed from xEdit (level 2); `/PERK` is a level 4 cross-check.
+
+### Consequences
+
+- The schema loader accepts `xedit:` (pinned SHA and line range required) and checks
+  `confidence` (`crates/schema/defs/README.md`). The three container definitions that cite
+  `uesp-skyrim:` (`TES4`, `GRUP`, `RECORD`) carry `confidence = "corpus"`, which their
+  `corpus:` evidence already claimed.
+- Lane B round 3 transcribes typed layouts from xEdit after the owner reviews this
+  amendment, ADR 0004, and `docs/xedit-reference.md`.

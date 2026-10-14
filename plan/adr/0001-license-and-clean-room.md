@@ -2,6 +2,8 @@
 
 - Status: Accepted (license pending owner confirmation, see "Open" below)
 - Date: 2026-10-14
+- Amended: 2026-10-14 by Amendment 1 below (ADR 0004 decided: xEdit's MPL definitions
+  are a permitted reference; §2 and the xEdit item of §3 are superseded)
 
 ## Context
 
@@ -62,3 +64,31 @@ freely.
 ## Open
 
 - The owner confirms the license (PLAN.md open decision 4).
+
+## Amendment 1 (2026-10-14): MPL definitions as reference
+
+The owner decided ADR 0004: upstream xEdit's `Core/wbDefinitionsSF1.pas` (MPL-2.0), pinned
+at `9fb016884bec138ea6c7b872cec831537d464c3e`, is the reference for Starfield record
+definitions. The clean-room rule now reads:
+
+1. **The Creation Kit stays a black box.** Running `CreationKit.exe` and diffing its saved
+   output is allowed; disassembling, decompiling, debugging, or memory-dumping it or
+   `Starfield.exe` stays forbidden (§3 unchanged).
+2. **Specification sources** (supersedes §2): the four-level hierarchy of ADR 0005
+   Amendment 2: container documentation (UESP Skyrim pages) validated on the corpus; the
+   pinned xEdit definitions; empirical validation (corpus, CK differential observation,
+   differential comparison against SF1Edit run as an external program); secondary
+   references (UESP Starfield pages, CK wiki).
+3. **MPL definitions as reference are permitted** (supersedes "Reading xEdit source until
+   ADR 0004 says otherwise" in §3), under ADR 0004's constraints: source material only;
+   no coupling of our code to Pascal; no reproduction of xEdit's architecture; no code or
+   comments copied; definitions written independently in our TOML with per-definition
+   provenance (`xedit:` citations) and `confidence`. Only `wbDefinitionsSF1.pas` is
+   covered; other xEdit files need an owner decision.
+4. **GPL stays forbidden.** Reading Mutagen, Spriggit, or any GPL/LGPL/AGPL code that
+   handles Bethesda formats is still forbidden (§3 unchanged), as is using Spriggit's
+   field names or key structure (§4 unchanged).
+5. **Skyrim is not a substitute.** Skyrim definitions may describe the shared container
+   only, after Starfield-specific validation; never Starfield record bodies.
+
+The provenance note on `C:\Modding\scripts` above is unchanged.
