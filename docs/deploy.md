@@ -140,7 +140,7 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `live-profile-unknown`| `ModOrganizer.ini` names no active profile (`selected_profile` missing or empty) and `profile` does not name an existing profile other than `Default` |
 | `profile-missing` / `profile-name` | `profile` is not a profile folder of the instance       |
 | `reparse-point`       | A component of `mo2`, `mods\`, the target, or an entry in the source or a dev mod folder is a symbolic link or junction |
-| `location`            | `mods\` is inside the game's Data folder (or one of profiles, overwrite, downloads is inside `mods\`), the instance is inside the game or user Data folder or another instance (`guard_location`, shared with `set` and `build`), or the source overlaps the dev mod's folders |
+| `location`            | `mods\` is, or is inside, the game's Data folder or the user Data folder (`Documents\My Games\Starfield\Data`); `mods\` is the profiles, overwrite or downloads folder, or one of them is inside `mods\`; the instance is inside the game or user Data folder or another instance (`guard_location`, shared with `set` and `build`), or the source overlaps the dev mod's folders |
 | `source`              | Not a plugin or a folder with one plugin at its root                 |
 | `source-path`         | A name Windows forbids, `meta.ini` or `kitkraft-deploy.json` at the package root, a deployed path longer than 259 characters, too deep or too many files |
 | `plugin-name`         | The plugin stem is a name Windows forbids                            |

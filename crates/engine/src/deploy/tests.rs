@@ -525,6 +525,64 @@ fn unknown_active_profile_fails_closed() {
     assert_eq!(r["data"]["outcome"], "deployed", "{r}");
 }
 
+/// Fable review (deploy round), findings 4 and 9: `mod_directory` may point anywhere. A
+/// `mods\` that is the user Data folder (or inside it), or that is the instance's
+/// overwrite, downloads or profiles folder, is refused before anything is written.
+#[test]
+fn mods_folder_location_is_checked() {
+    let mo2 = Mo2::new("modsloc");
+    let src = mo2.plugin(b"TES4");
+    let before = mo2.protected();
+    let esc = |p: &Path| p.to_string_lossy().replace('\\', "\\\\");
+    let game = esc(&mo2.root.join("Game"));
+    let user = mo2.root.join("My Games").join("Starfield");
+    fs::create_dir_all(user.join("Data").join("mods")).unwrap();
+    let custom = mo2.root.join("Custom");
+    fs::create_dir_all(custom.join("Data")).unwrap();
+    fs::write(custom.join("StarfieldCustom.ini"), b"[General]\r\n").unwrap();
+    for (dir, needle) in [
+        (mo2.mo2().join("overwrite"), "overwrite folder"),
+        (mo2.mo2().join("downloads"), "downloads folder"),
+        (mo2.mo2().join("profiles"), "profiles folder"),
+        (user.join("Data"), "user Data folder"),
+        (user.join("Data").join("mods"), "user Data folder"),
+        (custom.join("Data"), "user Data folder"),
+    ] {
+        mo2.write(
+            "mo2/ModOrganizer.ini",
+            format!(
+                "[General]\r\nselected_profile=@ByteArray(KitKraft Dev)\r\ngamePath=@ByteArray({game})\r\n[Settings]\r\nmod_directory=@ByteArray({})\r\n",
+                esc(&dir)
+            )
+            .as_bytes(),
+        );
+        let e = err_text(mo2.deploy(&src));
+        assert!(
+            e.contains("[location]") && e.contains(needle),
+            "{needle}: {e}"
+        );
+        let e = err_text(execute(
+            "deploy.status",
+            json!({"mo2": mo2.mo2().to_str().unwrap()}),
+        ));
+        assert!(e.contains("[location]"), "{e}");
+        assert_eq!(
+            fs::read_dir(&dir)
+                .unwrap()
+                .filter(|e| e
+                    .as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("KitKraft Dev - "))
+                .count(),
+            0
+        );
+    }
+    mo2.select("KitKraft Dev");
+    assert_eq!(mo2.protected(), before);
+}
+
 #[test]
 fn same_named_folder_that_is_not_kitkraft_s_is_refused() {
     let mo2 = Mo2::new("collision");

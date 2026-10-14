@@ -9,7 +9,7 @@ use kitcraft_io::{ModState, Profile, ProfileOptions};
 use serde_json::{json, Value};
 
 use super::{io_error, refused, DeployError, DEV_PROFILE, LIVE_PROFILE, PREFIX};
-use crate::edit::patch::guard_location;
+use crate::edit::patch::{guard_location, is_user_data_dir};
 
 /// Longest full path (UTF-16 units) a deployed file may have: the classic Windows limit,
 /// which MO2 and the game are not known to lift.
@@ -195,11 +195,14 @@ impl Instance {
         Ok(instance)
     }
 
-    /// `mods\` must not be (inside) the game's Data folder, and the guarded folders must
-    /// not be inside `mods\`.
+    /// `mods\` must not be, or be inside, the game's Data folder or the user Data folder
+    /// (`Documents\My Games\Starfield\Data`, `is_user_data_dir`, shared with `set` and
+    /// `build`); it must not be the profiles, overwrite or downloads folder (MO2 lets
+    /// `mod_directory` name any of them); and the guarded folders must not be inside it.
     fn check_mods_location(&self) -> Result<(), DeployError> {
         let mods = canonical(&self.mods)?;
-        for dir in mods.ancestors() {
+        let spelled = absolute(&self.mods)?;
+        for dir in mods.ancestors().chain(spelled.ancestors()) {
             if dir.join("Starfield.esm").is_file() {
                 return Err(refused(
                     "location",
@@ -207,8 +210,28 @@ impl Instance {
                     format!("is inside the game's Data folder ({})", dir.display()),
                 ));
             }
+            if is_user_data_dir(dir) {
+                return Err(refused(
+                    "location",
+                    &self.mods,
+                    format!(
+                        "is inside the game's user Data folder ({}), which the game also loads from",
+                        dir.display()
+                    ),
+                ));
+            }
         }
         for (what, g) in &self.guarded {
+            if g == &mods && *what != "the MO2 instance root" {
+                return Err(refused(
+                    "location",
+                    &self.mods,
+                    format!(
+                        "is {what} ({}); mod_directory must be a folder of its own",
+                        g.display()
+                    ),
+                ));
+            }
             if g != &mods && (mods.starts_with(g) && *what != "the MO2 instance root") {
                 return Err(refused(
                     "location",
