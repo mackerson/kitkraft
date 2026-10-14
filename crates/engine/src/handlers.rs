@@ -13,6 +13,9 @@ mod coverage;
 mod diff;
 mod inspect;
 mod load;
+mod overhaul;
+#[cfg(test)]
+mod overhaul_tests;
 mod papyrus;
 mod query;
 mod roundtrip;
@@ -76,6 +79,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("set", Box::new(set::run)),
         ("validate", Box::new(validate::run)),
         ("build", Box::new(build::run)),
+        ("overhaul.scaffold", Box::new(overhaul::run)),
     ]
 }
 

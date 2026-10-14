@@ -264,6 +264,28 @@ impl Query {
         walk(&self.expr)
     }
 
+    /// Every field path the query reads (`SIG` and its lower-case members), in order.
+    pub fn field_paths(&self) -> Vec<([u8; 4], &[String])> {
+        fn walk<'q>(e: &'q Expr, out: &mut Vec<([u8; 4], &'q [String])>) {
+            match e {
+                Expr::Or(v) | Expr::And(v) => v.iter().for_each(|e| walk(e, out)),
+                Expr::Not(e) => walk(e, out),
+                Expr::Has(_) => {}
+                Expr::Cmp {
+                    path:
+                        Path::Field {
+                            signature, members, ..
+                        },
+                    ..
+                } => out.push((*signature, members.as_slice())),
+                Expr::Cmp { .. } => {}
+            }
+        }
+        let mut out = Vec::new();
+        walk(&self.expr, &mut out);
+        out
+    }
+
     /// Evaluate on `subject`; reasons for unknown parts are appended to `unknown`.
     pub fn eval(&self, subject: &mut dyn Subject, unknown: &mut Vec<String>) -> Tri {
         eval(&self.expr, subject, unknown)

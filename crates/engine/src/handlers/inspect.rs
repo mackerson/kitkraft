@@ -29,13 +29,14 @@ use kitcraft_esm::{
 use serde_json::{json, Value};
 
 use kitcraft_doc::compare::{spans, OverrideClass};
+use kitcraft_doc::confidence::{reference_limitation, reference_members};
 use kitcraft_doc::flags::RECORD_FLAG_DELETED;
 use kitcraft_doc::lstring::is_lstring;
 use kitcraft_doc::strings::StringTables;
 use kitcraft_doc::typed::{self, Decoded};
 use kitcraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
 
-use super::load::{acquire, lstring_json, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, lstring_json, schema_of, Loaded, RUNTIME_ASSUMED};
 use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
@@ -133,8 +134,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     if single {
         return run_single(args);
     }
+    let schema = schema_of(session);
     let loaded = acquire(session, args, ID)?;
-    run_load_order(loaded, args)
+    run_load_order(loaded, args, schema)
 }
 
 /// Single-plugin mode.
@@ -465,6 +467,7 @@ const RUNTIME_PREFIX: &str = "runtime:";
 /// Where a version comes from.
 struct VersionCtx<'a> {
     lo: &'a kitcraft_doc::LoadOrder,
+    schema: Option<&'a kitcraft_schema::Schema>,
     plugin: u16,
     file: &'a str,
     localized: bool,
@@ -493,22 +496,24 @@ fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>) -> Value {
                 .collect(),
         ),
         Decoded::Array(items) => Value::Array(items.iter().map(|i| decoded_json(i, vc)).collect()),
-        Decoded::Opaque => json!("opaque"),
+        Decoded::Opaque { .. } => json!("opaque"),
     }
 }
 
 /// Subrecords of one version as JSON, with evidence; lstrings decoded, and fields decoded
 /// through the schema where it defines the subrecord. Returns the list, whether a payload
-/// was cut, and how many subrecords decoded through the schema.
+/// was cut, and how many subrecords decoded through the schema; the `reference`-confidence
+/// members of decoded values are added to `reference` (M3.D3).
 fn version_subrecords(
     strings: &mut StringTables,
     vc: &VersionCtx<'_>,
     rec: &LoadedRecord,
     evidence: &mut Vec<Evidence>,
     notes: &mut Vec<String>,
+    reference: &mut Vec<String>,
 ) -> (Vec<Value>, bool, u64) {
     let (file, localized) = (vc.file, vc.localized);
-    let schema = kitcraft_schema::builtin().ok();
+    let schema = vc.schema;
     let ctx = typed::Ctx {
         form_version: rec.record.header.form_version,
         localized,
@@ -567,10 +572,18 @@ fn version_subrecords(
         if let (Some((ty, name)), Some(obj)) = (def, entry.as_object_mut()) {
             obj.insert("member".into(), json!(name));
             match typed::decode(ty, data, &ctx) {
-                Ok(Decoded::Opaque) => {}
+                Ok(Decoded::Opaque { .. }) => {}
                 Ok(v) => {
                     typed_count = typed_count.saturating_add(1);
                     obj.insert("value".into(), decoded_json(&v, vc));
+                    if let Some(sc) = schema {
+                        reference.extend(reference_members(
+                            sc,
+                            rec.record.header.signature.0,
+                            s.signature().0,
+                            None,
+                        ));
+                    }
                 }
                 Err(e) => {
                     notes.push(format!(
@@ -615,17 +628,20 @@ fn class_json(class: &OverrideClass) -> Value {
             "class": class.as_str(),
             "flags_differ": flags,
             "order_differs": order,
-            "subrecords": subrecords.iter().map(|d| json!({
-                "signature": d.signature,
-                "occurrence": d.occurrence,
-                "change": d.change.as_str(),
-            })).collect::<Vec<_>>(),
+            "subrecords": subrecords
+                .iter()
+                .map(|d| super::diff::sub_diff_json(d, false))
+                .collect::<Vec<_>>(),
         }),
     }
 }
 
 /// Load-order mode.
-fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
+fn run_load_order(
+    loaded: &mut Loaded,
+    args: &Value,
+    schema: Option<&kitcraft_schema::Schema>,
+) -> Result<Outcome, EngineError> {
     let form_arg = str_arg(ID, args, "form")?;
     let plugin = args.get("plugin").and_then(Value::as_str);
     let lo = &loaded.lo;
@@ -656,6 +672,7 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
     let mut compressed_any = false;
     let mut opaque = 0u64;
     let mut typed_total = 0u64;
+    let mut reference: Vec<String> = Vec::new();
     let mut list = Vec::with_capacity(versions.len());
     let last = versions.len().saturating_sub(1);
     for (i, (v, rec)) in versions.iter().zip(&records).enumerate() {
@@ -672,6 +689,7 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         });
         let vc = VersionCtx {
             lo,
+            schema,
             plugin: v.plugin,
             file: &p.name,
             localized,
@@ -680,14 +698,29 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
                 .and_then(|l| lo.edid(v.plugin, l))
                 .and_then(|e| e.bytes().next()),
         };
-        let (subs, cut, typed_here) =
-            version_subrecords(&mut loaded.strings, &vc, rec, &mut evidence, &mut notes);
+        let (subs, cut, typed_here) = version_subrecords(
+            &mut loaded.strings,
+            &vc,
+            rec,
+            &mut evidence,
+            &mut notes,
+            &mut reference,
+        );
         typed_total = typed_total.saturating_add(typed_here);
         cut_any |= cut;
         compressed_any |= rec.compressed;
         opaque = opaque.saturating_add(rec.subs.len() as u64);
-        let previous = i.checked_sub(1).and_then(|j| records.get(j));
-        let class = previous.map(|prev| class_json(&kitcraft_doc::compare::classify(prev, rec)));
+        let previous = i
+            .checked_sub(1)
+            .and_then(|j| Some((versions.get(j)?, records.get(j)?)));
+        let class = previous.map(|prev| {
+            class_json(&kitcraft_doc::conflicts::classify_versions(
+                lo,
+                schema,
+                prev,
+                (v, rec),
+            ))
+        });
         let comparable = i
             .checked_sub(1)
             .and_then(|j| versions.get(j))
@@ -762,11 +795,11 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         limitations.push(PAYLOAD_CUT.to_string());
     }
     if versions.len() > 1 {
-        limitations.push(
-            "vs_previous compares payloads as stored bytes; where payloads_comparable is false \
-             the two plugins encode FormIDs differently, so a byte difference may be encoding only"
-                .to_string(),
-        );
+        limitations.push(format!(
+            "vs_previous: {}; where payloads_comparable is false the two plugins encode FormIDs \
+             differently, so a difference inside an opaque payload may be encoding only",
+            super::diff::FIELD_LEVEL
+        ));
     }
     if winner_deleted {
         limitations.push(
@@ -781,9 +814,15 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
             assumed.join("; ")
         ));
     }
+    reference.sort();
+    reference.dedup();
+    if let Some(l) = reference_limitation(&[(signature.clone(), reference)]) {
+        limitations.push(l);
+    }
     notes.sort();
     notes.dedup();
     limitations.extend(notes);
+    let source = loaded.source_check(form);
     let summary = format!(
         "{label} {signature} {}: {} version(s), winner {}{}{}",
         editor_id.as_deref().unwrap_or("(no EditorID)"),
@@ -807,6 +846,11 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         "editor_id": editor_id,
         "winner": winner_name,
         "winner_deleted": winner_deleted,
+        "winner_source": {
+            "safe": source.is_safe(),
+            "blocking": source.blocking,
+            "unrelated": source.unrelated,
+        },
         "versions": list,
         "summary": summary,
     });
@@ -1008,7 +1052,17 @@ mod tests {
         assert_eq!(versions[1]["vs_previous"]["class"], "differs");
         assert_eq!(
             versions[1]["vs_previous"]["subrecords"],
-            json!([{"signature": "FULL", "occurrence": 0, "change": "changed"}])
+            json!([{
+                "signature": "FULL",
+                "occurrence": 0,
+                "change": "changed",
+                "member": "Name",
+                "fields": [{
+                    "path": "FULL.Name",
+                    "before": "Old Earth Hunting Rifle",
+                    "after": "Old Soviet Marksman Rifle",
+                }],
+            }])
         );
         assert_eq!(versions[1]["payloads_comparable"], true);
         // Fields the schema defines carry their member name and decoded value.

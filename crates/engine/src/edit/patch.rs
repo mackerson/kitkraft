@@ -590,6 +590,14 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
             )));
         }
     }
+    guard_location(target)
+}
+
+/// Refuses any output file (a plugin, or a spec `overhaul.scaffold` writes) inside the
+/// game's Data directory, the user Data directory, or an MO2 instance or profile, at any
+/// depth.
+pub fn guard_location(target: &Path) -> Result<(), PatchError> {
+    let abs_target = absolute(target);
     let mut dir = abs_target.parent();
     while let Some(d) = dir {
         if d.join("Starfield.esm").is_file() {

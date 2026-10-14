@@ -294,7 +294,8 @@ Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load 
 assumption: `{raw_form_id, form, basis}`), `duplicate_records`,
 `runtime_slot` (`05`, `FD:01`, `FE:00A`; assumed), `cache` (`hit` | `built` |
 `uncached`), `error` (a plugin that failed to parse stays listed with no records)),
-`inactive` (plugins the profile lists but does not activate), `records`, `versions`,
+`inactive` (plugins the profile lists but does not activate), `missing_active_plugins`
+(active per the profile but with no file; M3.D1), `records`, `versions`,
 `cache_dir`, `cache_hits`, `index_ms`, `table_ms`, `elapsed_ms`, `summary`. Evidence: each
 plugin's TES4 header. Coverage `not_examined` lists the plugins that failed to load.
 
@@ -310,7 +311,9 @@ assumption), or an EditorID (ASCII case-insensitive). `data`:
 `mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
 `form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
 `object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
-`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `summary` (says
+`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `winner_source`
+(M3.D1: `{safe, blocking[], unrelated[]}`, whether the winner is a safe source to copy;
+rules in `docs/load-order.md`, "Safe sources"), `summary` (says
 "(deleted)" after a deleted winner), and `versions[]` in load
 order: `plugin`, `load_index`, `winner`, `deleted` (record flag 0x20), `resolved_by`
 (`direct` | `assumed:full-style-self` | `assumed:full-style-self-masked`), `raw_form_id`
@@ -321,9 +324,13 @@ EDID; for FULL/DESC the lstring members above; `member` (the schema's member nam
 FormID as `{raw: "00000000", form: null, null: true}`) where
 lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
-flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
+flags_differ, order_differs, subrecords[] {signature, occurrence, change, member?,
+fields?, as_bytes?}}`, typed members compared by value as in `diff`) and
 `payloads_comparable` (whether the two plugins encode FormIDs alike; when false a byte
-difference may be encoding only). Evidence: every version's header and every payload.
+difference may be encoding only). Evidence: every version's header and every payload. A
+`value` decoded through a member whose definition has `reference` confidence (documented in
+the pinned xEdit file, not yet confirmed by our corpus or the CK) is named in
+`limitations` (`... reference confidence ...: WEAP DNAM.Data.Speed`; M3.D3).
 
 **Single-plugin mode** (only `plugin` given): CLI `kit inspect <form> --plugin <file>`.
 `form` is a FormID (1-8 hex digits, optional `0x`, matched against the record header as
@@ -389,7 +396,8 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3; object ID
   path may start with the subrecord's own member name (`KSIZ.Count` = `KSIZ`). FormID
   members compare as formrefs (`KWDA == Starfield.esm:0004A0BB`); lstrings compare as
   their resolved text. A record type or subrecord without a definition falls back to
-  `EDID` as text and `FULL`/`DESC` as lstrings.
+  `EDID` as text and `FULL`/`DESC` as lstrings. A path that reads a member whose
+  definition has `reference` confidence is named in `limitations` (M3.D3), as in `inspect`.
 - A subrecord the record does not have makes a comparison false and `has` false. A value
   of a union member (the schema picks its variant per record) of another kind than the
   literal (a GMST string variant against `DATA > 100`) is another variant: not equal, not
@@ -422,9 +430,17 @@ unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offse
 `changed[]`: `form`, `signature`, `class`, `a`/`b` (`raw_form_id`, `offset`, `flags`,
 `compressed`), `flags_differ`, `order_differs`, `subrecords[]` (`signature`, `occurrence`,
 `change`: `added` | `removed` | `changed`, `a`/`b` spans `{file_offset, body_offset,
-length}`, `first_difference`). Lists stop at `limit` (counts are complete). Records whose
-bodies and flags are byte-identical count as unchanged without being parsed. Evidence:
-both sides of every listed record and differing payload.
+length}`, `first_difference` (null when the bytes are equal and only what they mean
+differs), and for a subrecord the schema gives a layout (M3.D2): `member` (the schema's
+member name) and `fields[]` `{path, before, after}` (paths like `KWDA.Forms[1]`, `DATA.Value`,
+`DNAM[1].Speed`; FormIDs as `{form}` formrefs, `{form: null, null: true}` or `{form: null,
+raw, error}`; an opaque member as `{opaque: {payload_offset, length, file_offset}}`; null on
+the side where the member is absent), or `as_bytes` with the reason it is compared as
+bytes). `counts.equal_by_value`: records whose bytes differ only in how typed FormIDs are
+encoded (another master order), counted as unchanged. Lists stop at `limit` (counts are
+complete). Records whose bodies and flags are byte-identical count as unchanged without
+being parsed when both files encode FormIDs alike; otherwise they are compared by value.
+Evidence: both sides of every listed record and differing payload.
 
 ### `conflicts` (M2.D13, port of `esmscan.py`)
 
@@ -437,7 +453,10 @@ Starfield.esm --profile <dir>` (alias `esmscan`).
 (overridden forms passing the filters), `items[]` (a page: `form`, `signature`,
 `editor_id`, `base_present`, `versions` (plugin names in load order), `overrides[]`:
 `plugin`, `previous`, `class` (`identical-to-previous` | `deleted` | `differs` |
-`first-version`), `resolved_by`, `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
+`first-version`), `resolved_by`, `comparable`, `subrecords[]` (`signature`, `occurrence`,
+`change`, and `member`/`fields[]`/`as_bytes` as in `diff`: typed members compared by value
+with FormIDs resolved through each version's plugin, so an override that only re-encodes
+the same forms is `identical-to-previous`; M3.D2), `flags_differ`), `class_counts` (this page),
 `class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
 Evidence: each override's record header and its differing payloads.
 `only_conflicts` keeps forms that two or more plugins override.
@@ -638,8 +657,12 @@ not write.
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
-Arguments `{plugin?, scripts?, rules?}` (`plugin`, `scripts`, or both) plus the
-load-order arguments (all optional). **Masters of a standalone plugin are searched in
+Arguments `{plugin?, scripts?, plugin_archives?, rules?}` (`plugin`, `scripts`, or both)
+plus the load-order arguments (all optional). `scripts` takes `.pex` files, directories
+of them, and `.ba2` archives (each `.pex` entry is read in memory; a finding names it
+`<archive>/<path in archive>`, an entry that does not parse is a limitation);
+`plugin_archives: true` (CLI `--plugin-archives`, needs `plugin`) adds the plugin's own
+`<stem> - *.ba2` archives (M3.E3). **Masters of a standalone plugin are searched in
 order:** the named (`profile`/`plugins`) or session load order, the plugin's own
 directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable set,
 `kit validate --plugin out\X.esm` finds `Starfield.esm` with no other argument. A bare
@@ -658,11 +681,33 @@ directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable s
 FormID was left unchecked; opaque subrecords count as `opaque_subrecords`. Evidence: one
 byte at each finding's offset.
 
-### `build` (M2.E9)
+### `build` (M2.E9; spec v2 M3.E6)
 
-Arguments `{spec, out, overwrite = false, allow_untyped_lstrings = false}` plus the
-load-order arguments (used when the spec has no `[load_order]`). CLI
-`kit build rename.toml <out> [--overwrite]`. `out` is checked like `set`'s `into` (never a
+Arguments `{spec, out, plan = false, overwrite = false, allow_untyped_lstrings = false}`
+plus the load-order arguments (used when the spec has no `[load_order]`). CLI
+`kit build rename.toml <out> [--plan] [--overwrite]`.
+
+**Spec version 2** (`crates/engine/src/build/spec.rs` has the full grammar): `[class.<name>]`
+tables (`type`, optional `where`: every winning record of the type when absent, optional
+`brief`), `[[rule]]` entries naming a `class`, with `fields`, optional `via` (typed FormID
+member paths followed hop by hop: `via = ["KWDA"]` reaches a weapon's keywords),
+`allow_reference` and `brief`; `[[set]]` as in version 1 (plus `allow_reference`);
+top-level `strict`; `[plugin] style = "kit"` (the `ck` style is refused until M3.A3).
+Operators on typed numbers: a value, `{ mul }`, `{ add }`, `{ min }` (at least),
+`{ max }` (at most), `{ clamp = [lo, hi] }`; other types take only a value. In version 2 a
+record reached by several rules or classes is written once (the same write twice is one
+write; `changes[].by` lists every entry that asked for it), two different writes to one
+field are an error naming both keys, a field path the record type's schema does not have
+is `unknown member`, a rule that matches nothing is a warning (`data.warnings`, and an
+error with `strict = true`), and a write to a `reference`-only member is refused unless
+the entry has `allow_reference = true` (then named in `limitations`). Version 1 specs
+build as before. `plan: true` writes nothing to `out` (the plugin is built and validated
+in the OS temp dir only) and returns `plan`, `changes[]` (`form`, `signature`,
+`editor_id`, `path`, `before`, `after`, `changed`, `by`), `changed_fields`, `classes[]`
+(`class`, `type`, `where`, `brief`, `matched`, `undecided`), `rules[]` (`rule`, `class`,
+`brief`, `matched`, `via[]` hops with `from`/`reached`/`unfollowed`, `records`,
+`fields_written`, `fields_changed`), `validate` and `passed`; a plan with nothing to write
+(a fresh `overhaul.scaffold` spec) reports 0 changes. `out` is checked like `set`'s `into` (never a
 load-order plugin, the game or user Data dir, or MO2) before anything is written, and an
 existing `out` is replaced only with `overwrite`. The spec (TOML):
 
@@ -692,6 +737,29 @@ the command fails with the errors. Spec errors are `failed` with `spec: <key>: .
 `matched`, `undecided`), `validate` (`passed`, `errors`, `warnings`, `findings`, `rules`)
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
+
+### `overhaul.scaffold` (M3.E7; CLI `kit overhaul`)
+
+Arguments `{type, where?, group_by?, out?, overwrite = false, max_groups = 40}` plus the
+load-order arguments. CLI `kit overhaul WEAP --group-by KWDA --out weapons.toml
+--profile <dir>` (or `kit overhaul --type WEAP ...`). Emits a starter `build` spec v2 for
+the winning records of `type` matching `where`: one class per value of `group_by` (a
+`where` path such as `KWDA`, `@plugin` or `DNAM.Member`; a record with several values
+joins one class per value; without it, one class), the largest `max_groups` as classes
+and the rest listed in a comment, each class with its `where` (exactly its group), its
+match count and the min/median/max of every typed numeric member of the type as comments,
+a `brief` placeholder and a commented-out rule. Every rule is commented out, so
+`build --plan` on a fresh scaffold reports 0 changes with each class matching what the
+scaffold counted. The text is deterministic; the `[load_order]` repeats the
+`profile`/`plugins`/`data_dir`/`language`/`no_cache` arguments. With `out` (a `.toml`
+file, never in the game or user Data dir or MO2; an existing one only with `overwrite`)
+it is written; without, `data.spec_text` (and the summary) holds it. `data`: `type`,
+`where`, `group_by`, `out`, `written`, `bytes`, `records`, `undecided`, `ungrouped`,
+`group_undecodable`, `unexpressible`, `classes[]` (`class`, `where`, `matched`, `label`,
+`stats[]` with `member`, `records`, `undecodable`, `min`, `median`, `max`), `omitted[]`,
+`numeric_members[]` (`path`, `member`, `kind`, `confidence`, `in_array`), `spec_text`,
+`summary`. On the owner's Default profile, `kit overhaul WEAP --group-by KWDA` takes
+0.8 s warm (release, 541 winning WEAP, 2026-10-14).
 
 ## Errors
 

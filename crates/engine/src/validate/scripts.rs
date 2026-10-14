@@ -22,12 +22,63 @@ pub const DENYLIST: &[(&str, &str, &str)] = &[(
     "toggles god mode; if the script stops between turning it on and off (fast travel, a load), the player stays invulnerable in the save",
 )];
 
-/// Scans the `.pex` files at `paths` (files, or directories searched recursively, at most
-/// 16 levels and 100,000 files).
+/// Largest script read from an archive (the biggest official `.pex` is far below it).
+const MAX_ARCHIVED_SCRIPT: u64 = 64 << 20;
+
+/// Whether `path` names a `.ba2` archive.
+pub fn is_archive(path: &Path) -> bool {
+    path.extension()
+        .is_some_and(|e| e.eq_ignore_ascii_case("ba2"))
+}
+
+/// The archives that belong to `plugin`: `<stem> - <anything>.ba2` (and `<stem>.ba2`) in
+/// the plugin's directory, as the official files name them (`Starfield - Misc.ba2`,
+/// `SFBGS003 - Main.ba2`), sorted.
+pub fn plugin_archives(plugin: &Path) -> Vec<PathBuf> {
+    let (Some(dir), Some(stem)) = (plugin.parent(), plugin.file_stem()) else {
+        return Vec::new();
+    };
+    let stem = stem.to_string_lossy().to_ascii_lowercase();
+    let dir = if dir.as_os_str().is_empty() {
+        Path::new(".")
+    } else {
+        dir
+    };
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return Vec::new();
+    };
+    let mut out: Vec<PathBuf> = entries
+        .filter_map(Result::ok)
+        .map(|e| e.path())
+        .filter(|p| p.is_file() && is_archive(p))
+        .filter(|p| {
+            p.file_stem().is_some_and(|s| {
+                let s = s.to_string_lossy().to_ascii_lowercase();
+                s == stem || s.starts_with(&format!("{stem} - "))
+            })
+        })
+        .collect();
+    out.sort();
+    out
+}
+
+/// Scans the `.pex` files at `paths`: loose files, directories searched recursively (at
+/// most 16 levels and 100,000 files), and `.ba2` archives, whose `.pex` entries are read
+/// in memory (lane G's `kitcraft-ba2`); a script in an archive is named
+/// `<archive>/<path in archive>`. An archived script that does not parse is listed in
+/// `report.limitations` rather than failing the run.
 pub fn denylisted_calls(paths: &[PathBuf], report: &mut Report) -> Result<(), String> {
     let mut files = Vec::new();
+    let mut archives = Vec::new();
     for path in paths {
-        collect(path, 0, &mut files)?;
+        if path.is_file() && is_archive(path) {
+            archives.push(path.clone());
+        } else {
+            collect(path, 0, &mut files)?;
+        }
+    }
+    for archive in archives {
+        scan_archive(&archive, report)?;
     }
     for file in files {
         let bytes = std::fs::read(&file).map_err(|e| format!("{}: {e}", file.display()))?;
@@ -38,6 +89,47 @@ pub fn denylisted_calls(paths: &[PathBuf], report: &mut Report) -> Result<(), St
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         scan(&pex, &name, &mut report.findings);
+    }
+    Ok(())
+}
+
+/// The `.pex` entries of one archive.
+fn scan_archive(path: &Path, report: &mut Report) -> Result<(), String> {
+    let (archive, mut file) =
+        kitcraft_ba2::Archive::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+    let archive_name = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let mut failed: Vec<String> = Vec::new();
+    for (index, entry) in archive.entries.iter().enumerate() {
+        if !entry.name.to_ascii_lowercase().ends_with(".pex") {
+            continue;
+        }
+        let label = format!("{archive_name}/{}", entry.name.replace('\\', "/"));
+        let parsed = archive
+            .extract_vec(&mut file, index, MAX_ARCHIVED_SCRIPT)
+            .map_err(|e| e.to_string())
+            .and_then(|bytes| Pex::parse(&bytes).map_err(|e| e.to_string()));
+        match parsed {
+            Ok(pex) => {
+                report.scripts = report.scripts.saturating_add(1);
+                scan(&pex, &label, &mut report.findings);
+            }
+            Err(e) => failed.push(format!("{label} ({e})")),
+        }
+    }
+    if !failed.is_empty() {
+        let shown: Vec<&String> = failed.iter().take(20).collect();
+        report.limitations.push(format!(
+            "{} script(s) in {archive_name} could not be read and were not scanned: {}",
+            failed.len(),
+            shown
+                .iter()
+                .map(|s| s.as_str())
+                .collect::<Vec<_>>()
+                .join("; ")
+        ));
     }
     Ok(())
 }

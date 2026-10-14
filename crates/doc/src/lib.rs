@@ -12,9 +12,11 @@
 
 pub mod cache;
 pub mod compare;
+pub mod confidence;
 pub mod conflicts;
 pub mod diff;
 mod error;
+pub mod fields;
 pub mod flags;
 pub mod form;
 pub mod hash;
@@ -25,6 +27,7 @@ pub mod overrides;
 pub mod query;
 pub mod record;
 pub mod search;
+pub mod source;
 pub mod strings;
 pub mod subject;
 #[cfg(test)]
@@ -39,3 +42,4 @@ pub use index::{HeaderInfo, PluginIndex, RecordLoc};
 pub use load_order::{LoadOptions, LoadOrder, LoadedPlugin, MasterLink, PluginSpec};
 pub use overrides::{Duplicate, FormTable, Version};
 pub use record::{LoadedRecord, RecordReader};
+pub use source::SourceCheck;

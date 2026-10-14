@@ -18,6 +18,7 @@
 //! LAYER: L4
 
 pub mod args;
+pub mod build;
 pub mod cmdline;
 pub mod edit;
 mod envelope;
@@ -173,8 +174,18 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "File/Build Patch...",
         shortcut: Some("Ctrl+B"),
         aliases: &[],
-        summary: "Compile a data-driven patch spec (TOML: [[set]] and [[rule]] entries) into one fresh plugin, validated",
-        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
+        summary: "Compile a data-driven patch spec (TOML v2: classes, [[rule]] with operators and via, [[set]]; v1 still accepted) into one fresh plugin, validated; --plan lists the changes without writing",
+        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 2, or 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"plan":{"type":"boolean","default":false,"description":"Dry run: list every change (before and after), the classes and rules with their counts and the validation result; write nothing"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "overhaul.scaffold",
+        label: "New Overhaul Spec...",
+        menu_path: "File/New Overhaul Spec...",
+        shortcut: None,
+        aliases: &["overhaul"],
+        summary: "Starter build spec v2 for one record type: a class per group of winning records, with match counts and min/median/max of each typed numeric member as comments; every rule commented out",
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (WEAP)"},"where":{"type":"string","description":"Only winning records matching this predicate (query's where language)"},"group_by":{"type":"string","description":"A where path (KWDA, @plugin, SIG.Member): one class per value; a record with several values joins one class per value"},"out":{"type":"string","description":"The .toml spec to write (never in the game or user Data dir or MO2); omitted: the text is returned in data.spec_text"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"max_groups":{"type":"integer","minimum":1,"maximum":1000,"default":40,"description":"Most classes; the smaller groups are listed in a comment"},"profile":{"type":"string","description":"MO2 profile to load first (repeated in the spec's [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order (repeated in the spec's [load_order])"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -184,7 +195,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("F7"),
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves here, and masters are searched here after the load order and the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files, directories of them, or .ba2 archives (their .pex entries) to scan"},"plugin_archives":{"type":"boolean","default":false,"description":"Also scan the scripts in the plugin's own archives (<plugin stem> - *.ba2 next to it)"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves here, and masters are searched here after the load order and the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {

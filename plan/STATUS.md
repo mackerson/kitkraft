@@ -374,6 +374,8 @@ is under "Next".
     `inspect` shows the new name winning. Automated in `crates/engine/tests/smoke_rename.rs`
     (64 s debug). Owner steps: M2.O6 below and `docs/smoke-rename.md`.
 - Lane E round 2 (Fable review, 13 findings, each with a regression test), 2026-10-14:
+**M2.O6 result (2026-10-14):** PASS. Owner loaded `OldSovietMarksmanRifle.esm` (SHA-256 9c0b28a6...) through MO2 on a disposable save, `player.additem 0021BBCD 1`, and the item displayed as "Old Soviet Marksman Rifle". First in-game confirmation of the set/validate/build pipeline and of inline UTF-8 lstrings in a non-localized override of a localized master.
+
   `build` guards `out` like any patch target (a load-order plugin named as `out` was
   overwritten) and needs `overwrite` for an existing file; `set` stages, runs the plugin
   rules and writes only when its records pass; both stage under the OS temp dir (stale
@@ -390,6 +392,82 @@ is under "Next".
   `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
   15 warnings). The rename plugin was regenerated (TES4 only changed):
   **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
+- Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
+  `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
+  - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
+    (`kitcraft_doc::RawRef`; a master of unknown scale before the index and
+    `full-style-self` stay unresolved, never guessed); `scripts` takes `.ba2` archives and
+    `plugin_archives` adds the plugin's own `<stem> - *.ba2`. `validate_corpus_official_files`
+    (release, 83 s): 0 errors, unresolved FormIDs 0 on all 14 files, warnings unchanged
+    (92 `override.stripped-name` on CELL/LCTN/NPC_/QUST/WRLD, the DLCs' own; 15
+    `formid.dangling` in SFBGS050, overrides of SFBGS00D forms SFBGS00D lacks).
+  - M3.E6 `build` spec v2 (`crates/engine/src/build/`): named classes, `[[rule]]` over a
+    class with `via` (typed FormID members followed hop by hop; lane D's `follow`, M3.D4,
+    replaces the local one when it lands), operators `mul`/`add`/`min`/`max`/`clamp`,
+    one write per record across rules and classes (different writes to one field name both
+    keys), `unknown member` checked against the schema, `strict`, `plan` (change list with
+    before/after, per-class and per-rule counts, nothing written), and the
+    `reference`-confidence gate (`allow_reference`). Built and tested on the members typed
+    today (GLOB `FLTV`, GMST `DATA`, `EDID`, `KSIZ`/`KWDA`, `FULL`); the weapon members
+    (WEAP/AMMO/PROJ/AMDL, lane B round 3: M3.B1..B3) plug in through the schema with no
+    code change. The `reference` gate is tested on a synthetic schema (the builtin has no
+    `reference` member yet). Version 1 specs build as before (the rename keeps its hash).
+  - M3.E7 `overhaul.scaffold` (CLI `kit overhaul`, `handlers/overhaul.rs`,
+    `build/scaffold.rs`): a starter spec v2 per record type, one class per `group_by` value
+    with match counts and min/median/max of each typed numeric member as comments, every
+    rule commented out; deterministic; `out` guarded (`.toml`, never game/user Data or
+    MO2, `overwrite`). On the Default profile `kit overhaul WEAP --group-by KWDA`: 541
+    winning WEAP, 40 classes, 0.8 s warm (release); `kit build <scaffold> --plan`: 0
+    changes, every class's count equal to the scaffold's (4.5 s). Today the only typed
+    numeric WEAP member is `KSIZ`; the weapon stats appear when lane B types WEAP (M3.B1).
+  - M3.E8 design brief template `docs/overhaul/brief.md` (source, critique points with
+    owner's-words claim, timestamp, classes, desired change, measurable target; out of
+    scope; in-game checklist; the traceability rule `brief = "B<n>"`). Next for the owner:
+    **M3.O4** (pick the critique, fill the brief), which gates M3.E9.
+  - Not started, gated: M3.E1/E2 on lane D's M3.D1 (`missing_active_plugins`,
+    `Resolved.bytes`, not on main); M3.E4 on M3.B8; M3.E5 on M3.A3 (and M3.H3/M3.O1);
+    M3.E9 on M3.O4 (owner); M3.E10 on M3.B1 (typed WEAP).
+- Lane D, M3 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
+  `handlers/{load,inspect,query,diff,conflicts}.rs`), 2026-10-14:
+  - M3.D1 lane E's round 2 requests: `Loaded::missing_active_plugins` (a field; also
+    `missing_active_plugins` in `load`'s listing) and `kitcraft_doc::source`:
+    `LoadOrder::source_check(form, missing_active)` / `Loaded::source_check(form)` returns
+    the winner with `blocking` and `unrelated` problems (`is_safe()`); `inspect` shows it as
+    `winner_source`. Blocking: no or deleted winner, a version's plugin loading before its
+    master, a plugin after the winner that failed to load or has unresolved records that
+    could be this form (it names the defining plugin and a stored object ID matches). Default
+    profile: the rifle `Starfield.esm:0021BBCD` is safe (unrelated: 4 unresolved records of
+    `HG_ShipCargoHoldAtHome.esm`, none can be it). `strings::Resolved` has `bytes` (the
+    table's exact bytes) and `utf8`; every non-UTF-8 `starfield_en` entry resolves with its
+    bytes (`crates/doc/tests/strings_corpus.rs`).
+  - M3.D2 (generic part; proven on today's typed members): `kitcraft_doc::fields` compares
+    a subrecord with a schema layout member by member (`typed::decode`), FormIDs resolved
+    by plugin name on each side, opaque members as payload byte ranges
+    (`Decoded::Opaque { at, len }`); `compare::classify_with` / `diff_subrecords_with`,
+    `conflicts::classify_versions`. `diff`, `conflicts` and `inspect`'s `vs_previous` report
+    `member` and `fields[] {path, before, after}` (paths `KWDA.Forms[1]`, `FULL.Name`) and
+    count `equal_by_value` (bytes differ, values equal: another master order). Corpus:
+    SFBGS004.esm vs a copy with one keyword changed reports `KWDA.Forms[0]`
+    (`crates/engine/tests/diff_corpus.rs`); differently ordered master lists compare equal.
+    WEAP/AMMO/... fields beyond the universal subrecords follow automatically once lane B
+    types them (M3.B1+). Default profile `conflicts --count-classes`: 6,029 differs, 1,644
+    identical (unchanged by the typed comparison), 2.7 s warm.
+  - M3.D3: `kitcraft_doc::confidence::reference_members` finds the `reference`-confidence
+    members behind a value (a whole decoded subrecord, or a `where` path); `inspect` and
+    `query` name them in `limitations` (`... reference confidence ...: GLOB FLTV.Value`).
+    No builtin member is `reference` yet, so the test (`reference_members_surface_as_
+    limitations`, through `execute`) installs a schema whose GLOB `FLTV` cites xEdit at
+    `reference` (a test-only session slot, `SchemaOverride`). `query` decodes through
+    `search::run_page_with(.., schema)` (`run_page` keeps the builtin schema).
+  - M3.D6: `crates/doc/tests/typed_corpus.rs` (five small files fast, all 14 `#[ignore]`,
+    release 24 s): the interpreter `inspect`/`where`/`diff` decode with agrees with the
+    generated decoder behind `Plugin::typed` on all 20,423 records of defined types
+    (FormIDs and string IDs), and every lstring ID resolves except 181 pinned corpus facts
+    (85 ARMO FULL IDs of Starfield.esm; BlueprintShips-SFBGS050.esm ships no string
+    tables). Counts in `docs/corpus.md`; the stale schema/inspect row of `docs/gaps.md`
+    closed, the lstring row restated.
+  - Not done, gated: M3.D4 (`follow`, `refs`) needs M3.B1 and M3.B2 (typed WEAP, AMMO,
+    PROJ) on main; M3.D5 needs the owner sessions M3.O1 (F00) and M3.O2.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -562,7 +640,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> lane C (partly done, lane F round 3).** `cargo xtask parity` now has a
   "Definitions by confidence" table (from `kit schema --json`), and `kit schema` /
   `record_schema` states `reference`-confidence definitions as a limitation; `inspect` and
-  `query` results do not yet.
+  `query` results do not yet. **Done (lane D, M3.D3):** `inspect` and `query` name the
+  `reference`-confidence members behind the values they show or test.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
@@ -605,6 +684,11 @@ Agents append here when they need a change in a crate they do not own.
   in game would show their slots. Lead: the CK's own `EditorDataFilesLoaded.txt` in the game
   dir lists each loaded file with its index and ID form (`001 - (FE000XXX) -
   'KZ_Mantis.esm'`); a CK session with the full profile would record the CK's order.
+- **Lane D -> lane H / owner (M3.O2 script, from M3.D6).** BlueprintShips-SFBGS050.esm is
+  localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
+  nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
+  `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
+  (30 of the 96 IDs exist there) or shows none.
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
   `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
@@ -641,6 +725,11 @@ Agents append here when they need a change in a crate they do not own.
   `sfbgs00d.esm` and `SFBGS047.esm`. (2) `strings::Resolved` has only lossy `text`; lane G
   notes some official strings are not UTF-8. `set` refuses such a string (a U+FFFD in the
   text) rather than change it; a `bytes` field would let it copy them exactly.
+  **Done (lane D, M3.D1):** (1) `Loaded::missing_active_plugins` (the limitation text stays
+  for readers, but nothing needs to match it) and `Loaded::source_check(form)`
+  (`kitcraft_doc::SourceCheck { winner, blocking, unrelated }`, `is_safe()`): refuse on
+  `blocking`, report `unrelated` as limitations (M3.E1). (2) `Resolved::bytes` and
+  `Resolved::utf8` (M3.E2).
 - **Lane E -> owner (M2.O4).** The `ck-diff` half of M2.E3 is open: what the CK writes for
   a new non-localized plugin (master flag for `.esm`, `HEDR` next object ID, inline text
   encoding: we write UTF-8). Until observed it is a limitation on every `set`/`build`.
@@ -757,6 +846,13 @@ Agents append here when they need a change in a crate they do not own.
   `esm::bridge::check_subrecords` matches the five variants generated today to find
   payloads that did not decode, and cannot see them for a new record type (it still
   catches re-encoding differences for every type).
+- **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
+  `overhaul.scaffold` (alias `overhaul`, session handler registered in
+  `handlers::session_defaults`), `build` gained `plan`, `validate` gained
+  `plugin_archives` and `.ba2` inputs in `scripts`; `docs/mcp.md` has their sections, the
+  command list (M3.F3) may want them. (2) Lane D: `build`'s `via` follows typed FormID
+  members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
+  `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
 - **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3

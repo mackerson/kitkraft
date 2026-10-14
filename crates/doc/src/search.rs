@@ -112,7 +112,25 @@ pub fn run_page(
     lo: &LoadOrder,
     reader: &mut RecordReader,
     request: &PageRequest<'_>,
+    strings: Option<&mut StringTables>,
+) -> Result<Page, String> {
+    run_page_with(
+        lo,
+        reader,
+        request,
+        strings,
+        kitcraft_schema::builtin().ok(),
+    )
+}
+
+/// [`run_page`], decoding field paths through `schema` (the builtin definitions in
+/// [`run_page`]).
+pub fn run_page_with(
+    lo: &LoadOrder,
+    reader: &mut RecordReader,
+    request: &PageRequest<'_>,
     mut strings: Option<&mut StringTables>,
+    schema: Option<&kitcraft_schema::Schema>,
 ) -> Result<Page, String> {
     let PageRequest {
         signature,
@@ -140,8 +158,9 @@ pub fn run_page(
             None => Tri::True,
             Some(q) => {
                 let mut reasons = Vec::new();
-                let mut subject =
-                    VersionSubject::new(lo, reader, *v).with_strings(strings.as_deref_mut());
+                let mut subject = VersionSubject::new(lo, reader, *v)
+                    .with_strings(strings.as_deref_mut())
+                    .with_schema(schema);
                 let t = q.eval(&mut subject, &mut reasons);
                 if t == Tri::Unknown {
                     page.unknown_count = page.unknown_count.saturating_add(1);

@@ -8,6 +8,10 @@
 //! found and both files list the same masters in the same order with the same own scale,
 //! raw FormIDs are compared directly (the encodings are then identical); otherwise the diff
 //! is refused with the master's name.
+//!
+//! Payload members the schema types are compared by value, FormIDs inside them keyed the
+//! same way as records (M3.D2, [`crate::fields`]): equal forms under different master
+//! orders compare equal; opaque payloads stay byte comparisons.
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -15,12 +19,14 @@ use std::path::{Path, PathBuf};
 
 use kitcraft_esm::{DecodeLimits, HEADER_LEN};
 
-use crate::compare::{classify, OverrideClass};
+use crate::compare::{classify_with, edid_first, FieldCompare, OverrideClass};
 use crate::error::{DocError, Result};
+use crate::fields::{self, FormValue};
 use crate::flags::Scale;
 use crate::form::{FormRef, MasterMap};
 use crate::index::{file_name_of, read_header, PluginIndex, RecordLoc};
 use crate::record::{read_record_at, LoadedRecord};
+use crate::typed;
 
 /// A record's identity across the two files.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
@@ -37,24 +43,28 @@ impl PluginDiff {
     /// `Plugin.esm:XXXXXX` (the plugin named as the files spell it: `a`'s name for its own
     /// records, a master as `a` lists it, else as `b` does), or `raw:XXXXXXXX`.
     pub fn label(&self, key: &Key) -> String {
-        match key {
-            Key::Own(o) => format!("{}:{o:06X}", self.a.file_name),
-            Key::Master(m, o) => format!("{}:{o:06X}", self.display_name(m)),
-            Key::Raw(r) => format!("raw:{r:08X}"),
-        }
+        label(&self.a, &self.b, key)
     }
+}
 
-    /// A lower-cased plugin name as the two files spell it.
-    fn display_name<'s>(&'s self, lower: &'s str) -> &'s str {
-        self.a
-            .header
-            .masters
-            .iter()
-            .chain(&self.b.header.masters)
-            .chain([&self.a.file_name, &self.b.file_name])
-            .find(|n| n.eq_ignore_ascii_case(lower))
-            .map_or(lower, String::as_str)
+/// [`PluginDiff::label`] over the two indexes.
+fn label(a: &PluginIndex, b: &PluginIndex, key: &Key) -> String {
+    match key {
+        Key::Own(o) => format!("{}:{o:06X}", a.file_name),
+        Key::Master(m, o) => format!("{}:{o:06X}", display_name(a, b, m)),
+        Key::Raw(r) => format!("raw:{r:08X}"),
     }
+}
+
+/// A lower-cased plugin name as the two files spell it.
+fn display_name<'s>(a: &'s PluginIndex, b: &'s PluginIndex, lower: &'s str) -> &'s str {
+    a.header
+        .masters
+        .iter()
+        .chain(&b.header.masters)
+        .chain([&a.file_name, &b.file_name])
+        .find(|n| n.eq_ignore_ascii_case(lower))
+        .map_or(lower, String::as_str)
 }
 
 /// One side of a changed record.
@@ -94,8 +104,15 @@ pub struct PluginDiff {
     pub removed: Vec<(Key, RecordLoc)>,
     /// In both, different.
     pub changed: Vec<Changed>,
-    /// In both, byte-identical bodies and equal flags.
+    /// In both, equal: byte-identical bodies and equal flags, or equal by value (below).
     pub unchanged: u64,
+    /// Of `unchanged`, records whose bodies differ in bytes only where typed members encode
+    /// the same values (FormIDs under another master order) (M3.D2).
+    pub equal_by_value: u64,
+    /// Whether a raw FormID means the same form in both files (same masters in the same
+    /// order, same own scale); when false, byte-identical bodies were still compared by
+    /// value, and opaque payloads may differ in encoding only.
+    pub same_encoding: bool,
     /// Records whose FormID did not resolve (counted per side), with the first error.
     pub unresolved: (u64, u64, Option<String>),
 }
@@ -146,8 +163,32 @@ fn key_map(
     Ok((MasterMap::new(&index.file_name, 0, own, &masters), names))
 }
 
-/// `as_master`: when set, the file's own records are keyed as that master's (the other
-/// file names this one as a master, or both files have the same name).
+/// The identity of raw FormID `raw` of one file (`map`: its master map and name table, or
+/// `None` to key by raw value). `as_master`: when set, the file's own records are keyed as
+/// that master's (the other file names this one as a master, or both files have the same
+/// name).
+fn key_of(
+    map: Option<&(MasterMap, Vec<String>)>,
+    as_master: Option<&str>,
+    raw: u32,
+) -> std::result::Result<Key, String> {
+    let Some((m, names)) = map else {
+        return Ok(Key::Raw(raw));
+    };
+    let g = m.resolve(raw).map_err(|e| e.to_string())?;
+    if g.plugin == 0 {
+        return Ok(match as_master {
+            Some(name) => Key::Master(name.to_string(), g.object_id),
+            None => Key::Own(g.object_id),
+        });
+    }
+    names
+        .get(usize::from(g.plugin))
+        .map(|n| Key::Master(n.clone(), g.object_id))
+        .ok_or_else(|| format!("FormID {raw:08X}: no master #{}", g.plugin))
+}
+
+/// [`key_of`] for every record.
 fn keys(
     index: &PluginIndex,
     map: Option<&(MasterMap, Vec<String>)>,
@@ -158,25 +199,42 @@ fn keys(
     let keys = index
         .records
         .iter()
-        .map(|r| match map {
-            None => Some(Key::Raw(r.form_id)),
-            Some((m, names)) => match m.resolve(r.form_id) {
-                Ok(g) if g.plugin == 0 => Some(match as_master {
-                    Some(name) => Key::Master(name.to_string(), g.object_id),
-                    None => Key::Own(g.object_id),
-                }),
-                Ok(g) => names
-                    .get(usize::from(g.plugin))
-                    .map(|n| Key::Master(n.clone(), g.object_id)),
-                Err(e) => {
-                    bad = bad.saturating_add(1);
-                    first.get_or_insert_with(|| e.to_string());
-                    None
-                }
-            },
+        .map(|r| match key_of(map, as_master, r.form_id) {
+            Ok(k) => Some(k),
+            Err(e) => {
+                bad = bad.saturating_add(1);
+                first.get_or_insert(e);
+                None
+            }
         })
         .collect();
     (keys, bad, first)
+}
+
+/// A payload FormID of one file, for comparison: keyed like records ([`key_of`]).
+fn form_value(
+    a: &PluginIndex,
+    b: &PluginIndex,
+    map: Option<&(MasterMap, Vec<String>)>,
+    as_master: Option<&str>,
+    raw: u32,
+) -> FormValue {
+    match key_of(map, as_master, raw) {
+        Ok(k) => FormValue::Form {
+            key: format!("{k:?}"),
+            label: label(a, b, &k),
+        },
+        Err(error) => FormValue::Unresolved { raw, error },
+    }
+}
+
+/// Decoding context of a record of `index`.
+fn ctx_of(index: &PluginIndex, rec: &LoadedRecord) -> typed::Ctx {
+    typed::Ctx {
+        form_version: rec.record.header.form_version,
+        localized: index.header.flags.localized(),
+        edid_first: edid_first(rec),
+    }
 }
 
 fn raw_bytes(file: &mut File, name: &str, loc: &RecordLoc) -> Result<Vec<u8>> {
@@ -279,12 +337,15 @@ pub fn diff_plugins(
     let mut fb = File::open(b).map_err(|e| DocError::io(b, e))?;
     let (na, nb) = (file_name_of(a), file_name_of(b));
     let limits = DecodeLimits::default();
+    let schema = kitcraft_schema::builtin().ok();
     let mut diff = PluginDiff {
         keyed_by,
         added: Vec::new(),
         removed: Vec::new(),
         changed: Vec::new(),
         unchanged: 0,
+        equal_by_value: 0,
+        same_encoding,
         unresolved: (bad_a, bad_b, err_a.or(err_b)),
         a: ia.clone(),
         b: ib.clone(),
@@ -327,10 +388,12 @@ pub fn diff_plugins(
                     };
                     let (ra, rb) = (raw_bytes(&mut fa, &na, la)?, raw_bytes(&mut fb, &nb, lb)?);
                     let body = |r: &[u8]| r.get(HEADER_LEN..).map(<[u8]>::to_vec);
-                    if la.signature == lb.signature
+                    let identical = la.signature == lb.signature
                         && la.flags == lb.flags
-                        && body(&ra) == body(&rb)
-                    {
+                        && body(&ra) == body(&rb);
+                    // Identical bytes under different encodings may name different forms:
+                    // those are compared by value below.
+                    if identical && same_encoding {
                         diff.unchanged = diff.unchanged.saturating_add(1);
                         continue;
                     }
@@ -348,9 +411,34 @@ pub fn diff_plugins(
                         Some((lb.signature(), lb.form_id)),
                         &limits,
                     )?;
-                    let class = classify(&a_rec, &b_rec);
-                    if class == OverrideClass::IdenticalToPrevious {
+                    let class = match schema {
+                        Some(schema) => {
+                            let fa_res =
+                                |raw: u32| form_value(&ia, &ib, maps.0.as_ref(), a_as, raw);
+                            let fb_res =
+                                |raw: u32| form_value(&ia, &ib, maps.1.as_ref(), b_as, raw);
+                            let cmp = FieldCompare {
+                                schema,
+                                a: fields::Side {
+                                    ctx: ctx_of(&ia, &a_rec),
+                                    resolve: &fa_res,
+                                },
+                                b: fields::Side {
+                                    ctx: ctx_of(&ib, &b_rec),
+                                    resolve: &fb_res,
+                                },
+                                same_encoding,
+                            };
+                            classify_with(&a_rec, &b_rec, Some(&cmp))
+                        }
+                        None => classify_with(&a_rec, &b_rec, None),
+                    };
+                    let both_deleted = identical && class == OverrideClass::Deleted;
+                    if class == OverrideClass::IdenticalToPrevious || both_deleted {
                         diff.unchanged = diff.unchanged.saturating_add(1);
+                        if !identical {
+                            diff.equal_by_value = diff.equal_by_value.saturating_add(1);
+                        }
                         continue;
                     }
                     diff.changed.push(Changed {
@@ -492,6 +580,88 @@ mod tests {
             diff_plugins(&a, &b, &[], Some(&FormRef::parse("X.esm:000800").unwrap())).unwrap();
         assert_eq!(only.unchanged, 1);
         assert!(only.added.is_empty());
+    }
+
+    /// M3.D2: FormIDs inside typed payloads are compared by name: the same keywords under
+    /// another master order are equal; a changed keyword is reported by member path.
+    #[test]
+    fn typed_payload_formids_compare_by_name() {
+        use crate::fields::{FieldValue, FormValue};
+        let dir = testdata::temp_dir("diff-fields");
+        write(&dir, "X.esm", &testdata::plugin_with(0x1, &[], &[]));
+        write(&dir, "Z.esm", &testdata::plugin_with(0x1, &[], &[]));
+        let weap = |id: u32, kw: &[u32]| {
+            rec(
+                b"WEAP",
+                id,
+                &[
+                    ("EDID", b"Gun\0".to_vec()),
+                    ("KSIZ", (kw.len() as u32).to_le_bytes().to_vec()),
+                    ("KWDA", kw.iter().flat_map(|k| k.to_le_bytes()).collect()),
+                ],
+            )
+        };
+        // a: masters X (00), Z (01); the override of X:800 names X:900 and Z:901.
+        let a = write(
+            &dir,
+            "A.esm",
+            &testdata::plugin_with(
+                0x1,
+                &["X.esm", "Z.esm"],
+                &[weap(0x800, &[0x0000_0900, 0x0100_0901])],
+            ),
+        );
+        // b: masters Z (00), X (01): the same record, every FormID re-encoded.
+        let b = write(
+            &dir,
+            "B.esm",
+            &testdata::plugin_with(
+                0x1,
+                &["Z.esm", "X.esm"],
+                &[weap(0x0100_0800, &[0x0100_0900, 0x0000_0901])],
+            ),
+        );
+        let d = diff_plugins(&a, &b, &[], None).unwrap();
+        assert!(!d.same_encoding);
+        assert!(d.changed.is_empty(), "{:?}", d.changed);
+        assert_eq!((d.unchanged, d.equal_by_value), (1, 1));
+        // The same bytes as a's under b's master order name other forms.
+        let c = write(
+            &dir,
+            "C.esm",
+            &testdata::plugin_with(
+                0x1,
+                &["Z.esm", "X.esm"],
+                &[weap(0x0100_0800, &[0x0100_0900, 0x0000_0902])],
+            ),
+        );
+        let d = diff_plugins(&a, &c, &[], None).unwrap();
+        assert_eq!(d.changed.len(), 1);
+        let OverrideClass::Differs { subrecords, .. } = &d.changed[0].class else {
+            panic!()
+        };
+        assert_eq!(subrecords.len(), 1);
+        let s = &subrecords[0];
+        assert_eq!(s.member.as_deref(), Some("Forms"));
+        let fields = s.fields.as_ref().unwrap();
+        assert_eq!(fields.len(), 1);
+        assert_eq!(fields[0].path, "KWDA.Forms[1]");
+        let form = |label: &str| {
+            Some(FieldValue::Form(FormValue::Form {
+                key: format!(
+                    "{:?}",
+                    Key::Master(
+                        label[..5].to_ascii_lowercase(),
+                        u32::from_str_radix(&label[6..], 16).unwrap()
+                    )
+                ),
+                label: label.to_string(),
+            }))
+        };
+        assert_eq!(fields[0].before, form("Z.esm:000901"));
+        assert_eq!(fields[0].after, form("Z.esm:000902"));
+        // Bytes differ at the element's first byte.
+        assert_eq!(s.first_difference, Some(3));
     }
 
     #[test]
