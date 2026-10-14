@@ -5,6 +5,11 @@
 //!   edited subrecord changes; a compressed record is recompressed only if it changed).
 
 pub mod fields;
+pub mod patch;
+#[cfg(test)]
+pub(crate) mod patch_tests;
+pub mod source;
+pub mod strings;
 
 use kitcraft_esm::{DecodeLimits, Record, Signature};
 use serde_json::{json, Value};
