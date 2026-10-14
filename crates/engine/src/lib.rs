@@ -198,9 +198,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Papyrus/Disassemble",
         shortcut: None,
         aliases: &["pexdis"],
-        summary: "Disassemble a compiled Papyrus .pex",
-        args_schema: r#"{"type":"object","properties":{"pex":{"type":"string"}},"required":["pex"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Disassemble a compiled Papyrus .pex (loose or inside a .ba2) as pexdis.py does, or as JSON",
+        args_schema: r#"{"type":"object","properties":{"pex":{"type":"string","description":"Script file, or its path inside archive"},"archive":{"type":"string","description":"Read the script from this .ba2"},"format":{"type":"string","enum":["text","json","both"],"default":"text","description":"text: pexdis.py format; json: the structured model with offsets"}},"required":["pex"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "papyrus.compile",
