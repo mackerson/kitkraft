@@ -507,6 +507,25 @@ is under "Next".
     closed, the lstring row restated.
   - Not done, gated: M3.D4 (`follow`, `refs`) needs M3.B1 and M3.B2 (typed WEAP, AMMO,
     PROJ) on main; M3.D5 needs the owner sessions M3.O1 (F00) and M3.O2.
+- Planet schema family (parallel schema lane, `crates/schema/defs`, 2026-10-14): PCMT,
+  PCBN, PCCN, LVLP, PKIN, GBFM, BIOM, PNDT, STDT, SUNP, SFBK, SFPT, RSGD, RSPJ, TRAV
+  transcribed from the pinned xEdit files (one commit per type, every member cited with
+  its line range); new shared `common/` definitions Condition, ObjectBounds,
+  ObjectPaletteDefaults, Transforms, ColorBgra, BiomeNoiseLayer, ResourceBiomeTier,
+  ResourceCellTier. Corpus check (14 files, out-of-tree checker over the generated
+  decoder): all 26,290 records of the 15 types decode with every subrecord placed, nothing
+  in `extra`, and re-encode byte-identically (PNDT after decompression); confidence
+  `corpus`, members never seen in an official file `reference`. Opaque by design:
+  component blocks, CTDA unions, VMAD, OBTS, NVNM, SUNP REFL/RDIF, unnamed slots (gaps
+  rows). PCCN occurs (2,148 records); no RSPG/RSSD exist. Mod-author guide:
+  `docs/schema/planet-family.md` (tree composition, pack-ins, the GBFM component
+  histogram, opaque members, open questions). Derived files are left to the integrator
+  (M4 family lane rule, BX): `crates/esm/src/generated/`, the `BUILTIN_DEFINITIONS` region
+  of `crates/schema/src/lib.rs` (23 new entries), `crates/schema/tests/golden/seed.rs`
+  (`KITCRAFT_UPDATE_GOLDEN=1`) and the builtin-set lists in `crates/schema/tests/defs.rs`
+  (`builtin_set_loads_and_matches_the_directory`). With them regenerated, `cargo xtask ci`
+  passed in the lane's worktree (with `KITCRAFT_DATA_DIR`), and the ignored M2.A3
+  `corpus_full_roundtrip` typed check reports 0 conflicts on all 14 files.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -903,3 +922,34 @@ Agents append here when they need a change in a crate they do not own.
   transcribes definitions from the pinned xEdit file, please type these as `lstring`
   (`confidence = "corpus"` is already backed by `lstring_table_matches_the_corpus`); the
   schema then wins and the table entry becomes redundant.
+- **Planet schema lane -> lane D.** `kitcraft_doc::typed::field_type` looks a layout up by
+  signature, so it cannot tell a top-level member from the same signature at another
+  position: PNDT has CNAM, FNAM and GNAM twice with different layouts (it returns the
+  "ambiguous" error), and the component blocks of PCBN, PKIN and GBFM contain NAM1..NAM5,
+  VNAM, CNAM and ANAM that mean something else at the top level (it decodes them with the
+  top-level layout). `typed_reader_agrees_with_generated_and_lstrings_resolve_all_files`
+  (`#[ignore]`) now panics at `Starfield.esm PKIN:0000B065 VNAM` (a 1-byte VNAM inside the
+  placement-properties component). Please resolve positions with
+  `generated::records::match_members` (the decoder's own placement) and skip `any_until`
+  bodies. Until then the GBFM object-template FULL is left out of the schema (it made the
+  small-file test fail on SFBGS004 GBFM FE000046).
+- **Planet schema lane -> lane E.** (1) `edit::fields::layout_for` has the same
+  signature-only limit (PNDT CNAM/FNAM/GNAM return the "different layouts" error, so
+  `inline_lstrings` refuses to copy a PNDT record from a localized source). (2)
+  `validate_corpus_official_files` (`#[ignore]`) now reports errors on official files,
+  because more FormIDs are typed: 21 `formid.dangling` in Starfield.esm (PKIN `PRPS`
+  actor values 0x33D/0x33E, which no file defines; ShatteredSpace has 2 such warnings) and
+  1 in SFBGS050 (PNDT `EOVR` entry naming WRLD 0202B2F4, which SFBGS050 lacks). They are
+  real corpus facts; decide whether object IDs below 0x800 are engine-reserved (a grade D
+  hypothesis worth a CK check) and how the acceptance test treats official danglings.
+- **Planet schema lane -> lane A.** Same as lane F's entry above: `bridge::extra_of` lists
+  five types, so `check_subrecords` reports no `NotDecoded` for the 15 planet types either.
+- **Planet schema lane -> lane H (CK observation).** Questions only the CK can answer
+  (details in `docs/schema/planet-family.md`, "Open questions"): (1) which CK fields map to
+  the placement-properties component (ZNAM is unnamed upstream) and how the CK writes it on
+  a new PCCN/PCBN/PKIN/LVLP; (2) whether the CK ever writes PCCB child lists or only
+  PRTN/PRVN when nodes are added or reordered; (3) how the CK shows the 4 PCCN without PCCC
+  and the 5 whose PCCC names a REFR; (4) which of PKIN's two OPDS slots the CK edits;
+  (5) which CK checkboxes set the record flags named only upstream (PKIN, GBFM, STDT,
+  LVLP); (6) the unnamed values (BIOM BNAM/GNAM slots, PNDT PPBD/HNAM slots, TRAV DNAM
+  `Value4`, SFBK NAM1, PKIN FNAM bit 0); (7) RSPJ `NumberCreated`/`Tier`, 0 everywhere.
