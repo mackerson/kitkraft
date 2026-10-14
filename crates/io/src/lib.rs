@@ -217,9 +217,8 @@ mod tests {
             [
                 row("Starfield.esm", Some("Starfield.ccc"), true),
                 row("Core2.esm", Some("Starfield.ccc"), true),
-                row("A.esm", Some("plugins.txt"), true),
-                // Listed without `*`, and its mod is disabled: inactive, no file.
-                row("B.esm", None, false),
+                // `hardcoded-official-slots`: official plugins without a plugins.txt entry
+                // load right after the ccc ones, although loadorder.txt lists them later.
                 row("DLC.esm", Some("mo2-unmanaged:Unmanaged: DLC"), true),
                 row(
                     "BlueprintShips-DLC.esm",
@@ -228,9 +227,17 @@ mod tests {
                 ),
                 // Hardcoded official master present in Data but not in loadorder.txt.
                 row("SFBGS050.esm", Some("hardcoded-official"), true),
+                row("A.esm", Some("plugins.txt"), true),
+                // Listed without `*`, and its mod is disabled: inactive, no file.
+                row("B.esm", None, false),
                 row("Missing.esm", Some("plugins.txt"), false),
             ]
         );
+        assert_eq!(
+            load.plan.hardcoded_slots,
+            ["DLC.esm", "BlueprintShips-DLC.esm", "SFBGS050.esm"]
+        );
+        assert_eq!(load.plan.moved, ["DLC.esm", "BlueprintShips-DLC.esm"]);
         assert_eq!(load.plan.missing(), ["Missing.esm"]);
         assert_eq!(load.plan.specs().len(), 6);
         assert!(load.plan.warnings.iter().any(|w| w.contains("Gone")));
@@ -239,6 +246,14 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.contains("SFBGS050.esm is active but not in loadorder.txt")));
+        // The ccc's own order wins over loadorder.txt's for the ccc plugins.
+        inst.write(
+            "profiles/P/Starfield.ccc",
+            b"Core2.esm\r\nStarfield.esm\r\n",
+        );
+        let load = plan(&inst);
+        assert_eq!(load.plan.plugins[0].name, "Core2.esm");
+        assert_eq!(load.plan.plugins[1].name, "Starfield.esm");
         assert!(load.profile.warnings.is_empty());
         // core2.ESM on disk resolves for Core2.esm.
         assert!(load.plan.get("core2.esm").unwrap().file.is_some());
