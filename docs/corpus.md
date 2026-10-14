@@ -181,6 +181,14 @@ unchecked). Most members are still opaque (`Bytes`), so this mostly exercises pl
 and order; it becomes a real test of layouts as lane B types them (M2.B2 onwards).
 `corpus_small_roundtrip` fails on any conflict in the five small files.
 
+ACTOR family (M4.BC1, 2026-10-14, release, definitions of the family branch with the
+generated code regenerated): `corpus_full_roundtrip` reports 14/14 identical, 60,077 typed
+records, 2,155,517 placed subrecords, 0 unchecked and 0 conflicts (26.8 s for the whole
+test). Every one of the 8,447 NPC_ records is compressed; an out-of-tree pass that also
+requires an empty `extra` decodes and re-encodes all of them in 5.4 s (all 14 files,
+decompression with the default `DecodeLimits` included). Per-type counts are in
+`docs/schema/actor-family.md`.
+
 ### Typed reader against the generated decoder, and lstring IDs (M3.D6)
 
 `inspect`, `where` and `diff` decode payloads through `kitcraft_doc::typed` (an interpreter
