@@ -53,7 +53,7 @@ M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.m
 | #   | Decision                                | Default until decided             |
 | --- | --------------------------------------- | --------------------------------- |
 | 1   | Project name                            | `KitCraft` / `kitcraft-*` / `kit` |
-| 2   | xEdit MPL source policy (ADR 0004)      | UESP only; xEdit not read         |
+| 2   | xEdit MPL source policy (ADR 0004)      | option A: ADR 0005 sources only   |
 | 3   | Video critique used as overhaul brief   | none; overhaul work is after M2   |
 | 4   | License                                 | MIT OR Apache-2.0 (scaffolded)    |
 | 5   | Contact kinggath about SS2 now or later | later                             |

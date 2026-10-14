@@ -19,8 +19,10 @@ An agent owns one lane and edits only the crates in it. Cross-lane needs go to
 
 ## Format facts the M1 tasks rely on
 
-From the UESP Starfield Mod File Format pages; verify each against UESP and our own hex dumps
-before relying on it, and record the UESP page in the schema `source` key.
+Sources per `plan/adr/0005-spec-sources-per-fact.md`. UESP has no Starfield format page; the
+facts below are the shared container from UESP's Skyrim pages. Treat each as a hypothesis
+until our own hex dumps of the corpus confirm it, and record the ADR 0005 source in the
+schema `source` key.
 
 - Record header: 24 bytes (signature, data size, flags, FormID, version-control info, form
   version, one more 16-bit field). Data size excludes the header.
@@ -72,7 +74,7 @@ CK" work.
 | ID    | Task                                                                                                                     | Depends on | Acceptance                                                                                              |
 | ----- | ------------------------------------------------------------------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------------------------------------- |
 | M1.8  | Definition format per ADR 0003: TOML loader + validator (duplicate signatures, unknown field types, size conflicts)      | M0.4       | Loader tests incl. malformed TOML returning errors; format documented in `crates/schema/defs/README.md` |
-| M1.9  | Seed definitions: TES4, GMST, GLOB, KYWD, WEAP (subrecord list complete; field layouts where UESP is unambiguous)        | M1.8       | Each file names its UESP source page; no UESP prose copied; definitions load cleanly                    |
+| M1.9  | Seed definitions: TES4, GMST, GLOB, KYWD, WEAP (subrecord list from the corpus; layouts only with an ADR 0005 source)    | M1.8       | Each file names its source per ADR 0005; no UESP or wiki prose copied; definitions load cleanly         |
 | M1.10 | Codegen library: definitions -> Rust source for typed records (output written into `crates/esm/src/generated/` by xtask) | M1.9       | Golden test on the seed set; does not gate M1                                                           |
 
 ### Lane C: surface (`crates/engine`, `apps/kit-cli`, `xtask`)

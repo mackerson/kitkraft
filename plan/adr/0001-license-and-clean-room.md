@@ -15,11 +15,15 @@ and then writing "our own" version of the same thing makes the result arguably d
 
 1. **License:** MIT OR Apache-2.0, at the user's option (`LICENSE-MIT`, `LICENSE-APACHE`,
    `NOTICE`). Contributions are accepted under the same dual license.
-2. **Specification sources, in priority order:**
-   1. The UESP wiki Starfield Mod File Format pages.
+2. **Specification sources:** one permitted source per kind of fact, as listed in
+   `plan/adr/0005-spec-sources-per-fact.md` (amended 2026-10-14; UESP has no Starfield format
+   page). In short:
+   1. The UESP Skyrim Mod File Format pages, for the shared record container only.
    2. Our own inspection (hex dumps, statistics) of official files on our own machines.
-   3. Black-box observation of `CreationKit.exe`: run it, open and save plugins, screenshot,
-      diff outputs.
+   3. Black-box differential observation of `CreationKit.exe`: run it, change one field in a
+      synthetic plugin, save, diff the bytes. This is the only source for Starfield field
+      layouts.
+   4. The public Creation Kit wiki, for field names and semantics.
 3. **Forbidden:**
    - Disassembling, decompiling, debugging, or memory-dumping `CreationKit.exe` or
      `Starfield.exe`, including with REA, Ghidra, IDA, or x64dbg.
@@ -35,8 +39,9 @@ and then writing "our own" version of the same thing makes the result arguably d
 
 ## Consequences
 
-- Some subrecords will be ambiguous on UESP. We resolve them from the corpus (statistics over
-  every occurrence) and mark the remainder opaque, rather than consulting other code.
+- Most Starfield subrecords have no public layout at all. We establish them by CK differential
+  observation and corpus statistics (ADR 0005) and mark the remainder opaque, rather than
+  consulting other code.
 - An agent that has read forbidden code must say so and stay out of that area.
 - Opaque-but-preserved data is a first-class outcome, not a failure.
 

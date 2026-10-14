@@ -33,8 +33,9 @@ reconstruction-readiness ledger, and six tool shapes (`inspect / search / trace 
 workflow / observe`).
 
 **Do not point REA at CreationKit.exe or Starfield.exe for this project.** That breaks the
-clean-room rule the craft suite depends on, and we don't need it: the plugin format is already
-public (UESP wiki, 15 years of xEdit). REA's process (evidence ledger, parity gates) is what we
+clean-room rule the craft suite depends on, and we don't need it: the shared container is
+public (UESP's Skyrim pages), and Starfield-specific layouts come from the corpus and from
+observing the CK's own output (see `plan/adr/0005-spec-sources-per-fact.md`). REA's process (evidence ledger, parity gates) is what we
 copy; its decompilers we skip. REA on our own binaries (crash triage, fuzz results) is fine.
 
 ### Scope reality check
@@ -46,9 +47,10 @@ write it back byte-identical. That is milestone 1 and the thing agents actually 
 ## Source material we are allowed to use
 | Source | License | Use |
 |---|---|---|
-| UESP Starfield Mod File Format wiki | CC-BY-SA docs | Primary spec. Read freely. |
+| UESP Skyrim Mod File Format pages (no Starfield page exists) | CC-BY-SA docs | Shared record container only; per-fact sources in `plan/adr/0005-spec-sources-per-fact.md`. Facts only, no prose. |
+| Creation Kit wiki (public) | site terms | Field names and semantics (ADR 0005). Facts only, no prose. |
 | Our own hex dumps of Starfield.esm + DLC ESMs (143 GB Data dir on this machine) | ours | Roundtrip corpus, fuzz corpus. |
-| CreationKit.exe (installed, MO2 exe #4) | Bethesda EULA | Black-box observe only: run it, screenshot, diff its ESM output vs ours. |
+| CreationKit.exe (installed, MO2 exe #4) | Bethesda EULA | Black-box observe only: run it, screenshot, diff its ESM output vs ours. The only source for Starfield field layouts (CK differential observation, ADR 0005). |
 | xEdit `wbDefinitionsSF1.pas` (789 KB) | MPL-2.0 | Readable as a reference, but treat like GPL for safety: no copying, prefer UESP. Decide in an ADR. |
 | Mutagen / Spriggit (Starfield record XML, 948 files) | GPL-3.0 | **Do not read** into a MIT/Apache project. May run Spriggit as an external tool for step 2 now. |
 | `C:\Modding\scripts` (ba2x.py, pexdis.py, esmscan.py) | ours | Port to Rust crates; already proven on real files. |
@@ -163,8 +165,9 @@ outposts, not workshops, and a different Papyrus API surface. Realistic shape:
 
 ## Open decisions (owner's call)
 1. Name. "KitCraft" is a placeholder.
-2. Whether xEdit's MPL source may be read for ambiguous subrecords (recommend: UESP first,
-   xEdit only as a tiebreak, logged in an ADR, never copied).
+2. Whether xEdit's MPL source may be read for ambiguous subrecords (ADR 0004, still open).
+   Until decided, Starfield layouts come only from the ADR 0005 sources, chiefly CK
+   differential observation.
 3. Which YouTube critique to use as the design brief for the overhaul (link it in plan/).
 4. License: MIT + Apache-2.0 dual, matching the craft suite.
 5. Whether to contact kinggath about SS2 now or after the overhaul kit proves the pipeline.

@@ -11,12 +11,14 @@ Columns:
 - **Records**: count across the corpus.
 - **Roundtrip**: `identical` (every record of this type rewrites byte-identical across the
   corpus), `mismatch` (with first offset), or `-` (not run).
+- **Source**: the kind of source per `plan/adr/0005-spec-sources-per-fact.md` (`uesp-skyrim`,
+  `corpus`, `ck-diff`, `ck-wiki`), as named in the definition's `source` key.
 
 Legend for **Fields**: `full` (every field decoded), `partial`, `none` (subrecord list only).
 
 | Record | Name   | Known | Seen | Opaque | Fields | Records | Roundtrip | Source         |
 | ------ | ------ | ----- | ---- | ------ | ------ | ------- | --------- | -------------- |
-| TES4   | Header | -     | -    | -      | -      | -       | -         | UESP (to cite) |
+| TES4   | Header | -     | -    | -      | -      | -       | -         | ADR 0005       |
 | GMST   | -      | -     | -    | -      | -      | -       | -         | -              |
 | GLOB   | -      | -     | -    | -      | -      | -       | -         | -              |
 | KYWD   | -      | -     | -    | -      | -      | -       | -         | -              |

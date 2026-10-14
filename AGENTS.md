@@ -91,9 +91,13 @@ is not designed yet.
 
 ## Clean room
 
-- **The spec is the UESP wiki** (Starfield Mod File Format pages). Our own hex dumps of the
-  official ESMs are the corpus and the tiebreaker. Record facts (signatures, sizes, offsets,
-  types) in `crates/schema` definitions; never paste UESP prose into code or docs.
+- **Every fact has one permitted source, listed in `plan/adr/0005-spec-sources-per-fact.md`.**
+  UESP has no Starfield format page; its Skyrim pages cover only the shared container. Corpus
+  statistics give the inventory, CK differential observation gives Starfield field layouts,
+  and the Creation Kit wiki gives field names. Our own hex dumps of the official ESMs are the
+  tiebreaker. Record facts (signatures, sizes, offsets, types) in `crates/schema` definitions
+  with their ADR 0005 `source`; never paste UESP or wiki prose into code or docs, and never
+  write a Starfield layout from memory.
 - **CreationKit.exe may be run and observed as a black box only**: open plugins, save, take
   screenshots, diff its output against ours. Never disassemble, decompile, debug-attach,
   memory-dump, or point a reverse-engineering tool (Ghidra, IDA, REA, x64dbg) at it or at
@@ -162,7 +166,7 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
 
 1. Project name (`KitCraft` is a placeholder).
 2. xEdit MPL source policy (`plan/adr/0004-xedit-source-policy.md`, status OPEN; default is
-   UESP only).
+   option A: the ADR 0005 sources only, xEdit not read).
 3. Which video critique is the design brief for the gun overhaul.
 4. License (proposed MIT OR Apache-2.0; scaffolded that way).
 5. Whether and when to contact kinggath about Sim Settlements 2.
