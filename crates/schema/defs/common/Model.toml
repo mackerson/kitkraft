@@ -19,6 +19,10 @@ sig = "MODL"
 name = "FileName"
 type = "zstring"
 card = "optional"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every MODL in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs decodes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "MOLM"
@@ -39,7 +43,10 @@ type = "flags"
 base = "u32"
 bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"
-confidence = "reference"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every model FLLD in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs is 4 bytes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "MODC"
@@ -57,4 +64,7 @@ base = "u8"
 bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"
-confidence = "reference"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every XFLG in the OMOD records of the 14 official ESMs (5) is 1 byte and re-encodes identically",
+]
+confidence = "corpus"

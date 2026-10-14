@@ -23,6 +23,10 @@ field = [
   { name = "Flags", type = "flags", base = "u8", bits = [["VatsTargetable", 0x1], ["LargeActorDestroys", 0x2], ["ResistAllExcept", 0x4]] },
   { name = "Unused", type = "opaque", size = 2 },
 ]
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DEST in the PROJ records of the 14 official ESMs (53) is 8 bytes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DAMC"
@@ -64,6 +68,10 @@ field = [
   { name = "DebrisCount", type = "i32" },
   { name = "ReplacementModelDelay", type = "f32" },
 ]
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DSTD in the PROJ records of the 14 official ESMs (53) is 24 bytes and re-encodes identically",
+]
+confidence = "corpus"
 
 [[member.member]]
 sig = "DSTA"
@@ -100,3 +108,7 @@ confidence = "reference"
 sig = "DSTF"
 name = "EndMarker"
 type = "empty"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DSTF in the PROJ records of the 14 official ESMs (53) is 0 bytes",
+]
+confidence = "corpus"

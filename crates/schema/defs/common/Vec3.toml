@@ -5,7 +5,10 @@
 name = "Vec3"
 kind = "type"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740"
-confidence = "reference"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every OBND (WEAP, AMMO, PROJ, LVLI), WEAP WVIS and ZOOM ZNAM in the 14 official ESMs decodes with these 12-byte vectors and re-encodes identically",
+]
+confidence = "corpus"
 type = "struct"
 field = [
   { name = "X", type = "f32" },
