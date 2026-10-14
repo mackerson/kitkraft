@@ -11,3 +11,4 @@ workspace = true
 
 [dependencies]
 kitcraft-engine.workspace = true
+serde_json.workspace = true
