@@ -5,8 +5,10 @@ Check this before claiming something works. Remove a row only with the commit th
 | Gap                                                               | Impact                                                   | Closes in        |
 | ----------------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
 | Scaffold has never been compiled                                  | Any file may have compile or fmt errors                  | M0.2             |
-| No command is implemented; catalog entries are all `Planned`      | Every command exits 2; `roundtrip` returns a stub envelope (`limitations: ["not implemented"]`) | M1, M2 |
-| CLI exit code 1 (negative result) is never produced yet           | Scripts cannot yet tell "ran, mismatch" from "error"     | M1.13            |
+| Only `roundtrip` and a minimal `inspect` are implemented; every other catalog entry is `Planned` | Planned commands exit 2 with a stub or `not_implemented` error | M1.14, M2 |
+| `roundtrip` compares at container level only; compressed bodies are re-emitted, not decompressed | A compressed record whose zlib stream is corrupt but well-sized still roundtrips identical | M2 (`roundtrip --decode`) |
+| CLI exit 1 is wired (`data.passed: false`) but no parseable plugin can produce a `roundtrip` mismatch today | The exit-1 path is unit-tested, not exercised end to end | when the writer gains a lossy path |
+| `inspect` is single-plugin and untyped                            | No winning override; every payload is hex; FormIDs are file-relative as stored | M2 (load order), schema wiring |
 | `command_line` cannot express `set`'s `FIELD=value` shorthand      | `kit set` needs `--fields '{"FULL":"..."}'` (JSON)       | M2               |
 | Recompression is 99.88%, not 100%, identical (160 of 136,741 records differ at level 9) | An edited compressed record may differ from what the CK would write; unedited ones are always byte-identical | M3 |
 | Meaning of TES4 flag bits 0x100, 0x400, 0x800 has no permitted source | Bits are preserved and listed raw; `tes4` names only 0x1 and 0x80 | M3 (CK observation) |
