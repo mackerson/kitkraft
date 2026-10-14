@@ -1,0 +1,227 @@
+# MISC: Misc. Item, an inventory item with no other function (junk, crafting components,
+# keys, trophies). Its CVPA lists the resources (IRES) it breaks down into.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14557-L14605 - member order, the record flags,
+#     DATA (value, weight), FLAG and its bits, NNAM. Helpers: script data (L3407-L3411, kept
+#     opaque), object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS
+#     (L3925-L3962), PTT2 (L3965-L3978), SNTP/SNBH (L3919-L3920), XALG (L3230), the base
+#     form component block (L5984-L6832, kept raw), FULL (L3184), the generic model
+#     (L7008-L7029, common/Model.toml), destruction data (L3829-L3890,
+#     common/Destructible.toml), CUSH/PUSH/PDSH (L2333-L2335, common/SoundReference.toml),
+#     keywords (wbDefinitionsCommon.pas L8935-L8951), FIMD (L2329), CVPA (L2258-L2267), CDIX
+#     (L2269).
+#   corpus: the 1,495 MISC records (Starfield.esm 1,319, SFBGS00D 94, ShatteredSpace 46,
+#     SFBGS050 26, SFBGS003 10; form versions 581, 582), 2026-10-14: order EDID [VMAD] OBND
+#     ODTY [OPDS] [PTT2] [XALG] [component blocks] FULL MODL MOLM* FLLD [XFLG] [DEST block]
+#     [CUSH] [PUSH] [PDSH] [KSIZ KWDA] [FIMD] [CVPA] DATA [FLAG] [NNAM]; DATA 8, FLAG 4,
+#     CVPA 12 (one component per official record; components resolve to IRES), FIMD 4
+#     (MESG), NNAM 4 (localized), sounds 40. No record is compressed. Every record decodes
+#     and re-encodes identically. EDID is absent from 2 records; FULL from 10.
+#
+# Record flag 0x800 is named upstream both "calc from components" and "used as platform";
+# the first is used here. It is not set on any official MISC.
+signature = "MISC"
+name = "MiscItem"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14557-L14605"
+evidence = [
+  "corpus: the 1,495 MISC records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["CalcFromComponents", 0x800],
+  ["PackInUseOnly", 0x2000],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "absent from 2 official records"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 91 records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+confidence = "reference"
+note = "not present in the official MISC records"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official MISC records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+note = "observed in 2 records"
+
+[[member]]
+sig = "CUSH"
+name = "CraftingSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333"]
+
+[[member]]
+sig = "PUSH"
+name = "PickupSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334"]
+
+[[member]]
+sig = "PDSH"
+name = "PutdownSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335"]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "FIMD"
+name = "FeaturedItemMessage"
+type = "formid"
+targets = ["MESG"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2329-L2329"]
+
+[[member]]
+sig = "CVPA"
+name = "Components"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2258-L2267"]
+note = "what the item breaks down into; every official component is an IRES"
+field = [
+  { name = "Component", type = "formid", note = "upstream allows any base object (the CK only IRES)" },
+  { name = "Count", type = "u32" },
+  { name = "Unused", type = "opaque", size = 4 },
+]
+
+[[member]]
+sig = "CDIX"
+name = "ComponentDisplayIndices"
+type = "array"
+count = "rest"
+element = "u8"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2269-L2269"]
+confidence = "reference"
+note = "not present in the official MISC records"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 8
+field = [
+  { name = "Value", type = "u32" },
+  { name = "Weight", type = "f32" },
+]
+
+[[member]]
+sig = "FLAG"
+name = "Flags"
+type = "flags"
+base = "u32"
+card = "optional"
+bits = [["AllowQuestItemCrafting", 0x1], ["NonInstancedKey", 0x2]]
+
+[[member]]
+sig = "NNAM"
+name = "ShortName"
+type = "lstring"
+card = "optional"
+evidence = ["corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs): MISC NNAM is an lstring in the official files"]

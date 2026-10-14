@@ -1,0 +1,123 @@
+# Destructible: the destruction data of a base object: a DEST header, optional resistances
+# and secondary damage list, then one block per destruction stage (DSTD data, optional
+# animation event, optional replacement model, DSTF end marker).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L3829-L3890 - member order, the DEST header (health,
+#     stage count, flags, two unused bytes), the DAMC resistance element (damage type,
+#     value, curve table), DSDL, the DSTD stage data and its flags, DSTA, the stage model
+#     (DMDL, FLLD, DMDS, unordered upstream) and DSTF. FLLD bits: L3818-L3823.
+#   corpus: the destruction blocks of the ACTI, MISC, CONT, FURN and MSTT records of the 14
+#     official ESMs (2026-10-14 scan, ITEMS/WORKSHOP family): DEST 8 bytes, DAMC 12 or 24,
+#     DSDL 4 (one record, an SDLT), DSTD 24, DSTF 0; stages follow DEST in the order below;
+#     some DEST have no stage (stage count 0). DAMC types resolve to DMGT and its curve
+#     slots are null; DSTD explosions resolve to EXPL, debris to DEBR; DMDS is null in every
+#     official record. Every record decodes and re-encodes identically.
+#
+# The stage count in the header is stored, not derived: an edit that adds or removes a
+# stage must update it.
+name = "Destructible"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"
+evidence = [
+  "corpus: destruction blocks of the ACTI, MISC, CONT, FURN and MSTT records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family): every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "DEST"
+name = "Header"
+type = "struct"
+size = 8
+field = [
+  { name = "Health", type = "i32" },
+  { name = "StageCount", type = "u8" },
+  { name = "Flags", type = "flags", base = "u8", bits = [["VatsTargetable", 0x1], ["LargeActorDestroys", 0x2], ["ResistAllExcept", 0x4]] },
+  { name = "Unused", type = "opaque", size = 2 },
+]
+
+[[member]]
+sig = "DAMC"
+name = "Resistances"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "DamageType", type = "formid", targets = ["DMGT"] },
+  { name = "Value", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "DSDL"
+name = "SecondaryDamageList"
+type = "formid"
+targets = ["SDLT"]
+card = "optional"
+
+[[member]]
+group = "Stage"
+card = "repeated"
+
+[[member.member]]
+sig = "DSTD"
+name = "Data"
+type = "struct"
+size = 24
+field = [
+  { name = "HealthPercent", type = "u8" },
+  { name = "Index", type = "u8" },
+  { name = "ModelDamageStage", type = "u8" },
+  { name = "Flags", type = "flags", base = "u8", bits = [
+    ["CapDamage", 0x1],
+    ["Disable", 0x2],
+    ["Destroy", 0x4],
+    ["IgnoreExternalDamage", 0x8],
+    ["BecomesDynamic", 0x10],
+    ["ObjectCleared", 0x20],
+    ["FallbackSpawnAtBoundsCenter", 0x40],
+  ] },
+  { name = "SelfDamagePerSecond", type = "i32" },
+  { name = "Explosion", type = "formid", targets = ["EXPL"] },
+  { name = "Debris", type = "formid", targets = ["DEBR"] },
+  { name = "DebrisCount", type = "i32" },
+  { name = "ReplacementModelDelay", type = "f32" },
+]
+
+[[member.member]]
+sig = "DSTA"
+name = "AnimEvent"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+group = "StageModel"
+card = "optional"
+note = "upstream accepts these in any order; every official stage model is DMDL FLLD [DMDS]"
+
+[[member.member.member]]
+sig = "DMDL"
+name = "FileName"
+type = "zstring"
+
+[[member.member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+
+[[member.member.member]]
+sig = "DMDS"
+name = "MaterialSwap"
+type = "formid"
+targets = ["MSWP"]
+card = "optional"
+
+[[member.member]]
+sig = "DSTF"
+name = "End"
+type = "empty"
