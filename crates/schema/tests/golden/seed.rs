@@ -27,6 +27,7 @@
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
 // - SFPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654; corpus)
+// - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - TRAV (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379; corpus)
@@ -7202,6 +7203,315 @@ impl SfptRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct StdtSystemPosition {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for StdtSystemPosition {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "STDT.BNAM.X", ctx)?;
+        let f1 = f32::read(r, "STDT.BNAM.Y", ctx)?;
+        let f2 = f32::read(r, "STDT.BNAM.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for StdtSystemPosition {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct StdtColor {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+    pub unused: [u8; 1],
+}
+
+impl Field for StdtColor {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "STDT.ENAM.Red", ctx)?;
+        let f1 = u8::read(r, "STDT.ENAM.Green", ctx)?;
+        let f2 = u8::read(r, "STDT.ENAM.Blue", ctx)?;
+        let f3 = Field::read(r, "STDT.ENAM.Unused", ctx)?;
+        Ok(Self {
+            red: f0,
+            green: f1,
+            blue: f2,
+            unused: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.red.write(out);
+        self.green.write(out);
+        self.blue.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for StdtColor {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct StdtRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// Group `Keywords`, optional.
+    pub keywords: Option<Keywords>,
+    /// `ANAM`, optional.
+    pub star_name: Option<Sub<ZString>>,
+    /// `BNAM`, optional.
+    pub system_position: Option<Sub<StdtSystemPosition>>,
+    /// `ONAM`, optional.
+    pub onam: Option<Sub<Bytes>>,
+    /// `DNAM`, required.
+    pub system_id: Option<Sub<u32>>,
+    /// `ENAM`, required.
+    pub color: Option<Sub<StdtColor>>,
+    /// `SNAM`, optional.
+    pub binary_star: Option<Sub<FormId>>,
+    /// `PNAM`, optional.
+    pub sun_preset: Option<Sub<FormId>>,
+    /// `HNAM`, optional.
+    pub time_of_day_data: Option<Sub<FormId>>,
+    /// `WED0`, optional.
+    pub star_sound: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl StdtRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Keywords::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ONAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WED0",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "STDT.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Group { member: 2, hits } if self.keywords.is_none() => {
+                    let mut group = Keywords::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.keywords = Some(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.star_name, subs, *index, "STDT.ANAM", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.system_position,
+                    subs,
+                    *index,
+                    "STDT.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.onam, subs, *index, "STDT.ONAM", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.system_id, subs, *index, "STDT.DNAM", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.color, subs, *index, "STDT.ENAM", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.binary_star, subs, *index, "STDT.SNAM", ctx, extra)
+                }
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.sun_preset, subs, *index, "STDT.PNAM", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.time_of_day_data,
+                    subs,
+                    *index,
+                    "STDT.HNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.star_sound, subs, *index, "STDT.WED0", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        if let Some(group) = &self.keywords {
+            group.emit(out);
+        }
+        emit(out, *b"ANAM", self.star_name.as_ref());
+        emit(out, *b"BNAM", self.system_position.as_ref());
+        emit(out, *b"ONAM", self.onam.as_ref());
+        emit(out, *b"DNAM", self.system_id.as_ref());
+        emit(out, *b"ENAM", self.color.as_ref());
+        emit(out, *b"SNAM", self.binary_star.as_ref());
+        emit(out, *b"PNAM", self.sun_preset.as_ref());
+        emit(out, *b"HNAM", self.time_of_day_data.as_ref());
+        emit(out, *b"WED0", self.star_sound.as_ref());
+    }
+}
+
+impl Visit for StdtRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.keywords, "STDT.Keywords", out);
+        visit_form_ids(&self.binary_star, "STDT.SNAM", out);
+        visit_form_ids(&self.sun_preset, "STDT.PNAM", out);
+        visit_form_ids(&self.time_of_day_data, "STDT.HNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.keywords, "STDT.Keywords", out);
+        visit_form_ids_mut(&mut self.binary_star, "STDT.SNAM", out);
+        visit_form_ids_mut(&mut self.sun_preset, "STDT.PNAM", out);
+        visit_form_ids_mut(&mut self.time_of_day_data, "STDT.HNAM", out);
+    }
+}
+
+impl StdtRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"STDT";
+    /// Record-header flag.
+    pub const FLAG_STARTS_HIDDEN: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_ALWAYS_DISPLAY_NAME: u32 = 0x20000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("STDT", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("STDT", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("STDT", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("STDT", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SunpRecord {
     /// `EDID`, required.
@@ -8625,6 +8935,7 @@ pub enum Record {
     Rsgd(Box<RsgdRecord>),
     Rspj(Box<RspjRecord>),
     Sfpt(Box<SfptRecord>),
+    Stdt(Box<StdtRecord>),
     Sunp(Box<SunpRecord>),
     Tes4(Box<Tes4Record>),
     Trav(Box<TravRecord>),
@@ -8650,6 +8961,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"RSGD", RsgdRecord::MEMBERS),
     (*b"RSPJ", RspjRecord::MEMBERS),
     (*b"SFPT", SfptRecord::MEMBERS),
+    (*b"STDT", StdtRecord::MEMBERS),
     (*b"SUNP", SunpRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"TRAV", TravRecord::MEMBERS),
@@ -8678,6 +8990,7 @@ impl Record {
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
             b"RSPJ" => Self::Rspj(Box::new(RspjRecord::decode(subs, ctx))),
             b"SFPT" => Self::Sfpt(Box::new(SfptRecord::decode(subs, ctx))),
+            b"STDT" => Self::Stdt(Box::new(StdtRecord::decode(subs, ctx))),
             b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"TRAV" => Self::Trav(Box::new(TravRecord::decode(subs, ctx))),
@@ -8706,6 +9019,7 @@ impl Record {
             Self::Rsgd(record) => record.encode(),
             Self::Rspj(record) => record.encode(),
             Self::Sfpt(record) => record.encode(),
+            Self::Stdt(record) => record.encode(),
             Self::Sunp(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Trav(record) => record.encode(),
@@ -8733,6 +9047,7 @@ impl Record {
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
             Self::Rspj(_) => RspjRecord::SIGNATURE,
             Self::Sfpt(_) => SfptRecord::SIGNATURE,
+            Self::Stdt(_) => StdtRecord::SIGNATURE,
             Self::Sunp(_) => SunpRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Trav(_) => TravRecord::SIGNATURE,
@@ -8760,6 +9075,7 @@ impl Record {
             Self::Rsgd(record) => record.form_ids(),
             Self::Rspj(record) => record.form_ids(),
             Self::Sfpt(record) => record.form_ids(),
+            Self::Stdt(record) => record.form_ids(),
             Self::Sunp(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Trav(record) => record.form_ids(),
@@ -8787,6 +9103,7 @@ impl Record {
             Self::Rsgd(record) => record.form_ids_mut(),
             Self::Rspj(record) => record.form_ids_mut(),
             Self::Sfpt(record) => record.form_ids_mut(),
+            Self::Stdt(record) => record.form_ids_mut(),
             Self::Sunp(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Trav(record) => record.form_ids_mut(),
@@ -8814,6 +9131,7 @@ impl Record {
             Self::Rsgd(record) => record.lstrings(),
             Self::Rspj(record) => record.lstrings(),
             Self::Sfpt(record) => record.lstrings(),
+            Self::Stdt(record) => record.lstrings(),
             Self::Sunp(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Trav(record) => record.lstrings(),
@@ -8841,6 +9159,7 @@ impl Record {
             Self::Rsgd(record) => record.lstrings_mut(),
             Self::Rspj(record) => record.lstrings_mut(),
             Self::Sfpt(record) => record.lstrings_mut(),
+            Self::Stdt(record) => record.lstrings_mut(),
             Self::Sunp(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Trav(record) => record.lstrings_mut(),
@@ -8869,6 +9188,7 @@ impl Record {
             Self::Rsgd(record) => &record.extra,
             Self::Rspj(record) => &record.extra,
             Self::Sfpt(record) => &record.extra,
+            Self::Stdt(record) => &record.extra,
             Self::Sunp(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Trav(record) => &record.extra,
