@@ -403,6 +403,18 @@ is under "Next".
     `HG_ShipCargoHoldAtHome.esm`, none can be it). `strings::Resolved` has `bytes` (the
     table's exact bytes) and `utf8`; every non-UTF-8 `starfield_en` entry resolves with its
     bytes (`crates/doc/tests/strings_corpus.rs`).
+  - M3.D2 (generic part; proven on today's typed members): `kitcraft_doc::fields` compares
+    a subrecord with a schema layout member by member (`typed::decode`), FormIDs resolved
+    by plugin name on each side, opaque members as payload byte ranges
+    (`Decoded::Opaque { at, len }`); `compare::classify_with` / `diff_subrecords_with`,
+    `conflicts::classify_versions`. `diff`, `conflicts` and `inspect`'s `vs_previous` report
+    `member` and `fields[] {path, before, after}` (paths `KWDA.Forms[1]`, `FULL.Name`) and
+    count `equal_by_value` (bytes differ, values equal: another master order). Corpus:
+    SFBGS004.esm vs a copy with one keyword changed reports `KWDA.Forms[0]`
+    (`crates/engine/tests/diff_corpus.rs`); differently ordered master lists compare equal.
+    WEAP/AMMO/... fields beyond the universal subrecords follow automatically once lane B
+    types them (M3.B1+). Default profile `conflicts --count-classes`: 6,029 differs, 1,644
+    identical (unchanged by the typed comparison), 2.7 s warm.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in

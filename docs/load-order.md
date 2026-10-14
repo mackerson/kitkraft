@@ -299,7 +299,10 @@ candidates; the string tables of every plugin with a WEAP are read on first use)
 Starfield.esm:001116` 0.7 s, `conflicts --count-classes` (15,586 overridden forms, 15,893
 override records: 8,206 deleted, 6,028 differs, 1,644 identical to the previous version,
 15 first versions without a base record) 2.7 s. (Before `hardcoded-official-slots`: 6,031
-differs and 1,641 identical; reordering changes which version is "previous".)
+differs and 1,641 identical; reordering changes which version is "previous".) With
+field-level comparison (M3.D2; the profile then had 85 plugins): 15,587 forms, 15,894
+override records: 8,206 deleted, 6,029 differs, 1,644 identical, 15 first versions, still
+2.7 s warm.
 
 ## String tables (M2.D7)
 

@@ -324,7 +324,8 @@ EDID; for FULL/DESC the lstring members above; `member` (the schema's member nam
 FormID as `{raw: "00000000", form: null, null: true}`) where
 lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
-flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
+flags_differ, order_differs, subrecords[] {signature, occurrence, change, member?,
+fields?, as_bytes?}}`, typed members compared by value as in `diff`) and
 `payloads_comparable` (whether the two plugins encode FormIDs alike; when false a byte
 difference may be encoding only). Evidence: every version's header and every payload.
 
@@ -425,9 +426,17 @@ unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offse
 `changed[]`: `form`, `signature`, `class`, `a`/`b` (`raw_form_id`, `offset`, `flags`,
 `compressed`), `flags_differ`, `order_differs`, `subrecords[]` (`signature`, `occurrence`,
 `change`: `added` | `removed` | `changed`, `a`/`b` spans `{file_offset, body_offset,
-length}`, `first_difference`). Lists stop at `limit` (counts are complete). Records whose
-bodies and flags are byte-identical count as unchanged without being parsed. Evidence:
-both sides of every listed record and differing payload.
+length}`, `first_difference` (null when the bytes are equal and only what they mean
+differs), and for a subrecord the schema gives a layout (M3.D2): `member` (the schema's
+member name) and `fields[]` `{path, before, after}` (paths like `KWDA.Forms[1]`, `DATA.Value`,
+`DNAM[1].Speed`; FormIDs as `{form}` formrefs, `{form: null, null: true}` or `{form: null,
+raw, error}`; an opaque member as `{opaque: {payload_offset, length, file_offset}}`; null on
+the side where the member is absent), or `as_bytes` with the reason it is compared as
+bytes). `counts.equal_by_value`: records whose bytes differ only in how typed FormIDs are
+encoded (another master order), counted as unchanged. Lists stop at `limit` (counts are
+complete). Records whose bodies and flags are byte-identical count as unchanged without
+being parsed when both files encode FormIDs alike; otherwise they are compared by value.
+Evidence: both sides of every listed record and differing payload.
 
 ### `conflicts` (M2.D13, port of `esmscan.py`)
 
@@ -440,7 +449,10 @@ Starfield.esm --profile <dir>` (alias `esmscan`).
 (overridden forms passing the filters), `items[]` (a page: `form`, `signature`,
 `editor_id`, `base_present`, `versions` (plugin names in load order), `overrides[]`:
 `plugin`, `previous`, `class` (`identical-to-previous` | `deleted` | `differs` |
-`first-version`), `resolved_by`, `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
+`first-version`), `resolved_by`, `comparable`, `subrecords[]` (`signature`, `occurrence`,
+`change`, and `member`/`fields[]`/`as_bytes` as in `diff`: typed members compared by value
+with FormIDs resolved through each version's plugin, so an override that only re-encodes
+the same forms is `identical-to-previous`; M3.D2), `flags_differ`), `class_counts` (this page),
 `class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
 Evidence: each override's record header and its differing payloads.
 `only_conflicts` keeps forms that two or more plugins override.

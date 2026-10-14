@@ -163,7 +163,7 @@ impl VersionSubject<'_> {
                                 .join(", ")
                         ))
                     }
-                    Decoded::Opaque => {
+                    Decoded::Opaque { .. } => {
                         return Lookup::Unknown(format!(
                             "{label}: the schema keeps these bytes opaque"
                         ))

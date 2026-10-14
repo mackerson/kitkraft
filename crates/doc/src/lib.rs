@@ -15,6 +15,7 @@ pub mod compare;
 pub mod conflicts;
 pub mod diff;
 mod error;
+pub mod fields;
 pub mod flags;
 pub mod form;
 pub mod hash;

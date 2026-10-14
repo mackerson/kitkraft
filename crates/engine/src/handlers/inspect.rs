@@ -493,7 +493,7 @@ fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>) -> Value {
                 .collect(),
         ),
         Decoded::Array(items) => Value::Array(items.iter().map(|i| decoded_json(i, vc)).collect()),
-        Decoded::Opaque => json!("opaque"),
+        Decoded::Opaque { .. } => json!("opaque"),
     }
 }
 
@@ -567,7 +567,7 @@ fn version_subrecords(
         if let (Some((ty, name)), Some(obj)) = (def, entry.as_object_mut()) {
             obj.insert("member".into(), json!(name));
             match typed::decode(ty, data, &ctx) {
-                Ok(Decoded::Opaque) => {}
+                Ok(Decoded::Opaque { .. }) => {}
                 Ok(v) => {
                     typed_count = typed_count.saturating_add(1);
                     obj.insert("value".into(), decoded_json(&v, vc));
@@ -615,11 +615,10 @@ fn class_json(class: &OverrideClass) -> Value {
             "class": class.as_str(),
             "flags_differ": flags,
             "order_differs": order,
-            "subrecords": subrecords.iter().map(|d| json!({
-                "signature": d.signature,
-                "occurrence": d.occurrence,
-                "change": d.change.as_str(),
-            })).collect::<Vec<_>>(),
+            "subrecords": subrecords
+                .iter()
+                .map(|d| super::diff::sub_diff_json(d, false))
+                .collect::<Vec<_>>(),
         }),
     }
 }
@@ -686,8 +685,17 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         cut_any |= cut;
         compressed_any |= rec.compressed;
         opaque = opaque.saturating_add(rec.subs.len() as u64);
-        let previous = i.checked_sub(1).and_then(|j| records.get(j));
-        let class = previous.map(|prev| class_json(&kitcraft_doc::compare::classify(prev, rec)));
+        let previous = i
+            .checked_sub(1)
+            .and_then(|j| Some((versions.get(j)?, records.get(j)?)));
+        let class = previous.map(|prev| {
+            class_json(&kitcraft_doc::conflicts::classify_versions(
+                lo,
+                kitcraft_schema::builtin().ok(),
+                prev,
+                (v, rec),
+            ))
+        });
         let comparable = i
             .checked_sub(1)
             .and_then(|j| versions.get(j))
@@ -762,11 +770,11 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         limitations.push(PAYLOAD_CUT.to_string());
     }
     if versions.len() > 1 {
-        limitations.push(
-            "vs_previous compares payloads as stored bytes; where payloads_comparable is false \
-             the two plugins encode FormIDs differently, so a byte difference may be encoding only"
-                .to_string(),
-        );
+        limitations.push(format!(
+            "vs_previous: {}; where payloads_comparable is false the two plugins encode FormIDs \
+             differently, so a difference inside an opaque payload may be encoding only",
+            super::diff::FIELD_LEVEL
+        ));
     }
     if winner_deleted {
         limitations.push(
@@ -1014,7 +1022,17 @@ mod tests {
         assert_eq!(versions[1]["vs_previous"]["class"], "differs");
         assert_eq!(
             versions[1]["vs_previous"]["subrecords"],
-            json!([{"signature": "FULL", "occurrence": 0, "change": "changed"}])
+            json!([{
+                "signature": "FULL",
+                "occurrence": 0,
+                "change": "changed",
+                "member": "Name",
+                "fields": [{
+                    "path": "FULL.Name",
+                    "before": "Old Earth Hunting Rifle",
+                    "after": "Old Soviet Marksman Rifle",
+                }],
+            }])
         );
         assert_eq!(versions[1]["payloads_comparable"], true);
         // Fields the schema defines carry their member name and decoded value.
