@@ -4,6 +4,7 @@
 //!   test).
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
+//! - `cargo xtask parity`: `docs/record-parity.md` from the corpus ([`parity`]).
 //!
 //! The layer check has three parts.
 //!
@@ -27,6 +28,7 @@
 
 mod codegen;
 mod graph;
+mod parity;
 mod smuggle;
 
 use std::collections::BTreeMap;
@@ -123,6 +125,7 @@ fn run() -> Result<()> {
             };
             codegen::run(&workspace_root()?, check)
         }
+        Some("parity") => parity::run(&workspace_root()?),
         None | Some("help" | "-h" | "--help") => {
             print_help();
             Ok(())
@@ -139,6 +142,8 @@ fn print_help() {
     println!(
         "  codegen  write crates/esm/src/generated/ from the schema; --check fails when stale"
     );
+    println!("  parity   run `kit coverage` over the corpus (KITCRAFT_DATA_DIR) and write");
+    println!("           docs/record-parity.md");
 }
 
 fn workspace_root() -> Result<PathBuf> {
