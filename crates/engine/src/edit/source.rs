@@ -267,3 +267,84 @@ pub fn parents_of<'i>(
     }
     out
 }
+
+/// Where a record sits in its file: the groups around it, outermost first, and for each
+/// group of a [`PARENT_LABELLED`] type the offset of the record that owns it (the record
+/// right before the group whose FormID is its label), when there is one.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Placement {
+    /// Group headers, outermost first.
+    pub path: Vec<GroupHeader>,
+    /// `(depth in path, offset of the owning record)`.
+    pub owners: Vec<(usize, u64)>,
+}
+
+/// Finds the [`Placement`] of the record whose header is at `offset` by reading group and
+/// record headers only (24 bytes each, UESP's container layout; lane A's parser checks
+/// the same sizes): siblings are skipped by their size fields, and only the groups that
+/// contain `offset` are entered. Bounded by the file length and a depth of 64.
+pub fn placement_at(path: &Path, offset: u64) -> Result<Placement, String> {
+    use std::io::{Read, Seek, SeekFrom};
+    let err = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
+    let mut file = File::open(path).map_err(|e| err(&e))?;
+    let len = file.metadata().map_err(|e| err(&e))?.len();
+    let mut head = |at: u64| -> Result<(Signature4, u64, [u8; 24]), String> {
+        let mut buf = [0u8; 24];
+        file.seek(SeekFrom::Start(at)).map_err(|e| err(&e))?;
+        file.read_exact(&mut buf).map_err(|e| err(&e))?;
+        let size = u64::from(u32::from_le_bytes([buf[4], buf[5], buf[6], buf[7]]));
+        Ok(([buf[0], buf[1], buf[2], buf[3]], size, buf))
+    };
+    let mut out = Placement::default();
+    // The TES4 record first, then the top level.
+    let (_, tes4_size, _) = head(0)?;
+    let mut at = tes4_size.saturating_add(24);
+    let mut end = len;
+    let mut last_record: Option<(u64, u32)> = None;
+    while at < end {
+        if out.path.len() > 64 {
+            return Err(err(&"groups nest deeper than 64"));
+        }
+        let (sig, size, buf) = head(at)?;
+        if at == offset {
+            if &sig == b"GRUP" {
+                return Err(err(&format!("offset {offset} holds a group, not a record")));
+            }
+            return Ok(out);
+        }
+        if &sig == b"GRUP" {
+            let group_end = at.saturating_add(size);
+            if size < 24 || group_end > end {
+                return Err(err(&format!("group at {at} has a bad size {size}")));
+            }
+            if (at..group_end).contains(&offset) {
+                let header = GroupHeader {
+                    label: [buf[8], buf[9], buf[10], buf[11]],
+                    group_type: i32::from_le_bytes([buf[12], buf[13], buf[14], buf[15]]),
+                    timestamp: u16::from_le_bytes([buf[16], buf[17]]),
+                    version_control: u16::from_le_bytes([buf[18], buf[19]]),
+                    unknown: u32::from_le_bytes([buf[20], buf[21], buf[22], buf[23]]),
+                };
+                if PARENT_LABELLED.contains(&header.group_type) {
+                    let label = u32::from_le_bytes(header.label);
+                    if let Some((owner_at, _)) = last_record.filter(|(_, id)| *id == label) {
+                        out.owners.push((out.path.len(), owner_at));
+                    }
+                }
+                out.path.push(header);
+                end = group_end;
+                at = at.saturating_add(24);
+                last_record = None;
+                continue;
+            }
+            at = group_end;
+        } else {
+            let form_id = u32::from_le_bytes([buf[12], buf[13], buf[14], buf[15]]);
+            last_record = Some((at, form_id));
+            at = at.saturating_add(24).saturating_add(size);
+        }
+    }
+    Err(err(&format!("no record starts at offset {offset}")))
+}
+
+type Signature4 = [u8; 4];

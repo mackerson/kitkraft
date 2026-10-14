@@ -6,9 +6,11 @@ use std::path::PathBuf;
 use serde_json::{json, Value};
 
 use super::failed;
+use super::load::{acquire, Loaded};
 use crate::args::Violation;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
+use crate::session::Session;
 use crate::validate::{self, Options, Severity};
 
 const ID: &str = "validate";
@@ -91,11 +93,25 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
     })
 }
 
-/// The handler.
-pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
-    let options = options(args)?;
+/// The handler. Masters come from the load order when one is named (`profile`,
+/// `plugins`) or loaded in the session, else from next to the plugin and `data_dir`.
+pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
+    let mut options = options(args)?;
+    let named = args.get("profile").is_some() || args.get("plugins").is_some();
+    let mut limitations = Vec::new();
+    if named || session.get::<Loaded>().is_some() {
+        let loaded = acquire(session, args, ID)?;
+        options.plugins = loaded.lo.plugins.iter().map(|p| p.path.clone()).collect();
+        limitations.extend(loaded.limitations.iter().cloned());
+    }
     let report = validate::validate(&options).map_err(|m| failed(ID, m))?;
-    Ok(outcome(&options, &report))
+    let mut out = outcome(&options, &report);
+    for l in limitations {
+        if !out.limitations.contains(&l) {
+            out.limitations.push(l);
+        }
+    }
+    Ok(out)
 }
 
 /// The envelope for a report (shared with `build`, which validates its output).
