@@ -6,6 +6,7 @@
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity`: `docs/record-parity.md` from the corpus ([`parity`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
+//! - `cargo xtask oracle`: external tools (Spriggit) run as oracles (lane H, [`oracle`]).
 //!
 //! The layer check has three parts.
 //!
@@ -31,6 +32,7 @@ mod codegen;
 mod evidence;
 mod graph;
 mod observe;
+mod oracle;
 mod parity;
 mod smuggle;
 
@@ -133,6 +135,10 @@ fn run() -> Result<()> {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             observe::run(&workspace_root()?, &rest)
         }
+        Some("oracle") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            oracle::run(&workspace_root()?, &rest)
+        }
         None | Some("help" | "-h" | "--help") => {
             print_help();
             Ok(())
@@ -153,6 +159,8 @@ fn print_help() {
     println!("           docs/record-parity.md");
     println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
     println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
+    println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
+    println!("           round trips compared with kit (YAML never read; lane H)");
 }
 
 fn workspace_root() -> Result<PathBuf> {
