@@ -190,6 +190,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "package",
+        label: "Package Mod...",
+        menu_path: "File/Package Mod...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Validate a plugin, then write an MO2-ready mod folder (plugin, loose files, scripts at their Data paths, or packed into '<plugin> - Main.ba2' / '- Textures.ba2'), kitcraft-manifest.json (SHA-256 of every file, masters, record counts, KitCraft version, spec hash) and a .zip; never installs",
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"The plugin to package (.esm, .esp or .esl); validate must pass"},"out":{"type":"string","description":"Folder that receives <name>/ and <name>[-<version>].zip; nothing is written outside it. Never in the game or user Data dir or MO2"},"name":{"type":"string","description":"Mod folder name (default: the plugin's file name without extension)"},"version":{"type":"string","description":"Version for the manifest and the zip name (ASCII letters, digits, . - _)"},"loose":{"type":"string","description":"A folder laid out as Data (Meshes/..., Textures/...): copied, or packed with ba2"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or folders of them; placed at Scripts/<namespace>/<name>.pex from the script name inside"},"ba2":{"type":"boolean","default":false,"description":"Pack loose files and scripts into '<plugin stem> - Main.ba2' (GNRL) and textures into '<plugin stem> - Textures.ba2' (DX10)"},"ba2_version":{"type":"integer","minimum":2,"maximum":3,"default":2,"description":"Archive version: 2 (zlib, as the official plugins' archives) or 3 (LZ4)"},"ba2_compress":{"type":"boolean","default":true},"zip":{"type":"boolean","default":true,"description":"Also write the zip of the folder's contents"},"spec":{"type":"string","description":"The build spec the plugin came from; its SHA-256 goes into the manifest"},"overwrite":{"type":"boolean","default":false,"description":"Replace a folder (and zip) an earlier package wrote; a folder without kitcraft-manifest.json is never replaced"},"profile":{"type":"string","description":"MO2 profile whose load order validate searches for masters (read only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files validate searches first for masters, in load order"},"data_dir":{"type":"string","description":"Game Data dir for masters (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["plugin","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "validate",
         label: "Validate Plugin",
         menu_path: "Tools/Validate",
@@ -277,6 +287,16 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Compile one script with Bethesda's PapyrusCompiler.exe by name with import dirs or Tools/ContentResources.zip (never -release)",
         args_schema: r#"{"type":"object","properties":{"source":{"type":"string","description":"Script name (MyScript, Ns:MyScript) or a .psc path (its folder is imported first); .ppj projects are refused"},"out_dir":{"type":"string","description":"Where the .pex goes; never under the game Data directory"},"imports":{"type":"array","items":{"type":"string"},"description":"Import directories, in order"},"sources_zip":{"type":"string","description":"Tools/ContentResources.zip: its Scripts/Source files are extracted once into the KitCraft cache and imported after the import directories"},"flags":{"type":"string","description":"Flags file; default: Starfield_Papyrus_Flags.flg from the first import directory that has it"},"compiler":{"type":"string","description":"PapyrusCompiler.exe; default: KITCRAFT_PAPYRUS_COMPILER, then the game's Tools folder"},"optimize":{"type":"boolean","default":false}},"required":["source","out_dir"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "papyrus.events",
+        label: "Script Events and Functions...",
+        menu_path: "Papyrus/Events and Functions...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Events, functions, properties, structs and custom events the base game's Papyrus sources declare (Tools/ContentResources.zip, read in place, index cached), by script with its parents, by name or by search, with file:line evidence",
+        args_schema: r#"{"type":"object","properties":{"script":{"type":"string","description":"Script name (ObjectReference, Ns:Script): its members, and with inherited its parents' too"},"event":{"type":"string","description":"Only events with this name (sets kind to event)"},"function":{"type":"string","description":"Only functions with this name (sets kind to function)"},"name":{"type":"string","description":"Only members with this name"},"kind":{"type":"string","enum":["all","event","function","property","struct","custom_event"],"default":"all"},"search":{"type":"string","description":"Case-insensitive text in the script or member name"},"inherited":{"type":"boolean","default":true,"description":"With script: also list the members its parent chain declares"},"declarations_only":{"type":"boolean","default":false,"description":"Drop members that override an ancestor's (event handlers) and remote event handlers"},"with_comments":{"type":"boolean","default":false,"description":"Add each match's doc and comment, read now from the zip (Bethesda's text: never cached)"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":100},"start":{"type":"integer","minimum":0,"default":0},"sources_zip":{"type":"string","description":"Tools/ContentResources.zip; default: next to the game Data dir (data_dir, KITCRAFT_DATA_DIR), then the Steam install"},"data_dir":{"type":"string","description":"Game Data dir whose ../Tools holds the zip (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","default":false,"description":"Parse the sources again instead of reading (or writing) the cached index"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {

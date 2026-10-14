@@ -17,6 +17,7 @@ mod load;
 mod overhaul;
 #[cfg(test)]
 mod overhaul_tests;
+mod package;
 mod papyrus;
 mod query;
 mod resolve;
@@ -64,6 +65,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("deploy", Box::new(deploy::run)),
         ("deploy.rollback", Box::new(deploy::rollback)),
         ("deploy.status", Box::new(deploy::status)),
+        ("papyrus.events", Box::new(papyrus::events::run)),
     ]
 }
 
@@ -105,6 +107,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("validate", Box::new(validate::run)),
         ("build", Box::new(build::run)),
         ("overhaul.scaffold", Box::new(overhaul::run)),
+        ("package", Box::new(package::run)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

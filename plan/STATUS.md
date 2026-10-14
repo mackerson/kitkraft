@@ -736,6 +736,66 @@ is under "Next".
   `ModOrganizer.ini`, an unrelated mod, `overwrite\` and `downloads\` byte-identical.
   Differences from ADR 0009's text (per the owner's brief) are listed in
   `docs/deploy.md`; the ADR is on an unmerged branch and needs an amendment.
+- Lane G, M4 (archives, scripts, strings; 2026-10-14):
+  - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
+    in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box
+    (level 2) and the CK wiki for semantics (level 4); the Papyrus Index only cross-checks;
+    no other Papyrus parser, compiler or grammar is read; source comments are shown only on
+    request and never cached or quoted. Registry rows PAPYRUS, CORPUS-ARCHIVES and
+    OPEN-PAPYRUS updated.
+  - M4.G1: `kitcraft_pex::psc::parse` reads a `.psc`'s declarations (header with parent
+    and flags; functions and events with typed parameters, defaults, return types, flags
+    and state; remote event handlers; properties with groups, `RequiresGuard(...)` and
+    full Get/Set forms; structs and members; variables; imports, custom events, guards,
+    states, groups); bodies skipped; a statement it does not understand is a diagnostic
+    with its line, a structural fault a typed `PscError` with its line. Synthetic fixtures
+    per construct, truncation and noise never panic. Corpus (`every_official_source_parses`,
+    the zip read in memory, 1.5 s debug): all 5,033 `.psc` files parse with 0 errors and
+    0 unread statements: 21,175 functions (1,223 native), 3,567 events (515 remote
+    handlers), 27,000 properties, 167 structs, 58 custom events.
+  - M4.G2: `papyrus.events` (`Implemented`; CLI `kit papyrus events --script
+    ObjectReference`, `--event OnLoad --declarations-only`, `--search outpost`; MCP via
+    `execute`/`command_line`): the zip read in place, index cached by its central
+    directory (no comments in the cache), parent chains resolved, overrides and remote
+    handlers marked, `with_comments` reads doc/comment from the user's zip at query time,
+    `file:line` plus byte-range evidence. Counts per kind on the official zip (5,033
+    scripts): event 3,567, function 21,175, property 27,000, struct 167, custom_event 58;
+    `OnLoad` is declared (not overridden) in ActiveMagicEffect, ObjectReference,
+    RefCollectionAlias and ReferenceAlias; ObjectReference's chain is Form, ScriptObject;
+    `--search outpost` 491 matches. Tests: synthetic zip (chain, overrides, remote
+    handlers, search, paging, comments only on request, cache hit/miss/corrupt, errors,
+    command-line forms) and `official_sources`. **Open:** the acceptance check that the
+    events `docs/design/persistence.md` cites exist waits for that file (M4.H3, lane H; not
+    on main): `kit papyrus events --event <name> --declarations-only` is the check.
+  - M4.G3 (scoping): `docs/research/asset-formats.md`: `ba2.list` over all 90 official
+    archives (1,763,906 entries, 138.5 GiB; 65 GNRL v2, 10 DX10 v2, 15 DX10 v3 LZ4) by
+    extension (38 extensions) and by archive group, with what KitCraft does per format,
+    the permitted source if any (only DDS headers, string tables and `.pex` have one) and
+    the workstream that would author it. Finding: no `.mat` file exists in any official
+    archive; materials ship as a `.cdb` component database. No implementation.
+  - M4.G4 (research): `docs/corpus.md` "Archive names": all 90 archives are `<stem> -
+    <suffix>.ba2`; the 50 base-game archives (and `BlueprintShips-Starfield -
+    Localization`) are named in `Starfield.ini` lists; the other 38 belong to 11 official
+    plugins by name only (suffixes `Main`, `Main01/02`, `Textures`, `Localization`,
+    `Voices_<lang>`). Rule for `package`: `<plugin stem> - Main.ba2` (GNRL) and `<plugin
+    stem> - Textures.ba2` (DX10). Grade C until M4.O2 sees a mod's `- Main.ba2` load.
+  - `package` (the plan's M4.E5 shape, assigned to lane G for M4; `Implemented`; CLI `kit
+    package <plugin> <out>`; MCP via `execute`/`command_line`): `validate` first (a failing
+    plugin is refused, nothing written); `<out>\<name>\` with the plugin, loose files and
+    scripts (`Scripts\<namespace>\<name>.pex` from the name inside each `.pex`) at their
+    Data paths or packed per M4.G4; `kitcraft-manifest.json` (SHA-256 and size of every
+    file, masters, record counts per type, KitCraft version, spec SHA-256, validate
+    result, archive contents); a deterministic zip; only `out` is written, and an `out` in
+    Data, the user Data dir or MO2 (its `mods\` included) is refused. Deviation from the
+    plan's arguments: one `plugin` (not `plugins`), since `plugins` names the load order
+    in every other command. Tests: two runs byte-identical (folder and zip), the manifest
+    verifies after a copy, ba2 names and contents, validate refusal, every guard,
+    command-line form. Real runs 2026-10-14: the rename plugin packaged (manifest SHA-256
+    equals `docs/smoke-rename.md`); `black-box: Archive2.exe 1.2.0.1` extracts a `--ba2`
+    package's two archives with the same file list (general files identical, texture
+    pixels identical under Archive2's own DDS header). Install steps and the manifest check
+    in `docs/packaging.md`. **Owner (M4.O2):** install the rename package through MO2 on
+    `KitKraft Dev` and check the hashes on disk against the manifest.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -984,6 +1044,15 @@ Agents append here when they need a change in a crate they do not own.
   link `docs/deploy.md` under "Command results". When M4.E5 `package` lands, check its
   `kitcraft-manifest.json` against what `deploy` verifies (`files[]` of
   `{path, sha256, size}`, optional `plugins[]`).
+- **Lane G -> lanes E, F, H (M4 lane G).** (1) Lane E: `package` (M4.E5's shape) landed in
+  lane G (`handlers/package.rs`, `docs/packaging.md`), validating with `validate::run`
+  and guarding `out` with `edit::patch::guard_location`; `testplan` (M4.E6) can read the
+  folder's `kitcraft-manifest.json` for plugin hashes. (2) Lane F (M4.F1): `package`
+  writes files (`destructiveHint`), `papyrus.events` is read-only; both are in the
+  `docs/mcp.md` command sections. (3) Lane H (M4.H3): take event names for
+  `docs/design/persistence.md` from `kit papyrus events --event <name>
+  --declarations-only` (or `--script ObjectReference --kind event`); M4.G2's acceptance
+  test that the cited events exist is added once that file is on main.
 
 - **Lane A -> lane B (answer to the RawSub/XXXX request; re-checked after lane B round 2).**
   `esm::bridge` re-exports the generated `RawSub`/`OwnedSub`/`Ctx` (checked against `main`

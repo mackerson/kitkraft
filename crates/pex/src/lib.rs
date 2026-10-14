@@ -24,10 +24,14 @@
 //! Assembly comes later; compilation wraps Bethesda's compiler (engine `papyrus.compile`)
 //! and never passes `-release`.
 //!
+//! [`psc`] reads the declarations of Papyrus *sources* (M4.G1): script headers, functions,
+//! events, properties, structs; bodies are skipped.
+//!
 //! LAYER: L0
 
 mod model;
 mod parse;
+pub mod psc;
 mod text;
 
 pub use model::{

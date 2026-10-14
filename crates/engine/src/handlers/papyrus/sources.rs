@@ -213,6 +213,86 @@ fn plan<R: Read + std::io::Seek>(
     Ok((plan, skipped, key.finish()))
 }
 
+/// The checked `Scripts/Source` entries of a zip, read in memory without extracting
+/// anything (`papyrus.events`, M4.G2). Names, sizes and the key are checked and computed
+/// exactly as for [`extract_sources`].
+pub(crate) struct ZipSources {
+    archive: ZipArchive<BufReader<File>>,
+    plan: Vec<Planned>,
+    /// Hash of every entry's name, size and CRC-32 (the central directory only).
+    pub key: u64,
+}
+
+impl ZipSources {
+    /// Opens `zip_path` and checks its directory; reads no file data.
+    pub(crate) fn open(zip_path: &Path) -> Result<ZipSources, String> {
+        let shown = zip_path.display();
+        let file = File::open(zip_path).map_err(|e| format!("{shown}: {e}"))?;
+        let archive = ZipArchive::new(BufReader::new(file))
+            .map_err(|e| format!("{shown}: not a zip: {e}"))?;
+        let (plan, _, key) = plan(&archive).map_err(|e| format!("{shown}: {e}"))?;
+        if !plan.iter().any(|p| is_psc(&p.parts)) {
+            return Err(format!("{shown}: no .psc files under Scripts/Source"));
+        }
+        Ok(ZipSources { archive, plan, key })
+    }
+
+    /// Every `.psc`, as `(path below Scripts/Source with '/', bytes)`, in zip order.
+    pub(crate) fn read_all_psc(&mut self) -> Result<Vec<(String, Vec<u8>)>, String> {
+        let mut out = Vec::new();
+        for p in self.plan.iter().filter(|p| is_psc(&p.parts)) {
+            out.push((p.parts.join("/"), read_entry(&mut self.archive, p)?));
+        }
+        Ok(out)
+    }
+
+    /// One file by its path below `Scripts/Source` (case-insensitive, either separator).
+    pub(crate) fn read(&mut self, rel: &str) -> Result<Option<Vec<u8>>, String> {
+        let want = rel.replace('\\', "/");
+        let Some(p) = self
+            .plan
+            .iter()
+            .find(|p| p.parts.join("/").eq_ignore_ascii_case(&want))
+        else {
+            return Ok(None);
+        };
+        read_entry(&mut self.archive, p).map(Some)
+    }
+}
+
+fn is_psc(parts: &[String]) -> bool {
+    parts
+        .last()
+        .is_some_and(|n| n.to_ascii_lowercase().ends_with(".psc"))
+}
+
+/// Reads one planned entry, checking its size against the directory (the zip crate checks
+/// the CRC-32 as the entry is read to its end).
+fn read_entry<R: Read + std::io::Seek>(
+    archive: &mut ZipArchive<R>,
+    p: &Planned,
+) -> Result<Vec<u8>, String> {
+    let shown = p.parts.join("/");
+    let mut entry = archive
+        .by_index(p.index)
+        .map_err(|e| format!("`{shown}`: {e}"))?;
+    // At most one byte past the declared size, so a lying header is caught without
+    // reading an unbounded stream; reading to the end lets the zip crate check the CRC.
+    let mut data = Vec::with_capacity(usize::try_from(p.size).unwrap_or(0));
+    (&mut entry)
+        .take(p.size.saturating_add(1))
+        .read_to_end(&mut data)
+        .map_err(|e| format!("`{shown}`: {e}"))?;
+    if data.len() as u64 != p.size {
+        return Err(format!(
+            "`{shown}`: {} bytes, the directory says {}",
+            data.len(),
+            p.size
+        ));
+    }
+    Ok(data)
+}
+
 /// Extracts `plan` into the new folder `tmp` and marks it complete.
 fn write_all<R: Read + std::io::Seek>(
     archive: &mut ZipArchive<R>,
@@ -226,23 +306,7 @@ fn write_all<R: Read + std::io::Seek>(
             .iter()
             .fold(tmp.to_path_buf(), |path, c| path.join(c));
         let shown = p.parts.join("/");
-        let mut entry = archive
-            .by_index(p.index)
-            .map_err(|e| format!("`{shown}`: {e}"))?;
-        // At most one byte past the declared size, so a lying header is caught without
-        // reading an unbounded stream; reading to the end lets the zip crate check the CRC.
-        let mut data = Vec::with_capacity(usize::try_from(p.size).unwrap_or(0));
-        (&mut entry)
-            .take(p.size.saturating_add(1))
-            .read_to_end(&mut data)
-            .map_err(|e| format!("`{shown}`: {e}"))?;
-        if data.len() as u64 != p.size {
-            return Err(format!(
-                "`{shown}`: {} bytes, the directory says {}",
-                data.len(),
-                p.size
-            ));
-        }
+        let data = read_entry(archive, p)?;
         if let Some(parent) = target.parent() {
             fs::create_dir_all(parent).map_err(|e| format!("`{shown}`: {e}"))?;
         }
@@ -518,5 +582,69 @@ pub(super) mod tests {
         assert_eq!(got.bytes, 12_261_886);
         assert!(got.dir.join("Starfield_Papyrus_Flags.flg").is_file());
         assert!(got.dir.join("ObjectReference.psc").is_file());
+    }
+
+    /// M4.G1 acceptance: with `KITCRAFT_DATA_DIR` set, every official `.psc` in
+    /// `Tools\ContentResources.zip` is read in memory (nothing extracted) and its
+    /// declarations parse with no error and no statement left unread; failures are listed
+    /// with file and line. The counts printed are the ones in `plan/STATUS.md`.
+    #[test]
+    fn every_official_source_parses() {
+        let Some(zip) = official_zip() else {
+            return;
+        };
+        let mut sources = super::ZipSources::open(&zip).unwrap();
+        let files = sources.read_all_psc().unwrap();
+        assert_eq!(files.len(), 5_033);
+        let mut failures = Vec::new();
+        let mut unread = Vec::new();
+        let (mut functions, mut events, mut properties, mut structs) = (0, 0, 0, 0);
+        let (mut custom, mut natives, mut remote) = (0, 0, 0);
+        for (path, bytes) in &files {
+            match kitcraft_pex::psc::parse(bytes) {
+                Ok(s) => {
+                    functions += s.functions.len();
+                    events += s.events.len();
+                    properties += s.properties.len();
+                    structs += s.structs.len();
+                    custom += s.custom_events.len();
+                    natives += s
+                        .functions
+                        .iter()
+                        .filter(|f| kitcraft_pex::psc::has_flag(&f.flags, "native"))
+                        .count();
+                    remote += s.events.iter().filter(|e| e.remote.is_some()).count();
+                    unread.extend(
+                        s.diagnostics
+                            .iter()
+                            .map(|d| format!("{path}:{}: {}", d.line, d.message)),
+                    );
+                }
+                Err(e) => failures.push(format!("{path}: {e}")),
+            }
+        }
+        println!(
+            "{} sources: {functions} functions ({natives} native), {events} events \
+             ({remote} remote), {properties} properties, {structs} structs, {custom} custom events",
+            files.len()
+        );
+        assert!(failures.is_empty(), "{failures:#?}");
+        assert!(unread.is_empty(), "{unread:#?}");
+    }
+
+    /// `Tools\ContentResources.zip` next to `KITCRAFT_DATA_DIR`, or `None` with a message.
+    pub(crate) fn official_zip() -> Option<PathBuf> {
+        let Some(data) = std::env::var_os("KITCRAFT_DATA_DIR") else {
+            println!("skipped: KITCRAFT_DATA_DIR is not set");
+            return None;
+        };
+        let zip = Path::new(&data)
+            .parent()
+            .map(|g| g.join("Tools").join("ContentResources.zip"))
+            .filter(|z| z.is_file());
+        if zip.is_none() {
+            println!("skipped: Tools\\ContentResources.zip not found");
+        }
+        zip
     }
 }
