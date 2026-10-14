@@ -41,6 +41,10 @@ flate2 = { version = "1", default-features = false, features = ["zlib-rs"] }
 lz4_flex = { version = "0.11", default-features = false, features = ["safe-encode", "safe-decode", "std"] }
 # Path patterns for `ba2.list` / `ba2.extract` (crates/engine), as in ba2x.py.
 regex = "1"
+# Reading `Tools\ContentResources.zip` for `papyrus.compile` (crates/engine, M3.G1). MIT.
+# Deflate only, through the flate2 zlib-rs backend we already build; no AES, bzip2, zstd,
+# lzma or time features.
+zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

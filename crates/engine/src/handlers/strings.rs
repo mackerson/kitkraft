@@ -3,12 +3,16 @@
 //! A table is a loose `.strings`/`.dlstrings`/`.ilstrings` file, or, with `archive`, a path
 //! inside a `.ba2` (read through `kitcraft-ba2`, e.g. `strings/starfield_en.strings` in
 //! `Starfield - Localization.ba2`).
+//!
+//! Tables are parsed strictly unless `tolerant` is set (M3.G2): then a table padded past
+//! its header's data size is read too, and every padding run (and any unreferenced bytes
+//! at the end of the declared data) is named in `limitations` and `data.padding`.
 
 use std::fs;
 use std::path::Path;
 
 use kitcraft_ba2::Archive;
-use kitcraft_strings::{merge as merge_tables, Entry, Kind, Table};
+use kitcraft_strings::{merge as merge_tables, Entry, Kind, Padding, ParseMode, Table};
 use serde_json::{json, Value};
 
 use super::ba2::refuse_game_data;
@@ -31,9 +35,56 @@ struct Loaded {
     file: String,
     /// The archive it was read from, if any.
     archive: Option<String>,
+    /// What a tolerant parse ignored (always empty in strict mode).
+    padding: Vec<Padding>,
 }
 
-fn load(command: &str, table: &str, archive: Option<&str>) -> Result<Loaded, EngineError> {
+impl Loaded {
+    /// One limitation per padding run.
+    fn padding_limitations(&self) -> impl Iterator<Item = String> + '_ {
+        self.padding
+            .iter()
+            .map(|p| format!("{}: {p}, ignored (tolerant parse)", self.file))
+    }
+
+    fn padding_json(&self) -> Vec<Value> {
+        self.padding
+            .iter()
+            .map(|p| {
+                json!({
+                    "table": self.file,
+                    "where": match p.kind {
+                        kitcraft_strings::PaddingKind::DataTail => "data_tail",
+                        kitcraft_strings::PaddingKind::AfterData => "after_data",
+                    },
+                    "offset": p.offset,
+                    "length": p.len,
+                    "zeros": p.zeros,
+                })
+            })
+            .collect()
+    }
+}
+
+/// The parse mode the `tolerant` argument asks for.
+fn mode(args: &Value) -> ParseMode {
+    if args
+        .get("tolerant")
+        .and_then(Value::as_bool)
+        .unwrap_or(false)
+    {
+        ParseMode::Tolerant
+    } else {
+        ParseMode::Strict
+    }
+}
+
+fn load(
+    command: &str,
+    table: &str,
+    archive: Option<&str>,
+    mode: ParseMode,
+) -> Result<Loaded, EngineError> {
     let kind = Kind::from_path(Path::new(table)).ok_or_else(|| {
         failed(
             command,
@@ -54,12 +105,20 @@ fn load(command: &str, table: &str, archive: Option<&str>) -> Result<Loaded, Eng
                 .map_err(|e| failed(command, format!("{a}: {e}")))?
         }
     };
-    let parsed =
-        Table::parse(kind, &bytes).map_err(|e| failed(command, format!("{table}: {e}")))?;
+    let parsed = Table::parse_with(kind, &bytes, mode).map_err(|e| {
+        let hint =
+            if mode == ParseMode::Strict && matches!(e, kitcraft_strings::Error::DataSize { .. }) {
+                " (`tolerant: true` reads a table padded past its data size)"
+            } else {
+                ""
+            };
+        failed(command, format!("{table}: {e}{hint}"))
+    })?;
     Ok(Loaded {
-        table: parsed,
+        table: parsed.table,
         file: file_name(Path::new(&table.replace('\\', "/"))),
         archive: archive.map(str::to_string),
+        padding: parsed.padding,
     })
 }
 
@@ -124,7 +183,7 @@ pub(super) fn dump(args: &Value) -> Result<Outcome, EngineError> {
         .map(str::to_lowercase);
     let limit = args.get("limit").and_then(Value::as_u64).unwrap_or(100);
     let start = args.get("start").and_then(Value::as_u64).unwrap_or(0);
-    let loaded = load(ID, table_arg, archive)?;
+    let loaded = load(ID, table_arg, archive, mode(args))?;
     let kind = loaded.table.kind;
 
     let matched: Vec<&Entry> = loaded
@@ -157,6 +216,7 @@ pub(super) fn dump(args: &Value) -> Result<Outcome, EngineError> {
         })
         .collect();
     let mut limitations: Vec<String> = source_limitation(&loaded).into_iter().collect();
+    limitations.extend(loaded.padding_limitations());
     let (total, n) = (matched.len() as u64, shown.len() as u64);
     if n < total {
         limitations.push(format!(
@@ -189,6 +249,8 @@ pub(super) fn dump(args: &Value) -> Result<Outcome, EngineError> {
         "matched": total,
         "start": start,
         "shown": n,
+        "tolerant": mode(args) == ParseMode::Tolerant,
+        "padding": loaded.padding_json(),
         "entries": shown.iter().map(|e| entry_json(e, kind)).collect::<Vec<_>>(),
         "summary": summary,
     });
@@ -218,7 +280,7 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
     refuse_game_data(ID, out_path)?;
     let mut loaded = Vec::with_capacity(tables.len());
     for t in &tables {
-        loaded.push(load(ID, t, None)?);
+        loaded.push(load(ID, t, None, mode(args))?);
     }
     let kind = loaded
         .first()
@@ -288,7 +350,15 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
             })
         })
         .collect();
-    let mut limitations = Vec::new();
+    let mut limitations: Vec<String> = loaded
+        .iter()
+        .flat_map(Loaded::padding_limitations)
+        .collect();
+    if loaded.iter().any(|l| !l.padding.is_empty()) {
+        limitations.push(
+            "the merged table is written in the official layout, without padding".to_string(),
+        );
+    }
     if !merged.duplicates.is_empty() {
         limitations.push(format!(
             "{} IDs repeat inside one input table (see `duplicates`); the first occurrence \
@@ -326,6 +396,8 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
             "duplicate_count": merged.duplicates.len(),
             "duplicates": duplicates,
             "identical_repeats": merged.identical_repeats,
+            "tolerant": mode(args) == ParseMode::Tolerant,
+            "padding": loaded.iter().flat_map(Loaded::padding_json).collect::<Vec<_>>(),
             "summary": summary,
         }),
         coverage: Coverage {
@@ -352,6 +424,57 @@ mod tests {
     use kitcraft_strings::{Entry, Kind, Table};
     use serde_json::json;
     use std::fs;
+
+    /// A padded table fails strictly (with a hint) and reads with `tolerant`, the padding
+    /// named in `limitations` and `data.padding`; merge writes it unpadded (M3.G2).
+    #[test]
+    fn padded_tables_need_tolerant_and_name_the_padding() {
+        let dir = std::env::temp_dir().join(format!("kitcraft-strings-pad-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let good = Table::new(Kind::Strings, vec![Entry::new(7, "Rifle")])
+            .to_bytes()
+            .unwrap();
+        let mut padded = good.clone();
+        padded.extend_from_slice(&[0, 0, 0, 0]);
+        let path = dir.join("padded_en.strings");
+        fs::write(&path, &padded).unwrap();
+        let table = path.to_str().unwrap();
+
+        let err = execute("strings.dump", json!({"table": table})).unwrap_err();
+        assert_eq!(err.kind(), "failed");
+        assert!(err.to_string().contains("tolerant"), "{err}");
+
+        let r = execute("strings.dump", json!({"table": table, "tolerant": true})).unwrap();
+        assert_eq!(r["data"]["entries"][0]["text"], "Rifle");
+        assert_eq!(r["data"]["tolerant"], true);
+        assert_eq!(
+            r["data"]["padding"],
+            json!([{"table": "padded_en.strings", "where": "after_data",
+                    "offset": good.len(), "length": 4, "zeros": true}])
+        );
+        let limitation = format!(
+            "padded_en.strings: 4 bytes of zero padding at offset {} (after the header's data \
+             size), ignored (tolerant parse)",
+            good.len()
+        );
+        assert_eq!(r["limitations"], json!([limitation]));
+
+        let other = dir.join("other_en.strings");
+        fs::write(&other, &good).unwrap();
+        let out = dir.join("merged_en.strings");
+        let merged = execute(
+            "strings.merge",
+            json!({"tables": [table, other.to_str().unwrap()],
+                   "out": out.to_str().unwrap(), "tolerant": true}),
+        )
+        .unwrap();
+        assert_eq!(merged["data"]["padding"].as_array().unwrap().len(), 1);
+        assert_eq!(fs::read(&out).unwrap(), good);
+        let limitations = merged["limitations"].as_array().unwrap();
+        assert!(limitations[1].as_str().unwrap().contains("without padding"));
+        fs::remove_dir_all(&dir).unwrap();
+    }
 
     #[test]
     fn dump_and_merge_through_execute() {

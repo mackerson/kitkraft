@@ -1,12 +1,16 @@
 //! Comparing two versions of a record: per-subrecord differences and override classes.
 //!
 //! Subrecords are matched by signature and occurrence (the n-th `KWDA` against the n-th
-//! `KWDA`). Payloads are compared as bytes: no typed layouts are wired yet (M2.A3), so a
-//! FormID inside a payload is compared as stored. When the two files encode their masters
-//! differently, equal references can look different; callers say so in a limitation.
+//! `KWDA`). Without a [`FieldCompare`] payloads are compared as bytes, so a FormID inside a
+//! payload is compared as stored: when the two files encode their masters differently,
+//! equal references can look different, and callers say so in a limitation. With one
+//! (M3.D2), a subrecord the schema gives a layout is compared member by member, FormIDs
+//! resolved by plugin name on each side ([`crate::fields`]); the rest stay byte comparisons.
 
 use kitcraft_esm::{Subrecord, FLAG_COMPRESSED, HEADER_LEN};
+use kitcraft_schema::Schema;
 
+use crate::fields::{self, FieldChange, Side, Typed};
 use crate::flags::RECORD_FLAG_DELETED;
 use crate::record::LoadedRecord;
 
@@ -45,7 +49,7 @@ impl Change {
 }
 
 /// One subrecord difference.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct SubDiff {
     /// Signature.
     pub signature: String,
@@ -57,8 +61,49 @@ pub struct SubDiff {
     pub a: Option<Span>,
     /// In the second version.
     pub b: Option<Span>,
-    /// First differing byte inside the payload (for `Changed`).
+    /// First differing byte inside the payload (for `Changed`; `None` when the bytes are
+    /// equal and only what they mean differs, a FormID under another master order).
     pub first_difference: Option<u64>,
+    /// The schema's member name, when the subrecord was compared through its layout.
+    pub member: Option<String>,
+    /// The members that differ, when compared through the layout; `None` when compared as
+    /// bytes (no layout, an added or removed subrecord, or a payload that does not decode).
+    pub fields: Option<Vec<FieldChange>>,
+    /// Why a subrecord with a layout is reported as a byte difference: its payload does not
+    /// decode, or the bytes differ where the layout compares nothing (after a string's
+    /// terminator, or invalid UTF-8 that reads as the same text).
+    pub as_bytes: Option<String>,
+}
+
+impl SubDiff {
+    fn bytes(signature: &str, occurrence: usize, change: Change) -> SubDiff {
+        SubDiff {
+            signature: signature.to_string(),
+            occurrence,
+            change,
+            a: None,
+            b: None,
+            first_difference: None,
+            member: None,
+            fields: None,
+            as_bytes: None,
+        }
+    }
+}
+
+/// Field-level comparison of two versions (M3.D2): the schema, how each version reads its
+/// payloads, and whether their stored FormIDs mean the same forms.
+#[derive(Debug)]
+pub struct FieldCompare<'a> {
+    /// Layouts (`kitcraft_schema::builtin()` outside tests).
+    pub schema: &'a Schema,
+    /// The first version.
+    pub a: Side<'a>,
+    /// The second version.
+    pub b: Side<'a>,
+    /// Whether a stored FormID names the same form in both versions; then byte-identical
+    /// payloads are equal without decoding them.
+    pub same_encoding: bool,
 }
 
 /// Spans of every subrecord of a record, in order.
@@ -84,84 +129,138 @@ pub fn spans(rec: &LoadedRecord) -> Vec<Span> {
         .collect()
 }
 
+/// One subrecord keyed by (signature, occurrence): its text and bytes signature, the
+/// occurrence, its position and its payload.
+type Keyed<'s> = (String, [u8; 4], usize, usize, &'s [u8]);
+
 /// Key every subrecord by (signature, occurrence).
-fn keyed<'s>(subs: &'s [Subrecord<'static>]) -> Vec<(String, usize, usize, &'s [u8])> {
-    let mut seen: Vec<(String, usize)> = Vec::new();
+fn keyed<'s>(subs: &'s [Subrecord<'static>]) -> Vec<Keyed<'s>> {
+    let mut seen: Vec<([u8; 4], usize)> = Vec::new();
     subs.iter()
         .enumerate()
         .map(|(i, s)| {
-            let sig = s.signature().to_string();
+            let sig = s.signature().0;
             let n = match seen.iter_mut().find(|(k, _)| *k == sig) {
                 Some((_, n)) => {
                     *n = n.saturating_add(1);
                     *n
                 }
                 None => {
-                    seen.push((sig.clone(), 0));
+                    seen.push((sig, 0));
                     0
                 }
             };
-            (sig, n, i, s.data())
+            (s.signature().to_string(), sig, n, i, s.data())
         })
         .collect()
 }
 
-/// Per-subrecord differences from `a` to `b`, in `a`'s order, then additions in `b`'s.
+/// First differing byte of two payloads (the shorter length when one is a prefix).
+fn first_difference(a: &[u8], b: &[u8]) -> u64 {
+    a.iter()
+        .zip(b.iter())
+        .position(|(x, y)| x != y)
+        .unwrap_or(a.len().min(b.len())) as u64
+}
+
+/// Per-subrecord differences from `a` to `b`, payloads compared as bytes, in `a`'s order,
+/// then additions in `b`'s.
 pub fn diff_subrecords(a: &LoadedRecord, b: &LoadedRecord) -> Vec<SubDiff> {
+    diff_subrecords_with(a, b, None)
+}
+
+/// [`diff_subrecords`], comparing subrecords with a layout member by member when `fields`
+/// is given (module docs).
+pub fn diff_subrecords_with(
+    a: &LoadedRecord,
+    b: &LoadedRecord,
+    fields: Option<&FieldCompare<'_>>,
+) -> Vec<SubDiff> {
     let (ka, kb) = (keyed(&a.subs), keyed(&b.subs));
     let (sa, sb) = (spans(a), spans(b));
+    let record = a.record.header.signature.0;
     let mut out = Vec::new();
-    for (sig, n, i, data) in &ka {
-        match kb.iter().find(|(s, m, _, _)| s == sig && m == n) {
-            None => out.push(SubDiff {
-                signature: sig.clone(),
-                occurrence: *n,
-                change: Change::Removed,
+    for (sig, raw_sig, n, i, data) in &ka {
+        let Some((_, _, _, j, other)) = kb.iter().find(|(_, s, m, _, _)| s == raw_sig && m == n)
+        else {
+            out.push(SubDiff {
                 a: sa.get(*i).copied(),
-                b: None,
-                first_difference: None,
-            }),
-            Some((_, _, j, other)) if other != data => out.push(SubDiff {
-                signature: sig.clone(),
-                occurrence: *n,
-                change: Change::Changed,
-                a: sa.get(*i).copied(),
-                b: sb.get(*j).copied(),
-                first_difference: Some(
-                    data.iter()
-                        .zip(other.iter())
-                        .position(|(x, y)| x != y)
-                        .unwrap_or(data.len().min(other.len())) as u64,
-                ),
-            }),
-            Some(_) => {}
+                ..SubDiff::bytes(sig, *n, Change::Removed)
+            });
+            continue;
+        };
+        let changed = SubDiff {
+            a: sa.get(*i).copied(),
+            b: sb.get(*j).copied(),
+            first_difference: (other != data).then(|| first_difference(data, other)),
+            ..SubDiff::bytes(sig, *n, Change::Changed)
+        };
+        let typed = match fields {
+            Some(c) if !(c.same_encoding && other == data) => {
+                fields::compare(c.schema, record, *raw_sig, *n, (data, &c.a), (other, &c.b))
+            }
+            _ => Typed::NoLayout,
+        };
+        match typed {
+            Typed::Compared { member, changes } => {
+                if !changes.is_empty() {
+                    out.push(SubDiff {
+                        member: Some(member),
+                        fields: Some(changes),
+                        ..changed
+                    });
+                } else if other != data && fields.is_some_and(|c| c.same_encoding) {
+                    // Equal by value, different bytes, and no master order to explain it.
+                    out.push(SubDiff {
+                        member: Some(member),
+                        fields: Some(Vec::new()),
+                        as_bytes: Some(
+                            "the bytes differ where the layout compares no value (after a \
+                             string's terminator, or text that is not valid UTF-8)"
+                                .to_string(),
+                        ),
+                        ..changed
+                    });
+                }
+            }
+            Typed::Undecodable(why) => {
+                if other != data {
+                    out.push(SubDiff {
+                        as_bytes: Some(why),
+                        ..changed
+                    });
+                }
+            }
+            Typed::NoLayout => {
+                if other != data {
+                    out.push(changed);
+                }
+            }
         }
     }
-    for (sig, n, j, _) in &kb {
-        if !ka.iter().any(|(s, m, _, _)| s == sig && m == n) {
+    for (sig, raw_sig, n, j, _) in &kb {
+        if !ka.iter().any(|(_, s, m, _, _)| s == raw_sig && m == n) {
             out.push(SubDiff {
-                signature: sig.clone(),
-                occurrence: *n,
-                change: Change::Added,
-                a: None,
                 b: sb.get(*j).copied(),
-                first_difference: None,
+                ..SubDiff::bytes(sig, *n, Change::Added)
             });
         }
     }
     out
 }
 
+/// Signatures in order.
+fn signatures(r: &LoadedRecord) -> Vec<[u8; 4]> {
+    r.subs.iter().map(|s| s.signature().0).collect()
+}
+
 /// Whether two subrecord lists hold the same subrecords in a different order.
 pub fn reordered(a: &LoadedRecord, b: &LoadedRecord) -> bool {
-    let sigs = |r: &LoadedRecord| -> Vec<String> {
-        r.subs.iter().map(|s| s.signature().to_string()).collect()
-    };
-    diff_subrecords(a, b).is_empty() && sigs(a) != sigs(b)
+    diff_subrecords(a, b).is_empty() && signatures(a) != signatures(b)
 }
 
 /// How an override relates to the version before it in load order.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OverrideClass {
     /// Same flags (compressed bit aside) and same subrecords.
     IdenticalToPrevious,
@@ -189,15 +288,25 @@ impl OverrideClass {
     }
 }
 
-/// Class of `current` against `previous`.
+/// Class of `current` against `previous`, payloads compared as bytes.
 pub fn classify(previous: &LoadedRecord, current: &LoadedRecord) -> OverrideClass {
+    classify_with(previous, current, None)
+}
+
+/// [`classify`], with typed subrecords compared member by member when `fields` is given:
+/// payloads that differ only in how they encode the same forms are then identical.
+pub fn classify_with(
+    previous: &LoadedRecord,
+    current: &LoadedRecord,
+    fields: Option<&FieldCompare<'_>>,
+) -> OverrideClass {
     if current.record.header.flags & RECORD_FLAG_DELETED != 0 {
         return OverrideClass::Deleted;
     }
     let mask = !FLAG_COMPRESSED;
     let flags = previous.record.header.flags & mask != current.record.header.flags & mask;
-    let subrecords = diff_subrecords(previous, current);
-    let order = subrecords.is_empty() && reordered(previous, current);
+    let subrecords = diff_subrecords_with(previous, current, fields);
+    let order = subrecords.is_empty() && signatures(previous) != signatures(current);
     if !flags && !order && subrecords.is_empty() {
         OverrideClass::IdenticalToPrevious
     } else {
@@ -207,6 +316,15 @@ pub fn classify(previous: &LoadedRecord, current: &LoadedRecord) -> OverrideClas
             subrecords,
         }
     }
+}
+
+/// The first byte of a record's EditorID (the union decider), if it has one.
+pub fn edid_first(rec: &LoadedRecord) -> Option<u8> {
+    rec.subs
+        .iter()
+        .find(|s| s.signature().0 == *b"EDID")
+        .and_then(|s| s.data().first().copied())
+        .filter(|b| *b != 0)
 }
 
 /// Byte length of a record as stored (header plus body).

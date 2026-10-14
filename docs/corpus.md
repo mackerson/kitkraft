@@ -181,6 +181,44 @@ unchecked). Most members are still opaque (`Bytes`), so this mostly exercises pl
 and order; it becomes a real test of layouts as lane B types them (M2.B2 onwards).
 `corpus_small_roundtrip` fails on any conflict in the five small files.
 
+### Typed reader against the generated decoder, and lstring IDs (M3.D6)
+
+`inspect`, `where` and `diff` decode payloads through `kitcraft_doc::typed` (an interpreter
+over lane B's schema), not through the generated code behind `Plugin::typed`.
+`crates/doc/tests/typed_corpus.rs` checks that the two read the same values: on every
+record of a defined type, the FormIDs and string IDs the interpreter reads from the
+subrecords the generated decoder placed equal those the generated record's visitors list
+(`form_ids()`, `lstrings()`), and every such subrecord decodes. The same walk looks up every
+lstring ID (FULL and DESC on every record type, and the schema's `lstring` members, which
+adds the GMST `s` settings) through `kitcraft_doc::strings`, as `inspect` does (English,
+2026-10-14, release, 24 s for all 14 files; the five small files run in the fast suite):
+
+| File | Typed records | FormIDs compared | String IDs compared | lstrings | Resolved | ID 0 | Unresolved |
+| ---- | ------------- | ---------------- | ------------------- | -------- | -------- | ---- | ---------- |
+| Starfield.esm | 17,395 | 2,718 | 12,179 | 49,550 | 43,366 | 6,099 | 85 (ARMO FULL) |
+| Constellation.esm | 19 | 0 | 12 | 12 | 5 | 7 | 0 |
+| OldMars.esm | 12 | 0 | 9 | 9 | 3 | 6 | 0 |
+| BlueprintShips-Starfield.esm | 0 | 0 | 0 | 1,126 | 1,126 | 0 | 0 |
+| SFBGS007.esm | 4 | 0 | 0 | 39 | 29 | 10 | 0 |
+| SFBGS008.esm | 1 | 0 | 0 | 79 | 79 | 0 | 0 |
+| SFBGS006.esm | 10 | 0 | 8 | 374 | 366 | 8 | 0 |
+| SFBGS003.esm | 203 | 27 | 80 | 2,481 | 1,422 | 1,059 | 0 |
+| ShatteredSpace.esm | 1,052 | 325 | 776 | 3,377 | 2,944 | 433 | 0 |
+| SFBGS004.esm | 69 | 8 | 21 | 66 | 62 | 4 | 0 |
+| SFBGS00D.esm | 666 | 32 | 329 | 2,028 | 1,664 | 364 | 0 |
+| SFBGS050.esm | 987 | 181 | 974 | 2,312 | 1,884 | 428 | 0 |
+| BlueprintShips-SFBGS050.esm | 0 | 0 | 0 | 96 | 0 | 0 | 96 (30 GBFM, 66 LCTN FULL) |
+| SFBGS047.esm | 5 | 9 | 3 | 16 | 11 | 5 | 0 |
+
+20,423 typed records agree; no placed subrecord fails the interpreter, and none the
+interpreter decodes was left raw by the generated matcher. Of 61,565 lstrings, 52,961
+resolve, 8,423 hold ID 0 (no string; in no table), and 181 do not resolve:
+85 ARMO FULL IDs of Starfield.esm are in none of its English tables (`ARMO:00003A77` FULL
+`0x0003145A` is the first), and BlueprintShips-SFBGS050.esm is localized but ships no
+string tables (no `BlueprintShips-SFBGS050 - *.ba2`, unlike BlueprintShips-Starfield); 30
+of its 96 IDs exist in SFBGS050's tables, which may be coincidence (lookups never fall back
+to another plugin's tables). The ignored test pins these 181.
+
 ### Per-file results (adaf097)
 
 Every compressed record was decompressed and its subrecords parsed (and counted), while
@@ -507,6 +545,45 @@ archive is version 1. Facts the crate relies on (`corpus:` in `crates/ba2`):
   1 GiB by default).
 
 Differential checks against `Archive2.exe` 1.2.0.1 (black box): see `plan/STATUS.md`.
+
+### Non-ASCII names in Archive2 (M3.G3, 2026-10-14)
+
+`black-box: Archive2.exe 1.2.0.1`, run as a program only (`Archive2 <folder> -c=<out.ba2>
+-r=<root> -f=General -compression=None`) on synthetic files in a temp folder, its archives
+read back with `kitcraft-ba2` and extracted again with `Archive2 <archive> -e=<folder>`.
+Inputs: one name per non-ASCII character class (`ä`, `é`, `ß`, `ÿ`, `€`, `œ`, NBSP, `Ü`,
+`Ä`/`É`/`Œ`/`Ÿ`, `Ж`, `ж`, `日`, `İ`, `ı`), a non-ASCII directory (`dép`), a non-ASCII
+extension (`.tëx`), and then every byte 0x80..0xFF of Windows-1252 at the end of a name
+and in its middle (256 files). What it does:
+
+- **Encoding.** Paths are lower-cased (Unicode: `Ä` -> `ä`, `Œ` -> `œ`, `Ÿ` -> `ÿ`) and
+  stored in Windows-1252; it extracts them under the same names (`eur€.txt`). A
+  character outside Windows-1252 (`Ж`, `日`, `İ`, `ı`) fails the whole run
+  (`System.IO.IOException: Failed to read file format`); bytes the code page leaves
+  undefined (0x81, 0x8D, 0x8F, 0x90, 0x9D) are stored as `?`.
+- **Hashes.** Name hash, directory hash and the extension field use the corpus CRC rule
+  over the stored bytes with every non-ASCII byte replaced: by 0 for 0x80..0xEF, 0xF6,
+  0xF7, 0xFE and 0xFF, so the CRC (which stops at a 0, as over a C string) covers the
+  name or directory only up to its first such byte, and the extension field holds a 0
+  there (`.tëx` -> `t\0x\0`). Examples: `mixaéb` hashes as `mixa`, `kctest\dép` as
+  `kctest\d`, `nb<NBSP>x` as `nb`.
+- **Twelve bytes are not a rule.** 0xF0..0xF5 and 0xF8..0xFD (and their upper-case forms
+  0xD0..0xD5, 0xD8..0xDD) are replaced by bytes that read as two little-endian 64-bit
+  addresses (`18 5B AE AA FD 7F 00 00` and `10 99 62 AB FD 7F 00 00` for 0xF0..0xF7 and
+  0xF8..0xFF in the first run). In a second run on the same boot the substitutes of
+  0xF2, 0xF3, 0xFA and 0xFB (and 0xD2, 0xD3, 0xDA, 0xDB) changed (16 of 256 name hashes
+  differed); the others were the same. Their hashes depend on the run.
+- **Silent loss.** Names that agree up to their first non-ASCII byte collide: of
+  `ucÄ`, `ucÉ`, `ucŒ`, `ucŸ` (all hashed as `uc`) Archive2 kept the first and dropped
+  the other three without a message, although it printed "Adding" for each.
+
+Consequences in `crates/ba2`: names are decoded as Windows-1252 (Latin-1 before, which
+differs only in 0x80..0x9F: `eur\u{80}.txt` instead of `eur€.txt`); the reader's hash
+check accepts Archive2's hashes for non-ASCII names (`hash::archive2_record_hashes`,
+tests built from the values above) and never the run-dependent ones. `ba2.pack` keeps
+refusing non-ASCII names: Archive2 itself cannot keep two such names apart, twelve bytes
+have no reproducible hash, and how the game looks such names up is not observed (that
+needs an in-game check of a loose-vs-archived file, not planned in M3).
 
 ## Writing rules (M2.E3)
 

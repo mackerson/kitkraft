@@ -102,6 +102,14 @@ struct TypeAgg {
     records: u64,
     compressed: u64,
     compressed_examined: u64,
+    /// Records decoded through the definition.
+    typed_records: u64,
+    /// Typed occurrences that did not decode through their layout.
+    failed: u64,
+    /// Subrecord positions that did not re-encode identically.
+    reencode_conflicts: u64,
+    /// Decoded occurrences per confidence level.
+    by_confidence: BTreeMap<String, u64>,
     /// Subrecord signature -> (occurrences, class).
     subs: BTreeMap<String, (u64, String)>,
 }
@@ -123,8 +131,9 @@ fn s<'v>(value: &'v Value, key: &str) -> &'v str {
     value.get(key).and_then(Value::as_str).unwrap_or("")
 }
 
-/// `cargo xtask parity`.
-pub(crate) fn run(root: &Path) -> Result<()> {
+/// `cargo xtask parity [--check]`: with `check`, regenerate in memory and fail when the
+/// committed document differs (line endings normalized) instead of writing it.
+pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     let data_dir = std::env::var_os(DATA_DIR_VAR)
         .map(PathBuf::from)
         .with_context(|| format!("set {DATA_DIR_VAR} to the Starfield Data directory"))?;
@@ -195,6 +204,18 @@ pub(crate) fn run(root: &Path) -> Result<()> {
             agg.compressed_examined = agg
                 .compressed_examined
                 .saturating_add(u(t, "compressed_examined"));
+            agg.typed_records = agg.typed_records.saturating_add(u(t, "typed_records"));
+            agg.reencode_conflicts = agg
+                .reencode_conflicts
+                .saturating_add(u(t, "reencode_conflicts"));
+            if let Some(occurrences) = t.get("occurrences") {
+                agg.failed = agg.failed.saturating_add(u(occurrences, "failed"));
+            }
+            for c in CONFIDENCE {
+                let n = t.get("decoded_by_confidence").map_or(0, |by| u(by, c));
+                let slot = agg.by_confidence.entry(c.to_string()).or_insert(0);
+                *slot = slot.saturating_add(n);
+            }
             for sub in t
                 .get("signatures")
                 .and_then(Value::as_array)
@@ -238,6 +259,14 @@ pub(crate) fn run(root: &Path) -> Result<()> {
     let schema = schema.get("data").context("schema result has no data")?;
     let doc = render(&manifest, defined, &types, &files, &not_examined, schema);
     let out = root.join(OUT);
+    if check {
+        let current = fs::read_to_string(&out).unwrap_or_default();
+        if lf(&current) != doc {
+            bail!("{OUT} is stale; run `cargo xtask parity` and commit the result");
+        }
+        println!("parity: {OUT} is up to date ({} record types)", types.len());
+        return Ok(());
+    }
     fs::write(&out, &doc).with_context(|| format!("writing {}", out.display()))?;
     println!("parity: wrote {OUT} ({} record types)", types.len());
     Ok(())
@@ -326,6 +355,61 @@ fn confidence_table(schema: &Value) -> String {
     head.extend(CONFIDENCE);
     let mut right = vec![false, false];
     right.extend([true; 7]);
+    table(&head, &rows, &right)
+}
+
+/// The "Decoded through the definitions" table: one row per defined record type (in the
+/// order given), then a total.
+fn decoded_table(sorted: &[(&String, &TypeAgg)]) -> String {
+    let mut total = TypeAgg::default();
+    let mut rows = Vec::new();
+    let row = |label: String, name: String, a: &TypeAgg| {
+        let decoded = a
+            .by_confidence
+            .values()
+            .fold(0u64, |sum, v| sum.saturating_add(*v));
+        let mut cells = vec![
+            label,
+            name,
+            n(a.typed_records),
+            n(decoded),
+            n(a.failed),
+            n(a.reencode_conflicts),
+        ];
+        cells.extend(
+            CONFIDENCE
+                .iter()
+                .map(|c| n(a.by_confidence.get(*c).copied().unwrap_or(0))),
+        );
+        cells
+    };
+    for (sig, agg) in sorted {
+        let Some(definition) = &agg.definition else {
+            continue;
+        };
+        total.typed_records = total.typed_records.saturating_add(agg.typed_records);
+        total.failed = total.failed.saturating_add(agg.failed);
+        total.reencode_conflicts = total
+            .reencode_conflicts
+            .saturating_add(agg.reencode_conflicts);
+        for (c, v) in &agg.by_confidence {
+            let slot = total.by_confidence.entry(c.clone()).or_insert(0);
+            *slot = slot.saturating_add(*v);
+        }
+        rows.push(row(format!("`{sig}`"), definition.clone(), agg));
+    }
+    rows.push(row("**Total**".to_string(), String::new(), &total));
+    let mut head = vec![
+        "Record",
+        "Schema",
+        "Typed records",
+        "Decoded",
+        "Failed",
+        "Re-encode",
+    ];
+    head.extend(CONFIDENCE);
+    let mut right = vec![false, false];
+    right.extend([true; 8]);
     table(&head, &rows, &right)
 }
 
@@ -440,9 +524,10 @@ fn render(
         }
     }
     out.push_str(
-        "- Classification is by subrecord signature against the record type's definition;\n  \
-         `coverage` does not decode payloads against the layouts (the typed decode and\n  \
-         re-encode check over the corpus is lane A's M2.A3 driver test).\n\n",
+        "- Classification is by subrecord signature against the record type's definition,\n  \
+         and `coverage` decodes every record of a defined type through its generated\n  \
+         definition and encodes it again (M3.F2): a typed subrecord whose payload does not\n  \
+         decode is counted as failed, not typed (see \"Decoded through the definitions\").\n\n",
     );
     out.push_str(
         "Columns:\n\n\
@@ -469,14 +554,31 @@ fn render(
         &rows,
         &[false, false, true, true, true, true, true, true],
     ));
+    let failed = sorted
+        .iter()
+        .fold(0u64, |sum, (_, a)| sum.saturating_add(a.failed));
     let _ = writeln!(
         out,
-        "\nSubrecord occurrences: {} in total; {} typed, {} opaque, {} unknown.",
+        "\nSubrecord occurrences: {} in total; {} typed ({} of them failed to decode), {} \
+         opaque, {} unknown.",
         n(occ_total),
         n(occ("typed")),
+        n(failed),
         n(occ("opaque")),
         n(occ("unknown"))
     );
+
+    out.push_str("\n## Decoded through the definitions\n\n");
+    out.push_str(
+        "Per defined record type, from `kit coverage` (M3.F2): **Typed records** decoded\n\
+         through the generated definition; **Decoded** typed subrecord occurrences whose\n\
+         payload decoded, **Failed** those that did not (the payload does not fit the layout,\n\
+         or the definition does not accept it at that position; kept raw); **Re-encode**\n\
+         subrecord positions where encoding the decoded record did not reproduce the input.\n\
+         The confidence columns split **Decoded** by the confidence of the decoding member\n\
+         (the weakest, when several members share a signature).\n\n",
+    );
+    out.push_str(&decoded_table(&sorted));
 
     out.push_str("\n## Definitions by confidence\n\n");
     out.push_str(
@@ -534,8 +636,41 @@ fn render(
 
 #[cfg(test)]
 mod tests {
-    use super::{confidence_table, n, table};
+    use super::{confidence_table, decoded_table, n, table, TypeAgg};
     use serde_json::json;
+
+    #[test]
+    fn decoded_rows_skip_undefined_types_and_total() {
+        let weap = TypeAgg {
+            definition: Some("Weapon".into()),
+            typed_records: 452,
+            failed: 2,
+            reencode_conflicts: 1,
+            by_confidence: [("corpus".to_string(), 1000), ("reference".to_string(), 5)]
+                .into_iter()
+                .collect(),
+            ..TypeAgg::default()
+        };
+        let refr = TypeAgg {
+            records: 9,
+            ..TypeAgg::default()
+        };
+        let (w, r) = ("WEAP".to_string(), "REFR".to_string());
+        let t = decoded_table(&[(&r, &refr), (&w, &weap)]);
+        assert!(!t.contains("REFR"), "{t}");
+        assert!(
+            t.starts_with("| Record    | Schema | Typed records | Decoded | Failed | Re-encode |"),
+            "{t}"
+        );
+        assert!(
+            t.contains("| `WEAP`    | Weapon |           452 |   1,005 |      2 |         1 |"),
+            "{t}"
+        );
+        assert!(
+            t.contains("| **Total** |        |           452 |   1,005 |"),
+            "{t}"
+        );
+    }
 
     #[test]
     fn confidence_rows_and_total() {

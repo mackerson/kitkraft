@@ -7,6 +7,11 @@
 //! extra argument. Project files (`.ppj`) are refused because they can turn release mode
 //! on themselves. Output is never written under the game Data directory, and the produced
 //! `.pex` is parsed and disassembled with `kitcraft-pex` as a check.
+//!
+//! `sources_zip` (M3.G1) names `Tools\ContentResources.zip`: its `Scripts/Source` files are
+//! extracted once into the KitCraft cache ([`super::sources`]) and that folder is imported
+//! after every other import directory, so the base game's scripts need no manual
+//! extraction.
 
 use std::fs;
 use std::io::Read;
@@ -191,6 +196,20 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
     } else {
         source.to_string()
     };
+    let zip = match args.get("sources_zip").and_then(Value::as_str) {
+        Some(z) => {
+            let zip_path = PathBuf::from(z);
+            if !zip_path.is_file() {
+                return Err(failed(ID, format!("sources zip `{z}` does not exist")));
+            }
+            let extracted =
+                super::sources::extract_sources(&zip_path, &super::sources::default_cache_root())
+                    .map_err(|e| failed(ID, e))?;
+            imports.push(strip_verbatim(&extracted.dir));
+            Some((zip_path, extracted))
+        }
+        None => None,
+    };
     for dir in &imports {
         if !dir.is_dir() {
             return Err(failed(
@@ -255,6 +274,27 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
         ));
     }
     let mut evidence = Vec::new();
+    let sources_zip = match &zip {
+        Some((zip_path, x)) => {
+            let length = fs::metadata(zip_path).map_or(0, |m| m.len());
+            evidence.push(Evidence {
+                file: file_name(zip_path),
+                offset: 0,
+                length,
+                record: None,
+                subrecord: None,
+            });
+            json!({
+                "zip": zip_path.display().to_string(),
+                "dir": x.dir.display().to_string(),
+                "files": x.files,
+                "bytes": x.bytes,
+                "skipped": x.skipped,
+                "cached": x.cached,
+            })
+        }
+        None => Value::Null,
+    };
     let pex = if passed && pex_path.is_file() {
         let bytes = fs::read(&pex_path)
             .map_err(|e| failed(ID, format!("reading `{}`: {e}", pex_path.display())))?;
@@ -302,6 +342,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
             "script": request.object,
             "out_dir": out_dir.display().to_string(),
             "compiler": compiler.display().to_string(),
+            "sources_zip": sources_zip,
             "args": compiler_args,
             "exit_code": exit_code,
             "passed": passed,
@@ -492,6 +533,80 @@ mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains(".ppj"), "{err}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A bad `sources_zip` fails before the compiler is looked for, and a hostile entry
+    /// name is refused before anything is extracted (M3.G1).
+    #[test]
+    fn sources_zip_errors_come_before_the_compiler() {
+        let dir = std::env::temp_dir().join(format!("kitcraft-compile-zip-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let missing_compiler = dir.join("nope").join("PapyrusCompiler.exe");
+        let run = |zip: &std::path::Path| {
+            execute(
+                "papyrus.compile",
+                json!({"source": "S", "out_dir": dir.join("o").to_str().unwrap(),
+                       "sources_zip": zip.to_str().unwrap(),
+                       "compiler": missing_compiler.to_str().unwrap()}),
+            )
+            .unwrap_err()
+        };
+        let err = run(&dir.join("absent.zip"));
+        assert_eq!(err.kind(), "failed");
+        assert!(err.to_string().contains("absent.zip"), "{err}");
+
+        let zip = dir.join("hostile.zip");
+        fs::write(
+            &zip,
+            super::super::sources::tests::zip_bytes(&[("Scripts/Source/../x.psc", b"x")]),
+        )
+        .unwrap();
+        let err = run(&zip);
+        assert!(err.to_string().contains("refusing"), "{err}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// With the compiler installed and `KITCRAFT_DATA_DIR` set, a base-game script compiles
+    /// by name given only `Tools\ContentResources.zip` (M3.G1).
+    #[test]
+    fn base_game_script_compiles_from_the_zip_alone() {
+        let Some(data) = std::env::var_os("KITCRAFT_DATA_DIR") else {
+            println!("skipped: KITCRAFT_DATA_DIR is not set");
+            return;
+        };
+        let Some(zip) = std::path::Path::new(&data)
+            .parent()
+            .map(|g| g.join("Tools").join("ContentResources.zip"))
+            .filter(|z| z.is_file())
+        else {
+            println!("skipped: Tools\\ContentResources.zip not found");
+            return;
+        };
+        if super::compiler_candidates(None)
+            .iter()
+            .all(|p| !p.is_file())
+        {
+            println!("skipped: PapyrusCompiler.exe not found");
+            return;
+        }
+        let dir =
+            std::env::temp_dir().join(format!("kitcraft-compile-zip-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let r = execute(
+            "papyrus.compile",
+            json!({"source": "DefaultCounterQuestA", "out_dir": dir.to_str().unwrap(),
+                   "sources_zip": zip.to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(r["data"]["passed"], true, "{}", r["data"]);
+        assert_eq!(r["data"]["sources_zip"]["files"], 5_034);
+        assert!(r["data"]["pex"]["text"]
+            .as_str()
+            .unwrap()
+            .starts_with("DefaultCounterQuestA.psc v3.12"));
+        assert_eq!(r["evidence"][0]["file"], "ContentResources.zip");
         fs::remove_dir_all(&dir).unwrap();
     }
 
