@@ -102,24 +102,33 @@ catalog instead of acting on data, so they are plain CLI subcommands and need no
 
 ## Clean room
 
-- **Every fact has one permitted source, listed in `plan/adr/0005-spec-sources-per-fact.md`.**
-  UESP has no Starfield format page; its Skyrim pages cover only the shared container. Corpus
-  statistics give the inventory, CK differential observation gives Starfield field layouts,
-  and the Creation Kit wiki gives field names. Our own hex dumps of the official ESMs are the
-  tiebreaker. Record facts (signatures, sizes, offsets, types) in `crates/schema` definitions
-  with their ADR 0005 `source`; never paste UESP or wiki prose into code or docs, and never
-  write a Starfield layout from memory.
+- **Sources follow the owner's four-level hierarchy** (ADR 0004, decided 2026-10-14; ADR 0005
+  Amendment 2): (1) container: UESP's Skyrim pages, validated on the Starfield corpus;
+  (2) record definitions: upstream xEdit `Core/wbDefinitionsSF1.pas` pinned at
+  `9fb016884bec138ea6c7b872cec831537d464c3e` (`docs/xedit-reference.md`); (3) empirical
+  validation: corpus statistics, CK differential observation, differential comparison
+  against SF1Edit; (4) secondary: UESP's Starfield pages, the CK wiki, community docs. Our
+  own hex dumps of the official ESMs are the tiebreaker. Record facts in `crates/schema`
+  definitions with their `source`, `evidence` and `confidence` (`reference`, `corpus`,
+  `ck-diff`, `verified`); never paste prose or code from any source, and never write a
+  Starfield layout from memory.
+- **xEdit's Pascal is source material only.** Read the pinned `wbDefinitionsSF1.pas` from a
+  copy outside the repo (`*.pas` is gitignored; delete it after use), and write our TOML
+  independently: no code or comments copied, no reproduction of xEdit's architecture, no
+  runtime or build dependency on Pascal. Cite `xedit: wbDefinitionsSF1.pas@<sha>#L<a>-L<b>`.
+  Other xEdit files are not covered yet.
+- **Never use a Skyrim definition for a Starfield record body.** Skyrim facts describe the
+  shared container only, with `confidence = "corpus"` or better.
 - **CreationKit.exe may be run and observed as a black box only**: open plugins, save, take
   screenshots, diff its output against ours. Never disassemble, decompile, debug-attach,
   memory-dump, or point a reverse-engineering tool (Ghidra, IDA, REA, x64dbg) at it or at
   Starfield.exe. Never extract or ship its assets. Observations stay local in `observe/`
   (gitignored).
-- **Never read Mutagen, Spriggit, or xEdit source**, or any other GPL/LGPL/AGPL code that
-  handles Bethesda formats. Not to "check one thing", not via a search result snippet. If you
-  have seen such code, say so and do not implement that area. xEdit's MPL source is also off
-  limits until `plan/adr/0004-xedit-source-policy.md` is decided by the owner.
-- Running Spriggit as an external binary (ESM <-> YAML) for oracle comparisons is allowed;
-  reading its source is not.
+- **Never read Mutagen or Spriggit source**, or any other GPL/LGPL/AGPL code that handles
+  Bethesda formats. Not to "check one thing", not via a search result snippet. If you have
+  seen such code, say so and do not implement that area.
+- Running Spriggit or SF1Edit as an external binary for comparisons is allowed; reading
+  Spriggit's source (or using its output field names) is not, and neither tool is bundled.
 - `C:\Modding\scripts` is our own code and may be ported freely.
 - Every third-party asset (icon, font, sample file) is listed in `ATTRIBUTION.md` before it is
   committed. No Bethesda data in the repo, ever.
@@ -183,8 +192,9 @@ gate is the CI.
 Don't stop to ask unless the decision is one of these. Everything else: decide and record it.
 
 1. Project name (`KitCraft` is a placeholder).
-2. xEdit MPL source policy (`plan/adr/0004-xedit-source-policy.md`, status OPEN; default is
-   option A: the ADR 0005 sources only, xEdit not read).
+2. xEdit MPL source policy: **decided 2026-10-14** (`plan/adr/0004-xedit-source-policy.md`).
+   Still the owner's: changing the pinned revision, or extending the reference beyond
+   `wbDefinitionsSF1.pas`.
 3. Which video critique is the design brief for the gun overhaul.
 4. License (proposed MIT OR Apache-2.0; scaffolded that way).
 5. Whether and when to contact kinggath about Sim Settlements 2.
@@ -218,4 +228,5 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
 | `docs/record-parity.md`  | Per-record schema and roundtrip coverage (generated after M1) |
 | `docs/ck-parity.md`      | CK feature checklist from black-box observation               |
 | `docs/gaps.md`           | Known gaps; check before claiming something works             |
+| `docs/xedit-reference.md`| Pinned xEdit revision, license, coverage, Pascal-to-TOML map  |
 | `docs/corpus.md`         | Roundtrip corpus: which files, where, how it is used          |

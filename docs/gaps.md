@@ -22,7 +22,9 @@ Check this before claiming something works. Remove a row only with the commit th
 | MCP server not implemented                                        | Agents use the CLI only                                  | M2               |
 | No fuzzing harness (cargo-fuzz needs nightly)                     | Hostile-input coverage limited to deterministic mutation | after M1         |
 | Spriggit round trip lost data on 2 of 5 real mods tested          | Not an oracle; inventory facts only (ADR 0001 §4)        | permanent        |
-| xEdit policy undecided (ADR 0004)                                 | Ambiguous fields stay opaque                             | owner            |
+| Typed Starfield layouts not transcribed yet (ADR 0004 decided; lane B round 3 waits for owner review of `docs/xedit-reference.md`) | Record payloads beyond TES4 stay opaque | lane B round 3 |
+| `confidence` is validated by the loader but not carried in the typed model | Coverage reports cannot show it yet | lane B          |
+| SF1Edit not installed (differential comparison, ADR 0005 Am. 2 §2a) | No SF1Edit cross-check of decoded values               | M2               |
 | Project name is a placeholder                                     | Package names (`kitcraft-*`, `kit`) may be renamed       | owner            |
 | No remote, no hosted CI                                           | The local `cargo xtask ci` run is the only gate          | owner            |
 

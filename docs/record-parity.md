@@ -11,8 +11,10 @@ Columns:
 - **Records**: count across the corpus.
 - **Roundtrip**: `identical` (every record of this type rewrites byte-identical across the
   corpus), `mismatch` (with first offset), or `-` (not run).
-- **Source**: the kind of source per `plan/adr/0005-spec-sources-per-fact.md` (`uesp-skyrim`,
-  `corpus`, `ck-diff`, `ck-wiki`), as named in the definition's `source` key.
+- **Source**: the kind of source per `plan/adr/0005-spec-sources-per-fact.md` (Amendment 2:
+  `uesp-skyrim`, `xedit`, `corpus`, `ck-diff`, `uesp-starfield`, `ck-wiki`), as named in the
+  definition's `source` key, plus its `confidence` (`reference`, `corpus`, `ck-diff`,
+  `verified`) when set.
 
 Legend for **Fields**: `full` (every field decoded), `partial`, `none` (subrecord list only).
 

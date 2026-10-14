@@ -71,11 +71,14 @@ Contributors and agents: read [AGENTS.md](AGENTS.md) first.
 ## Clean room
 
 Formats are implemented from the shared container described on UESP's (Skyrim) wiki pages,
-our own inspection of files we own, black-box observation of the Creation Kit's saved output,
-and the public Creation Kit wiki; which source is permitted for which fact is in
-[ADR 0005](plan/adr/0005-spec-sources-per-fact.md). The Creation Kit is observed as a black
-box only. No copyleft Bethesda-format code (Mutagen, Spriggit: GPL-3.0; xEdit: MPL-2.0) is
-read. No Bethesda data ships in this repository.
+Starfield record definitions informed by xEdit's MPL-2.0 `wbDefinitionsSF1.pas` at a pinned
+revision (used as reference only: our definitions are written independently and no xEdit
+code is copied or linked), and validated by our own inspection of files we own and
+black-box observation of the Creation Kit's saved output; the hierarchy is in
+[ADR 0005](plan/adr/0005-spec-sources-per-fact.md) (Amendment 2) and
+[ADR 0004](plan/adr/0004-xedit-source-policy.md). The Creation Kit is observed as a black
+box only. No GPL Bethesda-format code (Mutagen, Spriggit) is read. No Bethesda data ships
+in this repository.
 
 ## License
 

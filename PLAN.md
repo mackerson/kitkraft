@@ -1,7 +1,9 @@
 # KitCraft — open-source Creation Kit for Starfield, built the "craft suite" way
 
-> Where this brief and AGENTS.md differ, AGENTS.md wins; xEdit source is off limits per ADR
-> 0004 unless the owner decides otherwise.
+> Where this brief and AGENTS.md differ, AGENTS.md wins. Source policy (owner decision
+> 2026-10-14, ADR 0004 and ADR 0005 Amendment 2): xEdit's `wbDefinitionsSF1.pas`, pinned at
+> `9fb016884bec138ea6c7b872cec831537d464c3e`, is the record-definition reference, as source
+> material only; Mutagen and Spriggit source stay off limits.
 
 Working name only. Status: proposal, 2026-10-14. Nothing built yet.
 
@@ -38,8 +40,9 @@ workflow / observe`).
 
 **Do not point REA at CreationKit.exe or Starfield.exe for this project.** That breaks the
 clean-room rule the craft suite depends on, and we don't need it: the shared container is
-public (UESP's Skyrim pages), and Starfield-specific layouts come from the corpus and from
-observing the CK's own output (see `plan/adr/0005-spec-sources-per-fact.md`). REA's process (evidence ledger, parity gates) is what we
+public (UESP's Skyrim pages), Starfield record definitions come from the pinned xEdit
+reference, and the corpus and the CK's own output validate them (see
+`plan/adr/0005-spec-sources-per-fact.md`, Amendment 2). REA's process (evidence ledger, parity gates) is what we
 copy; its decompilers we skip. REA on our own binaries (crash triage, fuzz results) is fine.
 
 ### Scope reality check
@@ -49,14 +52,15 @@ UI is years. "Bit for bit" of the data is testable in weeks: load every official
 write it back byte-identical. That is milestone 1 and the thing agents actually need.
 
 ## Source material we are allowed to use
-| Source | License | Use |
-|---|---|---|
-| UESP Skyrim Mod File Format pages (no Starfield page exists) | CC-BY-SA docs | Shared record container only; per-fact sources in `plan/adr/0005-spec-sources-per-fact.md`. Facts only, no prose. |
-| Creation Kit wiki (public) | site terms | Field names and semantics (ADR 0005). Facts only, no prose. |
-| Our own hex dumps of Starfield.esm + DLC ESMs (143 GB Data dir on this machine) | ours | Roundtrip corpus, fuzz corpus. |
-| CreationKit.exe (installed, MO2 exe #4) | Bethesda EULA | Black-box observe only: run it, screenshot, diff its ESM output vs ours. The only source for Starfield field layouts (CK differential observation, ADR 0005). |
-| xEdit `wbDefinitionsSF1.pas` (789 KB) | MPL-2.0 | **Do not read.** Off limits per ADR 0004 (open, owner decision). Running xEdit as a program is fine. |
-| Mutagen / Spriggit (Starfield record XML, 948 files) | GPL-3.0 | **Do not read** into a MIT/Apache project. May run Spriggit as an external tool for step 2 now. |
+| Source | License | Level (ADR 0005 Am. 2) | Use |
+|---|---|---|---|
+| UESP Skyrim Mod File Format pages | CC-BY-SA docs | 1, container | Shared record container only, validated on the Starfield corpus (`confidence = "corpus"` or better). Never for Starfield record bodies. Facts only, no prose. |
+| xEdit `Core/wbDefinitionsSF1.pas` @ `9fb016884bec138ea6c7b872cec831537d464c3e` (789,023 bytes) | MPL-2.0 | 2, record definitions | Canonical reference for Starfield record schemas (ADR 0004). Source material only: TOML written independently, no code or comments copied, no Pascal coupling, `xedit:` provenance + `confidence`. See `docs/xedit-reference.md`. |
+| Our own hex dumps of Starfield.esm + DLC ESMs (143 GB Data dir on this machine) | ours | 3, validation | Roundtrip corpus, fuzz corpus, confirmation of every definition (`corpus`). |
+| CreationKit.exe (installed, MO2 exe #4) | Bethesda EULA | 3, validation | Black-box observe only: run it, screenshot, diff its ESM output vs ours (CK differential observation, `ck-diff`). |
+| SF1Edit (xEdit, run as a program; not installed yet) | MPL-2.0 | 3, validation | Differential comparison of its decoded view with ours on fixtures. Never bundled. |
+| UESP Starfield pages (starfieldwiki.net), Creation Kit wiki | CC-BY-SA / site terms | 4, secondary | Cross-checks, field names and semantics. Facts only, no prose. |
+| Mutagen / Spriggit (Starfield record XML, 948 files) | GPL-3.0 | forbidden | **Do not read** into a MIT/Apache project. May run Spriggit as an external tool for step 2 now. |
 | `C:\Modding\scripts` (ba2x.py, pexdis.py, esmscan.py) | ours | Port to Rust crates; already proven on real files. |
 
 ## Workspace layout (mirrors cadcraft)
@@ -132,10 +136,11 @@ smoke test for the whole pipeline: `kit set` -> `kit validate` -> launch via MO2
 
 ### Rung 2: gun overhaul kit
 The weapon-relevant record types are **WEAP**, **AMMO**, **PROJ**, **AMDL** (aim model),
-**OMOD**, **COBJ** and **ZOOM**. Their exact field layouts will be established by CK
-differential observation (`plan/adr/0005-spec-sources-per-fact.md`) and named from the CK
-wiki; they are deliberately not listed here. (An earlier field list in this section came from
-a GPL-derived schema summary and was removed.)
+**OMOD**, **COBJ** and **ZOOM**. Their field layouts are transcribed from the pinned xEdit
+reference (lane B round 3, after owner review), validated on the corpus and by CK
+differential observation, and named from the CK wiki (ADR 0005 Amendment 2); they are
+deliberately not listed here. (An earlier field list in this section came from a
+GPL-derived schema summary and was removed.)
 - Not in records: animation timing (hkx), audio content (Wwise), models.
 
 The overhaul is a data-driven spec, not hand edits. `overhaul.toml` describes intent
@@ -165,9 +170,8 @@ outposts, not workshops, and a different Papyrus API surface. Realistic shape:
 
 ## Open decisions (owner's call)
 1. Name. "KitCraft" is a placeholder.
-2. Whether xEdit's MPL source may be read for ambiguous subrecords (ADR 0004, still open).
-   Until decided, Starfield layouts come only from the ADR 0005 sources, chiefly CK
-   differential observation.
+2. ~~Whether xEdit's MPL source may be read~~ Decided 2026-10-14 (ADR 0004): the pinned
+   `wbDefinitionsSF1.pas` is the record-definition reference, as source material only.
 3. Which YouTube critique to use as the design brief for the overhaul (link it in plan/).
 4. License: MIT + Apache-2.0 dual, matching the craft suite.
 5. Whether to contact kinggath about SS2 now or after the overhaul kit proves the pipeline.
