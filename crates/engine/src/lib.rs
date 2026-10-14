@@ -25,6 +25,7 @@ mod exec;
 mod handlers;
 mod params;
 mod session;
+pub mod validate;
 
 pub use args::Violation;
 pub use cmdline::{parse_line, parse_words, Invocation};
@@ -172,9 +173,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Validate",
         shortcut: Some("F7"),
         aliases: &["check"],
-        summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"}},"required":["plugin"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Load order searched first for masters"},"data_dir":{"type":"string","description":"Directory searched for masters after the plugin's own"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "roundtrip",
