@@ -1,0 +1,30 @@
+# GMST: subrecord inventory only. Every payload is opaque until its layout is decided.
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the GMST top group in Starfield.esm, ShatteredSpace.esm,
+# Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
+# 2418 records, form versions 581/582, shapes "EDID DATA" (2396) and "EDID XALG DATA" (22).
+#
+# Member names are placeholders derived from the signature; they get real names when a
+# layout is decided, which is a breaking change for queries.
+signature = "GMST"
+name = "GameSetting"
+source = "corpus: GMST records of the official ESMs (12 files with a GMST group)"
+
+[[member]]
+sig = "EDID"
+name = "Edid"
+type = "opaque"
+note = "observed 4..71 bytes"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "opaque"
+card = "optional"
+note = "observed 8 bytes, in 22 records"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+note = "observed 4 bytes"

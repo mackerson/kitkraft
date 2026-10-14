@@ -33,6 +33,17 @@ M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.m
   `schema -> engine`, is rejected by cargo itself before xtask runs.)
 - Corpus manifest re-verified 2026-10-14: size and SHA-256 of all 14 ESMs match.
 - M0.4 first commit on `main`.
+- M1.8 (lane B) definition format: TOML loader + validator in `kitcraft-schema`, format in
+  `crates/schema/defs/README.md`; `source`/`evidence` must use the ADR 0005 forms.
+- M1.9 (lane B, rescoped) seed definitions: TES4 and the GRUP header typed from
+  `uesp-skyrim` pages and confirmed on the corpus; GMST, GLOB, KYWD, WEAP as corpus
+  inventories (order, cardinality, BFCB..BFCE and OBTE..STOP blocks), every payload opaque;
+  WEAP layout pending ADR 0005 (ck-diff). Corpus findings: TES4 MAST has no DATA in any
+  official ESM; GRUP type 10 occurs (unnamed, preserved).
+- M1.10 (lane B) codegen: `kitcraft_schema::generate(&Schema) -> String`; golden tests for the
+  seed set and an all-features fixture; the goldens are rustfmt-clean and compile under the
+  workspace lints in `crates/schema/tests/generated.rs`, with `encode(decode(x)) == x` on
+  well-formed, malformed and random record bodies.
 
 ## In progress
 
@@ -41,7 +52,8 @@ M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.m
 ## Next
 
 1. M1 lane A: M0.5 corpus test helper, then M1.1 bounded reader (M1.2b header inventory after M1.2).
-2. M1 lane B: M1.8 definition format loader.
+2. M1 lane B: M1.8-M1.10 done. Next: typed WEAP layouts only via ck-diff observations
+   (ADR 0005 section 2); more corpus inventories as M1.14 coverage asks for them.
 3. M1 lane C: M1.11 `execute` and the result envelope.
 
 ## Blockers
@@ -73,4 +85,23 @@ wins") but still the owner's to confirm:
 
 ## Requests (cross-lane)
 
-None yet. Agents append here when they need a change in a crate they do not own.
+Agents append here when they need a change in a crate they do not own.
+
+- **Lane B -> lane C (M1.15).** `cargo xtask codegen` should write
+  `kitcraft_schema::generate(&kitcraft_schema::builtin()?)` to
+  `crates/esm/src/generated/mod.rs`. The output is self-contained (std only), rustfmt-clean
+  for the current set (checked by a test), and lint-clean. Suggest still piping it through
+  `rustfmt --edition 2021` before writing/comparing, since the generator only mirrors
+  rustfmt's width rules for the constructs it emits today.
+- **Lane B -> lane A.** Generated records decode from `&[RawSub { signature: [u8; 4], data:
+  &[u8] }]` (subrecords after `XXXX` resolution) plus `Ctx { form_version }`, and encode to
+  `Vec<OwnedSub>`. The container keeps emitting original bytes for unmodified records.
+- **Lane B -> owner (ADR 0005 premise, decision for the owner; default: not used).** UESP's
+  Starfield namespace does exist, hosted at `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format`
+  (served by uesp.net), with only two subpages: `/GMST` and `/Raw_Data` (a per-record
+  subrecord count/size dump of an older Starfield.esm). There are no TES4, GLOB, KYWD or WEAP
+  pages. Nothing from it is cited in `crates/schema/defs/`; every inventory fact there comes
+  from our own corpus scan. Decide whether ADR 0005 should list it.
+- **Lane B -> owner (default chosen).** Inventory definitions name members after their
+  signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
+  is a breaking change for `kit query`. Default: accept the rename when it happens.

@@ -1,0 +1,489 @@
+/// A four-byte signature.
+pub type Sig = [u8; 4];
+
+/// Why a subrecord payload did not match its definition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DecodeError {
+    /// The payload ended before `field` was complete.
+    Truncated { field: &'static str, offset: usize },
+    /// The payload has bytes left after the last field of `field`.
+    Trailing { field: &'static str, offset: usize },
+    /// The zstring `field` has no terminating NUL.
+    Unterminated { field: &'static str },
+}
+
+/// Facts from the record header that change layouts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Ctx {
+    /// The record's form version.
+    pub form_version: u16,
+}
+
+impl Ctx {
+    /// Whether a field present in form versions `since..=until` is present here.
+    pub fn has(self, since: Option<u16>, until: Option<u16>) -> bool {
+        since.is_none_or(|s| self.form_version >= s) && until.is_none_or(|u| self.form_version <= u)
+    }
+}
+
+/// Bounds-checked little-endian reader over one payload.
+#[derive(Debug, Clone)]
+pub struct Reader<'a> {
+    data: &'a [u8],
+    pos: usize,
+}
+
+impl<'a> Reader<'a> {
+    /// A reader at the start of `data`.
+    pub fn new(data: &'a [u8]) -> Self {
+        Self { data, pos: 0 }
+    }
+
+    /// Bytes consumed so far.
+    pub fn position(&self) -> usize {
+        self.pos
+    }
+
+    /// Whether every byte has been consumed.
+    pub fn is_empty(&self) -> bool {
+        self.pos >= self.data.len()
+    }
+
+    /// The next `n` bytes.
+    pub fn take(&mut self, n: usize, field: &'static str) -> Result<&'a [u8], DecodeError> {
+        let truncated = DecodeError::Truncated {
+            field,
+            offset: self.pos,
+        };
+        let end = self.pos.checked_add(n).ok_or(truncated)?;
+        let bytes = self.data.get(self.pos..end).ok_or(truncated)?;
+        self.pos = end;
+        Ok(bytes)
+    }
+
+    /// Everything not consumed yet.
+    pub fn rest(&mut self) -> &'a [u8] {
+        let bytes = self.data.get(self.pos..).unwrap_or_default();
+        self.pos = self.data.len();
+        bytes
+    }
+
+    /// Fails when bytes are left over.
+    pub fn finish(&self, field: &'static str) -> Result<(), DecodeError> {
+        if self.is_empty() {
+            Ok(())
+        } else {
+            Err(DecodeError::Trailing {
+                field,
+                offset: self.pos,
+            })
+        }
+    }
+}
+
+/// A value with a binary layout. `write` reproduces the bytes `read` consumed.
+pub trait Field: Sized {
+    /// Reads one value; `field` names it in errors.
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError>;
+    /// Appends the value's bytes.
+    fn write(&self, out: &mut Vec<u8>);
+}
+
+macro_rules! scalar_field {
+    ($($t:ty),*) => {$(
+        impl Field for $t {
+            fn read(r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+                let offset = r.position();
+                let bytes = r.take(core::mem::size_of::<$t>(), field)?;
+                let array = bytes
+                    .try_into()
+                    .map_err(|_| DecodeError::Truncated { field, offset })?;
+                Ok(<$t>::from_le_bytes(array))
+            }
+
+            fn write(&self, out: &mut Vec<u8>) {
+                out.extend_from_slice(&self.to_le_bytes());
+            }
+        }
+    )*};
+}
+
+scalar_field!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+
+impl<const N: usize> Field for [u8; N] {
+    fn read(r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        let offset = r.position();
+        r.take(N, field)?
+            .try_into()
+            .map_err(|_| DecodeError::Truncated { field, offset })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        out.extend_from_slice(self);
+    }
+}
+
+/// A 32-bit FormID as stored (master index in the top byte).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+pub struct FormId(pub u32);
+
+impl Field for FormId {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+/// NUL-terminated string bytes without the terminator. The encoding is not interpreted.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct ZString(pub Vec<u8>);
+
+impl Field for ZString {
+    fn read(r: &mut Reader<'_>, field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        match r.rest().split_last() {
+            Some((0, text)) => Ok(Self(text.to_vec())),
+            _ => Err(DecodeError::Unterminated { field }),
+        }
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.0);
+        out.push(0);
+    }
+}
+
+/// A localized string, kept raw: a string-table ID when the plugin's localized flag is set,
+/// zstring bytes otherwise.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LString(pub Vec<u8>);
+
+impl LString {
+    /// The string-table ID, if the payload is 4 bytes. Meaningful only in localized plugins.
+    pub fn string_id(&self) -> Option<u32> {
+        let bytes: [u8; 4] = self.0.as_slice().try_into().ok()?;
+        Some(u32::from_le_bytes(bytes))
+    }
+}
+
+impl Field for LString {
+    fn read(r: &mut Reader<'_>, _field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Ok(Self(r.rest().to_vec()))
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.0);
+    }
+}
+
+/// Bytes that are not decoded.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Bytes(pub Vec<u8>);
+
+impl Field for Bytes {
+    fn read(r: &mut Reader<'_>, _field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Ok(Self(r.rest().to_vec()))
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        out.extend_from_slice(&self.0);
+    }
+}
+
+/// A zero-length marker payload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Empty;
+
+impl Field for Empty {
+    fn read(_r: &mut Reader<'_>, _field: &'static str, _ctx: Ctx) -> Result<Self, DecodeError> {
+        Ok(Self)
+    }
+
+    fn write(&self, _out: &mut Vec<u8>) {}
+}
+
+/// Reads exactly `count` elements.
+pub fn read_array<T: Field>(
+    r: &mut Reader<'_>,
+    count: usize,
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<Vec<T>, DecodeError> {
+    let mut out = Vec::new();
+    for _ in 0..count {
+        out.push(T::read(r, field, ctx)?);
+    }
+    Ok(out)
+}
+
+/// Reads elements until the payload is used up.
+pub fn read_rest<T: Field>(
+    r: &mut Reader<'_>,
+    field: &'static str,
+    ctx: Ctx,
+) -> Result<Vec<T>, DecodeError> {
+    let mut out = Vec::new();
+    while !r.is_empty() {
+        let before = r.position();
+        out.push(T::read(r, field, ctx)?);
+        if r.position() == before {
+            break;
+        }
+    }
+    Ok(out)
+}
+
+/// Writes every element in order.
+pub fn write_all<T: Field>(items: &[T], out: &mut Vec<u8>) {
+    for item in items {
+        item.write(out);
+    }
+}
+
+/// Decodes a whole payload; leftover bytes are an error.
+pub fn decode<T: Field>(data: &[u8], field: &'static str, ctx: Ctx) -> Result<T, DecodeError> {
+    let mut r = Reader::new(data);
+    let value = T::read(&mut r, field, ctx)?;
+    r.finish(field)?;
+    Ok(value)
+}
+
+/// Encodes a payload.
+pub fn encode<T: Field>(value: &T) -> Vec<u8> {
+    let mut out = Vec::new();
+    value.write(&mut out);
+    out
+}
+
+/// A subrecord as read from a record body.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RawSub<'a> {
+    pub signature: Sig,
+    pub data: &'a [u8],
+}
+
+/// An owned subrecord.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct OwnedSub {
+    pub signature: Sig,
+    pub data: Vec<u8>,
+}
+
+impl From<&RawSub<'_>> for OwnedSub {
+    fn from(raw: &RawSub<'_>) -> Self {
+        Self {
+            signature: raw.signature,
+            data: raw.data.to_vec(),
+        }
+    }
+}
+
+/// How often a member may occur.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Card {
+    Required,
+    Optional,
+    Repeated,
+}
+
+/// One member of a record or group, as the matcher sees it.
+#[derive(Debug, Clone, Copy)]
+pub enum MemberDesc {
+    /// One subrecord signature.
+    Sub { sig: Sig, card: Card },
+    /// A run of consecutive members.
+    Group {
+        card: Card,
+        members: &'static [MemberDesc],
+    },
+    /// Any subrecords up to the first `until`.
+    AnyUntil { until: Sig },
+}
+
+/// Where the matcher put input subrecords.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Hit {
+    /// Subrecord `index` belongs to member `member`.
+    Sub { member: usize, index: usize },
+    /// One instance of group member `member`.
+    Group { member: usize, hits: Vec<Hit> },
+}
+
+const MAX_GROUP_DEPTH: usize = 16;
+
+fn accepts(desc: &MemberDesc, sig: Sig, depth: usize) -> bool {
+    match desc {
+        MemberDesc::Sub { sig: own, .. } => *own == sig,
+        MemberDesc::AnyUntil { until } => *until != sig,
+        MemberDesc::Group { members, .. } => {
+            depth < MAX_GROUP_DEPTH && starts(members, sig, depth.saturating_add(1))
+        }
+    }
+}
+
+fn starts(members: &[MemberDesc], sig: Sig, depth: usize) -> bool {
+    for desc in members {
+        if accepts(desc, sig, depth) {
+            return true;
+        }
+        let required = match desc {
+            MemberDesc::Sub { card, .. } | MemberDesc::Group { card, .. } => {
+                *card == Card::Required
+            }
+            MemberDesc::AnyUntil { .. } => false,
+        };
+        if required {
+            return false;
+        }
+    }
+    false
+}
+
+fn repeats(desc: &MemberDesc) -> bool {
+    match desc {
+        MemberDesc::Sub { card, .. } | MemberDesc::Group { card, .. } => *card == Card::Repeated,
+        MemberDesc::AnyUntil { .. } => true,
+    }
+}
+
+fn match_one(
+    subs: &[RawSub<'_>],
+    pos: &mut usize,
+    members: &'static [MemberDesc],
+    cursor: &mut usize,
+    depth: usize,
+) -> Option<Hit> {
+    let sig = subs.get(*pos)?.signature;
+    let (member, desc) = members
+        .iter()
+        .enumerate()
+        .skip(*cursor)
+        .find(|(_, desc)| accepts(desc, sig, depth))?;
+    *cursor = if repeats(desc) {
+        member
+    } else {
+        member.saturating_add(1)
+    };
+    if let MemberDesc::Group { members: inner, .. } = desc {
+        let start = *pos;
+        let mut inner_cursor = 0;
+        let mut hits = Vec::new();
+        while let Some(hit) =
+            match_one(subs, pos, inner, &mut inner_cursor, depth.saturating_add(1))
+        {
+            hits.push(hit);
+        }
+        if *pos == start {
+            return None;
+        }
+        return Some(Hit::Group { member, hits });
+    }
+    let index = *pos;
+    *pos = pos.saturating_add(1);
+    Some(Hit::Sub { member, index })
+}
+
+/// Assigns subrecords to `members` in order. Returns the hits and the indexes of
+/// subrecords that no member accepted at their position.
+pub fn match_members(
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {
+    let mut pos = 0;
+    let mut cursor = 0;
+    let mut hits = Vec::new();
+    let mut unmatched = Vec::new();
+    while pos < subs.len() {
+        match match_one(subs, &mut pos, members, &mut cursor, 0) {
+            Some(hit) => hits.push(hit),
+            None => {
+                unmatched.push(pos);
+                pos = pos.saturating_add(1);
+            }
+        }
+    }
+    (hits, unmatched)
+}
+
+/// Decodes subrecord `index` into an empty slot, or keeps it raw in `extra`.
+pub fn put<T: Field>(
+    slot: &mut Option<T>,
+    subs: &[RawSub<'_>],
+    index: usize,
+    field: &'static str,
+    ctx: Ctx,
+    extra: &mut Vec<(usize, OwnedSub)>,
+) {
+    let Some(sub) = subs.get(index) else {
+        return;
+    };
+    match decode::<T>(sub.data, field, ctx) {
+        Ok(value) if slot.is_none() => *slot = Some(value),
+        _ => extra.push((index, OwnedSub::from(sub))),
+    }
+}
+
+/// Decodes subrecord `index` onto a list, or keeps it raw in `extra`.
+pub fn push<T: Field>(
+    list: &mut Vec<T>,
+    subs: &[RawSub<'_>],
+    index: usize,
+    field: &'static str,
+    ctx: Ctx,
+    extra: &mut Vec<(usize, OwnedSub)>,
+) {
+    let Some(sub) = subs.get(index) else {
+        return;
+    };
+    match decode::<T>(sub.data, field, ctx) {
+        Ok(value) => list.push(value),
+        Err(_) => extra.push((index, OwnedSub::from(sub))),
+    }
+}
+
+/// Keeps subrecord `index` raw on a list.
+pub fn push_raw(list: &mut Vec<OwnedSub>, subs: &[RawSub<'_>], index: usize) {
+    if let Some(sub) = subs.get(index) {
+        list.push(OwnedSub::from(sub));
+    }
+}
+
+/// Moves every subrecord under `hit` to `extra`.
+pub fn unmatched(hit: &Hit, subs: &[RawSub<'_>], extra: &mut Vec<(usize, OwnedSub)>) {
+    match hit {
+        Hit::Sub { index, .. } => {
+            if let Some(sub) = subs.get(*index) {
+                extra.push((*index, OwnedSub::from(sub)));
+            }
+        }
+        Hit::Group { hits, .. } => {
+            for inner in hits {
+                unmatched(inner, subs, extra);
+            }
+        }
+    }
+}
+
+/// Appends an encoded subrecord when `value` is present.
+pub fn emit<T: Field>(out: &mut Vec<OwnedSub>, signature: Sig, value: Option<&T>) {
+    if let Some(value) = value {
+        out.push(OwnedSub {
+            signature,
+            data: encode(value),
+        });
+    }
+}
+
+/// Re-inserts `extra` subrecords at their original indexes. When the typed members were
+/// emitted in input order, this reproduces the input exactly.
+pub fn merge_extra(mut ordered: Vec<OwnedSub>, extra: &[(usize, OwnedSub)]) -> Vec<OwnedSub> {
+    let mut sorted: Vec<&(usize, OwnedSub)> = extra.iter().collect();
+    sorted.sort_by_key(|(index, _)| *index);
+    for (index, sub) in sorted {
+        let at = (*index).min(ordered.len());
+        ordered.insert(at, sub.clone());
+    }
+    ordered
+}

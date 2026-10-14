@@ -228,6 +228,11 @@ version = "0.0.0"
 [[package]]
 name = "kitcraft-schema"
 version = "0.0.0"
+dependencies = [
+ "serde",
+ "thiserror",
+ "toml",
+]
 
 [[package]]
 name = "kitcraft-strings"

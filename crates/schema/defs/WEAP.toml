@@ -1,0 +1,352 @@
+# WEAP: subrecord inventory only. Layout pending ADR 0005: Starfield field layouts need
+# ck-diff observations, so every payload is opaque until one is recorded.
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the WEAP top group in Starfield.esm, ShatteredSpace.esm,
+# Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
+# 452 records, form versions 581/582, 132 distinct subrecord sequences. After folding
+# BFCB..BFCE blocks and OBTE..STOP template blocks, every sequence fits the order below with
+# no conflicts. FLLD occurs exactly twice per record, at the two positions listed.
+# Members never seen together have an arbitrary relative order. "required" means present
+# in every corpus record.
+#
+# Template block: OBTE, then entries of [OBTF?] FULL OBTS, then STOP. STOP also occurs, on
+# its own, in records without OBTE.
+#
+# Member names are placeholders derived from the signature.
+signature = "WEAP"
+name = "Weapon"
+source = "corpus: WEAP records of the official ESMs (12 files with a WEAP group)"
+note = "layout pending ADR 0005"
+
+[[member]]
+sig = "EDID"
+name = "Edid"
+type = "opaque"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+note = "observed 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "OPDS"
+name = "Opds"
+type = "opaque"
+card = "optional"
+note = "observed 80 bytes, in 3 records"
+
+[[member]]
+sig = "PTT2"
+name = "Ptt2"
+type = "opaque"
+card = "optional"
+note = "observed 32 bytes"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "opaque"
+card = "optional"
+note = "observed 8 bytes, in 2 records"
+
+[[member]]
+group = "BfcbBlock"
+card = "repeated"
+note = "observed up to 5 per record; bodies seen: REFL, ANAM BNAM [ENAM], QUPA, PTCL, STCP, or nothing"
+
+[[member.member]]
+sig = "BFCB"
+name = "Bfcb"
+type = "opaque"
+
+[[member.member]]
+any_until = "BFCE"
+name = "BfcbBody"
+
+[[member.member]]
+sig = "BFCE"
+name = "Bfce"
+type = "opaque"
+note = "observed 0 bytes"
+
+[[member]]
+sig = "FULL"
+name = "Full"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+note = "first of two FLLD slots; observed 4 bytes"
+
+[[member]]
+sig = "EITM"
+name = "Eitm"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes, in 3 records"
+
+[[member]]
+sig = "EAMT"
+name = "Eamt"
+type = "opaque"
+card = "optional"
+note = "observed 2 bytes, in 1 record"
+
+[[member]]
+sig = "ETYP"
+name = "Etyp"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "BIDS"
+name = "Bids"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "BAMT"
+name = "Bamt"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "PUSH"
+name = "Push"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "PDSH"
+name = "Pdsh"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "KSIZ"
+name = "Ksiz"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "KWDA"
+name = "Kwda"
+type = "opaque"
+card = "optional"
+note = "observed multiples of 4 bytes"
+
+[[member]]
+sig = "DESC"
+name = "Desc"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "INRD"
+name = "Inrd"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "APPR"
+name = "Appr"
+type = "opaque"
+card = "optional"
+note = "observed multiples of 4 bytes"
+
+[[member]]
+sig = "OBTE"
+name = "Obte"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes; starts the template block"
+
+[[member]]
+group = "ObtsEntry"
+card = "repeated"
+note = "one template entry; only occurs after OBTE"
+
+[[member.member]]
+sig = "OBTF"
+name = "Obtf"
+type = "opaque"
+card = "optional"
+note = "observed 0 bytes"
+
+[[member.member]]
+sig = "FULL"
+name = "Full"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member.member]]
+sig = "OBTS"
+name = "Obts"
+type = "opaque"
+note = "observed variable size"
+
+[[member]]
+sig = "STOP"
+name = "Stop"
+type = "opaque"
+note = "observed 0 bytes; ends the template block, present in every record"
+
+[[member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+card = "optional"
+note = "observed 0 bytes at this position"
+
+[[member]]
+sig = "WAIM"
+name = "Waim"
+type = "opaque"
+note = "observed 35 bytes"
+
+[[member]]
+sig = "WAM2"
+name = "Wam2"
+type = "opaque"
+note = "observed 23 bytes"
+
+[[member]]
+sig = "WAUD"
+name = "Waud"
+type = "opaque"
+note = "observed 288 bytes"
+
+[[member]]
+sig = "WTUR"
+name = "Wtur"
+type = "opaque"
+note = "observed 29 bytes"
+
+[[member]]
+sig = "WCHG"
+name = "Wchg"
+type = "opaque"
+note = "observed 14 bytes"
+
+[[member]]
+sig = "WDMG"
+name = "Wdmg"
+type = "opaque"
+note = "observed 62 bytes"
+
+[[member]]
+sig = "DAMA"
+name = "Dama"
+type = "opaque"
+card = "optional"
+note = "observed 12 or 24 bytes"
+
+[[member]]
+sig = "WFIR"
+name = "Wfir"
+type = "opaque"
+note = "observed 45 bytes"
+
+[[member]]
+sig = "WFLG"
+name = "Wflg"
+type = "opaque"
+note = "observed 12 bytes"
+
+[[member]]
+sig = "WGEN"
+name = "Wgen"
+type = "opaque"
+note = "observed 24 bytes"
+
+[[member]]
+sig = "WABB"
+name = "Wabb"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "WMEL"
+name = "Wmel"
+type = "opaque"
+note = "observed 13 bytes"
+
+[[member]]
+sig = "QNAM"
+name = "Qnam"
+type = "opaque"
+note = "observed 36 bytes"
+
+[[member]]
+sig = "WRLO"
+name = "Wrlo"
+type = "opaque"
+note = "observed 10 bytes"
+
+[[member]]
+sig = "WVAR"
+name = "Wvar"
+type = "opaque"
+note = "observed 49 bytes"
+
+[[member]]
+sig = "MOD4"
+name = "Mod4"
+type = "opaque"
+card = "optional"
+
+[[member]]
+sig = "FLLD"
+name = "Flld2"
+type = "opaque"
+note = "second of two FLLD slots; observed 4 bytes"
+
+[[member]]
+sig = "MO4S"
+name = "Mo4s"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "WVIS"
+name = "Wvis"
+type = "opaque"
+note = "observed 24 bytes"
+
+[[member]]
+sig = "WTRM"
+name = "Wtrm"
+type = "opaque"
+note = "observed 17 bytes"

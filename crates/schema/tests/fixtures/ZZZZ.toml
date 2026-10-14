@@ -1,0 +1,120 @@
+# Synthetic definition exercising every feature of the format. Not a real record type;
+# everything here is invented for tests.
+signature = "ZZZZ"
+name = "Synthetic"
+source = "corpus: synthetic test fixture, not game data"
+evidence = ["corpus: none; invented for tests"]
+flags = [["Alpha", 0x1], ["Beta", 0x40000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 39
+field = [
+  { name = "Count", type = "u8" },
+  { name = "Delta", type = "i8" },
+  { name = "Small", type = "u16" },
+  { name = "SmallSigned", type = "i16" },
+  { name = "Speed", type = "f32" },
+  { name = "Target", type = "formid", targets = ["WEAP", "ARMO"] },
+  { name = "Kind", type = "enum", base = "i32", values = [["None", 0], ["Left", 1], ["Right", -1]] },
+  { name = "Options", type = "flags", base = "u16", bits = [["Hidden", 0x1], ["Locked", 0x8000]] },
+  { name = "Mode", type = "sig" },
+  { name = "Pair", type = "array", element = "u16", count = 2 },
+  { name = "Blob", type = "opaque", size = 3 },
+  { name = "Wide", type = "u64" },
+]
+
+[[member]]
+sig = "VERS"
+name = "Versioned"
+type = "struct"
+card = "optional"
+size_by_version = [{ max = 99, size = 4 }, { min = 100, size = 12 }]
+field = [
+  { name = "Base", type = "u32" },
+  { name = "Added", type = "f64", since = 100 },
+]
+
+[[member]]
+sig = "KWDA"
+name = "Keywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+
+[[member]]
+group = "Entry"
+card = "repeated"
+
+[[member.member]]
+sig = "ENAM"
+name = "Marker"
+type = "empty"
+card = "optional"
+
+[[member.member]]
+sig = "ENTR"
+name = "Points"
+type = "array"
+count = "rest"
+element = "struct"
+field = [
+  { name = "X", type = "i32" },
+  { name = "Y", type = "i32" },
+]
+
+[[member]]
+group = "Block"
+card = "repeated"
+
+[[member.member]]
+sig = "BEGN"
+name = "Kind"
+type = "zstring"
+
+[[member.member]]
+any_until = "BEND"
+name = "Body"
+
+[[member.member]]
+sig = "BEND"
+name = "End"
+type = "empty"
+
+[[member]]
+sig = "TAIL"
+name = "Tail"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Id", type = "u32" },
+  { name = "Rest", type = "opaque" },
+]
+
+[[member]]
+sig = "BIG8"
+name = "BigValue"
+type = "i64"
+card = "optional"
+
+[[member]]
+sig = "SKIP"
+name = "Skipped"
+type = "opaque"
+size = 2
+card = "repeated"
