@@ -13,5 +13,13 @@ plugin files are read from the user's own game installation at runtime.
 
 File-format knowledge is derived from the UESP wiki (https://en.uesp.net/,
 content licensed CC BY-SA 2.5) and from our own black-box inspection of files
-we own. No UESP prose is reproduced here. Third-party assets, if any, are
-listed in ATTRIBUTION.md.
+we own. No UESP prose is reproduced here.
+
+Starfield record definitions are informed by xEdit's Core/wbDefinitionsSF1.pas
+(https://github.com/TES5Edit/TES5Edit, MPL-2.0), revision
+9fb016884bec138ea6c7b872cec831537d464c3e, used as a reference for format facts
+only. No xEdit code or comments are copied into this repository, and KitCraft
+does not include or link xEdit code. Each definition cites the file revision
+and line range it was informed by.
+
+Third-party assets, if any, are listed in ATTRIBUTION.md.

@@ -14,3 +14,13 @@ Rules:
 
 | Asset | Path in repo | Source (URL) | Author | License | Added | Notes |
 | ----- | ------------ | ------------ | ------ | ------- | ----- | ----- |
+
+## Reference sources (not assets)
+
+Sources that inform our own work without any of their content being committed:
+
+- **xEdit `Core/wbDefinitionsSF1.pas`**, <https://github.com/TES5Edit/TES5Edit>, MPL-2.0,
+  revision `9fb016884bec138ea6c7b872cec831537d464c3e`. Starfield record definitions in
+  `crates/schema/defs/` are informed by it (ADR 0004); no code or comments are copied, and
+  each definition cites the revision and line range in its `xedit:` source. Details in
+  `docs/xedit-reference.md`.
