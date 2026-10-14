@@ -26,6 +26,7 @@
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
+// - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
 // - SFPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654; corpus)
 // - STDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
@@ -6854,6 +6855,673 @@ impl RspjRecord {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct SfbkSize {
+    pub x: u32,
+    pub y: u32,
+}
+
+impl Field for SfbkSize {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "SFBK.DNAM.X", ctx)?;
+        let f1 = u32::read(r, "SFBK.DNAM.Y", ctx)?;
+        Ok(Self { x: f0, y: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+    }
+}
+
+impl Visit for SfbkSize {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfbkHeight {
+    pub min: f32,
+    pub max: f32,
+}
+
+impl Field for SfbkHeight {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "SFBK.ENAM.Min", ctx)?;
+        let f1 = f32::read(r, "SFBK.ENAM.Max", ctx)?;
+        Ok(Self { min: f0, max: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.min.write(out);
+        self.max.write(out);
+    }
+}
+
+impl Visit for SfbkHeight {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfbkConnections(pub Vec<i16>);
+
+impl Field for SfbkConnections {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfbkConnections {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SfbkRarity {
+    Common,
+    Uncommon,
+    Rare,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl SfbkRarity {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Common,
+            1 => Self::Uncommon,
+            2 => Self::Rare,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Common => 0,
+            Self::Uncommon => 1,
+            Self::Rare => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SfbkRarity {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SfbkRarity {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SfbkPlacementManualAlignmentMode {
+    Relative,
+    Absolute,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl SfbkPlacementManualAlignmentMode {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Relative,
+            1 => Self::Absolute,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Relative => 0,
+            Self::Absolute => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SfbkPlacementManualAlignmentMode {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SfbkPlacementManualAlignmentMode {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SfbkPlacementGridAlignmentOverride {
+    Default,
+    Min,
+    Max,
+    Average,
+    Median,
+    Percent,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl SfbkPlacementGridAlignmentOverride {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Default,
+            1 => Self::Min,
+            2 => Self::Max,
+            3 => Self::Average,
+            4 => Self::Median,
+            5 => Self::Percent,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Default => 0,
+            Self::Min => 1,
+            Self::Max => 2,
+            Self::Average => 3,
+            Self::Median => 4,
+            Self::Percent => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SfbkPlacementGridAlignmentOverride {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SfbkPlacementGridAlignmentOverride {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SfbkPlacementGridSamplingOverride {
+    Default,
+    Legacy,
+    Full,
+    Borders,
+    Corners,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl SfbkPlacementGridSamplingOverride {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Default,
+            1 => Self::Legacy,
+            2 => Self::Full,
+            3 => Self::Borders,
+            4 => Self::Corners,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Default => 0,
+            Self::Legacy => 1,
+            Self::Full => 2,
+            Self::Borders => 3,
+            Self::Corners => 4,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for SfbkPlacementGridSamplingOverride {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for SfbkPlacementGridSamplingOverride {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SfbkPlacement {
+    /// `HNAM`, required.
+    pub manual_alignment_value: Option<Sub<i16>>,
+    /// `INAM`, required.
+    pub manual_alignment_mode: Option<Sub<SfbkPlacementManualAlignmentMode>>,
+    /// `JNAM`, optional.
+    pub grid_alignment_override: Option<Sub<SfbkPlacementGridAlignmentOverride>>,
+    /// `KNAM`, required.
+    pub grid_sampling_override: Option<Sub<SfbkPlacementGridSamplingOverride>>,
+}
+
+impl SfbkPlacement {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"INAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"JNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"KNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.manual_alignment_value,
+                    subs,
+                    *index,
+                    "SFBK.Placement.HNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.manual_alignment_mode,
+                    subs,
+                    *index,
+                    "SFBK.Placement.INAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.grid_alignment_override,
+                    subs,
+                    *index,
+                    "SFBK.Placement.JNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.grid_sampling_override,
+                    subs,
+                    *index,
+                    "SFBK.Placement.KNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"HNAM", self.manual_alignment_value.as_ref());
+        emit(out, *b"INAM", self.manual_alignment_mode.as_ref());
+        emit(out, *b"JNAM", self.grid_alignment_override.as_ref());
+        emit(out, *b"KNAM", self.grid_sampling_override.as_ref());
+    }
+}
+
+impl Visit for SfbkPlacement {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfbkCellMin {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Field for SfbkCellMin {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "SFBK.NAM2.X", ctx)?;
+        let f1 = i32::read(r, "SFBK.NAM2.Y", ctx)?;
+        Ok(Self { x: f0, y: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+    }
+}
+
+impl Visit for SfbkCellMin {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfbkCellMax {
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Field for SfbkCellMax {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "SFBK.NAM3.X", ctx)?;
+        let f1 = i32::read(r, "SFBK.NAM3.Y", ctx)?;
+        Ok(Self { x: f0, y: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+    }
+}
+
+impl Visit for SfbkCellMax {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfbkHeightRange {
+    pub min: f32,
+    pub max: f32,
+}
+
+impl Field for SfbkHeightRange {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "SFBK.NAM4.Min", ctx)?;
+        let f1 = f32::read(r, "SFBK.NAM4.Max", ctx)?;
+        Ok(Self { min: f0, max: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.min.write(out);
+        self.max.write(out);
+    }
+}
+
+impl Visit for SfbkHeightRange {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SfbkRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `ANAM`, optional.
+    pub data_file: Option<Sub<ZString>>,
+    /// `DNAM`, required.
+    pub size: Option<Sub<SfbkSize>>,
+    /// `ENAM`, required.
+    pub height: Option<Sub<SfbkHeight>>,
+    /// `FNAM`, optional.
+    pub connections: Option<Sub<SfbkConnections>>,
+    /// `GNAM`, required.
+    pub rarity: Option<Sub<SfbkRarity>>,
+    /// Group `Placement`, required.
+    pub placement: Option<SfbkPlacement>,
+    /// `WHGT`, required.
+    pub water_height: Option<Sub<f32>>,
+    /// `NAM0`, optional.
+    pub source_file: Option<Sub<ZString>>,
+    /// `NAM1`, optional.
+    pub nam1: Option<Sub<ZString>>,
+    /// `NAM2`, required.
+    pub cell_min: Option<Sub<SfbkCellMin>>,
+    /// `NAM3`, required.
+    pub cell_max: Option<Sub<SfbkCellMax>>,
+    /// `NAM4`, required.
+    pub height_range: Option<Sub<SfbkHeightRange>>,
+    /// `NAM5`, required.
+    pub source_block: Option<Sub<FormId>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl SfbkRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: SfbkPlacement::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"WHGT",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM0",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM1",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM3",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM4",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM5",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "SFBK.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.data_file, subs, *index, "SFBK.ANAM", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.size, subs, *index, "SFBK.DNAM", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.height, subs, *index, "SFBK.ENAM", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.connections, subs, *index, "SFBK.FNAM", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.rarity, subs, *index, "SFBK.GNAM", ctx, extra)
+                }
+                Hit::Group { member: 7, hits } if self.placement.is_none() => {
+                    let mut group = SfbkPlacement::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.placement = Some(group);
+                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.water_height,
+                    subs,
+                    *index,
+                    "SFBK.WHGT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.source_file, subs, *index, "SFBK.NAM0", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.nam1, subs, *index, "SFBK.NAM1", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.cell_min, subs, *index, "SFBK.NAM2", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.cell_max, subs, *index, "SFBK.NAM3", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.height_range,
+                    subs,
+                    *index,
+                    "SFBK.NAM4",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.source_block,
+                    subs,
+                    *index,
+                    "SFBK.NAM5",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"ANAM", self.data_file.as_ref());
+        emit(out, *b"DNAM", self.size.as_ref());
+        emit(out, *b"ENAM", self.height.as_ref());
+        emit(out, *b"FNAM", self.connections.as_ref());
+        emit(out, *b"GNAM", self.rarity.as_ref());
+        if let Some(group) = &self.placement {
+            group.emit(out);
+        }
+        emit(out, *b"WHGT", self.water_height.as_ref());
+        emit(out, *b"NAM0", self.source_file.as_ref());
+        emit(out, *b"NAM1", self.nam1.as_ref());
+        emit(out, *b"NAM2", self.cell_min.as_ref());
+        emit(out, *b"NAM3", self.cell_max.as_ref());
+        emit(out, *b"NAM4", self.height_range.as_ref());
+        emit(out, *b"NAM5", self.source_block.as_ref());
+    }
+}
+
+impl Visit for SfbkRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.source_block, "SFBK.NAM5", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.source_block, "SFBK.NAM5", out);
+    }
+}
+
+impl SfbkRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"SFBK";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("SFBK", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("SFBK", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("SFBK", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("SFBK", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct SfptSurfaceBlocks(pub [FormId; 256]);
 
 impl Field for SfptSurfaceBlocks {
@@ -8934,6 +9602,7 @@ pub enum Record {
     Pkin(Box<PkinRecord>),
     Rsgd(Box<RsgdRecord>),
     Rspj(Box<RspjRecord>),
+    Sfbk(Box<SfbkRecord>),
     Sfpt(Box<SfptRecord>),
     Stdt(Box<StdtRecord>),
     Sunp(Box<SunpRecord>),
@@ -8960,6 +9629,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PKIN", PkinRecord::MEMBERS),
     (*b"RSGD", RsgdRecord::MEMBERS),
     (*b"RSPJ", RspjRecord::MEMBERS),
+    (*b"SFBK", SfbkRecord::MEMBERS),
     (*b"SFPT", SfptRecord::MEMBERS),
     (*b"STDT", StdtRecord::MEMBERS),
     (*b"SUNP", SunpRecord::MEMBERS),
@@ -8989,6 +9659,7 @@ impl Record {
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
             b"RSPJ" => Self::Rspj(Box::new(RspjRecord::decode(subs, ctx))),
+            b"SFBK" => Self::Sfbk(Box::new(SfbkRecord::decode(subs, ctx))),
             b"SFPT" => Self::Sfpt(Box::new(SfptRecord::decode(subs, ctx))),
             b"STDT" => Self::Stdt(Box::new(StdtRecord::decode(subs, ctx))),
             b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
@@ -9018,6 +9689,7 @@ impl Record {
             Self::Pkin(record) => record.encode(),
             Self::Rsgd(record) => record.encode(),
             Self::Rspj(record) => record.encode(),
+            Self::Sfbk(record) => record.encode(),
             Self::Sfpt(record) => record.encode(),
             Self::Stdt(record) => record.encode(),
             Self::Sunp(record) => record.encode(),
@@ -9046,6 +9718,7 @@ impl Record {
             Self::Pkin(_) => PkinRecord::SIGNATURE,
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
             Self::Rspj(_) => RspjRecord::SIGNATURE,
+            Self::Sfbk(_) => SfbkRecord::SIGNATURE,
             Self::Sfpt(_) => SfptRecord::SIGNATURE,
             Self::Stdt(_) => StdtRecord::SIGNATURE,
             Self::Sunp(_) => SunpRecord::SIGNATURE,
@@ -9074,6 +9747,7 @@ impl Record {
             Self::Pkin(record) => record.form_ids(),
             Self::Rsgd(record) => record.form_ids(),
             Self::Rspj(record) => record.form_ids(),
+            Self::Sfbk(record) => record.form_ids(),
             Self::Sfpt(record) => record.form_ids(),
             Self::Stdt(record) => record.form_ids(),
             Self::Sunp(record) => record.form_ids(),
@@ -9102,6 +9776,7 @@ impl Record {
             Self::Pkin(record) => record.form_ids_mut(),
             Self::Rsgd(record) => record.form_ids_mut(),
             Self::Rspj(record) => record.form_ids_mut(),
+            Self::Sfbk(record) => record.form_ids_mut(),
             Self::Sfpt(record) => record.form_ids_mut(),
             Self::Stdt(record) => record.form_ids_mut(),
             Self::Sunp(record) => record.form_ids_mut(),
@@ -9130,6 +9805,7 @@ impl Record {
             Self::Pkin(record) => record.lstrings(),
             Self::Rsgd(record) => record.lstrings(),
             Self::Rspj(record) => record.lstrings(),
+            Self::Sfbk(record) => record.lstrings(),
             Self::Sfpt(record) => record.lstrings(),
             Self::Stdt(record) => record.lstrings(),
             Self::Sunp(record) => record.lstrings(),
@@ -9158,6 +9834,7 @@ impl Record {
             Self::Pkin(record) => record.lstrings_mut(),
             Self::Rsgd(record) => record.lstrings_mut(),
             Self::Rspj(record) => record.lstrings_mut(),
+            Self::Sfbk(record) => record.lstrings_mut(),
             Self::Sfpt(record) => record.lstrings_mut(),
             Self::Stdt(record) => record.lstrings_mut(),
             Self::Sunp(record) => record.lstrings_mut(),
@@ -9187,6 +9864,7 @@ impl Record {
             Self::Pkin(record) => &record.extra,
             Self::Rsgd(record) => &record.extra,
             Self::Rspj(record) => &record.extra,
+            Self::Sfbk(record) => &record.extra,
             Self::Sfpt(record) => &record.extra,
             Self::Stdt(record) => &record.extra,
             Self::Sunp(record) => &record.extra,
