@@ -411,6 +411,12 @@ is under "Next".
   policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
   WEAP). No layout was transcribed; see Blockers.
 
+### M3 lane H (evidence: CK observation and oracles)
+
+| Task | State |
+| ---- | ----- |
+| M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitCraft's assumed runtime IDs, and the `fixture.toml` template |
+
 ## Next
 
 M2 lanes (from `PLAN.md` "M2 - agent surface" and the step 2 ladder). Owners are assigned
