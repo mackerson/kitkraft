@@ -8,8 +8,8 @@ M0 (scaffold) and M1 (data parity) are done. Every "M1 is done when" criterion i
 `plan/execution-plan.md` holds: M1.6 roundtrips all 14 corpus files in `--release` and M1.7
 passes (lane A); `kit roundtrip --verify` reports identical on all 14 (M1.13, rechecked by
 `cargo xtask parity`); `docs/record-parity.md` is generated (M1.14); `cargo xtask ci` is
-green. M2 is not broken down into tasks in `plan/execution-plan.md` yet; the lanes are under
-"Next".
+green. M2 is broken down into lanes and tasks in `plan/execution-plan.md`; the lane summary
+is under "Next".
 
 ## Toolchain (verified on the dev box)
 
@@ -118,11 +118,55 @@ green. M2 is not broken down into tasks in `plan/execution-plan.md` yet; the lan
   `xedit:` sources (pinned SHA + line range) and `confidence`
   (`reference`/`corpus`/`ck-diff`/`verified`; required for `xedit:` citations, optional
   elsewhere, always backed by matching citations). `*.pas` gitignored.
+- **Owner approval 2026-10-14** (M2.O1, M2.O2, open decision 2b): the owner approved the
+  ADR 0004 decision, `docs/xedit-reference.md`, and 2b: `Core/wbDefinitionsCommon.pas` may
+  be cited at the same SHA under the same rules. Six clarifications recorded in ADR 0004
+  ("Owner approval 2026-10-14"): the common file is authorized (no blind import of
+  Skyrim-specific readings); further helper files need only a documented dependency;
+  confidence semantics (`reference` allowed source, `corpus` local fixture, `ck-diff` CK
+  output, `verified` independent validation); lossless first; raw vs master-aware resolved
+  FormIDs, never guess an unavailable master's type; scope discipline. ADR 0004 rule text:
+  the loader accepts both files, same SHA. OMOD is in scope (M2.O2). ADR 0005 Amendment 3
+  adopts the owner's dossier (`docs/research/starfield-dossier-2026-10-14.md`) as an
+  evidence backlog, not a scope change: `docs/source-registry.md` (every source with our
+  status), evidence grades A-D alongside `confidence`, the general source rule, and the
+  conflict-register entries that matter to us. `docs/xedit-reference.md` gains a
+  `wbDefinitionsCommon.pas` section (blob `cfa80ba0...`, 338,167 bytes, 10,348 lines;
+  conditions, script data and base form components turn out to be defined in the SF1 file
+  itself; the common file supplies object bounds, keywords and callbacks).
+
+- Lane F (M2.F1..F6, F8): `Engine` owns a `Session` (`SessionHandler`s registered in
+  `handlers::session_defaults()`; typed slots; `Session::load_order` listing); stdio MCP
+  server in `crates/mcp`, hand-written over `serde_json`, MCP 2026-07-28 plus the
+  handshake revisions 2025-11-25..2024-11-05; tools `execute`, `command_line`,
+  `inspect_record`, `query_records`, `diff_plugins`, `coverage`, `roundtrip` generated from
+  the catalog; resources `kitcraft://commands`, `kitcraft://load-order`; argument and
+  command errors as `isError` results, engine bugs `-32603` (`docs/mcp.md`); `kit mcp
+  [--profile DIR]`; in-process pipe client test and a spawned-binary test (with
+  `KITCRAFT_DATA_DIR`: `inspect_record` on `Constellation.esm` passes, `query_records`
+  answers `not_implemented` until M2.D11); `Status::Deferred { reason, milestone }` and
+  the `catalog_closure` test (every `Planned` command must be listed in `PLANNED_IN_M2`
+  with its owning M2 task; nothing is deferred yet because every command has an M2 owner).
 
 ## In progress
 
-- **Lane B is paused** until the owner reviews `docs/xedit-reference.md` and ADRs 0004,
-  0005 (Amendment 2) and 0001 (Amendment 1).
+- **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
+  `docs/mcp.md` are in; an agent cannot restart Claude Code, so the owner runs:
+  1. `cargo build --release -p kit-cli`
+  2. `claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp`
+     (or copy `.mcp.json.example` to `.mcp.json`, which is gitignored, and approve it).
+  3. New Claude Code session: `/mcp` lists `kitcraft` connected, 7 tools.
+  4. Ask it to call `mcp__kitcraft__coverage` on `<Data>\Constellation.esm`, then
+     `mcp__kitcraft__execute` with `{command: "roundtrip", args: {plugin, verify: true}}`,
+     then `mcp__kitcraft__inspect_record` on a form `coverage` names (`first_record`), then
+     `mcp__kitcraft__query_records {type: "WEAP"}`; each returns an envelope
+     (`query_records` returns a `not_implemented` tool error until M2.D11, and
+     `--profile` preloading needs M2.D8).
+  5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
+     .mcp.json --allowedTools "mcp__kitcraft__*"`.
+- **M2.F9** waits for M2.A3 and M2.B1 on `main` (neither is there at fdd254e).
+- **Lane B round 3** (M2.B4..B8, M2.B10): gate lifted by the owner approval of
+  2026-10-14; in progress in lane B's current worktree. OMOD (M2.B7) is in scope.
 
 ## Next
 
@@ -139,9 +183,9 @@ when M2 is broken down in `plan/execution-plan.md`.
 | edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
 | smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
 | container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
-| schema     | Round 3 after the owner review: typed layouts from the pinned xEdit file (see below)                           | `crates/schema` (lane B)                     |
+| schema     | Round 3 (in progress): typed layouts from the pinned xEdit files (see below)                                   | `crates/schema` (lane B)                     |
 
-Lane B round 3 transcribes definitions from the pinned xEdit file (`xedit:` provenance,
+Lane B round 3 transcribes definitions from the pinned xEdit files (`xedit:` provenance,
 `confidence = "reference"` until the corpus confirms) in this priority: **WEAP, AMMO, PROJ,
 AMDL, OMOD, COBJ, ZOOM**; then **GMST, GLOB, KYWD** typed; then **LVLI, FLST, INNR**. Each
 definition is checked against every corpus occurrence before it moves to
@@ -157,12 +201,23 @@ definition is checked against every corpus occurrence before it moves to
 | --- | --------------------------------------- | --------------------------------- |
 | 1   | Project name                            | `KitCraft` / `kitcraft-*` / `kit` |
 | 2   | xEdit MPL source policy (ADR 0004)      | **decided 2026-10-14** (pinned xEdit SF1 definitions as reference) |
-| 2a  | Review `docs/xedit-reference.md` and ADRs 0004/0005/0001 before lane B round 3 | lane B paused |
-| 2b  | Whether `wbDefinitionsCommon.pas` (helpers the SF1 file uses) may be cited too | no: only `wbDefinitionsSF1.pas` |
+| 2a  | Review `docs/xedit-reference.md` and ADRs 0004/0005/0001 before lane B round 3 | **approved 2026-10-14** (M2.O1; lane B unpaused) |
+| 2b  | Whether `wbDefinitionsCommon.pas` (helpers the SF1 file uses) may be cited too | **approved 2026-10-14**: yes, same SHA, same rules (ADR 0004 owner approval) |
 | 3   | Video critique used as overhaul brief   | none; overhaul work is after M2   |
 | 4   | License                                 | MIT OR Apache-2.0 (scaffolded)    |
 | 5   | Contact kinggath about SS2 now or later | later                             |
 | 6   | Git remote / publishing                 | local only                        |
+
+### M2 owner tasks (lane O, `plan/execution-plan.md`)
+
+| #     | Task                                                        | State                                  |
+| ----- | ----------------------------------------------------------- | -------------------------------------- |
+| M2.O1 | Approve ADR 0004, ADR 0005 Amendment 2, `docs/xedit-reference.md` | **done 2026-10-14** (with six clarifications) |
+| M2.O2 | Whether OMOD is in scope                                    | **done 2026-10-14**: in scope (M2.B7)  |
+| M2.O3 | Install SF1Edit (agents do not download executables)        | open; blocks M2.B11                    |
+| M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), M2.E3 `ck-diff` part |
+| M2.O5 | Third-party mod plugins as inventory evidence               | open; default **no**                   |
+| M2.O6 | In-game check of the rename plugin                          | open; at M2 exit                       |
 
 ### Divergence from the brief (for the owner)
 
@@ -208,11 +263,31 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence` next to
   the source kind once the model carries it; `confidence = "reference"` values should surface as
   a `limitations[]` entry in `inspect`/`query` results.
+- **Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
+  `xedit:` citations: add it to `XEDIT_FILES` in `crates/schema/src/load.rs` (same pinned
+  SHA), update the error text, `crates/schema/tests/loader.rs` (a positive case for the
+  common file, the existing negative cases for other files) and `crates/schema/tests/defs.rs`,
+  and `crates/schema/defs/README.md`.
+- **Policy -> AGENTS.md / plan maintainer.** AGENTS.md "Clean room" ("Other xEdit files are
+  not covered yet") and owner decision 2 ("extending the reference beyond
+  `wbDefinitionsSF1.pas`"), ADR 0001 Amendment 1 (only the SF1 file), and
+  `plan/execution-plan.md` M2.O1/M2.O2 should reflect the approval (the common file at the
+  same SHA; O1 and O2 done). Also: M2.B1 names confidence values
+  `confirmed`/`corpus-consistent`/`hypothesis`, while ADR 0004 and the loader use
+  `reference`/`corpus`/`ck-diff`/`verified`; the ADR wins.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
   is a breaking change for `kit query`. Default: accept the rename when it happens.
+- **Lane F -> lanes D, E, G (session and catalog closure).** A handler that needs the
+  load order is a `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` added to
+  `handlers::session_defaults()` (stateless handlers stay in `defaults()`). Keep your
+  typed state in a slot (`Session::insert` / `get` / `get_mut`); `load` also sets
+  `Session::set_load_order(Some(listing))`, which `kitcraft://load-order` serves as is.
+  When you flip a command to `Implemented`, removing its `PLANNED_IN_M2` line in
+  `crates/engine/src/lib.rs` is optional (a stale entry only prints); a command you will
+  not finish in M2 becomes `Status::Deferred { reason, milestone: "M3" }`.
 - **Lane C -> lane B.** `cargo xtask codegen` can own `BUILTIN_DEFINITIONS` once
   `crates/schema/src/lib.rs` marks a generated region for it (for example
   `// BEGIN generated by cargo xtask codegen` / `// END`); until then

@@ -218,6 +218,7 @@ name = "kitcraft-mcp"
 version = "0.0.0"
 dependencies = [
  "kitcraft-engine",
+ "serde_json",
 ]
 
 [[package]]

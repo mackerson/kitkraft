@@ -2,10 +2,13 @@
 
 - Status: **DECIDED 2026-10-14 by the owner: option B, as set out in "Decision
   (2026-10-14)" below** (xEdit's `wbDefinitionsSF1.pas`, version-pinned, is the
-  record-definition reference)
+  record-definition reference). **Approved by the owner 2026-10-14**, with six
+  clarifications (see "Owner approval 2026-10-14" at the end); the approval extends the
+  reference to `Core/wbDefinitionsCommon.pas` at the same revision.
 - Date: 2026-10-14
 - Pinned revision: `9fb016884bec138ea6c7b872cec831537d464c3e` (TES5Edit/TES5Edit,
-  `Core/wbDefinitionsSF1.pas`; verification in `docs/xedit-reference.md`)
+  `Core/wbDefinitionsSF1.pas` and `Core/wbDefinitionsCommon.pas`; verification in
+  `docs/xedit-reference.md`)
 - Amends: ADR 0001 (Amendment 1), ADR 0005 (Amendment 2)
 - The Context, Options, Recommendation and Update sections are kept as written before the
   decision; where they differ from the Decision section, the Decision section wins.
@@ -101,8 +104,10 @@ the specification exists, as upstream xEdit's Starfield definitions.
   coincide with xEdit's where they describe the same thing; placeholder labels
   ("Unknown") never become names, and the CK wiki remains the preferred naming source.
 - **Per-definition provenance**, enforced by the schema loader:
-  `source = "xedit: wbDefinitionsSF1.pas@<40-hex sha>#L<start>-L<end>"`. Helper ranges go
-  in `evidence` in the same form. The SHA must be the pinned revision. (The owner's
+  `source = "xedit: <file>@<40-hex sha>#L<start>-L<end>"`, where `<file>` is
+  `wbDefinitionsSF1.pas` or `wbDefinitionsCommon.pas` (both files accepted; amended by the
+  owner approval below). Helper ranges go in `evidence` in the same form. The SHA must be
+  the pinned revision, the same SHA for both files. (The owner's
   shorthand was `xedit:wbDefinitionsSF1.pas@<sha>#L<start>-L<end>`; the space after the
   colon matches every other source form.)
 - **Confidence**, a `confidence` key required on every definition that cites xEdit and
@@ -148,8 +153,61 @@ the specification exists, as upstream xEdit's Starfield definitions.
 - A `confidence = "reference"` definition is usable but must be reported as unconfirmed
   wherever its values are shown (a `limitations[]` entry, `docs/mcp.md`) until the corpus
   confirms it.
-- Lane B is paused until the owner has reviewed `docs/xedit-reference.md` and these ADRs;
-  then round 3 transcribes, in order: WEAP, AMMO, PROJ, AMDL, OMOD, COBJ, ZOOM; then GMST,
-  GLOB, KYWD typed; then LVLI, FLST, INNR (`plan/STATUS.md`).
-- `wbDefinitionsCommon.pas` (helpers the Starfield file uses) is not covered by this
-  decision; the loader accepts only `wbDefinitionsSF1.pas` until the owner extends it.
+- Lane B was paused until the owner had reviewed `docs/xedit-reference.md` and these ADRs
+  (done: "Owner approval 2026-10-14" below); round 3 transcribes, in order: WEAP, AMMO,
+  PROJ, AMDL, OMOD, COBJ, ZOOM; then GMST, GLOB, KYWD typed; then LVLI, FLST, INNR
+  (`plan/STATUS.md`).
+- `wbDefinitionsCommon.pas` (helpers the Starfield file uses) was not covered by the
+  original decision; the owner approval below extends it. The loader requirement now
+  reads: both files accepted, same SHA.
+
+## Owner approval 2026-10-14
+
+On 2026-10-14 the owner approved the decision above ("Decision (2026-10-14)"),
+`docs/xedit-reference.md`, and `plan/STATUS.md` open decision 2b (whether
+`wbDefinitionsCommon.pas` may be cited). This closes `plan/execution-plan.md` M2.O1. The
+approval comes with six clarifications, recorded here in the owner's meaning; where they
+differ from earlier text in this ADR, they win.
+
+1. **`Core/wbDefinitionsCommon.pas` is authorized** under the same immutable SHA
+   `9fb016884bec138ea6c7b872cec831537d464c3e`, with the same MPL-2.0 provenance, line-range
+   citation and confidence requirements as `wbDefinitionsSF1.pas`. Shared helpers are valid
+   references where Starfield-specific definitions invoke them. This does not authorize
+   blindly importing Skyrim-specific interpretations: a helper is cited only for what the
+   Starfield definition uses it for, and the "no silent Skyrim substitution" constraint
+   stands.
+2. **Other upstream helper files.** If another upstream helper file is genuinely required,
+   document the dependency (in `docs/xedit-reference.md` and `docs/source-registry.md`) and
+   apply the same provenance rules: same pinned SHA, line ranges, confidence. Do not pause
+   for another policy debate unless the file introduces a materially different license or
+   source category.
+3. **Confidence semantics.**
+   - `reference`: documented in an allowed source.
+   - `corpus`: observed in a local fixture.
+   - `ck-diff`: checked against Creation Kit output.
+   - `verified`: appropriate independent validation.
+
+   Upstream coverage alone does not imply complete semantic understanding: a definition
+   xEdit covers is still `reference` until our own evidence raises it. (The loader's
+   citation checks in "Constraints" stay as the mechanical minimum for each level; today
+   `verified` is accepted only with both `corpus:` and `ck-diff:` citations.)
+4. **Lossless first.** Preserve unknown fields, components, subrecords, ordering and opaque
+   payloads. Typed schemas improve semantic access without sacrificing byte-exact
+   passthrough: a typed member never makes a roundtrip lossy, and anything not understood
+   stays opaque.
+5. **FormID resolution.** Keep raw serialized FormIDs explicitly separate from master-aware
+   resolved identities. Starfield's full, medium and small master types make this a
+   cross-layer concern (`esm` stores raw values; `doc` resolves them against the loaded
+   masters). Never silently guess the type of an unavailable master: report it as unknown.
+6. **Scope discipline.** No architecture restarts, no revisiting decided licensing without
+   new evidence, and no delaying lanes for speculative compatibility.
+
+Rule changes that follow:
+
+- The loader requirement reads: **both files accepted, same SHA** (`xedit:` citations may
+  name `wbDefinitionsSF1.pas` or `wbDefinitionsCommon.pas`, each at the pinned revision;
+  see "Constraints"). Implementing it in `crates/schema/src/load.rs` (`XEDIT_FILES`) is a
+  lane B change (`plan/STATUS.md`, Requests).
+- Changing the pin still needs an amendment to this ADR and re-checks of every cited range,
+  now in both files.
+- Lane B's round 3 (M2.B4..B8, M2.B10) is no longer gated.

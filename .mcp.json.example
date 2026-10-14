@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "kitcraft": {
+      "type": "stdio",
+      "command": "C:\\Modding\\kitcraft\\target\\release\\kit.exe",
+      "args": [
+        "mcp",
+        "--profile",
+        "C:\\Modding\\MO2-Starfield\\profiles\\Default"
+      ],
+      "env": {}
+    }
+  }
+}

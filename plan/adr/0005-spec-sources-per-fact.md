@@ -10,6 +10,9 @@
   hierarchy with version-pinned xEdit definitions; `xedit:` source form and `confidence`).
   Amendment 2 replaces the §1 per-fact table and the xEdit entry in §3; §2 (CK
   differential observation) stays, as a validation method.
+- Amended: 2026-10-14 by Amendment 3 below (owner-supplied prior-art dossier adopted as an
+  evidence backlog; `docs/source-registry.md`; evidence grades A-D; general source rule;
+  `wbDefinitionsCommon.pas` now at level 2 per ADR 0004's owner approval).
 
 ## Context
 
@@ -279,3 +282,92 @@ commits behind the pin.
   schema change (`plan/STATUS.md`).
 - Lane B round 3 transcribes typed layouts from xEdit after the owner reviews this
   amendment, ADR 0004, and `docs/xedit-reference.md`.
+
+## Amendment 3 (2026-10-14): the prior-art dossier as an evidence backlog
+
+### Why
+
+The owner supplied `docs/research/starfield-dossier-2026-10-14.md`, a prior-art and
+source-policy survey (sources, plugin facts, a conflict register, a validation plan). The
+same day the owner approved ADR 0004 with six clarifications ("Owner approval 2026-10-14"
+there). This amendment says how the dossier is used. It is **an evidence backlog, not a
+scope change for M1 or M2**: it adds no M2 task, gate or exit criterion, and its fixture
+matrix and gates (G0-G5) are picked up only when a lane's existing task needs them.
+
+### 1. Source registry
+
+`docs/source-registry.md` lists every source the dossier names (its section 1), plus the
+pinned xEdit files and the sources this ADR already uses, with our status for each:
+`permitted-reference`, `external-oracle-only` (run, never read), `docs-only`, `forbidden`,
+or `future`. Before a new source is cited anywhere, it gets a registry row. The registry
+does not change the hierarchy in Amendment 2; it records where each source sits in it.
+
+### 2. Level 2 now covers `wbDefinitionsCommon.pas`
+
+Amendment 2 §3 said other xEdit files were not covered. The owner's approval of ADR 0004
+extends level 2 to `Core/wbDefinitionsCommon.pas` at the same pinned SHA, under the same
+rules; further helper files follow ADR 0004 clarification 2 (document the dependency, same
+rules, no new policy round unless the license or source category differs).
+
+### 3. Evidence grades (adopted alongside `confidence`)
+
+We adopt the dossier's grading, in our words:
+
+| Grade | Evidence behind the claim                                                        |
+| ----- | -------------------------------------------------------------------------------- |
+| A     | Upstream code, output of an official tool, or a fixture we can reproduce          |
+| B     | A carefully documented experiment or research write-up, or maintained docs        |
+| C     | A secondary overview or an analogy from another game or an older build             |
+| D     | A hypothesis                                                                     |
+
+- **Grade the claim, not the source.** One source can carry an A claim and a C claim. A
+  behavioural claim is graded for the game build it was made on; a 2024 claim about load
+  order may be stale on a 2026 build and is regraded (or rechecked) before we rely on it.
+- **Grade and `confidence` answer different questions.** The grade says how strong the
+  outside evidence for a claim is; `confidence` (ADR 0004 clarification 3) says how far
+  our own artifacts have validated it. Grades are recorded where a claim is weighed (the
+  registry, conflict notes, `evidence` notes, research docs); the schema loader does not
+  check them.
+- A grade D claim never establishes a layout or drives a write; it names something to
+  test.
+
+### 4. General rule
+
+Replacing any reading of "UESP or stop", in our own words:
+
+Format facts may come from public specifications and documented experiments. Where no
+normative specification is published, a version-pinned, licensed community implementation
+may serve as an implementation reference, provided every claim taken from it records the
+source, revision and license, and claims that affect what we write are validated
+independently. A public source is not permission to copy or relicense its expression; code
+is copied only under a compatible license with its notices and source obligations met (and
+in this project not at all, ADR 0004). Fields we do not support roundtrip opaquely or fail
+with an explicit error; a definition is never invented. Third-party programs may be run as
+independent test oracles without their code entering the project. Redistributing
+third-party code or game assets needs its own distribution and license review.
+
+This is consistent with Amendment 2 and does not loosen §3: GPL/LGPL/AGPL implementations
+(Mutagen, Spriggit, esplugin, libloadorder, LOOT's code, CommonLibSF) stay
+`external-oracle-only`: we may run them, never read their source, and never use their
+output field names.
+
+### 5. Conflict register entries that matter to us
+
+From the dossier's section 5, with where each lands:
+
+| Entry | Our position | Owner of the check |
+| ----- | ------------ | ------------------ |
+| Medium-plugin flag `0x400` vs `0x10000` | `0x400` is corroborated (pinned xEdit `TES4` flags, a later write-up by the same author); `0x10000` is a stale issue description. Neither is our evidence yet: confirm from TES4 header bytes of a locally exported medium master, and add a regression case | M2.D3 (b, c), M2.O4 session |
+| A standalone child plugin cannot resolve its masters' scales | Raw FormIDs and resolved identities are separate (ADR 0004 clarification 5); resolution needs the loaded masters; an unavailable master's scale is reported unknown, never guessed | lane D (`doc`), M2.D3, M2.D4 |
+| 2024 load-order claims may be stale on 2026 builds | Load-order behaviour is recorded with the game build it was observed on; 2024 write-ups are grade B for on-disk FormID facts and at most C for current runtime load order | lane D (M2.D1, M2.D3) |
+| CK `.esp` working file vs `.esm` export | The CK's working file and the shipped file differ; a published master's scale is not changed. Which extension and flags `build` writes stays an M2.E3 question | M2.E3, M2.E4 |
+| Blueprint autoload (2026) | `BlueprintShips-<base>` plugins can become active implicitly with their base plugin (LOOT 0.29 changelog); never treat them as ordinary `plugins.txt` entries without checking a current build | lane D (M2.D1, M2.D2) |
+
+### Consequences
+
+- `docs/source-registry.md` is the list of sources and their status; ADR 0001's clean-room
+  rules and §3 above are unchanged by it.
+- No M2 task changes. The dossier's fixture types and gates are a backlog for lanes A, B,
+  D and E to draw on when an existing task needs them.
+- The dossier's suggested provenance manifest (YAML per field) is not adopted: our
+  `source`, `evidence` and `confidence` keys already carry that information.

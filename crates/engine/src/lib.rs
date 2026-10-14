@@ -11,7 +11,9 @@
 //! [`CommandHandler`], and returns the result envelope from `docs/mcp.md`:
 //! `{command, data, coverage, limitations, evidence}`.
 //!
-//! Sessions, undo, and validation rules land here in M2 (see `plan/execution-plan.md`).
+//! An [`Engine`] owns a [`Session`] (the loaded load order and caches) that
+//! [`SessionHandler`]s read and change; the free [`execute`] runs on a fresh session.
+//! Undo and validation rules land in M2 and later (see `plan/execution-plan.md`).
 //!
 //! LAYER: L4
 
@@ -21,20 +23,51 @@ mod envelope;
 mod exec;
 mod handlers;
 mod params;
+mod session;
 
 pub use args::Violation;
 pub use cmdline::{parse_line, parse_words, Invocation};
 pub use envelope::{Coverage, CoverageStatus, Evidence, Outcome, NOT_IMPLEMENTED};
-pub use exec::{execute, prepare_args, CommandHandler, Engine, EngineError};
+pub use exec::{execute, prepare_args, CommandHandler, Engine, EngineError, SessionHandler};
 pub use params::{params, Param, ParamKind};
+pub use session::Session;
 
 /// Whether a catalog entry does anything yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
     /// Listed so every front end agrees on the name and arguments; not callable yet.
+    /// Allowed only while a milestone task owns it (see the `catalog_closure` test).
     Planned,
     /// Callable from every front end.
     Implemented,
+    /// Deliberately not in this milestone. `execute` refuses it with
+    /// [`EngineError::Deferred`]; `kit help` and MCP `tools/list` show the reason.
+    Deferred {
+        /// Why it is not done now.
+        reason: &'static str,
+        /// Where it goes (`M3`).
+        milestone: &'static str,
+    },
+}
+
+impl Status {
+    /// Short label for help text and listings: `implemented`, `planned`, `deferred`.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Planned => "planned",
+            Self::Implemented => "implemented",
+            Self::Deferred { .. } => "deferred",
+        }
+    }
+
+    /// The note front ends append to a command's summary: empty when implemented.
+    pub fn note(&self) -> String {
+        match self {
+            Self::Planned => "planned: not implemented yet".to_string(),
+            Self::Implemented => String::new(),
+            Self::Deferred { reason, milestone } => format!("deferred to {milestone}: {reason}"),
+        }
+    }
 }
 
 /// One user-visible action.
@@ -236,7 +269,7 @@ static CATALOG: &[CommandSpec] = &[
 
 #[cfg(test)]
 mod tests {
-    use super::{catalog, find_command};
+    use super::{catalog, find_command, Status};
     use std::collections::BTreeSet;
 
     #[test]
@@ -266,6 +299,84 @@ mod tests {
         assert!(find_command("nope").is_none());
     }
 
+    /// Commands still `Planned` during M2, each with the M2 task that implements it (or
+    /// defers it). M2.F8: at M2 exit this list is empty and every command is
+    /// `Implemented` or `Deferred`. Lanes remove their entry when they flip the status;
+    /// a stale entry (already implemented) is reported by `catalog_closure_list_is_current`.
+    const PLANNED_IN_M2: &[(&str, &str)] = &[
+        ("load", "M2.D8"),
+        ("query", "M2.D11"),
+        ("set", "M2.E5"),
+        ("diff", "M2.D12"),
+        ("build", "M2.E9"),
+        ("validate", "M2.E6"),
+        ("ba2.list", "M2.G4"),
+        ("ba2.extract", "M2.G4"),
+        ("ba2.pack", "M2.G4"),
+        ("papyrus.disasm", "M2.G6"),
+        ("papyrus.compile", "M2.G7"),
+        ("strings.dump", "M2.G9"),
+        ("strings.merge", "M2.G9"),
+    ];
+
+    /// M2.F8: every command is `Implemented`, `Deferred` with a reason and a milestone,
+    /// or `Planned` under a named M2 task.
+    #[test]
+    fn catalog_closure() {
+        for spec in catalog() {
+            match spec.status {
+                Status::Implemented => {}
+                Status::Deferred { reason, milestone } => {
+                    assert!(!reason.trim().is_empty(), "{}: empty reason", spec.id);
+                    assert!(
+                        milestone.starts_with('M') && milestone.len() > 1,
+                        "{}: milestone `{milestone}` is not like `M3`",
+                        spec.id
+                    );
+                }
+                Status::Planned => assert!(
+                    PLANNED_IN_M2.iter().any(|(id, _)| *id == spec.id),
+                    "{} is Planned but no M2 task owns it: implement it, defer it with \
+                     Status::Deferred {{ reason, milestone }}, or add it to PLANNED_IN_M2",
+                    spec.id
+                ),
+            }
+        }
+    }
+
+    /// Entries of [`PLANNED_IN_M2`] name catalog commands. An entry whose command is no
+    /// longer `Planned` is only printed, so the lane that flips a status does not have
+    /// to edit this file in the same commit; lane F prunes the list.
+    #[test]
+    fn catalog_closure_list_is_current() {
+        for (id, task) in PLANNED_IN_M2 {
+            let spec = find_command(id).unwrap_or_else(|| panic!("{id} ({task}) not in catalog"));
+            assert_eq!(spec.id, *id, "{id}: use the canonical id, not an alias");
+            assert!(
+                task.starts_with("M2."),
+                "{id}: task `{task}` is not an M2 task"
+            );
+            if spec.status != Status::Planned {
+                println!(
+                    "PLANNED_IN_M2 entry {id} ({task}) is stale: status is {}",
+                    spec.status.label()
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn status_notes() {
+        assert_eq!(Status::Implemented.note(), "");
+        assert_eq!(Status::Planned.note(), "planned: not implemented yet");
+        let deferred = Status::Deferred {
+            reason: "needs the renderer",
+            milestone: "M4",
+        };
+        assert_eq!(deferred.note(), "deferred to M4: needs the renderer");
+        assert_eq!(deferred.label(), "deferred");
+    }
+
     #[test]
     fn every_args_schema_uses_only_supported_keywords() {
         for spec in catalog() {
@@ -279,7 +390,8 @@ mod tests {
 #[cfg(test)]
 mod execute_tests {
     use super::{
-        catalog, execute, CommandHandler, Coverage, Engine, EngineError, Evidence, Outcome, Status,
+        catalog, execute, CommandHandler, Coverage, Engine, EngineError, Evidence, Outcome,
+        Session, Status,
     };
     use serde_json::{json, Value};
 
@@ -469,6 +581,100 @@ mod execute_tests {
             .execute("validate", json!({"plugin": "X.esm"}))
             .unwrap_err();
         assert_eq!(err.kind(), "failed");
+    }
+
+    /// A session handler that counts its calls in a session slot and mirrors the count in
+    /// the load-order listing.
+    fn counter(session: &mut Session, _: &Value) -> Result<Outcome, EngineError> {
+        struct Calls(u64);
+        let calls = match session.get_mut::<Calls>() {
+            Some(calls) => {
+                calls.0 = calls.0.saturating_add(1);
+                calls.0
+            }
+            None => {
+                session.insert(Calls(1));
+                1
+            }
+        };
+        session.set_load_order(Some(json!({ "calls": calls })));
+        Ok(Outcome {
+            data: json!({ "calls": calls }),
+            ..Outcome::not_implemented()
+        })
+    }
+
+    #[test]
+    fn session_handler_keeps_state_across_calls_on_one_engine() {
+        let mut engine = Engine::empty();
+        engine.register_session("load", Box::new(counter)).unwrap();
+        engine.register("validate", Box::new(Echo)).unwrap();
+        assert!(engine.has_handler("load"));
+        assert_eq!(
+            engine.execute("load", json!({})).unwrap()["data"]["calls"],
+            1
+        );
+        // A stateless command in between leaves the session alone.
+        engine
+            .execute("validate", json!({"plugin": "X.esm"}))
+            .unwrap();
+        assert_eq!(
+            engine.execute("open", json!({})).unwrap()["data"]["calls"],
+            2
+        );
+        let listing = engine.with_session(|s| s.load_order().cloned());
+        assert_eq!(listing, Some(json!({"calls": 2})));
+
+        // A caller-owned session is separate from the engine's.
+        let mut fresh = Session::new();
+        assert!(fresh.is_empty());
+        let result = engine.execute_in(&mut fresh, "load", json!({})).unwrap();
+        assert_eq!(result["data"]["calls"], 1);
+        assert!(!fresh.is_empty());
+        fresh.clear();
+        assert!(fresh.is_empty());
+        assert_eq!(
+            engine.execute("load", json!({})).unwrap()["data"]["calls"],
+            3
+        );
+    }
+
+    #[test]
+    fn session_slots_are_typed() {
+        let mut session = Session::new();
+        assert_eq!(session.insert(5u32), None);
+        assert_eq!(session.insert(7u32), Some(5));
+        session.insert(String::from("x"));
+        assert_eq!(session.get::<u32>(), Some(&7));
+        assert_eq!(session.get::<String>().map(String::as_str), Some("x"));
+        assert_eq!(session.get::<u64>(), None);
+        assert_eq!(session.remove::<u32>(), Some(7));
+        assert_eq!(session.get::<u32>(), None);
+    }
+
+    #[test]
+    fn deferred_commands_are_refused_with_their_reason() {
+        let spec = crate::CommandSpec {
+            id: "render",
+            label: "Render",
+            menu_path: "View/Render",
+            shortcut: None,
+            aliases: &[],
+            summary: "Render a cell",
+            args_schema: r#"{"type":"object"}"#,
+            status: Status::Deferred {
+                reason: "needs crates/render",
+                milestone: "M4",
+            },
+        };
+        let err = crate::exec::refuse_deferred(&spec).unwrap_err();
+        assert_eq!(err.kind(), "deferred");
+        assert_eq!(
+            err.to_string(),
+            "`render` is deferred to M4: needs crates/render"
+        );
+        let implemented = crate::find_command("roundtrip").unwrap();
+        assert!(crate::exec::refuse_deferred(implemented).is_ok());
     }
 
     #[test]
