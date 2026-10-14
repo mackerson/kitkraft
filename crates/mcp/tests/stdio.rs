@@ -371,3 +371,63 @@ fn error_kinds_map_per_the_docs() {
     );
     client.finish();
 }
+
+/// Over MCP, `coverage` is a summary unless the caller asks for the signature lists, on
+/// every route; the text block leads with `data.summary` and still equals the envelope.
+#[test]
+fn coverage_is_a_summary_by_default_over_mcp() {
+    let path = temp_plugin("coverage-summary");
+    let plugin = path.to_str().unwrap();
+    let mut client = Client::start(Server::new(Engine::with_default_handlers()));
+    let lists_signatures = |envelope: &Value| {
+        envelope["data"]["record_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t["signatures"].is_array())
+    };
+
+    let calls = [
+        json!({"name": "coverage", "arguments": {"plugin": plugin}}),
+        json!({"name": "execute", "arguments": {"command": "coverage", "args": {"plugin": plugin}}}),
+        json!({"name": "command_line", "arguments": {"text": format!("coverage \"{plugin}\"")}}),
+    ];
+    for call in &calls {
+        let reply = client.request("tools/call", call.clone());
+        let got = envelope(&reply);
+        assert_eq!(got["data"]["signatures"], false, "{call}");
+        assert_eq!(got["data"]["top"], 20, "{call}");
+        assert!(got["data"]["record_types"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|t| t["signatures"].is_null()));
+        assert_eq!(got["data"]["records"], 2, "totals are unchanged");
+        let text = reply["result"]["content"][0]["text"].as_str().unwrap();
+        assert!(
+            text.starts_with(r#"{"command":"coverage","data":{"summary":"#),
+            "{text}"
+        );
+    }
+
+    // Asked for explicitly, the lists come back; `top` limits the types.
+    let reply = client.request(
+        "tools/call",
+        json!({"name": "coverage", "arguments": {"plugin": plugin, "signatures": true, "top": 1}}),
+    );
+    let got = envelope(&reply);
+    assert!(lists_signatures(&got));
+    assert_eq!(got["data"]["record_types"].as_array().unwrap().len(), 1);
+    assert_eq!(got["data"]["record_types_seen"], 2);
+    let reply = client.request(
+        "tools/call",
+        json!({"name": "command_line", "arguments": {"text": format!("coverage \"{plugin}\" --signatures")}}),
+    );
+    assert!(lists_signatures(&envelope(&reply)));
+
+    // The CLI-side default (the engine with no MCP layer) keeps the lists.
+    let direct = kitcraft_engine::execute("coverage", json!({"plugin": plugin})).unwrap();
+    assert!(lists_signatures(&direct));
+    client.finish();
+    std::fs::remove_file(&path).unwrap();
+}

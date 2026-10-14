@@ -109,7 +109,7 @@ question for M3.
 | `inspect_record` | `inspect`'s args (`{form, plugin}`)       | One record: header fields and subrecords (later: winner, overrides, typed fields) |
 | `query_records`  | `query`'s args (`{type, where?, limit?, cursor?}`) | Records of one type matching a field predicate; paged        |
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
-| `coverage`       | `coverage`'s args (`{plugin, decode?}`)   | Record types and subrecords vs the schema                             |
+| `coverage`       | `coverage`'s args (`{plugin, decode?, signatures?, top?}`) | Record types and subrecords vs the schema; a summary by default over MCP |
 | `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
@@ -123,8 +123,17 @@ Shortcuts that never write carry `readOnlyHint: true` and `destructiveHint: fals
 existing file with `overwrite: true`) carry `readOnlyHint: false`, `destructiveHint: true`.
 
 Every successful call returns the envelope as `structuredContent` and as JSON text in
-one `text` content block (identical). `command_line` with `help` returns
+one `text` content block (the same JSON). The text is ordered `command`, `data` with
+`data.summary` first, then the other members, so a client that shows or truncates the
+text leads with the one-line summary. `command_line` with `help` returns
 `{"help": text}`. There is no `outputSchema` (error results have a different shape).
+
+Size defaults (`MCP_DEFAULTS` in `backend.rs`): arguments that only decide how much a
+result lists default differently over MCP than from `kit`, on every route (`execute`,
+`command_line`, the shortcuts), and only when the caller leaves them out. Today:
+`coverage` gets `signatures: false` and `top: 20`. On `Starfield.esm` that is an 18 KB
+envelope instead of 695 KB (the envelope is sent twice, as `structuredContent` and as
+text); pass `signatures: true` and a larger `top` (or omit nothing) for the full listing.
 
 Resources:
 
@@ -240,7 +249,8 @@ note.
 
 ### `coverage` (M1.14)
 
-Arguments `{plugin, decode = true}`; CLI `kit coverage <plugin> [--no-decode]`. Streams the
+Arguments `{plugin, decode = true, signatures?, top?}`; CLI `kit coverage <plugin>
+[--no-decode] [--no-signatures] [--top N]`. Streams the
 plugin and classifies every subrecord occurrence against the builtin schema by its record
 type and signature: `typed` (the type's definition names it with a layout), `opaque`
 (named, kept as raw bytes) or `unknown` (the type has no definition, or the definition does
@@ -249,19 +259,26 @@ decoded against the layouts. With `decode` (the default) compressed records are
 decompressed under the default `DecodeLimits` and counted; one that fails to decompress is
 listed in `coverage.not_examined` (first 20, then a count), not fatal.
 
+Size controls, which never change the totals: `signatures: false` sets each type's
+`signatures` to `null`; `top: N` lists only the N types with the most records (`0` lists
+none) and adds a limitation naming how many of how many are listed. Omitted, `kit` (and
+`cargo xtask parity`) list everything; over MCP they default to `false` and `20`.
+
 `data`: `plugin`, `file`, `bytes`, `decode`, `records`, `groups`, `compressed_records`,
 `compressed_examined`, `record_types_seen`, `record_types_defined`, `subrecords`
-(occurrences), `occurrences {typed, opaque, unknown}`, `summary`, and `record_types[]`
+(occurrences), `occurrences {typed, opaque, unknown}`, `signatures` and `top` (as
+applied), `record_types_listed`, `summary`, and `record_types[]`
 sorted by record count (then signature), each with `signature`, `definition` (the schema
 name or `null`), `records`, `compressed`, `compressed_examined`, `subrecords`,
 `occurrences`, `distinct {seen, typed, opaque, unknown}` (distinct signatures),
 `first_offset`, and `signatures[]` (`signature`, `count`, `class`, `members` = member
-paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it).
+paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it;
+`null` with `signatures: false`).
 
 Coverage: `decoded_subrecords` is the `typed` occurrence count, `opaque_subrecords` the
 `opaque` plus `unknown` count; `status` is `complete` only when both of those are zero and
 every compressed record was examined. Evidence: the whole file, then the first record of
-each type. Limitations always state that classification is by signature only; with
+each listed type. Limitations always state that classification is by signature only; with
 `--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
 `cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
 

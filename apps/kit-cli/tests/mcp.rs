@@ -215,7 +215,10 @@ fn kit_mcp_on_an_official_file() {
     let mut kit = Kit::spawn(&[]);
     kit.initialize();
 
-    let coverage = envelope(&kit.call("coverage", json!({"plugin": plugin, "decode": false})));
+    let coverage = envelope(&kit.call(
+        "coverage",
+        json!({"plugin": plugin, "decode": false, "signatures": true}),
+    ));
     let first = coverage["data"]["record_types"]
         .as_array()
         .unwrap()
