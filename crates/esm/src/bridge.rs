@@ -1,49 +1,20 @@
-//! Bridge between the container and the generated record types (`kitcraft-schema` codegen).
+//! Bridge between the container and the generated record types ([`crate::generated`],
+//! written by `cargo xtask codegen` from `crates/schema/defs/`).
 //!
 //! Generated records decode from `&[RawSub]` (subrecords after `XXXX` resolution) plus a
-//! `Ctx`, and encode to `Vec<OwnedSub>`. Those three types are emitted by
-//! `kitcraft_schema::generate` as part of the generated module, which lands in this crate
-//! at `src/generated/mod.rs` with M1.15 and does not exist yet. Until then this module
-//! defines field-for-field copies of them (schema prelude as of `main` at 7510823, lane B
-//! round 2). When the generated module lands, replace the three definitions below with
-//! `pub use crate::generated::{Ctx, OwnedSub, RawSub};`; the conversions need no change.
+//! [`Ctx`], and encode to `Vec<OwnedSub>`. This module converts between those and the
+//! container's [`Subrecord`], builds the [`Ctx`] for a record, and offers
+//! [`Record::typed`] / [`Record::set_typed`] for whole records.
 //!
 //! `oversized` is the container's `XXXX` prefix: set on a subrecord read with one (whatever
 //! its size), and honoured on write. A payload longer than `u16::MAX` gets a prefix either
 //! way.
 
+pub use crate::generated::records::{Ctx, OwnedSub, RawSub, Sig};
+
+use crate::generated::records::Record as TypedRecord;
 use crate::model::{Encoding, Plugin, Record, Subrecord};
 use crate::Signature;
-
-/// A four-byte signature, as the generated code spells it.
-pub type Sig = [u8; 4];
-
-/// A subrecord as read from a record body (mirror of the generated `RawSub`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct RawSub<'a> {
-    pub signature: Sig,
-    pub data: &'a [u8],
-    /// The size came from a preceding `XXXX` subrecord.
-    pub oversized: bool,
-}
-
-/// An owned subrecord (mirror of the generated `OwnedSub`).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct OwnedSub {
-    pub signature: Sig,
-    pub data: Vec<u8>,
-    /// Write an `XXXX` size prefix even when the payload fits a `u16`.
-    pub oversized: bool,
-}
-
-/// Facts from the container that change layouts (mirror of the generated `Ctx`).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub struct Ctx {
-    /// The record's form version (record header).
-    pub form_version: u16,
-    /// The plugin's TES4 localized flag (`0x80`).
-    pub localized: bool,
-}
 
 impl<'s> From<&'s Subrecord<'_>> for RawSub<'s> {
     fn from(sub: &'s Subrecord<'_>) -> RawSub<'s> {
@@ -97,6 +68,22 @@ impl<'a> Record<'a> {
             None => false,
         }
     }
+
+    /// Decode this record through its generated definition. `None` when the record type
+    /// has no definition, or the record is compressed and not decoded. Subrecords the
+    /// definition does not place are kept raw inside the typed record, so
+    /// [`Record::set_typed`] with an unchanged value writes the same bytes.
+    pub fn typed(&self, ctx: Ctx) -> Option<TypedRecord> {
+        let subs = self.raw_subs()?;
+        TypedRecord::decode(self.header.signature.bytes(), &subs, ctx)
+    }
+
+    /// Replace the subrecords with the encoding of `typed`. Returns `false` (and changes
+    /// nothing) for a compressed record that has not been decoded. Marks the record
+    /// modified; the header (signature, FormID, flags) is not touched.
+    pub fn set_typed(&mut self, typed: &TypedRecord) -> bool {
+        self.set_owned_subs(typed.encode())
+    }
 }
 
 impl Ctx {
@@ -114,6 +101,11 @@ impl Plugin<'_> {
     /// form version and this plugin's localized flag.
     pub fn ctx(&self, record: &Record<'_>) -> Ctx {
         Ctx::for_record(record, self.is_localized())
+    }
+
+    /// [`Record::typed`] with this plugin's context.
+    pub fn typed(&self, record: &Record<'_>) -> Option<TypedRecord> {
+        record.typed(self.ctx(record))
     }
 }
 
@@ -184,6 +176,47 @@ mod tests {
         });
         assert!(built.has_oversize_prefix());
         assert_eq!(OwnedSub::from(&built).data, [3u8; 2]);
+    }
+
+    #[test]
+    fn typed_records_decode_and_write_back_identically() {
+        use crate::generated::records::Record as Typed;
+        let bytes = fixture::sample_plugin();
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let tes4 = plugin.typed(plugin.header()).unwrap();
+        let Typed::Tes4(t) = &tes4 else {
+            panic!("{tes4:?}")
+        };
+        assert_eq!(t.master.len(), 2);
+        let Entry::Group(g) = &plugin.entries()[0] else {
+            panic!()
+        };
+        let Entry::Record(r) = &g.children()[0] else {
+            panic!()
+        };
+        let typed = plugin.typed(r).unwrap();
+        let Typed::Gmst(gmst) = &typed else {
+            panic!("{typed:?}")
+        };
+        assert_eq!(gmst.edid.as_ref().unwrap().0, b"fFoo\0");
+        // Undefined types have no typed form.
+        let Entry::Group(cells) = &plugin.entries()[1] else {
+            panic!()
+        };
+        let Entry::Record(cell) = &cells.children()[0] else {
+            panic!()
+        };
+        assert!(plugin.typed(cell).is_none());
+
+        let Entry::Group(g) = &mut plugin.entries_mut()[0] else {
+            panic!()
+        };
+        let Entry::Record(r) = &mut g.children_mut()[0] else {
+            panic!()
+        };
+        assert!(r.set_typed(&typed));
+        assert!(r.is_modified());
+        assert_eq!(plugin.to_bytes().unwrap(), bytes);
     }
 
     #[test]
