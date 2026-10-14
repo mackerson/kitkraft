@@ -5,10 +5,13 @@
 //! name table. Names are stored lower-cased with `/` separators, as in every official
 //! archive, and sorted, so the same inputs always give the same bytes. GNRL records carry
 //! flags `0x00100100`; DX10 records carry tile mode 8 and split mips into chunks the way
-//! the official archives do: each mip at least 512x512 gets its own chunk while fewer than
-//! three chunks exist, the remaining mips share one last chunk (at most four chunks;
-//! `black-box: Archive2.exe 1.2.0.1` prints these defaults in its usage text, and every
-//! official texture fits them). Cube maps are one chunk.
+//! the official archives do: each mip with at least 512 x 512 pixels (`width * height >=
+//! 262,144`, so a 1024x256 mip qualifies) gets its own chunk while fewer than three chunks
+//! exist and it is not the last mip; the remaining mips share one last chunk (at most four
+//! chunks). Cube maps are one chunk. `black-box: Archive2.exe 1.2.0.1` prints the 512 and
+//! four-chunk defaults in its usage text; the area reading is `corpus:` (every official
+//! texture's chunk plan recomputes from its width, height, mip count and cube flag,
+//! `tests/corpus.rs` `check_textures`) and matches what Archive2 packs.
 //!
 //! Version 2 compresses with zlib, version 3 with LZ4 blocks (method 3). A blob is stored
 //! when compression is off or does not make it smaller.
@@ -28,8 +31,8 @@ use crate::read::{latin1_bytes, Codec, Kind, FILLER, MAGIC};
 pub const GENERAL_FLAGS: u32 = 0x0010_0100;
 /// DX10 tile mode in every official archive.
 pub const TILE_MODE: u8 = 8;
-/// Smallest mip edge that gets its own chunk.
-const OWN_CHUNK_MIN: u32 = 512;
+/// Fewest pixels (512 x 512) of a mip that gets its own chunk.
+const OWN_CHUNK_MIN_AREA: u64 = 512 * 512;
 /// Most chunks per texture.
 const MAX_CHUNKS: usize = 4;
 
@@ -299,17 +302,26 @@ fn chunk_plan(parsed: &dds::Parsed, bytes: &[u8]) -> std::result::Result<Vec<(u3
             parsed.width, parsed.height, parsed.mips
         ));
     }
-    let last = parsed.mips.saturating_sub(1);
-    if parsed.cubemap {
-        return Ok(vec![(0, last)]);
+    Ok(chunk_mips(
+        parsed.width,
+        parsed.height,
+        parsed.mips,
+        parsed.cubemap,
+    ))
+}
+
+/// The official chunk plan for a texture: `(first mip, last mip)` per chunk (module doc).
+pub fn chunk_mips(width: u32, height: u32, mips: u32, cubemap: bool) -> Vec<(u32, u32)> {
+    let last = mips.max(1).saturating_sub(1);
+    if cubemap {
+        return vec![(0, last)];
     }
     let mut chunks = Vec::new();
-    let (mut w, mut h) = (parsed.width, parsed.height);
+    let (mut w, mut h) = (width.max(1), height.max(1));
     let mut mip = 0u32;
     while mip < last
         && chunks.len() < MAX_CHUNKS.saturating_sub(1)
-        && w >= OWN_CHUNK_MIN
-        && h >= OWN_CHUNK_MIN
+        && u64::from(w).saturating_mul(u64::from(h)) >= OWN_CHUNK_MIN_AREA
     {
         chunks.push((mip, mip));
         mip = mip.saturating_add(1);
@@ -317,7 +329,7 @@ fn chunk_plan(parsed: &dds::Parsed, bytes: &[u8]) -> std::result::Result<Vec<(u3
         h = (h / 2).max(1);
     }
     chunks.push((mip, last));
-    Ok(chunks)
+    chunks
 }
 
 /// Bytes of mips `first..=last` (one face).

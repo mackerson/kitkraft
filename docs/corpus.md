@@ -283,7 +283,9 @@ The 90 official `.ba2` archives (about 148.7 GB) are read in place, never copied
 `cargo test -p kitcraft-ba2 --release --test corpus -- --ignored corpus_full --nocapture`
 lists every archive, checks every record, extracts 100 seeded entries per archive (7,360
 entries, 7.3 GB, 16 s on the dev box, 2026-10-14) to their declared sizes, and checks every
-texture's chunks against its mip chain. The fast `corpus_small` test lists and extracts
+texture's chunks against its mip chain and against the chunk plan the packer computes. The
+sample checks declared sizes only; byte identity with `Archive2.exe` is the manual
+differential run on seven archives recorded in `plan/STATUS.md`. The fast `corpus_small` test lists and extracts
 every entry of five small archives in every gate.
 
 | Version | Type | Codec (header field) | Archives | Entries |
@@ -308,9 +310,15 @@ archive is version 1. Facts the crate relies on (`corpus:` in `crates/ba2`):
   packed; voices, strings, scripts and interface files are stored).
 - DX10 records: the byte after the directory hash is 0, chunk records are 24 bytes, tile
   mode is 8, the cube-map byte is 0 or 1 (25 cube maps, all in `Starfield - Textures05`),
-  height precedes width. Chunks cover the mips in order; mips of at least 512x512 get their
-  own chunk, at most four chunks; some chunks are stored rather than packed. For every
-  texture the chunk sizes add up to the mip chain of its DXGI format (six faces for a cube
-  map). Formats seen: 10, 11, 28, 29, 31, 61, 71, 72, 77, 78, 80, 84, 87, 95, 98, 99.
+  height precedes width. Chunks cover the mips in order; some chunks are stored rather than
+  packed. For every texture the chunk sizes add up to the mip chain of its DXGI format (six
+  faces for a cube map). Formats seen: 10, 11, 28, 29, 31, 61, 71, 72, 77, 78, 80, 84, 87,
+  95, 98, 99.
+- DX10 chunk plan (all 136,401 textures, `check_textures`, 2026-10-14): a cube map is one
+  chunk; otherwise each mip with at least 512 x 512 pixels by **area** (`width * height >=
+  262,144`) that is not the last mip gets its own chunk while fewer than three exist, and
+  the remaining mips share one last chunk. Reading the rule as "both edges at least 512"
+  gets 421 textures wrong (1024x256 and the like); the area rule gets none wrong, and
+  matches Archive2's packing of `Textures01`/`Textures05` (12,658 textures).
 
 Differential checks against `Archive2.exe` 1.2.0.1 (black box): see `plan/STATUS.md`.

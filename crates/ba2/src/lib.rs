@@ -24,7 +24,7 @@ pub use read::{
     Archive, Body, Chunk, Codec, Entry, General, Header, Kind, Texture, CHUNK_RECORD_LEN, FILLER,
     GENERAL_RECORD_LEN, MAGIC, TEXTURE_RECORD_LEN,
 };
-pub use write::{pack, PackOptions, PackReport, Packed, GENERAL_FLAGS, TILE_MODE};
+pub use write::{chunk_mips, pack, PackOptions, PackReport, Packed, GENERAL_FLAGS, TILE_MODE};
 
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]

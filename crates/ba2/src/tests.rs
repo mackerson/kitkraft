@@ -153,6 +153,11 @@ fn textures_roundtrip_with_official_chunking() {
     );
     files.insert("textures/d_cube.dds".into(), dds_file(10, 64, 64, 7, 1, 4));
     files.insert("textures/e_flat.dds".into(), dds_file(28, 16, 256, 1, 0, 5));
+    // 1024x256 has 512 x 512 pixels: its top mip gets its own chunk (area rule).
+    files.insert(
+        "textures/f_wide.dds".into(),
+        dds_file(72, 1024, 256, 11, 0, 6),
+    );
     for version in [2, 3] {
         let options = PackOptions {
             kind: Kind::Textures,
@@ -177,9 +182,32 @@ fn textures_roundtrip_with_official_chunking() {
                 vec![(0, 8)],
                 vec![(0, 6)],
                 vec![(0, 0)],
+                vec![(0, 0), (1, 10)],
             ]
         );
     }
+}
+
+/// Regression (review round 2): the split rule is by area, not by both edges.
+#[test]
+fn chunk_plan_is_area_based() {
+    use crate::chunk_mips;
+    assert_eq!(chunk_mips(1024, 256, 11, false), [(0, 0), (1, 10)]);
+    assert_eq!(chunk_mips(256, 1024, 11, false), [(0, 0), (1, 10)]);
+    assert_eq!(chunk_mips(2048, 128, 12, false), [(0, 0), (1, 11)]);
+    assert_eq!(chunk_mips(1024, 128, 11, false), [(0, 10)]);
+    assert_eq!(
+        chunk_mips(4096, 4096, 13, false),
+        [(0, 0), (1, 1), (2, 2), (3, 12)]
+    );
+    assert_eq!(chunk_mips(512, 512, 1, false), [(0, 0)]);
+    assert_eq!(chunk_mips(512, 512, 2, false), [(0, 0), (1, 1)]);
+    assert_eq!(chunk_mips(2048, 2048, 12, true), [(0, 11)]);
+    // Saturating: the largest dimensions never overflow.
+    assert_eq!(
+        chunk_mips(u32::MAX, u32::MAX, 3, false),
+        [(0, 0), (1, 1), (2, 2)]
+    );
 }
 
 #[test]
