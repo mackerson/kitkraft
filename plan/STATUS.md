@@ -74,18 +74,31 @@ round 2); see `plan/execution-plan.md`.
   `builtin()` cached; `leaf_subrecords`, `known_signatures`, `Signature::from_bytes`;
   `examples/generated.rs` compiles the goldens outside `cfg(test)`; ADR 0005 Amendment 1
   (`uesp-starfield:`, `/CTDA` forbidden, `/Raw_Data` as inventory cross-check).
+- Source policy (owner decision 2026-10-14): ADR 0004 **decided**: upstream xEdit
+  `Core/wbDefinitionsSF1.pas` pinned at `9fb016884bec138ea6c7b872cec831537d464c3e` is the
+  record-definition reference, source material only. `docs/xedit-reference.md` records the
+  verification (default branch `dev-4.1.6`, why no tag is pinned, MPL-2.0, all 18 lane B
+  record types defined, line spans, Pascal-to-TOML map). ADR 0005 Amendment 2 (four-level
+  hierarchy, SF1Edit differential comparison, Skyrim container-only), ADR 0001 Amendment 1
+  (clean room), AGENTS.md, PLAN.md, README, NOTICE, ATTRIBUTION updated. Schema loader:
+  `xedit:` sources (pinned SHA + line range) and `confidence`
+  (`reference`/`corpus`/`ck-diff`/`verified`; required for `xedit:` and `uesp-skyrim:`
+  citations); TES4, GRUP, RECORD carry `confidence = "corpus"`. `*.pas` gitignored.
 
 ## In progress
 
-- Nothing in lane B.
+- **Lane B is paused** until the owner reviews `docs/xedit-reference.md` and ADRs 0004,
+  0005 (Amendment 2) and 0001 (Amendment 1).
 
 ## Next
 
 1. M1 lane A: done for M1. Next per the plan is M2 groundwork, or `roundtrip --decode`
    (decompress every compressed record during the gate; see `docs/gaps.md`).
-2. M1 lane B: round 2 done. Next: typed layouts via ck-diff observations (ADR 0005
-   section 2) or `uesp-starfield` pages confirmed on the corpus (Amendment 1); inventories
-   as M1.14 coverage asks for them.
+2. M1 lane B: round 3, after the owner review above: transcribe typed definitions from the
+   pinned xEdit file (`xedit:` provenance, `confidence = "reference"` until the corpus
+   confirms), in this priority: **WEAP, AMMO, PROJ, AMDL, OMOD, COBJ, ZOOM**; then
+   **GMST, GLOB, KYWD** typed; then **LVLI, FLST, INNR**. Each definition is checked against
+   every corpus occurrence before it moves to `confidence = "corpus"`; unions stay opaque.
 3. M1 lane C: M1.14 `coverage` + `cargo xtask parity` and M1.15 `cargo xtask codegen
    [--check]`, unblocked by lane B round 2 (see Requests).
 
@@ -98,7 +111,9 @@ round 2); see `plan/execution-plan.md`.
 | #   | Decision                                | Default until decided             |
 | --- | --------------------------------------- | --------------------------------- |
 | 1   | Project name                            | `KitCraft` / `kitcraft-*` / `kit` |
-| 2   | xEdit MPL source policy (ADR 0004)      | option A: ADR 0005 sources only   |
+| 2   | xEdit MPL source policy (ADR 0004)      | **decided 2026-10-14** (pinned xEdit SF1 definitions as reference) |
+| 2a  | Review `docs/xedit-reference.md` and ADRs 0004/0005/0001 before lane B round 3 | lane B paused |
+| 2b  | Whether `wbDefinitionsCommon.pas` (helpers the SF1 file uses) may be cited too | no: only `wbDefinitionsSF1.pas` |
 | 3   | Video critique used as overhaul brief   | none; overhaul work is after M2   |
 | 4   | License                                 | MIT OR Apache-2.0 (scaffolded)    |
 | 5   | Contact kinggath about SS2 now or later | later                             |
@@ -109,10 +124,8 @@ round 2); see `plan/execution-plan.md`.
 The agents' docs diverge from `PLAN.md` in two places, now reconciled in `PLAN.md` ("AGENTS.md
 wins") but still the owner's to confirm:
 
-- **xEdit stance.** The brief called xEdit's MPL source "readable as a reference"; AGENTS.md
-  and ADR 0004 keep it off limits (option A) until the owner decides. ADR 0004 has been
-  escalated: with no UESP Starfield page (ADR 0005), option A means Starfield field layouts
-  come only from CK differential observation, which is slower. The owner has been asked.
+- **xEdit stance.** Resolved 2026-10-14: the owner decided ADR 0004 (pinned
+  `wbDefinitionsSF1.pas` as the record-definition reference); `PLAN.md` and AGENTS.md agree.
 - **No push.** The brief said "push to main"; AGENTS.md says commit to local `main`, no
   remote (owner decision 6).
 
@@ -138,12 +151,17 @@ Agents append here when they need a change in a crate they do not own.
   flag; write `XXXX` when it is set or the payload exceeds `u16::MAX`. The 24-byte record
   header is now a definition too (`RECORD.toml`, generated `RecordHeader`). Also please
   count `XXXX` subrecords with a payload <= 0xFFFF in the corpus inventory (`docs/gaps.md`).
-- **Lane B -> owner / AGENTS.md maintainer.** ADR 0005 Amendment 1 records the UESP
-  Starfield pages (starfieldwiki.net, 23 pages, `/CTDA` forbidden, `/Raw_Data` an inventory
-  cross-check, `/PERK`'s OMOD layout unused until the owner decides OMOD scope). AGENTS.md
-  "Clean room" and the "xEdit stance" paragraph above still say there is no UESP Starfield
-  page; they should point to the amendment. (Replaces the earlier lane B request asking
-  whether ADR 0005 should list the site.)
+- ~~Lane B -> owner / AGENTS.md maintainer: point AGENTS.md at ADR 0005 Amendment 1.~~
+  Done 2026-10-14: AGENTS.md "Clean room" now states the Amendment 2 hierarchy, with UESP's
+  Starfield pages at level 4.
+- **Policy -> lane B.** `confidence` is validated by the loader but not stored in the model
+  (the policy change was limited to `load.rs`). Add it to `RecordDef`/`HeaderDef`/`CommonDef`
+  so coverage can report it, and consider re-exporting the pinned revision for tools.
+- **Policy -> lane C (M1.14).** `docs/record-parity.md` should show `confidence` next to the
+  source kind once the model carries it; `confidence = "reference"` values should surface as
+  a `limitations[]` entry in `inspect`/`query` results.
+- **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
+  the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
   is a breaking change for `kit query`. Default: accept the rename when it happens.
