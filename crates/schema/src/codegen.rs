@@ -949,7 +949,15 @@ impl {name} {{
                                 "extra",
                             ],
                         ));
-                        let _ = writeln!(emits, "        emit(out, {sig}, self.{ident}.as_ref());");
+                        emits.push_str(&call_stmt(
+                            8,
+                            "emit",
+                            &[
+                                "out".to_owned(),
+                                sig.clone(),
+                                format!("self.{ident}.as_ref()"),
+                            ],
+                        ));
                     }
                 }
                 Member::Group(group) => {
@@ -1108,6 +1116,22 @@ fn let_call(indent: usize, lead: &str, func: &str, args: &[String]) -> String {
         let _ = writeln!(out, "{pad}    {arg},");
     }
     let _ = writeln!(out, "{pad})?;");
+    out
+}
+
+/// A `func(args);` statement at `indent`, laid out like [`let_call`].
+fn call_stmt(indent: usize, func: &str, args: &[String]) -> String {
+    let joined = args.join(", ");
+    let pad = " ".repeat(indent);
+    let line = format!("{pad}{func}({joined});");
+    if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
+        return format!("{line}\n");
+    }
+    let mut out = format!("{pad}{func}(\n");
+    for arg in args {
+        let _ = writeln!(out, "{pad}    {arg},");
+    }
+    let _ = writeln!(out, "{pad});");
     out
 }
 

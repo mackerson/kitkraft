@@ -141,7 +141,10 @@ fn builtin_set_loads_and_matches_the_directory() {
     let sigs: Vec<&str> = embedded.records.keys().map(Signature::as_str).collect();
     assert_eq!(
         sigs,
-        ["AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "PROJ", "TES4", "WEAP", "ZOOM"]
+        [
+            "AMDL", "AMMO", "COBJ", "FLST", "GLOB", "GMST", "INNR", "KYWD", "LVLI", "OMOD", "PROJ",
+            "TES4", "WEAP", "ZOOM"
+        ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
@@ -399,7 +402,9 @@ fn round3_definitions_cite_xedit_per_member() {
 }
 
 /// The record types lane B round 3 has transcribed from the pinned xEdit file.
-const ROUND3: &[&str] = &["WEAP", "AMMO", "PROJ", "AMDL", "OMOD", "COBJ", "ZOOM"];
+const ROUND3: &[&str] = &[
+    "WEAP", "AMMO", "PROJ", "AMDL", "OMOD", "COBJ", "ZOOM", "LVLI", "FLST", "INNR",
+];
 
 #[test]
 fn tes4_container_layout() {

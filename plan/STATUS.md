@@ -441,6 +441,15 @@ is under "Next".
     except VMAD, the BFCB component data and the condition payloads (new shared group
     `Condition`: CTDA opaque, a struct of xEdit unions; CIS1/CIS2 typed); components use the
     new shared type `Component`. ZOOM: EDID + the 35-byte ZNAM, fully typed.
+  - **M3.B7 LVLI, FLST, INNR** (no inventories before; the corpus check is their
+    inventory): all 6,543 LVLI (22,701 entries), 1,415 FLST and 8 INNR records. LVLI: every
+    member typed except VMAD (one official record has one), the BFCB component data,
+    condition payloads and the COED owner data (an xEdit union); the entry count LLCT is a
+    separate subrecord, stored as read (M3.B10 covers `count_from` arrays only, so an edit
+    that adds an entry must update LLCT itself; noted in the definition). FLST: LNAM list,
+    conditional entries (INAM, CITC, conditions), ANAM. INNR: rulesets with their names,
+    keywords, XNAM properties (the target byte is an xEdit union by UNAM, kept as an
+    integer) and indexes.
 
 ## Next
 

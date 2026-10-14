@@ -19,7 +19,7 @@ name = "BfcbBlock"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every BFCB..BFCE block in the GLOB, KYWD, WEAP, PROJ, OMOD and COBJ records of the 14 official ESMs decodes and re-encodes identically",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every BFCB..BFCE block in the GLOB, KYWD, WEAP, PROJ, OMOD, COBJ, LVLI and FLST records of the 14 official ESMs decodes and re-encodes identically",
 ]
 confidence = "corpus"
 
