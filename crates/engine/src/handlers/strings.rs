@@ -275,7 +275,32 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
             })
         })
         .collect();
+    let duplicates: Vec<Value> = merged
+        .duplicates
+        .iter()
+        .take(CONFLICTS_SHOWN)
+        .map(|d| {
+            json!({
+                "id": format!("0x{:08X}", d.id),
+                "table": tables.get(d.table),
+                "same_bytes": d.same_bytes,
+                "kept": text(d.table, d.id),
+            })
+        })
+        .collect();
     let mut limitations = Vec::new();
+    if !merged.duplicates.is_empty() {
+        limitations.push(format!(
+            "{} IDs repeat inside one input table (see `duplicates`); the first occurrence \
+             in that table is used, as lookups do, and the repeats are dropped{}",
+            merged.duplicates.len(),
+            if merged.duplicates.len() > CONFLICTS_SHOWN {
+                format!("; `duplicates` lists the first {CONFLICTS_SHOWN}")
+            } else {
+                String::new()
+            }
+        ));
+    }
     if merged.conflicts.len() > CONFLICTS_SHOWN {
         limitations.push(format!(
             "`conflicts` lists the first {CONFLICTS_SHOWN} of {}",
@@ -298,6 +323,8 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
             "bytes": bytes.len(),
             "conflict_count": merged.conflicts.len(),
             "conflicts": conflicts,
+            "duplicate_count": merged.duplicates.len(),
+            "duplicates": duplicates,
             "identical_repeats": merged.identical_repeats,
             "summary": summary,
         }),
@@ -419,6 +446,26 @@ mod tests {
         .unwrap_err();
         assert!(err.to_string().contains("writing"), "{err}");
         assert!(!dir.join("blocked.strings.partial").exists());
+
+        // Regression (review round 2): an ID repeated inside one input is reported as a
+        // duplicate, apart from the cross-table conflicts.
+        let c = dir.join("dup_en.strings");
+        fs::write(&c, t(vec![Entry::new(7, "kept"), Entry::new(7, "dropped")])).unwrap();
+        let merged = execute(
+            "strings.merge",
+            json!({"tables": [a.to_str().unwrap(), c.to_str().unwrap()],
+                   "out": dir.join("m2_en.strings").to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(merged["data"]["conflict_count"], 0);
+        assert_eq!(merged["data"]["duplicate_count"], 1);
+        assert_eq!(merged["data"]["duplicates"][0]["id"], "0x00000007");
+        assert_eq!(merged["data"]["duplicates"][0]["kept"], "kept");
+        assert_eq!(merged["data"]["duplicates"][0]["same_bytes"], false);
+        assert!(merged["limitations"][0]
+            .as_str()
+            .unwrap()
+            .contains("repeat inside one input"));
 
         let wrong_ext = execute(
             "strings.merge",
