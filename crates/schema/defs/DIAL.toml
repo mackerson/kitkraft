@@ -1,0 +1,125 @@
+# DIAL: Dialog Topic. A topic belongs to a quest (QNAM) and, for player dialogue, to a
+# branch (BNAM, a DLBR); its responses are the INFO records in its own children group
+# (group type 7), listed here in TIFL with their count in TIFC. Topics are stored in the
+# children group of their quest (group type 10), not in a top-level DIAL group.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11297-L11523 - member order, PNAM, the DATA
+#     layout (topic flags, category, subtype), SNAM, TIFL and TIFC, FormID targets.
+#     Helpers: the base form component block (L5984-L6832, kept raw), the dialogue subtype
+#     codes (L4461-L4645). The INOM and INOA members upstream are editor-internal
+#     (wbDefinitionsCommon.pas L8878-L8898: never saved) and are not part of the format.
+#   corpus: the 87,031 DIAL records (Starfield.esm 68,154, ShatteredSpace 9,990, SFBGS00D
+#     4,189, SFBGS050 3,580, SFBGS003 1,105, SFBGS004 13; form versions 581 and 582; none
+#     compressed; every one in a group of type 10), 2026-10-14: order [EDID] [BFCB block]
+#     [FULL] PNAM [BNAM] QNAM [KNAM] [ANAM] DATA SNAM TIFL TIFC; PNAM, BNAM, QNAM, KNAM,
+#     ANAM, DATA, SNAM, TIFC 4 bytes; TIFL a multiple of 4 (0 to 3,752 bytes). No record has
+#     both a component block and FULL, so their relative order is not confirmed. Every
+#     record decodes with nothing left over and re-encodes identically.
+signature = "DIAL"
+name = "DialogTopic"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11297-L11523"
+evidence = [
+  "corpus: the 87,031 DIAL records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+flags = [["PartialForm", 0x4000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "most topics have none (265 of 87,031 do)"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components (4 records); upstream does not know whether they come before or after FULL, and no official record has both"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+note = "the topic text the player sees"
+
+[[member]]
+sig = "PNAM"
+name = "Priority"
+type = "f32"
+note = "50 by default"
+
+[[member]]
+sig = "BNAM"
+name = "Branch"
+type = "formid"
+targets = ["DLBR"]
+card = "optional"
+
+[[member]]
+sig = "QNAM"
+name = "Quest"
+type = "formid"
+targets = ["QUST"]
+
+[[member]]
+sig = "KNAM"
+name = "Keyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+sig = "ANAM"
+name = "AffinityEvent"
+type = "formid"
+targets = ["AFFE"]
+card = "optional"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 4
+field = [
+  { name = "TopicFlags", type = "flags", base = "u8", bits = [["DoAllBeforeRepeating", 0x1]], note = "bits 0x2 and 0x4 are unnamed upstream and preserved" },
+  { name = "Category", type = "enum", base = "u8", values = [
+    ["Player", 0],
+    ["Command", 1],
+    ["Scene", 2],
+    ["Combat", 3],
+    ["Favor", 4],
+    ["Detection", 5],
+    ["Service", 6],
+    ["Miscellaneous", 7],
+  ] },
+  { name = "Subtype", type = "u16", note = "the dialogue subtype index (Custom, ForceGreet, Rumors, ... 183 values upstream); the table is not transcribed" },
+]
+
+[[member]]
+sig = "SNAM"
+name = "SubtypeName"
+type = "sig"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4461-L4645"]
+note = "the subtype as a four-character code (CUST, SCEN, HELO, ...)"
+
+[[member]]
+sig = "TIFL"
+name = "Infos"
+type = "array"
+element = "formid"
+targets = ["INFO"]
+count = "rest"
+note = "the topic's responses; may be empty"
+
+[[member]]
+sig = "TIFC"
+name = "InfoCount"
+type = "u32"
+note = "number of responses; stored, not derived"
