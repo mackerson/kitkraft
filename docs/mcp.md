@@ -445,15 +445,20 @@ Evidence: each override's record header and its differing payloads.
 Checked 2026-10-14 against `esmscan.py` run read-only on the owner's Default profile
 (master `Starfield.esm`, the other 83 plugins): the same 59 plugins and identical per-type
 counts, 8,234 override records in total.
-### `coverage` (M1.14)
+### `coverage` (M1.14, M3.F2)
 
 Arguments `{plugin, decode = true, signatures?, top?}`; CLI `kit coverage <plugin>
 [--no-decode] [--no-signatures] [--top N]`. Streams the
 plugin and classifies every subrecord occurrence against the builtin schema by its record
-type and signature: `typed` (the type's definition names it with a layout), `opaque`
-(named, kept as raw bytes) or `unknown` (the type has no definition, or the definition does
-not name the signature; subrecords inside an `any_until` run count here). Payloads are not
-decoded against the layouts. With `decode` (the default) compressed records are
+type and signature: `typed` (the type's definition names it with a layout and the payload
+decoded through it), `failed` (named by a typed member, but the payload does not fit the
+layout or the definition does not accept the subrecord at its position; kept as raw
+bytes), `opaque` (named, kept as raw bytes) or `unknown` (the type has no definition, or
+the definition does not name the signature; subrecords inside an `any_until` run count
+here). Every record of a defined type is decoded through its generated definition with
+the plugin's context (form version, TES4 localized flag: what `Plugin::typed` does) and
+encoded again; a subrecord position the encoding does not reproduce is a re-encode
+conflict. With `decode` (the default) compressed records are
 decompressed under the default `DecodeLimits` and counted; one that fails to decompress is
 listed in `coverage.not_examined` (first 20, then a count), not fatal.
 
@@ -463,22 +468,31 @@ none) and adds a limitation naming how many of how many are listed. Omitted, `ki
 `cargo xtask parity`) list everything; over MCP they default to `false` and `20`.
 
 `data`: `plugin`, `file`, `bytes`, `decode`, `records`, `groups`, `compressed_records`,
-`compressed_examined`, `record_types_seen`, `record_types_defined`, `subrecords`
-(occurrences), `occurrences {typed, opaque, unknown}`, `signatures` and `top` (as
-applied), `record_types_listed`, `summary`, and `record_types[]`
-sorted by record count (then signature), each with `signature`, `definition` (the schema
-name or `null`), `records`, `compressed`, `compressed_examined`, `subrecords`,
-`occurrences`, `distinct {seen, typed, opaque, unknown}` (distinct signatures),
-`first_offset`, and `signatures[]` (`signature`, `count`, `class`, `members` = member
-paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it;
-`null` with `signatures: false`).
+`compressed_examined`, `record_types_seen`, `record_types_defined`, `typed_records`
+(records decoded through a definition), `subrecords` (occurrences), `occurrences {typed,
+failed, opaque, unknown}`, `decoded_by_confidence {reference, corpus, ck-diff, verified}`
+(typed occurrences by the confidence of the member that decoded them; the weakest when
+several members share a signature), `reencode_conflicts`, `typed_failures[]` (the first
+20 failed or re-encoded subrecords: `record` = `SIG:FORMID`, `signature`, `index` in the
+record, absolute `offset` or `null` inside a compressed record, `kind` `not_decoded` or
+`reencoded`), `signatures` and `top` (as applied), `record_types_listed`, `summary`, and
+`record_types[]` sorted by record count (then signature), each with `signature`,
+`definition` (the schema name or `null`), `records`, `compressed`, `compressed_examined`,
+`typed_records`, `subrecords`, `occurrences`, `decoded_by_confidence`,
+`reencode_conflicts`, `distinct {seen, typed, opaque, unknown}` (distinct signatures by
+their class in the definition), `first_offset`, and `signatures[]` (`signature`, `count`,
+`class`, `failed` = occurrences that did not decode, `confidence` = the weakest of the
+members using it or `null`, `members` = member paths in the definition, `first_record` =
+`SIG:FORMID` of the first record holding it; `null` with `signatures: false`).
 
 Coverage: `decoded_subrecords` is the `typed` occurrence count, `opaque_subrecords` the
-`opaque` plus `unknown` count; `status` is `complete` only when both of those are zero and
-every compressed record was examined. Evidence: the whole file, then the first record of
-each listed type. Limitations always state that classification is by signature only; with
-`--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
-`cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
+`failed` plus `opaque` plus `unknown` count; `status` is `complete` only when those are
+zero, nothing failed to re-encode and every compressed record was examined. Evidence: the
+whole file, then the first record of each listed type. Limitations always state how
+subrecords are classified; they add a count line when a typed subrecord failed or a
+position did not re-encode, and with `--no-decode` that compressed bodies were skipped
+(also in `not_examined`). `cargo xtask parity` runs this command over the corpus to write
+`docs/record-parity.md`.
 
 ### `schema` (M2.F9)
 

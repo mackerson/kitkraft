@@ -390,6 +390,15 @@ is under "Next".
   `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
   15 warnings). The rename plugin was regenerated (TES4 only changed):
   **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
+- Lanes F and G, M3 (2026-10-14):
+  - M3.F2 `coverage` decodes every record of a defined type through its generated
+    definition (plugin context: form version, TES4 localized flag) and encodes it again:
+    typed occurrences whose payload does not decode are `failed` (counted apart, first 20
+    in `typed_failures` with offsets), re-encode differences are `reencode_conflicts`,
+    decoded occurrences are split by member confidence (`decoded_by_confidence`).
+    `cargo xtask parity [--check]` adds a "Decoded through the definitions" table; corpus:
+    20,437 records decoded, 40,776 typed occurrences, 0 failed, 0 re-encode conflicts, all
+    `corpus` confidence; `--check` passes on the regenerated file.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in

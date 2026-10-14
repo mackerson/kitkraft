@@ -4,7 +4,7 @@
 //!   test).
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
-//! - `cargo xtask parity`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
 //!
 //! The layer check has three parts.
 //!
@@ -117,15 +117,8 @@ fn run() -> Result<()> {
     match task.as_deref() {
         Some("ci") => ci(&workspace_root()?),
         Some("layers") => layers(&workspace_root()?),
-        Some("codegen") => {
-            let check = match std::env::args().nth(2).as_deref() {
-                None => false,
-                Some("--check") => true,
-                Some(other) => bail!("codegen: unknown argument `{other}`; expected --check"),
-            };
-            codegen::run(&workspace_root()?, check)
-        }
-        Some("parity") => parity::run(&workspace_root()?),
+        Some("codegen") => codegen::run(&workspace_root()?, check_flag("codegen")?),
+        Some("parity") => parity::run(&workspace_root()?, check_flag("parity")?),
         None | Some("help" | "-h" | "--help") => {
             print_help();
             Ok(())
@@ -143,7 +136,16 @@ fn print_help() {
         "  codegen  write crates/esm/src/generated/ from the schema; --check fails when stale"
     );
     println!("  parity   run `kit coverage` over the corpus (KITCRAFT_DATA_DIR) and write");
-    println!("           docs/record-parity.md");
+    println!("           docs/record-parity.md; --check fails when it is stale");
+}
+
+/// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).
+fn check_flag(task: &str) -> Result<bool> {
+    match std::env::args().nth(2).as_deref() {
+        None => Ok(false),
+        Some("--check") => Ok(true),
+        Some(other) => bail!("{task}: unknown argument `{other}`; expected --check"),
+    }
 }
 
 fn workspace_root() -> Result<PathBuf> {
