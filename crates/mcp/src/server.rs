@@ -803,6 +803,7 @@ mod tests {
                 "query_records",
                 "diff_plugins",
                 "coverage",
+                "record_schema",
                 "roundtrip"
             ]
         );

@@ -48,7 +48,7 @@ Client config (any MCP client that launches stdio servers):
    ```
 
 3. Restart Claude Code (or start a new session). `/mcp` should list `kitcraft` as connected
-   with 7 tools; Claude Code names them `mcp__kitcraft__execute`, `mcp__kitcraft__coverage`
+   with 8 tools; Claude Code names them `mcp__kitcraft__execute`, `mcp__kitcraft__coverage`
    and so on.
 4. Headless check without the UI:
 
@@ -108,10 +108,11 @@ question for M3.
 | ---------------- | ----------------------------------------- | --------------------------------------------------------------------- |
 | `execute`        | `{command, args?}`                        | Run any catalog command by id (or alias) with JSON args matching its `args_schema` |
 | `command_line`   | `{text}`                                  | Run a CLI-style line, e.g. `"inspect 0001A2B3 X.esm"`; same parser as `kit`; `help ...` returns usage text |
-| `inspect_record` | `inspect`'s args (`{form, plugin}`)       | One record: header fields and subrecords (later: winner, overrides, typed fields) |
+| `inspect_record` | `inspect`'s args (`{form, plugin?, profile?, plugins?, ...}`) | One record across the load order (every version, the winner, typed values, lstrings), or in one plugin |
 | `query_records`  | `query`'s args (`{type, where?, limit?, cursor?}`) | Records of one type matching a field predicate; paged        |
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
 | `coverage`       | `coverage`'s args (`{plugin, decode?, signatures?, top?}`) | Record types and subrecords vs the schema; a summary by default over MCP |
+| `record_schema`  | `schema`'s args (`{type?, member?, deep?}`) | What the schema defines for a record type: members with type, source citation and confidence (M2.F9) |
 | `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
@@ -454,6 +455,40 @@ every compressed record was examined. Evidence: the whole file, then the first r
 each listed type. Limitations always state that classification is by signature only; with
 `--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
 `cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
+
+### `schema` (M2.F9)
+
+Arguments `{type?, member?, deep = false}`; CLI `kit schema` (every definition), `kit schema
+--type WEAP` (alias `defs`), `kit schema --type WEAP --member KWDA`; MCP tool
+`record_schema`. Reads no plugin: it reports what the builtin schema
+(`crates/schema/defs`, lane B) defines, so an agent can see which members a record type
+has, their types, and how far each is checked before it writes a `query` predicate or a
+`set` field path. `type` is case-insensitive.
+
+- Without `type`: `records[]` (`type`, `name`, `confidence`, `subrecords`, `typed`,
+  `opaque`, `confidence_counts {reference, corpus, ck-diff, verified}`), `headers[]`,
+  `common[]` (shared groups and types), the same totals over every definition, `summary`
+  (one line per record type in text mode).
+- With `type` (a record definition): `defined: true`, `kind: "record"`, `name`,
+  `confidence`, `source`, `evidence`, `note`, `header_flags`, the counts above for the
+  type, and `members[]` in definition order, **top level only** unless `deep`: a subrecord
+  is `{kind: "subrecord", signature, name, card, type, typed, size, confidence, source}`
+  (`type` is a label such as `zstring`, `u32`, `formid<KYWD>`, `[formid<KYWD>; rest]`,
+  `opaque(24)`, `union by edid-prefix (5 variants)`); a group is `{kind: "group", name,
+  card, shared, signatures, confidence, source}`; an `any_until` run names its terminator.
+  `deep` adds `evidence` and `note`, a group's `members`, a struct's `fields` (`name`,
+  `type`, form-version gates, `confidence`, and `source` where it differs from the
+  member's), enum `values`, flag `bits` and union `variants` (`when`, `name`, `type`).
+  `member` (a name or signature, ASCII case-insensitive, also inside a group) returns that
+  one member, deep; an unknown one is `failed` and lists the members.
+- With a header signature (`GRUP`): `kind: "header"`, `size`, `fields[]`.
+- With a type that has no definition: `defined: false` and `defined_types`; a limitation
+  says its subrecords are unknown to the schema (not absent).
+
+Coverage is `complete` with null counts (no plugin bytes are decoded) and `evidence` is
+empty: the values are definitions, each carrying its own source citation. Limitations
+always say so, count the `reference`-confidence definitions (documented upstream, not yet
+corpus-checked) and the opaque ones, and note when only the top level is listed.
 
 ### `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4)
 

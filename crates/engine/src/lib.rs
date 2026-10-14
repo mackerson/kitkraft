@@ -208,6 +208,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "schema",
+        label: "Record Schema",
+        menu_path: "Help/Record Schema",
+        shortcut: None,
+        aliases: &["defs"],
+        summary: "What the record schema defines for a type: members with type, source citation and confidence (top level; --deep for nested); without --type, every definition with per-confidence counts",
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (WEAP) or header (GRUP); omit to list every definition"},"member":{"type":"string","description":"Only this member (name or signature; also one inside a group), shown deep"},"deep":{"type":"boolean","default":false,"description":"Expand group members, struct fields, enum and flag names and union variants, and list evidence citations"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "ba2.list",
         label: "List Archive",
         menu_path: "Archive/List",

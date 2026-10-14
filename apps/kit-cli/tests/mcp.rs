@@ -207,6 +207,19 @@ fn kit_mcp_serves_tools_on_a_synthetic_plugin() {
     ));
     assert_eq!(got["data"]["record"]["form_id"], "00000100");
 
+    // M2.F9: the schema of the record type just inspected, with sources and confidence.
+    let got = envelope(&kit.call("record_schema", json!({"type": "GMST"})));
+    assert_eq!(got["command"], "schema");
+    let value = got["data"]["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["signature"] == "DATA")
+        .unwrap()
+        .clone();
+    assert_eq!(value["name"], "Value");
+    assert!(value["confidence"].is_string() && value["source"].is_string());
+
     let stderr = kit.finish();
     assert_eq!(stderr, "", "no --profile, nothing to report");
     std::fs::remove_file(&path).unwrap();

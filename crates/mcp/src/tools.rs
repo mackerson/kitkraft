@@ -83,6 +83,13 @@ pub const TOOLS: &[Tool] = &[
         destructive: false,
     },
     Tool {
+        name: "record_schema",
+        title: "Record schema",
+        target: Target::Command("schema"),
+        read_only: true,
+        destructive: false,
+    },
+    Tool {
         name: "roundtrip",
         title: "Roundtrip a plugin",
         target: Target::Command("roundtrip"),

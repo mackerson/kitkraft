@@ -16,6 +16,7 @@ mod load;
 mod papyrus;
 mod query;
 mod roundtrip;
+mod schema;
 mod set;
 #[cfg(test)]
 mod set_tests;
@@ -51,6 +52,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
         ("roundtrip", Box::new(roundtrip::run)),
         ("coverage", Box::new(coverage::run)),
+        ("schema", Box::new(schema::run)),
         ("diff", Box::new(diff::run)),
         ("ba2.list", Box::new(ba2::list)),
         ("ba2.extract", Box::new(ba2::extract)),
