@@ -15,9 +15,20 @@
 //! LAYER: L0
 
 mod error;
+mod model;
+mod parse;
 mod reader;
 mod signature;
+pub mod tes4;
+
+#[cfg(test)]
+mod fixture;
 
 pub use error::{Error, Result};
+pub use model::{
+    Body, Entry, Group, GroupHeader, Plugin, Record, RecordHeader, Subrecord, FLAG_COMPRESSED,
+    HEADER_LEN, SUBRECORD_HEADER_LEN,
+};
+pub use parse::ParseOptions;
 pub use reader::Reader;
 pub use signature::Signature;
