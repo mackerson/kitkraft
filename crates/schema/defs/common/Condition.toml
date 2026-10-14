@@ -1,0 +1,36 @@
+# Condition: one condition entry (CTDA, with its optional string parameters CIS1 and
+# CIS2), shared by every record type that has a condition list.
+#
+# Sources (ADR 0004, ADR 0005):
+#   xedit: the condition list of wbDefinitionsSF1.pas at the pin (L4750-L4840): a repeated
+#     entry of CTDA followed by the optional CIS1 and CIS2 string parameters.
+#   corpus: the round 3 typed check of the COBJ records of the 14 official ESMs (2,833 CTDA,
+#     all 32 bytes; no CIS1 or CIS2 in COBJ).
+#
+# The CTDA payload is a struct of unions in xEdit: the comparison value is a float or a GLOB
+# FormID by a flag in the first byte, and the parameters take a layout chosen by the
+# function index (L4753-L4834). Unions decided by another field are not expressible yet
+# (defs/README.md, "Not supported"), so CTDA stays opaque, FormIDs included; see
+# docs/gaps.md.
+name = "Condition"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"
+confidence = "reference"
+
+[[member]]
+sig = "CTDA"
+name = "Data"
+type = "opaque"
+note = "32 bytes in every official COBJ condition; union-decided content (comparison value, function parameters), kept raw"
+
+[[member]]
+sig = "CIS1"
+name = "Parameter1"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "CIS2"
+name = "Parameter2"
+type = "zstring"
+card = "optional"

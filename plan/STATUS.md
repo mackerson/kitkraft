@@ -437,6 +437,10 @@ is under "Next".
     exists). Name and the attach parent slot list carry u32 prefixes, typed as explicit
     count fields. VMAD, the unknown XFLG after the model block (never reached in the corpus:
     the model block's XFLG takes it) and the BFCB component data stay opaque.
+  - **M3.B5 COBJ, ZOOM**: all 3,518 COBJ and 141 ZOOM records. COBJ: every member typed
+    except VMAD, the BFCB component data and the condition payloads (new shared group
+    `Condition`: CTDA opaque, a struct of xEdit unions; CIS1/CIS2 typed); components use the
+    new shared type `Component`. ZOOM: EDID + the 35-byte ZNAM, fully typed.
 
 ## Next
 

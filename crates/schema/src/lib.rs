@@ -68,6 +68,14 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
         include_str!("../defs/common/Bool8.toml"),
     ),
     (
+        "common/Component.toml",
+        include_str!("../defs/common/Component.toml"),
+    ),
+    (
+        "common/Condition.toml",
+        include_str!("../defs/common/Condition.toml"),
+    ),
+    (
         "common/Destructible.toml",
         include_str!("../defs/common/Destructible.toml"),
     ),

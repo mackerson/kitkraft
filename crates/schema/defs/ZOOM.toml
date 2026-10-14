@@ -1,27 +1,65 @@
-# ZOOM: subrecord inventory. EDID is typed as a universal subrecord (M2.B2); ZNAM is opaque
-# until the record layout is transcribed (lane B round 3, xEdit at the pin).
+# ZOOM: zoom (aim-down-sights settings).
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the ZOOM top groups of the 14 official
-# ESMs (2026-10-14): 141 records, form versions 581/582, one shape "EDID ZNAM"; ZNAM is 35
-# bytes in every record.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the ZOOM definition of wbDefinitionsSF1.pas at the pinned revision (L19109-L19128),
+#     with the overlay enumeration (wbDefinitionsCommon.pas L8215-L8243, its Starfield
+#     values) and the three-float vector.
+#   corpus: the round 3 typed check of all 141 official ZOOM records (14 files, form versions
+#     581 and 582): every record is EDID then a 35-byte ZNAM, nothing is left in `extra`, and
+#     every record re-encodes identically.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Opaque member names are placeholders derived from the signature.
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. No official ZOOM has a BFCB block (that member stays at
+# `reference`).
 signature = "ZOOM"
 name = "Zoom"
-source = "corpus: ZOOM records of the 14 official ESMs, scan 2026-10-14"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19109-L19128"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 141 ZOOM records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
 confidence = "corpus"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19110-L19110"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19111-L19111"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
 
 [[member]]
 sig = "ZNAM"
-name = "Znam"
-type = "opaque"
-note = "observed 35 bytes"
+name = "Data"
+type = "struct"
+size = 35
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19112-L19127"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8215-L8243",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 141 ZOOM records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "ImageSpaceModifier", type = "formid", targets = ["IMAD"] },
+  { name = "GeometryOffset", type = "ref:Vec3" },
+  { name = "FovMult", type = "f32" },
+  { name = "Overlay", type = "enum", base = "u8", values = [["Default", 0], ["Fine", 1], ["Duplex", 2], ["German", 3], ["Dot", 4], ["MilDot", 5], ["Circle", 6], ["OldRangefind", 7], ["ModernRangefind", 8], ["Svd", 9], ["HandPainted", 10], ["Binoculars", 11], ["Cross", 12], ["DoubleZero", 13], ["Rangefinder1", 14], ["Rangefinder2", 15], ["Rectangle", 16], ["StandardScopeCircle", 17]] },
+  { name = "FovOffset", type = "f32" },
+  { name = "Geometry", type = "struct", field = [{ name = "OverrideOffset", type = "ref:Bool8" }, { name = "OffsetDuration", type = "f32" }] },
+  { name = "Fov", type = "struct", field = [{ name = "OverrideOffset", type = "ref:Bool8" }, { name = "OffsetDuration", type = "f32" }] },
+]
