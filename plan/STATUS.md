@@ -40,7 +40,7 @@ M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.m
 
 ## Next
 
-1. M1 lane A: M0.5 corpus test helper, then M1.1 bounded reader.
+1. M1 lane A: M0.5 corpus test helper, then M1.1 bounded reader (M1.2b header inventory after M1.2).
 2. M1 lane B: M1.8 definition format loader.
 3. M1 lane C: M1.11 `execute` and the result envelope.
 
@@ -53,11 +53,23 @@ M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.m
 | #   | Decision                                | Default until decided             |
 | --- | --------------------------------------- | --------------------------------- |
 | 1   | Project name                            | `KitCraft` / `kitcraft-*` / `kit` |
-| 2   | xEdit MPL source policy (ADR 0004)      | UESP only; xEdit not read         |
+| 2   | xEdit MPL source policy (ADR 0004)      | option A: ADR 0005 sources only   |
 | 3   | Video critique used as overhaul brief   | none; overhaul work is after M2   |
 | 4   | License                                 | MIT OR Apache-2.0 (scaffolded)    |
 | 5   | Contact kinggath about SS2 now or later | later                             |
 | 6   | Git remote / publishing                 | local only                        |
+
+### Divergence from the brief (for the owner)
+
+The agents' docs diverge from `PLAN.md` in two places, now reconciled in `PLAN.md` ("AGENTS.md
+wins") but still the owner's to confirm:
+
+- **xEdit stance.** The brief called xEdit's MPL source "readable as a reference"; AGENTS.md
+  and ADR 0004 keep it off limits (option A) until the owner decides. ADR 0004 has been
+  escalated: with no UESP Starfield page (ADR 0005), option A means Starfield field layouts
+  come only from CK differential observation, which is slower. The owner has been asked.
+- **No push.** The brief said "push to main"; AGENTS.md says commit to local `main`, no
+  remote (owner decision 6).
 
 ## Requests (cross-lane)
 

@@ -20,7 +20,7 @@ Each line is a CLI subcommand, an MCP-reachable command, and a future menu item.
 ```
 kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"   # or an explicit plugin list
 kit inspect <FormID|EditorID> [--json]        # resolved record, winning override, all overriders
-kit query  --type WEAP --where "WFIR.ShotsPerSecond > 10" --json
+kit query  --type WEAP --where "EDID ~ Rifle" --json
 kit set    <form> FULL="Old Soviet Marksman Rifle" --into MyPatch.esm
 kit diff   A.esm B.esm [--form ...]           # record-level semantic diff
 kit build  overhaul.toml -> Overhaul.esm      # data-driven patch compiler
@@ -45,6 +45,7 @@ rustfmt and clippy).
 cargo build --workspace
 cargo run -p kit-cli -- help
 cargo xtask ci        # the gate: layer check, fmt, clippy -D warnings, tests
+git config core.hooksPath .githooks   # once per clone: pre-commit runs layers + fmt check
 ```
 
 Corpus tests use your own game install and are skipped without it:
@@ -69,9 +70,12 @@ Contributors and agents: read [AGENTS.md](AGENTS.md) first.
 
 ## Clean room
 
-Formats are implemented from the public UESP wiki and our own inspection of files we own. The
-Creation Kit is observed as a black box only. No GPL/LGPL/AGPL Bethesda-format code (Mutagen,
-Spriggit, xEdit) is read. No Bethesda data ships in this repository.
+Formats are implemented from the shared container described on UESP's (Skyrim) wiki pages,
+our own inspection of files we own, black-box observation of the Creation Kit's saved output,
+and the public Creation Kit wiki; which source is permitted for which fact is in
+[ADR 0005](plan/adr/0005-spec-sources-per-fact.md). The Creation Kit is observed as a black
+box only. No copyleft Bethesda-format code (Mutagen, Spriggit: GPL-3.0; xEdit: MPL-2.0) is
+read. No Bethesda data ships in this repository.
 
 ## License
 

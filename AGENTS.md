@@ -25,7 +25,8 @@ official ESM and write it back byte-identical.
 
 The workspace is a strict layer stack. A crate may depend only on crates in a lower layer.
 `cargo xtask layers` enforces this from each crate's `Cargo.toml` and its `//! LAYER: Ln`
-marker in `src/lib.rs` (or `src/main.rs`).
+marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from the graph
+`cargo metadata` resolves (so transitive and dev-dependencies count too).
 
 | Layer | Crate            | Package            | Purpose                                                            |
 | ----- | ---------------- | ------------------ | ------------------------------------------------------------------ |
@@ -50,9 +51,16 @@ Rules:
 - Depend downward only. Same-layer edges are illegal unless listed in `SAME_LAYER_ALLOWED` in
   `xtask/src/main.rs` with a reason in `plan/adr/0002-layering.md`. Today the only one is
   `esm -> schema`.
-- Nothing depends on an APP or TOOL package.
-- Nothing below L5 depends on a UI toolkit (egui, eframe, winit).
-- Library crates (L0..L5) use `thiserror`; `anyhow` is for `apps/` and `xtask/` only.
+- Nothing depends on an APP or TOOL package, dev-dependencies included.
+- Nothing below L5 depends on a UI toolkit, directly, transitively, or as a dev-dependency.
+  Banned by name prefix: `egui`, `eframe`, `winit`, `wgpu`, `rfd`, `iced`, `slint`.
+- Library crates (L0..L5) use `thiserror`; `anyhow` and `eyre` (by prefix, transitively) are
+  for `apps/` and `xtask/` only.
+- Dev-dependencies between workspace crates follow the same direction rules; an upward one
+  needs an entry in `DEV_ALLOWED` (`xtask/src/graph.rs`, empty today) and a reason in ADR 0002.
+- No `build.rs` (`BUILD_RS_ALLOWED` is empty). No `#[path = ...]`, `include!`,
+  `include_str!` or `include_bytes!` whose path leaves the package directory; use a string
+  literal or `concat!(env!("CARGO_MANIFEST_DIR"), "...")` so the check can resolve it.
 - A new crate needs an entry in `LAYER_TABLE` (xtask) and in the table above. Moving a crate
   between layers needs an ADR.
 
@@ -76,6 +84,9 @@ dialog, prompts, or blocks on input.** Interactive front ends collect arguments 
 call the same command. If an action cannot be expressed as a command with JSON arguments, it
 is not designed yet.
 
+Exception: front-end launchers (`kit mcp`, a future `kit ui`) start another front end over the
+catalog instead of acting on data, so they are plain CLI subcommands and need no `CommandSpec`.
+
 ## CLI / MCP / UI parity
 
 - `kit <command>` (with `--json`), the MCP `execute`/`command_line` tools, and UI menu items
@@ -91,9 +102,13 @@ is not designed yet.
 
 ## Clean room
 
-- **The spec is the UESP wiki** (Starfield Mod File Format pages). Our own hex dumps of the
-  official ESMs are the corpus and the tiebreaker. Record facts (signatures, sizes, offsets,
-  types) in `crates/schema` definitions; never paste UESP prose into code or docs.
+- **Every fact has one permitted source, listed in `plan/adr/0005-spec-sources-per-fact.md`.**
+  UESP has no Starfield format page; its Skyrim pages cover only the shared container. Corpus
+  statistics give the inventory, CK differential observation gives Starfield field layouts,
+  and the Creation Kit wiki gives field names. Our own hex dumps of the official ESMs are the
+  tiebreaker. Record facts (signatures, sizes, offsets, types) in `crates/schema` definitions
+  with their ADR 0005 `source`; never paste UESP or wiki prose into code or docs, and never
+  write a Starfield layout from memory.
 - **CreationKit.exe may be run and observed as a black box only**: open plugins, save, take
   screenshots, diff its output against ours. Never disassemble, decompile, debug-attach,
   memory-dump, or point a reverse-engineering tool (Ghidra, IDA, REA, x64dbg) at it or at
@@ -118,6 +133,10 @@ Plugins come from the internet. Treat every input byte as hostile.
 - No slice indexing (`buf[i]`, `buf[a..b]`): use `get()` / `get(a..b)` and return an error.
 - Checked arithmetic on every size and offset from input (`checked_add`, `checked_mul`,
   `usize::try_from`). Cap allocations by the bytes actually remaining before allocating.
+  `clippy::arithmetic_side_effects` is denied workspace-wide. Clippy has no allow-in-tests
+  setting for it, so a test module that needs plain `+`/`-` puts
+  `#[allow(clippy::arithmetic_side_effects)]` on its `mod tests` (or `#![allow(...)]` at the
+  top of an integration test file).
 - Bound recursion depth (nested groups) and iteration counts.
 - Errors are typed (`thiserror`) and carry the byte offset where parsing failed.
 - **Every crash fix ships with a regression test** that feeds the minimized input that
@@ -127,12 +146,15 @@ Plugins come from the internet. Treat every input byte as hostile.
 
 `cargo xtask ci` is the gate. It runs, in order:
 
-1. `cargo xtask layers` (layer graph, markers, banned dependencies)
+1. `cargo xtask layers` (layer graph, markers, banned and transitive dependencies,
+   dev-dependencies, build scripts, out-of-package `#[path]`/`include!`)
 2. `cargo fmt --all -- --check`
 3. `cargo clippy --workspace --all-targets -- -D warnings`
 4. `cargo test --workspace`
 
-Nothing is committed unless the gate passes. Corpus tests read the official ESMs in place via
+Nothing is committed unless the gate passes. A pre-commit hook in `.githooks/` runs the two
+fast steps (`cargo xtask layers`, `cargo fmt --all -- --check`); enable it once per clone with
+`git config core.hooksPath .githooks`. Corpus tests read the official ESMs in place via
 `KITCRAFT_DATA_DIR` (see `docs/corpus.md`) and skip with a message when it is unset or
 missing, so the gate runs on machines without the game. There is no remote CI yet; the local
 gate is the CI.
@@ -162,7 +184,7 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
 
 1. Project name (`KitCraft` is a placeholder).
 2. xEdit MPL source policy (`plan/adr/0004-xedit-source-policy.md`, status OPEN; default is
-   UESP only).
+   option A: the ADR 0005 sources only, xEdit not read).
 3. Which video critique is the design brief for the gun overhaul.
 4. License (proposed MIT OR Apache-2.0; scaffolded that way).
 5. Whether and when to contact kinggath about Sim Settlements 2.
