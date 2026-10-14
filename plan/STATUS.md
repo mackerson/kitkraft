@@ -528,6 +528,15 @@ is under "Next".
   policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
   WEAP). No layout was transcribed; see Blockers.
 
+### M3 lane H (evidence: CK observation and oracles)
+
+| Task | State |
+| ---- | ----- |
+| M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitCraft's assumed runtime IDs, and the `fixture.toml` template |
+| M3.H2 `cargo xtask observe` | **done**: `cargo xtask observe <fixture-dir>` writes `report.md`/`report.json` in the fixture folder only (SHA-256 of every file; per plugin TES4, `roundtrip --verify`, `coverage`, `validate`; base, `[[compare]]` and `kit_equivalent` comparisons as byte runs, TES4 diff and `kit diff`, our equivalent in both styles with `ck` reported unavailable until M3.E5); `cargo xtask observe new <F-id>` writes the fixture's `fixture.toml`. Tests: synthetic fixture dirs with a fake `kit` (nothing written outside, rerun byte-identical) and the real `kit` when built |
+| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part blocked on M3.O3** (`cargo xtask oracle sf1edit` says so) |
+| M3.H3 findings, M3.H5 CK feature ranking | **blocked on M3.O1** (the owner's CK session; `docs/ck-observations.md` has the resolved script, `cargo xtask observe new <id>` the templates) |
+
 ## Next
 
 M2 lanes (from `PLAN.md` "M2 - agent surface" and the step 2 ladder). Owners are assigned
@@ -723,7 +732,9 @@ Agents append here when they need a change in a crate they do not own.
   localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
   nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
   `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
-  (30 of the 96 IDs exist there) or shows none.
+  (30 of the 96 IDs exist there) or shows none. **Lane H:** in the M3.O2 script
+  (`docs/ck-observations.md`, step 3) with `BlueprintInteriorSFTER_TerranShip_Generic_TESTLocation`
+  (`FULL` 0x0002E9C4; none of the 66 LCTN name IDs is in `sfbgs050_en.strings`).
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
   `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
@@ -903,3 +914,15 @@ Agents append here when they need a change in a crate they do not own.
   transcribes definitions from the pinned xEdit file, please type these as `lstring`
   (`confidence = "corpus"` is already backed by `lstring_table_matches_the_corpus`); the
   schema then wins and the table entry becomes redundant.
+- **Lane H -> lane E (and the `docs/corpus.md` "TES4 header" text).** Our patches write
+  `TES4` as `HEDR CNAM MAST DATA INCC`, but no official file has a `DATA` after `MAST`: a
+  walk of all 14 `TES4` records (13 with masters) finds none, as `crates/schema/defs/TES4.toml`
+  says ("MAST is never followed by DATA"), while `docs/corpus.md` says "Every MAST is
+  followed by an 8-byte DATA". Spriggit 0.41.0 drops our `DATA` on a round trip
+  (`docs/oracles.md` S3). Suggest: correct the `docs/corpus.md` sentence, and either stop
+  writing `DATA` or list it as a stated deviation in "Writing rules" until M3.O1's F01/F02
+  show what the CK writes (`docs/ck-observations.md`). Changing it changes the rename
+  plugin's SHA-256.
+- **Lane H -> lane A (M3.A1).** File the F07 recompression candidates (up to 5, CK-openable
+  in a dialog) as a Request here; lane H adds them to F07 in `docs/ck-observations.md` and
+  the `observe new F07` template.
