@@ -208,9 +208,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Papyrus/Compile...",
         shortcut: None,
         aliases: &[],
-        summary: "Compile .psc with Bethesda's compiler (never -release)",
-        args_schema: r#"{"type":"object","properties":{"source":{"type":"string"},"out_dir":{"type":"string"},"imports":{"type":"array","items":{"type":"string"}}},"required":["source","out_dir"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Compile one script with Bethesda's PapyrusCompiler.exe by name with import dirs (never -release)",
+        args_schema: r#"{"type":"object","properties":{"source":{"type":"string","description":"Script name (MyScript, Ns:MyScript) or a .psc path (its folder is imported first); .ppj projects are refused"},"out_dir":{"type":"string","description":"Where the .pex goes; never under the game Data directory"},"imports":{"type":"array","items":{"type":"string"},"description":"Import directories, in order (e.g. an extraction of Tools/ContentResources.zip Scripts/Source)"},"flags":{"type":"string","description":"Flags file; default: Starfield_Papyrus_Flags.flg from the first import directory that has it"},"compiler":{"type":"string","description":"PapyrusCompiler.exe; default: KITCRAFT_PAPYRUS_COMPILER, then the game's Tools folder"},"optimize":{"type":"boolean","default":false}},"required":["source","out_dir"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "strings.dump",

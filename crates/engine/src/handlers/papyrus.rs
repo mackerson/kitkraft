@@ -3,6 +3,8 @@
 //! The text is `pexdis.py`'s format line for line; `data.summary` carries it (without the
 //! final newline) so `kit papyrus disasm x.pex` prints exactly what `pexdis.py x.pex` does.
 
+pub(super) mod compile;
+
 use std::fs;
 use std::path::Path;
 
