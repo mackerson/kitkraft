@@ -718,7 +718,7 @@ mod tests {
         }
         let text = command_help(find_command("roundtrip").unwrap(), "kit ").unwrap();
         assert!(
-            text.contains("usage: kit roundtrip <plugin> [--out <out>] [--verify]"),
+            text.contains("usage: kit roundtrip <plugin> [--out <out>] [--overwrite] [--verify]"),
             "{text}"
         );
         assert!(text.contains("(default: false)"), "{text}");

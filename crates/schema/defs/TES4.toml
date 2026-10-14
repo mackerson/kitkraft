@@ -17,6 +17,7 @@
 signature = "TES4"
 name = "PluginHeader"
 source = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4"
+confidence = "corpus"
 evidence = [
   "corpus: TES4 of Starfield.esm, ShatteredSpace.esm, Constellation.esm, OldMars.esm, SFBGS003/004/006/007/008/00D/047/050.esm, BlueprintShips-Starfield.esm, BlueprintShips-SFBGS050.esm",
 ]

@@ -276,3 +276,41 @@ Additional observations:
   12 files (3,817,455 of 3,829,247 in `Starfield.esm`) but in only 341 and 33 records of the
   two BlueprintShips files. The group header's `u32` "unknown" takes a single value per file except in the BlueprintShips
   files (5 and 4 distinct values). Both are preserved verbatim.
+
+## Archives (M2.G1-G3)
+
+The 90 official `.ba2` archives (about 148.7 GB) are read in place, never copied (ADR 0006).
+`cargo test -p kitcraft-ba2 --release --test corpus -- --ignored corpus_full --nocapture`
+lists every archive, checks every record, extracts 100 seeded entries per archive (7,360
+entries, 7.3 GB, 16 s on the dev box, 2026-10-14) to their declared sizes, and checks every
+texture's chunks against its mip chain. The fast `corpus_small` test lists and extracts
+every entry of five small archives in every gate.
+
+| Version | Type | Codec (header field) | Archives | Entries |
+| ------- | ---- | -------------------- | -------- | ------- |
+| 2       | GNRL | zlib                 | 65       | 1,627,505 |
+| 2       | DX10 | zlib                 | 10       | 31,583  |
+| 3       | DX10 | LZ4 block (method 3) | 15       | 104,818 |
+
+1,763,906 entries in all, 980,871 with packed data. No GNRL archive is version 3 and no
+archive is version 1. Facts the crate relies on (`corpus:` in `crates/ba2`):
+
+- The 8 bytes after the 24-byte header are `u32` 1 and `u32` 0 in every archive; version 3
+  adds a `u32` that is 3 in all 15, and every packed v3 chunk decodes as an LZ4 block to
+  exactly its declared size. Packed v2 data is a zlib stream.
+- Layout: header, every record, the data of every entry in record order with no gaps, then
+  the name table, which ends the file. Names are lower-case with `/` separators.
+- Name and directory hashes: CRC-32 (reflected polynomial `0xEDB88320`, initial value 0, no
+  final XOR) of the lower-cased stem and of the directory with `\` separators; a name
+  without `.` is hashed whole with a zero extension field. All 1,763,906 records agree.
+- GNRL records: flags `0x00100100` and filler `0xBAADF00D` in every record; data is stored
+  (packed size 0) or zlib-packed per archive (meshes, animations, LOD and planet data are
+  packed; voices, strings, scripts and interface files are stored).
+- DX10 records: the byte after the directory hash is 0, chunk records are 24 bytes, tile
+  mode is 8, the cube-map byte is 0 or 1 (25 cube maps, all in `Starfield - Textures05`),
+  height precedes width. Chunks cover the mips in order; mips of at least 512x512 get their
+  own chunk, at most four chunks; some chunks are stored rather than packed. For every
+  texture the chunk sizes add up to the mip chain of its DXGI format (six faces for a cube
+  map). Formats seen: 10, 11, 28, 29, 31, 61, 71, 72, 77, 78, 80, 84, 87, 95, 98, 99.
+
+Differential checks against `Archive2.exe` 1.2.0.1 (black box): see `plan/STATUS.md`.

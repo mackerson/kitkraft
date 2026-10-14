@@ -3,6 +3,7 @@
 signature = "ZZZZ"
 name = "Synthetic"
 source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
 evidence = ["corpus: none; invented for tests"]
 flags = [["Alpha", 0x1], ["Beta", 0x40000]]
 

@@ -1,6 +1,6 @@
 # BfcbBlock: a BFCB ... BFCE block, shared by every record type that has one.
 #
-# Source (ADR 0005 "inventory" row): the corpus scans of the GLOB, KYWD and WEAP top groups
+# Source (ADR 0005 "inventory" row): the corpus scans of the GLOB, KYWD, WEAP, OMOD and COBJ top groups
 # (2026-10-14; files and counts in those definitions). BFCB opens the block and holds a
 # NUL-terminated type name in every observed case; BFCE closes it and is always 0 bytes.
 # What lies between depends on the block; it is kept as raw subrecords.
@@ -8,7 +8,8 @@
 # Member names are placeholders derived from the signature.
 name = "BfcbBlock"
 kind = "group"
-source = "corpus: BFCB..BFCE blocks in the GLOB, KYWD and WEAP records of the official ESMs"
+source = "corpus: BFCB..BFCE blocks in the GLOB, KYWD, WEAP, OMOD and COBJ records of the official ESMs"
+confidence = "corpus"
 
 [[member]]
 sig = "BFCB"

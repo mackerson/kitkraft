@@ -21,9 +21,12 @@ kit mcp                                   # empty session
 kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"   # preload a load order
 ```
 
-`--profile` runs the `load` command before serving. If it fails (until M2.D8 lands it
-always does: `load` is not implemented yet) the error goes to stderr and into the
-server's `instructions`, and the server starts with an empty session instead of exiting.
+`--profile` runs the `load` command before serving. **Until M2.D8 lands it is a no-op:**
+`load` is not implemented yet, so the preload fails with `not_implemented`, which is
+noted on stderr only. Any other preload failure (a bad path, once `load` exists) goes to
+stderr and into the server's `instructions`. Either way the server starts with an empty
+session instead of exiting. `.mcp.json.example` and the commands below pass `--profile`
+anyway, so they need no edit when `load` lands.
 `kit mcp` exits 0 when its stdin closes and 2 on a stdio error. stdout carries only MCP
 messages; logs go to stderr.
 
@@ -39,7 +42,8 @@ Client config (any MCP client that launches stdio servers):
    `C:\Modding\kitcraft\target\release\kit.exe` with the default target dir).
 2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the
    file is gitignored, never committed; adjust the paths) and approve the server when
-   Claude Code asks, or register it for yourself only:
+   Claude Code asks, or register it for yourself only (`--profile` is a no-op until
+   M2.D8, see above):
 
    ```powershell
    claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
@@ -65,8 +69,12 @@ Apache-2.0) needs `tokio`, `tokio-util`, `futures`, `chrono` and `tracing` for w
 single-threaded line loop here, and the dual-era handling below would still be ours.
 
 The server implements MCP revision **2026-07-28** and, for clients that still do the
-handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05** (a
-"dual-era" server in the 2026-07-28 versioning terms):
+handshake, the earlier revisions **2025-11-25** and **2025-06-18** (a "dual-era" server in
+the 2026-07-28 versioning terms). `2025-03-26` and `2024-11-05` are not offered: they
+require JSON-RPC batches, which this server refuses (`-32600`), so a client asking for
+them is answered with `2025-11-25`. `server/discover`'s `supportedVersions` and a
+`-32022` error's `supported` list every revision the process serves, newest first
+(`2026-07-28`, `2025-11-25`, `2025-06-18`), so a client can pick a handshake-era one.
 
 - **Modern requests** carry `params._meta["io.modelcontextprotocol/protocolVersion"]`
   (must be `2026-07-28`, else error `-32022` with `data: {supported, requested}`) and
@@ -74,11 +82,13 @@ handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-0
   `server/discover` returns `supportedVersions`, `capabilities`, `instructions`. Every
   result carries `resultType: "complete"` and `_meta["io.modelcontextprotocol/serverInfo"]`;
   list, read and discover results carry `ttlMs`/`cacheScope` (the load-order resource:
-  `0`/`private`).
-- **Legacy requests** (no version in `_meta`): `initialize` answers with the client's
-  `protocolVersion` when it is one of the four above, otherwise `2025-11-25`, plus
-  `capabilities`, `serverInfo` and `instructions`. `notifications/initialized` and `ping`
-  work; requests before `initialize` are served too.
+  `0`/`private`). `initialize` and `ping` are not methods of this revision: a modern
+  request for either is `-32601`.
+- **Legacy requests** (no version in `_meta`, or a handshake-era one): `initialize`
+  answers with the client's `protocolVersion` when it is one of the two above, otherwise
+  `2025-11-25`, plus `capabilities`, `serverInfo` and `instructions`.
+  `notifications/initialized` and `ping` work; requests before `initialize` are served
+  too.
 - Methods: `server/discover`, `initialize`, `ping`, `tools/list`, `tools/call`,
   `resources/list`, `resources/read`, `resources/templates/list` (empty). Capabilities:
   `tools` and `resources`, no `listChanged`, no subscriptions, one page (any `cursor` is
@@ -86,7 +96,8 @@ handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-0
   answered; requests run one at a time, so a cancel cannot interrupt a running command.
 - Malformed JSON or non-UTF-8: `-32700`. Not a request object (batch arrays, `id` that is
   `null`, a float, a bool or an object, wrong `jsonrpc`), or a line over 8 MiB (discarded
-  without buffering): `-32600`. Unknown method: `-32601`. `params` not an object: `-32602`.
+  without buffering): `-32600`. Unknown method, or one the request's era lacks: `-32601`.
+  `params` not an object: `-32602`.
 
 The session is process state, which the 2026-07-28 statelessness rule discourages (state
 across requests should be named by an explicit handle). It is correct for handshake-era
@@ -102,8 +113,8 @@ question for M3.
 | `inspect_record` | `inspect`'s args (`{form, plugin}`)       | One record: header fields and subrecords (later: winner, overrides, typed fields) |
 | `query_records`  | `query`'s args (`{type, where?, limit?, cursor?}`) | Records of one type matching a field predicate; paged        |
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
-| `coverage`       | `coverage`'s args (`{plugin, decode?}`)   | Record types and subrecords vs the schema                             |
-| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?}`) | Parse and rewrite a plugin; `verify` demands identical bytes     |
+| `coverage`       | `coverage`'s args (`{plugin, decode?, signatures?, top?}`) | Record types and subrecords vs the schema; a summary by default over MCP |
+| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
 Tool shapes are generated from the catalog (`tools.rs`): a shortcut's `inputSchema` is its
@@ -111,11 +122,22 @@ command's `args_schema` verbatim and its description is the command's `summary` 
 `planned: ...` or `deferred to M3: ...` when not implemented); `execute`'s `command` enum
 and its description (one line per command with its argument names) list the catalog as
 it is. Adding or changing a command needs no edit in `crates/mcp`; tests enforce both.
-Shortcuts that never write carry `readOnlyHint: true`.
+Shortcuts that never write carry `readOnlyHint: true` and `destructiveHint: false`; `execute`,
+`command_line` (which reach every writing command) and `roundtrip` (whose `out` replaces an
+existing file with `overwrite: true`) carry `readOnlyHint: false`, `destructiveHint: true`.
 
 Every successful call returns the envelope as `structuredContent` and as JSON text in
-one `text` content block (identical). `command_line` with `help` returns
+one `text` content block (the same JSON). The text is ordered `command`, `data` with
+`data.summary` first, then the other members, so a client that shows or truncates the
+text leads with the one-line summary. `command_line` with `help` returns
 `{"help": text}`. There is no `outputSchema` (error results have a different shape).
+
+Size defaults (`MCP_DEFAULTS` in `backend.rs`): arguments that only decide how much a
+result lists default differently over MCP than from `kit`, on every route (`execute`,
+`command_line`, the shortcuts), and only when the caller leaves them out. Today:
+`coverage` gets `signatures: false` and `top: 20`. On `Starfield.esm` that is an 18 KB
+envelope instead of 695 KB (the envelope is sent twice, as `structuredContent` and as
+text); pass `signatures: true` and a larger `top` (or omit nothing) for the full listing.
 
 Resources:
 
@@ -176,7 +198,7 @@ Rules:
 
 ### `roundtrip` (M1.12)
 
-Arguments `{plugin, verify = false, out?}`. Streams the plugin through the `kitcraft-esm`
+Arguments `{plugin, verify = false, out?, overwrite = false}`. Streams the plugin through the `kitcraft-esm`
 driver one top-level group at a time, rewrites it, and compares the output with the input.
 
 ```json
@@ -204,9 +226,18 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   length 1 at `offset` with the record (`WEAP:0001A2B3`) and subrecord taken from the path,
   `coverage.status: "partial"`, the unread byte range in `not_examined`, and a limitation
   saying the counts stop at the mismatch. The counts cover only what was read.
-- `out` writes the rebuilt bytes. It is refused when it names the input file; a failed
-  roundtrip removes its partial output; after a mismatch the file stops at the top-level
-  entry that differs (stated as a limitation).
+- `out` writes the rebuilt bytes to a new file: an existing file is a `failed` error and is
+  left untouched unless `overwrite` is `true` (`kit roundtrip X.esm --out Y.esm
+  --overwrite`). It is refused when it names the input file, even with `overwrite`; a
+  failed roundtrip removes its partial output; after a mismatch the file stops at the
+  top-level entry that differs (stated as a limitation).
+- Paths (`plugin`, `out`, and every other path argument of every command) are not
+  confined to `KITCRAFT_DATA_DIR` or any other root: the server reads and writes wherever
+  the `kit` process may, with the user's permissions. A relative path resolves against
+  the `kit` process's working directory, which for `kit mcp` is whatever directory the
+  MCP client launched it in (for Claude Code, normally the project directory). Pass
+  absolute paths. The only guards on `out` are the existing-file refusal (`overwrite`)
+  and the same-file refusal above.
 
 ### `inspect` (minimal)
 
@@ -229,7 +260,8 @@ note.
 
 ### `coverage` (M1.14)
 
-Arguments `{plugin, decode = true}`; CLI `kit coverage <plugin> [--no-decode]`. Streams the
+Arguments `{plugin, decode = true, signatures?, top?}`; CLI `kit coverage <plugin>
+[--no-decode] [--no-signatures] [--top N]`. Streams the
 plugin and classifies every subrecord occurrence against the builtin schema by its record
 type and signature: `typed` (the type's definition names it with a layout), `opaque`
 (named, kept as raw bytes) or `unknown` (the type has no definition, or the definition does
@@ -238,21 +270,107 @@ decoded against the layouts. With `decode` (the default) compressed records are
 decompressed under the default `DecodeLimits` and counted; one that fails to decompress is
 listed in `coverage.not_examined` (first 20, then a count), not fatal.
 
+Size controls, which never change the totals: `signatures: false` sets each type's
+`signatures` to `null`; `top: N` lists only the N types with the most records (`0` lists
+none) and adds a limitation naming how many of how many are listed. Omitted, `kit` (and
+`cargo xtask parity`) list everything; over MCP they default to `false` and `20`.
+
 `data`: `plugin`, `file`, `bytes`, `decode`, `records`, `groups`, `compressed_records`,
 `compressed_examined`, `record_types_seen`, `record_types_defined`, `subrecords`
-(occurrences), `occurrences {typed, opaque, unknown}`, `summary`, and `record_types[]`
+(occurrences), `occurrences {typed, opaque, unknown}`, `signatures` and `top` (as
+applied), `record_types_listed`, `summary`, and `record_types[]`
 sorted by record count (then signature), each with `signature`, `definition` (the schema
 name or `null`), `records`, `compressed`, `compressed_examined`, `subrecords`,
 `occurrences`, `distinct {seen, typed, opaque, unknown}` (distinct signatures),
 `first_offset`, and `signatures[]` (`signature`, `count`, `class`, `members` = member
-paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it).
+paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it;
+`null` with `signatures: false`).
 
 Coverage: `decoded_subrecords` is the `typed` occurrence count, `opaque_subrecords` the
 `opaque` plus `unknown` count; `status` is `complete` only when both of those are zero and
 every compressed record was examined. Evidence: the whole file, then the first record of
-each type. Limitations always state that classification is by signature only; with
+each listed type. Limitations always state that classification is by signature only; with
 `--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
 `cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
+
+### `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4)
+
+Archives are read through `kitcraft-ba2` (GNRL v2/v3, DX10 v2/v3; `docs/corpus.md`
+"Archives"). Patterns are regular expressions matched case-insensitively against archive
+paths (`scripts/form.pex`). No command writes under a game `Data` directory (a directory
+holding `Starfield.esm`, or `KITCRAFT_DATA_DIR`): such an `out_dir` / `out` is a `failed`
+error before anything is written. A bad pattern is `invalid_args` (`rule: "pattern"`).
+
+- `ba2.list {archive, filter?, limit = 1000, start = 0}`; CLI `kit ba2 list <archive>`.
+  `data`: `archive`, `version`, `kind` (`gnrl`/`dx10`), `codec` (`zlib`/`lz4-block`),
+  `compression_field`, `file_count`, `bytes`, `has_names`, `filter`, `matched`, `start`,
+  `shown`, `summary`, and `entries[]` with `index`, `name`, `size` (bytes extraction
+  produces; for a texture the synthesized DDS header included), `stored`, `compressed`,
+  `record_offset`, `data_offset`, and for textures `texture {width, height, mips,
+  dxgi_format, cubemap, chunks}`. Evidence: the header, the record table and the name
+  table. A page shorter than `matched` adds a limitation.
+- `ba2.extract {archive, out_dir, pattern?, overwrite = false}`; CLI
+  `kit ba2 extract <archive> <out_dir> [--pattern re]`. Every target is checked first: an
+  existing file without `overwrite` fails with nothing written. Each file is streamed and
+  checked against its declared size; a failure removes the partial file. `data`:
+  `archive`, `out_dir`, `pattern`, `extracted`, `bytes`, `files[]` (first 1,000: `index`,
+  `name`, `size`, `path`), `summary`. DX10 entries get a DDS header byte-identical to
+  `Archive2.exe` 1.2.0.1's extraction of the official archives (stated as a limitation).
+- `ba2.pack {dir, out, format = "gnrl", version = 2, compress = true}`; CLI
+  `kit ba2 pack <dir> <out> [--format dx10] [--version 3]`. `dir` is the Data root:
+  `dir\scripts\x.pex` is stored as `scripts/x.pex` (lower-cased, `/`). Version 2 packs
+  with zlib, 3 with LZ4 blocks; a blob is stored when compression does not shrink it. The
+  same inputs give the same bytes. `dx10` takes only `.dds` files and needs pixel data of
+  exactly the mip chain's size; DDS headers are not stored (extraction synthesizes them,
+  a limitation). `out` may not be inside `dir`; it is written as `<out>.partial` and
+  renamed. `data`: `dir`, `out`, `format`, `version`, `compress`, `packed`, `bytes`,
+  `files[]` (first 1,000: `name`, `size`, `stored`), `summary`; evidence: the whole
+  archive.
+
+### `papyrus.disasm`, `papyrus.compile` (M2.G6, M2.G7)
+
+- `papyrus.disasm {pex, archive?, format = "text"}`; CLI `kit papyrus disasm <pex>`
+  (alias `pexdis`). With `archive`, `pex` is a path inside that `.ba2`. `format`: `text`
+  (`pexdis.py`'s format), `json` (the structured model) or `both`. `data`: `pex`,
+  `archive`, `bytes`, `version`, `game_id`, `source`, `objects`, `functions`,
+  `instructions`, `text` and/or `script` (header, string count, debug block summary,
+  user flags, objects with structs, variables, guards, properties, property functions
+  and states; every function with params, locals and instructions with `offset`,
+  `opcode`, `op`, `args` / `varargs` as `{type, value, text}`), and `summary` = the text
+  without its final newline, so `kit papyrus disasm x.pex` prints what `pexdis.py x.pex`
+  prints. Structs are in the model, not the text (a limitation when present).
+- `papyrus.compile {source, out_dir, imports?, flags?, compiler?, optimize = false}`; CLI
+  `kit papyrus compile <source> <out_dir> --imports <dir> ...`. Runs Bethesda's
+  `PapyrusCompiler.exe` (black box) on one script by name: a `.psc` path becomes its name
+  with its folder imported first; `.ppj` projects are refused. Arguments are only the
+  object, `-f=`, `-i=`, `-o=` and `-op`; release and final mode can never be requested
+  (any extra argument such as `release` is `invalid_args`). The flags file defaults to
+  `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
+  the `Scripts\Source` folder of `Tools\ContentResources.zip`, extracted by the caller.
+  `data`: `source`, `script`, `out_dir`, `compiler`, `args`, `exit_code`, `passed` (the
+  compiler's success; `kit` exits 1 when false), `stdout`, `stderr`, `pex` (`path`,
+  `bytes`, `parsed`, `text`: the output disassembled through `kitcraft-pex`) and
+  `summary`. A missing compiler is a `failed` error naming every path looked at
+  (`compiler`, `KITCRAFT_PAPYRUS_COMPILER`, `KITCRAFT_DATA_DIR`'s game folder, the Steam
+  default).
+
+### `strings.dump`, `strings.merge` (M2.G9)
+
+- `strings.dump {table, archive?, id?, contains?, limit = 100, start = 0}`; CLI
+  `kit strings dump <table> [--archive a.ba2] [--id 0x0002E469]`. `table` is a
+  `.strings`/`.dlstrings`/`.ilstrings` file, or with `archive` its path inside the `.ba2`
+  (`strings/starfield_en.strings` in `Starfield - Localization.ba2`). `id` is `0x` hex or
+  decimal; `contains` filters text case-insensitively. `data`: `table`, `archive`, `kind`,
+  `count`, `matched`, `start`, `shown`, `summary`, `entries[]` with `id` (`0x%08X`),
+  `text` (UTF-8, lossy), `utf8`, `offset` and `length` in the table file, and `bytes_hex`
+  when not valid UTF-8. Evidence: each shown string's bytes in the table file (a
+  limitation says so when the table came from an archive).
+- `strings.merge {tables, out}`: tables of one kind; a later table wins for an ID; the
+  output is sorted by ID and written in the official layout, so the same inputs give the
+  same bytes. `out` must have the inputs' extension, may not be an input, and is never
+  under the game Data directory. `data`: `tables`, `out`, `kind`, `entries`, `bytes`,
+  `conflict_count`, `conflicts[]` (first 100: `id`, `replaced`, `winner`, `old`, `new`),
+  `identical_repeats`, `summary`.
 
 ## Errors
 
@@ -276,13 +394,17 @@ errors are tool results rather than JSON-RPC errors so the model sees the pointe
 rule and can fix its call; MCP 2026-07-28 ("Tools", "Error Handling") classes input
 validation as a tool execution error. `execute` and `command_line` validate their own
 `{command, args}` / `{text}` with the same validator (`invalid_args` names the tool).
+`execute` checks `command` first: an id or alias that is not in the catalog is
+`unknown_command` whatever else is wrong with the call (never an `enum` violation listing
+the catalog), and `args: null` is taken as `{}` before validation.
 
 Argument validation implements the JSON Schema subset the catalog uses: `type`, `enum`,
 `properties`, `required`, `additionalProperties`, `items`, `minItems`/`maxItems`,
 `minLength`/`maxLength`, `minimum`/`maximum`; `default`, `description`, `title`,
 `examples`, `$schema` are annotations. Any other keyword in a catalog schema is refused
 (a test enforces it), so a schema can never silently accept what it claims to reject.
-Top-level `default`s are filled in before the handler runs; `null` arguments mean `{}`.
+Top-level `default`s are filled in before the handler runs; `null` arguments mean `{}`
+(`execute`'s `args: null` included).
 
 - Invalid arguments: an `isError` result with the failing JSON pointer and the schema rule.
 - Command failures (unreadable file, parse error, missing master): a tool result with

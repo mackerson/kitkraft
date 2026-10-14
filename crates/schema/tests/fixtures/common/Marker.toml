@@ -2,6 +2,7 @@
 name = "Marker"
 kind = "group"
 source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
 
 [[member]]
 sig = "MRKB"

@@ -4,7 +4,7 @@ Check this before claiming something works. Remove a row only with the commit th
 
 | Gap                                                               | Impact                                                   | Closes in        |
 | ----------------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
-| Only `roundtrip`, `coverage` and a minimal `inspect` are implemented; every other catalog entry is `Planned` | Planned commands exit 2 with a stub or `not_implemented` error | M2 |
+| Only `roundtrip`, `coverage`, a minimal `inspect` and the lane G commands (`ba2.*`, `papyrus.*`, `strings.*`) are implemented; every other catalog entry is `Planned` | Planned commands exit 2 with a stub or `not_implemented` error | M2 |
 | `roundtrip` compares at container level only; compressed bodies are re-emitted, not decompressed | A compressed record whose zlib stream is corrupt but well-sized still roundtrips identical | M2 (`roundtrip --decode`) |
 | CLI exit 1 is wired (`data.passed: false`) but no parseable plugin can produce a `roundtrip` mismatch today | The exit-1 path is unit-tested, not exercised end to end | when the writer gains a lossy path |
 | `inspect` is single-plugin and untyped                            | No winning override; every payload is hex; FormIDs are file-relative as stored | M2 (load order), schema wiring |
@@ -13,18 +13,23 @@ Check this before claiming something works. Remove a row only with the commit th
 | Streaming `rewrite_file` writes `TES4` before it sees the edits | When an edit adds or removes records or groups, the `HEDR` count must be patched afterwards: `rewrite_file_to_path` does it; a caller streaming to its own sink applies `RewriteReport::hedr_fix` (`HedrFix::apply` on a seekable sink) | permanent (by design of the one-pass stream) |
 | Meaning of TES4 flag bits 0x100, 0x400, 0x800 has no permitted source | Bits are preserved and listed raw; `tes4` names only 0x1 and 0x80 | M3 (CK observation) |
 | Group type 10 is not in UESP's table (Starfield-only)            | Preserved and walked; its label is shown as a FormID     | M3 (CK observation) |
-| Schema has TES4, GRUP, the record header and inventory-only GLOB/GMST/KYWD/WEAP; `esm` decodes through them (`Record::typed`, `Plugin::typed`, `Record::set_typed`) but `inspect` does not use that yet | Every Starfield-specific payload is opaque; `inspect` shows hex | ck-diff observations; lane C (`inspect` through `Plugin::typed`) |
+| Schema has TES4, GRUP, the record header, the universal subrecords (EDID, FULL, DESC, KSIZ/KWDA) and the GMST and GLOB values; the rest of KYWD and WEAP are inventories; `esm` decodes through them (`Record::typed`, `Plugin::typed`, `Record::set_typed`) but `inspect` does not use that yet | Other Starfield-specific payloads are opaque; `inspect` shows hex | lane B round 3 (xEdit); lane D/F (`inspect` through `Plugin::typed`) |
+| KYWD CNAM, DNAM, TNAM, FNAM, DATA, ENAM and GMST XALG have no source that M2.B9 could read (no UESP page for them was available, the pinned xEdit file not yet read) | Kept opaque; corpus facts for them are noted in the definitions | lane B round 3 (xEdit) |
+| lstring IDs (FULL, DESC, GMST `s` values) are typed by size and the localized flag only; no corpus check that each ID exists in the string tables | A wrong ID shows as an unresolved string, not as a decode error | M2.D7 (string tables) |
 | `coverage` (and `docs/record-parity.md`) classify subrecords by signature only | A `typed` subrecord whose payload does not fit its layout still counts as typed | lane C (decode through `Plugin::typed`) |
-| Discriminated unions (layout chosen by another field or subrecord) cannot be expressed in definitions | Such payloads stay opaque | later format work |
+| Discriminated unions: only `decider = "edid-prefix"` (layout chosen by the EditorID's first byte, M2.B9) can be expressed; a layout chosen by another field or subrecord cannot | Such payloads stay opaque | later format work |
 | `count_from` arrays: the count field is written as stored | Editing the array without its count field writes an inconsistent payload | M2 (editing) |
 | Localized strings not loaded                                      | FULL/DESC on localized plugins show string IDs only      | M2               |
 | No load-order resolution                                          | Cannot answer "which plugin wins"                        | M2               |
 | MCP server not implemented                                        | Agents use the CLI only                                  | M2               |
+| `ba2.pack` stores no DDS header; extraction synthesizes the one `Archive2.exe` writes | A texture packed with a different (valid) header extracts with the same pixels and a different header | permanent (the format has no header field) |
+| DDS header choices for DXGI formats absent from the official archives are unobserved | Those formats extract with the DX10 extension header, which Archive2 may not choose | when such a texture is observed |
+| `papyrus.compile` cannot read `Tools\ContentResources.zip` | The caller extracts `Scripts\Source` and passes it in `imports` | later (zip reader) |
+| `.pex` assembly, editing and decompiling to `.psc` | Scripts can be disassembled and compiled from source only | after M2 |
 | No fuzzing harness (cargo-fuzz needs nightly)                     | Hostile-input coverage limited to deterministic mutation | after M1         |
 | `forbid(unsafe_code)` covers workspace crates only. zlib-rs (our flate2 backend) is pure Rust but uses `unsafe` internally: 469 source lines of zlib-rs 0.6.8 mention it | Decompression of hostile streams relies on that crate's own unsafe code being sound | permanent (dependency review) |
 | Spriggit round trip lost data on 2 of 5 real mods tested          | Not an oracle; inventory facts only (ADR 0001 §4)        | permanent        |
-| Typed Starfield layouts not transcribed yet (ADR 0004 decided; lane B round 3 waits for owner review of `docs/xedit-reference.md`) | Record payloads beyond TES4 stay opaque | lane B round 3 |
-| `confidence` is validated by the loader but not carried in the typed model | Coverage reports cannot show it yet | lane B          |
+| Typed Starfield record layouts (WEAP, AMMO, PROJ, AMDL, OMOD, COBJ, ZOOM, LVLI, FLST, INNR) not transcribed yet: ADR 0004 approved, but fetching the pinned xEdit files was not permitted in the 2026-10-14 lane B session | Record bodies beyond the universal subrecords stay opaque | lane B round 3, once the files may be fetched |
 | SF1Edit not installed (differential comparison, ADR 0005 Am. 2 §2a) | No SF1Edit cross-check of decoded values               | M2               |
 | Project name is a placeholder                                     | Package names (`kitcraft-*`, `kit`) may be renamed       | owner            |
 | No remote, no hosted CI                                           | The local `cargo xtask ci` run is the only gate          | owner            |

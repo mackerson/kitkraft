@@ -6,8 +6,9 @@
 use std::path::Path;
 
 use kitcraft_schema::{
-    load_dir, load_sources, parse_definition, ArrayCount, Cardinality, CommonBody, Definition,
-    ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature,
+    load_dir, load_sources, parse_definition, ArrayCount, Cardinality, CommonBody, Confidence,
+    Decider, Definition, ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature,
+    XEDIT_FILES, XEDIT_REVISION,
 };
 
 const FIXTURE: &str = include_str!("fixtures/ZZZZ.toml");
@@ -18,7 +19,7 @@ fn sig(s: &str) -> Signature {
 
 /// A minimal valid record file with `body` appended.
 fn record(body: &str) -> String {
-    format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"corpus: unit test\"\n{body}")
+    format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"corpus: unit test\"\nconfidence = \"corpus\"\n{body}")
 }
 
 fn kind_of(result: Result<Definition, SchemaError>) -> ErrorKind {
@@ -90,7 +91,7 @@ fn fixture_loads_with_every_feature() {
 
 #[test]
 fn header_definition_loads_and_checks_its_size() {
-    let text = "signature = \"HDR0\"\nname = \"Hdr\"\nkind = \"header\"\nsource = \"corpus: t\"\n\
+    let text = "signature = \"HDR0\"\nname = \"Hdr\"\nkind = \"header\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
                 size = 8\nfield = [{ name = \"Type\", type = \"sig\" }, { name = \"Size\", type = \"u32\" }]\n";
     let def = parse_definition("HDR0.toml", text).unwrap();
     let Definition::Header(h) = def else {
@@ -114,7 +115,7 @@ fn malformed_toml_reports_line_and_column() {
     let text = record("[[member]]\nsig = \"EDID\"\nname = \"EditorId\"\ntype = zstring\n");
     match parse_definition("TEST.toml", &text) {
         Err(SchemaError::Toml { line, column, .. }) => {
-            assert_eq!(line, 7);
+            assert_eq!(line, 8);
             assert!(column > 1);
         }
         other => panic!("expected a TOML error, got {other:?}"),
@@ -244,7 +245,10 @@ fn source_forms_follow_adr_0005() {
         "ck-diff: obs-1",
         "ck-wiki: Weapon",
     ] {
-        let text = format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"{prefix}\"\n");
+        let text = format!(
+            "signature = \"TEST\"\nname = \"Test\"\nsource = \"{prefix}\"\n\
+             evidence = [\"corpus: c\"]\nconfidence = \"corpus\"\n"
+        );
         parse_definition("TEST.toml", &text).unwrap();
     }
     // A Skyrim container fact may say `confidence = "corpus"` or better (Amendment 2).
@@ -559,9 +563,10 @@ fn count_from_rules() {
     ));
 }
 
-const POINT: &str = "name = \"Point\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"struct\"\n\
+const POINT: &str = "name = \"Point\"\nkind = \"type\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\ntype = \"struct\"\n\
                      field = [{ name = \"X\", type = \"i16\" }, { name = \"Y\", type = \"i16\" }]\n";
-const BLOCK: &str = "name = \"Block\"\nkind = \"group\"\nsource = \"corpus: t\"\n\
+const BLOCK: &str =
+    "name = \"Block\"\nkind = \"group\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
                      [[member]]\nsig = \"BEGN\"\nname = \"Begin\"\ntype = \"empty\"\n\
                      [[member]]\nany_until = \"BEND\"\nname = \"Body\"\n\
                      [[member]]\nsig = \"BEND\"\nname = \"End\"\ntype = \"empty\"\n";
@@ -665,9 +670,9 @@ fn shared_definition_errors() {
         ErrorKind::UnknownRef("Block".into())
     );
     // Cycles between shared types.
-    let a = "name = \"A\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"struct\"\n\
+    let a = "name = \"A\"\nkind = \"type\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\ntype = \"struct\"\n\
              field = [{ name = \"B\", type = \"ref:B\" }]\n";
-    let b = "name = \"B\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"ref:A\"\n";
+    let b = "name = \"B\"\nkind = \"type\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\ntype = \"ref:A\"\n";
     assert!(matches!(
         load_sources([("common/A.toml", a), ("common/B.toml", b)]),
         Err(SchemaError::Invalid {
@@ -691,7 +696,7 @@ fn shared_definition_errors() {
 
 #[test]
 fn header_without_signature() {
-    let text = "name = \"RecordHeader\"\nkind = \"header\"\nsource = \"corpus: t\"\nsize = 8\n\
+    let text = "name = \"RecordHeader\"\nkind = \"header\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\nsize = 8\n\
                 field = [{ name = \"Signature\", type = \"sig\" }, { name = \"Size\", type = \"u32\" }]\n";
     let def = parse_definition("RECORD.toml", text).unwrap();
     let Definition::Header(h) = def else {
@@ -703,7 +708,7 @@ fn header_without_signature() {
         ErrorKind::FileName { .. }
     ));
     // A record still needs its signature.
-    let rec = "name = \"Test\"\nsource = \"corpus: t\"\n";
+    let rec = "name = \"Test\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n";
     assert_eq!(
         kind_of(parse_definition("TEST.toml", rec)),
         ErrorKind::MissingKey("signature")
@@ -713,7 +718,8 @@ fn header_without_signature() {
 #[test]
 fn uesp_starfield_sources_and_the_forbidden_ctda_page() {
     let ok = "signature = \"TEST\"\nname = \"Test\"\n\
-              source = \"uesp-starfield: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data\"\n";
+              source = \"uesp-starfield: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data\"\n\
+              evidence = [\"corpus: c\"]\nconfidence = \"corpus\"\n";
     parse_definition("TEST.toml", ok).unwrap();
     let ctda = ok.replace("Raw_Data", "CTDA");
     assert!(matches!(
@@ -751,6 +757,16 @@ fn xedit_sources_name_the_pinned_revision_and_a_line_range() {
 
     ok(&xedit("L18594-L18833"), "confidence = \"reference\"\n");
     ok(&xedit("L7-L7"), "confidence = \"reference\"\n");
+    // The owner approval of 2026-10-14 adds the common helper file, at the same pin.
+    ok(
+        &format!("xedit: wbDefinitionsCommon.pas@{PIN}#L8935-L8951"),
+        "confidence = \"reference\"\n",
+    );
+    assert_eq!(XEDIT_REVISION, PIN);
+    assert_eq!(
+        XEDIT_FILES,
+        ["wbDefinitionsSF1.pas", "wbDefinitionsCommon.pas"]
+    );
     // Helper ranges go in `evidence`, same form.
     ok(
         "corpus: WEAP records of the official ESMs",
@@ -766,6 +782,10 @@ fn xedit_sources_name_the_pinned_revision_and_a_line_range() {
     assert!(reason("xedit: wbDefinitionsSF1.pas").contains("`@<sha>`"));
     assert!(reason(&format!("xedit: wbDefinitionsSF1.pas@{PIN}")).contains("`#L"));
     assert!(reason(&format!("xedit: wbDefinitionsFO4.pas@{PIN}#L1-L2")).contains("file"));
+    assert!(reason(&format!("xedit: wbDefinitionsSignatures.pas@{PIN}#L1-L2")).contains("file"));
+    assert!(pinned(reason(
+        "xedit: wbDefinitionsCommon.pas@4440381a3cff2174d173489085fcb8c9987ac71a#L1-L2"
+    )));
     assert!(reason(&format!("xedit: Core/wbDefinitionsSF1.pas@{PIN}#L1-L2")).contains("file"));
     assert!(reason("xedit: wbDefinitionsSF1.pas@dev-4.1.6#L1-L2").contains("40-character"));
     assert!(hex(reason(&format!(
@@ -799,24 +819,23 @@ fn xedit_sources_name_the_pinned_revision_and_a_line_range() {
 }
 
 #[test]
-fn confidence_is_required_for_xedit_and_backed_by_citations() {
+fn confidence_is_required_and_backed_by_citations() {
     let check =
         |source: &str, rest: &str| kind_of(parse_definition("TEST.toml", &cited(source, rest)));
     let x = xedit("L1-L2");
+    let missing = ErrorKind::MissingConfidence("on every definition file");
 
-    // Missing: an error for `xedit:` citations, in source or evidence.
-    assert_eq!(check(&x, ""), ErrorKind::MissingConfidence("`xedit:`"));
+    // Missing: an error on every file (M2.B1), whatever it cites.
+    assert_eq!(check(&x, ""), missing);
     assert_eq!(
         check("corpus: c", &format!("evidence = [\"{x}\"]\n")),
-        ErrorKind::MissingConfidence("`xedit:`")
+        missing
     );
-    // Optional elsewhere (for now also on `uesp-skyrim:`), but checked when present.
-    parse_definition("TEST.toml", &cited("corpus: c", "")).unwrap();
-    parse_definition(
-        "TEST.toml",
-        &cited("uesp-skyrim: x", "evidence = [\"corpus: walk\"]\n"),
-    )
-    .unwrap();
+    assert_eq!(check("corpus: c", ""), missing);
+    assert_eq!(
+        check("uesp-skyrim: x", "evidence = [\"corpus: walk\"]\n"),
+        missing
+    );
     parse_definition(
         "TEST.toml",
         &cited("corpus: c", "confidence = \"corpus\"\n"),
@@ -878,14 +897,258 @@ fn confidence_is_required_for_xedit_and_backed_by_citations() {
     .unwrap();
 }
 
+/// M2.B1: members and fields carry their own provenance, or inherit their parent's; the
+/// model stores the effective value on every node.
+#[test]
+fn members_and_fields_carry_provenance() {
+    let x = xedit("L10-L20");
+    let text = format!(
+        "signature = \"TEST\"\nname = \"Test\"\nsource = \"{x}\"\nconfidence = \"reference\"\n\
+         [[member]]\nsig = \"EDID\"\nname = \"EditorId\"\ntype = \"zstring\"\n\
+         evidence = [\"corpus: every EDID ends in NUL\"]\nconfidence = \"corpus\"\n\
+         [[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\n\
+         field = [\n\
+           {{ name = \"A\", type = \"u32\" }},\n\
+           {{ name = \"B\", type = \"f32\", source = \"ck-diff: obs-7\", confidence = \"ck-diff\" }},\n\
+         ]\n\
+         [[member]]\ngroup = \"Pair\"\ncard = \"optional\"\n\
+         source = \"corpus: pair scan\"\nconfidence = \"corpus\"\n\
+         [[member.member]]\nsig = \"XNAM\"\nname = \"X\"\ntype = \"u8\"\n"
+    );
+    let Definition::Record(rec) = parse_definition("TEST.toml", &text).unwrap() else {
+        panic!("record");
+    };
+    assert_eq!(rec.provenance.confidence, Confidence::Reference);
+    assert_eq!(rec.provenance.source, x);
+    let Member::Subrecord(edid) = &rec.members[0] else {
+        panic!("EDID");
+    };
+    // Inherited source, own evidence added, own level.
+    assert_eq!(edid.provenance.source, x);
+    assert_eq!(edid.provenance.evidence, ["corpus: every EDID ends in NUL"]);
+    assert_eq!(edid.provenance.confidence, Confidence::Corpus);
+    let Member::Subrecord(data) = &rec.members[1] else {
+        panic!("DATA");
+    };
+    assert_eq!(data.provenance, rec.provenance);
+    let FieldType::Struct { fields } = &data.ty else {
+        panic!("struct");
+    };
+    assert_eq!(fields[0].provenance, rec.provenance);
+    assert_eq!(fields[1].provenance.source, "ck-diff: obs-7");
+    assert!(fields[1].provenance.evidence.is_empty());
+    assert_eq!(fields[1].provenance.confidence, Confidence::CkDiff);
+    let Member::Group(pair) = &rec.members[2] else {
+        panic!("group");
+    };
+    assert_eq!(pair.provenance.source, "corpus: pair scan");
+    let Member::Subrecord(xnam) = &pair.members[0] else {
+        panic!("XNAM");
+    };
+    assert_eq!(xnam.provenance, pair.provenance);
+    let levels: Vec<Confidence> = rec
+        .leaf_subrecords()
+        .iter()
+        .map(|(_, s)| s.provenance.confidence)
+        .collect();
+    assert_eq!(
+        levels,
+        [
+            Confidence::Corpus,
+            Confidence::Reference,
+            Confidence::Corpus
+        ]
+    );
+
+    // Errors: an own source needs an own confidence; levels are checked against the
+    // effective citations; values and citation forms are checked on members too.
+    let member = |keys: &str| {
+        invalid(&format!(
+            "[[member]]\nsig = \"EDID\"\nname = \"E\"\ntype = \"zstring\"\n{keys}"
+        ))
+    };
+    assert_eq!(
+        member("source = \"corpus: c\"\n"),
+        ErrorKind::MissingConfidence("on a member or field with its own `source`")
+    );
+    assert!(matches!(
+        member("confidence = \"reference\"\n"),
+        ErrorKind::UnsupportedConfidence { .. }
+    ));
+    assert!(matches!(
+        member("source = \"corpus: c\"\nconfidence = \"ck-diff\"\n"),
+        ErrorKind::UnsupportedConfidence { .. }
+    ));
+    assert_eq!(
+        member("confidence = \"sure\"\n"),
+        ErrorKind::UnknownConfidence("sure".into())
+    );
+    assert_eq!(
+        member("evidence = [\"a hunch\"]\n"),
+        ErrorKind::BadSource("a hunch".into())
+    );
+    assert!(matches!(
+        invalid("[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                 field = [{ name = \"A\", type = \"u8\", source = \"xedit: nope\", confidence = \"reference\" }]\n"),
+        ErrorKind::BadXeditSource { .. }
+    ));
+    // Own evidence on top of the file's citations can raise the level.
+    parse_definition(
+        "TEST.toml",
+        &record(
+            "[[member]]\nsig = \"EDID\"\nname = \"E\"\ntype = \"zstring\"\n\
+             evidence = [\"ck-diff: obs-2\"]\nconfidence = \"verified\"\n",
+        ),
+    )
+    .unwrap();
+}
+
+/// Shared definitions keep their own provenance wherever they are expanded.
+#[test]
+fn shared_members_keep_the_shared_provenance() {
+    let block = "name = \"Block\"\nkind = \"group\"\nsource = \"corpus: block scan\"\n\
+                 confidence = \"corpus\"\n\
+                 [[member]]\nsig = \"BNAM\"\nname = \"B\"\ntype = \"u8\"\n";
+    let rec = format!(
+        "signature = \"TEST\"\nname = \"Test\"\nsource = \"{}\"\nconfidence = \"reference\"\n\
+         [[member]]\ngroup_ref = \"Block\"\n",
+        xedit("L1-L9")
+    );
+    let schema = load_sources([("common/Block.toml", block), ("TEST.toml", rec.as_str())]).unwrap();
+    let test = schema.record(sig("TEST")).unwrap();
+    let Member::Group(g) = &test.members[0] else {
+        panic!("group");
+    };
+    assert_eq!(g.provenance.confidence, Confidence::Reference);
+    let Member::Subrecord(b) = &g.members[0] else {
+        panic!("BNAM");
+    };
+    assert_eq!(b.provenance.source, "corpus: block scan");
+    assert_eq!(b.provenance.confidence, Confidence::Corpus);
+    assert_eq!(
+        schema.common["Block"]
+            .provenance
+            .citations()
+            .collect::<Vec<_>>(),
+        ["corpus: block scan"]
+    );
+}
+
+/// M2.B9: `type = "union"` (layout by EditorID prefix) on whole subrecord members only.
+#[test]
+fn union_rules() {
+    let edid = "[[member]]\nsig = \"EDID\"\nname = \"EditorId\"\ntype = \"zstring\"\n";
+    let union = |keys: &str| {
+        format!("{edid}[[member]]\nsig = \"DATA\"\nname = \"Value\"\ntype = \"union\"\n{keys}")
+    };
+    let ok = "decider = \"edid-prefix\"\nvariants = [\n\
+              { when = \"f\", name = \"Float\", type = \"f32\" },\n\
+              { when = \"s\", name = \"Text\", type = \"lstring\" },\n\
+              { when = \"r\", name = \"Ref\", type = \"formid\", targets = [\"KYWD\"] },\n]\n";
+    let Definition::Record(rec) = parse_definition("TEST.toml", &record(&union(ok))).unwrap()
+    else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[1] else {
+        panic!("DATA");
+    };
+    let FieldType::Union { decider, variants } = &data.ty else {
+        panic!("union");
+    };
+    assert_eq!(*decider, Decider::EditorIdPrefix);
+    assert_eq!(decider.as_str(), "edid-prefix");
+    let whens: Vec<u8> = variants.iter().map(|v| v.when).collect();
+    assert_eq!(whens, b"fsr");
+    // Variable (lstring) variant: no fixed size, and a declared size is rejected.
+    assert_eq!(data.ty.fixed_size(None), None);
+    assert!(matches!(
+        invalid(&union(&format!("size = 4\n{ok}"))),
+        ErrorKind::SizeOfVariable { declared: 4 }
+    ));
+    // Same-size variants have a fixed size.
+    let fixed = "decider = \"edid-prefix\"\nsize = 4\nvariants = [\n\
+                 { when = \"f\", name = \"Float\", type = \"f32\" },\n\
+                 { when = \"i\", name = \"Int\", type = \"i32\" },\n]\n";
+    parse_definition("TEST.toml", &record(&union(fixed))).unwrap();
+
+    let v = |entries: &str| format!("decider = \"edid-prefix\"\nvariants = [{entries}]\n");
+    assert_eq!(
+        invalid(&union(
+            "variants = [{ when = \"f\", name = \"F\", type = \"f32\" }]\n"
+        )),
+        ErrorKind::MissingKey("decider")
+    );
+    assert_eq!(
+        invalid(&union("decider = \"edid-prefix\"\n")),
+        ErrorKind::MissingKey("variants")
+    );
+    assert_eq!(
+        invalid(&union("decider = \"by-color\"\nvariants = []\n")),
+        ErrorKind::UnknownDecider("by-color".into())
+    );
+    assert_eq!(invalid(&union(&v(""))), ErrorKind::Empty);
+    assert_eq!(
+        invalid(&union(&v(
+            "{ when = \"ff\", name = \"F\", type = \"f32\" }"
+        ))),
+        ErrorKind::BadWhen("ff".into())
+    );
+    assert_eq!(
+        invalid(&union(&v("{ when = \"?\", name = \"F\", type = \"f32\" }"))),
+        ErrorKind::BadWhen("?".into())
+    );
+    assert_eq!(
+        invalid(&union(&v(
+            "{ when = \"f\", name = \"A\", type = \"f32\" }, { when = \"f\", name = \"B\", type = \"u32\" }"
+        ))),
+        ErrorKind::DuplicateValue(i128::from(b'f'))
+    );
+    assert_eq!(
+        invalid(&union(&v(
+            "{ when = \"f\", name = \"A\", type = \"f32\" }, { when = \"g\", name = \"A\", type = \"u32\" }"
+        ))),
+        ErrorKind::DuplicateName("A".into())
+    );
+    assert!(matches!(
+        invalid(&union(&v(
+            "{ when = \"f\", name = \"A\", type = \"struct\" }"
+        ))),
+        ErrorKind::UnexpectedKey { key: "type", .. }
+    ));
+    assert!(matches!(
+        invalid(&union(&format!("targets = [\"KYWD\"]\n{ok}"))),
+        ErrorKind::UnexpectedKey { key: "targets", .. }
+    ));
+    // Only on whole subrecords, and only in a record that has an EDID member.
+    assert_eq!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+             field = [{ name = \"A\", type = \"union\" }]\n"
+        ),
+        ErrorKind::UnionPlacement
+    );
+    assert_eq!(
+        invalid(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Value\"\ntype = \"union\"\n{ok}"
+        )),
+        ErrorKind::UnionWithoutEditorId
+    );
+    assert!(matches!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"u32\"\ndecider = \"edid-prefix\"\n"
+        ),
+        ErrorKind::UnexpectedKey { key: "decider", .. }
+    ));
+}
+
 #[test]
 fn load_dir_reads_common_definitions() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let schema = load_dir(&dir).unwrap();
     let names: Vec<&str> = schema.common.keys().map(String::as_str).collect();
-    assert_eq!(names, ["Marker", "Point"]);
+    assert_eq!(names, ["Link", "Marker", "Point"]);
     let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
-    assert_eq!(sigs, ["EMPT", "YYYY", "ZZZZ"]);
+    assert_eq!(sigs, ["EMPT", "UUUU", "VVVV", "YYYY", "ZZZZ"]);
 }
 
 #[test]

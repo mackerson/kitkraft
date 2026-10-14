@@ -1,0 +1,147 @@
+# COBJ: subrecord inventory. The universal subrecords (EDID, DESC) are typed (M2.B2,
+# sources on each member); every other payload is opaque until the record layout is
+# transcribed (lane B round 3, xEdit at the pin).
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the COBJ top groups of the 14 official
+# ESMs (2026-10-14): 3,518 records, form versions 552/581/582, 43 distinct subrecord
+# sequences, all consistent with the order below. "required" means present in every
+# corpus record. CTDA (conditions) repeats up to 6 times per record.
+#
+# Opaque member names are placeholders derived from the signature.
+signature = "COBJ"
+name = "ConstructibleObject"
+source = "corpus: COBJ records of the 14 official ESMs, scan 2026-10-14"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "CTDA"
+name = "Ctda"
+type = "opaque"
+card = "repeated"
+note = "observed 32 bytes"
+
+[[member]]
+sig = "FVPA"
+name = "Fvpa"
+type = "opaque"
+card = "optional"
+note = "observed multiples of 12 bytes"
+
+[[member]]
+sig = "RQPK"
+name = "Rqpk"
+type = "opaque"
+card = "optional"
+note = "observed 12 or 24 bytes"
+
+[[member]]
+sig = "CNAM"
+name = "Cnam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+note = "observed 2 bytes"
+
+[[member]]
+sig = "SNAM"
+name = "Snam"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+note = "observed 1 byte"
+
+[[member]]
+sig = "CUSH"
+name = "Cush"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "PUSH"
+name = "Push"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "PDSH"
+name = "Pdsh"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "LRNM"
+name = "Lrnm"
+type = "opaque"
+note = "observed 1 byte"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "ANAM"
+name = "Anam"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes, in 7 records"
+
+[[member]]
+sig = "JNAM"
+name = "Jnam"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "RECF"
+name = "Recf"
+type = "opaque"
+note = "observed 8 bytes"
