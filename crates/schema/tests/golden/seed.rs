@@ -25,6 +25,7 @@
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
+// - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - TRAV (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379; corpus)
@@ -6417,6 +6418,439 @@ impl RsgdRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RspjRequiredItemsItem {
+    pub item: FormId,
+    pub count: u32,
+    pub curve_table: FormId,
+}
+
+impl Field for RspjRequiredItemsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "RSPJ.FVPA.Item", ctx)?;
+        let f1 = u32::read(r, "RSPJ.FVPA.Count", ctx)?;
+        let f2 = Field::read(r, "RSPJ.FVPA.CurveTable", ctx)?;
+        Ok(Self {
+            item: f0,
+            count: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.item.write(out);
+        self.count.write(out);
+        self.curve_table.write(out);
+    }
+}
+
+impl Visit for RspjRequiredItemsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.item, "RSPJ.FVPA.Item", out);
+        visit_form_ids(&self.curve_table, "RSPJ.FVPA.CurveTable", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.item, "RSPJ.FVPA.Item", out);
+        visit_form_ids_mut(&mut self.curve_table, "RSPJ.FVPA.CurveTable", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RspjRequiredItems(pub Vec<RspjRequiredItemsItem>);
+
+impl Field for RspjRequiredItems {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RspjRequiredItems {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RspjRequiredPerksItem {
+    pub perk: FormId,
+    pub rank: u32,
+    pub curve_table: FormId,
+}
+
+impl Field for RspjRequiredPerksItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "RSPJ.RQPK.Perk", ctx)?;
+        let f1 = u32::read(r, "RSPJ.RQPK.Rank", ctx)?;
+        let f2 = Field::read(r, "RSPJ.RQPK.CurveTable", ctx)?;
+        Ok(Self {
+            perk: f0,
+            rank: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.perk.write(out);
+        self.rank.write(out);
+        self.curve_table.write(out);
+    }
+}
+
+impl Visit for RspjRequiredPerksItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.perk, "RSPJ.RQPK.Perk", out);
+        visit_form_ids(&self.curve_table, "RSPJ.RQPK.CurveTable", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.perk, "RSPJ.RQPK.Perk", out);
+        visit_form_ids_mut(&mut self.curve_table, "RSPJ.RQPK.CurveTable", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RspjRequiredPerks(pub Vec<RspjRequiredPerksItem>);
+
+impl Field for RspjRequiredPerks {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RspjRequiredPerks {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RspjRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `DESC`, optional.
+    pub description: Option<Sub<LString>>,
+    /// `BNAM`, optional.
+    pub workbench_keyword: Option<Sub<FormId>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `FVPA`, optional.
+    pub required_items: Option<Sub<RspjRequiredItems>>,
+    /// `RQPK`, optional.
+    pub required_perks: Option<Sub<RspjRequiredPerks>>,
+    /// `CNAM`, optional.
+    pub created_item: Option<Sub<FormId>>,
+    /// `NNAM`, optional.
+    pub number_created: Option<Sub<u16>>,
+    /// `SNAM`, optional.
+    pub sorting_priority: Option<Sub<f32>>,
+    /// `TNAM`, required.
+    pub tier: Option<Sub<u8>>,
+    /// `KNAM`, optional.
+    pub category_keyword: Option<Sub<FormId>>,
+    /// `RNAM`, repeated.
+    pub required_research: Vec<Sub<FormId>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl RspjRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DESC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FVPA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RQPK",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"KNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RNAM",
+            card: Card::Repeated,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "RSPJ.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.name, subs, *index, "RSPJ.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.description, subs, *index, "RSPJ.DESC", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.workbench_keyword,
+                    subs,
+                    *index,
+                    "RSPJ.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 5, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.required_items,
+                    subs,
+                    *index,
+                    "RSPJ.FVPA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.required_perks,
+                    subs,
+                    *index,
+                    "RSPJ.RQPK",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.created_item,
+                    subs,
+                    *index,
+                    "RSPJ.CNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.number_created,
+                    subs,
+                    *index,
+                    "RSPJ.NNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.sorting_priority,
+                    subs,
+                    *index,
+                    "RSPJ.SNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.tier, subs, *index, "RSPJ.TNAM", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.category_keyword,
+                    subs,
+                    *index,
+                    "RSPJ.KNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 13, index } => push(
+                    &mut self.required_research,
+                    subs,
+                    *index,
+                    "RSPJ.RNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"DESC", self.description.as_ref());
+        emit(out, *b"BNAM", self.workbench_keyword.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"FVPA", self.required_items.as_ref());
+        emit(out, *b"RQPK", self.required_perks.as_ref());
+        emit(out, *b"CNAM", self.created_item.as_ref());
+        emit(out, *b"NNAM", self.number_created.as_ref());
+        emit(out, *b"SNAM", self.sorting_priority.as_ref());
+        emit(out, *b"TNAM", self.tier.as_ref());
+        emit(out, *b"KNAM", self.category_keyword.as_ref());
+        for value in &self.required_research {
+            emit(out, *b"RNAM", Some(value));
+        }
+    }
+}
+
+impl Visit for RspjRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.workbench_keyword, "RSPJ.BNAM", out);
+        visit_form_ids(&self.required_items, "RSPJ.FVPA", out);
+        visit_form_ids(&self.required_perks, "RSPJ.RQPK", out);
+        visit_form_ids(&self.created_item, "RSPJ.CNAM", out);
+        visit_form_ids(&self.category_keyword, "RSPJ.KNAM", out);
+        visit_form_ids(&self.required_research, "RSPJ.RNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.workbench_keyword, "RSPJ.BNAM", out);
+        visit_form_ids_mut(&mut self.required_items, "RSPJ.FVPA", out);
+        visit_form_ids_mut(&mut self.required_perks, "RSPJ.RQPK", out);
+        visit_form_ids_mut(&mut self.created_item, "RSPJ.CNAM", out);
+        visit_form_ids_mut(&mut self.category_keyword, "RSPJ.KNAM", out);
+        visit_form_ids_mut(&mut self.required_research, "RSPJ.RNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "RSPJ.FULL", out);
+        visit_lstrings(&self.description, "RSPJ.DESC", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "RSPJ.FULL", out);
+        visit_lstrings_mut(&mut self.description, "RSPJ.DESC", out);
+    }
+}
+
+impl RspjRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"RSPJ";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("RSPJ", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("RSPJ", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("RSPJ", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("RSPJ", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SunpRecord {
     /// `EDID`, required.
@@ -7838,6 +8272,7 @@ pub enum Record {
     Pcmt(Box<PcmtRecord>),
     Pkin(Box<PkinRecord>),
     Rsgd(Box<RsgdRecord>),
+    Rspj(Box<RspjRecord>),
     Sunp(Box<SunpRecord>),
     Tes4(Box<Tes4Record>),
     Trav(Box<TravRecord>),
@@ -7861,6 +8296,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PCMT", PcmtRecord::MEMBERS),
     (*b"PKIN", PkinRecord::MEMBERS),
     (*b"RSGD", RsgdRecord::MEMBERS),
+    (*b"RSPJ", RspjRecord::MEMBERS),
     (*b"SUNP", SunpRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"TRAV", TravRecord::MEMBERS),
@@ -7887,6 +8323,7 @@ impl Record {
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
+            b"RSPJ" => Self::Rspj(Box::new(RspjRecord::decode(subs, ctx))),
             b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"TRAV" => Self::Trav(Box::new(TravRecord::decode(subs, ctx))),
@@ -7913,6 +8350,7 @@ impl Record {
             Self::Pcmt(record) => record.encode(),
             Self::Pkin(record) => record.encode(),
             Self::Rsgd(record) => record.encode(),
+            Self::Rspj(record) => record.encode(),
             Self::Sunp(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Trav(record) => record.encode(),
@@ -7938,6 +8376,7 @@ impl Record {
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
             Self::Pkin(_) => PkinRecord::SIGNATURE,
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
+            Self::Rspj(_) => RspjRecord::SIGNATURE,
             Self::Sunp(_) => SunpRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Trav(_) => TravRecord::SIGNATURE,
@@ -7963,6 +8402,7 @@ impl Record {
             Self::Pcmt(record) => record.form_ids(),
             Self::Pkin(record) => record.form_ids(),
             Self::Rsgd(record) => record.form_ids(),
+            Self::Rspj(record) => record.form_ids(),
             Self::Sunp(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Trav(record) => record.form_ids(),
@@ -7988,6 +8428,7 @@ impl Record {
             Self::Pcmt(record) => record.form_ids_mut(),
             Self::Pkin(record) => record.form_ids_mut(),
             Self::Rsgd(record) => record.form_ids_mut(),
+            Self::Rspj(record) => record.form_ids_mut(),
             Self::Sunp(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Trav(record) => record.form_ids_mut(),
@@ -8013,6 +8454,7 @@ impl Record {
             Self::Pcmt(record) => record.lstrings(),
             Self::Pkin(record) => record.lstrings(),
             Self::Rsgd(record) => record.lstrings(),
+            Self::Rspj(record) => record.lstrings(),
             Self::Sunp(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Trav(record) => record.lstrings(),
@@ -8038,6 +8480,7 @@ impl Record {
             Self::Pcmt(record) => record.lstrings_mut(),
             Self::Pkin(record) => record.lstrings_mut(),
             Self::Rsgd(record) => record.lstrings_mut(),
+            Self::Rspj(record) => record.lstrings_mut(),
             Self::Sunp(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Trav(record) => record.lstrings_mut(),
@@ -8064,6 +8507,7 @@ impl Record {
             Self::Pcmt(record) => &record.extra,
             Self::Pkin(record) => &record.extra,
             Self::Rsgd(record) => &record.extra,
+            Self::Rspj(record) => &record.extra,
             Self::Sunp(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Trav(record) => &record.extra,
