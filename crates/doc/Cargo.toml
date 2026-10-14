@@ -13,3 +13,5 @@ workspace = true
 kitcraft-schema.workspace = true
 kitcraft-esm.workspace = true
 kitcraft-strings.workspace = true
+thiserror.workspace = true
+flate2.workspace = true
