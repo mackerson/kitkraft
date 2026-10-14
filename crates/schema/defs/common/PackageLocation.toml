@@ -4,10 +4,11 @@
 #
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L3710-L3742 - the four fields, their widths and
-#     order, and that the last field is optional upstream. L3657-L3674 - the location type
+#     order, and that the last field is optional upstream. L3657-L3675 - the location type
 #     enumeration (values 15 and 16 are unnamed upstream and stay unnamed here).
-#   corpus: PLVD in the FACT records of the 14 official ESMs (2026-10-14 scan): all 80 are
-#     16 bytes, the sum of the field widths below, and decode and re-encode identically.
+#   corpus: PLVD in the FACT records and PLDT in the PACK records of the 14 official ESMs
+#     (2026-10-14 scan): all 80 and 3,749 are 16 bytes, the sum of the field widths below,
+#     and decode and re-encode identically.
 #
 # What stays opaque, and why: the 4-byte value is a union selected by the location type
 # (a reference, a cell, an object, an object type code, a keyword, an alias index, ...);
@@ -17,8 +18,8 @@ name = "PackageLocation"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3710-L3742"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3657-L3674",
-  "corpus: the 80 PLVD in the FACT records of the 14 official ESMs, 2026-10-14 scan: all 16 bytes, every record decodes and re-encodes identically",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3657-L3675",
+  "corpus: the 80 PLVD of the FACT records and the 3,749 PLDT of the PACK records of the 14 official ESMs, 2026-10-14 scan: all 16 bytes, every record decodes and re-encodes identically",
 ]
 confidence = "corpus"
 type = "struct"

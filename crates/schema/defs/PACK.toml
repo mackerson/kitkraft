@@ -1,0 +1,474 @@
+# PACK: Package, an AI behaviour an actor runs: general data and schedule, conditions,
+# idles, the template it instantiates with its data input values (locations, targets,
+# scenes, raw values), the procedure tree of a template, and the begin/end/change idles
+# and topics.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15540-L15761 - member order, PKDT, PSDT, PKCU,
+#     the package data values, the procedure tree branch (ANAM, NNAM, conditions, PRCB,
+#     PNAM, FNAM, PKC2, PFO2), the begin/end/change blocks. Helpers: script data
+#     (L3444-L3475, the package variant, common/ScriptAttachment.toml), the base form
+#     component block (L5984-L6832, kept raw), the condition count (L2251) and list
+#     (L4750-L4840, common/Condition.toml), the idle animations
+#     (wbDefinitionsCommon.pas L8900-L8933), the location (L3710-L3743,
+#     common/PackageLocation.toml), the target (L3746-L3774), the topic data (L3901-L3913),
+#     the data input list (L7988-L7994) and the interrupt flags (L7925-L7942).
+#   corpus: the 4,578 PACK records (Starfield.esm 3,548, ShatteredSpace 568, SFBGS00D 246,
+#     SFBGS050 173, SFBGS003 43; form versions 581 and 582; none compressed), 2026-10-14:
+#     order EDID [VMAD] PKDT PSDT CTDA* [idle animations] [CNAM] [QNAM] [FLAV] PKCU
+#     (ANAM [CNAM|PLDT|PTDA CITC CTDA*|STSC])* UNAM* XNAM [procedure tree] (UNAM BNAM PNAM)*
+#     POBA INAM PDTO POEA INAM PDTO POCA INAM PDTO; PKDT, PSDT, PKCU and PTDA 12 bytes,
+#     PLDT 16, PRCB 8, PFO2 16, PDTO 8, UNAM and XNAM 1, data-input CNAM 1 or 4. Every record
+#     decodes with nothing left over and re-encodes identically. No top-level condition
+#     list has a CITC; the target and branch lists do.
+#
+# Data input values are alternatives selected by which subrecord follows the ANAM (the
+# first signature decides), so each is an optional member here. The CNAM value itself is
+# a union whose layout the ANAM text selects (bool, integer, float, ...): kept raw.
+signature = "PACK"
+name = "Package"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15540-L15761"
+evidence = [
+  "corpus: the 4,578 PACK records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "ref:ScriptAttachment"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3444-L3475"]
+note = "scripts, then begin/end/change fragments (kept raw); 85 records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; none in the official packages"
+
+[[member]]
+sig = "PKDT"
+name = "PackData"
+type = "struct"
+size = 12
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7925-L7942"]
+field = [
+  { name = "GeneralFlags", type = "u32", note = "the general package flags; their names are in an upstream helper outside the approved files" },
+  { name = "Type", type = "enum", base = "u8", values = [["Package", 18], ["PackageTemplate", 19]] },
+  { name = "InterruptOverride", type = "enum", base = "u8", values = [
+    ["None", 0],
+    ["Spectator", 1],
+    ["ObserveDead", 2],
+    ["GuardWarn", 3],
+    ["Combat", 4],
+    ["CommandTravel", 5],
+    ["CommandActivate", 6],
+    ["LeaveWorkstation", 7],
+  ] },
+  { name = "PreferredSpeed", type = "enum", base = "u8", values = [["Walk", 0], ["Jog", 1], ["Run", 2], ["FastWalk", 3]] },
+  { name = "Unused1", type = "opaque", size = 1 },
+  { name = "InterruptFlags", type = "flags", base = "u16", bits = [
+    ["HellosToPlayer", 0x1],
+    ["RandomConversations", 0x2],
+    ["ObserveCombatBehavior", 0x4],
+    ["GreetCorpseBehavior", 0x8],
+    ["ReactionToPlayerActions", 0x10],
+    ["FriendlyFireComments", 0x20],
+    ["AggroRadiusBehavior", 0x40],
+    ["AllowIdleChatter", 0x80],
+    ["WorldInteractions", 0x200],
+    ["OffForImportantScene", 0x400],
+    ["ReactToWarn", 0x800],
+  ], note = "bit 0x100 and bits 0x1000..0x8000 are unnamed upstream and preserved" },
+  { name = "Unused2", type = "opaque", size = 2 },
+]
+
+[[member]]
+sig = "PSDT"
+name = "Schedule"
+type = "struct"
+size = 12
+field = [
+  { name = "Month", type = "i8", note = "-1 is any month" },
+  { name = "DayOfWeek", type = "i8", note = "-1 is any day" },
+  { name = "Date", type = "i8", note = "day of the month; 0 is any" },
+  { name = "Hour", type = "i8", note = "-1 is any hour" },
+  { name = "Minute", type = "i8", note = "-1 is any minute" },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Duration", type = "u32", note = "shown upstream as hours (the stored value divided by 60)" },
+]
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "no CITC count precedes this list in any official package"
+
+[[member]]
+group = "IdleAnimations"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8900-L8933"]
+note = "104 records; IDLC, IDLT and IDLA in 18 of them"
+
+[[member.member]]
+sig = "IDLF"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["RunInSequence", 0x1], ["DoOnce", 0x4], ["IgnoreConditionsForSandbox", 0x20]]
+
+[[member.member]]
+sig = "IDLC"
+name = "AnimationCount"
+type = "u32"
+card = "optional"
+note = "number of FormIDs in Animations; stored, not derived"
+
+[[member.member]]
+sig = "IDLT"
+name = "IdleTimerSetting"
+type = "f32"
+card = "optional"
+
+[[member.member]]
+sig = "IDLA"
+name = "Animations"
+type = "array"
+element = "formid"
+targets = ["IDLE"]
+count = "rest"
+card = "optional"
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "CNAM"
+name = "CombatStyle"
+type = "formid"
+targets = ["CSTY"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official packages"
+
+[[member]]
+sig = "QNAM"
+name = "OwnerQuest"
+type = "formid"
+targets = ["QUST"]
+card = "optional"
+
+[[member]]
+sig = "FLAV"
+name = "AnimFlavor"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+sig = "PKCU"
+name = "Counter"
+type = "struct"
+size = 12
+field = [
+  { name = "DataInputCount", type = "u32" },
+  { name = "PackageTemplate", type = "formid", targets = ["PACK"], note = "a null FormID is allowed" },
+  { name = "VersionCounter", type = "u32", note = "incremented by the editor on each save" },
+]
+
+[[member]]
+group = "PackageData"
+card = "optional"
+
+[[member.member]]
+group = "Value"
+card = "repeated"
+note = "one data input value: its type name, then at most one of the value kinds"
+
+[[member.member.member]]
+sig = "ANAM"
+name = "Type"
+type = "zstring"
+note = "the data input type name (Bool, Int, Float, Location, TargetSelector, Topic, ...)"
+
+[[member.member.member]]
+sig = "CNAM"
+name = "Value"
+type = "opaque"
+card = "optional"
+note = "a union selected by the type name (a bool byte, an integer, a float, a FormID); 1 or 4 bytes in the corpus"
+
+[[member.member.member]]
+sig = "PLDT"
+name = "Location"
+type = "ref:PackageLocation"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3710-L3743"]
+
+[[member.member.member]]
+group = "Target"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "PTDA"
+name = "Data"
+type = "struct"
+size = 12
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3746-L3774"]
+field = [
+  { name = "Type", type = "enum", base = "i32", values = [
+    ["SpecificReference", 0],
+    ["ObjectId", 1],
+    ["ObjectType", 2],
+    ["LinkedReference", 3],
+    ["RefAlias", 4],
+    ["InterruptData", 5],
+    ["SelfReference", 6],
+    ["Keyword", 7],
+    ["RefCollectionAlias", 8],
+    ["ScenePrimaryActor", 9],
+  ] },
+  { name = "Target", type = "opaque", size = 4, note = "union selected by Type: a reference, object or keyword FormID, an object type code, an alias index or unused" },
+  { name = "Number", type = "i32", note = "a count, distance or index, depending on Type" },
+]
+
+[[member.member.member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of Conditions that follow; stored, not derived"
+
+[[member.member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member.member.member]]
+sig = "STSC"
+name = "Scene"
+type = "formid"
+targets = ["SCEN"]
+card = "optional"
+
+[[member.member]]
+group = "DataInputs"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7988-L7994"]
+note = "observed as bare UNAM indexes, one per data input"
+
+[[member.member.member]]
+sig = "UNAM"
+name = "Index"
+type = "i8"
+
+[[member.member.member]]
+sig = "BNAM"
+name = "Name"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "PNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["Public", 0x1]]
+card = "optional"
+
+[[member]]
+sig = "XNAM"
+name = "PackageGroup"
+type = "u8"
+note = "upstream names some values but marks the names as guesses; kept as a number"
+
+[[member]]
+group = "Branch"
+card = "repeated"
+note = "the procedure tree of a package template, in tree order (188 records)"
+
+[[member.member]]
+sig = "ANAM"
+name = "BranchType"
+type = "zstring"
+
+[[member.member]]
+sig = "NNAM"
+name = "Note"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of Conditions that follow; stored, not derived"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member.member]]
+sig = "PRCB"
+name = "Root"
+type = "struct"
+size = 8
+card = "optional"
+field = [
+  { name = "BranchCount", type = "u32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["RepeatWhenComplete", 0x1]] },
+]
+
+[[member.member]]
+sig = "PNAM"
+name = "ProcedureType"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["SuccessCompletesPackage", 0x1]]
+card = "optional"
+
+[[member.member]]
+sig = "PKC2"
+name = "DataInputIndexes"
+type = "u8"
+card = "repeated"
+
+[[member.member]]
+sig = "PFO2"
+name = "FlagsOverride"
+type = "struct"
+size = 16
+card = "repeated"
+field = [
+  { name = "SetGeneralFlags", type = "u32" },
+  { name = "ClearGeneralFlags", type = "u32" },
+  { name = "SetInterruptFlags", type = "u16" },
+  { name = "ClearInterruptFlags", type = "u16" },
+  { name = "PreferredSpeedOverride", type = "enum", base = "u8", values = [["Walk", 0], ["Jog", 1], ["Run", 2], ["FastWalk", 3]] },
+  { name = "Unnamed", type = "opaque", size = 3, note = "unnamed upstream" },
+]
+
+[[member]]
+group = "NamedDataInputs"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7988-L7994"]
+note = "the second data input list, after the procedure tree; observed with a name and flags on every entry"
+
+[[member.member]]
+sig = "UNAM"
+name = "Index"
+type = "i8"
+
+[[member.member]]
+sig = "BNAM"
+name = "Name"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "PNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["Public", 0x1]]
+card = "optional"
+
+[[member]]
+group = "OnBegin"
+card = "optional"
+
+[[member.member]]
+sig = "POBA"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "INAM"
+name = "Idle"
+type = "formid"
+targets = ["IDLE"]
+note = "a null FormID is allowed"
+
+[[member.member]]
+sig = "PDTO"
+name = "Topics"
+type = "struct"
+size = 8
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3901-L3913"]
+field = [
+  { name = "Type", type = "enum", base = "u32", values = [["TopicRef", 0], ["TopicSubtype", 1]] },
+  { name = "Data", type = "opaque", size = 4, note = "union selected by Type: a DIAL FormID or a four-character subtype code" },
+]
+
+[[member]]
+group = "OnEnd"
+card = "optional"
+
+[[member.member]]
+sig = "POEA"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "INAM"
+name = "Idle"
+type = "formid"
+targets = ["IDLE"]
+note = "a null FormID is allowed"
+
+[[member.member]]
+sig = "PDTO"
+name = "Topics"
+type = "struct"
+size = 8
+card = "repeated"
+field = [
+  { name = "Type", type = "enum", base = "u32", values = [["TopicRef", 0], ["TopicSubtype", 1]] },
+  { name = "Data", type = "opaque", size = 4, note = "union selected by Type" },
+]
+
+[[member]]
+group = "OnChange"
+card = "optional"
+
+[[member.member]]
+sig = "POCA"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "INAM"
+name = "Idle"
+type = "formid"
+targets = ["IDLE"]
+note = "a null FormID is allowed"
+
+[[member.member]]
+sig = "PDTO"
+name = "Topics"
+type = "struct"
+size = 8
+card = "repeated"
+field = [
+  { name = "Type", type = "enum", base = "u32", values = [["TopicRef", 0], ["TopicSubtype", 1]] },
+  { name = "Data", type = "opaque", size = 4, note = "union selected by Type" },
+]
