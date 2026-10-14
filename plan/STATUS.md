@@ -688,7 +688,9 @@ Agents append here when they need a change in a crate they do not own.
   localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
   nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
   `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
-  (30 of the 96 IDs exist there) or shows none.
+  (30 of the 96 IDs exist there) or shows none. **Lane H:** in the M3.O2 script
+  (`docs/ck-observations.md`, step 3) with `BlueprintInteriorSFTER_TerranShip_Generic_TESTLocation`
+  (`FULL` 0x0002E9C4; none of the 66 LCTN name IDs is in `sfbgs050_en.strings`).
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
   `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`

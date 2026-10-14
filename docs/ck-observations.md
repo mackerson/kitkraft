@@ -166,6 +166,12 @@ screenshots to `observe\<yyyy-mm-dd>-O2\`; answers into `plan/STATUS.md`.
    | `Constellation.esm` | GLOB `Constellation.esm:000041` | `ConstellationTestGlobal` | `FE000041` | `FE000041` |
    | `SFBGS006.esm` | GLOB `SFBGS006.esm:000800` | `SFBGS006_Global` | `FD000800` | `FD000800` |
 
+   For the `BlueprintShips-SFBGS050.esm` location, also note the name `help` shows (in
+   quotes after the EditorID): the plugin is localized but ships no string tables, and its
+   `FULL` holds string ID `0x0002E9C4`, which is not in `sfbgs050_en.strings` either (none
+   of its 66 LCTN name IDs is); a name, an empty name or a number tells lane D where the
+   game looks (lane D's request from M3.D6).
+
    The `HG_ShipCargoHoldAtHome.esm` EditorIDs come from our own walk of that file (its
    records are left out of KitCraft's load order as unresolved); the plugin is in the
    owner's Default profile and is named here only for this check (M2.O5 stays **no** for
