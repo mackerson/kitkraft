@@ -65,8 +65,12 @@ Apache-2.0) needs `tokio`, `tokio-util`, `futures`, `chrono` and `tracing` for w
 single-threaded line loop here, and the dual-era handling below would still be ours.
 
 The server implements MCP revision **2026-07-28** and, for clients that still do the
-handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05** (a
-"dual-era" server in the 2026-07-28 versioning terms):
+handshake, the earlier revisions **2025-11-25** and **2025-06-18** (a "dual-era" server in
+the 2026-07-28 versioning terms). `2025-03-26` and `2024-11-05` are not offered: they
+require JSON-RPC batches, which this server refuses (`-32600`), so a client asking for
+them is answered with `2025-11-25`. `server/discover`'s `supportedVersions` and a
+`-32022` error's `supported` list every revision the process serves, newest first
+(`2026-07-28`, `2025-11-25`, `2025-06-18`), so a client can pick a handshake-era one.
 
 - **Modern requests** carry `params._meta["io.modelcontextprotocol/protocolVersion"]`
   (must be `2026-07-28`, else error `-32022` with `data: {supported, requested}`) and
@@ -74,11 +78,13 @@ handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-0
   `server/discover` returns `supportedVersions`, `capabilities`, `instructions`. Every
   result carries `resultType: "complete"` and `_meta["io.modelcontextprotocol/serverInfo"]`;
   list, read and discover results carry `ttlMs`/`cacheScope` (the load-order resource:
-  `0`/`private`).
-- **Legacy requests** (no version in `_meta`): `initialize` answers with the client's
-  `protocolVersion` when it is one of the four above, otherwise `2025-11-25`, plus
-  `capabilities`, `serverInfo` and `instructions`. `notifications/initialized` and `ping`
-  work; requests before `initialize` are served too.
+  `0`/`private`). `initialize` and `ping` are not methods of this revision: a modern
+  request for either is `-32601`.
+- **Legacy requests** (no version in `_meta`, or a handshake-era one): `initialize`
+  answers with the client's `protocolVersion` when it is one of the two above, otherwise
+  `2025-11-25`, plus `capabilities`, `serverInfo` and `instructions`.
+  `notifications/initialized` and `ping` work; requests before `initialize` are served
+  too.
 - Methods: `server/discover`, `initialize`, `ping`, `tools/list`, `tools/call`,
   `resources/list`, `resources/read`, `resources/templates/list` (empty). Capabilities:
   `tools` and `resources`, no `listChanged`, no subscriptions, one page (any `cursor` is
@@ -86,7 +92,8 @@ handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-0
   answered; requests run one at a time, so a cancel cannot interrupt a running command.
 - Malformed JSON or non-UTF-8: `-32700`. Not a request object (batch arrays, `id` that is
   `null`, a float, a bool or an object, wrong `jsonrpc`), or a line over 8 MiB (discarded
-  without buffering): `-32600`. Unknown method: `-32601`. `params` not an object: `-32602`.
+  without buffering): `-32600`. Unknown method, or one the request's era lacks: `-32601`.
+  `params` not an object: `-32602`.
 
 The session is process state, which the 2026-07-28 statelessness rule discourages (state
 across requests should be named by an explicit handle). It is correct for handshake-era

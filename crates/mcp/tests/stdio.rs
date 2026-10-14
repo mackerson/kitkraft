@@ -242,8 +242,8 @@ fn modern_requests_without_handshake() {
     assert_eq!(got["data"]["decode"], false);
 
     // A legacy-only client's initialize still works on the same process.
-    let init = client.request("initialize", json!({"protocolVersion": "2025-03-26"}));
-    assert_eq!(init["result"]["protocolVersion"], "2025-03-26");
+    let init = client.request("initialize", json!({"protocolVersion": "2025-06-18"}));
+    assert_eq!(init["result"]["protocolVersion"], "2025-06-18");
     client.finish();
     std::fs::remove_file(&path).unwrap();
 }
