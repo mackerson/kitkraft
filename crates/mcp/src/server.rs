@@ -897,7 +897,9 @@ mod tests {
             ),
         );
         tool_error(&r, "usage");
-        // not_implemented (a Planned command without a handler).
+        // failed (build is implemented; the spec does not exist). No catalog command is
+        // Planned any more, so not_implemented is covered by tests/stdio.rs on an empty
+        // engine.
         let r = call(
             &mut s,
             modern(
@@ -906,7 +908,7 @@ mod tests {
                 json!({"name": "execute", "arguments": {"command": "build", "args": {"spec": "a.toml", "out": "b.esm"}}}),
             ),
         );
-        tool_error(&r, "not_implemented");
+        tool_error(&r, "failed");
         assert_eq!(r["result"]["resultType"], "complete");
         // failed (missing file).
         let r = call(

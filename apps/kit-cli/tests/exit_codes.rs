@@ -61,14 +61,22 @@ fn per_command_help_exits_0() {
 }
 
 #[test]
-fn planned_command_exits_2_with_clear_message() {
-    for args in [
-        &["build", "spec.toml", "out.esm"][..],
-        &["validate", "X.esm"],
+fn failing_command_exits_2_with_clear_message() {
+    // No catalog command is Planned any more (M2.F8): a command that fails (a missing
+    // spec, a missing plugin) is the exit-2 case.
+    for (args, expected) in [
+        (
+            &["build", "no-such-spec.toml", "out.esm"][..],
+            "no-such-spec.toml",
+        ),
+        (
+            &["validate", "--plugin", "no-such-plugin.esm"],
+            "no-such-plugin.esm",
+        ),
     ] {
         let out = kit(args);
         assert_eq!(out.status.code(), Some(2), "{args:?}");
-        assert!(stderr(&out).contains("not implemented"), "{}", stderr(&out));
+        assert!(stderr(&out).contains(expected), "{}", stderr(&out));
     }
 }
 

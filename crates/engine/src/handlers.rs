@@ -5,6 +5,9 @@
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
 mod ba2;
+mod build;
+#[cfg(test)]
+mod build_tests;
 mod conflicts;
 mod coverage;
 mod diff;
@@ -52,6 +55,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("conflicts", Box::new(conflicts::run)),
         ("set", Box::new(set::run)),
         ("validate", Box::new(validate::run)),
+        ("build", Box::new(build::run)),
     ]
 }
 
