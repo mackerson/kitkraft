@@ -8,4 +8,16 @@
 //!
 //! Input bytes are hostile: every length and offset is bounds-checked before use.
 //!
+//! Format source: the UESP wiki. Starfield's page defers to the Skyrim container layout
+//! (`Skyrim_Mod:Mod_File_Format`, `Skyrim_Mod:Mod_File_Format/TES4`); facts UESP does not
+//! state for Starfield are taken from our own corpus and say so where they are used.
+//!
 //! LAYER: L0
+
+mod error;
+mod reader;
+mod signature;
+
+pub use error::{Error, Result};
+pub use reader::Reader;
+pub use signature::Signature;

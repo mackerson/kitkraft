@@ -11,6 +11,7 @@ workspace = true
 
 [dependencies]
 kitcraft-schema.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
 toml.workspace = true
