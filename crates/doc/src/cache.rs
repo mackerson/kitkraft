@@ -6,7 +6,8 @@
 //! modification time and [`FORMAT_VERSION`] all match and its checksum verifies. Anything
 //! else (a stale, truncated or foreign file) is ignored and rebuilt, never trusted.
 //!
-//! Layout (little-endian): magic `KCIDX\0\r\n`, `u32` format version, `u32` path length +
+//! Layout (little-endian): magic `KCIDX\0\r\n`, `u32` format version, `u32` esm index
+//! format version, `u32` path length +
 //! path (UTF-8), `u64` size, `u64` mtime (ns), `u32` flags, `u16` form version, `u8` HEDR
 //! present + `f32`/`u32`/`u32`, `u32` master count + (`u32` length + name) each, `u64` edid
 //! errors, `u64` record count + 32 bytes per record, `u64` EDID arena length + bytes, `u64`
@@ -22,8 +23,9 @@ use crate::flags::PluginFlags;
 use crate::hash::Fnv;
 use crate::index::{file_stamp, HeaderInfo, HedrInfo, PluginIndex, RecordLoc};
 
-/// Bump when the index or this layout changes.
-pub const FORMAT_VERSION: u32 = 1;
+/// Bump when this layout changes. Entries also store the esm index format
+/// (`kitcraft_esm::index::INDEX_FORMAT_VERSION`); either changing rebuilds them.
+pub const FORMAT_VERSION: u32 = 2;
 
 const MAGIC: &[u8; 8] = b"KCIDX\0\r\n";
 const RECORD_BYTES: usize = 32;
@@ -146,6 +148,7 @@ fn encode(index: &PluginIndex) -> Vec<u8> {
     );
     out.extend_from_slice(MAGIC);
     put_u32(&mut out, FORMAT_VERSION);
+    put_u32(&mut out, kitcraft_esm::index::INDEX_FORMAT_VERSION);
     put_str(&mut out, &path_key(&index.path));
     put_u64(&mut out, index.size);
     put_u64(&mut out, index.mtime_ns);
@@ -211,6 +214,9 @@ fn decode(bytes: &[u8], plugin: &Path, stamp: (u64, u64)) -> Result<PluginIndex>
     }
     if r.u32().map_err(e)? != FORMAT_VERSION {
         return Err(bad("format version"));
+    }
+    if r.u32().map_err(e)? != kitcraft_esm::index::INDEX_FORMAT_VERSION {
+        return Err(bad("esm index format version"));
     }
     let path = take_str(&mut r)?;
     if path != path_key(plugin) {

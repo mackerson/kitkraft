@@ -1,11 +1,11 @@
-//! Random access: read one record at an indexed offset (a stand-in for lane A's M2.A2).
+//! Random access: read one record at an indexed offset, through lane A's M2.A2 reader.
 
 use std::collections::HashMap;
 use std::fs::File;
-use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Reader, Record, Signature, Subrecord};
+use kitcraft_esm::index::read_record_at as esm_read_record_at;
+use kitcraft_esm::{DecodeLimits, Record, Signature, Subrecord};
 
 use crate::error::{DocError, Result};
 use crate::index::{file_name_of, RecordLoc};
@@ -45,7 +45,9 @@ impl LoadedRecord {
     }
 }
 
-/// Read the record at `offset` of an open file, checking it is `expected` when given.
+/// Read the record at `offset` of an open file (lane A's `kitcraft_esm::index::read_record_at`,
+/// M2.A2), checking it is `expected` when given; a compressed record is decompressed under
+/// `limits`.
 pub fn read_record_at(
     file: &mut File,
     file_name: &str,
@@ -53,101 +55,32 @@ pub fn read_record_at(
     expected: Option<(Signature, u32)>,
     limits: &DecodeLimits,
 ) -> Result<LoadedRecord> {
-    let io = |e| DocError::Io {
-        path: file_name.into(),
-        source: e,
-    };
-    let len = file.metadata().map_err(io)?.len();
-    file.seek(SeekFrom::Start(offset)).map_err(io)?;
-    let mut head = [0u8; 24];
-    if offset.saturating_add(24) > len {
-        return Err(DocError::esm(
-            file_name,
-            kitcraft_esm::Error::UnexpectedEof {
+    let expected_label = || expected.map_or_else(|| "a".into(), |(s, f)| format!("{s}:{f:08X}"));
+    let record = match esm_read_record_at(file, offset, Some(limits)) {
+        Ok(r) => r,
+        Err(kitcraft_esm::Error::NotARecord { offset, found }) => {
+            return Err(DocError::RecordMismatch {
+                file: file_name.to_string(),
                 offset,
-                what: "record header",
-                needed: 24,
-                available: len.saturating_sub(offset),
-            },
-        ));
-    }
-    file.read_exact(&mut head).map_err(io)?;
-    let mut r = Reader::new(&head, offset);
-    let signature = r.signature().map_err(|e| DocError::esm(file_name, e))?;
-    let size = u64::from(r.u32().map_err(|e| DocError::esm(file_name, e))?);
-    let _flags = r.u32().map_err(|e| DocError::esm(file_name, e))?;
-    let form_id = r.u32().map_err(|e| DocError::esm(file_name, e))?;
-    if signature == Signature::GRUP {
-        return Err(DocError::RecordMismatch {
-            file: file_name.to_string(),
-            offset,
-            expected: expected.map_or_else(|| "a".into(), |(s, f)| format!("{s}:{f:08X}")),
-            found: "a group".into(),
-        });
-    }
+                expected: expected_label(),
+                found: format!("a {found} header"),
+            })
+        }
+        Err(e) => return Err(DocError::esm(file_name, e)),
+    };
+    let (signature, form_id) = (record.header.signature, record.header.form_id);
     if let Some((sig, fid)) = expected {
         if sig != signature || fid != form_id {
             return Err(DocError::RecordMismatch {
                 file: file_name.to_string(),
                 offset,
-                expected: format!("{sig}:{fid:08X}"),
+                expected: expected_label(),
                 found: format!("{signature}:{form_id:08X}"),
             });
         }
     }
-    let available = len.saturating_sub(offset).saturating_sub(24);
-    if size > available {
-        return Err(DocError::esm(
-            file_name,
-            kitcraft_esm::Error::UnexpectedEof {
-                offset: offset.saturating_add(24),
-                what: "record data",
-                needed: size,
-                available,
-            },
-        ));
-    }
-    let total = usize::try_from(size.saturating_add(24)).map_err(|_| {
-        DocError::esm(
-            file_name,
-            kitcraft_esm::Error::TooLarge {
-                offset,
-                what: "record",
-                len: size,
-            },
-        )
-    })?;
-    let mut buf = Vec::with_capacity(total);
-    buf.extend_from_slice(&head);
-    file.take(size).read_to_end(&mut buf).map_err(io)?;
-    if buf.len() != total {
-        return Err(DocError::esm(
-            file_name,
-            kitcraft_esm::Error::UnexpectedEof {
-                offset,
-                what: "record data",
-                needed: size,
-                available: buf.len() as u64,
-            },
-        ));
-    }
-    let entry = Entry::parse_one(&buf, offset, 1, &ParseOptions::default())
-        .map_err(|e| DocError::esm(file_name, e))?;
-    let Entry::Record(record) = entry else {
-        return Err(DocError::Invalid(format!(
-            "{file_name}: no record at {offset}"
-        )));
-    };
-    let record = record.into_owned();
     let compressed = record.header.is_compressed();
-    let subs = if compressed {
-        record
-            .decode(limits)
-            .map_err(|e| DocError::esm(file_name, e))?
-            .unwrap_or_default()
-    } else {
-        record.subrecords().map(<[_]>::to_vec).unwrap_or_default()
-    };
+    let subs = record.subrecords().map(<[_]>::to_vec).unwrap_or_default();
     Ok(LoadedRecord {
         file: file_name.to_string(),
         record,
@@ -155,7 +88,6 @@ pub fn read_record_at(
         compressed,
     })
 }
-
 /// Reads records of a load order, keeping one open handle per plugin.
 #[derive(Debug, Default)]
 pub struct RecordReader {

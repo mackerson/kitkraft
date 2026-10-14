@@ -1,32 +1,26 @@
 //! Per-plugin record index: where every record is, without keeping the tree.
 //!
-//! A stand-in for lane A's M2.A1 index (same idea, built here over
-//! [`kitcraft_esm::driver::visit_file`]); swap to the esm index once it lands on `main`.
+//! Built from lane A's `kitcraft_esm::index` (M2.A1), reduced to what the load order needs
+//! and stored compactly (EditorIDs in one arena) so the cache (`cache.rs`) can hold it.
 //!
-//! EditorIDs: the first `EDID` subrecord of a record, up to its NUL, decoded as UTF-8 with
-//! invalid bytes replaced. For a compressed record only the first 4 KiB of the inflated
-//! body is examined (EDID leads every record that has one in the corpus); a stream that fails
-//! to inflate leaves the record without an EditorID and is counted in
-//! [`PluginIndex::edid_errors`].
+//! EditorIDs: the first `EDID` subrecord of a record without its trailing NUL, decoded as
+//! UTF-8 with invalid bytes replaced (lane A reads compressed records under
+//! `DecodeLimits`; a stream that fails to inflate is an error for the whole plugin, with its
+//! offset).
 
 use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use kitcraft_esm::driver::visit_file;
+use kitcraft_esm::index::{index_file, IndexOptions};
 use kitcraft_esm::tes4::Tes4;
-use kitcraft_esm::{Body, Entry, ParseOptions, Reader, Record, Signature};
+use kitcraft_esm::{Entry, ParseOptions, Reader, Record, Signature};
 
 use crate::error::{DocError, Result};
 use crate::flags::PluginFlags;
 
-/// Bytes of a compressed record's inflated body scanned for its EDID.
-const EDID_SCAN: u64 = 4096;
-
 /// Marks "no EditorID" in [`RecordLoc::edid_start`].
 const NO_EDID: u32 = u32::MAX;
-
-const EDID: Signature = Signature::new(b"EDID");
 
 /// Where one record is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -92,7 +86,8 @@ pub struct PluginIndex {
     /// Records in file order, `TES4` excluded.
     pub records: Vec<RecordLoc>,
     pub(crate) edids: String,
-    /// Compressed records whose EditorID could not be read.
+    /// Compressed records whose EditorID could not be read (always 0 since the esm index
+    /// fails the plugin instead; kept for the cache layout).
     pub edid_errors: u64,
 }
 
@@ -117,81 +112,48 @@ pub fn file_name_of(path: &Path) -> String {
 }
 
 impl PluginIndex {
-    /// Stream `path` and index every record.
+    /// Index every record of `path` through `kitcraft_esm::index` (lane A's M2.A1 index)
+    /// and keep what the load order needs.
     pub fn build(path: &Path) -> Result<PluginIndex> {
         let (size, mtime_ns) = file_stamp(path)?;
         let file_name = file_name_of(path);
+        let esm = index_file(path, &IndexOptions::default())
+            .map_err(|e| DocError::esm(file_name.clone(), e))?;
         let mut index = PluginIndex {
-            file_name: file_name.clone(),
+            file_name,
             path: path.to_path_buf(),
             size,
             mtime_ns,
-            header: HeaderInfo {
-                flags: PluginFlags(0),
-                form_version: 0,
-                hedr: None,
-                masters: Vec::new(),
-            },
-            records: Vec::new(),
+            header: header_info(&esm.header),
+            records: Vec::with_capacity(esm.records.len()),
             edids: String::new(),
             edid_errors: 0,
         };
-        let mut first = true;
-        visit_file(path, &ParseOptions::default(), |entry| {
-            if first {
-                first = false;
-                if let Entry::Record(r) = entry {
-                    index.header = header_info(r);
-                }
-                return Ok(());
-            }
-            index.add_entry(entry);
-            Ok(())
-        })
-        .map_err(|e| DocError::esm(file_name, e))?;
+        // `records` starts with TES4, which the load order keeps as `header`.
+        for r in esm.records.iter().filter(|r| r.offset != 0) {
+            let edid = r.edid_lossy();
+            let (edid_start, edid_len) = match edid {
+                Some(text) => match (u32::try_from(index.edids.len()), u32::try_from(text.len())) {
+                    (Ok(start), Ok(len)) => {
+                        index.edids.push_str(&text);
+                        (start, len)
+                    }
+                    _ => (NO_EDID, 0),
+                },
+                None => (NO_EDID, 0),
+            };
+            index.records.push(RecordLoc {
+                signature: r.signature.0,
+                form_id: r.form_id,
+                flags: r.flags,
+                offset: r.offset,
+                data_size: r.data_size,
+                edid_start,
+                edid_len,
+            });
+        }
         Ok(index)
     }
-
-    fn add_entry(&mut self, entry: &Entry<'_>) {
-        // Iterative walk: nesting is already bounded by the parser.
-        let mut stack: Vec<&Entry<'_>> = vec![entry];
-        while let Some(e) = stack.pop() {
-            match e {
-                Entry::Group(g) => stack.extend(g.children().iter().rev()),
-                Entry::Record(r) => self.add_record(r),
-            }
-        }
-    }
-
-    fn add_record(&mut self, r: &Record<'_>) {
-        let edid = match edid_of(r) {
-            Ok(e) => e,
-            Err(()) => {
-                self.edid_errors = self.edid_errors.saturating_add(1);
-                None
-            }
-        };
-        let (edid_start, edid_len) = match edid {
-            Some(text) => match (u32::try_from(self.edids.len()), u32::try_from(text.len())) {
-                (Ok(start), Ok(len)) => {
-                    self.edids.push_str(&text);
-                    (start, len)
-                }
-                _ => (NO_EDID, 0),
-            },
-            None => (NO_EDID, 0),
-        };
-        self.records.push(RecordLoc {
-            signature: r.header.signature.0,
-            form_id: r.header.form_id,
-            flags: r.header.flags,
-            offset: r.offset().unwrap_or(0),
-            data_size: r.data_size_as_read().unwrap_or(0),
-            edid_start,
-            edid_len,
-        });
-    }
-
     /// The EditorID of `loc` (a record of this index).
     pub fn edid(&self, loc: &RecordLoc) -> Option<&str> {
         if loc.edid_start == NO_EDID {
@@ -298,42 +260,6 @@ pub fn read_header(path: &Path) -> Result<HeaderInfo> {
     }
 }
 
-/// The record's EditorID, `Ok(None)` when it has none, `Err(())` when a compressed body could
-/// not be inflated.
-fn edid_of(r: &Record<'_>) -> std::result::Result<Option<String>, ()> {
-    match r.body() {
-        Body::Raw(subs) => Ok(subs
-            .iter()
-            .find(|s| s.signature() == EDID)
-            .map(|s| zstring(s.data()))),
-        Body::Compressed { original, .. } => {
-            let stream = original.get(4..).ok_or(())?;
-            let mut head = Vec::new();
-            flate2::read::ZlibDecoder::new(stream)
-                .take(EDID_SCAN)
-                .read_to_end(&mut head)
-                .map_err(|_| ())?;
-            Ok(scan_edid(&head))
-        }
-    }
-}
-
-/// The first EDID among the whole subrecords at the start of `data`.
-fn scan_edid(data: &[u8]) -> Option<String> {
-    let mut r = Reader::new(data, 0);
-    loop {
-        let sig = r.signature().ok()?;
-        let size = r.u16().ok()?;
-        if sig == Signature::XXXX {
-            return None;
-        }
-        let body = r.take(usize::from(size)).ok()?;
-        if sig == EDID {
-            return Some(zstring(body));
-        }
-    }
-}
-
 /// Bytes up to the first NUL, as lossy UTF-8.
 pub fn zstring(data: &[u8]) -> String {
     let end = data.iter().position(|&b| b == 0).unwrap_or(data.len());
@@ -371,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    fn broken_compressed_body_counts_as_edid_error() {
+    fn broken_compressed_body_is_a_typed_error() {
         let mut bad = testdata::rec(b"WEAP", 0x800, &[]);
         bad[8..12].copy_from_slice(&0x0004_0000u32.to_le_bytes());
         let body = [5u32.to_le_bytes().to_vec(), vec![1, 2, 3, 4, 5]].concat();
@@ -380,9 +306,9 @@ mod tests {
         bad.extend(body);
         let bytes = testdata::plugin_with(0x1, &[], &[bad]);
         let path = testdata::temp_file("index-badz.esm", &bytes);
-        let index = PluginIndex::build(&path).unwrap();
-        assert_eq!(index.records.len(), 1);
-        assert_eq!(index.edid_errors, 1);
+        let err = PluginIndex::build(&path).unwrap_err();
+        assert!(matches!(err, DocError::Esm { .. }), "{err}");
+        assert!(err.to_string().contains("index-badz.esm"), "{err}");
     }
 
     #[test]
