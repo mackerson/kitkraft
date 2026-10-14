@@ -160,6 +160,42 @@ is under "Next".
   writer policy in `docs/corpus.md`. TES4 flag constants named from the pinned xEdit
   definitions. Full release roundtrip at b27d0dc: 14/14 identical, 16.7 s, 1,394 MiB.
 
+- Lane G, M2.G0..G9 (`crates/ba2`, `crates/pex`, `crates/strings`; engine
+  `handlers/{ba2,papyrus,strings}.rs`), all checked 2026-10-14:
+  - G0: ADR 0006 (sources for BA2, `.pex`, string tables); `docs/source-registry.md` rows.
+  - G1-G3 `ba2`: GNRL/DX10 v2/v3 reader, zlib and LZ4-block codecs, DDS header synthesis,
+    deterministic packer. All 90 official archives list (1,763,906 entries; every
+    name/dir hash recomputes; 65 GNRL v2, 10 DX10 v2, 15 DX10 v3 LZ4); 100 seeded entries
+    per archive extract to their declared sizes (7,360 entries, 7.3 GB, 16 s release);
+    every texture's chunks equal its mip chain (`docs/corpus.md` "Archives").
+    **Archive2.exe 1.2.0.1 differential:** our extraction is byte-identical to Archive2's
+    for every entry of `Starfield - Textures01` (5,574) and `Textures05` (7,084, all 16
+    DXGI formats, 25 cube maps), `SFBGS004 - Textures` (18), `OldMars - Textures` (42),
+    `Starfield - Localization` (27), `Starfield - Misc` (4,753), `SFBGS004 - Main` (739).
+    Sample hash: `strings/starfield_en.strings` (1,542,583 bytes) SHA-256
+    `E18CADD47270CC7C0F37A33BDE9FE3B4049468CF94558379DA36356BB144951E` from ours, from
+    `ba2x.py`, and from Archive2. Archive2 opens our packed archives (Localization strings as
+    GNRL v2 and v3, OldMars textures as DX10 v2 and v3) and extracts every file
+    byte-identical to the input.
+  - G4: `ba2.list`, `ba2.extract`, `ba2.pack` `Implemented` (refuse writes under a game
+    Data dir).
+  - G5 `pex`: all 5,708 official scripts (Misc, SFBGS00D/047/050 Main, ShatteredSpace
+    Main01) parse to their last byte; **text equals `pexdis.py`'s on all 5,575 scripts
+    `pexdis.py` can read** (0 differ). `pexdis.py` fails on the other 133: it reads an
+    extra `u16` after each struct name; the corpus wins (ADR 0006), so `crates/pex` reads
+    structs without it.
+  - G6 `papyrus.disasm`, G7 `papyrus.compile` `Implemented`. PapyrusCompiler 4.7.0.5 run
+    on Scripts/Source from `Tools\ContentResources.zip`: DefaultAliasOnActivate,
+    DefaultCounterQuestA and the owner's noc patch scripts nocOutfitChangerQuest,
+    nocOutfitChangerContainer, SQ_Airlock_QuestScript, CS7_SpaceshipLandingQuestScript
+    compile through `kit papyrus compile` and `kit papyrus disasm` equals `pexdis.py` on
+    each (6 scripts). Never `-release`.
+  - G8 `strings`: all 378 official tables (13 archives, 9 languages) parse and rewrite
+    byte-identically. G9 `strings.dump`, `strings.merge` `Implemented`. Known string:
+    `strings/starfield_en.strings` ID `0x0002E469` = "Old Earth Hunting Rifle", the FULL
+    (`69E40200` at offset 21,546,047) of `Starfield.esm` WEAP `0021BBCD`
+    (`RussianHuntingRifle`).
+
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -300,6 +336,35 @@ Agents append here when they need a change in a crate they do not own.
   When you flip a command to `Implemented`, removing its `PLANNED_IN_M2` line in
   `crates/engine/src/lib.rs` is optional (a stale entry only prints); a command you will
   not finish in M2 becomes `Status::Deferred { reason, milestone: "M3" }`.
+- **Lane G -> lane D (M2.G8 landed; for M2.D7).** `kitcraft-strings` API:
+  - `Kind::{Strings, DlStrings, IlStrings}`, `Kind::from_path(&Path)`,
+    `Kind::from_extension(&str)`, `kind.extension()`;
+    `table_name("Starfield.esm", "en", Kind::Strings) == "starfield_en.strings"`.
+  - `Table::parse(kind, &bytes) -> Result<Table, Error>`, `Table::read_file(&Path)`;
+    `table.get(id: u32) -> Option<&Entry>`; `Entry { id, bytes, offset: Option<u64> }`
+    with `entry.text() -> Cow<str>` (lossy UTF-8), `entry.is_utf8()`,
+    `entry.stored_len(kind)`; `offset` is the absolute offset in the table file (evidence).
+    `Error` variants carry byte offsets.
+  - Tables in archives: `kitcraft_ba2::Archive::open(&path) -> (Archive, File)`,
+    `archive.find("strings/starfield_en.strings") -> Option<usize>` (case-insensitive,
+    either separator), `archive.extract_vec(&mut file, index)`. Corpus: base-game tables are
+    in `Starfield - Localization.ba2`; the DLC and Creation tables are in
+    `<Plugin> - Localization.ba2` or `<Plugin> - Main.ba2`; names are lower-case
+    `strings/<plugin>_<lang>.<ext>`, languages `de en es fr it ja pl ptbr zhhans`. In
+    `starfield_en` the ID sets of the three kinds are disjoint (FULL is in `.strings`).
+- **Lane G -> lane E (for M2.E8).** `kitcraft_pex::Pex::parse(&bytes)`; calls are
+  `Instruction`s with `opcode_name(op)` `callmethod` / `callstatic` / `callparent`, the
+  function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base
+  object in `args[1]`; `.pex` inside archives via `kitcraft_ba2` as above, or
+  `execute("papyrus.disasm", {pex, archive?, format: "json"})`.
+- **Lane G -> lane F.** (1) Tests that used `ba2.list` as their example of a `Planned`
+  command now use `query` (engine `lib.rs`, `apps/kit-cli` `main.rs` and
+  `tests/exit_codes.rs`, `crates/mcp/src/server.rs`); they break again when `query`
+  lands, so a spec built in the test may be better. (2) `papyrus.disasm` puts the
+  multi-line disassembly in `data.summary` so `kit` prints `pexdis.py`'s output; if `kit`
+  should prefer a `data.text` member instead, say so. (3) `PLANNED_IN_M2` still lists the
+  seven lane G commands (now `Implemented`; prune at will). (4) The status paragraph at the
+  top of `docs/mcp.md` still lists only `roundtrip`, `coverage` and `inspect`.
 - **Lane C -> lane B.** `cargo xtask codegen` can own `BUILTIN_DEFINITIONS` once
   `crates/schema/src/lib.rs` marks a generated region for it (for example
   `// BEGIN generated by cargo xtask codegen` / `// END`); until then
