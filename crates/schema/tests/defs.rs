@@ -150,14 +150,25 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "PCBN", "PCCN", "PCMT", "TES4",
-            "WEAP", "ZOOM"
+            "AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN", "PCCN", "PCMT",
+            "TES4", "WEAP", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
     let common: Vec<&str> = embedded.common.keys().map(String::as_str).collect();
-    assert_eq!(common, ["BfcbBlock", "Condition", "Keywords", "ObteBlock"]);
+    assert_eq!(
+        common,
+        [
+            "BfcbBlock",
+            "Condition",
+            "Keywords",
+            "ObjectBounds",
+            "ObjectPaletteDefaults",
+            "ObteBlock",
+            "Transforms"
+        ]
+    );
 }
 
 /// `BUILTIN_DEFINITIONS` has one marked region a tool may regenerate, holding every entry.

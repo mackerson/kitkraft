@@ -3,7 +3,10 @@
 // - common BfcbBlock (corpus: BFCB..BFCE blocks in the GLOB, KYWD, WEAP, OMOD and COBJ records of the official ESMs; corpus)
 // - common Condition (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840; corpus)
 // - common Keywords (corpus: KSIZ/KWDA pairs in the 14 official ESMs, universal subrecord scan 2026-10-14; corpus)
+// - common ObjectBounds (xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365; corpus)
+// - common ObjectPaletteDefaults (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962; corpus)
 // - common ObteBlock (corpus: OBTE..STOP blocks in the WEAP records of the official ESMs; corpus)
+// - common Transforms (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978; corpus)
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - AMDL (corpus: AMDL records of the 14 official ESMs, scan 2026-10-14; corpus)
@@ -12,6 +15,7 @@
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
+// - LVLP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14156; corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - PCBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785; corpus)
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
@@ -1272,6 +1276,261 @@ impl Visit for Keywords {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectBoundsMin {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for ObjectBoundsMin {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "ObjectBounds.Min.X", ctx)?;
+        let f1 = f32::read(r, "ObjectBounds.Min.Y", ctx)?;
+        let f2 = f32::read(r, "ObjectBounds.Min.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for ObjectBoundsMin {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectBoundsMax {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for ObjectBoundsMax {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "ObjectBounds.Max.X", ctx)?;
+        let f1 = f32::read(r, "ObjectBounds.Max.Y", ctx)?;
+        let f2 = f32::read(r, "ObjectBounds.Max.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for ObjectBoundsMax {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectBounds {
+    pub min: ObjectBoundsMin,
+    pub max: ObjectBoundsMax,
+}
+
+impl Field for ObjectBounds {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "ObjectBounds.Min", ctx)?;
+        let f1 = Field::read(r, "ObjectBounds.Max", ctx)?;
+        Ok(Self { min: f0, max: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.min.write(out);
+        self.max.write(out);
+    }
+}
+
+impl Visit for ObjectBounds {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ObjectPaletteDefaultsFlags(pub u8);
+
+impl ObjectPaletteDefaultsFlags {
+    pub const CONFORM_TO_SLOPE: u8 = 0x1;
+    pub const ROTATE_Z_TO_SLOPE: u8 = 0x4;
+    pub const SLOPE_LIMIT_IS_MIN_SLOPE: u8 = 0x8;
+    pub const PLACE_AS_MARKER: u8 = 0x10;
+    pub const OUTSIDE_WATER_HEIGHT: u8 = 0x20;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for ObjectPaletteDefaultsFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for ObjectPaletteDefaultsFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectPaletteDefaultsFootprint {
+    ExtraLarge,
+    Large,
+    Medium,
+    Small,
+    None,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl ObjectPaletteDefaultsFootprint {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::ExtraLarge,
+            1 => Self::Large,
+            2 => Self::Medium,
+            3 => Self::Small,
+            5 => Self::None,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::ExtraLarge => 0,
+            Self::Large => 1,
+            Self::Medium => 2,
+            Self::Small => 3,
+            Self::None => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ObjectPaletteDefaultsFootprint {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ObjectPaletteDefaultsFootprint {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ObjectPaletteDefaults {
+    pub flags: ObjectPaletteDefaultsFlags,
+    pub unused: [u8; 3],
+    pub sink: f32,
+    pub sink_variance: f32,
+    pub xy_offset_variance: f32,
+    pub footprint: ObjectPaletteDefaultsFootprint,
+    pub scale_percent: f32,
+    pub scale_variance: f32,
+    pub angle_x: f32,
+    pub angle_x_variance: f32,
+    pub angle_y: f32,
+    pub angle_y_variance: f32,
+    pub angle_z: f32,
+    pub angle_z_variance: f32,
+    pub slope_percent: f32,
+    pub slope_percent_variance: f32,
+    pub density: f32,
+    pub frequency_percent: f32,
+    pub slope_limit: f32,
+    pub distance_below_water: f32,
+    pub distance_above_water: f32,
+}
+
+impl Field for ObjectPaletteDefaults {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "ObjectPaletteDefaults.Flags", ctx)?;
+        let f1 = Field::read(r, "ObjectPaletteDefaults.Unused", ctx)?;
+        let f2 = f32::read(r, "ObjectPaletteDefaults.Sink", ctx)?;
+        let f3 = f32::read(r, "ObjectPaletteDefaults.SinkVariance", ctx)?;
+        let f4 = f32::read(r, "ObjectPaletteDefaults.XyOffsetVariance", ctx)?;
+        let f5 = Field::read(r, "ObjectPaletteDefaults.Footprint", ctx)?;
+        let f6 = f32::read(r, "ObjectPaletteDefaults.ScalePercent", ctx)?;
+        let f7 = f32::read(r, "ObjectPaletteDefaults.ScaleVariance", ctx)?;
+        let f8 = f32::read(r, "ObjectPaletteDefaults.AngleX", ctx)?;
+        let f9 = f32::read(r, "ObjectPaletteDefaults.AngleXVariance", ctx)?;
+        let f10 = f32::read(r, "ObjectPaletteDefaults.AngleY", ctx)?;
+        let f11 = f32::read(r, "ObjectPaletteDefaults.AngleYVariance", ctx)?;
+        let f12 = f32::read(r, "ObjectPaletteDefaults.AngleZ", ctx)?;
+        let f13 = f32::read(r, "ObjectPaletteDefaults.AngleZVariance", ctx)?;
+        let f14 = f32::read(r, "ObjectPaletteDefaults.SlopePercent", ctx)?;
+        let f15 = f32::read(r, "ObjectPaletteDefaults.SlopePercentVariance", ctx)?;
+        let f16 = f32::read(r, "ObjectPaletteDefaults.Density", ctx)?;
+        let f17 = f32::read(r, "ObjectPaletteDefaults.FrequencyPercent", ctx)?;
+        let f18 = f32::read(r, "ObjectPaletteDefaults.SlopeLimit", ctx)?;
+        let f19 = f32::read(r, "ObjectPaletteDefaults.DistanceBelowWater", ctx)?;
+        let f20 = f32::read(r, "ObjectPaletteDefaults.DistanceAboveWater", ctx)?;
+        Ok(Self {
+            flags: f0,
+            unused: f1,
+            sink: f2,
+            sink_variance: f3,
+            xy_offset_variance: f4,
+            footprint: f5,
+            scale_percent: f6,
+            scale_variance: f7,
+            angle_x: f8,
+            angle_x_variance: f9,
+            angle_y: f10,
+            angle_y_variance: f11,
+            angle_z: f12,
+            angle_z_variance: f13,
+            slope_percent: f14,
+            slope_percent_variance: f15,
+            density: f16,
+            frequency_percent: f17,
+            slope_limit: f18,
+            distance_below_water: f19,
+            distance_above_water: f20,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.flags.write(out);
+        self.unused.write(out);
+        self.sink.write(out);
+        self.sink_variance.write(out);
+        self.xy_offset_variance.write(out);
+        self.footprint.write(out);
+        self.scale_percent.write(out);
+        self.scale_variance.write(out);
+        self.angle_x.write(out);
+        self.angle_x_variance.write(out);
+        self.angle_y.write(out);
+        self.angle_y_variance.write(out);
+        self.angle_z.write(out);
+        self.angle_z_variance.write(out);
+        self.slope_percent.write(out);
+        self.slope_percent_variance.write(out);
+        self.density.write(out);
+        self.frequency_percent.write(out);
+        self.slope_limit.write(out);
+        self.distance_below_water.write(out);
+        self.distance_above_water.write(out);
+    }
+}
+
+impl Visit for ObjectPaletteDefaults {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ObteBlockObtsEntry {
     /// `OBTF`, optional.
@@ -1422,6 +1681,112 @@ impl Visit for ObteBlock {
 
     fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
         visit_lstrings_mut(&mut self.obts_entry, "ObteBlock.ObtsEntry", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Transforms {
+    pub inventory_icon: FormId,
+    pub workshop_icon: FormId,
+    pub ship_builder_icon: FormId,
+    pub preview: FormId,
+    pub inventory3d_override: FormId,
+    pub workbench3d_override: FormId,
+    pub data_menu3d_override: FormId,
+    pub research_menu3d_override: FormId,
+}
+
+impl Field for Transforms {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "Transforms.InventoryIcon", ctx)?;
+        let f1 = Field::read(r, "Transforms.WorkshopIcon", ctx)?;
+        let f2 = Field::read(r, "Transforms.ShipBuilderIcon", ctx)?;
+        let f3 = Field::read(r, "Transforms.Preview", ctx)?;
+        let f4 = Field::read(r, "Transforms.Inventory3dOverride", ctx)?;
+        let f5 = Field::read(r, "Transforms.Workbench3dOverride", ctx)?;
+        let f6 = Field::read(r, "Transforms.DataMenu3dOverride", ctx)?;
+        let f7 = Field::read(r, "Transforms.ResearchMenu3dOverride", ctx)?;
+        Ok(Self {
+            inventory_icon: f0,
+            workshop_icon: f1,
+            ship_builder_icon: f2,
+            preview: f3,
+            inventory3d_override: f4,
+            workbench3d_override: f5,
+            data_menu3d_override: f6,
+            research_menu3d_override: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.inventory_icon.write(out);
+        self.workshop_icon.write(out);
+        self.ship_builder_icon.write(out);
+        self.preview.write(out);
+        self.inventory3d_override.write(out);
+        self.workbench3d_override.write(out);
+        self.data_menu3d_override.write(out);
+        self.research_menu3d_override.write(out);
+    }
+}
+
+impl Visit for Transforms {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.inventory_icon, "Transforms.InventoryIcon", out);
+        visit_form_ids(&self.workshop_icon, "Transforms.WorkshopIcon", out);
+        visit_form_ids(&self.ship_builder_icon, "Transforms.ShipBuilderIcon", out);
+        visit_form_ids(&self.preview, "Transforms.Preview", out);
+        visit_form_ids(
+            &self.inventory3d_override,
+            "Transforms.Inventory3dOverride",
+            out,
+        );
+        visit_form_ids(
+            &self.workbench3d_override,
+            "Transforms.Workbench3dOverride",
+            out,
+        );
+        visit_form_ids(
+            &self.data_menu3d_override,
+            "Transforms.DataMenu3dOverride",
+            out,
+        );
+        visit_form_ids(
+            &self.research_menu3d_override,
+            "Transforms.ResearchMenu3dOverride",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.inventory_icon, "Transforms.InventoryIcon", out);
+        visit_form_ids_mut(&mut self.workshop_icon, "Transforms.WorkshopIcon", out);
+        visit_form_ids_mut(
+            &mut self.ship_builder_icon,
+            "Transforms.ShipBuilderIcon",
+            out,
+        );
+        visit_form_ids_mut(&mut self.preview, "Transforms.Preview", out);
+        visit_form_ids_mut(
+            &mut self.inventory3d_override,
+            "Transforms.Inventory3dOverride",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.workbench3d_override,
+            "Transforms.Workbench3dOverride",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.data_menu3d_override,
+            "Transforms.DataMenu3dOverride",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.research_menu3d_override,
+            "Transforms.ResearchMenu3dOverride",
+            out,
+        );
     }
 }
 
@@ -2856,6 +3221,676 @@ impl KywdRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("KYWD", &mut out);
+        out
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LvlpFlags(pub u16);
+
+impl LvlpFlags {
+    pub const CALCULATE_FOR_EACH_ITEM_IN_COUNT: u16 = 0x2;
+    pub const EVAL_AS_STACK: u16 = 0x20;
+    pub const DO_ALL_BEFORE_REPEATING: u16 = 0x100;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u16) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LvlpFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LvlpFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LvlpEntryData {
+    pub level: u16,
+    pub unused1: [u8; 2],
+    pub pack_in: FormId,
+    pub count: u16,
+    pub chance_none: u8,
+    pub unused2: [u8; 1],
+}
+
+impl Field for LvlpEntryData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "LVLP.Entry.LVLO.Level", ctx)?;
+        let f1 = Field::read(r, "LVLP.Entry.LVLO.Unused1", ctx)?;
+        let f2 = Field::read(r, "LVLP.Entry.LVLO.PackIn", ctx)?;
+        let f3 = u16::read(r, "LVLP.Entry.LVLO.Count", ctx)?;
+        let f4 = u8::read(r, "LVLP.Entry.LVLO.ChanceNone", ctx)?;
+        let f5 = Field::read(r, "LVLP.Entry.LVLO.Unused2", ctx)?;
+        Ok(Self {
+            level: f0,
+            unused1: f1,
+            pack_in: f2,
+            count: f3,
+            chance_none: f4,
+            unused2: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.level.write(out);
+        self.unused1.write(out);
+        self.pack_in.write(out);
+        self.count.write(out);
+        self.chance_none.write(out);
+        self.unused2.write(out);
+    }
+}
+
+impl Visit for LvlpEntryData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.pack_in, "LVLP.Entry.LVLO.PackIn", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.pack_in, "LVLP.Entry.LVLO.PackIn", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LvlpEntry {
+    /// `LVLO`, required.
+    pub data: Option<Sub<LvlpEntryData>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+}
+
+impl LvlpEntry {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"LVLO",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.data, subs, *index, "LVLP.Entry.LVLO", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"LVLO", self.data.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for LvlpEntry {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.data, "LVLP.Entry.LVLO", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.data, "LVLP.Entry.LVLO", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LvlpModelMaterialSwaps {
+    pub count: u16,
+    pub swaps: Vec<FormId>,
+}
+
+impl Field for LvlpModelMaterialSwaps {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "LVLP.Model.MOLM.Count", ctx)?;
+        let n1 = count(f0, "LVLP.Model.MOLM.Swaps", r.position())?;
+        let f1 = read_array(r, n1, "LVLP.Model.MOLM.Swaps", ctx)?;
+        Ok(Self {
+            count: f0,
+            swaps: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.count.write(out);
+        self.swaps.write(out);
+    }
+}
+
+impl Visit for LvlpModelMaterialSwaps {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.swaps, "LVLP.Model.MOLM.Swaps", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.swaps, "LVLP.Model.MOLM.Swaps", out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LvlpModelLightLayer(pub u32);
+
+impl LvlpModelLightLayer {
+    pub const DEFAULT_LIGHT_LAYER: u32 = 0x1;
+    pub const HELMET_LIGHT: u32 = 0x2;
+    pub const SHIP_INTERIOR: u32 = 0x4;
+    pub const SHIP_EXTERIOR: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LvlpModelLightLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LvlpModelLightLayer {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LvlpModelFlags(pub u8);
+
+impl LvlpModelFlags {
+    pub const HAS_FACE_BONES_MODEL: u8 = 0x1;
+    pub const SUPPORT_MODEL_ONLY_SWAP: u8 = 0x2;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LvlpModelFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LvlpModelFlags {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LvlpModel {
+    /// `MODL`, optional.
+    pub file_name: Option<Sub<ZString>>,
+    /// `MOLM`, optional.
+    pub material_swaps: Option<Sub<LvlpModelMaterialSwaps>>,
+    /// `FLLD`, required.
+    pub light_layer: Option<Sub<LvlpModelLightLayer>>,
+    /// `MODC`, optional.
+    pub color_remapping_index: Option<Sub<f32>>,
+    /// `XFLG`, optional.
+    pub flags: Option<Sub<LvlpModelFlags>>,
+}
+
+impl LvlpModel {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"MODL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MOLM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLLD",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"MODC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XFLG",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.file_name,
+                    subs,
+                    *index,
+                    "LVLP.Model.MODL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.material_swaps,
+                    subs,
+                    *index,
+                    "LVLP.Model.MOLM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.light_layer,
+                    subs,
+                    *index,
+                    "LVLP.Model.FLLD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.color_remapping_index,
+                    subs,
+                    *index,
+                    "LVLP.Model.MODC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.flags, subs, *index, "LVLP.Model.XFLG", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"MODL", self.file_name.as_ref());
+        emit(out, *b"MOLM", self.material_swaps.as_ref());
+        emit(out, *b"FLLD", self.light_layer.as_ref());
+        emit(out, *b"MODC", self.color_remapping_index.as_ref());
+        emit(out, *b"XFLG", self.flags.as_ref());
+    }
+}
+
+impl Visit for LvlpModel {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.material_swaps, "LVLP.Model.MOLM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.material_swaps, "LVLP.Model.MOLM", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LvlpForcedLocRefTypes(pub Vec<FormId>);
+
+impl Field for LvlpForcedLocRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LvlpForcedLocRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LvlpRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `LVLD`, required.
+    pub chance_none: Option<Sub<f32>>,
+    /// `LVLM`, required.
+    pub max_count: Option<Sub<u8>>,
+    /// `LVLF`, required.
+    pub flags: Option<Sub<LvlpFlags>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `LVLG`, optional.
+    pub use_global: Option<Sub<FormId>>,
+    /// `LLCT`, optional.
+    pub entry_count: Option<Sub<u8>>,
+    /// Group `Entry`, repeated.
+    pub entry: Vec<LvlpEntry>,
+    /// Group `Model`, optional.
+    pub model: Option<LvlpModel>,
+    /// `FTYP`, optional.
+    pub forced_loc_ref_types: Option<Sub<LvlpForcedLocRefTypes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl LvlpRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"LVLD",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"LVLM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"LVLF",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"LVLG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LLCT",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: LvlpEntry::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: LvlpModel::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FTYP",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "LVLP.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "LVLP.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "LVLP.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "LVLP.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "LVLP.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "LVLP.PTT2", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "LVLP.XALG", ctx, extra)
+                }
+                Hit::Group { member: 7, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.chance_none, subs, *index, "LVLP.LVLD", ctx, extra)
+                }
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.max_count, subs, *index, "LVLP.LVLM", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.flags, subs, *index, "LVLP.LVLF", ctx, extra)
+                }
+                Hit::Group { member: 11, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.use_global, subs, *index, "LVLP.LVLG", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => {
+                    put(&mut self.entry_count, subs, *index, "LVLP.LLCT", ctx, extra)
+                }
+                Hit::Group { member: 14, hits } => {
+                    let mut group = LvlpEntry::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.entry.push(group);
+                }
+                Hit::Group { member: 15, hits } if self.model.is_none() => {
+                    let mut group = LvlpModel::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
+                }
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.forced_loc_ref_types,
+                    subs,
+                    *index,
+                    "LVLP.FTYP",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"LVLD", self.chance_none.as_ref());
+        emit(out, *b"LVLM", self.max_count.as_ref());
+        emit(out, *b"LVLF", self.flags.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"LVLG", self.use_global.as_ref());
+        emit(out, *b"LLCT", self.entry_count.as_ref());
+        for group in &self.entry {
+            group.emit(out);
+        }
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
+        emit(out, *b"FTYP", self.forced_loc_ref_types.as_ref());
+    }
+}
+
+impl Visit for LvlpRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "LVLP.PTT2", out);
+        visit_form_ids(&self.use_global, "LVLP.LVLG", out);
+        visit_form_ids(&self.entry, "LVLP.Entry", out);
+        visit_form_ids(&self.model, "LVLP.Model", out);
+        visit_form_ids(&self.forced_loc_ref_types, "LVLP.FTYP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "LVLP.PTT2", out);
+        visit_form_ids_mut(&mut self.use_global, "LVLP.LVLG", out);
+        visit_form_ids_mut(&mut self.entry, "LVLP.Entry", out);
+        visit_form_ids_mut(&mut self.model, "LVLP.Model", out);
+        visit_form_ids_mut(&mut self.forced_loc_ref_types, "LVLP.FTYP", out);
+    }
+}
+
+impl LvlpRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"LVLP";
+    /// Record-header flag.
+    pub const FLAG_APPLY_LRT_TO_ALL_BUT_PIVOT: u32 = 0x80;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("LVLP", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("LVLP", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("LVLP", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("LVLP", &mut out);
         out
     }
 }
@@ -5116,6 +6151,7 @@ pub enum Record {
     Glob(Box<GlobRecord>),
     Gmst(Box<GmstRecord>),
     Kywd(Box<KywdRecord>),
+    Lvlp(Box<LvlpRecord>),
     Omod(Box<OmodRecord>),
     Pcbn(Box<PcbnRecord>),
     Pccn(Box<PccnRecord>),
@@ -5133,6 +6169,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"GLOB", GlobRecord::MEMBERS),
     (*b"GMST", GmstRecord::MEMBERS),
     (*b"KYWD", KywdRecord::MEMBERS),
+    (*b"LVLP", LvlpRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
     (*b"PCBN", PcbnRecord::MEMBERS),
     (*b"PCCN", PccnRecord::MEMBERS),
@@ -5153,6 +6190,7 @@ impl Record {
             b"GLOB" => Self::Glob(Box::new(GlobRecord::decode(subs, ctx))),
             b"GMST" => Self::Gmst(Box::new(GmstRecord::decode(subs, ctx))),
             b"KYWD" => Self::Kywd(Box::new(KywdRecord::decode(subs, ctx))),
+            b"LVLP" => Self::Lvlp(Box::new(LvlpRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
             b"PCBN" => Self::Pcbn(Box::new(PcbnRecord::decode(subs, ctx))),
             b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
@@ -5173,6 +6211,7 @@ impl Record {
             Self::Glob(record) => record.encode(),
             Self::Gmst(record) => record.encode(),
             Self::Kywd(record) => record.encode(),
+            Self::Lvlp(record) => record.encode(),
             Self::Omod(record) => record.encode(),
             Self::Pcbn(record) => record.encode(),
             Self::Pccn(record) => record.encode(),
@@ -5192,6 +6231,7 @@ impl Record {
             Self::Glob(_) => GlobRecord::SIGNATURE,
             Self::Gmst(_) => GmstRecord::SIGNATURE,
             Self::Kywd(_) => KywdRecord::SIGNATURE,
+            Self::Lvlp(_) => LvlpRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
             Self::Pcbn(_) => PcbnRecord::SIGNATURE,
             Self::Pccn(_) => PccnRecord::SIGNATURE,
@@ -5211,6 +6251,7 @@ impl Record {
             Self::Glob(record) => record.form_ids(),
             Self::Gmst(record) => record.form_ids(),
             Self::Kywd(record) => record.form_ids(),
+            Self::Lvlp(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
             Self::Pcbn(record) => record.form_ids(),
             Self::Pccn(record) => record.form_ids(),
@@ -5230,6 +6271,7 @@ impl Record {
             Self::Glob(record) => record.form_ids_mut(),
             Self::Gmst(record) => record.form_ids_mut(),
             Self::Kywd(record) => record.form_ids_mut(),
+            Self::Lvlp(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
             Self::Pcbn(record) => record.form_ids_mut(),
             Self::Pccn(record) => record.form_ids_mut(),
@@ -5249,6 +6291,7 @@ impl Record {
             Self::Glob(record) => record.lstrings(),
             Self::Gmst(record) => record.lstrings(),
             Self::Kywd(record) => record.lstrings(),
+            Self::Lvlp(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
             Self::Pcbn(record) => record.lstrings(),
             Self::Pccn(record) => record.lstrings(),
@@ -5268,6 +6311,7 @@ impl Record {
             Self::Glob(record) => record.lstrings_mut(),
             Self::Gmst(record) => record.lstrings_mut(),
             Self::Kywd(record) => record.lstrings_mut(),
+            Self::Lvlp(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
             Self::Pcbn(record) => record.lstrings_mut(),
             Self::Pccn(record) => record.lstrings_mut(),
@@ -5288,6 +6332,7 @@ impl Record {
             Self::Glob(record) => &record.extra,
             Self::Gmst(record) => &record.extra,
             Self::Kywd(record) => &record.extra,
+            Self::Lvlp(record) => &record.extra,
             Self::Omod(record) => &record.extra,
             Self::Pcbn(record) => &record.extra,
             Self::Pccn(record) => &record.extra,

@@ -1,0 +1,42 @@
+# ObjectPaletteDefaults: the OPDS payload, the default placement settings an object brings
+# into the object palette (slope conforming, sink, scale and angle variance, density).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L3925-L3962 - field order, widths, the flag bits
+#     and the footprint values.
+#   corpus: OPDS in the LVLP, PKIN and GBFM records of the 14 official ESMs (2026-10-14):
+#     every payload is 80 bytes, the sum of the field widths.
+#
+# Angles are stored as f32; xEdit displays them in degrees. Field names match the inline
+# OPDS layout of the weapon family (lane B round 3), so the two can share this type later.
+name = "ObjectPaletteDefaults"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"
+evidence = [
+  "corpus: OPDS in the LVLP, PKIN and GBFM records of the 14 official ESMs, 2026-10-14 scan: all 80 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Flags", type = "flags", base = "u8", bits = [["ConformToSlope", 0x1], ["RotateZToSlope", 0x4], ["SlopeLimitIsMinSlope", 0x8], ["PlaceAsMarker", 0x10], ["OutsideWaterHeight", 0x20]] },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Sink", type = "f32" },
+  { name = "SinkVariance", type = "f32" },
+  { name = "XyOffsetVariance", type = "f32" },
+  { name = "Footprint", type = "enum", base = "u32", values = [["ExtraLarge", 0], ["Large", 1], ["Medium", 2], ["Small", 3], ["None", 5]] },
+  { name = "ScalePercent", type = "f32" },
+  { name = "ScaleVariance", type = "f32" },
+  { name = "AngleX", type = "f32" },
+  { name = "AngleXVariance", type = "f32" },
+  { name = "AngleY", type = "f32" },
+  { name = "AngleYVariance", type = "f32" },
+  { name = "AngleZ", type = "f32" },
+  { name = "AngleZVariance", type = "f32" },
+  { name = "SlopePercent", type = "f32" },
+  { name = "SlopePercentVariance", type = "f32" },
+  { name = "Density", type = "f32" },
+  { name = "FrequencyPercent", type = "f32" },
+  { name = "SlopeLimit", type = "f32" },
+  { name = "DistanceBelowWater", type = "f32" },
+  { name = "DistanceAboveWater", type = "f32" },
+]

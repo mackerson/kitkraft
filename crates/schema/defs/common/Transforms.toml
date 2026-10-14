@@ -1,0 +1,29 @@
+# Transforms: the PTT2 payload, eight transform FormIDs for the object's icon and 3D
+# previews in the menus. A null FormID means no override.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L3965-L3978 - the eight slots, in order, each a
+#     TRNS FormID or null.
+#   corpus: PTT2 in the LVLP, PKIN and GBFM records of the 14 official ESMs (2026-10-14):
+#     every payload is 32 bytes.
+#
+# Field names match the inline PTT2 layout of the weapon family (lane B round 3), so the two
+# can share this type later. FormIDs are raw (file-relative); resolution is the doc layer's.
+name = "Transforms"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"
+evidence = [
+  "corpus: PTT2 in the LVLP, PKIN and GBFM records of the 14 official ESMs, 2026-10-14 scan: all 32 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "InventoryIcon", type = "formid", targets = ["TRNS"] },
+  { name = "WorkshopIcon", type = "formid", targets = ["TRNS"] },
+  { name = "ShipBuilderIcon", type = "formid", targets = ["TRNS"] },
+  { name = "Preview", type = "formid", targets = ["TRNS"] },
+  { name = "Inventory3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "Workbench3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "DataMenu3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "ResearchMenu3dOverride", type = "formid", targets = ["TRNS"] },
+]

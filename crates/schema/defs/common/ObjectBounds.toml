@@ -1,0 +1,32 @@
+# ObjectBounds: the OBND payload, two corners of the object's bounding box.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsCommon.pas@9fb01688 L9348-L9365 - the object-bounds helper, which
+#     for Starfield stores each corner as three 32-bit floats; the float triple is the
+#     vector helper at L6725-L6740.
+#   corpus: OBND in the LVLP, PKIN and GBFM records of the 14 official ESMs (2026-10-14):
+#     every payload is 24 bytes.
+#
+# The field names match the inline OBND layout of the weapon family (lane B round 3), so the
+# two can share this type later.
+name = "ObjectBounds"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: OBND in the LVLP, PKIN and GBFM records of the 14 official ESMs, 2026-10-14 scan: all 24 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Min", type = "struct", field = [
+    { name = "X", type = "f32" },
+    { name = "Y", type = "f32" },
+    { name = "Z", type = "f32" },
+  ] },
+  { name = "Max", type = "struct", field = [
+    { name = "X", type = "f32" },
+    { name = "Y", type = "f32" },
+    { name = "Z", type = "f32" },
+  ] },
+]
