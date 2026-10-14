@@ -460,7 +460,7 @@ mod tests {
     #[test]
     fn a_composed_reference_lands_in_its_cell_with_the_hedr_updated() {
         let mut plugin = Plugin::create(&HeaderSpec::new(vec![b"Starfield.esm".to_vec()]));
-        let mut forms = NewForms::for_plugin(&plugin).unwrap();
+        let mut forms = NewForms::for_plugin(&plugin, &[Some(crate::tes4::Scale::Full)]).unwrap();
         let style = PlacementStyle::OFFICIAL;
         let world = 0x0000_0025;
         let place = CellPlace::Exterior {
