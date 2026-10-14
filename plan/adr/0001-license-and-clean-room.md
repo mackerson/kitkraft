@@ -1,0 +1,45 @@
+# ADR 0001: License and clean-room rules
+
+- Status: Accepted (license pending owner confirmation, see "Open" below)
+- Date: 2026-10-14
+
+## Context
+
+KitCraft re-implements a proprietary tool (Bethesda's Creation Kit) and proprietary formats.
+The craft-suite projects it is modelled on stay credible, and legally safe to contribute to, by
+being permissively licensed and strictly clean-room. The Bethesda modding ecosystem's most
+complete format code (Mutagen, Spriggit) is GPL-3.0; xEdit is MPL-2.0. Reading copyleft code
+and then writing "our own" version of the same thing makes the result arguably derivative.
+
+## Decision
+
+1. **License:** MIT OR Apache-2.0, at the user's option (`LICENSE-MIT`, `LICENSE-APACHE`,
+   `NOTICE`). Contributions are accepted under the same dual license.
+2. **Specification sources, in priority order:**
+   1. The UESP wiki Starfield Mod File Format pages.
+   2. Our own inspection (hex dumps, statistics) of official files on our own machines.
+   3. Black-box observation of `CreationKit.exe`: run it, open and save plugins, screenshot,
+      diff outputs.
+3. **Forbidden:**
+   - Disassembling, decompiling, debugging, or memory-dumping `CreationKit.exe` or
+     `Starfield.exe`, including with REA, Ghidra, IDA, or x64dbg.
+   - Reading Mutagen, Spriggit, or any GPL/LGPL/AGPL code that handles Bethesda formats.
+   - Reading xEdit source until ADR 0004 says otherwise.
+   - Copying UESP prose (CC BY-SA) into code, schema files, or docs. Facts (signatures,
+     sizes, offsets, types, flag values) are recorded in our own words and structure.
+   - Committing any Bethesda data or asset, including CK screenshots.
+4. **Allowed:** running Spriggit as an external binary to produce an oracle for comparison;
+   porting our own Python tools in `C:\Modding\scripts`; running REA-style analysis on our
+   own binaries (crash triage).
+5. Every non-code third-party asset is listed in `ATTRIBUTION.md` before commit.
+
+## Consequences
+
+- Some subrecords will be ambiguous on UESP. We resolve them from the corpus (statistics over
+  every occurrence) and mark the remainder opaque, rather than consulting other code.
+- An agent that has read forbidden code must say so and stay out of that area.
+- Opaque-but-preserved data is a first-class outcome, not a failure.
+
+## Open
+
+- The owner confirms the license (PLAN.md open decision 4).

@@ -1,0 +1,15 @@
+[package]
+name = "kitcraft-doc"
+description = "L1: load order, FormID resolution, overrides, conflict graph"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kitcraft-schema.workspace = true
+kitcraft-esm.workspace = true
+kitcraft-strings.workspace = true

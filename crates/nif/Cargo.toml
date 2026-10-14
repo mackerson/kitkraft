@@ -1,0 +1,12 @@
+[package]
+name = "kitcraft-nif"
+description = "L0: read-only NIF mesh and material metadata"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

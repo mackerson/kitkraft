@@ -1,0 +1,19 @@
+[package]
+name = "kit-cli"
+description = "kit: command-line front end over the engine command catalog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+autobins = false
+
+[lints]
+workspace = true
+
+[dependencies]
+kitcraft-engine.workspace = true
+kitcraft-mcp.workspace = true
+
+[[bin]]
+name = "kit"
+path = "src/main.rs"

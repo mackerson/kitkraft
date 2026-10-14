@@ -1,0 +1,28 @@
+# Build output
+/target/
+/.targets/
+**/*.rs.bk
+
+# Local machine state
+.install.log
+*.log
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+
+# Corpus is referenced in place, never committed (see docs/corpus.md)
+/corpus/**/*.esm
+/corpus/**/*.esp
+/corpus/**/*.esl
+/corpus/**/*.ba2
+/corpus/**/*.pex
+/corpus/**/*.strings
+/corpus/**/*.dlstrings
+/corpus/**/*.ilstrings
+/corpus/out/
+
+# Black-box CK observations (screenshots, CK-saved plugins) stay local
+/observe/

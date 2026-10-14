@@ -1,0 +1,13 @@
+[package]
+name = "kitcraft-mcp"
+description = "L5: MCP stdio server over the engine command catalog"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kitcraft-engine.workspace = true

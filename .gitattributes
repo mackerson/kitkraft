@@ -1,0 +1,7 @@
+* text=auto eol=lf
+*.esm binary
+*.esp binary
+*.esl binary
+*.ba2 binary
+*.pex binary
+*.bin binary

@@ -1,0 +1,13 @@
+[package]
+name = "kitcraft-io"
+description = "L3: MO2 profiles, plugins.txt, Creations manifests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kitcraft-doc.workspace = true

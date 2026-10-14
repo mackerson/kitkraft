@@ -1,0 +1,23 @@
+[package]
+name = "kitcraft-engine"
+description = "L4: CommandSpec catalog, sessions, undo, validation"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kitcraft-schema.workspace = true
+kitcraft-esm.workspace = true
+kitcraft-ba2.workspace = true
+kitcraft-pex.workspace = true
+kitcraft-strings.workspace = true
+kitcraft-nif.workspace = true
+kitcraft-doc.workspace = true
+kitcraft-io.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

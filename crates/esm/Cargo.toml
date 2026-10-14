@@ -1,0 +1,13 @@
+[package]
+name = "kitcraft-esm"
+description = "L0: TES4 plugin container (groups, records, subrecords, compression)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+kitcraft-schema.workspace = true

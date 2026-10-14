@@ -1,0 +1,17 @@
+KitCraft (working name)
+Copyright 2026 The KitCraft contributors
+
+Licensed under either of the MIT license (LICENSE-MIT) or the Apache License,
+Version 2.0 (LICENSE-APACHE), at your option.
+
+KitCraft is an independent project. It is not affiliated with, endorsed by, or
+supported by Bethesda Softworks, ZeniMax Media, or Microsoft. Starfield and
+Creation Kit are trademarks of their respective owners.
+
+This repository contains no Bethesda game data, binaries, or assets. Official
+plugin files are read from the user's own game installation at runtime.
+
+File-format knowledge is derived from the UESP wiki (https://en.uesp.net/,
+content licensed CC BY-SA 2.5) and from our own black-box inspection of files
+we own. No UESP prose is reproduced here. Third-party assets, if any, are
+listed in ATTRIBUTION.md.

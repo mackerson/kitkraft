@@ -1,0 +1,12 @@
+[package]
+name = "kitcraft-strings"
+description = "L0: .STRINGS / .DLSTRINGS / .ILSTRINGS tables"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]

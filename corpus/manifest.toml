@@ -1,0 +1,75 @@
+# Official Starfield ESMs used as the roundtrip corpus. Read in place via KITCRAFT_DATA_DIR.
+# Recorded 2026-10-14 from the Steam install on the dev box. A game update changes these;
+# update this file in its own commit. See docs/corpus.md.
+
+recorded = "2026-10-14"
+
+[[file]]
+name = "Starfield.esm"
+size = 1457098709
+sha256 = "1dabed00c3f4282dd3bb54d2e9601e40b577d8742d078b7ccef203adbfef0da7"
+
+[[file]]
+name = "Constellation.esm"
+size = 39210
+sha256 = "a314299ba8394a682b5bfca5ac29d5ee33fea9ca4e1ff70931e9d6022c81b0bc"
+
+[[file]]
+name = "OldMars.esm"
+size = 24358
+sha256 = "96f74cb008ee4b699b5430068906132dc63777453123ef227b93a629db924bc9"
+
+[[file]]
+name = "BlueprintShips-Starfield.esm"
+size = 303656303
+sha256 = "4341d569fb5b840895d59880972c8f4622790a5229373860d0de0df352252371"
+
+[[file]]
+name = "BlueprintShips-SFBGS050.esm"
+size = 16136720
+sha256 = "8848942d4b8a5143e434e17ea37828c920512af8c3a9ffd87c109d537b704ac6"
+
+[[file]]
+name = "SFBGS003.esm"
+size = 33279036
+sha256 = "e3bab5d184bc0d948e01a23d9166e0cb626d04878f01ae87d75d6f5421f2cf63"
+
+[[file]]
+name = "SFBGS004.esm"
+size = 254945
+sha256 = "2637ff51120c013e0742132f6e6b2c795a48c02a23feffea0e5eec531808c41d"
+
+[[file]]
+name = "SFBGS006.esm"
+size = 7315458
+sha256 = "964a00bcfa2e9d1d183251ec883e6d7888c2ae49579f2b98395126eafb325c45"
+
+[[file]]
+name = "SFBGS007.esm"
+size = 27312
+sha256 = "40687f89ac820a750436c71f5a023fdaff552c3f1d314601dbb0177d341a2323"
+
+[[file]]
+name = "SFBGS008.esm"
+size = 11302160
+sha256 = "e4426499386fcfcf74ed3047be298a426cb2faae2b710904093a028a04b8b462"
+
+[[file]]
+name = "SFBGS00D.esm"
+size = 102054268
+sha256 = "35271d3221310094c70ac2f418d7d393db59dd94d303e830536f85034f44da95"
+
+[[file]]
+name = "SFBGS047.esm"
+size = 472022
+sha256 = "a0d739b07988d49bfefd2a8a6c0d054de6a73781dc86c70ab917da93c9dcc215"
+
+[[file]]
+name = "SFBGS050.esm"
+size = 106017249
+sha256 = "0bda63ae7e4fa48e1149a62e557c56ce65ce8c97badfc6fad1a5a0faf5abeb9d"
+
+[[file]]
+name = "ShatteredSpace.esm"
+size = 501394621
+sha256 = "f8b9333000aba2a4a8a417cb74a11ede6f5b824d27db1918fd1c1f7b64385a43"
