@@ -14,10 +14,12 @@
 //!
 //! LAYER: L0
 
+mod codegen;
 mod load;
 mod model;
 pub mod names;
 
+pub use codegen::{generate, CodegenError};
 pub use load::{load_dir, load_sources, parse_definition, ErrorKind, SchemaError, MAX_DEPTH};
 pub use model::{
     AnyUntilDef, ArrayCount, Cardinality, Definition, FieldDef, FieldType, GroupDef, HeaderDef,
