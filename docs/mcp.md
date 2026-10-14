@@ -707,6 +707,23 @@ the command fails with the errors. Spec errors are `failed` with `spec: <key>: .
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
 
+### Coming in M3: `refs` (M3.D4), `overhaul.scaffold` (M3.E7)
+
+Not in the catalog yet: each lands as one `CommandSpec` with its task, and its result
+shape is documented here by the owning lane when it does. Until then `execute` answers
+`unknown_command` for both. Neither gets an MCP shortcut tool (the tool list stays at
+eight); both are reached through `execute` and `command_line`, and listed in
+`kitcraft://commands` with their `cli` words, like every other command.
+
+- `refs {form, profile?, plugins?, ...}` (lane D); CLI `kit refs <form>`. The CK's "Use
+  Info": every record whose header or typed FormID members name `form` across the load
+  order (the shared load-order arguments above), with evidence per reference and the
+  count of opaque payloads not scanned in `limitations`. Read only.
+- `overhaul.scaffold {type, where?, group_by?, out, overwrite = false}` (lane E); CLI `kit
+  overhaul` (alias `overhaul`). Writes a starter `build` spec v2 (one class per group,
+  match counts and min/median/max per typed numeric member as comments, every rule
+  commented out) to `out`; refuses an existing `out` without `overwrite`. Deterministic.
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends
