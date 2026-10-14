@@ -3,7 +3,10 @@
 //!
 //! The driver always compares. `verify` decides whether a difference is a failed check:
 //! with it, `data.passed` is `identical` (and `kit` exits 1 on `false`); without it,
-//! `data.passed` is `null` and a difference is only reported.
+//! `data.passed` is `null` and a difference is only reported. `decode` (M3.F1) also
+//! inflates every compressed body strictly and re-encodes it
+//! (`RoundtripOptions::with_decode`, M3.A2); it is a check too, so with it `data.passed`
+//! is `identical` and a body that fails is a mismatch.
 //!
 //! `out` never replaces an existing file unless `overwrite` is `true`: the file is opened
 //! with `create_new`, so an existing one is a `failed` error and stays untouched.
@@ -27,6 +30,13 @@ pub(crate) const CONTAINER_ONLY: &str = "container level: every group, record an
      header is parsed and rewritten; subrecord payloads are compared as opaque bytes and \
      compressed record bodies are re-emitted as read, not decompressed";
 
+/// What the comparison covers with `decode`, stated instead of [`CONTAINER_ONLY`].
+pub(crate) const DECODED: &str = "container level plus strict decode: every group, record \
+     and subrecord header is parsed and rewritten and subrecord payloads are compared as \
+     opaque bytes; every compressed body is inflated strictly (declared size, end marker and \
+     checksum, nothing after the stream) and its subrecords parsed and re-encoded, and the \
+     original compressed bytes are what is written";
+
 /// Stated when the driver stopped at a mismatch.
 pub(crate) const STOPPED_AT_MISMATCH: &str = "stopped at the first mismatch: counts cover only \
      the top-level entries read up to and including the one that differs";
@@ -44,8 +54,13 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         .get("overwrite")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let decode = args.get("decode").and_then(Value::as_bool).unwrap_or(false);
     let path = Path::new(plugin);
-    let options = RoundtripOptions::default();
+    let options = if decode {
+        RoundtripOptions::with_decode()
+    } else {
+        RoundtripOptions::default()
+    };
 
     let start = Instant::now();
     let report = match out {
@@ -74,7 +89,7 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     Ok(outcome(
         plugin,
         &file_name(path),
-        verify,
+        Checks { verify, decode },
         out,
         &report,
         elapsed_ms,
@@ -118,18 +133,28 @@ fn refuse_same_file(plugin: &Path, out: &Path) -> Result<(), EngineError> {
     Ok(())
 }
 
+/// The checks a run asked for: either makes a difference a failed check (`passed`).
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Checks {
+    /// `verify`: byte-identical output is required.
+    pub verify: bool,
+    /// `decode`: every compressed body is inflated strictly and re-encoded.
+    pub decode: bool,
+}
+
 /// Builds the envelope parts from a driver report.
 pub(crate) fn outcome(
     plugin: &str,
     file: &str,
-    verify: bool,
+    checks: Checks,
     out: Option<&str>,
     report: &RoundtripReport,
     elapsed_ms: u64,
 ) -> Outcome {
+    let Checks { verify, decode } = checks;
     let identical = report.identical();
     let stats = &report.stats;
-    let mut limitations = vec![CONTAINER_ONLY.to_string()];
+    let mut limitations = vec![if decode { DECODED } else { CONTAINER_ONLY }.to_string()];
     let mut not_examined = Vec::new();
 
     let (mismatch, evidence, summary) = if identical {
@@ -175,11 +200,17 @@ pub(crate) fn outcome(
             record,
             subrecord,
         };
-        let summary = format!(
-            "{file}: MISMATCH at offset {offset} (0x{offset:X}): expected {}, wrote {} in {path}",
-            byte_text(expected),
-            byte_text(actual)
-        );
+        let summary = match (expected, actual) {
+            // A strict-decode fault (`decode`): no byte pair, the path names the fault.
+            (None, None) if decode => {
+                format!("{file}: MISMATCH at offset {offset} (0x{offset:X}): {path}")
+            }
+            _ => format!(
+                "{file}: MISMATCH at offset {offset} (0x{offset:X}): expected {}, wrote {} in {path}",
+                byte_text(expected),
+                byte_text(actual)
+            ),
+        };
         let mismatch = json!({
             "offset": offset,
             "expected": expected,
@@ -193,7 +224,8 @@ pub(crate) fn outcome(
         "plugin": plugin,
         "identical": identical,
         "verify": verify,
-        "passed": if verify { Value::Bool(identical) } else { Value::Null },
+        "decode": decode,
+        "passed": if verify || decode { Value::Bool(identical) } else { Value::Null },
         "bytes": report.input_len,
         "bytes_compared": report.output_len,
         "records": stats.records,
@@ -251,7 +283,10 @@ fn record_in_path(path: &str) -> (Option<String>, Option<String>) {
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{outcome, record_in_path, CONTAINER_ONLY, OUT_INCOMPLETE, STOPPED_AT_MISMATCH};
+    use super::{
+        outcome, record_in_path, Checks, CONTAINER_ONLY, DECODED, OUT_INCOMPLETE,
+        STOPPED_AT_MISMATCH,
+    };
     use crate::handlers::testdata;
     use crate::{execute, EngineError};
     use kitcraft_esm::driver::{Mismatch, RoundtripReport, Stats};
@@ -283,6 +318,7 @@ mod tests {
                     "plugin": plugin,
                     "identical": true,
                     "verify": true,
+                    "decode": false,
                     "passed": true,
                     "bytes": bytes.len(),
                     "bytes_compared": bytes.len(),
@@ -422,7 +458,15 @@ mod tests {
                 ..Stats::default()
             },
         };
-        let o = outcome("D:\\X.esm", "X.esm", true, Some("o.esm"), &report, 5);
+        let checks = |verify, decode| Checks { verify, decode };
+        let o = outcome(
+            "D:\\X.esm",
+            "X.esm",
+            checks(true, false),
+            Some("o.esm"),
+            &report,
+            5,
+        );
         assert_eq!(o.data["identical"], false);
         assert_eq!(o.data["passed"], false);
         assert_eq!(
@@ -450,9 +494,62 @@ mod tests {
         );
 
         // Without --verify the difference is reported but is not a failed check.
-        let o = outcome("X.esm", "X.esm", false, None, &report, 5);
+        let o = outcome("X.esm", "X.esm", checks(false, false), None, &report, 5);
         assert_eq!(o.data["passed"], Value::Null);
         assert_eq!(o.limitations, [CONTAINER_ONLY, STOPPED_AT_MISMATCH]);
+        // `decode` is a check of its own.
+        let o = outcome("X.esm", "X.esm", checks(false, true), None, &report, 5);
+        assert_eq!(o.data["passed"], false);
+        assert_eq!(o.limitations, [DECODED, STOPPED_AT_MISMATCH]);
+    }
+
+    /// The compressed weapon of the synthetic plugin with the last byte of its zlib stream
+    /// (the Adler-32 checksum) flipped: same size, so only `decode` sees it.
+    fn corrupt_plugin() -> Vec<u8> {
+        let mut bytes = testdata::plugin();
+        let packed = kitcraft_esm::compress::deflate(&testdata::packed_fields(), 9, 0).unwrap();
+        let at = bytes
+            .windows(packed.len())
+            .position(|w| w == packed.as_slice())
+            .unwrap();
+        *bytes.get_mut(at + packed.len() - 1).unwrap() ^= 0xFF;
+        bytes
+    }
+
+    #[test]
+    fn decode_reports_a_corrupt_compressed_stream() {
+        let path = testdata::write_temp("roundtrip-corrupt", &corrupt_plugin());
+        let plugin = path.to_str().unwrap();
+        // Container level: the body is re-emitted as read, so the file is identical.
+        let plain = execute("roundtrip", json!({"plugin": plugin, "verify": true})).unwrap();
+        assert_eq!(plain["data"]["passed"], true);
+        let r = execute("roundtrip", json!({"plugin": plugin, "decode": true})).unwrap();
+        assert_eq!(r["data"]["decode"], true);
+        assert_eq!(r["data"]["identical"], false);
+        assert_eq!(r["data"]["passed"], false);
+        let path_text = r["data"]["mismatch"]["path"].as_str().unwrap();
+        assert!(path_text.contains("compressed body"), "{r}");
+        assert_eq!(r["data"]["mismatch"]["expected"], Value::Null);
+        let summary = r["data"]["summary"].as_str().unwrap();
+        assert!(
+            summary.contains("MISMATCH") && summary.contains("compressed body"),
+            "{summary}"
+        );
+        assert_eq!(
+            r["evidence"][0]["record"],
+            format!("WEAP:{:08X}", testdata::PACKED)
+        );
+        assert_eq!(r["limitations"][0], DECODED);
+        // A sound plugin passes with decode.
+        let good = testdata::write_temp("roundtrip-decode-good", &testdata::plugin());
+        let ok = execute(
+            "roundtrip",
+            json!({"plugin": good.to_str().unwrap(), "decode": true}),
+        )
+        .unwrap();
+        assert_eq!(ok["data"]["passed"], true);
+        std::fs::remove_file(&path).unwrap();
+        std::fs::remove_file(&good).unwrap();
     }
 
     #[test]

@@ -205,7 +205,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves in the session's load order, then the working directory, then here"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"decode":{"type":"boolean","default":false,"description":"Also inflate every compressed record strictly (declared size, end marker and checksum, nothing after the stream) and re-encode its subrecords; a body that fails is a mismatch (passed: false)"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves in the session's load order, then the working directory, then here"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -524,7 +524,7 @@ mod execute_tests {
             .unwrap();
         assert_eq!(
             result["data"],
-            json!({"plugin": "X.esm", "verify": false, "overwrite": false})
+            json!({"plugin": "X.esm", "verify": false, "overwrite": false, "decode": false})
         );
         assert_eq!(result["limitations"], json!([]));
         assert_eq!(

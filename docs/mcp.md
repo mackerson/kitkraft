@@ -113,7 +113,7 @@ question for M3.
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
 | `coverage`       | `coverage`'s args (`{plugin, decode?, signatures?, top?}`) | Record types and subrecords vs the schema; a summary by default over MCP |
 | `record_schema`  | `schema`'s args (`{type?, member?, deep?}`) | What the schema defines for a record type: members with type, source citation and confidence (M2.F9) |
-| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?, data_dir?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
+| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, decode?, out?, overwrite?, data_dir?}`) | Parse and rewrite a plugin; `verify` demands identical bytes, `decode` inflates compressed bodies strictly |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
 Tool shapes are generated from the catalog (`tools.rs`): a shortcut's `inputSchema` is its
@@ -201,7 +201,7 @@ Rules:
 
 ### `roundtrip` (M1.12)
 
-Arguments `{plugin, verify = false, out?, overwrite = false, data_dir?}`. Streams the plugin through the `kitcraft-esm`
+Arguments `{plugin, verify = false, decode = false, out?, overwrite = false, data_dir?}`. Streams the plugin through the `kitcraft-esm`
 driver one top-level group at a time, rewrites it, and compares the output with the input.
 
 ```json
@@ -222,7 +222,16 @@ driver one top-level group at a time, rewrites it, and compares the output with 
 }
 ```
 
-- `passed` is `identical` when `verify` is set, `null` otherwise.
+- `passed` is `identical` when `verify` or `decode` is set, `null` otherwise.
+- `decode` (M3.F1; `kit roundtrip X.esm --decode`) also inflates every compressed record
+  strictly (`RoundtripOptions::with_decode`, M3.A2): the stream must produce exactly the
+  declared size and end with its end marker and checksum at the end of the body, and its
+  subrecords must parse and re-encode to the inflated bytes. A body that fails is a
+  mismatch with `expected` and `actual` both `null`, `offset` where inflating stopped (the
+  body start for size and content faults) and `path` ending in
+  `> compressed body: <fault>`; a decode limit is a `failed` error. The original compressed
+  bytes are still what is written, and the first limitation says so in place of the
+  container-level one.
 - On a mismatch: `mismatch: {offset, expected, actual, path}` (`expected`/`actual` are byte
   values, `null` past the end of the data; `path` is the driver's
   `GRUP WEAP (type 0) @123 > WEAP 0001A2B3 @147 > FULL @171`), one `evidence` entry of
@@ -896,7 +905,7 @@ also demands byte-identical output.
 | Code | Meaning                                                                                   |
 | ---- | ----------------------------------------------------------------------------------------- |
 | 0    | Success, help, version (includes `roundtrip` without `--verify` that found a difference)  |
-| 1    | The command ran and its check failed: `data.passed` is `false` (`roundtrip --verify` mismatch) |
+| 1    | The command ran and its check failed: `data.passed` is `false` (`roundtrip --verify` or `--decode` mismatch) |
 | 2    | Usage error, unknown command, invalid arguments, not implemented (including a `Planned` command's stub result), deferred, command failure; `kit mcp` on a stdio I/O error |
 
 `kit mcp` exits 0 when its stdin closes, including after a failed `--profile` preload.

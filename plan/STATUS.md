@@ -466,6 +466,14 @@ is under "Next".
     Tests through `execute` per command (`handlers/resolve_tests.rs`): `Constellation.esm`
     (or its archives, `Starfield - Misc.ba2` for `papyrus.disasm`) resolves from
     `KITCRAFT_DATA_DIR`, and an empty `data_dir` gives `not_found` naming it.
+  - M3.F1 `roundtrip --decode` (lane A's M3.A2 Request): `decode` in the catalog, CLI
+    (`--decode`) and MCP passes `RoundtripOptions::with_decode()`; with it `data.passed`
+    is `identical` (a check, like `verify`), `data.decode` is reported, the first
+    limitation states the strict decode, and a decode fault's summary names its path.
+    End to end: `kit roundtrip <corrupt> --decode --json` exits 1 with `data.passed:
+    false` on a synthetic plugin whose compressed GMST has its Adler-32 flipped
+    (`apps/kit-cli/tests/exit_codes.rs`, `roundtrip_decode_exit_1`); both `docs/gaps.md`
+    roundtrip rows closed.
 - Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
   `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
   - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
@@ -985,7 +993,8 @@ Agents append here when they need a change in a crate they do not own.
      outside NAVM).
   The 12 level-8 NAVM and the unexplained NAVM (`001BA29F`) are navmeshes of cell
   `00000025`, not dialog-editable, so F07 does not cover them.
-- **Lane A -> lane F (M3.A2 landed; for M3.F1).** `RoundtripOptions::decode:
+- ~~**Lane A -> lane F (M3.A2 landed; for M3.F1).**~~ Done in M3.F1 (Done, "Lane F,
+  M4"): `roundtrip --decode`, exit 1 end to end. `RoundtripOptions::decode:
   Some(DecodeLimits)` (or `RoundtripOptions::with_decode()`) is the driver half of
   `roundtrip --decode`: a compressed body that does not inflate to exactly its declared
   size, whose stream lacks its end marker or checksum or is followed by other bytes, or

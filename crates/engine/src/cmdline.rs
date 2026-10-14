@@ -719,7 +719,7 @@ mod tests {
         let text = command_help(find_command("roundtrip").unwrap(), "kit ").unwrap();
         assert!(
             text.contains(
-                "usage: kit roundtrip <plugin> [--data-dir <data_dir>] [--out <out>] \
+                "usage: kit roundtrip <plugin> [--data-dir <data_dir>] [--decode] [--out <out>] \
                  [--overwrite] [--verify]"
             ),
             "{text}"
