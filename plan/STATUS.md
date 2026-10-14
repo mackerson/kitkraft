@@ -533,7 +533,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Lane A -> lane C.** The decode side of the typed wiring is in esm: `Plugin::typed(record)`
   / `Record::typed(ctx)` (`None` for a type without a definition or an undecoded compressed
   record: call `Record::decompress` first) and `Record::set_typed`. `coverage` and `inspect`
-  can now decode payloads instead of classifying by signature. API changes from round 2
+  can now decode payloads instead of classifying by signature (**`coverage` done in
+  M3.F2**; `inspect` is M3.D6, lane D). API changes from round 2
   that engine code may meet: `Body::Compressed` has a third field `inflated` (patterns need
   `..`), `DecodeLimits` has `max_subrecords` (build it with `..DecodeLimits::default()`),
   new `Error` variants (`FlagBodyMismatch`, `ReservedSignature`, `TooManySubrecords`), and
@@ -545,9 +546,11 @@ Agents append here when they need a change in a crate they do not own.
 - ~~**Policy -> lane B.** Store `confidence` in the model, `corpus` on TES4/GRUP/RECORD,
   required on `uesp-skyrim:`, re-export the pin.~~ Done in M2.B1 (lane B branch):
   `Provenance` on every node, `confidence` required on every file, `XEDIT_REVISION`.
-- **Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence` next to
-  the source kind once the model carries it; `confidence = "reference"` values should surface as
-  a `limitations[]` entry in `inspect`/`query` results.
+- ~~**Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence`;
+  `reference` values should surface in `inspect`/`query` limitations.~~ Coverage and parity
+  half done: M2.F9 ("Definitions by confidence") and M3.F2 (`decoded_by_confidence` per
+  record type, "Decoded through the definitions"); the `inspect`/`query` half is M3.D3
+  (lane D), see the next-but-one entry.
 - ~~**Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
   `xedit:` citations.~~ Done in M2.B1 (loader, tests, README).
 - ~~**Policy -> AGENTS.md / plan maintainer.**~~ Done (lane F round 3): AGENTS.md, ADR 0001
@@ -562,8 +565,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> lane C (partly done, lane F round 3).** `cargo xtask parity` now has a
   "Definitions by confidence" table (from `kit schema --json`), and `kit schema` /
   `record_schema` states `reference`-confidence definitions as a limitation; `inspect` and
-  `query` results do not yet.
-- **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
+  `query` results do not yet (M3.D3).
+- **Policy -> M2 (now M3.O3).** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
@@ -576,12 +579,12 @@ Agents append here when they need a change in a crate they do not own.
   `gmst.editor_id ... == b"fFoo"` in `crates/esm/src/bridge.rs` so the gate stays green.
   Generated API additions you may use: `Record::extra()`, the four visitors, and union
   enums (`GmstValue`) decoded through `put_by_prefix` (a missing EDID keeps DATA raw).
-- **Lane B -> lane F / coverage owner (FYI, done in lane B's branch).** The engine coverage
+- ~~**Lane B -> lane F / coverage owner (FYI, done in lane B's branch).** The engine coverage
   test now counts EDID, FULL and GMST DATA as `typed` (expectations updated in
   `crates/engine/src/handlers/coverage.rs`). For M2.F9: per-member confidence is
   `SubrecordDef::provenance.confidence` (also on groups, fields, records); a union member
-  is `FieldType::Union`, not opaque.
-- **Lane D -> lane F.** (1) `inspect`'s `plugin` is no longer required, so it is no longer
+  is `FieldType::Union`, not opaque.~~ Used in M2.F9 (`schema`) and M3.F2 (`coverage`).
+- ~~**Lane D -> lane F.**~~ Answered in lane F round 3 (below). (1) `inspect`'s `plugin` is no longer required, so it is no longer
   positional: `kit inspect <form> --plugin <file>`; the tests that used the positional form
   (engine `cmdline.rs`, kit-cli `exit_codes.rs`, mcp `tests/stdio.rs`) were updated. (2)
   `query` is implemented: tests that used it as the `Planned` example now use `build`
@@ -621,7 +624,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Lane D -> lane B.** 14 official GMST string settings hold string ID 0, which is in no
   table; `query` leaves them unknown. A source for what ID 0 means would close it.
   `where` member names are the schema's PascalCase names, matched case-insensitively.
-- **Lane E -> lane F (tests touched, catalog closure).** `set`, `validate` and `build`
+- ~~**Lane E -> lane F (tests touched, catalog closure).**~~ Done in lane F round 3 (see
+  the end of this entry). `set`, `validate` and `build`
   are `Implemented`, so no catalog command is `Planned` any more. Tests that used `build`
   as the Planned example were changed in lane E's commit 714bfe6: engine
   `command_without_handler_is_not_implemented` (an engine without the handler),
@@ -675,7 +679,8 @@ Agents append here when they need a change in a crate they do not own.
   it changes them. A table may repeat an ID: `Table::get` and `strings.merge` both use the
   **first** occurrence (merge reports the others in `duplicates`, apart from cross-table
   `conflicts`); use `get`, not a map built by later-wins insertion.
-- **Lane G -> lane F (FYI, review round 2).** `ba2.extract` gained `max_entry_bytes` and
+- ~~**Lane G -> lane F (FYI, review round 2).**~~ Answered in lane F round 3 (end of this
+  entry). `ba2.extract` gained `max_entry_bytes` and
   `ba2.pack` gained `overwrite` in the catalog; the expected parameter list in
   `crates/engine/src/params.rs` `required_first_in_required_order` was updated to match.
   Also seen once in a full `cargo xtask ci` run after merging lane D (passed on rerun and
@@ -693,7 +698,8 @@ Agents append here when they need a change in a crate they do not own.
   function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base
   object in `args[1]`; `.pex` inside archives via `kitcraft_ba2` as above, or
   `execute("papyrus.disasm", {pex, archive?, format: "json"})`.
-- **Lane G -> lane F.** (1) Tests that used `ba2.list` as their example of a `Planned`
+- ~~**Lane G -> lane F.**~~ Answered in lane F round 3 (end of this entry; (1) is moot: no
+  catalog command is `Planned`, and those tests build their own spec). (1) Tests that used `ba2.list` as their example of a `Planned`
   command now use `query` (engine `lib.rs`, `apps/kit-cli` `main.rs` and
   `tests/exit_codes.rs`, `crates/mcp/src/server.rs`); they break again when `query`
   lands, so a spec built in the test may be better. (2) `papyrus.disasm` puts the
@@ -752,11 +758,15 @@ Agents append here when they need a change in a crate they do not own.
   `Stats::{typed_records, typed_subrecords, typed_unchecked, typed_failed_records,
   typed_conflicts, typed_conflict_list}` for `coverage` and `cargo xtask parity` (M2.F9).
   On all 14 files today: 13,168 typed records, 0 conflicts (`docs/corpus.md`).
-- **Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
-  kept: `generated::records::Record::extra(&self) -> &[(usize, OwnedSub)]`. Until then
-  `esm::bridge::check_subrecords` matches the five variants generated today to find
-  payloads that did not decode, and cannot see them for a new record type (it still
-  catches re-encoding differences for every type).
+  **Lane F (M3.F2):** answered for `coverage`, which runs the same decode + re-encode check
+  per record (with `Record::extra()`, see below) and feeds `cargo xtask parity`.
+- ~~**Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
+  kept: `generated::records::Record::extra(&self)`.~~ Done in M2.B3 (`Record::extra()` is
+  generated for every defined type).
+- **Lane F -> lane A (M3.F2).** `esm::bridge::extra_of` still matches five variants (GLOB,
+  GMST, KYWD, TES4, WEAP), so `check_subrecords` misses `NotDecoded` conflicts in AMDL,
+  AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.
+  `coverage` (engine) does not depend on it.
 - **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3
