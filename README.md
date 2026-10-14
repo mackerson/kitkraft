@@ -1,6 +1,10 @@
-# KitCraft
+# KitKraft
 
-An open-source, clean-room Creation Kit for Starfield, in Rust. *KitCraft is a working name.*
+An open-source, clean-room Creation Kit for Starfield, in Rust.
+
+*Naming (owner, 2026-10-14): the name is KitKraft. Rename pending: identifiers still read
+`kitcraft-*`, `KITCRAFT_*`, `kitcraft://` until the scheduled rename to `kitkraft-*`,
+`KITKRAFT_*`, `kitkraft://` (the binary stays `kit`).*
 
 KitCraft reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
 Papyrus (`.pex`) and string tables. Every action is one command, reachable the same way from
@@ -115,6 +119,18 @@ black-box observation of the Creation Kit's saved output; the hierarchy is in
 [ADR 0004](plan/adr/0004-xedit-source-policy.md). The Creation Kit is observed as a black
 box only. No GPL Bethesda-format code (Mutagen, Spriggit) is read. No Bethesda data ships
 in this repository.
+
+## Policies (owner, 2026-10-14)
+
+- **Runtime extensions** ([ADR 0008](plan/adr/0008-runtime-extensions.md)): SFSE and similar
+  frameworks are supported where technically justified, behind their own boundary; the
+  core crates never depend on them, and SFSE binaries are never bundled.
+- **Development deployment** ([ADR 0009](plan/adr/0009-dev-deployment.md)): `package` stays
+  target-independent; only an explicit `kit deploy --dev` writes into MO2, into one
+  isolated KitKraft-managed mod, never into profiles or other mods.
+- **Developer workbench** ([ADR 0007](plan/adr/0007-egui-shell-over-the-catalog.md),
+  Amendment 1): a read-only egui workbench over the same commands as the CLI comes once
+  the inspection APIs are stable; the full authoring UI is M5.
 
 ## License
 

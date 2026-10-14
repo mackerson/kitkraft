@@ -5,8 +5,12 @@ first edit. `CLAUDE.md` points here.
 
 ## What this is
 
-KitCraft (working name) is an open-source, clean-room Creation Kit for Starfield, written in
-Rust. It reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
+KitKraft is an open-source, clean-room Creation Kit for Starfield, written in Rust.
+
+Naming note (owner, 2026-10-14): the name is **KitKraft**; write it so in prose. Rename
+pending: identifiers keep `kitcraft-*`, `KITCRAFT_*`, `kitcraft://` until the scheduled
+rename to `kitkraft-*`, `KITKRAFT_*`, `kitkraft://` (last integration step; do not rename
+them yourself); the binary stays `kit`. It reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
 Papyrus (`.pex`) and string tables, and exposes every action as one command reachable from a
 CLI, an MCP server, and later a UI. The first provable goal (M1) is data parity: load every
 official ESM and write it back byte-identical.
@@ -197,7 +201,8 @@ gate is the CI.
 
 Don't stop to ask unless the decision is one of these. Everything else: decide and record it.
 
-1. Project name (`KitCraft` is a placeholder).
+1. Project name: **decided 2026-10-14**, KitKraft (naming note at the top; identifier
+   rename pending).
 2. xEdit MPL source policy: **decided 2026-10-14** (`plan/adr/0004-xedit-source-policy.md`).
    Still the owner's: changing the pinned revision, or a source file with a materially
    different license or source category (`wbDefinitionsSF1.pas` and
@@ -206,6 +211,19 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
 4. License (proposed MIT OR Apache-2.0; scaffolded that way).
 5. Whether and when to contact kinggath about Sim Settlements 2.
 6. Adding a git remote or publishing anything.
+
+Owner policies decided 2026-10-14 (follow them; they are not open):
+
+- **Runtime extensions** (ADR 0008): SFSE and analogous frameworks are supported where
+  technically justified, only behind `runtime/` (or an `RT` crate); nothing in `crates/*`,
+  `apps/*` or `xtask` depends on them; CommonLibSF is not read or linked until ADR 0008's
+  license review; SFSE binaries are never bundled.
+- **Development deployment** (ADR 0009): `package` never writes into MO2; `kit deploy
+  --dev` is the only MO2 write path, opt-in per call, into one `KitKraft Dev - <plugin>`
+  mod, never into profiles, `plugins.txt`/`loadorder.txt` or another mod.
+- **Developer workbench** (ADR 0007 Amendment 1): a read-only egui workbench over
+  `Engine::execute` only (M4 lane W, after the inspection APIs are stable); no logic of its
+  own; the full authoring UI is M5.
 
 ## Windows specifics
 
