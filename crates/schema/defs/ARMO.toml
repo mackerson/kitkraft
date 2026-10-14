@@ -1,0 +1,410 @@
+# ARMO: Armor, wearable gear (spacesuits, helmets, boost packs, clothing). The worn look
+# comes from armor addons (ARMA) listed by index; the male and female world models are the
+# dropped-item models.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9707-L9775 - member order, the record flags, the
+#     two world models, BO64 (L2543-L2549, a u64 of biped slots whose bit names are
+#     L2474-L2541), ETYP (L4252), BIDS, BAMT, RNAM, DESC (L3186-L3189), INRD (L5677), the
+#     addon list (INDX, MODL), DATA, FNAM with the stagger values (L4647-L4653), APPR
+#     (L5698), the object template (L6961-L6974), STOP, AVSG, AFSG. Helpers: script data
+#     (L3407-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY
+#     (L3921-L3923), PTT2 (L3965-L3978), the base form component block (L5984-L6832, kept
+#     raw), FULL (L3184), the enchantment (wbDefinitionsCommon.pas L8760-L8774), the textured
+#     model (wbDefinitionsCommon.pas L9512-L9544) with MOLM-style swaps (L7000-L7006) and the
+#     colour index and model flags (L3798-L3809), destruction data (L3829-L3890), PUSH/PDSH
+#     (L2334-L2335), keywords (wbDefinitionsCommon.pas L8935-L8951), the resistance list
+#     (wbDefinitionsCommon.pas L8728-L8738).
+#   corpus: the 1,168 ARMO records (Starfield.esm 1,017, ShatteredSpace 87, SFBGS050 43,
+#     SFBGS003 11, SFBGS00D 10; form versions 581, 582), 2026-10-14: order EDID [VMAD] OBND
+#     ODTY [PTT2] [component blocks] [FULL] [EITM] [MOD2] [MLM2] FLLD [XFLG] [MO2F] [MOD4]
+#     FLLD [XFLG] [MO4F] BO64 [PUSH] [PDSH] [BAMT] RNAM [KSIZ KWDA] DESC [INRD] (INDX
+#     MODL)+ DATA FNAM [DAMA] [APPR] [OBTE ([OBTF] [FULL] OBTS)+] STOP [AVSG] [AFSG]. Every
+#     record has exactly two FLLD, one per world model, also when it has no MOD2/MOD4.
+#     BO64 8, DATA 12, FNAM 8, DAMA 12n, AVSG/AFSG 32, MODL 4 (ARMA). No record is
+#     compressed. Every record decodes and re-encodes identically.
+#
+# FLLD and XFLG in the world models: upstream's textured model has neither and upstream
+# ignores both signatures in ARMO; the corpus places one FLLD (and sometimes an XFLG) in
+# each world model, so they are members here, laid out as the generic model's FLLD and XFLG
+# (L3818-L3823, L3801-L3804), confirmed by the corpus only. AVSG and AFSG hold two Wwise
+# GUIDs each (16 bytes per GUID from the 32-byte payload), kept raw. BO64 is kept as a plain
+# integer (64 slot bits). Record flags 0x400 and 0x8000 are unnamed upstream.
+signature = "ARMO"
+name = "Armor"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9707-L9775"
+evidence = [
+  "corpus: the 1,168 ARMO records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [["NonPlayable", 0x4], ["Shield", 0x40]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 3 records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+
+[[member]]
+sig = "EITM"
+name = "Enchantment"
+type = "formid"
+targets = ["ENCH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774"]
+
+[[member]]
+group = "MaleWorldModel"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+note = "upstream accepts these in any order; listed in the order every official record uses"
+
+[[member.member]]
+sig = "MOD2"
+name = "FileName"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "MLM2"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "MO2S"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3798-L3798"]
+confidence = "reference"
+note = "not present in the official ARMO records; its position relative to FLLD is not attested"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "corpus: FLLD in the ARMO records of the 14 official ESMs, 2026-10-14 scan: exactly two per record, one per world model, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "corpus: XFLG in the ARMO records of the 14 official ESMs, 2026-10-14 scan: 71 occurrences, all 1 byte, each directly after a world model's FLLD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MO2F"
+name = "ModelFlags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804", "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3807-L3807"]
+
+[[member]]
+group = "FemaleWorldModel"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+note = "upstream accepts these in any order; listed in the order every official record uses"
+
+[[member.member]]
+sig = "MOD4"
+name = "FileName"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "MLM4"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+confidence = "reference"
+note = "not present in the official ARMO records"
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "MO4S"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3799-L3799"]
+confidence = "reference"
+note = "not present in the official ARMO records; its position relative to FLLD is not attested"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "corpus: FLLD in the ARMO records of the 14 official ESMs, 2026-10-14 scan: exactly two per record, one per world model, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "corpus: XFLG in the ARMO records of the 14 official ESMs, 2026-10-14 scan: 71 occurrences, all 1 byte, each directly after a world model's FLLD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MO4F"
+name = "ModelFlags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804", "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3809-L3809"]
+
+[[member]]
+sig = "BO64"
+name = "BipedSlots"
+type = "u64"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2543-L2549",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2474-L2541",
+]
+note = "first-person biped slot bits (64); kept as a plain integer, the slot names are not transcribed"
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+confidence = "reference"
+note = "not present in the official ARMO records"
+
+[[member]]
+sig = "PUSH"
+name = "PickupSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334"]
+
+[[member]]
+sig = "PDSH"
+name = "PutdownSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335"]
+
+[[member]]
+sig = "ETYP"
+name = "EquipmentType"
+type = "formid"
+targets = ["EQUP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4252-L4252"]
+confidence = "reference"
+note = "not present in the official ARMO records"
+
+[[member]]
+sig = "BIDS"
+name = "BlockBashImpactDataSet"
+type = "formid"
+targets = ["IPDS"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official ARMO records"
+
+[[member]]
+sig = "BAMT"
+name = "AlternateBlockMaterial"
+type = "formid"
+targets = ["MATT"]
+card = "optional"
+note = "one official record"
+
+[[member]]
+sig = "RNAM"
+name = "Race"
+type = "formid"
+targets = ["RACE"]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3186-L3189",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+
+[[member]]
+sig = "INRD"
+name = "InstanceNaming"
+type = "formid"
+targets = ["INNR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5677-L5677"]
+
+[[member]]
+group = "Addon"
+card = "repeated"
+note = "armor addons by index; every official record has at least one"
+
+[[member.member]]
+sig = "INDX"
+name = "Index"
+type = "u16"
+
+[[member.member]]
+sig = "MODL"
+name = "ArmorAddon"
+type = "formid"
+targets = ["ARMA"]
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+size = 12
+field = [
+  { name = "Value", type = "i32" },
+  { name = "Weight", type = "f32" },
+  { name = "Health", type = "u32" },
+]
+
+[[member]]
+sig = "FNAM"
+name = "Ratings"
+type = "struct"
+size = 8
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4647-L4653"]
+field = [
+  { name = "ArmorRating", type = "u16" },
+  { name = "BaseAddonIndex", type = "u16" },
+  { name = "StaggerRating", type = "enum", base = "u8", values = [["None", 0], ["Small", 1], ["Medium", 2], ["Large", 3], ["ExtraLarge", 4]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+
+[[member]]
+sig = "DAMA"
+name = "Resistances"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738"]
+note = "the curve table slot exists from form version 152; every official record is 581 or later"
+field = [
+  { name = "DamageType", type = "formid", targets = ["DMGT"] },
+  { name = "Amount", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "APPR"
+name = "AttachParentSlots"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698"]
+
+[[member]]
+group_ref = "ObjectTemplate"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
+note = "observed in 854 records"
+
+[[member]]
+sig = "STOP"
+name = "Marker"
+type = "empty"
+
+[[member]]
+sig = "AVSG"
+name = "VoiceSwitch"
+type = "struct"
+size = 32
+card = "optional"
+note = "a Wwise switch group GUID and a switch GUID"
+field = [
+  { name = "Category", type = "opaque", size = 16 },
+  { name = "Variant", type = "opaque", size = 16 },
+]
+
+[[member]]
+sig = "AFSG"
+name = "FoleySwitch"
+type = "struct"
+size = 32
+card = "optional"
+note = "a Wwise switch group GUID and a switch GUID"
+field = [
+  { name = "Category", type = "opaque", size = 16 },
+  { name = "Variant", type = "opaque", size = 16 },
+]
