@@ -88,6 +88,10 @@ pub fn apply_field(
             ))
         }
     };
+    let edid_first = record
+        .find_subrecord(Signature(*b"EDID"), 0)
+        .and_then(|i| record.subrecords()?.get(i)?.data().first().copied());
+    let ty = fields::select_variant(ty, edid_first);
     let at = fields::locate(text, ty, &payload, &path.steps, ctx.form_version)?;
     let end = at.start.saturating_add(at.len);
     let old = payload
@@ -176,6 +180,36 @@ mod tests {
         )
         .unwrap();
         assert_eq!(change.subrecord_index, 3);
+    }
+
+    /// GMST `DATA` is a union chosen by the EditorID's first letter (lane B, M2.B9).
+    #[test]
+    fn union_layout_by_editor_id() {
+        let gmst = |edid: &[u8], data: Vec<u8>| {
+            Record::new(
+                RecordHeader {
+                    signature: Signature(*b"GMST"),
+                    form_version: 582,
+                    ..RecordHeader::default()
+                },
+                Body::Raw(vec![
+                    Subrecord::new(Signature(*b"EDID"), edid.to_vec()),
+                    Subrecord::new(Signature(*b"DATA"), data),
+                ]),
+            )
+        };
+        let limits = DecodeLimits::default();
+        let path = parse_path("DATA").unwrap();
+        let mut r = gmst(b"fSpeed\0", 2.0f32.to_le_bytes().to_vec());
+        let change = apply_field(&mut r, &path, &Op::Mul(1.5), &ctx(), &limits).unwrap();
+        assert_eq!((change.before, change.after), (json!(2.0), json!(3.0)));
+        let mut r = gmst(b"iCount\0", 7i32.to_le_bytes().to_vec());
+        apply_field(&mut r, &path, &Op::Set(json!("-1")), &ctx(), &limits).unwrap();
+        assert_eq!(r.subrecords().unwrap()[1].data(), (-1i32).to_le_bytes());
+        // No variant for this prefix: opaque, hex only.
+        let mut r = gmst(b"qOdd\0", vec![0; 4]);
+        let err = apply_field(&mut r, &path, &Op::Set(json!(1)), &ctx(), &limits).unwrap_err();
+        assert_eq!(err.rule, "opaque");
     }
 
     #[test]

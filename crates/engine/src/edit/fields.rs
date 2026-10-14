@@ -31,8 +31,9 @@
 //! (integers are rounded to the nearest value, ties away from zero, then range-checked).
 //!
 //! `FULL` and `DESC` are lstrings (`uesp-skyrim` fact in `plan/execution-plan.md`, "Format
-//! facts M2 relies on"). Where the builtin schema has no layout for them yet (lane B's
-//! M2.B2 types them), they are treated as lstrings anyway and [`Layout::fallback`] says so.
+//! facts M2 relies on"; lane B's M2.B2 types them, with corpus evidence, on every record
+//! type the schema defines). In a record type the schema does not define (`CELL`, `NPC_`,
+//! ...) they are treated as lstrings anyway and [`Layout::fallback`] says so.
 
 use kitcraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, Scalar};
 use serde_json::{json, Value};
@@ -186,14 +187,14 @@ pub struct Layout {
     pub fallback: Option<String>,
 }
 
-/// Signatures that are lstrings even before the schema types them (module docs).
+/// Signatures that are lstrings even where the schema does not type them (module docs).
 pub const LSTRING_FALLBACK: [&[u8; 4]; 2] = [b"FULL", b"DESC"];
 
 /// The limitation reported when the fallback is used.
 pub fn fallback_note(signature: &str) -> String {
     format!(
-        "{signature} treated as an lstring from the uesp-skyrim fact in plan/execution-plan.md; \
-         the builtin schema has no lstring layout for it yet (lane B, M2.B2)"
+        "{signature} treated as an lstring (uesp-skyrim fact, plan/execution-plan.md): the \
+         builtin schema does not define this record type, or keeps {signature} opaque in it"
     )
 }
 
@@ -354,6 +355,22 @@ pub fn locate<'t>(
         }
     }
     Ok(Located { start, len, ty })
+}
+
+/// The variant of a union layout that applies to a record whose `EDID` payload starts with
+/// `edid_first` (`decider = "edid-prefix"`); `ty` itself for any other type. A union no
+/// variant claims stays a union (handled as opaque).
+pub fn select_variant(ty: &FieldType, edid_first: Option<u8>) -> &FieldType {
+    match deref(ty) {
+        FieldType::Union {
+            decider: kitcraft_schema::Decider::EditorIdPrefix,
+            variants,
+        } => variants
+            .iter()
+            .find(|v| Some(v.when) == edid_first)
+            .map_or(ty, |v| deref(&v.ty)),
+        other => other,
+    }
 }
 
 fn deref(ty: &FieldType) -> &FieldType {
@@ -537,6 +554,7 @@ pub fn type_name(ty: &FieldType) -> String {
         FieldType::Opaque { .. } => "opaque".into(),
         FieldType::Empty => "empty".into(),
         FieldType::Ref { name, .. } => format!("ref:{name}"),
+        FieldType::Union { .. } => "union".into(),
     }
 }
 
@@ -752,6 +770,11 @@ pub fn encode_value(
             path,
             "opaque",
             "this payload is opaque (no layout in the schema): set it as hex:0A0B...",
+        )),
+        FieldType::Union { .. } => Err(FieldError::new(
+            path,
+            "opaque",
+            "no variant of this union applies to the record (its EditorID prefix); set it as hex:",
         )),
         FieldType::Struct { .. } | FieldType::Array { .. } | FieldType::Ref { .. } => {
             Err(FieldError::new(
@@ -971,7 +994,7 @@ pub fn to_hex(bytes: &[u8]) -> String {
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
-    use kitcraft_schema::{FieldDef, VersionedSize};
+    use kitcraft_schema::{Confidence, FieldDef, Provenance};
 
     fn ctx(localized_target: bool) -> ValueCtx<'static> {
         static MAP: fn(&str, u32) -> Result<u32, String> = |plugin, id| {
@@ -1001,6 +1024,11 @@ mod tests {
             until: None,
             if_remaining: false,
             note: None,
+            provenance: Provenance {
+                source: "corpus: test".into(),
+                evidence: Vec::new(),
+                confidence: Confidence::Corpus,
+            },
         }
     }
 
@@ -1200,11 +1228,6 @@ mod tests {
         // A payload shorter than the layout says.
         let err = locate("X", &ty, &payload[..8], &steps("DATA.Speed"), 582).unwrap_err();
         assert_eq!(err.rule, "payload");
-        let _ = VersionedSize {
-            min: None,
-            max: None,
-            size: 0,
-        };
     }
 
     #[test]
