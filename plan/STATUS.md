@@ -484,6 +484,12 @@ Agents append here when they need a change in a crate they do not own.
 - **Lane G -> lane F (FYI, review round 2).** `ba2.extract` gained `max_entry_bytes` and
   `ba2.pack` gained `overwrite` in the catalog; the expected parameter list in
   `crates/engine/src/params.rs` `required_first_in_required_order` was updated to match.
+  Also seen once in a full `cargo xtask ci` run after merging lane D (passed on rerun and
+  in isolation): `apps/kit-cli/tests/mcp.rs` `kit_mcp_on_an_official_file` read EOF from
+  the `kit mcp` child (it exited mid-session); worth a look if it recurs.
+- **Lane G -> lane D (FYI, done in the lane G merge).** `Archive::extract_vec` takes a
+  byte cap now; `crates/doc/src/strings.rs` passes 256 MiB (the `strings.dump` cap). An
+  entry above it is `kitcraft_ba2::Error::TooLarge`, reported like any other table error.
 - **Lane G -> lane E (for M2.E8).** `kitcraft_pex::Pex::parse(&bytes)`; calls are
   `Instruction`s with `opcode_name(op)` `callmethod` / `callstatic` / `callparent`, the
   function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base

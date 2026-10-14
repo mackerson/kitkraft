@@ -199,7 +199,8 @@ impl StringTables {
                 };
                 let archive_name = crate::index::file_name_of(path);
                 match archive
-                    .extract_vec(file, index)
+                    // 256 MiB: the cap `strings.dump` uses (lane G review round 2).
+                    .extract_vec(file, index, 256 << 20)
                     .map_err(|e| e.to_string())
                     .and_then(|bytes| Table::parse(kind, &bytes).map_err(|e| e.to_string()))
                 {
