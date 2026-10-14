@@ -19,7 +19,6 @@ use crate::exec::{CommandHandler, EngineError, SessionHandler};
 pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
         ("roundtrip", Box::new(roundtrip::run)),
-        ("inspect", Box::new(inspect::run)),
         ("coverage", Box::new(coverage::run)),
     ]
 }
@@ -28,7 +27,10 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
 /// registered by [`crate::Engine::with_default_handlers`]: commands that read or change
 /// the loaded load order. A command appears in this table or in [`defaults`], not both.
 pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)> {
-    vec![("load", Box::new(load::run))]
+    vec![
+        ("load", Box::new(load::run)),
+        ("inspect", Box::new(inspect::run)),
+    ]
 }
 
 /// A required string argument. `execute` validated the schema already, so a missing one

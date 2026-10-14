@@ -179,7 +179,7 @@ fn json_output_equals_the_execute_result() {
 
     let expected = kitcraft_engine::execute("inspect", json!({"form": "fTestValue", "plugin": p}))
         .expect("execute");
-    let out = kit(&["inspect", "fTestValue", p, "--json"]);
+    let out = kit(&["inspect", "fTestValue", "--plugin", p, "--json"]);
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
     let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
     assert_eq!(got, expected);

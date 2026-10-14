@@ -1,8 +1,16 @@
-//! `inspect` (minimal): one record of one plugin, found by FormID or EditorID, with its
-//! header fields and its subrecords as opaque hex. Typed fields arrive with schema wiring;
-//! cross-plugin resolution (winning override) arrives with load order (M2).
+//! `inspect`: one record, with its header fields and its subrecords as opaque hex.
 //!
-//! Lookup: when `form` is 1-8 hex digits (optionally `0x`-prefixed), the first record whose
+//! Two modes:
+//!
+//! - **Load order** (M2.D9), when `profile`/`plugins` are given or the session has a load
+//!   order: `form` is a formref (`Starfield.esm:01A2B3`), a hex FormID (read as stored in
+//!   `plugin` when that is given, otherwise as a runtime ID under the runtime-slot
+//!   assumption), or an EditorID. The result lists every version in load order with the
+//!   winner marked, each override classed against the version before it, and `FULL`/`DESC`
+//!   decoded as lstrings (inline text, or the string ID while string tables are not loaded).
+//! - **Single plugin** (kept from M1), when only `plugin` is given: below.
+//!
+//! Single-plugin lookup: when `form` is 1-8 hex digits (optionally `0x`-prefixed), the first record whose
 //! header FormID equals it wins, and compressed records are not decompressed for the scan.
 //! Otherwise, or when no FormID matches (a second pass), the first record whose `EDID`
 //! equals `form` (ASCII case-insensitive) is returned; that pass decompresses compressed
@@ -19,9 +27,15 @@ use kitcraft_esm::{
 };
 use serde_json::{json, Value};
 
+use kitcraft_doc::compare::{spans, OverrideClass};
+use kitcraft_doc::lstring::{decode_lstring, is_lstring, unresolved, LString};
+use kitcraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
+
+use super::load::{acquire, Loaded, RUNTIME_ASSUMED};
 use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
+use crate::session::Session;
 
 const ID: &str = "inspect";
 
@@ -107,8 +121,19 @@ pub(crate) fn parse_form_id(form: &str) -> Option<u32> {
     u32::from_str_radix(digits, 16).ok()
 }
 
-/// The handler.
-pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
+/// The handler: load-order mode when a load order is named or loaded, else single plugin.
+pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
+    let named = args.get("profile").is_some() || args.get("plugins").is_some();
+    let single = !named && args.get("plugin").is_some();
+    if single {
+        return run_single(args);
+    }
+    let loaded = acquire(session, args, ID)?;
+    run_load_order(loaded, args)
+}
+
+/// Single-plugin mode.
+fn run_single(args: &Value) -> Result<Outcome, EngineError> {
     let form = str_arg(ID, args, "form")?;
     let plugin = str_arg(ID, args, "plugin")?;
     let path = Path::new(plugin);
@@ -350,6 +375,317 @@ fn outcome(plugin: &str, file: &str, form: &str, matched_by: &str, hit: &Hit) ->
     }
 }
 
+/// Find the form `form` names in the load order, and how it was matched.
+fn find_form(
+    loaded: &Loaded,
+    form: &str,
+    plugin: Option<&str>,
+) -> Result<(GlobalForm, &'static str), EngineError> {
+    let lo = &loaded.lo;
+    let present = |g: &GlobalForm| !lo.forms.versions(*g).is_empty();
+    if let Some(f) = FormRef::parse(form) {
+        let p = lo
+            .find(&f.plugin)
+            .ok_or_else(|| failed(ID, format!("`{}` is not in the load order", f.plugin)))?;
+        return Ok((
+            GlobalForm {
+                plugin: p,
+                object_id: f.object_id,
+            },
+            "formref",
+        ));
+    }
+    if let Some(raw) = parse_form_id(form) {
+        match plugin {
+            Some(name) => {
+                let p = lo
+                    .find(name)
+                    .ok_or_else(|| failed(ID, format!("`{name}` is not in the load order")))?;
+                let g = lo.resolve(p, raw).map_err(|e| failed(ID, e.to_string()))?;
+                if present(&g) {
+                    return Ok((g, "form_id"));
+                }
+            }
+            None => {
+                if let Some(g) = lo.from_runtime_id(raw).filter(present) {
+                    return Ok((g, "runtime_id"));
+                }
+            }
+        }
+    }
+    for (i, p) in lo.plugins.iter().enumerate() {
+        let index = u16::try_from(i).unwrap_or(u16::MAX);
+        let Some(idx) = p.index.as_deref() else {
+            continue;
+        };
+        for loc in &idx.records {
+            if idx.edid(loc).is_some_and(|e| e.eq_ignore_ascii_case(form)) {
+                if let Ok(g) = lo.resolve(index, loc.form_id) {
+                    return Ok((g, "editor_id"));
+                }
+            }
+        }
+    }
+    Err(failed(
+        ID,
+        format!(
+            "no record with formref, FormID, runtime ID or EditorID `{form}` in the load order"
+        ),
+    ))
+}
+
+/// Subrecords of one version as JSON, with evidence; lstrings decoded.
+fn version_subrecords(
+    file: &str,
+    rec: &LoadedRecord,
+    localized: bool,
+    evidence: &mut Vec<Evidence>,
+    notes: &mut Vec<String>,
+) -> (Vec<Value>, bool) {
+    let record_id = rec.label();
+    let body_offset = rec.offset().saturating_add(HEADER_LEN as u64);
+    let mut cut = false;
+    let mut list = Vec::with_capacity(rec.subs.len());
+    for (s, span) in rec.subs.iter().zip(spans(rec)) {
+        let data = s.data();
+        let sig = s.signature().to_string();
+        let shown = data.get(..PAYLOAD_CAP).unwrap_or(data);
+        let truncated = shown.len() < data.len();
+        cut |= truncated;
+        let header_len = s.encoded_len().saturating_sub(data.len() as u64);
+        let (offset, data_offset) = match span.file_offset {
+            Some(o) => (o.saturating_sub(header_len), o),
+            None => (
+                span.body_offset.saturating_sub(header_len),
+                span.body_offset,
+            ),
+        };
+        let mut entry = json!({
+            "signature": sig,
+            "size": data.len(),
+            "oversized": s.has_oversize_prefix(),
+            "offset": offset,
+            "data_offset": data_offset,
+            "payload_hex": hex(shown),
+            "payload_truncated": truncated,
+        });
+        if is_lstring(&sig) {
+            if let Some(obj) = entry.as_object_mut() {
+                match decode_lstring(data, localized) {
+                    LString::Text(t) => {
+                        obj.insert("text".into(), json!(t));
+                    }
+                    LString::Id(id) => {
+                        obj.insert("string_id".into(), json!(format!("0x{id:08X}")));
+                        notes.push(unresolved(&sig, file, id));
+                    }
+                    LString::Malformed { len } => {
+                        notes.push(format!(
+                            "{sig} in {file} ({record_id}) is {len} bytes; a localized string ID is 4"
+                        ));
+                    }
+                }
+            }
+        } else if sig == "EDID" {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.insert("text".into(), json!(kitcraft_doc::index::zstring(data)));
+            }
+        }
+        if span.file_offset.is_some() {
+            evidence.push(Evidence {
+                file: file.to_string(),
+                offset: data_offset,
+                length: data.len() as u64,
+                record: Some(record_id.clone()),
+                subrecord: Some(sig),
+            });
+        }
+        list.push(entry);
+    }
+    if rec.compressed {
+        evidence.push(Evidence {
+            file: file.to_string(),
+            offset: body_offset,
+            length: rec.data_size(),
+            record: Some(record_id),
+            subrecord: None,
+        });
+    }
+    (list, cut)
+}
+
+fn class_json(class: &OverrideClass) -> Value {
+    match class {
+        OverrideClass::IdenticalToPrevious | OverrideClass::Deleted => {
+            json!({"class": class.as_str()})
+        }
+        OverrideClass::Differs {
+            flags,
+            order,
+            subrecords,
+        } => json!({
+            "class": class.as_str(),
+            "flags_differ": flags,
+            "order_differs": order,
+            "subrecords": subrecords.iter().map(|d| json!({
+                "signature": d.signature,
+                "occurrence": d.occurrence,
+                "change": d.change.as_str(),
+            })).collect::<Vec<_>>(),
+        }),
+    }
+}
+
+/// Load-order mode.
+fn run_load_order(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
+    let form_arg = str_arg(ID, args, "form")?;
+    let plugin = args.get("plugin").and_then(Value::as_str);
+    let lo = &loaded.lo;
+    let (form, matched_by) = find_form(loaded, form_arg, plugin)?;
+    let versions: Vec<Version> = lo.forms.versions(form).to_vec();
+    if versions.is_empty() {
+        return Err(failed(
+            ID,
+            format!("{} has no version in the load order", lo.form_label(form)),
+        ));
+    }
+    let mut reader = RecordReader::new();
+    let mut records = Vec::with_capacity(versions.len());
+    for v in &versions {
+        let loc = lo
+            .record(v.plugin, v.record)
+            .copied()
+            .ok_or_else(|| failed(ID, "version missing from the index"))?;
+        records.push(
+            reader
+                .read(lo, v.plugin, &loc)
+                .map_err(|e| failed(ID, e.to_string()))?,
+        );
+    }
+    let mut evidence = Vec::new();
+    let mut notes: Vec<String> = Vec::new();
+    let mut cut_any = false;
+    let mut compressed_any = false;
+    let mut opaque = 0u64;
+    let mut list = Vec::with_capacity(versions.len());
+    let last = versions.len().saturating_sub(1);
+    for (i, (v, rec)) in versions.iter().zip(&records).enumerate() {
+        let Some(p) = lo.plugin(v.plugin) else {
+            continue;
+        };
+        let localized = p.header().is_some_and(|h| h.flags.localized());
+        evidence.push(Evidence {
+            file: p.name.clone(),
+            offset: rec.offset(),
+            length: HEADER_LEN as u64,
+            record: Some(rec.label()),
+            subrecord: None,
+        });
+        let (subs, cut) = version_subrecords(&p.name, rec, localized, &mut evidence, &mut notes);
+        cut_any |= cut;
+        compressed_any |= rec.compressed;
+        opaque = opaque.saturating_add(rec.subs.len() as u64);
+        let previous = i.checked_sub(1).and_then(|j| records.get(j));
+        let class = previous.map(|prev| class_json(&kitcraft_doc::compare::classify(prev, rec)));
+        let comparable = i
+            .checked_sub(1)
+            .and_then(|j| versions.get(j))
+            .map(|prev| lo.encodings_compatible(prev.plugin, v.plugin));
+        let h = &rec.record.header;
+        list.push(json!({
+            "plugin": p.name,
+            "load_index": v.plugin,
+            "winner": i == last,
+            "raw_form_id": format!("{:08X}", h.form_id),
+            "record": {
+                "signature": h.signature.to_string(),
+                "flags": format!("0x{:08X}", h.flags),
+                "compressed": rec.compressed,
+                "offset": rec.offset(),
+                "data_size": rec.data_size(),
+                "timestamp": h.timestamp,
+                "version_control": h.version_control,
+                "form_version": h.form_version,
+                "unknown": h.unknown,
+            },
+            "subrecord_offsets": if rec.compressed { "decompressed" } else { "file" },
+            "subrecords": subs,
+            "vs_previous": class,
+            "payloads_comparable": comparable,
+        }));
+    }
+    let winner = versions.last().copied();
+    let editor_id = winner
+        .and_then(|w| Some((w, lo.record(w.plugin, w.record)?)))
+        .and_then(|(w, loc)| lo.edid(w.plugin, loc))
+        .map(str::to_string);
+    let signature = records
+        .last()
+        .map(|r| r.record.header.signature.to_string())
+        .unwrap_or_default();
+    let runtime = lo.runtime_id(form);
+    let label = lo.form_label(form);
+    let winner_name = winner
+        .and_then(|w| lo.plugin(w.plugin))
+        .map(|p| p.name.clone());
+    let mut limitations = vec![TYPED_PENDING.to_string()];
+    limitations.extend(loaded.limitations.iter().cloned());
+    if runtime.is_some() && !limitations.iter().any(|l| l == RUNTIME_ASSUMED) {
+        limitations.push(RUNTIME_ASSUMED.to_string());
+    }
+    if compressed_any {
+        limitations.push(COMPRESSED_OFFSETS.to_string());
+    }
+    if cut_any {
+        limitations.push(PAYLOAD_CUT.to_string());
+    }
+    if versions.len() > 1 {
+        limitations.push(
+            "vs_previous compares payloads as stored bytes; where payloads_comparable is false \
+             the two plugins encode FormIDs differently, so a byte difference may be encoding only"
+                .to_string(),
+        );
+    }
+    notes.sort();
+    notes.dedup();
+    limitations.extend(notes);
+    let summary = format!(
+        "{label} {signature} {}: {} version(s), winner {}{}",
+        editor_id.as_deref().unwrap_or("(no EditorID)"),
+        versions.len(),
+        winner_name.as_deref().unwrap_or("?"),
+        runtime.map_or_else(String::new, |r| format!(", runtime ID {r:08X} (assumed)")),
+    );
+    let data = json!({
+        "mode": "load_order",
+        "load_order": loaded.source,
+        "language": loaded.language,
+        "form": form_arg,
+        "matched_by": matched_by,
+        "global": label,
+        "defining_plugin": lo.plugin(form.plugin).map(|p| p.name.clone()),
+        "object_id": format!("{:06X}", form.object_id),
+        "runtime_id": runtime.map(|r| format!("{r:08X}")),
+        "runtime_id_basis": runtime.map(|_| "assumed:runtime-slots-by-scale"),
+        "signature": signature,
+        "editor_id": editor_id,
+        "winner": winner_name,
+        "versions": list,
+        "summary": summary,
+    });
+    Ok(Outcome {
+        data,
+        coverage: Coverage {
+            status: CoverageStatus::Partial,
+            decoded_subrecords: Some(0),
+            opaque_subrecords: Some(opaque),
+            not_examined: Vec::new(),
+        },
+        limitations,
+        evidence,
+    })
+}
+
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
@@ -497,8 +833,99 @@ mod tests {
         assert!(err.to_string().contains("offset"), "{err}");
         std::fs::remove_file(&path).unwrap();
 
+        // No plugin and no load order.
         let err = execute("inspect", json!({"form": "TestRifle"})).unwrap_err();
+        assert_eq!(err.kind(), "failed");
+        assert!(err.to_string().contains("no load order"), "{err}");
+        let err = execute("inspect", json!({"plugin": "x.esm"})).unwrap_err();
         assert_eq!(err.kind(), "invalid_args");
+    }
+
+    #[test]
+    fn inspect_across_a_load_order_shows_every_version_and_the_winner() {
+        use crate::handlers::load::tests::{fixture, plugins_args};
+        let dir = fixture("inspect-lo");
+        let mut args = plugins_args(&dir);
+        args["form"] = json!("Base.esm:000800");
+        let result = execute("inspect", args.clone()).unwrap();
+        let data = &result["data"];
+        assert_eq!(data["mode"], "load_order");
+        assert_eq!(data["matched_by"], "formref");
+        assert_eq!(data["global"], "Base.esm:000800");
+        assert_eq!(data["editor_id"], "OldEarthHuntingRifle");
+        assert_eq!(data["winner"], "Patch.esm");
+        assert_eq!(data["runtime_id"], "00000800");
+        let versions = data["versions"].as_array().unwrap();
+        assert_eq!(versions.len(), 2);
+        assert_eq!(versions[0]["plugin"], "Base.esm");
+        assert_eq!(versions[0]["winner"], false);
+        assert_eq!(versions[1]["winner"], true);
+        assert_eq!(
+            versions[0]["subrecords"][1]["text"],
+            "Old Earth Hunting Rifle"
+        );
+        assert_eq!(
+            versions[1]["subrecords"][1]["text"],
+            "Old Soviet Marksman Rifle"
+        );
+        assert_eq!(versions[1]["vs_previous"]["class"], "differs");
+        assert_eq!(
+            versions[1]["vs_previous"]["subrecords"],
+            json!([{"signature": "FULL", "occurrence": 0, "change": "changed"}])
+        );
+        assert_eq!(versions[1]["payloads_comparable"], true);
+        // Every payload has evidence pointing at its bytes.
+        let patch = std::fs::read(dir.join("Patch.esm")).unwrap();
+        let full = &versions[1]["subrecords"][1];
+        let at = full["data_offset"].as_u64().unwrap() as usize;
+        assert_eq!(&patch[at..at + 9], b"Old Sovie");
+        let evidence = result["evidence"].as_array().unwrap();
+        assert_eq!(evidence.len(), 2 * (1 + 3));
+        assert!(evidence.iter().any(|e| e["file"] == "Patch.esm"
+            && e["subrecord"] == "FULL"
+            && e["offset"].as_u64() == Some(at as u64)));
+        assert!(result["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("runtime-slots-by-scale")));
+
+        // EditorID, runtime ID, and a raw FormID read in a named plugin.
+        args["form"] = json!("pistol");
+        let r = execute("inspect", args.clone()).unwrap();
+        assert_eq!(r["data"]["matched_by"], "editor_id");
+        assert_eq!(
+            r["data"]["versions"][1]["vs_previous"]["class"],
+            "identical-to-previous"
+        );
+        args["form"] = json!("00000801");
+        let r = execute("inspect", args.clone()).unwrap();
+        assert_eq!(r["data"]["matched_by"], "runtime_id");
+        assert_eq!(r["data"]["global"], "Base.esm:000801");
+        args["form"] = json!("800");
+        args["plugin"] = json!("Patch.esm");
+        let r = execute("inspect", args.clone()).unwrap();
+        assert_eq!(r["data"]["matched_by"], "form_id");
+        assert_eq!(r["data"]["global"], "Base.esm:000800");
+        args["form"] = json!("Nothing");
+        assert_eq!(execute("inspect", args).unwrap_err().kind(), "failed");
+    }
+
+    #[test]
+    fn inspect_uses_the_session_load_order() {
+        use crate::handlers::load::tests::{fixture, plugins_args};
+        let dir = fixture("inspect-session");
+        let engine = crate::Engine::with_default_handlers();
+        // Nothing loaded and no plugin: refused.
+        let err = engine
+            .execute("inspect", json!({"form": "Pistol"}))
+            .unwrap_err();
+        assert!(err.to_string().contains("no load order"), "{err}");
+        engine.execute("load", plugins_args(&dir)).unwrap();
+        let r = engine
+            .execute("inspect", json!({"form": "Pistol"}))
+            .unwrap();
+        assert_eq!(r["data"]["winner"], "Patch.esm");
     }
 
     /// Minimal hex decoding for the assertions above.

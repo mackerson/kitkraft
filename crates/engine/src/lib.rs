@@ -121,8 +121,8 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Inspect",
         shortcut: Some("Enter"),
         aliases: &["show"],
-        summary: "One record by FormID or EditorID: header fields and subrecords (typed fields and overrides later)",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"FormID (hex, file-relative) or EditorID"},"plugin":{"type":"string","description":"Plugin to search (until load order exists)"}},"required":["form","plugin"],"additionalProperties":false}"#,
+        summary: "One record across the load order (every override, the winner, lstrings) or in one plugin: header fields and subrecords with offsets",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, hex FormID (as stored in `plugin`, or a runtime ID), or EditorID"},"plugin":{"type":"string","description":"Single-plugin mode: the plugin file to search. With a load order: the plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {

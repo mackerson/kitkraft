@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use kitcraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, Scale};
-use kitcraft_io::{plan_profile, Active, ProfileOptions, Provider};
+use kitcraft_io::{plan_profile, Active, ProfileOptions};
 use serde_json::{json, Value};
 
 use super::{failed, str_arg};
@@ -40,9 +40,6 @@ pub(crate) struct Loaded {
     pub limitations: Vec<String>,
 }
 
-/// The arguments that select a load order.
-pub(crate) const LOAD_ORDER_ARGS: [&str; 3] = ["profile", "plugins", "data_dir"];
-
 fn has_load_args(args: &Value) -> bool {
     args.get("profile").is_some() || args.get("plugins").is_some()
 }
@@ -70,7 +67,10 @@ pub(crate) fn acquire<'s>(
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     if !has_load_args(args) {
-        return Err(failed(ID, "pass `profile` (an MO2 profile dir) or `plugins`"));
+        return Err(failed(
+            ID,
+            "pass `profile` (an MO2 profile dir) or `plugins`",
+        ));
     }
     let (loaded, listing, evidence) = load(args, ID)?;
     let mut limitations = loaded.limitations.clone();
@@ -123,7 +123,10 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
         .and_then(Value::as_str)
         .unwrap_or("en")
         .to_string();
-    let data_dir = args.get("data_dir").and_then(Value::as_str).map(PathBuf::from);
+    let data_dir = args
+        .get("data_dir")
+        .and_then(Value::as_str)
+        .map(PathBuf::from);
     let mut limitations = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     // name -> (why active, provider)
@@ -151,7 +154,9 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
                         Some(a) => {
                             if matches!(
                                 a,
-                                Active::Hardcoded | Active::Unmanaged(_) | Active::BlueprintCompanion(_)
+                                Active::Hardcoded
+                                    | Active::Unmanaged(_)
+                                    | Active::BlueprintCompanion(_)
                             ) {
                                 assumed.push(format!("{} ({})", p.name, a.label()));
                             }
@@ -177,13 +182,20 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
                         missing.join(", ")
                     ));
                 }
-                let _ = Provider::GameData;
-                (pl.plan.specs(), format!("profile:{dir}"), Some(pl.profile.name.clone()))
+                (
+                    pl.plan.specs(),
+                    format!("profile:{dir}"),
+                    Some(pl.profile.name.clone()),
+                )
             }
             (None, Some(list)) => {
                 let names: Vec<String> = list
                     .as_array()
-                    .map(|a| a.iter().filter_map(|v| v.as_str().map(str::to_string)).collect())
+                    .map(|a| {
+                        a.iter()
+                            .filter_map(|v| v.as_str().map(str::to_string))
+                            .collect()
+                    })
                     .unwrap_or_default();
                 let (specs, missing) = kitcraft_io::plan::explicit(&names, data_dir.as_deref());
                 if !missing.is_empty() {
@@ -206,14 +218,8 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
         IndexCache::default_location()
     };
     let cache_dir = cache.as_ref().map(|c| c.dir().display().to_string());
-    let lo = LoadOrder::load(
-        specs,
-        &LoadOptions {
-            cache,
-            threads: 0,
-        },
-    )
-    .map_err(|e| failed(command, e.to_string()))?;
+    let lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
+        .map_err(|e| failed(command, e.to_string()))?;
     limitations.push(RUNTIME_ASSUMED.to_string());
     limitations.push(STRINGS_PENDING.to_string());
     for w in &warnings {
@@ -316,7 +322,11 @@ pub(crate) mod tests {
     use crate::Engine;
 
     /// A plugin: TES4 (flags, masters) and one top group per record type.
-    pub(crate) fn plugin(flags: u32, masters: &[&str], records: &[(&[u8; 4], u32, Vec<u8>)]) -> Vec<u8> {
+    pub(crate) fn plugin(
+        flags: u32,
+        masters: &[&str],
+        records: &[(&[u8; 4], u32, Vec<u8>)],
+    ) -> Vec<u8> {
         let mut hedr = 0.96f32.to_le_bytes().to_vec();
         hedr.extend_from_slice(&1u32.to_le_bytes());
         hedr.extend_from_slice(&0x800u32.to_le_bytes());
@@ -345,17 +355,29 @@ pub(crate) mod tests {
 
     /// A temp dir with Base.esm (two weapons) and Patch.esm (overrides one, renames it).
     pub(crate) fn fixture(tag: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("kitcraft-engine-lo-{tag}-{}", std::process::id()));
+        let dir =
+            std::env::temp_dir().join(format!("kitcraft-engine-lo-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        let weap = |edid: &str, full: &str| [sub(b"EDID", &[edid.as_bytes(), &[0]].concat()), sub(b"FULL", &[full.as_bytes(), &[0]].concat()), sub(b"DATA", &[1, 2, 3, 4])].concat();
+        let weap = |edid: &str, full: &str| {
+            [
+                sub(b"EDID", &[edid.as_bytes(), &[0]].concat()),
+                sub(b"FULL", &[full.as_bytes(), &[0]].concat()),
+                sub(b"DATA", &[1, 2, 3, 4]),
+            ]
+            .concat()
+        };
         std::fs::write(
             dir.join("Base.esm"),
             plugin(
                 0x1,
                 &[],
                 &[
-                    (b"WEAP", 0x800, weap("OldEarthHuntingRifle", "Old Earth Hunting Rifle")),
+                    (
+                        b"WEAP",
+                        0x800,
+                        weap("OldEarthHuntingRifle", "Old Earth Hunting Rifle"),
+                    ),
                     (b"WEAP", 0x801, weap("Pistol", "Pistol")),
                     (b"KYWD", 0x802, sub(b"EDID", b"Kw\0")),
                 ],
@@ -368,7 +390,11 @@ pub(crate) mod tests {
                 0x1,
                 &["Base.esm"],
                 &[
-                    (b"WEAP", 0x800, weap("OldEarthHuntingRifle", "Old Soviet Marksman Rifle")),
+                    (
+                        b"WEAP",
+                        0x800,
+                        weap("OldEarthHuntingRifle", "Old Soviet Marksman Rifle"),
+                    ),
                     (b"WEAP", 0x801, weap("Pistol", "Pistol")),
                 ],
             ),
@@ -395,16 +421,24 @@ pub(crate) mod tests {
         let plugins = data["plugins"].as_array().unwrap();
         assert_eq!(plugins.len(), 2);
         assert_eq!(plugins[1]["name"], "Patch.esm");
-        assert_eq!(plugins[1]["masters"], json!([{"name": "Base.esm", "index": 0}]));
+        assert_eq!(
+            plugins[1]["masters"],
+            json!([{"name": "Base.esm", "index": 0}])
+        );
         assert_eq!(plugins[1]["missing_masters"], json!([]));
         assert_eq!(plugins[0]["scale"], "full");
         assert_eq!(plugins[0]["runtime_slot"], "00");
         assert_eq!(plugins[0]["records"], 3);
         assert_eq!(plugins[0]["cache"], "uncached");
-        assert!(data["summary"].as_str().unwrap().contains("2 plugins loaded"));
+        assert!(data["summary"]
+            .as_str()
+            .unwrap()
+            .contains("2 plugins loaded"));
         assert_eq!(result["evidence"].as_array().unwrap().len(), 2);
         let limitations = result["limitations"].as_array().unwrap();
-        assert!(limitations.iter().any(|l| l.as_str().unwrap().contains("runtime-slots-by-scale")));
+        assert!(limitations
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("runtime-slots-by-scale")));
         // The session holds it: the listing and the typed load order.
         let listing = engine.with_session(|s| s.load_order().cloned()).unwrap();
         assert_eq!(listing["plugins"].as_array().unwrap().len(), 2);
@@ -422,17 +456,10 @@ pub(crate) mod tests {
         )
         .unwrap_err();
         assert!(err.to_string().contains("Nope.esm"), "{err}");
-        let err = crate::execute(
-            "load",
-            json!({"profile": dir.display().to_string()}),
-        )
-        .unwrap_err();
+        let err =
+            crate::execute("load", json!({"profile": dir.display().to_string()})).unwrap_err();
         assert!(err.to_string().contains("not an MO2 profile"), "{err}");
-        let err = crate::execute(
-            "load",
-            json!({"profile": "x", "plugins": []}),
-        )
-        .unwrap_err();
+        let err = crate::execute("load", json!({"profile": "x", "plugins": []})).unwrap_err();
         assert!(err.to_string().contains("not both"), "{err}");
         let err = crate::execute("load", json!({"bogus": 1})).unwrap_err();
         assert_eq!(err.kind(), "invalid_args");
