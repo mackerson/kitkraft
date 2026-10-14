@@ -18,6 +18,6 @@ kitcraft-strings.workspace = true
 kitcraft-nif.workspace = true
 kitcraft-doc.workspace = true
 kitcraft-io.workspace = true
-
-[dev-dependencies]
+serde.workspace = true
 serde_json.workspace = true
+thiserror.workspace = true

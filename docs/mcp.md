@@ -4,7 +4,13 @@
 an adapter: every tool resolves to `engine::execute`, the same path the CLI uses. The tool
 count stays small on purpose; capability grows by adding commands, not tools.
 
-Status: planned (M2). This document is the contract the implementation follows.
+Status: the server is planned (M2). The engine side it adapts exists since M1.11:
+`kitcraft_engine::execute(id: &str, args: serde_json::Value) -> Result<Value, EngineError>`
+returns the envelope below, and `kitcraft_engine::parse_line` is the `command_line`
+grammar. This document is the contract the implementation follows.
+
+Front-end launchers (`kit mcp`, a future `kit ui`) start a front end; they are not actions
+and are deliberately not `CommandSpec`s. Everything else a user can do is.
 
 ## Start it
 
@@ -67,8 +73,14 @@ Every successful tool result is one JSON object:
 
 Rules:
 
+- The five members are always present, in every result of every command.
 - `coverage.status` is `complete`, `partial`, or `unknown`. `complete` only when every byte
-  of every examined record was decoded.
+  of every examined record was decoded. `decoded_subrecords` / `opaque_subrecords` are
+  `null` when the command did not count them (never `0` for "not counted").
+- `evidence[].record` and `evidence[].subrecord` are `null` when the range is not inside a
+  record (e.g. a group header).
+- A command whose handler is still a stub returns `data: null`, `coverage.status:
+  "unknown"`, and `limitations: ["not implemented"]`; its catalog `status` is `Planned`.
 - `limitations[]` is never omitted; an empty array is a claim of no known limitation.
 - Every value read from a plugin is traceable to an `evidence` entry: file name, absolute
   byte offset, length, record, subrecord.
@@ -79,12 +91,59 @@ Rules:
 
 ## Errors
 
+`execute` fails with a typed `EngineError`; `kind()` is the stable string front ends
+report (`kit --json` prints `{"error": {"kind", "message", "violations"?}}`).
+
+| `kind`            | When                                                              | MCP mapping       |
+| ----------------- | ----------------------------------------------------------------- | ----------------- |
+| `unknown_command` | No catalog id or alias matches                                    | `-32602`          |
+| `usage`           | `command_line` text did not parse (unknown flag, bad value)       | `-32602`          |
+| `invalid_args`    | Arguments break `args_schema`; carries every `{pointer, rule, message}` | `-32602`    |
+| `not_implemented` | Catalog command with no handler yet                               | `isError: true`   |
+| `failed`          | The command ran and failed                                        | `isError: true`   |
+| `bad_schema`, `registration`, `serialize` | Engine bugs (catalog or handler table)    | `-32603`          |
+
+Argument validation implements the JSON Schema subset the catalog uses: `type`, `enum`,
+`properties`, `required`, `additionalProperties`, `items`, `minItems`/`maxItems`,
+`minLength`/`maxLength`, `minimum`/`maximum`; `default`, `description`, `title`,
+`examples`, `$schema` are annotations. Any other keyword in a catalog schema is refused
+(a test enforces it), so a schema can never silently accept what it claims to reject.
+Top-level `default`s are filled in before the handler runs; `null` arguments mean `{}`.
+
 - Invalid arguments: JSON-RPC error `-32602` with the failing JSON pointer and the schema rule.
 - Command failures (unreadable file, parse error, missing master): a tool result with
   `isError: true` and a message that includes the byte offset when the failure is in a
   plugin.
 - The server never panics on input; a malformed plugin is an error result.
 - Commands never prompt. Anything that would need a dialog in the UI is an argument here.
+
+## `command_line` grammar (shared with `kit`)
+
+`kitcraft_engine::parse_line` / `parse_words` turn words into a command id and JSON
+arguments, generated from each `args_schema`; `kit` calls the same parser.
+
+- Command words: `roundtrip`, `ba2 list` (or `ba2.list`), or an alias.
+- Required string/number arguments are positional in the schema's `required` order.
+- Every argument is also `--name value` / `--name=value` (`_` may be written `-`).
+- Booleans: `--verify`, `--no-verify`, `--verify=false`. String lists repeat the flag.
+  Object arguments take JSON text: `--fields '{"FULL":"Rifle"}'`. `--` ends flags.
+- `help`, `help <command>`, `<command> --help` return help instead of running.
+- Quotes (`'` or `"`) group words; there are no backslash escapes, so Windows paths are
+  written as-is.
+
+`roundtrip.verify` defaults to `false`: plain `roundtrip` parses and rewrites, `--verify`
+also demands byte-identical output.
+
+## CLI exit codes
+
+| Code | Meaning                                                                                   |
+| ---- | ----------------------------------------------------------------------------------------- |
+| 0    | Success, help, version                                                                    |
+| 1    | The command ran and reported a negative result (`roundtrip --verify` mismatch; reserved)  |
+| 2    | Usage error, unknown command, invalid arguments, not implemented (including a `Planned` command's stub result), command failure, `kit mcp` before M2 |
+
+With `--json`, stdout carries exactly the `execute` envelope (or the error object), and
+human messages go to stderr.
 
 ## A typical session
 
