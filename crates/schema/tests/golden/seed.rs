@@ -27,6 +27,7 @@
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
+// - PNDT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16048-L16225; corpus)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
 // - SFBK (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591; corpus)
@@ -7767,6 +7768,1507 @@ impl PkinRecord {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct PndtMasterWorldspacesItem {
+    pub latitude: f64,
+    pub longitude: f64,
+    pub worldspace: FormId,
+}
+
+impl Field for PndtMasterWorldspacesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f64::read(r, "PNDT.CNAM.Latitude", ctx)?;
+        let f1 = f64::read(r, "PNDT.CNAM.Longitude", ctx)?;
+        let f2 = Field::read(r, "PNDT.CNAM.Worldspace", ctx)?;
+        Ok(Self {
+            latitude: f0,
+            longitude: f1,
+            worldspace: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.latitude.write(out);
+        self.longitude.write(out);
+        self.worldspace.write(out);
+    }
+}
+
+impl Visit for PndtMasterWorldspacesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.worldspace, "PNDT.CNAM.Worldspace", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.worldspace, "PNDT.CNAM.Worldspace", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtMasterWorldspaces(pub Vec<PndtMasterWorldspacesItem>);
+
+impl Field for PndtMasterWorldspaces {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PndtMasterWorldspaces {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtEditedWorldspacesItemType {
+    Removed,
+    Added,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl PndtEditedWorldspacesItemType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Removed,
+            1 => Self::Added,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Removed => 0,
+            Self::Added => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtEditedWorldspacesItemType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtEditedWorldspacesItemType {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtEditedWorldspacesItem {
+    pub latitude: f64,
+    pub longitude: f64,
+    pub worldspace: FormId,
+    pub type_: PndtEditedWorldspacesItemType,
+}
+
+impl Field for PndtEditedWorldspacesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f64::read(r, "PNDT.EOVR.Latitude", ctx)?;
+        let f1 = f64::read(r, "PNDT.EOVR.Longitude", ctx)?;
+        let f2 = Field::read(r, "PNDT.EOVR.Worldspace", ctx)?;
+        let f3 = Field::read(r, "PNDT.EOVR.Type", ctx)?;
+        Ok(Self {
+            latitude: f0,
+            longitude: f1,
+            worldspace: f2,
+            type_: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.latitude.write(out);
+        self.longitude.write(out);
+        self.worldspace.write(out);
+        self.type_.write(out);
+    }
+}
+
+impl Visit for PndtEditedWorldspacesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.worldspace, "PNDT.EOVR.Worldspace", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.worldspace, "PNDT.EOVR.Worldspace", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtEditedWorldspaces(pub Vec<PndtEditedWorldspacesItem>);
+
+impl Field for PndtEditedWorldspaces {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PndtEditedWorldspaces {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBiomesFlora {
+    pub flora: FormId,
+    pub resource: FormId,
+    pub frequency: u8,
+}
+
+impl Field for PndtBiomesFlora {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PNDT.PPBD.Flora.Flora", ctx)?;
+        let f1 = Field::read(r, "PNDT.PPBD.Flora.Resource", ctx)?;
+        let f2 = u8::read(r, "PNDT.PPBD.Flora.Frequency", ctx)?;
+        Ok(Self {
+            flora: f0,
+            resource: f1,
+            frequency: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.flora.write(out);
+        self.resource.write(out);
+        self.frequency.write(out);
+    }
+}
+
+impl Visit for PndtBiomesFlora {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.flora, "PNDT.PPBD.Flora.Flora", out);
+        visit_form_ids(&self.resource, "PNDT.PPBD.Flora.Resource", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.flora, "PNDT.PPBD.Flora.Flora", out);
+        visit_form_ids_mut(&mut self.resource, "PNDT.PPBD.Flora.Resource", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBiomesData11 {
+    pub value1: [u8; 4],
+    pub value2: [u8; 4],
+    pub value3: [u8; 4],
+    pub value4: [u8; 4],
+}
+
+impl Field for PndtBiomesData11 {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PNDT.PPBD.Data11.Value1", ctx)?;
+        let f1 = Field::read(r, "PNDT.PPBD.Data11.Value2", ctx)?;
+        let f2 = Field::read(r, "PNDT.PPBD.Data11.Value3", ctx)?;
+        let f3 = Field::read(r, "PNDT.PPBD.Data11.Value4", ctx)?;
+        Ok(Self {
+            value1: f0,
+            value2: f1,
+            value3: f2,
+            value4: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.value1.write(out);
+        self.value2.write(out);
+        self.value3.write(out);
+        self.value4.write(out);
+    }
+}
+
+impl Visit for PndtBiomesData11 {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBiomes {
+    pub biome: FormId,
+    pub chance: f32,
+    pub data3: [u8; 4],
+    pub resource_generation: FormId,
+    pub fauna_count: u32,
+    pub fauna: Vec<FormId>,
+    pub keyword_count: u32,
+    pub keywords: Vec<FormId>,
+    pub flora_count: u32,
+    pub flora_entry_size: u32,
+    pub flora: Vec<PndtBiomesFlora>,
+    pub data11_count: u32,
+    pub data11: Vec<PndtBiomesData11>,
+}
+
+impl Field for PndtBiomes {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PNDT.PPBD.Biome", ctx)?;
+        let f1 = f32::read(r, "PNDT.PPBD.Chance", ctx)?;
+        let f2 = Field::read(r, "PNDT.PPBD.Data3", ctx)?;
+        let f3 = Field::read(r, "PNDT.PPBD.ResourceGeneration", ctx)?;
+        let f4 = u32::read(r, "PNDT.PPBD.FaunaCount", ctx)?;
+        let n5 = count(f4, "PNDT.PPBD.Fauna", r.position())?;
+        let f5 = read_array(r, n5, "PNDT.PPBD.Fauna", ctx)?;
+        let f6 = u32::read(r, "PNDT.PPBD.KeywordCount", ctx)?;
+        let n7 = count(f6, "PNDT.PPBD.Keywords", r.position())?;
+        let f7 = read_array(r, n7, "PNDT.PPBD.Keywords", ctx)?;
+        let f8 = u32::read(r, "PNDT.PPBD.FloraCount", ctx)?;
+        let f9 = u32::read(r, "PNDT.PPBD.FloraEntrySize", ctx)?;
+        let n10 = count(f8, "PNDT.PPBD.Flora", r.position())?;
+        let f10 = read_array(r, n10, "PNDT.PPBD.Flora", ctx)?;
+        let f11 = u32::read(r, "PNDT.PPBD.Data11Count", ctx)?;
+        let n12 = count(f11, "PNDT.PPBD.Data11", r.position())?;
+        let f12 = read_array(r, n12, "PNDT.PPBD.Data11", ctx)?;
+        Ok(Self {
+            biome: f0,
+            chance: f1,
+            data3: f2,
+            resource_generation: f3,
+            fauna_count: f4,
+            fauna: f5,
+            keyword_count: f6,
+            keywords: f7,
+            flora_count: f8,
+            flora_entry_size: f9,
+            flora: f10,
+            data11_count: f11,
+            data11: f12,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.biome.write(out);
+        self.chance.write(out);
+        self.data3.write(out);
+        self.resource_generation.write(out);
+        self.fauna_count.write(out);
+        self.fauna.write(out);
+        self.keyword_count.write(out);
+        self.keywords.write(out);
+        self.flora_count.write(out);
+        self.flora_entry_size.write(out);
+        self.flora.write(out);
+        self.data11_count.write(out);
+        self.data11.write(out);
+    }
+}
+
+impl Visit for PndtBiomes {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.biome, "PNDT.PPBD.Biome", out);
+        visit_form_ids(
+            &self.resource_generation,
+            "PNDT.PPBD.ResourceGeneration",
+            out,
+        );
+        visit_form_ids(&self.fauna, "PNDT.PPBD.Fauna", out);
+        visit_form_ids(&self.keywords, "PNDT.PPBD.Keywords", out);
+        visit_form_ids(&self.flora, "PNDT.PPBD.Flora", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.biome, "PNDT.PPBD.Biome", out);
+        visit_form_ids_mut(
+            &mut self.resource_generation,
+            "PNDT.PPBD.ResourceGeneration",
+            out,
+        );
+        visit_form_ids_mut(&mut self.fauna, "PNDT.PPBD.Fauna", out);
+        visit_form_ids_mut(&mut self.keywords, "PNDT.PPBD.Keywords", out);
+        visit_form_ids_mut(&mut self.flora, "PNDT.PPBD.Flora", out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtBodyBodyType {
+    Undefined,
+    Star,
+    Planet,
+    Moon,
+    Orbital,
+    AsteroidBelt,
+    Station,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl PndtBodyBodyType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Undefined,
+            1 => Self::Star,
+            2 => Self::Planet,
+            3 => Self::Moon,
+            4 => Self::Orbital,
+            5 => Self::AsteroidBelt,
+            6 => Self::Station,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Undefined => 0,
+            Self::Star => 1,
+            Self::Planet => 2,
+            Self::Moon => 3,
+            Self::Orbital => 4,
+            Self::AsteroidBelt => 5,
+            Self::Station => 6,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtBodyBodyType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtBodyBodyType {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtBodySpaceCellIsUnique {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl PndtBodySpaceCellIsUnique {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtBodySpaceCellIsUnique {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtBodySpaceCellIsUnique {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodySpaceCell {
+    pub cell_editor_id_length: u32,
+    pub cell_editor_id: Vec<u8>,
+    pub is_unique: PndtBodySpaceCellIsUnique,
+}
+
+impl Field for PndtBodySpaceCell {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "PNDT.Body.DNAM.CellEditorIdLength", ctx)?;
+        let n1 = count(f0, "PNDT.Body.DNAM.CellEditorId", r.position())?;
+        let f1 = read_array(r, n1, "PNDT.Body.DNAM.CellEditorId", ctx)?;
+        let f2 = Field::read(r, "PNDT.Body.DNAM.IsUnique", ctx)?;
+        Ok(Self {
+            cell_editor_id_length: f0,
+            cell_editor_id: f1,
+            is_unique: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.cell_editor_id_length.write(out);
+        self.cell_editor_id.write(out);
+        self.is_unique.write(out);
+    }
+}
+
+impl Visit for PndtBodySpaceCell {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtBodyOrbitalDataApplyOrbitalVelocity {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl PndtBodyOrbitalDataApplyOrbitalVelocity {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtBodyOrbitalDataApplyOrbitalVelocity {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtBodyOrbitalDataApplyOrbitalVelocity {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtBodyOrbitalDataGeostationaryOrbit {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl PndtBodyOrbitalDataGeostationaryOrbit {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtBodyOrbitalDataGeostationaryOrbit {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtBodyOrbitalDataGeostationaryOrbit {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodyOrbitalData {
+    pub major_axis: f64,
+    pub minor_axis: f64,
+    pub aphelion: f64,
+    pub eccentricity: f64,
+    pub incline: f64,
+    pub mean_orbit: f64,
+    pub axial_tilt: f32,
+    pub rotational_velocity: f32,
+    pub start_angle: f32,
+    pub perihelion_angle: f32,
+    pub apply_orbital_velocity: PndtBodyOrbitalDataApplyOrbitalVelocity,
+    pub geostationary_orbit: PndtBodyOrbitalDataGeostationaryOrbit,
+    pub unused: [u8; 6],
+}
+
+impl Field for PndtBodyOrbitalData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f64::read(r, "PNDT.Body.ENAM.MajorAxis", ctx)?;
+        let f1 = f64::read(r, "PNDT.Body.ENAM.MinorAxis", ctx)?;
+        let f2 = f64::read(r, "PNDT.Body.ENAM.Aphelion", ctx)?;
+        let f3 = f64::read(r, "PNDT.Body.ENAM.Eccentricity", ctx)?;
+        let f4 = f64::read(r, "PNDT.Body.ENAM.Incline", ctx)?;
+        let f5 = f64::read(r, "PNDT.Body.ENAM.MeanOrbit", ctx)?;
+        let f6 = f32::read(r, "PNDT.Body.ENAM.AxialTilt", ctx)?;
+        let f7 = f32::read(r, "PNDT.Body.ENAM.RotationalVelocity", ctx)?;
+        let f8 = f32::read(r, "PNDT.Body.ENAM.StartAngle", ctx)?;
+        let f9 = f32::read(r, "PNDT.Body.ENAM.PerihelionAngle", ctx)?;
+        let f10 = Field::read(r, "PNDT.Body.ENAM.ApplyOrbitalVelocity", ctx)?;
+        let f11 = Field::read(r, "PNDT.Body.ENAM.GeostationaryOrbit", ctx)?;
+        let f12 = Field::read(r, "PNDT.Body.ENAM.Unused", ctx)?;
+        Ok(Self {
+            major_axis: f0,
+            minor_axis: f1,
+            aphelion: f2,
+            eccentricity: f3,
+            incline: f4,
+            mean_orbit: f5,
+            axial_tilt: f6,
+            rotational_velocity: f7,
+            start_angle: f8,
+            perihelion_angle: f9,
+            apply_orbital_velocity: f10,
+            geostationary_orbit: f11,
+            unused: f12,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.major_axis.write(out);
+        self.minor_axis.write(out);
+        self.aphelion.write(out);
+        self.eccentricity.write(out);
+        self.incline.write(out);
+        self.mean_orbit.write(out);
+        self.axial_tilt.write(out);
+        self.rotational_velocity.write(out);
+        self.start_angle.write(out);
+        self.perihelion_angle.write(out);
+        self.apply_orbital_velocity.write(out);
+        self.geostationary_orbit.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for PndtBodyOrbitalData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodyOrbitedData {
+    pub gravity_well: f64,
+    pub mass: f32,
+    pub radius_km: f32,
+    pub surface_gravity: f32,
+    pub data5: [u8; 4],
+}
+
+impl Field for PndtBodyOrbitedData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f64::read(r, "PNDT.Body.FNAM.GravityWell", ctx)?;
+        let f1 = f32::read(r, "PNDT.Body.FNAM.Mass", ctx)?;
+        let f2 = f32::read(r, "PNDT.Body.FNAM.RadiusKm", ctx)?;
+        let f3 = f32::read(r, "PNDT.Body.FNAM.SurfaceGravity", ctx)?;
+        let f4 = Field::read(r, "PNDT.Body.FNAM.Data5", ctx)?;
+        Ok(Self {
+            gravity_well: f0,
+            mass: f1,
+            radius_km: f2,
+            surface_gravity: f3,
+            data5: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.gravity_well.write(out);
+        self.mass.write(out);
+        self.radius_km.write(out);
+        self.surface_gravity.write(out);
+        self.data5.write(out);
+    }
+}
+
+impl Visit for PndtBodyOrbitedData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodyGalaxyData {
+    pub star_system_id: u32,
+    pub parent_planet_id: u32,
+    pub planet_id: u32,
+}
+
+impl Field for PndtBodyGalaxyData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "PNDT.Body.GNAM.StarSystemId", ctx)?;
+        let f1 = u32::read(r, "PNDT.Body.GNAM.ParentPlanetId", ctx)?;
+        let f2 = u32::read(r, "PNDT.Body.GNAM.PlanetId", ctx)?;
+        Ok(Self {
+            star_system_id: f0,
+            parent_planet_id: f1,
+            planet_id: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.star_system_id.write(out);
+        self.parent_planet_id.write(out);
+        self.planet_id.write(out);
+    }
+}
+
+impl Visit for PndtBodyGalaxyData {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtBodyCatalogueDataGeostationary {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl PndtBodyCatalogueDataGeostationary {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtBodyCatalogueDataGeostationary {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtBodyCatalogueDataGeostationary {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PndtBodyCatalogueDataRings {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl PndtBodyCatalogueDataRings {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PndtBodyCatalogueDataRings {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PndtBodyCatalogueDataRings {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodyCatalogueData {
+    pub data1: [u8; 4],
+    pub spectral_class_length: u32,
+    pub spectral_class: Vec<u8>,
+    pub catalogue_id_length: u32,
+    pub catalogue_id: Vec<u8>,
+    pub life_length: u32,
+    pub life: Vec<u8>,
+    pub magnetosphere_length: u32,
+    pub magnetosphere: Vec<u8>,
+    pub mass_kg_length: u32,
+    pub mass_kg: Vec<u8>,
+    pub type_length: u32,
+    pub type_: Vec<u8>,
+    pub settled_star_length: u32,
+    pub settled_star: Vec<u8>,
+    pub special_length: u32,
+    pub special: Vec<u8>,
+    pub perihelion: f64,
+    pub star_distance: f64,
+    pub density: f32,
+    pub heat: f32,
+    pub hydro: f32,
+    pub inner_habitable_zone: f32,
+    pub outer_habitable_zone: f32,
+    pub perihelion_angle: f32,
+    pub data24: [u8; 4],
+    pub start_angle_deg: f32,
+    pub year_length_days: f32,
+    pub asteroids: u32,
+    pub geostationary: PndtBodyCatalogueDataGeostationary,
+    pub random_seed: u32,
+    pub rings: PndtBodyCatalogueDataRings,
+}
+
+impl Field for PndtBodyCatalogueData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PNDT.Body.HNAM.Data1", ctx)?;
+        let f1 = u32::read(r, "PNDT.Body.HNAM.SpectralClassLength", ctx)?;
+        let n2 = count(f1, "PNDT.Body.HNAM.SpectralClass", r.position())?;
+        let f2 = read_array(r, n2, "PNDT.Body.HNAM.SpectralClass", ctx)?;
+        let f3 = u32::read(r, "PNDT.Body.HNAM.CatalogueIdLength", ctx)?;
+        let n4 = count(f3, "PNDT.Body.HNAM.CatalogueId", r.position())?;
+        let f4 = read_array(r, n4, "PNDT.Body.HNAM.CatalogueId", ctx)?;
+        let f5 = u32::read(r, "PNDT.Body.HNAM.LifeLength", ctx)?;
+        let n6 = count(f5, "PNDT.Body.HNAM.Life", r.position())?;
+        let f6 = read_array(r, n6, "PNDT.Body.HNAM.Life", ctx)?;
+        let f7 = u32::read(r, "PNDT.Body.HNAM.MagnetosphereLength", ctx)?;
+        let n8 = count(f7, "PNDT.Body.HNAM.Magnetosphere", r.position())?;
+        let f8 = read_array(r, n8, "PNDT.Body.HNAM.Magnetosphere", ctx)?;
+        let f9 = u32::read(r, "PNDT.Body.HNAM.MassKgLength", ctx)?;
+        let n10 = count(f9, "PNDT.Body.HNAM.MassKg", r.position())?;
+        let f10 = read_array(r, n10, "PNDT.Body.HNAM.MassKg", ctx)?;
+        let f11 = u32::read(r, "PNDT.Body.HNAM.TypeLength", ctx)?;
+        let n12 = count(f11, "PNDT.Body.HNAM.Type", r.position())?;
+        let f12 = read_array(r, n12, "PNDT.Body.HNAM.Type", ctx)?;
+        let f13 = u32::read(r, "PNDT.Body.HNAM.SettledStarLength", ctx)?;
+        let n14 = count(f13, "PNDT.Body.HNAM.SettledStar", r.position())?;
+        let f14 = read_array(r, n14, "PNDT.Body.HNAM.SettledStar", ctx)?;
+        let f15 = u32::read(r, "PNDT.Body.HNAM.SpecialLength", ctx)?;
+        let n16 = count(f15, "PNDT.Body.HNAM.Special", r.position())?;
+        let f16 = read_array(r, n16, "PNDT.Body.HNAM.Special", ctx)?;
+        let f17 = f64::read(r, "PNDT.Body.HNAM.Perihelion", ctx)?;
+        let f18 = f64::read(r, "PNDT.Body.HNAM.StarDistance", ctx)?;
+        let f19 = f32::read(r, "PNDT.Body.HNAM.Density", ctx)?;
+        let f20 = f32::read(r, "PNDT.Body.HNAM.Heat", ctx)?;
+        let f21 = f32::read(r, "PNDT.Body.HNAM.Hydro", ctx)?;
+        let f22 = f32::read(r, "PNDT.Body.HNAM.InnerHabitableZone", ctx)?;
+        let f23 = f32::read(r, "PNDT.Body.HNAM.OuterHabitableZone", ctx)?;
+        let f24 = f32::read(r, "PNDT.Body.HNAM.PerihelionAngle", ctx)?;
+        let f25 = Field::read(r, "PNDT.Body.HNAM.Data24", ctx)?;
+        let f26 = f32::read(r, "PNDT.Body.HNAM.StartAngleDeg", ctx)?;
+        let f27 = f32::read(r, "PNDT.Body.HNAM.YearLengthDays", ctx)?;
+        let f28 = u32::read(r, "PNDT.Body.HNAM.Asteroids", ctx)?;
+        let f29 = Field::read(r, "PNDT.Body.HNAM.Geostationary", ctx)?;
+        let f30 = u32::read(r, "PNDT.Body.HNAM.RandomSeed", ctx)?;
+        let f31 = Field::read(r, "PNDT.Body.HNAM.Rings", ctx)?;
+        Ok(Self {
+            data1: f0,
+            spectral_class_length: f1,
+            spectral_class: f2,
+            catalogue_id_length: f3,
+            catalogue_id: f4,
+            life_length: f5,
+            life: f6,
+            magnetosphere_length: f7,
+            magnetosphere: f8,
+            mass_kg_length: f9,
+            mass_kg: f10,
+            type_length: f11,
+            type_: f12,
+            settled_star_length: f13,
+            settled_star: f14,
+            special_length: f15,
+            special: f16,
+            perihelion: f17,
+            star_distance: f18,
+            density: f19,
+            heat: f20,
+            hydro: f21,
+            inner_habitable_zone: f22,
+            outer_habitable_zone: f23,
+            perihelion_angle: f24,
+            data24: f25,
+            start_angle_deg: f26,
+            year_length_days: f27,
+            asteroids: f28,
+            geostationary: f29,
+            random_seed: f30,
+            rings: f31,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.data1.write(out);
+        self.spectral_class_length.write(out);
+        self.spectral_class.write(out);
+        self.catalogue_id_length.write(out);
+        self.catalogue_id.write(out);
+        self.life_length.write(out);
+        self.life.write(out);
+        self.magnetosphere_length.write(out);
+        self.magnetosphere.write(out);
+        self.mass_kg_length.write(out);
+        self.mass_kg.write(out);
+        self.type_length.write(out);
+        self.type_.write(out);
+        self.settled_star_length.write(out);
+        self.settled_star.write(out);
+        self.special_length.write(out);
+        self.special.write(out);
+        self.perihelion.write(out);
+        self.star_distance.write(out);
+        self.density.write(out);
+        self.heat.write(out);
+        self.hydro.write(out);
+        self.inner_habitable_zone.write(out);
+        self.outer_habitable_zone.write(out);
+        self.perihelion_angle.write(out);
+        self.data24.write(out);
+        self.start_angle_deg.write(out);
+        self.year_length_days.write(out);
+        self.asteroids.write(out);
+        self.geostationary.write(out);
+        self.random_seed.write(out);
+        self.rings.write(out);
+    }
+}
+
+impl Visit for PndtBodyCatalogueData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodyAtmosphereData {
+    pub atmosphere: FormId,
+    pub average_density_fraction: f32,
+    pub rayleigh_scattering_coefficient: f32,
+    pub mie_scattering_coefficient: f32,
+}
+
+impl Field for PndtBodyAtmosphereData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PNDT.Body.INAM.Atmosphere", ctx)?;
+        let f1 = f32::read(r, "PNDT.Body.INAM.AverageDensityFraction", ctx)?;
+        let f2 = f32::read(r, "PNDT.Body.INAM.RayleighScatteringCoefficient", ctx)?;
+        let f3 = f32::read(r, "PNDT.Body.INAM.MieScatteringCoefficient", ctx)?;
+        Ok(Self {
+            atmosphere: f0,
+            average_density_fraction: f1,
+            rayleigh_scattering_coefficient: f2,
+            mie_scattering_coefficient: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.atmosphere.write(out);
+        self.average_density_fraction.write(out);
+        self.rayleigh_scattering_coefficient.write(out);
+        self.mie_scattering_coefficient.write(out);
+    }
+}
+
+impl Visit for PndtBodyAtmosphereData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.atmosphere, "PNDT.Body.INAM.Atmosphere", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.atmosphere, "PNDT.Body.INAM.Atmosphere", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PndtBodyBiomeNoise {
+    pub noise_filename_length: u32,
+    pub noise_filename: Vec<u8>,
+    pub biome_frequency: f64,
+    pub terrain_height_frequency: f64,
+    pub noise_type: u8,
+    pub terrain_height_seed: i32,
+    pub terrain_max_height: f32,
+}
+
+impl Field for PndtBodyBiomeNoise {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "PNDT.Body.KNAM.NoiseFilenameLength", ctx)?;
+        let n1 = count(f0, "PNDT.Body.KNAM.NoiseFilename", r.position())?;
+        let f1 = read_array(r, n1, "PNDT.Body.KNAM.NoiseFilename", ctx)?;
+        let f2 = f64::read(r, "PNDT.Body.KNAM.BiomeFrequency", ctx)?;
+        let f3 = f64::read(r, "PNDT.Body.KNAM.TerrainHeightFrequency", ctx)?;
+        let f4 = u8::read(r, "PNDT.Body.KNAM.NoiseType", ctx)?;
+        let f5 = i32::read(r, "PNDT.Body.KNAM.TerrainHeightSeed", ctx)?;
+        let f6 = f32::read(r, "PNDT.Body.KNAM.TerrainMaxHeight", ctx)?;
+        Ok(Self {
+            noise_filename_length: f0,
+            noise_filename: f1,
+            biome_frequency: f2,
+            terrain_height_frequency: f3,
+            noise_type: f4,
+            terrain_height_seed: f5,
+            terrain_max_height: f6,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.noise_filename_length.write(out);
+        self.noise_filename.write(out);
+        self.biome_frequency.write(out);
+        self.terrain_height_frequency.write(out);
+        self.noise_type.write(out);
+        self.terrain_height_seed.write(out);
+        self.terrain_max_height.write(out);
+    }
+}
+
+impl Visit for PndtBodyBiomeNoise {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PndtBodyPlayerKnowledge(pub u32);
+
+impl PndtBodyPlayerKnowledge {
+    pub const INITIAL_SCAN: u32 = 0x1;
+    pub const VISITED: u32 = 0x2;
+    pub const ENTERED_SYSTEM: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for PndtBodyPlayerKnowledge {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PndtBodyPlayerKnowledge {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PndtBody {
+    /// `BDST`, required.
+    pub start: Option<Sub<Empty>>,
+    /// `ANAM`, required.
+    pub name: Option<Sub<ZString>>,
+    /// `XEMP`, optional.
+    pub environment_map: Option<Sub<ZString>>,
+    /// `CNAM`, required.
+    pub body_type: Option<Sub<PndtBodyBodyType>>,
+    /// `DNAM`, optional.
+    pub space_cell: Option<Sub<PndtBodySpaceCell>>,
+    /// `ENAM`, required.
+    pub orbital_data: Option<Sub<PndtBodyOrbitalData>>,
+    /// `FNAM`, optional.
+    pub orbited_data: Option<Sub<PndtBodyOrbitedData>>,
+    /// `GNAM`, required.
+    pub galaxy_data: Option<Sub<PndtBodyGalaxyData>>,
+    /// `HNAM`, optional.
+    pub catalogue_data: Option<Sub<PndtBodyCatalogueData>>,
+    /// `INAM`, optional.
+    pub atmosphere_data: Option<Sub<PndtBodyAtmosphereData>>,
+    /// `KNAM`, required.
+    pub biome_noise: Option<Sub<PndtBodyBiomeNoise>>,
+    /// `NNAM`, optional.
+    pub player_knowledge: Option<Sub<PndtBodyPlayerKnowledge>>,
+    /// `BDED`, required.
+    pub end: Option<Sub<Empty>>,
+}
+
+impl PndtBody {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"BDST",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEMP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"INAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"KNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"BDED",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.start, subs, *index, "PNDT.Body.BDST", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.name, subs, *index, "PNDT.Body.ANAM", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.environment_map,
+                    subs,
+                    *index,
+                    "PNDT.Body.XEMP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.body_type,
+                    subs,
+                    *index,
+                    "PNDT.Body.CNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.space_cell,
+                    subs,
+                    *index,
+                    "PNDT.Body.DNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.orbital_data,
+                    subs,
+                    *index,
+                    "PNDT.Body.ENAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.orbited_data,
+                    subs,
+                    *index,
+                    "PNDT.Body.FNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.galaxy_data,
+                    subs,
+                    *index,
+                    "PNDT.Body.GNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.catalogue_data,
+                    subs,
+                    *index,
+                    "PNDT.Body.HNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.atmosphere_data,
+                    subs,
+                    *index,
+                    "PNDT.Body.INAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.biome_noise,
+                    subs,
+                    *index,
+                    "PNDT.Body.KNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.player_knowledge,
+                    subs,
+                    *index,
+                    "PNDT.Body.NNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.end, subs, *index, "PNDT.Body.BDED", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"BDST", self.start.as_ref());
+        emit(out, *b"ANAM", self.name.as_ref());
+        emit(out, *b"XEMP", self.environment_map.as_ref());
+        emit(out, *b"CNAM", self.body_type.as_ref());
+        emit(out, *b"DNAM", self.space_cell.as_ref());
+        emit(out, *b"ENAM", self.orbital_data.as_ref());
+        emit(out, *b"FNAM", self.orbited_data.as_ref());
+        emit(out, *b"GNAM", self.galaxy_data.as_ref());
+        emit(out, *b"HNAM", self.catalogue_data.as_ref());
+        emit(out, *b"INAM", self.atmosphere_data.as_ref());
+        emit(out, *b"KNAM", self.biome_noise.as_ref());
+        emit(out, *b"NNAM", self.player_knowledge.as_ref());
+        emit(out, *b"BDED", self.end.as_ref());
+    }
+}
+
+impl Visit for PndtBody {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.atmosphere_data, "PNDT.Body.INAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.atmosphere_data, "PNDT.Body.INAM", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PndtRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `CNAM`, optional.
+    pub master_worldspaces: Option<Sub<PndtMasterWorldspaces>>,
+    /// `EOVR`, optional.
+    pub edited_worldspaces: Option<Sub<PndtEditedWorldspaces>>,
+    /// `PPBD`, repeated.
+    pub biomes: Vec<Sub<PndtBiomes>>,
+    /// `FNAM`, required.
+    pub surface_tree: Option<Sub<FormId>>,
+    /// `GNAM`, required.
+    pub scan_worldspace_multiplier: Option<Sub<f32>>,
+    /// Group `Body`, required.
+    pub body: Option<PndtBody>,
+    /// `TEMP`, required.
+    pub temperature_c: Option<Sub<f32>>,
+    /// `DENS`, required.
+    pub density: Option<Sub<f32>>,
+    /// `PHLA`, required.
+    pub perihelion_angle_deg: Option<Sub<f32>>,
+    /// `RSCS`, optional.
+    pub resource_creation_seed: Option<Sub<i32>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl PndtRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"EOVR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PPBD",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Required,
+            members: PndtBody::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"TEMP",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DENS",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PHLA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"RSCS",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "PNDT.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.master_worldspaces,
+                    subs,
+                    *index,
+                    "PNDT.CNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.edited_worldspaces,
+                    subs,
+                    *index,
+                    "PNDT.EOVR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => {
+                    push(&mut self.biomes, subs, *index, "PNDT.PPBD", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.surface_tree,
+                    subs,
+                    *index,
+                    "PNDT.FNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.scan_worldspace_multiplier,
+                    subs,
+                    *index,
+                    "PNDT.GNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 7, hits } if self.body.is_none() => {
+                    let mut group = PndtBody::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.body = Some(group);
+                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.temperature_c,
+                    subs,
+                    *index,
+                    "PNDT.TEMP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.density, subs, *index, "PNDT.DENS", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.perihelion_angle_deg,
+                    subs,
+                    *index,
+                    "PNDT.PHLA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.resource_creation_seed,
+                    subs,
+                    *index,
+                    "PNDT.RSCS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"CNAM", self.master_worldspaces.as_ref());
+        emit(out, *b"EOVR", self.edited_worldspaces.as_ref());
+        for value in &self.biomes {
+            emit(out, *b"PPBD", Some(value));
+        }
+        emit(out, *b"FNAM", self.surface_tree.as_ref());
+        emit(out, *b"GNAM", self.scan_worldspace_multiplier.as_ref());
+        if let Some(group) = &self.body {
+            group.emit(out);
+        }
+        emit(out, *b"TEMP", self.temperature_c.as_ref());
+        emit(out, *b"DENS", self.density.as_ref());
+        emit(out, *b"PHLA", self.perihelion_angle_deg.as_ref());
+        emit(out, *b"RSCS", self.resource_creation_seed.as_ref());
+    }
+}
+
+impl Visit for PndtRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.master_worldspaces, "PNDT.CNAM", out);
+        visit_form_ids(&self.edited_worldspaces, "PNDT.EOVR", out);
+        visit_form_ids(&self.biomes, "PNDT.PPBD", out);
+        visit_form_ids(&self.surface_tree, "PNDT.FNAM", out);
+        visit_form_ids(&self.body, "PNDT.Body", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.master_worldspaces, "PNDT.CNAM", out);
+        visit_form_ids_mut(&mut self.edited_worldspaces, "PNDT.EOVR", out);
+        visit_form_ids_mut(&mut self.biomes, "PNDT.PPBD", out);
+        visit_form_ids_mut(&mut self.surface_tree, "PNDT.FNAM", out);
+        visit_form_ids_mut(&mut self.body, "PNDT.Body", out);
+    }
+}
+
+impl PndtRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"PNDT";
+    /// Record-header flag.
+    pub const FLAG_COMPRESSED: u32 = 0x40000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("PNDT", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("PNDT", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("PNDT", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("PNDT", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct RsgdResourceGeneration {
     pub biome_common: ResourceBiomeTier,
     pub biome_uncommon: ResourceBiomeTier,
@@ -11224,6 +12726,7 @@ pub enum Record {
     Pccn(Box<PccnRecord>),
     Pcmt(Box<PcmtRecord>),
     Pkin(Box<PkinRecord>),
+    Pndt(Box<PndtRecord>),
     Rsgd(Box<RsgdRecord>),
     Rspj(Box<RspjRecord>),
     Sfbk(Box<SfbkRecord>),
@@ -11252,6 +12755,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PCCN", PccnRecord::MEMBERS),
     (*b"PCMT", PcmtRecord::MEMBERS),
     (*b"PKIN", PkinRecord::MEMBERS),
+    (*b"PNDT", PndtRecord::MEMBERS),
     (*b"RSGD", RsgdRecord::MEMBERS),
     (*b"RSPJ", RspjRecord::MEMBERS),
     (*b"SFBK", SfbkRecord::MEMBERS),
@@ -11283,6 +12787,7 @@ impl Record {
             b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
+            b"PNDT" => Self::Pndt(Box::new(PndtRecord::decode(subs, ctx))),
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
             b"RSPJ" => Self::Rspj(Box::new(RspjRecord::decode(subs, ctx))),
             b"SFBK" => Self::Sfbk(Box::new(SfbkRecord::decode(subs, ctx))),
@@ -11314,6 +12819,7 @@ impl Record {
             Self::Pccn(record) => record.encode(),
             Self::Pcmt(record) => record.encode(),
             Self::Pkin(record) => record.encode(),
+            Self::Pndt(record) => record.encode(),
             Self::Rsgd(record) => record.encode(),
             Self::Rspj(record) => record.encode(),
             Self::Sfbk(record) => record.encode(),
@@ -11344,6 +12850,7 @@ impl Record {
             Self::Pccn(_) => PccnRecord::SIGNATURE,
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
             Self::Pkin(_) => PkinRecord::SIGNATURE,
+            Self::Pndt(_) => PndtRecord::SIGNATURE,
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
             Self::Rspj(_) => RspjRecord::SIGNATURE,
             Self::Sfbk(_) => SfbkRecord::SIGNATURE,
@@ -11374,6 +12881,7 @@ impl Record {
             Self::Pccn(record) => record.form_ids(),
             Self::Pcmt(record) => record.form_ids(),
             Self::Pkin(record) => record.form_ids(),
+            Self::Pndt(record) => record.form_ids(),
             Self::Rsgd(record) => record.form_ids(),
             Self::Rspj(record) => record.form_ids(),
             Self::Sfbk(record) => record.form_ids(),
@@ -11404,6 +12912,7 @@ impl Record {
             Self::Pccn(record) => record.form_ids_mut(),
             Self::Pcmt(record) => record.form_ids_mut(),
             Self::Pkin(record) => record.form_ids_mut(),
+            Self::Pndt(record) => record.form_ids_mut(),
             Self::Rsgd(record) => record.form_ids_mut(),
             Self::Rspj(record) => record.form_ids_mut(),
             Self::Sfbk(record) => record.form_ids_mut(),
@@ -11434,6 +12943,7 @@ impl Record {
             Self::Pccn(record) => record.lstrings(),
             Self::Pcmt(record) => record.lstrings(),
             Self::Pkin(record) => record.lstrings(),
+            Self::Pndt(record) => record.lstrings(),
             Self::Rsgd(record) => record.lstrings(),
             Self::Rspj(record) => record.lstrings(),
             Self::Sfbk(record) => record.lstrings(),
@@ -11464,6 +12974,7 @@ impl Record {
             Self::Pccn(record) => record.lstrings_mut(),
             Self::Pcmt(record) => record.lstrings_mut(),
             Self::Pkin(record) => record.lstrings_mut(),
+            Self::Pndt(record) => record.lstrings_mut(),
             Self::Rsgd(record) => record.lstrings_mut(),
             Self::Rspj(record) => record.lstrings_mut(),
             Self::Sfbk(record) => record.lstrings_mut(),
@@ -11495,6 +13006,7 @@ impl Record {
             Self::Pccn(record) => &record.extra,
             Self::Pcmt(record) => &record.extra,
             Self::Pkin(record) => &record.extra,
+            Self::Pndt(record) => &record.extra,
             Self::Rsgd(record) => &record.extra,
             Self::Rspj(record) => &record.extra,
             Self::Sfbk(record) => &record.extra,

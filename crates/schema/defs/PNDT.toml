@@ -1,0 +1,326 @@
+# PNDT: Planet, one body of a star system (planet, moon, asteroid belt, station): the
+# worldspaces it hosts, the biomes it is made of (with chance, fauna, flora and resources),
+# its surface tree, and the body block (BDST..BDED) with the orbital, physical, catalogue,
+# atmosphere and biome-noise data, followed by temperature, density and the resource seed.
+# Every official PNDT record is compressed.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16048-L16225 - member order and every layout:
+#     CNAM master worldspaces, EOVR edited worldspaces, PPBD biomes, FNAM surface tree, GNAM
+#     scan multiplier, the body group (BDST, ANAM, XEMP, CNAM body type, DNAM space cell,
+#     ENAM orbital data, FNAM orbited data, GNAM galaxy data, HNAM catalogue data, INAM
+#     atmosphere, KNAM biome noise, NNAM player knowledge, BDED), TEMP, DENS, PHLA, RSCS.
+#     Helpers: latitude and longitude (L5971-L5981, 64-bit floats), the base form component
+#     block (L5984-L6832, kept raw), the boolean enumeration (wbDefinitionsCommon.pas
+#     L7514-L7521).
+#   corpus: the 1,786 PNDT records (Starfield.esm 1,765, ShatteredSpace 11, SFBGS050 5,
+#     SFBGS00D 4, SFBGS003 1; form versions 581, 582; all compressed), 2026-10-14: every
+#     record fits the order below (41 distinct sequences); master worldspace entries 20
+#     bytes, edited ones 21, PPBD 36 bytes and up (up to 8 per record), ENAM 72, body FNAM
+#     24, body GNAM 12, INAM 16. The fauna, keyword and trailing element counts inside PPBD
+#     are 32-bit in every record (a 36-byte PPBD is nine 4-byte fields). The length-prefixed strings in DNAM, HNAM and KNAM carry a
+#     32-bit byte count that includes the terminating NUL (an empty string is a count of 0
+#     and no bytes). Every record decodes and re-encodes identically.
+#
+# CNAM, FNAM and GNAM each occur twice with different layouts: once at the top level and
+# once inside the body group. The schema keeps them apart by position (different member
+# names); tools that look a layout up by signature alone cannot (plan/STATUS.md Requests).
+#
+# The format has no 32-bit length-prefixed string, so each such string is an explicit
+# `...Length` field followed by that many bytes (`count_from`); keep the two in sync when
+# editing.
+signature = "PNDT"
+name = "Planet"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16048-L16225"
+evidence = [
+  "corpus: the 1,786 PNDT records of the 14 official ESMs (all compressed, decompressed first), 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [["Compressed", 0x40000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: planet model, keyword form, full name, model, Houdini data"
+
+[[member]]
+sig = "CNAM"
+name = "MasterWorldspaces"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5971-L5981"]
+note = "may be empty (0 bytes), as in most official records"
+field = [
+  { name = "Latitude", type = "f64" },
+  { name = "Longitude", type = "f64" },
+  { name = "Worldspace", type = "formid", targets = ["WRLD"] },
+]
+
+[[member]]
+sig = "EOVR"
+name = "EditedWorldspaces"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5971-L5981"]
+note = "may be empty; observed in 2 records"
+field = [
+  { name = "Latitude", type = "f64" },
+  { name = "Longitude", type = "f64" },
+  { name = "Worldspace", type = "formid", targets = ["WRLD"] },
+  { name = "Type", type = "enum", base = "u8", values = [["Removed", 0], ["Added", 1]] },
+]
+
+[[member]]
+sig = "PPBD"
+name = "Biomes"
+type = "struct"
+card = "repeated"
+note = "one biome of the planet; the counts are stored, not derived"
+field = [
+  { name = "Biome", type = "formid", targets = ["BIOM"] },
+  { name = "Chance", type = "f32", note = "percent" },
+  { name = "Data3", type = "opaque", size = 4, note = "unnamed upstream" },
+  { name = "ResourceGeneration", type = "formid", targets = ["RSGD"], note = "a null FormID is allowed" },
+  { name = "FaunaCount", type = "u32" },
+  { name = "Fauna", type = "array", element = "formid", targets = ["NPC_"], count_from = "FaunaCount" },
+  { name = "KeywordCount", type = "u32" },
+  { name = "Keywords", type = "array", element = "formid", targets = ["KYWD"], count_from = "KeywordCount" },
+  { name = "FloraCount", type = "u32" },
+  { name = "FloraEntrySize", type = "u32", note = "9, the size of one flora entry" },
+  { name = "Flora", type = "array", element = "struct", count_from = "FloraCount", field = [
+    { name = "Flora", type = "formid", targets = ["FLOR"] },
+    { name = "Resource", type = "formid", targets = ["MISC"] },
+    { name = "Frequency", type = "u8" },
+  ] },
+  { name = "Data11Count", type = "u32" },
+  { name = "Data11", type = "array", element = "struct", count_from = "Data11Count", note = "unnamed upstream: 16 raw bytes per element", field = [
+    { name = "Value1", type = "opaque", size = 4 },
+    { name = "Value2", type = "opaque", size = 4 },
+    { name = "Value3", type = "opaque", size = 4 },
+    { name = "Value4", type = "opaque", size = 4 },
+  ] },
+]
+
+[[member]]
+sig = "FNAM"
+name = "SurfaceTree"
+type = "formid"
+targets = ["SFTR"]
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "GNAM"
+name = "ScanWorldspaceMultiplier"
+type = "f32"
+
+[[member]]
+group = "Body"
+
+[[member.member]]
+sig = "BDST"
+name = "Start"
+type = "empty"
+
+[[member.member]]
+sig = "ANAM"
+name = "Name"
+type = "zstring"
+note = "plain text, not localized"
+
+[[member.member]]
+sig = "XEMP"
+name = "EnvironmentMap"
+type = "zstring"
+card = "optional"
+confidence = "reference"
+note = "not present in the official records"
+
+[[member.member]]
+sig = "CNAM"
+name = "BodyType"
+type = "enum"
+base = "u8"
+values = [
+  ["Undefined", 0],
+  ["Star", 1],
+  ["Planet", 2],
+  ["Moon", 3],
+  ["Orbital", 4],
+  ["AsteroidBelt", 5],
+  ["Station", 6],
+]
+
+[[member.member]]
+sig = "DNAM"
+name = "SpaceCell"
+type = "struct"
+card = "optional"
+field = [
+  { name = "CellEditorIdLength", type = "u32" },
+  { name = "CellEditorId", type = "array", element = "u8", count_from = "CellEditorIdLength", note = "text including its NUL" },
+  { name = "IsUnique", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+]
+
+[[member.member]]
+sig = "ENAM"
+name = "OrbitalData"
+type = "struct"
+size = 72
+field = [
+  { name = "MajorAxis", type = "f64" },
+  { name = "MinorAxis", type = "f64" },
+  { name = "Aphelion", type = "f64" },
+  { name = "Eccentricity", type = "f64" },
+  { name = "Incline", type = "f64", note = "an angle" },
+  { name = "MeanOrbit", type = "f64" },
+  { name = "AxialTilt", type = "f32", note = "an angle" },
+  { name = "RotationalVelocity", type = "f32" },
+  { name = "StartAngle", type = "f32" },
+  { name = "PerihelionAngle", type = "f32" },
+  { name = "ApplyOrbitalVelocity", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "GeostationaryOrbit", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 6 },
+]
+
+[[member.member]]
+sig = "FNAM"
+name = "OrbitedData"
+type = "struct"
+size = 24
+card = "optional"
+field = [
+  { name = "GravityWell", type = "f64" },
+  { name = "Mass", type = "f32", note = "in kilograms; xEdit displays it in Earth masses" },
+  { name = "RadiusKm", type = "f32" },
+  { name = "SurfaceGravity", type = "f32" },
+  { name = "Data5", type = "opaque", size = 4, note = "unnamed upstream" },
+]
+
+[[member.member]]
+sig = "GNAM"
+name = "GalaxyData"
+type = "struct"
+size = 12
+field = [
+  { name = "StarSystemId", type = "u32", note = "the star's STDT DNAM system ID" },
+  { name = "ParentPlanetId", type = "u32" },
+  { name = "PlanetId", type = "u32" },
+]
+
+[[member.member]]
+sig = "HNAM"
+name = "CatalogueData"
+type = "struct"
+card = "optional"
+note = "text fields are 32-bit-length-prefixed byte strings including their NUL"
+field = [
+  { name = "Data1", type = "opaque", size = 4, note = "unnamed upstream" },
+  { name = "SpectralClassLength", type = "u32" },
+  { name = "SpectralClass", type = "array", element = "u8", count_from = "SpectralClassLength" },
+  { name = "CatalogueIdLength", type = "u32" },
+  { name = "CatalogueId", type = "array", element = "u8", count_from = "CatalogueIdLength" },
+  { name = "LifeLength", type = "u32" },
+  { name = "Life", type = "array", element = "u8", count_from = "LifeLength" },
+  { name = "MagnetosphereLength", type = "u32" },
+  { name = "Magnetosphere", type = "array", element = "u8", count_from = "MagnetosphereLength" },
+  { name = "MassKgLength", type = "u32" },
+  { name = "MassKg", type = "array", element = "u8", count_from = "MassKgLength" },
+  { name = "TypeLength", type = "u32" },
+  { name = "Type", type = "array", element = "u8", count_from = "TypeLength" },
+  { name = "SettledStarLength", type = "u32" },
+  { name = "SettledStar", type = "array", element = "u8", count_from = "SettledStarLength", note = "older source data; not always the in-game star name" },
+  { name = "SpecialLength", type = "u32" },
+  { name = "Special", type = "array", element = "u8", count_from = "SpecialLength" },
+  { name = "Perihelion", type = "f64" },
+  { name = "StarDistance", type = "f64" },
+  { name = "Density", type = "f32" },
+  { name = "Heat", type = "f32" },
+  { name = "Hydro", type = "f32" },
+  { name = "InnerHabitableZone", type = "f32" },
+  { name = "OuterHabitableZone", type = "f32" },
+  { name = "PerihelionAngle", type = "f32" },
+  { name = "Data24", type = "opaque", size = 4, note = "unnamed upstream" },
+  { name = "StartAngleDeg", type = "f32" },
+  { name = "YearLengthDays", type = "f32" },
+  { name = "Asteroids", type = "u32" },
+  { name = "Geostationary", type = "enum", base = "u32", values = [["False", 0], ["True", 1]] },
+  { name = "RandomSeed", type = "u32" },
+  { name = "Rings", type = "enum", base = "u32", values = [["False", 0], ["True", 1]] },
+]
+
+[[member.member]]
+sig = "INAM"
+name = "AtmosphereData"
+type = "struct"
+size = 16
+card = "optional"
+field = [
+  { name = "Atmosphere", type = "formid", targets = ["ATMO"], note = "a null FormID is allowed" },
+  { name = "AverageDensityFraction", type = "f32" },
+  { name = "RayleighScatteringCoefficient", type = "f32" },
+  { name = "MieScatteringCoefficient", type = "f32" },
+]
+
+[[member.member]]
+sig = "KNAM"
+name = "BiomeNoise"
+type = "struct"
+field = [
+  { name = "NoiseFilenameLength", type = "u32" },
+  { name = "NoiseFilename", type = "array", element = "u8", count_from = "NoiseFilenameLength", note = "text including its NUL" },
+  { name = "BiomeFrequency", type = "f64" },
+  { name = "TerrainHeightFrequency", type = "f64" },
+  { name = "NoiseType", type = "u8" },
+  { name = "TerrainHeightSeed", type = "i32" },
+  { name = "TerrainMaxHeight", type = "f32", note = "metres" },
+]
+
+[[member.member]]
+sig = "NNAM"
+name = "PlayerKnowledge"
+type = "flags"
+base = "u32"
+card = "optional"
+bits = [["InitialScan", 0x1], ["Visited", 0x2], ["EnteredSystem", 0x4]]
+note = "bit 31 is listed but unnamed upstream; kept as read"
+
+[[member.member]]
+sig = "BDED"
+name = "End"
+type = "empty"
+
+[[member]]
+sig = "TEMP"
+name = "TemperatureC"
+type = "f32"
+
+[[member]]
+sig = "DENS"
+name = "Density"
+type = "f32"
+
+[[member]]
+sig = "PHLA"
+name = "PerihelionAngleDeg"
+type = "f32"
+
+[[member]]
+sig = "RSCS"
+name = "ResourceCreationSeed"
+type = "i32"
+card = "optional"
+note = "absent from 21 official records"
