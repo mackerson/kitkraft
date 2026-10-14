@@ -151,7 +151,7 @@ fn builtin_set_loads_and_matches_the_directory() {
         sigs,
         [
             "AMDL", "AMMO", "COBJ", "GBFM", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN", "PCCN",
-            "PCMT", "PKIN", "RSGD", "RSPJ", "SUNP", "TES4", "TRAV", "WEAP", "ZOOM"
+            "PCMT", "PKIN", "RSGD", "RSPJ", "SFPT", "SUNP", "TES4", "TRAV", "WEAP", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();

@@ -26,6 +26,7 @@
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - RSPJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963; corpus)
+// - SFPT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - TRAV (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379; corpus)
@@ -6851,6 +6852,356 @@ impl RspjRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfptSurfaceBlocks(pub [FormId; 256]);
+
+impl Field for SfptSurfaceBlocks {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfptSurfaceBlocks {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfptMasterBlocks(pub [FormId; 256]);
+
+impl Field for SfptMasterBlocks {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfptMasterBlocks {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfptMasterRotations(pub [i8; 256]);
+
+impl Field for SfptMasterRotations {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfptMasterRotations {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfptOverrideBlocks(pub [FormId; 256]);
+
+impl Field for SfptOverrideBlocks {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfptOverrideBlocks {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfptOverrideRotations(pub [i8; 256]);
+
+impl Field for SfptOverrideRotations {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfptOverrideRotations {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct SfptWorldspaces(pub Vec<FormId>);
+
+impl Field for SfptWorldspaces {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for SfptWorldspaces {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SfptRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `CNAM`, required.
+    pub style: Option<Sub<FormId>>,
+    /// `BNAM`, optional.
+    pub surface_blocks: Option<Sub<SfptSurfaceBlocks>>,
+    /// `FNAM`, optional.
+    pub master_blocks: Option<Sub<SfptMasterBlocks>>,
+    /// `GNAM`, optional.
+    pub master_rotations: Option<Sub<SfptMasterRotations>>,
+    /// `EFRM`, optional.
+    pub override_blocks: Option<Sub<SfptOverrideBlocks>>,
+    /// `EORI`, optional.
+    pub override_rotations: Option<Sub<SfptOverrideRotations>>,
+    /// `DNAM`, optional.
+    pub worldspaces: Option<Sub<SfptWorldspaces>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl SfptRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"EFRM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"EORI",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "SFPT.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.style, subs, *index, "SFPT.CNAM", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.surface_blocks,
+                    subs,
+                    *index,
+                    "SFPT.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.master_blocks,
+                    subs,
+                    *index,
+                    "SFPT.FNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.master_rotations,
+                    subs,
+                    *index,
+                    "SFPT.GNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.override_blocks,
+                    subs,
+                    *index,
+                    "SFPT.EFRM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.override_rotations,
+                    subs,
+                    *index,
+                    "SFPT.EORI",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.worldspaces, subs, *index, "SFPT.DNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"CNAM", self.style.as_ref());
+        emit(out, *b"BNAM", self.surface_blocks.as_ref());
+        emit(out, *b"FNAM", self.master_blocks.as_ref());
+        emit(out, *b"GNAM", self.master_rotations.as_ref());
+        emit(out, *b"EFRM", self.override_blocks.as_ref());
+        emit(out, *b"EORI", self.override_rotations.as_ref());
+        emit(out, *b"DNAM", self.worldspaces.as_ref());
+    }
+}
+
+impl Visit for SfptRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.style, "SFPT.CNAM", out);
+        visit_form_ids(&self.surface_blocks, "SFPT.BNAM", out);
+        visit_form_ids(&self.master_blocks, "SFPT.FNAM", out);
+        visit_form_ids(&self.override_blocks, "SFPT.EFRM", out);
+        visit_form_ids(&self.worldspaces, "SFPT.DNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.style, "SFPT.CNAM", out);
+        visit_form_ids_mut(&mut self.surface_blocks, "SFPT.BNAM", out);
+        visit_form_ids_mut(&mut self.master_blocks, "SFPT.FNAM", out);
+        visit_form_ids_mut(&mut self.override_blocks, "SFPT.EFRM", out);
+        visit_form_ids_mut(&mut self.worldspaces, "SFPT.DNAM", out);
+    }
+}
+
+impl SfptRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"SFPT";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("SFPT", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("SFPT", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("SFPT", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("SFPT", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SunpRecord {
     /// `EDID`, required.
@@ -8273,6 +8624,7 @@ pub enum Record {
     Pkin(Box<PkinRecord>),
     Rsgd(Box<RsgdRecord>),
     Rspj(Box<RspjRecord>),
+    Sfpt(Box<SfptRecord>),
     Sunp(Box<SunpRecord>),
     Tes4(Box<Tes4Record>),
     Trav(Box<TravRecord>),
@@ -8297,6 +8649,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PKIN", PkinRecord::MEMBERS),
     (*b"RSGD", RsgdRecord::MEMBERS),
     (*b"RSPJ", RspjRecord::MEMBERS),
+    (*b"SFPT", SfptRecord::MEMBERS),
     (*b"SUNP", SunpRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"TRAV", TravRecord::MEMBERS),
@@ -8324,6 +8677,7 @@ impl Record {
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
             b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
             b"RSPJ" => Self::Rspj(Box::new(RspjRecord::decode(subs, ctx))),
+            b"SFPT" => Self::Sfpt(Box::new(SfptRecord::decode(subs, ctx))),
             b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"TRAV" => Self::Trav(Box::new(TravRecord::decode(subs, ctx))),
@@ -8351,6 +8705,7 @@ impl Record {
             Self::Pkin(record) => record.encode(),
             Self::Rsgd(record) => record.encode(),
             Self::Rspj(record) => record.encode(),
+            Self::Sfpt(record) => record.encode(),
             Self::Sunp(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Trav(record) => record.encode(),
@@ -8377,6 +8732,7 @@ impl Record {
             Self::Pkin(_) => PkinRecord::SIGNATURE,
             Self::Rsgd(_) => RsgdRecord::SIGNATURE,
             Self::Rspj(_) => RspjRecord::SIGNATURE,
+            Self::Sfpt(_) => SfptRecord::SIGNATURE,
             Self::Sunp(_) => SunpRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Trav(_) => TravRecord::SIGNATURE,
@@ -8403,6 +8759,7 @@ impl Record {
             Self::Pkin(record) => record.form_ids(),
             Self::Rsgd(record) => record.form_ids(),
             Self::Rspj(record) => record.form_ids(),
+            Self::Sfpt(record) => record.form_ids(),
             Self::Sunp(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Trav(record) => record.form_ids(),
@@ -8429,6 +8786,7 @@ impl Record {
             Self::Pkin(record) => record.form_ids_mut(),
             Self::Rsgd(record) => record.form_ids_mut(),
             Self::Rspj(record) => record.form_ids_mut(),
+            Self::Sfpt(record) => record.form_ids_mut(),
             Self::Sunp(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Trav(record) => record.form_ids_mut(),
@@ -8455,6 +8813,7 @@ impl Record {
             Self::Pkin(record) => record.lstrings(),
             Self::Rsgd(record) => record.lstrings(),
             Self::Rspj(record) => record.lstrings(),
+            Self::Sfpt(record) => record.lstrings(),
             Self::Sunp(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Trav(record) => record.lstrings(),
@@ -8481,6 +8840,7 @@ impl Record {
             Self::Pkin(record) => record.lstrings_mut(),
             Self::Rsgd(record) => record.lstrings_mut(),
             Self::Rspj(record) => record.lstrings_mut(),
+            Self::Sfpt(record) => record.lstrings_mut(),
             Self::Sunp(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Trav(record) => record.lstrings_mut(),
@@ -8508,6 +8868,7 @@ impl Record {
             Self::Pkin(record) => &record.extra,
             Self::Rsgd(record) => &record.extra,
             Self::Rspj(record) => &record.extra,
+            Self::Sfpt(record) => &record.extra,
             Self::Sunp(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Trav(record) => &record.extra,
