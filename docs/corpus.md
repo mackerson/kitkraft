@@ -141,8 +141,9 @@ inflated only until that subrecord). `cargo test -p kitcraft-esm --release --tes
 
 Record counts (per signature, `TES4` included) equal the streaming parse's, which are the
 counts `coverage` reports, on all 14 files. Indexing `Starfield.esm` alone peaks at a
-288 MiB working set (the M1.5 bound is 1,903 MiB): the index holds about 48 bytes per
-record plus EditorIDs, and one record body at a time. `read_indexed` on 1,000 seeded
+288 MiB working set (the M1.5 bound is 1,903 MiB): the index holds one 56-byte
+`RecordLoc` per record plus EditorIDs, and one record body at a time. `read_indexed` on
+1,000 seeded
 `Starfield.esm` entries (and on every record of the five small files) returns records equal
 to the streaming parse's, compressed ones decompressed on both sides.
 

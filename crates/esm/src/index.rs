@@ -950,5 +950,7 @@ mod tests {
         assert_eq!(a.records[0].signature, Signature::TES4);
         assert!(!a.records[1].is_empty());
         assert_eq!(a.records[1].len(), 24 + 21);
+        // docs/corpus.md quotes this size for the memory of a whole-file index.
+        assert_eq!(std::mem::size_of::<super::RecordLoc>(), 56);
     }
 }
