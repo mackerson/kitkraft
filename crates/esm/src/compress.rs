@@ -122,6 +122,195 @@ fn decode_body(
     limits: &DecodeLimits,
 ) -> Result<(Vec<Subrecord<'static>>, Inflated)> {
     let fields = inflate(original, record_offset, limits)?;
+    parse_fields(fields, record_offset, limits)
+}
+
+/// A defect in a compressed record body that only decoding shows (M3.A2): the container
+/// roundtrip re-emits the body as read, so a corrupt stream with a plausible size passes it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct BodyFault {
+    /// Absolute file offset: where inflating stopped for a fault in the zlib stream, the
+    /// first byte after the stream for trailing bytes, and the start of the body (its
+    /// `u32` decompressed size) for a size fault or a fault in the decompressed data.
+    pub(crate) offset: u64,
+    /// For a fault in the decompressed data: its offset there.
+    pub(crate) inflated_offset: Option<u64>,
+    /// What is wrong.
+    pub(crate) reason: String,
+}
+
+/// What [`check_body`] found.
+pub(crate) enum BodyCheck {
+    /// The body decodes and its subrecords serialize back to the decompressed bytes.
+    Decoded(Vec<Subrecord<'static>>),
+    /// The body is defective.
+    Fault(BodyFault),
+}
+
+/// Strict decode of a compressed body for `roundtrip --decode` (M3.A2): inflate it (the
+/// stream must end with its end marker and checksum, at the end of the body, after
+/// exactly the declared number of bytes), parse the subrecords, and serialize them again,
+/// which must reproduce the decompressed bytes. A defect is a [`BodyCheck::Fault`]; only
+/// what [`DecodeLimits`] refuses (and failures to serialize) are errors.
+pub(crate) fn check_body(
+    original: &[u8],
+    record_offset: u64,
+    limits: &DecodeLimits,
+) -> Result<BodyCheck> {
+    let body_at = record_offset.saturating_add(HEADER_LEN as u64);
+    let fields = match inflate_strict(original, record_offset, limits)? {
+        Ok(fields) => fields,
+        Err(fault) => return Ok(BodyCheck::Fault(fault)),
+    };
+    let (subs, inflated) = match parse_fields(fields, record_offset, limits) {
+        Ok(decoded) => decoded,
+        Err(Error::InCompressed { source, .. }) => {
+            return Ok(BodyCheck::Fault(BodyFault {
+                offset: body_at,
+                inflated_offset: Some(source.offset()),
+                reason: format!("the decompressed data does not parse: {source}"),
+            }))
+        }
+        Err(e) => return Err(e),
+    };
+    let mut again = Vec::with_capacity(inflated.bytes().len());
+    {
+        let mut out = crate::write::Out::new(&mut again, 0);
+        for s in &subs {
+            crate::write::write_subrecord(s, &mut out)?;
+        }
+    }
+    let expected = inflated.bytes();
+    if again != expected {
+        let at = again
+            .iter()
+            .zip(expected)
+            .position(|(a, b)| a != b)
+            .unwrap_or(again.len().min(expected.len()));
+        return Ok(BodyCheck::Fault(BodyFault {
+            offset: body_at,
+            inflated_offset: Some(at as u64),
+            reason: "the decoded subrecords do not serialize back to the decompressed data"
+                .to_string(),
+        }));
+    }
+    Ok(BodyCheck::Decoded(subs))
+}
+
+/// Output granted to the inflater per step while checking a body.
+const STRICT_STEP: u64 = 1 << 20;
+
+/// Inflate `original` (`u32` size + zlib stream) for [`check_body`]. The outer `Err` is a
+/// decode-limit refusal; the inner one a defect in the body.
+fn inflate_strict(
+    original: &[u8],
+    record_offset: u64,
+    limits: &DecodeLimits,
+) -> Result<std::result::Result<Vec<u8>, BodyFault>> {
+    let body_at = record_offset.saturating_add(HEADER_LEN as u64);
+    let fault = |offset: u64, reason: String| {
+        Ok(Err(BodyFault {
+            offset,
+            inflated_offset: None,
+            reason,
+        }))
+    };
+    let Some((size, stream)) = original.split_first_chunk::<4>() else {
+        return fault(
+            body_at,
+            format!(
+                "the {}-byte body is shorter than its 4-byte decompressed size",
+                original.len()
+            ),
+        );
+    };
+    let declared = u64::from(u32::from_le_bytes(*size));
+    if declared > limits.max_decompressed {
+        return Err(Error::DecompressedTooLarge {
+            offset: record_offset,
+            declared,
+            cap: limits.max_decompressed,
+        });
+    }
+    let stream_at = body_at.saturating_add(4);
+    // Never produce more than one byte past the declared size.
+    let cap = declared.saturating_add(1);
+    let reserve = usize::try_from(declared.min(4 * 1024 * 1024)).unwrap_or(0);
+    let mut out: Vec<u8> = Vec::with_capacity(reserve);
+    let mut z = flate2::Decompress::new(true);
+    loop {
+        let (in_before, out_before) = (z.total_in(), z.total_out());
+        if out_before > declared {
+            return fault(
+                stream_at.saturating_add(in_before),
+                format!("the zlib stream inflates past the declared {declared} bytes"),
+            );
+        }
+        let room =
+            usize::try_from(cap.saturating_sub(out_before).min(STRICT_STEP)).map_err(|_| {
+                Error::TooLarge {
+                    offset: record_offset,
+                    what: "decompressed record data",
+                    len: declared,
+                }
+            })?;
+        let start = out.len();
+        out.resize(start.saturating_add(room), 0);
+        let input = usize::try_from(in_before)
+            .ok()
+            .and_then(|at| stream.get(at..))
+            .unwrap_or(&[]);
+        let status = z.decompress(
+            input,
+            out.get_mut(start..).unwrap_or(&mut []),
+            flate2::FlushDecompress::None,
+        );
+        let produced = usize::try_from(z.total_out().saturating_sub(out_before)).unwrap_or(0);
+        out.truncate(start.saturating_add(produced));
+        match status {
+            Err(e) => {
+                return fault(
+                    stream_at.saturating_add(z.total_in()),
+                    format!("invalid zlib stream: {e}"),
+                )
+            }
+            Ok(flate2::Status::StreamEnd) => break,
+            Ok(_) if z.total_in() == in_before && z.total_out() == out_before => {
+                return fault(
+                    stream_at.saturating_add(z.total_in()),
+                    "the zlib stream ends before its end marker".to_string(),
+                )
+            }
+            Ok(_) => {}
+        }
+    }
+    let actual = out.len() as u64;
+    if actual != declared {
+        return fault(
+            body_at,
+            format!("the zlib stream inflates to {actual} bytes, the body declares {declared}"),
+        );
+    }
+    let used = z.total_in();
+    let len = stream.len() as u64;
+    if used != len {
+        return fault(
+            stream_at.saturating_add(used),
+            format!(
+                "{} bytes follow the end of the zlib stream",
+                len.saturating_sub(used)
+            ),
+        );
+    }
+    Ok(Ok(out))
+}
+
+/// Parse decompressed fields into subrecords sharing one buffer (see [`decode_body`]).
+fn parse_fields(
+    fields: Vec<u8>,
+    record_offset: u64,
+    limits: &DecodeLimits,
+) -> Result<(Vec<Subrecord<'static>>, Inflated)> {
     let in_compressed = |e: Error| Error::InCompressed {
         offset: record_offset,
         source: Box::new(e),

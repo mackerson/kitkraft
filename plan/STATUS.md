@@ -392,6 +392,25 @@ is under "Next".
   `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
   15 warnings). The rename plugin was regenerated (TES4 only changed):
   **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
+- M3 lane A (container), 2026-10-14:
+  - M3.A1 recompression study: the 160 compressed records zlib-rs level 9 does not
+    reproduce are listed in `docs/corpus.md` ("Recompression misses";
+    `corpus_recompression_misses`) and classified in `docs/gaps.md` ("Recompression
+    parity"): 147 NPC_/CELL (class E) differ only in the distance of their last match,
+    which runs to the end of the data, so the original compressor's choice depends on
+    bytes past the end of the record; 12 NAVM of one cell (class N) are level 8; 1 NAVM is
+    unexplained. No zlib-rs window/memory-level/strategy/level/tuning/flush variant, nor C
+    zlib 1.3.2 or miniz_oxide, reproduces class E (out-of-tree study, procedure in
+    `docs/gaps.md`). Default writer unchanged (level 9) pending M3.H3. F07 candidates filed
+    to lane H (Requests).
+  - M3.A2 `roundtrip --decode` in the driver: with `RoundtripOptions::decode` every
+    compressed body is inflated strictly (declared size, end marker and checksum, nothing
+    after the stream), its subrecords parsed and re-encoded to the inflated bytes; a body
+    that fails is a `Mismatch` (offset where inflating stopped, path ending in
+    `> compressed body: <fault>`), decode limits stay errors. Synthetic fixtures for each
+    fault; the M1.7 harness accepts only such decode mismatches. Full corpus 14/14
+    identical with it (18.3 s, 1,397 MiB, `docs/corpus.md`). The command side is M3.F1
+    (Request to lane F).
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
@@ -546,6 +565,15 @@ is under "Next".
   2026-10-14, but **blocked in the 2026-10-14 lane B session**: the session's permission
   policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
   WEAP). No layout was transcribed; see Blockers.
+
+### M3 lane H (evidence: CK observation and oracles)
+
+| Task | State |
+| ---- | ----- |
+| M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitCraft's assumed runtime IDs, and the `fixture.toml` template |
+| M3.H2 `cargo xtask observe` | **done**: `cargo xtask observe <fixture-dir>` writes `report.md`/`report.json` in the fixture folder only (SHA-256 of every file; per plugin TES4, `roundtrip --verify`, `coverage`, `validate`; base, `[[compare]]` and `kit_equivalent` comparisons as byte runs, TES4 diff and `kit diff`, our equivalent in both styles with `ck` reported unavailable until M3.E5); `cargo xtask observe new <F-id>` writes the fixture's `fixture.toml`. Tests: synthetic fixture dirs with a fake `kit` (nothing written outside, rerun byte-identical) and the real `kit` when built |
+| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part blocked on M3.O3** (`cargo xtask oracle sf1edit` says so) |
+| M3.H3 findings, M3.H5 CK feature ranking | **blocked on M3.O1** (the owner's CK session; `docs/ck-observations.md` has the resolved script, `cargo xtask observe new <id>` the templates) |
 
 ## Next
 
@@ -742,7 +770,9 @@ Agents append here when they need a change in a crate they do not own.
   localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
   nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
   `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
-  (30 of the 96 IDs exist there) or shows none.
+  (30 of the 96 IDs exist there) or shows none. **Lane H:** in the M3.O2 script
+  (`docs/ck-observations.md`, step 3) with `BlueprintInteriorSFTER_TerranShip_Generic_TESTLocation`
+  (`FULL` 0x0002E9C4; none of the 66 LCTN name IDs is in `sfbgs050_en.strings`).
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
   `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
@@ -922,6 +952,49 @@ Agents append here when they need a change in a crate they do not own.
   transcribes definitions from the pinned xEdit file, please type these as `lstring`
   (`confidence = "corpus"` is already backed by `lstring_table_matches_the_corpus`); the
   schema then wins and the table entry becomes redundant.
+- **Lane H -> lane E (and the `docs/corpus.md` "TES4 header" text).** Our patches write
+  `TES4` as `HEDR CNAM MAST DATA INCC`, but no official file has a `DATA` after `MAST`: a
+  walk of all 14 `TES4` records (13 with masters) finds none, as `crates/schema/defs/TES4.toml`
+  says ("MAST is never followed by DATA"), while `docs/corpus.md` says "Every MAST is
+  followed by an 8-byte DATA". Spriggit 0.41.0 drops our `DATA` on a round trip
+  (`docs/oracles.md` S3). Suggest: correct the `docs/corpus.md` sentence, and either stop
+  writing `DATA` or list it as a stated deviation in "Writing rules" until M3.O1's F01/F02
+  show what the CK writes (`docs/ck-observations.md`). Changing it changes the rename
+  plugin's SHA-256.
+- **Lane H -> lane A (M3.A1).** File the F07 recompression candidates (up to 5, CK-openable
+  in a dialog) as a Request here; lane H adds them to F07 in `docs/ck-observations.md` and
+  the `observe new F07` template.
+- **Lane A -> lane H (M3.A1, F07 candidates for M3.H1).** Five compressed records from
+  `Starfield.esm` that zlib-rs level 9 does not recompress identically and that the CK
+  opens in a dialog, for F07's "one trivial edit each" (all class E in `docs/gaps.md`:
+  the last match differs). Each override then shows whether the CK writes the original
+  stream, ours (level 9), or a third; compare the CK's body with the original and with
+  `deflate(level 9)` of the same decompressed bytes (and say whether the CK recompressed
+  the edited record at all, or stored it uncompressed).
+  1. NPC_ `0000697A` `UC_NA_CL_TolimanScene_Friend` (3,858 bytes inflated, 1,468 stream;
+     the typical NPC_ case: last match 35 at distance 38, ours 37).
+  2. NPC_ `002BF312` `Traits_OctopedeA_HornedCrab_Small` (645 / 343; the smallest NPC_
+     miss).
+  3. NPC_ `00196BB2` `PCM_Porrima_Porrima-III_Predator01` (1,379 / 667; the changed
+     distance also changes the Huffman tables, so the streams differ from byte 4).
+  4. CELL `0027459B` `LC125SonasHome` (interior cell; 330 / 270; last match length 4).
+  5. CELL `000090AF` `SM015DeimosStaryardExterior` (36,764 / 12,614; the largest miss
+     outside NAVM).
+  The 12 level-8 NAVM and the unexplained NAVM (`001BA29F`) are navmeshes of cell
+  `00000025`, not dialog-editable, so F07 does not cover them.
+- **Lane A -> lane F (M3.A2 landed; for M3.F1).** `RoundtripOptions::decode:
+  Some(DecodeLimits)` (or `RoundtripOptions::with_decode()`) is the driver half of
+  `roundtrip --decode`: a compressed body that does not inflate to exactly its declared
+  size, whose stream lacks its end marker or checksum or is followed by other bytes, or
+  whose subrecords do not parse or re-encode, comes back as `report.mismatch` (so
+  `identical()` is false and the CLI's exit 1 applies) with `expected` and `actual` both
+  `None`, `offset` where inflating stopped (the body start for size and content faults),
+  and `path` ending in ` > compressed body: <fault>` (e.g. `GRUP LAND (type 0) @330 >
+  LAND 00000501 @439 > compressed body: invalid zlib stream: ...`). A decode limit
+  (`DecompressedTooLarge`, `TooManySubrecords`) is still an `Err`. No public type changed
+  (`Mismatch` and `RoundtripReport` have the same fields), so the engine compiles as is;
+  for an end-to-end exit-1 fixture, a compressed record whose last stream byte is flipped
+  (Adler-32) is the simplest (`driver::tests::decode_reports_a_corrupt_well_sized_stream`).
 - **Planet schema lane -> lane D.** `kitcraft_doc::typed::field_type` looks a layout up by
   signature, so it cannot tell a top-level member from the same signature at another
   position: PNDT has CNAM, FNAM and GNAM twice with different layouts (it returns the
