@@ -121,6 +121,12 @@ fn every_file_names_its_source() {
                     .any(|p| page.contains(p)),
                 "{def}: {text}"
             );
+        } else if let Some(citation) = text.strip_prefix("xedit: ") {
+            // The loader checks the pinned revision and the line range (ADR 0004).
+            assert!(
+                citation.starts_with("wbDefinitionsSF1.pas@"),
+                "{def}: {text}"
+            );
         } else if let Some(note) = text.strip_prefix("corpus: ") {
             assert!(note.len() > 10, "{def}: corpus note too vague: {text}");
         } else if let Some(id) = text.strip_prefix("ck-diff: ") {

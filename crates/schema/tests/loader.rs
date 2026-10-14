@@ -238,15 +238,14 @@ fn signature_and_name_rules() {
 
 #[test]
 fn source_forms_follow_adr_0005() {
-    for prefix in [
-        "uesp-skyrim: x",
-        "corpus: x",
-        "ck-diff: obs-1",
-        "ck-wiki: Weapon",
-    ] {
+    for prefix in ["corpus: x", "ck-diff: obs-1", "ck-wiki: Weapon"] {
         let text = format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"{prefix}\"\n");
         parse_definition("TEST.toml", &text).unwrap();
     }
+    // A Skyrim container fact needs `confidence = "corpus"` or better (Amendment 2).
+    let skyrim = "signature = \"TEST\"\nname = \"Test\"\nsource = \"uesp-skyrim: x\"\n\
+                  evidence = [\"corpus: walk\"]\nconfidence = \"corpus\"\n";
+    parse_definition("TEST.toml", skyrim).unwrap();
     let old_form = "signature = \"TEST\"\nname = \"Test\"\nsource = \"UESP: x\"\n";
     assert_eq!(
         kind_of(parse_definition("TEST.toml", old_form)),
@@ -716,6 +715,161 @@ fn uesp_starfield_sources_and_the_forbidden_ctda_page() {
         kind_of(parse_definition("TEST.toml", &ctda)),
         ErrorKind::ForbiddenSource(_)
     ));
+}
+
+const PIN: &str = "9fb016884bec138ea6c7b872cec831537d464c3e";
+
+/// A record file citing `source`, with `rest` appended.
+fn cited(source: &str, rest: &str) -> String {
+    format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"{source}\"\n{rest}")
+}
+
+fn xedit(lines: &str) -> String {
+    format!("xedit: wbDefinitionsSF1.pas@{PIN}#{lines}")
+}
+
+#[test]
+fn xedit_sources_name_the_pinned_revision_and_a_line_range() {
+    let ok = |source: &str, rest: &str| {
+        parse_definition("TEST.toml", &cited(source, rest)).unwrap();
+    };
+    let reason = |source: &str| match kind_of(parse_definition(
+        "TEST.toml",
+        &cited(source, "confidence = \"reference\"\n"),
+    )) {
+        ErrorKind::BadXeditSource { citation, reason } => {
+            assert_eq!(citation, source);
+            reason
+        }
+        other => panic!("{source}: expected BadXeditSource, got {other:?}"),
+    };
+
+    ok(&xedit("L18594-L18833"), "confidence = \"reference\"\n");
+    ok(&xedit("L7-L7"), "confidence = \"reference\"\n");
+    // Helper ranges go in `evidence`, same form.
+    ok(
+        "corpus: WEAP records of the official ESMs",
+        &format!(
+            "evidence = [\"{}\"]\nconfidence = \"corpus\"\n",
+            xedit("L1-L2")
+        ),
+    );
+
+    let pinned = |r: &str| r.contains("pins");
+    let hex = |r: &str| r.contains("40-character");
+    let range = |r: &str| r.contains("line range") || r.contains("line numbers");
+    assert!(reason("xedit: wbDefinitionsSF1.pas").contains("`@<sha>`"));
+    assert!(reason(&format!("xedit: wbDefinitionsSF1.pas@{PIN}")).contains("`#L"));
+    assert!(reason(&format!("xedit: wbDefinitionsFO4.pas@{PIN}#L1-L2")).contains("file"));
+    assert!(reason(&format!("xedit: Core/wbDefinitionsSF1.pas@{PIN}#L1-L2")).contains("file"));
+    assert!(reason("xedit: wbDefinitionsSF1.pas@dev-4.1.6#L1-L2").contains("40-character"));
+    assert!(hex(reason(&format!(
+        "xedit: wbDefinitionsSF1.pas@{}#L1-L2",
+        PIN.to_uppercase()
+    ))));
+    assert!(hex(reason(&format!(
+        "xedit: wbDefinitionsSF1.pas@{}#L1-L2",
+        PIN.get(..39).unwrap()
+    ))));
+    assert!(pinned(reason(
+        "xedit: wbDefinitionsSF1.pas@4440381a3cff2174d173489085fcb8c9987ac71a#L1-L2"
+    )));
+    for lines in [
+        "L5", "5-9", "L5-9", "L0-L3", "L03-L9", "L9-L5", "L-L5", "L+5-L9", "L5-L", "L1-L2x",
+    ] {
+        let r = reason(&xedit(lines));
+        assert!(range(r), "{lines}: {r}");
+    }
+    // The prefix needs its space, like every other form.
+    assert!(matches!(
+        kind_of(parse_definition(
+            "TEST.toml",
+            &cited(
+                &format!("xedit:wbDefinitionsSF1.pas@{PIN}#L1-L2"),
+                "confidence = \"reference\"\n"
+            )
+        )),
+        ErrorKind::BadSource(_)
+    ));
+}
+
+#[test]
+fn confidence_is_required_for_xedit_and_backed_by_citations() {
+    let check =
+        |source: &str, rest: &str| kind_of(parse_definition("TEST.toml", &cited(source, rest)));
+    let x = xedit("L1-L2");
+
+    // Missing: an error for `xedit:` (in source or evidence) and `uesp-skyrim:` citations.
+    assert_eq!(check(&x, ""), ErrorKind::MissingConfidence("`xedit:`"));
+    assert_eq!(
+        check("corpus: c", &format!("evidence = [\"{x}\"]\n")),
+        ErrorKind::MissingConfidence("`xedit:`")
+    );
+    assert_eq!(
+        check("uesp-skyrim: x", "evidence = [\"corpus: walk\"]\n"),
+        ErrorKind::MissingConfidence("`uesp-skyrim:`")
+    );
+    // Optional elsewhere, but checked when present.
+    parse_definition("TEST.toml", &cited("corpus: c", "")).unwrap();
+    parse_definition(
+        "TEST.toml",
+        &cited("corpus: c", "confidence = \"corpus\"\n"),
+    )
+    .unwrap();
+    assert_eq!(
+        check("corpus: c", "confidence = \"high\"\n"),
+        ErrorKind::UnknownConfidence("high".into())
+    );
+    assert_eq!(
+        check(&x, "confidence = \"Reference\"\n"),
+        ErrorKind::UnknownConfidence("Reference".into())
+    );
+
+    // Each level needs the citations that back it.
+    let unsupported = |kind: ErrorKind, level: &str| match kind {
+        ErrorKind::UnsupportedConfidence { confidence, .. } => assert_eq!(confidence, level),
+        other => panic!("expected UnsupportedConfidence for {level}, got {other:?}"),
+    };
+    unsupported(
+        check("corpus: c", "confidence = \"reference\"\n"),
+        "reference",
+    );
+    unsupported(check(&x, "confidence = \"corpus\"\n"), "corpus");
+    unsupported(check(&x, "confidence = \"ck-diff\"\n"), "ck-diff");
+    unsupported(
+        check(
+            &x,
+            "evidence = [\"corpus: c\"]\nconfidence = \"verified\"\n",
+        ),
+        "verified",
+    );
+    unsupported(
+        check(
+            "uesp-skyrim: x",
+            &format!("evidence = [\"{x}\"]\nconfidence = \"reference\"\n"),
+        ),
+        "reference",
+    );
+    unsupported(
+        check("uesp-skyrim: x", "confidence = \"corpus\"\n"),
+        "corpus",
+    );
+
+    for rest in [
+        "evidence = [\"corpus: c\"]\nconfidence = \"corpus\"\n",
+        "evidence = [\"ck-diff: obs-1\"]\nconfidence = \"ck-diff\"\n",
+        "evidence = [\"corpus: c\", \"ck-diff: obs-1\"]\nconfidence = \"verified\"\n",
+    ] {
+        parse_definition("TEST.toml", &cited(&x, rest)).unwrap();
+    }
+    parse_definition(
+        "TEST.toml",
+        &cited(
+            "uesp-skyrim: x",
+            "evidence = [\"corpus: c\", \"ck-diff: o\"]\nconfidence = \"verified\"\n",
+        ),
+    )
+    .unwrap();
 }
 
 #[test]

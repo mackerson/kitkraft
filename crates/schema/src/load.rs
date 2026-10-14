@@ -115,11 +115,27 @@ pub enum ErrorKind {
         second: (Option<u16>, Option<u16>),
     },
     #[error(
-        "source must start with `uesp-skyrim:`, `uesp-starfield:`, `corpus:`, `ck-diff:` or `ck-wiki:` (ADR 0005), got {0:?}"
+        "source must start with `uesp-skyrim:`, `uesp-starfield:`, `xedit:`, `corpus:`, `ck-diff:` or `ck-wiki:` (ADR 0005), got {0:?}"
     )]
     BadSource(String),
     #[error("source {0:?} is forbidden by ADR 0005")]
     ForbiddenSource(String),
+    #[error(
+        "xedit citation {citation:?}: {reason}; expected `xedit: wbDefinitionsSF1.pas@<pinned 40-hex sha>#L<start>-L<end>` (ADR 0004)"
+    )]
+    BadXeditSource {
+        citation: String,
+        reason: &'static str,
+    },
+    #[error("unknown confidence {0:?}: expected reference, corpus, ck-diff or verified")]
+    UnknownConfidence(String),
+    #[error("`confidence` is required when a citation is {0} (ADR 0005 Amendment 2)")]
+    MissingConfidence(&'static str),
+    #[error("confidence {confidence:?} needs {needs} (ADR 0005 Amendment 2)")]
+    UnsupportedConfidence {
+        confidence: String,
+        needs: &'static str,
+    },
     #[error("a member sets none or several of `sig`, `group`, `group_ref`, `any_until`")]
     MemberKind,
     #[error("`any_until = \"{0}\"` must be followed in the same list by a {0} subrecord")]
@@ -153,6 +169,7 @@ struct RawFile {
     source: String,
     #[serde(default)]
     evidence: Vec<String>,
+    confidence: Option<String>,
     note: Option<String>,
     flags: Option<Vec<(String, i64)>>,
     size: Option<u32>,
@@ -507,6 +524,7 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
     for note in &raw.evidence {
         check_source(cx, note)?;
     }
+    check_confidence(cx, &raw)?;
     let kind = raw.kind.as_deref().unwrap_or("record");
     if kind != "type" {
         reject_file_type_keys(cx, &raw, kind)?;
@@ -658,18 +676,28 @@ fn reject_file_type_keys(cx: &Cx<'_, '_>, raw: &RawFile, kind: &str) -> Result<(
     Ok(())
 }
 
-/// The `source` key forms permitted by ADR 0005 (specification source per fact).
+/// The `source` key forms permitted by ADR 0005 (source hierarchy, Amendment 2).
 pub const SOURCE_PREFIXES: &[&str] = &[
     "uesp-skyrim: ",
     "uesp-starfield: ",
+    "xedit: ",
     "corpus: ",
     "ck-diff: ",
     "ck-wiki: ",
 ];
 
-/// Pages a `uesp-starfield:` citation may not name: ADR 0005 forbids them (the CTDA page
-/// is derived from xEdit by its own attribution).
+/// Pages a `uesp-starfield:` citation may not name. The CTDA page follows a stale xEdit
+/// branch; conditions are cited from xEdit at the pinned revision instead (ADR 0004).
 pub const FORBIDDEN_UESP_STARFIELD_PAGES: &[&str] = &["Mod_File_Format/CTDA"];
+
+const XEDIT_PREFIX: &str = "xedit: ";
+
+/// The upstream xEdit revision every `xedit:` citation must name (ADR 0004). Changing it
+/// needs an ADR 0004 amendment and a re-check of every cited line range.
+const XEDIT_REVISION: &str = "9fb016884bec138ea6c7b872cec831537d464c3e";
+
+/// The xEdit files the owner decision covers (ADR 0004).
+const XEDIT_FILES: &[&str] = &["wbDefinitionsSF1.pas"];
 
 fn check_source(cx: &Cx<'_, '_>, text: &str) -> Result<(), SchemaError> {
     if !SOURCE_PREFIXES.iter().any(|p| text.starts_with(p)) {
@@ -682,7 +710,97 @@ fn check_source(cx: &Cx<'_, '_>, text: &str) -> Result<(), SchemaError> {
     {
         return Err(cx.err(ErrorKind::ForbiddenSource(text.to_owned())));
     }
+    if let Some(rest) = text.strip_prefix(XEDIT_PREFIX) {
+        check_xedit_citation(rest).map_err(|reason| {
+            cx.err(ErrorKind::BadXeditSource {
+                citation: text.to_owned(),
+                reason,
+            })
+        })?;
+    }
     Ok(())
+}
+
+/// Checks `<file>@<sha>#L<start>-L<end>` (the part after `xedit: `).
+fn check_xedit_citation(rest: &str) -> Result<(), &'static str> {
+    let (file, rest) = rest.split_once('@').ok_or("missing `@<sha>`")?;
+    if !XEDIT_FILES.contains(&file) {
+        return Err("the file must be wbDefinitionsSF1.pas");
+    }
+    let (sha, lines) = rest.split_once('#').ok_or("missing `#L<start>-L<end>`")?;
+    let is_hex = sha.len() == 40
+        && sha
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+    if !is_hex {
+        return Err("the revision must be a full 40-character lower-case hex SHA");
+    }
+    if sha != XEDIT_REVISION {
+        return Err("the revision is not the one ADR 0004 pins");
+    }
+    let (start, end) = lines
+        .strip_prefix('L')
+        .and_then(|l| l.split_once("-L"))
+        .ok_or("the line range must read `L<start>-L<end>`")?;
+    let start = line_number(start)?;
+    let end = line_number(end)?;
+    if start > end {
+        return Err("the line range starts after it ends");
+    }
+    Ok(())
+}
+
+fn line_number(text: &str) -> Result<u32, &'static str> {
+    let digits = !text.is_empty() && text.bytes().all(|b| b.is_ascii_digit());
+    match text.parse::<u32>() {
+        Ok(n) if digits && n > 0 && !text.starts_with('0') => Ok(n),
+        _ => Err("line numbers must be positive integers without leading zeros"),
+    }
+}
+
+/// The `confidence` levels of ADR 0005 Amendment 2, weakest first.
+const CONFIDENCE_LEVELS: &[&str] = &["reference", "corpus", "ck-diff", "verified"];
+
+/// `confidence` is required when any citation is `xedit:` or `uesp-skyrim:`, and the
+/// claimed level must be backed by matching citations (ADR 0005 Amendment 2).
+fn check_confidence(cx: &Cx<'_, '_>, raw: &RawFile) -> Result<(), SchemaError> {
+    let cites = |prefix: &str| {
+        std::iter::once(&raw.source)
+            .chain(&raw.evidence)
+            .any(|c| c.starts_with(prefix))
+    };
+    let xedit = cites(XEDIT_PREFIX);
+    let skyrim = cites("uesp-skyrim: ");
+    let Some(level) = raw.confidence.as_deref() else {
+        if xedit {
+            return Err(cx.err(ErrorKind::MissingConfidence("`xedit:`")));
+        }
+        if skyrim {
+            return Err(cx.err(ErrorKind::MissingConfidence("`uesp-skyrim:`")));
+        }
+        return Ok(());
+    };
+    if !CONFIDENCE_LEVELS.contains(&level) {
+        return Err(cx.err(ErrorKind::UnknownConfidence(level.to_owned())));
+    }
+    let unsupported = |needs| {
+        cx.err(ErrorKind::UnsupportedConfidence {
+            confidence: level.to_owned(),
+            needs,
+        })
+    };
+    match level {
+        "reference" if !xedit => Err(unsupported("an `xedit:` citation")),
+        "reference" if skyrim => Err(unsupported(
+            "no `uesp-skyrim:` citation (Skyrim facts need `corpus` or better)",
+        )),
+        "corpus" if !cites("corpus: ") => Err(unsupported("a `corpus:` citation")),
+        "ck-diff" if !cites("ck-diff: ") => Err(unsupported("a `ck-diff:` citation")),
+        "verified" if !(cites("corpus: ") && cites("ck-diff: ")) => {
+            Err(unsupported("both a `corpus:` and a `ck-diff:` citation"))
+        }
+        _ => Ok(()),
+    }
 }
 
 fn reject(

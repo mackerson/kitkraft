@@ -8,27 +8,52 @@ rejects anything that breaks the rules below, with the file name and a path such
 
 ## Provenance (mandatory)
 
-ADR 0005 (`plan/adr/0005-spec-sources-per-fact.md`) decides which source is permitted for
-which kind of fact. Every file names its source in one of the ADR's forms, and the loader
-rejects any other prefix in `source` and `evidence`:
+ADR 0005 (`plan/adr/0005-spec-sources-per-fact.md`, Amendment 2) sets the source
+hierarchy: container facts from UESP's Skyrim pages validated on the corpus, record
+definitions from upstream xEdit at a pinned revision (ADR 0004), empirical validation
+(corpus, CK differential observation, SF1Edit comparison), and secondary references. Every
+file names its source in one of these forms, and the loader rejects any other prefix in
+`source` and `evidence`:
 
 - `uesp-skyrim: <page URL>`: shared container facts from the UESP Skyrim pages
   (`https://en.uesp.net/wiki/Skyrim_Mod:...`), confirmed against the corpus (TES4, GRUP,
-  the record header, string types).
+  the record header, string types). Never for Starfield record bodies. Requires
+  `confidence = "corpus"` or better.
+- `xedit: wbDefinitionsSF1.pas@<sha>#L<start>-L<end>`: a Starfield record definition read
+  from upstream xEdit's `Core/wbDefinitionsSF1.pas`. `<sha>` must be the revision ADR 0004
+  pins, `9fb016884bec138ea6c7b872cec831537d464c3e` (full 40 lower-case hex); the line range
+  is 1-based and inclusive. Cite the record's own range in `source` and any helper ranges
+  in `evidence`. Requires `confidence`. Facts only: no code, comments or labels copied
+  wholesale; see `docs/xedit-reference.md` for the construct-to-TOML map.
 - `uesp-starfield: <page URL>`: the UESP Starfield pages at
-  `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format...`, for what ADR 0005
-  allows from them. The loader rejects a citation of the `/CTDA` page (xEdit-derived,
-  forbidden).
-- `corpus: <evidence note>`: inventory facts from our own scans of the official ESMs
-  (signatures, sizes, counts, order).
-- `ck-diff: <observation id>`: Starfield field layouts from Creation Kit differential
-  observation (`docs/ck-observations.md`).
+  `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format...`, a secondary reference.
+  The loader rejects a citation of the `/CTDA` page; cite xEdit at the pin instead.
+- `corpus: <evidence note>`: facts from our own scans of the official ESMs (signatures,
+  sizes, counts, order) and differential comparisons against SF1Edit on fixtures (name the
+  SF1Edit build).
+- `ck-diff: <observation id>`: Creation Kit differential observation
+  (`docs/ck-observations.md`).
 - `ck-wiki: <page title>`: field names and meanings, in our own words.
 
 Further citations go in `evidence = ["corpus: ...", ...]`, and each file opens with a
-comment saying what each source contributed. Never paste prose from any source; record
-structured facts only. Never consult Mutagen, Spriggit (source or its YAML field names), or
-xEdit (or pages derived from it) for names or layouts.
+comment saying what each source contributed. Never paste prose or code from any source;
+record structured facts only. Never consult Mutagen or Spriggit (source or its YAML field
+names) for anything. Never substitute a Skyrim definition for a Starfield record body.
+
+### Confidence
+
+`confidence` says how far a definition has been checked (ADR 0005 Amendment 2):
+
+| Value       | Meaning                                                      | Needs a citation of        |
+| ----------- | ------------------------------------------------------------ | -------------------------- |
+| `reference` | From xEdit only, not yet confirmed                           | `xedit:`                   |
+| `corpus`    | Sizes, counts and order confirmed on the 14 official ESMs    | `corpus:`                  |
+| `ck-diff`   | Confirmed by CK differential observation                     | `ck-diff:`                 |
+| `verified`  | Both of the above                                            | `corpus:` and `ck-diff:`   |
+
+It is required when any citation is `xedit:` or `uesp-skyrim:` (and `reference` is not
+allowed with `uesp-skyrim:`), optional otherwise, and checked against the citations
+whenever it is present. The loader validates it; the typed model does not carry it yet.
 
 ## Files
 
@@ -55,6 +80,7 @@ exact lines to add or remove when that list and this directory differ.
 | `source`    | yes             | Primary source, in an ADR 0005 form (see above)                 |
 | `kind`      | no              | `record` (default), `header`, `group` or `type`                 |
 | `evidence`  | no              | Further sources, same forms                                     |
+| `confidence`| with `xedit:` or `uesp-skyrim:` citations | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
 | `note`      | no              | Free text (our own words)                                       |
 | `flags`     | no (records)    | Record-header flag bits for this type: `[["Master", 0x1], ...]` |
 | `member`    | records, groups | Ordered list of members                                         |
@@ -225,11 +251,11 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 
 | File        | Kind      | Source                                   | Layouts                                   |
 | ----------- | --------- | ---------------------------------------- | ----------------------------------------- |
-| `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
-| `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
-| `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
+| `TES4.toml` | record    | uesp-skyrim TES4 page + corpus (`confidence = "corpus"`) | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
+| `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus (`corpus`) | Fully typed (label kept as 4 raw bytes)  |
+| `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus (`corpus`) | Fully typed; only the Compressed flag is named |
 | `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory only: order and cardinality; every payload opaque |
-| `WEAP.toml` | record    | corpus scan                              | Inventory only; layout pending ADR 0005   |
+| `WEAP.toml` | record    | corpus scan                              | Inventory only; typed layout waits for lane B round 3 (`xedit:`) |
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
 | `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; payloads opaque         |
 
@@ -242,6 +268,8 @@ are placeholders: giving a member a real name later is a breaking change for que
 signature = "TES4"
 name = "PluginHeader"
 source = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4"
+evidence = ["corpus: TES4 of the 14 official ESMs"]
+confidence = "corpus"
 
 [[member]]
 sig = "HEDR"
