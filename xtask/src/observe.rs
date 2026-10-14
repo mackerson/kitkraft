@@ -1443,7 +1443,7 @@ fn render(r: &Value) -> String {
 
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::evidence::tests::{sub, tes4_record};
     use std::cell::RefCell;
