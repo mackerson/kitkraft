@@ -116,7 +116,7 @@ mod tests {
     fn required_first_in_required_order() {
         let spec = find_command("ba2.extract").unwrap();
         let names: Vec<String> = params(spec).unwrap().into_iter().map(|p| p.name).collect();
-        assert_eq!(names, ["archive", "out_dir", "pattern"]);
+        assert_eq!(names, ["archive", "out_dir", "overwrite", "pattern"]);
 
         let spec = find_command("roundtrip").unwrap();
         let ps = params(spec).unwrap();

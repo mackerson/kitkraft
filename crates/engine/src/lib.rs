@@ -168,9 +168,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Archive/List",
         shortcut: None,
         aliases: &[],
-        summary: "List files in a .ba2 archive",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string"}},"required":["archive"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "List files in a .ba2 archive (GNRL or DX10): sizes, compression, texture formats",
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string","description":"Case-insensitive regex over archive paths"},"limit":{"type":"integer","minimum":1,"default":1000,"description":"Most entries to return"},"start":{"type":"integer","minimum":0,"default":0,"description":"Skip this many matching entries"}},"required":["archive"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "ba2.extract",
@@ -179,8 +179,8 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Extract files from a .ba2 archive (all, or those matching --pattern)",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Regex over archive paths; omit to extract everything"},"out_dir":{"type":"string"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "ba2.pack",
@@ -188,9 +188,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Archive/Pack...",
         shortcut: None,
         aliases: &[],
-        summary: "Pack a directory into a .ba2 archive",
-        args_schema: r#"{"type":"object","properties":{"dir":{"type":"string"},"out":{"type":"string"},"format":{"type":"string","enum":["gnrl","dx10"]}},"required":["dir","out"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Pack a directory (as the Data root) into a .ba2 archive; deterministic",
+        args_schema: r#"{"type":"object","properties":{"dir":{"type":"string"},"out":{"type":"string","description":"Never under the game Data directory"},"format":{"type":"string","enum":["gnrl","dx10"],"default":"gnrl","description":"dx10 packs .dds textures"},"version":{"type":"integer","minimum":2,"maximum":3,"default":2,"description":"2: zlib, 3: LZ4 blocks"},"compress":{"type":"boolean","default":true}},"required":["dir","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "papyrus.disasm",
@@ -335,11 +335,11 @@ mod execute_tests {
 
     #[test]
     fn planned_command_without_handler_is_not_implemented() {
-        let err = execute("ba2.list", json!({"archive": "a.ba2"})).unwrap_err();
-        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "ba2.list"));
+        let err = execute("query", json!({"type": "WEAP"})).unwrap_err();
+        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "query"));
         // Validation still runs first.
         assert_eq!(
-            execute("ba2.list", json!({})).unwrap_err().kind(),
+            execute("query", json!({})).unwrap_err().kind(),
             "invalid_args"
         );
     }

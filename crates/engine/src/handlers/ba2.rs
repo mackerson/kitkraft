@@ -1,0 +1,723 @@
+//! `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4) over `kitcraft-ba2`.
+//!
+//! Patterns are regular expressions matched case-insensitively against archive paths (as
+//! `ba2x.py` matches them). Output is never written under a game `Data` directory: a
+//! directory holding `Starfield.esm`, any directory above one, or `KITCRAFT_DATA_DIR`
+//! ([`refuse_game_data`], shared with the other lane G commands).
+
+use std::fs::{self, File};
+use std::io::{BufWriter, Write};
+use std::path::{Path, PathBuf};
+
+use kitcraft_ba2::{Archive, Body, Entry, Kind, PackOptions};
+use regex::{Regex, RegexBuilder};
+use serde_json::{json, Value};
+
+use super::{failed, file_name, str_arg};
+use crate::args::Violation;
+use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
+use crate::exec::EngineError;
+
+/// Most entries listed in one result unless `limit` says otherwise.
+const DEFAULT_LIMIT: u64 = 1000;
+/// Most extracted or packed files named in a result (the counts cover all of them).
+const FILES_SHOWN: usize = 1000;
+/// Deepest directory nesting `ba2.pack` walks.
+const MAX_DEPTH: usize = 64;
+
+/// What the archive-level evidence covers.
+const RECORDS_EVIDENCE: &str = "evidence covers the header, the record table and the name \
+     table; each entry's `record_offset` locates its own record";
+
+/// `ba2.list`.
+pub(super) fn list(args: &Value) -> Result<Outcome, EngineError> {
+    const ID: &str = "ba2.list";
+    let archive_arg = str_arg(ID, args, "archive")?;
+    let filter = pattern(ID, args, "filter")?;
+    let limit = args
+        .get("limit")
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_LIMIT);
+    let start = args.get("start").and_then(Value::as_u64).unwrap_or(0);
+    let path = Path::new(archive_arg);
+    let (archive, _file) =
+        Archive::open(path).map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
+
+    let matched: Vec<(usize, &Entry)> = archive
+        .entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| filter.as_ref().is_none_or(|re| re.is_match(&e.name)))
+        .collect();
+    let shown: Vec<Value> = matched
+        .iter()
+        .skip(usize::try_from(start).unwrap_or(usize::MAX))
+        .take(usize::try_from(limit).unwrap_or(usize::MAX))
+        .map(|(i, e)| entry_json(*i, e))
+        .collect();
+    let file = file_name(path);
+    let mut limitations = vec![RECORDS_EVIDENCE.to_string()];
+    let total_matched = matched.len() as u64;
+    let shown_count = shown.len() as u64;
+    if shown_count < total_matched {
+        limitations.push(format!(
+            "showing {shown_count} of {total_matched} matching entries from position {start}; \
+             use `start` and `limit` for the rest"
+        ));
+    }
+    if !archive.has_names {
+        limitations
+            .push("the archive has no name table: names are `<dir hash>/<name hash>.<ext>`".into());
+    }
+    let codec = archive.header.codec().map(|c| c.name()).ok();
+    let summary = format!(
+        "{file}: v{} {} ({}), {} entries, {total_matched} matching, {shown_count} shown",
+        archive.header.version,
+        archive.header.kind.name(),
+        codec.unwrap_or("unknown codec"),
+        archive.entries.len()
+    );
+    let data = json!({
+        "archive": archive_arg,
+        "version": archive.header.version,
+        "kind": archive.header.kind.name(),
+        "codec": codec,
+        "compression_field": archive.header.compression,
+        "file_count": archive.header.file_count,
+        "bytes": archive.file_len,
+        "has_names": archive.has_names,
+        "filter": args.get("filter"),
+        "matched": total_matched,
+        "start": start,
+        "shown": shown_count,
+        "entries": shown,
+        "summary": summary,
+    });
+    Ok(Outcome {
+        data,
+        coverage: Coverage {
+            status: CoverageStatus::Complete,
+            decoded_subrecords: None,
+            opaque_subrecords: None,
+            not_examined: Vec::new(),
+        },
+        limitations,
+        evidence: archive_evidence(&archive, &file),
+    })
+}
+
+/// `ba2.extract`.
+pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
+    const ID: &str = "ba2.extract";
+    let archive_arg = str_arg(ID, args, "archive")?;
+    let out_dir = PathBuf::from(str_arg(ID, args, "out_dir")?);
+    let pat = pattern(ID, args, "pattern")?;
+    let overwrite = args
+        .get("overwrite")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    refuse_game_data(ID, &out_dir)?;
+    let path = Path::new(archive_arg);
+    let (archive, mut file) =
+        Archive::open(path).map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
+
+    let mut plan = Vec::new();
+    for (i, entry) in archive.entries.iter().enumerate() {
+        if pat.as_ref().is_some_and(|re| !re.is_match(&entry.name)) {
+            continue;
+        }
+        let rel = kitcraft_ba2::relative_path(&entry.name)
+            .map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
+        let target = out_dir.join(rel);
+        if !overwrite && target.exists() {
+            return Err(failed(
+                ID,
+                format!(
+                    "`{}` exists; pass overwrite to replace it (nothing was written)",
+                    target.display()
+                ),
+            ));
+        }
+        plan.push((i, target));
+    }
+
+    let mut files = Vec::new();
+    let mut bytes = 0u64;
+    for (i, target) in &plan {
+        let entry = archive
+            .entries
+            .get(*i)
+            .ok_or_else(|| failed(ID, "entry index"))?;
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent)
+                .map_err(|e| failed(ID, format!("creating `{}`: {e}", parent.display())))?;
+        }
+        let out = File::create(target)
+            .map_err(|e| failed(ID, format!("creating `{}`: {e}", target.display())))?;
+        let mut writer = BufWriter::new(out);
+        let result = archive
+            .extract_to(&mut file, *i, &mut writer)
+            .and_then(|n| {
+                writer
+                    .flush()
+                    .map_err(|source| kitcraft_ba2::Error::Io { offset: n, source })?;
+                Ok(n)
+            });
+        let n = match result {
+            Ok(n) => n,
+            Err(e) => {
+                drop(writer);
+                let _ = fs::remove_file(target);
+                return Err(failed(ID, format!("{archive_arg}: {e}")));
+            }
+        };
+        bytes = bytes.saturating_add(n);
+        if files.len() < FILES_SHOWN {
+            files.push(json!({
+                "index": i,
+                "name": entry.name,
+                "size": n,
+                "path": target.display().to_string(),
+            }));
+        }
+    }
+    let file_label = file_name(path);
+    let mut limitations = vec![RECORDS_EVIDENCE.to_string()];
+    if plan.len() > FILES_SHOWN {
+        limitations.push(format!(
+            "`files` names the first {FILES_SHOWN} of {} extracted files",
+            plan.len()
+        ));
+    }
+    if archive.header.kind == Kind::Textures {
+        limitations.push(
+            "DX10 entries are written with a synthesized DDS header (byte-identical to \
+             Archive2.exe 1.2.0.1's extraction of the official archives)"
+                .into(),
+        );
+    }
+    let summary = format!(
+        "{file_label}: extracted {} files ({bytes} bytes) to {}",
+        plan.len(),
+        out_dir.display()
+    );
+    Ok(Outcome {
+        data: json!({
+            "archive": archive_arg,
+            "out_dir": out_dir.display().to_string(),
+            "pattern": args.get("pattern"),
+            "extracted": plan.len(),
+            "bytes": bytes,
+            "files": files,
+            "summary": summary,
+        }),
+        coverage: Coverage {
+            status: CoverageStatus::Complete,
+            decoded_subrecords: None,
+            opaque_subrecords: None,
+            not_examined: Vec::new(),
+        },
+        limitations,
+        evidence: archive_evidence(&archive, &file_label),
+    })
+}
+
+/// `ba2.pack`.
+pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
+    const ID: &str = "ba2.pack";
+    let dir = PathBuf::from(str_arg(ID, args, "dir")?);
+    let out = PathBuf::from(str_arg(ID, args, "out")?);
+    let kind = match args.get("format").and_then(Value::as_str) {
+        Some("dx10") => Kind::Textures,
+        _ => Kind::General,
+    };
+    let version = args
+        .get("version")
+        .and_then(Value::as_u64)
+        .and_then(|v| u32::try_from(v).ok())
+        .unwrap_or(2);
+    let compress = args
+        .get("compress")
+        .and_then(Value::as_bool)
+        .unwrap_or(true);
+    refuse_game_data(ID, &out)?;
+    let dir_abs =
+        fs::canonicalize(&dir).map_err(|e| failed(ID, format!("`{}`: {e}", dir.display())))?;
+    if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        if let Ok(parent) = fs::canonicalize(parent) {
+            if parent.starts_with(&dir_abs) {
+                return Err(failed(
+                    ID,
+                    format!(
+                        "`{}` is inside the directory being packed; write it elsewhere",
+                        out.display()
+                    ),
+                ));
+            }
+        }
+    }
+
+    let mut files = Vec::new();
+    let mut skipped = Vec::new();
+    walk(&dir_abs, &dir_abs, 0, &mut files, &mut skipped).map_err(|e| failed(ID, e))?;
+    if kind == Kind::Textures {
+        if let Some((name, _)) = files
+            .iter()
+            .find(|(name, _)| !name.to_ascii_lowercase().ends_with(".dds"))
+        {
+            return Err(failed(
+                ID,
+                format!("`{name}` is not a .dds file; a dx10 archive holds only textures"),
+            ));
+        }
+    }
+    let options = PackOptions {
+        kind,
+        version,
+        compress,
+    };
+    let tmp = out.with_extension("ba2.partial");
+    let file =
+        File::create(&tmp).map_err(|e| failed(ID, format!("creating `{}`: {e}", tmp.display())))?;
+    let mut writer = BufWriter::new(file);
+    let report = kitcraft_ba2::pack(&files, |p| fs::read(p), &options, &mut writer);
+    let flushed = writer.flush();
+    drop(writer);
+    let report = match (report, flushed) {
+        (Ok(r), Ok(())) => r,
+        (Err(e), _) => {
+            let _ = fs::remove_file(&tmp);
+            return Err(failed(ID, e.to_string()));
+        }
+        (_, Err(e)) => {
+            let _ = fs::remove_file(&tmp);
+            return Err(failed(ID, format!("writing `{}`: {e}", tmp.display())));
+        }
+    };
+    fs::rename(&tmp, &out).map_err(|e| {
+        let _ = fs::remove_file(&tmp);
+        failed(ID, format!("renaming to `{}`: {e}", out.display()))
+    })?;
+
+    let shown: Vec<Value> = report
+        .files
+        .iter()
+        .take(FILES_SHOWN)
+        .map(|f| json!({"name": f.name, "size": f.size, "stored": f.stored}))
+        .collect();
+    let mut limitations = Vec::new();
+    if report.files.len() > FILES_SHOWN {
+        limitations.push(format!(
+            "`files` names the first {FILES_SHOWN} of {} packed files",
+            report.files.len()
+        ));
+    }
+    if !skipped.is_empty() {
+        limitations.push(format!(
+            "skipped {} entries that are neither files nor directories (symbolic links): {}",
+            skipped.len(),
+            skipped.join(", ")
+        ));
+    }
+    if kind == Kind::Textures {
+        limitations.push(
+            "DDS headers are not stored: extraction synthesizes them, so a texture whose \
+             header differs from the synthesized one extracts with the same pixels and a \
+             different header"
+                .into(),
+        );
+    }
+    let out_label = file_name(&out);
+    let summary = format!(
+        "{out_label}: packed {} files ({} bytes) as {} v{version}",
+        report.files.len(),
+        report.bytes,
+        kind.name()
+    );
+    Ok(Outcome {
+        data: json!({
+            "dir": dir.display().to_string(),
+            "out": out.display().to_string(),
+            "format": kind.name(),
+            "version": version,
+            "compress": compress,
+            "packed": report.files.len(),
+            "bytes": report.bytes,
+            "files": shown,
+            "summary": summary,
+        }),
+        coverage: Coverage {
+            status: CoverageStatus::Complete,
+            decoded_subrecords: None,
+            opaque_subrecords: None,
+            not_examined: Vec::new(),
+        },
+        limitations,
+        evidence: vec![Evidence {
+            file: out_label,
+            offset: 0,
+            length: report.bytes,
+            record: None,
+            subrecord: None,
+        }],
+    })
+}
+
+/// Collects `(archive path, file path)` for every regular file under `dir`, sorted.
+fn walk(
+    root: &Path,
+    dir: &Path,
+    depth: usize,
+    out: &mut Vec<(String, String)>,
+    skipped: &mut Vec<String>,
+) -> Result<(), String> {
+    if depth > MAX_DEPTH {
+        return Err(format!(
+            "`{}` is nested more than {MAX_DEPTH} directories deep",
+            dir.display()
+        ));
+    }
+    let mut entries: Vec<PathBuf> = fs::read_dir(dir)
+        .map_err(|e| format!("reading `{}`: {e}", dir.display()))?
+        .map(|e| e.map(|e| e.path()))
+        .collect::<Result<_, _>>()
+        .map_err(|e| format!("reading `{}`: {e}", dir.display()))?;
+    entries.sort();
+    for path in entries {
+        let meta = fs::symlink_metadata(&path)
+            .map_err(|e| format!("reading `{}`: {e}", path.display()))?;
+        if meta.is_dir() {
+            walk(root, &path, depth.saturating_add(1), out, skipped)?;
+        } else if meta.is_file() {
+            let rel = path
+                .strip_prefix(root)
+                .map_err(|_| format!("`{}` is outside `{}`", path.display(), root.display()))?;
+            let name: Vec<String> = rel
+                .components()
+                .map(|c| c.as_os_str().to_string_lossy().into_owned())
+                .collect();
+            out.push((name.join("/"), path.display().to_string()));
+        } else {
+            skipped.push(path.display().to_string());
+        }
+    }
+    Ok(())
+}
+
+/// One entry for `ba2.list`.
+fn entry_json(index: usize, entry: &Entry) -> Value {
+    let mut v = json!({
+        "index": index,
+        "name": entry.name,
+        "size": entry.extracted_len(),
+        "stored": entry.stored_len(),
+        "compressed": entry.is_compressed(),
+        "record_offset": entry.record_offset,
+        "data_offset": entry.data_offset(),
+    });
+    if let (Body::Texture(t), Some(obj)) = (&entry.body, v.as_object_mut()) {
+        obj.insert(
+            "texture".into(),
+            json!({
+                "width": t.width,
+                "height": t.height,
+                "mips": t.mip_count,
+                "dxgi_format": t.format,
+                "cubemap": t.cubemap != 0,
+                "chunks": t.chunks.len(),
+            }),
+        );
+    }
+    v
+}
+
+fn archive_evidence(archive: &Archive, file: &str) -> Vec<Evidence> {
+    let header_len = archive.header.len();
+    let records_end = archive
+        .entries
+        .last()
+        .map_or(header_len, |e| match &e.body {
+            Body::General(_) => e
+                .record_offset
+                .saturating_add(kitcraft_ba2::GENERAL_RECORD_LEN),
+            Body::Texture(t) => t.chunks.last().map_or(
+                e.record_offset
+                    .saturating_add(kitcraft_ba2::TEXTURE_RECORD_LEN),
+                |c| {
+                    c.record_offset
+                        .saturating_add(kitcraft_ba2::CHUNK_RECORD_LEN)
+                },
+            ),
+        });
+    let mut evidence = vec![
+        Evidence {
+            file: file.to_string(),
+            offset: 0,
+            length: header_len,
+            record: None,
+            subrecord: None,
+        },
+        Evidence {
+            file: file.to_string(),
+            offset: header_len,
+            length: records_end.saturating_sub(header_len),
+            record: None,
+            subrecord: None,
+        },
+    ];
+    if archive.has_names {
+        evidence.push(Evidence {
+            file: file.to_string(),
+            offset: archive.header.name_table_offset,
+            length: archive
+                .file_len
+                .saturating_sub(archive.header.name_table_offset),
+            record: None,
+            subrecord: None,
+        });
+    }
+    evidence
+}
+
+/// A case-insensitive regex from an optional argument; a bad pattern is `invalid_args`.
+fn pattern(command: &str, args: &Value, name: &str) -> Result<Option<Regex>, EngineError> {
+    let Some(text) = args.get(name).and_then(Value::as_str) else {
+        return Ok(None);
+    };
+    RegexBuilder::new(text)
+        .case_insensitive(true)
+        .size_limit(1 << 20)
+        .build()
+        .map(Some)
+        .map_err(|e| EngineError::InvalidArgs {
+            command: command.to_string(),
+            violations: vec![Violation {
+                pointer: format!("/{name}"),
+                rule: "pattern",
+                message: format!("not a valid regular expression: {e}"),
+            }],
+        })
+}
+
+/// Refuses a write target inside a game `Data` directory: `KITCRAFT_DATA_DIR`, or any
+/// directory at or above the target that holds `Starfield.esm`.
+pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), EngineError> {
+    let abs = absolute(target);
+    let data_dir = std::env::var_os("KITCRAFT_DATA_DIR").map(|d| absolute(Path::new(&d)));
+    let refuse = |why: String| {
+        failed(
+            command,
+            format!(
+                "refusing to write `{}`: {why}; the game Data directory is read-only to KitCraft",
+                target.display()
+            ),
+        )
+    };
+    if let Some(data) = data_dir.filter(|d| !d.as_os_str().is_empty()) {
+        if abs.starts_with(&data) {
+            return Err(refuse(format!(
+                "it is under KITCRAFT_DATA_DIR `{}`",
+                data.display()
+            )));
+        }
+    }
+    for dir in abs.ancestors() {
+        if dir.join("Starfield.esm").is_file() {
+            return Err(refuse(format!(
+                "`{}` holds Starfield.esm (a game Data directory)",
+                dir.display()
+            )));
+        }
+    }
+    Ok(())
+}
+
+/// `path` made absolute and canonical as far as it exists (the rest appended), so `..` and
+/// symbolic links cannot hide a Data directory.
+fn absolute(path: &Path) -> PathBuf {
+    let joined = if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        std::env::current_dir()
+            .map(|d| d.join(path))
+            .unwrap_or_else(|_| path.to_path_buf())
+    };
+    let mut existing = joined.as_path();
+    let mut rest = Vec::new();
+    loop {
+        if let Ok(canon) = fs::canonicalize(existing) {
+            let mut out = canon;
+            for part in rest.iter().rev() {
+                out.push(part);
+            }
+            return out;
+        }
+        match (existing.parent(), existing.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name.to_os_string());
+                existing = parent;
+            }
+            _ => return joined,
+        }
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod tests {
+    use super::refuse_game_data;
+    use crate::execute;
+    use serde_json::json;
+    use std::fs;
+    use std::path::PathBuf;
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("kitcraft-ba2-{name}-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn pack_list_extract_through_execute() {
+        let root = temp_dir("cmd");
+        let src = root.join("src");
+        fs::create_dir_all(src.join("Scripts")).unwrap();
+        fs::create_dir_all(src.join("strings")).unwrap();
+        fs::write(src.join("Scripts").join("Alpha.pex"), vec![7u8; 4000]).unwrap();
+        fs::write(src.join("strings").join("mod_en.strings"), b"hello").unwrap();
+        let out = root.join("Mod - Main.ba2");
+        let packed = execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": out.to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(packed["data"]["packed"], 2);
+        assert_eq!(packed["data"]["format"], "gnrl");
+        let bytes = fs::read(&out).unwrap();
+        assert_eq!(packed["data"]["bytes"], bytes.len());
+        assert!(!out.with_extension("ba2.partial").exists());
+
+        // Deterministic.
+        let again = root.join("again.ba2");
+        execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": again.to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(fs::read(&again).unwrap(), bytes);
+
+        let listed = execute(
+            "ba2.list",
+            json!({"archive": out.to_str().unwrap(), "filter": "PEX$"}),
+        )
+        .unwrap();
+        assert_eq!(listed["data"]["matched"], 1);
+        assert_eq!(listed["data"]["entries"][0]["name"], "scripts/alpha.pex");
+        assert_eq!(listed["data"]["entries"][0]["size"], 4000);
+        assert_eq!(listed["data"]["entries"][0]["compressed"], true);
+        assert_eq!(listed["coverage"]["status"], "complete");
+        assert_eq!(listed["evidence"][0]["offset"], 0);
+
+        let paged = execute(
+            "ba2.list",
+            json!({"archive": out.to_str().unwrap(), "limit": 1, "start": 1}),
+        )
+        .unwrap();
+        assert_eq!(paged["data"]["shown"], 1);
+        assert_eq!(paged["data"]["entries"][0]["index"], 1);
+        assert!(paged["limitations"][1]
+            .as_str()
+            .unwrap()
+            .contains("showing 1 of 2"));
+
+        let dst = root.join("dst");
+        let extracted = execute(
+            "ba2.extract",
+            json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(extracted["data"]["extracted"], 2);
+        assert_eq!(
+            fs::read(dst.join("scripts").join("alpha.pex")).unwrap(),
+            vec![7u8; 4000]
+        );
+        assert_eq!(
+            fs::read(dst.join("strings").join("mod_en.strings")).unwrap(),
+            b"hello"
+        );
+
+        // A second extraction refuses to overwrite unless asked.
+        let err = execute(
+            "ba2.extract",
+            json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert_eq!(err.kind(), "failed");
+        let again = execute(
+            "ba2.extract",
+            json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap(),
+                   "pattern": "strings", "overwrite": true}),
+        )
+        .unwrap();
+        assert_eq!(again["data"]["extracted"], 1);
+
+        let bad = execute(
+            "ba2.list",
+            json!({"archive": out.to_str().unwrap(), "filter": "("}),
+        )
+        .unwrap_err();
+        assert_eq!(bad.kind(), "invalid_args");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn dx10_pack_needs_textures_and_out_outside_dir() {
+        let root = temp_dir("dx10");
+        let src = root.join("src");
+        fs::create_dir_all(&src).unwrap();
+        fs::write(src.join("readme.txt"), b"x").unwrap();
+        let err = execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": root.join("t.ba2").to_str().unwrap(),
+                   "format": "dx10"}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("not a .dds"), "{err}");
+        let err = execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": src.join("self.ba2").to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("inside the directory"), "{err}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn game_data_is_refused() {
+        let root = temp_dir("data");
+        let data = root.join("Starfield").join("Data");
+        fs::create_dir_all(&data).unwrap();
+        fs::write(data.join("Starfield.esm"), b"TES4").unwrap();
+        for target in [
+            data.join("out"),
+            data.join("Scripts").join("x").join("..").join("y"),
+            data.clone(),
+        ] {
+            let err = refuse_game_data("ba2.extract", &target).unwrap_err();
+            assert!(err.to_string().contains("read-only"), "{err}");
+        }
+        refuse_game_data("ba2.extract", &root.join("elsewhere")).unwrap();
+        let archive = root.join("a.ba2");
+        fs::write(&archive, b"BTDX").unwrap();
+        let err = execute(
+            "ba2.extract",
+            json!({"archive": archive.to_str().unwrap(), "out_dir": data.join("x").to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("Starfield.esm"), "{err}");
+        let err = execute("ba2.list", json!({"archive": archive.to_str().unwrap()})).unwrap_err();
+        assert!(err.to_string().contains("truncated"), "{err}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+}
