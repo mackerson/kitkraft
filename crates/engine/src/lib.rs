@@ -20,6 +20,7 @@
 pub mod args;
 pub mod build;
 pub mod cmdline;
+mod deploy;
 pub mod edit;
 mod envelope;
 mod exec;
@@ -296,6 +297,36 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Merge string tables of one kind into one (later table wins; conflicts reported; deterministic)",
         args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"},"tolerant":{"type":"boolean","default":false,"description":"Also read tables padded past their header's data size; the padding is named in limitations and not written"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare table name resolves in the working directory, then here (out never does)"}},"required":["tables","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "deploy",
+        label: "Deploy to MO2 (Dev)...",
+        menu_path: "File/Deploy to MO2 (Dev)...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Development deployment (kit deploy --dev, ADR 0009): copy a plugin or package folder into the isolated MO2 mod `KitKraft Dev - <plugin>` (hashed manifest, staged folder swap, journal, previous kept for rollback); refuses the Default profile; never edits a profile or another mod",
+        args_schema: r#"{"type":"object","properties":{"source":{"type":"string","description":"A plugin (.esm/.esp/.esl) or a package folder (plugin at the root, loose files and .ba2 at their Data paths; kitcraft-manifest.json verified when present)"},"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); required on every call"},"dev":{"type":"boolean","enum":[true],"description":"Required, always true: development deployment is opt-in on every call"},"profile":{"type":"string","description":"The MO2 profile to check (never Default; KitKraft Dev): read-only diagnostics of whether the mod and plugin are enabled"},"dry_run":{"type":"boolean","default":false,"description":"Report the plan, refusals and every path that would be touched; write nothing"}},"required":["source","mo2","dev"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "deploy.rollback",
+        label: "Roll Back Dev Deployment",
+        menu_path: "File/Roll Back Dev Deployment",
+        shortcut: None,
+        aliases: &[],
+        summary: "Swap a dev mod's previous deployment (`KitKraft Dev - <plugin>.previous`) back in, keeping the replaced one as the new previous (ADR 0009); refuses the Default profile",
+        args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini)"},"mod":{"type":"string","description":"The dev mod: `KitKraft Dev - <plugin stem>` or the plugin stem"},"dev":{"type":"boolean","enum":[true],"description":"Required, always true"},"to":{"type":"string","description":"The deployment id expected in .previous; refused if it holds another"},"profile":{"type":"string","description":"The MO2 profile to check (never Default): read-only diagnostics"},"dry_run":{"type":"boolean","default":false,"description":"Report the plan and every path that would be touched; write nothing"}},"required":["mo2","mod","dev"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "deploy.status",
+        label: "Dev Deployment Status",
+        menu_path: "File/Dev Deployment Status",
+        shortcut: None,
+        aliases: &[],
+        summary: "Read-only: the KitKraft dev mods in an MO2 instance, their manifests, hand edits, previous deployments, interrupted operations, and whether each is enabled in a profile",
+        args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini)"},"mod":{"type":"string","description":"Only this dev mod (`KitKraft Dev - <plugin stem>` or the stem)"},"profile":{"type":"string","description":"Profile whose enabled state is read (default: MO2's active profile)"}},"required":["mo2"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
 ];

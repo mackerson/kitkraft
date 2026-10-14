@@ -10,6 +10,7 @@ mod build;
 mod build_tests;
 mod conflicts;
 mod coverage;
+mod deploy;
 mod diff;
 mod inspect;
 mod load;
@@ -60,6 +61,9 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("schema", Box::new(schema::run)),
         ("ba2.pack", Box::new(ba2::pack)),
         ("papyrus.compile", Box::new(papyrus::compile::run)),
+        ("deploy", Box::new(deploy::run)),
+        ("deploy.rollback", Box::new(deploy::rollback)),
+        ("deploy.status", Box::new(deploy::status)),
     ]
 }
 

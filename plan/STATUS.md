@@ -719,6 +719,23 @@ is under "Next".
   files in both orders (the 12 official-pipeline files whole and byte-identical;
   BlueprintShips-Starfield 65 and BlueprintShips-SFBGS050 4 listed normalizations),
   roundtrip 14/14, typed check 0 conflicts; parity unchanged.
+- **M4.E11 `deploy --dev` (lane E, ADR 0009, 2026-10-14).** Commands `deploy` (CLI
+  `kit deploy --dev <source> <mo2>`), `deploy.rollback`, `deploy.status` in
+  `crates/engine/src/deploy/` and `handlers/deploy.rs`; `docs/deploy.md` has the shapes,
+  layout, algorithm, refusal rules and a read-only `--dry-run` against the owner's
+  instance (refused: MO2's active profile is `Default`; nothing written). A plugin or
+  package folder goes into `<mods>\KitKraft Dev - <stem>\` only: `kitkraft-deploy.json`
+  (marker, SHA-256 and source of every file, time, previous id), staged in
+  `<target>.staging`, swapped in by folder renames, the replaced one kept as
+  `<target>.previous` for rollback, a journal beside them recovered on the next call;
+  refuses `Default` (active or `--profile`), a same-named folder without the marker, hand
+  edits, links/junctions; never enables the mod (the report lists the MO2 steps). Tests on
+  a synthetic MO2 instance (14): first deploy, redeploy, rollback and its undo, Default
+  refusal, collisions, interrupted deploy at four points and interrupted rollback
+  recovered, hand edits, a junction, package-manifest verification, profile files,
+  `ModOrganizer.ini`, an unrelated mod, `overwrite\` and `downloads\` byte-identical.
+  Differences from ADR 0009's text (per the owner's brief) are listed in
+  `docs/deploy.md`; the ADR is on an unmerged branch and needs an amendment.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -953,6 +970,20 @@ Agents append here when they need a change in a crate they do not own.
   inspection commands and a catalog marking of writing commands, as the gate for lane W.
 - **Policy -> all lanes (naming).** Write KitKraft in prose; do not rename `kitcraft`
   identifiers: the rename is the last integration step (Decision records).
+- **Lane E (M4.E11) -> lane D.** `deploy` resolves the MO2 instance itself
+  (`crates/engine/src/deploy/instance.rs`: `ModOrganizer.ini` `mod_directory`,
+  `profiles_directory`, `overwrite_directory`, `download_directory`, `base_directory`,
+  `selected_profile`; links and junctions refused) with `kitcraft_io::ini::Ini` and
+  `Profile`. ADR 0009 wants a read-only instance type in `crates/io`; when it exists,
+  `Instance::resolve` should call it (the settings logic duplicates part of
+  `Profile::read_with`).
+- **Lane E (M4.E11) -> plan maintainer / integrator.** ADR 0009 (unmerged branch) needs an
+  amendment for the brief's layout: `.previous` folder in `mods\` instead of external
+  backups (one kept), journal beside the folders, `dry_run` instead of `plan`,
+  `kitkraft-deploy.json` (`docs/deploy.md`, "Where this differs"). `docs/mcp.md` could
+  link `docs/deploy.md` under "Command results". When M4.E5 `package` lands, check its
+  `kitcraft-manifest.json` against what `deploy` verifies (`files[]` of
+  `{path, sha256, size}`, optional `plugins[]`).
 
 - **Lane A -> lane B (answer to the RawSub/XXXX request; re-checked after lane B round 2).**
   `esm::bridge` re-exports the generated `RawSub`/`OwnedSub`/`Ctx` (checked against `main`
