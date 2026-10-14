@@ -100,8 +100,9 @@ A folder of the target name is written only when this file is present and its `k
 3. Recover a journal left by an interrupted call (below).
 4. Check the slots: the live folder and `.previous` must be absent or KitKraft's; the live
    folder must match its manifest (a file edited by hand, missing, or not listed is
-   reported and the deploy refused before any write). If the files are identical to the
-   live deployment, stop: nothing is written.
+   reported and the deploy refused before any write). `.previous`, which a redeploy
+   drops, must match its manifest too (`previous-modified`; MO2's `meta.ini` allowed).
+   If the files are identical to the live deployment, stop: nothing is written.
 5. Write the journal, create `.staging`, copy every file (hashing on the way, then reading
    the copy back and checking its SHA-256), carry `meta.ini` over, write the manifest.
 6. Swap by renaming folders, all inside `mods\` (one volume): `.previous` -> `.retired`,
@@ -119,6 +120,8 @@ The journal records the operation and the deployment ids live before and after. 
 found at the start of `deploy` or `rollback` is recovered before anything else:
 
 - the new deployment is live (committed): finish the cleanup (`.retired`, `.staging`);
+  `.retired` is removed only when it still matches its manifest (else `previous-modified`
+  and the journal stays);
 - otherwise: remove `.staging` (deploy), put the old live folder back from `.previous`
   (deploy) or `.staging` (rollback), and `.retired` back to `.previous`.
 
@@ -144,7 +147,7 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `package-manifest`    | A file differs from `kitcraft-manifest.json`, is not listed, or a listed file is missing |
 | `target-collision`    | The target, `.previous`, `.staging` or `.retired` exists and is not this dev mod's |
 | `target-modified`     | The live folder differs from its manifest (modified, missing or unmanaged files) |
-| `previous-modified`   | `rollback`: `.previous` differs from its manifest                    |
+| `previous-modified`   | `.previous` (or `.retired`) differs from its manifest (MO2's `meta.ini` allowed) and the call would restore or drop it: `rollback`, a redeploy that replaces the rollback copy, or a journal recovery that removes `.retired` |
 | `nothing-to-roll-back`| No live deployment, or no `.previous`                                |
 | `rollback-target`     | `to` is not the id `.previous` holds                                 |
 | `source-changed` / `copy-verify` | A file changed while being copied, or the copy's hash differs |

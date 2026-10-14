@@ -165,6 +165,36 @@ fn collision(path: &Path, why: &str) -> DeployError {
     )
 }
 
+fn previous_modified(path: &Path, i: &Integrity) -> DeployError {
+    refused(
+        "previous-modified",
+        path,
+        format!(
+            "differs from its {MANIFEST} ({}); it holds an earlier deployment that this call would drop. Move the changes out (or delete the folder by hand if nothing in it is needed), then run again",
+            i.describe()
+        ),
+    )
+}
+
+/// Refuses to drop a folder holding an earlier deployment (`.previous`, or `.retired`
+/// while a deployment commits) unless it still matches its manifest (MO2's `meta.ini`
+/// allowed): a file edited or added by hand there is never deleted.
+fn check_droppable(path: &Path, s: &State) -> Result<(), DeployError> {
+    match s {
+        State::Absent => Ok(()),
+        State::Ours(m) => {
+            let i = check(path, m)?;
+            if i.clean() {
+                Ok(())
+            } else {
+                Err(previous_modified(path, &i))
+            }
+        }
+        State::Bare => Err(collision(path, &format!("no {MANIFEST}"))),
+        State::Foreign(why) => Err(collision(path, why)),
+    }
+}
+
 fn remove_dir(path: &Path, touched: &mut Vec<Touched>) -> Result<(), DeployError> {
     // Refuses links anywhere inside before removing anything.
     files_under(path)?;
@@ -236,6 +266,7 @@ fn recover(slots: &Slots, touched: &mut Vec<Touched>) -> Result<Option<Value>, D
         "deploy" => {
             if committed {
                 if retired.exists() {
+                    check_droppable(&slots.retired, &retired)?;
                     remove_dir(&slots.retired, touched)?;
                 }
                 if staging.exists() {
@@ -520,6 +551,14 @@ fn stale(slots: &Slots, refusals: &mut Vec<DeployError>) -> Result<Vec<PathBuf>,
     for path in [&slots.staging, &slots.retired] {
         match state(path, &slots.name)? {
             State::Absent => {}
+            State::Ours(m) if path == &slots.retired => {
+                let i = check(path, &m)?;
+                if i.clean() {
+                    out.push(path.clone());
+                } else {
+                    refusals.push(previous_modified(path, &i));
+                }
+            }
             State::Ours(_) => out.push(path.clone()),
             State::Bare => refusals.push(collision(path, &format!("no {MANIFEST}"))),
             State::Foreign(why) => refusals.push(collision(path, &why)),
@@ -621,6 +660,17 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
     let diff = Diff::new(&source.files, old.as_ref());
     let target_exists = target.exists();
     let retire = target_exists && previous.exists();
+    let unchanged = old.is_some() && !diff.changed();
+    // The rollback copy is dropped by this deployment: only when it is as recorded.
+    let previous_integrity = match &previous {
+        State::Ours(m) => Some(check(&slots.previous, m)?),
+        _ => None,
+    };
+    if let Some(i) = &previous_integrity {
+        if retire && !unchanged && !i.clean() {
+            refusals.push(previous_modified(&slots.previous, i));
+        }
+    }
     let unix = now_unix();
     let previous_id = old
         .as_ref()
@@ -635,7 +685,6 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
             ));
         }
     }
-    let unchanged = old.is_some() && !diff.changed();
     let mut data = json!({
         "mod": name,
         "plugin": source.plugin,
@@ -652,6 +701,7 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         "previous_deployment_id": previous_id,
         "files": diff.json(),
         "live_integrity": integrity.as_ref().map(Integrity::json),
+        "previous_integrity": previous_integrity.as_ref().map(Integrity::json),
         "carried_over": if meta_ini { vec![MO2_META] } else { Vec::new() },
         "recovered": recovered,
         "pending_journal": if req.dry_run { pending.as_ref().map(|j| json!({"path": slots.journal.display().to_string(), "operation": j.operation, "started_at": j.started_at})) } else { None },

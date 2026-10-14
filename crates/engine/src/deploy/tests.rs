@@ -687,6 +687,66 @@ fn interrupted_deploys_are_recovered_from_the_journal() {
     }
 }
 
+/// Fable review (deploy round), finding 3: a redeploy drops `.previous`; it used to do so
+/// without checking it. A hand edit there refuses the deploy (`previous-modified`), in
+/// the deploy itself and when a journal's recovery would drop `.retired`; MO2's
+/// `meta.ini` is allowed.
+#[test]
+fn edited_rollback_copy_is_never_dropped() {
+    let mo2 = Mo2::new("prevmod");
+    let (_, id2) = two_deployments(&mo2);
+    let prev = mo2.slot(".previous");
+    fs::write(prev.join("MyMod.esm"), b"edited in the rollback copy").unwrap();
+    let v3 = mo2.plugin(b"TES4 v3");
+    let e = err_text(mo2.deploy(&v3));
+    assert!(
+        e.contains("[previous-modified]") && e.contains("MyMod.esm"),
+        "{e}"
+    );
+    assert_eq!(
+        fs::read(prev.join("MyMod.esm")).unwrap(),
+        b"edited in the rollback copy"
+    );
+    assert_eq!(mo2.id(&mo2.target()), id2);
+    // An unmanaged file there refuses too.
+    fs::write(prev.join("MyMod.esm"), b"TES4 v1").unwrap();
+    fs::write(prev.join("notes.txt"), b"mine").unwrap();
+    assert!(err_text(mo2.deploy(&v3)).contains("unmanaged: notes.txt"));
+    fs::remove_file(prev.join("notes.txt")).unwrap();
+    // MO2's meta.ini is allowed (MO2 lists `.previous` as a mod and writes one).
+    fs::write(prev.join("meta.ini"), b"[General]\r\n").unwrap();
+    let r = mo2.deploy(&v3).unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+    assert_eq!(mo2.id(&mo2.slot(".previous")), id2);
+
+    // Recovery: a deploy interrupted after its commit leaves `.retired` (the old
+    // `.previous`) for the next call to drop; edited meanwhile, it is kept and refused.
+    let e = deploy_with(
+        &mo2,
+        &mo2.plugin(b"TES4 v4"),
+        Hooks {
+            interrupt_after: Some(Step::Committed),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(e.rule, "interrupted");
+    let retired = mo2.slot(".retired");
+    assert!(retired.is_dir());
+    fs::write(retired.join("MyMod.esm"), b"edited while retired").unwrap();
+    let e = err_text(mo2.deploy(&mo2.plugin(b"TES4 v4")));
+    assert!(e.contains("[previous-modified]"), "{e}");
+    assert_eq!(
+        fs::read(retired.join("MyMod.esm")).unwrap(),
+        b"edited while retired"
+    );
+    assert!(mo2.slot(".kitkraft-journal.json").is_file());
+    // Put back as recorded, the next call finishes the cleanup.
+    fs::write(retired.join("MyMod.esm"), b"TES4 v2").unwrap();
+    let r = mo2.deploy(&mo2.plugin(b"TES4 v4")).unwrap();
+    assert_eq!(r["data"]["recovered"]["outcome"], "completed", "{r}");
+    assert!(!retired.exists());
+}
+
 #[test]
 fn interrupted_rollback_is_recovered_and_failures_roll_back() {
     let mo2 = Mo2::new("interrupt-rollback");
