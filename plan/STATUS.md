@@ -418,6 +418,13 @@ is under "Next".
     winning WEAP, 40 classes, 0.8 s warm (release); `kit build <scaffold> --plan`: 0
     changes, every class's count equal to the scaffold's (4.5 s). Today the only typed
     numeric WEAP member is `KSIZ`; the weapon stats appear when lane B types WEAP (M3.B1).
+  - M3.E8 design brief template `docs/overhaul/brief.md` (source, critique points with
+    owner's-words claim, timestamp, classes, desired change, measurable target; out of
+    scope; in-game checklist; the traceability rule `brief = "B<n>"`). Next for the owner:
+    **M3.O4** (pick the critique, fill the brief), which gates M3.E9.
+  - Not started, gated: M3.E1/E2 on lane D's M3.D1 (`missing_active_plugins`,
+    `Resolved.bytes`, not on main); M3.E4 on M3.B8; M3.E5 on M3.A3 (and M3.H3/M3.O1);
+    M3.E9 on M3.O4 (owner); M3.E10 on M3.B1 (typed WEAP).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
