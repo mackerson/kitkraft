@@ -462,15 +462,15 @@ fn rec(sig: &[u8; 4], form_id: u32, subs: Vec<Subrecord<'static>>) -> Record<'st
     )
 }
 
-/// Fable review round 2, finding 2a: lstrings the schema does not type. ACTI has no
+/// Fable review round 2, finding 2a: lstrings the schema does not type. FLOR has no
 /// definition: FULL is inlined by the fallback, ATTX by the corpus table. WEAP has no ATTX
 /// in the corpus: a non-zero 4-byte ATTX from a localized source is refused, naming it,
 /// unless `allow_untyped_lstrings`; a zero one is harmless and copied.
 #[test]
 fn untyped_lstrings_of_localized_sources() {
     let d = dir("untyped");
-    let acti = rec(
-        b"ACTI",
+    let flor = rec(
+        b"FLOR",
         0x0000_0802,
         vec![
             sub(b"EDID", b"Panel\0"),
@@ -490,7 +490,7 @@ fn untyped_lstrings_of_localized_sources() {
         "Source.esm",
         &[],
         FLAG_MASTER | FLAG_LOCALIZED,
-        vec![rifle, zero, acti],
+        vec![rifle, zero, flor],
     );
     let plugins = index_plugins(&[src]).unwrap();
     let lookup = strings();
@@ -512,7 +512,7 @@ fn untyped_lstrings_of_localized_sources() {
     assert!(report
         .limitations
         .iter()
-        .any(|l| l.contains("ACTI.ATTX treated as an lstring by the corpus lstring table")));
+        .any(|l| l.contains("FLOR.ATTX treated as an lstring by the corpus lstring table")));
     let bytes = std::fs::read(&target).unwrap();
     let plugin = Plugin::parse(&bytes).unwrap();
     let attx: Vec<&[u8]> = first_record(&plugin, 0)

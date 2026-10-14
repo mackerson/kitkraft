@@ -1513,8 +1513,8 @@ mod tests {
         // EDID is described by the WEAP definition.
         assert!(layout_at(*b"WEAP", &[*b"EDID"], 0).is_some());
         // Lstrings the schema does not type come from the corpus table (finding 2b):
-        // ACTI ATTX and WEAP WABB are lstrings; WEAP has no ATTX in the corpus.
-        for (record, sub) in [(*b"ACTI", *b"ATTX"), (*b"WEAP", *b"WABB")] {
+        // FLOR ATTX and WEAP WABB are lstrings; WEAP has no ATTX in the corpus.
+        for (record, sub) in [(*b"FLOR", *b"ATTX"), (*b"WEAP", *b"WABB")] {
             let layout = at(record, sub).unwrap();
             assert_eq!(layout.ty, FieldType::LString);
             assert!(layout.fallback.unwrap().contains("corpus lstring table"));
