@@ -6,6 +6,8 @@
 // - common ObjectBounds (xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365; corpus)
 // - common ObjectPaletteDefaults (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962; corpus)
 // - common ObteBlock (corpus: OBTE..STOP blocks in the WEAP records of the official ESMs; corpus)
+// - common ResourceBiomeTier (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8402-L8432; corpus)
+// - common ResourceCellTier (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8434-L8448; corpus)
 // - common Transforms (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978; corpus)
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
@@ -22,6 +24,7 @@
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
+// - RSGD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - TRAV (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379; corpus)
@@ -1687,6 +1690,118 @@ impl Visit for ObteBlock {
         visit_lstrings_mut(&mut self.obts_entry, "ObteBlock.ObtsEntry", out);
     }
 }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceBiomeTier {
+    pub vein_nodes_min: f32,
+    pub vein_nodes_max: f32,
+    pub node_size_min: f32,
+    pub node_size_max: f32,
+    pub value5: f32,
+    pub value6: f32,
+    pub max_offset: f32,
+    pub chance: f32,
+    pub value9: f32,
+    pub value10: f32,
+}
+
+impl Field for ResourceBiomeTier {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "ResourceBiomeTier.VeinNodesMin", ctx)?;
+        let f1 = f32::read(r, "ResourceBiomeTier.VeinNodesMax", ctx)?;
+        let f2 = f32::read(r, "ResourceBiomeTier.NodeSizeMin", ctx)?;
+        let f3 = f32::read(r, "ResourceBiomeTier.NodeSizeMax", ctx)?;
+        let f4 = f32::read(r, "ResourceBiomeTier.Value5", ctx)?;
+        let f5 = f32::read(r, "ResourceBiomeTier.Value6", ctx)?;
+        let f6 = f32::read(r, "ResourceBiomeTier.MaxOffset", ctx)?;
+        let f7 = f32::read(r, "ResourceBiomeTier.Chance", ctx)?;
+        let f8 = f32::read(r, "ResourceBiomeTier.Value9", ctx)?;
+        let f9 = f32::read(r, "ResourceBiomeTier.Value10", ctx)?;
+        Ok(Self {
+            vein_nodes_min: f0,
+            vein_nodes_max: f1,
+            node_size_min: f2,
+            node_size_max: f3,
+            value5: f4,
+            value6: f5,
+            max_offset: f6,
+            chance: f7,
+            value9: f8,
+            value10: f9,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.vein_nodes_min.write(out);
+        self.vein_nodes_max.write(out);
+        self.node_size_min.write(out);
+        self.node_size_max.write(out);
+        self.value5.write(out);
+        self.value6.write(out);
+        self.max_offset.write(out);
+        self.chance.write(out);
+        self.value9.write(out);
+        self.value10.write(out);
+    }
+}
+
+impl Visit for ResourceBiomeTier {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResourceCellTier {
+    pub vein_nodes_min: f32,
+    pub vein_nodes_max: f32,
+    pub node_size_min: f32,
+    pub node_size_max: f32,
+    pub segment_length_min: f32,
+    pub segment_length_max: f32,
+    pub max_angle_offset: f32,
+    pub chance_to_appear: f32,
+    pub surface_item_chance_none: f32,
+    pub blobbiness: f32,
+}
+
+impl Field for ResourceCellTier {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "ResourceCellTier.VeinNodesMin", ctx)?;
+        let f1 = f32::read(r, "ResourceCellTier.VeinNodesMax", ctx)?;
+        let f2 = f32::read(r, "ResourceCellTier.NodeSizeMin", ctx)?;
+        let f3 = f32::read(r, "ResourceCellTier.NodeSizeMax", ctx)?;
+        let f4 = f32::read(r, "ResourceCellTier.SegmentLengthMin", ctx)?;
+        let f5 = f32::read(r, "ResourceCellTier.SegmentLengthMax", ctx)?;
+        let f6 = f32::read(r, "ResourceCellTier.MaxAngleOffset", ctx)?;
+        let f7 = f32::read(r, "ResourceCellTier.ChanceToAppear", ctx)?;
+        let f8 = f32::read(r, "ResourceCellTier.SurfaceItemChanceNone", ctx)?;
+        let f9 = f32::read(r, "ResourceCellTier.Blobbiness", ctx)?;
+        Ok(Self {
+            vein_nodes_min: f0,
+            vein_nodes_max: f1,
+            node_size_min: f2,
+            node_size_max: f3,
+            segment_length_min: f4,
+            segment_length_max: f5,
+            max_angle_offset: f6,
+            chance_to_appear: f7,
+            surface_item_chance_none: f8,
+            blobbiness: f9,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.vein_nodes_min.write(out);
+        self.vein_nodes_max.write(out);
+        self.node_size_min.write(out);
+        self.node_size_max.write(out);
+        self.segment_length_min.write(out);
+        self.segment_length_max.write(out);
+        self.max_angle_offset.write(out);
+        self.chance_to_appear.write(out);
+        self.surface_item_chance_none.write(out);
+        self.blobbiness.write(out);
+    }
+}
+
+impl Visit for ResourceCellTier {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Transforms {
@@ -6024,6 +6139,284 @@ impl PkinRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct RsgdResourceGeneration {
+    pub biome_common: ResourceBiomeTier,
+    pub biome_uncommon: ResourceBiomeTier,
+    pub biome_rare: ResourceBiomeTier,
+    pub biome_exotic: ResourceBiomeTier,
+    pub biome_unique: ResourceBiomeTier,
+    pub biome_special: ResourceBiomeTier,
+    pub biome_everywhere: ResourceBiomeTier,
+    pub cell_common: ResourceCellTier,
+    pub cell_uncommon: ResourceCellTier,
+    pub cell_rare: ResourceCellTier,
+    pub cell_exotic: ResourceCellTier,
+    pub cell_unique: ResourceCellTier,
+    pub cell_special: ResourceCellTier,
+    pub cell_everywhere: ResourceCellTier,
+}
+
+impl Field for RsgdResourceGeneration {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "RSGD.Resource.DNAM.BiomeCommon", ctx)?;
+        let f1 = Field::read(r, "RSGD.Resource.DNAM.BiomeUncommon", ctx)?;
+        let f2 = Field::read(r, "RSGD.Resource.DNAM.BiomeRare", ctx)?;
+        let f3 = Field::read(r, "RSGD.Resource.DNAM.BiomeExotic", ctx)?;
+        let f4 = Field::read(r, "RSGD.Resource.DNAM.BiomeUnique", ctx)?;
+        let f5 = Field::read(r, "RSGD.Resource.DNAM.BiomeSpecial", ctx)?;
+        let f6 = Field::read(r, "RSGD.Resource.DNAM.BiomeEverywhere", ctx)?;
+        let f7 = Field::read(r, "RSGD.Resource.DNAM.CellCommon", ctx)?;
+        let f8 = Field::read(r, "RSGD.Resource.DNAM.CellUncommon", ctx)?;
+        let f9 = Field::read(r, "RSGD.Resource.DNAM.CellRare", ctx)?;
+        let f10 = Field::read(r, "RSGD.Resource.DNAM.CellExotic", ctx)?;
+        let f11 = Field::read(r, "RSGD.Resource.DNAM.CellUnique", ctx)?;
+        let f12 = Field::read(r, "RSGD.Resource.DNAM.CellSpecial", ctx)?;
+        let f13 = Field::read(r, "RSGD.Resource.DNAM.CellEverywhere", ctx)?;
+        Ok(Self {
+            biome_common: f0,
+            biome_uncommon: f1,
+            biome_rare: f2,
+            biome_exotic: f3,
+            biome_unique: f4,
+            biome_special: f5,
+            biome_everywhere: f6,
+            cell_common: f7,
+            cell_uncommon: f8,
+            cell_rare: f9,
+            cell_exotic: f10,
+            cell_unique: f11,
+            cell_special: f12,
+            cell_everywhere: f13,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.biome_common.write(out);
+        self.biome_uncommon.write(out);
+        self.biome_rare.write(out);
+        self.biome_exotic.write(out);
+        self.biome_unique.write(out);
+        self.biome_special.write(out);
+        self.biome_everywhere.write(out);
+        self.cell_common.write(out);
+        self.cell_uncommon.write(out);
+        self.cell_rare.write(out);
+        self.cell_exotic.write(out);
+        self.cell_unique.write(out);
+        self.cell_special.write(out);
+        self.cell_everywhere.write(out);
+    }
+}
+
+impl Visit for RsgdResourceGeneration {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RsgdResource {
+    /// `RNAM`, required.
+    pub resource: Option<Sub<FormId>>,
+    /// `DNAM`, required.
+    pub generation: Option<Sub<RsgdResourceGeneration>>,
+}
+
+impl RsgdResource {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"RNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.resource,
+                    subs,
+                    *index,
+                    "RSGD.Resource.RNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.generation,
+                    subs,
+                    *index,
+                    "RSGD.Resource.DNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"RNAM", self.resource.as_ref());
+        emit(out, *b"DNAM", self.generation.as_ref());
+    }
+}
+
+impl Visit for RsgdResource {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.resource, "RSGD.Resource.RNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.resource, "RSGD.Resource.RNAM", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RsgdRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// Group `Resource`, repeated.
+    pub resource: Vec<RsgdResource>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl RsgdRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: RsgdResource::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "RSGD.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = RsgdResource::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.resource.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        for group in &self.resource {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for RsgdRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.resource, "RSGD.Resource", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.resource, "RSGD.Resource", out);
+    }
+}
+
+impl RsgdRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"RSGD";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("RSGD", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("RSGD", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("RSGD", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("RSGD", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct SunpRecord {
     /// `EDID`, required.
@@ -7444,6 +7837,7 @@ pub enum Record {
     Pccn(Box<PccnRecord>),
     Pcmt(Box<PcmtRecord>),
     Pkin(Box<PkinRecord>),
+    Rsgd(Box<RsgdRecord>),
     Sunp(Box<SunpRecord>),
     Tes4(Box<Tes4Record>),
     Trav(Box<TravRecord>),
@@ -7466,6 +7860,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PCCN", PccnRecord::MEMBERS),
     (*b"PCMT", PcmtRecord::MEMBERS),
     (*b"PKIN", PkinRecord::MEMBERS),
+    (*b"RSGD", RsgdRecord::MEMBERS),
     (*b"SUNP", SunpRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"TRAV", TravRecord::MEMBERS),
@@ -7491,6 +7886,7 @@ impl Record {
             b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
+            b"RSGD" => Self::Rsgd(Box::new(RsgdRecord::decode(subs, ctx))),
             b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"TRAV" => Self::Trav(Box::new(TravRecord::decode(subs, ctx))),
@@ -7516,6 +7912,7 @@ impl Record {
             Self::Pccn(record) => record.encode(),
             Self::Pcmt(record) => record.encode(),
             Self::Pkin(record) => record.encode(),
+            Self::Rsgd(record) => record.encode(),
             Self::Sunp(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Trav(record) => record.encode(),
@@ -7540,6 +7937,7 @@ impl Record {
             Self::Pccn(_) => PccnRecord::SIGNATURE,
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
             Self::Pkin(_) => PkinRecord::SIGNATURE,
+            Self::Rsgd(_) => RsgdRecord::SIGNATURE,
             Self::Sunp(_) => SunpRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Trav(_) => TravRecord::SIGNATURE,
@@ -7564,6 +7962,7 @@ impl Record {
             Self::Pccn(record) => record.form_ids(),
             Self::Pcmt(record) => record.form_ids(),
             Self::Pkin(record) => record.form_ids(),
+            Self::Rsgd(record) => record.form_ids(),
             Self::Sunp(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Trav(record) => record.form_ids(),
@@ -7588,6 +7987,7 @@ impl Record {
             Self::Pccn(record) => record.form_ids_mut(),
             Self::Pcmt(record) => record.form_ids_mut(),
             Self::Pkin(record) => record.form_ids_mut(),
+            Self::Rsgd(record) => record.form_ids_mut(),
             Self::Sunp(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Trav(record) => record.form_ids_mut(),
@@ -7612,6 +8012,7 @@ impl Record {
             Self::Pccn(record) => record.lstrings(),
             Self::Pcmt(record) => record.lstrings(),
             Self::Pkin(record) => record.lstrings(),
+            Self::Rsgd(record) => record.lstrings(),
             Self::Sunp(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Trav(record) => record.lstrings(),
@@ -7636,6 +8037,7 @@ impl Record {
             Self::Pccn(record) => record.lstrings_mut(),
             Self::Pcmt(record) => record.lstrings_mut(),
             Self::Pkin(record) => record.lstrings_mut(),
+            Self::Rsgd(record) => record.lstrings_mut(),
             Self::Sunp(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Trav(record) => record.lstrings_mut(),
@@ -7661,6 +8063,7 @@ impl Record {
             Self::Pccn(record) => &record.extra,
             Self::Pcmt(record) => &record.extra,
             Self::Pkin(record) => &record.extra,
+            Self::Rsgd(record) => &record.extra,
             Self::Sunp(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Trav(record) => &record.extra,

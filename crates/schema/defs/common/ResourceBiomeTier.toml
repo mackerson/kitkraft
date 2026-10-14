@@ -1,0 +1,31 @@
+# ResourceBiomeTier: one rarity tier of the biome half of a resource generation entry (RSGD
+# DNAM): ten floats describing resource veins on the planet surface.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L8402-L8432 - ten 32-bit floats per tier. The
+#     common tier and the other tiers share the layout; upstream names fields 7 and 8 an
+#     angle offset and a chance to appear for the common tier, a node offset and a chance per
+#     node for the others. Fields 5, 6, 9 and 10 are unnamed upstream and keep positional
+#     names here.
+#   corpus: RSGD DNAM in Starfield.esm (2026-10-14): all 68 payloads are 560 bytes, 14 tiers
+#     of 40 bytes.
+name = "ResourceBiomeTier"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8402-L8432"
+evidence = [
+  "corpus: RSGD DNAM in the 14 official ESMs (Starfield.esm only), 2026-10-14 scan: all 68 payloads are 560 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "VeinNodesMin", type = "f32" },
+  { name = "VeinNodesMax", type = "f32" },
+  { name = "NodeSizeMin", type = "f32" },
+  { name = "NodeSizeMax", type = "f32" },
+  { name = "Value5", type = "f32" },
+  { name = "Value6", type = "f32" },
+  { name = "MaxOffset", type = "f32", note = "an angle offset in the common tier, a node offset in the others" },
+  { name = "Chance", type = "f32", note = "chance to appear in the common tier, chance per node in the others" },
+  { name = "Value9", type = "f32" },
+  { name = "Value10", type = "f32" },
+]

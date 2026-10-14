@@ -61,6 +61,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("PCMT.toml", include_str!("../defs/PCMT.toml")),
     ("PKIN.toml", include_str!("../defs/PKIN.toml")),
     ("RECORD.toml", include_str!("../defs/RECORD.toml")),
+    ("RSGD.toml", include_str!("../defs/RSGD.toml")),
     ("SUNP.toml", include_str!("../defs/SUNP.toml")),
     ("TES4.toml", include_str!("../defs/TES4.toml")),
     ("TRAV.toml", include_str!("../defs/TRAV.toml")),
@@ -89,6 +90,14 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     (
         "common/ObteBlock.toml",
         include_str!("../defs/common/ObteBlock.toml"),
+    ),
+    (
+        "common/ResourceBiomeTier.toml",
+        include_str!("../defs/common/ResourceBiomeTier.toml"),
+    ),
+    (
+        "common/ResourceCellTier.toml",
+        include_str!("../defs/common/ResourceCellTier.toml"),
     ),
     (
         "common/Transforms.toml",
