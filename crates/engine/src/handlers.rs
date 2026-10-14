@@ -10,6 +10,7 @@ mod build;
 mod build_tests;
 mod conflicts;
 mod coverage;
+mod deploy;
 mod diff;
 mod inspect;
 mod load;
@@ -64,6 +65,9 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("strings.merge", Box::new(strings::merge)),
         ("papyrus.disasm", Box::new(papyrus::disasm)),
         ("papyrus.compile", Box::new(papyrus::compile::run)),
+        ("deploy", Box::new(deploy::run)),
+        ("deploy.rollback", Box::new(deploy::rollback)),
+        ("deploy.status", Box::new(deploy::status)),
     ]
 }
 
