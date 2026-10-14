@@ -415,6 +415,18 @@ pub struct Conflict {
     pub winner: usize,
 }
 
+/// An ID repeated inside one input table. Not a conflict between inputs: within a table
+/// the first occurrence wins, as [`Table::get`] does, and the repeat is dropped.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Duplicate {
+    /// String ID.
+    pub id: u32,
+    /// Index (into the merge inputs) of the table that repeats it.
+    pub table: usize,
+    /// Whether the dropped repeat has the same bytes as the first occurrence.
+    pub same_bytes: bool,
+}
+
 /// What [`merge`] produced.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Merged {
@@ -422,12 +434,16 @@ pub struct Merged {
     pub table: Table,
     /// IDs defined differently by two inputs, in ID order (one per replacement).
     pub conflicts: Vec<Conflict>,
+    /// IDs repeated inside one input, in input then directory order (one per repeat).
+    pub duplicates: Vec<Duplicate>,
     /// IDs defined again by a later input with the same bytes.
     pub identical_repeats: u64,
 }
 
-/// Merges tables of one kind: a later table wins for an ID; the result is sorted by ID,
-/// so it is the same for the same inputs.
+/// Merges tables of one kind: a later table wins for an ID; within one table the first
+/// occurrence of an ID wins (reported in [`Merged::duplicates`], apart from the
+/// cross-table [`Merged::conflicts`]). The result is sorted by ID, so it is the same for
+/// the same inputs.
 pub fn merge(tables: &[Table]) -> Result<Merged, Error> {
     let kind = match tables.first() {
         Some(t) => t.kind,
@@ -435,6 +451,7 @@ pub fn merge(tables: &[Table]) -> Result<Merged, Error> {
     };
     let mut map: std::collections::BTreeMap<u32, (usize, &Entry)> = Default::default();
     let mut conflicts = Vec::new();
+    let mut duplicates = Vec::new();
     let mut identical_repeats = 0u64;
     for (i, table) in tables.iter().enumerate() {
         if table.kind != kind {
@@ -443,7 +460,17 @@ pub fn merge(tables: &[Table]) -> Result<Merged, Error> {
                 b: table.kind,
             });
         }
+        let mut first: HashMap<u32, &Entry> = HashMap::with_capacity(table.entries.len());
         for e in &table.entries {
+            if let Some(kept) = first.get(&e.id) {
+                duplicates.push(Duplicate {
+                    id: e.id,
+                    table: i,
+                    same_bytes: kept.bytes == e.bytes,
+                });
+                continue;
+            }
+            first.insert(e.id, e);
             if let Some((prev, old)) = map.insert(e.id, (i, e)) {
                 if old.bytes == e.bytes {
                     identical_repeats = identical_repeats.saturating_add(1);
@@ -465,6 +492,7 @@ pub fn merge(tables: &[Table]) -> Result<Merged, Error> {
     Ok(Merged {
         table: Table::new(kind, entries),
         conflicts,
+        duplicates,
         identical_repeats,
     })
 }

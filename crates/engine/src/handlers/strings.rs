@@ -12,6 +12,7 @@ use kitcraft_strings::{merge as merge_tables, Entry, Kind, Table};
 use serde_json::{json, Value};
 
 use super::ba2::refuse_game_data;
+use super::papyrus::read_capped;
 use super::{failed, file_name, str_arg};
 use crate::args::Violation;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
@@ -19,6 +20,9 @@ use crate::exec::EngineError;
 
 /// Most conflicts named in a merge result (all are counted).
 const CONFLICTS_SHOWN: usize = 100;
+/// Largest table read (256 MiB; the largest official table is far smaller). Checked against
+/// the loose file's length or the archive record's declared size before anything is read.
+const MAX_TABLE_BYTES: u64 = 256 << 20;
 
 /// A loaded table and where it came from.
 struct Loaded {
@@ -37,7 +41,8 @@ fn load(command: &str, table: &str, archive: Option<&str>) -> Result<Loaded, Eng
         )
     })?;
     let bytes = match archive {
-        None => fs::read(table).map_err(|e| failed(command, format!("reading `{table}`: {e}")))?,
+        None => read_capped(Path::new(table), MAX_TABLE_BYTES)
+            .map_err(|e| failed(command, format!("reading `{table}`: {e}")))?,
         Some(a) => {
             let (archive_data, mut file) =
                 Archive::open(Path::new(a)).map_err(|e| failed(command, format!("{a}: {e}")))?;
@@ -45,7 +50,7 @@ fn load(command: &str, table: &str, archive: Option<&str>) -> Result<Loaded, Eng
                 .find(table)
                 .ok_or_else(|| failed(command, format!("`{table}` is not in {a}")))?;
             archive_data
-                .extract_vec(&mut file, index)
+                .extract_vec(&mut file, index, MAX_TABLE_BYTES)
                 .map_err(|e| failed(command, format!("{a}: {e}")))?
         }
     };
@@ -239,7 +244,16 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
         .table
         .to_bytes()
         .map_err(|e| failed(ID, e.to_string()))?;
-    fs::write(out_path, &bytes).map_err(|e| failed(ID, format!("writing `{out}`: {e}")))?;
+    // Write beside the target and rename, so a failed write never leaves a truncated table.
+    let mut tmp_name = out_path.as_os_str().to_os_string();
+    tmp_name.push(".partial");
+    let tmp = std::path::PathBuf::from(tmp_name);
+    fs::write(&tmp, &bytes)
+        .and_then(|()| fs::rename(&tmp, out_path))
+        .map_err(|e| {
+            let _ = fs::remove_file(&tmp);
+            failed(ID, format!("writing `{out}`: {e}"))
+        })?;
 
     let text = |table: usize, id: u32| -> Value {
         inputs
@@ -261,7 +275,32 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
             })
         })
         .collect();
+    let duplicates: Vec<Value> = merged
+        .duplicates
+        .iter()
+        .take(CONFLICTS_SHOWN)
+        .map(|d| {
+            json!({
+                "id": format!("0x{:08X}", d.id),
+                "table": tables.get(d.table),
+                "same_bytes": d.same_bytes,
+                "kept": text(d.table, d.id),
+            })
+        })
+        .collect();
     let mut limitations = Vec::new();
+    if !merged.duplicates.is_empty() {
+        limitations.push(format!(
+            "{} IDs repeat inside one input table (see `duplicates`); the first occurrence \
+             in that table is used, as lookups do, and the repeats are dropped{}",
+            merged.duplicates.len(),
+            if merged.duplicates.len() > CONFLICTS_SHOWN {
+                format!("; `duplicates` lists the first {CONFLICTS_SHOWN}")
+            } else {
+                String::new()
+            }
+        ));
+    }
     if merged.conflicts.len() > CONFLICTS_SHOWN {
         limitations.push(format!(
             "`conflicts` lists the first {CONFLICTS_SHOWN} of {}",
@@ -284,6 +323,8 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
             "bytes": bytes.len(),
             "conflict_count": merged.conflicts.len(),
             "conflicts": conflicts,
+            "duplicate_count": merged.duplicates.len(),
+            "duplicates": duplicates,
             "identical_repeats": merged.identical_repeats,
             "summary": summary,
         }),
@@ -392,6 +433,39 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fs::read(&out).unwrap(), first, "deterministic");
+        // Regression (review round 2): written through a temporary file and a rename; a
+        // failed rename leaves neither a partial table nor the temporary file.
+        assert!(!dir.join("merged_en.strings.partial").exists());
+        let blocked = dir.join("blocked.strings");
+        fs::create_dir_all(&blocked).unwrap();
+        let err = execute(
+            "strings.merge",
+            json!({"tables": [a.to_str().unwrap(), b.to_str().unwrap()],
+                   "out": blocked.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("writing"), "{err}");
+        assert!(!dir.join("blocked.strings.partial").exists());
+
+        // Regression (review round 2): an ID repeated inside one input is reported as a
+        // duplicate, apart from the cross-table conflicts.
+        let c = dir.join("dup_en.strings");
+        fs::write(&c, t(vec![Entry::new(7, "kept"), Entry::new(7, "dropped")])).unwrap();
+        let merged = execute(
+            "strings.merge",
+            json!({"tables": [a.to_str().unwrap(), c.to_str().unwrap()],
+                   "out": dir.join("m2_en.strings").to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(merged["data"]["conflict_count"], 0);
+        assert_eq!(merged["data"]["duplicate_count"], 1);
+        assert_eq!(merged["data"]["duplicates"][0]["id"], "0x00000007");
+        assert_eq!(merged["data"]["duplicates"][0]["kept"], "kept");
+        assert_eq!(merged["data"]["duplicates"][0]["same_bytes"], false);
+        assert!(merged["limitations"][0]
+            .as_str()
+            .unwrap()
+            .contains("repeat inside one input"));
 
         let wrong_ext = execute(
             "strings.merge",

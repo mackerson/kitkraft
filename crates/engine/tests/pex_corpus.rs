@@ -43,7 +43,7 @@ fn check_archive(path: &Path, pexdis: Option<&Path>, counts: &mut Counts) {
         if !entry.name.to_ascii_lowercase().ends_with(".pex") {
             continue;
         }
-        let bytes = archive.extract_vec(&mut file, i).unwrap();
+        let bytes = archive.extract_vec(&mut file, i, 64 << 20).unwrap();
         let pex = Pex::parse(&bytes).unwrap_or_else(|e| panic!("{label}: {}: {e}", entry.name));
         counts.parsed += 1;
         if pex.objects.iter().any(|o| !o.structs.is_empty()) {

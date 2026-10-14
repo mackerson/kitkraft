@@ -81,7 +81,7 @@ fn roundtrip(files: &BTreeMap<String, Vec<u8>>, options: &PackOptions) -> Vec<u8
             "{}",
             entry.name
         );
-        let out = archive.extract_vec(&mut cursor, i).unwrap();
+        let out = archive.extract_vec(&mut cursor, i, u64::MAX).unwrap();
         assert!(out == *original, "{} differs after extraction", entry.name);
     }
     archive_bytes
@@ -92,7 +92,6 @@ fn general_files() -> BTreeMap<String, Vec<u8>> {
     files.insert("Scripts/Alpha.pex".to_string(), bytes(1, 5000));
     files.insert("strings\\mymod_en.strings".to_string(), bytes(2, 300));
     files.insert("meshes/x/noext".to_string(), vec![7; 2048]);
-    files.insert("empty.txt".to_string(), Vec::new());
     files.insert("tiny.bin".to_string(), vec![1, 2, 3]);
     files
 }
@@ -115,7 +114,6 @@ fn general_v2_and_v3_roundtrip_and_are_deterministic() {
             assert_eq!(
                 names,
                 [
-                    "empty.txt",
                     "meshes/x/noext",
                     "scripts/alpha.pex",
                     "strings/mymod_en.strings",
@@ -124,10 +122,10 @@ fn general_v2_and_v3_roundtrip_and_are_deterministic() {
             );
             let compressed = archive.entries.iter().filter(|e| e.is_compressed()).count();
             if compress {
-                // The all-sevens file shrinks under both codecs; empty and 3-byte files
-                // stay stored.
+                // The all-sevens file shrinks under both codecs; the 3-byte file stays
+                // stored.
                 assert!(compressed >= 1, "v{version}: {compressed} compressed");
-                assert!(!archive.entries[0].is_compressed(), "empty file is stored");
+                assert!(!archive.entries[3].is_compressed(), "tiny file is stored");
             } else {
                 assert_eq!(compressed, 0);
             }
@@ -153,6 +151,11 @@ fn textures_roundtrip_with_official_chunking() {
     );
     files.insert("textures/d_cube.dds".into(), dds_file(10, 64, 64, 7, 1, 4));
     files.insert("textures/e_flat.dds".into(), dds_file(28, 16, 256, 1, 0, 5));
+    // 1024x256 has 512 x 512 pixels: its top mip gets its own chunk (area rule).
+    files.insert(
+        "textures/f_wide.dds".into(),
+        dds_file(72, 1024, 256, 11, 0, 6),
+    );
     for version in [2, 3] {
         let options = PackOptions {
             kind: Kind::Textures,
@@ -177,9 +180,32 @@ fn textures_roundtrip_with_official_chunking() {
                 vec![(0, 8)],
                 vec![(0, 6)],
                 vec![(0, 0)],
+                vec![(0, 0), (1, 10)],
             ]
         );
     }
+}
+
+/// Regression (review round 2): the split rule is by area, not by both edges.
+#[test]
+fn chunk_plan_is_area_based() {
+    use crate::chunk_mips;
+    assert_eq!(chunk_mips(1024, 256, 11, false), [(0, 0), (1, 10)]);
+    assert_eq!(chunk_mips(256, 1024, 11, false), [(0, 0), (1, 10)]);
+    assert_eq!(chunk_mips(2048, 128, 12, false), [(0, 0), (1, 11)]);
+    assert_eq!(chunk_mips(1024, 128, 11, false), [(0, 10)]);
+    assert_eq!(
+        chunk_mips(4096, 4096, 13, false),
+        [(0, 0), (1, 1), (2, 2), (3, 12)]
+    );
+    assert_eq!(chunk_mips(512, 512, 1, false), [(0, 0)]);
+    assert_eq!(chunk_mips(512, 512, 2, false), [(0, 0), (1, 1)]);
+    assert_eq!(chunk_mips(2048, 2048, 12, true), [(0, 11)]);
+    // Saturating: the largest dimensions never overflow.
+    assert_eq!(
+        chunk_mips(u32::MAX, u32::MAX, 3, false),
+        [(0, 0), (1, 1), (2, 2)]
+    );
 }
 
 #[test]
@@ -226,6 +252,57 @@ fn pack_refuses_bad_inputs() {
         ..PackOptions::default()
     };
     assert!(pack(&[], |_| Ok(vec![]), &v4, &mut out).is_err());
+}
+
+/// Regression (review round 2): non-ASCII names (hash rule unknown), hash-triple
+/// collisions, empty files and impossible DDS headers are refused by `pack`.
+#[test]
+fn pack_refuses_unknown_hashes_collisions_and_empty_files() {
+    let general = PackOptions::default();
+    let mut out = Cursor::new(Vec::new());
+    let one = |name: &str, data: &[u8]| {
+        let mut out = Cursor::new(Vec::new());
+        pack(
+            &[(name.to_string(), name.to_string())],
+            |_| Ok(data.to_vec()),
+            &PackOptions::default(),
+            &mut out,
+        )
+    };
+    let err = one("textures/caf\u{e9}.dds", b"x").unwrap_err();
+    assert!(err.to_string().contains("non-ASCII"), "{err}");
+    let err = one("empty.txt", b"").unwrap_err();
+    assert!(err.to_string().contains("empty"), "{err}");
+    one("ok.txt", b"x").unwrap();
+
+    // Same stem, directory and first four extension bytes.
+    let err = pack(
+        &[
+            ("strings/a.dlstrings".into(), "1".into()),
+            ("strings/a.dlstrongs".into(), "2".into()),
+        ],
+        |_| Ok(vec![1]),
+        &general,
+        &mut out,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("same name hash"), "{err}");
+
+    let textures = PackOptions {
+        kind: Kind::Textures,
+        ..PackOptions::default()
+    };
+    // 64x64 has at most 7 mips; the header claims 8 (data sized for 7 is irrelevant).
+    let mut bad = dds_file(71, 64, 64, 7, 0, 1);
+    bad[28..32].copy_from_slice(&8u32.to_le_bytes());
+    let err = pack(
+        &[("t.dds".into(), "t".into())],
+        |_| Ok(bad.clone()),
+        &textures,
+        &mut out,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("at most 7"), "{err}");
 }
 
 #[test]
@@ -281,7 +358,7 @@ fn every_truncation_is_an_error_not_a_panic() {
                 Ok(archive) => {
                     // Only the name table is gone or short at this point: data is intact.
                     for i in 0..archive.entries.len() {
-                        let _ = archive.extract_vec(&mut cursor, i);
+                        let _ = archive.extract_vec(&mut cursor, i, u64::MAX);
                     }
                 }
             }
@@ -299,7 +376,7 @@ fn bit_flips_never_panic_and_bad_data_is_typed() {
             let mut cursor = Cursor::new(bad);
             if let Ok(archive) = Archive::read(&mut cursor) {
                 for j in 0..archive.entries.len() {
-                    if let Err(e) = archive.extract_vec(&mut cursor, j) {
+                    if let Err(e) = archive.extract_vec(&mut cursor, j, u64::MAX) {
                         assert!(
                             matches!(
                                 e,
@@ -326,7 +403,7 @@ fn a_stream_larger_than_its_record_is_refused() {
     bytes[size_at..size_at + 4].copy_from_slice(&10u32.to_le_bytes());
     let mut cursor = Cursor::new(bytes);
     let archive = Archive::read(&mut cursor).unwrap();
-    let err = archive.extract_vec(&mut cursor, 0).unwrap_err();
+    let err = archive.extract_vec(&mut cursor, 0, u64::MAX).unwrap_err();
     assert!(
         matches!(
             err,
@@ -339,8 +416,49 @@ fn a_stream_larger_than_its_record_is_refused() {
         "{err}"
     );
     assert!(matches!(
-        archive.extract_vec(&mut cursor, 5),
+        archive.extract_vec(&mut cursor, 5, u64::MAX),
         Err(Error::NoSuchEntry { index: 5, count: 1 })
+    ));
+}
+
+/// Regression (review round 2): a small archive can declare a huge zlib output;
+/// `extract_vec` refuses it by the declared size before decoding or allocating.
+#[test]
+fn extract_vec_refuses_sizes_above_the_cap() {
+    let mut files = BTreeMap::new();
+    files.insert("bomb.bin".to_string(), vec![0u8; 8 << 20]);
+    let mut bytes = pack_mem(&files, &PackOptions::default());
+    assert!(bytes.len() < 64 << 10, "{} bytes", bytes.len());
+    let read = |b: &[u8]| {
+        let mut cursor = Cursor::new(b.to_vec());
+        let archive = Archive::read(&mut cursor).unwrap();
+        (archive, cursor)
+    };
+    let (archive, mut cursor) = read(&bytes);
+    let err = archive.extract_vec(&mut cursor, 0, 1 << 20).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            Error::TooLarge {
+                size: 0x80_0000,
+                cap: 0x10_0000,
+                offset: 32,
+                ..
+            }
+        ),
+        "{err}"
+    );
+    assert_eq!(
+        archive.extract_vec(&mut cursor, 0, 8 << 20).unwrap().len(),
+        8 << 20
+    );
+    // The declared size patched to 512 MiB (the packed stream is unchanged).
+    let size_at = 32 + 4 + 4 + 4 + 4 + 8 + 4;
+    bytes[size_at..size_at + 4].copy_from_slice(&(512u32 << 20).to_le_bytes());
+    let (archive, mut cursor) = read(&bytes);
+    assert!(matches!(
+        archive.extract_vec(&mut cursor, 0, 64 << 20),
+        Err(Error::TooLarge { .. })
     ));
 }
 

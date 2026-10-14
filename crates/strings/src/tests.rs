@@ -1,6 +1,6 @@
 //! Synthetic fixtures per variant, exact layouts, hostile input and merge.
 
-use super::{merge, table_name, Entry, Error, Kind, Table};
+use super::{merge, table_name, Duplicate, Entry, Error, Kind, Table};
 
 fn sample(kind: Kind) -> Table {
     Table::new(
@@ -205,6 +205,50 @@ fn merge_later_wins_sorted_and_reports_conflicts() {
     );
     let dl = Table::new(Kind::DlStrings, Vec::new());
     assert!(matches!(merge(&[a, dl]), Err(Error::KindMismatch { .. })));
+}
+
+/// Regression (review round 2): an ID repeated inside one input is a duplicate (first
+/// wins, as `Table::get`), not a conflict between inputs.
+#[test]
+fn merge_reports_in_table_duplicates_apart_from_conflicts() {
+    let a = Table::new(
+        Kind::Strings,
+        vec![
+            Entry::new(1, "first"),
+            Entry::new(1, "second"),
+            Entry::new(2, "two"),
+            Entry::new(2, "two"),
+        ],
+    );
+    let b = Table::new(Kind::Strings, vec![Entry::new(3, "x"), Entry::new(1, "B")]);
+    let merged = merge(&[a.clone(), b]).unwrap();
+    assert_eq!(
+        merged.duplicates,
+        [
+            Duplicate {
+                id: 1,
+                table: 0,
+                same_bytes: false
+            },
+            Duplicate {
+                id: 2,
+                table: 0,
+                same_bytes: true
+            },
+        ]
+    );
+    // The cross-table conflict replaces table 0's first occurrence, not its repeat.
+    assert_eq!(merged.conflicts.len(), 1);
+    assert_eq!(
+        (merged.conflicts[0].id, merged.conflicts[0].replaced),
+        (1, 0)
+    );
+    assert_eq!(merged.table.get(1).unwrap().text(), "B");
+    // Alone, the table keeps its first occurrence, as `get` does.
+    let alone = merge(std::slice::from_ref(&a)).unwrap();
+    assert_eq!(alone.table.get(1).unwrap().text(), a.get(1).unwrap().text());
+    assert!(alone.conflicts.is_empty());
+    assert_eq!(alone.identical_repeats, 0);
 }
 
 #[test]

@@ -23,7 +23,7 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use kitcraft_ba2::{dds, Archive, Body, Kind};
+use kitcraft_ba2::{chunk_mips, dds, Archive, Body, Kind};
 
 fn data_dir() -> Option<PathBuf> {
     let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR") else {
@@ -108,6 +108,35 @@ fn check_textures(archive: &Archive, name: &str) {
             assert!(c.mip_last >= c.mip_first, "{name}: {}", entry.name);
             next = c.mip_last + 1;
         }
+        // Dimensions and mip count pass the checks dds::parse applies to pack input.
+        let edge = u32::from(t.width.max(t.height));
+        assert!(t.width > 0 && t.height > 0, "{name}: {}", entry.name);
+        assert!(
+            u32::from(t.mip_count) <= edge.ilog2() + 1,
+            "{name}: {}: {} mips for {}x{}",
+            entry.name,
+            t.mip_count,
+            t.width,
+            t.height
+        );
+        // The stored mip ranges are exactly the plan the packer computes from the
+        // dimensions, mip count and cube flag (the area rule in `write.rs`).
+        let stored: Vec<(u32, u32)> = t
+            .chunks
+            .iter()
+            .map(|c| (u32::from(c.mip_first), u32::from(c.mip_last)))
+            .collect();
+        let plan = chunk_mips(
+            u32::from(t.width),
+            u32::from(t.height),
+            u32::from(t.mip_count),
+            t.cubemap != 0,
+        );
+        assert_eq!(
+            stored, plan,
+            "{name}: {}: chunk plan of {}x{}, {} mips, cube {}",
+            entry.name, t.width, t.height, t.mip_count, t.cubemap
+        );
     }
 }
 
@@ -158,7 +187,7 @@ fn archive2_differential() {
     let out = PathBuf::from(out);
     let (mut same, mut header_only, mut data) = (0usize, Vec::new(), Vec::new());
     for (i, entry) in archive.entries.iter().enumerate() {
-        let ours = archive.extract_vec(&mut file, i).unwrap();
+        let ours = archive.extract_vec(&mut file, i, u64::MAX).unwrap();
         let path = out.join(kitcraft_ba2::relative_path(&entry.name).unwrap());
         let theirs = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         if ours == theirs {
@@ -198,6 +227,11 @@ fn corpus_full() {
     let mut bad_hashes = Vec::new();
     let (mut total_entries, mut extracted, mut extracted_bytes) = (0u64, 0u64, 0u64);
     let mut packed_entries = 0u64;
+    // Inventory behind limits and rules in the crate (`docs/corpus.md`, "Archives").
+    let (mut zero_size, mut non_ascii, mut edge_rule_differs) = (0u64, 0u64, 0u64);
+    let (mut max_general, mut max_chunk, mut max_extracted) = (0u64, 0u64, 0u64);
+    let mut textures = 0u64;
+    let mut unsafe_names = Vec::new();
     for path in archives(&dir) {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
         let (archive, mut file) = Archive::open(&path).unwrap_or_else(|e| panic!("{name}: {e}"));
@@ -224,6 +258,38 @@ fn corpus_full() {
             }
             if entry.is_compressed() {
                 packed_entries += 1;
+            }
+            if !entry.name.is_ascii() {
+                non_ascii += 1;
+            }
+            if let Err(e) = kitcraft_ba2::relative_path(&entry.name) {
+                unsafe_names.push(format!("{name}: {e}"));
+            }
+            max_extracted = max_extracted.max(entry.extracted_len());
+            match &entry.body {
+                Body::General(g) => {
+                    max_general = max_general.max(u64::from(g.size));
+                    if g.size == 0 {
+                        zero_size += 1;
+                    }
+                }
+                Body::Texture(t) => {
+                    textures += 1;
+                    for c in &t.chunks {
+                        max_chunk = max_chunk.max(u64::from(c.size));
+                    }
+                    if t.chunks.iter().all(|c| c.size == 0) {
+                        zero_size += 1;
+                    }
+                    let stored: Vec<(u32, u32)> = t
+                        .chunks
+                        .iter()
+                        .map(|c| (u32::from(c.mip_first), u32::from(c.mip_last)))
+                        .collect();
+                    if stored != edge_rule(t) {
+                        edge_rule_differs += 1;
+                    }
+                }
             }
             if let Body::General(g) = &entry.body {
                 assert_eq!(
@@ -270,5 +336,33 @@ fn corpus_full() {
          ({extracted_bytes} bytes)"
     );
     println!("hash mismatches: {}", bad_hashes.len());
+    println!(
+        "size-0 entries {zero_size}; non-ASCII names {non_ascii}; largest GNRL file \
+         {max_general}, largest chunk {max_chunk}, largest extraction {max_extracted}"
+    );
+    println!(
+        "textures {textures}; chunk plans the edge rule (w >= 512 && h >= 512) gets wrong: \
+         {edge_rule_differs} (the area rule gets none wrong: check_textures)"
+    );
+    println!("names relative_path refuses: {}", unsafe_names.len());
     assert!(bad_hashes.is_empty(), "{bad_hashes:#?}");
+    assert!(unsafe_names.is_empty(), "{unsafe_names:#?}");
+}
+
+/// The rejected reading of the chunk rule (both edges at least 512), for the inventory.
+fn edge_rule(t: &kitcraft_ba2::Texture) -> Vec<(u32, u32)> {
+    let last = u32::from(t.mip_count.max(1)) - 1;
+    if t.cubemap != 0 {
+        return vec![(0, last)];
+    }
+    let (mut w, mut h, mut mip) = (u32::from(t.width), u32::from(t.height), 0u32);
+    let mut out = Vec::new();
+    while mip < last && out.len() < 3 && w >= 512 && h >= 512 {
+        out.push((mip, mip));
+        mip += 1;
+        w = (w / 2).max(1);
+        h = (h / 2).max(1);
+    }
+    out.push((mip, last));
+    out
 }

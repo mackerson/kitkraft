@@ -5,6 +5,7 @@
 //! directory holding `Starfield.esm`, any directory above one, or `KITCRAFT_DATA_DIR`
 //! ([`refuse_game_data`], shared with the other lane G commands).
 
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -24,6 +25,10 @@ const DEFAULT_LIMIT: u64 = 1000;
 const FILES_SHOWN: usize = 1000;
 /// Deepest directory nesting `ba2.pack` walks.
 const MAX_DEPTH: usize = 64;
+/// Default `max_entry_bytes` of `ba2.extract`: 1 GiB, above the largest official entry
+/// (134,083,688 bytes, `docs/corpus.md` "Archives"), far below what a hostile record can
+/// declare (a DX10 texture up to 255 chunks of 4 GiB).
+const DEFAULT_MAX_ENTRY: u64 = 1 << 30;
 
 /// What the archive-level evidence covers.
 const RECORDS_EVIDENCE: &str = "evidence covers the header, the record table and the name \
@@ -116,30 +121,22 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
         .get("overwrite")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let max_entry = args
+        .get("max_entry_bytes")
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_MAX_ENTRY);
     refuse_game_data(ID, &out_dir)?;
     let path = Path::new(archive_arg);
     let (archive, mut file) =
         Archive::open(path).map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
 
-    let mut plan = Vec::new();
-    for (i, entry) in archive.entries.iter().enumerate() {
-        if pat.as_ref().is_some_and(|re| !re.is_match(&entry.name)) {
-            continue;
-        }
-        let rel = kitcraft_ba2::relative_path(&entry.name)
-            .map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
-        let target = out_dir.join(rel);
-        if !overwrite && target.exists() {
-            return Err(failed(
-                ID,
-                format!(
-                    "`{}` exists; pass overwrite to replace it (nothing was written)",
-                    target.display()
-                ),
-            ));
-        }
-        plan.push((i, target));
-    }
+    let selected = archive
+        .entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| pat.as_ref().is_none_or(|re| re.is_match(&e.name)));
+    let plan = plan_extraction(selected, &out_dir, overwrite, max_entry)
+        .map_err(|why| failed(ID, format!("{archive_arg}: {why}; nothing was written")))?;
 
     let mut files = Vec::new();
     let mut bytes = 0u64;
@@ -222,6 +219,80 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
     })
 }
 
+/// Validates every target before the first write, so a refused extraction writes nothing:
+/// sizes against `max_entry`, names through [`kitcraft_ba2::relative_path`] (which also
+/// refuses names Windows would alter), two entries that land on one file of a
+/// case-insensitive file system (Windows, the game's), an entry that is both a file and
+/// another entry's directory, an existing directory or file in the way, and existing
+/// files unless `overwrite`. Returns `(entry index, target)` in archive order.
+fn plan_extraction<'a>(
+    selected: impl Iterator<Item = (usize, &'a Entry)>,
+    out_dir: &Path,
+    overwrite: bool,
+    max_entry: u64,
+) -> Result<Vec<(usize, PathBuf)>, String> {
+    let mut plan = Vec::new();
+    // Folded target path -> the entry name that claimed it.
+    let mut files: BTreeMap<String, &str> = BTreeMap::new();
+    let mut dirs: BTreeMap<String, &str> = BTreeMap::new();
+    for (i, entry) in selected {
+        let size = entry.extracted_len();
+        if size > max_entry {
+            return Err(format!(
+                "`{}` extracts to {size} bytes, above max_entry_bytes ({max_entry})",
+                entry.name
+            ));
+        }
+        let rel = kitcraft_ba2::relative_path(&entry.name).map_err(|e| e.to_string())?;
+        let parts: Vec<String> = rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
+            .collect();
+        let key = parts.join("/");
+        if let Some(other) = files.insert(key.clone(), &entry.name) {
+            return Err(format!(
+                "`{other}` and `{}` extract to the same file on a case-insensitive file system",
+                entry.name
+            ));
+        }
+        for n in 1..parts.len() {
+            let dir = parts.get(..n).unwrap_or_default().join("/");
+            dirs.entry(dir).or_insert(&entry.name);
+        }
+        let target = out_dir.join(&rel);
+        if target.is_dir() {
+            return Err(format!("`{}` is an existing directory", target.display()));
+        }
+        if !overwrite && target.exists() {
+            return Err(format!(
+                "`{}` exists; pass overwrite to replace it",
+                target.display()
+            ));
+        }
+        for dir in target.ancestors().skip(1) {
+            if !dir.starts_with(out_dir) {
+                break;
+            }
+            if dir.exists() && !dir.is_dir() {
+                return Err(format!(
+                    "`{}` is a file where `{}` needs a directory",
+                    dir.display(),
+                    entry.name
+                ));
+            }
+        }
+        plan.push((i, target));
+    }
+    for (key, name) in &files {
+        if let Some(other) = dirs.get(key) {
+            return Err(format!(
+                "`{name}` is a file but `{other}` needs it as a directory"
+            ));
+        }
+    }
+    Ok(plan)
+}
+
 /// `ba2.pack`.
 pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
     const ID: &str = "ba2.pack";
@@ -240,7 +311,20 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
         .get("compress")
         .and_then(Value::as_bool)
         .unwrap_or(true);
+    let overwrite = args
+        .get("overwrite")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     refuse_game_data(ID, &out)?;
+    if out.is_dir() {
+        return Err(failed(ID, format!("`{}` is a directory", out.display())));
+    }
+    if !overwrite && out.exists() {
+        return Err(failed(
+            ID,
+            format!("`{}` exists; pass overwrite to replace it", out.display()),
+        ));
+    }
     let dir_abs =
         fs::canonicalize(&dir).map_err(|e| failed(ID, format!("`{}`: {e}", dir.display())))?;
     if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
@@ -259,7 +343,8 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
 
     let mut files = Vec::new();
     let mut skipped = Vec::new();
-    walk(&dir_abs, &dir_abs, 0, &mut files, &mut skipped).map_err(|e| failed(ID, e))?;
+    let mut empty = Vec::new();
+    walk(&dir_abs, &dir_abs, 0, &mut files, &mut skipped, &mut empty).map_err(|e| failed(ID, e))?;
     if kind == Kind::Textures {
         if let Some((name, _)) = files
             .iter()
@@ -294,9 +379,9 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
             return Err(failed(ID, format!("writing `{}`: {e}", tmp.display())));
         }
     };
-    fs::rename(&tmp, &out).map_err(|e| {
+    finish(&tmp, &out, overwrite).map_err(|e| {
         let _ = fs::remove_file(&tmp);
-        failed(ID, format!("renaming to `{}`: {e}", out.display()))
+        failed(ID, e)
     })?;
 
     let shown: Vec<Value> = report
@@ -317,6 +402,13 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
             "skipped {} entries that are neither files nor directories (symbolic links): {}",
             skipped.len(),
             skipped.join(", ")
+        ));
+    }
+    if !empty.is_empty() {
+        limitations.push(format!(
+            "skipped {} empty files, as Archive2 does (no official archive holds one): {}",
+            empty.len(),
+            empty.join(", ")
         ));
     }
     if kind == Kind::Textures {
@@ -363,13 +455,36 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
     })
 }
 
-/// Collects `(archive path, file path)` for every regular file under `dir`, sorted.
+/// Moves the finished temporary archive to `out`. Without `overwrite` the move never
+/// replaces a file (create-new semantics): a hard link fails if `out` appeared meanwhile;
+/// where hard links are unsupported, an existence check and a rename stand in for it.
+fn finish(tmp: &Path, out: &Path, overwrite: bool) -> Result<(), String> {
+    let rename =
+        || fs::rename(tmp, out).map_err(|e| format!("renaming to `{}`: {e}", out.display()));
+    let exists = || format!("`{}` exists; pass overwrite to replace it", out.display());
+    if overwrite {
+        return rename();
+    }
+    match fs::hard_link(tmp, out) {
+        Ok(()) => {
+            let _ = fs::remove_file(tmp);
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(exists()),
+        Err(_) if out.exists() => Err(exists()),
+        Err(_) => rename(),
+    }
+}
+
+/// Collects `(archive path, file path)` for every regular file under `dir`, sorted; empty
+/// files go to `empty` instead (Archive2 skips them too).
 fn walk(
     root: &Path,
     dir: &Path,
     depth: usize,
     out: &mut Vec<(String, String)>,
     skipped: &mut Vec<String>,
+    empty: &mut Vec<String>,
 ) -> Result<(), String> {
     if depth > MAX_DEPTH {
         return Err(format!(
@@ -387,7 +502,9 @@ fn walk(
         let meta = fs::symlink_metadata(&path)
             .map_err(|e| format!("reading `{}`: {e}", path.display()))?;
         if meta.is_dir() {
-            walk(root, &path, depth.saturating_add(1), out, skipped)?;
+            walk(root, &path, depth.saturating_add(1), out, skipped, empty)?;
+        } else if meta.is_file() && meta.len() == 0 {
+            empty.push(path.display().to_string());
         } else if meta.is_file() {
             let rel = path
                 .strip_prefix(root)
@@ -528,8 +645,37 @@ pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), Engin
                 dir.display()
             )));
         }
+        if is_user_data_dir(dir) {
+            return Err(refuse(format!(
+                "`{}` is the game's user Data directory (Documents\\My Games\\Starfield\\Data)",
+                dir.display()
+            )));
+        }
     }
     Ok(())
+}
+
+/// The per-user Data folder the game also loads from: a directory named `Data` whose parent
+/// is `My Games\Starfield`, or whose parent holds `StarfieldCustom.ini` or
+/// `StarfieldPrefs.ini` (names compared ASCII case-insensitively, as Windows does).
+fn is_user_data_dir(dir: &Path) -> bool {
+    let named = |p: &Path, want: &str| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.eq_ignore_ascii_case(want))
+    };
+    if !named(dir, "Data") {
+        return false;
+    }
+    let Some(parent) = dir.parent() else {
+        return false;
+    };
+    let under_my_games =
+        named(parent, "Starfield") && parent.parent().is_some_and(|g| named(g, "My Games"));
+    under_my_games
+        || ["StarfieldCustom.ini", "StarfieldPrefs.ini"]
+            .iter()
+            .any(|ini| parent.join(ini).is_file())
 }
 
 /// `path` made absolute and canonical as far as it exists (the rest appended), so `..` and
@@ -586,6 +732,7 @@ mod tests {
         fs::create_dir_all(src.join("strings")).unwrap();
         fs::write(src.join("Scripts").join("Alpha.pex"), vec![7u8; 4000]).unwrap();
         fs::write(src.join("strings").join("mod_en.strings"), b"hello").unwrap();
+        fs::write(src.join("empty.txt"), b"").unwrap();
         let out = root.join("Mod - Main.ba2");
         let packed = execute(
             "ba2.pack",
@@ -593,6 +740,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(packed["data"]["packed"], 2);
+        // Empty files are skipped, as Archive2 does, and reported.
+        assert!(
+            packed["limitations"][0]
+                .as_str()
+                .unwrap()
+                .contains("skipped 1 empty files"),
+            "{packed}"
+        );
         assert_eq!(packed["data"]["format"], "gnrl");
         let bytes = fs::read(&out).unwrap();
         assert_eq!(packed["data"]["bytes"], bytes.len());
@@ -606,6 +761,32 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fs::read(&again).unwrap(), bytes);
+        // Regression (review round 2): an existing archive is replaced only on request.
+        fs::write(&again, b"keep me").unwrap();
+        let err = execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": again.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("overwrite"), "{err}");
+        assert_eq!(fs::read(&again).unwrap(), b"keep me");
+        execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": again.to_str().unwrap(),
+                   "overwrite": true}),
+        )
+        .unwrap();
+        assert_eq!(fs::read(&again).unwrap(), bytes);
+        assert!(!again.with_extension("ba2.partial").exists());
+        // The create-new move refuses a file that appears while packing.
+        let tmp = root.join("t.partial");
+        fs::write(&tmp, b"new").unwrap();
+        let err = super::finish(&tmp, &again, false).unwrap_err();
+        assert!(err.contains("exists"), "{err}");
+        assert_eq!(fs::read(&again).unwrap(), bytes);
+        super::finish(&tmp, &root.join("fresh.ba2"), false).unwrap();
+        assert!(!tmp.exists());
+        assert_eq!(fs::read(root.join("fresh.ba2")).unwrap(), b"new");
 
         let listed = execute(
             "ba2.list",
@@ -632,6 +813,15 @@ mod tests {
             .contains("showing 1 of 2"));
 
         let dst = root.join("dst");
+        // Above the per-entry cap: refused before anything is written.
+        let err = execute(
+            "ba2.extract",
+            json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap(),
+                   "max_entry_bytes": 100}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("max_entry_bytes"), "{err}");
+        assert!(!dst.exists());
         let extracted = execute(
             "ba2.extract",
             json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap()}),
@@ -718,6 +908,129 @@ mod tests {
         assert!(err.to_string().contains("Starfield.esm"), "{err}");
         let err = execute("ba2.list", json!({"archive": archive.to_str().unwrap()})).unwrap_err();
         assert!(err.to_string().contains("truncated"), "{err}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A stored GNRL archive holding `names` (each file is `x`), its name table patched by
+    /// `renames` (same-length byte replacements, for names `pack` refuses to write).
+    fn archive_of(path: &std::path::Path, names: &[&str], renames: &[(&str, &str)]) {
+        let inputs: Vec<(String, String)> = names
+            .iter()
+            .map(|n| (n.to_string(), n.to_string()))
+            .collect();
+        let mut out = std::io::Cursor::new(Vec::new());
+        let options = kitcraft_ba2::PackOptions {
+            compress: false,
+            ..Default::default()
+        };
+        kitcraft_ba2::pack(&inputs, |_| Ok(b"x".to_vec()), &options, &mut out).unwrap();
+        let mut bytes = out.into_inner();
+        for (from, to) in renames {
+            assert_eq!(from.len(), to.len());
+            let at = bytes
+                .windows(from.len())
+                .position(|w| w == from.as_bytes())
+                .unwrap();
+            bytes[at..at + to.len()].copy_from_slice(to.as_bytes());
+        }
+        fs::write(path, bytes).unwrap();
+    }
+
+    /// Regression (review round 2): names that collide or that Windows would alter are
+    /// refused while planning, before the first file is written.
+    #[test]
+    fn extraction_plan_is_validated_before_writing() {
+        let root = temp_dir("plan");
+        let a = root.join("a.ba2");
+        let dst = root.join("dst");
+        let extract = |dst: &std::path::Path| {
+            execute(
+                "ba2.extract",
+                json!({"archive": a.to_str().unwrap(), "out_dir": dst.to_str().unwrap()}),
+            )
+        };
+        // (names packed, renames in the name table, expected error text)
+        type Case<'a> = (&'a [&'a str], &'a [(&'a str, &'a str)], &'a str);
+        let cases: [Case; 5] = [
+            (
+                &["a/aa.txt", "a/ab.txt", "b.txt"],
+                &[("a/ab.txt", "A/AA.TXT")],
+                "same file",
+            ),
+            (&["x", "x/y.txt"], &[], "as a directory"),
+            (&["a.txt", "bux.txt"], &[("bux.txt", "aux.txt")], "device"),
+            (
+                &["a.txt", "zz/b.txt"],
+                &[("zz/b.txt", "z./b.txt")],
+                "ends in",
+            ),
+            (&["a.txt", "b.txt"], &[("b.txt", "b?txt")], "forbids"),
+        ];
+        for (names, renames, want) in cases {
+            archive_of(&a, names, renames);
+            let err = extract(&dst).unwrap_err();
+            assert!(err.to_string().contains(want), "{names:?}: {err}");
+            assert!(err.to_string().contains("nothing was written"), "{err}");
+            assert!(!dst.exists(), "{names:?}: something was written");
+        }
+        // A file where an entry needs a directory, and a directory where it needs a file.
+        archive_of(&a, &["a.txt", "sub/x.txt"], &[]);
+        fs::create_dir_all(&dst).unwrap();
+        fs::write(dst.join("sub"), b"in the way").unwrap();
+        let err = extract(&dst).unwrap_err();
+        assert!(err.to_string().contains("needs a directory"), "{err}");
+        assert!(!dst.join("a.txt").exists());
+        fs::remove_file(dst.join("sub")).unwrap();
+        fs::create_dir_all(dst.join("a.txt")).unwrap();
+        let err = execute(
+            "ba2.extract",
+            json!({"archive": a.to_str().unwrap(), "out_dir": dst.to_str().unwrap(),
+                   "overwrite": true}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("existing directory"), "{err}");
+        assert!(!dst.join("sub").exists());
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Regression (review round 2): the user Data folder under Documents\My Games is a
+    /// game Data directory too, with or without Starfield.esm.
+    #[test]
+    fn user_data_dir_is_refused() {
+        let root = temp_dir("userdata");
+        let user = root.join("My Games").join("Starfield").join("Data");
+        fs::create_dir_all(&user).unwrap();
+        for target in [
+            user.join("Scripts"),
+            user.clone(),
+            root.join("my games")
+                .join("STARFIELD")
+                .join("data")
+                .join("x"),
+        ] {
+            let err = refuse_game_data("ba2.extract", &target).unwrap_err();
+            assert!(err.to_string().contains("user Data"), "{err}");
+        }
+        // Identified by the ini files next to it, wherever it lives.
+        let moved = root.join("Docs").join("SF").join("Data");
+        fs::create_dir_all(&moved).unwrap();
+        refuse_game_data("ba2.extract", &moved.join("x")).unwrap();
+        fs::write(root.join("Docs").join("SF").join("StarfieldPrefs.ini"), b"").unwrap();
+        assert!(refuse_game_data("ba2.extract", &moved.join("x")).is_err());
+        // A Data folder elsewhere, and a sibling of the user Data folder, are fine.
+        refuse_game_data("ba2.extract", &root.join("Mod").join("Data").join("x")).unwrap();
+        refuse_game_data(
+            "ba2.extract",
+            &root.join("My Games").join("Starfield").join("Saves"),
+        )
+        .unwrap();
+        let err = execute(
+            "strings.merge",
+            json!({"tables": ["a.strings", "b.strings"],
+                   "out": user.join("Strings").join("m.strings").to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("read-only"), "{err}");
         fs::remove_dir_all(&root).unwrap();
     }
 }

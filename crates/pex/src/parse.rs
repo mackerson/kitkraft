@@ -61,6 +61,17 @@ pub enum Error {
         /// Offset of the count value.
         offset: u64,
     },
+    /// An object's size field disagrees with the bytes its body occupies (counted from
+    /// the size field itself to the end of the object, `corpus:` every official script).
+    #[error("object at offset {offset} declares {declared} bytes from its size field, its body has {actual}")]
+    ObjectSize {
+        /// Offset of the object (its name index).
+        offset: u64,
+        /// The size field.
+        declared: u32,
+        /// Bytes actually read.
+        actual: u64,
+    },
     /// Bytes left after the last object.
     #[error("{count} unread bytes after the last object, at offset {offset}")]
     TrailingBytes {
@@ -303,6 +314,7 @@ fn read_debug(r: &mut Reader<'_>, offset: u64) -> Result<DebugInfo, Error> {
 fn read_object(r: &mut Reader<'_>, guards: bool) -> Result<Object, Error> {
     let offset = r.offset();
     let name = r.index()?;
+    let size_at = r.offset();
     let size = r.u32()?;
     let parent = r.index()?;
     let doc = r.index()?;
@@ -401,6 +413,14 @@ fn read_object(r: &mut Reader<'_>, guards: bool) -> Result<Object, Error> {
         });
     }
 
+    let actual = r.offset().saturating_sub(size_at);
+    if actual != u64::from(size) {
+        return Err(Error::ObjectSize {
+            offset,
+            declared: size,
+            actual,
+        });
+    }
     Ok(Object {
         offset,
         name,
