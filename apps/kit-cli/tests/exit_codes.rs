@@ -208,8 +208,9 @@ fn errors_exit_2() {
 }
 
 #[test]
-fn mcp_exits_2_until_m2() {
+fn mcp_exits_0_when_stdin_closes() {
+    // `output()` gives the child an empty stdin: the server sees EOF at once.
     let out = kit(&["mcp"]);
-    assert_eq!(out.status.code(), Some(2));
-    assert!(stderr(&out).contains("not implemented until M2"));
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert_eq!(stdout(&out), "", "stdout carries only MCP messages");
 }

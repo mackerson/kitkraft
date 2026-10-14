@@ -1,9 +1,16 @@
 //! Typed view of the `TES4` header record (UESP, Skyrim_Mod:Mod_File_Format/TES4, which
 //! the Starfield page defers to).
 //!
-//! Only flags UESP documents are named here. Starfield's own plugin-size flags (the "small"
-//! and "medium" master variants) are not on UESP; the bits observed in the corpus are
-//! recorded in `docs/corpus.md` and exposed only through [`Tes4::flags`].
+//! # Header flags
+//!
+//! The flag bits are named after the pinned xEdit Starfield definitions
+//! (`xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9045-L9083`, the
+//! TES4 record definition span listed in `docs/xedit-reference.md`; ADR 0004). Bits 0x1,
+//! 0x80, 0x100, 0x400 and 0x800 occur in the official ESMs (confidence `corpus`,
+//! `docs/corpus.md`); 0x10 and 0x200 never do (confidence `reference`). The names say what
+//! the reference calls each bit, not what the engine does with it: how small, medium and
+//! blueprint plugins form runtime FormIDs is a `ck-diff` fact with no source yet (M2.D3).
+//! [`Tes4::flags`] keeps the raw `u32`; nothing here sets or clears a bit on its own.
 //!
 //! # The `HEDR` record count
 //!
@@ -23,11 +30,24 @@ use std::borrow::Cow;
 use crate::model::{Counts, Plugin, Record};
 use crate::{Error, Reader, Result, Signature};
 
-/// TES4 flag: the file is a master regardless of its extension.
+/// TES4 flag "Master": the file is a master regardless of its extension (also UESP).
+/// Confidence `corpus`: set in all 14 official ESMs.
 pub const FLAG_MASTER: u32 = 0x0000_0001;
-/// TES4 flag: strings live in `.STRINGS`/`.DLSTRINGS`/`.ILSTRINGS` tables and lstring
-/// subrecords hold string IDs instead of text.
+/// TES4 flag "Optimized" (xEdit). Confidence `reference`: in no official ESM.
+pub const FLAG_OPTIMIZED: u32 = 0x0000_0010;
+/// TES4 flag "Localized": strings live in `.STRINGS`/`.DLSTRINGS`/`.ILSTRINGS` tables and
+/// lstring subrecords hold string IDs instead of text (also UESP). Confidence `corpus`: set
+/// in all 14 official ESMs.
 pub const FLAG_LOCALIZED: u32 = 0x0000_0080;
+/// TES4 flag "Small" (xEdit). Confidence `corpus`: 6 official ESMs, all small.
+pub const FLAG_SMALL: u32 = 0x0000_0100;
+/// TES4 flag "Update" (xEdit). Confidence `reference`: in no official ESM (UESP gives the
+/// same bit a different, Skyrim meaning).
+pub const FLAG_UPDATE: u32 = 0x0000_0200;
+/// TES4 flag "Medium" (xEdit). Confidence `corpus`: `SFBGS003.esm`, `SFBGS006.esm`.
+pub const FLAG_MEDIUM: u32 = 0x0000_0400;
+/// TES4 flag "Blueprint" (xEdit). Confidence `corpus`: both `BlueprintShips` files.
+pub const FLAG_BLUEPRINT: u32 = 0x0000_0800;
 
 /// `HEDR`: version, record count, next object ID.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -69,6 +89,20 @@ const ONAM: Signature = Signature::new(b"ONAM");
 
 /// Offset of the record count inside `HEDR` data (after the `f32` version).
 const COUNT_AT: usize = 4;
+
+/// What [`Plugin::write_to`] does with the `HEDR` record count.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HedrCount {
+    /// Written as stored: no record or group was added or removed, or the stored value
+    /// already is the majority count.
+    Verbatim,
+    /// Records or groups were added or removed; this majority count is written.
+    Recomputed(u32),
+    /// Records or groups were added or removed, but the header has no `HEDR` with room for
+    /// a count (or the count does not fit a `u32`): the header is written as stored and the
+    /// count is stale.
+    Unreadable,
+}
 
 /// The `HEDR` record count the majority of the official files use for `counts` (records
 /// and groups below `TES4`): every record including `TES4`, groups not counted. `None` if
@@ -123,7 +157,8 @@ impl<'r, 'a> Tes4<'r, 'a> {
 
     /// Set the `HEDR` record count of `record` (a `TES4` record), keeping every other byte
     /// of the subrecord. Returns `false` when there is no `HEDR` to update (none present,
-    /// or the record is compressed and not decoded). Marks the record modified.
+    /// or the record is compressed and not decoded), and [`Error::BadHedr`] when the
+    /// `HEDR` is too short to hold a count. Marks the record modified.
     pub fn set_record_count(record: &mut Record<'_>, count: u32) -> Result<bool> {
         let Some(subs) = record.subrecords_mut() else {
             return Ok(false);
@@ -132,13 +167,11 @@ impl<'r, 'a> Tes4<'r, 'a> {
             return Ok(false);
         };
         let mut data = sub.data().to_vec();
-        let available = data.len() as u64;
+        let len = data.len() as u64;
         let Some(slot) = data.get_mut(COUNT_AT..COUNT_AT.saturating_add(4)) else {
-            return Err(Error::UnexpectedEof {
+            return Err(Error::BadHedr {
                 offset: sub.data_offset().unwrap_or(0),
-                what: "HEDR record count",
-                needed: (COUNT_AT + 4) as u64,
-                available,
+                len,
             });
         };
         slot.copy_from_slice(&count.to_le_bytes());
@@ -209,30 +242,37 @@ impl<'a> Plugin<'a> {
         self.tes4().form_version()
     }
 
-    /// The header record to write: as stored, unless records or groups were added or
-    /// removed, in which case a copy with the majority `HEDR` record count.
-    pub(crate) fn header_for_write(&self) -> Result<Cow<'_, Record<'a>>> {
+    /// What [`Plugin::write_to`] will do with the `HEDR` record count (see the module
+    /// documentation). [`HedrCount::Unreadable`] is the one case where the count written
+    /// is stale; the same case in a streaming rewrite is
+    /// [`crate::driver::RewriteReport::hedr_unreadable`].
+    pub fn hedr_count_on_write(&self) -> HedrCount {
         let now = Counts::of(&self.entries);
         if self.counts_as_read == Some(now) {
-            return Ok(Cow::Borrowed(&self.header));
+            return HedrCount::Verbatim;
         }
         let Some(count) = majority_record_count(now) else {
+            return HedrCount::Unreadable;
+        };
+        match self.tes4().hedr() {
+            Some(Ok(h)) if h.record_count == count => HedrCount::Verbatim,
+            Some(Ok(_)) => HedrCount::Recomputed(count),
+            Some(Err(_)) | None => HedrCount::Unreadable,
+        }
+    }
+
+    /// The header record to write: as stored, unless records or groups were added or
+    /// removed, in which case a copy with the majority `HEDR` record count. A header
+    /// without a usable `HEDR` is written as stored ([`HedrCount::Unreadable`]).
+    pub(crate) fn header_for_write(&self) -> Result<Cow<'_, Record<'a>>> {
+        let HedrCount::Recomputed(count) = self.hedr_count_on_write() else {
             return Ok(Cow::Borrowed(&self.header));
         };
-        if self
-            .tes4()
-            .hedr()
-            .and_then(Result::ok)
-            .map(|h| h.record_count)
-            == Some(count)
-        {
-            return Ok(Cow::Borrowed(&self.header));
-        }
         let mut header = self.header.clone();
-        if Tes4::set_record_count(&mut header, count)? {
-            Ok(Cow::Owned(header))
-        } else {
-            Ok(Cow::Borrowed(&self.header))
+        match Tes4::set_record_count(&mut header, count) {
+            Ok(true) => Ok(Cow::Owned(header)),
+            Ok(false) | Err(Error::BadHedr { .. }) => Ok(Cow::Borrowed(&self.header)),
+            Err(e) => Err(e),
         }
     }
 }
@@ -240,7 +280,7 @@ impl<'a> Plugin<'a> {
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{majority_record_count, Tes4};
+    use super::{majority_record_count, HedrCount, Tes4};
     use crate::fixture::{self, group, record, sub};
     use crate::model::{Counts, Entry};
     use crate::{Error, Plugin};
@@ -288,12 +328,50 @@ mod tests {
         let hedr = &plugin.header().subrecords().unwrap()[1];
         assert_eq!(hedr.offset(), Some(24 + 8));
         assert_eq!(hedr.data_offset(), Some(hedr_data_at));
-        // Setting the count needs the field to be there.
+        // Setting the count needs the field to be there (review round 3, finding 6: this
+        // was an input-offset UnexpectedEof surfacing from a write call).
         let mut header = plugin.header().clone();
         assert!(matches!(
             Tes4::set_record_count(&mut header, 5),
-            Err(Error::UnexpectedEof { .. })
+            Err(Error::BadHedr { offset, len: 4 }) if offset == hedr_data_at
         ));
+    }
+
+    /// Review round 3, finding 3: a short HEDR made `to_bytes` fail once records were
+    /// added, while the streaming rewrite stayed silent. Both now write the header as
+    /// stored and say so.
+    #[test]
+    fn a_short_hedr_is_kept_and_reported_when_the_count_changes() {
+        let body = [sub(b"HEDR", &0.96f32.to_le_bytes()), sub(b"CNAM", b"x\0")].concat();
+        let rec = record(b"GMST", 0, 1, &sub(b"EDID", b"a\0"));
+        let bytes = [record(b"TES4", 0, 0, &body), group(b"GMST", 0, &rec)].concat();
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        assert_eq!(plugin.hedr_count_on_write(), HedrCount::Verbatim);
+        let Entry::Group(g) = &mut plugin.entries_mut()[0] else {
+            panic!()
+        };
+        g.children_mut().pop();
+        assert_eq!(plugin.hedr_count_on_write(), HedrCount::Unreadable);
+        let out = plugin.to_bytes().unwrap();
+        assert_eq!(out[..24 + body.len()], bytes[..24 + body.len()]);
+
+        let mut sink = std::io::Cursor::new(Vec::new());
+        let report = crate::driver::rewrite_reader(
+            &bytes[..],
+            bytes.len() as u64,
+            &Default::default(),
+            &mut sink,
+            |e| {
+                if let Entry::Group(g) = e {
+                    g.children_mut().pop();
+                }
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert!(report.hedr_unreadable);
+        assert_eq!(report.hedr_fix, None);
+        assert_eq!(sink.into_inner(), out);
     }
 
     #[test]
@@ -339,6 +417,7 @@ mod tests {
             panic!()
         };
         g.children_mut().pop();
+        assert_eq!(plugin.hedr_count_on_write(), HedrCount::Recomputed(2));
         assert_eq!(hedr_count(&plugin.to_bytes().unwrap()), 2);
 
         // Put back by hand: the shape matches what was read, so verbatim again.

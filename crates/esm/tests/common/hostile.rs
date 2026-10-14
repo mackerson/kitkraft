@@ -14,6 +14,7 @@
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use kitcraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitcraft_esm::index::{index_bytes, read_indexed, IndexOptions};
 use kitcraft_esm::{Body, DecodeLimits, Entry, Error, Plugin};
 
 /// Deterministic xorshift64* generator.
@@ -72,6 +73,29 @@ pub fn check(bytes: &[u8], what: &str) {
             Ok(report) => assert!(report.identical(), "{what}: driver mismatch {report:?}"),
             Err(e) => assert_in_bounds(&e, bytes.len(), what),
         }
+        // The index validates at least what the parser does, so anything it accepts
+        // parses, with the same number of records, and every entry reads back.
+        match index_bytes(bytes, &IndexOptions::default()) {
+            Ok(index) => {
+                let plugin = Plugin::parse(bytes)
+                    .unwrap_or_else(|e| panic!("{what}: indexed but does not parse: {e}"));
+                assert_eq!(index.records.len() as u64, count_records(&plugin), "{what}");
+                let mut cursor = std::io::Cursor::new(bytes);
+                for loc in &index.records {
+                    if let Err(e) = read_indexed(&mut cursor, loc, Some(&DecodeLimits::default())) {
+                        assert_in_bounds(&e, bytes.len(), what);
+                    }
+                }
+            }
+            Err(e) => assert_in_bounds(&e, bytes.len(), what),
+        }
+        if bytes.is_empty() {
+            assert!(Plugin::parse(bytes).is_err(), "{what}: empty input parsed");
+            assert!(
+                roundtrip_bytes(bytes, &RoundtripOptions::default()).is_err(),
+                "{what}: empty input roundtripped"
+            );
+        }
     }));
     if let Err(panic) = outcome {
         let msg = panic
@@ -81,6 +105,16 @@ pub fn check(bytes: &[u8], what: &str) {
             .unwrap_or_default();
         panic!("{what}: {msg}");
     }
+}
+
+fn count_records(plugin: &Plugin<'_>) -> u64 {
+    fn walk(entry: &Entry<'_>) -> u64 {
+        match entry {
+            Entry::Group(g) => g.children().iter().map(walk).sum(),
+            Entry::Record(_) => 1,
+        }
+    }
+    1 + plugin.entries().iter().map(walk).sum::<u64>()
 }
 
 /// Every offset where a record or group starts or ends (the input must parse).

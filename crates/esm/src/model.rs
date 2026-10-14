@@ -11,7 +11,7 @@
 //! Unmodified nodes are written with the sizes they were read with.
 
 use std::borrow::Cow;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use crate::Signature;
 
@@ -101,14 +101,16 @@ impl Counts {
         counts
     }
 
-    /// Add `entry` and everything below it.
+    /// Add `entry` and everything below it. Iterative, so a tree nested deeper than any
+    /// parser would accept (built in memory) cannot exhaust the stack.
     pub fn add_entry(&mut self, entry: &Entry<'_>) {
-        match entry {
-            Entry::Record(_) => self.records = self.records.saturating_add(1),
-            Entry::Group(g) => {
-                self.groups = self.groups.saturating_add(1);
-                for child in &g.children {
-                    self.add_entry(child);
+        let mut pending: Vec<&Entry<'_>> = vec![entry];
+        while let Some(entry) = pending.pop() {
+            match entry {
+                Entry::Record(_) => self.records = self.records.saturating_add(1),
+                Entry::Group(g) => {
+                    self.groups = self.groups.saturating_add(1);
+                    pending.extend(&g.children);
                 }
             }
         }
@@ -294,10 +296,53 @@ pub enum Body<'a> {
 
 /// The decompressed bytes of a compressed record body, shared with the subrecords decoded
 /// from them (no copy per subrecord).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Inflated(pub(crate) Arc<Vec<u8>>);
+///
+/// It also remembers the last recompressed body the writer produced for this record (by
+/// level and serialized subrecords), so measuring a modified record and then writing it
+/// compresses once. Equality compares the decompressed bytes only.
+#[derive(Clone)]
+pub struct Inflated(pub(crate) Arc<Vec<u8>>, Arc<Mutex<Option<Recompressed>>>);
+
+/// A recompressed body and what it was made from.
+pub(crate) struct Recompressed {
+    pub(crate) level: u32,
+    pub(crate) fields: Vec<u8>,
+    pub(crate) body: Arc<Vec<u8>>,
+}
+
+impl PartialEq for Inflated {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0
+    }
+}
+
+impl Eq for Inflated {}
+
+impl std::fmt::Debug for Inflated {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Inflated").field(&self.0.len()).finish()
+    }
+}
 
 impl Inflated {
+    pub(crate) fn new(bytes: Arc<Vec<u8>>) -> Inflated {
+        Inflated(bytes, Arc::new(Mutex::new(None)))
+    }
+
+    /// The cached body for subrecords serializing to `fields` at `level`, if any.
+    pub(crate) fn cached(&self, level: u32, fields: &[u8]) -> Option<Arc<Vec<u8>>> {
+        let guard = self.1.lock().ok()?;
+        let cached = guard.as_ref()?;
+        (cached.level == level && cached.fields == fields).then(|| Arc::clone(&cached.body))
+    }
+
+    /// Remember a recompressed body (a poisoned lock just skips the cache).
+    pub(crate) fn cache(&self, packed: Recompressed) {
+        if let Ok(mut guard) = self.1.lock() {
+            *guard = Some(packed);
+        }
+    }
+
     /// The decompressed bytes.
     pub fn bytes(&self) -> &[u8] {
         &self.0
@@ -504,8 +549,14 @@ impl<'a> Subrecord<'a> {
 
     /// Force an `XXXX` size prefix even when the data fits a `u16` (`true`), or write one
     /// only when it does not fit (`false`). The size is recomputed when written.
+    ///
+    /// No permitted source shows the engine reading a prefix before a payload that fits a
+    /// `u16`, and the official files never have one (`docs/corpus.md`); forcing it is for
+    /// tests and experiments. Clears the source offset: the subrecord's layout no longer
+    /// matches what was read.
     pub fn set_oversize_prefix(&mut self, oversize: bool) {
         self.encoding = Encoding::Canonical { oversize };
+        self.offset = NO_OFFSET;
     }
 
     /// A subrecord as read; `offset` is `None` inside a decompressed body.
@@ -535,9 +586,13 @@ impl<'a> Subrecord<'a> {
 
     /// Replace the data; the size is recomputed when written, with an `XXXX` prefix only
     /// when the data does not fit a `u16` (see [`Subrecord::set_oversize_prefix`]).
+    ///
+    /// Clears the source offset ([`Subrecord::offset`] and [`Subrecord::data_offset`] are
+    /// `None` afterwards): the data no longer comes from the input.
     pub fn set_data(&mut self, data: impl Into<Cow<'a, [u8]>>) {
         self.data = Data::from(data.into());
         self.encoding = Encoding::Canonical { oversize: false };
+        self.offset = NO_OFFSET;
     }
 
     /// Absolute source offset of the subrecord's first byte (its `XXXX` prefix, if it has
@@ -602,6 +657,37 @@ impl<'a> Subrecord<'a> {
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::Subrecord;
+
+    /// Review round 3, finding 4: offsets of edited subrecords pointed at the old bytes.
+    #[test]
+    fn edited_subrecords_lose_their_source_offset() {
+        let bytes = crate::fixture::sample_plugin();
+        let plugin = crate::Plugin::parse(&bytes).unwrap();
+        let mut s = plugin.header().subrecords().unwrap()[1].clone();
+        assert!(s.offset().is_some() && s.data_offset().is_some());
+        s.set_data(&b"other"[..]);
+        assert_eq!((s.offset(), s.data_offset()), (None, None));
+        let mut s = plugin.header().subrecords().unwrap()[1].clone();
+        s.set_oversize_prefix(false);
+        assert_eq!((s.offset(), s.data_offset()), (None, None));
+    }
+
+    /// Review round 3, finding 7: counting a tree nested far deeper than the parser allows
+    /// does not recurse.
+    #[test]
+    fn counting_a_very_deep_tree_does_not_recurse() {
+        use crate::{Counts, Entry, Group, GroupHeader};
+        let mut entry = Entry::Group(Group::new(GroupHeader::default()));
+        for _ in 0..200_000 {
+            let mut g = Group::new(GroupHeader::default());
+            g.children_mut().push(entry);
+            entry = Entry::Group(g);
+        }
+        let counts = Counts::of(std::slice::from_ref(&entry));
+        assert_eq!(counts.groups, 200_001);
+        // Dropping it is recursive in std; leak it rather than test that here.
+        std::mem::forget(entry);
+    }
 
     #[test]
     fn subrecord_stays_compact() {

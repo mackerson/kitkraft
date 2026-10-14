@@ -6,8 +6,9 @@ reference for Starfield record schemas, version-pinned, used as source material 
 This file records what was checked on 2026-10-14, and how. It contains no xEdit code or
 comments; the counts and line ranges below are our own measurements.
 
-**Status: for owner review.** Lane B does not transcribe anything until the owner has
-reviewed this file and ADRs 0004, 0005 (Amendment 2) and 0001 (Amendment 1).
+**Status: approved by the owner 2026-10-14** (ADR 0004, "Owner approval 2026-10-14"),
+together with the extension to `Core/wbDefinitionsCommon.pas` at the same revision (section
+"`wbDefinitionsCommon.pas` at the pin" below). Lane B transcribes under ADRs 0004 and 0005.
 
 ## Repository and pinned revision
 
@@ -35,8 +36,8 @@ fields, both in or next to the lane B priority list.
   `wbDefinitionsSF1.pas` is byte-identical to the one at `4440381a`, the file's latest
   change, so no Starfield fix is missed.
 - It is one repository-wide snapshot: the helper units that file uses
-  (`wbDefinitionsCommon.pas`, `wbDefinitionsSignatures.pas`) are read at the same commit if
-  they are ever needed (see "Open questions").
+  (`wbDefinitionsCommon.pas`, `wbDefinitionsSignatures.pas`) are read at the same commit
+  (`wbDefinitionsCommon.pas` is now authorized; see its section below).
 - No tag is better. The only formal release (`4.1.5f`, 2024) predates most Starfield
   work; the newest tag (`4.1.5q`) lacks 29 changes to the file; `dev-4.1.5`, the branch the
   `/CTDA` page cites, stopped in 2024.
@@ -110,6 +111,59 @@ counts are within that span only.
   elsewhere in the file (for `OMOD`, the property and include lists); a transcription cites
   those ranges in `evidence` too.
 
+## `wbDefinitionsCommon.pas` at the pin
+
+Authorized by the owner on 2026-10-14 (ADR 0004, owner approval, clarification 1) under
+the same SHA and rules as the Starfield file. Checked the same day: metadata through the
+GitHub REST API (unauthenticated `curl`), counts and line ranges from a temporary local
+copy (outside version control, deleted afterwards). No code or comments are reproduced
+here; the line ranges are our own measurements.
+
+| Item                           | Value                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------ |
+| File at the pin                | `Core/wbDefinitionsCommon.pas`, git blob `cfa80ba05c176d7571e19895e835f8df735a06cf` |
+| Revision                       | `9fb016884bec138ea6c7b872cec831537d464c3e` (the same pin)                 |
+| Last commit touching the file  | `f8b209cb5bc9efcb2cd8c4aa8694de3227c3d783` (2026-09-06)                   |
+| Size, lines                    | 338,167 bytes, 10,348 lines, ASCII                                       |
+| SHA-256 of the file at the pin | `e616b6546f6df74d88ec98bb870906db380c985963d011e4931c5726682b7d26`        |
+| License                        | MPL-2.0 notice in the file header (same as the repository `LICENSE.txt`) |
+| Layout                         | Interface (declarations) L13-L757; implementation from L758. 396 routines are declared in the interface; 223 of them are referenced from `wbDefinitionsSF1.pas` |
+
+Cite as `xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L<a>-L<b>`
+(in `evidence` when the helper only supports a definition whose `source` is in the SF1
+file), and only for what a Starfield definition uses the helper for.
+
+### Where the most-used shared fragments live
+
+A finding that matters for transcription: several shared fragments one might look for in
+the common file (conditions, script data, base form components, EditorID and name) are
+**defined inside `wbDefinitionsSF1.pas` itself**; the common file supplies only callbacks
+and deciders for them. Neither file has a helper named after `CTDA`, `OBND`, `KSIZ` or
+`KWDA` at the pin; those subrecords come from the fragments below. Reference counts are occurrences in the SF1 file outside comments,
+not counting the definition. Spans are mechanical (parenthesis or `begin`/`end` matching);
+a transcriber confirms each range when citing it.
+
+| Fragment (what it describes)                         | Defined in | Lines | SF1 uses | Common-file routines it relies on (lines) |
+| ---------------------------------------------------- | ---------- | ----- | -------- | ----------------------------------------- |
+| Conditions (`CTDA` list with its count)              | SF1        | L4750-L4840; count subrecord `CITC` at L2251; condition function table L149-L761 | 66 (count: 19) | Type after-set L1334-L1361; run-on after-set L1363-L1377; string-to-int L3014-L3030; type-to-int L3032-L3081; alias-to-text L3435-L3471; string-to-text L3473-L3492; type-to-text L3494-L3580; condition-to-text L4581-L4658; owner-to-text L4660-L4671; summary link L2625-L2648; deciders L5738-L5749, L5751-L5760, L5762-L5779 |
+| Object bounds (`OBND`)                               | Common     | declared L647, body L9348-L9365 | 49 | - |
+| Keywords (`KSIZ` count + `KWDA` array)               | Common     | declared L704, body L8935-L8951 | 44 | - |
+| Script data (`VMAD`)                                 | SF1        | L3407-L3411 (built from script fragments declared just above it) | 101 | Object filter L2394-L2403; fragment counters L1770-L1788, L1790-L1808, L1810-L1828; object-format decider L6145-L6148; empty-script decider L6133-L6143; alias-to-text L4338-L4356; alias link L2865-L2885; property-type after-set L1593-L1600; quest script name after-set L1583-L1591 |
+| Base form components (`BFCB` .. `BFCE`)              | SF1        | L5984-L6832 | 162 | - |
+| EditorID, name, description (`EDID`, `FULL`, `DESC`) | SF1        | L3182, L3184, L3186-L3188 | 192, 60, 9 | - |
+
+Other common-file routines the SF1 file uses most (uses in parentheses): boolean enum
+L7514-L7521 (174), alias-to-int L2978-L3012 (38), 3-float vector L6725-L6740 and
+L6742-L6758 (33, two overloads), byte colours L6954-L6968 and L6970-L6983 (29), leveled
+list entry L9062-L9084 (6), textured model L9512-L9544 (6), ownership L9367-L9391 (4),
+enchantment L8760-L8774 (3). A signature-to-integer conversion (L2973-L2976) appears 784
+times, inside FormID target lists; it is plumbing, not a format fact.
+
+Most of what the common file adds for the lane B priority types is therefore the object
+bounds and keyword helpers, plus the display, decider and after-set callbacks around
+conditions and script data. Callbacks are xEdit UI behaviour and are not transcribed
+(see the table below); a decider documents a union, which stays opaque.
+
 ## Pascal patterns and their TOML counterparts
 
 For the lane B transcription brief. Counts are occurrences in the pinned file. Descriptions
@@ -131,7 +185,7 @@ are ours.
 | `wbByteArray`, `wbUnknown`, `wbUnused`            | 33, 108, 93 | Raw, unknown or unused bytes                                  | `opaque` (with `size` when fixed)                                |
 | `wbEmpty`                                         | 91         | Zero-length marker subrecord                                   | `empty`                                                          |
 | `wbUnion`, `wbRUnion`, `wbFormaterUnion` + a decider function | 39, 18, 1 | Layout chosen at load time by a decider           | Not expressible yet: stays `opaque` (README "Not supported")     |
-| Shared helpers (`wbVec3`, EditorID, name, keyword-list helpers from `wbDefinitionsCommon.pas`) | e.g. `wbVec3` 31 | Reused fragments | `defs/common/` shared groups and `ref:` types |
+| Shared helpers (`wbVec3`, object-bounds and keyword-list helpers from `wbDefinitionsCommon.pas`; EditorID, name, conditions, script data from the SF1 file) | e.g. `wbVec3` 31 | Reused fragments | `defs/common/` shared groups and `ref:` types |
 | Conflict priorities (`cpNormal`, `cpIgnore`, `cpBenign`), display and callback hooks (`SetToStr`, summary keys, after-load handlers) | - | xEdit's UI and conflict-detection behaviour | Not transcribed. A hook that implies a format fact (a unit, a scale) becomes a `note` in our words |
 | `wbAddGroupOrder`                                 | 192        | Top-level group order in a plugin                              | Writer group order; confirm against the corpus (lane A)          |
 
@@ -153,11 +207,13 @@ are ours.
 
 ## Open questions and things not verified
 
-- `wbDefinitionsCommon.pas` holds helpers the Starfield file uses (EditorID, names,
-  keywords, conditions, script data). The owner decision names `wbDefinitionsSF1.pas`;
-  whether the common helpers may be cited the same way is for the owner. Until then the
-  loader accepts only `wbDefinitionsSF1.pas`, and members built from those helpers stay on
-  their current sources or opaque.
+- ~~Whether `wbDefinitionsCommon.pas` may be cited.~~ Decided 2026-10-14: yes, at the same
+  SHA under the same rules (ADR 0004 owner approval, clarification 1). Until lane B updates
+  `XEDIT_FILES` in `crates/schema/src/load.rs`, the loader still rejects citations of it;
+  members that need a common helper wait for that change rather than going untyped.
+- Other helper files (`wbDefinitionsSignatures.pas` and so on) are cited only after the
+  dependency is documented here and in `docs/source-registry.md` (ADR 0004 clarification
+  2).
 - Spans are mechanical (parenthesis matching); a transcriber confirms each range when
   citing it.
 - SF1Edit (the program) is not installed on this machine; installing a build that matches

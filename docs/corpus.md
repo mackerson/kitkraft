@@ -86,6 +86,7 @@ Record each full run here: date, commit, files identical/total, wall time, peak 
 | 2026-10-14 | 86f7b71 | 14/14     | 17.0 s    | 1,237 MiB   | First full run (lane A, before the main merge); every compressed record also decoded |
 | 2026-10-14 | adaf097 | 14/14     | 14.7 s    | 1,238 MiB   | After merging main and switching flate2 to zlib-rs; same counts |
 | 2026-10-14 | 087ab97 | 14/14     | 15.4 s    | 1,379 MiB   | Review round 2 (lane A); manifest SHA-256 of all 14 verified first (5.9 s, not in the wall time); same counts |
+| 2026-10-14 | b27d0dc | 14/14     | 16.7 s    | 1,394 MiB   | M2 lane A; every record with a schema definition also checked through it (M2.A3, table below); same counts |
 
 Wall time is the test's own timer (`corpus_full_roundtrip`, release, one thread); peak
 memory is the test process's `PeakWorkingSet64` (polled every 100 ms from PowerShell for
@@ -113,6 +114,69 @@ groups inside it are computed first (unmodified children answer from the sizes t
 read with), its header is written, and its children stream to the sink. Peak memory is the
 entry's bytes plus its parsed tree, as for the roundtrip; before this two-pass writer the
 whole modified group was assembled in a second buffer before its header could be written.
+
+### Record index (M2.A1) and random access (M2.A2)
+
+`kitcraft_esm::index::index_file` walks group and record headers without building the
+tree, reading each record body once (to find its first `EDID`; compressed records are
+inflated only until that subrecord). `cargo test -p kitcraft-esm --release --test index --
+--ignored --nocapture` (2026-10-14, lane A, warm file cache):
+
+| File                         | Records   | Groups  | EditorIDs | Index time (s) |
+| ---------------------------- | --------- | ------- | --------- | -------------- |
+| Starfield.esm                | 3,829,247 | 101,341 | 204,930   | 3.33           |
+| Constellation.esm            | 57        | 7       | 56        | 0.00           |
+| OldMars.esm                  | 39        | 5       | 38        | 0.00           |
+| BlueprintShips-Starfield.esm | 1,503,333 | 2,404   | 5,719     | 0.31           |
+| BlueprintShips-SFBGS050.esm  | 80,008    | 283     | 217       | 0.02           |
+| SFBGS003.esm                 | 65,476    | 1,437   | 3,375     | 0.05           |
+| SFBGS004.esm                 | 892       | 58      | 310       | 0.00           |
+| SFBGS006.esm                 | 60,922    | 1,177   | 1,121     | 0.01           |
+| SFBGS007.esm                 | 63        | 12      | 62        | 0.00           |
+| SFBGS008.esm                 | 182       | 45      | 169       | 0.01           |
+| SFBGS00D.esm                 | 434,991   | 7,005   | 9,905     | 0.17           |
+| SFBGS047.esm                 | 43        | 29      | 36        | 0.00           |
+| SFBGS050.esm                 | 485,320   | 6,039   | 10,967    | 0.13           |
+| ShatteredSpace.esm           | 1,029,529 | 17,747  | 28,441    | 1.80           |
+
+Record counts (per signature, `TES4` included) equal the streaming parse's, which are the
+counts `coverage` reports, on all 14 files. Indexing `Starfield.esm` alone peaks at a
+288 MiB working set (the M1.5 bound is 1,903 MiB): the index holds one 56-byte
+`RecordLoc` per record plus EditorIDs, and one record body at a time. `read_indexed` on
+1,000 seeded
+`Starfield.esm` entries (and on every record of the five small files) returns records equal
+to the streaming parse's, compressed ones decompressed on both sides.
+
+### Typed decode check (M2.A3)
+
+`RoundtripOptions::typed` decodes every record whose type has a schema definition through
+the generated code (`Ctx`: the record's form version and the `TES4` localized flag),
+encodes it again and compares subrecord by subrecord; a payload a typed member cannot
+decode, or a position where the encoding differs, is a conflict listed with its record,
+subrecord index, signature and offset. The full run above (b27d0dc, definitions as of
+`main` at 73a001d: TES4, GLOB, GMST, KYWD, WEAP) found none:
+
+| File                         | Typed records | Placed subrecords | Records with conflicts |
+| ---------------------------- | ------------- | ----------------- | ---------------------- |
+| Starfield.esm                | 11,327        | 51,658            | 0                      |
+| Constellation.esm            | 12            | 46                | 0                      |
+| OldMars.esm                  | 7             | 31                | 0                      |
+| BlueprintShips-Starfield.esm | 1             | 5                 | 0                      |
+| BlueprintShips-SFBGS050.esm  | 1             | 7                 | 0                      |
+| SFBGS003.esm                 | 169           | 608               | 0                      |
+| SFBGS004.esm                 | 69            | 211               | 0                      |
+| SFBGS006.esm                 | 3             | 12                | 0                      |
+| SFBGS007.esm                 | 5             | 15                | 0                      |
+| SFBGS008.esm                 | 2             | 9                 | 0                      |
+| SFBGS00D.esm                 | 486           | 1,714             | 0                      |
+| SFBGS047.esm                 | 5             | 53                | 0                      |
+| SFBGS050.esm                 | 381           | 2,026             | 0                      |
+| ShatteredSpace.esm           | 700           | 3,752             | 0                      |
+
+13,168 records and 60,147 placed subrecords in all; every compressed one was decoded (0
+unchecked). Most members are still opaque (`Bytes`), so this mostly exercises placement
+and order; it becomes a real test of layouts as lane B types them (M2.B2 onwards).
+`corpus_small_roundtrip` fails on any conflict in the five small files.
 
 ### Per-file results (adaf097)
 
@@ -196,9 +260,15 @@ Additional observations:
   records): Starfield 10,592 / 10,361; BlueprintShips-Starfield 199 / 93;
   BlueprintShips-SFBGS050 1 / 0; SFBGS003 65 / 60; SFBGS008 21 / 19; SFBGS00D 167 / 161;
   SFBGS047 1 / 1; SFBGS050 99 / 91; ShatteredSpace 1,704 / 1,701; the other five have none.
-  So the writer's rule for new or edited values, a prefix exactly when the payload exceeds
-  `u16::MAX`, agrees with every occurrence (typed values encoded through the generated
-  records also keep the prefix of a value read with one, `oversized`).
+  **Writer policy (M2.A4).** A subrecord that is not changed is written exactly as read,
+  prefix included. A new or changed payload, whether set through the edit API
+  (`Record::set_subrecord`, `Subrecord::set_data`) or encoded from a typed value
+  (`Subrecord::from_owned`, `Record::set_typed`), gets an `XXXX` prefix exactly when it
+  exceeds `u16::MAX` bytes, and then a 0 size field, the form every occurrence above has.
+  The `oversized` flag of a typed value is ignored on write (review round 3: honouring it
+  wrote `XXXX` before a payload shrunk below 64 KiB, a form the corpus never shows).
+  `Subrecord::set_oversize_prefix(true)` still forces a prefix, for experiments only.
+  Payloads over `u32::MAX` are an error (`TooLarge`).
 - Group types 0 to 10 occur. UESP's Skyrim table stops at 9; type 10 is Starfield-only
   (meaning not documented on a permitted source). The parser treats group types opaquely.
 - Groups nest at most 6 deep (the parser's default cap is 16).

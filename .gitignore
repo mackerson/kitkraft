@@ -30,3 +30,7 @@ desktop.ini
 
 # Upstream reference sources (xEdit Pascal) are read locally, never committed (ADR 0004)
 *.pas
+
+# Live MCP client config (copy of .mcp.json.example with local paths); never committed
+/.mcp.json
+/bin/

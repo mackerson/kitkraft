@@ -4,12 +4,12 @@
 an adapter: every tool resolves to `engine::execute`, the same path the CLI uses. The tool
 count stays small on purpose; capability grows by adding commands, not tools.
 
-Status: the server is planned (M2). The engine side it adapts exists since M1.11:
-`kitcraft_engine::execute(id: &str, args: serde_json::Value) -> Result<Value, EngineError>`
-returns the envelope below, and `kitcraft_engine::parse_line` is the `command_line`
-grammar. This document is the contract the implementation follows. Implemented commands
-today: `roundtrip` (M1.12), `coverage` (M1.14) and a minimal single-plugin `inspect`; the
-rest are `Planned`.
+Status: implemented (M2.F2..F6): `crates/mcp` (`server.rs` protocol, `tools.rs` tool
+shapes from the catalog, `backend.rs` calls onto the engine) and the `kit mcp` launcher.
+Every tool resolves to `Engine::execute` on the server's one engine, so the server keeps
+one `Session` for its process: a `load` is seen by every later call. Which commands do
+real work is the catalog's `status` (`kit help`, or the `kitcraft://commands` resource);
+the rest answer with a `not_implemented` or `deferred` tool error.
 
 Front-end launchers (`kit mcp`, a future `kit ui`) start a front end; they are not actions
 and are deliberately not `CommandSpec`s. Everything else a user can do is.
@@ -21,32 +21,108 @@ kit mcp                                   # empty session
 kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"   # preload a load order
 ```
 
+`--profile` runs the `load` command before serving. If it fails (until M2.D8 lands it
+always does: `load` is not implemented yet) the error goes to stderr and into the
+server's `instructions`, and the server starts with an empty session instead of exiting.
+`kit mcp` exits 0 when its stdin closes and 2 on a stdio error. stdout carries only MCP
+messages; logs go to stderr.
+
 Client config (any MCP client that launches stdio servers):
 
 ```json
 { "mcpServers": { "kitcraft": { "command": "C:\\path\\to\\kit.exe", "args": ["mcp"] } } }
 ```
 
+## Use from Claude Code
+
+1. Build the release binary: `cargo build --release -p kit-cli` (gives
+   `C:\Modding\kitcraft\target\release\kit.exe` with the default target dir).
+2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the
+   file is gitignored, never committed; adjust the paths) and approve the server when
+   Claude Code asks, or register it for yourself only:
+
+   ```powershell
+   claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
+   ```
+
+3. Restart Claude Code (or start a new session). `/mcp` should list `kitcraft` as connected
+   with 7 tools; Claude Code names them `mcp__kitcraft__execute`, `mcp__kitcraft__coverage`
+   and so on.
+4. Headless check without the UI:
+
+   ```powershell
+   claude -p "Use the kitcraft tools: run coverage on <Data>\Constellation.esm, then roundtrip it with verify, and show the envelopes" --mcp-config .mcp.json --allowedTools "mcp__kitcraft__*"
+   ```
+
+Rebuild `kit.exe` and restart the session after a change to the catalog or the server;
+Claude Code reads the tool list at connect time.
+
+## Protocol
+
+JSON-RPC 2.0 over stdio, one message per line (no embedded newlines), UTF-8. Hand-written
+over `serde_json` (`crates/mcp/src/server.rs`): the official Rust SDK `rmcp` (3.5.1,
+Apache-2.0) needs `tokio`, `tokio-util`, `futures`, `chrono` and `tracing` for what is a
+single-threaded line loop here, and the dual-era handling below would still be ours.
+
+The server implements MCP revision **2026-07-28** and, for clients that still do the
+handshake, the earlier revisions **2025-11-25, 2025-06-18, 2025-03-26, 2024-11-05** (a
+"dual-era" server in the 2026-07-28 versioning terms):
+
+- **Modern requests** carry `params._meta["io.modelcontextprotocol/protocolVersion"]`
+  (must be `2026-07-28`, else error `-32022` with `data: {supported, requested}`) and
+  `["io.modelcontextprotocol/clientCapabilities"]` (missing: `-32602`). No handshake.
+  `server/discover` returns `supportedVersions`, `capabilities`, `instructions`. Every
+  result carries `resultType: "complete"` and `_meta["io.modelcontextprotocol/serverInfo"]`;
+  list, read and discover results carry `ttlMs`/`cacheScope` (the load-order resource:
+  `0`/`private`).
+- **Legacy requests** (no version in `_meta`): `initialize` answers with the client's
+  `protocolVersion` when it is one of the four above, otherwise `2025-11-25`, plus
+  `capabilities`, `serverInfo` and `instructions`. `notifications/initialized` and `ping`
+  work; requests before `initialize` are served too.
+- Methods: `server/discover`, `initialize`, `ping`, `tools/list`, `tools/call`,
+  `resources/list`, `resources/read`, `resources/templates/list` (empty). Capabilities:
+  `tools` and `resources`, no `listChanged`, no subscriptions, one page (any `cursor` is
+  `-32602`). Notifications (`notifications/cancelled` included) are accepted and never
+  answered; requests run one at a time, so a cancel cannot interrupt a running command.
+- Malformed JSON or non-UTF-8: `-32700`. Not a request object (batch arrays, `id` that is
+  `null`, a float, a bool or an object, wrong `jsonrpc`), or a line over 8 MiB (discarded
+  without buffering): `-32600`. Unknown method: `-32601`. `params` not an object: `-32602`.
+
+The session is process state, which the 2026-07-28 statelessness rule discourages (state
+across requests should be named by an explicit handle). It is correct for handshake-era
+clients, whose session is the stdio process; giving `load` a session handle is an open
+question for M3.
+
 ## Tools
 
-| Tool             | Arguments                         | Does                                                                       |
-| ---------------- | --------------------------------- | -------------------------------------------------------------------------- |
-| `execute`        | `{command, args}`                 | Run any catalog command by id with JSON args matching its `args_schema`    |
-| `command_line`   | `{text}`                          | Run a CLI-style line, e.g. `"inspect 0001A2B3"`; same parser as `kit`      |
-| `inspect_record` | `{form, plugin}`                  | One record: winning version, every override, decoded fields, opaque ranges (today: one plugin, header + opaque subrecords) |
-| `query_records`  | `{type, where?, limit?, cursor?}` | Records of one type matching a field predicate; paged                      |
-| `diff_plugins`   | `{a, b, form?}`                   | Record-level semantic diff between two plugins                             |
-| `render`         | -                                 | Later (needs `crates/render`)                                              |
+| Tool             | Arguments                                 | Does                                                                  |
+| ---------------- | ----------------------------------------- | --------------------------------------------------------------------- |
+| `execute`        | `{command, args?}`                        | Run any catalog command by id (or alias) with JSON args matching its `args_schema` |
+| `command_line`   | `{text}`                                  | Run a CLI-style line, e.g. `"inspect 0001A2B3 X.esm"`; same parser as `kit`; `help ...` returns usage text |
+| `inspect_record` | `inspect`'s args (`{form, plugin}`)       | One record: header fields and subrecords (later: winner, overrides, typed fields) |
+| `query_records`  | `query`'s args (`{type, where?, limit?, cursor?}`) | Records of one type matching a field predicate; paged        |
+| `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
+| `coverage`       | `coverage`'s args (`{plugin, decode?}`)   | Record types and subrecords vs the schema                             |
+| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?}`) | Parse and rewrite a plugin; `verify` demands identical bytes     |
+| `render`         | -                                         | Later (needs `crates/render`)                                         |
 
-`inspect_record`, `query_records`, and `diff_plugins` are shortcuts for `execute` with
-`inspect`, `query`, and `diff`; they exist because agents call them constantly.
+Tool shapes are generated from the catalog (`tools.rs`): a shortcut's `inputSchema` is its
+command's `args_schema` verbatim and its description is the command's `summary` (plus
+`planned: ...` or `deferred to M3: ...` when not implemented); `execute`'s `command` enum
+and its description (one line per command with its argument names) list the catalog as
+it is. Adding or changing a command needs no edit in `crates/mcp`; tests enforce both.
+Shortcuts that never write carry `readOnlyHint: true`.
+
+Every successful call returns the envelope as `structuredContent` and as JSON text in
+one `text` content block (identical). `command_line` with `help` returns
+`{"help": text}`. There is no `outputSchema` (error results have a different shape).
 
 Resources:
 
 | URI                     | Contents                                                      |
 | ----------------------- | ------------------------------------------------------------- |
-| `kitcraft://commands`   | The catalog: id, label, aliases, summary, args_schema, status |
-| `kitcraft://load-order` | Current session's plugins, masters, and indices               |
+| `kitcraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to |
+| `kitcraft://load-order` | The session's load-order listing as `load` reported it (`Session::load_order`); `{"loaded": false, "plugins": [], ...}` before any load |
 
 ## Result envelope
 
@@ -264,12 +340,21 @@ report (`kit --json` prints `{"error": {"kind", "message", "violations"?}}`).
 
 | `kind`            | When                                                              | MCP mapping       |
 | ----------------- | ----------------------------------------------------------------- | ----------------- |
-| `unknown_command` | No catalog id or alias matches                                    | `-32602`          |
-| `usage`           | `command_line` text did not parse (unknown flag, bad value)       | `-32602`          |
-| `invalid_args`    | Arguments break `args_schema`; carries every `{pointer, rule, message}` | `-32602`    |
+| `unknown_command` | No catalog id or alias matches                                    | `isError: true`   |
+| `usage`           | `command_line` text did not parse (unknown flag, bad value)       | `isError: true`   |
+| `invalid_args`    | Arguments break `args_schema`; carries every `{pointer, rule, message}` | `isError: true` |
 | `not_implemented` | Catalog command with no handler yet                               | `isError: true`   |
+| `deferred`        | Catalog command deferred to a later milestone (`Status::Deferred`); the message has the reason | `isError: true` |
 | `failed`          | The command ran and failed                                        | `isError: true`   |
 | `bad_schema`, `registration`, `serialize` | Engine bugs (catalog or handler table)    | `-32603`          |
+| (none)            | `tools/call` names no tool, lacks `name`, or `arguments` is not an object | `-32602`  |
+
+An `isError: true` result carries `structuredContent: {"error": {"kind", "message",
+"violations"?}}` (the shape `kit --json` prints) and the same JSON as text. Argument
+errors are tool results rather than JSON-RPC errors so the model sees the pointer and
+rule and can fix its call; MCP 2026-07-28 ("Tools", "Error Handling") classes input
+validation as a tool execution error. `execute` and `command_line` validate their own
+`{command, args}` / `{text}` with the same validator (`invalid_args` names the tool).
 
 Argument validation implements the JSON Schema subset the catalog uses: `type`, `enum`,
 `properties`, `required`, `additionalProperties`, `items`, `minItems`/`maxItems`,
@@ -278,7 +363,7 @@ Argument validation implements the JSON Schema subset the catalog uses: `type`, 
 (a test enforces it), so a schema can never silently accept what it claims to reject.
 Top-level `default`s are filled in before the handler runs; `null` arguments mean `{}`.
 
-- Invalid arguments: JSON-RPC error `-32602` with the failing JSON pointer and the schema rule.
+- Invalid arguments: an `isError` result with the failing JSON pointer and the schema rule.
 - Command failures (unreadable file, parse error, missing master): a tool result with
   `isError: true` and a message that includes the byte offset when the failure is in a
   plugin.
@@ -308,7 +393,9 @@ also demands byte-identical output.
 | ---- | ----------------------------------------------------------------------------------------- |
 | 0    | Success, help, version (includes `roundtrip` without `--verify` that found a difference)  |
 | 1    | The command ran and its check failed: `data.passed` is `false` (`roundtrip --verify` mismatch) |
-| 2    | Usage error, unknown command, invalid arguments, not implemented (including a `Planned` command's stub result), command failure, `kit mcp` before M2 |
+| 2    | Usage error, unknown command, invalid arguments, not implemented (including a `Planned` command's stub result), deferred, command failure; `kit mcp` on a stdio I/O error |
+
+`kit mcp` exits 0 when its stdin closes, including after a failed `--profile` preload.
 
 With `--json`, stdout carries exactly the `execute` envelope (or the error object), and
 human messages go to stderr.

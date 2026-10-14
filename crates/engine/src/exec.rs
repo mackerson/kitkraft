@@ -2,17 +2,19 @@
 //! wrap the result in the envelope.
 //!
 //! Handlers are the seam to the format crates. A command is wired by registering a
-//! [`CommandHandler`] for its id in [`Engine::with_default_handlers`]; front ends never
-//! change when a handler is added or replaced.
+//! [`CommandHandler`] (stateless) or a [`SessionHandler`] (reads or changes the engine's
+//! [`Session`]) for its id in [`Engine::with_default_handlers`]; front ends never change
+//! when a handler is added or replaced.
 
 use std::collections::BTreeMap;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock, PoisonError};
 
 use serde_json::Value;
 
 use crate::args::{self, Violation};
 use crate::envelope::{Envelope, Outcome};
-use crate::{find_command, handlers, CommandSpec};
+use crate::session::Session;
+use crate::{find_command, handlers, CommandSpec, Status};
 
 /// Everything `execute` can fail with. Each variant has a stable [`EngineError::kind`].
 #[derive(Debug, thiserror::Error)]
@@ -39,6 +41,16 @@ pub enum EngineError {
     /// The command is in the catalog but has no handler yet.
     #[error("`{0}` is in the catalog but not implemented yet")]
     NotImplemented(String),
+    /// The command is in the catalog but deliberately deferred to a later milestone.
+    #[error("`{command}` is deferred to {milestone}: {reason}")]
+    Deferred {
+        /// Canonical command id.
+        command: String,
+        /// Why it is not in this milestone.
+        reason: String,
+        /// The milestone it is deferred to (`M3`).
+        milestone: String,
+    },
     /// A catalog schema is malformed or uses an unsupported keyword (a bug in the catalog).
     #[error("args_schema of `{command}` is invalid: {message}")]
     BadSchema {
@@ -71,6 +83,7 @@ impl EngineError {
             Self::InvalidArgs { .. } => "invalid_args",
             Self::Usage { .. } => "usage",
             Self::NotImplemented(_) => "not_implemented",
+            Self::Deferred { .. } => "deferred",
             Self::BadSchema { .. } => "bad_schema",
             Self::Registration(..) => "registration",
             Self::Failed { .. } => "failed",
@@ -112,17 +125,47 @@ where
     }
 }
 
-/// A registry of command handlers keyed by canonical command id.
+/// Runs one command that reads or changes the engine's [`Session`] (`load`, and commands
+/// that work across the loaded load order). Same rules as [`CommandHandler`]: arguments
+/// are already validated, and it never prompts or blocks on input.
+pub trait SessionHandler: Send + Sync {
+    /// Executes the command against `session`.
+    fn run(&self, session: &mut Session, args: &Value) -> Result<Outcome, EngineError>;
+}
+
+/// Any `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` is a session handler.
+impl<F> SessionHandler for F
+where
+    F: Fn(&mut Session, &Value) -> Result<Outcome, EngineError> + Send + Sync,
+{
+    fn run(&self, session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
+        self(session, args)
+    }
+}
+
+/// A registered handler of either kind.
+enum Handler {
+    Stateless(Box<dyn CommandHandler>),
+    Session(Box<dyn SessionHandler>),
+}
+
+/// A registry of command handlers keyed by canonical command id, plus the [`Session`]
+/// they share.
+///
+/// [`Engine::execute`] runs on the engine's own session (the MCP server keeps one engine,
+/// so a `load` is seen by the `inspect` that follows). [`Engine::execute_in`] runs on a
+/// session the caller owns; the free [`execute`] uses a fresh one per call.
 #[derive(Default)]
 pub struct Engine {
-    handlers: BTreeMap<&'static str, Box<dyn CommandHandler>>,
+    handlers: BTreeMap<&'static str, Handler>,
+    session: Mutex<Session>,
 }
 
 impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Engine")
             .field("handlers", &self.handlers.keys().collect::<Vec<_>>())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -135,20 +178,37 @@ impl Engine {
     /// The engine every front end uses: one handler per wired command.
     pub fn with_default_handlers() -> Self {
         let mut engine = Self::empty();
+        // The default tables are static and covered by a test; a bad entry is skipped
+        // here rather than taking the process down.
         for (id, handler) in handlers::defaults() {
-            // The default table is static and covered by a test; a bad entry is skipped
-            // here rather than taking the process down.
             let _ = engine.register(id, handler);
+        }
+        for (id, handler) in handlers::session_defaults() {
+            let _ = engine.register_session(id, handler);
         }
         engine
     }
 
-    /// Registers `handler` for the catalog command `id` (canonical id, not an alias).
+    /// Registers a stateless `handler` for the catalog command `id` (canonical id, not an
+    /// alias).
     pub fn register(
         &mut self,
         id: &str,
         handler: Box<dyn CommandHandler>,
     ) -> Result<(), EngineError> {
+        self.insert(id, Handler::Stateless(handler))
+    }
+
+    /// Registers a session-aware `handler` for the catalog command `id`.
+    pub fn register_session(
+        &mut self,
+        id: &str,
+        handler: Box<dyn SessionHandler>,
+    ) -> Result<(), EngineError> {
+        self.insert(id, Handler::Session(handler))
+    }
+
+    fn insert(&mut self, id: &str, handler: Handler) -> Result<(), EngineError> {
         let spec = crate::catalog()
             .iter()
             .find(|spec| spec.id == id)
@@ -168,22 +228,57 @@ impl Engine {
         self.handlers.contains_key(id)
     }
 
+    /// Runs `f` on the engine's session (for front ends that show session state, such as
+    /// the MCP `kitcraft://load-order` resource).
+    pub fn with_session<R>(&self, f: impl FnOnce(&mut Session) -> R) -> R {
+        // Panics are denied workspace-wide, so a poisoned lock can only come from a bug
+        // outside our code; the session it holds is still usable.
+        let mut session = self.session.lock().unwrap_or_else(PoisonError::into_inner);
+        f(&mut session)
+    }
+
     /// Resolves `id` (or an alias), validates `args` against the command's
-    /// `args_schema`, runs its handler, and returns the envelope
-    /// `{command, data, coverage, limitations, evidence}` as JSON.
+    /// `args_schema`, runs its handler on the engine's own session, and returns the
+    /// envelope `{command, data, coverage, limitations, evidence}` as JSON.
     pub fn execute(&self, id: &str, args: Value) -> Result<Value, EngineError> {
+        self.with_session(|session| self.execute_in(session, id, args))
+    }
+
+    /// As [`Engine::execute`], on a session the caller owns.
+    pub fn execute_in(
+        &self,
+        session: &mut Session,
+        id: &str,
+        args: Value,
+    ) -> Result<Value, EngineError> {
         let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
         let args = prepare_args(spec, args)?;
+        refuse_deferred(spec)?;
         let handler = self
             .handlers
             .get(spec.id)
             .ok_or_else(|| EngineError::NotImplemented(spec.id.to_string()))?;
-        let outcome = handler.run(&args)?;
+        let outcome = match handler {
+            Handler::Stateless(handler) => handler.run(&args)?,
+            Handler::Session(handler) => handler.run(session, &args)?,
+        };
         let envelope = Envelope {
             command: spec.id,
             outcome,
         };
         Ok(serde_json::to_value(envelope)?)
+    }
+}
+
+/// A `Deferred` command is refused before any handler runs, even one registered for it.
+pub(crate) fn refuse_deferred(spec: &CommandSpec) -> Result<(), EngineError> {
+    match spec.status {
+        Status::Deferred { reason, milestone } => Err(EngineError::Deferred {
+            command: spec.id.to_string(),
+            reason: reason.to_string(),
+            milestone: milestone.to_string(),
+        }),
+        Status::Planned | Status::Implemented => Ok(()),
     }
 }
 
@@ -208,10 +303,11 @@ pub fn prepare_args(spec: &CommandSpec, args: Value) -> Result<Value, EngineErro
     Ok(args)
 }
 
-/// Runs a command on the default engine. See [`Engine::execute`].
+/// Runs a command on the default handlers with a fresh, empty [`Session`] (one command,
+/// no state carried over: the CLI's model). See [`Engine::execute`].
 pub fn execute(id: &str, args: Value) -> Result<Value, EngineError> {
     static ENGINE: OnceLock<Engine> = OnceLock::new();
     ENGINE
         .get_or_init(Engine::with_default_handlers)
-        .execute(id, args)
+        .execute_in(&mut Session::new(), id, args)
 }
