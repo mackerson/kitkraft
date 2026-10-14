@@ -6,6 +6,9 @@
 # with the order below. DATA and ENAM never occur in the same record, so their relative
 # order is unknown.
 #
+# DNAM and ENAM vary in size, but no source splits them into fields, so they stay opaque
+# (an `if_remaining` tail needs the field split as a sourced fact, not just two sizes).
+#
 # Member names are placeholders derived from the signature.
 signature = "KYWD"
 name = "Keyword"
@@ -19,23 +22,8 @@ card = "optional"
 note = "absent in 3 of 6965 records"
 
 [[member]]
-group = "BfcbBlock"
+group_ref = "BfcbBlock"
 card = "repeated"
-
-[[member.member]]
-sig = "BFCB"
-name = "Bfcb"
-type = "opaque"
-
-[[member.member]]
-any_until = "BFCE"
-name = "BfcbBody"
-
-[[member.member]]
-sig = "BFCE"
-name = "Bfce"
-type = "opaque"
-note = "observed 0 bytes"
 
 [[member]]
 sig = "CNAM"

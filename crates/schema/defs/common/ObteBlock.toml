@@ -1,0 +1,48 @@
+# ObteBlock: the OBTE..STOP block.
+#
+# Source (ADR 0005 "inventory" row): the corpus scan of the WEAP top group (2026-10-14; files
+# and counts in WEAP.toml). OBTE (4 bytes) opens the block; entries of [OBTF?] FULL OBTS
+# follow; STOP (0 bytes) closes it. STOP also occurs on its own, in records without OBTE,
+# which is why OBTE is optional here. The meaning of the block is not sourced yet.
+#
+# Member names are placeholders derived from the signature.
+name = "ObteBlock"
+kind = "group"
+source = "corpus: OBTE..STOP blocks in the WEAP records of the official ESMs"
+
+[[member]]
+sig = "OBTE"
+name = "Obte"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes; opens the block"
+
+[[member]]
+group = "ObtsEntry"
+card = "repeated"
+note = "one entry of the block; only occurs after OBTE"
+
+[[member.member]]
+sig = "OBTF"
+name = "Obtf"
+type = "opaque"
+card = "optional"
+note = "observed 0 bytes"
+
+[[member.member]]
+sig = "FULL"
+name = "Full"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member.member]]
+sig = "OBTS"
+name = "Obts"
+type = "opaque"
+note = "observed variable size"
+
+[[member]]
+sig = "STOP"
+name = "Stop"
+type = "opaque"
+note = "observed 0 bytes; closes the block"

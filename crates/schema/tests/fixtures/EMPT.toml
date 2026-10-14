@@ -1,0 +1,4 @@
+# Synthetic record type with no members: every subrecord lands in `extra`.
+signature = "EMPT"
+name = "Nothing"
+source = "corpus: synthetic test fixture, not game data"

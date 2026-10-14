@@ -3,10 +3,12 @@
 // Helpers outside `#[test]` fns panic to fail the calling test; this is test code.
 #![allow(clippy::panic, clippy::unwrap_used)]
 
+use std::collections::BTreeSet;
 use std::path::Path;
 
 use kitcraft_schema::{
-    builtin, load_dir, Cardinality, Definition, FieldType, Member, Signature, BUILTIN_DEFINITIONS,
+    builtin, load_dir, Cardinality, CommonBody, FieldType, Member, Signature, BUILTIN_DEFINITIONS,
+    COMMON_DIR, FORBIDDEN_UESP_STARFIELD_PAGES,
 };
 
 fn defs_dir() -> &'static Path {
@@ -25,36 +27,114 @@ fn all_opaque(members: &[Member]) -> bool {
     })
 }
 
+/// `*.toml` names in `dir`, prefixed as `load_dir` names them.
+fn toml_names(dir: &Path, prefix: &str, out: &mut BTreeSet<String>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let path = entry.unwrap().path();
+        if path.is_file() && path.extension().is_some_and(|e| e == "toml") {
+            let name = path.file_name().unwrap().to_string_lossy().into_owned();
+            out.insert(format!("{prefix}{name}"));
+        }
+    }
+}
+
+/// Stands in for generating `BUILTIN_DEFINITIONS` until `cargo xtask codegen` (M1.15):
+/// fails with the exact entries to add or remove when the list and the directory differ.
+#[test]
+fn builtin_list_matches_the_directory() {
+    let mut on_disk = BTreeSet::new();
+    toml_names(defs_dir(), "", &mut on_disk);
+    toml_names(
+        &defs_dir().join(COMMON_DIR),
+        &format!("{COMMON_DIR}/"),
+        &mut on_disk,
+    );
+    let listed: BTreeSet<String> = BUILTIN_DEFINITIONS
+        .iter()
+        .map(|(n, _)| (*n).to_owned())
+        .collect();
+    let missing: Vec<String> = on_disk
+        .difference(&listed)
+        .map(|n| format!("(\"{n}\", include_str!(\"../defs/{n}\")),"))
+        .collect();
+    let stale: Vec<&String> = listed.difference(&on_disk).collect();
+    assert!(
+        missing.is_empty() && stale.is_empty(),
+        "BUILTIN_DEFINITIONS in src/lib.rs is out of date.\nadd:\n{}\nremove: {stale:?}",
+        missing.join("\n")
+    );
+    assert_eq!(listed.len(), BUILTIN_DEFINITIONS.len(), "duplicate entries");
+}
+
 #[test]
 fn builtin_set_loads_and_matches_the_directory() {
     let embedded = builtin().unwrap();
     let on_disk = load_dir(defs_dir()).unwrap();
-    assert_eq!(embedded, on_disk);
-    let sigs: Vec<&str> = embedded.definitions.keys().map(|s| s.as_str()).collect();
-    assert_eq!(sigs, ["GLOB", "GMST", "GRUP", "KYWD", "TES4", "WEAP"]);
+    assert_eq!(*embedded, on_disk);
+    // Cached: the same instance every time.
+    assert!(std::ptr::eq(embedded, builtin().unwrap()));
+    let sigs: Vec<&str> = embedded.records.keys().map(Signature::as_str).collect();
+    assert_eq!(sigs, ["GLOB", "GMST", "KYWD", "TES4", "WEAP"]);
+    let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
+    assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
+    let common: Vec<&str> = embedded.common.keys().map(String::as_str).collect();
+    assert_eq!(common, ["BfcbBlock", "ObteBlock"]);
 }
 
+/// Every `source` and `evidence` entry uses an ADR 0005 form whose citation has the shape
+/// that form requires, and every file opens with a comment saying what each source
+/// contributed.
 #[test]
 fn every_file_names_its_source() {
-    for (file, text) in BUILTIN_DEFINITIONS {
-        assert!(
-            text.contains("https://en.uesp.net/wiki/") || text.contains("corpus:"),
-            "{file} must name a UESP page or a corpus scan"
+    let schema = builtin().unwrap();
+    let mut citations: Vec<(String, &str)> = Vec::new();
+    for r in schema.records() {
+        citations.push((r.signature.to_string(), &r.source));
+        citations.extend(
+            r.evidence
+                .iter()
+                .map(|e| (r.signature.to_string(), e.as_str())),
         );
+    }
+    for h in schema.headers() {
+        citations.push((h.name.clone(), &h.source));
+        citations.extend(h.evidence.iter().map(|e| (h.name.clone(), e.as_str())));
+    }
+    for c in schema.common() {
+        citations.push((c.name.clone(), &c.source));
+        citations.extend(c.evidence.iter().map(|e| (c.name.clone(), e.as_str())));
+    }
+    for (def, text) in citations {
+        if let Some(page) = text.strip_prefix("uesp-skyrim: ") {
+            assert!(
+                page.starts_with("https://en.uesp.net/wiki/Skyrim_Mod:"),
+                "{def}: {text}"
+            );
+        } else if let Some(page) = text.strip_prefix("uesp-starfield: ") {
+            assert!(
+                page.starts_with("https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format"),
+                "{def}: {text}"
+            );
+            assert!(
+                !FORBIDDEN_UESP_STARFIELD_PAGES
+                    .iter()
+                    .any(|p| page.contains(p)),
+                "{def}: {text}"
+            );
+        } else if let Some(note) = text.strip_prefix("corpus: ") {
+            assert!(note.len() > 10, "{def}: corpus note too vague: {text}");
+        } else if let Some(id) = text.strip_prefix("ck-diff: ") {
+            assert!(!id.trim().is_empty(), "{def}: {text}");
+        } else if let Some(title) = text.strip_prefix("ck-wiki: ") {
+            assert!(!title.trim().is_empty(), "{def}: {text}");
+        } else {
+            panic!("{def}: not an ADR 0005 form: {text}");
+        }
+    }
+    for (file, text) in BUILTIN_DEFINITIONS {
         assert!(
             text.starts_with('#'),
             "{file} must open with a source comment"
-        );
-    }
-    for def in builtin().unwrap().definitions.values() {
-        let source = match def {
-            Definition::Record(r) => &r.source,
-            Definition::Header(h) => &h.source,
-        };
-        assert!(
-            source.starts_with("uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:")
-                || source.starts_with("corpus: "),
-            "{source}"
         );
     }
 }
@@ -67,6 +147,12 @@ fn inventory_definitions_are_fully_opaque() {
         assert!(rec.source.starts_with("corpus: "), "{s}");
         assert!(all_opaque(&rec.members), "{s} must stay opaque");
     }
+    for common in schema.common() {
+        let CommonBody::Group(members) = &common.body else {
+            panic!("{} is a group", common.name);
+        };
+        assert!(all_opaque(members), "{} must stay opaque", common.name);
+    }
     let weap = schema.record(sig("WEAP")).unwrap();
     assert_eq!(weap.note.as_deref(), Some("layout pending ADR 0005"));
     // The two FLLD slots and the required core of the corpus inventory.
@@ -76,7 +162,21 @@ fn inventory_definitions_are_fully_opaque() {
         .filter(|m| matches!(m, Member::Subrecord(s) if s.signature == sig("FLLD")))
         .count();
     assert_eq!(flld, 2);
-    assert_eq!(weap.members.len(), 47);
+    assert_eq!(weap.members.len(), 45);
+    // Shared blocks are referenced, not copied.
+    for s in ["GLOB", "KYWD", "WEAP"] {
+        let rec = schema.record(sig(s)).unwrap();
+        assert!(
+            rec.members
+                .iter()
+                .any(|m| matches!(m, Member::Group(g) if g.shared.as_deref() == Some("BfcbBlock"))),
+            "{s}"
+        );
+    }
+    let known = schema.known_signatures(sig("WEAP")).unwrap();
+    for s in ["BFCB", "BFCE", "OBTE", "OBTF", "OBTS", "STOP", "WTRM"] {
+        assert!(known.contains(&sig(s)), "{s}");
+    }
 }
 
 #[test]
@@ -109,11 +209,29 @@ fn tes4_container_layout() {
     assert_eq!(master.cardinality, Cardinality::Repeated);
     let localized = tes4.flags.iter().find(|f| f.name == "Localized").unwrap();
     assert_eq!(localized.value, 0x80);
+    let leaves: Vec<String> = tes4.leaf_subrecords().into_iter().map(|(p, _)| p).collect();
+    assert!(leaves.contains(&"Master.FileName".to_owned()));
 
-    let Some(Definition::Header(grup)) = schema.definitions.get(&sig("GRUP")) else {
-        panic!("GRUP is a header");
-    };
+    let grup = schema.header_by_signature(sig("GRUP")).unwrap();
     assert_eq!(grup.size, 24);
+    assert_eq!(grup.fields[0].name, "Signature");
     let group_type = grup.fields.iter().find(|f| f.name == "GroupType").unwrap();
     assert!(matches!(&group_type.ty, FieldType::Enum { values, .. } if values.len() == 10));
+
+    let record = schema.header("RecordHeader").unwrap();
+    assert_eq!((record.signature, record.size), (None, 24));
+    let names: Vec<&str> = record.fields.iter().map(|f| f.name.as_str()).collect();
+    assert_eq!(
+        names,
+        [
+            "Signature",
+            "DataSize",
+            "Flags",
+            "FormId",
+            "Timestamp",
+            "VersionControl",
+            "FormVersion",
+            "Unknown"
+        ]
+    );
 }

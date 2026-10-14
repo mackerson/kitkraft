@@ -4,6 +4,10 @@
 //! two steps: serde reads a permissive "raw" shape (all keys optional, unknown keys
 //! rejected), then [`convert_file`] checks every rule and builds the typed model. Errors
 //! name the file and a path inside it (`member[3].field[1]`).
+//!
+//! Shared definitions (`defs/common/<Name>.toml`, `kind = "group"` or `"type"`) are
+//! converted on first use and expanded into every record that references them, so the
+//! model never holds an unresolved reference.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -11,13 +15,17 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::model::{
-    AnyUntilDef, ArrayCount, Cardinality, Definition, FieldDef, FieldType, GroupDef, HeaderDef,
-    Member, NamedValue, RecordDef, Scalar, Schema, Signature, SubrecordDef, VersionedSize,
+    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Definition, FieldDef, FieldType,
+    GroupDef, HeaderDef, Member, NamedValue, RecordDef, Scalar, Schema, Signature, SubrecordDef,
+    VersionedSize,
 };
 use crate::names::{is_pascal_case, snake_case};
 
 /// Deepest allowed nesting of groups and struct fields.
 pub const MAX_DEPTH: usize = 8;
+
+/// The subdirectory of a definition directory that holds shared definitions.
+pub const COMMON_DIR: &str = "common";
 
 /// A definition set failed to load.
 #[derive(Debug, thiserror::Error)]
@@ -37,11 +45,11 @@ pub enum SchemaError {
         path: String,
         kind: ErrorKind,
     },
-    /// Two files define the same signature.
-    #[error("{file}: duplicate definition of {signature} (already defined in {first})")]
+    /// Two files define the same signature or name.
+    #[error("{file}: duplicate definition of {key} (already defined in {first})")]
     Duplicate {
         file: String,
-        signature: Signature,
+        key: String,
         first: String,
     },
     /// A definition file or directory could not be read.
@@ -58,8 +66,8 @@ pub enum SchemaError {
 pub enum ErrorKind {
     #[error("invalid signature {0:?}: expected exactly four printable ASCII characters")]
     InvalidSignature(String),
-    #[error("file name {file:?} does not match signature {signature}")]
-    FileName { file: String, signature: Signature },
+    #[error("file name {file:?} does not match {expected}")]
+    FileName { file: String, expected: String },
     #[error("invalid name {0:?}: expected PascalCase ASCII ([A-Z][A-Za-z0-9]*)")]
     InvalidName(String),
     #[error("name {0:?} is reserved")]
@@ -72,7 +80,7 @@ pub enum ErrorKind {
     UnknownType(String),
     #[error("unknown cardinality {0:?}: expected required, optional or repeated")]
     UnknownCardinality(String),
-    #[error("unknown definition kind {0:?}: expected record or header")]
+    #[error("unknown definition kind {0:?}: expected record, header, group or type")]
     UnknownKind(String),
     #[error("missing key `{0}`")]
     MissingKey(&'static str),
@@ -82,12 +90,14 @@ pub enum ErrorKind {
     SizeConflict { declared: u32, computed: u32 },
     #[error("declared size {declared} but the layout has a variable size")]
     SizeOfVariable { declared: u32 },
-    #[error("variable-size field {0:?} must be the last field")]
+    #[error("field {0:?} reads to the end of the payload (or is `if_remaining`) and must be the last field")]
     VariableNotLast(String),
-    #[error("array elements must have a fixed, non-zero size")]
+    #[error("array elements must not read to the end of the payload and must not be empty")]
     BadElement,
     #[error("array count must be a positive integer or \"rest\", got {0}")]
     BadCount(String),
+    #[error("`count_from = {0:?}` must name an earlier, ungated integer field of the same struct")]
+    BadCountFrom(String),
     #[error("{base} cannot hold {what}")]
     BadBase {
         base: &'static str,
@@ -99,11 +109,18 @@ pub enum ErrorKind {
     ZeroFlag(String),
     #[error("version range {min:?}..={max:?} is empty")]
     BadVersionRange { min: Option<u16>, max: Option<u16> },
+    #[error("size_by_version ranges {first:?} and {second:?} overlap")]
+    OverlappingVersions {
+        first: (Option<u16>, Option<u16>),
+        second: (Option<u16>, Option<u16>),
+    },
     #[error(
-        "source must start with `uesp-skyrim:`, `corpus:`, `ck-diff:` or `ck-wiki:` (ADR 0005), got {0:?}"
+        "source must start with `uesp-skyrim:`, `uesp-starfield:`, `corpus:`, `ck-diff:` or `ck-wiki:` (ADR 0005), got {0:?}"
     )]
     BadSource(String),
-    #[error("a member sets none or several of `sig`, `group`, `any_until`")]
+    #[error("source {0:?} is forbidden by ADR 0005")]
+    ForbiddenSource(String),
+    #[error("a member sets none or several of `sig`, `group`, `group_ref`, `any_until`")]
     MemberKind,
     #[error("`any_until = \"{0}\"` must be followed in the same list by a {0} subrecord")]
     AnyUntilUnclosed(Signature),
@@ -113,6 +130,15 @@ pub enum ErrorKind {
     Empty,
     #[error("nesting deeper than {0} levels")]
     TooDeep(usize),
+    #[error("no shared definition named {0:?} (defs/common/)")]
+    UnknownRef(String),
+    #[error("shared definition {name:?} is not a {expected}")]
+    RefKind {
+        name: String,
+        expected: &'static str,
+    },
+    #[error("shared definition {0:?} refers to itself")]
+    RefCycle(String),
 }
 
 // ---------------------------------------------------------------------------------------
@@ -121,7 +147,7 @@ pub enum ErrorKind {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawFile {
-    signature: String,
+    signature: Option<String>,
     name: String,
     kind: Option<String>,
     source: String,
@@ -132,6 +158,15 @@ struct RawFile {
     size: Option<u32>,
     member: Option<Vec<RawMember>>,
     field: Option<Vec<RawField>>,
+    // Type keys of a shared type (`kind = "type"`).
+    #[serde(rename = "type")]
+    ty: Option<String>,
+    targets: Option<Vec<String>>,
+    count: Option<RawCount>,
+    element: Option<String>,
+    base: Option<String>,
+    values: Option<Vec<(String, i64)>>,
+    bits: Option<Vec<(String, i64)>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -139,6 +174,7 @@ struct RawFile {
 struct RawMember {
     sig: Option<String>,
     group: Option<String>,
+    group_ref: Option<String>,
     any_until: Option<String>,
     name: Option<String>,
     card: Option<String>,
@@ -147,6 +183,7 @@ struct RawMember {
     ty: Option<String>,
     targets: Option<Vec<String>>,
     count: Option<RawCount>,
+    count_from: Option<String>,
     element: Option<String>,
     base: Option<String>,
     values: Option<Vec<(String, i64)>>,
@@ -165,6 +202,7 @@ struct RawField {
     ty: String,
     targets: Option<Vec<String>>,
     count: Option<RawCount>,
+    count_from: Option<String>,
     element: Option<String>,
     base: Option<String>,
     values: Option<Vec<(String, i64)>>,
@@ -173,6 +211,7 @@ struct RawField {
     field: Option<Vec<RawField>>,
     since: Option<u16>,
     until: Option<u16>,
+    if_remaining: Option<bool>,
     note: Option<String>,
 }
 
@@ -191,11 +230,12 @@ struct RawVersionedSize {
     size: u32,
 }
 
-/// The type-describing keys shared by members and fields.
+/// The type-describing keys shared by members, fields and shared types.
 struct TypeSpec<'a> {
     ty: &'a str,
     targets: Option<&'a Vec<String>>,
     count: Option<&'a RawCount>,
+    count_from: Option<&'a str>,
     element: Option<&'a str>,
     base: Option<&'a str>,
     values: Option<&'a Vec<(String, i64)>>,
@@ -207,10 +247,139 @@ struct TypeSpec<'a> {
 // ---------------------------------------------------------------------------------------
 // Public entry points.
 
-/// Parses and validates one definition file. `file` is used in error messages and, when
-/// it ends in `.toml`, must be `<signature>.toml`.
+/// Parses and validates one definition file on its own. `file` is used in error messages
+/// and, when it ends in `.toml`, must match the definition (`<signature>.toml`, or
+/// `<Name>.toml` for a shared definition). A file that references a shared definition
+/// fails here with [`ErrorKind::UnknownRef`]; load it with [`load_sources`] together with
+/// the shared files.
 pub fn parse_definition(file: &str, text: &str) -> Result<Definition, SchemaError> {
-    let raw: RawFile = toml::from_str(text).map_err(|e| {
+    let raw = parse_raw(file, text)?;
+    let mut resolver = Resolver::default();
+    let mut cx = Cx {
+        file,
+        path: Vec::new(),
+        res: &mut resolver,
+    };
+    convert_file(&mut cx, raw)
+}
+
+/// Loads a set of `(file name, text)` pairs into one schema, rejecting duplicate
+/// signatures and names across files. Shared definitions (`kind = "group"` or `"type"`)
+/// may appear anywhere in the list.
+pub fn load_sources<'a, I>(sources: I) -> Result<Schema, SchemaError>
+where
+    I: IntoIterator<Item = (&'a str, &'a str)>,
+{
+    let mut resolver = Resolver::default();
+    let mut others = Vec::new();
+    for (file, text) in sources {
+        let raw = parse_raw(file, text)?;
+        if matches!(raw.kind.as_deref(), Some("group" | "type")) {
+            if let Some((first, _)) = resolver.pending.get(&raw.name) {
+                return Err(SchemaError::Duplicate {
+                    file: file.to_owned(),
+                    key: raw.name.clone(),
+                    first: first.clone(),
+                });
+            }
+            resolver
+                .pending
+                .insert(raw.name.clone(), (file.to_owned(), raw));
+        } else {
+            others.push((file, raw));
+        }
+    }
+    let mut schema = Schema::default();
+    // Shared definitions first, in name order, so every one is validated even if unused.
+    let names: Vec<String> = resolver.pending.keys().cloned().collect();
+    for name in names {
+        let mut cx = Cx {
+            file: "(shared definitions)",
+            path: Vec::new(),
+            res: &mut resolver,
+        };
+        resolve(&mut cx, &name)?;
+    }
+    let mut origin: BTreeMap<String, String> = BTreeMap::new();
+    let mut claim = |file: &str, key: String| -> Result<(), SchemaError> {
+        if let Some(first) = origin.get(&key) {
+            return Err(SchemaError::Duplicate {
+                file: file.to_owned(),
+                key,
+                first: first.clone(),
+            });
+        }
+        origin.insert(key, file.to_owned());
+        Ok(())
+    };
+    for (file, raw) in others {
+        let mut cx = Cx {
+            file,
+            path: Vec::new(),
+            res: &mut resolver,
+        };
+        match convert_file(&mut cx, raw)? {
+            Definition::Record(r) => {
+                claim(file, format!("signature {}", r.signature))?;
+                schema.records.insert(r.signature, r);
+            }
+            Definition::Header(h) => {
+                if let Some(sig) = h.signature {
+                    claim(file, format!("signature {sig}"))?;
+                }
+                claim(file, format!("header {}", h.name))?;
+                schema.headers.insert(h.name.clone(), h);
+            }
+            Definition::Common(_) => {}
+        }
+    }
+    schema.common = resolver.done;
+    Ok(schema)
+}
+
+/// Loads every `*.toml` file in `dir` and in `dir/common/` (shared definitions), not
+/// otherwise recursive, in file-name order. File names are passed on as `NAME.toml` and
+/// `common/NAME.toml`.
+pub fn load_dir(dir: &Path) -> Result<Schema, SchemaError> {
+    let mut texts = Vec::new();
+    read_toml_files(dir, "", &mut texts)?;
+    let common = dir.join(COMMON_DIR);
+    if common.is_dir() {
+        read_toml_files(&common, "common/", &mut texts)?;
+    }
+    load_sources(texts.iter().map(|(n, t)| (n.as_str(), t.as_str())))
+}
+
+fn read_toml_files(
+    dir: &Path,
+    prefix: &str,
+    out: &mut Vec<(String, String)>,
+) -> Result<(), SchemaError> {
+    let io = |path: &Path, source| SchemaError::Io {
+        path: path.display().to_string(),
+        source,
+    };
+    let mut files = Vec::new();
+    for entry in std::fs::read_dir(dir).map_err(|e| io(dir, e))? {
+        let path = entry.map_err(|e| io(dir, e))?.path();
+        if path.is_file() && path.extension().is_some_and(|ext| ext == "toml") {
+            files.push(path);
+        }
+    }
+    files.sort();
+    for path in &files {
+        let text = std::fs::read_to_string(path).map_err(|e| io(path, e))?;
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        out.push((format!("{prefix}{name}"), text));
+    }
+    Ok(())
+}
+
+fn parse_raw(file: &str, text: &str) -> Result<RawFile, SchemaError> {
+    toml::from_str(text).map_err(|e| {
         let (line, column) = e
             .span()
             .map(|span| line_column(text, span.start))
@@ -221,62 +390,7 @@ pub fn parse_definition(file: &str, text: &str) -> Result<Definition, SchemaErro
             column,
             message: e.message().to_owned(),
         }
-    })?;
-    let mut cx = Cx {
-        file,
-        path: Vec::new(),
-    };
-    convert_file(&mut cx, raw)
-}
-
-/// Loads a set of `(file name, text)` pairs into one schema, rejecting duplicate
-/// signatures across files.
-pub fn load_sources<'a, I>(sources: I) -> Result<Schema, SchemaError>
-where
-    I: IntoIterator<Item = (&'a str, &'a str)>,
-{
-    let mut schema = Schema::default();
-    let mut origin: BTreeMap<Signature, String> = BTreeMap::new();
-    for (file, text) in sources {
-        let def = parse_definition(file, text)?;
-        let signature = def.signature();
-        if let Some(first) = origin.get(&signature) {
-            return Err(SchemaError::Duplicate {
-                file: file.to_owned(),
-                signature,
-                first: first.clone(),
-            });
-        }
-        origin.insert(signature, file.to_owned());
-        schema.definitions.insert(signature, def);
-    }
-    Ok(schema)
-}
-
-/// Loads every `*.toml` file in `dir` (not recursive), in file-name order.
-pub fn load_dir(dir: &Path) -> Result<Schema, SchemaError> {
-    let io = |path: &Path, source| SchemaError::Io {
-        path: path.display().to_string(),
-        source,
-    };
-    let mut files = Vec::new();
-    for entry in std::fs::read_dir(dir).map_err(|e| io(dir, e))? {
-        let path = entry.map_err(|e| io(dir, e))?.path();
-        if path.extension().is_some_and(|ext| ext == "toml") {
-            files.push(path);
-        }
-    }
-    files.sort();
-    let mut texts = Vec::with_capacity(files.len());
-    for path in &files {
-        let text = std::fs::read_to_string(path).map_err(|e| io(path, e))?;
-        let name = path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-        texts.push((name, text));
-    }
-    load_sources(texts.iter().map(|(n, t)| (n.as_str(), t.as_str())))
+    })
 }
 
 fn line_column(text: &str, offset: usize) -> (usize, usize) {
@@ -292,15 +406,57 @@ fn line_column(text: &str, offset: usize) -> (usize, usize) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Conversion and validation.
+// Shared definitions.
 
-/// Conversion context: the file and the path inside it, for error messages.
-struct Cx<'f> {
-    file: &'f str,
-    path: Vec<String>,
+/// Shared definitions: raw ones waiting to be converted, converted ones, and the chain
+/// being converted right now (for cycle detection).
+#[derive(Default)]
+struct Resolver {
+    pending: BTreeMap<String, (String, RawFile)>,
+    done: BTreeMap<String, CommonDef>,
+    active: Vec<String>,
 }
 
-impl Cx<'_> {
+/// The converted shared definition `name`, converting it first if needed.
+fn resolve(cx: &mut Cx<'_, '_>, name: &str) -> Result<CommonDef, SchemaError> {
+    if let Some(def) = cx.res.done.get(name) {
+        return Ok(def.clone());
+    }
+    if cx.res.active.iter().any(|a| a == name) {
+        return Err(cx.err(ErrorKind::RefCycle(name.to_owned())));
+    }
+    let Some((file, raw)) = cx.res.pending.remove(name) else {
+        return Err(cx.err(ErrorKind::UnknownRef(name.to_owned())));
+    };
+    cx.res.active.push(name.to_owned());
+    let converted = {
+        let mut inner = Cx {
+            file: &file,
+            path: Vec::new(),
+            res: &mut *cx.res,
+        };
+        convert_file(&mut inner, raw)
+    };
+    cx.res.active.pop();
+    let Definition::Common(def) = converted? else {
+        return Err(cx.err(ErrorKind::UnknownRef(name.to_owned())));
+    };
+    cx.res.done.insert(name.to_owned(), def.clone());
+    Ok(def)
+}
+
+// ---------------------------------------------------------------------------------------
+// Conversion and validation.
+
+/// Conversion context: the file and the path inside it, for error messages, and the
+/// shared definitions.
+struct Cx<'f, 'r> {
+    file: &'f str,
+    path: Vec<String>,
+    res: &'r mut Resolver,
+}
+
+impl Cx<'_, '_> {
     fn err(&self, kind: ErrorKind) -> SchemaError {
         SchemaError::Invalid {
             file: self.file.to_owned(),
@@ -327,31 +483,42 @@ impl Cx<'_> {
     fn depth(&self) -> usize {
         self.path.len()
     }
+
+    /// The file stem, when the file name ends in `.toml`.
+    fn stem(&self) -> Option<&str> {
+        let stem = self.file.strip_suffix(".toml")?;
+        Some(stem.rsplit(['/', '\\']).next().unwrap_or(stem))
+    }
+
+    fn check_stem(&self, expected: &str) -> Result<(), SchemaError> {
+        match self.stem() {
+            Some(stem) if stem != expected => Err(self.err(ErrorKind::FileName {
+                file: self.file.to_owned(),
+                expected: format!("{expected}.toml"),
+            })),
+            _ => Ok(()),
+        }
+    }
 }
 
-fn convert_file(cx: &mut Cx<'_>, raw: RawFile) -> Result<Definition, SchemaError> {
-    let signature = signature(cx, &raw.signature)?;
-    if let Some(stem) = cx.file.strip_suffix(".toml") {
-        let stem = stem.rsplit(['/', '\\']).next().unwrap_or(stem);
-        if stem != signature.as_str() {
-            return Err(cx.err(ErrorKind::FileName {
-                file: cx.file.to_owned(),
-                signature,
-            }));
-        }
-    }
+fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaError> {
     check_name(cx, &raw.name)?;
-    if !has_source_prefix(&raw.source) {
-        return Err(cx.err(ErrorKind::BadSource(raw.source)));
-    }
+    check_source(cx, &raw.source)?;
     for note in &raw.evidence {
-        if !has_source_prefix(note) {
-            return Err(cx.err(ErrorKind::BadSource(note.clone())));
-        }
+        check_source(cx, note)?;
     }
     let kind = raw.kind.as_deref().unwrap_or("record");
+    if kind != "type" {
+        reject_file_type_keys(cx, &raw, kind)?;
+    }
     match kind {
         "record" => {
+            let sig_text = raw
+                .signature
+                .as_deref()
+                .ok_or_else(|| cx.err(ErrorKind::MissingKey("signature")))?;
+            let signature = signature(cx, sig_text)?;
+            cx.check_stem(signature.as_str())?;
             reject(cx, raw.size.is_some(), "size", "a record definition")?;
             reject(cx, raw.field.is_some(), "field", "a record definition")?;
             let flags = match &raw.flags {
@@ -362,6 +529,7 @@ fn convert_file(cx: &mut Cx<'_>, raw: RawFile) -> Result<Definition, SchemaError
             };
             let members = raw.member.unwrap_or_default();
             let members = convert_members(cx, &members, "member")?;
+            check_group_depth(cx, &members, 0)?;
             Ok(Definition::Record(RecordDef {
                 signature,
                 name: raw.name,
@@ -373,6 +541,30 @@ fn convert_file(cx: &mut Cx<'_>, raw: RawFile) -> Result<Definition, SchemaError
             }))
         }
         "header" => {
+            let signature = match raw.signature.as_deref() {
+                Some(text) => {
+                    let sig = signature(cx, text)?;
+                    cx.check_stem(sig.as_str())?;
+                    Some(sig)
+                }
+                None => {
+                    // A header without a fixed signature (the record header) is named by
+                    // an upper-case file stem such as `RECORD`.
+                    if let Some(stem) = cx.stem() {
+                        let upper = !stem.is_empty()
+                            && stem
+                                .chars()
+                                .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || c == '_');
+                        if !upper {
+                            return Err(cx.err(ErrorKind::FileName {
+                                file: cx.file.to_owned(),
+                                expected: "an upper-case name such as RECORD.toml".into(),
+                            }));
+                        }
+                    }
+                    None
+                }
+            };
             reject(cx, raw.flags.is_some(), "flags", "a header definition")?;
             reject(cx, raw.member.is_some(), "member", "a header definition")?;
             let size = raw
@@ -398,18 +590,107 @@ fn convert_file(cx: &mut Cx<'_>, raw: RawFile) -> Result<Definition, SchemaError
                 note: raw.note,
             }))
         }
+        "group" | "type" => {
+            cx.check_stem(&raw.name)?;
+            let context = format!("a shared {kind} definition");
+            reject(cx, raw.signature.is_some(), "signature", &context)?;
+            reject(cx, raw.flags.is_some(), "flags", &context)?;
+            let body = if kind == "group" {
+                reject(cx, raw.size.is_some(), "size", &context)?;
+                reject(cx, raw.field.is_some(), "field", &context)?;
+                let raw_members = raw
+                    .member
+                    .as_ref()
+                    .ok_or_else(|| cx.err(ErrorKind::MissingKey("member")))?;
+                let members = convert_members(cx, raw_members, "member")?;
+                match members.first() {
+                    None => return Err(cx.err(ErrorKind::Empty)),
+                    Some(Member::AnyUntil(_)) => return Err(cx.err(ErrorKind::GroupStart)),
+                    Some(_) => {}
+                }
+                check_group_depth(cx, &members, 0)?;
+                CommonBody::Group(members)
+            } else {
+                reject(cx, raw.member.is_some(), "member", &context)?;
+                let ty_text = raw
+                    .ty
+                    .as_deref()
+                    .ok_or_else(|| cx.err(ErrorKind::MissingKey("type")))?;
+                let spec = TypeSpec {
+                    ty: ty_text,
+                    targets: raw.targets.as_ref(),
+                    count: raw.count.as_ref(),
+                    count_from: None,
+                    element: raw.element.as_deref(),
+                    base: raw.base.as_deref(),
+                    values: raw.values.as_ref(),
+                    bits: raw.bits.as_ref(),
+                    size: raw.size,
+                    field: raw.field.as_ref(),
+                };
+                CommonBody::Type(convert_type(cx, &spec, false)?)
+            };
+            Ok(Definition::Common(CommonDef {
+                name: raw.name,
+                source: raw.source,
+                evidence: raw.evidence,
+                body,
+                note: raw.note,
+            }))
+        }
         other => Err(cx.err(ErrorKind::UnknownKind(other.to_owned()))),
     }
 }
 
-/// The `source` key forms permitted by ADR 0005 (specification source per fact).
-pub const SOURCE_PREFIXES: &[&str] = &["uesp-skyrim: ", "corpus: ", "ck-diff: ", "ck-wiki: "];
-
-fn has_source_prefix(text: &str) -> bool {
-    SOURCE_PREFIXES.iter().any(|p| text.starts_with(p))
+fn reject_file_type_keys(cx: &Cx<'_, '_>, raw: &RawFile, kind: &str) -> Result<(), SchemaError> {
+    let context = format!("a {kind} definition");
+    for (present, key) in [
+        (raw.ty.is_some(), "type"),
+        (raw.targets.is_some(), "targets"),
+        (raw.count.is_some(), "count"),
+        (raw.element.is_some(), "element"),
+        (raw.base.is_some(), "base"),
+        (raw.values.is_some(), "values"),
+        (raw.bits.is_some(), "bits"),
+    ] {
+        reject(cx, present, key, &context)?;
+    }
+    Ok(())
 }
 
-fn reject(cx: &Cx<'_>, present: bool, key: &'static str, context: &str) -> Result<(), SchemaError> {
+/// The `source` key forms permitted by ADR 0005 (specification source per fact).
+pub const SOURCE_PREFIXES: &[&str] = &[
+    "uesp-skyrim: ",
+    "uesp-starfield: ",
+    "corpus: ",
+    "ck-diff: ",
+    "ck-wiki: ",
+];
+
+/// Pages a `uesp-starfield:` citation may not name: ADR 0005 forbids them (the CTDA page
+/// is derived from xEdit by its own attribution).
+pub const FORBIDDEN_UESP_STARFIELD_PAGES: &[&str] = &["Mod_File_Format/CTDA"];
+
+fn check_source(cx: &Cx<'_, '_>, text: &str) -> Result<(), SchemaError> {
+    if !SOURCE_PREFIXES.iter().any(|p| text.starts_with(p)) {
+        return Err(cx.err(ErrorKind::BadSource(text.to_owned())));
+    }
+    if text.starts_with("uesp-starfield: ")
+        && FORBIDDEN_UESP_STARFIELD_PAGES
+            .iter()
+            .any(|page| text.contains(page))
+    {
+        return Err(cx.err(ErrorKind::ForbiddenSource(text.to_owned())));
+    }
+    Ok(())
+}
+
+fn reject(
+    cx: &Cx<'_, '_>,
+    present: bool,
+    key: &'static str,
+    context: &str,
+) -> Result<(), SchemaError> {
     if present {
         Err(cx.err(ErrorKind::UnexpectedKey {
             key,
@@ -420,11 +701,11 @@ fn reject(cx: &Cx<'_>, present: bool, key: &'static str, context: &str) -> Resul
     }
 }
 
-fn signature(cx: &Cx<'_>, text: &str) -> Result<Signature, SchemaError> {
+fn signature(cx: &Cx<'_, '_>, text: &str) -> Result<Signature, SchemaError> {
     Signature::parse(text).ok_or_else(|| cx.err(ErrorKind::InvalidSignature(text.to_owned())))
 }
 
-fn check_name(cx: &Cx<'_>, name: &str) -> Result<(), SchemaError> {
+fn check_name(cx: &Cx<'_, '_>, name: &str) -> Result<(), SchemaError> {
     if !is_pascal_case(name) {
         return Err(cx.err(ErrorKind::InvalidName(name.to_owned())));
     }
@@ -434,7 +715,7 @@ fn check_name(cx: &Cx<'_>, name: &str) -> Result<(), SchemaError> {
 /// Checks names in one list for validity and uniqueness (also after snake_case
 /// conversion, since generated Rust uses snake_case field names).
 fn check_unique_names<'n>(
-    cx: &Cx<'_>,
+    cx: &Cx<'_, '_>,
     names: impl IntoIterator<Item = &'n str>,
     reserved: &[&str],
 ) -> Result<(), SchemaError> {
@@ -451,7 +732,7 @@ fn check_unique_names<'n>(
     Ok(())
 }
 
-fn cardinality(cx: &Cx<'_>, card: Option<&str>) -> Result<Cardinality, SchemaError> {
+fn cardinality(cx: &Cx<'_, '_>, card: Option<&str>) -> Result<Cardinality, SchemaError> {
     match card.unwrap_or("required") {
         "required" => Ok(Cardinality::Required),
         "optional" => Ok(Cardinality::Optional),
@@ -463,8 +744,21 @@ fn cardinality(cx: &Cx<'_>, card: Option<&str>) -> Result<Cardinality, SchemaErr
 /// Names reserved in member lists: generated record structs have an `extra` field.
 const RESERVED_MEMBER_NAMES: &[&str] = &["Extra"];
 
+/// Group nesting after shared groups are expanded stays within [`MAX_DEPTH`].
+fn check_group_depth(cx: &Cx<'_, '_>, members: &[Member], depth: usize) -> Result<(), SchemaError> {
+    if depth > MAX_DEPTH {
+        return Err(cx.err(ErrorKind::TooDeep(MAX_DEPTH)));
+    }
+    for member in members {
+        if let Member::Group(g) = member {
+            check_group_depth(cx, &g.members, depth.saturating_add(1))?;
+        }
+    }
+    Ok(())
+}
+
 fn convert_members(
-    cx: &mut Cx<'_>,
+    cx: &mut Cx<'_, '_>,
     raw: &[RawMember],
     list: &str,
 ) -> Result<Vec<Member>, SchemaError> {
@@ -492,13 +786,27 @@ fn convert_members(
     Ok(members)
 }
 
-fn convert_member(cx: &mut Cx<'_>, m: &RawMember) -> Result<Member, SchemaError> {
-    let kinds = [m.sig.is_some(), m.group.is_some(), m.any_until.is_some()];
+fn convert_member(cx: &mut Cx<'_, '_>, m: &RawMember) -> Result<Member, SchemaError> {
+    let kinds = [
+        m.sig.is_some(),
+        m.group.is_some(),
+        m.group_ref.is_some(),
+        m.any_until.is_some(),
+    ];
     if kinds.iter().filter(|k| **k).count() != 1 {
         return Err(cx.err(ErrorKind::MemberKind));
     }
+    reject(
+        cx,
+        m.count_from.is_some(),
+        "count_from",
+        "a member (only struct fields have siblings)",
+    )?;
     if let Some(group) = &m.group {
         return convert_group(cx, group, m).map(Member::Group);
+    }
+    if let Some(name) = &m.group_ref {
+        return convert_group_ref(cx, name, m).map(Member::Group);
     }
     if let Some(until) = &m.any_until {
         let until = signature(cx, until)?;
@@ -537,6 +845,7 @@ fn convert_member(cx: &mut Cx<'_>, m: &RawMember) -> Result<Member, SchemaError>
         ty: ty_text,
         targets: m.targets.as_ref(),
         count: m.count.as_ref(),
+        count_from: None,
         element: m.element.as_deref(),
         base: m.base.as_deref(),
         values: m.values.as_ref(),
@@ -570,7 +879,7 @@ fn convert_member(cx: &mut Cx<'_>, m: &RawMember) -> Result<Member, SchemaError>
     }))
 }
 
-fn reject_type_keys(cx: &Cx<'_>, m: &RawMember, context: &str) -> Result<(), SchemaError> {
+fn reject_type_keys(cx: &Cx<'_, '_>, m: &RawMember, context: &str) -> Result<(), SchemaError> {
     for (present, key) in [
         (m.targets.is_some(), "targets"),
         (m.count.is_some(), "count"),
@@ -585,7 +894,7 @@ fn reject_type_keys(cx: &Cx<'_>, m: &RawMember, context: &str) -> Result<(), Sch
     Ok(())
 }
 
-fn convert_group(cx: &mut Cx<'_>, name: &str, m: &RawMember) -> Result<GroupDef, SchemaError> {
+fn convert_group(cx: &mut Cx<'_, '_>, name: &str, m: &RawMember) -> Result<GroupDef, SchemaError> {
     for (present, key) in [
         (m.name.is_some(), "name"),
         (m.ty.is_some(), "type"),
@@ -616,18 +925,52 @@ fn convert_group(cx: &mut Cx<'_>, name: &str, m: &RawMember) -> Result<GroupDef,
         name: name.to_owned(),
         cardinality,
         members,
+        shared: None,
         note: m.note.clone(),
     })
 }
 
-fn convert_fields(cx: &mut Cx<'_>, raw: &[RawField]) -> Result<Vec<FieldDef>, SchemaError> {
+/// `group_ref = "<Name>"`: a shared group, expanded here. `name` overrides the member
+/// name (default: the shared definition's name).
+fn convert_group_ref(
+    cx: &mut Cx<'_, '_>,
+    shared: &str,
+    m: &RawMember,
+) -> Result<GroupDef, SchemaError> {
+    for (present, key) in [
+        (m.ty.is_some(), "type"),
+        (m.member.is_some(), "member"),
+        (m.size.is_some(), "size"),
+        (m.size_by_version.is_some(), "size_by_version"),
+    ] {
+        reject(cx, present, key, "a `group_ref` member")?;
+    }
+    reject_type_keys(cx, m, "a `group_ref` member")?;
+    let cardinality = cardinality(cx, m.card.as_deref())?;
+    let def = resolve(cx, shared)?;
+    let CommonBody::Group(members) = def.body else {
+        return Err(cx.err(ErrorKind::RefKind {
+            name: shared.to_owned(),
+            expected: "group",
+        }));
+    };
+    Ok(GroupDef {
+        name: m.name.clone().unwrap_or_else(|| shared.to_owned()),
+        cardinality,
+        members,
+        shared: Some(def.name),
+        note: m.note.clone(),
+    })
+}
+
+fn convert_fields(cx: &mut Cx<'_, '_>, raw: &[RawField]) -> Result<Vec<FieldDef>, SchemaError> {
     if cx.depth() > MAX_DEPTH {
         return Err(cx.err(ErrorKind::TooDeep(MAX_DEPTH)));
     }
     if raw.is_empty() {
         return Err(cx.err(ErrorKind::Empty));
     }
-    let mut fields = Vec::with_capacity(raw.len());
+    let mut fields: Vec<FieldDef> = Vec::with_capacity(raw.len());
     for (i, f) in raw.iter().enumerate() {
         let field = cx.scoped(format!("field[{i}]"), |cx| {
             version_range(cx, f.since, f.until)?;
@@ -635,6 +978,7 @@ fn convert_fields(cx: &mut Cx<'_>, raw: &[RawField]) -> Result<Vec<FieldDef>, Sc
                 ty: &f.ty,
                 targets: f.targets.as_ref(),
                 count: f.count.as_ref(),
+                count_from: f.count_from.as_deref(),
                 element: f.element.as_deref(),
                 base: f.base.as_deref(),
                 values: f.values.as_ref(),
@@ -643,28 +987,46 @@ fn convert_fields(cx: &mut Cx<'_>, raw: &[RawField]) -> Result<Vec<FieldDef>, Sc
                 field: f.field.as_ref(),
             };
             let ty = convert_type(cx, &spec, false)?;
+            if let FieldType::Array {
+                count: ArrayCount::From(source),
+                ..
+            } = &ty
+            {
+                let ok = fields.iter().any(|s| {
+                    s.name == *source
+                        && s.since.is_none()
+                        && s.until.is_none()
+                        && !s.if_remaining
+                        && matches!(s.ty, FieldType::Scalar(sc) if sc.is_integer())
+                });
+                if !ok {
+                    return Err(cx.err(ErrorKind::BadCountFrom(source.clone())));
+                }
+            }
             Ok(FieldDef {
                 name: f.name.clone(),
                 ty,
                 since: f.since,
                 until: f.until,
+                if_remaining: f.if_remaining.unwrap_or(false),
                 note: f.note.clone(),
             })
         })?;
         fields.push(field);
     }
     check_unique_names(cx, fields.iter().map(|f| f.name.as_str()), &[])?;
-    // Variable-size fields can only be decoded as "the rest", so they must be last.
+    // A field that reads to the end of the payload, or that is present only when bytes
+    // remain, leaves nothing for a later field: it must be last.
     let last = fields.len().saturating_sub(1);
     for (i, f) in fields.iter().enumerate() {
-        if i != last && f.ty.fixed_size(None).is_none() {
+        if i != last && (f.if_remaining || f.ty.reads_to_end()) {
             return Err(cx.err(ErrorKind::VariableNotLast(f.name.clone())));
         }
     }
     Ok(fields)
 }
 
-fn version_range(cx: &Cx<'_>, min: Option<u16>, max: Option<u16>) -> Result<(), SchemaError> {
+fn version_range(cx: &Cx<'_, '_>, min: Option<u16>, max: Option<u16>) -> Result<(), SchemaError> {
     if let (Some(lo), Some(hi)) = (min, max) {
         if lo > hi {
             return Err(cx.err(ErrorKind::BadVersionRange { min, max }));
@@ -676,15 +1038,16 @@ fn version_range(cx: &Cx<'_>, min: Option<u16>, max: Option<u16>) -> Result<(), 
 /// Builds a field type from its keys. `is_member` is true for a whole subrecord payload,
 /// where `size` on an opaque type is the payload size.
 fn convert_type(
-    cx: &mut Cx<'_>,
+    cx: &mut Cx<'_, '_>,
     spec: &TypeSpec<'_>,
     is_member: bool,
 ) -> Result<FieldType, SchemaError> {
     let context = format!("type {:?}", spec.ty);
-    let allow = |cx: &Cx<'_>, allowed: &[&str]| -> Result<(), SchemaError> {
+    let allow = |cx: &Cx<'_, '_>, allowed: &[&str]| -> Result<(), SchemaError> {
         for (present, key) in [
             (spec.targets.is_some(), "targets"),
             (spec.count.is_some(), "count"),
+            (spec.count_from.is_some(), "count_from"),
             (spec.element.is_some(), "element"),
             (spec.base.is_some(), "base"),
             (spec.values.is_some(), "values"),
@@ -703,6 +1066,20 @@ fn convert_type(
         }
         Ok(())
     };
+    if let Some(name) = spec.ty.strip_prefix("ref:") {
+        allow(cx, &[])?;
+        let def = resolve(cx, name)?;
+        let CommonBody::Type(ty) = def.body else {
+            return Err(cx.err(ErrorKind::RefKind {
+                name: name.to_owned(),
+                expected: "type",
+            }));
+        };
+        return Ok(FieldType::Ref {
+            name: def.name,
+            ty: Box::new(ty),
+        });
+    }
     let ty = match spec.ty {
         "formid" => {
             allow(cx, &["targets"])?;
@@ -721,6 +1098,14 @@ fn convert_type(
         "lstring" => {
             allow(cx, &[])?;
             FieldType::LString
+        }
+        "wstring" => {
+            allow(cx, &[])?;
+            FieldType::WString
+        }
+        "bstring" => {
+            allow(cx, &[])?;
+            FieldType::BString
         }
         "empty" => {
             allow(cx, &[])?;
@@ -767,17 +1152,32 @@ fn convert_type(
             allow(
                 cx,
                 &[
-                    "count", "element", "targets", "base", "values", "bits", "field", "size",
+                    "count",
+                    "count_from",
+                    "element",
+                    "targets",
+                    "base",
+                    "values",
+                    "bits",
+                    "field",
+                    "size",
                 ],
             )?;
-            let count = match spec.count {
-                None => return Err(cx.err(ErrorKind::MissingKey("count"))),
-                Some(RawCount::Word(w)) if w == "rest" => ArrayCount::Rest,
-                Some(RawCount::Number(n)) => match u32::try_from(*n) {
+            let count = match (spec.count, spec.count_from) {
+                (Some(_), Some(_)) => {
+                    return Err(cx.err(ErrorKind::UnexpectedKey {
+                        key: "count_from",
+                        context: "an array that also sets `count`".into(),
+                    }))
+                }
+                (None, Some(source)) => ArrayCount::From(source.to_owned()),
+                (None, None) => return Err(cx.err(ErrorKind::MissingKey("count"))),
+                (Some(RawCount::Word(w)), None) if w == "rest" => ArrayCount::Rest,
+                (Some(RawCount::Number(n)), None) => match u32::try_from(*n) {
                     Ok(n) if n > 0 => ArrayCount::Fixed(n),
                     _ => return Err(cx.err(ErrorKind::BadCount(n.to_string()))),
                 },
-                Some(RawCount::Word(w)) => {
+                (Some(RawCount::Word(w)), None) => {
                     return Err(cx.err(ErrorKind::BadCount(format!("{w:?}"))))
                 }
             };
@@ -791,6 +1191,7 @@ fn convert_type(
                 ty: element_ty,
                 targets: spec.targets,
                 count: None,
+                count_from: None,
                 element: None,
                 base: spec.base,
                 values: spec.values,
@@ -802,9 +1203,9 @@ fn convert_type(
             let element = cx.scoped("element".into(), |cx| {
                 convert_type(cx, &element_spec, false)
             })?;
-            match element.fixed_size(None) {
-                Some(n) if n > 0 => {}
-                _ => return Err(cx.err(ErrorKind::BadElement)),
+            // Elements must be self-delimiting and consume at least one byte.
+            if element.reads_to_end() || element.fixed_size(None) == Some(0) {
+                return Err(cx.err(ErrorKind::BadElement));
             }
             FieldType::Array {
                 element: Box::new(element),
@@ -822,7 +1223,7 @@ fn convert_type(
     Ok(ty)
 }
 
-fn targets(cx: &Cx<'_>, raw: Option<&Vec<String>>) -> Result<Vec<Signature>, SchemaError> {
+fn targets(cx: &Cx<'_, '_>, raw: Option<&Vec<String>>) -> Result<Vec<Signature>, SchemaError> {
     let mut out = Vec::new();
     for t in raw.into_iter().flatten() {
         let sig = signature(cx, t)?;
@@ -833,7 +1234,11 @@ fn targets(cx: &Cx<'_>, raw: Option<&Vec<String>>) -> Result<Vec<Signature>, Sch
     Ok(out)
 }
 
-fn int_base(cx: &Cx<'_>, base: Option<&str>, what: &'static str) -> Result<Scalar, SchemaError> {
+fn int_base(
+    cx: &Cx<'_, '_>,
+    base: Option<&str>,
+    what: &'static str,
+) -> Result<Scalar, SchemaError> {
     let text = base.ok_or_else(|| cx.err(ErrorKind::MissingKey("base")))?;
     let scalar = Scalar::parse(text).ok_or_else(|| cx.err(ErrorKind::UnknownType(text.into())))?;
     if !scalar.is_integer() {
@@ -846,7 +1251,7 @@ fn int_base(cx: &Cx<'_>, base: Option<&str>, what: &'static str) -> Result<Scala
 }
 
 fn named_values(
-    cx: &Cx<'_>,
+    cx: &Cx<'_, '_>,
     raw: &[(String, i64)],
     base: Scalar,
     is_flags: bool,
@@ -880,8 +1285,14 @@ fn named_values(
 }
 
 /// Checks a declared size (and per-version sizes) against the layout.
+///
+/// Per-version sizes are checked at every form version where the layout can change
+/// inside the entry's range: the range bounds, and each gated field's `since`,
+/// `since - 1`, `until` and `until + 1` clipped to the range. Between two of those
+/// versions the layout is constant, so this covers the whole range. Ranges must not
+/// overlap.
 fn check_size(
-    cx: &Cx<'_>,
+    cx: &Cx<'_, '_>,
     ty: &FieldType,
     declared: Option<u32>,
     by_version: &[VersionedSize],
@@ -902,24 +1313,41 @@ fn check_size(
             Some(_) => {}
         }
     }
+    let bounds_of = |e: &VersionedSize| (e.min.unwrap_or(0), e.max.unwrap_or(u16::MAX));
+    for (i, first) in by_version.iter().enumerate() {
+        let (alo, ahi) = bounds_of(first);
+        for second in by_version.iter().skip(i.saturating_add(1)) {
+            let (blo, bhi) = bounds_of(second);
+            if alo <= bhi && blo <= ahi {
+                return Err(cx.err(ErrorKind::OverlappingVersions {
+                    first: (first.min, first.max),
+                    second: (second.min, second.max),
+                }));
+            }
+        }
+    }
+    let mut gates = BTreeSet::new();
+    ty.version_bounds(&mut gates);
     for entry in by_version {
+        let (lo, hi) = bounds_of(entry);
+        let mut probes = BTreeSet::from([lo, hi]);
+        for (since, until) in &gates {
+            let candidates = [
+                *since,
+                since.and_then(|s| s.checked_sub(1)),
+                *until,
+                until.and_then(|u| u.checked_add(1)),
+            ];
+            for v in candidates.into_iter().flatten() {
+                probes.insert(v.clamp(lo, hi));
+            }
+        }
         // A layout that is variable-size (opaque rest, strings) cannot be checked; the
         // entry is then a documented fact only.
-        let probes = [entry.min, entry.max];
-        for probe in probes.into_iter().flatten() {
+        for probe in probes {
             let at = if versioned { Some(probe) } else { None };
             if let Some(computed) = ty.fixed_size(at) {
                 if computed != entry.size {
-                    return Err(cx.err(ErrorKind::SizeConflict {
-                        declared: entry.size,
-                        computed,
-                    }));
-                }
-            }
-        }
-        if entry.min.is_none() && entry.max.is_none() {
-            if let Some(computed) = ty.fixed_size(None) {
-                if !versioned && computed != entry.size {
                     return Err(cx.err(ErrorKind::SizeConflict {
                         declared: entry.size,
                         computed,

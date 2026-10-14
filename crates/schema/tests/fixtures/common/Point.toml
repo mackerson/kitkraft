@@ -1,0 +1,6 @@
+# Synthetic shared type for tests.
+name = "Point"
+kind = "type"
+source = "corpus: synthetic test fixture, not game data"
+type = "struct"
+field = [{ name = "X", type = "i16" }, { name = "Y", type = "i16" }]

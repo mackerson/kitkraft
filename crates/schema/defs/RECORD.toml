@@ -1,0 +1,28 @@
+# RECORD: the 24-byte header in front of every record body. It has no fixed signature (its
+# first field holds the record's own), so the file is named RECORD rather than after one.
+#
+# Sources (ADR 0005, "record header" and "compressed flag" rows):
+#   uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format (section "Records") -
+#     field order, widths, and the compressed flag 0x00040000.
+#   corpus: a header walk of Constellation, OldMars and SFBGS003/004/006/007/008/047.esm
+#     (2026-10-14): 127,674 records and 2,770 groups, each record's DataSize plus the 24
+#     header bytes lands exactly on the next record or group end; FormVersion holds
+#     552, 576, 581 or 582 per file.
+#
+# Record-type-specific flag names (TES4 Master/Localized) are in the record definitions.
+# The other flag bits wait for a source and are preserved as unnamed bits.
+name = "RecordHeader"
+kind = "header"
+source = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format"
+evidence = ["corpus: header walk of 8 small official ESMs, 2026-10-14"]
+size = 24
+field = [
+  { name = "Signature", type = "sig" },
+  { name = "DataSize", type = "u32", note = "body size, excluding these 24 bytes" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["Compressed", 0x40000]] },
+  { name = "FormId", type = "formid" },
+  { name = "Timestamp", type = "u16" },
+  { name = "VersionControl", type = "u16" },
+  { name = "FormVersion", type = "u16" },
+  { name = "Unknown", type = "u16" },
+]

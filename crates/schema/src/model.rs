@@ -3,25 +3,38 @@
 //! Values of these types only come out of [`crate::load`]; every invariant listed on a
 //! type has been checked by the validator by then.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 /// A four-byte record or subrecord signature (`WEAP`, `EDID`, `NPC_`).
 ///
-/// Invariant: four printable ASCII bytes (`0x20..=0x7E`).
+/// Invariant: four printable ASCII bytes (`0x20..=0x7E`). The field is private so the
+/// invariant holds for every value; build one with [`Signature::parse`] or
+/// [`Signature::from_bytes`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct Signature(pub [u8; 4]);
+pub struct Signature([u8; 4]);
 
 impl Signature {
     /// Parses a signature from text. Returns `None` unless it is exactly four printable
     /// ASCII characters.
     pub fn parse(text: &str) -> Option<Self> {
         let bytes: [u8; 4] = text.as_bytes().try_into().ok()?;
+        Self::from_bytes(bytes)
+    }
+
+    /// A signature from raw bytes (as read from a file). Returns `None` unless all four
+    /// bytes are printable ASCII.
+    pub fn from_bytes(bytes: [u8; 4]) -> Option<Self> {
         if bytes.iter().all(|b| (0x20..=0x7E).contains(b)) {
             Some(Self(bytes))
         } else {
             None
         }
+    }
+
+    /// The four raw bytes.
+    pub fn as_bytes(&self) -> [u8; 4] {
+        self.0
     }
 
     /// The signature as text. Always valid ASCII by the type invariant.
@@ -36,7 +49,7 @@ impl fmt::Display for Signature {
     }
 }
 
-/// How many times a member may occur at its position.
+/// How many times a member may occur.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Cardinality {
     /// Exactly once.
@@ -150,12 +163,15 @@ impl Scalar {
 }
 
 /// Element count of a [`FieldType::Array`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArrayCount {
     /// Exactly this many elements.
     Fixed(u32),
     /// As many elements as fit in the remaining bytes (the array must be last).
     Rest,
+    /// As many elements as the value of the named earlier sibling field (an ungated
+    /// integer field of the same struct).
+    From(String),
 }
 
 /// One named value of an enum or one named bit mask of a flags field.
@@ -175,11 +191,15 @@ pub enum FieldType {
     FormId { targets: Vec<Signature> },
     /// Four raw bytes holding a signature (`char[4]`).
     Sig,
-    /// NUL-terminated string. Variable size; must be last in a struct.
+    /// NUL-terminated string. Reads to the end of the payload; must be last in a struct.
     ZString,
     /// Localized string: a 4-byte string-table ID when the plugin's localized flag is set,
-    /// a zstring otherwise. Variable size; must be last in a struct.
+    /// a zstring otherwise. Reads to the end of the payload; must be last in a struct.
     LString,
+    /// `u16` length, then that many bytes (no terminator).
+    WString,
+    /// `u8` length, then that many bytes (no terminator).
+    BString,
     /// An integer whose known values have names. Unknown values are preserved.
     Enum {
         base: Scalar,
@@ -198,6 +218,8 @@ pub enum FieldType {
     Opaque { size: Option<u32> },
     /// A zero-length marker subrecord.
     Empty,
+    /// A shared type from `defs/common/` (`type = "ref:Name"`), resolved at load time.
+    Ref { name: String, ty: Box<FieldType> },
 }
 
 impl FieldType {
@@ -208,11 +230,11 @@ impl FieldType {
         match self {
             Self::Scalar(s) => Some(s.size()),
             Self::FormId { .. } | Self::Sig => Some(4),
-            Self::ZString | Self::LString => None,
+            Self::ZString | Self::LString | Self::WString | Self::BString => None,
             Self::Enum { base, .. } | Self::Flags { base, .. } => Some(base.size()),
             Self::Array { element, count } => match count {
                 ArrayCount::Fixed(n) => element.fixed_size(form_version)?.checked_mul(*n),
-                ArrayCount::Rest => None,
+                ArrayCount::Rest | ArrayCount::From(_) => None,
             },
             Self::Struct { fields } => {
                 let mut total: u32 = 0;
@@ -220,12 +242,41 @@ impl FieldType {
                     if !field.present_in(form_version) {
                         continue;
                     }
+                    if field.if_remaining {
+                        return None;
+                    }
                     total = total.checked_add(field.ty.fixed_size(form_version)?)?;
                 }
                 Some(total)
             }
             Self::Opaque { size } => *size,
             Self::Empty => Some(0),
+            Self::Ref { ty, .. } => ty.fixed_size(form_version),
+        }
+    }
+
+    /// Whether reading this type consumes everything up to the end of the payload, so
+    /// nothing can follow it. Variable types that carry their own length (`wstring`,
+    /// `bstring`, `count_from` arrays) do not.
+    pub fn reads_to_end(&self) -> bool {
+        match self {
+            Self::ZString | Self::LString => true,
+            Self::Opaque { size } => size.is_none(),
+            Self::Array { element, count } => {
+                matches!(count, ArrayCount::Rest) || element.reads_to_end()
+            }
+            Self::Struct { fields } => fields
+                .last()
+                .is_some_and(|f| f.if_remaining || f.ty.reads_to_end()),
+            Self::Ref { ty, .. } => ty.reads_to_end(),
+            Self::Scalar(_)
+            | Self::FormId { .. }
+            | Self::Sig
+            | Self::WString
+            | Self::BString
+            | Self::Enum { .. }
+            | Self::Flags { .. }
+            | Self::Empty => false,
         }
     }
 
@@ -236,7 +287,25 @@ impl FieldType {
                 .iter()
                 .any(|f| f.since.is_some() || f.until.is_some() || f.ty.is_versioned()),
             Self::Array { element, .. } => element.is_versioned(),
+            Self::Ref { ty, .. } => ty.is_versioned(),
             _ => false,
+        }
+    }
+
+    /// Every `since`/`until` bound used by fields inside this type.
+    pub fn version_bounds(&self, out: &mut BTreeSet<(Option<u16>, Option<u16>)>) {
+        match self {
+            Self::Struct { fields } => {
+                for f in fields {
+                    if f.since.is_some() || f.until.is_some() {
+                        out.insert((f.since, f.until));
+                    }
+                    f.ty.version_bounds(out);
+                }
+            }
+            Self::Array { element, .. } => element.version_bounds(out),
+            Self::Ref { ty, .. } => ty.version_bounds(out),
+            _ => {}
         }
     }
 
@@ -256,6 +325,9 @@ pub struct FieldDef {
     pub since: Option<u16>,
     /// Present only when the record's form version is at most this.
     pub until: Option<u16>,
+    /// Present only when bytes remain in the payload when the field is reached (a
+    /// trailing field that some occurrences omit). Always the last field.
+    pub if_remaining: bool,
     pub note: Option<String>,
 }
 
@@ -292,13 +364,16 @@ pub struct SubrecordDef {
     pub note: Option<String>,
 }
 
-/// A run of consecutive subrecords that belong together (a master and its size, an
-/// object-template entry, a component block).
+/// A run of consecutive subrecords that belong together (a master and its size, a
+/// BFCB..BFCE block, an OBTE..STOP block).
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupDef {
     pub name: String,
     pub cardinality: Cardinality,
     pub members: Vec<Member>,
+    /// The `defs/common/` group this was expanded from (`group_ref`), if any. Codegen
+    /// emits a shared group's type once, under this name.
+    pub shared: Option<String>,
     pub note: Option<String>,
 }
 
@@ -345,8 +420,7 @@ pub struct RecordDef {
     pub signature: Signature,
     /// PascalCase name.
     pub name: String,
-    /// Where the facts come from, in an ADR 0005 form: `uesp-skyrim: <page>`,
-    /// `corpus: <note>`, `ck-diff: <observation id>` or `ck-wiki: <page title>`.
+    /// Where the facts come from, in an ADR 0005 form (see [`crate::SOURCE_PREFIXES`]).
     pub source: String,
     /// Further provenance notes.
     pub evidence: Vec<String>,
@@ -356,10 +430,44 @@ pub struct RecordDef {
     pub note: Option<String>,
 }
 
-/// A fixed binary header that is not made of subrecords (the `GRUP` header).
+impl RecordDef {
+    /// Every subrecord definition, groups (shared ones included) expanded, in definition
+    /// order, with its member path (`Master.FileName`). `any_until` members are not
+    /// subrecord definitions and are skipped.
+    pub fn leaf_subrecords(&self) -> Vec<(String, &SubrecordDef)> {
+        let mut out = Vec::new();
+        collect_leaves(&self.members, "", &mut out);
+        out
+    }
+}
+
+fn collect_leaves<'a>(
+    members: &'a [Member],
+    prefix: &str,
+    out: &mut Vec<(String, &'a SubrecordDef)>,
+) {
+    for member in members {
+        let path = if prefix.is_empty() {
+            member.name().to_owned()
+        } else {
+            format!("{prefix}.{}", member.name())
+        };
+        match member {
+            Member::Subrecord(s) => out.push((path, s)),
+            Member::Group(g) => collect_leaves(&g.members, &path, out),
+            Member::AnyUntil(_) => {}
+        }
+    }
+}
+
+/// A fixed binary header that is not made of subrecords: the `GRUP` header (keyed by its
+/// signature) or the record header (`RECORD.toml`, no signature: its first field holds
+/// the record's own signature).
 #[derive(Debug, Clone, PartialEq)]
 pub struct HeaderDef {
-    pub signature: Signature,
+    /// The fixed signature that starts the header, if it has one.
+    pub signature: Option<Signature>,
+    /// PascalCase name; also the generated type name.
     pub name: String,
     pub source: String,
     pub evidence: Vec<String>,
@@ -369,51 +477,101 @@ pub struct HeaderDef {
     pub note: Option<String>,
 }
 
+/// What a shared definition (`defs/common/<Name>.toml`) provides.
+#[derive(Debug, Clone, PartialEq)]
+pub enum CommonBody {
+    /// A member list, used with `group_ref = "<Name>"`.
+    Group(Vec<Member>),
+    /// A field type, used with `type = "ref:<Name>"`.
+    Type(FieldType),
+}
+
+/// A shared group or type, defined once and referenced from records.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CommonDef {
+    /// PascalCase name; also the generated type name.
+    pub name: String,
+    pub source: String,
+    pub evidence: Vec<String>,
+    pub body: CommonBody,
+    pub note: Option<String>,
+}
+
 /// One definition file.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Definition {
     Record(RecordDef),
     Header(HeaderDef),
+    Common(CommonDef),
 }
 
-impl Definition {
-    /// The signature the definition describes.
-    pub fn signature(&self) -> Signature {
-        match self {
-            Self::Record(r) => r.signature,
-            Self::Header(h) => h.signature,
-        }
-    }
-}
-
-/// A validated set of definitions, keyed by signature.
+/// A validated set of definitions.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Schema {
-    pub definitions: BTreeMap<Signature, Definition>,
+    /// Record definitions by signature.
+    pub records: BTreeMap<Signature, RecordDef>,
+    /// Fixed binary headers by name (`GroupHeader`, `RecordHeader`).
+    pub headers: BTreeMap<String, HeaderDef>,
+    /// Shared groups and types by name (`defs/common/`). References are already expanded
+    /// into the records; these are kept for codegen and documentation.
+    pub common: BTreeMap<String, CommonDef>,
 }
 
 impl Schema {
     /// Record definitions in signature order.
     pub fn records(&self) -> impl Iterator<Item = &RecordDef> {
-        self.definitions.values().filter_map(|d| match d {
-            Definition::Record(r) => Some(r),
-            Definition::Header(_) => None,
-        })
+        self.records.values()
     }
 
-    /// Header definitions in signature order.
+    /// Header definitions in name order.
     pub fn headers(&self) -> impl Iterator<Item = &HeaderDef> {
-        self.definitions.values().filter_map(|d| match d {
-            Definition::Header(h) => Some(h),
-            Definition::Record(_) => None,
-        })
+        self.headers.values()
+    }
+
+    /// Shared definitions in name order.
+    pub fn common(&self) -> impl Iterator<Item = &CommonDef> {
+        self.common.values()
     }
 
     /// The record definition for `signature`, if any.
     pub fn record(&self, signature: Signature) -> Option<&RecordDef> {
-        match self.definitions.get(&signature)? {
-            Definition::Record(r) => Some(r),
-            Definition::Header(_) => None,
+        self.records.get(&signature)
+    }
+
+    /// The header definition named `name`, if any.
+    pub fn header(&self, name: &str) -> Option<&HeaderDef> {
+        self.headers.get(name)
+    }
+
+    /// The header that starts with the fixed signature `signature` (`GRUP`), if any.
+    pub fn header_by_signature(&self, signature: Signature) -> Option<&HeaderDef> {
+        self.headers
+            .values()
+            .find(|h| h.signature == Some(signature))
+    }
+
+    /// Subrecord signatures the definition of record type `signature` names (in any
+    /// member, group or `any_until` terminator). `None` when the record type has no
+    /// definition. A subrecord outside this set is unknown to the schema; one inside it
+    /// may still land in `extra` when it is out of place or does not decode.
+    pub fn known_signatures(&self, signature: Signature) -> Option<BTreeSet<Signature>> {
+        let record = self.record(signature)?;
+        let mut out = BTreeSet::new();
+        collect_signatures(&record.members, &mut out);
+        Some(out)
+    }
+}
+
+fn collect_signatures(members: &[Member], out: &mut BTreeSet<Signature>) {
+    for member in members {
+        match member {
+            Member::Subrecord(s) => {
+                out.insert(s.signature);
+            }
+            Member::Group(g) => collect_signatures(&g.members, out),
+            Member::AnyUntil(a) => {
+                out.insert(a.until);
+            }
         }
     }
 }

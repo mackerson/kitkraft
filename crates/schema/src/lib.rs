@@ -2,7 +2,8 @@
 //!
 //! Every Starfield record type (WEAP, NPC_, CELL, ...) is described in TOML under
 //! `crates/schema/defs/`: its subrecords, their order and repeat rules, and their field
-//! layouts. `cargo xtask codegen` turns those files into typed Rust records (ADR 0003).
+//! layouts. Groups and types used by several records live once in `defs/common/`.
+//! `cargo xtask codegen` turns those files into typed Rust records (ADR 0003).
 //! Definitions record facts (signatures, types, sizes, offsets), each from the source ADR
 //! 0005 permits for that kind of fact, named in the file's `source` key; they never copy
 //! prose from any source.
@@ -16,32 +17,51 @@
 //!
 //! LAYER: L0
 
+use std::sync::OnceLock;
+
 mod codegen;
 mod load;
 mod model;
 pub mod names;
 
-pub use codegen::{generate, CodegenError};
+pub use codegen::{generate, CodegenError, RESERVED_TYPE_NAMES};
 pub use load::{
-    load_dir, load_sources, parse_definition, ErrorKind, SchemaError, MAX_DEPTH, SOURCE_PREFIXES,
+    load_dir, load_sources, parse_definition, ErrorKind, SchemaError, COMMON_DIR,
+    FORBIDDEN_UESP_STARFIELD_PAGES, MAX_DEPTH, SOURCE_PREFIXES,
 };
 pub use model::{
-    AnyUntilDef, ArrayCount, Cardinality, Definition, FieldDef, FieldType, GroupDef, HeaderDef,
-    Member, NamedValue, RecordDef, Scalar, Schema, Signature, SubrecordDef, VersionedSize,
+    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Definition, FieldDef, FieldType,
+    GroupDef, HeaderDef, Member, NamedValue, RecordDef, Scalar, Schema, Signature, SubrecordDef,
+    VersionedSize,
 };
 
-/// The checked-in definition files (`crates/schema/defs/*.toml`), embedded at build time.
-/// A test keeps this list in sync with the directory.
+/// The checked-in definition files (`crates/schema/defs/*.toml` and
+/// `crates/schema/defs/common/*.toml`), embedded at build time, by the names
+/// [`load_dir`] gives them. `tests/defs.rs` fails, naming the missing or stale entries,
+/// when this list and the directory differ (`cargo xtask codegen` takes this over in
+/// M1.15).
 pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("GLOB.toml", include_str!("../defs/GLOB.toml")),
     ("GMST.toml", include_str!("../defs/GMST.toml")),
     ("GRUP.toml", include_str!("../defs/GRUP.toml")),
     ("KYWD.toml", include_str!("../defs/KYWD.toml")),
+    ("RECORD.toml", include_str!("../defs/RECORD.toml")),
     ("TES4.toml", include_str!("../defs/TES4.toml")),
     ("WEAP.toml", include_str!("../defs/WEAP.toml")),
+    (
+        "common/BfcbBlock.toml",
+        include_str!("../defs/common/BfcbBlock.toml"),
+    ),
+    (
+        "common/ObteBlock.toml",
+        include_str!("../defs/common/ObteBlock.toml"),
+    ),
 ];
 
-/// Loads and validates the embedded definition set.
-pub fn builtin() -> Result<Schema, SchemaError> {
-    load_sources(BUILTIN_DEFINITIONS.iter().copied())
+/// The embedded definition set, loaded and validated once per process.
+pub fn builtin() -> Result<&'static Schema, &'static SchemaError> {
+    static BUILTIN: OnceLock<Result<Schema, SchemaError>> = OnceLock::new();
+    BUILTIN
+        .get_or_init(|| load_sources(BUILTIN_DEFINITIONS.iter().copied()))
+        .as_ref()
 }

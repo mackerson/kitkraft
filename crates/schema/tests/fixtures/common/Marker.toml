@@ -1,0 +1,15 @@
+# Synthetic shared group for tests.
+name = "Marker"
+kind = "group"
+source = "corpus: synthetic test fixture, not game data"
+
+[[member]]
+sig = "MRKB"
+name = "Begin"
+type = "empty"
+
+[[member]]
+sig = "MRKD"
+name = "Value"
+type = "u32"
+card = "optional"

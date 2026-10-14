@@ -1,14 +1,20 @@
 //! Loader and validator tests (M1.8).
 
 // Helpers outside `#[test]` fns panic to fail the calling test; this is test code.
-#![allow(clippy::panic)]
+#![allow(clippy::panic, clippy::unwrap_used)]
+
+use std::path::Path;
 
 use kitcraft_schema::{
-    load_dir, load_sources, parse_definition, ArrayCount, Cardinality, Definition, ErrorKind,
-    FieldType, Member, Scalar, SchemaError, Signature,
+    load_dir, load_sources, parse_definition, ArrayCount, Cardinality, CommonBody, Definition,
+    ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature,
 };
 
 const FIXTURE: &str = include_str!("fixtures/ZZZZ.toml");
+
+fn sig(s: &str) -> Signature {
+    Signature::parse(s).unwrap()
+}
 
 /// A minimal valid record file with `body` appended.
 fn record(body: &str) -> String {
@@ -32,7 +38,7 @@ fn fixture_loads_with_every_feature() {
     let Definition::Record(rec) = def else {
         panic!("expected a record");
     };
-    assert_eq!(rec.signature, Signature(*b"ZZZZ"));
+    assert_eq!(rec.signature, sig("ZZZZ"));
     assert_eq!(rec.flags.len(), 2);
     let names: Vec<&str> = rec.members.iter().map(Member::name).collect();
     assert_eq!(
@@ -69,7 +75,7 @@ fn fixture_loads_with_every_feature() {
             assert_eq!(
                 **element,
                 FieldType::FormId {
-                    targets: vec![Signature(*b"KYWD")]
+                    targets: vec![sig("KYWD")]
                 }
             );
         }
@@ -139,10 +145,8 @@ fn duplicate_signatures_across_files() {
     let a = record("");
     let b = record("");
     match load_sources([("a/TEST.toml", a.as_str()), ("b/TEST.toml", b.as_str())]) {
-        Err(SchemaError::Duplicate {
-            signature, first, ..
-        }) => {
-            assert_eq!(signature, Signature(*b"TEST"));
+        Err(SchemaError::Duplicate { key, first, .. }) => {
+            assert_eq!(key, "signature TEST");
             assert_eq!(first, "a/TEST.toml");
         }
         other => panic!("expected a duplicate error, got {other:?}"),
@@ -358,7 +362,7 @@ fn group_rules() {
             "[[member]]\ngroup = \"Block\"\n[[member.member]]\nsig = \"BEGN\"\nname = \"Begin\"\ntype = \"empty\"\n\
              [[member.member]]\nany_until = \"BEND\"\nname = \"Body\"\n"
         ),
-        ErrorKind::AnyUntilUnclosed(Signature(*b"BEND"))
+        ErrorKind::AnyUntilUnclosed(sig("BEND"))
     );
     assert_eq!(
         invalid("[[member]]\ngroup = \"Block\"\nmember = []\n"),
@@ -394,10 +398,341 @@ fn load_dir_reads_toml_files_in_order() {
     let schema = load_dir(&dir).unwrap();
     std::fs::remove_dir_all(&dir).unwrap();
     let sigs: Vec<String> = schema
-        .definitions
+        .records
         .keys()
         .map(|s| s.as_str().to_owned())
         .collect();
     assert_eq!(sigs, ["TEST", "ZZZZ"]);
     assert!(matches!(load_dir(&dir), Err(SchemaError::Io { .. })));
+}
+
+// ---------------------------------------------------------------------------------------
+// Round 2: version probes, shared definitions, new field keys, headers, sources.
+
+#[test]
+fn size_by_version_is_checked_at_every_gate_boundary() {
+    // Fields gated inside the entry's range: the old min/max probe passed this.
+    let gated = "field = [{ name = \"A\", type = \"u32\" }, \
+                 { name = \"B\", type = \"u32\", since = 50, until = 150 }]\n";
+    assert_eq!(
+        invalid(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\n\
+             size_by_version = [{{ min = 0, max = 200, size = 4 }}]\n{gated}"
+        )),
+        ErrorKind::SizeConflict {
+            declared: 4,
+            computed: 8
+        }
+    );
+    // An unbounded entry is probed across the whole range too.
+    assert!(matches!(
+        invalid(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\n\
+             size_by_version = [{{ size = 4 }}]\n{gated}"
+        )),
+        ErrorKind::SizeConflict { .. }
+    ));
+    // The exact split is accepted.
+    parse_definition(
+        "TEST.toml",
+        &record(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\n\
+             size_by_version = [{{ max = 49, size = 4 }}, {{ min = 50, max = 150, size = 8 }}, \
+             {{ min = 151, size = 4 }}]\n{gated}"
+        )),
+    )
+    .unwrap();
+}
+
+#[test]
+fn overlapping_size_by_version_ranges_are_rejected() {
+    assert_eq!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"opaque\"\n\
+             size_by_version = [{ max = 100, size = 4 }, { min = 100, size = 8 }]\n"
+        ),
+        ErrorKind::OverlappingVersions {
+            first: (None, Some(100)),
+            second: (Some(100), None)
+        }
+    );
+    assert!(matches!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"opaque\"\n\
+             size_by_version = [{ size = 4 }, { min = 7, max = 9, size = 8 }]\n"
+        ),
+        ErrorKind::OverlappingVersions { .. }
+    ));
+}
+
+#[test]
+fn if_remaining_and_variable_fields_must_be_last() {
+    let field = |f: &str| {
+        invalid(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\nfield = [{f}]\n"
+        ))
+    };
+    assert_eq!(
+        field(
+            "{ name = \"T\", type = \"u32\", if_remaining = true }, { name = \"U\", type = \"u8\" }"
+        ),
+        ErrorKind::VariableNotLast("T".into())
+    );
+    // Length-prefixed strings and count_from arrays delimit themselves: not last is fine.
+    parse_definition(
+        "TEST.toml",
+        &record(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\nfield = [\
+             { name = \"N\", type = \"u16\" }, \
+             { name = \"L\", type = \"array\", element = \"u32\", count_from = \"N\" }, \
+             { name = \"W\", type = \"wstring\" }, { name = \"B\", type = \"bstring\" }, \
+             { name = \"T\", type = \"u8\", if_remaining = true }]\n",
+        ),
+    )
+    .unwrap();
+    // A struct ending in if_remaining reads to the end: it cannot be an array element.
+    assert_eq!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"array\"\ncount = 2\n\
+             element = \"struct\"\nfield = [{ name = \"T\", type = \"u8\", if_remaining = true }]\n"
+        ),
+        ErrorKind::BadElement
+    );
+    // ... and the payload is variable, so a fixed `size` is wrong.
+    assert_eq!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\nsize = 1\n\
+             field = [{ name = \"T\", type = \"u8\", if_remaining = true }]\n"
+        ),
+        ErrorKind::SizeOfVariable { declared: 1 }
+    );
+}
+
+#[test]
+fn count_from_rules() {
+    let field = |f: &str| {
+        invalid(&format!(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"struct\"\nfield = [{f}]\n"
+        ))
+    };
+    let arr = "{ name = \"L\", type = \"array\", element = \"u8\", count_from = \"N\" }";
+    // Unknown, later, float, or gated sibling.
+    assert_eq!(field(arr), ErrorKind::BadCountFrom("N".into()));
+    assert_eq!(
+        field(&format!("{arr}, {{ name = \"N\", type = \"u8\" }}")),
+        ErrorKind::BadCountFrom("N".into())
+    );
+    assert_eq!(
+        field(&format!("{{ name = \"N\", type = \"f32\" }}, {arr}")),
+        ErrorKind::BadCountFrom("N".into())
+    );
+    assert_eq!(
+        field(&format!(
+            "{{ name = \"N\", type = \"u8\", since = 3 }}, {arr}"
+        )),
+        ErrorKind::BadCountFrom("N".into())
+    );
+    // Not with `count`, and not on a whole-subrecord array (no siblings).
+    assert!(matches!(
+        field(
+            "{ name = \"N\", type = \"u8\" }, \
+             { name = \"L\", type = \"array\", element = \"u8\", count = 2, count_from = \"N\" }"
+        ),
+        ErrorKind::UnexpectedKey {
+            key: "count_from",
+            ..
+        }
+    ));
+    assert!(matches!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"Data\"\ntype = \"array\"\nelement = \"u8\"\n\
+             count_from = \"N\"\n"
+        ),
+        ErrorKind::UnexpectedKey {
+            key: "count_from",
+            ..
+        }
+    ));
+}
+
+const POINT: &str = "name = \"Point\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"struct\"\n\
+                     field = [{ name = \"X\", type = \"i16\" }, { name = \"Y\", type = \"i16\" }]\n";
+const BLOCK: &str = "name = \"Block\"\nkind = \"group\"\nsource = \"corpus: t\"\n\
+                     [[member]]\nsig = \"BEGN\"\nname = \"Begin\"\ntype = \"empty\"\n\
+                     [[member]]\nany_until = \"BEND\"\nname = \"Body\"\n\
+                     [[member]]\nsig = \"BEND\"\nname = \"End\"\ntype = \"empty\"\n";
+
+fn with_common(body: &str) -> Result<Schema, SchemaError> {
+    let text = record(body);
+    load_sources([
+        ("common/Point.toml", POINT),
+        ("TEST.toml", text.as_str()),
+        ("common/Block.toml", BLOCK),
+    ])
+}
+
+fn invalid_with_common(body: &str) -> ErrorKind {
+    match with_common(body) {
+        Err(SchemaError::Invalid { kind, .. }) => kind,
+        other => panic!("expected a validation error, got {other:?}"),
+    }
+}
+
+#[test]
+fn shared_definitions_expand_into_records() {
+    let schema = with_common(
+        "[[member]]\nsig = \"PNTA\"\nname = \"Anchor\"\ntype = \"ref:Point\"\nsize = 4\n\
+         [[member]]\nsig = \"PNTS\"\nname = \"Points\"\ntype = \"array\"\nelement = \"ref:Point\"\ncount = \"rest\"\n\
+         [[member]]\ngroup_ref = \"Block\"\ncard = \"repeated\"\n\
+         [[member]]\ngroup_ref = \"Block\"\nname = \"Second\"\ncard = \"optional\"\n",
+    )
+    .unwrap();
+    assert_eq!(schema.common.len(), 2);
+    assert!(matches!(
+        schema.common["Block"].body,
+        CommonBody::Group(ref m) if m.len() == 3
+    ));
+    let rec = schema.record(sig("TEST")).unwrap();
+    let Member::Subrecord(anchor) = &rec.members[0] else {
+        panic!("subrecord");
+    };
+    assert!(matches!(&anchor.ty, FieldType::Ref { name, .. } if name == "Point"));
+    assert_eq!(anchor.ty.fixed_size(None), Some(4));
+    let Member::Group(first) = &rec.members[2] else {
+        panic!("group");
+    };
+    assert_eq!(
+        (first.name.as_str(), first.shared.as_deref()),
+        ("Block", Some("Block"))
+    );
+    assert_eq!(first.cardinality, Cardinality::Repeated);
+    let Member::Group(second) = &rec.members[3] else {
+        panic!("group");
+    };
+    assert_eq!(second.name, "Second");
+    // Model helpers for coverage.
+    let leaves: Vec<String> = rec.leaf_subrecords().into_iter().map(|(p, _)| p).collect();
+    assert_eq!(
+        leaves,
+        [
+            "Anchor",
+            "Points",
+            "Block.Begin",
+            "Block.End",
+            "Second.Begin",
+            "Second.End"
+        ]
+    );
+    let known = schema.known_signatures(sig("TEST")).unwrap();
+    assert_eq!(known.len(), 4);
+    assert!(known.contains(&sig("BEND")));
+    assert!(schema.known_signatures(sig("NONE")).is_none());
+}
+
+#[test]
+fn shared_definition_errors() {
+    assert_eq!(
+        invalid_with_common("[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"ref:Nope\"\n"),
+        ErrorKind::UnknownRef("Nope".into())
+    );
+    assert_eq!(
+        invalid_with_common("[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"ref:Block\"\n"),
+        ErrorKind::RefKind {
+            name: "Block".into(),
+            expected: "type"
+        }
+    );
+    assert_eq!(
+        invalid_with_common("[[member]]\ngroup_ref = \"Point\"\n"),
+        ErrorKind::RefKind {
+            name: "Point".into(),
+            expected: "group"
+        }
+    );
+    assert!(matches!(
+        invalid_with_common(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"ref:Point\"\nbase = \"u8\"\n"
+        ),
+        ErrorKind::UnexpectedKey { key: "base", .. }
+    ));
+    // Standalone parsing has no shared definitions.
+    assert_eq!(
+        invalid("[[member]]\ngroup_ref = \"Block\"\n"),
+        ErrorKind::UnknownRef("Block".into())
+    );
+    // Cycles between shared types.
+    let a = "name = \"A\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"struct\"\n\
+             field = [{ name = \"B\", type = \"ref:B\" }]\n";
+    let b = "name = \"B\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"ref:A\"\n";
+    assert!(matches!(
+        load_sources([("common/A.toml", a), ("common/B.toml", b)]),
+        Err(SchemaError::Invalid {
+            kind: ErrorKind::RefCycle(_),
+            ..
+        })
+    ));
+    // Duplicate shared names; file name must match the name.
+    assert!(matches!(
+        load_sources([("common/Point.toml", POINT), ("x/Point.toml", POINT)]),
+        Err(SchemaError::Duplicate { .. })
+    ));
+    assert!(matches!(
+        load_sources([("common/Pt.toml", POINT)]),
+        Err(SchemaError::Invalid {
+            kind: ErrorKind::FileName { .. },
+            ..
+        })
+    ));
+}
+
+#[test]
+fn header_without_signature() {
+    let text = "name = \"RecordHeader\"\nkind = \"header\"\nsource = \"corpus: t\"\nsize = 8\n\
+                field = [{ name = \"Signature\", type = \"sig\" }, { name = \"Size\", type = \"u32\" }]\n";
+    let def = parse_definition("RECORD.toml", text).unwrap();
+    let Definition::Header(h) = def else {
+        panic!("header");
+    };
+    assert_eq!(h.signature, None);
+    assert!(matches!(
+        kind_of(parse_definition("Record.toml", text)),
+        ErrorKind::FileName { .. }
+    ));
+    // A record still needs its signature.
+    let rec = "name = \"Test\"\nsource = \"corpus: t\"\n";
+    assert_eq!(
+        kind_of(parse_definition("TEST.toml", rec)),
+        ErrorKind::MissingKey("signature")
+    );
+}
+
+#[test]
+fn uesp_starfield_sources_and_the_forbidden_ctda_page() {
+    let ok = "signature = \"TEST\"\nname = \"Test\"\n\
+              source = \"uesp-starfield: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data\"\n";
+    parse_definition("TEST.toml", ok).unwrap();
+    let ctda = ok.replace("Raw_Data", "CTDA");
+    assert!(matches!(
+        kind_of(parse_definition("TEST.toml", &ctda)),
+        ErrorKind::ForbiddenSource(_)
+    ));
+}
+
+#[test]
+fn load_dir_reads_common_definitions() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
+    let schema = load_dir(&dir).unwrap();
+    let names: Vec<&str> = schema.common.keys().map(String::as_str).collect();
+    assert_eq!(names, ["Marker", "Point"]);
+    let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
+    assert_eq!(sigs, ["EMPT", "YYYY", "ZZZZ"]);
+}
+
+#[test]
+fn signatures_from_bytes_enforce_printable_ascii() {
+    assert_eq!(Signature::from_bytes(*b"WEAP"), Some(sig("WEAP")));
+    assert_eq!(Signature::from_bytes([b'W', 0, b'A', b'P']), None);
+    assert_eq!(Signature::from_bytes([0xFF; 4]), None);
+    assert_eq!(sig("NPC_").as_bytes(), *b"NPC_");
+    assert_eq!(sig("NPC_").to_string(), "NPC_");
 }

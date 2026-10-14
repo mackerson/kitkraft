@@ -4,13 +4,16 @@
 # Source (ADR 0005 "inventory" row): corpus scan of the WEAP top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
 # 452 records, form versions 581/582, 132 distinct subrecord sequences. After folding
-# BFCB..BFCE blocks and OBTE..STOP template blocks, every sequence fits the order below with
-# no conflicts. FLLD occurs exactly twice per record, at the two positions listed.
+# BFCB..BFCE blocks and OBTE..STOP blocks, every sequence fits the order below with no
+# conflicts. FLLD occurs exactly twice per record, at the two positions listed.
 # Members never seen together have an arbitrary relative order. "required" means present
 # in every corpus record.
 #
-# Template block: OBTE, then entries of [OBTF?] FULL OBTS, then STOP. STOP also occurs, on
-# its own, in records without OBTE.
+# The BFCB..BFCE and OBTE..STOP blocks are the shared groups common/BfcbBlock.toml and
+# common/ObteBlock.toml.
+#
+# DAMA occurs with 12 or 24 bytes; without a source for its fields it stays opaque (an
+# `if_remaining` tail needs the field split as a sourced fact, not just two sizes).
 #
 # Member names are placeholders derived from the signature.
 signature = "WEAP"
@@ -57,24 +60,9 @@ card = "optional"
 note = "observed 8 bytes, in 2 records"
 
 [[member]]
-group = "BfcbBlock"
+group_ref = "BfcbBlock"
 card = "repeated"
 note = "observed up to 5 per record; bodies seen: REFL, ANAM BNAM [ENAM], QUPA, PTCL, STCP, or nothing"
-
-[[member.member]]
-sig = "BFCB"
-name = "Bfcb"
-type = "opaque"
-
-[[member.member]]
-any_until = "BFCE"
-name = "BfcbBody"
-
-[[member.member]]
-sig = "BFCE"
-name = "Bfce"
-type = "opaque"
-note = "observed 0 bytes"
 
 [[member]]
 sig = "FULL"
@@ -179,41 +167,8 @@ card = "optional"
 note = "observed multiples of 4 bytes"
 
 [[member]]
-sig = "OBTE"
-name = "Obte"
-type = "opaque"
-card = "optional"
-note = "observed 4 bytes; starts the template block"
-
-[[member]]
-group = "ObtsEntry"
-card = "repeated"
-note = "one template entry; only occurs after OBTE"
-
-[[member.member]]
-sig = "OBTF"
-name = "Obtf"
-type = "opaque"
-card = "optional"
-note = "observed 0 bytes"
-
-[[member.member]]
-sig = "FULL"
-name = "Full"
-type = "opaque"
-note = "observed 4 bytes"
-
-[[member.member]]
-sig = "OBTS"
-name = "Obts"
-type = "opaque"
-note = "observed variable size"
-
-[[member]]
-sig = "STOP"
-name = "Stop"
-type = "opaque"
-note = "observed 0 bytes; ends the template block, present in every record"
+group_ref = "ObteBlock"
+note = "STOP is present in every record; OBTE and its entries only in some"
 
 [[member]]
 sig = "NNAM"

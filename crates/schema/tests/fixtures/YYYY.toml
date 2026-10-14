@@ -1,0 +1,125 @@
+# Synthetic definition for the features ZZZZ.toml does not use: non-repeated groups,
+# whole-payload enum/flags/scalar, other enum and flags bases, strings as last struct
+# field, version-gated arrays, fixed arrays of structs, count_from, wstring, bstring,
+# if_remaining, and shared definitions (common/). Not a real record type.
+signature = "YYYY"
+name = "Synthetic2"
+source = "corpus: synthetic test fixture, not game data"
+
+[[member]]
+group = "Head"
+note = "required, not repeated"
+
+[[member.member]]
+sig = "HNAM"
+name = "Kind"
+type = "enum"
+base = "u8"
+values = [["First", 1], ["Second", 2]]
+
+[[member.member]]
+sig = "HFLG"
+name = "Bits"
+type = "flags"
+base = "u8"
+bits = [["Low", 0x1], ["High", 0x80]]
+card = "optional"
+
+[[member]]
+sig = "SCAL"
+name = "Scale"
+type = "f32"
+card = "optional"
+
+[[member]]
+sig = "WIDE"
+name = "Mask"
+type = "flags"
+base = "u64"
+bits = [["Top", 0x4000000000000000]]
+card = "optional"
+
+[[member]]
+sig = "SIGN"
+name = "Signed"
+type = "enum"
+base = "i16"
+values = [["Negative", -2], ["Positive", 3]]
+card = "optional"
+
+[[member]]
+group = "Opt"
+card = "optional"
+
+[[member.member]]
+sig = "ONAM"
+name = "Text"
+type = "struct"
+field = [{ name = "Id", type = "u32" }, { name = "Label", type = "zstring" }]
+
+[[member.member]]
+sig = "LNAM"
+name = "Local"
+type = "struct"
+card = "optional"
+field = [{ name = "Id", type = "u16" }, { name = "Text", type = "lstring" }]
+
+[[member]]
+sig = "GATE"
+name = "Gated"
+type = "struct"
+card = "optional"
+size_by_version = [{ max = 9, size = 2 }, { min = 10, max = 19, size = 10 }, { min = 20, size = 6 }]
+field = [
+  { name = "Base", type = "u16" },
+  { name = "Pair", type = "array", element = "u16", count = 2, since = 10, until = 19 },
+  { name = "Quad", type = "array", element = "u8", count = 4, since = 10 },
+]
+
+[[member]]
+sig = "GRST"
+name = "GatedRest"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Count", type = "u8" },
+  { name = "Items", type = "array", element = "u16", count = "rest", since = 5 },
+]
+
+[[member]]
+sig = "PNTS"
+name = "Points"
+type = "array"
+element = "struct"
+count = 2
+size = 8
+card = "optional"
+field = [{ name = "X", type = "i16" }, { name = "Y", type = "i16" }]
+
+[[member]]
+sig = "LIST"
+name = "List"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Count", type = "u8" },
+  { name = "Items", type = "array", element = "ref:Point", count_from = "Count" },
+  { name = "Title", type = "wstring" },
+  { name = "Short", type = "bstring" },
+  { name = "Pairs", type = "array", element = "struct", count = 2, field = [
+    { name = "A", type = "u8" },
+    { name = "B", type = "u8" },
+  ] },
+  { name = "Tail", type = "u32", if_remaining = true },
+]
+
+[[member]]
+sig = "REFP"
+name = "Anchor"
+type = "ref:Point"
+size = 4
+card = "optional"
+
+[[member]]
+group_ref = "Marker"
+card = "repeated"
