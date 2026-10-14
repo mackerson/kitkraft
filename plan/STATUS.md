@@ -242,6 +242,49 @@ is under "Next".
     and versions other than 3.12 are flagged. Not done (optional): a tolerant parse mode
     for padded string tables.
 
+- Lane D, M2.D1..D13 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
+  `handlers/{load,inspect,query,diff,conflicts}.rs`), all checked 2026-10-14:
+  - D1 `docs/load-order.md`: every MO2 profile rule with its evidence (file and line, or
+    nolvus.net / STEP / Ortham / LOOT by URL). modlist.txt's first line is the highest
+    priority (docs plus a file check: both Free Lanes compatibility patches ship the same
+    files as their bases and are listed first). **Still open (M2.O4):** MO2's own UI view of
+    one such file.
+  - D2 `io`: read-only profile reader, overlay (overwrite > mods by priority > Data,
+    case-insensitive), plugin plan naming why each plugin is active (`Starfield.ccc`,
+    hardcoded official masters, `plugins.txt`, MO2 unmanaged entries, BlueprintShips
+    companions). Default profile: 84 active plugins, every one an existing file (70 from
+    mods, 14 from Data), order equals `loadorder.txt`, profile files unchanged.
+  - D3 (a, b) corpus: raw FormIDs address master *classes* by scale (`FE` small, `FD`
+    medium, else full; the index counts that class only; the file itself is the next index
+    of its own class), confirmed on SFBGS047 (masters full, small, full: its overrides of
+    the second full master are `01xxxxxx`). All 14 files resolve every header FormID; 15
+    SFBGS050 overrides address SFBGS00D records that do not exist; largest own object ID
+    per scale fits 12/16/24 bits. (c) flag names from the pinned xEdit file via the owner's
+    dossier; runtime slots are the assumption `runtime-slots-by-scale` (stated in every
+    result that shows a runtime ID).
+  - D4 `doc::LoadOrder` (raw vs `GlobalForm`, master maps, missing masters are typed
+    errors, late masters reported); D5 index cache (`%LOCALAPPDATA%\kitcraft\cache`, path +
+    size + mtime + both format versions + checksum) and override table; index and random
+    access now through lane A's `esm::index` (M2.A1/A2). Default profile: 7,739,193
+    records, cold 6.0 s, warm 0.68 s (`kit load`, release). 27 third-party small/medium
+    plugins store own records full-style: resolved by the named assumption
+    `full-style-self` (Ortham's documented example; no official file does it); 4 records
+    of `HG_ShipCargoHoldAtHome.esm` stay unresolved.
+  - D6 conflict classes; Default profile: 15,586 overridden forms, 15,893 overrides
+    (8,206 deleted, 6,031 differs, 1,641 identical to previous, 15 without a base), 2.8 s.
+  - D7 string tables through lane G's readers (loose via the overlay, else
+    `<stem> - *.ba2`): `Starfield.esm` WEAP `21BBCD` FULL resolves to "Old Earth Hunting
+    Rifle" with the table offset as evidence (release corpus test).
+  - D8 `load`, D9 `inspect` (every version, winner, classes, lstrings, schema-typed
+    values), D10 `where` language (typed member paths through lane B's schema, 10,000
+    random inputs), D11 `query` (`kit query --type WEAP --where "FULL ~ 'Old Earth Hunting
+    Rifle'"`: the rifle, 0 unknown, 0.2 s warm in-process), D12 `diff` (corpus file vs a
+    copy with one flipped byte: exactly that subrecord, offsets on both sides), D13
+    `conflicts`: **esmscan.py run read-only on the Default profile (master Starfield.esm,
+    83 plugins) and `kit conflicts --master Starfield.esm` agree on all 59 plugins and
+    every per-type count (8,234 override records).** All `Implemented`, tested through
+    `execute`, reachable over MCP (`execute`, `inspect_record`, `query_records`,
+    `diff_plugins`; `load` fills `kitcraft://load-order`).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -388,6 +431,25 @@ Agents append here when they need a change in a crate they do not own.
   `crates/engine/src/handlers/coverage.rs`). For M2.F9: per-member confidence is
   `SubrecordDef::provenance.confidence` (also on groups, fields, records); a union member
   is `FieldType::Union`, not opaque.
+- **Lane D -> lane F.** (1) `inspect`'s `plugin` is no longer required, so it is no longer
+  positional: `kit inspect <form> --plugin <file>`; the tests that used the positional form
+  (engine `cmdline.rs`, kit-cli `exit_codes.rs`, mcp `tests/stdio.rs`) were updated. (2)
+  `query` is implemented: tests that used it as the `Planned` example now use `build`
+  (engine `lib.rs`, kit-cli `main.rs` and `exit_codes.rs`, mcp `server.rs`); mcp
+  `backend.rs`'s null-args test now expects `load`'s `failed`; kit-cli `tests/mcp.rs`
+  loads `Starfield.esm` + `Constellation.esm` for `query_records`. (3) `PLANNED_IN_M2`
+  entries `load`, `query`, `diff` are stale. (4) M2.F7 step 4: `query_records` answers
+  now, and `kit mcp --profile` preloads through `load`. (5) New catalog entry `conflicts`
+  (alias `esmscan`); the MCP tool set may want a `conflicts` shortcut.
+- **Lane D -> owner (M2.O4).** In one session: (a) MO2's left pane for `StarUI Inventory`
+  vs its Free Lanes patch (which mod MO2 shows providing `Interface\inventorymenu.swf`);
+  (b) in game, `help` or a console click on a Constellation.esm object should show an
+  `FE000xxx` ID and a full plugin's object `<slot>xxxxxx` (`kit inspect <form> --profile
+  ...` prints the runtime ID it assumes); (c) whether `HG_ShipCargoHoldAtHome.esm`'s
+  records (stored `02xxxxxx` with one master) exist in game.
+- **Lane D -> lane B.** 14 official GMST string settings hold string ID 0, which is in no
+  table; `query` leaves them unknown. A source for what ID 0 means would close it.
+  `where` member names are the schema's PascalCase names, matched case-insensitively.
 - **Lane F -> lanes D, E, G (session and catalog closure).** A handler that needs the
   load order is a `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` added to
   `handlers::session_defaults()` (stateless handlers stay in `defaults()`). Keep your

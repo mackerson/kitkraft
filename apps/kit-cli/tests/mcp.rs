@@ -237,14 +237,24 @@ fn kit_mcp_on_an_official_file() {
     assert_eq!(got["data"]["record"]["signature"], signature);
     assert!(!got["evidence"].as_array().unwrap().is_empty());
 
+    // `query` needs a load order: without one it is a `failed` tool error that says so;
+    // with the plugin loaded it answers.
     let reply = kit.call("query_records", json!({"type": signature, "limit": 5}));
-    if reply["result"]["isError"] == true {
-        assert_eq!(
-            reply["result"]["structuredContent"]["error"]["kind"], "not_implemented",
-            "{reply}"
-        );
-    } else {
-        assert_eq!(envelope(&reply)["command"], "query");
-    }
+    assert_eq!(reply["result"]["isError"], true, "{reply}");
+    assert_eq!(
+        reply["result"]["structuredContent"]["error"]["kind"], "failed",
+        "{reply}"
+    );
+    // Constellation.esm's master must be loaded for its FormIDs to resolve (the index cache
+    // makes this cheap after the first run).
+    let data = path.parent().unwrap().to_str().unwrap();
+    let reply = kit.call(
+        "query_records",
+        json!({"type": signature, "limit": 5, "data_dir": data,
+               "plugins": ["Starfield.esm", "Constellation.esm"]}),
+    );
+    let got = envelope(&reply);
+    assert_eq!(got["command"], "query");
+    assert!(got["data"]["matched"].as_u64().unwrap() >= 1, "{got}");
     kit.finish();
 }

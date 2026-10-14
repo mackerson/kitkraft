@@ -364,11 +364,11 @@ mod tests {
             null.structured["error"]["violations"][0]["pointer"],
             "/plugin"
         );
-        // A command without required arguments runs (here: the planned stub's error).
+        // A command without required arguments runs (here: `load` refusing to load nothing).
         let out = b
             .call_tool("execute", json!({"command": "load", "args": null}))
             .unwrap();
-        assert_eq!(error_kind(&out), "not_implemented");
+        assert_eq!(error_kind(&out), "failed");
         // Any other non-object is still a violation of the tool's own schema.
         let out = b
             .call_tool("execute", json!({"command": "load", "args": [1]}))

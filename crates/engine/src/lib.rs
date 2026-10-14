@@ -111,9 +111,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "File/Load Order...",
         shortcut: Some("Ctrl+O"),
         aliases: &["open"],
-        summary: "Load plugins from an MO2 profile or an explicit plugin list",
-        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string"},"plugins":{"type":"array","items":{"type":"string"}},"data_dir":{"type":"string"}},"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
+        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir (default: the MO2 instance's gamePath + Data)"},"language":{"type":"string","description":"String-table language, default en (tables are not loaded yet)"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "inspect",
@@ -121,8 +121,8 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Inspect",
         shortcut: Some("Enter"),
         aliases: &["show"],
-        summary: "One record by FormID or EditorID: header fields and subrecords (typed fields and overrides later)",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"FormID (hex, file-relative) or EditorID"},"plugin":{"type":"string","description":"Plugin to search (until load order exists)"}},"required":["form","plugin"],"additionalProperties":false}"#,
+        summary: "One record across the load order (every override, the winner, lstrings) or in one plugin: header fields and subrecords with offsets",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, hex FormID (as stored in `plugin`, or a runtime ID), or EditorID"},"plugin":{"type":"string","description":"Single-plugin mode: the plugin file to search. With a load order: the plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -131,9 +131,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Query...",
         shortcut: Some("Ctrl+F"),
         aliases: &["find"],
-        summary: "Find records by type and field predicate",
-        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string"},"limit":{"type":"integer","minimum":1},"cursor":{"type":"string","description":"Opaque paging token from the previous result"}},"required":["type"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Records of one type matching a where predicate across the load order (winner or all versions), paged",
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string","description":"Predicate, e.g. FULL ~ \"Rifle\" and not has KWDA (docs/mcp.md, query)"},"scope":{"type":"string","enum":["winner","all"],"default":"winner","description":"winner: the winning version of each form; all: every version"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "set",
@@ -151,9 +151,19 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Diff Plugins...",
         shortcut: None,
         aliases: &[],
-        summary: "Record-level semantic diff of two plugins",
-        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string"}},"required":["a","b"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Record-level diff of two plugins: FormIDs matched through each file's masters by name; added, removed, changed records with per-subrecord byte ranges",
+        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "conflicts",
+        label: "Conflicts...",
+        menu_path: "Tools/Conflicts...",
+        shortcut: None,
+        aliases: &["esmscan"],
+        summary: "Records plugins override from a master (port of esmscan.py): per-plugin counts by type, and each override classed against the version before it",
+        args_schema: r#"{"type":"object","properties":{"master":{"type":"string","description":"Only forms this plugin defines"},"plugin":{"type":"string","description":"Only overrides by this plugin"},"type":{"type":"string","minLength":4,"maxLength":4,"description":"Only this record type"},"only_conflicts":{"type":"boolean","default":false,"description":"Only forms two or more plugins override"},"count_classes":{"type":"boolean","default":false,"description":"Class every matching form, not just this page"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "build",
@@ -447,11 +457,11 @@ mod execute_tests {
 
     #[test]
     fn planned_command_without_handler_is_not_implemented() {
-        let err = execute("query", json!({"type": "WEAP"})).unwrap_err();
-        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "query"));
+        let err = execute("build", json!({"spec": "a.toml", "out": "b.esm"})).unwrap_err();
+        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "build"));
         // Validation still runs first.
         assert_eq!(
-            execute("query", json!({})).unwrap_err().kind(),
+            execute("build", json!({})).unwrap_err().kind(),
             "invalid_args"
         );
     }

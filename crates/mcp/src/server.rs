@@ -903,7 +903,7 @@ mod tests {
             modern(
                 9,
                 "tools/call",
-                json!({"name": "execute", "arguments": {"command": "query", "args": {"type": "WEAP"}}}),
+                json!({"name": "execute", "arguments": {"command": "build", "args": {"spec": "a.toml", "out": "b.esm"}}}),
             ),
         );
         tool_error(&r, "not_implemented");

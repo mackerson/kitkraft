@@ -5,9 +5,13 @@
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
 mod ba2;
+mod conflicts;
 mod coverage;
+mod diff;
 mod inspect;
+mod load;
 mod papyrus;
+mod query;
 mod roundtrip;
 mod strings;
 #[cfg(test)]
@@ -21,8 +25,8 @@ use crate::exec::{CommandHandler, EngineError, SessionHandler};
 pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
         ("roundtrip", Box::new(roundtrip::run)),
-        ("inspect", Box::new(inspect::run)),
         ("coverage", Box::new(coverage::run)),
+        ("diff", Box::new(diff::run)),
         ("ba2.list", Box::new(ba2::list)),
         ("ba2.extract", Box::new(ba2::extract)),
         ("ba2.pack", Box::new(ba2::pack)),
@@ -37,7 +41,12 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
 /// registered by [`crate::Engine::with_default_handlers`]: commands that read or change
 /// the loaded load order. A command appears in this table or in [`defaults`], not both.
 pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)> {
-    vec![]
+    vec![
+        ("load", Box::new(load::run)),
+        ("inspect", Box::new(inspect::run)),
+        ("query", Box::new(query::run)),
+        ("conflicts", Box::new(conflicts::run)),
+    ]
 }
 
 /// A required string argument. `execute` validated the schema already, so a missing one
