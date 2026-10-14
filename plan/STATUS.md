@@ -194,12 +194,15 @@ is under "Next".
   - G1-G3 `ba2`: GNRL/DX10 v2/v3 reader, zlib and LZ4-block codecs, DDS header synthesis,
     deterministic packer. All 90 official archives list (1,763,906 entries; every
     name/dir hash recomputes; 65 GNRL v2, 10 DX10 v2, 15 DX10 v3 LZ4); 100 seeded entries
-    per archive extract to their declared sizes (7,360 entries, 7.3 GB, 16 s release);
-    every texture's chunks equal its mip chain (`docs/corpus.md` "Archives").
-    **Archive2.exe 1.2.0.1 differential:** our extraction is byte-identical to Archive2's
-    for every entry of `Starfield - Textures01` (5,574) and `Textures05` (7,084, all 16
-    DXGI formats, 25 cube maps), `SFBGS004 - Textures` (18), `OldMars - Textures` (42),
-    `Starfield - Localization` (27), `Starfield - Misc` (4,753), `SFBGS004 - Main` (739).
+    per archive extract to their **declared sizes** (7,360 entries, 7.3 GB, 16 s release;
+    this sample checks sizes, not bytes); every texture's chunks equal its mip chain
+    (`docs/corpus.md` "Archives"). Byte identity with Archive2 rests on the manual
+    differential run below (seven archives), not on the sample.
+    **Archive2.exe 1.2.0.1 differential (manual run):** our extraction is byte-identical
+    to Archive2's for every entry of `Starfield - Textures01` (5,574) and `Textures05`
+    (7,084, all 16 DXGI formats, 25 cube maps), `SFBGS004 - Textures` (18), `OldMars -
+    Textures` (42), `Starfield - Localization` (27), `Starfield - Misc` (4,753),
+    `SFBGS004 - Main` (739).
     Sample hash: `strings/starfield_en.strings` (1,542,583 bytes) SHA-256
     `E18CADD47270CC7C0F37A33BDE9FE3B4049468CF94558379DA36356BB144951E` from ours, from
     `ba2x.py`, and from Archive2. Archive2 opens our packed archives (Localization strings as
@@ -223,6 +226,21 @@ is under "Next".
     `strings/starfield_en.strings` ID `0x0002E469` = "Old Earth Hunting Rifle", the FULL
     (`69E40200` at offset 21,546,047) of `Starfield.esm` WEAP `0021BBCD`
     (`RussianHuntingRifle`).
+  - Review round 2 (2026-10-14), each with a regression test: DX10 chunks split by mip
+    **area** (`w * h >= 512 * 512`; recomputes all 136,401 official chunk plans, the
+    edge reading gets 421 wrong); `extract_vec(.., cap)` refuses oversized entries before
+    decoding (64 MiB `.pex`, 256 MiB tables, `ba2.extract` `max_entry_bytes` default
+    1 GiB); one LZ4 blob at most 256 MiB; the user Data folder (`My Games\Starfield\Data`)
+    is refused like the game's; extraction refuses Windows-hostile names (trailing `.` or
+    space, forbidden characters, CON/NUL/COM1/...) and case-folding or file/directory
+    collisions while planning, before the first write; `pack` refuses non-ASCII names
+    (`docs/gaps.md`), hash-triple collisions and empty files (Archive2 skips them;
+    `ba2.pack` skips and reports them), DDS headers with zero dimensions or too many mips;
+    `ba2.pack` `overwrite` (create-new by default); `strings.merge` writes temp + rename
+    and reports in-table duplicate IDs (`duplicates`, first wins) apart from cross-table
+    conflicts; `.pex` object size fields are checked (all 5,708 official scripts agree)
+    and versions other than 3.12 are flagged. Not done (optional): a tolerant parse mode
+    for padded string tables.
 
 ## In progress
 
@@ -389,11 +407,21 @@ Agents append here when they need a change in a crate they do not own.
     `Error` variants carry byte offsets.
   - Tables in archives: `kitcraft_ba2::Archive::open(&path) -> (Archive, File)`,
     `archive.find("strings/starfield_en.strings") -> Option<usize>` (case-insensitive,
-    either separator), `archive.extract_vec(&mut file, index)`. Corpus: base-game tables are
+    either separator), `archive.extract_vec(&mut file, index, cap)` (round 2: `cap` in
+    bytes, e.g. `256 << 20`; above it `Error::TooLarge`). Corpus: base-game tables are
     in `Starfield - Localization.ba2`; the DLC and Creation tables are in
     `<Plugin> - Localization.ba2` or `<Plugin> - Main.ba2`; names are lower-case
     `strings/<plugin>_<lang>.<ext>`, languages `de en es fr it ja pl ptbr zhhans`. In
     `starfield_en` the ID sets of the three kinds are disjoint (FULL is in `.strings`).
+- **Lane G -> lanes D, E (string tables, review round 2).** Compare and copy strings by
+  `Entry::bytes`, not by the lossy `text()`: a few entries of the English tables are not
+  UTF-8 (cp1252-style bytes), and `text()` replaces those bytes, so a round trip through
+  it changes them. A table may repeat an ID: `Table::get` and `strings.merge` both use the
+  **first** occurrence (merge reports the others in `duplicates`, apart from cross-table
+  `conflicts`); use `get`, not a map built by later-wins insertion.
+- **Lane G -> lane F (FYI, review round 2).** `ba2.extract` gained `max_entry_bytes` and
+  `ba2.pack` gained `overwrite` in the catalog; the expected parameter list in
+  `crates/engine/src/params.rs` `required_first_in_required_order` was updated to match.
 - **Lane G -> lane E (for M2.E8).** `kitcraft_pex::Pex::parse(&bytes)`; calls are
   `Instruction`s with `opcode_name(op)` `callmethod` / `callstatic` / `callparent`, the
   function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base
