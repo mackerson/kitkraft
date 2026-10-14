@@ -585,6 +585,45 @@ refusing non-ASCII names: Archive2 itself cannot keep two such names apart, twel
 have no reproducible hash, and how the game looks such names up is not observed (that
 needs an in-game check of a loose-vs-archived file, not planned in M3).
 
+### Archive names (M4.G4, 2026-10-14)
+
+Which archives belong to which plugin, from the file names in `Data` and the archive lists
+in the game's `Starfield.ini` (read in place; `corpus:`). How the game decides what to
+load is runtime behaviour: everything below that goes beyond the names is a hypothesis
+(grade C) until the M4.O2 in-game session checks it.
+
+- **Pattern.** Every one of the 90 archives is named `<stem> - <suffix>.ba2` (one space,
+  hyphen, one space). For 89 of them `<stem>` is the file name of an official plugin
+  without its extension, as spelled in `Data` (`SFBGS00D - Main.ba2` for `SFBGS00D.esm`);
+  the 90th, `CreationKit - Shaders.ba2`, has no plugin and is listed in `CreationKit.ini`
+  only.
+- **The base game is listed, not matched.** All 50 `Starfield - *.ba2` archives appear in
+  `Starfield.ini` `[Archive]` lists (`SResourceArchiveList` 23, `sResourceIndexFileList`
+  15, `sResourceStartUpArchiveList` 11, `SResourceArchiveMemoryCacheList` 2,
+  `sResourceEnglishVoiceList` 3; one listed name, `Starfield - ShadersBeta.ba2`, has no
+  file). So does `BlueprintShips-Starfield - Localization.ba2`, the only plugin-named
+  archive in a list.
+- **Plugin archives are matched by name.** The other 38 archives belong to 11 official
+  plugins and appear in no ini list, so the game finds them from the plugin's name (the
+  hypothesis M4.O2 checks with a mod archive): `Constellation` and `OldMars` (Localization,
+  Textures), `SFBGS003`, `SFBGS004` and `SFBGS00D` (Main, Textures, Voices_de, Voices_en,
+  Voices_es, Voices_fr, Voices_ja), `SFBGS006` and `SFBGS047` (Main, Textures),
+  `SFBGS007` and `SFBGS008` (Main), `SFBGS050` (Main, Textures, Voices_en),
+  `ShatteredSpace` (Main01, Main02, Textures, Voices_en). `BlueprintShips-SFBGS050.esm`
+  has none.
+- **Suffixes used by plugin archives:** `Main` (8 plugins; GNRL), `Main01`/`Main02`
+  (`ShatteredSpace`, GNRL, split because `Main01` reached 4,294,957,291 bytes),
+  `Textures` (9; always DX10), `Localization` (3; string tables only), `Voices_<lang>`
+  (`de`, `en`, `es`, `fr`, `ja`; `.wem` only). Archive files stay below 2^32 bytes: the
+  26 largest are 4.0 to 4.29 GB, the largest 4,294,957,291.
+- **Rule for KitCraft (`package`).** A mod's general archive is `<plugin stem> - Main.ba2`
+  (GNRL) and its texture archive `<plugin stem> - Textures.ba2` (DX10): the two suffixes
+  every official plugin with that content uses, the stem spelled exactly as the plugin's
+  file name. Other suffixes (`Voices_<lang>`, `Localization`, numbered splits) are not
+  written in M4. Whether the game also loads other suffixes for a mod plugin is not
+  claimed. M4.O2 confirms or refutes that a `<stem> - Main.ba2` next to a mod plugin is
+  loaded (a script or a loose-vs-archived file in the POI package).
+
 ## Writing rules (M2.E3)
 
 What a patch plugin written by `set` and `build` follows, and where each rule comes from.

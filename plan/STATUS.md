@@ -602,6 +602,12 @@ is under "Next".
     the permitted source if any (only DDS headers, string tables and `.pex` have one) and
     the workstream that would author it. Finding: no `.mat` file exists in any official
     archive; materials ship as a `.cdb` component database. No implementation.
+  - M4.G4 (research): `docs/corpus.md` "Archive names": all 90 archives are `<stem> -
+    <suffix>.ba2`; the 50 base-game archives (and `BlueprintShips-Starfield -
+    Localization`) are named in `Starfield.ini` lists; the other 38 belong to 11 official
+    plugins by name only (suffixes `Main`, `Main01/02`, `Textures`, `Localization`,
+    `Voices_<lang>`). Rule for `package`: `<plugin stem> - Main.ba2` (GNRL) and `<plugin
+    stem> - Textures.ba2` (DX10). Grade C until M4.O2 sees a mod's `- Main.ba2` load.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
