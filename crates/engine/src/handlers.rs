@@ -6,6 +6,7 @@
 
 mod coverage;
 mod inspect;
+mod load;
 mod roundtrip;
 #[cfg(test)]
 pub(crate) mod testdata;
@@ -27,7 +28,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
 /// registered by [`crate::Engine::with_default_handlers`]: commands that read or change
 /// the loaded load order. A command appears in this table or in [`defaults`], not both.
 pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)> {
-    vec![]
+    vec![("load", Box::new(load::run))]
 }
 
 /// A required string argument. `execute` validated the schema already, so a missing one

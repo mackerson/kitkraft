@@ -111,9 +111,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "File/Load Order...",
         shortcut: Some("Ctrl+O"),
         aliases: &["open"],
-        summary: "Load plugins from an MO2 profile or an explicit plugin list",
-        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string"},"plugins":{"type":"array","items":{"type":"string"}},"data_dir":{"type":"string"}},"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
+        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir (default: the MO2 instance's gamePath + Data)"},"language":{"type":"string","description":"String-table language, default en (tables are not loaded yet)"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "inspect",
