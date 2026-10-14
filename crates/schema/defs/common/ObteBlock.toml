@@ -9,6 +9,7 @@
 name = "ObteBlock"
 kind = "group"
 source = "corpus: OBTE..STOP blocks in the WEAP records of the official ESMs"
+confidence = "corpus"
 
 [[member]]
 sig = "OBTE"

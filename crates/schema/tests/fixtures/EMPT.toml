@@ -2,3 +2,4 @@
 signature = "EMPT"
 name = "Nothing"
 source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"

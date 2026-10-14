@@ -13,6 +13,7 @@
 signature = "GLOB"
 name = "Global"
 source = "corpus: GLOB records of the official ESMs (12 files with a GLOB group)"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"

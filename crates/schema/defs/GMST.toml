@@ -9,6 +9,7 @@
 signature = "GMST"
 name = "GameSetting"
 source = "corpus: GMST records of the official ESMs (12 files with a GMST group)"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"

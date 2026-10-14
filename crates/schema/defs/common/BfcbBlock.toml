@@ -9,6 +9,7 @@
 name = "BfcbBlock"
 kind = "group"
 source = "corpus: BFCB..BFCE blocks in the GLOB, KYWD and WEAP records of the official ESMs"
+confidence = "corpus"
 
 [[member]]
 sig = "BFCB"

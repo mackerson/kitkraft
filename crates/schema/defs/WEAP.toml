@@ -19,6 +19,7 @@
 signature = "WEAP"
 name = "Weapon"
 source = "corpus: WEAP records of the official ESMs (12 files with a WEAP group)"
+confidence = "corpus"
 note = "layout pending ADR 0005"
 
 [[member]]

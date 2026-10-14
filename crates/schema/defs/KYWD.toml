@@ -13,6 +13,7 @@
 signature = "KYWD"
 name = "Keyword"
 source = "corpus: KYWD records of the official ESMs (12 files with a KYWD group)"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"

@@ -7,8 +7,8 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use kitcraft_schema::{
-    builtin, load_dir, Cardinality, CommonBody, FieldType, Member, Signature, BUILTIN_DEFINITIONS,
-    COMMON_DIR, FORBIDDEN_UESP_STARFIELD_PAGES,
+    builtin, load_dir, Cardinality, CommonBody, Confidence, FieldDef, FieldType, Member,
+    Provenance, Signature, BUILTIN_DEFINITIONS, COMMON_DIR, FORBIDDEN_UESP_STARFIELD_PAGES,
 };
 
 fn defs_dir() -> &'static Path {
@@ -35,6 +35,79 @@ fn toml_names(dir: &Path, prefix: &str, out: &mut BTreeSet<String>) {
             let name = path.file_name().unwrap().to_string_lossy().into_owned();
             out.insert(format!("{prefix}{name}"));
         }
+    }
+}
+
+fn member_provenance<'a>(
+    path: &str,
+    members: &'a [Member],
+    out: &mut Vec<(String, &'a Provenance)>,
+) {
+    for m in members {
+        let here = format!("{path}.{}", m.name());
+        match m {
+            Member::Subrecord(s) => {
+                out.push((here.clone(), &s.provenance));
+                type_provenance(&here, &s.ty, out);
+            }
+            Member::Group(g) => {
+                out.push((here.clone(), &g.provenance));
+                member_provenance(&here, &g.members, out);
+            }
+            Member::AnyUntil(a) => out.push((here, &a.provenance)),
+        }
+    }
+}
+
+fn field_provenance<'a>(
+    path: &str,
+    fields: &'a [FieldDef],
+    out: &mut Vec<(String, &'a Provenance)>,
+) {
+    for f in fields {
+        let here = format!("{path}.{}", f.name);
+        out.push((here.clone(), &f.provenance));
+        type_provenance(&here, &f.ty, out);
+    }
+}
+
+fn type_provenance<'a>(path: &str, ty: &'a FieldType, out: &mut Vec<(String, &'a Provenance)>) {
+    match ty {
+        FieldType::Struct { fields } => field_provenance(path, fields, out),
+        FieldType::Array { element, .. } => type_provenance(path, element, out),
+        FieldType::Ref { ty, .. } => type_provenance(path, ty, out),
+        _ => {}
+    }
+}
+
+/// Every definition, member and field has a confidence level, and a Skyrim container fact
+/// is never below `corpus` (ADR 0005 Amendment 2, M2.B1).
+#[test]
+fn every_node_has_a_confidence_level() {
+    let schema = builtin().unwrap();
+    let mut provs: Vec<(String, &Provenance)> = Vec::new();
+    for r in schema.records() {
+        provs.push((r.signature.to_string(), &r.provenance));
+        member_provenance(&r.signature.to_string(), &r.members, &mut provs);
+    }
+    for h in schema.headers() {
+        provs.push((h.name.clone(), &h.provenance));
+        field_provenance(&h.name, &h.fields, &mut provs);
+    }
+    for (path, p) in &provs {
+        if p.citations().any(|c| c.starts_with("uesp-skyrim: ")) {
+            assert!(p.confidence >= Confidence::Corpus, "{path}");
+        }
+    }
+    assert_eq!(
+        schema.record(sig("TES4")).unwrap().provenance.confidence,
+        Confidence::Corpus
+    );
+    for name in ["GroupHeader", "RecordHeader"] {
+        assert_eq!(
+            schema.header(name).unwrap().provenance.confidence,
+            Confidence::Corpus
+        );
     }
 }
 
@@ -87,23 +160,26 @@ fn builtin_set_loads_and_matches_the_directory() {
 #[test]
 fn every_file_names_its_source() {
     let schema = builtin().unwrap();
-    let mut citations: Vec<(String, &str)> = Vec::new();
+    let mut provs: Vec<(String, &Provenance)> = Vec::new();
     for r in schema.records() {
-        citations.push((r.signature.to_string(), &r.source));
-        citations.extend(
-            r.evidence
-                .iter()
-                .map(|e| (r.signature.to_string(), e.as_str())),
-        );
+        provs.push((r.signature.to_string(), &r.provenance));
+        member_provenance(&r.signature.to_string(), &r.members, &mut provs);
     }
     for h in schema.headers() {
-        citations.push((h.name.clone(), &h.source));
-        citations.extend(h.evidence.iter().map(|e| (h.name.clone(), e.as_str())));
+        provs.push((h.name.clone(), &h.provenance));
+        field_provenance(&h.name, &h.fields, &mut provs);
     }
     for c in schema.common() {
-        citations.push((c.name.clone(), &c.source));
-        citations.extend(c.evidence.iter().map(|e| (c.name.clone(), e.as_str())));
+        provs.push((c.name.clone(), &c.provenance));
+        match &c.body {
+            CommonBody::Group(members) => member_provenance(&c.name, members, &mut provs),
+            CommonBody::Type(ty) => type_provenance(&c.name, ty, &mut provs),
+        }
     }
+    let citations: Vec<(String, &str)> = provs
+        .iter()
+        .flat_map(|(def, p)| p.citations().map(move |c| (def.clone(), c)))
+        .collect();
     for (def, text) in citations {
         if let Some(page) = text.strip_prefix("uesp-skyrim: ") {
             assert!(
@@ -150,7 +226,7 @@ fn inventory_definitions_are_fully_opaque() {
     let schema = builtin().unwrap();
     for s in ["GMST", "GLOB", "KYWD", "WEAP"] {
         let rec = schema.record(sig(s)).unwrap();
-        assert!(rec.source.starts_with("corpus: "), "{s}");
+        assert!(rec.provenance.source.starts_with("corpus: "), "{s}");
         assert!(all_opaque(&rec.members), "{s} must stay opaque");
     }
     for common in schema.common() {

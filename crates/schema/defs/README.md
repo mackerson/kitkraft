@@ -19,12 +19,14 @@ file names its source in one of these forms, and the loader rejects any other pr
   (`https://en.uesp.net/wiki/Skyrim_Mod:...`), confirmed against the corpus (TES4, GRUP,
   the record header, string types). Never for Starfield record bodies. Should carry
   `confidence = "corpus"` or better; `reference` is rejected (see Confidence).
-- `xedit: wbDefinitionsSF1.pas@<sha>#L<start>-L<end>`: a Starfield record definition read
-  from upstream xEdit's `Core/wbDefinitionsSF1.pas`. `<sha>` must be the revision ADR 0004
-  pins, `9fb016884bec138ea6c7b872cec831537d464c3e` (full 40 lower-case hex); the line range
-  is 1-based and inclusive. Cite the record's own range in `source` and any helper ranges
-  in `evidence`. Requires `confidence`. Facts only: no code, comments or labels copied
-  wholesale; see `docs/xedit-reference.md` for the construct-to-TOML map.
+- `xedit: <file>@<sha>#L<start>-L<end>`: a Starfield record definition read from upstream
+  xEdit's `Core/wbDefinitionsSF1.pas`, or a shared helper the Starfield definitions invoke
+  from `Core/wbDefinitionsCommon.pas` (ADR 0004, owner approval 2026-10-14). `<sha>` must
+  be the revision ADR 0004 pins, `9fb016884bec138ea6c7b872cec831537d464c3e` (full 40
+  lower-case hex), for both files (`kitcraft_schema::XEDIT_REVISION`, `XEDIT_FILES`); the
+  line range is 1-based and inclusive. Cite the record's own range in `source` and helper
+  ranges in `evidence`. Facts only: no code, comments or labels copied wholesale; see
+  `docs/xedit-reference.md` for the construct-to-TOML map.
 - `uesp-starfield: <page URL>`: the UESP Starfield pages at
   `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format...`, a secondary reference.
   The loader rejects a citation of the `/CTDA` page; cite xEdit at the pin instead.
@@ -42,21 +44,38 @@ names) for anything. Never substitute a Skyrim definition for a Starfield record
 
 ### Confidence
 
-`confidence` says how far a definition has been checked (ADR 0005 Amendment 2):
+`confidence` says how far a fact has been checked (ADR 0004 owner approval, clarification
+3; ADR 0005 Amendment 2):
 
 | Value       | Meaning                                                      | Needs a citation of        |
 | ----------- | ------------------------------------------------------------ | -------------------------- |
-| `reference` | From xEdit only, not yet confirmed                           | `xedit:`                   |
-| `corpus`    | Sizes, counts and order confirmed on the 14 official ESMs    | `corpus:`                  |
-| `ck-diff`   | Confirmed by CK differential observation                     | `ck-diff:`                 |
-| `verified`  | Both of the above                                            | `corpus:` and `ck-diff:`   |
+| `reference` | Documented in an allowed source (xEdit), not yet observed    | `xedit:`                   |
+| `corpus`    | Observed in a local fixture: sizes, counts and order agree with every occurrence in the 14 official ESMs | `corpus:` |
+| `ck-diff`   | Checked against Creation Kit output                          | `ck-diff:`                 |
+| `verified`  | Independently validated: both of the above                   | `corpus:` and `ck-diff:`   |
 
-It is required when any citation is `xedit:`, optional otherwise, and checked against the
-citations whenever it is present; `reference` is rejected next to a `uesp-skyrim:`
-citation. ADR 0005 Amendment 2 also wants it on every `uesp-skyrim:` definition; the loader
-will require that once `TES4`, `GRUP` and `RECORD` carry it (a defs change also means
-rerunning `cargo xtask codegen`; see `plan/STATUS.md`). The loader validates `confidence`;
-the typed model does not carry it yet.
+Every definition file states `confidence` (M2.B1); the loader rejects a missing or unknown
+value, and a level its citations do not back. `reference` is rejected next to a
+`uesp-skyrim:` citation: Skyrim facts describe the shared container only and need the
+corpus. Upstream coverage is not understanding: a member xEdit describes stays `reference`
+until our own evidence raises it.
+
+### Per-member provenance
+
+A subrecord, group, `group_ref` or `any_until` member, and a struct field, may set its own
+`source`, `evidence` and `confidence`. The model stores the *effective* provenance on every
+node (`kitcraft_schema::Provenance`):
+
+- Nothing set: the parent's provenance (the file's, or the enclosing member's or field's).
+- `evidence` and/or `confidence` without `source`: the parent's source, the parent's
+  evidence followed by the member's own, and the member's level (or the parent's).
+- `source` set: the member's own citations only (`source` plus its own `evidence`), and
+  `confidence` is then required on the member.
+
+Each level is checked against the effective citations, at every node that sets a key.
+Members of a shared definition (`defs/common/`) keep that file's provenance wherever it is
+expanded; the `group_ref` member itself (its position and cardinality in the record) has
+the record's.
 
 ## Files
 
@@ -83,7 +102,7 @@ exact lines to add or remove when that list and this directory differ.
 | `source`    | yes             | Primary source, in an ADR 0005 form (see above)                 |
 | `kind`      | no              | `record` (default), `header`, `group` or `type`                 |
 | `evidence`  | no              | Further sources, same forms                                     |
-| `confidence`| with `xedit:` citations | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
+| `confidence`| yes             | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
 | `note`      | no              | Free text (our own words)                                       |
 | `flags`     | no (records)    | Record-header flag bits for this type: `[["Master", 0x1], ...]` |
 | `member`    | records, groups | Ordered list of members                                         |
@@ -98,7 +117,8 @@ exact lines to add or remove when that list and this directory differ.
 **Subrecord** (`sig = "EDID"`): `name` (PascalCase, unique in its list after snake_case
 conversion; `Extra` is reserved), `type` (see Types), `card`, optional `size`,
 `size_by_version`, `note`, plus the type keys (`targets`, `count`, `element`, `base`,
-`values`, `bits`, `field`).
+`values`, `bits`, `field`). Every member kind and every field also takes the provenance
+keys `source`, `evidence` and `confidence` (see Per-member provenance).
 
 **Group** (`group = "Master"`): a run of consecutive subrecords that belong together. The
 group's members go in nested `[[member.member]]` tables. Keys: `card`, `note`. A group must
