@@ -29,14 +29,34 @@ Exit criteria:
 
 ## M2: agent surface
 
-Load-order resolution and the first useful commands, over CLI and MCP.
+"Agents can rip and tear": load-order resolution and the agent-facing commands, over CLI and
+MCP. Tasks, lanes (A, B, D, E, F, G, owner) and ordering are in `plan/execution-plan.md`.
 
-- `kit load`, `inspect`, `query`, `set`, `diff`, `validate`; `kit mcp` stdio server.
-- Ports: `ba2x.py` -> `ba2`, `pexdis.py` -> `pex`, `esmscan.py` -> `doc`/`engine`.
-- Validation rules seeded from known bugs: localized FULL copied as a string ID, stripped
-  FULL/NTRM (the Resupply door), god-mode Papyrus calls.
-- Smoke test: rename one WEAP via `kit set` -> `kit validate` -> launch via MO2 -> name shows
-  in game.
+- `kit load` from an MO2 profile (read-only) or a plugin list; FormID resolution across
+  masters, winning overrides, conflict graph; small/medium plugin forms only as far as a
+  permitted source settles them.
+- `inspect`, `query` (with the `where` mini-language), `diff` and `conflicts` (port of
+  `esmscan.py`) across a load order; localized strings resolved.
+- `set` (`FIELD=value`) into a non-localized patch plugin; `validate` (missing masters,
+  dangling FormIDs, localized FULL copied as a string ID, stripped FULL/NTRM as in the
+  Resupply door, flag/body mismatch, god-mode Papyrus calls); `build` from a minimal TOML
+  spec.
+- `kit mcp` stdio server (`execute`, `command_line`, `inspect_record`, `query_records`,
+  `diff_plugins`, `coverage`), usable from Claude Code.
+- Ports: `ba2x.py` -> `ba2` (GNRL + DX10; list, extract, pack), `pexdis.py` -> `pex`
+  (`papyrus disasm`; `papyrus compile` wraps Bethesda's compiler, never `-release`), string
+  tables (`strings dump`/`merge`).
+- Typed records wired into the reader; weapon record types (WEAP, AMMO, PROJ, AMDL, OMOD,
+  COBJ, ZOOM) typed as far as the owner's xEdit decision (ADR 0004) allows.
+- Smoke test: rename the Old Earth Hunting Rifle to "Old Soviet Marksman Rifle" via `kit set`
+  (and `kit build`) -> `kit validate` -> the owner loads it through MO2 and checks the name in
+  game.
+
+Exit criteria:
+- `kit mcp` works from Claude Code with at least inspect, query, roundtrip and coverage.
+- The rename plugin is built and validated; the owner's in-game result is recorded.
+- Every catalog command is Implemented or explicitly deferred with a reason.
+- `cargo xtask ci` is green and the full corpus roundtrip is still byte-identical.
 
 ## M3: CK parity checklist
 
