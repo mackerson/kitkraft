@@ -1,0 +1,194 @@
+# STAT: Static, a placeable object with a model and no behaviour of its own (walls, rocks,
+# outpost structure pieces). Most outpost building parts are STAT or MSTT records that a
+# constructible object recipe (COBJ) names; their keywords live in a keyword component
+# block (BGSKeywordForm_Component), not in a top-level KSIZ/KWDA.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17847-L17894 - member order, the record flags, the
+#     direction material DNAM (two floats, two more optional), STLS. Helpers: script data
+#     (L3407-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY
+#     (L3921-L3923), OPDS (L3925-L3962), PTT2 (L3965-L3978), SNTP/SNBH (L3919-L3920), DEFL
+#     (L3963), XALG (L3230), the base form component block (L5984-L6832, kept raw), FTYP
+#     (L5699), the generic model (L7008-L7029, common/Model.toml), PRPS (L5679-L5686,
+#     common/ObjectProperty.toml), FULL (L3184), the sound reference (L2213-L2227,
+#     common/SoundReference.toml), navmesh geometry (L3995-L4128, kept opaque).
+#   corpus: the 22,296 STAT records (Starfield.esm 20,607, ShatteredSpace 1,291, SFBGS050
+#     255, SFBGS00D 134, SFBGS003 6, SFBGS008 3; form versions 576, 581, 582), 2026-10-14:
+#     order EDID OBND ODTY [OPDS] [PTT2] [SNTP] [SNBH] [DEFL] [XALG] [component blocks]
+#     [FTYP] [MODL] MOLM* FLLD [XFLG] [PRPS] [FULL] DNAM [STLS] [NVNM]; OBND 24, ODTY 4,
+#     OPDS 80, PTT2 32, SNTP/SNBH/DEFL 4, XALG 8, FTYP 4n, DNAM 8, STLS 40, PRPS 12n. No
+#     record is compressed and none has VMAD. Every record decodes and re-encodes
+#     identically. EDID is absent from 4 records and MODL from 15.
+#
+# DNAM: 1.0 / 1.0 in all but two records; the second float is unnamed upstream and keeps a
+# positional name. Component names (BFCB) are counted in docs/schema/items-workshop-family.md.
+signature = "STAT"
+name = "Static"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17847-L17894"
+evidence = [
+  "corpus: the 22,296 STAT records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [
+  ["HeadingMarker", 0x4],
+  ["NonOccluder", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["HeadtrackMarker", 0x400],
+  ["UsedAsPlatform", 0x800],
+  ["PackInUseOnly", 0x2000],
+  ["HasDistantLod", 0x8000],
+  ["UsesHdLodTexture", 0x10000],
+  ["HasCurrents", 0x80000],
+  ["IsMarker", 0x800000],
+  ["Obstacle", 0x2000000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "absent from 4 official records"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official STAT records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; the keyword component (BGSKeywordForm_Component) holds this type's keywords"
+
+[[member]]
+sig = "FTYP"
+name = "ForcedLocRefTypes"
+type = "array"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699"]
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:ObjectProperty"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"]
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+
+[[member]]
+sig = "DNAM"
+name = "DirectionMaterial"
+type = "struct"
+field = [
+  { name = "MaxAngle", type = "f32", note = "upstream gives a 30 to 120 range; 1.0 in all but two official records" },
+  { name = "Value2", type = "f32", note = "unnamed upstream" },
+  { name = "Leaf", type = "struct", if_remaining = true, confidence = "reference", note = "optional upstream; absent from every official record (DNAM is always 8 bytes)", field = [
+    { name = "LeafAmplitude", type = "f32" },
+    { name = "LeafFrequency", type = "f32" },
+  ] },
+]
+
+[[member]]
+sig = "STLS"
+name = "AmbientSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227"]
+
+[[member]]
+sig = "NVNM"
+name = "NavmeshGeometry"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3995-L4128"]
+note = "navmesh geometry (version, vertices, triangles, edge links, door and cover data); kept raw; observed in 322 records"

@@ -1,0 +1,30 @@
+# SoundReference: a sound slot of a base object (looping, activate, open/close, pickup,
+# putdown, crafting sounds): a Wwise event pair with an optional condition form, or a sound
+# form (WWED).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L2213-L2227 - the subrecord form of the sound
+#     reference: an event set (start event, stop event, condition form CNDF) followed by a
+#     form-only part (start form WWED), in that order.
+#   corpus: STLS (STAT), ALSH/ACSH (ACTI, FURN, TERM), WED0/WED1 (CONT), MSLS (MSTT),
+#     CUSH/PUSH/PDSH (MISC, ARMO) in the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP
+#     family): every payload is 40 bytes. The width of one Wwise event GUID is not stated in
+#     the two pinned files (its type lives in another upstream unit); 40 bytes leaves 16 per
+#     event, and the slot at offset 32 resolves to a CNDF record or is null in every official
+#     payload (STAT STLS: 1,107 CNDF, 89 null), which fixes the split.
+#
+# The event GUIDs are kept as raw bytes (a GUID has no further structure we use).
+name = "SoundReference"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227"
+evidence = [
+  "corpus: sound reference subrecords of the ITEMS/WORKSHOP family in the 14 official ESMs, 2026-10-14 scan: all 40 bytes; the condition slot resolves to CNDF or null",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "StartEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+  { name = "StopEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+  { name = "Condition", type = "formid", targets = ["CNDF"] },
+  { name = "StartForm", type = "formid", targets = ["WWED"] },
+]

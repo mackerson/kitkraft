@@ -1,0 +1,68 @@
+# Model: the model block of a base object (model file, material swaps, light layer, colour
+# remapping index, model flags). Records reference it as `group_ref = "Model"`.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L7008-L7029 - the generic model block: member set
+#     and order, the light layer marked required. Helpers: MOLM (L7000-L7006, a u16-counted
+#     list of LMSW FormIDs), MODC (L3812), FLLD and its bits (L3818-L3823), the model flag
+#     bits (L3801-L3804).
+#   corpus: the 2026-10-14 scan of the ITEMS/WORKSHOP family (STAT, MISC, CONT, ACTI, FURN,
+#     MSTT, TERM, ANIO) in the 14 official ESMs: order MODL? MOLM* FLLD MODC? XFLG?; FLLD 4
+#     bytes and present in every record of these types; MOLM 2 + 4n bytes; XFLG 1 byte; MODC
+#     4 bytes (5 MSTT records). MODL is absent from some records (ACTI, STAT, MSTT) whose
+#     FLLD is still present, so MODL is optional and FLLD is not.
+#
+# Upstream accepts the members in any order; every official record follows the order below.
+# One official STAT carries two consecutive MOLM (upstream merges repeats), so MOLM repeats.
+# This is the first shared model block (lane BI); LVLP and the weapon family carry inline
+# copies of the same members that the integrator may fold into it.
+name = "Model"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"
+evidence = [
+  "corpus: model members in the STAT, MISC, CONT, ACTI, FURN, MSTT, TERM and ANIO records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family): every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "MODL"
+name = "FileName"
+type = "zstring"
+card = "optional"
+note = "model path relative to the meshes folder"
+
+[[member]]
+sig = "MOLM"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+note = "layered material swaps; one official STAT has two in a row"
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+
+[[member]]
+sig = "MODC"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3812-L3812"]
+
+[[member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]

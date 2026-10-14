@@ -1,0 +1,27 @@
+# ObjectProperty: one element of a PRPS property list: an actor value, its value, and an
+# optional curve table.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L5679-L5686 - the property element (actor value,
+#     float value, curve table from form version 152) and the PRPS array of them; the actor
+#     value is an AVIF FormID (L2271-L2274).
+#   corpus: PRPS in the STAT, ACTI, CONT, FURN, MSTT and TERM records of the 14 official ESMs
+#     (2026-10-14 scan, ITEMS/WORKSHOP family): every payload is a multiple of 12 bytes and
+#     every record is form version 576 or later, so the curve table slot is always present.
+#
+# PKIN carries the same element inline (planet family); the integrator may fold it into this
+# type.
+name = "ObjectProperty"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+  "corpus: PRPS in the ITEMS/WORKSHOP family records of the 14 official ESMs, 2026-10-14 scan: every payload a multiple of 12 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
