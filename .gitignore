@@ -27,3 +27,6 @@ desktop.ini
 # Black-box CK observations (screenshots, CK-saved plugins) stay local
 /observe/
 /.claude/worktrees/
+
+# Upstream reference sources (xEdit Pascal) are read locally, never committed (ADR 0004)
+*.pas
