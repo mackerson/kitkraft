@@ -19,8 +19,10 @@ directory or `corpus/out/` (gitignored).
 ## Files
 
 `corpus/manifest.toml` pins each file by size and SHA-256 as installed on the dev box on
-2026-10-14. A game update changes these; tests report a hash mismatch as "corpus changed",
-not as a roundtrip failure, and the manifest is updated in its own commit.
+2026-10-14. A game update changes these; tests report a size or hash mismatch as "corpus
+changed", not as a roundtrip failure, and the manifest is updated in its own commit. Every
+corpus test checks the size; the fast roundtrip also hashes its five files, and the full
+run hashes all 14 (5.9 s in release, one thread per file).
 
 | File                         | Size (bytes)  | In PLAN.md M1 list        |
 | ---------------------------- | ------------- | ------------------------- |
@@ -39,16 +41,20 @@ not as a roundtrip failure, and the manifest is updated in its own commit.
 | SFBGS050.esm                 | 106,017,249   | yes ("all SFBGS*.esm")    |
 | ShatteredSpace.esm           | 501,394,621   | M0 "every ESM under Data" |
 
-Total about 2.54 GB. Fast tests use the three smallest (`OldMars.esm`, `SFBGS007.esm`,
-`Constellation.esm`); the full run is `#[ignore]` and runs in release:
+Total about 2.54 GB. Fast tests (`cargo test`) roundtrip the five smallest: `OldMars.esm`,
+`SFBGS007.esm`, `Constellation.esm`, `SFBGS004.esm` and `SFBGS047.esm` (the last two bring 4
+compressed records and one `XXXX` subrecord, so decompression and `XXXX` run on real data
+in every gate; `corpus_small_compressed_and_xxxx` also decodes and touches every record and
+edits one inside a compressed record). The mutation tests (M1.7) use the first three only.
+The full run is `#[ignore]` and runs in release:
 
 ```powershell
 cargo test -p kitcraft-esm --release -- --ignored corpus_full --nocapture
 ```
 
 `cargo test -p kitcraft-esm --release -- --ignored` runs every ignored test: the full
-roundtrip, the TES4 table, the inventory, the recompression measurement (about 100 s) and an
-extended hostile-input run; about 140 s in all on the dev box.
+roundtrip, the streaming-edit measurement, the TES4 table, the inventory, the recompression
+measurement (about 100 s) and an extended hostile-input run.
 
 ## How it is used
 
@@ -62,8 +68,8 @@ every layout inferred from CK observation.
    reported as file, absolute offset, and group/record path.
 2. **Coverage (M1.14):** count record types and subrecord signatures across the corpus and
    compare with schema definitions; output is `docs/record-parity.md`.
-3. **Hostile input (M1.7):** truncations and seeded bit flips of the small files must yield
-   errors, never panics.
+3. **Hostile input (M1.7):** truncations and seeded bit flips of the three tiny files must
+   yield errors, never panics.
 4. **Third-party tool output (restricted):** Spriggit, run as an external binary, can turn a
    file into YAML. Per ADR 0001 §4 that output may be used only for byte-level inventory
    facts: record counts, FormIDs, EditorIDs, subrecord signatures and sizes. Its field names
@@ -79,13 +85,34 @@ Record each full run here: date, commit, files identical/total, wall time, peak 
 | ---------- | ------- | --------- | --------- | ----------- | ----- |
 | 2026-10-14 | 86f7b71 | 14/14     | 17.0 s    | 1,237 MiB   | First full run (lane A, before the main merge); every compressed record also decoded |
 | 2026-10-14 | adaf097 | 14/14     | 14.7 s    | 1,238 MiB   | After merging main and switching flate2 to zlib-rs; same counts |
+| 2026-10-14 | 087ab97 | 14/14     | 15.4 s    | 1,379 MiB   | Review round 2 (lane A); manifest SHA-256 of all 14 verified first (5.9 s, not in the wall time); same counts |
 
 Wall time is the test's own timer (`corpus_full_roundtrip`, release, one thread); peak
-memory is the test process's `PeakWorkingSet64`, polled every 100 ms from PowerShell. The
-M1.5 target is 2x the largest top-level group of `Starfield.esm` (the `WRLD` group,
-863,580,497 bytes = 823.6 MiB) plus 256 MiB = 1,903 MiB; measured 1,238 MiB, about 1.5x the
-group. The driver holds one top-level entry's bytes plus its parsed tree, which borrows
-subrecord data from those bytes; output is compared as it is produced and never buffered.
+memory is the test process's `PeakWorkingSet64` (polled every 100 ms from PowerShell for
+the first two rows, read by the test itself at the end since 087ab97). The M1.5 target is
+2x the largest top-level group of `Starfield.esm` (the `WRLD` group, 863,580,497 bytes =
+823.6 MiB) plus 256 MiB = 1,903 MiB; measured 1,379 MiB, about 1.7x the group. The driver
+holds one top-level entry's bytes plus its parsed tree, which borrows subrecord data from
+those bytes; output is compared as it is produced and never buffered. The rise from 1,238
+MiB comes with `Subrecord` growing from 32 to 40 bytes (it now keeps its absolute source
+offset, for absolute error offsets) and includes the 14 hashing threads' 1 MiB buffers.
+
+### Streaming edit (`driver::rewrite_file`)
+
+`corpus_rewrite_edit_in_largest_group` (`cargo test -p kitcraft-esm --release --test corpus
+-- --ignored corpus_rewrite --nocapture`) streams `Starfield.esm` through `rewrite_file`,
+grows one subrecord by one byte in the first record of the deepest group chain of `WRLD`
+(depth 5), and writes to a byte counter.
+
+| Date       | Commit  | Output              | Modified top-level entries | Wall time | Peak working set |
+| ---------- | ------- | ------------------- | -------------------------- | --------- | ---------------- |
+| 2026-10-14 | 087ab97 | input + 1 byte      | 1 (`WRLD`)                 | 2.6 s     | 1,293 MiB        |
+
+The modified `WRLD` group (823.6 MiB) is not buffered: its size and those of the modified
+groups inside it are computed first (unmodified children answer from the sizes they were
+read with), its header is written, and its children stream to the sink. Peak memory is the
+entry's bytes plus its parsed tree, as for the roundtrip; before this two-pass writer the
+whole modified group was assembled in a second buffer before its header could be written.
 
 ### Per-file results (adaf097)
 
@@ -111,7 +138,9 @@ include those inside compressed records; XXXX counts subrecords whose size came 
 | SFBGS050.esm                 | yes       | 0.49     | 485,320   | 3,184      | 2,511,232  | 99     | 6,039   | 66,137,190                  | 2,746,586                |
 | ShatteredSpace.esm           | yes       | 2.70     | 1,029,529 | 33,731     | 4,645,419  | 1,704  | 17,747  | 401,097,113                 | 1,623,608                |
 
-The largest decompressed record (3.4 MiB) is well under the 64 MiB default decode cap.
+The largest decompressed record (3.4 MiB) is well under the 64 MiB default decode cap, and
+cannot reach the default cap of 1,000,000 subrecords per decompressed record (3.4 MiB
+holds at most about 590,000 six-byte subrecords).
 
 ## TES4 header inventory (M1.2b)
 
@@ -147,8 +176,9 @@ has no permitted source yet, see `docs/gaps.md`):
   (436, 447, 465, 476, 493, 505, 506, 522, 547) and the other 3,829,234 carry 581.
 - HEDR count: equals the number of records including TES4 (groups not counted) in 12 files.
   In the two BlueprintShips files it equals records excluding TES4 plus groups, which is the
-  meaning UESP gives for Skyrim. The field is preserved verbatim either way; nothing in the
-  container depends on it.
+  meaning UESP gives for Skyrim. The writer preserves it verbatim unless records or groups
+  are added or removed, and then writes the 12-file meaning (`crates/esm/src/tes4.rs`;
+  the BlueprintShips variant is a gap, `docs/gaps.md`).
 
 ## Container facts confirmed by the corpus
 
@@ -159,6 +189,16 @@ carrying the next subrecord's size (all 362 `XXXX`-sized subrecords in uncompres
 have a 0 size field; the rest of the 12,849 sit inside compressed records), and compressed bodies as a `u32` size plus a zlib stream.
 Additional observations:
 
+- `XXXX` occurs exactly when the payload does not fit the `u16` size field: of all 12,849
+  `XXXX`-sized subrecords (12,487 inside compressed records, counted by decoding them),
+  none has a payload of 0xFFFF bytes or less; the smallest is 65,536 bytes (in
+  `Starfield.esm`, `SFBGS050.esm` and `ShatteredSpace.esm`). Per file (total / in compressed
+  records): Starfield 10,592 / 10,361; BlueprintShips-Starfield 199 / 93;
+  BlueprintShips-SFBGS050 1 / 0; SFBGS003 65 / 60; SFBGS008 21 / 19; SFBGS00D 167 / 161;
+  SFBGS047 1 / 1; SFBGS050 99 / 91; ShatteredSpace 1,704 / 1,701; the other five have none.
+  So the writer's rule for new or edited values, a prefix exactly when the payload exceeds
+  `u16::MAX`, agrees with every occurrence (typed values encoded through the generated
+  records also keep the prefix of a value read with one, `oversized`).
 - Group types 0 to 10 occur. UESP's Skyrim table stops at 9; type 10 is Starfield-only
   (meaning not documented on a permitted source). The parser treats group types opaquely.
 - Groups nest at most 6 deep (the parser's default cap is 16).
