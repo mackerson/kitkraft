@@ -133,7 +133,12 @@ fn check_schema_at(
                     return Err(bad(command, &here, "`properties` must be an object"));
                 };
                 for (name, sub) in props {
-                    check_schema_at(command, sub, &format!("{here}/{}", escape(name)), depth + 1)?;
+                    check_schema_at(
+                        command,
+                        sub,
+                        &format!("{here}/{}", escape(name)),
+                        depth.saturating_add(1),
+                    )?;
                 }
             }
             "required" => {
@@ -150,10 +155,10 @@ fn check_schema_at(
             }
             "additionalProperties" => {
                 if !value.is_boolean() {
-                    check_schema_at(command, value, &here, depth + 1)?;
+                    check_schema_at(command, value, &here, depth.saturating_add(1))?;
                 }
             }
-            "items" => check_schema_at(command, value, &here, depth + 1)?,
+            "items" => check_schema_at(command, value, &here, depth.saturating_add(1))?,
             "minItems" | "maxItems" | "minLength" | "maxLength" => {
                 if value.as_u64().is_none() {
                     return Err(bad(
@@ -221,7 +226,13 @@ fn validate_at(schema: &Value, value: &Value, at: &str, depth: usize, out: &mut 
             check_count(schema, "maxItems", items.len(), at, out);
             if let Some(item_schema) = schema.get("items") {
                 for (i, item) in items.iter().enumerate() {
-                    validate_at(item_schema, item, &format!("{at}/{i}"), depth + 1, out);
+                    validate_at(
+                        item_schema,
+                        item,
+                        &format!("{at}/{i}"),
+                        depth.saturating_add(1),
+                        out,
+                    );
                 }
             }
         }
@@ -311,14 +322,16 @@ fn validate_object(
     for (name, item) in map {
         let here = format!("{at}/{}", escape(name));
         match props.and_then(|p| p.get(name)) {
-            Some(sub) => validate_at(sub, item, &here, depth + 1, out),
+            Some(sub) => validate_at(sub, item, &here, depth.saturating_add(1), out),
             None => match schema.get("additionalProperties") {
                 Some(Value::Bool(false)) => out.push(Violation {
                     pointer: here,
                     rule: "additionalProperties",
                     message: format!("unknown argument `{name}`"),
                 }),
-                Some(sub @ Value::Object(_)) => validate_at(sub, item, &here, depth + 1, out),
+                Some(sub @ Value::Object(_)) => {
+                    validate_at(sub, item, &here, depth.saturating_add(1), out)
+                }
                 _ => {}
             },
         }
