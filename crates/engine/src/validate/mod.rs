@@ -31,6 +31,9 @@ use crate::edit::patch::has_opaque;
 use crate::edit::source::file_name;
 use forms::{Space, Target};
 
+/// A layout cache key: record signature, subrecord signature, member path.
+type LayoutKey = ([u8; 4], [u8; 4], Option<String>);
+
 /// How bad a finding is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -343,7 +346,8 @@ struct Pass<'a> {
     /// The plugin's own stored FormIDs.
     own_ids: std::collections::HashSet<u32>,
     rules: &'a [&'static str],
-    layouts: HashMap<([u8; 4], [u8; 4]), Option<Layout>>,
+    /// Layouts by (record, subrecord, member path at its position; `None` for no member).
+    layouts: HashMap<LayoutKey, Option<Arc<Layout>>>,
     limits: DecodeLimits,
 }
 
@@ -370,14 +374,28 @@ impl Pass<'_> {
         }
     }
 
-    fn layout(&mut self, record: [u8; 4], sub: [u8; 4]) -> Option<&Layout> {
-        self.layouts
-            .entry((record, sub))
-            .or_insert_with(|| {
-                let text = String::from_utf8_lossy(&sub).into_owned();
-                fields::layout_for(&text, record, sub).ok().flatten()
-            })
-            .as_ref()
+    /// The layout of every subrecord of a record, each by its position
+    /// (`fields::layout_at`), cached by the member it is placed in.
+    fn layouts(&mut self, record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Arc<Layout>>> {
+        let schema = kitcraft_schema::builtin().ok();
+        let placed = schema.and_then(|s| kitcraft_doc::typed::placements(s, record, subs));
+        let mut out = Vec::with_capacity(subs.len());
+        for (index, sub) in subs.iter().enumerate() {
+            let path = schema.and_then(|s| {
+                let p = placed.as_ref().and_then(|p| p.get(index));
+                kitcraft_doc::typed::layout_of(s, record, *sub, index, p)
+                    .ok()
+                    .flatten()
+                    .map(|l| l.path)
+            });
+            let layout = self
+                .layouts
+                .entry((record, *sub, path))
+                .or_insert_with(|| fields::layout_at(record, subs, index).map(Arc::new))
+                .clone();
+            out.push(layout);
+        }
+        out
     }
 
     /// Whether `owner` has the form `object_id` (`None`: cannot tell).
@@ -692,6 +710,15 @@ fn check_record(
     let sub_offset =
         |s: &kitcraft_esm::Subrecord<'_>| if compressed { at } else { s.data_offset() };
     let sig = r.header.signature.0;
+    let layouts = if pass.on("formid.dangling")
+        || pass.on("record.flags-body")
+        || pass.on("lstring.copied-id")
+    {
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+        pass.layouts(sig, &sigs)
+    } else {
+        Vec::new()
+    };
 
     // formid.dangling: typed members (M2.B3 visitors), opaque subrecords counted.
     if pass.on("formid.dangling") {
@@ -726,12 +753,13 @@ fn check_record(
                 }
                 let extra: Vec<usize> = typed.extra().iter().map(|(i, _)| *i).collect();
                 let mut unchecked = extra.len() as u64;
-                for (i, s) in subs.iter().enumerate() {
+                for i in 0..subs.len() {
                     if extra.contains(&i) {
                         continue;
                     }
-                    let opaque = pass
-                        .layout(sig, s.signature().0)
+                    let opaque = layouts
+                        .get(i)
+                        .and_then(Option::as_ref)
                         .is_none_or(|l| has_opaque(&l.ty));
                     if opaque {
                         unchecked = unchecked.saturating_add(1);
@@ -758,11 +786,11 @@ fn check_record(
     };
     if pass.on("record.flags-body") || pass.on("lstring.copied-id") {
         let mut nth: BTreeMap<[u8; 4], usize> = BTreeMap::new();
-        for s in subs {
+        for (i, s) in subs.iter().enumerate() {
             let n = nth.entry(s.signature().0).or_insert(0);
             let occurrence = *n;
             *n = n.saturating_add(1);
-            let layout = pass.layout(sig, s.signature().0).cloned();
+            let layout = layouts.get(i).cloned().flatten();
             // A 4-byte payload nothing describes (no layout, or opaque bytes, and not
             // classed by the corpus lstring table) in an override of a localized master
             // may be a copied string ID: a warning (Fable review round 2, finding 2c).

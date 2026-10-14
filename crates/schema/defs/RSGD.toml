@@ -1,0 +1,69 @@
+# RSGD: Resource Generation Data, how a planet generates the resources (IRES) it offers:
+# one entry per resource, each with vein parameters for seven rarity tiers on the biome
+# (surface) level and seven on the cell level.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16906-L16933 - member order, the resource entry
+#     (RNAM, DNAM) and the DNAM tier order (common, uncommon, rare, exotic, unique, special,
+#     everywhere; biome tiers, then cell tiers). Helpers: the tier layouts (L8402-L8448,
+#     common/ResourceBiomeTier.toml and common/ResourceCellTier.toml), the base form
+#     component block (L5984-L6832, kept raw).
+#   corpus: the 32 RSGD records (all in Starfield.esm, form version 581), 2026-10-14: every
+#     record is EDID (RNAM DNAM){1,3}; RNAM 4 bytes, DNAM 560 bytes; no component block.
+#     Every record decodes and re-encodes identically.
+signature = "RSGD"
+name = "ResourceGenerationData"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16906-L16933"
+evidence = [
+  "corpus: the 32 RSGD records of the 14 official ESMs (Starfield.esm), 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; none in the official RSGD records"
+
+[[member]]
+group = "Resource"
+card = "repeated"
+note = "observed 1 to 3 per record"
+
+[[member.member]]
+sig = "RNAM"
+name = "Resource"
+type = "formid"
+targets = ["IRES"]
+
+[[member.member]]
+sig = "DNAM"
+name = "Generation"
+type = "struct"
+size = 560
+field = [
+  { name = "BiomeCommon", type = "ref:ResourceBiomeTier" },
+  { name = "BiomeUncommon", type = "ref:ResourceBiomeTier" },
+  { name = "BiomeRare", type = "ref:ResourceBiomeTier" },
+  { name = "BiomeExotic", type = "ref:ResourceBiomeTier" },
+  { name = "BiomeUnique", type = "ref:ResourceBiomeTier" },
+  { name = "BiomeSpecial", type = "ref:ResourceBiomeTier" },
+  { name = "BiomeEverywhere", type = "ref:ResourceBiomeTier" },
+  { name = "CellCommon", type = "ref:ResourceCellTier" },
+  { name = "CellUncommon", type = "ref:ResourceCellTier" },
+  { name = "CellRare", type = "ref:ResourceCellTier" },
+  { name = "CellExotic", type = "ref:ResourceCellTier" },
+  { name = "CellUnique", type = "ref:ResourceCellTier" },
+  { name = "CellSpecial", type = "ref:ResourceCellTier" },
+  { name = "CellEverywhere", type = "ref:ResourceCellTier" },
+]

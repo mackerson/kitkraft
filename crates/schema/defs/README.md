@@ -322,6 +322,9 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
 | `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |
 | `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |
+| `PCMT` `PCBN` `PCCN` `LVLP` `PKIN` `GBFM` `BIOM` `PNDT` `STDT` `SUNP` `SFBK` `SFPT` `RSGD` `RSPJ` `TRAV` (`.toml`) | record | xedit at the pin + corpus (every official record) | Planet content family (`docs/schema/planet-family.md`): typed except component blocks, VMAD, unions and unnamed slots |
+| `common/Condition.toml` | group | xedit L4750-L4840 + corpus | One CTDA (unions kept as raw 4-byte fields) with optional CIS1/CIS2 |
+| `common/ObjectBounds.toml`, `ObjectPaletteDefaults`, `Transforms`, `ColorBgra`, `BiomeNoiseLayer`, `ResourceBiomeTier`, `ResourceCellTier` | type | xedit + corpus | Shared payload structs of the planet family |
 
 Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
 is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`

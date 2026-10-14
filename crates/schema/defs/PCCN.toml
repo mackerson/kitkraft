@@ -1,0 +1,81 @@
+# PCCN: Planet Content Manager Content Node, a leaf of a procedural placement tree. It
+# names the content to place (PCCC: a worldspace, a leveled pack-in or a pack-in) and
+# links up to its parent branch (PRTN) and back to its previous sibling (PRVN).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15788-L15796 - member order, PCCC targets, the
+#     IOVR marker, keywords, PRTN/PRVN targets. Helpers: the base form component block
+#     (L5984-L6832, common/BfcbBlock.toml, kept raw) and the keyword list without a count
+#     (wbDefinitionsCommon.pas L8935-L8951).
+#   corpus: the 2,148 PCCN records (Starfield.esm 1,805, SFBGS00D 199, SFBGS050 56,
+#     ShatteredSpace 88; form versions 581 and 582), 2026-10-14: order EDID [BFCB block]
+#     [PCCC] [IOVR] [KWDA] PRTN [PRVN]; PCCC, PRTN, PRVN 4 bytes, IOVR 0 bytes, KWDA 4
+#     bytes. 4 records carry no PCCC (EDID KWDA PRTN [PRVN]). Every record decodes and
+#     re-encodes identically.
+#
+# IOVR occurs only together with a BFCB block (BGSPlanetContentManagerContentProperties_
+# Component): the marker says the node's own placement properties and conditions replace
+# those of the content it places.
+signature = "PCCN"
+name = "PlanetContentNode"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796"
+evidence = [
+  "corpus: the 2,148 PCCN records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: at most one, BGSPlanetContentManagerContentProperties_Component"
+
+[[member]]
+sig = "PCCC"
+name = "Content"
+type = "formid"
+targets = ["WRLD", "LVLP", "PKIN"]
+card = "optional"
+note = "required upstream; 4 official records omit it. In Starfield.esm it names a WRLD 1,277 times, a PKIN 507, an LVLP 12 and a REFR 5 times (REFR is not an upstream target; all 5 are in nodes whose EditorIDs mark them as duplicates or block-creation requests)"
+
+[[member]]
+sig = "IOVR"
+name = "OverrideContentProperties"
+type = "empty"
+card = "optional"
+note = "marker: this node's placement properties and conditions override the content's"
+
+[[member]]
+sig = "KWDA"
+name = "Keywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+note = "keyword list without a KSIZ count; a null FormID is allowed"
+
+[[member]]
+sig = "PRTN"
+name = "ParentNode"
+type = "formid"
+targets = ["PCBN"]
+note = "a null FormID is allowed upstream; present in every official record"
+
+[[member]]
+sig = "PRVN"
+name = "PreviousNode"
+type = "formid"
+targets = ["PCCN"]
+card = "optional"
+note = "previous sibling; absent on a first child"

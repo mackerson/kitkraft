@@ -525,7 +525,12 @@ fn version_subrecords(
     let body_offset = rec.offset().saturating_add(HEADER_LEN as u64);
     let mut cut = false;
     let mut list = Vec::with_capacity(rec.subs.len());
-    for (s, span) in rec.subs.iter().zip(spans(rec)) {
+    // Each subrecord's layout comes from its position in the record, not its signature
+    // alone (`kitcraft_doc::typed::placements`).
+    let record_sig = rec.record.header.signature.0;
+    let all_sigs: Vec<[u8; 4]> = rec.subs.iter().map(|s| s.signature().0).collect();
+    let placed = schema.and_then(|sc| typed::placements(sc, record_sig, &all_sigs));
+    for (index, (s, span)) in rec.subs.iter().zip(spans(rec)).enumerate() {
         let data = s.data();
         let sig = s.signature().to_string();
         let shown = data.get(..PAYLOAD_CAP).unwrap_or(data);
@@ -566,9 +571,16 @@ fn version_subrecords(
             }
         }
         let def = schema.and_then(|sc| {
-            typed::field_type(sc, rec.record.header.signature.0, s.signature().0)
-                .ok()
-                .flatten()
+            let placement = placed.as_ref().and_then(|p| p.get(index));
+            match typed::layout_of(sc, record_sig, s.signature().0, index, placement) {
+                Ok(layout) => layout.map(|l| (l.ty, l.name)),
+                Err(e @ typed::LayoutError::Unplaced { .. }) => {
+                    notes.push(format!("{record_id} in {file}: {e}; shown as bytes"));
+                    None
+                }
+                // Raw by definition (inside a component block): opaque, as the schema says.
+                Err(_) => None,
+            }
         });
         if let (Some((ty, name)), Some(obj)) = (def, entry.as_object_mut()) {
             obj.insert("member".into(), json!(name));

@@ -1,0 +1,145 @@
+# GBFM: Generic Base Form, a base object assembled from base form components (BFCB
+# blocks) under a template (ANAM: GBFT). Ship modules and other component-built objects
+# use it; nearly everything a GBFM describes lives in its components, which stay raw here.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12247-L12264 - member order, the record flag, the
+#     template link, the instance-data names (STRV), the object template block, the two STOP
+#     markers and NVNM. Helpers: script data (L3393-L3411, kept opaque), object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), the
+#     base form component block (L5984-L6832, kept raw), FLTR (L5697), the object template
+#     (L6961-L6974) with its OBTS item (L6940-L6959, kept opaque: its property list holds
+#     unions), navmesh geometry (L3995 onwards, kept opaque).
+#   corpus: the 3,903 GBFM records (Starfield.esm 3,141, BlueprintShips-Starfield 356,
+#     SFBGS006 175, SFBGS050 148, BlueprintShips-SFBGS050 32, ShatteredSpace 24, SFBGS00D 22,
+#     SFBGS003 3, SFBGS004 1, SFBGS047 1; form versions 581, 582), 2026-10-14: order [EDID]
+#     [VMAD] OBND ODTY [OPDS] BFCB blocks [FLTR] ANAM STRV+ [OBTE OBTF OBTS] STOP
+#     STOP [NVNM]. OBTE is always 1 with one combination; STRV is
+#     "BGSMod_Template_Component" (every record) or "Spaceship_InstanceData"; NVNM starts
+#     with version 17. Every record decodes and re-encodes identically.
+#
+# Upstream also allows a FULL name inside a combination (L3184). No official combination has
+# one, and FULL occurs inside GBFM component blocks (TESFullName_Component), which the doc
+# layer's signature-based layout lookup would then decode as a top-level member (plan/STATUS.md
+# Requests, lane D). Until that lookup is position-aware the member is left out: a
+# combination FULL, if a plugin has one, is kept raw in `extra` (lossless).
+#
+# The component names a GBFM uses (BFCB) are counted in docs/schema/planet-family.md.
+signature = "GBFM"
+name = "GenericBaseForm"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12247-L12264"
+evidence = [
+  "corpus: the 3,903 GBFM records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [["Unique", 0x4]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "absent from 2 official records"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 17 records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; up to dozens per record, names in docs/schema/planet-family.md"
+
+[[member]]
+sig = "FLTR"
+name = "Filter"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697"]
+note = "object window filter path"
+
+[[member]]
+sig = "ANAM"
+name = "Template"
+type = "formid"
+targets = ["GBFT"]
+
+[[member]]
+sig = "STRV"
+name = "InstanceData"
+type = "zstring"
+card = "repeated"
+note = "names of the template's instance-data components"
+
+[[member]]
+sig = "OBTE"
+name = "TemplateCount"
+type = "u32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
+note = "number of Combinations that follow; stored, not derived; 1 in every official record"
+
+[[member]]
+group = "Combination"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
+note = "upstream: OBTF, FULL and OBTS in any order; FULL is left out here (see the header comment); every official combination is OBTF OBTS"
+
+[[member.member]]
+sig = "OBTF"
+name = "EditorOnly"
+type = "empty"
+card = "optional"
+
+[[member.member]]
+sig = "OBTS"
+name = "Item"
+type = "opaque"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959"]
+note = "object mod template item: counts, level range, keywords, includes and a property list whose values are unions; kept raw; observed 32, 25 or 18 bytes"
+
+[[member]]
+sig = "STOP"
+name = "Marker1"
+type = "empty"
+
+[[member]]
+sig = "STOP"
+name = "Marker2"
+type = "empty"
+
+[[member]]
+sig = "NVNM"
+name = "NavmeshGeometry"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3995-L4128"]
+note = "navmesh geometry (version, vertices, triangles, edge links, door and cover data); kept raw; observed in 1,308 records"

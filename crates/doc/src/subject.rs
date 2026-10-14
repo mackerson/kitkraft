@@ -231,6 +231,7 @@ impl Subject for VersionSubject<'_> {
                 }
                 let localized = self.localized();
                 let plugin = self.plugin_name();
+                let schema = self.schema;
                 let rec = match self.record() {
                     Ok(r) => r,
                     Err(e) => return Lookup::Unknown(e),
@@ -239,26 +240,40 @@ impl Subject for VersionSubject<'_> {
                     rec.record.header.signature.0,
                     rec.record.header.form_version,
                 );
-                let mut owned: Vec<Vec<u8>> = rec
-                    .subs
+                // Positions of the occurrences the path names; each one's layout comes
+                // from its position in the record (`typed::path_layout`).
+                let all_sigs: Vec<[u8; 4]> = rec.subs.iter().map(|s| s.signature().0).collect();
+                let mut positions: Vec<usize> = all_sigs
                     .iter()
-                    .filter(|s| s.signature().0 == *signature)
-                    .map(|s| s.data().to_vec())
+                    .enumerate()
+                    .filter(|(_, s)| *s == signature)
+                    .map(|(i, _)| i)
                     .collect();
                 if let Some(i) = index {
-                    owned = usize::try_from(*i)
+                    positions = usize::try_from(*i)
                         .ok()
-                        .and_then(|i| owned.get(i).cloned())
+                        .and_then(|i| positions.get(i).copied())
                         .into_iter()
                         .collect();
                 }
-                if owned.is_empty() {
+                if positions.is_empty() {
                     return Lookup::Absent;
                 }
-                let schema_type = self.schema.map(|s| {
-                    typed::field_type(s, record_sig, *signature)
-                        .map(|t| t.map(|(ty, name)| (ty.clone(), name.to_string())))
+                let payload = |i: &usize| rec.subs.get(*i).map(|s| s.data().to_vec());
+                let mut owned: Vec<Vec<u8>> = positions.iter().filter_map(payload).collect();
+                let schema_type = schema.map(|s| {
+                    typed::path_layout(s, record_sig, &all_sigs, &positions, index.is_some())
+                        .map(|t| {
+                            t.map(|(layout, chosen)| {
+                                (layout.ty.clone(), layout.name.to_string(), chosen)
+                            })
+                        })
+                        .map_err(|e| e.to_string())
                 });
+                if let Some(Ok(Some((_, _, chosen)))) = &schema_type {
+                    owned = chosen.iter().filter_map(payload).collect();
+                }
+                let schema_type = schema_type.map(|r| r.map(|t| t.map(|(ty, name, _)| (ty, name))));
                 match schema_type {
                     Some(Err(why)) => return Lookup::Unknown(why),
                     Some(Ok(Some((ty, name)))) => {

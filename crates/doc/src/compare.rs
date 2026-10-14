@@ -13,6 +13,7 @@ use kitcraft_schema::Schema;
 use crate::fields::{self, FieldChange, Side, Typed};
 use crate::flags::RECORD_FLAG_DELETED;
 use crate::record::LoadedRecord;
+use crate::typed;
 
 /// Where a subrecord is: its offset in the file (uncompressed records) or in the inflated
 /// body (compressed records), and its payload length.
@@ -171,14 +172,30 @@ pub fn diff_subrecords(a: &LoadedRecord, b: &LoadedRecord) -> Vec<SubDiff> {
 
 /// [`diff_subrecords`], comparing subrecords with a layout member by member when `fields`
 /// is given (module docs).
-pub fn diff_subrecords_with(
+pub fn diff_subrecords_with<'a>(
     a: &LoadedRecord,
     b: &LoadedRecord,
-    fields: Option<&FieldCompare<'_>>,
+    fields: Option<&FieldCompare<'a>>,
 ) -> Vec<SubDiff> {
     let (ka, kb) = (keyed(&a.subs), keyed(&b.subs));
     let (sa, sb) = (spans(a), spans(b));
     let record = a.record.header.signature.0;
+    // Each subrecord's layout comes from its position in its own version (typed module).
+    let sigs =
+        |r: &LoadedRecord| -> Vec<[u8; 4]> { r.subs.iter().map(|s| s.signature().0).collect() };
+    let (sig_a, sig_b) = (sigs(a), sigs(b));
+    let placed = fields.map(|c| {
+        (
+            typed::placements(c.schema, record, &sig_a),
+            typed::placements(c.schema, record, &sig_b),
+        )
+    });
+    let layout = |c: &FieldCompare<'a>, side: usize, sub: [u8; 4], i: usize| {
+        let p = placed.as_ref().and_then(|(pa, pb)| {
+            if side == 0 { pa.as_ref() } else { pb.as_ref() }.and_then(|p| p.get(i))
+        });
+        typed::layout_of(c.schema, record, sub, i, p)
+    };
     let mut out = Vec::new();
     for (sig, raw_sig, n, i, data) in &ka {
         let Some((_, _, _, j, other)) = kb.iter().find(|(_, s, m, _, _)| s == raw_sig && m == n)
@@ -197,7 +214,9 @@ pub fn diff_subrecords_with(
         };
         let typed = match fields {
             Some(c) if !(c.same_encoding && other == data) => {
-                fields::compare(c.schema, record, *raw_sig, *n, (data, &c.a), (other, &c.b))
+                let la = layout(c, 0, *raw_sig, *i);
+                let lb = layout(c, 1, *raw_sig, *j);
+                fields::compare((&la, &lb), *raw_sig, *n, (data, &c.a), (other, &c.b))
             }
             _ => Typed::NoLayout,
         };

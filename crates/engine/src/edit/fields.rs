@@ -261,33 +261,54 @@ pub fn fallback_note(signature: &str) -> String {
     )
 }
 
-/// The layout of subrecord `sub` in records of type `record`: the schema's when every
-/// definition of that signature in the record agrees, else an error naming the path.
-/// `Ok(None)` when the schema knows nothing about it (no record definition, or the
-/// definition does not name the signature) and it is not an lstring by the fallback.
-pub fn layout_for(path: &str, record: [u8; 4], sub: [u8; 4]) -> Result<Option<Layout>, FieldError> {
-    let mut types: Vec<FieldType> = Vec::new();
-    if let (Ok(schema), Some(sig)) = (
-        kitcraft_schema::builtin(),
-        kitcraft_schema::Signature::from_bytes(record),
-    ) {
-        if let Some(def) = schema.record(sig) {
-            for (_, s) in def.leaf_subrecords() {
-                if s.signature.as_bytes() == sub && !types.contains(&s.ty) {
-                    types.push(s.ty.clone());
-                }
-            }
-        }
-    }
-    let lstring_fallback = LSTRING_FALLBACK.contains(&&sub);
-    let sig_text = String::from_utf8_lossy(&sub).into_owned();
-    // FULL/DESC by the uesp-skyrim fact, else an lstring of the corpus table
-    // (`super::lstrings`), where the schema has nothing or only opaque bytes.
+/// The layout of subrecord `index` of a record of type `record` whose subrecord
+/// signatures are `subs`: the schema's for the member that subrecord is placed in, found by
+/// its position (`kitcraft_doc::typed`, the generated decoder's matching rules), not by its
+/// signature alone, since a signature can mean different members at different positions
+/// (PNDT CNAM/FNAM/GNAM; NAM1..NAM5, VNAM, CNAM, ANAM inside the PCBN/PKIN/GBFM component
+/// blocks). `None` when the schema knows nothing about it (no record definition, a
+/// signature the definition never names, raw bytes inside a component block, or a
+/// position no member accepts: its layout is unknown and the payload opaque) and it is
+/// not an lstring by the fallback.
+pub fn layout_at(record: [u8; 4], subs: &[[u8; 4]], index: usize) -> Option<Layout> {
+    let sub = subs.get(index).copied()?;
+    let schema_ty = kitcraft_schema::builtin().ok().and_then(|schema| {
+        kitcraft_doc::typed::layout_at(schema, record, subs, index)
+            .ok()
+            .flatten()
+            .map(|l| l.ty.clone())
+    });
+    finish(record, sub, schema_ty)
+}
+
+/// [`layout_at`] for every subrecord of a record, in order, with one placement pass.
+pub fn layouts(record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Layout>> {
+    let schema = kitcraft_schema::builtin().ok();
+    let placed = schema.and_then(|s| kitcraft_doc::typed::placements(s, record, subs));
+    subs.iter()
+        .enumerate()
+        .map(|(index, sub)| {
+            let schema_ty = schema.and_then(|schema| {
+                let p = placed.as_ref().and_then(|p| p.get(index));
+                kitcraft_doc::typed::layout_of(schema, record, *sub, index, p)
+                    .ok()
+                    .flatten()
+                    .map(|l| l.ty.clone())
+            });
+            finish(record, *sub, schema_ty)
+        })
+        .collect()
+}
+
+/// The layout from the schema's type at the subrecord's position, or the lstring fallback
+/// (FULL/DESC by the uesp-skyrim fact, else the corpus table `super::lstrings`) where the
+/// schema has nothing or only opaque bytes.
+fn finish(record: [u8; 4], sub: [u8; 4], schema_ty: Option<FieldType>) -> Option<Layout> {
     let untyped = || {
-        if lstring_fallback {
+        if LSTRING_FALLBACK.contains(&&sub) {
             Some(Layout {
                 ty: FieldType::LString,
-                fallback: Some(fallback_note(&sig_text)),
+                fallback: Some(fallback_note(&String::from_utf8_lossy(&sub))),
             })
         } else if super::lstrings::class(record, sub) == super::lstrings::Class::LString {
             Some(Layout {
@@ -298,27 +319,10 @@ pub fn layout_for(path: &str, record: [u8; 4], sub: [u8; 4]) -> Result<Option<La
             None
         }
     };
-    match types.as_slice() {
-        [] => Ok(untyped()),
-        [ty] if ty.is_opaque() => Ok(untyped().or_else(|| {
-            Some(Layout {
-                ty: ty.clone(),
-                fallback: None,
-            })
-        })),
-        [ty] => Ok(Some(Layout {
-            ty: ty.clone(),
-            fallback: None,
-        })),
-        _ if types.iter().all(FieldType::is_opaque) && untyped().is_some() => Ok(untyped()),
-        _ => Err(FieldError::new(
-            path,
-            "layout",
-            format!(
-                "{sig_text} has {} different layouts in this record type; set it as hex:",
-                types.len()
-            ),
-        )),
+    match schema_ty {
+        None => untyped(),
+        Some(ty) if ty.is_opaque() => untyped().or(Some(Layout { ty, fallback: None })),
+        Some(ty) => Some(Layout { ty, fallback: None }),
     }
 }
 
@@ -1498,23 +1502,50 @@ mod tests {
 
     #[test]
     fn layouts_and_fallback() {
+        let at = |record: [u8; 4], sub: [u8; 4]| layout_at(record, &[*b"EDID", sub], 1);
         // WEAP FULL is opaque in the schema today, or an lstring once lane B types it.
-        let layout = layout_for("FULL", *b"WEAP", *b"FULL").unwrap().unwrap();
+        let layout = at(*b"WEAP", *b"FULL").unwrap();
         assert_eq!(layout.ty, FieldType::LString);
         // A record type without a definition still gets the lstring fallback.
-        let layout = layout_for("FULL", *b"ZZZZ", *b"FULL").unwrap().unwrap();
+        let layout = at(*b"ZZZZ", *b"FULL").unwrap();
         assert!(layout.fallback.is_some());
-        assert_eq!(layout_for("XNAM", *b"ZZZZ", *b"XNAM").unwrap(), None);
+        assert_eq!(at(*b"ZZZZ", *b"XNAM"), None);
         // EDID is described by the WEAP definition.
-        assert!(layout_for("EDID", *b"WEAP", *b"EDID").unwrap().is_some());
+        assert!(layout_at(*b"WEAP", &[*b"EDID"], 0).is_some());
         // Lstrings the schema does not type come from the corpus table (finding 2b):
         // ACTI ATTX and WEAP WABB are lstrings; WEAP has no ATTX in the corpus.
         for (record, sub) in [(*b"ACTI", *b"ATTX"), (*b"WEAP", *b"WABB")] {
-            let layout = layout_for("X", record, sub).unwrap().unwrap();
+            let layout = at(record, sub).unwrap();
             assert_eq!(layout.ty, FieldType::LString);
             assert!(layout.fallback.unwrap().contains("corpus lstring table"));
         }
-        assert_eq!(layout_for("ATTX", *b"WEAP", *b"ATTX").unwrap(), None);
+        assert_eq!(at(*b"WEAP", *b"ATTX"), None);
+        // Out of range: no layout, never a panic.
+        assert_eq!(layout_at(*b"WEAP", &[*b"EDID"], 3), None);
+    }
+
+    /// Planet schema lane request to lane E: layouts resolve by position. PNDT's two CNAM,
+    /// FNAM and GNAM each get their own member's layout (no "different layouts" error), and
+    /// a VNAM inside a PKIN component block is opaque, not the top-level `Version`.
+    #[test]
+    fn layouts_resolve_by_position() {
+        let pndt = [
+            *b"EDID", *b"CNAM", *b"FNAM", *b"GNAM", *b"BDST", *b"ANAM", *b"CNAM", *b"ENAM",
+            *b"FNAM", *b"GNAM", *b"KNAM", *b"BDED", *b"TEMP", *b"DENS", *b"PHLA",
+        ];
+        let all = layouts(*b"PNDT", &pndt);
+        assert_eq!(all.len(), pndt.len());
+        for (top, inner) in [(1, 6), (2, 8), (3, 9)] {
+            let a = layout_at(*b"PNDT", &pndt, top).unwrap();
+            let b = layout_at(*b"PNDT", &pndt, inner).unwrap();
+            assert_ne!(a.ty, b.ty, "{top} vs {inner}");
+            assert_eq!(all[top].as_ref(), Some(&a));
+            assert_eq!(all[inner].as_ref(), Some(&b));
+        }
+        let pkin = [*b"EDID", *b"BFCB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM"];
+        assert_eq!(layout_at(*b"PKIN", &pkin, 2), None);
+        let version = layout_at(*b"PKIN", &pkin, 5).unwrap();
+        assert!(!version.ty.is_opaque());
     }
 
     /// M3.E6 operators: `min` raises to at least, `max` lowers to at most, `clamp` both;

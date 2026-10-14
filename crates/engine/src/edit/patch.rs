@@ -747,9 +747,11 @@ fn remap_record(
         .decompress(limits)
         .map_err(|e| PatchError::Io(format!("{what}: {e}")))?;
     let sig = record.header.signature.0;
-    for sub in record.subrecords().unwrap_or_default() {
+    let subs = record.subrecords().unwrap_or_default();
+    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+    for (sub, layout) in subs.iter().zip(fields::layouts(sig, &sigs)) {
         let text = sub.signature().to_string();
-        let opaque = match fields::layout_for(&text, sig, sub.signature().0)? {
+        let opaque = match layout {
             Some(layout) => has_opaque(&layout.ty),
             None => true,
         };
@@ -788,15 +790,16 @@ pub fn has_opaque(ty: &FieldType) -> bool {
     }
 }
 
-/// The lstring spans of one subrecord: `(member label, start, len)`.
+/// The lstring spans of one subrecord laid out as `layout` (its layout at its position,
+/// `fields::layout_at`): `(member label, start, len)`.
 pub fn lstring_spans(
-    record_sig: [u8; 4],
+    layout: Option<&fields::Layout>,
     sub_sig: [u8; 4],
     payload: &[u8],
     form_version: u16,
 ) -> Result<Vec<(String, usize, usize)>, FieldError> {
     let text = String::from_utf8_lossy(&sub_sig).into_owned();
-    let Some(layout) = fields::layout_for(&text, record_sig, sub_sig)? else {
+    let Some(layout) = layout else {
         return Ok(Vec::new());
     };
     Ok(match &layout.ty {
@@ -857,6 +860,8 @@ fn inline_lstrings(
     let mut untyped: Vec<String> = Vec::new();
     let mut notes: Vec<String> = Vec::new();
     let mut updates: Vec<(usize, Vec<u8>)> = Vec::new();
+    let sigs: Vec<[u8; 4]> = subs.iter().map(|(s, _)| s.0).collect();
+    let all = fields::layouts(sig, &sigs);
     for (i, (s, payload)) in subs.iter().enumerate() {
         let n = nth.entry(s.0).or_insert(0);
         let occurrence = *n;
@@ -864,7 +869,7 @@ fn inline_lstrings(
         if written.contains(&i) {
             continue;
         }
-        let layout = fields::layout_for(&s.to_string(), sig, s.0)?;
+        let layout = all.get(i).cloned().flatten();
         if layout.as_ref().is_none_or(|l| has_opaque(&l.ty)) {
             let maybe_id = payload.len() == 4 && payload.iter().any(|b| *b != 0);
             if maybe_id && lstrings::class(sig, s.0) == lstrings::Class::Unclassified {
@@ -872,7 +877,7 @@ fn inline_lstrings(
             }
             continue;
         }
-        let spans = lstring_spans(sig, s.0, payload, form_version)?;
+        let spans = lstring_spans(layout.as_ref(), s.0, payload, form_version)?;
         if !spans.is_empty() {
             if let Some(note) = layout.and_then(|l| l.fallback) {
                 notes.push(note);

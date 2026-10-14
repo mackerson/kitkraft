@@ -1,0 +1,219 @@
+# PKIN: Pack-In, a reusable bundle of placed objects stored in its own cell (CNAM). Placing
+# a pack-in (from the editor, a planet content node or a leveled pack-in) instantiates the
+# references of that cell as a group.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15981-L16045 - member order (including the two
+#     OPDS positions), the record flags, CNAM/VNAM/FNAM, FTYP, PRPS, NTRM, MOLM and FULL.
+#     Helpers: script data (L3393-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas
+#     L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2 (L3965-L3978), SNTP/SNBH
+#     (L3919-L3920), XALG (L3230), the base form component block (L5984-L6832, kept raw),
+#     FLTR (L5697), keywords (wbDefinitionsCommon.pas L8935-L8951, common/Keywords.toml),
+#     FTYP (L5699), PRPS and its property element (L5679-L5686, with the actor value at
+#     L2271-L2274), NTRM (L5676), MOLM (L7000-L7006), FULL (L3184).
+#   corpus: the 15,128 PKIN records (Starfield.esm 11,281, ShatteredSpace 1,971, SFBGS00D
+#     760, SFBGS050 733, SFBGS006 356, SFBGS003 25, SFBGS004 1, SFBGS047 1; form versions
+#     581, 582), 2026-10-14: every record fits the order below; OBND 24, ODTY 4, OPDS 80
+#     (at most two per record, before and after the component blocks), PTT2 32, SNTP/SNBH/
+#     NTRM/CNAM/VNAM/FNAM 4, XALG 8, PRPS a multiple of 12, MOLM 2 + 4n, FULL 4 (localized).
+#     Every record decodes and re-encodes identically. VNAM is 0 in every record.
+#
+# EDID is absent from 3 records and CNAM/VNAM/FNAM from 2, so they are optional.
+signature = "PKIN"
+name = "PackIn"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045"
+evidence = [
+  "corpus: the 15,128 PKIN records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [
+  ["Instanced", 0x200],
+  ["CalcLpis", 0x400],
+  ["InstancedStatic", 0x800],
+  ["PackInUseOnly", 0x2000],
+  ["Obstacle", 0x2000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 16 records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+note = "first of two OPDS slots"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: BGSLodOwner_Component, BGSPlanetContentManagerContentProperties_Component, BGSEffectSequenceComponent, BGSSpacePhysicsComponent, LensFlareAttachmentFormComponent, BGSAnimationGraph_Component"
+
+[[member]]
+sig = "FLTR"
+name = "Filter"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697"]
+note = "object window filter path"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults2"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+note = "second of two OPDS slots; when a record has a single OPDS its slot is the first unless a component block or FLTR precedes it"
+
+[[member]]
+sig = "CNAM"
+name = "Cell"
+type = "formid"
+targets = ["CELL"]
+card = "optional"
+note = "the cell holding the pack-in's references"
+
+[[member]]
+sig = "VNAM"
+name = "Version"
+type = "u32"
+card = "optional"
+note = "0 in every official record"
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+card = "optional"
+bits = [
+  ["GroupedWorkshopObject", 0x2],
+  ["Fixed", 0x4],
+  ["Grouped", 0x8],
+  ["OneMotion", 0x10],
+  ["UserDefinedPrimitives", 0x20],
+  ["OverrideDirtiness", 0x40],
+]
+note = "bit 0 and several high bits are set in official records but unnamed upstream; kept as read"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "FTYP"
+name = "ForcedLocRefTypes"
+type = "array"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699"]
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+]
+note = "the curve table slot exists from form version 152; every official record is 581 or later"
+field = [
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "NTRM"
+name = "NativeTerminal"
+type = "formid"
+targets = ["TMLM"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5676-L5676"]
+
+[[member]]
+sig = "MOLM"
+name = "MaterialSwaps"
+type = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
