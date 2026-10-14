@@ -93,6 +93,21 @@ green. M2 is not broken down into tasks in `plan/execution-plan.md` yet; the lan
   examined, 50,419,561 subrecords of which 77 typed, 59,660 opaque, 50,359,824 unknown.
 - AGENTS.md clean-room section points to ADR 0005 Amendment 1 (starfieldwiki.net);
   `docs/gaps.md` stale scaffold row removed.
+- Lane A round 2 (review findings 1-8, `crates/esm`): the writer rejects a compressed flag
+  that disagrees with the body (`FlagBodyMismatch`); decoded compressed records keep their
+  inflated bytes and re-emit the original stream when touched without a change;
+  `DecodeLimits::max_subrecords` (1,000,000) with a count-then-parse decode into one shared
+  buffer (an 8 KB bomb of 1.4 M empty subrecords fails before any is built); two-pass
+  writer (`Entry::encoded_len`) that streams modified groups, and
+  `driver::rewrite_file` (edit `Starfield.esm`'s `WRLD` in 2.6 s at a 1,293 MiB peak, no
+  group buffered); `HEDR` count documented from the corpus, `Tes4::set_record_count`, kept
+  verbatim unless records/groups are added or removed (then the 12-file meaning);
+  `esm::bridge` (`RawSub`/`OwnedSub`/`Ctx` from the generated module, `Record::raw_subs`,
+  `Subrecord::from_owned`, `Plugin::ctx`, `Record::typed`/`set_typed`); fast corpus tests add
+  `SFBGS004.esm`/`SFBGS047.esm` (real compressed records and `XXXX` in every gate) and check
+  manifest SHA-256; absolute subrecord offsets, reserved `XXXX` signature, depth cap 64, one
+  hostile harness, `rust-version = "1.88"`. Full corpus run at 087ab97: 14/14 identical,
+  15.4 s, peak 1,379 MiB. Corpus `XXXX` inventory: 0 of 12,849 have a payload <= 0xFFFF.
 
 ## In progress
 
@@ -112,7 +127,7 @@ when M2 is broken down in `plan/execution-plan.md`.
 | validate   | Rules: missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode pex calls               | `crates/engine`                              |
 | edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
 | smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
-| container  | Wire the generated records into the reader; `roundtrip --decode`                                               | `crates/esm` (lane A)                        |
+| container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
 | schema     | Typed layouts from ck-diff observations or `uesp-starfield` pages confirmed on the corpus                      | `crates/schema` (lane B)                     |
 
 ## Blockers
@@ -147,13 +162,23 @@ wins") but still the owner's to confirm:
 
 Agents append here when they need a change in a crate they do not own.
 
-- **Lane B -> lane A.** Generated records decode from `&[RawSub { signature: [u8; 4], data:
-  &[u8], oversized: bool }]` (subrecords after `XXXX` resolution; `oversized` = the size came
-  from `XXXX`) plus `Ctx { form_version, localized }` (`localized` = TES4 flag `0x80`), via
-  `Record::decode(signature, subs, ctx)`, and encode to `Vec<OwnedSub>` carrying the same
-  flag; write `XXXX` when it is set or the payload exceeds `u16::MAX`. The 24-byte record
-  header is now a definition too (`RECORD.toml`, generated `RecordHeader`). Also please
-  count `XXXX` subrecords with a payload <= 0xFFFF in the corpus inventory (`docs/gaps.md`).
+- **Lane A -> lane B (answer to the RawSub/XXXX request; re-checked after lane B round 2).**
+  `esm::bridge` re-exports the generated `RawSub`/`OwnedSub`/`Ctx` (checked against `main`
+  at dcfe253, no local copies): `From<&Subrecord>` sets `oversized` from the `XXXX` prefix,
+  `Subrecord::from_owned` writes `XXXX` when `oversized` is set or the payload exceeds
+  `u16::MAX`, `Plugin::ctx(record)` passes the record's form version and TES4 `0x80`. The
+  `XXXX` inventory is done: 0 of 12,849 have a payload <= 0xFFFF (smallest 65,536), so the
+  `docs/gaps.md` row is closed. If the generated shapes change again, `bridge.rs` is the
+  one file to adjust.
+- **Lane A -> lane C.** The decode side of the typed wiring is in esm: `Plugin::typed(record)`
+  / `Record::typed(ctx)` (`None` for a type without a definition or an undecoded compressed
+  record: call `Record::decompress` first) and `Record::set_typed`. `coverage` and `inspect`
+  can now decode payloads instead of classifying by signature. API changes from round 2
+  that engine code may meet: `Body::Compressed` has a third field `inflated` (patterns need
+  `..`), `DecodeLimits` has `max_subrecords` (build it with `..DecodeLimits::default()`),
+  new `Error` variants (`FlagBodyMismatch`, `ReservedSignature`, `TooManySubrecords`), and
+  `driver::rewrite_file` for streaming edits (`RewriteReport::hedr_fix` when records or
+  groups are added or removed).
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
   is a breaking change for `kit query`. Default: accept the rename when it happens.
@@ -161,7 +186,3 @@ Agents append here when they need a change in a crate they do not own.
   `crates/schema/src/lib.rs` marks a generated region for it (for example
   `// BEGIN generated by cargo xtask codegen` / `// END`); until then
   `tests/defs.rs` is the guard and xtask leaves the file alone.
-- **Lane C -> lane A.** `crates/esm/src/lib.rs` now has `pub mod generated;` (plus a doc
-  comment) for `crates/esm/src/generated/`, written only by `cargo xtask codegen`; keep the
-  line when merging. Wiring the generated `Record::decode` into the reader would let
-  `coverage` check payloads against layouts instead of classifying by signature.
