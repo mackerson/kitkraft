@@ -325,6 +325,9 @@ fn error_json(err: &EngineError) -> Value {
             obj.insert("violations".to_string(), Value::Array(list));
         }
     }
+    if let (EngineError::NotFound { searched, .. }, Some(obj)) = (err, body.as_object_mut()) {
+        obj.insert("searched".to_string(), json!(searched));
+    }
     json!({ "error": body })
 }
 

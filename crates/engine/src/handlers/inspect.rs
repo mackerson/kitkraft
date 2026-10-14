@@ -132,7 +132,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let named = args.get("profile").is_some() || args.get("plugins").is_some();
     let single = !named && args.get("plugin").is_some();
     if single {
-        return run_single(args);
+        let inputs = &[super::resolve::Input::file("plugin")];
+        return run_single(&super::resolve::inputs(Some(session), ID, args, inputs)?);
     }
     let schema = schema_of(session);
     let loaded = acquire(session, args, ID)?;

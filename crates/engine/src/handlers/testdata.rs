@@ -107,3 +107,11 @@ pub(crate) fn write_temp(name: &str, bytes: &[u8]) -> PathBuf {
     std::fs::write(&path, bytes).expect("write temp plugin");
     path
 }
+
+/// An empty per-process temp directory (removed first if a previous run left it).
+pub(crate) fn temp_dir(name: &str) -> PathBuf {
+    let dir = std::env::temp_dir().join(format!("kitcraft-engine-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).expect("create temp dir");
+    dir
+}

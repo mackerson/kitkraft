@@ -1,12 +1,13 @@
 //! `validate` (M2.E6): the rule registry in [`crate::validate`] over one plugin and/or
 //! compiled scripts. `data.passed` is false on any error finding (CLI exit 1).
 
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use serde_json::{json, Value};
 
 use super::failed;
 use super::load::{acquire, Loaded};
+use super::resolve::resolve;
 use crate::args::Violation;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
@@ -44,15 +45,11 @@ fn invalid(pointer: String, rule: &'static str, message: String) -> EngineError 
 /// Reads the arguments into [`Options`]; an unknown rule id is `invalid_args`.
 pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
     let data_dir = super::data_dir(args);
-    // A bare file name that is not in the working directory resolves in the Data dir.
+    // `run` resolves bare names afterwards (`super::resolve`).
     let plugin = args
         .get("plugin")
         .and_then(Value::as_str)
-        .map(PathBuf::from)
-        .map(|p| match &data_dir {
-            Some(dir) if !p.exists() && p.parent() == Some(Path::new("")) => dir.join(&p),
-            _ => p,
-        });
+        .map(PathBuf::from);
     let scripts: Vec<PathBuf> = strings(args, "scripts")
         .into_iter()
         .map(PathBuf::from)
@@ -131,6 +128,20 @@ pub(crate) fn indexes(
 /// `plugins`) or loaded in the session, else from next to the plugin and `data_dir`.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let mut options = options(args)?;
+    // Bare names resolve against the session's load order as it was before this call.
+    let find = |at: String, path: &PathBuf| match path.to_str() {
+        Some(name) => resolve(Some(&*session), options.data_dir.as_deref(), ID, &at, name),
+        None => Ok(path.clone()),
+    };
+    let plugin = match &options.plugin {
+        Some(p) => Some(find("/plugin".into(), p)?),
+        None => None,
+    };
+    let mut scripts = Vec::with_capacity(options.scripts.len());
+    for (i, s) in options.scripts.iter().enumerate() {
+        scripts.push(find(format!("/scripts/{i}"), s)?);
+    }
+    (options.plugin, options.scripts) = (plugin, scripts);
     let named = args.get("profile").is_some() || args.get("plugins").is_some();
     let mut limitations = Vec::new();
     if named || session.get::<Loaded>().is_some() {

@@ -121,6 +121,7 @@ mod tests {
             [
                 "archive",
                 "out_dir",
+                "data_dir",
                 "max_entry_bytes",
                 "overwrite",
                 "pattern"
@@ -130,9 +131,12 @@ mod tests {
         let spec = find_command("roundtrip").unwrap();
         let ps = params(spec).unwrap();
         let names: Vec<&str> = ps.iter().map(|p| p.name.as_str()).collect();
-        assert_eq!(names, ["plugin", "out", "overwrite", "verify"]);
-        assert_eq!(ps[3].kind, ParamKind::Boolean);
-        assert_eq!(ps[3].default, Some(serde_json::Value::Bool(false)));
+        assert_eq!(
+            names,
+            ["plugin", "data_dir", "decode", "out", "overwrite", "verify"]
+        );
+        assert_eq!(ps[5].kind, ParamKind::Boolean);
+        assert_eq!(ps[5].default, Some(serde_json::Value::Bool(false)));
     }
 
     #[test]

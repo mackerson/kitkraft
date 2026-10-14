@@ -78,7 +78,7 @@ pub(crate) fn acquire<'s>(
     command: &str,
 ) -> Result<&'s mut Loaded, EngineError> {
     if has_load_args(args) {
-        let (loaded, listing, _) = load(args, command)?;
+        let (loaded, listing, _) = load(args, Some(&*session), command)?;
         session.set_load_order(Some(listing));
         session.insert(loaded);
     }
@@ -99,7 +99,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             "pass `profile` (an MO2 profile dir) or `plugins`",
         ));
     }
-    let (loaded, listing, evidence) = load(args, ID)?;
+    let (loaded, listing, evidence) = load(args, Some(&*session), ID)?;
     let failed_plugins: Vec<String> = loaded
         .lo
         .plugins
@@ -164,8 +164,14 @@ fn assumed_examples(lo: &LoadOrder, index: u16) -> Vec<Value> {
 }
 
 /// Load per `args`: the session value (whose `limitations` every command over it repeats),
-/// its JSON listing, and evidence.
-fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), EngineError> {
+/// its JSON listing, and evidence. A bare name in `plugins` resolves through
+/// [`super::resolve`] (the current load order in `session`, the working directory, the
+/// Data dir).
+fn load(
+    args: &Value,
+    session: Option<&Session>,
+    command: &str,
+) -> Result<(Loaded, Value, Vec<Evidence>), EngineError> {
     let started = Instant::now();
     let language = args
         .get("language")
@@ -288,7 +294,24 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
                             .collect()
                     })
                     .unwrap_or_default();
-                let (specs, missing) = kitcraft_io::plan::explicit(&names, data_dir.as_deref());
+                let mut specs = Vec::with_capacity(names.len());
+                let mut missing = Vec::new();
+                for (i, name) in names.iter().enumerate() {
+                    let pointer = format!("/plugins/{i}");
+                    let path = super::resolve::resolve(
+                        session,
+                        data_dir.as_deref(),
+                        command,
+                        &pointer,
+                        name,
+                    )?;
+                    if path.is_file() {
+                        let name = kitcraft_doc::index::file_name_of(&path);
+                        specs.push(PluginSpec { name, path });
+                    } else {
+                        missing.push(path.display().to_string());
+                    }
+                }
                 if !missing.is_empty() {
                     return Err(failed(
                         command,

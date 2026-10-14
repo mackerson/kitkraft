@@ -161,11 +161,111 @@ fn roundtrip_exit_codes() {
     let not_plugin = temp_plugin("notplugin", &bytes[bytes.len() - 70..]);
     assert_eq!(code(&["roundtrip", not_plugin.to_str().expect("utf-8")]), 2);
 
-    // Exit 1 (a --verify mismatch) cannot be produced from a parseable file today, since
-    // the writer re-emits every byte as read; `result_code` in main.rs covers the mapping.
+    // A --verify mismatch cannot be produced from a parseable file, since the writer
+    // re-emits every byte as read; exit 1 comes from --decode (`roundtrip_decode_exit_1`).
     for p in [&path, &truncated, &not_plugin] {
         std::fs::remove_file(p).expect("cleanup");
     }
+}
+
+/// A zlib stream holding `data` in one stored (uncompressed) block, with its Adler-32.
+fn zlib_stored(data: &[u8]) -> Vec<u8> {
+    let len = u16::try_from(data.len()).expect("small");
+    let mut out = vec![0x78, 0x01, 0x01];
+    out.extend_from_slice(&len.to_le_bytes());
+    out.extend_from_slice(&(!len).to_le_bytes());
+    out.extend_from_slice(data);
+    let (mut a, mut b) = (1u32, 0u32);
+    for &x in data {
+        a = (a + u32::from(x)) % 65_521;
+        b = (b + a) % 65_521;
+    }
+    out.extend_from_slice(&((b << 16) | a).to_be_bytes());
+    out
+}
+
+/// `TES4` + `GRUP GMST` holding one compressed `GMST`; `corrupt` flips the last byte of
+/// its stream (the Adler-32), which keeps every size right.
+fn compressed_plugin(corrupt: bool) -> Vec<u8> {
+    fn sub(sig: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut out = sig.to_vec();
+        out.extend_from_slice(&u16::try_from(data.len()).expect("small").to_le_bytes());
+        out.extend_from_slice(data);
+        out
+    }
+    fn record(sig: &[u8; 4], flags: u32, form_id: u32, body: &[u8]) -> Vec<u8> {
+        let mut out = sig.to_vec();
+        out.extend_from_slice(&u32::try_from(body.len()).expect("small").to_le_bytes());
+        out.extend_from_slice(&flags.to_le_bytes());
+        out.extend_from_slice(&form_id.to_le_bytes());
+        out.extend_from_slice(&[0; 8]);
+        out.extend_from_slice(body);
+        out
+    }
+    let mut hedr = 1.0f32.to_le_bytes().to_vec();
+    hedr.extend_from_slice(&2u32.to_le_bytes());
+    hedr.extend_from_slice(&0x800u32.to_le_bytes());
+    let mut out = record(b"TES4", 1, 0, &sub(b"HEDR", &hedr));
+    let mut gmst = sub(b"EDID", b"fTestValue\0");
+    gmst.extend(sub(b"DATA", &2.5f32.to_le_bytes()));
+    let mut body = u32::try_from(gmst.len())
+        .expect("small")
+        .to_le_bytes()
+        .to_vec();
+    body.extend(zlib_stored(&gmst));
+    if corrupt {
+        *body.last_mut().expect("stream") ^= 0xFF;
+    }
+    let rec = record(b"GMST", 0x0004_0000, 0x0000_0100, &body);
+    out.extend_from_slice(b"GRUP");
+    out.extend_from_slice(&u32::try_from(rec.len() + 24).expect("small").to_le_bytes());
+    out.extend_from_slice(b"GMST");
+    out.extend_from_slice(&[0; 12]);
+    out.extend(rec);
+    out
+}
+
+/// M3.F1: `--decode` inflates compressed bodies strictly, so a corrupt but well-sized
+/// stream is a failed check (exit 1, `data.passed: false`); without it the file is
+/// identical at container level.
+#[test]
+fn roundtrip_decode_exit_1() {
+    let good = temp_plugin("decode-good", &compressed_plugin(false));
+    let g = good.to_str().expect("utf-8 temp path");
+    let out = kit(&["roundtrip", g, "--decode"]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    assert!(stdout(&out).contains(": identical ("), "{}", stdout(&out));
+
+    let bad = temp_plugin("decode-corrupt", &compressed_plugin(true));
+    let b = bad.to_str().expect("utf-8 temp path");
+    assert_eq!(code(&["roundtrip", b, "--verify"]), 0);
+    let out = kit(&["roundtrip", b, "--decode", "--json"]);
+    assert_eq!(out.status.code(), Some(1), "{}", stderr(&out));
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(got["data"]["passed"], false);
+    assert_eq!(got["data"]["decode"], true);
+    let path = got["data"]["mismatch"]["path"].as_str().expect("path");
+    assert!(path.contains("compressed body"), "{path}");
+    assert_eq!(got["evidence"][0]["record"], "GMST:00000100");
+    for p in [&good, &bad] {
+        std::fs::remove_file(p).expect("cleanup");
+    }
+}
+
+/// M4.F1: a bare name found nowhere is `not_found`, naming each place searched.
+#[test]
+fn bare_name_not_found_exits_2_naming_the_places() {
+    let empty = std::env::temp_dir().join(format!("kit-cli-empty-{}", std::process::id()));
+    std::fs::create_dir_all(&empty).expect("temp dir");
+    let e = empty.to_str().expect("utf-8 temp path");
+    let out = kit(&["coverage", "NoSuchPlugin.esm", "--data-dir", e, "--json"]);
+    assert_eq!(out.status.code(), Some(2));
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(got["error"]["kind"], "not_found");
+    let searched = got["error"]["searched"].as_array().expect("searched");
+    assert_eq!(searched.len(), 3, "{got}");
+    assert!(searched[2].as_str().expect("text").contains(e), "{got}");
+    std::fs::remove_dir_all(&empty).expect("cleanup");
 }
 
 #[test]

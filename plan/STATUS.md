@@ -516,6 +516,30 @@ is under "Next".
     with tests from the observed values, the reader's hash check accepts it for non-ASCII
     names. `ba2.pack` keeps refusing them (collisions, unstable bytes, game lookup not
     observed); gaps row restated.
+- Lane F, M4 (2026-10-14):
+  - M4.F1 bare input names (the F7 Request): `handlers/resolve.rs` resolves an input
+    plugin, archive or table given as a bare file name the same way in every command:
+    the session's load order (by plugin name), then the working directory, then the Data
+    dir (`data_dir`, else `KITCRAFT_DATA_DIR`); a path with a directory is used as given.
+    Used by `roundtrip`, `coverage`, `diff`, `ba2.list`/`extract`, `strings.dump`/`merge`,
+    `papyrus.disasm` (now session handlers through `resolve::Resolving`, with a
+    `data_dir` argument each), `validate` (`plugin`, `scripts`), `inspect`'s single-plugin
+    `plugin`, and the `plugins` list of every load-order command (`load()`: `set`,
+    `build`, `conflicts`, `query`, ...; a bare name in the working directory now wins over
+    the Data dir there, as `validate` already did). A bare name found nowhere is the new
+    `EngineError::NotFound` (kind `not_found`, `error.searched` in `kit --json` and MCP).
+    Outputs (`out`, `out_dir`, `into`) never resolve, so the write guards are unchanged.
+    Tests through `execute` per command (`handlers/resolve_tests.rs`): `Constellation.esm`
+    (or its archives, `Starfield - Misc.ba2` for `papyrus.disasm`) resolves from
+    `KITCRAFT_DATA_DIR`, and an empty `data_dir` gives `not_found` naming it.
+  - M3.F1 `roundtrip --decode` (lane A's M3.A2 Request): `decode` in the catalog, CLI
+    (`--decode`) and MCP passes `RoundtripOptions::with_decode()`; with it `data.passed`
+    is `identical` (a check, like `verify`), `data.decode` is reported, the first
+    limitation states the strict decode, and a decode fault's summary names its path.
+    End to end: `kit roundtrip <corrupt> --decode --json` exits 1 with `data.passed:
+    false` on a synthetic plugin whose compressed GMST has its Adler-32 flipped
+    (`apps/kit-cli/tests/exit_codes.rs`, `roundtrip_decode_exit_1`); both `docs/gaps.md`
+    roundtrip rows closed.
 - Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
   `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
   - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
@@ -911,7 +935,9 @@ wins") but still the owner's to confirm:
 
 ## Requests (cross-lane)
 
-- **To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).
+- ~~**To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).~~
+  Done in M4.F1 (Done, "Lane F, M4"): one resolver (`handlers/resolve.rs`) for every
+  input name; `not_found` names the places searched.
 
 Agents append here when they need a change in a crate they do not own.
 
@@ -1326,7 +1352,8 @@ Agents append here when they need a change in a crate they do not own.
      outside NAVM).
   The 12 level-8 NAVM and the unexplained NAVM (`001BA29F`) are navmeshes of cell
   `00000025`, not dialog-editable, so F07 does not cover them.
-- **Lane A -> lane F (M3.A2 landed; for M3.F1).** `RoundtripOptions::decode:
+- ~~**Lane A -> lane F (M3.A2 landed; for M3.F1).**~~ Done in M3.F1 (Done, "Lane F,
+  M4"): `roundtrip --decode`, exit 1 end to end. `RoundtripOptions::decode:
   Some(DecodeLimits)` (or `RoundtripOptions::with_decode()`) is the driver half of
   `roundtrip --decode`: a compressed body that does not inflate to exactly its declared
   size, whose stream lacks its end marker or checksum or is followed by other bytes, or

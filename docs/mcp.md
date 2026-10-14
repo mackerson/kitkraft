@@ -113,7 +113,7 @@ question for M3.
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
 | `coverage`       | `coverage`'s args (`{plugin, decode?, signatures?, top?}`) | Record types and subrecords vs the schema; a summary by default over MCP |
 | `record_schema`  | `schema`'s args (`{type?, member?, deep?}`) | What the schema defines for a record type: members with type, source citation and confidence (M2.F9) |
-| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
+| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, decode?, out?, overwrite?, data_dir?}`) | Parse and rewrite a plugin; `verify` demands identical bytes, `decode` inflates compressed bodies strictly |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
 Tool shapes are generated from the catalog (`tools.rs`): a shortcut's `inputSchema` is its
@@ -201,7 +201,7 @@ Rules:
 
 ### `roundtrip` (M1.12)
 
-Arguments `{plugin, verify = false, out?, overwrite = false}`. Streams the plugin through the `kitcraft-esm`
+Arguments `{plugin, verify = false, decode = false, out?, overwrite = false, data_dir?}`. Streams the plugin through the `kitcraft-esm`
 driver one top-level group at a time, rewrites it, and compares the output with the input.
 
 ```json
@@ -222,7 +222,16 @@ driver one top-level group at a time, rewrites it, and compares the output with 
 }
 ```
 
-- `passed` is `identical` when `verify` is set, `null` otherwise.
+- `passed` is `identical` when `verify` or `decode` is set, `null` otherwise.
+- `decode` (M3.F1; `kit roundtrip X.esm --decode`) also inflates every compressed record
+  strictly (`RoundtripOptions::with_decode`, M3.A2): the stream must produce exactly the
+  declared size and end with its end marker and checksum at the end of the body, and its
+  subrecords must parse and re-encode to the inflated bytes. A body that fails is a
+  mismatch with `expected` and `actual` both `null`, `offset` where inflating stopped (the
+  body start for size and content faults) and `path` ending in
+  `> compressed body: <fault>`; a decode limit is a `failed` error. The original compressed
+  bytes are still what is written, and the first limitation says so in place of the
+  container-level one.
 - On a mismatch: `mismatch: {offset, expected, actual, path}` (`expected`/`actual` are byte
   values, `null` past the end of the data; `path` is the driver's
   `GRUP WEAP (type 0) @123 > WEAP 0001A2B3 @147 > FULL @171`), one `evidence` entry of
@@ -241,14 +250,31 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   MCP client launched it in (for Claude Code, normally the project directory). Pass
   absolute paths. The only guards on `out` are the existing-file refusal (`overwrite`)
   and the same-file refusal above.
+- **Bare input names** (M4.F1): an input plugin, archive or table given as a bare file
+  name (`Constellation.esm`, `Constellation - Localization.ba2`: no directory) resolves
+  the same way in every command (`roundtrip`, `coverage`, `diff`, `inspect` with
+  `plugin`, `validate` (`plugin`, `scripts`), the `plugins` list of `load`, `inspect`,
+  `query`, `conflicts`, `set`, `build` and `overhaul.scaffold`, `ba2.list`,
+  `ba2.extract`, `strings.dump`, `strings.merge`, `papyrus.disasm`): (1) the plugin of
+  that name (ASCII case-insensitive) in the session's load order, (2) the working
+  directory, (3) the Data dir (`data_dir`, else `KITCRAFT_DATA_DIR`). A path with a
+  directory is used as given. A bare name found nowhere is a `not_found` error whose
+  message names each place searched (also listed in `error.searched`). A `table` or `pex`
+  given with `archive` is a path inside the archive and does not resolve. Output
+  arguments (`out`, `out_dir`, `into`) never resolve: a bare output name is relative to
+  the working directory and the write guards (never the game or user Data dir) apply as
+  before. One helper does this (`crates/engine/src/handlers/resolve.rs`).
 
 ### Load-order arguments (`load`, `inspect`, `query`, `conflicts`)
 
 `profile` (an MO2 profile dir, read-only) or `plugins` (files in load order; bare names
-resolve against `data_dir`), plus `data_dir` and `no_cache`.
+resolve in the current load order, the working directory, then `data_dir`: "Bare input
+names" above), plus `data_dir` and `no_cache`.
 
 **`data_dir` defaults to `KITCRAFT_DATA_DIR`** (every command that takes it: `load`,
-`inspect`, `query`, `conflicts`, `set`, `build`, `validate`, `diff`) when the argument is
+`inspect`, `query`, `conflicts`, `set`, `build`, `validate`, `diff`, `roundtrip`,
+`coverage`, `ba2.list`, `ba2.extract`, `strings.dump`, `strings.merge`,
+`papyrus.disasm`) when the argument is
 absent and the variable is set and not empty; an explicit `data_dir` always wins. For a
 `profile` the MO2 instance's `gamePath` + `Data` comes first, and `KITCRAFT_DATA_DIR` is
 used only when the instance names no `gamePath` (a limitation says so). String tables for a
@@ -810,7 +836,7 @@ it is written; without, `data.spec_text` (and the summary) holds it. `data`: `ty
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends
-report (`kit --json` prints `{"error": {"kind", "message", "violations"?}}`).
+report (`kit --json` prints `{"error": {"kind", "message", "violations"?, "searched"?}}`).
 
 | `kind`            | When                                                              | MCP mapping       |
 | ----------------- | ----------------------------------------------------------------- | ----------------- |
@@ -820,6 +846,7 @@ report (`kit --json` prints `{"error": {"kind", "message", "violations"?}}`).
 | `not_implemented` | Catalog command with no handler yet                               | `isError: true`   |
 | `deferred`        | Catalog command deferred to a later milestone (`Status::Deferred`); the message has the reason | `isError: true` |
 | `failed`          | The command ran and failed                                        | `isError: true`   |
+| `not_found`       | A bare input name is in none of the places searched (load order, working directory, Data dir); `searched` lists them | `isError: true` |
 | `bad_schema`, `registration`, `serialize` | Engine bugs (catalog or handler table)    | `-32603`          |
 | (none)            | `tools/call` names no tool, lacks `name`, or `arguments` is not an object | `-32602`  |
 
@@ -878,7 +905,7 @@ also demands byte-identical output.
 | Code | Meaning                                                                                   |
 | ---- | ----------------------------------------------------------------------------------------- |
 | 0    | Success, help, version (includes `roundtrip` without `--verify` that found a difference)  |
-| 1    | The command ran and its check failed: `data.passed` is `false` (`roundtrip --verify` mismatch) |
+| 1    | The command ran and its check failed: `data.passed` is `false` (`roundtrip --verify` or `--decode` mismatch) |
 | 2    | Usage error, unknown command, invalid arguments, not implemented (including a `Planned` command's stub result), deferred, command failure; `kit mcp` on a stdio I/O error |
 
 `kit mcp` exits 0 when its stdin closes, including after a failed `--profile` preload.
