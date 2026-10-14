@@ -295,6 +295,22 @@ pub fn parse(bytes: &[u8]) -> Result<Parsed, String> {
     if layout(format).is_none() {
         return Err(format!("DXGI format {format} cannot be sized"));
     }
+    if width == 0 || height == 0 {
+        return Err(format!(
+            "{width}x{height}: width and height must be at least 1"
+        ));
+    }
+    // A full chain halves the larger edge down to 1: floor(log2(max(w, h))) + 1 mips.
+    let full_chain = width
+        .max(height)
+        .checked_ilog2()
+        .unwrap_or(0)
+        .saturating_add(1);
+    if mips > full_chain {
+        return Err(format!(
+            "{mips} mips, but a {width}x{height} texture has at most {full_chain}"
+        ));
+    }
     Ok(Parsed {
         width,
         height,
@@ -373,5 +389,20 @@ mod tests {
         }
         assert!(parse(b"DDS ").is_err());
         assert!(parse(b"nope").is_err());
+    }
+
+    /// Regression (review round 2): zero dimensions and more mips than the chain has.
+    #[test]
+    fn parse_checks_dimensions_and_mip_count() {
+        for (w, h, mips) in [(0u16, 64u16, 1u8), (64, 0, 1), (64, 64, 8), (1, 1, 2)] {
+            let err = parse(&header(&texture(71, w, h, mips, 0))).unwrap_err();
+            assert!(err.contains("mips") || err.contains("at least 1"), "{err}");
+        }
+        for (w, h, mips) in [(64u16, 64u16, 7u8), (64, 16, 7), (1, 1, 1), (3, 5, 3)] {
+            assert_eq!(
+                parse(&header(&texture(71, w, h, mips, 0))).unwrap().mips,
+                u32::from(mips)
+            );
+        }
     }
 }

@@ -108,6 +108,17 @@ fn check_textures(archive: &Archive, name: &str) {
             assert!(c.mip_last >= c.mip_first, "{name}: {}", entry.name);
             next = c.mip_last + 1;
         }
+        // Dimensions and mip count pass the checks dds::parse applies to pack input.
+        let edge = u32::from(t.width.max(t.height));
+        assert!(t.width > 0 && t.height > 0, "{name}: {}", entry.name);
+        assert!(
+            u32::from(t.mip_count) <= edge.ilog2() + 1,
+            "{name}: {}: {} mips for {}x{}",
+            entry.name,
+            t.mip_count,
+            t.width,
+            t.height
+        );
         // The stored mip ranges are exactly the plan the packer computes from the
         // dimensions, mip count and cube flag (the area rule in `write.rs`).
         let stored: Vec<(u32, u32)> = t

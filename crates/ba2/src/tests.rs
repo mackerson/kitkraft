@@ -92,7 +92,6 @@ fn general_files() -> BTreeMap<String, Vec<u8>> {
     files.insert("Scripts/Alpha.pex".to_string(), bytes(1, 5000));
     files.insert("strings\\mymod_en.strings".to_string(), bytes(2, 300));
     files.insert("meshes/x/noext".to_string(), vec![7; 2048]);
-    files.insert("empty.txt".to_string(), Vec::new());
     files.insert("tiny.bin".to_string(), vec![1, 2, 3]);
     files
 }
@@ -115,7 +114,6 @@ fn general_v2_and_v3_roundtrip_and_are_deterministic() {
             assert_eq!(
                 names,
                 [
-                    "empty.txt",
                     "meshes/x/noext",
                     "scripts/alpha.pex",
                     "strings/mymod_en.strings",
@@ -124,10 +122,10 @@ fn general_v2_and_v3_roundtrip_and_are_deterministic() {
             );
             let compressed = archive.entries.iter().filter(|e| e.is_compressed()).count();
             if compress {
-                // The all-sevens file shrinks under both codecs; empty and 3-byte files
-                // stay stored.
+                // The all-sevens file shrinks under both codecs; the 3-byte file stays
+                // stored.
                 assert!(compressed >= 1, "v{version}: {compressed} compressed");
-                assert!(!archive.entries[0].is_compressed(), "empty file is stored");
+                assert!(!archive.entries[3].is_compressed(), "tiny file is stored");
             } else {
                 assert_eq!(compressed, 0);
             }
@@ -254,6 +252,57 @@ fn pack_refuses_bad_inputs() {
         ..PackOptions::default()
     };
     assert!(pack(&[], |_| Ok(vec![]), &v4, &mut out).is_err());
+}
+
+/// Regression (review round 2): non-ASCII names (hash rule unknown), hash-triple
+/// collisions, empty files and impossible DDS headers are refused by `pack`.
+#[test]
+fn pack_refuses_unknown_hashes_collisions_and_empty_files() {
+    let general = PackOptions::default();
+    let mut out = Cursor::new(Vec::new());
+    let one = |name: &str, data: &[u8]| {
+        let mut out = Cursor::new(Vec::new());
+        pack(
+            &[(name.to_string(), name.to_string())],
+            |_| Ok(data.to_vec()),
+            &PackOptions::default(),
+            &mut out,
+        )
+    };
+    let err = one("textures/caf\u{e9}.dds", b"x").unwrap_err();
+    assert!(err.to_string().contains("non-ASCII"), "{err}");
+    let err = one("empty.txt", b"").unwrap_err();
+    assert!(err.to_string().contains("empty"), "{err}");
+    one("ok.txt", b"x").unwrap();
+
+    // Same stem, directory and first four extension bytes.
+    let err = pack(
+        &[
+            ("strings/a.dlstrings".into(), "1".into()),
+            ("strings/a.dlstrongs".into(), "2".into()),
+        ],
+        |_| Ok(vec![1]),
+        &general,
+        &mut out,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("same name hash"), "{err}");
+
+    let textures = PackOptions {
+        kind: Kind::Textures,
+        ..PackOptions::default()
+    };
+    // 64x64 has at most 7 mips; the header claims 8 (data sized for 7 is irrelevant).
+    let mut bad = dds_file(71, 64, 64, 7, 0, 1);
+    bad[28..32].copy_from_slice(&8u32.to_le_bytes());
+    let err = pack(
+        &[("t.dds".into(), "t".into())],
+        |_| Ok(bad.clone()),
+        &textures,
+        &mut out,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("at most 7"), "{err}");
 }
 
 #[test]

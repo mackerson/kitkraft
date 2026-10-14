@@ -244,7 +244,16 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
         .table
         .to_bytes()
         .map_err(|e| failed(ID, e.to_string()))?;
-    fs::write(out_path, &bytes).map_err(|e| failed(ID, format!("writing `{out}`: {e}")))?;
+    // Write beside the target and rename, so a failed write never leaves a truncated table.
+    let mut tmp_name = out_path.as_os_str().to_os_string();
+    tmp_name.push(".partial");
+    let tmp = std::path::PathBuf::from(tmp_name);
+    fs::write(&tmp, &bytes)
+        .and_then(|()| fs::rename(&tmp, out_path))
+        .map_err(|e| {
+            let _ = fs::remove_file(&tmp);
+            failed(ID, format!("writing `{out}`: {e}"))
+        })?;
 
     let text = |table: usize, id: u32| -> Value {
         inputs
@@ -397,6 +406,19 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fs::read(&out).unwrap(), first, "deterministic");
+        // Regression (review round 2): written through a temporary file and a rename; a
+        // failed rename leaves neither a partial table nor the temporary file.
+        assert!(!dir.join("merged_en.strings.partial").exists());
+        let blocked = dir.join("blocked.strings");
+        fs::create_dir_all(&blocked).unwrap();
+        let err = execute(
+            "strings.merge",
+            json!({"tables": [a.to_str().unwrap(), b.to_str().unwrap()],
+                   "out": blocked.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("writing"), "{err}");
+        assert!(!dir.join("blocked.strings.partial").exists());
 
         let wrong_ext = execute(
             "strings.merge",

@@ -24,6 +24,8 @@ Check this before claiming something works. Remove a row only with the commit th
 | No load-order resolution                                          | Cannot answer "which plugin wins"                        | M2               |
 | MCP server not implemented                                        | Agents use the CLI only                                  | M2               |
 | `ba2.pack` stores no DDS header; extraction synthesizes the one `Archive2.exe` writes | A texture packed with a different (valid) header extracts with the same pixels and a different header | permanent (the format has no header field) |
+| `ba2.pack` refuses non-ASCII archive paths: Archive2 hashes them differently (name hash differs, directory hash and extension agree) and every official name is ASCII, so the rule cannot be established from the corpus | Files with accented or other non-ASCII names cannot be packed | when the rule is established (black-box Archive2 runs) |
+| Archives cannot hold empty files: `black-box: Archive2.exe 1.2.0.1` skips them ("Skipped zero-length file") and no official record has size 0 | `ba2.pack` skips empty files and lists them in `limitations[]`; the `kitcraft-ba2` `pack` API refuses them | permanent (Archive2 and the corpus agree) |
 | DDS header choices for DXGI formats absent from the official archives are unobserved | Those formats extract with the DX10 extension header, which Archive2 may not choose | when such a texture is observed |
 | `papyrus.compile` cannot read `Tools\ContentResources.zip` | The caller extracts `Scripts\Source` and passes it in `imports` | later (zip reader) |
 | `.pex` assembly, editing and decompiling to `.psc` | Scripts can be disassembled and compiled from source only | after M2 |

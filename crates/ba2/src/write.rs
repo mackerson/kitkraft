@@ -3,7 +3,10 @@
 //! The layout follows the official archives (`corpus:`, `docs/corpus.md` "Archives"):
 //! header, every record, the data of every file in record order with no padding, then the
 //! name table. Names are stored lower-cased with `/` separators, as in every official
-//! archive, and sorted, so the same inputs always give the same bytes. GNRL records carry
+//! archive, and sorted, so the same inputs always give the same bytes. Refused: non-ASCII
+//! names (every official name is ASCII and Archive2 hashes others by a rule not yet
+//! established), two names with the same hash triple, and empty files (Archive2 skips
+//! them; callers should too). GNRL records carry
 //! flags `0x00100100`; DX10 records carry tile mode 8 and split mips into chunks the way
 //! the official archives do: each mip with at least 512 x 512 pixels (`width * height >=
 //! 262,144`, so a 1024x256 mip qualifies) gets its own chunk while fewer than three chunks
@@ -16,6 +19,7 @@
 //! Version 2 compresses with zlib, version 3 with LZ4 blocks (method 3). A blob is stored
 //! when compression is off or does not make it smaller.
 
+use std::collections::HashMap;
 use std::io::{Seek, SeekFrom, Write};
 
 use flate2::write::ZlibEncoder;
@@ -25,7 +29,7 @@ use crate::dds;
 use crate::error::{io, Error, Result};
 use crate::extract::{normalize, relative_path};
 use crate::hash::record_hashes;
-use crate::read::{latin1_bytes, Codec, Kind, FILLER, MAGIC};
+use crate::read::{Codec, Kind, FILLER, MAGIC};
 
 /// GNRL record flags in every official archive.
 pub const GENERAL_FLAGS: u32 = 0x0010_0100;
@@ -117,8 +121,16 @@ where
     for (name, input) in inputs {
         let stored = normalize(name);
         relative_path(&stored)?;
-        if stored.chars().any(|c| u32::from(c) > 0xFF) || stored.len() > usize::from(u16::MAX) {
-            return Err(pack_err(name, "name is not Latin-1 or too long".into()));
+        if !stored.is_ascii() {
+            // Archive2 hashes non-ASCII names differently from the CRC rule every official
+            // (all-ASCII) name follows; refused until that rule is established.
+            return Err(pack_err(
+                name,
+                "non-ASCII archive paths are not supported (their name hash is unknown)".into(),
+            ));
+        }
+        if stored.len() > usize::from(u16::MAX) {
+            return Err(pack_err(name, "name is longer than 65,535 bytes".into()));
         }
         plans.push(Plan {
             name: stored,
@@ -135,6 +147,18 @@ where
                     "two inputs have this archive path".into(),
                 ));
             }
+        }
+    }
+    // The game finds a file by (name hash, extension, directory hash); two names with the
+    // same triple (`a.dlstrings` and `a.dlstrongs` share the extension field `dlst`) would
+    // shadow each other.
+    let mut triples: HashMap<(u32, [u8; 4], u32), &str> = HashMap::with_capacity(plans.len());
+    for plan in &plans {
+        if let Some(other) = triples.insert(record_hashes(plan.name.as_bytes()), &plan.name) {
+            return Err(pack_err(
+                &plan.name,
+                format!("`{other}` has the same name hash, extension field and directory hash"),
+            ));
         }
     }
 
@@ -163,7 +187,12 @@ where
     let mut report = Vec::with_capacity(plans.len());
     for plan in &plans {
         let bytes = load(&plan.input).map_err(io(0))?;
-        let (name_hash, ext, dir_hash) = record_hashes(&latin1_bytes(&plan.name));
+        if bytes.is_empty() {
+            // `black-box: Archive2.exe 1.2.0.1` skips zero-length files ("Skipped
+            // zero-length file") and no official record has size 0; callers skip them.
+            return Err(pack_err(&plan.name, "the file is empty".into()));
+        }
+        let (name_hash, ext, dir_hash) = record_hashes(plan.name.as_bytes());
         records.extend_from_slice(&name_hash.to_le_bytes());
         records.extend_from_slice(&ext);
         records.extend_from_slice(&dir_hash.to_le_bytes());
@@ -233,10 +262,10 @@ where
 
     let name_table = pos;
     for plan in &plans {
-        let bytes = latin1_bytes(&plan.name);
+        let bytes = plan.name.as_bytes();
         let len = u16::try_from(bytes.len()).unwrap_or(u16::MAX);
         out.write_all(&len.to_le_bytes()).map_err(io(pos))?;
-        out.write_all(&bytes).map_err(io(pos))?;
+        out.write_all(bytes).map_err(io(pos))?;
         pos = pos.saturating_add(2).saturating_add(bytes.len() as u64);
     }
 

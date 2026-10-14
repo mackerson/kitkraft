@@ -311,7 +311,20 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
         .get("compress")
         .and_then(Value::as_bool)
         .unwrap_or(true);
+    let overwrite = args
+        .get("overwrite")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     refuse_game_data(ID, &out)?;
+    if out.is_dir() {
+        return Err(failed(ID, format!("`{}` is a directory", out.display())));
+    }
+    if !overwrite && out.exists() {
+        return Err(failed(
+            ID,
+            format!("`{}` exists; pass overwrite to replace it", out.display()),
+        ));
+    }
     let dir_abs =
         fs::canonicalize(&dir).map_err(|e| failed(ID, format!("`{}`: {e}", dir.display())))?;
     if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
@@ -330,7 +343,8 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
 
     let mut files = Vec::new();
     let mut skipped = Vec::new();
-    walk(&dir_abs, &dir_abs, 0, &mut files, &mut skipped).map_err(|e| failed(ID, e))?;
+    let mut empty = Vec::new();
+    walk(&dir_abs, &dir_abs, 0, &mut files, &mut skipped, &mut empty).map_err(|e| failed(ID, e))?;
     if kind == Kind::Textures {
         if let Some((name, _)) = files
             .iter()
@@ -365,9 +379,9 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
             return Err(failed(ID, format!("writing `{}`: {e}", tmp.display())));
         }
     };
-    fs::rename(&tmp, &out).map_err(|e| {
+    finish(&tmp, &out, overwrite).map_err(|e| {
         let _ = fs::remove_file(&tmp);
-        failed(ID, format!("renaming to `{}`: {e}", out.display()))
+        failed(ID, e)
     })?;
 
     let shown: Vec<Value> = report
@@ -388,6 +402,13 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
             "skipped {} entries that are neither files nor directories (symbolic links): {}",
             skipped.len(),
             skipped.join(", ")
+        ));
+    }
+    if !empty.is_empty() {
+        limitations.push(format!(
+            "skipped {} empty files, as Archive2 does (no official archive holds one): {}",
+            empty.len(),
+            empty.join(", ")
         ));
     }
     if kind == Kind::Textures {
@@ -434,13 +455,36 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
     })
 }
 
-/// Collects `(archive path, file path)` for every regular file under `dir`, sorted.
+/// Moves the finished temporary archive to `out`. Without `overwrite` the move never
+/// replaces a file (create-new semantics): a hard link fails if `out` appeared meanwhile;
+/// where hard links are unsupported, an existence check and a rename stand in for it.
+fn finish(tmp: &Path, out: &Path, overwrite: bool) -> Result<(), String> {
+    let rename =
+        || fs::rename(tmp, out).map_err(|e| format!("renaming to `{}`: {e}", out.display()));
+    let exists = || format!("`{}` exists; pass overwrite to replace it", out.display());
+    if overwrite {
+        return rename();
+    }
+    match fs::hard_link(tmp, out) {
+        Ok(()) => {
+            let _ = fs::remove_file(tmp);
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(exists()),
+        Err(_) if out.exists() => Err(exists()),
+        Err(_) => rename(),
+    }
+}
+
+/// Collects `(archive path, file path)` for every regular file under `dir`, sorted; empty
+/// files go to `empty` instead (Archive2 skips them too).
 fn walk(
     root: &Path,
     dir: &Path,
     depth: usize,
     out: &mut Vec<(String, String)>,
     skipped: &mut Vec<String>,
+    empty: &mut Vec<String>,
 ) -> Result<(), String> {
     if depth > MAX_DEPTH {
         return Err(format!(
@@ -458,7 +502,9 @@ fn walk(
         let meta = fs::symlink_metadata(&path)
             .map_err(|e| format!("reading `{}`: {e}", path.display()))?;
         if meta.is_dir() {
-            walk(root, &path, depth.saturating_add(1), out, skipped)?;
+            walk(root, &path, depth.saturating_add(1), out, skipped, empty)?;
+        } else if meta.is_file() && meta.len() == 0 {
+            empty.push(path.display().to_string());
         } else if meta.is_file() {
             let rel = path
                 .strip_prefix(root)
@@ -686,6 +732,7 @@ mod tests {
         fs::create_dir_all(src.join("strings")).unwrap();
         fs::write(src.join("Scripts").join("Alpha.pex"), vec![7u8; 4000]).unwrap();
         fs::write(src.join("strings").join("mod_en.strings"), b"hello").unwrap();
+        fs::write(src.join("empty.txt"), b"").unwrap();
         let out = root.join("Mod - Main.ba2");
         let packed = execute(
             "ba2.pack",
@@ -693,6 +740,14 @@ mod tests {
         )
         .unwrap();
         assert_eq!(packed["data"]["packed"], 2);
+        // Empty files are skipped, as Archive2 does, and reported.
+        assert!(
+            packed["limitations"][0]
+                .as_str()
+                .unwrap()
+                .contains("skipped 1 empty files"),
+            "{packed}"
+        );
         assert_eq!(packed["data"]["format"], "gnrl");
         let bytes = fs::read(&out).unwrap();
         assert_eq!(packed["data"]["bytes"], bytes.len());
@@ -706,6 +761,32 @@ mod tests {
         )
         .unwrap();
         assert_eq!(fs::read(&again).unwrap(), bytes);
+        // Regression (review round 2): an existing archive is replaced only on request.
+        fs::write(&again, b"keep me").unwrap();
+        let err = execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": again.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("overwrite"), "{err}");
+        assert_eq!(fs::read(&again).unwrap(), b"keep me");
+        execute(
+            "ba2.pack",
+            json!({"dir": src.to_str().unwrap(), "out": again.to_str().unwrap(),
+                   "overwrite": true}),
+        )
+        .unwrap();
+        assert_eq!(fs::read(&again).unwrap(), bytes);
+        assert!(!again.with_extension("ba2.partial").exists());
+        // The create-new move refuses a file that appears while packing.
+        let tmp = root.join("t.partial");
+        fs::write(&tmp, b"new").unwrap();
+        let err = super::finish(&tmp, &again, false).unwrap_err();
+        assert!(err.contains("exists"), "{err}");
+        assert_eq!(fs::read(&again).unwrap(), bytes);
+        super::finish(&tmp, &root.join("fresh.ba2"), false).unwrap();
+        assert!(!tmp.exists());
+        assert_eq!(fs::read(root.join("fresh.ba2")).unwrap(), b"new");
 
         let listed = execute(
             "ba2.list",
