@@ -28,6 +28,14 @@ pub enum EngineError {
         /// Every rule broken; never empty.
         violations: Vec<Violation>,
     },
+    /// A command line could not be turned into arguments (unknown flag, bad value, ...).
+    #[error("{}{message}", command.as_deref().map(|c| format!("`{c}`: ")).unwrap_or_default())]
+    Usage {
+        /// Canonical command id, when the command word was recognised.
+        command: Option<String>,
+        /// What is wrong.
+        message: String,
+    },
     /// The command is in the catalog but has no handler yet.
     #[error("`{0}` is in the catalog but not implemented yet")]
     NotImplemented(String),
@@ -61,6 +69,7 @@ impl EngineError {
         match self {
             Self::UnknownCommand(_) => "unknown_command",
             Self::InvalidArgs { .. } => "invalid_args",
+            Self::Usage { .. } => "usage",
             Self::NotImplemented(_) => "not_implemented",
             Self::BadSchema { .. } => "bad_schema",
             Self::Registration(..) => "registration",

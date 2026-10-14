@@ -16,12 +16,14 @@
 //! LAYER: L4
 
 pub mod args;
+pub mod cmdline;
 mod envelope;
 mod exec;
 mod handlers;
 mod params;
 
 pub use args::Violation;
+pub use cmdline::{parse_line, parse_words, Invocation};
 pub use envelope::{Coverage, CoverageStatus, Evidence, Outcome, NOT_IMPLEMENTED};
 pub use exec::{execute, prepare_args, CommandHandler, Engine, EngineError};
 pub use params::{params, Param, ParamKind};
@@ -97,7 +99,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("Ctrl+F"),
         aliases: &["find"],
         summary: "Find records by type and field predicate",
-        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string"},"limit":{"type":"integer","minimum":1}},"required":["type"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string"},"limit":{"type":"integer","minimum":1},"cursor":{"type":"string","description":"Opaque paging token from the previous result"}},"required":["type"],"additionalProperties":false}"#,
         status: Status::Planned,
     },
     CommandSpec {
@@ -147,7 +149,17 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":true},"out":{"type":"string"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here"}},"required":["plugin"],"additionalProperties":false}"#,
+        status: Status::Planned,
+    },
+    CommandSpec {
+        id: "coverage",
+        label: "Schema Coverage",
+        menu_path: "Tools/Schema Coverage",
+        shortcut: None,
+        aliases: &[],
+        summary: "Record types and subrecords in a plugin vs what the schema can decode",
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Planned,
     },
     CommandSpec {
@@ -166,8 +178,8 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Archive/Extract...",
         shortcut: None,
         aliases: &[],
-        summary: "Extract files matching a regex from a .ba2 archive",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string"},"out_dir":{"type":"string"}},"required":["archive","pattern","out_dir"],"additionalProperties":false}"#,
+        summary: "Extract files from a .ba2 archive (all, or those matching --pattern)",
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Regex over archive paths; omit to extract everything"},"out_dir":{"type":"string"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
         status: Status::Planned,
     },
     CommandSpec {
@@ -306,6 +318,16 @@ mod execute_tests {
     }
 
     #[test]
+    fn catalog_accepts_paging_and_extract_all() {
+        let query = crate::find_command("query").unwrap();
+        crate::prepare_args(query, json!({"type": "WEAP", "cursor": "abc"})).unwrap();
+        let extract = crate::find_command("ba2.extract").unwrap();
+        crate::prepare_args(extract, json!({"archive": "a.ba2", "out_dir": "o"})).unwrap();
+        let coverage = crate::find_command("coverage").unwrap();
+        assert_eq!(coverage.status, Status::Planned);
+    }
+
+    #[test]
     fn args_must_be_an_object() {
         let err = execute("roundtrip", json!(["x.esm"])).unwrap_err();
         assert_eq!(err.kind(), "invalid_args");
@@ -380,7 +402,7 @@ mod execute_tests {
         let result = engine
             .execute("roundtrip", json!({"plugin": "X.esm"}))
             .unwrap();
-        assert_eq!(result["data"], json!({"plugin": "X.esm", "verify": true}));
+        assert_eq!(result["data"], json!({"plugin": "X.esm", "verify": false}));
         assert_eq!(result["limitations"], json!([]));
         assert_eq!(
             result["evidence"],

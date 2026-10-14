@@ -116,14 +116,14 @@ mod tests {
     fn required_first_in_required_order() {
         let spec = find_command("ba2.extract").unwrap();
         let names: Vec<String> = params(spec).unwrap().into_iter().map(|p| p.name).collect();
-        assert_eq!(names, ["archive", "pattern", "out_dir"]);
+        assert_eq!(names, ["archive", "out_dir", "pattern"]);
 
         let spec = find_command("roundtrip").unwrap();
         let ps = params(spec).unwrap();
         let names: Vec<&str> = ps.iter().map(|p| p.name.as_str()).collect();
         assert_eq!(names, ["plugin", "out", "verify"]);
         assert_eq!(ps[2].kind, ParamKind::Boolean);
-        assert_eq!(ps[2].default, Some(serde_json::Value::Bool(true)));
+        assert_eq!(ps[2].default, Some(serde_json::Value::Bool(false)));
     }
 
     #[test]
