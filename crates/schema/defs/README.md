@@ -325,6 +325,9 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `PCMT` `PCBN` `PCCN` `LVLP` `PKIN` `GBFM` `BIOM` `PNDT` `STDT` `SUNP` `SFBK` `SFPT` `RSGD` `RSPJ` `TRAV` (`.toml`) | record | xedit at the pin + corpus (every official record) | Planet content family (`docs/schema/planet-family.md`): typed except component blocks, VMAD, unions and unnamed slots |
 | `common/Condition.toml` | group | xedit L4750-L4840 + corpus | One CTDA (unions kept as raw 4-byte fields) with optional CIS1/CIS2 |
 | `common/ObjectBounds.toml`, `ObjectPaletteDefaults`, `Transforms`, `ColorBgra`, `BiomeNoiseLayer`, `ResourceBiomeTier`, `ResourceCellTier` | type | xedit + corpus | Shared payload structs of the planet family |
+| `NPC_` `LVLN` `OTFT` `CLAS` `AFFE` `RACE` `PERK` `SPEL` `MGEF` (`.toml`) | record | xedit at the pin + corpus (every official record) | Actor family (`docs/schema/actor-family.md`): typed except VMAD, component blocks, unions and unnamed slots |
+| `common/SoundReference.toml` | type | xedit L2197-L2226 + corpus | The 40-byte sound reference (two Wwise event GUIDs kept raw, a condition form, a start form) |
+| `common/AttackData.toml`, `common/Effect.toml` | group | xedit + corpus | An attack (ATKD..ATKT); a magic item's effect entry (EFID..MUID, conditions without CITC) |
 
 Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
 is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`
