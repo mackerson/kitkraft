@@ -240,6 +240,26 @@ deleted version's payload: field paths and `has` are unknown there (with the rea
 while the index paths `@form`, `@plugin`, `@edid` and `@flags` still work (`@flags & 0x20`
 finds deleted versions). Default profile: 8,206 of the 15,893 override records are deleted.
 
+## Safe sources (M3.D1)
+
+A command that copies a form's winning version (`set`, `build`) needs that winner to be the
+one the game would use. `LoadOrder::source_check` (`crates/doc/src/source.rs`) splits the
+load order's problems into those that can change the winner or the meaning of its FormIDs
+(`blocking`) and the rest (`unrelated`):
+
+- blocking: no version, a deleted winner, a plugin holding a version of the form that loads
+  before one of its masters, a plugin after the winner that failed to load (its records are
+  unknown), or one after the winner with unresolved records that could be this form (it is
+  the defining plugin or names it as a master, and a stored object ID equals the form's
+  under the 24-, 16- or 12-bit width);
+- unrelated: everything else, including active plugins with no file (the game skips them
+  too; a plugin that needs one as a master is judged by the unresolved-records rule).
+
+The winner's own masters are always loaded and scaled: a version exists only when its
+plugin's FormIDs resolve. `inspect` shows the verdict as `winner_source`. Default profile:
+the rifle `Starfield.esm:0021BBCD` is safe; its only unrelated problem is the 4 unresolved
+records of `HG_ShipCargoHoldAtHome.esm`.
+
 ## Index cache (M2.D5)
 
 `%LOCALAPPDATA%\kitcraft\cache\<fnv64(path)>.kcidx`, or `KITCRAFT_CACHE_DIR`; never in the

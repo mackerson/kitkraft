@@ -36,8 +36,19 @@ pub(crate) struct Loaded {
     /// Limitations every command using this load order repeats: assumptions, ordering
     /// errors, plugins that failed to load or have no file, unresolved records.
     pub limitations: Vec<String>,
+    /// Active plugins (per the profile) with no file: not in `lo`, not loaded by the game
+    /// either. Always empty for an explicit `plugins` list (a missing file is an error).
+    pub missing_active_plugins: Vec<String>,
     /// String tables of the load order's plugins, read on first use.
     pub strings: StringTables,
+}
+
+impl Loaded {
+    /// Whether the winning version of `form` is a safe source to copy
+    /// (`kitcraft_doc::source`): problems that cannot touch that form are `unrelated`.
+    pub fn source_check(&self, form: kitcraft_doc::GlobalForm) -> kitcraft_doc::SourceCheck {
+        self.lo.source_check(form, &self.missing_active_plugins)
+    }
 }
 
 fn has_load_args(args: &Value) -> bool {
@@ -157,6 +168,7 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
     // name -> (why active, provider)
     let mut why: Vec<(String, String, String)> = Vec::new();
     let mut inactive: Vec<String> = Vec::new();
+    let mut missing_active: Vec<String> = Vec::new();
     type Picked = (
         Vec<PluginSpec>,
         String,
@@ -243,6 +255,7 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
                         missing.join(", ")
                     ));
                 }
+                missing_active = missing.iter().map(ToString::to_string).collect();
                 (
                     pl.plan.specs(),
                     format!("profile:{dir}"),
@@ -456,6 +469,7 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
         "language": language,
         "plugins": plugins,
         "inactive": inactive,
+        "missing_active_plugins": missing_active,
         "records": records,
         "versions": lo.forms.len(),
         "cache_dir": cache_dir,
@@ -472,6 +486,7 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
             strings: StringTables::new(&language, string_source),
             language,
             limitations: shared,
+            missing_active_plugins: missing_active,
         },
         listing,
         evidence,
@@ -707,6 +722,70 @@ pub(crate) mod tests {
         let q = json!({"plugins": ["Patch.esm"], "data_dir": dir.display().to_string(), "no_cache": true, "type": "WEAP"});
         let r = crate::execute("query", q).unwrap();
         assert!(has_limitation(&r, "masters not in the load order"), "{r}");
+    }
+
+    /// M3.D1: an active plugin with no file is a field of `Loaded` (and of `load`'s
+    /// listing), not only limitation text; it does not make an unrelated winner unsafe.
+    #[test]
+    fn missing_active_plugins_are_a_field_and_winners_say_if_they_are_safe() {
+        let dir = fixture("load-missing-active");
+        let root = dir.join("MO2");
+        for d in ["mods", "overwrite", "profiles/P", "Game/Data"] {
+            std::fs::create_dir_all(root.join(d)).unwrap();
+        }
+        let game = root.join("Game").to_string_lossy().replace('\\', "\\\\");
+        std::fs::write(
+            root.join("ModOrganizer.ini"),
+            format!("[General]\r\ngameName=Starfield\r\ngamePath=@ByteArray({game})\r\n"),
+        )
+        .unwrap();
+        for name in ["Base.esm", "Patch.esm"] {
+            std::fs::copy(dir.join(name), root.join("Game/Data").join(name)).unwrap();
+        }
+        std::fs::write(
+            root.join("profiles/P/plugins.txt"),
+            b"*Base.esm\r\n*Patch.esm\r\n*Gone.esm\r\n",
+        )
+        .unwrap();
+        std::fs::write(root.join("profiles/P/modlist.txt"), b"").unwrap();
+        let profile = root.join("profiles/P").display().to_string();
+        let engine = Engine::with_default_handlers();
+        let r = engine
+            .execute("load", json!({"profile": profile, "no_cache": true}))
+            .unwrap();
+        assert_eq!(r["data"]["missing_active_plugins"], json!(["Gone.esm"]));
+        let missing =
+            engine.with_session(|s| s.get::<Loaded>().unwrap().missing_active_plugins.clone());
+        assert_eq!(missing, ["Gone.esm"]);
+        // Still stated as a limitation for readers of the envelope.
+        assert!(has_limitation(&r, "active plugins with no file"), "{r}");
+        let i = engine
+            .execute("inspect", json!({"form": "Base.esm:000800"}))
+            .unwrap();
+        let source = &i["data"]["winner_source"];
+        assert_eq!(source["safe"], true, "{source}");
+        assert_eq!(source["blocking"], json!([]));
+        assert!(source["unrelated"][0]
+            .as_str()
+            .unwrap()
+            .contains("Gone.esm"));
+
+        // A plugin that failed to load after the winner may override it: not safe.
+        std::fs::write(dir.join("Bad.esm"), b"GRUPxxxx").unwrap();
+        let mut args = plugins_args(&dir);
+        args["plugins"] = json!(["Base.esm", "Patch.esm", "Bad.esm"]);
+        args["form"] = json!("Base.esm:000800");
+        let i = crate::execute("inspect", args.clone()).unwrap();
+        let source = &i["data"]["winner_source"];
+        assert_eq!(source["safe"], false);
+        assert!(source["blocking"][0]
+            .as_str()
+            .unwrap()
+            .contains("Bad.esm failed to load"));
+        // Loading first, it cannot win: unrelated.
+        args["plugins"] = json!(["Bad.esm", "Base.esm", "Patch.esm"]);
+        let i = crate::execute("inspect", args).unwrap();
+        assert_eq!(i["data"]["winner_source"]["safe"], true);
     }
 
     fn has_limitation(result: &Value, needle: &str) -> bool {

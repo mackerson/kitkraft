@@ -390,6 +390,19 @@ is under "Next".
   `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
   15 warnings). The rename plugin was regenerated (TES4 only changed):
   **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
+- Lane D, M3 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
+  `handlers/{load,inspect,query,diff,conflicts}.rs`), 2026-10-14:
+  - M3.D1 lane E's round 2 requests: `Loaded::missing_active_plugins` (a field; also
+    `missing_active_plugins` in `load`'s listing) and `kitcraft_doc::source`:
+    `LoadOrder::source_check(form, missing_active)` / `Loaded::source_check(form)` returns
+    the winner with `blocking` and `unrelated` problems (`is_safe()`); `inspect` shows it as
+    `winner_source`. Blocking: no or deleted winner, a version's plugin loading before its
+    master, a plugin after the winner that failed to load or has unresolved records that
+    could be this form (it names the defining plugin and a stored object ID matches). Default
+    profile: the rifle `Starfield.esm:0021BBCD` is safe (unrelated: 4 unresolved records of
+    `HG_ShipCargoHoldAtHome.esm`, none can be it). `strings::Resolved` has `bytes` (the
+    table's exact bytes) and `utf8`; every non-UTF-8 `starfield_en` entry resolves with its
+    bytes (`crates/doc/tests/strings_corpus.rs`).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -632,6 +645,11 @@ Agents append here when they need a change in a crate they do not own.
   `sfbgs00d.esm` and `SFBGS047.esm`. (2) `strings::Resolved` has only lossy `text`; lane G
   notes some official strings are not UTF-8. `set` refuses such a string (a U+FFFD in the
   text) rather than change it; a `bytes` field would let it copy them exactly.
+  **Done (lane D, M3.D1):** (1) `Loaded::missing_active_plugins` (the limitation text stays
+  for readers, but nothing needs to match it) and `Loaded::source_check(form)`
+  (`kitcraft_doc::SourceCheck { winner, blocking, unrelated }`, `is_safe()`): refuse on
+  `blocking`, report `unrelated` as limitations (M3.E1). (2) `Resolved::bytes` and
+  `Resolved::utf8` (M3.E2).
 - **Lane E -> owner (M2.O4).** The `ck-diff` half of M2.E3 is open: what the CK writes for
   a new non-localized plugin (master flag for `.esm`, `HEDR` next object ID, inline text
   encoding: we write UTF-8). Until observed it is a limitation on every `set`/`build`.

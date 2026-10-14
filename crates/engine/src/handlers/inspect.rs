@@ -784,6 +784,7 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
     notes.sort();
     notes.dedup();
     limitations.extend(notes);
+    let source = loaded.source_check(form);
     let summary = format!(
         "{label} {signature} {}: {} version(s), winner {}{}{}",
         editor_id.as_deref().unwrap_or("(no EditorID)"),
@@ -807,6 +808,11 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         "editor_id": editor_id,
         "winner": winner_name,
         "winner_deleted": winner_deleted,
+        "winner_source": {
+            "safe": source.is_safe(),
+            "blocking": source.blocking,
+            "unrelated": source.unrelated,
+        },
         "versions": list,
         "summary": summary,
     });

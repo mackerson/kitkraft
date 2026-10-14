@@ -294,7 +294,8 @@ Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load 
 assumption: `{raw_form_id, form, basis}`), `duplicate_records`,
 `runtime_slot` (`05`, `FD:01`, `FE:00A`; assumed), `cache` (`hit` | `built` |
 `uncached`), `error` (a plugin that failed to parse stays listed with no records)),
-`inactive` (plugins the profile lists but does not activate), `records`, `versions`,
+`inactive` (plugins the profile lists but does not activate), `missing_active_plugins`
+(active per the profile but with no file; M3.D1), `records`, `versions`,
 `cache_dir`, `cache_hits`, `index_ms`, `table_ms`, `elapsed_ms`, `summary`. Evidence: each
 plugin's TES4 header. Coverage `not_examined` lists the plugins that failed to load.
 
@@ -310,7 +311,9 @@ assumption), or an EditorID (ASCII case-insensitive). `data`:
 `mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
 `form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
 `object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
-`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `summary` (says
+`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `winner_source`
+(M3.D1: `{safe, blocking[], unrelated[]}`, whether the winner is a safe source to copy;
+rules in `docs/load-order.md`, "Safe sources"), `summary` (says
 "(deleted)" after a deleted winner), and `versions[]` in load
 order: `plugin`, `load_index`, `winner`, `deleted` (record flag 0x20), `resolved_by`
 (`direct` | `assumed:full-style-self` | `assumed:full-style-self-masked`), `raw_form_id`
