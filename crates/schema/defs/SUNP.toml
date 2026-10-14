@@ -1,0 +1,49 @@
+# SUNP: Sun Preset, the look of a star as seen from a planet (stars, STDT, point at one).
+# A preset either carries a full reflection blob (REFL) or names a parent preset (RFDP)
+# and stores only its differences (RDIF).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18064-L18069 - member order and the RFDP target.
+#     REFL and RDIF are described by a reflection helper in another upstream unit
+#     (wbDefinitionsReflection.pas) that is not an authorized source yet (ADR 0004
+#     clarification 2: the dependency must be documented first), so both stay opaque.
+#   corpus: the 53 SUNP records (Starfield.esm 52, ShatteredSpace 1; form versions 581, 582),
+#     2026-10-14: either EDID REFL (7 records, REFL 858 bytes) or EDID RFDP RDIF (46 records,
+#     RFDP 4 bytes, RDIF 720 to 846 bytes). Every record decodes and re-encodes identically.
+signature = "SUNP"
+name = "SunPreset"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069"
+evidence = [
+  "corpus: the 53 SUNP records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "REFL"
+name = "Reflection"
+type = "opaque"
+card = "optional"
+note = "reflected property data; layout in an upstream helper unit not yet authorized; observed 858 bytes"
+
+[[member]]
+sig = "RFDP"
+name = "ReflectionParent"
+type = "formid"
+targets = ["SUNP"]
+card = "optional"
+
+[[member]]
+sig = "RDIF"
+name = "ReflectionDiff"
+type = "opaque"
+card = "optional"
+note = "differences from the parent preset; same helper as REFL; observed 720 to 846 bytes"

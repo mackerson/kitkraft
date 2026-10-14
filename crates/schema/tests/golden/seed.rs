@@ -22,6 +22,7 @@
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
+// - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
 // - ZOOM (corpus: ZOOM records of the 14 official ESMs, scan 2026-10-14; corpus)
@@ -6022,6 +6023,157 @@ impl PkinRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct SunpRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `REFL`, optional.
+    pub reflection: Option<Sub<Bytes>>,
+    /// `RFDP`, optional.
+    pub reflection_parent: Option<Sub<FormId>>,
+    /// `RDIF`, optional.
+    pub reflection_diff: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl SunpRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"REFL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RFDP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RDIF",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "SUNP.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.reflection, subs, *index, "SUNP.REFL", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.reflection_parent,
+                    subs,
+                    *index,
+                    "SUNP.RFDP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.reflection_diff,
+                    subs,
+                    *index,
+                    "SUNP.RDIF",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"REFL", self.reflection.as_ref());
+        emit(out, *b"RFDP", self.reflection_parent.as_ref());
+        emit(out, *b"RDIF", self.reflection_diff.as_ref());
+    }
+}
+
+impl Visit for SunpRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.reflection_parent, "SUNP.RFDP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.reflection_parent, "SUNP.RFDP", out);
+    }
+}
+
+impl SunpRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"SUNP";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("SUNP", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("SUNP", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("SUNP", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("SUNP", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tes4Header {
     pub version: f32,
@@ -7047,6 +7199,7 @@ pub enum Record {
     Pccn(Box<PccnRecord>),
     Pcmt(Box<PcmtRecord>),
     Pkin(Box<PkinRecord>),
+    Sunp(Box<SunpRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
     Zoom(Box<ZoomRecord>),
@@ -7067,6 +7220,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PCCN", PccnRecord::MEMBERS),
     (*b"PCMT", PcmtRecord::MEMBERS),
     (*b"PKIN", PkinRecord::MEMBERS),
+    (*b"SUNP", SunpRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
     (*b"ZOOM", ZoomRecord::MEMBERS),
@@ -7090,6 +7244,7 @@ impl Record {
             b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
+            b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
             b"ZOOM" => Self::Zoom(Box::new(ZoomRecord::decode(subs, ctx))),
@@ -7113,6 +7268,7 @@ impl Record {
             Self::Pccn(record) => record.encode(),
             Self::Pcmt(record) => record.encode(),
             Self::Pkin(record) => record.encode(),
+            Self::Sunp(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
             Self::Zoom(record) => record.encode(),
@@ -7135,6 +7291,7 @@ impl Record {
             Self::Pccn(_) => PccnRecord::SIGNATURE,
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
             Self::Pkin(_) => PkinRecord::SIGNATURE,
+            Self::Sunp(_) => SunpRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
             Self::Zoom(_) => ZoomRecord::SIGNATURE,
@@ -7157,6 +7314,7 @@ impl Record {
             Self::Pccn(record) => record.form_ids(),
             Self::Pcmt(record) => record.form_ids(),
             Self::Pkin(record) => record.form_ids(),
+            Self::Sunp(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
             Self::Zoom(record) => record.form_ids(),
@@ -7179,6 +7337,7 @@ impl Record {
             Self::Pccn(record) => record.form_ids_mut(),
             Self::Pcmt(record) => record.form_ids_mut(),
             Self::Pkin(record) => record.form_ids_mut(),
+            Self::Sunp(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
             Self::Zoom(record) => record.form_ids_mut(),
@@ -7201,6 +7360,7 @@ impl Record {
             Self::Pccn(record) => record.lstrings(),
             Self::Pcmt(record) => record.lstrings(),
             Self::Pkin(record) => record.lstrings(),
+            Self::Sunp(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
             Self::Zoom(record) => record.lstrings(),
@@ -7223,6 +7383,7 @@ impl Record {
             Self::Pccn(record) => record.lstrings_mut(),
             Self::Pcmt(record) => record.lstrings_mut(),
             Self::Pkin(record) => record.lstrings_mut(),
+            Self::Sunp(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
             Self::Zoom(record) => record.lstrings_mut(),
@@ -7246,6 +7407,7 @@ impl Record {
             Self::Pccn(record) => &record.extra,
             Self::Pcmt(record) => &record.extra,
             Self::Pkin(record) => &record.extra,
+            Self::Sunp(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
             Self::Zoom(record) => &record.extra,
