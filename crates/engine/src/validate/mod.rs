@@ -849,7 +849,12 @@ fn check_record(
                     }
                     continue;
                 }
-                if fields::text_of(bytes).is_none() && pass.on("record.flags-body") {
+                // One NUL-terminated string; its bytes need not be UTF-8 (a few official
+                // table entries are not, and M3.E2 copies them as stored).
+                let one_string = bytes
+                    .strip_suffix(&[0])
+                    .is_some_and(|body| !body.contains(&0));
+                if !one_string && pass.on("record.flags-body") {
                     push(
                         findings,
                         "record.flags-body",

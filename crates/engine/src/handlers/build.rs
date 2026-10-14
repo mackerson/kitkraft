@@ -297,7 +297,6 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         Some(lo_args) => acquire(session, lo_args, ID)?,
         None => acquire(session, args, ID)?,
     };
-    super::set::verify_load_order(ID, loaded)?;
     // `out` is checked as the patch writer checks its target (never a load-order plugin,
     // the game or user Data directory, or MO2), and an existing `out` is replaced only
     // with `overwrite`, before anything is staged. A plan writes nothing to `out`.
@@ -476,6 +475,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut copies = Vec::new();
     let mut origins: Vec<Origin> = Vec::new();
     for form in &writes.order {
+        let unrelated = super::set::safe_source(ID, loaded, *form)?;
+        super::set::extend_once(&mut limitations, unrelated);
         let list: Vec<Edit> = writes
             .per_form
             .get(&form.key())

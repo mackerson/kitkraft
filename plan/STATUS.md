@@ -746,6 +746,19 @@ is under "Next".
   `ModOrganizer.ini`, an unrelated mod, `overwrite\` and `downloads\` byte-identical.
   Differences from ADR 0009's text (per the owner's brief) are listed in
   `docs/deploy.md`; the ADR is on an unmerged branch and needs an amendment.
+- Lane E, M4 (set + validate + build, 2026-10-14):
+  - M3.E1 (carried from M3): `set` and `build` no longer refuse a whole load order. Each
+    copied form goes through lane D's `Loaded::source_check` (`handlers/set.rs`
+    `safe_source`): a blocking problem (a holder of a version loading before its master, a
+    later plugin that failed or has unresolved records that could be the form, a missing or
+    deleted winner) refuses that form; every other problem (an active plugin with no file,
+    an unrelated ordering error) is a limitation. Tests through `execute`: a synthetic MO2
+    profile with an active plugin that has no file writes an unrelated form with a
+    limitation and refuses a form a plugin needing the missing one may override.
+  - M3.E2: lstrings inlined from string tables are the table's bytes (`Resolved::bytes`),
+    so the few non-UTF-8 official entries are copied exactly instead of refused;
+    `record.flags-body` accepts any one NUL-terminated string. The `docs/gaps.md` row is
+    closed.
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box

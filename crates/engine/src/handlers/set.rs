@@ -109,53 +109,48 @@ pub(crate) fn find_form(
     ))
 }
 
-/// The text lane D's `load` puts in a limitation for active plugins with no file.
-const NO_FILE: &str = "active plugins with no file";
+/// Refuses to copy the winning version of `form` when lane D's source check (M3.D1,
+/// `kitcraft_doc::source`) finds a problem that can change which version wins or what its
+/// FormIDs mean: a plugin holding a version loads before its master, or a plugin after the
+/// winner failed to load or has unresolved records that could be this form, or the winner
+/// is missing or deleted. Problems elsewhere in the load order (an active plugin with no
+/// file, an unrelated ordering error) are returned for `limitations` (M3.E1; this replaces
+/// the blanket "load order unverified" refusal).
+pub(crate) fn safe_source(
+    command: &str,
+    loaded: &Loaded,
+    form: GlobalForm,
+) -> Result<Vec<String>, EngineError> {
+    let check = loaded.source_check(form);
+    if !check.blocking.is_empty() {
+        return Err(failed(
+            command,
+            format!(
+                "the winning version of {} is not a safe source: {} (fix the load order, or name the plugins with `plugins`)",
+                loaded.lo.form_label(form),
+                check.blocking.join("; ")
+            ),
+        ));
+    }
+    Ok(check
+        .unrelated
+        .into_iter()
+        .map(|u| {
+            format!(
+                "load order problem that does not affect {}: {u}",
+                loaded.lo.form_label(form)
+            )
+        })
+        .collect())
+}
 
-/// Refuses a load order whose winners cannot be trusted yet (lane D round 2 pending): a
-/// plugin that failed to load, a plugin that loads before one of its masters or misses
-/// one, an active plugin with no file. `set` and `build` copy the winning version, so on
-/// such a load order they stop instead of guessing.
-pub(crate) fn verify_load_order(command: &str, loaded: &Loaded) -> Result<(), EngineError> {
-    let mut problems: Vec<String> = Vec::new();
-    for (i, p) in loaded.lo.plugins.iter().enumerate() {
-        if let Some(e) = &p.error {
-            problems.push(format!("{} failed to load ({e})", p.name));
-        }
-        let late = p.late_masters(u16::try_from(i).unwrap_or(u16::MAX));
-        if !late.is_empty() {
-            problems.push(format!(
-                "{} loads before its master(s) {}",
-                p.name,
-                late.join(", ")
-            ));
-        }
-        let missing = p.missing_masters();
-        if !missing.is_empty() {
-            problems.push(format!(
-                "{} misses master(s) {}",
-                p.name,
-                missing.join(", ")
-            ));
+/// Appends each of `more` to `limitations` unless it is already there.
+pub(crate) fn extend_once(limitations: &mut Vec<String>, more: Vec<String>) {
+    for l in more {
+        if !limitations.contains(&l) {
+            limitations.push(l);
         }
     }
-    problems.extend(
-        loaded
-            .limitations
-            .iter()
-            .filter(|l| l.starts_with(NO_FILE))
-            .cloned(),
-    );
-    if problems.is_empty() {
-        return Ok(());
-    }
-    Err(failed(
-        command,
-        format!(
-            "load order unverified, so its winning versions are not a safe source: {} (fix the load order, or name the plugins with `plugins`)",
-            problems.join("; ")
-        ),
-    ))
 }
 
 /// Where the copied version came from, for the report.
@@ -562,12 +557,13 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .and_then(Value::as_bool)
         .unwrap_or(false);
     let loaded = acquire(session, args, ID)?;
-    verify_load_order(ID, loaded)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
+    let unrelated = safe_source(ID, loaded, g)?;
     let (copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
     let mut limitations = loaded.limitations.clone();
+    extend_once(&mut limitations, unrelated);
 
     // Write into a staged copy of `into`, run the record rules on it (as `build` does),
     // and replace `into` only when the records this call wrote pass.
