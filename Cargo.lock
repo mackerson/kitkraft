@@ -166,6 +166,11 @@ dependencies = [
 [[package]]
 name = "kitcraft-ba2"
 version = "0.0.0"
+dependencies = [
+ "flate2",
+ "lz4_flex",
+ "thiserror",
+]
 
 [[package]]
 name = "kitcraft-doc"
@@ -224,6 +229,9 @@ version = "0.0.0"
 [[package]]
 name = "kitcraft-pex"
 version = "0.0.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kitcraft-schema"
@@ -237,6 +245,15 @@ dependencies = [
 [[package]]
 name = "kitcraft-strings"
 version = "0.0.0"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "lz4_flex"
+version = "0.11.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "373f5eceeeab7925e0c1098212f2fbc4d416adec9d35051a6ab251e824c1854a"
 
 [[package]]
 name = "memchr"
