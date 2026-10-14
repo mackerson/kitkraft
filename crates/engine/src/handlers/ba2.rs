@@ -24,6 +24,10 @@ const DEFAULT_LIMIT: u64 = 1000;
 const FILES_SHOWN: usize = 1000;
 /// Deepest directory nesting `ba2.pack` walks.
 const MAX_DEPTH: usize = 64;
+/// Default `max_entry_bytes` of `ba2.extract`: 1 GiB, above the largest official entry
+/// (134,083,688 bytes, `docs/corpus.md` "Archives"), far below what a hostile record can
+/// declare (a DX10 texture up to 255 chunks of 4 GiB).
+const DEFAULT_MAX_ENTRY: u64 = 1 << 30;
 
 /// What the archive-level evidence covers.
 const RECORDS_EVIDENCE: &str = "evidence covers the header, the record table and the name \
@@ -116,6 +120,10 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
         .get("overwrite")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let max_entry = args
+        .get("max_entry_bytes")
+        .and_then(Value::as_u64)
+        .unwrap_or(DEFAULT_MAX_ENTRY);
     refuse_game_data(ID, &out_dir)?;
     let path = Path::new(archive_arg);
     let (archive, mut file) =
@@ -125,6 +133,17 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
     for (i, entry) in archive.entries.iter().enumerate() {
         if pat.as_ref().is_some_and(|re| !re.is_match(&entry.name)) {
             continue;
+        }
+        let size = entry.extracted_len();
+        if size > max_entry {
+            return Err(failed(
+                ID,
+                format!(
+                    "`{}` extracts to {size} bytes, above max_entry_bytes ({max_entry}); \
+                     nothing was written",
+                    entry.name
+                ),
+            ));
         }
         let rel = kitcraft_ba2::relative_path(&entry.name)
             .map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
@@ -661,6 +680,15 @@ mod tests {
             .contains("showing 1 of 2"));
 
         let dst = root.join("dst");
+        // Above the per-entry cap: refused before anything is written.
+        let err = execute(
+            "ba2.extract",
+            json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap(),
+                   "max_entry_bytes": 100}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("max_entry_bytes"), "{err}");
+        assert!(!dst.exists());
         let extracted = execute(
             "ba2.extract",
             json!({"archive": out.to_str().unwrap(), "out_dir": dst.to_str().unwrap()}),

@@ -320,5 +320,11 @@ archive is version 1. Facts the crate relies on (`corpus:` in `crates/ba2`):
   the remaining mips share one last chunk. Reading the rule as "both edges at least 512"
   gets 421 textures wrong (1024x256 and the like); the area rule gets none wrong, and
   matches Archive2's packing of `Textures01`/`Textures05` (12,658 textures).
+- Limits (2026-10-14): no record has size 0 (no empty files); every name is ASCII; the
+  largest GNRL file is 134,083,688 bytes, the largest DX10 chunk 33,554,592 bytes, the
+  largest extraction 134,083,688 bytes. The crate's caps sit above these: 256 MiB per LZ4
+  blob (`LZ4_MAX_BLOB`), and callers of `extract_vec` pass their own (64 MiB for `.pex`,
+  256 MiB for string tables; `ba2.extract` refuses entries above `max_entry_bytes`,
+  1 GiB by default).
 
 Differential checks against `Archive2.exe` 1.2.0.1 (black box): see `plan/STATUS.md`.

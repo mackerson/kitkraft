@@ -19,7 +19,7 @@ mod read;
 mod write;
 
 pub use error::{Error, Result};
-pub use extract::{normalize, relative_path};
+pub use extract::{normalize, relative_path, LZ4_MAX_BLOB};
 pub use read::{
     Archive, Body, Chunk, Codec, Entry, General, Header, Kind, Texture, CHUNK_RECORD_LEN, FILLER,
     GENERAL_RECORD_LEN, MAGIC, TEXTURE_RECORD_LEN,

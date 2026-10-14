@@ -212,7 +212,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Extract files from a .ba2 archive (all, or those matching --pattern)",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"},"max_entry_bytes":{"type":"integer","minimum":0,"default":1073741824,"description":"Refuse, before writing anything, an entry that extracts to more bytes than this (default 1 GiB)"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {

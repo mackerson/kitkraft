@@ -88,6 +88,21 @@ pub enum Error {
         /// Size produced (at most `expected + 1`: decoding stops there).
         actual: u64,
     },
+    /// An entry whose declared extracted size is above the caller's cap; refused before
+    /// anything is decoded or allocated.
+    #[error(
+        "`{name}` (record at offset {offset}) extracts to {size} bytes, above the cap of {cap}"
+    )]
+    TooLarge {
+        /// Archive path of the file.
+        name: String,
+        /// Offset of its record.
+        offset: u64,
+        /// Declared extracted size.
+        size: u64,
+        /// The cap.
+        cap: u64,
+    },
     /// An entry index past the end.
     #[error("entry index {index} out of range ({count} entries)")]
     NoSuchEntry {

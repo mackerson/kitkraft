@@ -176,7 +176,7 @@ fn archive2_differential() {
     let out = PathBuf::from(out);
     let (mut same, mut header_only, mut data) = (0usize, Vec::new(), Vec::new());
     for (i, entry) in archive.entries.iter().enumerate() {
-        let ours = archive.extract_vec(&mut file, i).unwrap();
+        let ours = archive.extract_vec(&mut file, i, u64::MAX).unwrap();
         let path = out.join(kitcraft_ba2::relative_path(&entry.name).unwrap());
         let theirs = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         if ours == theirs {

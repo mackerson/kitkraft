@@ -12,6 +12,7 @@ use kitcraft_strings::{merge as merge_tables, Entry, Kind, Table};
 use serde_json::{json, Value};
 
 use super::ba2::refuse_game_data;
+use super::papyrus::read_capped;
 use super::{failed, file_name, str_arg};
 use crate::args::Violation;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
@@ -19,6 +20,9 @@ use crate::exec::EngineError;
 
 /// Most conflicts named in a merge result (all are counted).
 const CONFLICTS_SHOWN: usize = 100;
+/// Largest table read (256 MiB; the largest official table is far smaller). Checked against
+/// the loose file's length or the archive record's declared size before anything is read.
+const MAX_TABLE_BYTES: u64 = 256 << 20;
 
 /// A loaded table and where it came from.
 struct Loaded {
@@ -37,7 +41,8 @@ fn load(command: &str, table: &str, archive: Option<&str>) -> Result<Loaded, Eng
         )
     })?;
     let bytes = match archive {
-        None => fs::read(table).map_err(|e| failed(command, format!("reading `{table}`: {e}")))?,
+        None => read_capped(Path::new(table), MAX_TABLE_BYTES)
+            .map_err(|e| failed(command, format!("reading `{table}`: {e}")))?,
         Some(a) => {
             let (archive_data, mut file) =
                 Archive::open(Path::new(a)).map_err(|e| failed(command, format!("{a}: {e}")))?;
@@ -45,7 +50,7 @@ fn load(command: &str, table: &str, archive: Option<&str>) -> Result<Loaded, Eng
                 .find(table)
                 .ok_or_else(|| failed(command, format!("`{table}` is not in {a}")))?;
             archive_data
-                .extract_vec(&mut file, index)
+                .extract_vec(&mut file, index, MAX_TABLE_BYTES)
                 .map_err(|e| failed(command, format!("{a}: {e}")))?
         }
     };

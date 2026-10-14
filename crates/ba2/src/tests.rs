@@ -81,7 +81,7 @@ fn roundtrip(files: &BTreeMap<String, Vec<u8>>, options: &PackOptions) -> Vec<u8
             "{}",
             entry.name
         );
-        let out = archive.extract_vec(&mut cursor, i).unwrap();
+        let out = archive.extract_vec(&mut cursor, i, u64::MAX).unwrap();
         assert!(out == *original, "{} differs after extraction", entry.name);
     }
     archive_bytes
@@ -309,7 +309,7 @@ fn every_truncation_is_an_error_not_a_panic() {
                 Ok(archive) => {
                     // Only the name table is gone or short at this point: data is intact.
                     for i in 0..archive.entries.len() {
-                        let _ = archive.extract_vec(&mut cursor, i);
+                        let _ = archive.extract_vec(&mut cursor, i, u64::MAX);
                     }
                 }
             }
@@ -327,7 +327,7 @@ fn bit_flips_never_panic_and_bad_data_is_typed() {
             let mut cursor = Cursor::new(bad);
             if let Ok(archive) = Archive::read(&mut cursor) {
                 for j in 0..archive.entries.len() {
-                    if let Err(e) = archive.extract_vec(&mut cursor, j) {
+                    if let Err(e) = archive.extract_vec(&mut cursor, j, u64::MAX) {
                         assert!(
                             matches!(
                                 e,
@@ -354,7 +354,7 @@ fn a_stream_larger_than_its_record_is_refused() {
     bytes[size_at..size_at + 4].copy_from_slice(&10u32.to_le_bytes());
     let mut cursor = Cursor::new(bytes);
     let archive = Archive::read(&mut cursor).unwrap();
-    let err = archive.extract_vec(&mut cursor, 0).unwrap_err();
+    let err = archive.extract_vec(&mut cursor, 0, u64::MAX).unwrap_err();
     assert!(
         matches!(
             err,
@@ -367,8 +367,49 @@ fn a_stream_larger_than_its_record_is_refused() {
         "{err}"
     );
     assert!(matches!(
-        archive.extract_vec(&mut cursor, 5),
+        archive.extract_vec(&mut cursor, 5, u64::MAX),
         Err(Error::NoSuchEntry { index: 5, count: 1 })
+    ));
+}
+
+/// Regression (review round 2): a small archive can declare a huge zlib output;
+/// `extract_vec` refuses it by the declared size before decoding or allocating.
+#[test]
+fn extract_vec_refuses_sizes_above_the_cap() {
+    let mut files = BTreeMap::new();
+    files.insert("bomb.bin".to_string(), vec![0u8; 8 << 20]);
+    let mut bytes = pack_mem(&files, &PackOptions::default());
+    assert!(bytes.len() < 64 << 10, "{} bytes", bytes.len());
+    let read = |b: &[u8]| {
+        let mut cursor = Cursor::new(b.to_vec());
+        let archive = Archive::read(&mut cursor).unwrap();
+        (archive, cursor)
+    };
+    let (archive, mut cursor) = read(&bytes);
+    let err = archive.extract_vec(&mut cursor, 0, 1 << 20).unwrap_err();
+    assert!(
+        matches!(
+            err,
+            Error::TooLarge {
+                size: 0x80_0000,
+                cap: 0x10_0000,
+                offset: 32,
+                ..
+            }
+        ),
+        "{err}"
+    );
+    assert_eq!(
+        archive.extract_vec(&mut cursor, 0, 8 << 20).unwrap().len(),
+        8 << 20
+    );
+    // The declared size patched to 512 MiB (the packed stream is unchanged).
+    let size_at = 32 + 4 + 4 + 4 + 4 + 8 + 4;
+    bytes[size_at..size_at + 4].copy_from_slice(&(512u32 << 20).to_le_bytes());
+    let (archive, mut cursor) = read(&bytes);
+    assert!(matches!(
+        archive.extract_vec(&mut cursor, 0, 64 << 20),
+        Err(Error::TooLarge { .. })
     ));
 }
 

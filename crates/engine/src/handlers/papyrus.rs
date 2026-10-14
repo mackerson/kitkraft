@@ -16,6 +16,10 @@ use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 
+/// Largest script read (64 MiB; the official scripts are far smaller). Checked against the
+/// loose file's length or the archive record's declared size before anything is read.
+const MAX_SCRIPT_BYTES: u64 = 64 << 20;
+
 /// `papyrus.disasm`.
 pub(super) fn disasm(args: &Json) -> Result<Outcome, EngineError> {
     const ID: &str = "papyrus.disasm";
@@ -23,7 +27,8 @@ pub(super) fn disasm(args: &Json) -> Result<Outcome, EngineError> {
     let archive = args.get("archive").and_then(Json::as_str);
     let format = args.get("format").and_then(Json::as_str).unwrap_or("text");
     let bytes = match archive {
-        None => fs::read(pex_arg).map_err(|e| failed(ID, format!("reading `{pex_arg}`: {e}")))?,
+        None => read_capped(Path::new(pex_arg), MAX_SCRIPT_BYTES)
+            .map_err(|e| failed(ID, format!("reading `{pex_arg}`: {e}")))?,
         Some(a) => {
             let (archive_data, mut file) =
                 Archive::open(Path::new(a)).map_err(|e| failed(ID, format!("{a}: {e}")))?;
@@ -31,7 +36,7 @@ pub(super) fn disasm(args: &Json) -> Result<Outcome, EngineError> {
                 .find(pex_arg)
                 .ok_or_else(|| failed(ID, format!("`{pex_arg}` is not in {a}")))?;
             archive_data
-                .extract_vec(&mut file, index)
+                .extract_vec(&mut file, index, MAX_SCRIPT_BYTES)
                 .map_err(|e| failed(ID, format!("{a}: {e}")))?
         }
     };
@@ -94,6 +99,22 @@ pub(super) fn disasm(args: &Json) -> Result<Outcome, EngineError> {
             subrecord: None,
         }],
     })
+}
+
+/// Reads a loose file, refusing one longer than `cap` bytes before reading it.
+pub(super) fn read_capped(path: &Path, cap: u64) -> std::io::Result<Vec<u8>> {
+    use std::io::Read;
+    let file = fs::File::open(path)?;
+    let len = file.metadata()?.len();
+    if len > cap {
+        return Err(std::io::Error::other(format!(
+            "{len} bytes is above the {cap}-byte limit"
+        )));
+    }
+    let mut out = Vec::with_capacity(usize::try_from(len).unwrap_or(0));
+    // `take` keeps a file that grows while it is read inside the cap too.
+    file.take(cap).read_to_end(&mut out)?;
+    Ok(out)
 }
 
 fn all_functions(o: &kitcraft_pex::Object) -> Vec<&Function> {
@@ -349,6 +370,57 @@ pub(super) mod tests {
         fs::write(&pex, &tiny_pex()[..20]).unwrap();
         let err = execute("papyrus.disasm", json!({"pex": pex.to_str().unwrap()})).unwrap_err();
         assert!(err.to_string().contains("offset"), "{err}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// Regression (review round 2): a script whose record declares 512 MiB (a zlib bomb
+    /// from a small archive) is refused by the 64 MiB cap before it is decoded; the same
+    /// archive's string table is refused by the 256 MiB cap.
+    #[test]
+    fn oversized_entries_are_refused_before_decoding() {
+        let dir = std::env::temp_dir().join(format!("kitcraft-pexcap-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("src").join("scripts")).unwrap();
+        fs::write(
+            dir.join("src").join("scripts").join("a.pex"),
+            vec![7u8; 4000],
+        )
+        .unwrap();
+        fs::create_dir_all(dir.join("src").join("strings")).unwrap();
+        fs::write(
+            dir.join("src").join("strings").join("x_en.strings"),
+            vec![7u8; 4000],
+        )
+        .unwrap();
+        let archive = dir.join("a.ba2");
+        execute(
+            "ba2.pack",
+            json!({"dir": dir.join("src").to_str().unwrap(), "out": archive.to_str().unwrap()}),
+        )
+        .unwrap();
+        // GNRL record at 32: hashes and ext (12), flags (4), offset (8), packed (4), size.
+        let mut bytes = fs::read(&archive).unwrap();
+        for size_at in [60, 60 + 36] {
+            bytes[size_at..size_at + 4].copy_from_slice(&(512u32 << 20).to_le_bytes());
+        }
+        fs::write(&archive, &bytes).unwrap();
+        let err = execute(
+            "papyrus.disasm",
+            json!({"pex": "scripts/a.pex", "archive": archive.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("above the cap"), "{err}");
+        let err = execute(
+            "strings.dump",
+            json!({"table": "strings/x_en.strings", "archive": archive.to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("above the cap"), "{err}");
+
+        let small = dir.join("small.bin");
+        fs::write(&small, b"abcd").unwrap();
+        assert!(super::read_capped(&small, 3).is_err());
+        assert_eq!(super::read_capped(&small, 4).unwrap(), b"abcd");
         fs::remove_dir_all(&dir).unwrap();
     }
 }

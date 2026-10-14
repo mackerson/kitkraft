@@ -38,7 +38,7 @@ fn check_archive(path: &std::path::Path, keep: impl Fn(&str) -> bool) -> usize {
         if !keep(&entry.name) {
             continue;
         }
-        let bytes = archive.extract_vec(&mut file, i).unwrap();
+        let bytes = archive.extract_vec(&mut file, i, 256 << 20).unwrap();
         let table = Table::parse(kind, &bytes)
             .unwrap_or_else(|e| panic!("{}: {}: {e}", path.display(), entry.name));
         assert!(
