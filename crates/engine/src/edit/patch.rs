@@ -624,7 +624,8 @@ fn remap_record(
     Ok(())
 }
 
-fn has_opaque(ty: &FieldType) -> bool {
+/// Whether a layout contains bytes that are not decoded (opaque, or a union).
+pub fn has_opaque(ty: &FieldType) -> bool {
     match ty {
         FieldType::Opaque { .. } | FieldType::Union { .. } => true,
         FieldType::Struct { fields } => fields.iter().any(|f| has_opaque(&f.ty)),
@@ -635,7 +636,7 @@ fn has_opaque(ty: &FieldType) -> bool {
 }
 
 /// The lstring spans of one subrecord: `(member label, start, len)`.
-fn lstring_spans(
+pub fn lstring_spans(
     record_sig: [u8; 4],
     sub_sig: [u8; 4],
     payload: &[u8],
