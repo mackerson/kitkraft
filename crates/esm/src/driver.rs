@@ -30,6 +30,11 @@ pub struct RoundtripOptions {
     /// (and counted). The original compressed bytes are still what is written.
     pub decode: Option<DecodeLimits>,
     pub write: WriteOptions,
+    /// When set, every record whose type has a schema definition is decoded through it,
+    /// encoded again and compared, subrecord by subrecord
+    /// ([`crate::bridge::check_subrecords`], M2.A3). Compressed records are checked only
+    /// when `decode` is set too. Results are in [`Stats`] (`typed_*`).
+    pub typed: bool,
 }
 
 impl RoundtripOptions {
@@ -65,6 +70,32 @@ pub struct Stats {
     pub largest_decompressed: u64,
     /// Record count per signature.
     pub record_types: BTreeMap<Signature, u64>,
+    /// With [`RoundtripOptions::typed`]: records checked through their definition.
+    pub typed_records: u64,
+    /// With [`RoundtripOptions::typed`]: compressed records with a definition that were
+    /// not checked because they were not decoded.
+    pub typed_unchecked: u64,
+    /// With [`RoundtripOptions::typed`]: subrecords the definitions placed in members.
+    pub typed_subrecords: u64,
+    /// With [`RoundtripOptions::typed`]: checked records with at least one conflict.
+    pub typed_failed_records: u64,
+    /// With [`RoundtripOptions::typed`]: conflicts found, in total.
+    pub typed_conflicts: u64,
+    /// The first [`MAX_LISTED_CONFLICTS`] conflicts, in file order.
+    pub typed_conflict_list: Vec<RecordConflict>,
+}
+
+/// How many typed-decode conflicts [`Stats::typed_conflict_list`] keeps.
+pub const MAX_LISTED_CONFLICTS: usize = 100;
+
+/// A typed-decode conflict and the record it is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RecordConflict {
+    pub signature: Signature,
+    pub form_id: u32,
+    /// Absolute offset of the record.
+    pub record_offset: u64,
+    pub conflict: crate::bridge::TypedConflict,
 }
 
 /// Where the output first differs from the input.
@@ -133,12 +164,20 @@ pub fn roundtrip_reader<R: Read>(
 ) -> Result<RoundtripReport> {
     let mut stats = Stats::default();
     let mut entries = TopLevelReader::new(&mut input, len);
+    let mut localized = false;
     while let Some((offset, buf)) = entries.next_entry()? {
         let total = buf.len() as u64;
         let entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
         stats.top_level_entries = stats.top_level_entries.saturating_add(1);
         stats.largest_top_level_entry = stats.largest_top_level_entry.max(total);
-        count_entry(&entry, &mut stats, options.decode.as_ref())?;
+        if let (0, Entry::Record(r)) = (offset, &entry) {
+            localized = crate::tes4::Tes4::new(r).is_localized();
+        }
+        let count = Count {
+            decode: options.decode.as_ref(),
+            typed: options.typed.then_some(localized),
+        };
+        count_entry(&entry, &mut stats, &count)?;
 
         let mut cmp = Compare {
             expected: &buf,
@@ -619,17 +658,52 @@ impl Write for Compare<'_, '_> {
     }
 }
 
-fn count_entry(entry: &Entry<'_>, stats: &mut Stats, decode: Option<&DecodeLimits>) -> Result<()> {
+/// What [`count_entry`] does besides counting.
+struct Count<'l> {
+    decode: Option<&'l DecodeLimits>,
+    /// `Some(localized)` to check typed records with that plugin flag.
+    typed: Option<bool>,
+}
+
+fn count_entry(entry: &Entry<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<()> {
     match entry {
         Entry::Group(g) => {
             stats.groups = stats.groups.saturating_add(1);
             for child in g.children() {
-                count_entry(child, stats, decode)?;
+                count_entry(child, stats, count)?;
             }
         }
-        Entry::Record(r) => count_record(r, stats, decode)?,
+        Entry::Record(r) => count_record(r, stats, count)?,
     }
     Ok(())
+}
+
+/// Check one record's subrecords against its definition and add the result to `stats`.
+fn check_typed(r: &Record<'_>, subs: &[Subrecord<'_>], localized: bool, stats: &mut Stats) {
+    let ctx = crate::bridge::Ctx::for_record(r, localized);
+    let Ok(check) = crate::bridge::check_subrecords(r.header.signature, subs, ctx) else {
+        return;
+    };
+    stats.typed_records = stats.typed_records.saturating_add(1);
+    stats.typed_subrecords = stats.typed_subrecords.saturating_add(check.placed as u64);
+    if check.is_clean() {
+        return;
+    }
+    stats.typed_failed_records = stats.typed_failed_records.saturating_add(1);
+    stats.typed_conflicts = stats
+        .typed_conflicts
+        .saturating_add(check.conflicts.len() as u64);
+    for conflict in check.conflicts {
+        if stats.typed_conflict_list.len() >= MAX_LISTED_CONFLICTS {
+            break;
+        }
+        stats.typed_conflict_list.push(RecordConflict {
+            signature: r.header.signature,
+            form_id: r.header.form_id,
+            record_offset: r.offset().unwrap_or(0),
+            conflict,
+        });
+    }
 }
 
 fn count_subrecords(subs: &[Subrecord<'_>], stats: &mut Stats) {
@@ -638,23 +712,42 @@ fn count_subrecords(subs: &[Subrecord<'_>], stats: &mut Stats) {
     stats.oversize_subrecords = stats.oversize_subrecords.saturating_add(oversize);
 }
 
-fn count_record(r: &Record<'_>, stats: &mut Stats, decode: Option<&DecodeLimits>) -> Result<()> {
+fn count_record(r: &Record<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<()> {
     stats.records = stats.records.saturating_add(1);
     let n = stats.record_types.entry(r.header.signature).or_insert(0);
     *n = n.saturating_add(1);
+    let typed = count
+        .typed
+        .filter(|_| crate::bridge::has_definition(r.header.signature));
     match r.body() {
-        Body::Raw(subs) => count_subrecords(subs, stats),
+        Body::Raw(subs) => {
+            count_subrecords(subs, stats);
+            if let Some(localized) = typed {
+                check_typed(r, subs, localized, stats);
+            }
+        }
         Body::Compressed { .. } => {
             stats.compressed_records = stats.compressed_records.saturating_add(1);
-            if let Some(limits) = decode {
-                if let Some(subs) = r.decode(limits)? {
+            let decoded = match count.decode {
+                Some(limits) => r.decode(limits)?,
+                None => None,
+            };
+            match (decoded, typed) {
+                (Some(subs), _) => {
                     stats.decoded_records = stats.decoded_records.saturating_add(1);
                     let size = subs
                         .iter()
                         .fold(0u64, |acc, s| acc.saturating_add(s.encoded_len()));
                     stats.largest_decompressed = stats.largest_decompressed.max(size);
                     count_subrecords(&subs, stats);
+                    if let Some(localized) = typed {
+                        check_typed(r, &subs, localized, stats);
+                    }
                 }
+                (None, Some(_)) => {
+                    stats.typed_unchecked = stats.typed_unchecked.saturating_add(1);
+                }
+                (None, None) => {}
             }
         }
     }
@@ -902,6 +995,50 @@ mod tests {
         assert_eq!(s.oversize_subrecords, 1);
         assert_eq!(s.largest_decompressed, 106);
         assert_eq!(s.record_types[&crate::Signature::new(b"REFR")], 3);
+    }
+
+    #[test]
+    fn the_typed_option_checks_records_with_a_definition() {
+        // GMST, KYWD and TES4 have definitions; CELL, REFR and NAVM do not. In `bad`
+        // below, the TES4 HEDR (a typed member) is too short to decode.
+        let kywd = fixture::compressed_record_stored(b"KYWD", 0x900, &sub(b"EDID", b"kw\0"));
+        let mut bytes = fixture::sample_plugin();
+        bytes.extend(group(b"KYWD", 0, &kywd));
+        let options = RoundtripOptions {
+            typed: true,
+            ..RoundtripOptions::with_decode()
+        };
+        let report = roundtrip_bytes(&bytes, &options).unwrap();
+        assert!(report.identical());
+        let s = &report.stats;
+        assert_eq!(s.typed_records, 4);
+        assert_eq!(s.typed_unchecked, 0);
+        assert_eq!(s.typed_failed_records, 0);
+        assert!(s.typed_conflict_list.is_empty());
+        // TES4 7 + GMST 2 + 2 + KYWD 1.
+        assert_eq!(s.typed_subrecords, 12);
+
+        // Without decoding, the compressed KYWD is not checked.
+        let options = RoundtripOptions {
+            typed: true,
+            ..RoundtripOptions::default()
+        };
+        let s = roundtrip_bytes(&bytes, &options).unwrap().stats;
+        assert_eq!((s.typed_records, s.typed_unchecked), (3, 1));
+
+        // A short HEDR: one conflict, listed with its record and offset.
+        let tes4 = crate::fixture::record(b"TES4", 0x81, 0, &sub(b"HEDR", &[0u8; 8]));
+        let bad = [tes4, group(b"KYWD", 0, &kywd)].concat();
+        let s = roundtrip_bytes(&bad, &options).unwrap().stats;
+        assert_eq!(s.typed_failed_records, 1);
+        assert_eq!(s.typed_conflicts, 1);
+        let c = s.typed_conflict_list[0];
+        assert_eq!(
+            (c.signature, c.form_id, c.record_offset),
+            (crate::Signature::TES4, 0, 0)
+        );
+        assert_eq!(c.conflict.offset, Some(24));
+        assert_eq!(c.conflict.kind, crate::bridge::ConflictKind::NotDecoded);
     }
 
     #[test]

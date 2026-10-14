@@ -25,19 +25,51 @@ use kitcraft_esm::driver::{
 use kitcraft_esm::tes4::Tes4;
 use kitcraft_esm::{DecodeLimits, Entry, Plugin, Record};
 
-fn run(files: &[common::CorpusFile]) -> Vec<String> {
+/// Roundtrip each file with every compressed record decoded and every record with a schema
+/// definition checked through it (M2.A3). Returns byte-level failures and typed-decode
+/// conflicts, each as one line.
+fn run(files: &[common::CorpusFile]) -> (Vec<String>, Vec<String>) {
     let mut failures = Vec::new();
+    let mut conflicts = Vec::new();
+    let mut typed_rows = Vec::new();
+    let options = RoundtripOptions {
+        typed: true,
+        ..RoundtripOptions::with_decode()
+    };
     println!(
         "| File | Identical | Time (s) | Records | Compressed | Subrecords | XXXX | Groups | Largest top-level entry | Largest decompressed |"
     );
     println!("| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |");
     for file in files {
         let start = Instant::now();
-        let result = roundtrip_file(&file.path, &RoundtripOptions::with_decode());
+        let result = roundtrip_file(&file.path, &options);
         let secs = start.elapsed().as_secs_f64();
         match result {
             Ok(report) => {
                 print_row(&file.name, &report, secs);
+                let s = &report.stats;
+                typed_rows.push(format!(
+                    "| {} | {} | {} | {} | {} | {} |",
+                    file.name,
+                    s.typed_records,
+                    s.typed_subrecords,
+                    s.typed_unchecked,
+                    s.typed_failed_records,
+                    s.typed_conflicts
+                ));
+                for c in &s.typed_conflict_list {
+                    conflicts.push(format!(
+                        "{}: {} {:08X} @{} subrecord {} {} @{:?}: {:?}",
+                        file.name,
+                        c.signature,
+                        c.form_id,
+                        c.record_offset,
+                        c.conflict.index,
+                        c.conflict.signature,
+                        c.conflict.offset,
+                        c.conflict.kind
+                    ));
+                }
                 if let Some(m) = &report.mismatch {
                     failures.push(format!(
                         "{}: first mismatch at offset {} (expected {:?}, wrote {:?}) in {}",
@@ -56,7 +88,16 @@ fn run(files: &[common::CorpusFile]) -> Vec<String> {
             }
         }
     }
-    failures
+    println!();
+    println!("| File | Typed records | Placed subrecords | Unchecked | Records with conflicts | Conflicts |");
+    println!("| --- | --- | --- | --- | --- | --- |");
+    for row in typed_rows {
+        println!("{row}");
+    }
+    for c in &conflicts {
+        println!("conflict: {c}");
+    }
+    (failures, conflicts)
 }
 
 fn print_row(name: &str, report: &RoundtripReport, secs: f64) {
@@ -80,7 +121,8 @@ fn corpus_small_roundtrip() {
         return;
     };
     common::verify_hashes(&files);
-    let failures = run(&files);
+    let (failures, conflicts) = run(&files);
+    assert!(conflicts.is_empty(), "{conflicts:#?}");
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
@@ -188,7 +230,7 @@ fn corpus_full_roundtrip() {
         start.elapsed().as_secs_f64()
     );
     let start = Instant::now();
-    let failures = run(&files);
+    let (failures, _conflicts) = run(&files);
     println!("total wall time: {:.1} s", start.elapsed().as_secs_f64());
     if let Some(peak) = common::peak_working_set() {
         println!(
