@@ -25,6 +25,7 @@
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
+// - WRLD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18940-L19035; corpus)
 // - ZOOM (corpus: ZOOM records of the 14 official ESMs, scan 2026-10-14; corpus)
 
 /// A four-byte signature.
@@ -6542,6 +6543,1330 @@ impl WeapRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldLargeRefsRefs {
+    pub ref_: FormId,
+    pub cell_y: i16,
+    pub cell_x: i16,
+}
+
+impl Field for WrldLargeRefsRefs {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "WRLD.RNAM.Refs.Ref", ctx)?;
+        let f1 = i16::read(r, "WRLD.RNAM.Refs.CellY", ctx)?;
+        let f2 = i16::read(r, "WRLD.RNAM.Refs.CellX", ctx)?;
+        Ok(Self {
+            ref_: f0,
+            cell_y: f1,
+            cell_x: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.cell_y.write(out);
+        self.cell_x.write(out);
+    }
+}
+
+impl Visit for WrldLargeRefsRefs {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "WRLD.RNAM.Refs.Ref", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "WRLD.RNAM.Refs.Ref", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldLargeRefs {
+    pub cell_y: i16,
+    pub cell_x: i16,
+    pub count: u32,
+    pub refs: Vec<WrldLargeRefsRefs>,
+}
+
+impl Field for WrldLargeRefs {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "WRLD.RNAM.CellY", ctx)?;
+        let f1 = i16::read(r, "WRLD.RNAM.CellX", ctx)?;
+        let f2 = u32::read(r, "WRLD.RNAM.Count", ctx)?;
+        let n3 = count(f2, "WRLD.RNAM.Refs", r.position())?;
+        let f3 = read_array(r, n3, "WRLD.RNAM.Refs", ctx)?;
+        Ok(Self {
+            cell_y: f0,
+            cell_x: f1,
+            count: f2,
+            refs: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.cell_y.write(out);
+        self.cell_x.write(out);
+        self.count.write(out);
+        self.refs.write(out);
+    }
+}
+
+impl Visit for WrldLargeRefs {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.refs, "WRLD.RNAM.Refs", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.refs, "WRLD.RNAM.Refs", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldMaxHeightCells {
+    pub bottom_left: u8,
+    pub bottom_right: u8,
+    pub top_left: u8,
+    pub top_right: u8,
+}
+
+impl Field for WrldMaxHeightCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "WRLD.MHDT.Cells.BottomLeft", ctx)?;
+        let f1 = u8::read(r, "WRLD.MHDT.Cells.BottomRight", ctx)?;
+        let f2 = u8::read(r, "WRLD.MHDT.Cells.TopLeft", ctx)?;
+        let f3 = u8::read(r, "WRLD.MHDT.Cells.TopRight", ctx)?;
+        Ok(Self {
+            bottom_left: f0,
+            bottom_right: f1,
+            top_left: f2,
+            top_right: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.bottom_left.write(out);
+        self.bottom_right.write(out);
+        self.top_left.write(out);
+        self.top_right.write(out);
+    }
+}
+
+impl Visit for WrldMaxHeightCells {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldMaxHeight {
+    pub min_x: i16,
+    pub min_y: i16,
+    pub max_x: i16,
+    pub max_y: i16,
+    pub cells: Vec<WrldMaxHeightCells>,
+}
+
+impl Field for WrldMaxHeight {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "WRLD.MHDT.MinX", ctx)?;
+        let f1 = i16::read(r, "WRLD.MHDT.MinY", ctx)?;
+        let f2 = i16::read(r, "WRLD.MHDT.MaxX", ctx)?;
+        let f3 = i16::read(r, "WRLD.MHDT.MaxY", ctx)?;
+        let f4 = Field::read(r, "WRLD.MHDT.Cells", ctx)?;
+        Ok(Self {
+            min_x: f0,
+            min_y: f1,
+            max_x: f2,
+            max_y: f3,
+            cells: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.min_x.write(out);
+        self.min_y.write(out);
+        self.max_x.write(out);
+        self.max_y.write(out);
+        self.cells.write(out);
+    }
+}
+
+impl Visit for WrldMaxHeight {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldFixedCenter {
+    pub x: i16,
+    pub y: i16,
+}
+
+impl Field for WrldFixedCenter {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "WRLD.WCTR.X", ctx)?;
+        let f1 = i16::read(r, "WRLD.WCTR.Y", ctx)?;
+        Ok(Self { x: f0, y: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+    }
+}
+
+impl Visit for WrldFixedCenter {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WrldParentWorldspaceUseFlags(pub u16);
+
+impl WrldParentWorldspaceUseFlags {
+    pub const USE_LAND_DATA: u16 = 0x1;
+    pub const USE_LOD_DATA: u16 = 0x2;
+    pub const USE_MAP_DATA: u16 = 0x4;
+    pub const USE_WATER_DATA: u16 = 0x8;
+    pub const USE_CLIMATE_DATA: u16 = 0x10;
+    pub const USE_SKY_CELL: u16 = 0x40;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u16) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for WrldParentWorldspaceUseFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldParentWorldspaceUseFlags {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct WrldParentWorldspace {
+    /// `WNAM`, required.
+    pub world: Option<Sub<FormId>>,
+    /// `PNAM`, optional.
+    pub use_flags: Option<Sub<WrldParentWorldspaceUseFlags>>,
+}
+
+impl WrldParentWorldspace {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"WNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.world,
+                    subs,
+                    *index,
+                    "WRLD.ParentWorldspace.WNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.use_flags,
+                    subs,
+                    *index,
+                    "WRLD.ParentWorldspace.PNAM",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"WNAM", self.world.as_ref());
+        emit(out, *b"PNAM", self.use_flags.as_ref());
+    }
+}
+
+impl Visit for WrldParentWorldspace {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.world, "WRLD.ParentWorldspace.WNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.world, "WRLD.ParentWorldspace.WNAM", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct WrldLodData {
+    /// `NAM3`, optional.
+    pub lod_water: Option<Sub<FormId>>,
+    /// `NAM4`, optional.
+    pub lod_water_height: Option<Sub<f32>>,
+}
+
+impl WrldLodData {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"NAM3",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM4",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.lod_water,
+                    subs,
+                    *index,
+                    "WRLD.LodData.NAM3",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.lod_water_height,
+                    subs,
+                    *index,
+                    "WRLD.LodData.NAM4",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"NAM3", self.lod_water.as_ref());
+        emit(out, *b"NAM4", self.lod_water_height.as_ref());
+    }
+}
+
+impl Visit for WrldLodData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.lod_water, "WRLD.LodData.NAM3", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.lod_water, "WRLD.LodData.NAM3", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldLandData {
+    pub default_land_height: f32,
+    pub default_water_height: f32,
+}
+
+impl Field for WrldLandData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "WRLD.DNAM.DefaultLandHeight", ctx)?;
+        let f1 = f32::read(r, "WRLD.DNAM.DefaultWaterHeight", ctx)?;
+        Ok(Self {
+            default_land_height: f0,
+            default_water_height: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.default_land_height.write(out);
+        self.default_water_height.write(out);
+    }
+}
+
+impl Visit for WrldLandData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldMapData {
+    pub usable_x: i32,
+    pub usable_y: i32,
+    pub nw_cell_x: i16,
+    pub nw_cell_y: i16,
+    pub se_cell_x: i16,
+    pub se_cell_y: i16,
+}
+
+impl Field for WrldMapData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "WRLD.MNAM.UsableX", ctx)?;
+        let f1 = i32::read(r, "WRLD.MNAM.UsableY", ctx)?;
+        let f2 = i16::read(r, "WRLD.MNAM.NwCellX", ctx)?;
+        let f3 = i16::read(r, "WRLD.MNAM.NwCellY", ctx)?;
+        let f4 = i16::read(r, "WRLD.MNAM.SeCellX", ctx)?;
+        let f5 = i16::read(r, "WRLD.MNAM.SeCellY", ctx)?;
+        Ok(Self {
+            usable_x: f0,
+            usable_y: f1,
+            nw_cell_x: f2,
+            nw_cell_y: f3,
+            se_cell_x: f4,
+            se_cell_y: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.usable_x.write(out);
+        self.usable_y.write(out);
+        self.nw_cell_x.write(out);
+        self.nw_cell_y.write(out);
+        self.se_cell_x.write(out);
+        self.se_cell_y.write(out);
+    }
+}
+
+impl Visit for WrldMapData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldMapOffset {
+    pub scale: f32,
+    pub cell_x_offset: f32,
+    pub cell_y_offset: f32,
+    pub cell_z_offset: f32,
+}
+
+impl Field for WrldMapOffset {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "WRLD.ONAM.Scale", ctx)?;
+        let f1 = f32::read(r, "WRLD.ONAM.CellXOffset", ctx)?;
+        let f2 = f32::read(r, "WRLD.ONAM.CellYOffset", ctx)?;
+        let f3 = f32::read(r, "WRLD.ONAM.CellZOffset", ctx)?;
+        Ok(Self {
+            scale: f0,
+            cell_x_offset: f1,
+            cell_y_offset: f2,
+            cell_z_offset: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.scale.write(out);
+        self.cell_x_offset.write(out);
+        self.cell_y_offset.write(out);
+        self.cell_z_offset.write(out);
+    }
+}
+
+impl Visit for WrldMapOffset {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WrldFlags(pub u8);
+
+impl WrldFlags {
+    pub const SMALL_WORLD: u8 = 0x1;
+    pub const CANT_FAST_TRAVEL: u8 = 0x2;
+    pub const NO_LOD_WATER: u8 = 0x8;
+    pub const NO_LANDSCAPE: u8 = 0x10;
+    pub const NO_SKY: u8 = 0x20;
+    pub const FIXED_DIMENSIONS: u8 = 0x40;
+    pub const NO_GRASS: u8 = 0x80;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for WrldFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldFlags {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct WrldMoreFlags(pub u8);
+
+impl WrldMoreFlags {
+    pub const FOLLOWERS_CANT_WARP_HERE: u8 = 0x1;
+    pub const SHOW_SPACE: u8 = 0x2;
+    pub const PREVENT_MERGE_CELL_CONTENT: u8 = 0x4;
+    pub const ALLOW_PROC_GEN: u8 = 0x8;
+    pub const ALLOW_CELL_CONTENT: u8 = 0x10;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for WrldMoreFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldMoreFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldRegionEditorMapBounds {
+    pub nw_cell_x: i16,
+    pub se_cell_y: i16,
+    pub se_cell_x: i16,
+    pub nw_cell_y: i16,
+}
+
+impl Field for WrldRegionEditorMapBounds {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "WRLD.RegionEditorMap.NAM6.NwCellX", ctx)?;
+        let f1 = i16::read(r, "WRLD.RegionEditorMap.NAM6.SeCellY", ctx)?;
+        let f2 = i16::read(r, "WRLD.RegionEditorMap.NAM6.SeCellX", ctx)?;
+        let f3 = i16::read(r, "WRLD.RegionEditorMap.NAM6.NwCellY", ctx)?;
+        Ok(Self {
+            nw_cell_x: f0,
+            se_cell_y: f1,
+            se_cell_x: f2,
+            nw_cell_y: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.nw_cell_x.write(out);
+        self.se_cell_y.write(out);
+        self.se_cell_x.write(out);
+        self.nw_cell_y.write(out);
+    }
+}
+
+impl Visit for WrldRegionEditorMapBounds {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct WrldRegionEditorMap {
+    /// `NAM5`, required.
+    pub texture: Option<Sub<ZString>>,
+    /// `NAM6`, optional.
+    pub bounds: Option<Sub<WrldRegionEditorMapBounds>>,
+}
+
+impl WrldRegionEditorMap {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"NAM5",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM6",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.texture,
+                    subs,
+                    *index,
+                    "WRLD.RegionEditorMap.NAM5",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.bounds,
+                    subs,
+                    *index,
+                    "WRLD.RegionEditorMap.NAM6",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"NAM5", self.texture.as_ref());
+        emit(out, *b"NAM6", self.bounds.as_ref());
+    }
+}
+
+impl Visit for WrldRegionEditorMap {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldBoundsMin {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Field for WrldBoundsMin {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "WRLD.NAM0.X", ctx)?;
+        let f1 = f32::read(r, "WRLD.NAM0.Y", ctx)?;
+        Ok(Self { x: f0, y: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+    }
+}
+
+impl Visit for WrldBoundsMin {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldBoundsMax {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl Field for WrldBoundsMax {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "WRLD.NAM9.X", ctx)?;
+        let f1 = f32::read(r, "WRLD.NAM9.Y", ctx)?;
+        Ok(Self { x: f0, y: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+    }
+}
+
+impl Visit for WrldBoundsMax {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldWaterHeightCellsItem {
+    pub cell_y: i16,
+    pub cell_x: i16,
+}
+
+impl Field for WrldWaterHeightCellsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "WRLD.XCLW.CellY", ctx)?;
+        let f1 = i16::read(r, "WRLD.XCLW.CellX", ctx)?;
+        Ok(Self {
+            cell_y: f0,
+            cell_x: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.cell_y.write(out);
+        self.cell_x.write(out);
+    }
+}
+
+impl Visit for WrldWaterHeightCellsItem {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldWaterHeightCells(pub Vec<WrldWaterHeightCellsItem>);
+
+impl Field for WrldWaterHeightCells {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldWaterHeightCells {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldWaterHeights(pub Vec<f32>);
+
+impl Field for WrldWaterHeights {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldWaterHeights {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldLevelDimension {
+    pub nw_cell_x: i8,
+    pub nw_cell_y: i8,
+    pub width: u8,
+    pub height: u8,
+}
+
+impl Field for WrldLevelDimension {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i8::read(r, "WRLD.WLEV.NwCellX", ctx)?;
+        let f1 = i8::read(r, "WRLD.WLEV.NwCellY", ctx)?;
+        let f2 = u8::read(r, "WRLD.WLEV.Width", ctx)?;
+        let f3 = u8::read(r, "WRLD.WLEV.Height", ctx)?;
+        Ok(Self {
+            nw_cell_x: f0,
+            nw_cell_y: f1,
+            width: f2,
+            height: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.nw_cell_x.write(out);
+        self.nw_cell_y.write(out);
+        self.width.write(out);
+        self.height.write(out);
+    }
+}
+
+impl Visit for WrldLevelDimension {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldCellOffsets(pub Vec<u32>);
+
+impl Field for WrldCellOffsets {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldCellOffsets {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct WrldCellSizes(pub Vec<u32>);
+
+impl Field for WrldCellSizes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for WrldCellSizes {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct WrldRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `RNAM`, repeated.
+    pub large_refs: Vec<Sub<WrldLargeRefs>>,
+    /// `MHDT`, optional.
+    pub max_height: Option<Sub<WrldMaxHeight>>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `WCTR`, optional.
+    pub fixed_center: Option<Sub<WrldFixedCenter>>,
+    /// `XLCN`, optional.
+    pub location: Option<Sub<FormId>>,
+    /// `BNAM`, optional.
+    pub biome: Option<Sub<FormId>>,
+    /// Group `ParentWorldspace`, optional.
+    pub parent_worldspace: Option<WrldParentWorldspace>,
+    /// `CNAM`, optional.
+    pub climate: Option<Sub<FormId>>,
+    /// `NAM2`, optional.
+    pub water: Option<Sub<FormId>>,
+    /// `NAM7`, optional.
+    pub water_material: Option<Sub<ZString>>,
+    /// Group `LodData`, optional.
+    pub lod_data: Option<WrldLodData>,
+    /// `DNAM`, optional.
+    pub land_data: Option<Sub<WrldLandData>>,
+    /// `ICON`, optional.
+    pub map_image: Option<Sub<ZString>>,
+    /// `MNAM`, optional.
+    pub map_data: Option<Sub<WrldMapData>>,
+    /// `ONAM`, optional.
+    pub map_offset: Option<Sub<WrldMapOffset>>,
+    /// `NAMA`, optional.
+    pub distant_lod_multiplier: Option<Sub<f32>>,
+    /// `DATA`, optional.
+    pub flags: Option<Sub<WrldFlags>>,
+    /// `FNAM`, optional.
+    pub more_flags: Option<Sub<WrldMoreFlags>>,
+    /// Group `RegionEditorMap`, optional.
+    pub region_editor_map: Option<WrldRegionEditorMap>,
+    /// `NAM0`, required.
+    pub bounds_min: Option<Sub<WrldBoundsMin>>,
+    /// `NAM9`, required.
+    pub bounds_max: Option<Sub<WrldBoundsMax>>,
+    /// `ZNAM`, optional.
+    pub music: Option<Sub<FormId>>,
+    /// `WAMB`, optional.
+    pub ambient_set: Option<Sub<FormId>>,
+    /// `XEMP`, optional.
+    pub environment_map: Option<Sub<ZString>>,
+    /// `XWEM`, optional.
+    pub water_environment_map: Option<Sub<ZString>>,
+    /// `GNAM`, optional.
+    pub gravity_scale: Option<Sub<f32>>,
+    /// `LNAM`, repeated.
+    pub land_textures: Vec<Sub<FormId>>,
+    /// `XCLW`, optional.
+    pub water_height_cells: Option<Sub<WrldWaterHeightCells>>,
+    /// `WHGT`, optional.
+    pub water_heights: Option<Sub<WrldWaterHeights>>,
+    /// `HNAM`, optional.
+    pub hnam: Option<Sub<[u8; 1]>>,
+    /// `WLEV`, optional.
+    pub level_dimension: Option<Sub<WrldLevelDimension>>,
+    /// `WLEV`, optional.
+    pub level_cell_data: Option<Sub<Bytes>>,
+    /// `OFST`, optional.
+    pub cell_offsets: Option<Sub<WrldCellOffsets>>,
+    /// `CLSZ`, optional.
+    pub cell_sizes: Option<Sub<WrldCellSizes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl WrldRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"RNAM",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"MHDT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WCTR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"BNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: WrldParentWorldspace::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM7",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: WrldLodData::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ICON",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ONAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAMA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: WrldRegionEditorMap::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM0",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM9",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ZNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WAMB",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEMP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XWEM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"GNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LNAM",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCLW",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WHGT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"HNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WLEV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WLEV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OFST",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CLSZ",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "WRLD.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    push(&mut self.large_refs, subs, *index, "WRLD.RNAM", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.max_height, subs, *index, "WRLD.MHDT", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.name, subs, *index, "WRLD.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.fixed_center,
+                    subs,
+                    *index,
+                    "WRLD.WCTR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.location, subs, *index, "WRLD.XLCN", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.biome, subs, *index, "WRLD.BNAM", ctx, extra)
+                }
+                Hit::Group { member: 8, hits } if self.parent_worldspace.is_none() => {
+                    let mut group = WrldParentWorldspace::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.parent_worldspace = Some(group);
+                }
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.climate, subs, *index, "WRLD.CNAM", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.water, subs, *index, "WRLD.NAM2", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.water_material,
+                    subs,
+                    *index,
+                    "WRLD.NAM7",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 12, hits } if self.lod_data.is_none() => {
+                    let mut group = WrldLodData::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.lod_data = Some(group);
+                }
+                Hit::Sub { member: 13, index } => {
+                    put(&mut self.land_data, subs, *index, "WRLD.DNAM", ctx, extra)
+                }
+                Hit::Sub { member: 14, index } => {
+                    put(&mut self.map_image, subs, *index, "WRLD.ICON", ctx, extra)
+                }
+                Hit::Sub { member: 15, index } => {
+                    put(&mut self.map_data, subs, *index, "WRLD.MNAM", ctx, extra)
+                }
+                Hit::Sub { member: 16, index } => {
+                    put(&mut self.map_offset, subs, *index, "WRLD.ONAM", ctx, extra)
+                }
+                Hit::Sub { member: 17, index } => put(
+                    &mut self.distant_lod_multiplier,
+                    subs,
+                    *index,
+                    "WRLD.NAMA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 18, index } => {
+                    put(&mut self.flags, subs, *index, "WRLD.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 19, index } => {
+                    put(&mut self.more_flags, subs, *index, "WRLD.FNAM", ctx, extra)
+                }
+                Hit::Group { member: 20, hits } if self.region_editor_map.is_none() => {
+                    let mut group = WrldRegionEditorMap::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.region_editor_map = Some(group);
+                }
+                Hit::Sub { member: 21, index } => {
+                    put(&mut self.bounds_min, subs, *index, "WRLD.NAM0", ctx, extra)
+                }
+                Hit::Sub { member: 22, index } => {
+                    put(&mut self.bounds_max, subs, *index, "WRLD.NAM9", ctx, extra)
+                }
+                Hit::Sub { member: 23, index } => {
+                    put(&mut self.music, subs, *index, "WRLD.ZNAM", ctx, extra)
+                }
+                Hit::Sub { member: 24, index } => {
+                    put(&mut self.ambient_set, subs, *index, "WRLD.WAMB", ctx, extra)
+                }
+                Hit::Sub { member: 25, index } => put(
+                    &mut self.environment_map,
+                    subs,
+                    *index,
+                    "WRLD.XEMP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 26, index } => put(
+                    &mut self.water_environment_map,
+                    subs,
+                    *index,
+                    "WRLD.XWEM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 27, index } => put(
+                    &mut self.gravity_scale,
+                    subs,
+                    *index,
+                    "WRLD.GNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 28, index } => push(
+                    &mut self.land_textures,
+                    subs,
+                    *index,
+                    "WRLD.LNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 29, index } => put(
+                    &mut self.water_height_cells,
+                    subs,
+                    *index,
+                    "WRLD.XCLW",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 30, index } => put(
+                    &mut self.water_heights,
+                    subs,
+                    *index,
+                    "WRLD.WHGT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 31, index } => {
+                    put(&mut self.hnam, subs, *index, "WRLD.HNAM", ctx, extra)
+                }
+                Hit::Sub { member: 32, index } => put(
+                    &mut self.level_dimension,
+                    subs,
+                    *index,
+                    "WRLD.WLEV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 33, index } => put(
+                    &mut self.level_cell_data,
+                    subs,
+                    *index,
+                    "WRLD.WLEV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 34, index } => put(
+                    &mut self.cell_offsets,
+                    subs,
+                    *index,
+                    "WRLD.OFST",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 35, index } => {
+                    put(&mut self.cell_sizes, subs, *index, "WRLD.CLSZ", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        for value in &self.large_refs {
+            emit(out, *b"RNAM", Some(value));
+        }
+        emit(out, *b"MHDT", self.max_height.as_ref());
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"WCTR", self.fixed_center.as_ref());
+        emit(out, *b"XLCN", self.location.as_ref());
+        emit(out, *b"BNAM", self.biome.as_ref());
+        if let Some(group) = &self.parent_worldspace {
+            group.emit(out);
+        }
+        emit(out, *b"CNAM", self.climate.as_ref());
+        emit(out, *b"NAM2", self.water.as_ref());
+        emit(out, *b"NAM7", self.water_material.as_ref());
+        if let Some(group) = &self.lod_data {
+            group.emit(out);
+        }
+        emit(out, *b"DNAM", self.land_data.as_ref());
+        emit(out, *b"ICON", self.map_image.as_ref());
+        emit(out, *b"MNAM", self.map_data.as_ref());
+        emit(out, *b"ONAM", self.map_offset.as_ref());
+        emit(out, *b"NAMA", self.distant_lod_multiplier.as_ref());
+        emit(out, *b"DATA", self.flags.as_ref());
+        emit(out, *b"FNAM", self.more_flags.as_ref());
+        if let Some(group) = &self.region_editor_map {
+            group.emit(out);
+        }
+        emit(out, *b"NAM0", self.bounds_min.as_ref());
+        emit(out, *b"NAM9", self.bounds_max.as_ref());
+        emit(out, *b"ZNAM", self.music.as_ref());
+        emit(out, *b"WAMB", self.ambient_set.as_ref());
+        emit(out, *b"XEMP", self.environment_map.as_ref());
+        emit(out, *b"XWEM", self.water_environment_map.as_ref());
+        emit(out, *b"GNAM", self.gravity_scale.as_ref());
+        for value in &self.land_textures {
+            emit(out, *b"LNAM", Some(value));
+        }
+        emit(out, *b"XCLW", self.water_height_cells.as_ref());
+        emit(out, *b"WHGT", self.water_heights.as_ref());
+        emit(out, *b"HNAM", self.hnam.as_ref());
+        emit(out, *b"WLEV", self.level_dimension.as_ref());
+        emit(out, *b"WLEV", self.level_cell_data.as_ref());
+        emit(out, *b"OFST", self.cell_offsets.as_ref());
+        emit(out, *b"CLSZ", self.cell_sizes.as_ref());
+    }
+}
+
+impl Visit for WrldRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.large_refs, "WRLD.RNAM", out);
+        visit_form_ids(&self.location, "WRLD.XLCN", out);
+        visit_form_ids(&self.biome, "WRLD.BNAM", out);
+        visit_form_ids(&self.parent_worldspace, "WRLD.ParentWorldspace", out);
+        visit_form_ids(&self.climate, "WRLD.CNAM", out);
+        visit_form_ids(&self.water, "WRLD.NAM2", out);
+        visit_form_ids(&self.lod_data, "WRLD.LodData", out);
+        visit_form_ids(&self.music, "WRLD.ZNAM", out);
+        visit_form_ids(&self.ambient_set, "WRLD.WAMB", out);
+        visit_form_ids(&self.land_textures, "WRLD.LNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.large_refs, "WRLD.RNAM", out);
+        visit_form_ids_mut(&mut self.location, "WRLD.XLCN", out);
+        visit_form_ids_mut(&mut self.biome, "WRLD.BNAM", out);
+        visit_form_ids_mut(&mut self.parent_worldspace, "WRLD.ParentWorldspace", out);
+        visit_form_ids_mut(&mut self.climate, "WRLD.CNAM", out);
+        visit_form_ids_mut(&mut self.water, "WRLD.NAM2", out);
+        visit_form_ids_mut(&mut self.lod_data, "WRLD.LodData", out);
+        visit_form_ids_mut(&mut self.music, "WRLD.ZNAM", out);
+        visit_form_ids_mut(&mut self.ambient_set, "WRLD.WAMB", out);
+        visit_form_ids_mut(&mut self.land_textures, "WRLD.LNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "WRLD.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "WRLD.FULL", out);
+    }
+}
+
+impl WrldRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"WRLD";
+    /// Record-header flag.
+    pub const FLAG_UNIQUE_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_PARTIAL_FORM: u32 = 0x4000;
+    /// Record-header flag.
+    pub const FLAG_CANT_WAIT_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("WRLD", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("WRLD", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("WRLD", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("WRLD", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ZoomRecord {
     /// `EDID`, required.
@@ -6669,6 +7994,7 @@ pub enum Record {
     Omod(Box<OmodRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
+    Wrld(Box<WrldRecord>),
     Zoom(Box<ZoomRecord>),
 }
 
@@ -6685,6 +8011,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"OMOD", OmodRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
+    (*b"WRLD", WrldRecord::MEMBERS),
     (*b"ZOOM", ZoomRecord::MEMBERS),
 ];
 
@@ -6704,6 +8031,7 @@ impl Record {
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
+            b"WRLD" => Self::Wrld(Box::new(WrldRecord::decode(subs, ctx))),
             b"ZOOM" => Self::Zoom(Box::new(ZoomRecord::decode(subs, ctx))),
             _ => return None,
         })
@@ -6723,6 +8051,7 @@ impl Record {
             Self::Omod(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
+            Self::Wrld(record) => record.encode(),
             Self::Zoom(record) => record.encode(),
         }
     }
@@ -6741,6 +8070,7 @@ impl Record {
             Self::Omod(_) => OmodRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
+            Self::Wrld(_) => WrldRecord::SIGNATURE,
             Self::Zoom(_) => ZoomRecord::SIGNATURE,
         }
     }
@@ -6759,6 +8089,7 @@ impl Record {
             Self::Omod(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
+            Self::Wrld(record) => record.form_ids(),
             Self::Zoom(record) => record.form_ids(),
         }
     }
@@ -6777,6 +8108,7 @@ impl Record {
             Self::Omod(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
+            Self::Wrld(record) => record.form_ids_mut(),
             Self::Zoom(record) => record.form_ids_mut(),
         }
     }
@@ -6795,6 +8127,7 @@ impl Record {
             Self::Omod(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
+            Self::Wrld(record) => record.lstrings(),
             Self::Zoom(record) => record.lstrings(),
         }
     }
@@ -6813,6 +8146,7 @@ impl Record {
             Self::Omod(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
+            Self::Wrld(record) => record.lstrings_mut(),
             Self::Zoom(record) => record.lstrings_mut(),
         }
     }
@@ -6832,6 +8166,7 @@ impl Record {
             Self::Omod(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
+            Self::Wrld(record) => &record.extra,
             Self::Zoom(record) => &record.extra,
         }
     }

@@ -1,0 +1,592 @@
+# WRLD: worldspace. The record sits in the top WRLD group; its persistent cell, exterior
+# blocks and cells follow in the world children group (type 1) labelled with its FormID.
+#
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the WRLD definition of wbDefinitionsSF1.pas at the pinned revision (L18940-L19035)
+#     and the worldspace helpers in wbDefinitionsCommon.pas it uses (Starfield branches only):
+#     member order, field layouts, FormID target types, flag values.
+#   corpus: tests/world_family.rs over every WRLD record of the 14 official ESMs (see the
+#     record evidence). Every official WRLD keeps xEdit's member order.
+#
+# Several members that xEdit lists are, in the official files, only found inside a BFCB
+# component block (BNAM, PNAM, NAM2..NAM9, ZNAM ... CITC/CTDA); those bytes belong to the
+# block and stay raw there. OFST and CLSZ are per-cell u32 tables, row after row; the row
+# width follows from the bounds (NAM0/NAM9 X) and is not stored, so the tables are typed as
+# flat lists. RNAM (large references) carries its own u32 count.
+#
+# Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored values
+# (0 means none). Members no official WRLD has stay at `reference`.
+signature = "WRLD"
+name = "Worldspace"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18940-L19035"
+confidence = "corpus"
+flags = [["UniqueNonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["PartialForm", 0x4000], ["CantWaitHasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18958-L18958"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "583 EDID placed in the corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18959-L18959"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "base form components; payloads kept raw"
+
+[[member]]
+sig = "RNAM"
+name = "LargeRefs"
+type = "struct"
+card = "repeated"
+field = [
+  { name = "CellY", type = "i16" },
+  { name = "CellX", type = "i16" },
+  { name = "Count", type = "u32" },
+  { name = "Refs", type = "array", element = "struct", count_from = "Count", field = [{ name = "Ref", type = "formid", targets = ["REFR"] }, { name = "CellY", type = "i16" }, { name = "CellX", type = "i16" }] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18960-L18960"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10011-L10039",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "one subrecord per cell that holds large references; 4,461 RNAM placed in the corpus"
+
+[[member]]
+sig = "MHDT"
+name = "MaxHeight"
+type = "struct"
+card = "optional"
+field = [
+  { name = "MinX", type = "i16" },
+  { name = "MinY", type = "i16" },
+  { name = "MaxX", type = "i16" },
+  { name = "MaxY", type = "i16" },
+  { name = "Cells", type = "array", element = "struct", count = "rest", field = [{ name = "BottomLeft", type = "u8" }, { name = "BottomRight", type = "u8" }, { name = "TopLeft", type = "u8" }, { name = "TopRight", type = "u8" }] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18961-L18961"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10128-L10180",
+]
+confidence = "reference"
+note = "cell heights row after row; not in any official WRLD"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18962-L18962"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "564 FULL placed in the corpus"
+
+[[member]]
+sig = "WCTR"
+name = "FixedCenter"
+type = "struct"
+card = "optional"
+size = 4
+field = [
+  { name = "X", type = "i16" },
+  { name = "Y", type = "i16" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18963-L18963"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9976-L9986",
+]
+confidence = "reference"
+note = "not in any official WRLD"
+
+[[member]]
+sig = "XLCN"
+name = "Location"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18964-L18964"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "536 XLCN placed in the corpus"
+
+[[member]]
+sig = "BNAM"
+name = "Biome"
+type = "formid"
+card = "optional"
+targets = ["BIOM"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18965-L18965"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "96 BNAM placed in the corpus"
+
+[[member]]
+group = "ParentWorldspace"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18966-L18979"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "WNAM"
+name = "World"
+type = "formid"
+targets = ["WRLD"]
+note = "8 WNAM placed in the corpus"
+
+[[member.member]]
+sig = "PNAM"
+name = "UseFlags"
+type = "flags"
+card = "optional"
+base = "u16"
+bits = [["UseLandData", 1], ["UseLodData", 2], ["UseMapData", 4], ["UseWaterData", 8], ["UseClimateData", 16], ["UseSkyCell", 64]]
+note = "8 PNAM placed in the corpus"
+
+[[member]]
+sig = "CNAM"
+name = "Climate"
+type = "formid"
+card = "optional"
+targets = ["CLMT"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18980-L18980"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "30 CNAM placed in the corpus"
+
+[[member]]
+sig = "NAM2"
+name = "Water"
+type = "formid"
+card = "optional"
+targets = ["WATR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18981-L18983"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "208 NAM2 placed in the corpus"
+
+[[member]]
+sig = "NAM7"
+name = "WaterMaterial"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18984-L18984"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "38 NAM7 placed in the corpus"
+
+[[member]]
+group = "LodData"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18985-L18985"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9988-L9995",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "NAM3"
+name = "LodWater"
+type = "formid"
+card = "optional"
+targets = ["WATR"]
+note = "568 NAM3 placed in the corpus"
+
+[[member.member]]
+sig = "NAM4"
+name = "LodWaterHeight"
+type = "f32"
+card = "optional"
+note = "568 NAM4 placed in the corpus"
+
+[[member]]
+sig = "DNAM"
+name = "LandData"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "DefaultLandHeight", type = "f32" },
+  { name = "DefaultWaterHeight", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18986-L18986"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9997-L10009",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 DNAM placed in the corpus"
+
+[[member]]
+sig = "ICON"
+name = "MapImage"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18987-L18987"
+confidence = "reference"
+note = "not in any official WRLD"
+
+[[member]]
+sig = "MNAM"
+name = "MapData"
+type = "struct"
+card = "optional"
+size = 16
+field = [
+  { name = "UsableX", type = "i32" },
+  { name = "UsableY", type = "i32" },
+  { name = "NwCellX", type = "i16" },
+  { name = "NwCellY", type = "i16" },
+  { name = "SeCellX", type = "i16" },
+  { name = "SeCellY", type = "i16" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18988-L18988"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10065-L10107",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 MNAM placed in the corpus"
+
+[[member]]
+sig = "ONAM"
+name = "MapOffset"
+type = "struct"
+card = "optional"
+size = 16
+field = [
+  { name = "Scale", type = "f32" },
+  { name = "CellXOffset", type = "f32" },
+  { name = "CellYOffset", type = "f32" },
+  { name = "CellZOffset", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18989-L18989"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10109-L10126",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 ONAM placed in the corpus"
+
+[[member]]
+sig = "NAMA"
+name = "DistantLodMultiplier"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18990-L18992"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 NAMA placed in the corpus"
+
+[[member]]
+sig = "DATA"
+name = "Flags"
+type = "flags"
+card = "optional"
+base = "u8"
+bits = [["SmallWorld", 1], ["CantFastTravel", 2], ["NoLodWater", 8], ["NoLandscape", 16], ["NoSky", 32], ["FixedDimensions", 64], ["NoGrass", 128]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18993-L19005"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 DATA placed in the corpus"
+
+[[member]]
+sig = "FNAM"
+name = "MoreFlags"
+type = "flags"
+card = "optional"
+base = "u8"
+bits = [["FollowersCantWarpHere", 1], ["ShowSpace", 2], ["PreventMergeCellContent", 4], ["AllowProcGen", 8], ["AllowCellContent", 16]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19006-L19015"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 FNAM placed in the corpus"
+
+[[member]]
+group = "RegionEditorMap"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19016-L19016"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10244-L10261",
+]
+confidence = "reference"
+
+[[member.member]]
+sig = "NAM5"
+name = "Texture"
+type = "zstring"
+note = "not in any official WRLD"
+
+[[member.member]]
+sig = "NAM6"
+name = "Bounds"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "NwCellX", type = "i16" },
+  { name = "SeCellY", type = "i16" },
+  { name = "SeCellX", type = "i16" },
+  { name = "NwCellY", type = "i16" },
+]
+note = "not in any official WRLD"
+
+[[member]]
+sig = "NAM0"
+name = "BoundsMin"
+type = "struct"
+size = 8
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19017-L19017"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10182-L10220",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "in cells; 583 NAM0 placed in the corpus"
+
+[[member]]
+sig = "NAM9"
+name = "BoundsMax"
+type = "struct"
+size = 8
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19017-L19017"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10182-L10220",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "in cells; 583 NAM9 placed in the corpus"
+
+[[member]]
+sig = "ZNAM"
+name = "Music"
+type = "formid"
+card = "optional"
+targets = ["MUSC"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19018-L19018"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "29 ZNAM placed in the corpus"
+
+[[member]]
+sig = "WAMB"
+name = "AmbientSet"
+type = "formid"
+card = "optional"
+targets = ["AMBS"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19019-L19019"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "20 WAMB placed in the corpus"
+
+[[member]]
+sig = "XEMP"
+name = "EnvironmentMap"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19020-L19020"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "11 XEMP placed in the corpus"
+
+[[member]]
+sig = "XWEM"
+name = "WaterEnvironmentMap"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19021-L19021"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "5 XWEM placed in the corpus"
+
+[[member]]
+sig = "GNAM"
+name = "GravityScale"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19022-L19024"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "568 GNAM placed in the corpus"
+
+[[member]]
+sig = "LNAM"
+name = "LandTextures"
+type = "formid"
+card = "repeated"
+targets = ["LTEX"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19025-L19027"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "ordered land textures; 11 LNAM placed in the corpus"
+
+[[member]]
+sig = "XCLW"
+name = "WaterHeightCells"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "CellY", type = "i16" },
+  { name = "CellX", type = "i16" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19028-L19028"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10317-L10338",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "cells with their own water height; 568 XCLW placed in the corpus"
+
+[[member]]
+sig = "WHGT"
+name = "WaterHeights"
+type = "array"
+card = "optional"
+count = "rest"
+element = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19028-L19028"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10317-L10338",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "one height per XCLW cell; 568 WHGT placed in the corpus"
+
+[[member]]
+sig = "HNAM"
+name = "Hnam"
+type = "opaque"
+card = "optional"
+size = 1
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19029-L19030"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "meaning unknown in xEdit; 568 HNAM placed in the corpus"
+
+[[member]]
+sig = "WLEV"
+name = "LevelDimension"
+type = "struct"
+card = "optional"
+size = 4
+field = [
+  { name = "NwCellX", type = "i8" },
+  { name = "NwCellY", type = "i8" },
+  { name = "Width", type = "u8" },
+  { name = "Height", type = "u8" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19031-L19031"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10041-L10063",
+]
+confidence = "reference"
+note = "first of the two WLEV subrecords; not in any official WRLD"
+
+[[member]]
+sig = "WLEV"
+name = "LevelCellData"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19031-L19031"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10041-L10063",
+]
+confidence = "reference"
+note = "second of the two WLEV subrecords; not in any official WRLD"
+
+[[member]]
+sig = "OFST"
+name = "CellOffsets"
+type = "array"
+card = "optional"
+count = "rest"
+element = "u32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19032-L19032"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10222-L10242",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1849-L1884",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "per-cell table, row after row; row width is BoundsMax.X - BoundsMin.X + 1 (rounded); 581 OFST placed in the corpus"
+
+[[member]]
+sig = "CLSZ"
+name = "CellSizes"
+type = "array"
+card = "optional"
+count = "rest"
+element = "u32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19033-L19033"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9956-L9974",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1849-L1884",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 583 WRLD records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "per-cell table laid out like CellOffsets; 581 CLSZ placed in the corpus"
