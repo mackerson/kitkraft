@@ -13,8 +13,11 @@ pub struct Ini {
 }
 
 impl Ini {
-    /// Parse INI text. Lines outside a section go to section `""`.
+    /// Parse INI text. Lines outside a section go to section `""`. A leading UTF-8 byte
+    /// order mark is dropped (an editor that saves `ModOrganizer.ini` with one would
+    /// otherwise hide `[General]`, and with it `selected_profile`).
     pub fn parse(text: &str) -> Ini {
+        let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let mut ini = Ini::default();
         let mut section = String::new();
         for line in text.lines() {
@@ -77,5 +80,17 @@ mod tests {
             Some("D:\\mods")
         );
         assert_eq!(ini.get("General", "missing"), None);
+    }
+
+    /// Fable review (deploy round): a UTF-8 BOM before `[General]` hid the section, so
+    /// `selected_profile` read as absent and the `Default` gate failed open.
+    #[test]
+    fn a_utf8_bom_does_not_hide_the_first_section() {
+        let bytes = b"\xef\xbb\xbf[General]\r\nselected_profile=@ByteArray(Default)\r\n";
+        let ini = Ini::parse(&String::from_utf8_lossy(bytes));
+        assert_eq!(
+            ini.get("General", "selected_profile").as_deref(),
+            Some("Default")
+        );
     }
 }

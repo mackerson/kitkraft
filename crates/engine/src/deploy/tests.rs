@@ -434,6 +434,97 @@ fn default_profile_is_refused_by_name() {
     assert_eq!(mo2.protected(), before);
 }
 
+/// Fable review (deploy round), finding 1: a `ModOrganizer.ini` saved with a UTF-8 BOM
+/// hid `[General]`, so `selected_profile=Default` read as absent and the gate failed open.
+#[test]
+fn bom_before_general_still_refuses_default() {
+    let mo2 = Mo2::new("bom");
+    let src = mo2.plugin(b"TES4");
+    let game = mo2
+        .root
+        .join("Game")
+        .to_string_lossy()
+        .replace('\\', "\\\\");
+    let mut ini = b"\xef\xbb\xbf".to_vec();
+    ini.extend_from_slice(
+        format!(
+            "[General]\r\nselected_profile=@ByteArray(Default)\r\ngamePath=@ByteArray({game})\r\n"
+        )
+        .as_bytes(),
+    );
+    mo2.write("mo2/ModOrganizer.ini", &ini);
+    let e = err_text(mo2.deploy(&src));
+    assert!(e.contains("[live-profile]"), "{e}");
+    assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+}
+
+/// Fable review (deploy round), finding 1: an INI that names no active profile is not
+/// "not `Default`". Refused unless `profile` names an existing profile other than
+/// `Default`; finding 9: diagnostics never read a `profile` the check refused.
+#[test]
+fn unknown_active_profile_fails_closed() {
+    let mo2 = Mo2::new("noprofile");
+    let src = mo2.plugin(b"TES4");
+    let game = mo2
+        .root
+        .join("Game")
+        .to_string_lossy()
+        .replace('\\', "\\\\");
+    for general in [
+        String::new(),
+        "selected_profile=\r\n".to_string(),
+        "selected_profile=@ByteArray()\r\n".to_string(),
+    ] {
+        mo2.write(
+            "mo2/ModOrganizer.ini",
+            format!("[General]\r\n{general}gamePath=@ByteArray({game})\r\n").as_bytes(),
+        );
+        let e = err_text(mo2.deploy(&src));
+        assert!(e.contains("[live-profile-unknown]"), "{general:?}: {e}");
+        assert!(err_text(mo2.rollback()).contains("live-profile-unknown"));
+        for bad in ["Default", "KitKraft Dve"] {
+            let r = execute(
+                "deploy",
+                json!({"source": src.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "profile": bad}),
+            );
+            assert!(err_text(r).contains("live-profile-unknown"), "{bad}");
+        }
+        assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+    }
+    // A dry run with a refused `profile`: diagnostics fall back, never read the bad name.
+    let r = execute(
+        "deploy",
+        json!({"source": src.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "dry_run": true, "profile": "KitKraft Dve"}),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["passed"], false);
+    let rules: Vec<&str> = r["data"]["refusals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["rule"].as_str().unwrap())
+        .collect();
+    assert_eq!(rules, ["live-profile-unknown", "profile-missing"]);
+    assert_eq!(r["data"]["profile"]["profile"], "KitKraft Dev");
+    let s = execute(
+        "deploy.status",
+        json!({"mo2": mo2.mo2().to_str().unwrap(), "profile": "KitKraft Dve"}),
+    )
+    .unwrap();
+    let warnings = s["data"]["warnings"].to_string();
+    assert!(
+        warnings.contains("names no active profile") && warnings.contains("profile-missing"),
+        "{warnings}"
+    );
+    // Named explicitly, an existing profile other than Default lets it through.
+    let r = execute(
+        "deploy",
+        json!({"source": src.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "profile": "KitKraft Dev"}),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+}
+
 #[test]
 fn same_named_folder_that_is_not_kitkraft_s_is_refused() {
     let mo2 = Mo2::new("collision");

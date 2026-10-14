@@ -1190,13 +1190,21 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
     }
     let mut warnings = Vec::new();
     let active = inst.selected_profile.clone();
-    if active
-        .as_deref()
-        .is_some_and(|p| p.eq_ignore_ascii_case(LIVE_PROFILE))
-    {
-        warnings.push(format!(
+    match active.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
+        Some(p) if p.eq_ignore_ascii_case(LIVE_PROFILE) => warnings.push(format!(
             "MO2's active profile is `{LIVE_PROFILE}` (the live game): deploy and rollback refuse until MO2 is switched to `{DEV_PROFILE}`"
-        ));
+        )),
+        Some(_) => {}
+        None => warnings.push(format!(
+            "ModOrganizer.ini names no active profile: deploy and rollback refuse unless --profile names an existing profile other than `{LIVE_PROFILE}`"
+        )),
+    }
+    if let Some(e) = req
+        .profile
+        .as_deref()
+        .and_then(|p| inst.check_profile_arg(p))
+    {
+        warnings.push(format!("profile not read: {e}"));
     }
     let mut out = Vec::new();
     let mut lines = Vec::new();

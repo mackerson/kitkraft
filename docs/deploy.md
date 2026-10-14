@@ -23,7 +23,10 @@ Arguments (JSON, same over MCP `execute` / `command_line`, which carry `destruct
   call; no configuration file, environment variable or session supplies it.
 - `dev`: required and must be `true` (`--dev`). The schema admits only `true`, and the
   handler checks it again.
-- `profile`: the MO2 profile to check (read-only diagnostics). Never `Default`.
+- `profile`: the MO2 profile to check (read-only diagnostics). Never `Default`. A
+  `profile` that is refused (`Default`, missing, a bad name) is never read for
+  diagnostics. When `ModOrganizer.ini` names no active profile, `profile` must name an
+  existing profile other than `Default` or the call is refused (`live-profile-unknown`).
 - `dry_run`: report the plan, the refusals and every path that would be touched; write
   nothing. The result's `data.passed` is `false` when the real call would be refused
   (CLI exit 1).
@@ -89,7 +92,9 @@ A folder of the target name is written only when this file is present and its `k
 
 1. Resolve the instance from `ModOrganizer.ini` (read-only): `mods\` (`mod_directory`,
    default `<base>\mods`), `profiles\`, `overwrite\`, `downloads\`, `selected_profile`,
-   `gamePath`. Refuse if MO2's active profile or `profile` is `Default`.
+   `gamePath` (a UTF-8 byte order mark is ignored). Refuse if MO2's active profile or
+   `profile` is `Default`, and when the INI names no active profile unless `profile`
+   names an existing profile other than `Default` (the gate fails closed).
 2. Read and hash the source (SHA-256 of every file); verify it against
    `kitcraft-manifest.json` when there is one.
 3. Recover a journal left by an interrupted call (below).
@@ -129,6 +134,7 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `dev-flag-required`   | `dev` is not `true` (the schema already rejects it as `invalid_args`) |
 | `mo2-instance`        | `mo2` has no `ModOrganizer.ini`, or its `mods\` or `profiles\` folder is missing |
 | `live-profile`        | MO2's active profile, or `profile`, is `Default` (any case)          |
+| `live-profile-unknown`| `ModOrganizer.ini` names no active profile (`selected_profile` missing or empty) and `profile` does not name an existing profile other than `Default` |
 | `profile-missing` / `profile-name` | `profile` is not a profile folder of the instance       |
 | `reparse-point`       | A component of `mo2`, `mods\`, the target, or an entry in the source or a dev mod folder is a symbolic link or junction |
 | `location`            | `mods\` is inside the game's Data folder (or one of profiles, overwrite, downloads is inside `mods\`), the instance is inside the game or user Data folder or another instance (`guard_location`, shared with `set` and `build`), or the source overlaps the dev mod's folders |
