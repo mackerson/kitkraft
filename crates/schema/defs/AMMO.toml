@@ -1,123 +1,301 @@
-# AMMO: subrecord inventory. The universal subrecords (EDID, FULL, DESC, and KSIZ/KWDA as
-# the shared Keywords group) are typed (M2.B2, sources on each member); every other payload
-# is opaque until the record layout is transcribed (lane B round 3, xEdit at the pin).
+# AMMO: ammunition.
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the AMMO top groups of the 14 official
-# ESMs (2026-10-14): 154 records, form versions 581/582, 9 distinct subrecord sequences, all
-# consistent with the order below. FLLD occurs exactly twice per record, at the two
-# positions listed. "required" means present in every corpus record.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the AMMO definition of wbDefinitionsSF1.pas at the pinned revision (L9412-L9470) and
+#     the helpers it uses there and in wbDefinitionsCommon.pas: member order, cardinality,
+#     field layouts, FormID target types, flag values.
+#   corpus: the round 3 typed check of all 154 official AMMO records (14 files, form versions
+#     581 and 582): every member marked `corpus` occurs with the declared size and order in
+#     every record, nothing is left in `extra`, and every record re-encodes identically.
+#   uesp-skyrim / universal scan: the EDID, FULL and DESC string conventions (M2.B2).
 #
-# Opaque member names are placeholders derived from the signature.
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. Members xEdit lists but no official AMMO has (VMAD, SNTP, SNBH,
+# DEFL, XALG, BFCB blocks, the destructible block) stay at `reference`; VMAD stays opaque.
 signature = "AMMO"
 name = "Ammunition"
-source = "corpus: AMMO records of the 14 official ESMs, scan 2026-10-14"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9412-L9470"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
 confidence = "corpus"
+flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000], ["MustBeUnique", 0x80000000]]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9430-L9430"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9431-L9431"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; built from unions in xEdit, kept raw; not in any official AMMO"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-note = "observed 24 bytes"
+name = "ObjectBounds"
+type = "struct"
+size = 24
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9432-L9432"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Min", type = "ref:Vec3" },
+  { name = "Max", type = "ref:Vec3" },
+]
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-note = "observed 4 bytes"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9433-L9433"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+card = "optional"
+targets = ["STMP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9434-L9434"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919",
+]
+confidence = "reference"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+card = "optional"
+targets = ["STBH"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9435-L9435"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920",
+]
+confidence = "reference"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+card = "optional"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9436-L9436"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963",
+]
+confidence = "reference"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9437-L9437"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+]
+confidence = "reference"
+note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer; not in any official AMMO"
 
 [[member]]
 sig = "PTT2"
-name = "Ptt2"
-type = "opaque"
+name = "Transforms"
+type = "struct"
 card = "optional"
-note = "observed 32 bytes, in 71 records"
+size = 32
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9438-L9438"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "InventoryIcon", type = "formid", targets = ["TRNS"] },
+  { name = "WorkshopIcon", type = "formid", targets = ["TRNS"] },
+  { name = "ShipBuilderIcon", type = "formid", targets = ["TRNS"] },
+  { name = "Preview", type = "formid", targets = ["TRNS"] },
+  { name = "Inventory3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "Workbench3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "DataMenu3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "ResearchMenu3dOverride", type = "formid", targets = ["TRNS"] },
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9439-L9439"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
 
 [[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9440-L9440"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9441-L9441"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "xEdit marks the block required; its file name is optional"
+
+[[member]]
+group_ref = "Destructible"
 card = "optional"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-note = "first of two FLLD slots; observed 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9442-L9442"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
+]
+confidence = "reference"
+note = "not in any official AMMO"
 
 [[member]]
 sig = "PUSH"
-name = "Push"
-type = "opaque"
+name = "PickupSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9443-L9443"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PDSH"
-name = "Pdsh"
-type = "opaque"
+name = "PutdownSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9444-L9444"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DESC"
 name = "Description"
 type = "lstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9445-L9445"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3186-L3189",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9446-L9446"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DATA"
 name = "Data"
-type = "opaque"
-note = "observed 8 bytes"
+type = "struct"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9447-L9454"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Value", type = "u32" },
+  { name = "Weight", type = "f32", if_remaining = true, note = "xEdit makes every field after Value optional; present in every official AMMO" },
+]
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
-note = "observed 16 bytes"
+name = "AmmoData"
+type = "struct"
+size = 16
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9455-L9465"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Projectile", type = "formid", targets = ["PROJ"] },
+  { name = "Flags", type = "flags", base = "u8", bits = [["IgnoresNormalWeaponResistance", 0x1], ["NonPlayable", 0x2], ["HasCountBased3d", 0x4]] },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Damage", type = "f32" },
+  { name = "Health", type = "u32" },
+]
 
 [[member]]
 sig = "ONAM"
-name = "Onam"
-type = "opaque"
+name = "ShortName"
+type = "lstring"
 card = "optional"
-note = "observed 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9466-L9466"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "NAM1"
-name = "Nam1"
-type = "opaque"
+name = "CasingModel"
+type = "zstring"
 card = "optional"
-note = "observed variable size"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9467-L9467"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FLLD"
-name = "Flld2"
-type = "opaque"
-note = "second of two FLLD slots; observed 4 bytes"
+name = "CasingLightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9469-L9469"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 154 AMMO records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "the second FLLD of the record (the first is in the model block); present in every official AMMO"

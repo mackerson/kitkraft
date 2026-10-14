@@ -9,6 +9,14 @@
 #     official ESMs (2026-10-14 scan): all 504 are 32 bytes, the sum of the field widths
 #     below, and decode and re-encode identically through this group. CTDA inside component
 #     blocks (PCCN, PKIN, GBFM) is kept raw with its block.
+#   corpus (lane B round 3): the CTDA of the COBJ records of the 14 official ESMs (2,833,
+#     all 32 bytes; no CIS1 or CIS2 in COBJ), and the conditions of the FLST and LVLI
+#     records, through the M2.A3 typed check.
+#
+# Integrated (M4.BX1): the planet family and lane B round 3 each wrote this block from
+# the same xEdit range (L4750-L4840); the planet family's typed CTDA struct is kept and
+# round 3's COBJ evidence added. Every record type that references it (COBJ, FLST, LVLI,
+# LVLP, PCBN, PCMT, RSPJ) uses this one definition.
 #
 # What stays opaque, and why: the comparison value, parameters 1 to 3 and the reference
 # are unions whose layout another field selects (the comparison value by a flag in the
@@ -23,6 +31,7 @@ kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"
 evidence = [
   "corpus: the 504 top-level CTDA in the PCMT, PCBN and LVLP records of the 14 official ESMs (2026-10-14): all 32 bytes, every record decodes and re-encodes identically through this group",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14 (lane B round 3): the 2,833 CTDA of the COBJ records of the 14 official ESMs are all 32 bytes and decode and re-encode identically through this group",
 ]
 confidence = "corpus"
 

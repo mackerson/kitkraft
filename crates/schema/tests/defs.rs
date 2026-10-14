@@ -19,14 +19,6 @@ fn sig(s: &str) -> Signature {
     Signature::parse(s).unwrap()
 }
 
-fn all_opaque(members: &[Member]) -> bool {
-    members.iter().all(|m| match m {
-        Member::Subrecord(s) => s.ty.is_opaque(),
-        Member::Group(g) => all_opaque(&g.members),
-        Member::AnyUntil(_) => true,
-    })
-}
-
 /// `*.toml` names in `dir`, prefixed as `load_dir` names them.
 fn toml_names(dir: &Path, prefix: &str, out: &mut BTreeSet<String>) {
     for entry in std::fs::read_dir(dir).unwrap() {
@@ -150,9 +142,13 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "AMDL", "AMMO", "BIOM", "COBJ", "GBFM", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN",
-            "PCCN", "PCMT", "PKIN", "PNDT", "RSGD", "RSPJ", "SFBK", "SFPT", "STDT", "SUNP", "TES4",
-            "TRAV", "WEAP", "ZOOM"
+            "ACTI", "ALCH", "AMDL", "AMMO", "AVIF", "BIOM", "BOOK", "BPTD", "CELL", "CHAL", "CLAS",
+            "COBJ", "CONT", "DIAL", "DMGT", "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN",
+            "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES",
+            "KEYM", "KYWD", "LCTN", "LSCR", "LVLI", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NPC_",
+            "OMOD", "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT", "PNDT", "PROJ", "QUST", "RACE",
+            "REFR", "RSGD", "RSPJ", "SFBK", "SFPT", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4",
+            "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -163,15 +159,22 @@ fn builtin_set_loads_and_matches_the_directory() {
         [
             "BfcbBlock",
             "BiomeNoiseLayer",
+            "Bool8",
             "ColorBgra",
+            "Component",
             "Condition",
+            "Destructible",
             "Keywords",
+            "Model",
             "ObjectBounds",
+            "ObjectModProperty",
             "ObjectPaletteDefaults",
             "ObteBlock",
             "ResourceBiomeTier",
             "ResourceCellTier",
-            "Transforms"
+            "SoundReference",
+            "Transforms",
+            "Vec3"
         ]
     );
 }
@@ -273,38 +276,31 @@ fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
         .collect()
 }
 
-/// Only sourced members are typed: the universal subrecords (M2.B2) and the layouts M2.B9
-/// sourced; everything else in the inventory definitions stays opaque.
+/// The record types still described by a corpus inventory (M2.B2) type only sourced
+/// members: the universal subrecords, the layouts M2.B9 sourced, and the base form
+/// component frame from the shared `BfcbBlock`; everything else stays opaque until lane B
+/// round 3 transcribes the type.
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 9] = [
-        ("AMDL", &["EditorId"]),
+    let expected: [(&str, &[&str]); 3] = [
+        ("GMST", &["EditorId", "Value"]),
         (
-            "AMMO",
+            "GLOB",
             &[
                 "EditorId",
-                "Name",
-                "Description",
-                "Keywords.Count",
-                "Keywords.Forms",
+                "BfcbBlock.ComponentType",
+                "BfcbBlock.EndMarker",
+                "Value",
             ],
         ),
-        ("COBJ", &["EditorId", "Description"]),
-        ("OMOD", &["EditorId", "Name", "Description"]),
-        ("ZOOM", &["EditorId"]),
-        ("GMST", &["EditorId", "Value"]),
-        ("GLOB", &["EditorId", "Value"]),
-        ("KYWD", &["EditorId", "Name"]),
         (
-            "WEAP",
+            "KYWD",
             &[
                 "EditorId",
+                "BfcbBlock.ComponentType",
+                "BfcbBlock.EndMarker",
                 "Name",
-                "Keywords.Count",
-                "Keywords.Forms",
-                "Description",
-                "ObteBlock.ObtsEntry.Name",
             ],
         ),
     ];
@@ -313,21 +309,18 @@ fn inventory_definitions_type_only_sourced_members() {
         assert!(rec.provenance.source.starts_with("corpus: "), "{s}");
         assert_eq!(typed_leaves(rec), typed, "{s}");
     }
+    // The component data inside a BFCB block is a union decided by the component type
+    // and stays raw (docs/gaps.md).
     let bfcb = &schema.common["BfcbBlock"];
     let CommonBody::Group(members) = &bfcb.body else {
         panic!("BfcbBlock is a group");
     };
-    assert!(all_opaque(members), "BfcbBlock must stay opaque");
-    let weap = schema.record(sig("WEAP")).unwrap();
-    assert_eq!(weap.note.as_deref(), Some("layout pending ADR 0005"));
-    // The two FLLD slots and the required core of the corpus inventory.
-    let flld = weap
-        .members
-        .iter()
-        .filter(|m| matches!(m, Member::Subrecord(s) if s.signature == sig("FLLD")))
-        .count();
-    assert_eq!(flld, 2);
-    assert_eq!(weap.members.len(), 44);
+    assert!(
+        members
+            .iter()
+            .any(|m| matches!(m, Member::AnyUntil(a) if a.name == "ComponentData")),
+        "BfcbBlock keeps its component data raw"
+    );
     // Shared blocks are referenced, not copied.
     for s in ["GLOB", "KYWD", "WEAP"] {
         let rec = schema.record(sig(s)).unwrap();
@@ -338,11 +331,284 @@ fn inventory_definitions_type_only_sourced_members() {
             "{s}"
         );
     }
+}
+
+/// Every citation of a node, its own and inherited.
+fn all_provenance(rec: &kitcraft_schema::RecordDef) -> Vec<(String, &Provenance)> {
+    let mut provs = vec![(rec.signature.to_string(), &rec.provenance)];
+    member_provenance(&rec.signature.to_string(), &rec.members, &mut provs);
+    provs
+}
+
+/// Lane B round 3 (M3.B1..B7): record types transcribed from the pinned xEdit file. The
+/// record cites its xEdit range, every top-level member cites its own lines, and every
+/// member at `corpus` names the corpus check.
+#[test]
+fn round3_definitions_cite_xedit_per_member() {
+    let schema = builtin().unwrap();
+    for s in ROUND3 {
+        let rec = schema.record(sig(s)).unwrap();
+        assert!(
+            rec.provenance
+                .source
+                .starts_with("xedit: wbDefinitionsSF1.pas@"),
+            "{s}"
+        );
+        for m in &rec.members {
+            let prov = match m {
+                Member::Subrecord(x) => &x.provenance,
+                Member::Group(g) => &g.provenance,
+                Member::AnyUntil(a) => &a.provenance,
+            };
+            assert!(
+                prov.source.starts_with("xedit: ") && prov.source != rec.provenance.source,
+                "{s}.{}: a member cites its own xEdit lines",
+                m.name()
+            );
+        }
+        for (path, prov) in all_provenance(rec) {
+            if prov.confidence == Confidence::Corpus {
+                assert!(
+                    prov.citations().any(|c| c.starts_with("corpus: ")),
+                    "{path}"
+                );
+            }
+        }
+    }
+    let weap = schema.record(sig("WEAP")).unwrap();
+    // FLLD sits in the model block and in the first-person model block.
+    let groups: Vec<&str> = weap
+        .members
+        .iter()
+        .filter_map(|m| match m {
+            Member::Group(g) => Some(g.name.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        groups,
+        [
+            "BfcbBlock",
+            "Model",
+            "Enchantment",
+            "Destructible",
+            "Keywords",
+            "ObteBlock",
+            "FirstPersonModel"
+        ]
+    );
     let known = schema.known_signatures(sig("WEAP")).unwrap();
-    for s in ["BFCB", "BFCE", "OBTE", "OBTF", "OBTS", "STOP", "WTRM"] {
+    for s in [
+        "BFCB", "BFCE", "FLLD", "OBTE", "OBTF", "OBTS", "STOP", "WTRM", "DAMA",
+    ] {
         assert!(known.contains(&sig(s)), "{s}");
     }
+    // Only payloads xEdit decides by a union (or does not describe) stay opaque.
+    let opaque: Vec<String> = weap
+        .leaf_subrecords()
+        .into_iter()
+        .filter(|(_, s)| s.ty.is_opaque())
+        .map(|(p, _)| p)
+        .collect();
+    assert_eq!(opaque, ["Scripts", "FirstPersonModel.Mo4c"]);
 }
+
+/// The (record type, subrecord) pairs lane E's corpus lstring table classifies as lstrings
+/// (`crates/engine/src/edit/lstrings.rs`, built and checked by
+/// `lstring_table_matches_the_corpus`): 105 pairs over 58 record types, copied here so the
+/// schema can be checked against them without depending on the engine.
+const CORPUS_LSTRINGS: &[(&str, &str)] = &[
+    ("ACTI", "ATTX"),
+    ("ACTI", "FULL"),
+    ("ALCH", "DESC"),
+    ("ALCH", "DNAM"),
+    ("ALCH", "FULL"),
+    ("AMMO", "FULL"),
+    ("AMMO", "ONAM"),
+    ("AVIF", "ANAM"),
+    ("AVIF", "FULL"),
+    ("BIOM", "FULL"),
+    ("BOOK", "DESC"),
+    ("BOOK", "ENAM"),
+    ("BOOK", "FNAM"),
+    ("BOOK", "FULL"),
+    ("BPTD", "BPTN"),
+    ("CELL", "FULL"),
+    ("CHAL", "DESC"),
+    ("CHAL", "FULL"),
+    ("CLAS", "FULL"),
+    ("COBJ", "DESC"),
+    ("CONT", "FULL"),
+    ("DIAL", "FULL"),
+    ("DMGT", "FULL"),
+    ("DOOR", "FULL"),
+    ("ENCH", "FULL"),
+    ("EXPL", "FULL"),
+    ("FACT", "FULL"),
+    ("FLOR", "ATTX"),
+    ("FLOR", "FULL"),
+    ("FLST", "FULL"),
+    ("FURN", "ATTX"),
+    ("FURN", "FULL"),
+    ("FXPD", "FULL"),
+    ("GBFM", "FULL"),
+    ("GBFM", "HULL"),
+    ("GPOF", "DNAM"),
+    ("GPOF", "NNAM"),
+    ("GPOF", "RESN"),
+    ("GPOF", "VOVS"),
+    ("HAZD", "FULL"),
+    ("HDPT", "FULL"),
+    ("IDLE", "FULL"),
+    ("INFO", "NAM1"),
+    ("INFO", "RNAM"),
+    ("INNR", "WNAM"),
+    ("IRES", "FULL"),
+    ("IRES", "NNAM"),
+    ("KEYM", "FULL"),
+    ("KYWD", "FULL"),
+    ("LCTN", "FULL"),
+    ("LSCR", "DESC"),
+    ("LVLI", "ONAM"),
+    ("MESG", "DESC"),
+    ("MESG", "FULL"),
+    ("MESG", "ITXT"),
+    ("MESG", "NNAM"),
+    ("MGEF", "DNAM"),
+    ("MGEF", "FULL"),
+    ("MISC", "FULL"),
+    ("MISC", "NNAM"),
+    ("MSTT", "FULL"),
+    ("NPC_", "ATTX"),
+    ("NPC_", "FULL"),
+    ("NPC_", "LNAM"),
+    ("NPC_", "SHRT"),
+    ("OMOD", "DESC"),
+    ("OMOD", "FULL"),
+    ("PERK", "DESC"),
+    ("PERK", "EPF2"),
+    ("PERK", "FULL"),
+    ("PKIN", "FULL"),
+    ("PMFT", "FULL"),
+    ("PNDT", "FULL"),
+    ("PROJ", "FULL"),
+    ("QUST", "CNAM"),
+    ("QUST", "FULL"),
+    ("QUST", "NNAM"),
+    ("QUST", "QMDP"),
+    ("QUST", "QMDS"),
+    ("QUST", "QMDT"),
+    ("QUST", "QMSU"),
+    ("RACE", "DESC"),
+    ("RACE", "FDSL"),
+    ("RACE", "FMRN"),
+    ("RACE", "FULL"),
+    ("RACE", "SNAM"),
+    ("REFR", "FULL"),
+    ("REFR", "UNAM"),
+    ("RSPJ", "DESC"),
+    ("RSPJ", "FULL"),
+    ("SPEL", "DESC"),
+    ("SPEL", "FULL"),
+    ("STAT", "FULL"),
+    ("STDT", "FULL"),
+    ("TERM", "FULL"),
+    ("TMLM", "BTXT"),
+    ("TMLM", "FULL"),
+    ("TMLM", "INAM"),
+    ("TMLM", "ISTX"),
+    ("TMLM", "ITXT"),
+    ("TMLM", "UNAM"),
+    ("WATR", "FULL"),
+    ("WEAP", "FULL"),
+    ("WEAP", "WABB"),
+    ("WRLD", "FULL"),
+];
+
+/// Record types with an lstring-only definition (M3.B8): EDID and their lstrings. A family
+/// lane's full definition replaces one (M4.BX1: BIOM, GBFM, PKIN, PNDT, RSPJ and STDT from
+/// the planet family).
+const LSTRING_ONLY: &[&str] = &[
+    "ACTI", "ALCH", "AVIF", "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "CONT", "DIAL", "DMGT", "DOOR",
+    "ENCH", "EXPL", "FACT", "FLOR", "FURN", "FXPD", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "IRES",
+    "KEYM", "LCTN", "LSCR", "MESG", "MGEF", "MISC", "MSTT", "NPC_", "PERK", "PMFT", "QUST", "RACE",
+    "REFR", "SPEL", "STAT", "TERM", "TMLM", "WATR", "WRLD",
+];
+
+/// Corpus-table lstrings that official records carry only inside a base form component
+/// (BFCB..BFCE): the component data is a union by component type and stays raw in a full
+/// definition (`BfcbBlock`), so the schema cannot type them by position; tools treat them
+/// as lstrings by the FULL/DESC fact or the corpus table (engine `edit::lstrings`). The
+/// lstring-only stubs of lane B round 3 typed them wherever they stood; the planet family's
+/// full definitions replaced those stubs (M4.BX1). xEdit: the full-name component
+/// (wbDefinitionsSF1.pas L6611-L6614) and the hull-code component (L6219-L6222).
+const COMPONENT_LSTRINGS: &[(&str, &str)] = &[("GBFM", "HULL"), ("PNDT", "FULL"), ("STDT", "FULL")];
+
+/// Signatures of the whole-subrecord lstring members of a record, at any depth.
+fn lstring_signatures(rec: &kitcraft_schema::RecordDef) -> BTreeSet<String> {
+    rec.leaf_subrecords()
+        .into_iter()
+        .filter(|(_, s)| s.ty == FieldType::LString)
+        .map(|(_, s)| s.signature.to_string())
+        .collect()
+}
+
+/// M3.B8: every lstring of lane E's corpus table is an lstring member of its record type's
+/// definition (or, for [`COMPONENT_LSTRINGS`], inside the raw data of a base form
+/// component the definition references), and the lstring-only definitions type nothing else
+/// (EDID aside).
+#[test]
+fn lstring_members_cover_the_corpus_table() {
+    let schema = builtin().unwrap();
+    assert_eq!(CORPUS_LSTRINGS.len(), 105);
+    let mut types = BTreeSet::new();
+    for (record, sub) in CORPUS_LSTRINGS {
+        types.insert(*record);
+        let rec = schema
+            .record(sig(record))
+            .unwrap_or_else(|| panic!("{record} has no definition"));
+        if COMPONENT_LSTRINGS.contains(&(*record, *sub)) {
+            assert!(
+                rec.members.iter().any(
+                    |m| matches!(m, Member::Group(g) if g.shared.as_deref() == Some("BfcbBlock"))
+                ),
+                "{record} has base form components"
+            );
+            // Never typed as something else at a position of its own.
+            assert!(
+                rec.leaf_subrecords()
+                    .iter()
+                    .all(|(_, s)| s.signature != sig(sub) || s.ty == FieldType::LString),
+                "{record}.{sub}"
+            );
+            continue;
+        }
+        assert!(
+            lstring_signatures(rec).contains(*sub),
+            "{record}.{sub} is not an lstring member"
+        );
+    }
+    assert_eq!(types.len(), 58);
+    for record in LSTRING_ONLY {
+        let rec = schema.record(sig(record)).unwrap();
+        let expected: BTreeSet<String> = CORPUS_LSTRINGS
+            .iter()
+            .filter(|(r, _)| r == record)
+            .map(|(_, s)| (*s).to_owned())
+            .collect();
+        assert_eq!(lstring_signatures(rec), expected, "{record}");
+        let typed: Vec<String> = typed_leaves(rec)
+            .into_iter()
+            .filter(|p| !p.starts_with("LocalizedStrings."))
+            .collect();
+        assert_eq!(typed, ["EditorId"], "{record}");
+    }
+}
+
+/// The record types lane B round 3 has transcribed from the pinned xEdit file.
+const ROUND3: &[&str] = &[
+    "WEAP", "AMMO", "PROJ", "AMDL", "OMOD", "COBJ", "ZOOM", "LVLI", "FLST", "INNR",
+];
 
 #[test]
 fn tes4_container_layout() {

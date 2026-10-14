@@ -31,7 +31,39 @@ const PRPS_AV: &str = "PKIN PRPS (properties: actor value, value, curve; xedit \
     more (warnings, since they name its master). Grade D hypothesis: engine-reserved IDs \
     below 0x800 (a CK check, plan/STATUS.md, planet lane request to lane E)";
 
+const FLST_AV: &str = "FLST LNAM (one FormID per entry; xedit wbDefinitionsSF1.pas, lane B \
+    round 3, M3.B7) in five actor-value form lists of Starfield.esm (ENV_imGui_4_ActorValues, \
+    ENV_imGui_4B_ActorValuesBasic, ENV_imGui_6_Weather, \
+    ENV_imGui_7B_Breathing_and_Suit_Integrity, SpaceshipPartSummedValues: 23 entries) names \
+    object IDs 0x2D8..0x359 below 0x800 that no official file defines, the same class as the \
+    PKIN PRPS actor values. Grade D hypothesis: engine-reserved actor values (a CK check, \
+    plan/STATUS.md)";
+
+/// One `FLST.LNAM` known error of Starfield.esm.
+const fn flst_av(value: u32, count: u64) -> Known {
+    Known {
+        plugin: "Starfield.esm",
+        rule: "formid.dangling",
+        member: "FLST.LNAM",
+        value,
+        count,
+        evidence: FLST_AV,
+    }
+}
+
 const KNOWN_ERRORS: &[Known] = &[
+    flst_av(0x0000_02D8, 2),
+    flst_av(0x0000_02DB, 1),
+    flst_av(0x0000_02E2, 3),
+    flst_av(0x0000_02EE, 1),
+    flst_av(0x0000_0313, 3),
+    flst_av(0x0000_032E, 1),
+    flst_av(0x0000_034F, 3),
+    flst_av(0x0000_0350, 2),
+    flst_av(0x0000_0351, 2),
+    flst_av(0x0000_0352, 2),
+    flst_av(0x0000_0355, 1),
+    flst_av(0x0000_0359, 2),
     Known {
         plugin: "Starfield.esm",
         rule: "formid.dangling",

@@ -1,34 +1,45 @@
-# ObteBlock: the OBTE..STOP block.
+# ObteBlock: the object template (OBTE count, then one combination per entry: an optional
+# editor-only marker, a name and the template item), closed by the STOP marker.
 #
-# Source (ADR 0005 "inventory" row): the corpus scan of the WEAP top group (2026-10-14; files
-# and counts in WEAP.toml). OBTE (4 bytes) opens the block; entries of [OBTF?] FULL OBTS
-# follow; STOP (0 bytes) closes it. STOP also occurs on its own, in records without OBTE,
-# which is why OBTE is optional here. The meaning of the block is not sourced yet.
+# Sources (ADR 0004, ADR 0005):
+#   xedit: the object template helper of wbDefinitionsSF1.pas at the pin (L6961-L6974),
+#     its template item (L6940-L6959) and property list (L6894-L6938); the closing STOP
+#     marker is a member of the records that use the block (WEAP L18621).
+#   corpus: the OBTE..STOP blocks of the WEAP records of the official ESMs (inventory scan
+#     and round 3 typed check, 2026-10-14). STOP also occurs on its own, in records without
+#     OBTE, which is why OBTE is optional here.
 #
-# Opaque member names are placeholders derived from the signature.
+# The OBTE count and the two counts at the head of each template item are stored, not
+# derived: an edit that changes a list must update its count. The keyword list inside a
+# template item has a one-byte count prefix (xEdit's negative array count); it is written
+# here as an explicit count field.
 name = "ObteBlock"
 kind = "group"
-source = "corpus: OBTE..STOP blocks in the WEAP records of the official ESMs"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18621-L18621",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every OBTE..STOP block of the 452 WEAP records in the 14 official ESMs decodes and re-encodes identically",
+]
 confidence = "corpus"
 
 [[member]]
 sig = "OBTE"
-name = "Obte"
-type = "opaque"
+name = "CombinationCount"
+type = "u32"
 card = "optional"
-note = "observed 4 bytes; opens the block"
+note = "number of Combination entries that follow"
 
 [[member]]
-group = "ObtsEntry"
+group = "Combination"
 card = "repeated"
-note = "one entry of the block; only occurs after OBTE"
+note = "only occurs after OBTE"
 
 [[member.member]]
 sig = "OBTF"
-name = "Obtf"
-type = "opaque"
+name = "EditorOnly"
+type = "empty"
 card = "optional"
-note = "observed 0 bytes"
 
 [[member.member]]
 sig = "FULL"
@@ -41,12 +52,72 @@ evidence = [
 
 [[member.member]]
 sig = "OBTS"
-name = "Obts"
-type = "opaque"
-note = "observed variable size"
+name = "TemplateItem"
+type = "struct"
+
+[[member.member.field]]
+name = "IncludeCount"
+type = "u32"
+
+[[member.member.field]]
+name = "PropertyCount"
+type = "u32"
+
+[[member.member.field]]
+name = "LevelMin"
+type = "u16"
+
+[[member.member.field]]
+name = "LevelMax"
+type = "u16"
+
+[[member.member.field]]
+name = "ParentCombinationIndex"
+type = "i16"
+note = "-1 for none"
+
+[[member.member.field]]
+name = "Default"
+type = "ref:Bool8"
+
+[[member.member.field]]
+name = "KeywordCount"
+type = "u8"
+
+[[member.member.field]]
+name = "Keywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count_from = "KeywordCount"
+
+[[member.member.field]]
+name = "MinLevelForRanks"
+type = "u8"
+
+[[member.member.field]]
+name = "AltLevelsPerTier"
+type = "u8"
+
+[[member.member.field]]
+name = "Includes"
+type = "array"
+count_from = "IncludeCount"
+element = "struct"
+field = [
+  { name = "Mod", type = "formid", targets = ["OMOD"] },
+  { name = "AttachPointIndex", type = "u8" },
+  { name = "Optional", type = "ref:Bool8" },
+  { name = "DontUseAll", type = "ref:Bool8" },
+]
+
+[[member.member.field]]
+name = "Properties"
+type = "array"
+element = "ref:ObjectModProperty"
+count_from = "PropertyCount"
 
 [[member]]
 sig = "STOP"
-name = "Stop"
-type = "opaque"
-note = "observed 0 bytes; closes the block"
+name = "EndMarker"
+type = "empty"

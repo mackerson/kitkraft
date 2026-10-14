@@ -249,20 +249,10 @@ fn reencode_mismatches(raw: &[RawSub<'_>], encoded: &[OwnedSub]) -> Vec<usize> {
         .collect()
 }
 
-/// The subrecords a typed record kept raw, with their input positions. `None` for a
-/// record type this function does not know yet: the generated `Record` enum has no
-/// accessor for them (requested from lane B in `plan/STATUS.md`), so this matches the
-/// variants generated today and reports the others as unknown.
-#[allow(unreachable_patterns)]
+/// The subrecords a typed record kept raw, with their input positions (the generated
+/// `Record::extra`, available for every record type).
 fn extra_of(typed: &TypedRecord) -> Option<&[(usize, OwnedSub)]> {
-    match typed {
-        TypedRecord::Glob(r) => Some(&r.extra),
-        TypedRecord::Gmst(r) => Some(&r.extra),
-        TypedRecord::Kywd(r) => Some(&r.extra),
-        TypedRecord::Tes4(r) => Some(&r.extra),
-        TypedRecord::Weap(r) => Some(&r.extra),
-        _ => None,
-    }
+    Some(typed.extra())
 }
 
 impl Ctx {
@@ -426,16 +416,17 @@ mod tests {
             panic!("{typed:?}")
         };
         assert_eq!(gmst.editor_id.as_ref().unwrap().0, b"fFoo");
-        // Undefined types have no typed form.
-        let Entry::Group(cells) = &plugin.entries()[1] else {
+        // Undefined types have no typed form (NAVM; CELL has an lstring-only definition
+        // since lane B round 3, M3.B8).
+        let Entry::Group(navm) = &plugin.entries()[2] else {
             panic!()
         };
-        let Entry::Record(cell) = &cells.children()[0] else {
+        let Entry::Record(navm) = &navm.children()[0] else {
             panic!()
         };
-        assert!(plugin.typed(cell, &limits).unwrap().is_none());
+        assert!(plugin.typed(navm, &limits).unwrap().is_none());
         assert_eq!(
-            cell.typed(Ctx::default()).unwrap_err(),
+            navm.typed(Ctx::default()).unwrap_err(),
             NotTyped::NoDefinition
         );
 

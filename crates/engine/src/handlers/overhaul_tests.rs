@@ -44,7 +44,14 @@ fn a_scaffold_groups_by_keyword_and_plans_to_nothing() {
         classes[0]["label"],
         json!("KWDA == Source.esm:000900 (KwBallistic)")
     );
-    let ksiz = &classes[0]["stats"][0];
+    // WEAP's numeric members are typed since lane B round 3 (M3.B1), so KSIZ is no longer
+    // the first statistic.
+    let ksiz = classes[0]["stats"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|s| s["member"] == "KSIZ")
+        .unwrap();
     assert_eq!(ksiz["member"], json!("KSIZ"));
     assert_eq!(
         (&ksiz["min"], &ksiz["median"], &ksiz["max"]),

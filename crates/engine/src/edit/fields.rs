@@ -1512,14 +1512,25 @@ mod tests {
         assert_eq!(at(*b"ZZZZ", *b"XNAM"), None);
         // EDID is described by the WEAP definition.
         assert!(layout_at(*b"WEAP", &[*b"EDID"], 0).is_some());
-        // Lstrings the schema does not type come from the corpus table (finding 2b):
-        // ACTI ATTX and WEAP WABB are lstrings; WEAP has no ATTX in the corpus.
+        // Every lstring of the corpus table (finding 2b) outside a base form component is
+        // typed by the schema since lane B round 3 (M3.B1, M3.B8): no fallback. WEAP has no
+        // ATTX in the corpus.
         for (record, sub) in [(*b"ACTI", *b"ATTX"), (*b"WEAP", *b"WABB")] {
             let layout = at(record, sub).unwrap();
             assert_eq!(layout.ty, FieldType::LString);
-            assert!(layout.fallback.unwrap().contains("corpus lstring table"));
+            assert!(layout.fallback.is_none());
         }
         assert_eq!(at(*b"WEAP", *b"ATTX"), None);
+        // An lstring inside a component block (PNDT's full-name component, GBFM's hull
+        // code) is raw in the schema; the FULL/DESC fact or the corpus table still types it.
+        let pndt = [*b"EDID", *b"BFCB", *b"FULL", *b"BFCE"];
+        let full = layout_at(*b"PNDT", &pndt, 2).unwrap();
+        assert_eq!(full.ty, FieldType::LString);
+        assert!(full.fallback.is_some());
+        let gbfm = [*b"EDID", *b"OBND", *b"ODTY", *b"BFCB", *b"HULL", *b"BFCE"];
+        let hull = layout_at(*b"GBFM", &gbfm, 4).unwrap();
+        assert_eq!(hull.ty, FieldType::LString);
+        assert!(hull.fallback.unwrap().contains("corpus lstring table"));
         // Out of range: no layout, never a panic.
         assert_eq!(layout_at(*b"WEAP", &[*b"EDID"], 3), None);
     }

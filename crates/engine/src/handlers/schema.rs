@@ -701,7 +701,7 @@ mod tests {
         assert_eq!(edid["type"], "zstring");
         assert_eq!(edid["typed"], true);
         assert_eq!(edid["confidence"], "corpus");
-        assert!(edid["source"].as_str().unwrap().starts_with("corpus:"));
+        assert!(edid["source"].as_str().unwrap().starts_with("xedit:"));
         assert!(edid.get("evidence").is_none(), "evidence only with deep");
         let keywords = member(d, "Keywords");
         assert_eq!(keywords["kind"], "group");
@@ -710,8 +710,9 @@ mod tests {
             keywords.get("members").is_none(),
             "group members only with deep"
         );
-        let obnd = member(d, "Obnd");
-        assert_eq!(obnd["typed"], false);
+        // VMAD stays opaque in the WEAP definition (lane B round 3); OBND is typed.
+        assert_eq!(member(d, "Scripts")["typed"], false);
+        assert_eq!(member(d, "ObjectBounds")["typed"], true);
         let limitations = result["limitations"].to_string();
         assert!(
             limitations.contains("top-level members only"),
@@ -748,7 +749,8 @@ mod tests {
         let grup = data(json!({"type": "GRUP"}));
         assert_eq!(grup["kind"], "header");
         assert_eq!(grup["size"], 24);
-        let refr = execute("schema", json!({"type": "REFR"})).unwrap();
+        // ARMO has no definition yet (REFR has an lstring-only one since M3.B8).
+        let refr = execute("schema", json!({"type": "ARMO"})).unwrap();
         assert_eq!(refr["data"]["defined"], false);
         assert!(refr["limitations"]
             .to_string()

@@ -19,10 +19,12 @@
 #     with version 17. Every record decodes and re-encodes identically.
 #
 # Upstream also allows a FULL name inside a combination (L3184). No official combination has
-# one, and FULL occurs inside GBFM component blocks (TESFullName_Component), which the doc
-# layer's signature-based layout lookup would then decode as a top-level member (plan/STATUS.md
-# Requests, lane D). Until that lookup is position-aware the member is left out: a
-# combination FULL, if a plugin has one, is kept raw in `extra` (lossless).
+# one, and FULL occurs inside GBFM component blocks (TESFullName_Component). The doc layer
+# resolves layouts by position since M4.BX1, so the combination FULL is a member again
+# (`reference`; the integrator added it when lane B round 3's lstring table, which lists
+# GBFM FULL and HULL, was merged). The FULL and HULL that official GBFM records carry sit
+# inside the full-name and hull-code components and stay raw with the component data
+# (BfcbBlock); tools treat them as lstrings by the corpus table (engine edit::lstrings).
 #
 # The component names a GBFM uses (BFCB) are counted in docs/schema/planet-family.md.
 signature = "GBFM"
@@ -111,13 +113,25 @@ note = "number of Combinations that follow; stored, not derived; 1 in every offi
 group = "Combination"
 card = "repeated"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
-note = "upstream: OBTF, FULL and OBTS in any order; FULL is left out here (see the header comment); every official combination is OBTF OBTS"
+note = "upstream: OBTF, FULL and OBTS in any order; here in the order lane B round 3 observed in WEAP (OBTF FULL OBTS); every official GBFM combination is OBTF OBTS"
 
 [[member.member]]
 sig = "OBTF"
 name = "EditorOnly"
 type = "empty"
 card = "optional"
+
+[[member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+]
+confidence = "reference"
+note = "combination name; not in any official GBFM record (their FULL is inside the full-name component)"
 
 [[member.member]]
 sig = "OBTS"

@@ -329,9 +329,13 @@ fn remap_through_typed_form_ids() {
         [0x10, 0, 0, 1, 0x20, 0, 0, 0]
     );
 
-    // The same with an opaque subrecord is refused, and the target is left alone.
+    // The same with an opaque subrecord is refused, and the target is left alone. (VMAD
+    // stays opaque in the WEAP definition; it follows EDID.)
     let mut opaque = typed(0x0100_0901);
-    opaque.subrecords_mut().unwrap().push(sub(b"WDMG", &[0; 4]));
+    opaque
+        .subrecords_mut()
+        .unwrap()
+        .insert(1, sub(b"VMAD", &[0; 4]));
     let src2 = write_plugin(
         &d,
         "Source2.esm",
@@ -349,7 +353,7 @@ fn remap_through_typed_form_ids() {
     )
     .unwrap_err();
     assert!(
-        err.to_string().contains("WDMG subrecord is opaque"),
+        err.to_string().contains("VMAD subrecord is opaque"),
         "{err}"
     );
     assert_eq!(std::fs::read(&target2).unwrap(), before);
@@ -509,7 +513,8 @@ fn untyped_lstrings_of_localized_sources() {
         .map(|i| i.at.as_str())
         .collect();
     assert_eq!(at, ["FULL[0]", "ATTX[0]"]);
-    assert!(report
+    // ACTI ATTX is a schema lstring since lane B round 3 (M3.B8), so no table limitation.
+    assert!(!report
         .limitations
         .iter()
         .any(|l| l.contains("ACTI.ATTX treated as an lstring by the corpus lstring table")));

@@ -1,27 +1,72 @@
-# AMDL: subrecord inventory. EDID is typed as a universal subrecord (M2.B2); ANAM is opaque
-# until the record layout is transcribed (lane B round 3, xEdit at the pin).
+# AMDL: aim model (cone of fire and recoil).
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the AMDL top groups of the 14 official
-# ESMs (2026-10-14): 126 records, form versions 581/582, one shape "EDID ANAM"; ANAM is 65
-# bytes in every record.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the AMDL definition of wbDefinitionsSF1.pas at the pinned revision (L9387-L9409):
+#     member order and the ANAM field layout.
+#   corpus: the round 3 typed check of all 126 official AMDL records (14 files, form versions
+#     581 and 582): every record is EDID then a 65-byte ANAM, nothing is left in `extra`, and
+#     every record re-encodes identically.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
 #
-# Opaque member names are placeholders derived from the signature.
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. No official AMDL has a BFCB block (that member stays at
+# `reference`).
 signature = "AMDL"
 name = "AimModel"
-source = "corpus: AMDL records of the 14 official ESMs, scan 2026-10-14"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9387-L9409"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 126 AMDL records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
 confidence = "corpus"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9388-L9388"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9389-L9389"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
-note = "observed 65 bytes"
+name = "Data"
+type = "struct"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9390-L9408"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 126 AMDL records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "cone of fire angles are in degrees"
+field = [
+  { name = "ConeOfFireDegreesX", type = "f32" },
+  { name = "ConeOfFireDegreesY", type = "f32" },
+  { name = "ConeOfFireIncreasePerShot", type = "f32" },
+  { name = "ConeOfFireDecreasePerSecond", type = "f32" },
+  { name = "ConeOfFireDecreaseDelaySeconds", type = "f32" },
+  { name = "ConeOfFireSneakMult", type = "f32" },
+  { name = "RecoilDiminishSpringForce", type = "f32" },
+  { name = "RecoilDiminishSightsMult", type = "f32" },
+  { name = "RecoilDegreesPerShotX", type = "f32" },
+  { name = "RecoilDegreesPerShotY", type = "f32" },
+  { name = "RecoilHipMult", type = "f32" },
+  { name = "RecoilShotsForRunaway", type = "u32" },
+  { name = "RecoilArc", type = "f32" },
+  { name = "RecoilArcRotate", type = "f32" },
+  { name = "ConeOfFireIronSightsMult", type = "f32" },
+  { name = "RecoilBaseStability", type = "f32" },
+  { name = "ConeOfFireIgnoresMovement", type = "ref:Bool8", if_remaining = true, note = "xEdit makes this last field optional; present in every official AMDL (65-byte payloads)" },
+]

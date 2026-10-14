@@ -33,10 +33,14 @@ fn corpus_diff_names_the_changed_keyword() {
     // such element of each record.
     let mut hits: Vec<(u64, u32, usize)> = Vec::new(); // (element offset, raw, element index)
     let mut seen: Vec<u32> = Vec::new();
-    // Records of a type the schema defines (their KWDA has a layout), uncompressed.
+    // Records of a type whose definition gives KWDA a layout, uncompressed (an lstring-only
+    // definition, lane B round 3 M3.B8, keeps KWDA raw).
     let schema = kitcraft_schema::builtin().unwrap();
+    let kwda = kitcraft_schema::Signature::from_bytes(*b"KWDA").unwrap();
     let defined = |sig: [u8; 4]| {
-        kitcraft_schema::Signature::from_bytes(sig).is_some_and(|s| schema.record(s).is_some())
+        kitcraft_schema::Signature::from_bytes(sig)
+            .and_then(|s| schema.known_signatures(s))
+            .is_some_and(|known| known.contains(&kwda))
     };
     for r in index
         .records

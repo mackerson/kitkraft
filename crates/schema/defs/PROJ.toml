@@ -1,0 +1,478 @@
+# PROJ: projectile.
+#
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the PROJ definition of wbDefinitionsSF1.pas at the pinned revision (L16228-L16325)
+#     and the helpers it uses there and in wbDefinitionsCommon.pas: member order, cardinality,
+#     field layouts, FormID target types, flag and enumeration values.
+#   corpus: the round 3 typed check of all 299 official PROJ records (14 files, form versions
+#     581 and 582): every member marked `corpus` occurs with the declared size and order in
+#     every record, nothing is left in `extra`, and every record re-encodes identically.
+#   uesp-skyrim / universal scan: the EDID and FULL string conventions (M2.B2).
+#
+# No corpus inventory preceded this definition (M3.B2): the corpus check above is the
+# inventory, and every subrecord signature seen in an official PROJ has a member here.
+#
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. Members xEdit lists but no official PROJ has (VMAD, PTT2, SNTP,
+# SNBH, DEFL, PRDS) stay at `reference`; VMAD stays opaque, as does the component data inside
+# each BFCB block (see common/BfcbBlock.toml).
+signature = "PROJ"
+name = "Projectile"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16228-L16325"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+flags = [["ApplyChargeMultiplier", 0x8000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16232-L16232"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16233-L16233"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; built from unions in xEdit, kept raw; not in any official PROJ"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "struct"
+size = 24
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16234-L16234"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Min", type = "ref:Vec3" },
+  { name = "Max", type = "ref:Vec3" },
+]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16235-L16235"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "struct"
+card = "optional"
+size = 80
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16236-L16236"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "angles are stored as f32; xEdit shows them in degrees"
+field = [
+  { name = "Flags", type = "flags", base = "u8", bits = [["ConformToSlope", 0x1], ["RotateZToSlope", 0x4], ["SlopeLimitIsMinSlope", 0x8], ["PlaceAsMarker", 0x10], ["OutsideWaterHeight", 0x20]] },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Sink", type = "f32" },
+  { name = "SinkVariance", type = "f32" },
+  { name = "XyOffsetVariance", type = "f32" },
+  { name = "Footprint", type = "enum", base = "u32", values = [["ExtraLarge", 0], ["Large", 1], ["Medium", 2], ["Small", 3], ["None", 5]] },
+  { name = "ScalePercent", type = "f32" },
+  { name = "ScaleVariance", type = "f32" },
+  { name = "AngleX", type = "f32" },
+  { name = "AngleXVariance", type = "f32" },
+  { name = "AngleY", type = "f32" },
+  { name = "AngleYVariance", type = "f32" },
+  { name = "AngleZ", type = "f32" },
+  { name = "AngleZVariance", type = "f32" },
+  { name = "SlopePercent", type = "f32" },
+  { name = "SlopePercentVariance", type = "f32" },
+  { name = "Density", type = "f32" },
+  { name = "FrequencyPercent", type = "f32" },
+  { name = "SlopeLimit", type = "f32" },
+  { name = "DistanceBelowWater", type = "f32" },
+  { name = "DistanceAboveWater", type = "f32" },
+]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "struct"
+card = "optional"
+size = 32
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16237-L16237"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+]
+confidence = "reference"
+note = "not in any official PROJ"
+field = [
+  { name = "InventoryIcon", type = "formid", targets = ["TRNS"] },
+  { name = "WorkshopIcon", type = "formid", targets = ["TRNS"] },
+  { name = "ShipBuilderIcon", type = "formid", targets = ["TRNS"] },
+  { name = "Preview", type = "formid", targets = ["TRNS"] },
+  { name = "Inventory3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "Workbench3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "DataMenu3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "ResearchMenu3dOverride", type = "formid", targets = ["TRNS"] },
+]
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+card = "optional"
+targets = ["STMP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16238-L16238"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919",
+]
+confidence = "reference"
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+card = "optional"
+targets = ["STBH"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16239-L16239"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920",
+]
+confidence = "reference"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+card = "optional"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16240-L16240"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963",
+]
+confidence = "reference"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16241-L16241"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16242-L16242"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16243-L16243"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16244-L16244"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "xEdit marks the block required; its file name is optional"
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16245-L16245"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "DATA"
+name = "UnusedData"
+type = "empty"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16246-L16246"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "unused in xEdit; 0 bytes in every official PROJ, so typed as an empty marker"
+
+[[member]]
+sig = "PROD"
+name = "Data"
+type = "struct"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16247-L16313"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "the two particle define strings carry a u32 length prefix (xEdit's length-prefixed string, its default prefix width; 114-byte payloads with both empty confirm it on the corpus); their bytes are kept as read"
+
+[[member.field]]
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["Hitscan", 0x1], ["Explosion", 0x2], ["AltTrigger", 0x4], ["MuzzleFlash", 0x8], ["CanBeDisabled", 0x20], ["CanBePickedUp", 0x40], ["Supersonic", 0x80], ["PinsLimbs", 0x100], ["PassThroughSmallTransparent", 0x200], ["DisableCombatAimCorrection", 0x400], ["PenetratesThroughActors", 0x800], ["ContinuousUpdate", 0x1000], ["SeeksTarget", 0x2000], ["PredictiveAimAssist", 0x4000], ["AlignOnProjectile", 0x8000], ["ContinuousImpacts", 0x10000], ["NoExplosiveIndicator", 0x20000], ["VariableIntensity", 0x40000], ["ApplyChargeMultiplier", 0x80000]]
+
+[[member.field]]
+name = "Gravity"
+type = "f32"
+
+[[member.field]]
+name = "Speed"
+type = "f32"
+
+[[member.field]]
+name = "Range"
+type = "f32"
+
+[[member.field]]
+name = "Light"
+type = "formid"
+targets = ["LIGH"]
+
+[[member.field]]
+name = "MuzzleFlashLight"
+type = "formid"
+targets = ["LIGH"]
+
+[[member.field]]
+name = "ExplosionProximity"
+type = "f32"
+
+[[member.field]]
+name = "ExplosionTimer"
+type = "f32"
+
+[[member.field]]
+name = "Explosion"
+type = "formid"
+targets = ["EXPL"]
+
+[[member.field]]
+name = "MuzzleFlashDuration"
+type = "f32"
+
+[[member.field]]
+name = "FadeDuration"
+type = "f32"
+
+[[member.field]]
+name = "ImpactForce"
+type = "f32"
+
+[[member.field]]
+name = "DefaultWeaponSource"
+type = "formid"
+targets = ["WEAP"]
+
+[[member.field]]
+name = "ConeSpread"
+type = "f32"
+
+[[member.field]]
+name = "CollisionRadius"
+type = "f32"
+
+[[member.field]]
+name = "Lifetime"
+type = "f32"
+
+[[member.field]]
+name = "RelaunchInterval"
+type = "f32"
+
+[[member.field]]
+name = "DecalData"
+type = "formid"
+targets = ["TXST"]
+
+[[member.field]]
+name = "CollisionLayer"
+type = "formid"
+targets = ["COLL"]
+
+[[member.field]]
+name = "TracerFrequency"
+type = "u8"
+
+[[member.field]]
+name = "VatsProjectile"
+type = "formid"
+targets = ["PROJ"]
+
+[[member.field]]
+name = "MuzzleFlashParticleDefineLength"
+type = "u32"
+
+[[member.field]]
+name = "MuzzleFlashParticleDefine"
+type = "array"
+element = "u8"
+count_from = "MuzzleFlashParticleDefineLength"
+note = "string bytes as stored"
+
+[[member.field]]
+name = "SeekStrength"
+type = "f32"
+
+[[member.field]]
+name = "SoundActivationCondition"
+type = "enum"
+base = "u32"
+values = [["PlayOnSpawn", 0], ["PlayOnNearMissPlayer", 1], ["Default", 2]]
+
+[[member.field]]
+name = "Type"
+type = "enum"
+base = "u8"
+values = [["Missile", 0], ["Lobber", 1], ["Beam", 2], ["Flame", 3], ["Cone", 4], ["Barrier", 5], ["Arrow", 6], ["Plasma", 7], ["Emitter", 8]]
+
+[[member.field]]
+name = "ParticleDefineLength"
+type = "u32"
+
+[[member.field]]
+name = "ParticleDefine"
+type = "array"
+element = "u8"
+count_from = "ParticleDefineLength"
+note = "string bytes as stored"
+
+[[member.field]]
+name = "TracerSpeed"
+type = "f32"
+
+[[member.field]]
+name = "ZeroGRecoilStrength"
+type = "f32"
+
+[[member.field]]
+name = "ZeroGRecoilLength"
+type = "f32"
+
+[[member.field]]
+name = "ExplosionDelayBeforeRemoval"
+type = "f32"
+
+[[member]]
+group = "MuzzleFlashModel"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16315-L16319"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "NAM1"
+name = "FileName"
+type = "zstring"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+card = "optional"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+
+[[member]]
+sig = "PRAS"
+name = "ActiveSound"
+type = "ref:SoundReference"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16320-L16320"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "PRCS"
+name = "CountdownEndSound"
+type = "ref:SoundReference"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16321-L16321"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "PRDS"
+name = "DisableSound"
+type = "ref:SoundReference"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16322-L16322"
+confidence = "reference"
+note = "not in any official PROJ"
+
+[[member]]
+sig = "VNAM"
+name = "SoundLevel"
+type = "enum"
+base = "u32"
+values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16323-L16323"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "NAM3"
+name = "CurveTable"
+type = "formid"
+card = "optional"
+targets = ["CURV"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16324-L16324"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"

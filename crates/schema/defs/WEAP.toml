@@ -1,309 +1,751 @@
-# WEAP: subrecord inventory. The universal subrecords (EDID, FULL, DESC, and KSIZ/KWDA as
-# the shared Keywords group) are typed (M2.B2, sources on each member); every other payload
-# is opaque until the record layout is transcribed (lane B round 3, xEdit at the pin).
+# WEAP: weapon.
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the WEAP top group in Starfield.esm, ShatteredSpace.esm,
-# Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
-# 452 records, form versions 581/582, 132 distinct subrecord sequences. After folding
-# BFCB..BFCE blocks and OBTE..STOP blocks, every sequence fits the order below with no
-# conflicts. FLLD occurs exactly twice per record, at the two positions listed.
-# Members never seen together have an arbitrary relative order. "required" means present
-# in every corpus record.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the WEAP definition of wbDefinitionsSF1.pas at the pinned revision (L18594-L18833)
+#     and the helpers it uses there and in wbDefinitionsCommon.pas: member order, cardinality,
+#     field layouts, FormID target types, enumeration values. Names are ours (PascalCase, CK
+#     wording where it exists); no xEdit code, comments or labels are copied.
+#   corpus: the round 3 typed check of all 452 official WEAP records (14 files, form versions
+#     581 and 582): every member marked `corpus` occurs with the declared size and order in
+#     every record, nothing is left in `extra`, and every record re-encodes identically.
+#   uesp-skyrim / universal scan: the EDID, FULL and DESC string conventions (M2.B2).
 #
-# The BFCB..BFCE and OBTE..STOP blocks are the shared groups common/BfcbBlock.toml and
-# common/ObteBlock.toml.
-#
-# DAMA occurs with 12 or 24 bytes; without a source for its fields it stays opaque (an
-# `if_remaining` tail needs the field split as a sourced fact, not just two sizes).
-#
-# Opaque member names are placeholders derived from the signature.
+# FormID fields keep the raw stored value (0 means none); targets name the record types xEdit
+# allows. One-byte booleans use the shared Bool8 enum. Members xEdit lists but no official
+# WEAP has (VMAD, the destructible block, MO4C) stay at `reference`; VMAD stays opaque (its
+# layout is decided by unions). The base form component data inside each BFCB block stays raw
+# (a union decided by the component type; see common/BfcbBlock.toml and docs/gaps.md).
 signature = "WEAP"
 name = "Weapon"
-source = "corpus: WEAP records of the official ESMs (12 files with a WEAP group)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
 confidence = "corpus"
-note = "layout pending ADR 0005"
+flags = [["NonPlayable", 0x4], ["HighResFirstPersonOnly", 0x40000000]]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18599-L18599"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18600-L18600"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; built from unions in xEdit, kept raw; not in any official WEAP"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
-note = "observed 24 bytes"
+name = "ObjectBounds"
+type = "struct"
+size = 24
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18601-L18601"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Min", type = "ref:Vec3" },
+  { name = "Max", type = "ref:Vec3" },
+]
 
 [[member]]
 sig = "ODTY"
-name = "Odty"
-type = "opaque"
-note = "observed 4 bytes"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18602-L18602"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "OPDS"
-name = "Opds"
-type = "opaque"
+name = "ObjectPaletteDefaults"
+type = "struct"
 card = "optional"
-note = "observed 80 bytes, in 3 records"
+size = 80
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18603-L18603"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "angles are stored as f32; xEdit shows them in degrees"
+field = [
+  { name = "Flags", type = "flags", base = "u8", bits = [["ConformToSlope", 0x1], ["RotateZToSlope", 0x4], ["SlopeLimitIsMinSlope", 0x8], ["PlaceAsMarker", 0x10], ["OutsideWaterHeight", 0x20]] },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Sink", type = "f32" },
+  { name = "SinkVariance", type = "f32" },
+  { name = "XyOffsetVariance", type = "f32" },
+  { name = "Footprint", type = "enum", base = "u32", values = [["ExtraLarge", 0], ["Large", 1], ["Medium", 2], ["Small", 3], ["None", 5]] },
+  { name = "ScalePercent", type = "f32" },
+  { name = "ScaleVariance", type = "f32" },
+  { name = "AngleX", type = "f32" },
+  { name = "AngleXVariance", type = "f32" },
+  { name = "AngleY", type = "f32" },
+  { name = "AngleYVariance", type = "f32" },
+  { name = "AngleZ", type = "f32" },
+  { name = "AngleZVariance", type = "f32" },
+  { name = "SlopePercent", type = "f32" },
+  { name = "SlopePercentVariance", type = "f32" },
+  { name = "Density", type = "f32" },
+  { name = "FrequencyPercent", type = "f32" },
+  { name = "SlopeLimit", type = "f32" },
+  { name = "DistanceBelowWater", type = "f32" },
+  { name = "DistanceAboveWater", type = "f32" },
+]
 
 [[member]]
 sig = "PTT2"
-name = "Ptt2"
-type = "opaque"
+name = "Transforms"
+type = "struct"
 card = "optional"
-note = "observed 32 bytes"
+size = 32
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18604-L18604"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "InventoryIcon", type = "formid", targets = ["TRNS"] },
+  { name = "WorkshopIcon", type = "formid", targets = ["TRNS"] },
+  { name = "ShipBuilderIcon", type = "formid", targets = ["TRNS"] },
+  { name = "Preview", type = "formid", targets = ["TRNS"] },
+  { name = "Inventory3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "Workbench3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "DataMenu3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "ResearchMenu3dOverride", type = "formid", targets = ["TRNS"] },
+]
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
-note = "observed 8 bytes, in 2 records"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18605-L18605"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
-note = "observed up to 5 per record; bodies seen: REFL, ANAM BNAM [ENAM], QUPA, PTCL, STCP, or nothing"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18606-L18606"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18607-L18607"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18608-L18608"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "xEdit marks the block required in WEAP; its file name is optional"
+
+[[member]]
+group = "Enchantment"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18609-L18609"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-note = "first of two FLLD slots; observed 4 bytes"
-
-[[member]]
+[[member.member]]
 sig = "EITM"
-name = "Eitm"
-type = "opaque"
+name = "Effect"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes, in 3 records"
+targets = ["ENCH"]
+
+[[member.member]]
+sig = "EAMT"
+name = "Capacity"
+type = "u16"
+card = "optional"
 
 [[member]]
-sig = "EAMT"
-name = "Eamt"
-type = "opaque"
+group_ref = "Destructible"
 card = "optional"
-note = "observed 2 bytes, in 1 record"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18610-L18610"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
+]
+confidence = "reference"
+note = "not in any official WEAP"
 
 [[member]]
 sig = "ETYP"
-name = "Etyp"
-type = "opaque"
+name = "EquipmentType"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes"
+targets = ["EQUP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18611-L18611"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4252-L4252",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "BIDS"
-name = "Bids"
-type = "opaque"
+name = "BlockBashImpactDataSet"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes"
+targets = ["IPDS"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18612-L18612"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "BAMT"
-name = "Bamt"
-type = "opaque"
+name = "AlternateBlockMaterial"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes"
+targets = ["MATT"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18613-L18613"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PUSH"
-name = "Push"
-type = "opaque"
+name = "PickupSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18614-L18614"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PDSH"
-name = "Pdsh"
-type = "opaque"
+name = "PutdownSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18615-L18615"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "Keywords"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18616-L18616"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DESC"
 name = "Description"
 type = "lstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18617-L18617"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3186-L3189",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "INRD"
-name = "Inrd"
-type = "opaque"
+name = "InstanceNaming"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes"
+targets = ["INNR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18618-L18618"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "APPR"
-name = "Appr"
-type = "opaque"
+name = "AttachParentSlots"
+type = "array"
 card = "optional"
-note = "observed multiples of 4 bytes"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18619-L18619"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 group_ref = "ObteBlock"
-note = "STOP is present in every record; OBTE and its entries only in some"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18620-L18621"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "the object template and the STOP marker that follows it; STOP is present in every record"
 
 [[member]]
 sig = "NNAM"
-name = "Nnam"
-type = "opaque"
-note = "observed 4 bytes"
+name = "EmbeddedWeaponMod"
+type = "formid"
+targets = ["OMOD"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18622-L18622"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "0 for none"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
+name = "IsEmbeddedWeapon"
+type = "empty"
 card = "optional"
-note = "observed 0 bytes at this position"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18623-L18623"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "present means true"
 
 [[member]]
 sig = "WAIM"
-name = "Waim"
-type = "opaque"
-note = "observed 35 bytes"
+name = "Aim"
+type = "struct"
+size = 35
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18624-L18648"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "SightedTransitionSeconds", type = "f32" },
+  { name = "AimDownSightTemplate", type = "formid", targets = ["ZOOM"] },
+  { name = "AimModel", type = "formid", targets = ["AMDL"] },
+  { name = "AccuracyBonus", type = "i8" },
+  { name = "HasScope", type = "ref:Bool8" },
+  { name = "AimAssistTemplate", type = "formid", targets = ["AAMD"] },
+  { name = "AimOpticalSightModel", type = "formid", targets = ["AOPS"] },
+  { name = "MeleeAimAssistModel", type = "formid", targets = ["MAAM"] },
+  { name = "UpdateAdvancedAimInfo", type = "ref:Bool8" },
+  { name = "OrientFireNodesToAimingDirection", type = "ref:Bool8" },
+  { name = "EnableMarkingTargets", type = "ref:Bool8" },
+  { name = "ReticleType", type = "enum", base = "u32", values = [["None", 0], ["Unarmed", 1], ["Pistol", 2], ["Shotgun", 3], ["Rifle", 4], ["Laser", 5], ["Tool", 6], ["CustomCrosshair1", 7]] },
+  { name = "InverseReticleSpread", type = "ref:Bool8" },
+  { name = "ReticleIgnoresPlayerMovement", type = "ref:Bool8" },
+]
 
 [[member]]
 sig = "WAM2"
-name = "Wam2"
-type = "opaque"
-note = "observed 23 bytes"
+name = "Ammunition"
+type = "struct"
+size = 23
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18649-L18658"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "AmmoType", type = "formid", targets = ["AMMO"] },
+  { name = "AmmoCapacity", type = "u32" },
+  { name = "AmmoList", type = "formid", targets = ["LVLI"] },
+  { name = "OverrideProjectile", type = "formid", targets = ["PROJ"] },
+  { name = "OverrideShellCasing", type = "formid", targets = ["ARTO"] },
+  { name = "ProjectileCount", type = "u8" },
+  { name = "NpcsUseAmmo", type = "ref:Bool8" },
+  { name = "ImpactSoundCount", type = "u8" },
+]
 
 [[member]]
 sig = "WAUD"
-name = "Waud"
-type = "opaque"
-note = "observed 288 bytes"
+name = "Audio"
+type = "struct"
+size = 288
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18659-L18669"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2211",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "AttackSound", type = "ref:SoundReference" },
+  { name = "ThrowablePrimedSound", type = "ref:SoundReference" },
+  { name = "AttackFailSound", type = "ref:SoundReference" },
+  { name = "IdleSound", type = "ref:SoundReference" },
+  { name = "EquipSound", type = "ref:SoundReference" },
+  { name = "UnequipSound", type = "ref:SoundReference" },
+  { name = "FastEquipSound", type = "ref:SoundReference" },
+  { name = "SoundLevel", type = "enum", base = "u32", values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]] },
+  { name = "MeleeDetectionSoundLevel", type = "enum", base = "u32", values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], ["VeryLoud", 5]] },
+]
 
 [[member]]
 sig = "WTUR"
-name = "Wtur"
-type = "opaque"
-note = "observed 29 bytes"
+name = "Turret"
+type = "struct"
+size = 29
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18670-L18683"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Enabled", type = "ref:Bool8" },
+  { name = "Heading", type = "struct", field = [{ name = "Min", type = "f32" }, { name = "Max", type = "f32" }] },
+  { name = "Pitch", type = "struct", field = [{ name = "Min", type = "f32" }, { name = "Max", type = "f32" }] },
+  { name = "HeadingSpeed", type = "f32" },
+  { name = "PitchSpeed", type = "f32" },
+  { name = "Accuracy", type = "f32" },
+]
 
 [[member]]
 sig = "WCHG"
-name = "Wchg"
-type = "opaque"
-note = "observed 14 bytes"
+name = "Charge"
+type = "struct"
+size = 14
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18684-L18690"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "FullPowerSeconds", type = "f32" },
+  { name = "MinPowerPerShot", type = "f32" },
+  { name = "CritChargeBonus", type = "f32" },
+  { name = "HoldInput", type = "ref:Bool8" },
+  { name = "ChargingAttackEnabled", type = "ref:Bool8" },
+]
 
 [[member]]
 sig = "WDMG"
-name = "Wdmg"
-type = "opaque"
-note = "observed 62 bytes"
+name = "Damage"
+type = "struct"
+size = 62
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18691-L18717"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2949-L2954",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "BaseDamage", type = "f32" },
+  { name = "RangeMin", type = "f32" },
+  { name = "RangeMax", type = "f32" },
+  { name = "OutOfRangeDamageMult", type = "f32" },
+  { name = "CritDamageMult", type = "f32" },
+  { name = "CritEffect", type = "formid", targets = ["SPEL"] },
+  { name = "CritEffectOnDeathOnly", type = "ref:Bool8" },
+  { name = "HitBehavior", type = "enum", base = "u8", values = [["NormalFormula", 0], ["DismemberOnly", 1], ["ExplodeOnly", 2], ["NoDismemberOrExplode", 3]] },
+  { name = "Resistance", type = "formid", targets = ["AVIF"] },
+  { name = "Skill", type = "formid", targets = ["AVIF"] },
+  { name = "LowGravity", type = "struct", field = [{ name = "ScaleControlPoint", type = "f32" }, { name = "RangeMultMin", type = "f32" }, { name = "RangeMultMax", type = "f32" }] },
+  { name = "HighGravity", type = "struct", field = [{ name = "ScaleControlPoint", type = "f32" }, { name = "RangeMultMin", type = "f32" }, { name = "RangeMultMax", type = "f32" }] },
+  { name = "CritChanceIncMult", type = "f32" },
+]
 
 [[member]]
 sig = "DAMA"
-name = "Dama"
-type = "opaque"
+name = "DamageTypes"
+type = "array"
 card = "optional"
-note = "observed 12 or 24 bytes"
+element = "struct"
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18718-L18718"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "one 12-byte entry per damage type"
+field = [
+  { name = "Type", type = "formid", targets = ["DMGT"] },
+  { name = "Amount", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"], since = 152 },
+]
 
 [[member]]
 sig = "WFIR"
-name = "Wfir"
-type = "opaque"
-note = "observed 45 bytes"
+name = "Firing"
+type = "struct"
+size = 45
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18719-L18743"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "FiringType", type = "enum", base = "u8", values = [["SingleOrBinary", 0], ["Burst", 1], ["Automatic", 2]] },
+  { name = "BurstCount", type = "u8" },
+  { name = "RepeatableFire", type = "ref:Bool8" },
+  { name = "AttackSeconds", type = "f32" },
+  { name = "FireSeconds", type = "f32" },
+  { name = "AttackDelaySeconds", type = "f32" },
+  { name = "BoltChargeSeconds", type = "f32" },
+  { name = "BoltAction", type = "ref:Bool8" },
+  { name = "DisableShellCaseEject", type = "ref:Bool8" },
+  { name = "ShotsPerSecond", type = "f32" },
+  { name = "AttackAnimationDuration", type = "f32" },
+  { name = "OverrideRateOfFire", type = "ref:Bool8" },
+  { name = "TriggerThresholdPrimary", type = "f32" },
+  { name = "OverrideTriggerThreshold", type = "ref:Bool8" },
+  { name = "TriggerThresholdSecondStage", type = "f32" },
+  { name = "UseStagedTrigger", type = "ref:Bool8" },
+  { name = "HasDualTrigger", type = "ref:Bool8" },
+  { name = "BurstDelaySeconds", type = "f32" },
+]
 
 [[member]]
 sig = "WFLG"
-name = "Wflg"
-type = "opaque"
-note = "observed 12 bytes"
+name = "Flags"
+type = "struct"
+size = 12
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18744-L18759"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "NonPlayable", type = "ref:Bool8" },
+  { name = "PlayerOnly", type = "ref:Bool8" },
+  { name = "PreventUseInNormalCombat", type = "ref:Bool8" },
+  { name = "IsSecondary", type = "ref:Bool8" },
+  { name = "CantDrop", type = "ref:Bool8" },
+  { name = "MinorCrime", type = "ref:Bool8" },
+  { name = "NonHostile", type = "ref:Bool8" },
+  { name = "Bound", type = "ref:Bool8" },
+  { name = "NpcPrefersLongBursts", type = "ref:Bool8" },
+  { name = "NpcsOnlyFireWhenMagazineFull", type = "ref:Bool8" },
+  { name = "UseSequentialFireNodes", type = "ref:Bool8" },
+  { name = "UseRandomFireNodes", type = "ref:Bool8" },
+]
 
 [[member]]
 sig = "WGEN"
-name = "Wgen"
-type = "opaque"
-note = "observed 24 bytes"
+name = "General"
+type = "struct"
+size = 24
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18760-L18767"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8314-L8328",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Type", type = "enum", base = "u32", values = [["Unarmed", 0], ["OneHandSword", 1], ["OneHandDagger", 2], ["OneHandAxe", 3], ["OneHandMace", 4], ["TwoHandSword", 5], ["TwoHandAxe", 6], ["Bow", 7], ["Staff", 8], ["Gun", 9], ["Grenade", 10], ["Mine", 11], ["Mounted", 12]] },
+  { name = "BaseWeight", type = "f32" },
+  { name = "BaseValue", type = "u32" },
+  { name = "BaseSpeed", type = "f32" },
+  { name = "AttackOxygenCost", type = "f32" },
+  { name = "WeaponBarrel", type = "formid", targets = ["WBAR"] },
+]
 
 [[member]]
 sig = "WABB"
-name = "Wabb"
-type = "opaque"
+name = "Abbreviation"
+type = "lstring"
 card = "optional"
-note = "observed 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18768-L18768"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "WMEL"
-name = "Wmel"
-type = "opaque"
-note = "observed 13 bytes"
+name = "Melee"
+type = "struct"
+size = 13
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18769-L18774"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4647-L4661",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "AttackSpeed", type = "enum", base = "u8", values = [["VerySlow", 0], ["Slow", 1], ["Medium", 2], ["Fast", 3], ["VeryFast", 4]] },
+  { name = "BashDamage", type = "f32" },
+  { name = "Reach", type = "f32" },
+  { name = "Stagger", type = "enum", base = "u32", values = [["None", 0], ["Small", 1], ["Medium", 2], ["Large", 3], ["ExtraLarge", 4]] },
+]
 
 [[member]]
 sig = "QNAM"
-name = "Qnam"
-type = "opaque"
-note = "observed 36 bytes"
+name = "Power"
+type = "struct"
+size = 36
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18775-L18788"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Power", type = "formid", targets = ["AVIF"] },
+  { name = "RechargeTime", type = "f32" },
+  { name = "RechargeDelay", type = "f32" },
+  { name = "ConsumeAmmo", type = "ref:Bool8" },
+  { name = "PowerBonus", type = "formid", targets = ["AVIF"] },
+  { name = "UsePower", type = "ref:Bool8" },
+  { name = "VariablePowerEnabled", type = "ref:Bool8" },
+  { name = "VariablePowerTransitionDuration", type = "f32" },
+  { name = "UseChargeOnlyInFocusMode", type = "ref:Bool8" },
+  { name = "PowerIntensityCurve", type = "formid", targets = ["CURV"] },
+  { name = "PowerDamageMultiplier", type = "f32" },
+  { name = "PowerConsumptionMultiplierCurve", type = "formid", targets = ["CURV"] },
+]
 
 [[member]]
 sig = "WRLO"
-name = "Wrlo"
-type = "opaque"
-note = "observed 10 bytes"
+name = "Reload"
+type = "struct"
+size = 10
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18789-L18794"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "ReloadSeconds", type = "f32" },
+  { name = "ReloadSpeed", type = "f32" },
+  { name = "Charging", type = "ref:Bool8" },
+  { name = "Single", type = "ref:Bool8" },
+]
 
 [[member]]
 sig = "WVAR"
-name = "Wvar"
-type = "opaque"
-note = "observed 49 bytes"
+name = "VariableRange"
+type = "struct"
+size = 49
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18795-L18813"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Aperture", type = "struct", field = [{ name = "ValueMin", type = "f32" }, { name = "ValueMax", type = "f32" }, { name = "InputMin", type = "f32" }, { name = "InputMax", type = "f32" }, { name = "Acceleration", type = "f32" }, { name = "Deceleration", type = "f32" }] },
+  { name = "Distance", type = "struct", field = [{ name = "ValueMin", type = "f32" }, { name = "ValueMax", type = "f32" }, { name = "InputMin", type = "f32" }, { name = "InputMax", type = "f32" }, { name = "Acceleration", type = "f32" }, { name = "Deceleration", type = "f32" }] },
+  { name = "UseVariableRange", type = "ref:Bool8" },
+]
 
 [[member]]
+group = "FirstPersonModel"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18814-L18819"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "xEdit lets these members appear in any order; listed in xEdit's order, which every official record follows"
+
+[[member.member]]
 sig = "MOD4"
-name = "Mod4"
-type = "opaque"
+name = "FileName"
+type = "zstring"
 card = "optional"
 
-[[member]]
+[[member.member]]
+sig = "MO4C"
+name = "Mo4c"
+type = "opaque"
+card = "optional"
+confidence = "reference"
+note = "unknown in xEdit; not in any official WEAP"
+
+[[member.member]]
 sig = "FLLD"
-name = "Flld2"
-type = "opaque"
-note = "second of two FLLD slots; observed 4 bytes"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
 
-[[member]]
+[[member.member]]
 sig = "MO4S"
-name = "Mo4s"
-type = "opaque"
+name = "ColorRemappingIndex"
+type = "f32"
 card = "optional"
-note = "observed 4 bytes"
 
 [[member]]
 sig = "WVIS"
-name = "Wvis"
-type = "opaque"
-note = "observed 24 bytes"
+name = "ArtVisuals"
+type = "struct"
+size = 24
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18820-L18825"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "FirstPersonOffset", type = "ref:Vec3" },
+  { name = "ImpactDataSet", type = "formid", targets = ["IPDS"] },
+  { name = "ColorRemappingIndex", type = "f32" },
+  { name = "ImageSpaceAdapter", type = "formid", targets = ["IMAD"] },
+]
 
 [[member]]
 sig = "WTRM"
-name = "Wtrm"
-type = "opaque"
-note = "observed 17 bytes"
+name = "ShipWeapon"
+type = "struct"
+size = 17
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18826-L18832"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "AttackActionPointCost", type = "f32" },
+  { name = "OverrideDefaultCameraShake", type = "ref:Bool8" },
+  { name = "FiringCameraShakeIntensity", type = "f32" },
+  { name = "FiringCameraShakeDuration", type = "f32" },
+  { name = "AiFiringArc", type = "f32" },
+]

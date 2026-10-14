@@ -1,147 +1,352 @@
-# COBJ: subrecord inventory. The universal subrecords (EDID, DESC) are typed (M2.B2,
-# sources on each member); every other payload is opaque until the record layout is
-# transcribed (lane B round 3, xEdit at the pin).
+# COBJ: constructible object (a crafting or research recipe).
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the COBJ top groups of the 14 official
-# ESMs (2026-10-14): 3,518 records, form versions 552/581/582, 43 distinct subrecord
-# sequences, all consistent with the order below. "required" means present in every
-# corpus record. CTDA (conditions) repeats up to 6 times per record.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the COBJ definition of wbDefinitionsSF1.pas at the pinned revision (L10886-L10950)
+#     and the helpers it uses (conditions, components, sounds, the learn method enum, the
+#     base object signature list): member order, cardinality, field layouts, FormID target
+#     types, enumeration and flag values.
+#   corpus: the round 3 typed check of all 3,518 official COBJ records (14 files, form
+#     versions 552, 581 and 582): every member marked `corpus` occurs with the declared size
+#     and order in every record, nothing is left in `extra`, and every record re-encodes
+#     identically.
+#   uesp-skyrim / universal scan: the EDID, FULL and DESC string conventions (M2.B2).
 #
-# Opaque member names are placeholders derived from the signature.
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. The condition payloads (CTDA) are xEdit unions and stay opaque
+# (common/Condition.toml), as do VMAD and the BFCB component data. Tier values are named by
+# number. Members no official COBJ has stay at `reference`.
 signature = "COBJ"
 name = "ConstructibleObject"
-source = "corpus: COBJ records of the 14 official ESMs, scan 2026-10-14"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
 confidence = "corpus"
+flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10903-L10903"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10904-L10904"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; built from unions in xEdit, kept raw; not in any official COBJ"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10905-L10905"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10906-L10906"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+confidence = "corpus"
+note = "not in any official COBJ"
 
 [[member]]
 sig = "DESC"
 name = "Description"
 type = "lstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10907-L10907"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3186-L3189",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "BNAM"
-name = "Bnam"
-type = "opaque"
-note = "observed 4 bytes"
+name = "WorkbenchKeyword"
+type = "formid"
+targets = ["KYWD"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10908-L10908"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
-sig = "CTDA"
-name = "Ctda"
-type = "opaque"
+group_ref = "Condition"
+name = "Conditions"
 card = "repeated"
-note = "observed 32 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10909-L10909"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FVPA"
-name = "Fvpa"
-type = "opaque"
+name = "Components"
+type = "array"
 card = "optional"
-note = "observed multiples of 12 bytes"
+element = "ref:Component"
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10910-L10910"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7819-L7819",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7805-L7817",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "RQPK"
-name = "Rqpk"
-type = "opaque"
+name = "RequiredPerks"
+type = "array"
 card = "optional"
-note = "observed 12 or 24 bytes"
+element = "struct"
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10911-L10920"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Perk", type = "formid", targets = ["PERK"] },
+  { name = "Rank", type = "u32" },
+  { name = "Unused", type = "opaque", size = 4, note = "a disabled curve field in xEdit" },
+]
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-note = "observed 4 bytes"
+name = "CreatedObject"
+type = "formid"
+targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10921-L10921"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "NNAM"
-name = "Nnam"
-type = "opaque"
-note = "observed 2 bytes"
+name = "AmountProduced"
+type = "u16"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10922-L10922"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "SNAM"
-name = "Snam"
-type = "opaque"
-note = "observed 4 bytes"
+name = "MenuPriorityOrder"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10923-L10923"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "TNAM"
-name = "Tnam"
-type = "opaque"
-note = "observed 1 byte"
+name = "Tier"
+type = "enum"
+base = "u8"
+values = [["Tier0", 0], ["Tier1", 1], ["Tier2", 2], ["Tier3", 3], ["Tier4", 4], ["Tier5", 5]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10924-L10931"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "CUSH"
-name = "Cush"
-type = "opaque"
+name = "CraftingSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10932-L10932"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PUSH"
-name = "Push"
-type = "opaque"
+name = "PickupSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10933-L10933"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "PDSH"
-name = "Pdsh"
-type = "opaque"
+name = "PutdownSound"
+type = "ref:SoundReference"
 card = "optional"
-note = "observed 40 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10934-L10934"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "REPR"
+name = "RepairComponents"
+type = "array"
+card = "optional"
+element = "ref:Component"
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10935-L10935"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7820-L7820",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7805-L7817",
+]
+confidence = "reference"
+note = "not in any official COBJ"
 
 [[member]]
 sig = "LRNM"
-name = "Lrnm"
-type = "opaque"
-note = "observed 1 byte"
+name = "LearnMethod"
+type = "enum"
+base = "u8"
+values = [["PickedUpOrScript", 0], ["Scrapping", 1], ["Ingested", 2], ["DefaultOrConditions", 3], ["Plan", 4]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10936-L10936"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2963-L2969",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
-note = "observed 4 bytes"
+name = "Value"
+type = "u32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10937-L10937"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "ANAM"
-name = "Anam"
-type = "opaque"
+name = "MenuArtObject"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes, in 7 records"
+targets = ["ARTO"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10938-L10938"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "GNAM"
+name = "LearnedFrom"
+type = "formid"
+card = "optional"
+targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10939-L10939"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+]
+confidence = "reference"
+note = "not in any official COBJ"
+
+[[member]]
+sig = "CVT0"
+name = "BaseReturnScaleTable"
+type = "formid"
+card = "optional"
+targets = ["CURV"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10940-L10940"
+confidence = "reference"
+note = "not in any official COBJ"
+
+[[member]]
+sig = "LRNC"
+name = "LearnChance"
+type = "formid"
+card = "optional"
+targets = ["GLOB"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10941-L10941"
+confidence = "reference"
+note = "not in any official COBJ"
 
 [[member]]
 sig = "JNAM"
-name = "Jnam"
-type = "opaque"
+name = "MaxBuildCountGlobal"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes"
+targets = ["GLOB"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10942-L10942"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "RecipeFilters"
+type = "array"
 card = "optional"
-note = "observed 4 bytes"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10943-L10943"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CIFK"
+name = "InstancedFilterKeyword"
+type = "formid"
+card = "optional"
+targets = ["KYWD"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10944-L10944"
+confidence = "reference"
+note = "not in any official COBJ"
 
 [[member]]
 sig = "RECF"
-name = "Recf"
-type = "opaque"
-note = "observed 8 bytes"
+name = "RecipeFlags"
+type = "flags"
+base = "u64"
+bits = [["FilterNotRequiredToLearn", 0x1], ["ExcludeFromWorkshopLod", 0x4]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10945-L10949"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"

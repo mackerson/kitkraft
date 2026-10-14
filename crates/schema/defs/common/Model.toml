@@ -1,0 +1,70 @@
+# Model: the generic model block (model file name, material swaps, light layer, colour
+# remapping index, model flags), shared by every record type that has one.
+#
+# Source (ADR 0004): the generic model helper of wbDefinitionsSF1.pas at the pin
+# (L7008-L7029), with the light-layer flags (L3818-L3823), the colour remapping index
+# (L3812), the model flags (L3801-L3804) and the material swap list (L7000-L7006) it uses.
+# xEdit lets these members appear in any order and marks the file name as not required; we
+# list them in xEdit's order, which is also the order every official record uses.
+#
+# The material swap list carries a count prefix before its FormIDs; xEdit encodes it as a
+# 2-byte prefix (negative array count). It is written here as an explicit count field.
+name = "Model"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"
+confidence = "reference"
+
+[[member]]
+sig = "MODL"
+name = "FileName"
+type = "zstring"
+card = "optional"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every MODL in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "MOLM"
+name = "MaterialSwaps"
+type = "struct"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"
+confidence = "reference"
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every model FLLD in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs is 4 bytes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "MODC"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3812-L3812"
+confidence = "reference"
+
+[[member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every XFLG in the OMOD records of the 14 official ESMs (5) is 1 byte and re-encodes identically",
+]
+confidence = "corpus"

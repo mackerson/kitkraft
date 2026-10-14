@@ -1,0 +1,415 @@
+# LVLI: leveled item list.
+#
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the LVLI definition of wbDefinitionsSF1.pas at the pinned revision (L14013-L14074)
+#     and the helpers it uses (the leveled list entry of wbDefinitionsCommon.pas, conditions,
+#     extra data, filter keyword chances, byte colours, the model block): member order,
+#     cardinality, field layouts, FormID target types, flag values.
+#   corpus: the round 3 typed check of all 6,543 official LVLI records (14 files, form
+#     versions 552, 581 and 582; 22,701 entries): every member marked `corpus` occurs with the
+#     declared size and order in every record, nothing is left in `extra`, and every record
+#     re-encodes identically.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. The entry count (LLCT) is stored, not derived (M3.B10 covers
+# `count_from` arrays only; here the count is a separate subrecord): an edit that adds or
+# removes an entry must update it. Condition payloads (CTDA), the COED owner data, VMAD and
+# the BFCB component data stay opaque (xEdit unions). Members no official LVLI has stay at
+# `reference`.
+signature = "LVLI"
+name = "LeveledItem"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14013-L14074"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["UseAll", 0x8000], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14031-L14031"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14032-L14032"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; built from unions in xEdit, kept raw (one official LVLI has one)"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "struct"
+size = 24
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14033-L14033"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Min", type = "ref:Vec3" },
+  { name = "Max", type = "ref:Vec3" },
+]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14034-L14034"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "struct"
+card = "optional"
+size = 80
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14035-L14035"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "angles are stored as f32; xEdit shows them in degrees"
+field = [
+  { name = "Flags", type = "flags", base = "u8", bits = [["ConformToSlope", 0x1], ["RotateZToSlope", 0x4], ["SlopeLimitIsMinSlope", 0x8], ["PlaceAsMarker", 0x10], ["OutsideWaterHeight", 0x20]] },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Sink", type = "f32" },
+  { name = "SinkVariance", type = "f32" },
+  { name = "XyOffsetVariance", type = "f32" },
+  { name = "Footprint", type = "enum", base = "u32", values = [["ExtraLarge", 0], ["Large", 1], ["Medium", 2], ["Small", 3], ["None", 5]] },
+  { name = "ScalePercent", type = "f32" },
+  { name = "ScaleVariance", type = "f32" },
+  { name = "AngleX", type = "f32" },
+  { name = "AngleXVariance", type = "f32" },
+  { name = "AngleY", type = "f32" },
+  { name = "AngleYVariance", type = "f32" },
+  { name = "AngleZ", type = "f32" },
+  { name = "AngleZVariance", type = "f32" },
+  { name = "SlopePercent", type = "f32" },
+  { name = "SlopePercentVariance", type = "f32" },
+  { name = "Density", type = "f32" },
+  { name = "FrequencyPercent", type = "f32" },
+  { name = "SlopeLimit", type = "f32" },
+  { name = "DistanceBelowWater", type = "f32" },
+  { name = "DistanceAboveWater", type = "f32" },
+]
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "struct"
+card = "optional"
+size = 32
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14036-L14036"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
+]
+confidence = "reference"
+note = "not in any official LVLI"
+field = [
+  { name = "InventoryIcon", type = "formid", targets = ["TRNS"] },
+  { name = "WorkshopIcon", type = "formid", targets = ["TRNS"] },
+  { name = "ShipBuilderIcon", type = "formid", targets = ["TRNS"] },
+  { name = "Preview", type = "formid", targets = ["TRNS"] },
+  { name = "Inventory3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "Workbench3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "DataMenu3dOverride", type = "formid", targets = ["TRNS"] },
+  { name = "ResearchMenu3dOverride", type = "formid", targets = ["TRNS"] },
+]
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+card = "optional"
+targets = ["STBH"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14037-L14037"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920",
+]
+confidence = "reference"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+card = "optional"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14038-L14038"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963",
+]
+confidence = "reference"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14039-L14039"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14040-L14040"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "LVLD"
+name = "ChanceNone"
+type = "f32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14041-L14041"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2252-L2252",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "LVLM"
+name = "MaxCount"
+type = "u8"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14042-L14042"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "LVLF"
+name = "Flags"
+type = "flags"
+base = "u16"
+bits = [["CalculateFromAllLevels", 0x1], ["CalculateForEachItem", 0x2], ["UseAll", 0x4], ["ShowAsMarker1", 0x8], ["ShowAsMarker2", 0x10], ["EvalAsStack", 0x20], ["GetChanceFromRequiredBiome", 0x80], ["DoAllBeforeRepeating", 0x100]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14043-L14053"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14054-L14054"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+]
+confidence = "reference"
+note = "conditions on the whole list; not in any official LVLI"
+
+[[member]]
+sig = "LVLG"
+name = "UseChanceNoneGlobal"
+type = "formid"
+card = "optional"
+targets = ["GLOB"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14055-L14055"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "LLRB"
+name = "RequiredBiome"
+type = "formid"
+card = "optional"
+targets = ["BIOM"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14056-L14056"
+confidence = "reference"
+note = "not in any official LVLI"
+
+[[member]]
+sig = "LLRV"
+name = "RequiredResourceVein"
+type = "formid"
+card = "optional"
+targets = ["IRES"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14057-L14057"
+confidence = "reference"
+note = "not in any official LVLI"
+
+[[member]]
+sig = "LLCT"
+name = "EntryCount"
+type = "u8"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14058-L14058"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2250-L2250",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "number of Entries; stored, not derived: an edit that adds or removes an entry must update it"
+
+[[member]]
+group = "Entries"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14059-L14066"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "LVLO"
+name = "Entry"
+type = "struct"
+size = 12
+note = "xEdit lets the payload end after Item (fields from Count on are optional); every official LVLO is 12 bytes"
+field = [
+  { name = "Level", type = "u16" },
+  { name = "Unused1", type = "opaque", size = 2 },
+  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
+  { name = "Count", type = "u16" },
+  { name = "ChanceNone", type = "u8" },
+  { name = "Unused2", type = "opaque", size = 1 },
+]
+
+[[member.member]]
+sig = "COED"
+name = "ExtraData"
+type = "struct"
+card = "optional"
+size = 12
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2294-L2302"
+confidence = "reference"
+note = "not in any official LVLI; the middle field is a global (GLOB FormID), a required rank or unused by the owner's type (an xEdit union), kept opaque"
+field = [
+  { name = "Owner", type = "formid", targets = ["NPC_", "FACT"] },
+  { name = "OwnerData", type = "opaque", size = 4 },
+  { name = "ItemCondition", type = "f32" },
+]
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member]]
+sig = "LLKC"
+name = "FilterKeywordChances"
+type = "array"
+card = "optional"
+element = "struct"
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14067-L14067"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7791-L7803",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
+  { name = "Chance", type = "u32" },
+  { name = "Unused", type = "opaque", size = 4 },
+]
+
+[[member]]
+sig = "LVSG"
+name = "EpicLootChance"
+type = "formid"
+card = "optional"
+targets = ["GLOB"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14068-L14068"
+confidence = "reference"
+note = "not in any official LVLI"
+
+[[member]]
+sig = "LIMC"
+name = "MarkerColor"
+type = "struct"
+card = "optional"
+size = 4
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14069-L14069"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+field = [
+  { name = "Red", type = "u8" },
+  { name = "Green", type = "u8" },
+  { name = "Blue", type = "u8" },
+  { name = "Unused", type = "opaque", size = 1 },
+]
+
+[[member]]
+sig = "ONAM"
+name = "OverrideName"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14070-L14070"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "LVLL"
+name = "LegendaryItemDefaultListRank"
+type = "u8"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14071-L14071"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14072-L14072"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "xEdit marks the block required; its file name is optional"
+
+[[member]]
+sig = "FTYP"
+name = "ForcedLocationRefTypes"
+type = "array"
+card = "optional"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14073-L14073"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"

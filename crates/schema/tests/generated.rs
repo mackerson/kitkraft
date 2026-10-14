@@ -555,24 +555,37 @@ fn seed_tes4_and_headers() {
 }
 
 #[test]
-fn seed_weap_inventory_shape() {
+fn seed_weap_typed_shape() {
     use seed::{Ctx, WeapRecord};
     let sigs: [&[u8; 4]; 22] = [
         b"EDID", b"OBND", b"ODTY", b"BFCB", b"REFL", b"BFCE", b"FULL", b"FLLD", b"KSIZ", b"KWDA",
         b"DESC", b"OBTE", b"OBTF", b"FULL", b"OBTS", b"FULL", b"OBTS", b"STOP", b"NNAM", b"WFIR",
         b"FLLD", b"WTRM",
     ];
-    // Typed members (M2.B2) get well-formed payloads for a localized plugin; the opaque
-    // ones get arbitrary bytes.
+    // Well-formed payloads for a localized plugin (lane B round 3 layouts); the component
+    // data inside the BFCB block stays raw.
     let kwda = [7u32.to_le_bytes(), 0x0100_0009u32.to_le_bytes()].concat();
+    // A template item with no includes or properties and one keyword (22 bytes).
+    let mut obts = vec![0u8; 15];
+    obts.push(1);
+    obts.extend_from_slice(&0x0100_0042u32.to_le_bytes());
+    obts.extend_from_slice(&[0, 0]);
     let subs: Vec<seed::OwnedSub> = sigs
         .iter()
         .enumerate()
         .map(|(i, sig)| match *sig {
             b"EDID" => s(sig, b"Gun\0"),
+            b"BFCB" => s(sig, b"T\0"),
             b"FULL" | b"DESC" => s(sig, &(0x0100_0000 + i as u32).to_le_bytes()),
             b"KSIZ" => s(sig, &2u32.to_le_bytes()),
             b"KWDA" => s(sig, &kwda),
+            b"OBND" => s(sig, &[0; 24]),
+            b"ODTY" | b"FLLD" | b"NNAM" => s(sig, &[i as u8, 0, 0, 0]),
+            b"OBTE" => s(sig, &2u32.to_le_bytes()),
+            b"OBTS" => s(sig, &obts),
+            b"WFIR" => s(sig, &[0; 45]),
+            b"WTRM" => s(sig, &[0; 17]),
+            b"BFCE" | b"OBTF" | b"STOP" => s(sig, &[]),
             _ => s(sig, &vec![i as u8; i % 5]),
         })
         .collect();
@@ -584,33 +597,50 @@ fn seed_weap_inventory_shape() {
     let rec = WeapRecord::decode(&raws, localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert_eq!(rec.bfcb_block.len(), 1);
-    assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
+    assert_eq!(rec.bfcb_block[0].component_data.len(), 1);
+    assert_eq!(rec.bfcb_block[0].component_type.as_ref().unwrap().0, b"T");
     assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gun");
     assert_eq!(**rec.name.as_ref().unwrap(), seed::LString::Id(0x0100_0006));
     let keywords = rec.keywords.as_ref().unwrap();
     assert_eq!(**keywords.count.as_ref().unwrap(), 2);
     assert_eq!(keywords.forms.as_ref().unwrap().0.len(), 2);
     let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
-    assert_eq!(ids, [("Keywords.KWDA", 7), ("Keywords.KWDA", 0x0100_0009)]);
-    // FULL, DESC and the two FULL entries of the OBTE block.
+    let kw: Vec<u32> = ids
+        .iter()
+        .filter(|(p, _)| *p == "Keywords.KWDA")
+        .map(|(_, f)| *f)
+        .collect();
+    assert_eq!(kw, [7, 0x0100_0009]);
+    assert!(ids.contains(&("WEAP.NNAM", 18)), "{ids:?}");
+    // FULL, DESC and the two FULL entries of the object template.
     assert_eq!(rec.lstrings().len(), 4);
     // Without the localized flag a 4-byte FULL is no zstring: it stays raw, losslessly.
     let plain = WeapRecord::decode(&raws, Ctx::default());
     assert_eq!(plain.extra.len(), 4);
     assert_eq!(plain.encode(), subs);
     let block = rec.obte_block.as_ref().unwrap();
-    assert!(block.obte.is_some() && block.stop.is_some());
-    assert_eq!(block.obts_entry.len(), 2);
-    assert!(block.obts_entry[0].obtf.is_some());
-    assert!(block.obts_entry[1].obtf.is_none());
-    assert!(rec.flld.is_some() && rec.flld2.is_some());
+    assert_eq!(**block.combination_count.as_ref().unwrap(), 2);
+    assert!(block.end_marker.is_some());
+    assert_eq!(block.combination.len(), 2);
+    assert!(block.combination[0].editor_only.is_some());
+    assert!(block.combination[1].editor_only.is_none());
+    let item = block.combination[0].template_item.as_ref().unwrap();
+    assert_eq!(item.keywords.len(), 1);
+    // FLLD sits in the model block and in the first-person model block.
+    assert!(rec.model.as_ref().unwrap().light_layer.is_some());
+    assert!(rec
+        .first_person_model
+        .as_ref()
+        .unwrap()
+        .light_layer
+        .is_some());
     assert_eq!(rec.encode(), subs);
 
     // STOP on its own (no OBTE) still forms the block.
     let lone = vec![s(b"EDID", b"w\0"), s(b"STOP", &[])];
     let rec = WeapRecord::decode(&seed_raw(&lone), Ctx::default());
     let block = rec.obte_block.as_ref().unwrap();
-    assert!(block.obte.is_none() && block.stop.is_some());
+    assert!(block.combination_count.is_none() && block.end_marker.is_some());
     assert_eq!(rec.encode(), lone);
 }
 
@@ -629,7 +659,7 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gv");
     assert_eq!(rec.bfcb_block.len(), 1);
-    assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
+    assert_eq!(rec.bfcb_block[0].component_data.len(), 1);
     assert_eq!(**rec.value.as_ref().unwrap(), 1.0);
     assert_eq!(rec.encode(), glob);
     let bare = vec![s(b"FLTV", &[0; 4])];
@@ -689,7 +719,7 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     let rec = KywdRecord::decode(&seed_raw(&kywd), Ctx::default());
     assert_eq!(rec.extra.len(), 1);
     assert_eq!(rec.extra[0].0, 9);
-    assert!(rec.bfcb_block[0].bfcb_body.is_empty());
+    assert!(rec.bfcb_block[0].component_data.is_empty());
     assert!(rec.dnam.is_some() && rec.enam.is_some() && rec.data.is_none());
     assert_eq!(rec.encode(), kywd);
 }

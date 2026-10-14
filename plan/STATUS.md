@@ -565,6 +565,24 @@ is under "Next".
   rule but lists the 22 real dangling FormIDs as `KNOWN_ERRORS` with evidence and exact
   counts (Starfield.esm PKIN `PRPS.ActorValue` 0x33D x7 and 0x33E x14; SFBGS050.esm
   PNDT `EOVR.Worldspace` 0202B2F4 x1).
+- M4.BX1 lane B round 3 merge (integrator, 2026-10-14): round 3's ten typed types and 49
+  lstring-only stubs on top of the planet family. The planet family's full BIOM, GBFM,
+  PKIN, PNDT, RSPJ and STDT win over round 3's stubs; every lstring round 3 listed for them
+  is a member except the three official records carry only inside a base form component
+  (GBFM HULL, PNDT FULL, STDT FULL: raw with the component data, typed by the engine's
+  corpus-table fallback; `COMPONENT_LSTRINGS` in `crates/schema/tests/defs.rs`), and GBFM
+  gets back its combination FULL (`reference`, xEdit L6961-L6974) now that layouts resolve
+  by position. `common/Condition.toml`: one definition (the planet family's typed CTDA
+  struct, round 3's COBJ evidence added), used by COBJ, FLST, LVLI, LVLP, PCBN, PCMT, RSPJ.
+  `edit::fields` keeps the positional lookup with round 3's no-fallback expectation.
+  `validate_corpus_official_files`: 23 new FLST `LNAM` errors in Starfield.esm, all object
+  IDs 0x2D8..0x359 in five actor-value form lists (ENV_imGui_* and
+  SpaceshipPartSummedValues), the PKIN PRPS class (engine-reserved actor values, grade D),
+  listed as `KNOWN_ERRORS` with exact counts. Gates: `cargo xtask ci` with
+  `KITCRAFT_DATA_DIR`, the ignored release corpus tests for esm, doc and engine (14/14
+  identical, M2.A3 typed check 0 conflicts, doc `typed_corpus` 7,127,228 typed records and
+  181 pinned unresolved lstrings); parity: 72 record definitions, 1,028,119 typed (0
+  failed), 26,866 opaque, 49,364,576 unknown subrecord occurrences.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -583,10 +601,57 @@ is under "Next".
      `--profile` to `kit mcp`, which now preloads it).
   5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
      .mcp.json --allowedTools "mcp__kitcraft__*"`.
-- **Lane B round 3** (M2.B4..B8, M2.B10): gate lifted by the owner approval of
-  2026-10-14, but **blocked in the 2026-10-14 lane B session**: the session's permission
-  policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
-  WEAP). No layout was transcribed; see Blockers.
+- **Lane B round 3 (M3, `crates/schema`).** M3.O0 done: the owner staged the pinned files
+  outside the repo at `C:\Modding\tools\xedit-ref\` (`wbDefinitionsSF1.pas`,
+  `wbDefinitionsCommon.pas`, `PIN.txt`). M3.B0 done 2026-10-14: sizes 789,023 and 338,167
+  bytes, blob hashes `ace733b52e259e559aed0f4c71edf9e3432fc62b` and
+  `cfa80ba05c176d7571e19895e835f8df735a06cf`, SHA-256 `9f01921a...952346d5` and
+  `e616b654...682b7d26`, all as in `docs/xedit-reference.md`; the loader already accepts
+  both files (M2.B1). Typed so far (each checked on every corpus record of its type: typed
+  members decoded, nothing left in `extra`, zero re-encode differences, and the full-corpus
+  typed check of `corpus_full_roundtrip` clean):
+  - **M3.B1 WEAP**: all 452 records; every subrecord xEdit lists is typed except VMAD (script
+    data, unions) and MO4C (unknown upstream); the BFCB component data stays raw (a union
+    decided by the component type). New shared definitions: `Model`, `Destructible`,
+    `SoundReference`, `ObjectModProperty`, `Vec3`, `Bool8`; `BfcbBlock` and `ObteBlock`
+    typed (component type, end markers, object template items).
+  - **M3.B2 AMMO, PROJ**: all 154 AMMO and 299 PROJ records. AMMO: every member typed
+    except VMAD; DATA's weight is `if_remaining` (xEdit makes it optional). PROJ (no
+    inventory before; the corpus check is its inventory): every member typed except VMAD and
+    the BFCB component data; PROD's two particle define strings have a u32 length prefix,
+    typed as a count field plus raw bytes (the format has no u32-prefixed string); the
+    unused 0-byte DATA is an `empty` marker.
+  - **M3.B3 AMDL**: all 126 records (EDID + 65-byte ANAM, 17 fields typed; the last one
+    `if_remaining` as xEdit makes it optional).
+  - **M3.B4 OMOD**: all 3,330 records (DATA 34..511 bytes): DATA typed with its include
+    list and its property entries (shared `ObjectModProperty`, 24 bytes each: value type,
+    function type and property as integers, Value1/Value2 opaque because they are xEdit
+    unions and Value1 can be a FormID; M3.B9 can type them once a sibling-field decider
+    exists). Name and the attach parent slot list carry u32 prefixes, typed as explicit
+    count fields. VMAD, the unknown XFLG after the model block (never reached in the corpus:
+    the model block's XFLG takes it) and the BFCB component data stay opaque.
+  - **M3.B5 COBJ, ZOOM**: all 3,518 COBJ and 141 ZOOM records. COBJ: every member typed
+    except VMAD, the BFCB component data and the condition payloads (new shared group
+    `Condition`: CTDA opaque, a struct of xEdit unions; CIS1/CIS2 typed); components use the
+    new shared type `Component`. ZOOM: EDID + the 35-byte ZNAM, fully typed.
+  - **M3.B7 LVLI, FLST, INNR** (no inventories before; the corpus check is their
+    inventory): all 6,543 LVLI (22,701 entries), 1,415 FLST and 8 INNR records. LVLI: every
+    member typed except VMAD (one official record has one), the BFCB component data,
+    condition payloads and the COED owner data (an xEdit union); the entry count LLCT is a
+    separate subrecord, stored as read (M3.B10 covers `count_from` arrays only, so an edit
+    that adds an entry must update LLCT itself; noted in the definition). FLST: LNAM list,
+    conditional entries (INAM, CITC, conditions), ANAM. INNR: rulesets with their names,
+    keywords, XNAM properties (the target byte is an xEdit union by UNAM, kept as an
+    integer) and indexes.
+  - **M3.B8 lstrings**: all 105 lstring signatures of lane E's corpus table are schema
+    `lstring` members (`corpus`; the xEdit line cited for 103, CHAL DESC corpus only).
+    The 49 record types without a definition got lstring-only definitions: EDID plus a
+    repeated `LocalizedStrings` group of optional lstring members, so every occurrence is
+    typed wherever it stands and every other subrecord stays raw in place. That is less
+    than the plan's "inventory definition" (corpus order and cardinality of every member):
+    a full inventory for types such as NPC_, QUST, REFR, INFO is left to later rounds.
+    Corpus check: every lstring occurrence of those 49 types is visited (counts equal), 0
+    conflicts, 0 re-encode differences, including 6.7 million REFR.
 
 ### M3 lane H (evidence: CK observation and oracles)
 
@@ -612,7 +677,7 @@ when M2 is broken down in `plan/execution-plan.md`.
 | edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
 | smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
 | container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
-| schema     | Round 3 (blocked, see Blockers): typed layouts from the pinned xEdit files (see below)                         | `crates/schema` (lane B)                     |
+| schema     | Round 3: M3.B0-B5, B7, B8 done (see In progress); B6, B9-B12 open                                               | `crates/schema` (lane B)                     |
 
 Lane B round 3 transcribes definitions from the pinned xEdit files (`xedit:` provenance,
 `confidence = "reference"` until the corpus confirms) in this priority: **WEAP, AMMO, PROJ,
@@ -622,12 +687,7 @@ definition is checked against every corpus occurrence before it moves to
 
 ## Blockers
 
-- **Lane B round 3 needs the pinned xEdit files on disk.** Downloading
-  `Core/wbDefinitionsSF1.pas` and `Core/wbDefinitionsCommon.pas` at `9fb01688...` from
-  raw.githubusercontent.com (to the agent's target dir, outside version control) was denied
-  by the agent session's permission policy on 2026-10-14. The owner either allows that
-  fetch for the lane B agent, or places the two files (outside the repo) and names the
-  path. Until then M2.B4..B8 and M2.B10 cannot start.
+- None for lane B (the pinned xEdit files are staged, M3.O0).
 
 ## Open owner decisions
 
@@ -957,10 +1017,28 @@ Agents append here when they need a change in a crate they do not own.
 - ~~**Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
   kept: `generated::records::Record::extra(&self)`.~~ Done in M2.B3 (`Record::extra()` is
   generated for every defined type).
-- **Lane F -> lane A (M3.F2).** `esm::bridge::extra_of` still matches five variants (GLOB,
+- ~~**Lane F -> lane A (M3.F2).** `esm::bridge::extra_of` still matches five variants (GLOB,
   GMST, KYWD, TES4, WEAP), so `check_subrecords` misses `NotDecoded` conflicts in AMDL,
-  AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.
-  `coverage` (engine) does not depend on it.
+  AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.~~
+  Done in lane B's M3.B1 commit (FYI to lane A): `extra_of` returns `typed.extra()` for
+  every record type, a one-function change, so `corpus_full_roundtrip`'s typed check sees
+  undecoded payloads in every round 3 type.
+- **Lane B -> lanes D, E, F (FYI, done in lane B's M3.B1 commit).** Typing WEAP changed five
+  engine test expectations, updated in the same commit: `edit::fields` (WEAP WABB is a
+  schema lstring now, no table fallback), `edit::patch_tests` (the opaque subrecord in the
+  remap refusal test is VMAD, inserted after EDID, instead of WDMG), `handlers::coverage`
+  (MODL is typed; counts), `handlers::schema` (EDID cites `xedit:`; VMAD is the opaque
+  member checked), `handlers::set_tests` (the `hex:` error now comes from the WDMG struct).
+  Member names changed in the shared blocks: `BfcbBlock.Bfcb`/`BfcbBody`/`Bfce` are
+  `ComponentType`/`ComponentData`/`EndMarker`; `ObteBlock.Obte`/`ObtsEntry`/`Obts`/`Stop`
+  are `CombinationCount`/`Combination`/`TemplateItem`/`EndMarker`; WEAP's placeholder names
+  (`Obnd`, `Wfir`, `Flld2`, ...) are replaced by the xEdit-backed layout (`kit schema
+  --type WEAP --deep`).
+  After merging main (lane B's merge commit), three more expectations followed the typed
+  schema: `handlers::coverage` (the M3.F2 `failed` counts with MODL typed; 8 decoded by
+  confidence), `handlers::overhaul_tests` (KSIZ is looked up by name: WEAP's numeric
+  members now come first) and `tests/diff_corpus.rs` (picks a record type whose definition
+  places KWDA, since lstring-only definitions keep it raw).
 - **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
   `overhaul.scaffold` (alias `overhaul`, session handler registered in
   `handlers::session_defaults`), `build` gained `plan`, `validate` gained
@@ -970,12 +1048,20 @@ Agents append here when they need a change in a crate they do not own.
   descriptions and `kitcraft://commands` list it from the catalog). (2) Lane D: `build`'s `via` follows typed FormID
   members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
   `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
-- **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
+- ~~**Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3
-  transcribes definitions from the pinned xEdit file, please type these as `lstring`
-  (`confidence = "corpus"` is already backed by `lstring_table_matches_the_corpus`); the
-  schema then wins and the table entry becomes redundant.
+  transcribes definitions from the pinned xEdit file, please type these as `lstring`.~~
+  Done in lane B's M3.B8 commit: all 105 are schema `lstring` members (`corpus`, citing
+  `lstring_table_matches_the_corpus`, plus the xEdit line for 103 of them; CHAL `DESC` is
+  not in xEdit's CHAL definition, the corpus wins). `crates/schema/tests/defs.rs`
+  `lstring_members_cover_the_corpus_table` keeps a copy of the 105 pairs. **Lane B -> lane E
+  (M3.E4):** `layout_for` no longer reaches the table fallback for any of them; tests
+  updated in the same commit (`edit::fields` layouts, `edit::patch_tests` untyped lstrings:
+  ACTI `ATTX` now comes from the schema, no table limitation; `handlers::schema` uses ARMO
+  as the undefined type). **Lane B -> lane A (FYI):** CELL and REFR now have lstring-only
+  definitions, so `bridge` and `driver` tests use NAVM as the undefined type and count CELL
+  and the three REFR as typed records.
 - **Lane H -> lane E (and the `docs/corpus.md` "TES4 header" text).** Our patches write
   `TES4` as `HEDR CNAM MAST DATA INCC`, but no official file has a `DATA` after `MAST`: a
   walk of all 14 `TES4` records (13 with masters) finds none, as `crates/schema/defs/TES4.toml`

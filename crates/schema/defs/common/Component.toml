@@ -1,0 +1,22 @@
+# Component: one crafting component entry (12 bytes): the component form, its count and an
+# optional curve table.
+#
+# Sources (ADR 0004, ADR 0005):
+#   xedit: the component helper of wbDefinitionsSF1.pas at the pin (L7805-L7817), with the
+#     base object signature list (L43-L54) as the component's allowed target types.
+#   corpus: the round 3 typed check of the COBJ records of the 14 official ESMs: every FVPA
+#     payload is a multiple of 12 bytes (12 to 84).
+name = "Component"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7805-L7817"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every FVPA payload of the 3,518 COBJ records in the 14 official ESMs decodes as 12-byte entries and re-encodes identically",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Component", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"] },
+  { name = "Count", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]

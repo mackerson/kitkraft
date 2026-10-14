@@ -121,7 +121,7 @@ pub enum ErrorKind {
     #[error("source {0:?} is forbidden by ADR 0005")]
     ForbiddenSource(String),
     #[error(
-        "xedit citation {citation:?}: {reason}; expected `xedit: wbDefinitionsSF1.pas@<pinned 40-hex sha>#L<start>-L<end>` (ADR 0004)"
+        "xedit citation {citation:?}: {reason}; expected `xedit: <wbDefinitionsSF1.pas or wbDefinitionsCommon.pas>@<pinned 40-hex sha>#L<start>-L<end>` (ADR 0004)"
     )]
     BadXeditSource {
         citation: String,
