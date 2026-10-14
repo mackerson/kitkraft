@@ -8,7 +8,9 @@
 #     16-bit version, a signed 16-bit object format, then the script list with a 16-bit
 #     count. L3413-L3583 - the record-specific variants (INFO, PACK, PERK, QUST, SCEN): the
 #     same three leading fields, then a fragment block after the script list.
-#   corpus: not yet checked (raised by the record types that carry VMAD in the corpus).
+#   corpus: the VMAD of the QUST records of the 14 official ESMs (1,703 payloads,
+#     2026-10-14 scan, `docs/schema/quest-family.md`): each decodes and re-encodes
+#     identically through this layout.
 #
 # What stays opaque, and why: each script entry holds properties whose value layout the
 # property's type byte selects (object, string, integers, floats, booleans, structs and
@@ -21,8 +23,9 @@ kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3413-L3583",
+  "corpus: the 1,703 VMAD payloads of the QUST records of the 14 official ESMs, 2026-10-14 scan: every one decodes and re-encodes identically",
 ]
-confidence = "reference"
+confidence = "corpus"
 type = "struct"
 field = [
   { name = "Version", type = "i16", note = "observed 6" },
