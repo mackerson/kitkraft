@@ -444,6 +444,190 @@ pub enum MemberDesc {
     AnyUntil { until: Sig },
 }
 
+/// FormID values, each with the path of the member or field that holds it (`WEAP.KWDA`).
+pub type FormIds<'a> = Vec<(&'static str, &'a FormId)>;
+
+/// Mutable FormID values with their paths.
+pub type FormIdsMut<'a> = Vec<(&'static str, &'a mut FormId)>;
+
+/// Localized-string values with their paths.
+pub type LStrings<'a> = Vec<(&'static str, &'a LString)>;
+
+/// Mutable localized-string values with their paths.
+pub type LStringsMut<'a> = Vec<(&'static str, &'a mut LString)>;
+
+/// Walks the typed values of a decoded record: every `formid` and every `lstring` value, in
+/// definition order, with the path of the member or field that holds it. FormIDs are the
+/// raw stored values (master index in the top byte); resolving them against a load order
+/// is not this module's job. Subrecords kept raw (`extra`, `any_until` bodies, opaque
+/// payloads) are not visited: whatever they hold is unknown to the schema.
+pub trait Visit {
+    /// Appends every FormID value; `path` names `self` when it is one.
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, _out: &mut FormIds<'a>) {}
+
+    /// Appends every FormID value, mutably.
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, _out: &mut FormIdsMut<'a>) {}
+
+    /// Appends every lstring value; `path` names `self` when it is one.
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, _out: &mut LStrings<'a>) {}
+
+    /// Appends every lstring value, mutably.
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, _out: &mut LStringsMut<'a>) {}
+}
+
+/// [`Visit::visit_form_ids`] as a free function (generated code calls these).
+pub fn visit_form_ids<'a, T: Visit>(value: &'a T, path: &'static str, out: &mut FormIds<'a>) {
+    value.visit_form_ids(path, out);
+}
+
+/// [`Visit::visit_form_ids_mut`] as a free function.
+pub fn visit_form_ids_mut<'a, T: Visit>(
+    value: &'a mut T,
+    path: &'static str,
+    out: &mut FormIdsMut<'a>,
+) {
+    value.visit_form_ids_mut(path, out);
+}
+
+/// [`Visit::visit_lstrings`] as a free function.
+pub fn visit_lstrings<'a, T: Visit>(value: &'a T, path: &'static str, out: &mut LStrings<'a>) {
+    value.visit_lstrings(path, out);
+}
+
+/// [`Visit::visit_lstrings_mut`] as a free function.
+pub fn visit_lstrings_mut<'a, T: Visit>(
+    value: &'a mut T,
+    path: &'static str,
+    out: &mut LStringsMut<'a>,
+) {
+    value.visit_lstrings_mut(path, out);
+}
+
+macro_rules! no_visit {
+    ($($t:ty),*) => {$(
+        impl Visit for $t {}
+    )*};
+}
+
+no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+no_visit!(ZString, WString, BString, Bytes, Empty, OwnedSub);
+
+impl Visit for FormId {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        out.push((path, self));
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        out.push((path, self));
+    }
+}
+
+impl Visit for LString {
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        out.push((path, self));
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        out.push((path, self));
+    }
+}
+
+impl<T: Visit> Visit for Sub<T> {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        self.value.visit_form_ids(path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        self.value.visit_form_ids_mut(path, out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        self.value.visit_lstrings(path, out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        self.value.visit_lstrings_mut(path, out);
+    }
+}
+
+impl<T: Visit> Visit for Option<T> {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Some(value) = self {
+            value.visit_form_ids(path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Some(value) = self {
+            value.visit_form_ids_mut(path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        if let Some(value) = self {
+            value.visit_lstrings(path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        if let Some(value) = self {
+            value.visit_lstrings_mut(path, out);
+        }
+    }
+}
+
+impl<T: Visit> Visit for Vec<T> {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        for value in self {
+            value.visit_form_ids(path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        for value in self {
+            value.visit_form_ids_mut(path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        for value in self {
+            value.visit_lstrings(path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        for value in self {
+            value.visit_lstrings_mut(path, out);
+        }
+    }
+}
+
+impl<T: Visit, const N: usize> Visit for [T; N] {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        for value in self {
+            value.visit_form_ids(path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        for value in self {
+            value.visit_form_ids_mut(path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        for value in self {
+            value.visit_lstrings(path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        for value in self {
+            value.visit_lstrings_mut(path, out);
+        }
+    }
+}
+
 /// Where the matcher put input subrecords.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Hit {

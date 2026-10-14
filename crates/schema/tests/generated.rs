@@ -404,7 +404,8 @@ fn record_dispatch() {
     assert_eq!(rec.encode(), subs);
     assert!(Record::decode(*b"NONE", &raws, ctx(15, false)).is_none());
     let sigs: Vec<[u8; 4]> = RECORDS.iter().map(|(sig, _)| *sig).collect();
-    assert_eq!(sigs, [*b"EMPT", *b"YYYY", *b"ZZZZ"]);
+    assert_eq!(sigs, [*b"EMPT", *b"VVVV", *b"YYYY", *b"ZZZZ"]);
+    assert!(rec.extra().is_empty());
 }
 
 #[test]
@@ -641,4 +642,90 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     assert!(rec.bfcb_block[0].bfcb_body.is_empty());
     assert!(rec.dnam.is_some() && rec.enam.is_some() && rec.data.is_none());
     assert_eq!(rec.encode(), kywd);
+}
+
+/// M2.B3: `form_ids()` and `lstrings()` yield every typed FormID and lstring in definition
+/// order, through struct arrays, repeated groups, shared types behind a `count_from` array
+/// and version-gated fields; the `_mut` forms edit in place.
+#[test]
+fn visitors_yield_every_form_id_and_lstring_in_order() {
+    fn id(v: u32) -> Vec<u8> {
+        v.to_le_bytes().to_vec()
+    }
+    let weight = |w: u16| w.to_le_bytes().to_vec();
+    let links = [id(0x0100_0001), weight(7), id(0x0100_0002), weight(8)].concat();
+    let pairs = [
+        vec![2u8],
+        id(0x0000_0A01),
+        vec![1],
+        id(0x0000_0A02),
+        vec![2],
+    ]
+    .concat();
+    let last = [id(0x0200_0003), id(0x0200_0004), id(77)].concat();
+    let subs = vec![
+        sub(b"FULL", &id(11)),
+        sub(b"LNKS", &links),
+        sub(b"SREF", &id(0x0000_0B01)),
+        sub(b"SDSC", &id(22)),
+        sub(b"SPRS", &pairs),
+        sub(b"SREF", &id(0x0000_0B02)),
+        sub(b"LAST", &last),
+    ];
+    let mut rec = Record::decode(*b"VVVV", &raw(&subs), ctx(10, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("VVVV.LNKS.Target", 0x0100_0001),
+            ("VVVV.LNKS.Target", 0x0100_0002),
+            ("VVVV.Slot.SREF", 0x0000_0B01),
+            ("Link.Form", 0x0000_0A01),
+            ("Link.Form", 0x0000_0A02),
+            ("VVVV.Slot.SREF", 0x0000_0B02),
+            ("VVVV.LAST.Owner", 0x0200_0003),
+            ("VVVV.LAST.Extra", 0x0200_0004),
+        ]
+    );
+    let strings: Vec<(&str, LString)> = rec
+        .lstrings()
+        .into_iter()
+        .map(|(p, s)| (p, s.clone()))
+        .collect();
+    assert_eq!(
+        strings,
+        [
+            ("VVVV.FULL", LString::Id(11)),
+            ("VVVV.Slot.SDSC", LString::Id(22)),
+            ("VVVV.LAST.Label", LString::Id(77)),
+        ]
+    );
+    // A gated field that is absent is not visited.
+    let mut old_subs = subs.clone();
+    old_subs[6] = sub(b"LAST", &[id(0x0200_0003), id(77)].concat());
+    let old = Record::decode(*b"VVVV", &raw(&old_subs), ctx(9, true)).unwrap();
+    assert!(old.extra().is_empty());
+    assert_eq!(old.form_ids().len(), 7);
+
+    // Remap every master-0x01 FormID to master 0x03 and replace a string ID with text.
+    for (_, form) in rec.form_ids_mut() {
+        if form.0 >> 24 == 1 {
+            *form = FormId(form.0 & 0x00FF_FFFF | 0x0300_0000);
+        }
+    }
+    for (path, text) in rec.lstrings_mut() {
+        if path == "VVVV.FULL" {
+            *text = LString::Text(ZString(b"Named".to_vec()));
+        }
+    }
+    let encoded = rec.encode();
+    let new_links = [id(0x0300_0001), weight(7), id(0x0300_0002), weight(8)].concat();
+    assert_eq!(encoded[0], sub(b"FULL", b"Named\0"));
+    assert_eq!(encoded[1], sub(b"LNKS", &new_links));
+    assert_eq!(encoded[2..], subs[2..]);
+
+    // A record without FormID or lstring members gives empty lists.
+    let empty = Record::decode(*b"EMPT", &[], ctx(1, true)).unwrap();
+    assert!(empty.form_ids().is_empty() && empty.lstrings().is_empty());
 }

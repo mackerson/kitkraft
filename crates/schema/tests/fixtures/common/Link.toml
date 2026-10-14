@@ -1,0 +1,7 @@
+# Link: a synthetic shared type holding a FormID (M2.B3 visitor tests).
+name = "Link"
+kind = "type"
+source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
+type = "struct"
+field = [{ name = "Form", type = "formid" }, { name = "Kind", type = "u8" }]

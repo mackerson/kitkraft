@@ -260,7 +260,14 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 - `lstring` decodes to `LString::Id(u32)` or `LString::Text(ZString)` by `ctx.localized`;
   a payload that does not fit the mode stays raw in `extra`.
 - `extra` holds subrecords that matched no member or failed to decode, each with its index
-  in the body as read; `encode` re-inserts each at that index.
+  in the body as read; `encode` re-inserts each at that index. `Record::extra()` returns
+  it for any record type.
+- Visitors (M2.B3): every record has `form_ids()` / `form_ids_mut()` over every
+  `formid`-typed value and `lstrings()` / `lstrings_mut()` over every `lstring` value, in
+  definition order, each paired with the path of the member or field holding it
+  (`WEAP.KWDA`, `Link.Form` inside a shared type); `Record` forwards them. FormIDs are the
+  raw stored values; resolution against masters belongs to the `doc` layer. Values kept
+  raw (`extra`, `any_until` bodies, opaque payloads) are not visited.
 
 ## Rules of thumb
 

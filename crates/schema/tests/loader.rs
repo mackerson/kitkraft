@@ -1039,9 +1039,9 @@ fn load_dir_reads_common_definitions() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let schema = load_dir(&dir).unwrap();
     let names: Vec<&str> = schema.common.keys().map(String::as_str).collect();
-    assert_eq!(names, ["Marker", "Point"]);
+    assert_eq!(names, ["Link", "Marker", "Point"]);
     let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
-    assert_eq!(sigs, ["EMPT", "YYYY", "ZZZZ"]);
+    assert_eq!(sigs, ["EMPT", "VVVV", "YYYY", "ZZZZ"]);
 }
 
 #[test]

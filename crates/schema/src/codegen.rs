@@ -50,8 +50,12 @@ pub const RESERVED_TYPE_NAMES: &[&str] = &[
     "Empty",
     "Field",
     "FormId",
+    "FormIds",
+    "FormIdsMut",
     "Hit",
     "LString",
+    "LStrings",
+    "LStringsMut",
     "MemberDesc",
     "OwnedSub",
     "RawSub",
@@ -60,6 +64,7 @@ pub const RESERVED_TYPE_NAMES: &[&str] = &[
     "Self",
     "Sig",
     "Sub",
+    "Visit",
     "WString",
     "ZString",
 ];
@@ -268,6 +273,8 @@ impl Field for {name} {{
         self.to_raw().write(out);
     }}
 }}
+
+impl Visit for {name} {{}}
 "
         );
         Ok(())
@@ -313,6 +320,8 @@ impl Field for {name} {{
         self.0.write(out);
     }}
 }}
+
+impl Visit for {name} {{}}
 "
         );
         Ok(())
@@ -329,10 +338,12 @@ impl Field for {name} {{
         let mut reads = String::new();
         let mut inits = Vec::with_capacity(fields.len());
         let mut writes = String::new();
+        let mut calls = VisitCalls::default();
         for (i, f) in fields.iter().enumerate() {
             let ident = field_ident(&f.name);
             let field_path = format!("{path}.{}", f.name);
             let p = lit(&field_path);
+            calls.add_type(&format!("self.{ident}"), &p, &f.ty);
             let inner = self.payload_type(&f.ty, &format!("{name}{}", f.name), &field_path)?;
             // Each field is read into a local `f<i>` in order, so a later field can use an
             // earlier one (an array's `count_from`).
@@ -426,6 +437,7 @@ impl Field for {name} {{
 }}
 "
         );
+        self.out.push_str(&visit_impl(name, &calls));
         Ok(())
     }
 
@@ -441,6 +453,8 @@ impl Field for {name} {{
             return self.payload_type(&sub.ty, type_name, path);
         };
         self.claim(type_name)?;
+        let mut calls = VisitCalls::default();
+        calls.add_type("self.0", "path", element);
         let element = self.payload_type(element, &format!("{type_name}Item"), path)?;
         let inner = match count {
             ArrayCount::Fixed(n) => format!("[{element}; {n}]"),
@@ -463,6 +477,7 @@ impl Field for {type_name} {{
 }}
 "
         );
+        self.out.push_str(&visit_impl(type_name, &calls));
         Ok(type_name.to_owned())
     }
 
@@ -500,6 +515,26 @@ impl Field for {type_name} {{
         let mut decodes = String::new();
         let mut encodes = String::new();
         let mut sigs = String::new();
+        let mut forwards: [String; 5] = Default::default();
+        let forward_names = [
+            "form_ids",
+            "form_ids_mut",
+            "lstrings",
+            "lstrings_mut",
+            "extra",
+        ];
+        for rec in records {
+            let variant = signature_type_name(rec.signature.as_str());
+            for (body, method) in forwards.iter_mut().zip(forward_names) {
+                let call = if method == "extra" {
+                    "&record.extra".to_owned()
+                } else {
+                    format!("record.{method}()")
+                };
+                let _ = writeln!(body, "            Self::{variant}(record) => {call},");
+            }
+        }
+        let [f0, f1, f2, f3, f4] = &forwards;
         for rec in records {
             let variant = signature_type_name(rec.signature.as_str());
             let ty = format!("{variant}Record");
@@ -547,6 +582,37 @@ impl Record {{
     pub fn signature(&self) -> Sig {{
         match self {{
 {sigs}        }}
+    }}
+
+    /// Every FormID-typed value with its path (see each record's `form_ids`).
+    pub fn form_ids(&self) -> FormIds<'_> {{
+        match self {{
+{f0}        }}
+    }}
+
+    /// Every FormID-typed value with its path, mutably.
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {{
+        match self {{
+{f1}        }}
+    }}
+
+    /// Every lstring value with its path (see each record's `lstrings`).
+    pub fn lstrings(&self) -> LStrings<'_> {{
+        match self {{
+{f2}        }}
+    }}
+
+    /// Every lstring value with its path, mutably.
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {{
+        match self {{
+{f3}        }}
+    }}
+
+    /// Subrecords the definition did not place or could not decode, with their indexes
+    /// in the body as read (empty when every subrecord decoded into a typed member).
+    pub fn extra(&self) -> &[(usize, OwnedSub)] {{
+        match self {{
+{f4}        }}
     }}
 }}
 "
@@ -623,9 +689,40 @@ impl {name} {{
         self.emit(&mut out);
         merge_extra(out, &self.extra)
     }}
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {{
+        let mut out = Vec::new();
+        self.visit_form_ids({path}, &mut out);
+        out
+    }}
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {{
+        let mut out = Vec::new();
+        self.visit_form_ids_mut({path}, &mut out);
+        out
+    }}
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {{
+        let mut out = Vec::new();
+        self.visit_lstrings({path}, &mut out);
+        out
+    }}
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {{
+        let mut out = Vec::new();
+        self.visit_lstrings_mut({path}, &mut out);
+        out
+    }}
 }}
 ",
             sig = sig_lit(rec.signature),
+            path = lit(rec.signature.as_str()),
         );
         Ok(())
     }
@@ -645,12 +742,14 @@ impl {name} {{
         let mut arms = String::new();
         let mut emits = String::new();
         let mut uses_ctx = false;
+        let mut calls = VisitCalls::default();
         for (index, member) in members.iter().enumerate() {
             let ident = field_ident(member.name());
             match member {
                 Member::Subrecord(sub) => {
                     uses_ctx = true;
                     let sub_path = format!("{path}.{}", sub.signature);
+                    calls.add_type(&format!("self.{ident}"), &lit(&sub_path), &sub.ty);
                     let ty =
                         self.subrecord_type(sub, &format!("{prefix}{}", sub.name), &sub_path)?;
                     let sig = sig_lit(sub.signature);
@@ -702,6 +801,11 @@ impl {name} {{
                 }
                 Member::Group(group) => {
                     uses_ctx = true;
+                    calls.add_members(
+                        &format!("self.{ident}"),
+                        &lit(&format!("{path}.{}", group.name)),
+                        &group.members,
+                    );
                     let group_name = match &group.shared {
                         Some(shared) => {
                             self.shared_group(shared, &group.members)?;
@@ -825,6 +929,7 @@ impl {name} {{
 {emit_fn}}}
 "
         );
+        self.out.push_str(&visit_impl(name, &calls));
         Ok(name.to_owned())
     }
 }
@@ -860,6 +965,138 @@ fn call_arm(pattern: &str, func: &str, args: &[&str]) -> String {
         return out;
     }
     format!("{pad}{pattern} => {{\n{pad}    {call}\n{pad}}}\n")
+}
+
+/// What a visitor collects.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Want {
+    FormId,
+    LString,
+}
+
+/// Whether a value of `ty` holds a `formid` (or `lstring`) anywhere inside.
+fn type_has(ty: &FieldType, want: Want) -> bool {
+    match ty {
+        FieldType::FormId { .. } => want == Want::FormId,
+        FieldType::LString => want == Want::LString,
+        FieldType::Array { element, .. } => type_has(element, want),
+        FieldType::Struct { fields } => fields.iter().any(|f| type_has(&f.ty, want)),
+        FieldType::Ref { ty, .. } => type_has(ty, want),
+        _ => false,
+    }
+}
+
+/// Whether any member in `members` (groups included) holds a `formid` (or `lstring`).
+fn members_have(members: &[Member], want: Want) -> bool {
+    members.iter().any(|m| match m {
+        Member::Subrecord(s) => type_has(&s.ty, want),
+        Member::Group(g) => members_have(&g.members, want),
+        Member::AnyUntil(_) => false,
+    })
+}
+
+/// The calls a type's `Visit` impl makes: `(receiver, path expression)` per visitor.
+#[derive(Default)]
+struct VisitCalls {
+    form_ids: Vec<(String, String)>,
+    lstrings: Vec<(String, String)>,
+}
+
+impl VisitCalls {
+    /// Adds `receiver` (a field of `self`) with `path` for each visitor `ty` needs.
+    fn add_type(&mut self, receiver: &str, path: &str, ty: &FieldType) {
+        if type_has(ty, Want::FormId) {
+            self.form_ids.push((receiver.to_owned(), path.to_owned()));
+        }
+        if type_has(ty, Want::LString) {
+            self.lstrings.push((receiver.to_owned(), path.to_owned()));
+        }
+    }
+
+    /// Adds a group member.
+    fn add_members(&mut self, receiver: &str, path: &str, members: &[Member]) {
+        if members_have(members, Want::FormId) {
+            self.form_ids.push((receiver.to_owned(), path.to_owned()));
+        }
+        if members_have(members, Want::LString) {
+            self.lstrings.push((receiver.to_owned(), path.to_owned()));
+        }
+    }
+}
+
+/// One visitor method: name, receiver, list alias, and the calls it makes.
+type VisitMethod<'c> = (
+    &'static str,
+    &'static str,
+    &'static str,
+    &'c [(String, String)],
+);
+
+/// The `impl Visit for {name}` block: only the visitors with something to visit are
+/// written; the others keep the trait's empty defaults.
+fn visit_impl(name: &str, calls: &VisitCalls) -> String {
+    let methods: [VisitMethod<'_>; 4] = [
+        ("visit_form_ids", "&'a self", "FormIds", &calls.form_ids),
+        (
+            "visit_form_ids_mut",
+            "&'a mut self",
+            "FormIdsMut",
+            &calls.form_ids,
+        ),
+        ("visit_lstrings", "&'a self", "LStrings", &calls.lstrings),
+        (
+            "visit_lstrings_mut",
+            "&'a mut self",
+            "LStringsMut",
+            &calls.lstrings,
+        ),
+    ];
+    let mut bodies = Vec::new();
+    for (method, receiver, alias, list) in methods {
+        if list.is_empty() {
+            continue;
+        }
+        let borrow = if receiver.contains("mut") {
+            "&mut "
+        } else {
+            "&"
+        };
+        let param = if list.iter().any(|(_, p)| p == "path") {
+            "path"
+        } else {
+            "_path"
+        };
+        let mut body = format!(
+            "    fn {method}<'a>({receiver}, {param}: &'static str, out: &mut {alias}<'a>) {{\n"
+        );
+        for (field, path) in list {
+            body.push_str(&visit_call(method, &format!("{borrow}{field}"), path));
+        }
+        body.push_str("    }\n");
+        bodies.push(body);
+    }
+    if bodies.is_empty() {
+        return format!("\nimpl Visit for {name} {{}}\n");
+    }
+    format!("\nimpl Visit for {name} {{\n{}}}\n", bodies.join("\n"))
+}
+
+/// One `func(receiver, path, out);` statement inside a visitor body, laid out the way
+/// rustfmt lays out a call: on one line when the arguments fit `fn_call_width` and the
+/// line fits, otherwise one argument per line.
+fn visit_call(func: &str, receiver: &str, path: &str) -> String {
+    let args = [receiver, path, "out"];
+    let joined = args.join(", ");
+    let line = format!("        {func}({joined});");
+    if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
+        return format!("{line}\n");
+    }
+    let mut out = format!("        {func}(\n");
+    for arg in args {
+        let _ = writeln!(out, "            {arg},");
+    }
+    out.push_str("        );\n");
+    out
 }
 
 fn opt_lit(v: Option<u16>) -> String {

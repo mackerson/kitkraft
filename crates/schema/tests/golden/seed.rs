@@ -456,6 +456,190 @@ pub enum MemberDesc {
     AnyUntil { until: Sig },
 }
 
+/// FormID values, each with the path of the member or field that holds it (`WEAP.KWDA`).
+pub type FormIds<'a> = Vec<(&'static str, &'a FormId)>;
+
+/// Mutable FormID values with their paths.
+pub type FormIdsMut<'a> = Vec<(&'static str, &'a mut FormId)>;
+
+/// Localized-string values with their paths.
+pub type LStrings<'a> = Vec<(&'static str, &'a LString)>;
+
+/// Mutable localized-string values with their paths.
+pub type LStringsMut<'a> = Vec<(&'static str, &'a mut LString)>;
+
+/// Walks the typed values of a decoded record: every `formid` and every `lstring` value, in
+/// definition order, with the path of the member or field that holds it. FormIDs are the
+/// raw stored values (master index in the top byte); resolving them against a load order
+/// is not this module's job. Subrecords kept raw (`extra`, `any_until` bodies, opaque
+/// payloads) are not visited: whatever they hold is unknown to the schema.
+pub trait Visit {
+    /// Appends every FormID value; `path` names `self` when it is one.
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, _out: &mut FormIds<'a>) {}
+
+    /// Appends every FormID value, mutably.
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, _out: &mut FormIdsMut<'a>) {}
+
+    /// Appends every lstring value; `path` names `self` when it is one.
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, _out: &mut LStrings<'a>) {}
+
+    /// Appends every lstring value, mutably.
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, _out: &mut LStringsMut<'a>) {}
+}
+
+/// [`Visit::visit_form_ids`] as a free function (generated code calls these).
+pub fn visit_form_ids<'a, T: Visit>(value: &'a T, path: &'static str, out: &mut FormIds<'a>) {
+    value.visit_form_ids(path, out);
+}
+
+/// [`Visit::visit_form_ids_mut`] as a free function.
+pub fn visit_form_ids_mut<'a, T: Visit>(
+    value: &'a mut T,
+    path: &'static str,
+    out: &mut FormIdsMut<'a>,
+) {
+    value.visit_form_ids_mut(path, out);
+}
+
+/// [`Visit::visit_lstrings`] as a free function.
+pub fn visit_lstrings<'a, T: Visit>(value: &'a T, path: &'static str, out: &mut LStrings<'a>) {
+    value.visit_lstrings(path, out);
+}
+
+/// [`Visit::visit_lstrings_mut`] as a free function.
+pub fn visit_lstrings_mut<'a, T: Visit>(
+    value: &'a mut T,
+    path: &'static str,
+    out: &mut LStringsMut<'a>,
+) {
+    value.visit_lstrings_mut(path, out);
+}
+
+macro_rules! no_visit {
+    ($($t:ty),*) => {$(
+        impl Visit for $t {}
+    )*};
+}
+
+no_visit!(u8, i8, u16, i16, u32, i32, u64, i64, f32, f64);
+no_visit!(ZString, WString, BString, Bytes, Empty, OwnedSub);
+
+impl Visit for FormId {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        out.push((path, self));
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        out.push((path, self));
+    }
+}
+
+impl Visit for LString {
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        out.push((path, self));
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        out.push((path, self));
+    }
+}
+
+impl<T: Visit> Visit for Sub<T> {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        self.value.visit_form_ids(path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        self.value.visit_form_ids_mut(path, out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        self.value.visit_lstrings(path, out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        self.value.visit_lstrings_mut(path, out);
+    }
+}
+
+impl<T: Visit> Visit for Option<T> {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Some(value) = self {
+            value.visit_form_ids(path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Some(value) = self {
+            value.visit_form_ids_mut(path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        if let Some(value) = self {
+            value.visit_lstrings(path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        if let Some(value) = self {
+            value.visit_lstrings_mut(path, out);
+        }
+    }
+}
+
+impl<T: Visit> Visit for Vec<T> {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        for value in self {
+            value.visit_form_ids(path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        for value in self {
+            value.visit_form_ids_mut(path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        for value in self {
+            value.visit_lstrings(path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        for value in self {
+            value.visit_lstrings_mut(path, out);
+        }
+    }
+}
+
+impl<T: Visit, const N: usize> Visit for [T; N] {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        for value in self {
+            value.visit_form_ids(path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        for value in self {
+            value.visit_form_ids_mut(path, out);
+        }
+    }
+
+    fn visit_lstrings<'a>(&'a self, path: &'static str, out: &mut LStrings<'a>) {
+        for value in self {
+            value.visit_lstrings(path, out);
+        }
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, path: &'static str, out: &mut LStringsMut<'a>) {
+        for value in self {
+            value.visit_lstrings_mut(path, out);
+        }
+    }
+}
+
 /// Where the matcher put input subrecords.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Hit {
@@ -706,6 +890,8 @@ impl BfcbBlock {
     }
 }
 
+impl Visit for BfcbBlock {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ObteBlockObtsEntry {
     /// `OBTF`, optional.
@@ -778,6 +964,8 @@ impl ObteBlockObtsEntry {
     }
 }
 
+impl Visit for ObteBlockObtsEntry {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ObteBlock {
     /// `OBTE`, optional.
@@ -838,6 +1026,8 @@ impl ObteBlock {
         emit(out, *b"STOP", self.stop.as_ref());
     }
 }
+
+impl Visit for ObteBlock {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GroupHeaderGroupType {
@@ -901,6 +1091,8 @@ impl Field for GroupHeaderGroupType {
     }
 }
 
+impl Visit for GroupHeaderGroupType {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct GroupHeader {
     pub signature: Sig,
@@ -943,6 +1135,8 @@ impl Field for GroupHeader {
     }
 }
 
+impl Visit for GroupHeader {}
+
 impl GroupHeader {
     /// Header size in bytes.
     pub const SIZE: usize = 24;
@@ -975,6 +1169,8 @@ impl Field for RecordHeaderFlags {
         self.0.write(out);
     }
 }
+
+impl Visit for RecordHeaderFlags {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct RecordHeader {
@@ -1019,6 +1215,16 @@ impl Field for RecordHeader {
         self.version_control.write(out);
         self.form_version.write(out);
         self.unknown.write(out);
+    }
+}
+
+impl Visit for RecordHeader {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.form_id, "RecordHeader.FormId", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.form_id, "RecordHeader.FormId", out);
     }
 }
 
@@ -1098,6 +1304,8 @@ impl GlobRecord {
     }
 }
 
+impl Visit for GlobRecord {}
+
 impl GlobRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"GLOB";
@@ -1124,6 +1332,36 @@ impl GlobRecord {
         let mut out = Vec::new();
         self.emit(&mut out);
         merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("GLOB", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("GLOB", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("GLOB", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("GLOB", &mut out);
+        out
     }
 }
 
@@ -1189,6 +1427,8 @@ impl GmstRecord {
     }
 }
 
+impl Visit for GmstRecord {}
+
 impl GmstRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"GMST";
@@ -1215,6 +1455,36 @@ impl GmstRecord {
         let mut out = Vec::new();
         self.emit(&mut out);
         merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("GMST", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("GMST", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("GMST", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("GMST", &mut out);
+        out
     }
 }
 
@@ -1344,6 +1614,8 @@ impl KywdRecord {
     }
 }
 
+impl Visit for KywdRecord {}
+
 impl KywdRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"KYWD";
@@ -1370,6 +1642,36 @@ impl KywdRecord {
         let mut out = Vec::new();
         self.emit(&mut out);
         merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("KYWD", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("KYWD", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("KYWD", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("KYWD", &mut out);
+        out
     }
 }
 
@@ -1398,6 +1700,8 @@ impl Field for Tes4Header {
         self.next_object_id.write(out);
     }
 }
+
+impl Visit for Tes4Header {}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Tes4Master {
@@ -1456,6 +1760,8 @@ impl Tes4Master {
     }
 }
 
+impl Visit for Tes4Master {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tes4OverriddenForms(pub Vec<FormId>);
 
@@ -1466,6 +1772,16 @@ impl Field for Tes4OverriddenForms {
 
     fn write(&self, out: &mut Vec<u8>) {
         self.0.write(out);
+    }
+}
+
+impl Visit for Tes4OverriddenForms {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
     }
 }
 
@@ -1617,6 +1933,16 @@ impl Tes4Record {
     }
 }
 
+impl Visit for Tes4Record {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.overridden_forms, "TES4.ONAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.overridden_forms, "TES4.ONAM", out);
+    }
+}
+
 impl Tes4Record {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"TES4";
@@ -1647,6 +1973,36 @@ impl Tes4Record {
         let mut out = Vec::new();
         self.emit(&mut out);
         merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("TES4", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("TES4", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("TES4", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("TES4", &mut out);
+        out
     }
 }
 
@@ -2140,6 +2496,8 @@ impl WeapRecord {
     }
 }
 
+impl Visit for WeapRecord {}
+
 impl WeapRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"WEAP";
@@ -2166,6 +2524,36 @@ impl WeapRecord {
         let mut out = Vec::new();
         self.emit(&mut out);
         merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("WEAP", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("WEAP", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("WEAP", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("WEAP", &mut out);
+        out
     }
 }
 
@@ -2221,6 +2609,62 @@ impl Record {
             Self::Kywd(_) => KywdRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
+        }
+    }
+
+    /// Every FormID-typed value with its path (see each record's `form_ids`).
+    pub fn form_ids(&self) -> FormIds<'_> {
+        match self {
+            Self::Glob(record) => record.form_ids(),
+            Self::Gmst(record) => record.form_ids(),
+            Self::Kywd(record) => record.form_ids(),
+            Self::Tes4(record) => record.form_ids(),
+            Self::Weap(record) => record.form_ids(),
+        }
+    }
+
+    /// Every FormID-typed value with its path, mutably.
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        match self {
+            Self::Glob(record) => record.form_ids_mut(),
+            Self::Gmst(record) => record.form_ids_mut(),
+            Self::Kywd(record) => record.form_ids_mut(),
+            Self::Tes4(record) => record.form_ids_mut(),
+            Self::Weap(record) => record.form_ids_mut(),
+        }
+    }
+
+    /// Every lstring value with its path (see each record's `lstrings`).
+    pub fn lstrings(&self) -> LStrings<'_> {
+        match self {
+            Self::Glob(record) => record.lstrings(),
+            Self::Gmst(record) => record.lstrings(),
+            Self::Kywd(record) => record.lstrings(),
+            Self::Tes4(record) => record.lstrings(),
+            Self::Weap(record) => record.lstrings(),
+        }
+    }
+
+    /// Every lstring value with its path, mutably.
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        match self {
+            Self::Glob(record) => record.lstrings_mut(),
+            Self::Gmst(record) => record.lstrings_mut(),
+            Self::Kywd(record) => record.lstrings_mut(),
+            Self::Tes4(record) => record.lstrings_mut(),
+            Self::Weap(record) => record.lstrings_mut(),
+        }
+    }
+
+    /// Subrecords the definition did not place or could not decode, with their indexes
+    /// in the body as read (empty when every subrecord decoded into a typed member).
+    pub fn extra(&self) -> &[(usize, OwnedSub)] {
+        match self {
+            Self::Glob(record) => &record.extra,
+            Self::Gmst(record) => &record.extra,
+            Self::Kywd(record) => &record.extra,
+            Self::Tes4(record) => &record.extra,
+            Self::Weap(record) => &record.extra,
         }
     }
 }
