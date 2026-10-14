@@ -473,3 +473,43 @@ fn archives_without_names_get_hash_names() {
     let (name, _, dir) = crate::hash::record_hashes(b"dir/file.txt");
     assert_eq!(archive.entries[0].name, format!("{dir:08x}/{name:08x}.txt"));
 }
+
+/// An archive as `Archive2.exe` 1.2.0.1 writes a non-ASCII name (M3.G3): the name is
+/// stored in Windows-1252 and hashed only up to its first non-ASCII byte. The reader
+/// decodes the name as Archive2 extracts it (`eur€.txt`, not a C1 control) and accepts
+/// the hash; a hash computed over the whole name is not Archive2's and does not match.
+#[test]
+fn archive2_style_non_ascii_names() {
+    let mut files = BTreeMap::new();
+    files.insert("kctest/eurx.txt".to_string(), b"content".to_vec());
+    let mut bytes = pack_mem(&files, &PackOptions::default());
+    let names_at = usize::try_from(u64::from_le_bytes(bytes[16..24].try_into().unwrap())).unwrap();
+    // Name table: u16 length, then the name; `x` is byte 10 of the name.
+    assert_eq!(&bytes[names_at + 2..names_at + 17], b"kctest/eurx.txt");
+    bytes[names_at + 2 + 10] = 0x80;
+    // The first record starts at 32 (v2); its first field is the name hash.
+    bytes[32..36].copy_from_slice(&0xA25F_9468u32.to_le_bytes());
+    let archive = Archive::read(&mut Cursor::new(bytes.clone())).unwrap();
+    let entry = &archive.entries[0];
+    assert_eq!(entry.name, "kctest/eur\u{20AC}.txt");
+    assert!(entry.hashes_match_name());
+    assert_eq!(crate::read::name_bytes(&entry.name), b"kctest/eur\x80.txt");
+
+    bytes[32..36].copy_from_slice(&crate::hash::crc(b"eur\x80").to_le_bytes());
+    let archive = Archive::read(&mut Cursor::new(bytes)).unwrap();
+    assert!(!archive.entries[0].hashes_match_name());
+}
+
+/// Name decoding is one-to-one over all 256 byte values.
+#[test]
+fn name_decoding_roundtrips_every_byte() {
+    let all: Vec<u8> = (0u8..=255).collect();
+    let text = crate::read::decode_name(&all);
+    assert_eq!(text.chars().count(), 256);
+    assert_eq!(crate::read::name_bytes(&text), all);
+    assert_eq!(
+        crate::read::decode_name(b"\x8C\x9C\x81"),
+        "\u{152}\u{153}\u{81}"
+    );
+    assert_eq!(crate::read::name_bytes("\u{3A9}"), b"?");
+}

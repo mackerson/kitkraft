@@ -420,6 +420,16 @@ is under "Next".
     `strings.dump` / `strings.merge` take `tolerant` and name each padding run in
     `limitations` and `data.padding`; a strict `DataSize` failure hints at `tolerant`.
     Lane D's string loading (`crates/doc`) still parses strictly.
+  - M3.G3 (research) Archive2 1.2.0.1 and non-ASCII names, black-box runs on synthetic
+    files (`docs/corpus.md` "Non-ASCII names in Archive2"): names lower-cased and stored
+    as Windows-1252 (characters outside it fail the run); name/dir hashes stop at the
+    first non-ASCII byte (extension field: 0 there), so such names collide and Archive2
+    silently kept 1 of 4; bytes 0xF0..F5/F8..FD hash to run-dependent values (16 of 256
+    hashes changed between two runs). `crates/ba2`: names decoded as Windows-1252 (was
+    Latin-1; extraction now matches Archive2's names), `hash::archive2_record_hashes`
+    with tests from the observed values, the reader's hash check accepts it for non-ASCII
+    names. `ba2.pack` keeps refusing them (collisions, unstable bytes, game lookup not
+    observed); gaps row restated.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
