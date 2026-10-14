@@ -4,17 +4,42 @@
 //! add it to [`defaults`]. Flip the catalog `status` to `Implemented` only when the
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
-use serde_json::Value;
+mod roundtrip;
+#[cfg(test)]
+pub(crate) mod testdata;
 
-use crate::envelope::Outcome;
+use std::path::Path;
+
 use crate::exec::{CommandHandler, EngineError};
 
 /// Handlers registered by [`crate::Engine::with_default_handlers`].
 pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
-    vec![("roundtrip", Box::new(roundtrip))]
+    vec![("roundtrip", Box::new(roundtrip::run))]
 }
 
-/// `roundtrip`: stub until the `kitcraft-esm` streaming driver (M1.5) lands (M1.12).
-fn roundtrip(_args: &Value) -> Result<Outcome, EngineError> {
-    Ok(Outcome::not_implemented())
+/// A required string argument. `execute` validated the schema already, so a missing one
+/// is a catalog/handler mismatch, reported as a failure rather than a panic.
+fn str_arg<'v>(
+    command: &str,
+    args: &'v serde_json::Value,
+    name: &str,
+) -> Result<&'v str, EngineError> {
+    args.get(name)
+        .and_then(serde_json::Value::as_str)
+        .ok_or_else(|| failed(command, format!("argument `{name}` is missing")))
+}
+
+fn failed(command: &str, message: impl Into<String>) -> EngineError {
+    EngineError::Failed {
+        command: command.to_string(),
+        message: message.into(),
+    }
+}
+
+/// The file name shown in evidence (not the full path).
+fn file_name(path: &Path) -> String {
+    path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    )
 }
