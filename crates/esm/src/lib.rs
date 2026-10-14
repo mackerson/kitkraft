@@ -51,6 +51,7 @@
 
 pub mod bridge;
 pub mod build;
+pub mod cells;
 pub mod compress;
 pub mod driver;
 mod edit;

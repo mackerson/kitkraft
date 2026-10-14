@@ -411,6 +411,20 @@ is under "Next".
     fault; the M1.7 harness accepts only such decode mismatches. Full corpus 14/14
     identical with it (18.3 s, 1,397 MiB, `docs/corpus.md`). The command side is M3.F1
     (Request to lane F).
+- M4 lane A (container), 2026-10-14:
+  - M4.A1 cell and world group structure (`docs/corpus.md` "Cell and world groups";
+    `kitcraft_esm::cells`; `crates/esm/tests/cells.rs`, every rule asserted on every group
+    and record of the 14 files, 27 s release): group types 1..10 with parents, labels and
+    contents; type 10 = quest children (`DLBR`, `DIAL` + type 7, `SCEN`); persistence =
+    flag 0x400 and type 8 together (115,985 / 6,714,413, no exception); a world's
+    persistent references in its persistent cell (the flag-0x400 `CELL` first in type 1);
+    interior block/sub-block = last two decimal digits of the object ID (17,020 cells; `FE`
+    object IDs are 12 bits, decided by `SFBGS047` `FE001016`); exterior sub-block = grid/8,
+    block = sub-block/4, labels y low / x high (22,682 cells); grid = `XCLC` i32 pair, x
+    first, and cell width 100 units (99.983 % of 2,038,073 exterior references), both found
+    by corpus search, not from a definition; order rules; the official-pipeline vs
+    `BlueprintShips` differences (`PlacementStyle`). Not waiting on BW: the two layout
+    facts used (`XCLC` grid, `DATA` floats 0-1) are corpus-derived and named as such.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
