@@ -121,7 +121,9 @@ pub enum Error {
     /// A `TES4` `HEDR` subrecord too short to hold the record count (12 bytes: version,
     /// count, next object ID). `offset` is the subrecord data's source offset, or 0 for one
     /// built in memory.
-    #[error("HEDR at offset {offset} has {len} bytes; the record count needs 8")]
+    #[error(
+        "HEDR at offset {offset} has {len} bytes; the record count needs 8, the next object ID 12"
+    )]
     BadHedr { offset: u64, len: u64 },
 
     /// A subrecord position past the end of a record's subrecords. `offset` is the record's
@@ -137,6 +139,13 @@ pub enum Error {
     /// `offset` is the record's source offset, or 0 for a record built in memory.
     #[error("cannot place the record at offset {offset}: {reason}")]
     Placement { offset: u64, reason: &'static str },
+
+    /// An operation the corpus or the observations so far do not support, refused rather
+    /// than guessed (new forms in a small or medium plugin, FormIDs exhausted, a navmesh
+    /// import across different master lists, a reference member below `corpus`
+    /// confidence). `offset` is a source offset when one applies, else 0.
+    #[error("refused: {reason}")]
+    Refused { offset: u64, reason: String },
 
     /// A broken internal invariant: a bug in this crate, reported instead of a panic.
     #[error("internal error at offset {offset}: {message}")]
@@ -176,6 +185,7 @@ impl Error {
             | Error::BadHedr { offset, .. }
             | Error::NoSuchSubrecord { offset, .. }
             | Error::Placement { offset, .. }
+            | Error::Refused { offset, .. }
             | Error::Internal { offset, .. }
             | Error::Io { offset, .. } => *offset,
         }

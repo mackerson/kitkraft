@@ -438,6 +438,14 @@ is under "Next".
     off-majority group stamps). 116 s release; the five small files whole in every gate.
     `Plugin::upsert` keeps its signature (official style); INCC stays the caller's (lane E
     already adds inserted interior cells).
+  - M4.A3 new-form allocator `kitcraft_esm::forms::NewForms` (`for_index`, `for_plugin`,
+    `allocate`, `peek`, `write_hedr`): own FormIDs `<master count><object ID>` above both
+    the `HEDR` next object ID and the highest own object ID, `HEDR` advanced keeping its
+    high byte; small/medium plugins, both scale bits, 253+ masters and object IDs past
+    `0xFFFFFF` are `Error::Refused`. Corpus defaults named in `forms::LIMITATIONS` until F06
+    (and F11/F26). `tests/forms.rs`: every small/medium official file refused; the 6 full
+    ones start one past their largest own object ID (Starfield.esm `003FFD5A`).
+    `Tes4::set_next_object_id` added.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:

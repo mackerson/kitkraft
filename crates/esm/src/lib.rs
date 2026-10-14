@@ -61,6 +61,7 @@ pub mod compress;
 pub mod driver;
 mod edit;
 mod error;
+pub mod forms;
 /// Typed records generated from `crates/schema/defs/` by `cargo xtask codegen` (do not edit).
 pub mod generated;
 pub mod index;

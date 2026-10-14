@@ -89,6 +89,8 @@ const ONAM: Signature = Signature::new(b"ONAM");
 
 /// Offset of the record count inside `HEDR` data (after the `f32` version).
 const COUNT_AT: usize = 4;
+/// Offset of the next object ID inside `HEDR` data.
+const NEXT_ID_AT: usize = 8;
 
 /// What [`Plugin::write_to`] does with the `HEDR` record count.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -160,6 +162,17 @@ impl<'r, 'a> Tes4<'r, 'a> {
     /// or the record is compressed and not decoded), and [`Error::BadHedr`] when the
     /// `HEDR` is too short to hold a count. Marks the record modified.
     pub fn set_record_count(record: &mut Record<'_>, count: u32) -> Result<bool> {
+        Self::set_hedr_u32(record, COUNT_AT, count)
+    }
+
+    /// Set the `HEDR` next object ID of `record` (a `TES4` record), keeping every other
+    /// byte; as [`Tes4::set_record_count`] otherwise (the `HEDR` must hold 12 bytes).
+    pub fn set_next_object_id(record: &mut Record<'_>, value: u32) -> Result<bool> {
+        Self::set_hedr_u32(record, NEXT_ID_AT, value)
+    }
+
+    /// Write `value` at byte `at` of the `HEDR` data.
+    fn set_hedr_u32(record: &mut Record<'_>, at: usize, value: u32) -> Result<bool> {
         let Some(subs) = record.subrecords_mut() else {
             return Ok(false);
         };
@@ -168,13 +181,13 @@ impl<'r, 'a> Tes4<'r, 'a> {
         };
         let mut data = sub.data().to_vec();
         let len = data.len() as u64;
-        let Some(slot) = data.get_mut(COUNT_AT..COUNT_AT.saturating_add(4)) else {
+        let Some(slot) = data.get_mut(at..at.saturating_add(4)) else {
             return Err(Error::BadHedr {
                 offset: sub.data_offset().unwrap_or(0),
                 len,
             });
         };
-        slot.copy_from_slice(&count.to_le_bytes());
+        slot.copy_from_slice(&value.to_le_bytes());
         let prefix = sub.has_oversize_prefix();
         sub.set_data(data);
         if prefix {
