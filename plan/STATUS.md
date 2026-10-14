@@ -430,6 +430,13 @@ is under "Next".
     unused 0-byte DATA is an `empty` marker.
   - **M3.B3 AMDL**: all 126 records (EDID + 65-byte ANAM, 17 fields typed; the last one
     `if_remaining` as xEdit makes it optional).
+  - **M3.B4 OMOD**: all 3,330 records (DATA 34..511 bytes): DATA typed with its include
+    list and its property entries (shared `ObjectModProperty`, 24 bytes each: value type,
+    function type and property as integers, Value1/Value2 opaque because they are xEdit
+    unions and Value1 can be a FormID; M3.B9 can type them once a sibling-field decider
+    exists). Name and the attach parent slot list carry u32 prefixes, typed as explicit
+    count fields. VMAD, the unknown XFLG after the model block (never reached in the corpus:
+    the model block's XFLG takes it) and the BFCB component data stay opaque.
 
 ## Next
 

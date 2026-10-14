@@ -17,7 +17,7 @@
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
-// - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
+// - OMOD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15429-L15476; corpus)
 // - PROJ (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16228-L16325; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833; corpus)
@@ -4226,32 +4226,216 @@ impl KywdRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct OmodDataIncludes {
+    pub mod_: FormId,
+    pub minimum_level: u8,
+    pub optional: Bool8,
+    pub dont_use_all: Bool8,
+}
+
+impl Field for OmodDataIncludes {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "OMOD.DATA.Includes.Mod", ctx)?;
+        let f1 = u8::read(r, "OMOD.DATA.Includes.MinimumLevel", ctx)?;
+        let f2 = Field::read(r, "OMOD.DATA.Includes.Optional", ctx)?;
+        let f3 = Field::read(r, "OMOD.DATA.Includes.DontUseAll", ctx)?;
+        Ok(Self {
+            mod_: f0,
+            minimum_level: f1,
+            optional: f2,
+            dont_use_all: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.mod_.write(out);
+        self.minimum_level.write(out);
+        self.optional.write(out);
+        self.dont_use_all.write(out);
+    }
+}
+
+impl Visit for OmodDataIncludes {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.mod_, "OMOD.DATA.Includes.Mod", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.mod_, "OMOD.DATA.Includes.Mod", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OmodData {
+    pub include_count: u32,
+    pub property_count: u32,
+    pub unknown1: [u8; 2],
+    pub name_length: u32,
+    pub name: Vec<u8>,
+    pub max_rank: u8,
+    pub level_tier_scaled_offset: u8,
+    pub attach_point: FormId,
+    pub attach_parent_slot_count: u32,
+    pub attach_parent_slots: Vec<FormId>,
+    pub unknown2: [u8; 4],
+    pub includes: Vec<OmodDataIncludes>,
+    pub properties: Vec<ObjectModProperty>,
+}
+
+impl Field for OmodData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "OMOD.DATA.IncludeCount", ctx)?;
+        let f1 = u32::read(r, "OMOD.DATA.PropertyCount", ctx)?;
+        let f2 = Field::read(r, "OMOD.DATA.Unknown1", ctx)?;
+        let f3 = u32::read(r, "OMOD.DATA.NameLength", ctx)?;
+        let n4 = count(f3, "OMOD.DATA.Name", r.position())?;
+        let f4 = read_array(r, n4, "OMOD.DATA.Name", ctx)?;
+        let f5 = u8::read(r, "OMOD.DATA.MaxRank", ctx)?;
+        let f6 = u8::read(r, "OMOD.DATA.LevelTierScaledOffset", ctx)?;
+        let f7 = Field::read(r, "OMOD.DATA.AttachPoint", ctx)?;
+        let f8 = u32::read(r, "OMOD.DATA.AttachParentSlotCount", ctx)?;
+        let n9 = count(f8, "OMOD.DATA.AttachParentSlots", r.position())?;
+        let f9 = read_array(r, n9, "OMOD.DATA.AttachParentSlots", ctx)?;
+        let f10 = Field::read(r, "OMOD.DATA.Unknown2", ctx)?;
+        let n11 = count(f0, "OMOD.DATA.Includes", r.position())?;
+        let f11 = read_array(r, n11, "OMOD.DATA.Includes", ctx)?;
+        let n12 = count(f1, "OMOD.DATA.Properties", r.position())?;
+        let f12 = read_array(r, n12, "OMOD.DATA.Properties", ctx)?;
+        Ok(Self {
+            include_count: f0,
+            property_count: f1,
+            unknown1: f2,
+            name_length: f3,
+            name: f4,
+            max_rank: f5,
+            level_tier_scaled_offset: f6,
+            attach_point: f7,
+            attach_parent_slot_count: f8,
+            attach_parent_slots: f9,
+            unknown2: f10,
+            includes: f11,
+            properties: f12,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.include_count.write(out);
+        self.property_count.write(out);
+        self.unknown1.write(out);
+        self.name_length.write(out);
+        self.name.write(out);
+        self.max_rank.write(out);
+        self.level_tier_scaled_offset.write(out);
+        self.attach_point.write(out);
+        self.attach_parent_slot_count.write(out);
+        self.attach_parent_slots.write(out);
+        self.unknown2.write(out);
+        self.includes.write(out);
+        self.properties.write(out);
+    }
+}
+
+impl Visit for OmodData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.attach_point, "OMOD.DATA.AttachPoint", out);
+        visit_form_ids(
+            &self.attach_parent_slots,
+            "OMOD.DATA.AttachParentSlots",
+            out,
+        );
+        visit_form_ids(&self.includes, "OMOD.DATA.Includes", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.attach_point, "OMOD.DATA.AttachPoint", out);
+        visit_form_ids_mut(
+            &mut self.attach_parent_slots,
+            "OMOD.DATA.AttachParentSlots",
+            out,
+        );
+        visit_form_ids_mut(&mut self.includes, "OMOD.DATA.Includes", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OmodTargetOmodKeywords(pub Vec<FormId>);
+
+impl Field for OmodTargetOmodKeywords {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for OmodTargetOmodKeywords {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct OmodFilterKeywords(pub Vec<FormId>);
+
+impl Field for OmodFilterKeywords {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for OmodFilterKeywords {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct OmodRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
     /// Group `BfcbBlock`, repeated.
     pub bfcb_block: Vec<BfcbBlock>,
     /// `FULL`, optional.
     pub name: Option<Sub<LString>>,
     /// `DESC`, required.
     pub description: Option<Sub<LString>>,
-    /// `MODL`, optional.
-    pub modl: Option<Sub<Bytes>>,
-    /// `FLLD`, required.
-    pub flld: Option<Sub<Bytes>>,
+    /// Group `Model`, required.
+    pub model: Option<Model>,
     /// `XFLG`, optional.
     pub xflg: Option<Sub<Bytes>>,
     /// `DATA`, required.
-    pub data: Option<Sub<Bytes>>,
+    pub data: Option<Sub<OmodData>>,
     /// `MNAM`, optional.
-    pub mnam: Option<Sub<Bytes>>,
+    pub target_omod_keywords: Option<Sub<OmodTargetOmodKeywords>>,
     /// `FNAM`, optional.
-    pub fnam: Option<Sub<Bytes>>,
-    /// `NAM1`, optional.
-    pub nam1: Option<Sub<Bytes>>,
+    pub filter_keywords: Option<Sub<OmodFilterKeywords>>,
     /// `LNAM`, optional.
-    pub lnam: Option<Sub<Bytes>>,
+    pub loose_mod: Option<Sub<FormId>>,
+    /// `NAM1`, optional.
+    pub priority: Option<Sub<u8>>,
+    /// `FLTR`, optional.
+    pub filter: Option<Sub<ZString>>,
+    /// `NAM2`, optional.
+    pub third_person_morphable_object: Option<Sub<FormId>>,
+    /// `NAM3`, optional.
+    pub first_person_morphable_object: Option<Sub<FormId>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -4266,6 +4450,10 @@ impl OmodRecord {
             sig: *b"EDID",
             card: Card::Required,
         },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
         MemberDesc::Group {
             card: Card::Repeated,
             members: BfcbBlock::MEMBERS,
@@ -4278,13 +4466,9 @@ impl OmodRecord {
             sig: *b"DESC",
             card: Card::Required,
         },
-        MemberDesc::Sub {
-            sig: *b"MODL",
-            card: Card::Optional,
-        },
-        MemberDesc::Sub {
-            sig: *b"FLLD",
+        MemberDesc::Group {
             card: Card::Required,
+            members: Model::MEMBERS,
         },
         MemberDesc::Sub {
             sig: *b"XFLG",
@@ -4303,11 +4487,23 @@ impl OmodRecord {
             card: Card::Optional,
         },
         MemberDesc::Sub {
+            sig: *b"LNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
             sig: *b"NAM1",
             card: Card::Optional,
         },
         MemberDesc::Sub {
-            sig: *b"LNAM",
+            sig: *b"FLTR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM3",
             card: Card::Optional,
         },
     ];
@@ -4324,22 +4520,24 @@ impl OmodRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "OMOD.EDID", ctx, extra)
                 }
-                Hit::Group { member: 1, hits } => {
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "OMOD.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
                     let mut group = BfcbBlock::default();
                     group.fill(hits, subs, ctx, extra);
                     self.bfcb_block.push(group);
                 }
-                Hit::Sub { member: 2, index } => {
+                Hit::Sub { member: 3, index } => {
                     put(&mut self.name, subs, *index, "OMOD.FULL", ctx, extra)
                 }
-                Hit::Sub { member: 3, index } => {
+                Hit::Sub { member: 4, index } => {
                     put(&mut self.description, subs, *index, "OMOD.DESC", ctx, extra)
                 }
-                Hit::Sub { member: 4, index } => {
-                    put(&mut self.modl, subs, *index, "OMOD.MODL", ctx, extra)
-                }
-                Hit::Sub { member: 5, index } => {
-                    put(&mut self.flld, subs, *index, "OMOD.FLLD", ctx, extra)
+                Hit::Group { member: 5, hits } if self.model.is_none() => {
+                    let mut group = Model::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.model = Some(group);
                 }
                 Hit::Sub { member: 6, index } => {
                     put(&mut self.xflg, subs, *index, "OMOD.XFLG", ctx, extra)
@@ -4347,18 +4545,47 @@ impl OmodRecord {
                 Hit::Sub { member: 7, index } => {
                     put(&mut self.data, subs, *index, "OMOD.DATA", ctx, extra)
                 }
-                Hit::Sub { member: 8, index } => {
-                    put(&mut self.mnam, subs, *index, "OMOD.MNAM", ctx, extra)
-                }
-                Hit::Sub { member: 9, index } => {
-                    put(&mut self.fnam, subs, *index, "OMOD.FNAM", ctx, extra)
-                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.target_omod_keywords,
+                    subs,
+                    *index,
+                    "OMOD.MNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.filter_keywords,
+                    subs,
+                    *index,
+                    "OMOD.FNAM",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 10, index } => {
-                    put(&mut self.nam1, subs, *index, "OMOD.NAM1", ctx, extra)
+                    put(&mut self.loose_mod, subs, *index, "OMOD.LNAM", ctx, extra)
                 }
                 Hit::Sub { member: 11, index } => {
-                    put(&mut self.lnam, subs, *index, "OMOD.LNAM", ctx, extra)
+                    put(&mut self.priority, subs, *index, "OMOD.NAM1", ctx, extra)
                 }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.filter, subs, *index, "OMOD.FLTR", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.third_person_morphable_object,
+                    subs,
+                    *index,
+                    "OMOD.NAM2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.first_person_morphable_object,
+                    subs,
+                    *index,
+                    "OMOD.NAM3",
+                    ctx,
+                    extra,
+                ),
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -4366,23 +4593,48 @@ impl OmodRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);
         }
         emit(out, *b"FULL", self.name.as_ref());
         emit(out, *b"DESC", self.description.as_ref());
-        emit(out, *b"MODL", self.modl.as_ref());
-        emit(out, *b"FLLD", self.flld.as_ref());
+        if let Some(group) = &self.model {
+            group.emit(out);
+        }
         emit(out, *b"XFLG", self.xflg.as_ref());
         emit(out, *b"DATA", self.data.as_ref());
-        emit(out, *b"MNAM", self.mnam.as_ref());
-        emit(out, *b"FNAM", self.fnam.as_ref());
-        emit(out, *b"NAM1", self.nam1.as_ref());
-        emit(out, *b"LNAM", self.lnam.as_ref());
+        emit(out, *b"MNAM", self.target_omod_keywords.as_ref());
+        emit(out, *b"FNAM", self.filter_keywords.as_ref());
+        emit(out, *b"LNAM", self.loose_mod.as_ref());
+        emit(out, *b"NAM1", self.priority.as_ref());
+        emit(out, *b"FLTR", self.filter.as_ref());
+        emit(out, *b"NAM2", self.third_person_morphable_object.as_ref());
+        emit(out, *b"NAM3", self.first_person_morphable_object.as_ref());
     }
 }
 
 impl Visit for OmodRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.model, "OMOD.Model", out);
+        visit_form_ids(&self.data, "OMOD.DATA", out);
+        visit_form_ids(&self.target_omod_keywords, "OMOD.MNAM", out);
+        visit_form_ids(&self.filter_keywords, "OMOD.FNAM", out);
+        visit_form_ids(&self.loose_mod, "OMOD.LNAM", out);
+        visit_form_ids(&self.third_person_morphable_object, "OMOD.NAM2", out);
+        visit_form_ids(&self.first_person_morphable_object, "OMOD.NAM3", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.model, "OMOD.Model", out);
+        visit_form_ids_mut(&mut self.data, "OMOD.DATA", out);
+        visit_form_ids_mut(&mut self.target_omod_keywords, "OMOD.MNAM", out);
+        visit_form_ids_mut(&mut self.filter_keywords, "OMOD.FNAM", out);
+        visit_form_ids_mut(&mut self.loose_mod, "OMOD.LNAM", out);
+        visit_form_ids_mut(&mut self.third_person_morphable_object, "OMOD.NAM2", out);
+        visit_form_ids_mut(&mut self.first_person_morphable_object, "OMOD.NAM3", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.name, "OMOD.FULL", out);
         visit_lstrings(&self.description, "OMOD.DESC", out);
@@ -4397,6 +4649,12 @@ impl Visit for OmodRecord {
 impl OmodRecord {
     /// Record signature.
     pub const SIGNATURE: Sig = *b"OMOD";
+    /// Record-header flag.
+    pub const FLAG_LEGENDARY_MOD: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_MOD_COLLECTION: u32 = 0x80;
+    /// Record-header flag.
+    pub const FLAG_PROPERTY_COLLECTION: u32 = 0x100;
 
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.

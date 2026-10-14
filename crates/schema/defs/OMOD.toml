@@ -1,101 +1,274 @@
-# OMOD: subrecord inventory. The universal subrecords (EDID, FULL, DESC) are typed (M2.B2,
-# sources on each member); every other payload is opaque until the record layout is
-# transcribed (lane B round 3, xEdit at the pin; OMOD is in scope since the owner approval
-# of 2026-10-14).
+# OMOD: object modification (weapon and armor mods and their property changes).
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the OMOD top groups of the 14 official
-# ESMs (2026-10-14): 3,330 records, form versions 552/581/582, 23 distinct subrecord
-# sequences, all consistent with the order below. FNAM, NAM1 and LNAM never occur together,
-# so their relative order is unknown. A KSIZ/KWDA pair occurs only inside BFCB blocks (3
-# records), where it stays raw. DATA varies in size (125 distinct sizes).
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the OMOD definition of wbDefinitionsSF1.pas at the pinned revision (L15429-L15476),
+#     its property list (L6894-L6938, common/ObjectModProperty.toml) and the other helpers
+#     it uses: member order, cardinality, field layouts, FormID target types, flag values.
+#   corpus: the round 3 typed check of all 3,330 official OMOD records (14 files, form
+#     versions 552, 581 and 582): every member marked `corpus` occurs with the declared size
+#     and order in every record, nothing is left in `extra`, and every record re-encodes
+#     identically (DATA payloads from 34 to 511 bytes, so the counts and prefixes hold).
+#   uesp-skyrim / universal scan: the EDID, FULL and DESC string conventions (M2.B2).
 #
-# Opaque member names are placeholders derived from the signature.
+# Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
+# are copied. FormID fields keep the raw stored value (0 means none); targets name the record
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. Inside each property, the function type, property name and the
+# two values are xEdit unions: the values stay opaque (Value1 can be a FormID), the other two
+# are plain integers (see common/ObjectModProperty.toml and docs/gaps.md). VMAD, the BFCB
+# component data and the unknown XFLG stay opaque; members no official OMOD has stay at
+# `reference`.
 signature = "OMOD"
 name = "ObjectModification"
-source = "corpus: OMOD records of the 14 official ESMs, scan 2026-10-14"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15429-L15476"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
 confidence = "corpus"
+flags = [["LegendaryMod", 0x10], ["ModCollection", 0x80], ["PropertyCollection", 0x100]]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15435-L15435"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15436-L15436"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; built from unions in xEdit, kept raw; not in any official OMOD"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15437-L15437"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15438-L15438"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
 sig = "DESC"
 name = "Description"
 type = "lstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15439-L15439"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3186-L3189",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"
 
 [[member]]
-sig = "MODL"
-name = "Modl"
-type = "opaque"
-card = "optional"
-
-[[member]]
-sig = "FLLD"
-name = "Flld"
-type = "opaque"
-note = "observed 4 bytes"
+group_ref = "Model"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15440-L15440"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "xEdit marks the block required; its file name is optional"
 
 [[member]]
 sig = "XFLG"
 name = "Xflg"
 type = "opaque"
 card = "optional"
-note = "observed 1 byte, in 5 records"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15441-L15441"
+confidence = "reference"
+note = "unknown in xEdit; listed after the model block, whose own XFLG (model flags) takes every XFLG in the official OMOD records first"
 
 [[member]]
 sig = "DATA"
 name = "Data"
+type = "struct"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15442-L15468"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6894-L6938",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+note = "the two counts are stored, not derived: an edit that changes Includes or Properties must update them; Name and AttachParentSlots carry u32 prefixes (xEdit's length-prefixed string and negative array count), written as explicit fields"
+
+[[member.field]]
+name = "IncludeCount"
+type = "u32"
+
+[[member.field]]
+name = "PropertyCount"
+type = "u32"
+
+[[member.field]]
+name = "Unknown1"
 type = "opaque"
-note = "observed variable size"
+size = 2
+note = "unknown in xEdit"
+
+[[member.field]]
+name = "NameLength"
+type = "u32"
+
+[[member.field]]
+name = "Name"
+type = "array"
+element = "u8"
+count_from = "NameLength"
+note = "the instance data type the mod applies to (for example TESObjectWEAP_InstanceData), NUL-terminated; bytes as stored"
+
+[[member.field]]
+name = "MaxRank"
+type = "u8"
+
+[[member.field]]
+name = "LevelTierScaledOffset"
+type = "u8"
+
+[[member.field]]
+name = "AttachPoint"
+type = "formid"
+targets = ["KYWD"]
+
+[[member.field]]
+name = "AttachParentSlotCount"
+type = "u32"
+
+[[member.field]]
+name = "AttachParentSlots"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count_from = "AttachParentSlotCount"
+
+[[member.field]]
+name = "Unknown2"
+type = "opaque"
+size = 4
+note = "unknown in xEdit"
+
+[[member.field]]
+name = "Includes"
+type = "array"
+element = "struct"
+count_from = "IncludeCount"
+field = [
+  { name = "Mod", type = "formid", targets = ["OMOD"] },
+  { name = "MinimumLevel", type = "u8" },
+  { name = "Optional", type = "ref:Bool8" },
+  { name = "DontUseAll", type = "ref:Bool8" },
+]
+
+[[member.field]]
+name = "Properties"
+type = "array"
+element = "ref:ObjectModProperty"
+count_from = "PropertyCount"
 
 [[member]]
 sig = "MNAM"
-name = "Mnam"
-type = "opaque"
+name = "TargetOmodKeywords"
+type = "array"
 card = "optional"
-note = "observed 4 bytes"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15469-L15469"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "FNAM"
-name = "Fnam"
-type = "opaque"
+name = "FilterKeywords"
+type = "array"
 card = "optional"
-note = "observed 4, 8 or 12 bytes"
-
-[[member]]
-sig = "NAM1"
-name = "Nam1"
-type = "opaque"
-card = "optional"
-note = "observed 1 byte"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15470-L15470"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "LNAM"
-name = "Lnam"
-type = "opaque"
+name = "LooseMod"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes, in 14 records"
+targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15471-L15471"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "NAM1"
+name = "Priority"
+type = "u8"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15472-L15472"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "FLTR"
+name = "Filter"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15473-L15473"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697",
+]
+confidence = "reference"
+note = "not in any official OMOD"
+
+[[member]]
+sig = "NAM2"
+name = "ThirdPersonMorphableObject"
+type = "formid"
+card = "optional"
+targets = ["MRPH"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15474-L15474"
+confidence = "reference"
+note = "not in any official OMOD"
+
+[[member]]
+sig = "NAM3"
+name = "FirstPersonMorphableObject"
+type = "formid"
+card = "optional"
+targets = ["MRPH"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15475-L15475"
+confidence = "reference"
+note = "not in any official OMOD"
