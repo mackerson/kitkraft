@@ -719,6 +719,29 @@ the command fails with the errors. Spec errors are `failed` with `spec: <key>: .
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
 
+### `overhaul.scaffold` (M3.E7; CLI `kit overhaul`)
+
+Arguments `{type, where?, group_by?, out?, overwrite = false, max_groups = 40}` plus the
+load-order arguments. CLI `kit overhaul WEAP --group-by KWDA --out weapons.toml
+--profile <dir>` (or `kit overhaul --type WEAP ...`). Emits a starter `build` spec v2 for
+the winning records of `type` matching `where`: one class per value of `group_by` (a
+`where` path such as `KWDA`, `@plugin` or `DNAM.Member`; a record with several values
+joins one class per value; without it, one class), the largest `max_groups` as classes
+and the rest listed in a comment, each class with its `where` (exactly its group), its
+match count and the min/median/max of every typed numeric member of the type as comments,
+a `brief` placeholder and a commented-out rule. Every rule is commented out, so
+`build --plan` on a fresh scaffold reports 0 changes with each class matching what the
+scaffold counted. The text is deterministic; the `[load_order]` repeats the
+`profile`/`plugins`/`data_dir`/`language`/`no_cache` arguments. With `out` (a `.toml`
+file, never in the game or user Data dir or MO2; an existing one only with `overwrite`)
+it is written; without, `data.spec_text` (and the summary) holds it. `data`: `type`,
+`where`, `group_by`, `out`, `written`, `bytes`, `records`, `undecided`, `ungrouped`,
+`group_undecodable`, `unexpressible`, `classes[]` (`class`, `where`, `matched`, `label`,
+`stats[]` with `member`, `records`, `undecodable`, `min`, `median`, `max`), `omitted[]`,
+`numeric_members[]` (`path`, `member`, `kind`, `confidence`, `in_array`), `spec_text`,
+`summary`. On the owner's Default profile, `kit overhaul WEAP --group-by KWDA` takes
+0.8 s warm (release, 541 winning WEAP, 2026-10-14).
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends

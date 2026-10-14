@@ -179,6 +179,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "overhaul.scaffold",
+        label: "New Overhaul Spec...",
+        menu_path: "File/New Overhaul Spec...",
+        shortcut: None,
+        aliases: &["overhaul"],
+        summary: "Starter build spec v2 for one record type: a class per group of winning records, with match counts and min/median/max of each typed numeric member as comments; every rule commented out",
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (WEAP)"},"where":{"type":"string","description":"Only winning records matching this predicate (query's where language)"},"group_by":{"type":"string","description":"A where path (KWDA, @plugin, SIG.Member): one class per value; a record with several values joins one class per value"},"out":{"type":"string","description":"The .toml spec to write (never in the game or user Data dir or MO2); omitted: the text is returned in data.spec_text"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"max_groups":{"type":"integer","minimum":1,"maximum":1000,"default":40,"description":"Most classes; the smaller groups are listed in a comment"},"profile":{"type":"string","description":"MO2 profile to load first (repeated in the spec's [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order (repeated in the spec's [load_order])"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "validate",
         label: "Validate Plugin",
         menu_path: "Tools/Validate",

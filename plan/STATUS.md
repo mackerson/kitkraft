@@ -410,6 +410,14 @@ is under "Next".
     (WEAP/AMMO/PROJ/AMDL, lane B round 3: M3.B1..B3) plug in through the schema with no
     code change. The `reference` gate is tested on a synthetic schema (the builtin has no
     `reference` member yet). Version 1 specs build as before (the rename keeps its hash).
+  - M3.E7 `overhaul.scaffold` (CLI `kit overhaul`, `handlers/overhaul.rs`,
+    `build/scaffold.rs`): a starter spec v2 per record type, one class per `group_by` value
+    with match counts and min/median/max of each typed numeric member as comments, every
+    rule commented out; deterministic; `out` guarded (`.toml`, never game/user Data or
+    MO2, `overwrite`). On the Default profile `kit overhaul WEAP --group-by KWDA`: 541
+    winning WEAP, 40 classes, 0.8 s warm (release); `kit build <scaffold> --plan`: 0
+    changes, every class's count equal to the scaffold's (4.5 s). Today the only typed
+    numeric WEAP member is `KSIZ`; the weapon stats appear when lane B types WEAP (M3.B1).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
