@@ -183,13 +183,17 @@ fn kit_mcp_profile_preload_failure_is_reported_not_fatal() {
     let mut kit = Kit::spawn(&["--profile", missing.to_str().unwrap()]);
     let init = kit.initialize();
     let instructions = init["result"]["instructions"].as_str().unwrap();
-    assert!(
-        instructions.contains("Preloading the profile"),
-        "{instructions}"
-    );
     assert_eq!(kit.request("ping", json!({}))["result"], json!({}));
     let stderr = kit.finish();
     assert!(stderr.contains("preloading --profile failed"), "{stderr}");
+    // While `load` has no handler the failure is `not_implemented`, a documented no-op
+    // that stays out of the instructions; any other failure is told to the model.
+    let not_implemented = stderr.contains("not implemented");
+    assert_eq!(
+        instructions.contains("Preloading the profile"),
+        !not_implemented,
+        "{instructions} / {stderr}"
+    );
 }
 
 /// With the official files: `coverage` names a real record, `inspect_record` finds it,

@@ -21,9 +21,12 @@ kit mcp                                   # empty session
 kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"   # preload a load order
 ```
 
-`--profile` runs the `load` command before serving. If it fails (until M2.D8 lands it
-always does: `load` is not implemented yet) the error goes to stderr and into the
-server's `instructions`, and the server starts with an empty session instead of exiting.
+`--profile` runs the `load` command before serving. **Until M2.D8 lands it is a no-op:**
+`load` is not implemented yet, so the preload fails with `not_implemented`, which is
+noted on stderr only. Any other preload failure (a bad path, once `load` exists) goes to
+stderr and into the server's `instructions`. Either way the server starts with an empty
+session instead of exiting. `.mcp.json.example` and the commands below pass `--profile`
+anyway, so they need no edit when `load` lands.
 `kit mcp` exits 0 when its stdin closes and 2 on a stdio error. stdout carries only MCP
 messages; logs go to stderr.
 
@@ -39,7 +42,8 @@ Client config (any MCP client that launches stdio servers):
    `C:\Modding\kitcraft\target\release\kit.exe` with the default target dir).
 2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the
    file is gitignored, never committed; adjust the paths) and approve the server when
-   Claude Code asks, or register it for yourself only:
+   Claude Code asks, or register it for yourself only (`--profile` is a no-op until
+   M2.D8, see above):
 
    ```powershell
    claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
@@ -227,6 +231,13 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   --overwrite`). It is refused when it names the input file, even with `overwrite`; a
   failed roundtrip removes its partial output; after a mismatch the file stops at the
   top-level entry that differs (stated as a limitation).
+- Paths (`plugin`, `out`, and every other path argument of every command) are not
+  confined to `KITCRAFT_DATA_DIR` or any other root: the server reads and writes wherever
+  the `kit` process may, with the user's permissions. A relative path resolves against
+  the `kit` process's working directory, which for `kit mcp` is whatever directory the
+  MCP client launched it in (for Claude Code, normally the project directory). Pass
+  absolute paths. The only guards on `out` are the existing-file refusal (`overwrite`)
+  and the same-file refusal above.
 
 ### `inspect` (minimal)
 
