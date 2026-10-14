@@ -4,8 +4,8 @@
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L3965-L3978 - the eight slots, in order, each a
 #     TRNS FormID or null.
-#   corpus: PTT2 in the LVLP, PKIN and GBFM records of the 14 official ESMs (2026-10-14):
-#     every payload is 32 bytes.
+#   corpus: PTT2 in the PKIN records of the 14 official ESMs (2026-10-14): all 1,756
+#     payloads are 32 bytes (LVLP and GBFM have none).
 #
 # Field names match the inline PTT2 layout of the weapon family (lane B round 3), so the two
 # can share this type later. FormIDs are raw (file-relative); resolution is the doc layer's.
@@ -13,7 +13,7 @@ name = "Transforms"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"
 evidence = [
-  "corpus: PTT2 in the LVLP, PKIN and GBFM records of the 14 official ESMs, 2026-10-14 scan: all 32 bytes",
+  "corpus: PTT2 in the PKIN records of the 14 official ESMs, 2026-10-14 scan: all 1,756 payloads are 32 bytes",
 ]
 confidence = "corpus"
 type = "struct"

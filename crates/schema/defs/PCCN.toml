@@ -45,7 +45,7 @@ name = "Content"
 type = "formid"
 targets = ["WRLD", "LVLP", "PKIN"]
 card = "optional"
-note = "required upstream; 4 official records omit it"
+note = "required upstream; 4 official records omit it. In Starfield.esm it names a WRLD 1,277 times, a PKIN 507, an LVLP 12 and a REFR 5 times (REFR is not an upstream target; all 5 are in nodes whose EditorIDs mark them as duplicates or block-creation requests)"
 
 [[member]]
 sig = "IOVR"

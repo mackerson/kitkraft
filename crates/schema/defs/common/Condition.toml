@@ -5,9 +5,10 @@
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L4750-L4840 - the condition list: the CTDA field
 #     order and widths, the Run On enumeration, and the two optional string subrecords.
-#   corpus: the CTDA payloads of the planet content records (PCMT, PCBN, PCCN, LVLP, PKIN)
-#     in the 14 official ESMs (2026-10-14 scan): every CTDA is 32 bytes, the sum of the
-#     field widths below.
+#   corpus: the top-level CTDA payloads of the PCMT, PCBN and LVLP records in the 14
+#     official ESMs (2026-10-14 scan): all 504 are 32 bytes, the sum of the field widths
+#     below, and decode and re-encode identically through this group. CTDA inside component
+#     blocks (PCCN, PKIN, GBFM) is kept raw with its block.
 #
 # What stays opaque, and why: the comparison value, parameters 1 to 3 and the reference
 # are unions whose layout another field selects (the comparison value by a flag in the
@@ -21,7 +22,7 @@ name = "Condition"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"
 evidence = [
-  "corpus: CTDA in the PCMT, PCBN, PCCN, LVLP and PKIN records of the 14 official ESMs (2026-10-14): all 32 bytes, every record decodes and re-encodes identically through this group",
+  "corpus: the 504 top-level CTDA in the PCMT, PCBN and LVLP records of the 14 official ESMs (2026-10-14): all 32 bytes, every record decodes and re-encodes identically through this group",
 ]
 confidence = "corpus"
 
@@ -66,7 +67,7 @@ name = "StringParameter1"
 type = "zstring"
 card = "optional"
 confidence = "reference"
-note = "not observed in the planet content records"
+note = "not observed in the PCMT, PCBN and LVLP records"
 
 [[member]]
 sig = "CIS2"
@@ -74,4 +75,4 @@ name = "StringParameter2"
 type = "zstring"
 card = "optional"
 confidence = "reference"
-note = "not observed in the planet content records"
+note = "not observed in the PCMT, PCBN and LVLP records"
