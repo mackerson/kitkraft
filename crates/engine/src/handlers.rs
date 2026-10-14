@@ -8,6 +8,7 @@ mod ba2;
 mod coverage;
 mod inspect;
 mod roundtrip;
+mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
 
@@ -24,6 +25,8 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("ba2.list", Box::new(ba2::list)),
         ("ba2.extract", Box::new(ba2::extract)),
         ("ba2.pack", Box::new(ba2::pack)),
+        ("strings.dump", Box::new(strings::dump)),
+        ("strings.merge", Box::new(strings::merge)),
     ]
 }
 
