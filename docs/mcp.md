@@ -638,8 +638,12 @@ not write.
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
-Arguments `{plugin?, scripts?, rules?}` (`plugin`, `scripts`, or both) plus the
-load-order arguments (all optional). **Masters of a standalone plugin are searched in
+Arguments `{plugin?, scripts?, plugin_archives?, rules?}` (`plugin`, `scripts`, or both)
+plus the load-order arguments (all optional). `scripts` takes `.pex` files, directories
+of them, and `.ba2` archives (each `.pex` entry is read in memory; a finding names it
+`<archive>/<path in archive>`, an entry that does not parse is a limitation);
+`plugin_archives: true` (CLI `--plugin-archives`, needs `plugin`) adds the plugin's own
+`<stem> - *.ba2` archives (M3.E3). **Masters of a standalone plugin are searched in
 order:** the named (`profile`/`plugins`) or session load order, the plugin's own
 directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable set,
 `kit validate --plugin out\X.esm` finds `Starfield.esm` with no other argument. A bare

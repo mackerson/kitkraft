@@ -390,6 +390,15 @@ is under "Next".
   `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
   15 warnings). The rename plugin was regenerated (TES4 only changed):
   **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
+- Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
+  `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
+  - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
+    (`kitcraft_doc::RawRef`; a master of unknown scale before the index and
+    `full-style-self` stay unresolved, never guessed); `scripts` takes `.ba2` archives and
+    `plugin_archives` adds the plugin's own `<stem> - *.ba2`. `validate_corpus_official_files`
+    (release, 83 s): 0 errors, unresolved FormIDs 0 on all 14 files, warnings unchanged
+    (92 `override.stripped-name` on CELL/LCTN/NPC_/QUST/WRLD, the DLCs' own; 15
+    `formid.dangling` in SFBGS050, overrides of SFBGS00D forms SFBGS00D lacks).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
