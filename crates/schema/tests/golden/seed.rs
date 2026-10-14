@@ -13,6 +13,7 @@
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
+// - PCBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
@@ -3086,6 +3087,428 @@ impl OmodRecord {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PcbnNodeType {
+    Root,
+    BranchNode,
+    ContentNode,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl PcbnNodeType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Root,
+            1 => Self::BranchNode,
+            2 => Self::ContentNode,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Root => 0,
+            Self::BranchNode => 1,
+            Self::ContentNode => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PcbnNodeType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PcbnNodeType {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PcbnChildSelection {
+    Random,
+    Stacked,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl PcbnChildSelection {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Random,
+            1 => Self::Stacked,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Random => 0,
+            Self::Stacked => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PcbnChildSelection {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PcbnChildSelection {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PcbnConsumeRequestOnFailure {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl PcbnConsumeRequestOnFailure {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for PcbnConsumeRequestOnFailure {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for PcbnConsumeRequestOnFailure {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PcbnKeywords(pub Vec<FormId>);
+
+impl Field for PcbnKeywords {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PcbnKeywords {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PcbnRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `NAM1`, required.
+    pub node_type: Option<Sub<PcbnNodeType>>,
+    /// `NAM2`, required.
+    pub child_selection: Option<Sub<PcbnChildSelection>>,
+    /// `NAM3`, optional.
+    pub count_curve: Option<Sub<FormId>>,
+    /// `NAM4`, optional.
+    pub distribution_curve: Option<Sub<FormId>>,
+    /// `NAM5`, required.
+    pub consume_request_on_failure: Option<Sub<PcbnConsumeRequestOnFailure>>,
+    /// `PCCB`, repeated.
+    pub nodes: Vec<Sub<FormId>>,
+    /// `CITC`, required.
+    pub condition_count: Option<Sub<u32>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+    /// `KWDA`, optional.
+    pub keywords: Option<Sub<PcbnKeywords>>,
+    /// `PRTN`, required.
+    pub parent_node: Option<Sub<FormId>>,
+    /// `PRVN`, optional.
+    pub previous_node: Option<Sub<FormId>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl PcbnRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM1",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM3",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM4",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM5",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PCCB",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"CITC",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"KWDA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRTN",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRVN",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "PCBN.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.node_type, subs, *index, "PCBN.NAM1", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.child_selection,
+                    subs,
+                    *index,
+                    "PCBN.NAM2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.count_curve, subs, *index, "PCBN.NAM3", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.distribution_curve,
+                    subs,
+                    *index,
+                    "PCBN.NAM4",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.consume_request_on_failure,
+                    subs,
+                    *index,
+                    "PCBN.NAM5",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => {
+                    push(&mut self.nodes, subs, *index, "PCBN.PCCB", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.condition_count,
+                    subs,
+                    *index,
+                    "PCBN.CITC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 9, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.keywords, subs, *index, "PCBN.KWDA", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.parent_node, subs, *index, "PCBN.PRTN", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.previous_node,
+                    subs,
+                    *index,
+                    "PCBN.PRVN",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"NAM1", self.node_type.as_ref());
+        emit(out, *b"NAM2", self.child_selection.as_ref());
+        emit(out, *b"NAM3", self.count_curve.as_ref());
+        emit(out, *b"NAM4", self.distribution_curve.as_ref());
+        emit(out, *b"NAM5", self.consume_request_on_failure.as_ref());
+        for value in &self.nodes {
+            emit(out, *b"PCCB", Some(value));
+        }
+        emit(out, *b"CITC", self.condition_count.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+        emit(out, *b"KWDA", self.keywords.as_ref());
+        emit(out, *b"PRTN", self.parent_node.as_ref());
+        emit(out, *b"PRVN", self.previous_node.as_ref());
+    }
+}
+
+impl Visit for PcbnRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.count_curve, "PCBN.NAM3", out);
+        visit_form_ids(&self.distribution_curve, "PCBN.NAM4", out);
+        visit_form_ids(&self.nodes, "PCBN.PCCB", out);
+        visit_form_ids(&self.keywords, "PCBN.KWDA", out);
+        visit_form_ids(&self.parent_node, "PCBN.PRTN", out);
+        visit_form_ids(&self.previous_node, "PCBN.PRVN", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.count_curve, "PCBN.NAM3", out);
+        visit_form_ids_mut(&mut self.distribution_curve, "PCBN.NAM4", out);
+        visit_form_ids_mut(&mut self.nodes, "PCBN.PCCB", out);
+        visit_form_ids_mut(&mut self.keywords, "PCBN.KWDA", out);
+        visit_form_ids_mut(&mut self.parent_node, "PCBN.PRTN", out);
+        visit_form_ids_mut(&mut self.previous_node, "PCBN.PRVN", out);
+    }
+}
+
+impl PcbnRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"PCBN";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("PCBN", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("PCBN", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("PCBN", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("PCBN", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PcmtNodeType {
     Root,
     /// A value the definition does not name.
@@ -4479,6 +4902,7 @@ pub enum Record {
     Gmst(Box<GmstRecord>),
     Kywd(Box<KywdRecord>),
     Omod(Box<OmodRecord>),
+    Pcbn(Box<PcbnRecord>),
     Pcmt(Box<PcmtRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
@@ -4494,6 +4918,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"GMST", GmstRecord::MEMBERS),
     (*b"KYWD", KywdRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
+    (*b"PCBN", PcbnRecord::MEMBERS),
     (*b"PCMT", PcmtRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
@@ -4512,6 +4937,7 @@ impl Record {
             b"GMST" => Self::Gmst(Box::new(GmstRecord::decode(subs, ctx))),
             b"KYWD" => Self::Kywd(Box::new(KywdRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
+            b"PCBN" => Self::Pcbn(Box::new(PcbnRecord::decode(subs, ctx))),
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
@@ -4530,6 +4956,7 @@ impl Record {
             Self::Gmst(record) => record.encode(),
             Self::Kywd(record) => record.encode(),
             Self::Omod(record) => record.encode(),
+            Self::Pcbn(record) => record.encode(),
             Self::Pcmt(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
@@ -4547,6 +4974,7 @@ impl Record {
             Self::Gmst(_) => GmstRecord::SIGNATURE,
             Self::Kywd(_) => KywdRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
+            Self::Pcbn(_) => PcbnRecord::SIGNATURE,
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
@@ -4564,6 +4992,7 @@ impl Record {
             Self::Gmst(record) => record.form_ids(),
             Self::Kywd(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
+            Self::Pcbn(record) => record.form_ids(),
             Self::Pcmt(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
@@ -4581,6 +5010,7 @@ impl Record {
             Self::Gmst(record) => record.form_ids_mut(),
             Self::Kywd(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
+            Self::Pcbn(record) => record.form_ids_mut(),
             Self::Pcmt(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
@@ -4598,6 +5028,7 @@ impl Record {
             Self::Gmst(record) => record.lstrings(),
             Self::Kywd(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
+            Self::Pcbn(record) => record.lstrings(),
             Self::Pcmt(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
@@ -4615,6 +5046,7 @@ impl Record {
             Self::Gmst(record) => record.lstrings_mut(),
             Self::Kywd(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
+            Self::Pcbn(record) => record.lstrings_mut(),
             Self::Pcmt(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
@@ -4633,6 +5065,7 @@ impl Record {
             Self::Gmst(record) => &record.extra,
             Self::Kywd(record) => &record.extra,
             Self::Omod(record) => &record.extra,
+            Self::Pcbn(record) => &record.extra,
             Self::Pcmt(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,

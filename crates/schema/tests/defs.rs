@@ -149,7 +149,10 @@ fn builtin_set_loads_and_matches_the_directory() {
     let sigs: Vec<&str> = embedded.records.keys().map(Signature::as_str).collect();
     assert_eq!(
         sigs,
-        ["AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "PCMT", "TES4", "WEAP", "ZOOM"]
+        [
+            "AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "PCBN", "PCMT", "TES4", "WEAP",
+            "ZOOM"
+        ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
