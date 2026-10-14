@@ -798,3 +798,389 @@ D3, D6, E1..E3, F1..F3, G1..G3) are off both paths and fill idle time.
   category, or any revisit of decided licensing.
 - Papyrus assembling, editing or decompiling; a git remote; publishing anything, including
   through the CK's Creations features.
+
+## M4: coverage program
+
+Goal: KitCraft covers the record families the owner's mod needs, can create new forms and
+place them in the world, and every workstream of that mod has a first deliverable that
+proves its path end to end, in game where the claim is about the game. The headline proof
+is **the first POI placed by KitCraft and visited in game on a disposable save** (critical
+path below). Concretely: the remaining schema family lanes and a schema integrator; cell
+and world child-group placement, reference creation and a new-form allocator in the
+builder; `new`, `clone`, `place`, `package`, `testplan`, `planet` and `papyrus.events`;
+validation rules for cells; research documents for persistence and for the planet content
+system; and a scoping pass, not an implementation, for UI, assets and audio.
+
+This section extends the scope line at the top of this file to M4. M3 is not closed when
+M4 starts: M3 tasks keep their IDs, owners and dependencies, and no M4 task waits on the
+gun overhaul (M3.E9, M3.O5) or on the `ck` write style (M3.A3, M3.E5). Three schema lanes
+are **already running in parallel and are not re-planned here**: lane B round 3 (M3.B1..B8:
+WEAP AMMO PROJ AMDL OMOD COBJ ZOOM LVLI FLST INNR and the 105 corpus lstring signatures) and
+the schema family lanes WORLD and PLANET (below). M4 tasks name what they consume from
+them.
+
+Markings as in M3: **owner** tasks need the owner (or, for the CK only, a desktop-control
+agent the owner assigns); *(research)* tasks establish a fact before code relies on it,
+recorded with its ADR 0005 source form and, where a claim is weighed, its evidence grade
+(ADR 0005 Amendment 3 §3); *(experiment)* tasks may fail, and a recorded failure is a
+result.
+
+### The owner's mod scope
+
+The owner's twelve workstreams, verbatim, with the owner's priorities. W numbers are used
+below.
+
+| W   | Workstream                                                  | Priority      |
+| --- | ----------------------------------------------------------- | ------------- |
+| W1  | Binary authoring and FormID/reference resolution            | P0            |
+| W2  | Worldspaces, cells, placed references, and POI instances    | P0            |
+| W3  | Workshop registration and construction                      | P0            |
+| W4  | Ownership, claiming, and restoration                        | P0            |
+| W5  | Save persistence, resets, and procedural locations          | P0            |
+| W6  | Papyrus compilation and runtime event handling              | P0            |
+| W7  | Planetary traits and unique resource extraction             | P1            |
+| W8  | Manufacturing, storage, and economic loops                  | P1            |
+| W9  | NPCs, crew, navigation, and settlement behavior             | P1            |
+| W10 | Quests, factions, dialogue, and progression                 | P1            |
+| W11 | UI, maps, visual assets, and audio                          | P1-P2         |
+| W12 | Packaging, compatibility, automated testing, and deployment | P0 throughout |
+
+The owner's discovery binds W2, W5 and W7: Starfield's plugins carry Planet Content Manager
+records (`PCMT`, `PCBN`, `PCCN`) and leveled pack-ins (`LVLP`) alongside `LCTN`, `WRLD`,
+`CELL`, `REFR`, `NAVM` and `QUST`, so the authoring surface must understand the planetary
+content system, not only hand-placed cells. In the corpus (`docs/record-parity.md`):
+`PCMT` 5 records, `PCBN` 379, `PCCN` 2,148, `LVLP` 52, `PKIN` 15,128, `PNDT` 1,786, `BIOM`
+434, `LCTN` 7,316, `WRLD` 583, `CELL` 40,251 (32,230 compressed), `REFR` 6,719,725, `ACHR`
+14,731, `NAVM` 92,893 (92,764 compressed). What each of these records means, and how a POI
+reaches a planet through them, is not stated in this plan: layouts come from the pinned
+xEdit files through the family lanes, link structure from the corpus (M4.D3), and
+behaviour from CK and in-game observation.
+
+### Binding constraints (owner, ADR 0004 "Owner approval 2026-10-14")
+
+The six clarifications bind every M4 task, as in M3. What is new in M4 is that KitCraft
+writes **new** records:
+
+1. **Common-file helpers** are cited only for what a Starfield definition uses them for
+   (every family lane).
+2. **Further upstream helper files** need only a documented dependency
+   (`docs/xedit-reference.md`, `docs/source-registry.md`); no policy round unless the
+   license or source category differs.
+3. **Confidence.** Every member KitCraft writes into a new or composed record (`new`,
+   `clone` edits, `place`) must be `corpus` or better, or the command refuses unless
+   `allow_reference` names it (the M3.E6 rule; ADR 0005 Amendment 3 §4). Upstream coverage
+   never raises confidence.
+4. **Lossless first.** Placing a reference or creating a form changes only the new
+   records, the group sizes up their chain, the groups created for them, and the `TES4`
+   counters the corpus rules name (`HEDR` count and next object ID, `INCC`); every other
+   byte is re-emitted as read.
+5. **FormID resolution.** The allocator works on raw, file-relative FormIDs; resolved
+   identities stay lane D's. A new form in a small or medium plugin is refused until a CK
+   observation (F11, F26) shows how the CK stores it: never guessed.
+6. **Scope discipline.** No architecture restart: no new crate in M4 (the `.psc` reader
+   lives in `crates/pex`, the new commands in `crates/engine`), no layer change, no
+   licensing revisit. No lane waits on speculative compatibility: a task gated on an
+   owner session ships what it can from the corpus and lists the rest as a limitation.
+   The UI is built in M4 only if the owner's M3.O6 decision says so.
+
+### Lanes (ownership)
+
+Lanes A, D, E, F, G and H keep their M3 files plus what is listed here. Lane B splits into
+**schema family lanes**, one agent each, each owning the definition files of its record
+types; BX, the schema integrator, is a role of lane F because it writes generated output.
+One agent per lane, each in its own worktree and `CARGO_TARGET_DIR`.
+
+| Lane | Name                           | Owns |
+| ---- | ------------------------------ | ---- |
+| A    | container                      | `crates/esm` (not `src/generated/`) |
+| BR   | schema round 3 (running)       | M3.B1..B12's files (M3, lane B) |
+| BW   | schema family WORLD (running)  | `defs/` files for `WRLD CELL REFR ACHR NAVM LCTN LCRT` |
+| BP   | schema family PLANET (running) | `defs/` files for `PCMT PCBN PCCN PNDT STDT BIOM LVLP PKIN GBFM SUNP SFBK SFPT TRAV` and the `RS*` types |
+| BQ   | schema family QUEST            | `defs/` files for `QUST DIAL INFO SCEN PACK FACT SMBN SMQN SMEN CHAL`; first owner of the shared script-attachment and condition blocks |
+| BC   | schema family ACTOR            | `defs/` files for `NPC_ LVLN RACE OTFT PERK SPEL MGEF CLAS AFFE` |
+| BI   | schema family ITEMS/WORKSHOP   | `defs/` files for `ARMO MISC CONT FURN ACTI STAT MSTT TERM TMLM IDLE ANIO CPTH`; first owner of the shared object-bounds and model blocks. `COBJ`, `FLST` and `KYWD` stay lane BR's (M3.B5, M3.B7, M3.B6) |
+| BX   | schema integrator (lane F)     | `crates/schema/defs/common/` (deduplication only), the `BUILTIN_DEFINITIONS` region of `crates/schema/src/lib.rs`, `crates/esm/src/generated/`, `docs/record-parity.md`; inventory definitions for record types no family owns (M4.BX2) |
+| D    | doc + io                       | as M3, plus engine `handlers/planet.rs`, `docs/design/planet-content.md` |
+| E    | set + validate + build         | as M3, plus engine `handlers/{new,clone,place,package,testplan}.rs`, `docs/recipes/`, `docs/packaging.md` |
+| F    | mcp + surface                  | as M3, plus the BX role |
+| G    | archives + scripts + strings   | as M3, plus `crates/pex/src/psc/`, `docs/research/asset-formats.md`, the ADR 0006 amendment |
+| H    | evidence                       | as M3, plus `docs/design/persistence.md`, `docs/game-observations.md` |
+| O    | owner                          | decisions, installs, CK, MO2 and game sessions, reviews |
+
+**Family lane rules** (BQ, BC and BI here; BW and BP run under the same rules):
+
+- Acceptance per record type is lane B's (M3.B1): every member has `source` (`xedit:` at
+  the pin with a line range) and `confidence`; through the M2.A3 driver every corpus
+  occurrence decodes with an empty `extra` and re-encodes identical on all 14 files, or
+  the member is demoted to opaque with the conflict noted; members confirmed on every
+  occurrence are `corpus` with a `corpus:` citation naming the test; union-decided members
+  stay opaque until M3.B9 can express their decider; lstring members agree with the M3.B8
+  corpus table; names from the CK wiki or the CK's UI labels, never an upstream
+  placeholder; no Pascal code or comments copied (the reviewer checks the diff); the
+  staged xEdit files are verified as in M3.B0 at the start of each session.
+- **Generated output is not committed by family lanes**: not `crates/esm/src/generated/`,
+  not the `BUILTIN_DEFINITIONS` region, not `docs/record-parity.md`. A family lane runs
+  `cargo xtask codegen` in its worktree so its gate passes there, and restores those files
+  before committing. Six lanes regenerating the same files would conflict on every merge;
+  BX regenerates once per merge (M4.BX1). This is a stated deviation from AGENTS.md
+  "Commits" for family lanes only: a family commit is gate-clean together with BX's merge.
+- **Shared blocks**: a family lane may add a new file under `defs/common/` but never edits
+  an existing one; it references the existing block instead. The first owner named in the
+  table defines a shared block; the others use it once merged or keep the member opaque.
+  Where two families defined the same block independently, BX merges them (M4.BX1).
+- Large types record their full-corpus typed-check time in `docs/corpus.md` (`REFR` 6.7 M,
+  `INFO` 162 k, `DIAL` 87 k, `NAVM` 93 k, nearly all compressed; every `NPC_` compressed).
+
+### Format facts M4 relies on, and where they come from
+
+Hypotheses until the named check confirms them. Nothing here is a Starfield record layout.
+
+- Group types 0..9 and their names are the container facts in
+  `crates/schema/defs/GRUP.toml` (`uesp-skyrim`, corpus-confirmed walk); type 10 is
+  Starfield-only and unnamed (`docs/corpus.md`). The M2.E3 `ONAM` inventory lists records
+  of group types 7 (INFO), 9 (REFR, ACHR, NAVM) and 10 (DIAL, SCEN), so type 10 holds
+  dialogue and scenes at least in those files; M4.A1 inventories it fully.
+- How interior cells are spread over blocks and sub-blocks, and how exterior cells are
+  grouped by grid, is described on UESP's Skyrim page (level 1, container): a hypothesis
+  until M4.A1 tests it on every cell of the 14 files.
+- A plugin that adds children to a master's cell carries that cell (and its world) as an
+  override, so the children group has a parent (M2.A5 notes; UESP "Groups"). Whether the
+  CK writes the parent as an unchanged copy is F21's question.
+- `ONAM` lists some overridden cell and topic children; what decides membership is open
+  (M2.E3 "Writing rules"). New records are not overrides, so placing new references does
+  not depend on it; editing vanilla references does (M4.A6).
+- `INCC` equals the number of interior cells in all 14 files (`docs/corpus.md` "Writing
+  rules"); a plugin that adds an interior cell updates it.
+- `HEDR` next object ID is `0xFF001000` in 12 of 14 files; what the CK allocates for a new
+  form is F06's question (M3.O1) and, for small and medium exports, F11's and F26's.
+- The 5,034 `Scripts/Source` files in `Tools\ContentResources.zip` are read in place
+  (M3.G1); they are Bethesda data and are never committed, quoted in docs or bundled.
+- Console batch files (a text file of console commands the game runs on request) and the
+  folder the game reads them from: grade D, confirmed or refuted in the first in-game
+  session (M4.O2). KitCraft never writes into the game folder.
+- MO2 installs a mod as a folder under `mods\` whose contents overlay `Data` (M2.D1,
+  `docs/load-order.md` "Overlay").
+
+### Workstream-to-capability matrix
+
+For each workstream: the record types it needs (lane in brackets), what KitCraft provides
+or will provide (schema, builder, validate, commands), what it depends on outside
+KitCraft, what KitCraft **cannot** do, and the first deliverable that proves the path.
+"Cannot" holds for all of M4 unless a task says otherwise. SFSE and CommonLibSF appear
+only where a runtime hook might be needed; nothing in M4 depends on them (M4.O3).
+
+| W | Record types | KitCraft capabilities | External dependencies; what KitCraft cannot do | First deliverable (task) |
+| - | ------------ | --------------------- | ---------------------------------------------- | ------------------------ |
+| W1 | `TES4` (`HEDR` next object ID, masters, `ONAM`, `INCC`); the FormID members of every family | Schema: FormID members typed in every family, each checked by `formid.dangling` on the official files at merge (M4.BX1). Builder: new-form allocator (M4.A3), computed placement paths (M4.A2), `ONAM` for overridden children (M4.A6). Commands: `new`, `clone` (M4.E1), `refs` across families (M4.D1); `inspect`, `diff`, `conflicts` exist | CK fixtures F06, F11 (M3.O1) and F26 (M4.O1). Cannot: write a new form into a small or medium plugin before F11/F26 evidence (refused, never guessed) | M4.E1: a new `GLOB` and a clone of a vanilla `STAT` in a fresh plugin; FormIDs and `HEDR` next object ID equal the CK's F06 choice or the difference is a ledger entry; `validate` 0 errors |
+| W2 | `WRLD CELL REFR ACHR NAVM LCTN LCRT` (BW); `PKIN LVLP` (BP); `LAYR`, `RFGP` (inventory, M4.BX2) | Schema: BW, BP. Builder: cell and world group structure (M4.A1, M4.A2), reference composition (M4.A5), NAVM passthrough (M4.A4). Validate: cell rules (M4.E4). Commands: `place` (M4.E2), build spec v3 (M4.E3), placement context in `inspect`/`query` (M4.D2), placed instances in `refs` (M4.D1) | CK for navmesh: **KitCraft cannot generate `NAVM`**; the owner generates it in the CK for our cell (F22) and `build` imports it unchanged (M4.A4). Cannot: edit terrain or preview a placement (no viewport): positions are numbers, taken from existing references or read in game by the owner | M4.E2 + M4.O2: the **first POI** (below) |
+| W3 | `COBJ FLST KYWD` (BR); `STAT MSTT ACTI FURN CONT TERM` (BI); `WKMF` (inventory, M4.BX2) | Schema: BR, BI. Commands: `clone`, spec v3 `[[clone]]` and `[[new]]`. What registers an object in the outpost build menu is found from the vanilla records with `query` and `refs` (M4.E7, a recipe with its corpus evidence) | Cannot: create meshes, collision or snap points (they live in model files; clones reuse vanilla models); change outpost logic in the game's scripts (read through `papyrus.events`, never changed). SFSE only if M4.E7 finds the build menu cannot be extended by data (then M4.O3) | M4.E7 + M4.O4: a cloned vanilla outpost object with its own recipe appears in the outpost build menu and builds on a disposable save |
+| W4 | Ownership members of `CELL`, `REFR`, `LCTN` (BW); `FACT` (BQ); `NPC_` (BC); `QUST` and scripts for claim flows | Schema: whatever ownership members the pinned file defines, typed by BW. Builder: `ONAM` for edited vanilla references (M4.A6). Commands: `set` on a cell override, `query` by owner (M4.E8). Validate: owners resolve (`formid.dangling`) | Claiming and restoration are script and quest behaviour, observable only in game. Cannot: read runtime ownership from a save (KitCraft does not read saves) | M4.E8 + M4.O4: an override changes the owner of a vanilla interior cell (M4.H1 picks it) and the owner confirms in game that taking its items is no longer stealing; `query` lists cells by owning faction |
+| W5 | Reference persistence (group types 8 and 9, BW); `LCTN LCRT` (BW); quest aliases (BQ); `PCMT PCBN PCCN LVLP PKIN` (BP) | Research: `docs/design/persistence.md` (M4.H3), `docs/design/planet-content.md` (M4.D3). Validate: `ref.persistence` (M4.E4, warning). Commands: `testplan` leave, save, reload and return steps (M4.E6); `planet` (M4.D3). Experiment: procedural placement (M4.E10) | Resets and procedural generation are runtime behaviour, known only from in-game observation (`docs/game-observations.md`, M4.H4) and level 4 sources. Cannot: read or write save files, or predict a reset. Plugins are never removed from a save that is not disposable | M4.H3 skeleton + M4.O2: the POI's persistence steps recorded in the game ledger |
+| W6 | The script-attachment block on every scripted record (BQ, shared); quest fragments (BQ) | Commands: `papyrus.compile` (M2.G7, M3.G1), `papyrus.disasm` (M2.G6), `papyrus.events` (M4.G2), script attachment on `place`, `set` and `new` (M4.E9). Validate: `papyrus.missing-script`, `papyrus.property-unresolved` (M4.E9), `papyrus.denylisted-call` (exists) | Bethesda's `PapyrusCompiler.exe`, run as a black box, never `-release`. SFSE only if an event or function a deliverable needs is absent from the base sources (M4.O3); CommonLibSF is never read (GPL, `docs/source-registry.md`). Cannot: decompile, assemble or edit `.pex`; debug scripts at runtime; compile without Bethesda's compiler | M4.G2, then M4.E9 + M4.O4: a script compiled by KitCraft, attached to the POI's reference, runs on an event chosen from `papyrus.events` output and shows a message in game |
+| W7 | `PNDT STDT BIOM PCMT PCBN PCCN SUNP` and `RS*` (BP); `IRES` (inventory, M4.BX2); extractor objects (BI) | Schema: BP. Commands: `planet` (M4.D3), `query` over planet and biome members | Cannot: change procedural terrain or biome generation outside records (any such data in archives is inventoried in M4.G3, not read) | M4.D3: `kit planet <PNDT>` lists one planet's biomes and resources with evidence; `docs/design/planet-content.md` |
+| W8 | `COBJ FLST LVLI OMOD` (BR); `MISC CONT TERM` (BI); `IRES` (M4.BX2); `GMST GLOB` (typed); vendor data on `FACT` (BQ) | Spec v2 rules (exist) and v3 new records (M4.E3); `formid.dangling` on recipe components | Cannot: change economy behaviour the records do not express | M4.E7 + M4.O4: a new fabricator recipe for an existing item builds in game |
+| W9 | `NPC_ LVLN RACE OTFT CLAS AFFE PERK SPEL MGEF` (BC); `PACK SMBN SMQN` (BQ); `ACHR NAVM` (BW) | Schema: BC. Commands: `place` an `ACHR`, `clone` an `NPC_`. Validate: `cell.actor-without-navmesh` (M4.E4). Builder: NAVM passthrough (M4.A4) | CK for navmesh (F22) and for face generation of new appearances. Cannot: generate navmesh, face data, voice, lip sync or animation | M4.E8 + M4.O4: a vanilla NPC placed into a vanilla cell that has navmesh stands and moves there in game |
+| W10 | `QUST DIAL INFO SCEN PACK FACT SMBN SMQN SMEN CHAL` (BQ); `MESG` (M4.BX2) | Schema: BQ (stages, objectives and aliases only where the pinned file defines them and the corpus confirms). Builder: topic and type-10 children (M4.A1, M4.A2). Commands: `refs` from quests to references; fragments through M4.E9 | Cannot: create voiced dialogue (audio) or lip sync. A new quest is in reach only once aliases and stages type at `corpus` confidence | M4.BQ1 + M4.D1: `inspect` of a vanilla quest shows stages, objectives and aliases typed, and `refs` resolves their targets. A new quest with an alias on the POI's reference is a stretch, carried with the reason if aliases stay opaque |
+| W11 | `LSCR MESG SOUN WWED ARTO TXST` and map-marker data (inventory, or BW); asset files in the archives | `ba2.list`, `ba2.extract`, `ba2.pack` (exist); `crates/nif` stays read-only metadata with no M4 work. **Scoping only** (M4.G3) | Cannot: create or edit meshes (`.nif`), materials (`.mat`), Wwise audio (`.wem`, `.bnk`) or interface files; textures only as DDS the user supplies, packed; no viewport | M4.G3: `docs/research/asset-formats.md` |
+| W12 | `TES4`; everything | `package` (M4.E5), `testplan` (M4.E6), archive naming (M4.G4), `validate`, `conflicts`, `roundtrip --verify`, the game ledger (M4.H4), `cargo xtask ci` | MO2 (the owner installs), `Archive2.exe` (black-box check), the game (the owner). Cannot: launch or drive the game; publish anything (owner decision 6; no Creations upload) | M4.E5 + M4.O2: the rename plugin (M2.O6) packaged and installed by the owner through MO2 from the package, with the hashes on disk equal to the manifest; then the POI package |
+
+### Schema family lanes (lane B)
+
+Running, not re-planned: **BR** (lane B round 3, M3.B1..B12), **BW** (WORLD) and **BP**
+(PLANET). M4 tasks depend on them by name ("BW: `CELL` typed"). The tasks below start now,
+in parallel, each in its own worktree; the staged xEdit files must be on disk (M3.O0).
+
+| ID     | Task | Depends on | Acceptance |
+| ------ | ---- | ---------- | ---------- |
+| M4.BQ1 | QUEST family typed, in this order: `FACT`; `QUST`, with the script-attachment block and the condition block as new shared files (conditions cited at xEdit, never `/CTDA`); `PACK`; `DIAL`; `INFO`; `SCEN`; `SMBN`, `SMQN`, `SMEN`; `CHAL`. Inventory definitions first where a type has none | M3.O0 | Family lane rules, per type; the group type 7 and 10 contents agree with M4.A1's inventory; the script-attachment and condition blocks decode on every type that carries them in the corpus, or the member stays opaque on that type with the reason |
+| M4.BC1 | ACTOR family typed, in this order: `NPC_`, `LVLN` (entry counts kept consistent per M3.B10), `OTFT`, `CLAS`, `AFFE`, `RACE`, `PERK`, `SPEL`, `MGEF` | M3.O0; M4.BQ1's shared blocks for members that use them | Family lane rules, per type; every `NPC_` (all compressed) is decoded for the check |
+| M4.BI1 | ITEMS/WORKSHOP family typed, in this order: `STAT`, `MISC`, `CONT`, `ACTI`, `FURN`, `MSTT`, `TERM`, `TMLM`, `ARMO`, `IDLE`, `ANIO`, `CPTH`, with the object-bounds and model blocks as new shared files. `COBJ`, `FLST` and `KYWD` members that round 3 leaves opaque are added only when M4.E7 needs them, after BR's merge, as a Request to BR | M3.O0 | Family lane rules, per type |
+| M4.BX1 | Schema integrator (lane F), **after each family merge** (BR, BW, BP, BQ, BC, BI, in the order they land): merge the family branch; resolve the `BUILTIN_DEFINITIONS` region; `cargo xtask codegen`; merge `defs/common/` duplicates (two blocks with the same layout become one, with both citations and every reference updated); `cargo xtask parity`; the M2.A3 typed check on all 14 files; `validate_corpus_official_files` | each family merge | `codegen --check` and `parity --check` clean; a structural duplicate check in `crates/schema/tests/defs.rs` fails on two `common/` blocks with the same layout; 0 typed conflicts on all 14 files; every new `formid.dangling` **error** on the official files is treated as a layout error in the merged family (member demoted, or the error explained) before the merge commit; per-family counts (typed records, typed subrecords, per confidence) and times in `plan/STATUS.md` |
+| M4.BX2 | Inventory definitions (corpus order and cardinality, every payload opaque) for the record types the matrix names that no family owns: `DOOR`, `LIGH`, `IRES`, `MESG`, `LAYR`, `RFGP`, `PGRE`, `PHZD`, `WKMF`, `LSCR`, `SOUN`, `WWED`, `ARTO`, `TXST`. A type moves to a family lane when a first deliverable needs typed members | - | `coverage` names their subrecords; corpus re-encode identical; each type's later owner recorded in `plan/STATUS.md` when one is assigned |
+
+### Lane A: container (`crates/esm`)
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.A1 | *(research)* Cell and world group structure from the corpus: per group type 1..10, the parent group type, the label kind, the record types held and their counts; ordering rules (a record, then its children group; persistent and temporary children; block and sub-block order); the interior block and sub-block rule (UESP's Skyrim hypothesis) tested on every interior cell; the exterior grid rule tested on every exterior cell; where a world's persistent references live; type 10's parents and contents; the cell size implied by exterior references' positions against their cells' grid coordinates | interior part: -; exterior part and cell size: BW (`CELL` grid and `REFR` position typed) | `docs/corpus.md` "Cell and world groups": every rule stated with its counts, exceptions listed by file and FormID; fast tests on the small corpus files that contain cells, full runs `#[ignore]`; nothing assumed that a corpus test does not check |
+| M4.A2 | Computed placement paths: from a cell (interior, or world plus grid) compute the path to the cell and to its persistent or temporary children group; `Plugin::upsert` and the streaming upsert create missing blocks, sub-blocks, world children and cell children in corpus order; `INCC` and the `HEDR` count follow the corpus rules | M4.A1; BW (`CELL` typed) | **Rebuild gate**: for every small corpus file with cells, and a seeded 1,000-cell sample of `Starfield.esm` with all their children, an empty plugin with the same `TES4` into which every record is upserted through computed paths (never copied ones) has the original group structure byte for byte, or each difference is listed and explained |
+| M4.A3 | New-form allocator: object IDs above both the `HEDR` next object ID and the plugin's highest own object ID; `HEDR` next object ID advanced; own FormIDs file-relative (high byte = master count) for full-scale plugins; small and medium plugins refused until F11/F26 show the CK's form (then lane D's documented `FE`/`FD` storage); exhaustion per scale is an error | - (F06, F11, F26 raise it from corpus defaults) | Unit tests per rule; deterministic; once F06 is observed, the CK's FormID and next object ID for a new `GLOB` are reproduced or the difference is a ledger entry; until then every corpus-default choice is named in `limitations` |
+| M4.A4 | NAVM passthrough: import `NAVM` records (and the groups they sit in) from a CK-saved plugin into a KitCraft-built one with identical bytes, compressed bodies untouched; refused when the two master lists are not prefix-compatible (FormIDs inside navmesh payloads are opaque and cannot be remapped) | M4.A2; M4.O1 (F22) for the fixture part | A synthetic test, and a test on F22 that skips with one line without `observe/`; imported records equal the CK's byte for byte; a master-order mismatch is refused with the reason |
+| M4.A5 | Reference composition: `RefSpec {base, position, rotation, persistent, initially disabled, extra typed members}` -> a `REFR` (or an `ACHR` for an `NPC_` base) through BW's typed definition; persistence expressed however M4.A1 shows the corpus decides it (record flag, group, or both), consistently | BW (`REFR`, `ACHR` typed); M4.A3 | Composing a copy of a corpus reference from its decoded values reproduces its bytes, for a seeded sample of 1,000 references; units and ranges checked against the corpus (and F20/F21 when observed); a member below `corpus` confidence is refused unless allowed (clarification 3) |
+| M4.A6 | *(research, then writer)* `ONAM` for overridden cell and topic children: the membership rule from the corpus inventory and F23; the writer lists overridden children per the rule | M4.O1 (F23) | Rule in `docs/corpus.md` "Writing rules" with its evidence; editing a vanilla reference writes `ONAM` per the rule, or is refused with the reason while the rule is open |
+
+### Lane D: doc + io (`crates/doc`, `crates/io`)
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.D1 | `refs` across the families (extends M3.D4): a reverse index over every typed FormID member of every merged family plus each reference's base, cached like the record index (M2.D5); placed instances (`REFR`, `ACHR`, with world and cell) grouped apart from other referrers; opaque payloads not scanned counted in `limitations` | M3.D4; BW; M4.BX1 | On the official load order `refs` of a vanilla `STAT` lists its placed references with cell and world; cold and warm times in `docs/load-order.md` (warm <= 10 s release on the Default profile); each family that merges adds its members with no change in lane D |
+| M4.D2 | Placement context: `inspect` and `query` results for `CELL`, `REFR`, `ACHR` and `NAVM` give world, cell, grid, block and sub-block, and persistent or temporary, from the group path; `where` gains `@world`, `@cell`, `@persistent` | M4.A1 | A test through `execute` per field; on the official load order a known exterior reference reports its world and grid; `docs/mcp.md` updated |
+| M4.D3 | `planet` command (read-only, alias `pcm`) and `docs/design/planet-content.md` *(research)*: from a `PNDT`, `STDT` or `PCMT`, the graph its typed FormID members reach (the Planet Content Manager tree, branch and content nodes and the records they name; planet to biomes and resources), conditions and opaque members shown as such; the doc gives corpus link statistics (which record types each member names, how often, how deep), what is known with its source, and the open questions for CK and in-game observation | BP; M4.D1 | Through `execute` with JSON; reachable over MCP; on the official load order every `PCMT` tree is walked with no unresolved link, or each is listed; the doc claims no behaviour without a source and a grade |
+| M4.D4 | Runtime IDs and console names for new forms: the runtime ID of each form of a plugin appended to a profile (assumption `runtime-slots-by-scale` named), and the EditorID a console command can use | - | A test with a synthetic profile; `testplan` (M4.E6) uses it; the assumption is in the result's `limitations` |
+
+### Lane E: set + validate + build (`crates/engine`)
+
+| ID     | Task | Depends on | Acceptance |
+| ------ | ---- | ---------- | ---------- |
+| M4.E1  | `new` (`{type, edid, fields, into}`) and `clone` (`{form, edid, fields?, into}`): a new base form of a typed type, or a copy of a winning version with a new FormID (M4.A3) and EditorID; lstrings inlined (patches stay non-localized); FormID members copied as stored and checked by `formid.dangling`; refused for a source whose opaque members may hold FormIDs when its masters differ from the target's | M4.A3; the type's family merged (M4.BX1) | Through `execute` and the CLI; the W1 deliverable; an EditorID clash is an error; the new form is found by `inspect`, and by `refs` from its source |
+| M4.E2  | `place` `{base, cell \| {world, position}, position, rotation, persistent?, edid?, into}`: a new `REFR` (or `ACHR`) composed by M4.A5 and placed by M4.A2; the parent `CELL` (and `WRLD`) carried as an unchanged copy of the winning version; for `{world, position}` the cell comes from the M4.A1 grid rule | M4.A2, M4.A5; M4.E4 for its acceptance | Places a reference into a vanilla interior cell and into a vanilla exterior cell of a fixed (not procedural) worldspace, each in a new plugin; `inspect` with the plugin appended shows the reference in its cell with M4.D2's context; `validate` passes; `roundtrip --verify` identical; the carried parents equal their winners byte for byte |
+| M4.E3  | `build` spec v3: `[[new]]`, `[[clone]]`, `[[place]]`, `[[import]]` (NAVM passthrough from a CK plugin, M4.A4), with spec-local names so one entry can name a form another creates (`base = "new:poi_marker"`); v1 and v2 specs build as before | M4.E1, M4.E2; M4.A4 for `[[import]]` | Two builds of one spec are byte-identical; a test per entry kind and per error (unknown name, cycle, two writes to one field, a `reference`-only member without `allow_reference`); `plan` lists the new forms with their FormIDs |
+| M4.E4  | Validate cell rules: `cell.missing-parent` (children whose `CELL` or `WRLD` neither the plugin nor its masters have: **error**); `ref.orphan` (a reference whose base does not resolve: **error**); `ref.outside-block` (a cell in the wrong block or sub-block: **error**; an exterior reference outside its cell's grid beyond the corpus tolerance: **warning**); `ref.persistence` (a reference another record names, such as an alias, a script property, a door link or a location, that sits in a temporary group: **warning**, grade D until observed); `cell.actor-without-navmesh` (**warning**); `cell.incc` (`INCC` against the interior cell count: **error**) | M4.A1; BW; M4.D1 for `ref.persistence` only (the other rules, which M4.E2's acceptance needs, do not wait for it) | A positive and a negative synthetic fixture per rule; `validate_corpus_official_files`: 0 errors, every warning kind listed with its reason in `plan/STATUS.md`; `docs/validate.md` rows with their sources |
+| M4.E5  | `package` `{plugins, name, version?, out, ba2?, loose?, scripts?, zip?}`: an MO2-ready mod folder (plugins at the root, loose files and scripts at their Data paths, an optional archive through lane G's packer named per M4.G4), `kitcraft-manifest.json` (SHA-256 and size of every file, masters, the spec's hash, KitCraft version, the `validate` result), an optional `.zip` of the folder; refuses an `out` under the game Data dir, the MO2 profile, or MO2's `mods\` (M4.O5) | M4.G4 (archive name) | Deterministic (two runs, identical bytes); `Archive2.exe` opens the archive and lists the same files (recorded once); the manifest verifies after a copy; `docs/packaging.md` has the owner's install steps; the W12 deliverable |
+| M4.E6  | `testplan` `{plugin \| spec, profile, out}`: console batch files (go to each new reference, add each new item, `help` on each EditorID) with M4.D4's runtime IDs, and `checklist.md` for a disposable save: setup, steps, the expected observation per step, persistence steps (leave, save, reload, return), and how to report into `docs/game-observations.md` | M4.D4; M4.H4 (ledger format) | Deterministic; the batch-file format and folder are marked grade D until M4.O2 confirms them; nothing written outside `out` |
+| M4.E7  | Recipes for W3 and W8 (`docs/recipes/workshop.md`, `docs/recipes/fabricator.md`): from vanilla outpost objects and recipes, what registers a buildable object and a fabricator recipe (`query` and `refs` evidence; no meaning claimed without it), each as a v3 spec with its testplan | BI; BR (`COBJ`, `FLST`, `KYWD`); M4.E3 | Each spec builds, validates and roundtrips; every step cites its evidence; feeds M4.O4 |
+| M4.E8  | Recipes for W4 and W9 (`docs/recipes/ownership.md`, `docs/recipes/actors.md`): a cell owner override; an `ACHR` of a vanilla NPC in a vanilla cell with navmesh; `query` by owner | BW; BQ (`FACT`); BC; M4.E2 | As M4.E7 |
+| M4.E9  | Script attachment: `place`, `set` and `new` take `scripts = [{name, properties}]`, written through BQ's typed script-attachment block, property values as formrefs or spec names; rules `papyrus.missing-script` (no `.pex` for an attached script in the plugin's archives, loose files or the load order's archives: **error**) and `papyrus.property-unresolved` (**error**); recipe `docs/recipes/scripts.md` with a script compiled by `papyrus.compile` | BQ (script-attachment block at `corpus`); M4.G2; M4.E2 | Through `execute`; a synthetic fixture per rule; attaching a script to a corpus copy and reading it back gives the same block; feeds M4.O4 |
+| M4.E10 | *(experiment)* Procedural placement: a test plugin that attaches the POI's pack-in to the planet content system the way M4.D3 shows vanilla content attached, with a testplan for a fresh landing | M4.D3; M4.E3 | A result recorded in `docs/game-observations.md` from M4.O4, either way; on no critical path; carried to M5 with the evidence if M4.D3 finds no data path |
+
+#### First POI (critical-path deliverable)
+
+1. `kit load --profile "C:\Modding\MO2-Starfield\profiles\Default"`.
+2. M4.H1 names the target with its reasons: an exterior cell of a fixed (hand-authored)
+   worldspace a disposable save can reach, a vanilla pack-in (`PKIN`) or `STAT` base, and a
+   position near an existing reference. Rung 0 uses a vanilla interior cell instead.
+3. `kit build poi.toml --out <staging>\KC_FirstPOI.esm`: one `[[place]]` of a persistent
+   reference with an EditorID (spec v3). A pack-in is placed by its FormID, so `PKIN` needs
+   no typed layout for this step: BP is off the critical path.
+4. `kit validate` (cell rules included); `kit inspect` of the new reference with the plugin
+   appended (world, cell, grid); `kit roundtrip --verify`.
+5. `kit package` -> MO2-ready folder and manifest; `kit testplan` -> batch files and the
+   disposable-save checklist.
+6. Owner (M4.O2): install through MO2, load a disposable save, go to the reference (batch
+   file or console), screenshot it, leave the area, save, reload, return, and record each
+   observation in `docs/game-observations.md`. The agent prepares everything up to this
+   step; it cannot launch the game.
+
+### Lane F: mcp + surface (`crates/mcp`, `apps/kit-cli`, `xtask`, engine core)
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.F1 | Surface for the M4 commands (`new`, `clone`, `place`, `package`, `testplan`, `planet`, `papyrus.events`): the `docs/mcp.md` command list, `destructiveHint` on every command that writes, `kitcraft://commands` and tool descriptions; no new MCP tool unless a command cannot be reached through `execute` and `command_line` | each command as it lands | The catalog closure test passes; every new command is reachable over MCP (a test per command through `execute`) |
+| M4.F2 | The BX role (M4.BX1, M4.BX2) | - | As M4.BX1 and M4.BX2 |
+| M4.F3 | UI shell: M3.F5 runs in M4 only if the owner's M3.O6 decision defers it to M4 and the owner confirms; scope as ADR 0007 | M3.O6 | As M3.F5 |
+
+### Lane G: archives + scripts + strings
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.G0 | ADR 0006 amendment: `.psc` declaration facts come from the official sources in `ContentResources.zip`, read in place (level 1, corpus), and from the compiler's black-box behaviour (level 2); `ck-wiki:` (level 4) for language semantics, in our own words; the Papyrus Index site (`docs/source-registry.md`, PAPYRUS) only as a cross-check of signatures, its registry status updated; no other parser or compiler is read | - | Amendment committed; registry row updated |
+| M4.G1 | `.psc` declaration reader in `crates/pex` (`psc` module): script header (name, parent, flags), functions and events (parameters with types and defaults, return type, native and global flags), properties, structs, custom events; bodies skipped; what it does not understand is reported, never a panic | M4.G0 | All 5,034 sources read from the zip without an error, or each failure listed with file and line; synthetic fixtures per construct; hostile input gives typed errors; no source text in the repo |
+| M4.G2 | `papyrus.events` `{sources_zip?, class?, name?, kind = event \| function \| all, inherited = true}`: signatures with script, line, flags and the parent chain resolved; source comments only with `with_comments: true`, read from the user's install | M4.G1 | Through `execute`; counts per kind in `plan/STATUS.md`; a test that the events `docs/design/persistence.md` cites exist on their scripts (names taken from the command's output, not from memory); reachable over MCP |
+| M4.G3 | *(scoping)* Asset format inventory: from `ba2.list` over the 90 official archives, counts and total sizes per extension and per archive (`.nif`, `.mat`, `.dds`, `.wem`, `.bnk`, interface files, and every other extension found); per format, what KitCraft does today (list, extract, pack), whether a permitted source describes it (ADR 0006), and which workstream would need to author it | - | `docs/research/asset-formats.md`; no implementation and no format reading beyond `ba2.list`; W11's deliverable |
+| M4.G4 | *(research)* Archive names a plugin loads: the naming pattern of the official archives against their plugins (corpus) and the suffixes a mod's archives may use; the in-game check is an M4.O2 step | - | Rule in `docs/corpus.md` "Archives" with counts; `package` (M4.E5) names archives by it |
+
+### Lane H: evidence
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.H1 | M4 fixture matrix (below) and session scripts, appended to `docs/ck-observations.md` (created by M3.H1; not on `main` at 438b7a4): every placeholder resolved with FormID, EditorID and the reason (cells, bases, the ownership cell, the POI target and the rung 0 cell) | M3.H1 | Every placeholder of the M4.O1, M4.O2 and M4.O4 scripts resolved |
+| M4.H2 | Findings for F20..F28 as ledger entries, each filed as a Request to its lane (A: group structure, allocator, `ONAM`, NAVM; BW and BQ: confidence; E: the persistence rule) | M4.O1, M3.H2 | Each fixture's first question answered, or marked not observable with the reason |
+| M4.H3 | *(research)* `docs/design/persistence.md`, a skeleton marked research: persistent references and what makes a reference persistent; quest aliases and what they keep alive; load and cell-attach events and resets (event names from `papyrus.events`); cell and location resets; procedural locations (what M4.D3 shows; what is regenerated per landing); gotchas. Each claim with its source, its grade (ADR 0005 Am. 3) and the testplan step that would confirm it | - (M4.G2 for event names) | Every claim has a source and a grade; grade D claims are phrased as questions with a test; no SFSE or CommonLibSF source; no prose copied |
+| M4.H4 | `docs/game-observations.md`: a ledger for in-game observations (`game-<yyyymmdd>-<nn>`: game build, plugin hashes, profile, steps, expected, seen; screenshots stay in `observe\`); the format `testplan` reports into | - | Format committed; M4.O2's and M4.O4's results recorded in it |
+
+#### Fixture matrix (M4.H1)
+
+Folders and names as in M3 (`observe\<yyyy-mm-dd>-<id>\`, plugins named `KC_`).
+
+| ID  | Fixture | Base | First question |
+| --- | ------- | ---- | -------------- |
+| F20 | New interior cell with one placed vanilla `STAT` | F01 | Group structure of a new interior cell; block and sub-block; `INCC`; persistent or temporary by default |
+| F21 | One new reference in an existing exterior cell of a fixed worldspace | F01 | Shape of the carried `CELL` and `WRLD`; exterior block labels; `ONAM` |
+| F22 | The CK generates navmesh for F20's cell (or for the M4 POI plugin loaded as the active file) | F20 | The `NAVM` records and groups M4.A4 imports |
+| F23 | One vanilla reference moved | F01 | `ONAM` membership for an overridden temporary child |
+| F24 | A new pack-in from a few vanilla objects, if the CK offers it | F01 | `PKIN` as the CK writes it |
+| F25 | A quest with a reference alias on F20's reference | F20 | Script-attachment and alias blocks; whether the reference becomes persistent |
+| F26 | F20 exported as a small and as a medium master | F20 | How the CK stores new own forms per scale (M4.A3) |
+| F27 | The owner of one vanilla interior cell changed | F01 | The ownership members M4.E8 writes |
+| F28 | A vanilla outpost object duplicated in the CK | F01 | The CK's clone choices (FormID, EditorID, what is copied) against `clone` |
+
+### Owner (lane O)
+
+| ID    | Task | Gates |
+| ----- | ---- | ----- |
+| M4.O1 | **owner** (or a desktop-control agent the owner assigns): CK session for F20..F28 under the M3.O1 rules (MO2 executable #4, observe only, nothing into Data, no Creations features). F22 is the only way KitCraft content gets navmesh | M4.H2; confidence for M4.A1..A6 and M4.E4; M4.A4's fixture part |
+| M4.O2 | **owner**: in-game session 1 on a disposable save: install the rename package (W12), then the first POI (rung 0 interior, then the exterior POI) with its testplan; confirm or refute the batch-file mechanism and the archive naming (M4.G4); record everything in `docs/game-observations.md` | M4 exit (first POI) |
+| M4.O3 | **owner decision**: whether SFSE-dependent features may be planned. Default **no**: KitCraft's output is plugins, archives and Papyrus; nothing it builds requires SFSE; CommonLibSF stays unread (GPL). A yes needs an ADR (distribution terms, Steam-only runtime) and lands in M5 at the earliest | any task that finds a needed hook missing (M4.E7, M4.E9) |
+| M4.O4 | **owner**: in-game session 2 on a disposable save: the M4.E7, M4.E8 and M4.E9 recipes (outpost object, fabricator recipe, cell ownership, placed NPC, script event) and the M4.E10 experiment | M4 exit (P0 and P1 deliverables) |
+| M4.O5 | **owner decision**: whether `package` may install into MO2's `mods\` directly. Default **no**: it writes a folder (and an optional zip) elsewhere and the owner installs it | M4.E5 |
+
+Unchanged and still open: owner decision 5 (Sim Settlements 2: **later**; rung 3 needs
+kinggath's consent before any of its assets or scripts are touched), decisions 1, 4 and 6,
+every open M3 owner task (M3.O0..O6), M2.F7 and M2.O6. M4.O2 should follow a pass of M2.O6.
+
+### Ordering
+
+```
+Critical (first POI): BW -> BX1 -> A1 -> A2 -> A5 -> E2 -> E3 -> E6 -> O2
+                             A3 -> A5      A1 -> E4 -> E2      G4 -> E5 -> O2
+                                                               D4 + H4 -> E6
+Session 2 (P0, P1):   BI + BR -> BX1 -> E7 ------------------\
+                      BQ -> BX1 -> E9   (G0 -> G1 -> G2 -> E9) +-> O4
+                      BC -> BX1 -> E8 ------------------------/
+Planet:               BP -> BX1 -> D1 -> D3 -> E10 -> O4
+Evidence (raises confidence, never blocks the POI): H1 -> O1 -> H2 -> A3 (F26), A4 (F22), A6 (F23), E4 (F25)
+
+B:  BR, BW, BP (running)      BQ1, BC1, BI1 (start now, in parallel)      BX1 after each merge      BX2 any time
+A:  A1 (interior now; exterior after BW) -> A2 -> A4 (+ O1)      A3 (now)      BW + A3 -> A5      O1 -> A6
+D:  M3.D4 + BW -> D1 -> D3      A1 -> D2      D4 (now)
+E:  A3 + family -> E1 -> E3      E5 (now; archive name after G4)      E7, E8, E9 as above
+F:  F1 as commands land      F2 = BX      M3.O6 -> F3
+G:  G0 -> G1 -> G2      G3, G4 (now)
+H:  H1, H3, H4 (now)      O1 -> H2
+```
+
+The long pole is lane BW: typing `CELL` and `REFR` (6.7 M references) at `corpus`
+confidence gates the exterior half of M4.A1, the rebuild gate (M4.A2) and reference
+composition (M4.A5). Nothing on the critical path waits for a CK session: the corpus
+carries every rule there, and F20..F28 raise confidence and settle what the corpus cannot
+show (the CK's allocation, `ONAM`, navmesh). `PKIN` needs no typed layout to be placed, so
+BP is off the critical path; it gates the planet work (W5, W7). The second in-game session
+collects the P0 and P1 recipes once their families merge.
+
+### M4 is done when
+
+- Families QUEST, ACTOR and ITEMS/WORKSHOP are typed per the family lane rules, with WORLD,
+  PLANET and round 3 merged; M4.BX1 ran after every merge with 0 typed conflicts on all 14
+  files; `docs/record-parity.md` shows the per-family counts; the M4.BX2 inventories exist.
+- The builder places records under computed cell and world paths and passes the rebuild
+  gate (M4.A2); the allocator and reference composition are tested; NAVM passthrough works
+  on a synthetic plugin and, if F22 exists, on it.
+- `new`, `clone`, `place`, `package`, `testplan`, `planet` and `papyrus.events` are
+  `Implemented` and reachable over MCP; spec v3 builds deterministically; the cell rules
+  run with 0 errors on the official files.
+- **The first POI** is built, validated and packaged by KitCraft and visited in game on a
+  disposable save by the owner (M4.O2), with the persistence steps recorded in
+  `docs/game-observations.md`, as a pass or as a failure with a follow-up task.
+- Every P0 workstream's first deliverable (W1..W6, W12) is done; every P1 deliverable
+  (W7..W10) is done or carried with the reason; W11 has its scoping document. M4.O4's
+  in-game results are recorded as passes or as failures with follow-ups.
+- `docs/design/persistence.md` and `docs/design/planet-content.md` exist as research with
+  sources and grades; `docs/research/asset-formats.md` exists.
+- The owner's M4.O3 and M4.O5 decisions are recorded (the defaults stand until then).
+- `cargo xtask ci` is green; the full corpus roundtrip is still identical (M1.6 release,
+  `kit roundtrip --verify` and `--decode` on all 14 files); `cargo xtask parity`
+  regenerated; `plan/STATUS.md` says M5.
+
+## Not in M4
+
+- Navmesh generation (the CK does it; KitCraft imports it), terrain and landscape editing,
+  and any other data the CK computes that a fixture shows we cannot reproduce.
+- Creating or editing meshes, materials, collision, snap points, textures (beyond packing
+  DDS the user supplies), Wwise audio, voice, lip sync, face generation, animation and
+  interface files; the render viewport.
+- Reading or writing save files.
+- Papyrus assembling, editing or decompiling; any compiler but Bethesda's.
+- SFSE or CommonLibSF plugins, and features that need them (M4.O3; CommonLibSF is never
+  read).
+- Procedural placement beyond the M4.E10 experiment.
+- Small- or medium-scale output plugins with new forms before F11/F26 evidence; localized
+  output plugins (no M4 deliverable needs them).
+- Typed layouts for record types outside the families; the M4.BX2 types stay inventories
+  until a deliverable assigns them to a family.
+- Voiced dialogue; a new quest at all if aliases stay opaque (the W10 stretch).
+- UI implementation, unless the owner's M3.O6 decision moves M3.F5 into M4 (M4.F3).
+- Sim Settlements 2 (owner decision 5: later); publishing, Creations uploads, a git remote;
+  writing into the game folder, the Data dir, the MO2 profile or MO2's `mods\` (M4.O5
+  default).
+- Oracles beyond SF1Edit and Spriggit; changing the xEdit pin; revisiting decided
+  licensing.
