@@ -1,0 +1,18 @@
+# ColorRgb: four bytes, red, green, blue, then one unused byte.
+#
+# Source (ADR 0004): the byte colour helper of wbDefinitionsCommon.pas at the pin, as the
+# Starfield CELL lighting (XCLL) uses it.
+name = "ColorRgb"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6970-L6983"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every CELL XCLL payload the definition places in the 14 official ESMs (all 108 bytes) decodes with this layout",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Red", type = "u8" },
+  { name = "Green", type = "u8" },
+  { name = "Blue", type = "u8" },
+  { name = "Unused", type = "opaque", size = 1 },
+]

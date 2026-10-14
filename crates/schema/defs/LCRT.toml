@@ -1,0 +1,136 @@
+# LCRT: location reference type, the label a location gives a placed reference (boss,
+# quest marker, ...).
+#
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the LCRT definition of wbDefinitionsSF1.pas at the pinned revision (L13344-L13373)
+#     and the helpers it uses there and in wbDefinitionsCommon.pas: member order, field
+#     layouts, FormID target types.
+#   corpus: tests/world_family.rs over every LCRT record of the 14 official ESMs (see the
+#     record evidence); members marked `corpus` occur and decode in the corpus.
+#
+# Names are ours (PascalCase); no xEdit code, comments or labels are copied. FormIDs are raw
+# stored values (targets name the record types xEdit allows; 0 means none). Members no
+# official LCRT has stay at `reference`. The type enumeration of TNAM is not transcribed:
+# the value is kept as a plain u32.
+signature = "LCRT"
+name = "LocationRefType"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373"
+confidence = "corpus"
+flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["Restricted", 0x8000], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000], ["MustBeUnique", 0x80000000]]
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13363-L13363"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "4,779 EDID placed in the corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13364-L13364"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; not in any official LCRT"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13365-L13365"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "base form components; payloads kept raw"
+
+[[member]]
+sig = "CNAM"
+name = "Color"
+type = "ref:ColorRgba"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13366-L13366"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "4,779 CNAM placed in the corpus"
+
+[[member]]
+sig = "DNAM"
+name = "Notes"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13367-L13367"
+confidence = "reference"
+note = "not in any official LCRT"
+
+[[member]]
+sig = "TNAM"
+name = "KeywordType"
+type = "u32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13368-L13368"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4162-L4200",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "keyword type enumeration (shared with KYWD); values kept as stored; 4,779 TNAM placed in the corpus"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13369-L13369"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "meaning unknown in xEdit; 4 bytes; 4,779 FNAM placed in the corpus"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13370-L13370"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+confidence = "reference"
+note = "not in any official LCRT"
+
+[[member]]
+sig = "DATA"
+name = "AttractionRule"
+type = "formid"
+card = "optional"
+targets = ["AORU"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13371-L13371"
+confidence = "reference"
+note = "not in any official LCRT"
+
+[[member]]
+sig = "ENAM"
+name = "FlashLinkageName"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13372-L13372"
+confidence = "reference"
+note = "not in any official LCRT"

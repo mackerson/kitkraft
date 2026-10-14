@@ -1,0 +1,68 @@
+# GroupedPackIn: the XWPK ... XWPK block a placed reference carries when it was placed as
+# part of a pack-in.
+#
+# Source (ADR 0004): the grouped pack-in structure of the REFR and ACHR definitions of
+# wbDefinitionsSF1.pas at the pin (the same members in both). xEdit names none of the inner
+# members, so they are named by signature; GNAM and JNAM point at pack-ins, HNAM at a
+# placed object. FormIDs are raw stored values.
+name = "GroupedPackIn"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8997-L9006"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8502-L8511",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every block the REFR and ACHR definitions place in the 14 official ESMs decodes with these layouts (GNAM, HNAM, JNAM 4 bytes, INAM 2, LNAM 4, XWPK and XGOM 0)",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "XWPK"
+name = "Begin"
+type = "empty"
+note = "opens the block"
+
+[[member]]
+sig = "GNAM"
+name = "Gnam"
+type = "formid"
+targets = ["PKIN"]
+card = "optional"
+
+[[member]]
+sig = "HNAM"
+name = "Hnam"
+type = "formid"
+targets = ["REFR"]
+card = "optional"
+
+[[member]]
+sig = "INAM"
+name = "Inam"
+type = "enum"
+base = "u16"
+values = [["False", 0], ["True", 1]]
+
+[[member]]
+sig = "JNAM"
+name = "Jnam"
+type = "formid"
+targets = ["PKIN"]
+card = "optional"
+
+[[member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+size = 4
+
+[[member]]
+sig = "XGOM"
+name = "Xgom"
+type = "empty"
+card = "optional"
+
+[[member]]
+sig = "XWPK"
+name = "End"
+type = "empty"
+note = "closes the block"

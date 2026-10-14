@@ -1,0 +1,18 @@
+# RagdollBone: one entry of a placed reference's ragdoll pose (XRGD): a bone id and its
+# placement.
+#
+# Source (ADR 0004): the ragdoll helper of wbDefinitionsCommon.pas at the pin, as the REFR
+# and ACHR definitions use it.
+name = "RagdollBone"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every XRGD payload the REFR and ACHR definitions place in the 14 official ESMs is a whole number of 28-byte entries and decodes with this layout",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "BoneId", type = "u8" },
+  { name = "Unused", type = "opaque", size = 3 },
+  { name = "Placement", type = "ref:PositionRotation" },
+]

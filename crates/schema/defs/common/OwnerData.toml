@@ -1,0 +1,21 @@
+# OwnerData: the XOWN payload of a cell or a placed reference: who owns it.
+#
+# Source (ADR 0004): the ownership helper of wbDefinitionsCommon.pas at the pin, Fallout 4
+# and later branch (the one Starfield uses), as the CELL, REFR and ACHR definitions invoke
+# it. The faction rank (XRNK) that may go with it is a separate subrecord in those records,
+# and in the official files it does not always follow XOWN, so it is not part of this type.
+name = "OwnerData"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every placed XOWN payload of the CELL, REFR and ACHR records of the 14 official ESMs (all 12 bytes) decodes with this layout",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Owner", type = "formid", targets = ["FACT", "NPC_"], note = "raw FormID; 0 means none" },
+  { name = "Unused4", type = "opaque", size = 4 },
+  { name = "NoCrime", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused9", type = "opaque", size = 3 },
+]

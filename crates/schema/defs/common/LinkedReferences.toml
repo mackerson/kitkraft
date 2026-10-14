@@ -1,0 +1,29 @@
+# LinkedReferences: a placed reference's (or a cell's) linked references: any number of
+# XLKR (keyword, reference) pairs, then an optional empty XLKT marker.
+#
+# Source (ADR 0004): the linked-reference helpers of wbDefinitionsSF1.pas at the pin, as the
+# CELL, REFR and ACHR definitions use them. FormIDs are raw stored values.
+name = "LinkedReferences"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7039-L7049"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every XLKR payload the CELL, REFR and ACHR definitions place (all 8 bytes) and every XLKT (all 0 bytes) in the 14 official ESMs decodes with this layout",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "XLKR"
+name = "Links"
+type = "struct"
+card = "repeated"
+size = 8
+field = [
+  { name = "Keyword", type = "formid", targets = ["KYWD", "PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"], note = "the link keyword (xEdit also allows a reference here); 0 means none" },
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+]
+
+[[member]]
+sig = "XLKT"
+name = "Transient"
+type = "empty"
+card = "optional"

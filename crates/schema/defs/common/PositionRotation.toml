@@ -1,0 +1,21 @@
+# PositionRotation: a placement, position then rotation, three 32-bit floats each.
+#
+# Source (ADR 0004): the position/rotation helper of wbDefinitionsCommon.pas at the pin, as
+# the Starfield placed-reference definitions use it (DATA of REFR and ACHR, the
+# destination of a REFR teleport, a ragdoll bone). Layout facts only; xEdit displays the
+# rotation as angles, the stored values are the floats as read.
+name = "PositionRotation"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every REFR and ACHR DATA payload (6,728,604, all 24 bytes) and every REFR XTEL and XRGD bone in the 14 official ESMs decodes with this layout",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Position", type = "struct", field = [{ name = "X", type = "f32" }, { name = "Y", type = "f32" }, { name = "Z", type = "f32" }] },
+  { name = "Rotation", type = "struct", field = [{ name = "X", type = "f32" }, { name = "Y", type = "f32" }, { name = "Z", type = "f32" }] },
+]
