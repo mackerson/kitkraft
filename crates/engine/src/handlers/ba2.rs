@@ -528,8 +528,37 @@ pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), Engin
                 dir.display()
             )));
         }
+        if is_user_data_dir(dir) {
+            return Err(refuse(format!(
+                "`{}` is the game's user Data directory (Documents\\My Games\\Starfield\\Data)",
+                dir.display()
+            )));
+        }
     }
     Ok(())
+}
+
+/// The per-user Data folder the game also loads from: a directory named `Data` whose parent
+/// is `My Games\Starfield`, or whose parent holds `StarfieldCustom.ini` or
+/// `StarfieldPrefs.ini` (names compared ASCII case-insensitively, as Windows does).
+fn is_user_data_dir(dir: &Path) -> bool {
+    let named = |p: &Path, want: &str| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.eq_ignore_ascii_case(want))
+    };
+    if !named(dir, "Data") {
+        return false;
+    }
+    let Some(parent) = dir.parent() else {
+        return false;
+    };
+    let under_my_games =
+        named(parent, "Starfield") && parent.parent().is_some_and(|g| named(g, "My Games"));
+    under_my_games
+        || ["StarfieldCustom.ini", "StarfieldPrefs.ini"]
+            .iter()
+            .any(|ini| parent.join(ini).is_file())
 }
 
 /// `path` made absolute and canonical as far as it exists (the rest appended), so `..` and
@@ -718,6 +747,47 @@ mod tests {
         assert!(err.to_string().contains("Starfield.esm"), "{err}");
         let err = execute("ba2.list", json!({"archive": archive.to_str().unwrap()})).unwrap_err();
         assert!(err.to_string().contains("truncated"), "{err}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// Regression (review round 2): the user Data folder under Documents\My Games is a
+    /// game Data directory too, with or without Starfield.esm.
+    #[test]
+    fn user_data_dir_is_refused() {
+        let root = temp_dir("userdata");
+        let user = root.join("My Games").join("Starfield").join("Data");
+        fs::create_dir_all(&user).unwrap();
+        for target in [
+            user.join("Scripts"),
+            user.clone(),
+            root.join("my games")
+                .join("STARFIELD")
+                .join("data")
+                .join("x"),
+        ] {
+            let err = refuse_game_data("ba2.extract", &target).unwrap_err();
+            assert!(err.to_string().contains("user Data"), "{err}");
+        }
+        // Identified by the ini files next to it, wherever it lives.
+        let moved = root.join("Docs").join("SF").join("Data");
+        fs::create_dir_all(&moved).unwrap();
+        refuse_game_data("ba2.extract", &moved.join("x")).unwrap();
+        fs::write(root.join("Docs").join("SF").join("StarfieldPrefs.ini"), b"").unwrap();
+        assert!(refuse_game_data("ba2.extract", &moved.join("x")).is_err());
+        // A Data folder elsewhere, and a sibling of the user Data folder, are fine.
+        refuse_game_data("ba2.extract", &root.join("Mod").join("Data").join("x")).unwrap();
+        refuse_game_data(
+            "ba2.extract",
+            &root.join("My Games").join("Starfield").join("Saves"),
+        )
+        .unwrap();
+        let err = execute(
+            "strings.merge",
+            json!({"tables": ["a.strings", "b.strings"],
+                   "out": user.join("Strings").join("m.strings").to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("read-only"), "{err}");
         fs::remove_dir_all(&root).unwrap();
     }
 }
