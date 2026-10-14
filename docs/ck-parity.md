@@ -9,8 +9,11 @@ this list is M3; the viewport and world editing are deferred to M4+.
    disassembler, or REA-style tool to it.
 2. Start from a known input (a plugin we built, or an empty plugin), perform one action,
    save.
-3. Diff CK's output against ours with `kit diff` and a byte diff. Record the finding below
-   with the date and the CK version shown in its title bar.
+3. Diff CK's output against ours: `cargo xtask observe observe\<date>-<id>` writes
+   `report.md` (byte runs, `TES4` diff, `kit diff`, our equivalent in each write style)
+   into the fixture folder. The fixtures, their forms and the session script are in
+   `docs/ck-observations.md`; each finding becomes a ledger entry there (`ck-<date>-<nn>`)
+   and a row below with the date and the CK version shown in its title bar.
 4. Screenshots and CK-saved files stay in `observe/` (gitignored). Write findings in our own
    words.
 
@@ -38,7 +41,9 @@ Priority: P1 needed for data work, P2 editor convenience, P3 deferred.
 
 ## Findings
 
-None yet.
+None yet: the first CK session (M3.O1) has not happened. M3.H5 extends the checklist above
+from what it shows (menus, dialogs, save and export options, warnings on load), with a
+ledger id or session note as evidence for every row.
 
 | Date | CK version | Action | Observed | Kit difference | Follow-up |
 | ---- | ---------- | ------ | -------- | -------------- | --------- |
