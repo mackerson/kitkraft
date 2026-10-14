@@ -4,6 +4,7 @@
 //! add it to [`defaults`]. Flip the catalog `status` to `Implemented` only when the
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
+mod conflicts;
 mod coverage;
 mod diff;
 mod inspect;
@@ -34,6 +35,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("load", Box::new(load::run)),
         ("inspect", Box::new(inspect::run)),
         ("query", Box::new(query::run)),
+        ("conflicts", Box::new(conflicts::run)),
     ]
 }
 

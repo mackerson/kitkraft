@@ -156,6 +156,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "conflicts",
+        label: "Conflicts...",
+        menu_path: "Tools/Conflicts...",
+        shortcut: None,
+        aliases: &["esmscan"],
+        summary: "Records plugins override from a master (port of esmscan.py): per-plugin counts by type, and each override classed against the version before it",
+        args_schema: r#"{"type":"object","properties":{"master":{"type":"string","description":"Only forms this plugin defines"},"plugin":{"type":"string","description":"Only overrides by this plugin"},"type":{"type":"string","minLength":4,"maxLength":4,"description":"Only this record type"},"only_conflicts":{"type":"boolean","default":false,"description":"Only forms two or more plugins override"},"count_classes":{"type":"boolean","default":false,"description":"Class every matching form, not just this page"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "build",
         label: "Build Patch...",
         menu_path: "File/Build Patch...",
