@@ -90,6 +90,7 @@ Record each full run here: date, commit, files identical/total, wall time, peak 
 | 2026-10-14 | 087ab97 | 14/14     | 15.4 s    | 1,379 MiB   | Review round 2 (lane A); manifest SHA-256 of all 14 verified first (5.9 s, not in the wall time); same counts |
 | 2026-10-14 | b27d0dc | 14/14     | 16.7 s    | 1,394 MiB   | M2 lane A; every record with a schema definition also checked through it (M2.A3, table below); same counts |
 | 2026-10-14 | M3.A2   | 14/14     | 18.3 s    | 1,397 MiB   | Strict decode (`roundtrip --decode` in the driver): every compressed body inflated to exactly its declared size, its stream ending with end marker and checksum at the body's end (no trailing bytes in any of the 136,741), and its subrecords re-encoded to the inflated bytes; typed check on (definitions of 52e852a); same counts |
+| 2026-10-14 | M4 lane A | 14/14   | 18.8 s    | 1,397 MiB   | After M4.A1..A6 and the main merge; the typed check now reads `Record::extra()` for every defined type (lane F's request): still 0 conflicts on 20,437 typed records; same counts |
 
 Wall time is the test's own timer (`corpus_full_roundtrip`, release, one thread); peak
 memory is the test process's `PeakWorkingSet64` (polled every 100 ms from PowerShell for
