@@ -6,9 +6,25 @@
 //! arguments as JSON matching `args_schema` and never opens a dialog; interactive
 //! front ends gather arguments first, then call it.
 //!
+//! [`execute`] resolves an id or alias, validates the arguments against the command's
+//! `args_schema` (the subset documented in [`args`]), dispatches to the registered
+//! [`CommandHandler`], and returns the result envelope from `docs/mcp.md`:
+//! `{command, data, coverage, limitations, evidence}`.
+//!
 //! Sessions, undo, and validation rules land here in M2 (see `plan/execution-plan.md`).
 //!
 //! LAYER: L4
+
+pub mod args;
+mod envelope;
+mod exec;
+mod handlers;
+mod params;
+
+pub use args::Violation;
+pub use envelope::{Coverage, CoverageStatus, Evidence, Outcome, NOT_IMPLEMENTED};
+pub use exec::{execute, prepare_args, CommandHandler, Engine, EngineError};
+pub use params::{params, Param, ParamKind};
 
 /// Whether a catalog entry does anything yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -236,5 +252,200 @@ mod tests {
         assert_eq!(find_command("ba2.list").map(|s| s.id), Some("ba2.list"));
         assert_eq!(find_command("show").map(|s| s.id), Some("inspect"));
         assert!(find_command("nope").is_none());
+    }
+
+    #[test]
+    fn every_args_schema_uses_only_supported_keywords() {
+        for spec in catalog() {
+            let schema = crate::args::parse_schema(spec.id, spec.args_schema).unwrap();
+            crate::args::check_schema(spec.id, &schema)
+                .unwrap_or_else(|e| panic!("{}: {e}", spec.id));
+        }
+    }
+}
+
+#[cfg(test)]
+mod execute_tests {
+    use super::{
+        catalog, execute, CommandHandler, Coverage, Engine, EngineError, Evidence, Outcome, Status,
+    };
+    use serde_json::{json, Value};
+
+    #[test]
+    fn unknown_id_is_a_typed_error() {
+        let err = execute("nope", json!({})).unwrap_err();
+        assert!(matches!(err, EngineError::UnknownCommand(ref id) if id == "nope"));
+        assert_eq!(err.kind(), "unknown_command");
+    }
+
+    #[test]
+    fn schema_invalid_args_are_a_typed_error_with_pointer_and_rule() {
+        let err = execute("roundtrip", json!({"verify": "yes", "bogus": 1})).unwrap_err();
+        let EngineError::InvalidArgs {
+            command,
+            violations,
+        } = &err
+        else {
+            panic!("expected InvalidArgs, got {err:?}");
+        };
+        assert_eq!(command, "roundtrip");
+        let got: Vec<(&str, &str)> = violations
+            .iter()
+            .map(|v| (v.pointer.as_str(), v.rule))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                ("/plugin", "required"),
+                ("/bogus", "additionalProperties"),
+                ("/verify", "type"),
+            ]
+        );
+        assert_eq!(err.kind(), "invalid_args");
+        assert!(err.to_string().contains("/plugin"));
+    }
+
+    #[test]
+    fn args_must_be_an_object() {
+        let err = execute("roundtrip", json!(["x.esm"])).unwrap_err();
+        assert_eq!(err.kind(), "invalid_args");
+    }
+
+    #[test]
+    fn planned_command_without_handler_is_not_implemented() {
+        let err = execute("ba2.list", json!({"archive": "a.ba2"})).unwrap_err();
+        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "ba2.list"));
+        // Validation still runs first.
+        assert_eq!(
+            execute("ba2.list", json!({})).unwrap_err().kind(),
+            "invalid_args"
+        );
+    }
+
+    #[test]
+    fn roundtrip_stub_returns_the_full_envelope() {
+        let result = execute("roundtrip", json!({"plugin": "Constellation.esm"})).unwrap();
+        assert_eq!(
+            result,
+            json!({
+                "command": "roundtrip",
+                "data": null,
+                "coverage": {
+                    "status": "unknown",
+                    "decoded_subrecords": null,
+                    "opaque_subrecords": null,
+                    "not_examined": []
+                },
+                "limitations": ["not implemented"],
+                "evidence": []
+            })
+        );
+    }
+
+    #[test]
+    fn alias_resolves_to_canonical_id_in_envelope() {
+        let mut engine = Engine::empty();
+        engine
+            .register(
+                "inspect",
+                Box::new(|_: &Value| Ok(Outcome::not_implemented())),
+            )
+            .unwrap();
+        let result = engine.execute("show", json!({"form": "0001A2B3"})).unwrap();
+        assert_eq!(result["command"], "inspect");
+    }
+
+    struct Echo;
+    impl CommandHandler for Echo {
+        fn run(&self, args: &Value) -> Result<Outcome, EngineError> {
+            Ok(Outcome {
+                data: args.clone(),
+                coverage: Coverage::unknown(),
+                limitations: Vec::new(),
+                evidence: vec![Evidence {
+                    file: "X.esm".into(),
+                    offset: 24,
+                    length: 6,
+                    record: Some("WEAP:0001A2B3".into()),
+                    subrecord: Some("FULL".into()),
+                }],
+            })
+        }
+    }
+
+    #[test]
+    fn handlers_see_defaults_and_evidence_is_serialized() {
+        let mut engine = Engine::empty();
+        engine.register("roundtrip", Box::new(Echo)).unwrap();
+        let result = engine
+            .execute("roundtrip", json!({"plugin": "X.esm"}))
+            .unwrap();
+        assert_eq!(result["data"], json!({"plugin": "X.esm", "verify": true}));
+        assert_eq!(result["limitations"], json!([]));
+        assert_eq!(
+            result["evidence"],
+            json!([{"file": "X.esm", "offset": 24, "length": 6,
+                    "record": "WEAP:0001A2B3", "subrecord": "FULL"}])
+        );
+    }
+
+    #[test]
+    fn null_args_mean_empty_object() {
+        let mut engine = Engine::empty();
+        engine.register("load", Box::new(Echo)).unwrap();
+        let result = engine.execute("load", Value::Null).unwrap();
+        assert_eq!(result["data"], json!({}));
+    }
+
+    #[test]
+    fn registration_rejects_unknown_and_duplicate_ids() {
+        let mut engine = Engine::empty();
+        assert_eq!(
+            engine.register("nope", Box::new(Echo)).unwrap_err().kind(),
+            "registration"
+        );
+        assert_eq!(
+            engine.register("show", Box::new(Echo)).unwrap_err().kind(),
+            "registration"
+        );
+        engine.register("inspect", Box::new(Echo)).unwrap();
+        assert_eq!(
+            engine
+                .register("inspect", Box::new(Echo))
+                .unwrap_err()
+                .kind(),
+            "registration"
+        );
+    }
+
+    #[test]
+    fn handler_failures_propagate() {
+        let mut engine = Engine::empty();
+        engine
+            .register(
+                "validate",
+                Box::new(|_: &Value| -> Result<Outcome, EngineError> {
+                    Err(EngineError::Failed {
+                        command: "validate".into(),
+                        message: "bad record at offset 0x18".into(),
+                    })
+                }),
+            )
+            .unwrap();
+        let err = engine
+            .execute("validate", json!({"plugin": "X.esm"}))
+            .unwrap_err();
+        assert_eq!(err.kind(), "failed");
+    }
+
+    #[test]
+    fn default_handlers_cover_every_implemented_command() {
+        let engine = Engine::with_default_handlers();
+        assert!(engine.has_handler("roundtrip"));
+        for spec in catalog() {
+            if spec.status == Status::Implemented {
+                assert!(engine.has_handler(spec.id), "{} has no handler", spec.id);
+            }
+        }
     }
 }
