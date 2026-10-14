@@ -829,7 +829,7 @@ mod tests {
             modern(
                 9,
                 "tools/call",
-                json!({"name": "execute", "arguments": {"command": "ba2.list", "args": {"archive": "A.ba2"}}}),
+                json!({"name": "execute", "arguments": {"command": "query", "args": {"type": "WEAP"}}}),
             ),
         );
         tool_error(&r, "not_implemented");
