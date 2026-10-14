@@ -327,9 +327,15 @@ impl Server {
     }
 
     fn instructions(&self) -> String {
+        let shortcuts: Vec<&str> = tools::TOOLS
+            .iter()
+            .filter(|t| matches!(t.target, tools::Target::Command(_)))
+            .map(|t| t.name)
+            .collect();
         let mut text = format!(
-            "KitCraft: clean-room Starfield plugin tooling ({} catalog commands). Call `execute` with {{command, args}} (each command and its arguments is listed in its description and in the kitcraft://commands resource) or `command_line` with a kit command line; inspect_record, query_records, diff_plugins, coverage and roundtrip are shortcuts. Every result is the evidence envelope {{command, data, coverage, limitations, evidence}}: report unknown as unknown and cite evidence offsets. A load order loaded with `execute` `load` stays loaded for this server process (resource kitcraft://load-order).",
-            self.backend.command_count()
+            "KitCraft: clean-room Starfield plugin tooling ({} catalog commands). Call `execute` with {{command, args}} (each command and its arguments is listed in its description and in the kitcraft://commands resource) or `command_line` with a kit command line; {} are shortcuts. Every result is the evidence envelope {{command, data, coverage, limitations, evidence}}: report unknown as unknown and cite evidence offsets. A load order loaded with `execute` `load` stays loaded for this server process (resource kitcraft://load-order). record_schema shows which fields a record type has, with sources and confidence; kitcraft://validate-rules lists what `validate` checks.",
+            self.backend.command_count(),
+            shortcuts.join(", ")
         );
         for note in &self.notes {
             text.push(' ');
@@ -417,7 +423,7 @@ impl Server {
         });
         if era == Era::Modern {
             // The load order changes with every `load`; the catalog only with the binary.
-            let (ttl, scope) = if uri == crate::backend::COMMANDS_URI {
+            let (ttl, scope) = if crate::backend::STATIC_URIS.contains(&uri) {
                 (STATIC_TTL_MS, "public")
             } else {
                 (0, "private")
@@ -975,7 +981,39 @@ mod tests {
             .iter()
             .map(|x| x["uri"].as_str().unwrap())
             .collect();
-        assert_eq!(uris, ["kitcraft://commands", "kitcraft://load-order"]);
+        assert_eq!(
+            uris,
+            [
+                "kitcraft://commands",
+                "kitcraft://load-order",
+                "kitcraft://validate-rules"
+            ]
+        );
+        let r = call(
+            &mut s,
+            modern(
+                8,
+                "resources/read",
+                json!({"uri": "kitcraft://validate-rules"}),
+            ),
+        );
+        assert_eq!(r["result"]["cacheScope"], "public", "{r}");
+        let text = r["result"]["contents"][0]["text"].as_str().unwrap();
+        let rules: Value = serde_json::from_str(text).unwrap();
+        let ids: Vec<&str> = rules["rules"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|r| r["id"].as_str().unwrap())
+            .collect();
+        let expected: Vec<&str> = kitcraft_engine::validate::RULES
+            .iter()
+            .map(|r| r.id)
+            .collect();
+        assert_eq!(ids, expected);
+        assert_eq!(rules["rules"][0]["severity"], "error");
+        assert_eq!(rules["docs"], "docs/validate.md");
+        assert_eq!(rules["denylist"][0]["function"], "setgodmode");
         let r = call(
             &mut s,
             legacy(2, "resources/read", json!({"uri": "kitcraft://commands"})),

@@ -80,7 +80,7 @@ them is answered with `2025-11-25`. `server/discover`'s `supportedVersions` and 
   `server/discover` returns `supportedVersions`, `capabilities`, `instructions`. Every
   result carries `resultType: "complete"` and `_meta["io.modelcontextprotocol/serverInfo"]`;
   list, read and discover results carry `ttlMs`/`cacheScope` (the load-order resource:
-  `0`/`private`). `initialize` and `ping` are not methods of this revision: a modern
+  `0`/`private`; the catalog and the validation rules: one hour, `public`). `initialize` and `ping` are not methods of this revision: a modern
   request for either is `-32601`.
 - **Legacy requests** (no version in `_meta`, or a handshake-era one): `initialize`
   answers with the client's `protocolVersion` when it is one of the two above, otherwise
@@ -142,8 +142,12 @@ Resources:
 
 | URI                     | Contents                                                      |
 | ----------------------- | ------------------------------------------------------------- |
-| `kitcraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to |
+| `kitcraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to, `cli` (`kit ba2 extract`), `tools` (the MCP tools that run it: `execute`, `command_line`, and its shortcut if any) |
 | `kitcraft://load-order` | The session's load-order listing as `load` reported it (`Session::load_order`); `{"loaded": false, "plugins": [], ...}` before any load |
+| `kitcraft://validate-rules` | `validate`'s rule registry in run order: `rules[]` (`id`, `severity` of the main finding, `input` = `plugin` or `scripts`, `summary`, `run_only_this`), the script `denylist` (`class`, `function`, `why`), `docs` (`docs/validate.md`) and a note on which rules also warn |
+
+The catalog and the rules change only with the binary: over 2026-07-28 they are served
+with `cacheScope: "public"` and a one-hour `ttlMs`; the load order with `0`/`private`.
 
 ## Result envelope
 

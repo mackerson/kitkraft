@@ -31,6 +31,41 @@ use crate::tools::{self, Target, Tool};
 pub const COMMANDS_URI: &str = "kitcraft://commands";
 /// URI of the session's load-order resource.
 pub const LOAD_ORDER_URI: &str = "kitcraft://load-order";
+/// URI of the `validate` rule registry resource.
+pub const VALIDATE_RULES_URI: &str = "kitcraft://validate-rules";
+
+/// Resources whose contents change only with the binary (cacheable).
+pub const STATIC_URIS: &[&str] = &[COMMANDS_URI, VALIDATE_RULES_URI];
+
+/// The `kitcraft://validate-rules` resource: every rule of the `validate` command in run
+/// order, the script denylist, and where the rules are documented.
+pub fn validate_rules_json() -> Value {
+    use kitcraft_engine::validate::{scripts::DENYLIST, RULES};
+    let rules: Vec<Value> = RULES
+        .iter()
+        .map(|r| {
+            json!({
+                "id": r.id,
+                "severity": r.severity,
+                "input": r.input,
+                "summary": r.summary,
+                "run_only_this": format!("validate --plugin <file> --rules {}", r.id),
+            })
+        })
+        .collect();
+    let denylist: Vec<Value> = DENYLIST
+        .iter()
+        .map(|(class, function, why)| json!({"class": class, "function": function, "why": why}))
+        .collect();
+    json!({
+        "command": "validate",
+        "docs": "docs/validate.md",
+        "arguments": "docs/mcp.md, section `validate`",
+        "severity_note": "severity is the rule's main finding; formid.dangling, override.stripped-name and record.flags-body also report warnings (docs/validate.md); any error fails the check (data.passed false, kit exits 1)",
+        "rules": rules,
+        "denylist": denylist,
+    })
+}
 
 /// A default argument value (see [`MCP_DEFAULTS`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -212,6 +247,13 @@ impl Backend {
                 "description": "The plugins this server's session has loaded (with `execute load`), with masters and indices",
                 "mimeType": "application/json"
             }),
+            json!({
+                "uri": VALIDATE_RULES_URI,
+                "name": "validate-rules",
+                "title": "Validation rules",
+                "description": "Every rule `validate` runs: id, severity, input (plugin or scripts), summary; the script denylist; docs/validate.md",
+                "mimeType": "application/json"
+            }),
         ]
     }
 
@@ -219,6 +261,7 @@ impl Backend {
     pub fn read_resource(&self, uri: &str) -> Option<Result<String, CallError>> {
         let value = match uri {
             COMMANDS_URI => tools::catalog_json().map_err(|e| CallError::Internal(e.to_string())),
+            VALIDATE_RULES_URI => Ok(validate_rules_json()),
             LOAD_ORDER_URI => Ok(self.engine.with_session(|session| {
                 session.load_order().cloned().unwrap_or_else(|| {
                     json!({
