@@ -13,6 +13,7 @@ Check this before claiming something works. Remove a row only with the commit th
 | No load-order resolution                                          | Cannot answer "which plugin wins"                        | M2               |
 | MCP server not implemented                                        | Agents use the CLI only                                  | M2               |
 | No fuzzing harness (cargo-fuzz needs nightly)                     | Hostile-input coverage limited to deterministic mutation | after M1         |
+| Spriggit round trip lost data on 2 of 5 real mods tested          | Not an oracle; inventory facts only (ADR 0001 §4)        | permanent        |
 | xEdit policy undecided (ADR 0004)                                 | Ambiguous fields stay opaque                             | owner            |
 | Project name is a placeholder                                     | Package names (`kitcraft-*`, `kit`) may be renamed       | owner            |
 | No remote, no hosted CI                                           | The local `cargo xtask ci` run is the only gate          | owner            |

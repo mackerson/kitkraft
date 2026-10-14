@@ -1,5 +1,8 @@
 # KitCraft — open-source Creation Kit for Starfield, built the "craft suite" way
 
+> Where this brief and AGENTS.md differ, AGENTS.md wins; xEdit source is off limits per ADR
+> 0004 unless the owner decides otherwise.
+
 Working name only. Status: proposal, 2026-10-14. Nothing built yet.
 
 ## What we're copying (and what we're not)
@@ -23,7 +26,8 @@ Observed in storytold/cadcraft (created 2026-10-07, 4.5k stars a week later, 10+
    `plan/adr/`, `docs/*-parity.md` checklists and `docs/gaps.md`. "Don't stop to ask unless it
    lists the decision as the owner's." Parallel agents use separate `CARGO_TARGET_DIR`.
 6. **No-panic policy.** No unwrap/expect/panic/unsafe in non-test code; input bytes are hostile;
-   every crash fix ships with a regression test. Commit after every arc that builds, push to main.
+   every crash fix ships with a regression test. Commit after every arc that builds; commit to
+   main; no remote yet.
 
 ### REA (morluto/rea) — what to take, what to leave
 REA = one MCP + CLI (same workflows, same evidence contracts) over Ghidra/IDA/Hopper/JADX/etc.
@@ -51,7 +55,7 @@ write it back byte-identical. That is milestone 1 and the thing agents actually 
 | Creation Kit wiki (public) | site terms | Field names and semantics (ADR 0005). Facts only, no prose. |
 | Our own hex dumps of Starfield.esm + DLC ESMs (143 GB Data dir on this machine) | ours | Roundtrip corpus, fuzz corpus. |
 | CreationKit.exe (installed, MO2 exe #4) | Bethesda EULA | Black-box observe only: run it, screenshot, diff its ESM output vs ours. The only source for Starfield field layouts (CK differential observation, ADR 0005). |
-| xEdit `wbDefinitionsSF1.pas` (789 KB) | MPL-2.0 | Readable as a reference, but treat like GPL for safety: no copying, prefer UESP. Decide in an ADR. |
+| xEdit `wbDefinitionsSF1.pas` (789 KB) | MPL-2.0 | **Do not read.** Off limits per ADR 0004 (open, owner decision). Running xEdit as a program is fine. |
 | Mutagen / Spriggit (Starfield record XML, 948 files) | GPL-3.0 | **Do not read** into a MIT/Apache project. May run Spriggit as an external tool for step 2 now. |
 | `C:\Modding\scripts` (ba2x.py, pexdis.py, esmscan.py) | ours | Port to Rust crates; already proven on real files. |
 
@@ -81,7 +85,7 @@ kitcraft/
 ```
 kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"   # or explicit plugin list
 kit inspect <FormID|EditorID> [--json]        # resolved record, winning override, all overriders
-kit query  --type WEAP --where "WFIR.ShotsPerSecond > 10" --json
+kit query  --type WEAP --where "EDID ~ Rifle" --json
 kit set    <form> FULL="Old Soviet Marksman Rifle" --into MyPatch.esm
 kit diff   A.esm B.esm [--form ...]           # record-level semantic diff
 kit build  overhaul.toml -> Overhaul.esm      # data-driven patch compiler (step 2 lives here)
@@ -127,16 +131,11 @@ localized, so FULL must be written inline in the patch, not copied as a string I
 smoke test for the whole pipeline: `kit set` -> `kit validate` -> launch via MO2 -> see the name.
 
 ### Rung 2: gun overhaul kit
-Where "gun feel" actually lives in Starfield data (from the public record spec):
-- **WEAP.WFIR** firing type, burst count, attack/fire/delay seconds, bolt action/charge,
-  shots per second, staged/dual trigger, shell eject.
-- **WEAP.WDMG** damage, min/max range, out-of-range mult, crit mult, hit behavior, resistance.
-- **WEAP.WAM2** ammo type, capacity, projectiles per shot, projectile override, NPC ammo use.
-- **WEAP.WRLO** reload speed/charging/single. **WEAP.WCHG** charge. **WEAP.WAIM** zoom link,
-  aim model link, scope, reticle.
-- **AMDL** (aim model) = cone of fire, recoil, spread. Most of "the guns feel wrong" is here.
-- **PROJ** = speed, gravity, range, hitscan vs projectile, tracer, impact. **AMMO**. **OMOD** =
-  weapon mod property changes; **COBJ** = craftability. **ZOOM** = ADS FOV.
+The weapon-relevant record types are **WEAP**, **AMMO**, **PROJ**, **AMDL** (aim model),
+**OMOD**, **COBJ** and **ZOOM**. Their exact field layouts will be established by CK
+differential observation (`plan/adr/0005-spec-sources-per-fact.md`) and named from the CK
+wiki; they are deliberately not listed here. (An earlier field list in this section came from
+a GPL-derived schema summary and was removed.)
 - Not in records: animation timing (hkx), audio content (Wwise), models.
 
 The overhaul is a data-driven spec, not hand edits. `overhaul.toml` describes intent
@@ -146,8 +145,9 @@ reload 0.8x") and `kit build` compiles it to one ESM. Agents iterate on the spec
 leveled-list injection, no scripts, so it can be dropped from a save safely.
 
 We can start rung 1 and 2 before step 1 exists: run Spriggit (ESM -> YAML), let an agent edit
-the YAML, Spriggit back to ESM. Needs .NET 8 runtime. The YAML output doubles as the oracle
-corpus M1 tests against. Swap the back end to `kit build` when M2 lands.
+the YAML, Spriggit back to ESM. Needs .NET 8 runtime. Spriggit is lossy: on 2 of 5 real mods
+tested, the ESM -> YAML -> ESM round trip lost data, so its output is not usable as an oracle
+for M1 (see `docs/gaps.md`). Swap the back end to `kit build` when M2 lands.
 
 ### Rung 3: port Sim Settlements 2
 Different animal entirely. SS2 (kinggath, Fallout 4) is hundreds of Papyrus scripts, a
