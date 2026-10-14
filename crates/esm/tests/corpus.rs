@@ -190,6 +190,12 @@ fn corpus_full_roundtrip() {
     let start = Instant::now();
     let failures = run(&files);
     println!("total wall time: {:.1} s", start.elapsed().as_secs_f64());
+    if let Some(peak) = peak_working_set() {
+        println!(
+            "peak working set: {peak} bytes ({:.0} MiB)",
+            peak as f64 / 1048576.0
+        );
+    }
     assert!(failures.is_empty(), "{failures:#?}");
 }
 
