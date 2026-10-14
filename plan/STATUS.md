@@ -4,7 +4,8 @@ Updated: 2026-10-14
 
 ## Current milestone: M1 (data parity)
 
-M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.md`.
+M0 (scaffold) is done. M1 lane A is done; lane C has M1.14/M1.15 left (blocked on lane B
+round 2); see `plan/execution-plan.md`.
 
 ## Toolchain (verified on the dev box)
 
@@ -44,17 +45,37 @@ M0 (scaffold) is done. M1 lanes A, B and C can start; see `plan/execution-plan.m
   seed set and an all-features fixture; the goldens are rustfmt-clean and compile under the
   workspace lints in `crates/schema/tests/generated.rs`, with `encode(decode(x)) == x` on
   well-formed, malformed and random record bodies.
+- Lane A (merged on `main` at 6fcfeaf): M0.5 corpus test helper, M1.1 bounded reader,
+  M1.2 parse model, M1.2b TES4 header inventory (`docs/corpus.md`), M1.3 writer, M1.4
+  compressed records, M1.5 streaming driver, M1.6 corpus roundtrip, M1.7 hostile input.
+  All 14 corpus files roundtrip byte-identical; `Starfield.esm` in 8.77 s with a peak
+  working set of 1,238 MiB; zlib-rs at level 9 recompresses 99.88% of compressed records
+  byte-identically (`docs/gaps.md`).
+- M1.11 (lane C) `execute(id, args)`, the result envelope, and the shared command-line
+  parser.
+- M1.12 (lane C) `roundtrip` wired to the esm driver, `Status::Implemented`; result carries
+  `identical`, counts, `elapsed_ms`, and on mismatch `{offset, expected, actual, path}` with
+  evidence at the differing byte; `--out` writes the rebuilt plugin.
+- M1.13 (lane C) `kit roundtrip <plugin> [--verify] [--out path] [--json]`: exit 0
+  identical, 1 `--verify` mismatch (`data.passed: false`), 2 error. 2026-10-14, release
+  build: `kit roundtrip --verify` reports identical and exits 0 on all 14 corpus files
+  (M1 exit criterion 2), e.g. `Constellation.esm` 39,210 bytes / 57 records, `Starfield.esm`
+  3,829,247 records in 3.1 s with a warm file cache.
+- Lane C: minimal `inspect <form> <plugin>` (FormID or EditorID; header fields, subrecords
+  with offsets and hex payloads capped at 256 bytes; `typed decode pending schema wiring`).
 
 ## In progress
 
-- Nothing.
+- Lane B round 2.
 
 ## Next
 
-1. M1 lane A: M0.5 corpus test helper, then M1.1 bounded reader (M1.2b header inventory after M1.2).
-2. M1 lane B: M1.8-M1.10 done. Next: typed WEAP layouts only via ck-diff observations
-   (ADR 0005 section 2); more corpus inventories as M1.14 coverage asks for them.
-3. M1 lane C: M1.11 `execute` and the result envelope.
+1. M1 lane A: done for M1. Next per the plan is M2 groundwork, or `roundtrip --decode`
+   (decompress every compressed record during the gate; see `docs/gaps.md`).
+2. M1 lane B: round 2 in progress (typed layouts via ck-diff observations, ADR 0005
+   section 2; inventories as M1.14 coverage asks for them).
+3. M1 lane C: M1.14 `coverage` + `cargo xtask parity` and M1.15 `cargo xtask codegen
+   [--check]` remain, blocked on lane B round 2.
 
 ## Blockers
 
