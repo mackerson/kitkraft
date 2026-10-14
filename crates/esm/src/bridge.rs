@@ -194,23 +194,25 @@ pub fn check_subrecords(
     let (_, unmatched) = match_members(&raw, members);
     let offset = |i: usize| subs.get(i).and_then(Subrecord::offset);
     let mut conflicts = Vec::new();
-    if let Some(extra) = extra_of(&typed) {
-        let mut failed: Vec<usize> = extra
-            .iter()
-            .map(|(i, _)| *i)
-            .filter(|i| !unmatched.contains(i))
-            .collect();
-        failed.sort_unstable();
-        failed.dedup();
-        for index in failed {
-            if let Some(s) = subs.get(index) {
-                conflicts.push(TypedConflict {
-                    index,
-                    signature: s.signature(),
-                    offset: offset(index),
-                    kind: ConflictKind::NotDecoded,
-                });
-            }
+    // Every generated record type keeps the subrecords it could not decode in `extra`
+    // (`Record::extra()`, generated for all types since M2.B3); those the definition
+    // places are payloads that did not decode.
+    let mut failed: Vec<usize> = typed
+        .extra()
+        .iter()
+        .map(|(i, _)| *i)
+        .filter(|i| !unmatched.contains(i))
+        .collect();
+    failed.sort_unstable();
+    failed.dedup();
+    for index in failed {
+        if let Some(s) = subs.get(index) {
+            conflicts.push(TypedConflict {
+                index,
+                signature: s.signature(),
+                offset: offset(index),
+                kind: ConflictKind::NotDecoded,
+            });
         }
     }
     for index in reencode_mismatches(&raw, &typed.encode()) {
@@ -247,22 +249,6 @@ fn reencode_mismatches(raw: &[RawSub<'_>], encoded: &[OwnedSub]) -> Vec<usize> {
             _ => true,
         })
         .collect()
-}
-
-/// The subrecords a typed record kept raw, with their input positions. `None` for a
-/// record type this function does not know yet: the generated `Record` enum has no
-/// accessor for them (requested from lane B in `plan/STATUS.md`), so this matches the
-/// variants generated today and reports the others as unknown.
-#[allow(unreachable_patterns)]
-fn extra_of(typed: &TypedRecord) -> Option<&[(usize, OwnedSub)]> {
-    match typed {
-        TypedRecord::Glob(r) => Some(&r.extra),
-        TypedRecord::Gmst(r) => Some(&r.extra),
-        TypedRecord::Kywd(r) => Some(&r.extra),
-        TypedRecord::Tes4(r) => Some(&r.extra),
-        TypedRecord::Weap(r) => Some(&r.extra),
-        _ => None,
-    }
 }
 
 impl Ctx {
@@ -536,6 +522,36 @@ mod tests {
                 (1, "CNAM".into(), Some(24 + 16), ConflictKind::NotDecoded),
             ]
         );
+    }
+
+    /// Lane F's M3.F2 request: `extra_of` matched five record types, so a payload that
+    /// did not decode in any other type (AMMO here) went unreported.
+    #[test]
+    fn check_typed_reports_undecoded_payloads_of_every_defined_type() {
+        use crate::generated::records::RECORDS;
+        let body = [sub(b"EDID", b"unterminated"), sub(b"DATA", &[0u8; 4])].concat();
+        for (sig, _) in RECORDS {
+            if *sig == *b"TES4" {
+                continue;
+            }
+            let bytes = fixture::plugin(&[group(sig, 0, &record(sig, 0, 0x800, &body))]);
+            let plugin = Plugin::parse(&bytes).unwrap();
+            let Entry::Group(g) = &plugin.entries()[0] else {
+                panic!()
+            };
+            let Entry::Record(r) = &g.children()[0] else {
+                panic!()
+            };
+            let check = r.check_typed(plugin.ctx(r)).unwrap();
+            assert!(
+                check
+                    .conflicts
+                    .iter()
+                    .any(|c| c.index == 0 && c.kind == ConflictKind::NotDecoded),
+                "{}: {check:?}",
+                String::from_utf8_lossy(sig)
+            );
+        }
     }
 
     #[test]
