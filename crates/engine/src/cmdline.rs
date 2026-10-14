@@ -294,13 +294,15 @@ pub fn command_words(spec: &CommandSpec) -> String {
     spec.id.replace('.', " ")
 }
 
-/// One line per catalog command: words, summary, and `(planned)` when not callable.
+/// One line per catalog command: words, summary, and `(planned)` or
+/// `(deferred to M3: reason)` when not callable.
 pub fn catalog_help() -> String {
     let mut out = String::new();
     for spec in catalog() {
         let state = match spec.status {
-            Status::Planned => " (planned)",
-            Status::Implemented => "",
+            Status::Planned => " (planned)".to_string(),
+            Status::Implemented => String::new(),
+            Status::Deferred { .. } => format!(" ({})", spec.status.note()),
         };
         out.push_str(&format!(
             "  {:<18} {}{state}\n",
@@ -348,8 +350,8 @@ pub fn command_help(spec: &CommandSpec, program: &str) -> Result<String, EngineE
         rows.push((row, text));
     }
     let mut out = format!("{line}\n\n{}", spec.summary);
-    if spec.status == Status::Planned {
-        out.push_str(" (planned: not implemented yet)");
+    if spec.status != Status::Implemented {
+        out.push_str(&format!(" ({})", spec.status.note()));
     }
     out.push('\n');
     if !spec.aliases.is_empty() {
