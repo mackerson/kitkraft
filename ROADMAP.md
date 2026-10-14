@@ -93,8 +93,48 @@ Exit criteria:
   recorded.
 - `cargo xtask ci` is green and the full corpus roundtrip is still byte-identical.
 
-## M4+: editor
+## M4: coverage program
 
-- egui UI over the command catalog (`crates/ui-egui`, `apps/kit`).
-- NIF and material metadata, worldspace data.
+Cover the record families the owner's mod needs, create new forms and place them in the
+world, and prove each of the owner's twelve workstreams (binary authoring, worlds and POIs,
+workshop, ownership, persistence and procedural locations, Papyrus, planets and resources,
+manufacturing, NPCs, quests, UI and assets, packaging) with a first deliverable. Tasks,
+lanes (A, schema families BR/BW/BP/BQ/BC/BI with the integrator BX, D, E, F, G, H, owner),
+the workstream-to-capability matrix and ordering are in `plan/execution-plan.md`; the six
+ADR 0004 clarifications still bind every task, and there is no architecture restart (no
+new crate, no layer change).
+
+- Schema family lanes, each typed from the pinned xEdit files with lane B's acceptance:
+  WORLD and PLANET (running, including the Planet Content Manager records and leveled
+  pack-ins), QUEST, ACTOR, ITEMS/WORKSHOP; an integrator regenerates generated output and
+  parity after each merge.
+- Builder: cell and world child groups (block and sub-block structure from the corpus),
+  reference creation with position and rotation, a new-form allocator, `NAVM` passthrough
+  from CK-saved plugins (KitCraft does not generate navmesh).
+- Commands: `new`, `clone`, `place`, build spec v3, `refs` across families, `planet`,
+  `package` (MO2-ready folder, optional BA2, hashed manifest), `testplan` (console batch
+  files, disposable-save checklist), `papyrus.events` (signatures from the 5,034 base
+  sources); validation rules for cells.
+- Research: persistence and the planet content system as design documents with sources;
+  UI, asset and audio formats scoped only.
+- Owner: a CK session for world fixtures (including navmesh), two in-game sessions on
+  disposable saves, decisions on SFSE-dependent features (default no) and on installing
+  into MO2 directly (default no). Sim Settlements 2 stays "later".
+
+Exit criteria:
+- The first POI placed by KitCraft is visited in game on a disposable save, with its
+  persistence steps recorded.
+- Every P0 workstream's first deliverable is done; every P1 one is done or carried with the
+  reason; UI, assets and audio have their scoping document.
+- The QUEST, ACTOR and ITEMS/WORKSHOP families decode and re-encode identical on all 14
+  corpus files, every member sourced; the builder passes the cell rebuild gate.
+- `cargo xtask ci` is green and the full corpus roundtrip is still byte-identical.
+
+## M5+: editor
+
+- egui UI over the command catalog (`crates/ui-egui`, `apps/kit`), unless the owner's
+  ADR 0007 decision brings it earlier.
+- NIF and material metadata.
+- Procedural placement and SFSE-dependent features, if M4's research and the owner's
+  decision call for them.
 - Render viewport (`crates/render`), last.
