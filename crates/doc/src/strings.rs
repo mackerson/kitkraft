@@ -116,8 +116,14 @@ pub struct LoadedTable {
 /// A resolved string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolved {
-    /// The text (lossy UTF-8).
+    /// The text (lossy UTF-8: bytes that are not UTF-8 show as U+FFFD; see `bytes`).
     pub text: String,
+    /// The string exactly as the table stores it (without the NUL terminator), for copying
+    /// and comparing: a few official entries are not UTF-8 (cp1252-style bytes), and `text`
+    /// cannot round-trip them (lane G, `plan/STATUS.md`).
+    pub bytes: Vec<u8>,
+    /// Whether `bytes` is valid UTF-8 (then `text` is exact).
+    pub utf8: bool,
     /// Table origin (see [`LoadedTable::origin`]).
     pub origin: String,
     /// Kind of the table it came from.
@@ -261,6 +267,8 @@ impl StringTables {
             if let Some(e) = t.table.get(id) {
                 return Ok(Resolved {
                     text: e.text().into_owned(),
+                    bytes: e.bytes.clone(),
+                    utf8: e.is_utf8(),
                     origin: t.origin.clone(),
                     kind: t.kind.extension(),
                     offset: e.offset,
@@ -319,6 +327,32 @@ mod tests {
         std::fs::write(dir.join("Strings").join("bad_en.strings"), b"\x05\0\0\0").unwrap();
         let bad = st.lookup("Bad.esm", 1).unwrap_err();
         assert!(bad.contains("bad_en.strings"), "{bad}");
+    }
+
+    /// M3.D1 (lane E round 2 request): a cp1252-style entry keeps its exact bytes next to
+    /// the lossy text, so a copy can write the table's bytes unchanged.
+    #[test]
+    fn non_utf8_entries_expose_their_exact_bytes() {
+        let dir = testdata::temp_dir("strings-bytes");
+        std::fs::create_dir_all(dir.join("Strings")).unwrap();
+        let cp1252 = b"Caf\xE9 \x93quoted\x94".to_vec();
+        let table = Table::new(
+            Kind::DlStrings,
+            vec![Entry::new(7, cp1252.clone()), Entry::new(8, "plain")],
+        );
+        std::fs::write(
+            dir.join("Strings").join("mod_en.dlstrings"),
+            table.to_bytes().unwrap(),
+        )
+        .unwrap();
+        let mut st = StringTables::new("en", Box::new(DirSource { data_dir: dir }));
+        let r = st.lookup("Mod.esm", 7).unwrap();
+        assert_eq!(r.bytes, cp1252);
+        assert!(!r.utf8);
+        assert!(r.text.contains('\u{FFFD}'));
+        assert_eq!(r.length, cp1252.len() as u64 + 5);
+        let plain = st.lookup("Mod.esm", 8).unwrap();
+        assert_eq!((plain.bytes.as_slice(), plain.utf8), (&b"plain"[..], true));
     }
 
     #[test]

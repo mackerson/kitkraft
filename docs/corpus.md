@@ -179,6 +179,44 @@ unchecked). Most members are still opaque (`Bytes`), so this mostly exercises pl
 and order; it becomes a real test of layouts as lane B types them (M2.B2 onwards).
 `corpus_small_roundtrip` fails on any conflict in the five small files.
 
+### Typed reader against the generated decoder, and lstring IDs (M3.D6)
+
+`inspect`, `where` and `diff` decode payloads through `kitcraft_doc::typed` (an interpreter
+over lane B's schema), not through the generated code behind `Plugin::typed`.
+`crates/doc/tests/typed_corpus.rs` checks that the two read the same values: on every
+record of a defined type, the FormIDs and string IDs the interpreter reads from the
+subrecords the generated decoder placed equal those the generated record's visitors list
+(`form_ids()`, `lstrings()`), and every such subrecord decodes. The same walk looks up every
+lstring ID (FULL and DESC on every record type, and the schema's `lstring` members, which
+adds the GMST `s` settings) through `kitcraft_doc::strings`, as `inspect` does (English,
+2026-10-14, release, 24 s for all 14 files; the five small files run in the fast suite):
+
+| File | Typed records | FormIDs compared | String IDs compared | lstrings | Resolved | ID 0 | Unresolved |
+| ---- | ------------- | ---------------- | ------------------- | -------- | -------- | ---- | ---------- |
+| Starfield.esm | 17,395 | 2,718 | 12,179 | 49,550 | 43,366 | 6,099 | 85 (ARMO FULL) |
+| Constellation.esm | 19 | 0 | 12 | 12 | 5 | 7 | 0 |
+| OldMars.esm | 12 | 0 | 9 | 9 | 3 | 6 | 0 |
+| BlueprintShips-Starfield.esm | 0 | 0 | 0 | 1,126 | 1,126 | 0 | 0 |
+| SFBGS007.esm | 4 | 0 | 0 | 39 | 29 | 10 | 0 |
+| SFBGS008.esm | 1 | 0 | 0 | 79 | 79 | 0 | 0 |
+| SFBGS006.esm | 10 | 0 | 8 | 374 | 366 | 8 | 0 |
+| SFBGS003.esm | 203 | 27 | 80 | 2,481 | 1,422 | 1,059 | 0 |
+| ShatteredSpace.esm | 1,052 | 325 | 776 | 3,377 | 2,944 | 433 | 0 |
+| SFBGS004.esm | 69 | 8 | 21 | 66 | 62 | 4 | 0 |
+| SFBGS00D.esm | 666 | 32 | 329 | 2,028 | 1,664 | 364 | 0 |
+| SFBGS050.esm | 987 | 181 | 974 | 2,312 | 1,884 | 428 | 0 |
+| BlueprintShips-SFBGS050.esm | 0 | 0 | 0 | 96 | 0 | 0 | 96 (30 GBFM, 66 LCTN FULL) |
+| SFBGS047.esm | 5 | 9 | 3 | 16 | 11 | 5 | 0 |
+
+20,423 typed records agree; no placed subrecord fails the interpreter, and none the
+interpreter decodes was left raw by the generated matcher. Of 61,565 lstrings, 52,961
+resolve, 8,423 hold ID 0 (no string; in no table), and 181 do not resolve:
+85 ARMO FULL IDs of Starfield.esm are in none of its English tables (`ARMO:00003A77` FULL
+`0x0003145A` is the first), and BlueprintShips-SFBGS050.esm is localized but ships no
+string tables (no `BlueprintShips-SFBGS050 - *.ba2`, unlike BlueprintShips-Starfield); 30
+of its 96 IDs exist in SFBGS050's tables, which may be coincidence (lookups never fall back
+to another plugin's tables). The ignored test pins these 181.
+
 ### Per-file results (adaf097)
 
 Every compressed record was decompressed and its subrecords parsed (and counted), while

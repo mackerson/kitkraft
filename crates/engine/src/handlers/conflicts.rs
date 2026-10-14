@@ -109,6 +109,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
         })
         .collect();
 
+    let schema = kitcraft_schema::builtin().ok();
     let forms = overridden(lo, &filter);
     let mut fp = Fnv::new();
     fp.write_u64(lo.fingerprint());
@@ -125,7 +126,8 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
     let mut incomparable = 0u64;
     let end = start.saturating_add(limit).min(forms.len());
     for run in forms.get(start..end).unwrap_or(&[]) {
-        let c = classify_run(lo, &mut reader, run).map_err(|e| failed(ID, e.to_string()))?;
+        let c =
+            classify_run(lo, &mut reader, run, schema).map_err(|e| failed(ID, e.to_string()))?;
         let base = run
             .iter()
             .find(|v| v.plugin == c.form.plugin)
@@ -153,9 +155,10 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
                 "resolved_by": o.version.basis.as_str(),
                 "comparable": o.comparable,
                 "subrecords": match &o.class {
-                    Some(OverrideClass::Differs { subrecords, .. }) => subrecords.iter().map(|d| json!({
-                        "signature": d.signature, "occurrence": d.occurrence, "change": d.change.as_str(),
-                    })).collect::<Vec<_>>(),
+                    Some(OverrideClass::Differs { subrecords, .. }) => subrecords
+                        .iter()
+                        .map(|d| super::diff::sub_diff_json(d, false))
+                        .collect::<Vec<_>>(),
                     _ => Vec::new(),
                 },
                 "flags_differ": matches!(o.class, Some(OverrideClass::Differs { flags: true, .. })),
@@ -176,7 +179,8 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
     if count_classes {
         let mut totals: BTreeMap<&'static str, u64> = BTreeMap::new();
         for run in &forms {
-            let c = classify_run(lo, &mut reader, run).map_err(|e| failed(ID, e.to_string()))?;
+            let c = classify_run(lo, &mut reader, run, schema)
+                .map_err(|e| failed(ID, e.to_string()))?;
             for o in &c.overrides {
                 let label = o
                     .class
@@ -189,16 +193,12 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
         all_classes = json!(totals);
     }
 
-    let mut limitations = vec![
-        "overrides are compared as stored bytes (not decoded through the schema), so \
-         `differs` names subrecords, not fields"
-            .to_string(),
-    ];
+    let mut limitations = vec![super::diff::FIELD_LEVEL.to_string()];
     limitations.extend(loaded.limitations.iter().cloned());
     if incomparable > 0 {
         limitations.push(format!(
             "{incomparable} override(s) on this page are not `comparable`: the two plugins encode \
-             FormIDs differently, so a payload difference may be encoding only"
+             FormIDs differently, so a difference inside an opaque payload may be encoding only"
         ));
     }
     if !count_classes {
@@ -315,6 +315,11 @@ mod tests {
         assert_eq!(
             items[0]["overrides"][0]["subrecords"][0]["signature"],
             "FULL"
+        );
+        // M3.D2: the member that changed, with both values.
+        assert_eq!(
+            items[0]["overrides"][0]["subrecords"][0]["fields"][0],
+            json!({"path": "FULL.Name", "before": "Old Earth Hunting Rifle", "after": "Old Soviet Marksman Rifle"})
         );
         assert_eq!(items[1]["overrides"][0]["class"], "identical-to-previous");
         assert_eq!(

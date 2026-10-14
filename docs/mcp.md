@@ -294,7 +294,8 @@ Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load 
 assumption: `{raw_form_id, form, basis}`), `duplicate_records`,
 `runtime_slot` (`05`, `FD:01`, `FE:00A`; assumed), `cache` (`hit` | `built` |
 `uncached`), `error` (a plugin that failed to parse stays listed with no records)),
-`inactive` (plugins the profile lists but does not activate), `records`, `versions`,
+`inactive` (plugins the profile lists but does not activate), `missing_active_plugins`
+(active per the profile but with no file; M3.D1), `records`, `versions`,
 `cache_dir`, `cache_hits`, `index_ms`, `table_ms`, `elapsed_ms`, `summary`. Evidence: each
 plugin's TES4 header. Coverage `not_examined` lists the plugins that failed to load.
 
@@ -310,7 +311,9 @@ assumption), or an EditorID (ASCII case-insensitive). `data`:
 `mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
 `form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
 `object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
-`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `summary` (says
+`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `winner_source`
+(M3.D1: `{safe, blocking[], unrelated[]}`, whether the winner is a safe source to copy;
+rules in `docs/load-order.md`, "Safe sources"), `summary` (says
 "(deleted)" after a deleted winner), and `versions[]` in load
 order: `plugin`, `load_index`, `winner`, `deleted` (record flag 0x20), `resolved_by`
 (`direct` | `assumed:full-style-self` | `assumed:full-style-self-masked`), `raw_form_id`
@@ -321,9 +324,13 @@ EDID; for FULL/DESC the lstring members above; `member` (the schema's member nam
 FormID as `{raw: "00000000", form: null, null: true}`) where
 lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
-flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
+flags_differ, order_differs, subrecords[] {signature, occurrence, change, member?,
+fields?, as_bytes?}}`, typed members compared by value as in `diff`) and
 `payloads_comparable` (whether the two plugins encode FormIDs alike; when false a byte
-difference may be encoding only). Evidence: every version's header and every payload.
+difference may be encoding only). Evidence: every version's header and every payload. A
+`value` decoded through a member whose definition has `reference` confidence (documented in
+the pinned xEdit file, not yet confirmed by our corpus or the CK) is named in
+`limitations` (`... reference confidence ...: WEAP DNAM.Data.Speed`; M3.D3).
 
 **Single-plugin mode** (only `plugin` given): CLI `kit inspect <form> --plugin <file>`.
 `form` is a FormID (1-8 hex digits, optional `0x`, matched against the record header as
@@ -389,7 +396,8 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3; object ID
   path may start with the subrecord's own member name (`KSIZ.Count` = `KSIZ`). FormID
   members compare as formrefs (`KWDA == Starfield.esm:0004A0BB`); lstrings compare as
   their resolved text. A record type or subrecord without a definition falls back to
-  `EDID` as text and `FULL`/`DESC` as lstrings.
+  `EDID` as text and `FULL`/`DESC` as lstrings. A path that reads a member whose
+  definition has `reference` confidence is named in `limitations` (M3.D3), as in `inspect`.
 - A subrecord the record does not have makes a comparison false and `has` false. A value
   of a union member (the schema picks its variant per record) of another kind than the
   literal (a GMST string variant against `DATA > 100`) is another variant: not equal, not
@@ -422,9 +430,17 @@ unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offse
 `changed[]`: `form`, `signature`, `class`, `a`/`b` (`raw_form_id`, `offset`, `flags`,
 `compressed`), `flags_differ`, `order_differs`, `subrecords[]` (`signature`, `occurrence`,
 `change`: `added` | `removed` | `changed`, `a`/`b` spans `{file_offset, body_offset,
-length}`, `first_difference`). Lists stop at `limit` (counts are complete). Records whose
-bodies and flags are byte-identical count as unchanged without being parsed. Evidence:
-both sides of every listed record and differing payload.
+length}`, `first_difference` (null when the bytes are equal and only what they mean
+differs), and for a subrecord the schema gives a layout (M3.D2): `member` (the schema's
+member name) and `fields[]` `{path, before, after}` (paths like `KWDA.Forms[1]`, `DATA.Value`,
+`DNAM[1].Speed`; FormIDs as `{form}` formrefs, `{form: null, null: true}` or `{form: null,
+raw, error}`; an opaque member as `{opaque: {payload_offset, length, file_offset}}`; null on
+the side where the member is absent), or `as_bytes` with the reason it is compared as
+bytes). `counts.equal_by_value`: records whose bytes differ only in how typed FormIDs are
+encoded (another master order), counted as unchanged. Lists stop at `limit` (counts are
+complete). Records whose bodies and flags are byte-identical count as unchanged without
+being parsed when both files encode FormIDs alike; otherwise they are compared by value.
+Evidence: both sides of every listed record and differing payload.
 
 ### `conflicts` (M2.D13, port of `esmscan.py`)
 
@@ -437,7 +453,10 @@ Starfield.esm --profile <dir>` (alias `esmscan`).
 (overridden forms passing the filters), `items[]` (a page: `form`, `signature`,
 `editor_id`, `base_present`, `versions` (plugin names in load order), `overrides[]`:
 `plugin`, `previous`, `class` (`identical-to-previous` | `deleted` | `differs` |
-`first-version`), `resolved_by`, `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
+`first-version`), `resolved_by`, `comparable`, `subrecords[]` (`signature`, `occurrence`,
+`change`, and `member`/`fields[]`/`as_bytes` as in `diff`: typed members compared by value
+with FormIDs resolved through each version's plugin, so an override that only re-encodes
+the same forms is `identical-to-previous`; M3.D2), `flags_differ`), `class_counts` (this page),
 `class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
 Evidence: each override's record header and its differing payloads.
 `only_conflicts` keeps forms that two or more plugins override.

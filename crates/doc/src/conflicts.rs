@@ -1,14 +1,78 @@
 //! The conflict graph (M2.D6): forms that plugins override, each override classed against
-//! the version before it in load order.
+//! the version before it in load order. Subrecords the schema gives a layout are compared
+//! member by member, FormIDs resolved through each version's plugin (M3.D2,
+//! [`classify_versions`]); the rest as bytes.
 
 use std::collections::BTreeMap;
 
-use crate::compare::{classify, OverrideClass};
+use kitcraft_schema::Schema;
+
+use crate::compare::{classify_with, edid_first, FieldCompare, OverrideClass};
 use crate::error::Result;
+use crate::fields::{FormValue, Side};
 use crate::form::GlobalForm;
 use crate::load_order::LoadOrder;
 use crate::overrides::Version;
-use crate::record::RecordReader;
+use crate::record::{LoadedRecord, RecordReader};
+use crate::typed;
+
+/// A FormID stored in plugin `plugin`, resolved for comparison: the key is the resolved
+/// form's (plugin index and object ID), the label its formref.
+pub fn resolve_for_compare(lo: &LoadOrder, plugin: u16, raw: u32) -> FormValue {
+    match lo.resolve(plugin, raw) {
+        Ok(g) => FormValue::Form {
+            key: format!("{:012X}", g.key()),
+            label: lo.form_label(g),
+        },
+        Err(e) => FormValue::Unresolved {
+            raw,
+            error: e.to_string(),
+        },
+    }
+}
+
+/// The decoding context of a version.
+fn ctx_of(lo: &LoadOrder, plugin: u16, rec: &LoadedRecord) -> typed::Ctx {
+    typed::Ctx {
+        form_version: rec.record.header.form_version,
+        localized: lo
+            .plugin(plugin)
+            .and_then(|p| p.header())
+            .is_some_and(|h| h.flags.localized()),
+        edid_first: edid_first(rec),
+    }
+}
+
+/// Class of version `current` against `previous` (two versions of one form, as read):
+/// members of typed subrecords compared by value with FormIDs resolved through each
+/// version's plugin when `schema` is given, else bytes.
+pub fn classify_versions(
+    lo: &LoadOrder,
+    schema: Option<&Schema>,
+    previous: (&Version, &LoadedRecord),
+    current: (&Version, &LoadedRecord),
+) -> OverrideClass {
+    let (pv, pr) = previous;
+    let (cv, cr) = current;
+    let Some(schema) = schema else {
+        return classify_with(pr, cr, None);
+    };
+    let ra = |raw: u32| resolve_for_compare(lo, pv.plugin, raw);
+    let rb = |raw: u32| resolve_for_compare(lo, cv.plugin, raw);
+    let cmp = FieldCompare {
+        schema,
+        a: Side {
+            ctx: ctx_of(lo, pv.plugin, pr),
+            resolve: &ra,
+        },
+        b: Side {
+            ctx: ctx_of(lo, cv.plugin, cr),
+            resolve: &rb,
+        },
+        same_encoding: lo.encodings_compatible(pv.plugin, cv.plugin),
+    };
+    classify_with(pr, cr, Some(&cmp))
+}
 
 /// Which overridden forms to consider.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -24,7 +88,7 @@ pub struct Filter {
 }
 
 /// One override, classed against the version before it.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Override {
     /// This version.
     pub version: Version,
@@ -38,7 +102,7 @@ pub struct Override {
 }
 
 /// A form with its versions and classed overrides.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct FormConflict {
     /// The form.
     pub form: GlobalForm,
@@ -99,11 +163,12 @@ pub fn overridden<'a>(lo: &'a LoadOrder, filter: &Filter) -> Vec<&'a [Version]> 
         .collect()
 }
 
-/// Read and class every override of one form.
+/// Read and class every override of one form ([`classify_versions`] with `schema`).
 pub fn classify_run(
     lo: &LoadOrder,
     reader: &mut RecordReader,
     run: &[Version],
+    schema: Option<&Schema>,
 ) -> Result<FormConflict> {
     let form = run.first().map_or(
         GlobalForm {
@@ -126,9 +191,14 @@ pub fn classify_run(
             continue;
         }
         let prev = i.checked_sub(1).and_then(|j| run.get(j).copied());
-        let class = i
-            .checked_sub(1)
-            .and_then(|j| Some(classify(loaded.get(j)?, loaded.get(i)?)));
+        let class = i.checked_sub(1).and_then(|j| {
+            Some(classify_versions(
+                lo,
+                schema,
+                (run.get(j)?, loaded.get(j)?),
+                (v, loaded.get(i)?),
+            ))
+        });
         overrides.push(Override {
             version: *v,
             previous: prev,
@@ -228,7 +298,8 @@ mod tests {
         let classes: Vec<Vec<&str>> = runs
             .iter()
             .map(|run| {
-                let c = classify_run(&lo, &mut reader, run).unwrap();
+                let c =
+                    classify_run(&lo, &mut reader, run, kitcraft_schema::builtin().ok()).unwrap();
                 assert!(c.base_present);
                 c.overrides
                     .iter()
