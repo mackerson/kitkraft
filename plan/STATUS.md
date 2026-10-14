@@ -530,6 +530,8 @@ is under "Next".
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
   `docs/mcp.md` are in; an agent cannot restart Claude Code, so the owner runs:
+**M2.F7 result (2026-10-14):** PASS. Owner opened a fresh Claude Code session: `kitcraft` connected with exactly 8 tools (execute, command_line, coverage, diff_plugins, inspect_record, query_records, record_schema, roundtrip), the Default profile preloaded, `record_schema WEAP` returned 50 subrecord definitions (6 typed, 44 opaque), `coverage Constellation.esm` returned 57 records / 8 types. Caveat filed as a lane F request below.
+
   1. `cargo build --release -p kit-cli`
   2. `claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp`
      (or copy `.mcp.json.example` to `.mcp.json`, which is gitignored, and approve it).
@@ -655,6 +657,8 @@ wins") but still the owner's to confirm:
   remote (owner decision 6).
 
 ## Requests (cross-lane)
+
+- **To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).
 
 Agents append here when they need a change in a crate they do not own.
 
