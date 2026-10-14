@@ -13,7 +13,10 @@ Check this before claiming something works. Remove a row only with the commit th
 | Recompression is 99.88%, not 100%, identical (160 of 136,741 records differ at level 9) | An edited compressed record may differ from what the CK would write; unedited ones are always byte-identical | M3 |
 | Meaning of TES4 flag bits 0x100, 0x400, 0x800 has no permitted source | Bits are preserved and listed raw; `tes4` names only 0x1 and 0x80 | M3 (CK observation) |
 | Group type 10 is not in UESP's table (Starfield-only)            | Preserved and walked; its label is shown as a FormID     | M3 (CK observation) |
-| No schema definitions yet                                         | Every subrecord is opaque; coverage is zero              | M1.9             |
+| Schema has TES4, GRUP, the record header and inventory-only GLOB/GMST/KYWD/WEAP; generated records are not wired into `esm` | Every Starfield-specific payload is opaque; `inspect` shows hex | ck-diff observations; M1.15 wiring |
+| `XXXX` with a payload of 0xFFFF bytes or less: how often the official files do this is not counted (12,849 `XXXX` subrecords in total) | Unmodified records keep the flag per subrecord (`oversized`), so they roundtrip exactly; for new or edited values the container decides by size, which is wrong if the CK also writes `XXXX` for small payloads | lane A M1.2b inventory: count `XXXX` with payload <= 0xFFFF |
+| Discriminated unions (layout chosen by another field or subrecord) cannot be expressed in definitions | Such payloads stay opaque | later format work |
+| `count_from` arrays: the count field is written as stored | Editing the array without its count field writes an inconsistent payload | M2 (editing) |
 | Localized strings not loaded                                      | FULL/DESC on localized plugins show string IDs only      | M2               |
 | No load-order resolution                                          | Cannot answer "which plugin wins"                        | M2               |
 | MCP server not implemented                                        | Agents use the CLI only                                  | M2               |

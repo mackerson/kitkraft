@@ -63,19 +63,31 @@ round 2); see `plan/execution-plan.md`.
   3,829,247 records in 3.1 s with a warm file cache.
 - Lane C: minimal `inspect <form> <plugin>` (FormID or EditorID; header fields, subrecords
   with offsets and hex payloads capped at 256 bytes; `typed decode pending schema wiring`).
+- Lane B round 2 (review findings 1-13): generated records carry `XXXX` per subrecord
+  (`RawSub/OwnedSub.oversized`, typed values as `Sub<T>`); `Ctx.localized` and
+  `LString::{Id, Text}`; `size_by_version` probed at every gate boundary, overlaps
+  rejected; format adds `if_remaining`, `count_from`, `wstring`, `bstring`, shared
+  definitions in `defs/common/` (`group_ref`, `type = "ref:Name"`; BfcbBlock and ObteBlock
+  deduplicated) and headers without a signature (`RECORD.toml`, the 24-byte record header,
+  confirmed by a header walk of 8 official ESMs); codegen emits `enum Record` +
+  `RECORDS`, `DecodeError: Display + Error`, `[T; N]` fixed arrays, reserved prelude names;
+  `builtin()` cached; `leaf_subrecords`, `known_signatures`, `Signature::from_bytes`;
+  `examples/generated.rs` compiles the goldens outside `cfg(test)`; ADR 0005 Amendment 1
+  (`uesp-starfield:`, `/CTDA` forbidden, `/Raw_Data` as inventory cross-check).
 
 ## In progress
 
-- Lane B round 2.
+- Nothing in lane B.
 
 ## Next
 
 1. M1 lane A: done for M1. Next per the plan is M2 groundwork, or `roundtrip --decode`
    (decompress every compressed record during the gate; see `docs/gaps.md`).
-2. M1 lane B: round 2 in progress (typed layouts via ck-diff observations, ADR 0005
-   section 2; inventories as M1.14 coverage asks for them).
+2. M1 lane B: round 2 done. Next: typed layouts via ck-diff observations (ADR 0005
+   section 2) or `uesp-starfield` pages confirmed on the corpus (Amendment 1); inventories
+   as M1.14 coverage asks for them.
 3. M1 lane C: M1.14 `coverage` + `cargo xtask parity` and M1.15 `cargo xtask codegen
-   [--check]` remain, blocked on lane B round 2.
+   [--check]`, unblocked by lane B round 2 (see Requests).
 
 ## Blockers
 
@@ -108,21 +120,30 @@ wins") but still the owner's to confirm:
 
 Agents append here when they need a change in a crate they do not own.
 
-- **Lane B -> lane C (M1.15).** `cargo xtask codegen` should write
-  `kitcraft_schema::generate(&kitcraft_schema::builtin()?)` to
-  `crates/esm/src/generated/mod.rs`. The output is self-contained (std only), rustfmt-clean
-  for the current set (checked by a test), and lint-clean. Suggest still piping it through
-  `rustfmt --edition 2021` before writing/comparing, since the generator only mirrors
-  rustfmt's width rules for the constructs it emits today.
+- **Lane B -> lane C (M1.15, M1.14).** `cargo xtask codegen` should write
+  `kitcraft_schema::generate(kitcraft_schema::builtin()?)` (`builtin()` now returns a cached
+  `Result<&'static Schema, &'static SchemaError>`) to `crates/esm/src/generated/mod.rs`. The
+  output is self-contained (std only), rustfmt-clean for the current set (checked by a
+  test), and lint-clean outside `cfg(test)` (`crates/schema/examples/generated.rs`). Suggest
+  still piping it through `rustfmt --edition 2021` before writing/comparing, since the
+  generator only mirrors rustfmt's width rules for the constructs it emits today. xtask may
+  also take over generating `BUILTIN_DEFINITIONS` (today `crates/schema/tests/defs.rs`
+  fails with the lines to add when `defs/` and the list differ). For coverage:
+  `RecordDef::leaf_subrecords()` (member paths), `Schema::known_signatures(sig)`,
+  `Signature::from_bytes`, and the generated `RECORDS` table.
 - **Lane B -> lane A.** Generated records decode from `&[RawSub { signature: [u8; 4], data:
-  &[u8] }]` (subrecords after `XXXX` resolution) plus `Ctx { form_version }`, and encode to
-  `Vec<OwnedSub>`. The container keeps emitting original bytes for unmodified records.
-- **Lane B -> owner (ADR 0005 premise, decision for the owner; default: not used).** UESP's
-  Starfield namespace does exist, hosted at `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format`
-  (served by uesp.net), with only two subpages: `/GMST` and `/Raw_Data` (a per-record
-  subrecord count/size dump of an older Starfield.esm). There are no TES4, GLOB, KYWD or WEAP
-  pages. Nothing from it is cited in `crates/schema/defs/`; every inventory fact there comes
-  from our own corpus scan. Decide whether ADR 0005 should list it.
+  &[u8], oversized: bool }]` (subrecords after `XXXX` resolution; `oversized` = the size came
+  from `XXXX`) plus `Ctx { form_version, localized }` (`localized` = TES4 flag `0x80`), via
+  `Record::decode(signature, subs, ctx)`, and encode to `Vec<OwnedSub>` carrying the same
+  flag; write `XXXX` when it is set or the payload exceeds `u16::MAX`. The 24-byte record
+  header is now a definition too (`RECORD.toml`, generated `RecordHeader`). Also please
+  count `XXXX` subrecords with a payload <= 0xFFFF in the corpus inventory (`docs/gaps.md`).
+- **Lane B -> owner / AGENTS.md maintainer.** ADR 0005 Amendment 1 records the UESP
+  Starfield pages (starfieldwiki.net, 23 pages, `/CTDA` forbidden, `/Raw_Data` an inventory
+  cross-check, `/PERK`'s OMOD layout unused until the owner decides OMOD scope). AGENTS.md
+  "Clean room" and the "xEdit stance" paragraph above still say there is no UESP Starfield
+  page; they should point to the amendment. (Replaces the earlier lane B request asking
+  whether ADR 0005 should list the site.)
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
   is a breaking change for `kit query`. Default: accept the rename when it happens.
