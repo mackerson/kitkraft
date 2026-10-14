@@ -36,6 +36,13 @@
 //!   [`build::upsert_file_to_path`]`(in, out, &RewriteOptions, Vec<Placed>, header_edit)`
 //!   does the same while streaming an existing plugin into a new file, `HEDR` count
 //!   patched. [`build::set_masters`] rewrites a `TES4` master list.
+//! - Editing one record (M2.A6), compressed or not (decoded on first edit under
+//!   [`DecodeLimits`], recompressed only if its bytes changed):
+//!   [`Record::find_subrecord`]`(sig, nth)`, [`Record::set_subrecord`]`(index, data,
+//!   &limits) -> Result<bool>`, [`Record::insert_subrecord`]`(index, Subrecord, &limits)`,
+//!   [`Record::remove_subrecord`]`(index, &limits)`, [`Record::edit_subrecords`]`(&limits)`.
+//!   A changed payload gets an `XXXX` prefix exactly when it does not fit a `u16`; an
+//!   untouched subrecord keeps its bytes.
 //! - Header: [`tes4::Tes4`] (flags, `HEDR`, masters, `ONAM`), the flag constants, and
 //!   [`Plugin::hedr_count_on_write`].
 //! - Typed records: [`bridge`] connects records to the generated types in [`generated`].
@@ -46,6 +53,7 @@ pub mod bridge;
 pub mod build;
 pub mod compress;
 pub mod driver;
+mod edit;
 mod error;
 /// Typed records generated from `crates/schema/defs/` by `cargo xtask codegen` (do not edit).
 pub mod generated;
