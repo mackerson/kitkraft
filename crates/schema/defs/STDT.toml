@@ -1,0 +1,131 @@
+# STDT: Star, one star system's sun: its name, galactic position in parsecs, system ID,
+# colour, an optional binary companion and the sun preset (SUNP) that draws it. Planets
+# (PNDT) name the star they orbit through their own data.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17915-L17934 - member order, the record flags,
+#     ANAM, BNAM, ONAM, DNAM, ENAM, SNAM, PNAM, HNAM and WED0. Helpers: the base form
+#     component block (L5984-L6832, kept raw), keywords (wbDefinitionsCommon.pas
+#     L8935-L8951, common/Keywords.toml), the position vector (wbDefinitionsCommon.pas
+#     L6767-L6773 over L6742-L6758), the byte colour (wbDefinitionsCommon.pas L6954-L6968),
+#     the sound reference (L2213 onwards, kept opaque).
+#   corpus: the 124 STDT records (Starfield.esm 123, ShatteredSpace 1; form versions 581,
+#     582), 2026-10-14: order EDID [BFCB blocks] KSIZ KWDA ANAM BNAM DNAM ENAM PNAM (one
+#     ShatteredSpace override is EDID DNAM ENAM); BNAM 12 bytes, ENAM 4, the rest 4; ONAM,
+#     SNAM, HNAM and WED0 never occur. Every record decodes and re-encodes identically.
+#
+# The planet and star data live in the component blocks (BGSOrbitedDataComponent_Component,
+# BGSStarDataComponent_Component, TESPlanetModel_Component, TESFullName_Component, ...),
+# which stay raw; the displayed name is the TESFullName component's FULL.
+signature = "STDT"
+name = "Star"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17915-L17934"
+evidence = [
+  "corpus: the 124 STDT records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [["StartsHidden", 0x10000000], ["AlwaysDisplayName", 0x20000000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: orbited data, star data, planet model, full name, model, Houdini data"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "ANAM"
+name = "StarName"
+type = "zstring"
+card = "optional"
+note = "plain text, not localized"
+
+[[member]]
+sig = "BNAM"
+name = "SystemPosition"
+type = "struct"
+size = 12
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6767-L6773",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+]
+note = "in parsecs"
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+  { name = "Z", type = "f32" },
+]
+
+[[member]]
+sig = "ONAM"
+name = "Onam"
+type = "opaque"
+card = "optional"
+confidence = "reference"
+note = "unknown upstream (related to the orbital data component); not present in the official records"
+
+[[member]]
+sig = "DNAM"
+name = "SystemId"
+type = "u32"
+
+[[member]]
+sig = "ENAM"
+name = "Color"
+type = "struct"
+size = 4
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968"]
+field = [
+  { name = "Red", type = "u8" },
+  { name = "Green", type = "u8" },
+  { name = "Blue", type = "u8" },
+  { name = "Unused", type = "opaque", size = 1 },
+]
+
+[[member]]
+sig = "SNAM"
+name = "BinaryStar"
+type = "formid"
+targets = ["STDT"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official records"
+
+[[member]]
+sig = "PNAM"
+name = "SunPreset"
+type = "formid"
+targets = ["SUNP"]
+card = "optional"
+
+[[member]]
+sig = "HNAM"
+name = "TimeOfDayData"
+type = "formid"
+targets = ["TODD"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official records"
+
+[[member]]
+sig = "WED0"
+name = "StarSound"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227"]
+confidence = "reference"
+note = "a sound reference (Wwise event GUIDs, a condition form, a start form); kept raw; not present in the official records"

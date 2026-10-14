@@ -1,0 +1,105 @@
+# SFPT: Surface Pattern, a 16 x 16 grid of surface blocks (SFBK) with a rotation per cell,
+# laid over a planet's terrain; a pattern style (CNAM: PTST) groups patterns, and DNAM
+# limits it to worldspaces.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17607-L17654 - member order, the CNAM target, the
+#     five 16 x 16 grids (BNAM, FNAM and EFRM of SFBK FormIDs, GNAM and EORI of signed
+#     bytes), the DNAM worldspace list. Helper: the base form component block (L5984-L6832,
+#     kept raw).
+#   corpus: the 264 SFPT records (Starfield.esm 258, ShatteredSpace 6; form versions 581,
+#     582), 2026-10-14: order EDID [BFCB blocks] CNAM FNAM GNAM [DNAM]; FNAM 1,024 bytes,
+#     GNAM 256 bytes, DNAM a multiple of 4; BNAM, EFRM and EORI never occur. Every record
+#     decodes and re-encodes identically.
+#
+# Each grid is stored as one row-major array of 256 cells (row 0 columns 0..15, then row 1,
+# ...). The format has no array of arrays; flattening keeps every byte.
+signature = "SFPT"
+name = "SurfacePattern"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17607-L17654"
+evidence = [
+  "corpus: the 264 SFPT records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: BlockHeightAdjustment_Component, UniqueOverlayList_Component, UniquePatternPlacementInfo_Component"
+
+[[member]]
+sig = "CNAM"
+name = "Style"
+type = "formid"
+targets = ["PTST"]
+note = "a null FormID is allowed upstream"
+
+[[member]]
+sig = "BNAM"
+name = "SurfaceBlocks"
+type = "array"
+element = "formid"
+targets = ["SFBK"]
+count = 256
+card = "optional"
+confidence = "reference"
+note = "16 x 16 grid, row-major; not present in the official records"
+
+[[member]]
+sig = "FNAM"
+name = "MasterBlocks"
+type = "array"
+element = "formid"
+targets = ["SFBK"]
+count = 256
+card = "optional"
+note = "16 x 16 grid, row-major; upstream notes the CK does not copy it into overrides"
+
+[[member]]
+sig = "GNAM"
+name = "MasterRotations"
+type = "array"
+element = "i8"
+count = 256
+card = "optional"
+note = "16 x 16 grid, row-major; upstream notes the CK does not copy it into overrides"
+
+[[member]]
+sig = "EFRM"
+name = "OverrideBlocks"
+type = "array"
+element = "formid"
+targets = ["SFBK"]
+count = 256
+card = "optional"
+confidence = "reference"
+note = "16 x 16 grid, row-major; not present in the official records"
+
+[[member]]
+sig = "EORI"
+name = "OverrideRotations"
+type = "array"
+element = "i8"
+count = 256
+card = "optional"
+confidence = "reference"
+note = "16 x 16 grid, row-major; not present in the official records"
+
+[[member]]
+sig = "DNAM"
+name = "Worldspaces"
+type = "array"
+element = "formid"
+targets = ["WRLD"]
+count = "rest"
+card = "optional"

@@ -80,7 +80,11 @@ pub fn apply_field(
         .and_then(|subs| subs.get(index))
         .map(|s| s.data().to_vec())
         .unwrap_or_default();
-    let layout = fields::layout_for(text, record.header.signature.0, path.signature)?;
+    let sigs: Vec<[u8; 4]> = record
+        .subrecords()
+        .map(|subs| subs.iter().map(|s| s.signature().0).collect())
+        .unwrap_or_default();
+    let layout = fields::layout_at(record.header.signature.0, &sigs, index);
     let raw = kitcraft_schema::FieldType::Opaque { size: None };
     let (ty, mut notes) = match &layout {
         Some(layout) => (&layout.ty, layout.fallback.clone().into_iter().collect()),

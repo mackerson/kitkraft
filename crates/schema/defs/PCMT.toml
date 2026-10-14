@@ -1,0 +1,110 @@
+# PCMT: Planet Content Manager Tree, the root of a procedural placement tree. Its child
+# branch nodes (PCBN) name it as their parent (PRTN); the tree itself lists no children in
+# any official file (its PCCB list is empty everywhere).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15799-L15826 - member order, the record flags,
+#     NAM1/NAM2/NAM5 widths and values, the PCCB node list, conditions and keywords.
+#     Helpers: the condition count (L2251) and list (L4750-L4840, common/Condition.toml),
+#     the base form component block (L5984-L6832, common/BfcbBlock.toml, kept raw), the
+#     keyword list without a count (wbDefinitionsCommon.pas L8935-L8951) and the boolean
+#     enumeration (wbDefinitionsCommon.pas L7514-L7521).
+#   corpus: the 5 PCMT records (all in Starfield.esm, form version 581), 2026-10-14: every
+#     record is EDID NAM1 NAM2 NAM5 CITC [CTDA...]; NAM1/NAM2 are 4 bytes, NAM5 1 byte,
+#     CITC 4 bytes, CTDA 32 bytes; no BFCB block, PCCB or KWDA occurs. All 5 decode and
+#     re-encode identically.
+#
+# Members the corpus never shows keep `confidence = "reference"`.
+signature = "PCMT"
+name = "PlanetContentTree"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826"
+evidence = [
+  "corpus: the 5 PCMT records of the 14 official ESMs (Starfield.esm), 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; none in the official PCMT records"
+
+[[member]]
+sig = "NAM1"
+name = "NodeType"
+type = "enum"
+base = "u32"
+values = [["Root", 0]]
+note = "a tree is always the root node"
+
+[[member]]
+sig = "NAM2"
+name = "ChildSelection"
+type = "enum"
+base = "u32"
+values = [["Stacked", 1]]
+note = "a tree only selects its children stacked; 0 is not a valid tree value upstream"
+
+[[member]]
+sig = "NAM5"
+name = "ConsumeRequestOnFailure"
+type = "enum"
+base = "u8"
+values = [["False", 0], ["True", 1]]
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"]
+
+[[member]]
+sig = "PCCB"
+name = "Nodes"
+type = "formid"
+targets = ["PCBN"]
+card = "repeated"
+confidence = "reference"
+note = "child branch nodes; never present in the official files (children point up through PRTN instead)"
+
+[[member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of Conditions that follow; stored, not derived"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+sig = "KWDA"
+name = "Keywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+confidence = "reference"
+note = "keyword list without a KSIZ count; a null FormID is allowed; not present in the official PCMT records"

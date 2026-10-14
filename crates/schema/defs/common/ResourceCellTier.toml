@@ -1,0 +1,27 @@
+# ResourceCellTier: one rarity tier of the cell half of a resource generation entry (RSGD
+# DNAM): ten floats describing resource veins inside a cell.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L8434-L8448 - ten named 32-bit floats per tier.
+#   corpus: RSGD DNAM in Starfield.esm (2026-10-14): all 68 payloads are 560 bytes, 14 tiers
+#     of 40 bytes.
+name = "ResourceCellTier"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8434-L8448"
+evidence = [
+  "corpus: RSGD DNAM in the 14 official ESMs (Starfield.esm only), 2026-10-14 scan: all 68 payloads are 560 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "VeinNodesMin", type = "f32" },
+  { name = "VeinNodesMax", type = "f32" },
+  { name = "NodeSizeMin", type = "f32" },
+  { name = "NodeSizeMax", type = "f32" },
+  { name = "SegmentLengthMin", type = "f32" },
+  { name = "SegmentLengthMax", type = "f32" },
+  { name = "MaxAngleOffset", type = "f32" },
+  { name = "ChanceToAppear", type = "f32" },
+  { name = "SurfaceItemChanceNone", type = "f32" },
+  { name = "Blobbiness", type = "f32" },
+]

@@ -12,8 +12,6 @@
 //! occurrence after the first, then the subrecord's member name and the members and array
 //! indices inside it (`KWDA.Forms[1]`, `DATA.Value`, `DNAM[1].Speed`).
 
-use kitcraft_schema::Schema;
-
 use crate::typed::{self, Decoded};
 
 /// A FormID value after resolution, as compared.
@@ -108,20 +106,30 @@ pub enum Typed {
     },
 }
 
-/// Compare occurrence `occurrence` of subrecord `sub` of a record of type `record` between
-/// two versions (`a` before, `b` after).
+/// Compare occurrence `occurrence` of subrecord `sub` between two versions of a record
+/// (`a` before, `b` after), each read through its own layout: `layouts` are the
+/// subrecord's layouts in the two versions, resolved by its position in each
+/// ([`typed::layout_of`]); a subrecord at members with different layouts in the two
+/// versions, or with no layout, is compared as bytes.
 pub fn compare(
-    schema: &Schema,
-    record: [u8; 4],
+    layouts: (&typed::LayoutResult<'_>, &typed::LayoutResult<'_>),
     sub: [u8; 4],
     occurrence: usize,
     a: (&[u8], &Side<'_>),
     b: (&[u8], &Side<'_>),
 ) -> Typed {
-    let (ty, member) = match typed::field_type(schema, record, sub) {
-        Ok(Some(t)) => t,
-        Ok(None) => return Typed::NoLayout,
-        Err(e) => return Typed::Undecodable(e),
+    let (ty, member) = match layouts {
+        (Ok(Some(la)), Ok(Some(lb))) if la.ty == lb.ty => (la.ty, la.name),
+        (Ok(Some(la)), Ok(Some(lb))) => {
+            return Typed::Undecodable(format!(
+                "{} is `{}` in the first version and `{}` in the second, with different layouts",
+                String::from_utf8_lossy(&sub),
+                la.path,
+                lb.path
+            ))
+        }
+        (Err(e), _) | (_, Err(e)) => return Typed::Undecodable(e.to_string()),
+        _ => return Typed::NoLayout,
     };
     let (da, db) = match (
         typed::decode(ty, a.0, &a.1.ctx),
@@ -296,6 +304,17 @@ pub fn same(a: &FieldValue, b: &FieldValue) -> bool {
 #[allow(clippy::unwrap_used, clippy::arithmetic_side_effects, clippy::panic)]
 mod tests {
     use super::*;
+    use kitcraft_schema::Schema;
+
+    /// The layout of `sub` placed after an EditorID (and `KSIZ` before a `KWDA`).
+    fn at(schema: &'static Schema, record: [u8; 4], sub: [u8; 4]) -> typed::LayoutResult<'static> {
+        let subs: Vec<[u8; 4]> = if &sub == b"KWDA" {
+            vec![*b"EDID", *b"KSIZ", sub]
+        } else {
+            vec![*b"EDID", sub]
+        };
+        typed::layout_at(schema, record, &subs, subs.len() - 1)
+    }
 
     fn ctx() -> typed::Ctx {
         typed::Ctx {
@@ -338,7 +357,16 @@ mod tests {
         // X:800, Y:801 in a's numbering == the same forms in b's numbering.
         let pa = kwda(&[0x0000_0800, 0x0100_0801]);
         let pb = kwda(&[0x0100_0800, 0x0000_0801]);
-        let r = compare(schema, *b"WEAP", *b"KWDA", 0, (&pa, &a), (&pb, &b));
+        let r = compare(
+            (
+                &at(schema, *b"WEAP", *b"KWDA"),
+                &at(schema, *b"WEAP", *b"KWDA"),
+            ),
+            *b"KWDA",
+            0,
+            (&pa, &a),
+            (&pb, &b),
+        );
         assert_eq!(
             r,
             Typed::Compared {
@@ -347,7 +375,16 @@ mod tests {
             }
         );
         // The same bytes on both sides name different forms.
-        let r = compare(schema, *b"WEAP", *b"KWDA", 0, (&pa, &a), (&pa, &b));
+        let r = compare(
+            (
+                &at(schema, *b"WEAP", *b"KWDA"),
+                &at(schema, *b"WEAP", *b"KWDA"),
+            ),
+            *b"KWDA",
+            0,
+            (&pa, &a),
+            (&pa, &b),
+        );
         let Typed::Compared { changes, .. } = r else {
             panic!("{r:?}")
         };
@@ -355,7 +392,16 @@ mod tests {
         assert_eq!(changes[0].path, "KWDA.Forms[0]");
         // One element changed, one appended; occurrence 1 shows in the path.
         let pc = kwda(&[0x0100_0800, 0x0100_0802, 0]);
-        let r = compare(schema, *b"WEAP", *b"KWDA", 1, (&pa, &a), (&pc, &b));
+        let r = compare(
+            (
+                &at(schema, *b"WEAP", *b"KWDA"),
+                &at(schema, *b"WEAP", *b"KWDA"),
+            ),
+            *b"KWDA",
+            1,
+            (&pa, &a),
+            (&pc, &b),
+        );
         let Typed::Compared { changes, .. } = r else {
             panic!("{r:?}")
         };
@@ -385,8 +431,10 @@ mod tests {
         };
         // GMST DATA with an EditorID prefix no variant claims: opaque, compared as bytes.
         let r1 = compare(
-            schema,
-            *b"GMST",
+            (
+                &at(schema, *b"GMST", *b"DATA"),
+                &at(schema, *b"GMST", *b"DATA"),
+            ),
             *b"DATA",
             0,
             (&[1, 2, 3, 4], &side),
@@ -403,8 +451,10 @@ mod tests {
             })
         );
         let same_bytes = compare(
-            schema,
-            *b"GMST",
+            (
+                &at(schema, *b"GMST", *b"DATA"),
+                &at(schema, *b"GMST", *b"DATA"),
+            ),
             *b"DATA",
             0,
             (&[1, 2, 3, 4], &side),
@@ -414,8 +464,10 @@ mod tests {
         // KSIZ is a u32: 3 bytes do not decode. A signature without a layout.
         assert!(matches!(
             compare(
-                schema,
-                *b"WEAP",
+                (
+                    &at(schema, *b"WEAP", *b"KSIZ"),
+                    &at(schema, *b"WEAP", *b"KSIZ")
+                ),
                 *b"KSIZ",
                 0,
                 (&[1, 0, 0], &side),
@@ -424,7 +476,16 @@ mod tests {
             Typed::Undecodable(_)
         ));
         assert_eq!(
-            compare(schema, *b"WEAP", *b"ZZZZ", 0, (&[1], &side), (&[2], &side)),
+            compare(
+                (
+                    &at(schema, *b"WEAP", *b"ZZZZ"),
+                    &at(schema, *b"WEAP", *b"ZZZZ")
+                ),
+                *b"ZZZZ",
+                0,
+                (&[1], &side),
+                (&[2], &side)
+            ),
             Typed::NoLayout
         );
         // Floats compare by bits.

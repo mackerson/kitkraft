@@ -18,7 +18,8 @@
     clippy::expect_used,
     clippy::panic,
     clippy::arithmetic_side_effects,
-    clippy::indexing_slicing
+    clippy::indexing_slicing,
+    clippy::unreachable
 )]
 
 use std::collections::{BTreeMap, HashSet};
@@ -131,11 +132,29 @@ fn check_record(
         .unwrap_or_default();
     let (mut forms, mut ids) = (Vec::new(), Vec::new());
     let mut lstring_ids: Vec<(String, u32)> = Vec::new();
+    // Layouts by position, as `inspect`, `where` and `diff` resolve them.
+    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+    let placed = typed::placements(schema, sig, &sigs);
     for (i, s) in subs.iter().enumerate() {
         let sub_sig = s.signature().0;
-        let layout = typed::field_type(schema, sig, sub_sig).unwrap();
+        let layout = typed::layout_of(
+            schema,
+            sig,
+            sub_sig,
+            i,
+            placed.as_ref().and_then(|p| p.get(i)),
+        );
         match layout {
-            Some((ty, _)) => {
+            Err(e @ typed::LayoutError::Unplaced { .. }) => {
+                // The generated decoder leaves what the matcher cannot place in `extra`.
+                assert!(
+                    extra.contains(&i),
+                    "{plugin} {label}: {e}, but generated placed it"
+                );
+            }
+            Err(typed::LayoutError::Ambiguous { .. }) => unreachable!("one subrecord, one layout"),
+            Ok(Some(layout)) => {
+                let ty = layout.ty;
                 let decoded = typed::decode(ty, s.data(), &ctx);
                 if extra.contains(&i) {
                     if decoded.is_ok() {
@@ -156,12 +175,16 @@ fn check_record(
                 }
                 ids.extend(here);
             }
-            None if is_lstring(&s.signature().to_string()) => {
+            // No layout, or raw inside a component block: FULL and DESC are lstrings on
+            // every record type.
+            Ok(None) | Err(typed::LayoutError::Raw { .. })
+                if is_lstring(&s.signature().to_string()) =>
+            {
                 if let LString::Id(id) = decode_lstring(s.data(), localized) {
                     lstring_ids.push((s.signature().to_string(), id));
                 }
             }
-            None => {}
+            Ok(None) | Err(typed::LayoutError::Raw { .. }) => {}
         }
     }
     if let Some(g) = &generated {

@@ -6,7 +6,9 @@
 //! write path. A payload whose layout does not account for every byte, a value under an
 //! opaque member, or a union variant no definition claims is unknown, never a guess.
 
-use kitcraft_schema::{ArrayCount, Decider, FieldType, Scalar, Schema, Signature};
+use kitcraft_schema::{
+    ArrayCount, Cardinality, Decider, FieldType, Member, Scalar, Schema, Signature, SubrecordDef,
+};
 
 /// Most array elements decoded from one payload.
 const MAX_ELEMENTS: usize = 1 << 20;
@@ -220,37 +222,316 @@ pub fn decode(ty: &FieldType, data: &[u8], ctx: &Ctx) -> Result<Decoded, String>
     Ok(v)
 }
 
-/// The definition of subrecord `sub` in record type `record`, with the subrecord's member
-/// name (a path may start with it: `KSIZ.Count`): `Ok(None)` when the record
-/// type or the subrecord has no definition, `Err` when several definitions with different
-/// layouts share the signature.
-pub fn field_type(
-    schema: &Schema,
-    record: [u8; 4],
-    sub: [u8; 4],
-) -> Result<Option<(&FieldType, &str)>, String> {
-    let (Some(rs), Some(ss)) = (Signature::from_bytes(record), Signature::from_bytes(sub)) else {
-        return Ok(None);
-    };
-    let Some(def) = schema.records.get(&rs) else {
-        return Ok(None);
-    };
-    let leaves = def.leaf_subrecords();
-    let mut found: Option<(&FieldType, &str)> = None;
-    for (_, s) in leaves {
-        if s.signature == ss {
-            match found {
-                None => found = Some((&s.ty, s.name.as_str())),
-                Some((t, _)) if *t == s.ty => {}
-                Some(_) => {
-                    return Err(format!(
-                        "{ss} has more than one layout in {rs}; the path is ambiguous"
-                    ))
-                }
-            }
+/// Where one subrecord of a record sits in its record type's definition, found by its
+/// position among the record's subrecords (the generated decoder's own matching rules,
+/// `generated::records::match_members`, over the same definition), not by its signature
+/// alone: a signature can mean different members at different positions (PNDT has CNAM,
+/// FNAM and GNAM twice with different layouts; the BFCB..BFCE component blocks of PCBN,
+/// PKIN and GBFM hold NAM1..NAM5, VNAM, CNAM and ANAM that are not the top-level members
+/// of the same signature).
+#[derive(Debug, Clone, PartialEq)]
+pub enum Placement<'s> {
+    /// A subrecord member: its member path (`ObjectBounds.Obnd`) and definition.
+    Member {
+        /// Member path, group names included.
+        path: String,
+        /// The definition.
+        def: &'s SubrecordDef,
+    },
+    /// Inside the body of an `any_until` member, which the schema keeps as raw bytes.
+    Raw {
+        /// The `any_until` member's path.
+        path: String,
+    },
+    /// No member accepts the subrecord at its position.
+    Unplaced,
+}
+
+/// Why a subrecord has no layout to decode with; its payload is opaque to the reader.
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum LayoutError {
+    /// The subrecord is inside an `any_until` body: the schema keeps it raw there, whatever
+    /// the same signature means elsewhere in the record.
+    #[error(
+        "{sub} (subrecord {index}) is inside `{path}`, which the {record} definition keeps as raw bytes"
+    )]
+    Raw {
+        /// Record signature.
+        record: String,
+        /// Subrecord signature.
+        sub: String,
+        /// Index among the record's subrecords.
+        index: usize,
+        /// The `any_until` member's path.
+        path: String,
+    },
+    /// The definition names the signature, but no member accepts the subrecord at its
+    /// position: its layout is unknown.
+    #[error(
+        "{sub} (subrecord {index}) is not where the {record} definition places it; its layout is unknown"
+    )]
+    Unplaced {
+        /// Record signature.
+        record: String,
+        /// Subrecord signature.
+        sub: String,
+        /// Index among the record's subrecords.
+        index: usize,
+    },
+    /// The occurrences a path names sit at members with different layouts.
+    #[error(
+        "{sub} has more than one layout in {record} ({}); the path is ambiguous: name one occurrence, e.g. {sub}[0]",
+        paths.join(", ")
+    )]
+    Ambiguous {
+        /// Record signature.
+        record: String,
+        /// Subrecord signature.
+        sub: String,
+        /// The member paths of the different layouts.
+        paths: Vec<String>,
+    },
+}
+
+/// A subrecord's layout: its type, its member name and its member path.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Layout<'s> {
+    /// The payload type.
+    pub ty: &'s FieldType,
+    /// The member's own name (a path may start with it: `KSIZ.Count`).
+    pub name: &'s str,
+    /// The member path, group names included.
+    pub path: String,
+}
+
+/// A subrecord's layout, or why it has none ([`layout_of`]).
+pub type LayoutResult<'s> = Result<Option<Layout<'s>>, LayoutError>;
+
+/// Most nested groups the matcher descends (the generated decoder's limit).
+const MAX_GROUP_DEPTH: usize = 16;
+
+fn accepts(member: &Member, sig: Option<Signature>, depth: usize) -> bool {
+    match member {
+        Member::Subrecord(s) => Some(s.signature) == sig,
+        Member::AnyUntil(a) => Some(a.until) != sig,
+        Member::Group(g) => {
+            depth < MAX_GROUP_DEPTH && starts(&g.members, sig, depth.saturating_add(1))
         }
     }
-    Ok(found)
+}
+
+fn starts(members: &[Member], sig: Option<Signature>, depth: usize) -> bool {
+    for member in members {
+        if accepts(member, sig, depth) {
+            return true;
+        }
+        let required = match member {
+            Member::Subrecord(s) => s.cardinality == Cardinality::Required,
+            Member::Group(g) => g.cardinality == Cardinality::Required,
+            Member::AnyUntil(_) => false,
+        };
+        if required {
+            return false;
+        }
+    }
+    false
+}
+
+fn join(prefix: &str, name: &str) -> String {
+    if prefix.is_empty() {
+        name.to_owned()
+    } else {
+        format!("{prefix}.{name}")
+    }
+}
+
+/// The subrecord signatures being placed, and where each one went.
+struct Matcher<'s, 'a> {
+    sigs: &'a [Option<Signature>],
+    out: Vec<Placement<'s>>,
+}
+
+impl<'s> Matcher<'s, '_> {
+    /// One step (the generated `match_one`, over the schema model): places the subrecord at
+    /// `pos`, and for a group the run it starts.
+    fn one(
+        &mut self,
+        pos: &mut usize,
+        members: &'s [Member],
+        cursor: &mut usize,
+        depth: usize,
+        prefix: &str,
+    ) -> bool {
+        let Some(sig) = self.sigs.get(*pos).copied() else {
+            return false;
+        };
+        let Some((index, member)) = members
+            .iter()
+            .enumerate()
+            .skip(*cursor)
+            .find(|(_, m)| accepts(m, sig, depth))
+        else {
+            return false;
+        };
+        *cursor = if member.cardinality() == Cardinality::Repeated {
+            index
+        } else {
+            index.saturating_add(1)
+        };
+        let path = join(prefix, member.name());
+        let placement = match member {
+            Member::Group(g) => {
+                let start = *pos;
+                let mut inner = 0;
+                while self.one(pos, &g.members, &mut inner, depth.saturating_add(1), &path) {}
+                return *pos != start;
+            }
+            Member::Subrecord(def) => Placement::Member { path, def },
+            Member::AnyUntil(_) => Placement::Raw { path },
+        };
+        if let Some(slot) = self.out.get_mut(*pos) {
+            *slot = placement;
+        }
+        *pos = pos.saturating_add(1);
+        true
+    }
+}
+
+/// Places every subrecord of a record of type `record` (its subrecord signatures, in
+/// order) in the definition, as the generated decoder does. `None` when the schema does
+/// not define the record type.
+pub fn placements<'s>(
+    schema: &'s Schema,
+    record: [u8; 4],
+    subs: &[[u8; 4]],
+) -> Option<Vec<Placement<'s>>> {
+    let def = schema.records.get(&Signature::from_bytes(record)?)?;
+    let sigs: Vec<Option<Signature>> = subs.iter().map(|s| Signature::from_bytes(*s)).collect();
+    let mut m = Matcher {
+        sigs: &sigs,
+        out: vec![Placement::Unplaced; sigs.len()],
+    };
+    let (mut pos, mut cursor) = (0, 0);
+    while pos < sigs.len() {
+        let before = pos;
+        if !m.one(&mut pos, &def.members, &mut cursor, 0, "") || pos == before {
+            pos = before.saturating_add(1);
+        }
+    }
+    Some(m.out)
+}
+
+/// Whether the definition of `record` names subrecord signature `sub` anywhere.
+fn names(schema: &Schema, record: [u8; 4], sub: [u8; 4]) -> bool {
+    let (Some(rs), Some(ss)) = (Signature::from_bytes(record), Signature::from_bytes(sub)) else {
+        return false;
+    };
+    schema
+        .records
+        .get(&rs)
+        .is_some_and(|def| def.leaf_subrecords().iter().any(|(_, s)| s.signature == ss))
+}
+
+/// The layout of one placed subrecord (`placement` from [`placements`]; `None` when the
+/// record type has no definition): `Ok(None)` when the schema knows nothing about it (no
+/// record definition, or a signature the definition never names), an error when it sits
+/// where the schema keeps raw bytes or where no member accepts it.
+pub fn layout_of<'s>(
+    schema: &'s Schema,
+    record: [u8; 4],
+    sub: [u8; 4],
+    index: usize,
+    placement: Option<&Placement<'s>>,
+) -> Result<Option<Layout<'s>>, LayoutError> {
+    let text = |b: [u8; 4]| String::from_utf8_lossy(&b).into_owned();
+    match placement {
+        None => Ok(None),
+        Some(Placement::Member { path, def }) => Ok(Some(Layout {
+            ty: &def.ty,
+            name: def.name.as_str(),
+            path: path.clone(),
+        })),
+        Some(Placement::Raw { path }) => Err(LayoutError::Raw {
+            record: text(record),
+            sub: text(sub),
+            index,
+            path: path.clone(),
+        }),
+        Some(Placement::Unplaced) if !names(schema, record, sub) => Ok(None),
+        Some(Placement::Unplaced) => Err(LayoutError::Unplaced {
+            record: text(record),
+            sub: text(sub),
+            index,
+        }),
+    }
+}
+
+/// The layout of subrecord `index` of a record of type `record` whose subrecord
+/// signatures are `subs`, resolved by its position ([`placements`], [`layout_of`]).
+pub fn layout_at<'s>(
+    schema: &'s Schema,
+    record: [u8; 4],
+    subs: &[[u8; 4]],
+    index: usize,
+) -> Result<Option<Layout<'s>>, LayoutError> {
+    let Some(sub) = subs.get(index).copied() else {
+        return Ok(None);
+    };
+    let placed = placements(schema, record, subs);
+    let placement = placed.as_ref().and_then(|p| p.get(index));
+    layout_of(schema, record, sub, index, placement)
+}
+
+/// The layout a signature path (`CNAM`, `CNAM[1]`) names, and the subrecords it selects.
+/// `indexes` are the positions of the occurrences the path names (all of one signature).
+/// Without an explicit occurrence (`explicit` false), occurrences inside raw `any_until`
+/// bodies are not the member the path names and are left out. `Ok(None)` when the schema
+/// knows nothing about the signature; [`LayoutError::Ambiguous`] when the occurrences sit
+/// at members with different layouts.
+pub fn path_layout<'s>(
+    schema: &'s Schema,
+    record: [u8; 4],
+    subs: &[[u8; 4]],
+    indexes: &[usize],
+    explicit: bool,
+) -> Result<Option<(Layout<'s>, Vec<usize>)>, LayoutError> {
+    let placed = placements(schema, record, subs);
+    let mut layouts: Vec<Layout<'s>> = Vec::new();
+    let mut chosen: Vec<usize> = Vec::new();
+    let mut first_raw: Option<LayoutError> = None;
+    let mut sub = [0u8; 4];
+    for &index in indexes {
+        let Some(s) = subs.get(index).copied() else {
+            continue;
+        };
+        sub = s;
+        let placement = placed.as_ref().and_then(|p| p.get(index));
+        match layout_of(schema, record, s, index, placement) {
+            Ok(None) => return Ok(None),
+            Ok(Some(l)) => {
+                if !layouts.iter().any(|k| k.ty == l.ty) {
+                    layouts.push(l);
+                }
+                chosen.push(index);
+            }
+            Err(e @ LayoutError::Raw { .. }) if !explicit => {
+                first_raw.get_or_insert(e);
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    if layouts.len() > 1 {
+        return Err(LayoutError::Ambiguous {
+            record: String::from_utf8_lossy(&record).into_owned(),
+            sub: String::from_utf8_lossy(&sub).into_owned(),
+            paths: layouts.into_iter().map(|l| l.path).collect(),
+        });
+    }
+    match (layouts.pop(), first_raw) {
+        (Some(l), _) => Ok(Some((l, chosen))),
+        (None, Some(e)) => Err(e),
+        (None, None) => Ok(None),
+    }
 }
 
 /// Walk `members` (lower-case) into `value`; arrays fan out. Returns the leaf values or why
@@ -325,7 +606,11 @@ mod tests {
     fn builtin_gmst_union_and_keywords() {
         let schema = kitcraft_schema::builtin().unwrap();
         // GMST DATA is a union chosen by the EditorID's first letter: `f` is an f32.
-        let (ty, _) = field_type(schema, *b"GMST", *b"DATA").unwrap().unwrap();
+        let layout = layout_at(schema, *b"GMST", &[*b"EDID", *b"DATA"], 1)
+            .unwrap()
+            .unwrap();
+        assert_eq!((layout.name, layout.path.as_str()), ("Value", "Value"));
+        let ty = layout.ty;
         let v = decode(ty, &2.5f32.to_le_bytes(), &ctx()).unwrap();
         assert_eq!(select(&v, &[], "GMST.DATA").unwrap(), [Decoded::Float(2.5)]);
         // An unknown prefix keeps the payload opaque.
@@ -338,8 +623,88 @@ mod tests {
             Decoded::Opaque { at: 0, len: 4 }
         );
         // A record type without a definition, and a subrecord the definition lacks.
-        assert!(field_type(schema, *b"QQQQ", *b"DATA").unwrap().is_none());
-        assert!(field_type(schema, *b"GMST", *b"ZZZZ").unwrap().is_none());
+        assert!(layout_at(schema, *b"QQQQ", &[*b"DATA"], 0)
+            .unwrap()
+            .is_none());
+        assert!(layout_at(schema, *b"GMST", &[*b"EDID", *b"ZZZZ"], 1)
+            .unwrap()
+            .is_none());
+        // Out of range is no layout, never a panic.
+        assert!(layout_at(schema, *b"GMST", &[*b"EDID"], 5)
+            .unwrap()
+            .is_none());
+    }
+
+    /// Planet schema lane request to lane D: a VNAM inside a PKIN base form component
+    /// (the 1-byte VNAM of `Starfield.esm PKIN:0000B065`) is not the top-level `Version`.
+    #[test]
+    fn pkin_vnam_inside_a_component_is_raw() {
+        let schema = kitcraft_schema::builtin().unwrap();
+        let subs = [
+            *b"EDID", *b"BFCB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM", *b"FNAM",
+        ];
+        let placed = placements(schema, *b"PKIN", &subs).unwrap();
+        assert!(matches!(&placed[2], Placement::Raw { .. }), "{placed:?}");
+        let inner = layout_at(schema, *b"PKIN", &subs, 2).unwrap_err();
+        assert!(
+            matches!(inner, LayoutError::Raw { index: 2, .. }),
+            "{inner}"
+        );
+        let top = layout_at(schema, *b"PKIN", &subs, 5).unwrap().unwrap();
+        assert_eq!(top.name, "Version");
+        // A path naming VNAM selects the top-level member only.
+        let (layout, chosen) = path_layout(schema, *b"PKIN", &subs, &[2, 5], false)
+            .unwrap()
+            .unwrap();
+        assert_eq!((layout.name, chosen), ("Version", vec![5]));
+        // Naming the component's occurrence explicitly is an error, not a guess.
+        assert!(matches!(
+            path_layout(schema, *b"PKIN", &subs, &[2], true),
+            Err(LayoutError::Raw { .. })
+        ));
+    }
+
+    /// PNDT has CNAM, FNAM and GNAM at the top level and again inside the body group, with
+    /// different layouts: each occurrence resolves by position, and a path naming all of
+    /// them is ambiguous (typed, never a panic).
+    #[test]
+    fn pndt_duplicated_signatures_resolve_by_position() {
+        let schema = kitcraft_schema::builtin().unwrap();
+        let subs = [
+            *b"EDID", *b"BFCB", *b"FULL", *b"BFCE", *b"CNAM", *b"FNAM", *b"GNAM", *b"BDST",
+            *b"ANAM", *b"CNAM", *b"ENAM", *b"FNAM", *b"GNAM", *b"KNAM", *b"BDED", *b"TEMP",
+            *b"DENS", *b"PHLA",
+        ];
+        let placed = placements(schema, *b"PNDT", &subs).unwrap();
+        for (i, p) in placed.iter().enumerate() {
+            if i != 2 {
+                assert!(matches!(p, Placement::Member { .. }), "{i}: {p:?}");
+            }
+        }
+        for (top, inner) in [(4, 9), (5, 11), (6, 12)] {
+            let a = layout_at(schema, *b"PNDT", &subs, top).unwrap().unwrap();
+            let b = layout_at(schema, *b"PNDT", &subs, inner).unwrap().unwrap();
+            assert!(!a.path.contains('.'), "{}", a.path);
+            assert!(b.path.starts_with("Body."), "{}", b.path);
+            assert_ne!(a.ty, b.ty, "{} vs {}", a.path, b.path);
+            let both = path_layout(schema, *b"PNDT", &subs, &[top, inner], false);
+            match both {
+                Err(LayoutError::Ambiguous { paths, .. }) => {
+                    assert_eq!(paths, [a.path.clone(), b.path.clone()]);
+                }
+                other => panic!("{other:?}"),
+            }
+            let (one, chosen) = path_layout(schema, *b"PNDT", &subs, &[inner], true)
+                .unwrap()
+                .unwrap();
+            assert_eq!((one.path, chosen), (b.path, vec![inner]));
+        }
+        // A CNAM where no member accepts it is unknown, not decoded with either layout.
+        let odd = [*b"EDID", *b"TEMP", *b"CNAM"];
+        assert!(matches!(
+            layout_at(schema, *b"PNDT", &odd, 2),
+            Err(LayoutError::Unplaced { index: 2, .. })
+        ));
     }
 
     #[test]

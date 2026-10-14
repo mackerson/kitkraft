@@ -1,0 +1,129 @@
+# PCBN: Planet Content Manager Branch Node, an inner node of a procedural placement tree.
+# It points up to its parent (PRTN: a PCMT or another PCBN) and back to its previous
+# sibling (PRVN); the tree is linked bottom-up, the PCCB child list is never written.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15764-L15785 - member order, NAM1..NAM5 widths
+#     and values, the PCCB node list, conditions, keywords, PRTN/PRVN targets. Helpers: the
+#     condition count (L2251) and list (L4750-L4840, common/Condition.toml), the base form
+#     component block (L5984-L6832, common/BfcbBlock.toml, kept raw), the keyword list
+#     without a count (wbDefinitionsCommon.pas L8935-L8951), the boolean enumeration
+#     (wbDefinitionsCommon.pas L7514-L7521).
+#   corpus: the 379 PCBN records (Starfield.esm 336, SFBGS00D 15, SFBGS050 9,
+#     ShatteredSpace 19; form versions 581 and 582), 2026-10-14: order EDID [BFCB block]
+#     NAM1 NAM2 [NAM3] [NAM4] NAM5 CITC CTDA* [KWDA] PRTN [PRVN]; NAM1..NAM4 4 bytes, NAM5
+#     1 byte, KWDA a multiple of 4 (4 or 8), no PCCB. Every record decodes and re-encodes
+#     identically.
+#
+# The BFCB block is always BGSPlanetContentManagerContentProperties_Component here (the
+# placement properties shared with PCCN, LVLP and PKIN); its payload stays raw.
+signature = "PCBN"
+name = "PlanetContentBranchNode"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785"
+evidence = [
+  "corpus: the 379 PCBN records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: at most one, BGSPlanetContentManagerContentProperties_Component"
+
+[[member]]
+sig = "NAM1"
+name = "NodeType"
+type = "enum"
+base = "u32"
+values = [["Root", 0], ["BranchNode", 1], ["ContentNode", 2]]
+note = "Root is only valid on a PCMT"
+
+[[member]]
+sig = "NAM2"
+name = "ChildSelection"
+type = "enum"
+base = "u32"
+values = [["Random", 0], ["Stacked", 1]]
+
+[[member]]
+sig = "NAM3"
+name = "CountCurve"
+type = "formid"
+targets = ["CURV"]
+card = "optional"
+note = "observed in 7 records"
+
+[[member]]
+sig = "NAM4"
+name = "DistributionCurve"
+type = "formid"
+targets = ["CURV"]
+card = "optional"
+note = "observed in 7 records"
+
+[[member]]
+sig = "NAM5"
+name = "ConsumeRequestOnFailure"
+type = "enum"
+base = "u8"
+values = [["False", 0], ["True", 1]]
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"]
+
+[[member]]
+sig = "PCCB"
+name = "Nodes"
+type = "formid"
+targets = ["PCBN", "PCCN"]
+card = "repeated"
+confidence = "reference"
+note = "child nodes; never present in the official files (children point up through PRTN instead)"
+
+[[member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of Conditions that follow; stored, not derived"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "observed up to 10 per record"
+
+[[member]]
+sig = "KWDA"
+name = "Keywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+note = "keyword list without a KSIZ count; a null FormID is allowed"
+
+[[member]]
+sig = "PRTN"
+name = "ParentNode"
+type = "formid"
+targets = ["PCBN", "PCMT"]
+note = "a null FormID is allowed upstream; present in every official record"
+
+[[member]]
+sig = "PRVN"
+name = "PreviousNode"
+type = "formid"
+targets = ["PCBN"]
+card = "optional"
+note = "previous sibling; absent on a first child"
