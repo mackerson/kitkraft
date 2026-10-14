@@ -138,7 +138,9 @@ is under "Next".
 - Lane F (M2.F1..F6, F8): `Engine` owns a `Session` (`SessionHandler`s registered in
   `handlers::session_defaults()`; typed slots; `Session::load_order` listing); stdio MCP
   server in `crates/mcp`, hand-written over `serde_json`, MCP 2026-07-28 plus the
-  handshake revisions 2025-11-25..2024-11-05; tools `execute`, `command_line`,
+  handshake revisions 2025-11-25 and 2025-06-18 (the batch-era 2025-03-26 and 2024-11-05
+  negotiate to 2025-11-25; every served version is in `server/discover` and `-32022`;
+  `ping`/`initialize` are legacy-only); tools `execute`, `command_line`,
   `inspect_record`, `query_records`, `diff_plugins`, `coverage`, `roundtrip` generated from
   the catalog; resources `kitcraft://commands`, `kitcraft://load-order`; argument and
   command errors as `isError` results, engine bugs `-32603` (`docs/mcp.md`); `kit mcp
@@ -147,6 +149,13 @@ is under "Next".
   answers `not_implemented` until M2.D11); `Status::Deferred { reason, milestone }` and
   the `catalog_closure` test (every `Planned` command must be listed in `PLANNED_IN_M2`
   with its owning M2 task; nothing is deferred yet because every command has an M2 owner).
+  Review round 2 (Fable, no blockers) fixed: `roundtrip --out` opens with `create_new`
+  unless `overwrite: true`, and `destructiveHint` is `true` on the tools that can write;
+  `coverage` gained `signatures` and `top`, and MCP defaults them to `false`/`20`
+  (`backend::MCP_DEFAULTS`; `Starfield.esm`: 18 KB instead of 695 KB, text leads with
+  `data.summary`); `execute` reports `unknown_command` before other violations and takes
+  `args: null` as `{}`; a `not_implemented` `--profile` preload stays out of the
+  instructions; `docs/mcp.md` states that paths are not confined to `KITCRAFT_DATA_DIR`.
 
 - Lane A, M2 (`crates/esm`): M2.A0 review round 3 follow-ups 1-10 (each with a
   regression test); M2.A1 record index (`Starfield.esm` in 3.3 s release, 288 MiB peak;
