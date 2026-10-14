@@ -596,6 +596,12 @@ is under "Next".
     command-line forms) and `official_sources`. **Open:** the acceptance check that the
     events `docs/design/persistence.md` cites exist waits for that file (M4.H3, lane H; not
     on main): `kit papyrus events --event <name> --declarations-only` is the check.
+  - M4.G3 (scoping): `docs/research/asset-formats.md`: `ba2.list` over all 90 official
+    archives (1,763,906 entries, 138.5 GiB; 65 GNRL v2, 10 DX10 v2, 15 DX10 v3 LZ4) by
+    extension (38 extensions) and by archive group, with what KitCraft does per format,
+    the permitted source if any (only DDS headers, string tables and `.pex` have one) and
+    the workstream that would author it. Finding: no `.mat` file exists in any official
+    archive; materials ship as a `.cdb` component database. No implementation.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
