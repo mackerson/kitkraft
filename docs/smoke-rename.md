@@ -27,9 +27,11 @@ $out  = 'C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm'
 # 1-2. The load order and the form (Starfield.esm alone: the rifle's only version).
 kit query WEAP --where "FULL ~ 'Old Earth Hunting Rifle'" --plugins Starfield.esm --data-dir $data
 
-# 3. Write the plugin, then the same from the spec (same bytes).
+# 3. Write the plugin, then the same from the spec (same bytes). `set` updates an existing
+#    patch in place (its header is kept), so delete $out first to write it fresh; `build`
+#    always writes fresh and replaces an existing file only with --overwrite.
 kit set Starfield.esm:0021BBCD 'FULL=Old Soviet Marksman Rifle' --into $out --plugins Starfield.esm --data-dir $data
-kit build docs\smoke-rename.toml C:\Modding\kitcraft\out\built\OldSovietMarksmanRifle.esm
+kit build docs\smoke-rename.toml C:\Modding\kitcraft\out\built\OldSovietMarksmanRifle.esm --overwrite
 
 # 4. Check it.
 kit validate --plugin $out --plugins Starfield.esm --data-dir $data
@@ -49,16 +51,19 @@ until lane D's round 2 makes the winning override a safe source, `set` and `buil
 any such load order ("load order unverified"). The rifle's winner in that profile is
 `Starfield.esm` anyway (above), so `--plugins Starfield.esm` writes the same record.
 
-## Result (2026-10-14, release build)
+## Result (2026-10-14, release build, after the Fable review round 2 fixes)
 
-`OldSovietMarksmanRifle.esm`, 2,197 bytes, SHA-256
-`73F3F92F27EC1285818E252E9317E5B0A7696D751A610A765662FC9D194A3C24`, identical from `set`
-and `build`:
+`OldSovietMarksmanRifle.esm`, 2,221 bytes, SHA-256
+`9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`, identical from `set`
+and `build` (regenerated in `C:\Modding\kitcraft\out\` and `out\built\`). The first
+build (2,197 bytes, `73F3F92F27EC1285...194A3C24`) differs only in `TES4`: review finding 5
+added `CNAM` "DEFAULT" and `INCC` 0; every byte after `TES4` is the same.
 
 - `TES4`: flags `0x00000001` (master: an `.esm`, like every official file; not localized,
   no small/medium bit), form version 582, `HEDR` 0.96 / 2 records / next object ID
-  `0xFF001000`, one master `Starfield.esm` (`MAST` + 8-byte `DATA`), no `ONAM`
-  (`docs/corpus.md` "Writing rules").
+  `0xFF001000`, `CNAM` "DEFAULT", one master `Starfield.esm` (`MAST` + 8-byte `DATA`),
+  `INCC` 0 (no interior cells), no `ONAM`; `SNAM`, `BNAM` and `CHGL` deliberately not
+  written (`docs/corpus.md` "Writing rules").
 - `GRUP WEAP` (top level) holding one record: `WEAP 0021BBCD`, record flags `0x40000000`
   and form version 581 as in `Starfield.esm`, every subrecord in the original order;
   `FULL` = "Old Soviet Marksman Rifle" (26 bytes inline), `DESC` = empty string, the 7
@@ -70,8 +75,10 @@ and `build`:
   `OldSovietMarksmanRifle.esm`, FULL "Old Soviet Marksman Rifle".
 
 For contrast, the Resupply mistake (`FULL` = the master's 4-byte ID copied as is,
-`kit set ... 'FULL=hex:69E40200'`) fails `validate` with `lstring.copied-id` at `FULL[0]`
-(the automated test checks it).
+`kit set ... 'FULL=hex:69E40200'`) is refused by `set` itself: it runs the `validate`
+plugin rules on the record it wrote, `lstring.copied-id` fails at `FULL[0]`, and nothing
+is written (the automated test checks it). The rifle has no subrecord the corpus lstring
+table (`docs/validate.md`) adds: its 8 inlined lstrings are the schema's.
 
 ## In game (owner, M2.O6)
 
