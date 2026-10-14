@@ -21,6 +21,7 @@
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
 // - LCRT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373; corpus)
+// - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
@@ -3567,6 +3568,1857 @@ impl LcrtRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnProperties(pub Vec<PropertyValue>);
+
+impl Field for LctnProperties {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnProperties {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedPersistentRefsItem {
+    pub ref_: FormId,
+    pub world_or_cell: FormId,
+    pub grid_y: i16,
+    pub grid_x: i16,
+    pub bytes12: [u8; 4],
+}
+
+impl Field for LctnAddedPersistentRefsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.ACPR.Ref", ctx)?;
+        let f1 = Field::read(r, "LCTN.ACPR.WorldOrCell", ctx)?;
+        let f2 = i16::read(r, "LCTN.ACPR.GridY", ctx)?;
+        let f3 = i16::read(r, "LCTN.ACPR.GridX", ctx)?;
+        let f4 = Field::read(r, "LCTN.ACPR.Bytes12", ctx)?;
+        Ok(Self {
+            ref_: f0,
+            world_or_cell: f1,
+            grid_y: f2,
+            grid_x: f3,
+            bytes12: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.world_or_cell.write(out);
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+        self.bytes12.write(out);
+    }
+}
+
+impl Visit for LctnAddedPersistentRefsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "LCTN.ACPR.Ref", out);
+        visit_form_ids(&self.world_or_cell, "LCTN.ACPR.WorldOrCell", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "LCTN.ACPR.Ref", out);
+        visit_form_ids_mut(&mut self.world_or_cell, "LCTN.ACPR.WorldOrCell", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedPersistentRefs(pub Vec<LctnAddedPersistentRefsItem>);
+
+impl Field for LctnAddedPersistentRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedPersistentRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnPersistentRefsItem {
+    pub ref_: FormId,
+    pub world_or_cell: FormId,
+    pub grid_y: i16,
+    pub grid_x: i16,
+    pub bytes12: [u8; 4],
+}
+
+impl Field for LctnPersistentRefsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.LCPR.Ref", ctx)?;
+        let f1 = Field::read(r, "LCTN.LCPR.WorldOrCell", ctx)?;
+        let f2 = i16::read(r, "LCTN.LCPR.GridY", ctx)?;
+        let f3 = i16::read(r, "LCTN.LCPR.GridX", ctx)?;
+        let f4 = Field::read(r, "LCTN.LCPR.Bytes12", ctx)?;
+        Ok(Self {
+            ref_: f0,
+            world_or_cell: f1,
+            grid_y: f2,
+            grid_x: f3,
+            bytes12: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.world_or_cell.write(out);
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+        self.bytes12.write(out);
+    }
+}
+
+impl Visit for LctnPersistentRefsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "LCTN.LCPR.Ref", out);
+        visit_form_ids(&self.world_or_cell, "LCTN.LCPR.WorldOrCell", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "LCTN.LCPR.Ref", out);
+        visit_form_ids_mut(&mut self.world_or_cell, "LCTN.LCPR.WorldOrCell", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnPersistentRefs(pub Vec<LctnPersistentRefsItem>);
+
+impl Field for LctnPersistentRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnPersistentRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnRemovedPersistentRefs(pub Vec<FormId>);
+
+impl Field for LctnRemovedPersistentRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnRemovedPersistentRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedUniqueBaseFormsItem {
+    pub generic_base_form: FormId,
+    pub placed_object: FormId,
+    pub location: FormId,
+}
+
+impl Field for LctnAddedUniqueBaseFormsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.ACUR.GenericBaseForm", ctx)?;
+        let f1 = Field::read(r, "LCTN.ACUR.PlacedObject", ctx)?;
+        let f2 = Field::read(r, "LCTN.ACUR.Location", ctx)?;
+        Ok(Self {
+            generic_base_form: f0,
+            placed_object: f1,
+            location: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.generic_base_form.write(out);
+        self.placed_object.write(out);
+        self.location.write(out);
+    }
+}
+
+impl Visit for LctnAddedUniqueBaseFormsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.generic_base_form, "LCTN.ACUR.GenericBaseForm", out);
+        visit_form_ids(&self.placed_object, "LCTN.ACUR.PlacedObject", out);
+        visit_form_ids(&self.location, "LCTN.ACUR.Location", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.generic_base_form,
+            "LCTN.ACUR.GenericBaseForm",
+            out,
+        );
+        visit_form_ids_mut(&mut self.placed_object, "LCTN.ACUR.PlacedObject", out);
+        visit_form_ids_mut(&mut self.location, "LCTN.ACUR.Location", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedUniqueBaseForms(pub Vec<LctnAddedUniqueBaseFormsItem>);
+
+impl Field for LctnAddedUniqueBaseForms {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedUniqueBaseForms {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnUniqueBaseFormsItem {
+    pub generic_base_form: FormId,
+    pub placed_object: FormId,
+    pub location: FormId,
+}
+
+impl Field for LctnUniqueBaseFormsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.LCUR.GenericBaseForm", ctx)?;
+        let f1 = Field::read(r, "LCTN.LCUR.PlacedObject", ctx)?;
+        let f2 = Field::read(r, "LCTN.LCUR.Location", ctx)?;
+        Ok(Self {
+            generic_base_form: f0,
+            placed_object: f1,
+            location: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.generic_base_form.write(out);
+        self.placed_object.write(out);
+        self.location.write(out);
+    }
+}
+
+impl Visit for LctnUniqueBaseFormsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.generic_base_form, "LCTN.LCUR.GenericBaseForm", out);
+        visit_form_ids(&self.placed_object, "LCTN.LCUR.PlacedObject", out);
+        visit_form_ids(&self.location, "LCTN.LCUR.Location", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.generic_base_form,
+            "LCTN.LCUR.GenericBaseForm",
+            out,
+        );
+        visit_form_ids_mut(&mut self.placed_object, "LCTN.LCUR.PlacedObject", out);
+        visit_form_ids_mut(&mut self.location, "LCTN.LCUR.Location", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnUniqueBaseForms(pub Vec<LctnUniqueBaseFormsItem>);
+
+impl Field for LctnUniqueBaseForms {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnUniqueBaseForms {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnRemovedUniqueBaseForms(pub Vec<FormId>);
+
+impl Field for LctnRemovedUniqueBaseForms {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnRemovedUniqueBaseForms {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedUniqueNpcsItem {
+    pub npc: FormId,
+    pub actor_ref: FormId,
+    pub location: FormId,
+}
+
+impl Field for LctnAddedUniqueNpcsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.ACUN.Npc", ctx)?;
+        let f1 = Field::read(r, "LCTN.ACUN.ActorRef", ctx)?;
+        let f2 = Field::read(r, "LCTN.ACUN.Location", ctx)?;
+        Ok(Self {
+            npc: f0,
+            actor_ref: f1,
+            location: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.npc.write(out);
+        self.actor_ref.write(out);
+        self.location.write(out);
+    }
+}
+
+impl Visit for LctnAddedUniqueNpcsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.npc, "LCTN.ACUN.Npc", out);
+        visit_form_ids(&self.actor_ref, "LCTN.ACUN.ActorRef", out);
+        visit_form_ids(&self.location, "LCTN.ACUN.Location", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.npc, "LCTN.ACUN.Npc", out);
+        visit_form_ids_mut(&mut self.actor_ref, "LCTN.ACUN.ActorRef", out);
+        visit_form_ids_mut(&mut self.location, "LCTN.ACUN.Location", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedUniqueNpcs(pub Vec<LctnAddedUniqueNpcsItem>);
+
+impl Field for LctnAddedUniqueNpcs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedUniqueNpcs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnUniqueNpcsItem {
+    pub npc: FormId,
+    pub actor_ref: FormId,
+    pub location: FormId,
+}
+
+impl Field for LctnUniqueNpcsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.LCUN.Npc", ctx)?;
+        let f1 = Field::read(r, "LCTN.LCUN.ActorRef", ctx)?;
+        let f2 = Field::read(r, "LCTN.LCUN.Location", ctx)?;
+        Ok(Self {
+            npc: f0,
+            actor_ref: f1,
+            location: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.npc.write(out);
+        self.actor_ref.write(out);
+        self.location.write(out);
+    }
+}
+
+impl Visit for LctnUniqueNpcsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.npc, "LCTN.LCUN.Npc", out);
+        visit_form_ids(&self.actor_ref, "LCTN.LCUN.ActorRef", out);
+        visit_form_ids(&self.location, "LCTN.LCUN.Location", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.npc, "LCTN.LCUN.Npc", out);
+        visit_form_ids_mut(&mut self.actor_ref, "LCTN.LCUN.ActorRef", out);
+        visit_form_ids_mut(&mut self.location, "LCTN.LCUN.Location", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnUniqueNpcs(pub Vec<LctnUniqueNpcsItem>);
+
+impl Field for LctnUniqueNpcs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnUniqueNpcs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnRemovedUniqueNpcs(pub Vec<FormId>);
+
+impl Field for LctnRemovedUniqueNpcs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnRemovedUniqueNpcs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedSpecialRefsItem {
+    pub ref_type: FormId,
+    pub ref_: FormId,
+    pub world_or_cell: FormId,
+    pub grid_y: i16,
+    pub grid_x: i16,
+    pub bytes16: [u8; 4],
+}
+
+impl Field for LctnAddedSpecialRefsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.ACSR.RefType", ctx)?;
+        let f1 = Field::read(r, "LCTN.ACSR.Ref", ctx)?;
+        let f2 = Field::read(r, "LCTN.ACSR.WorldOrCell", ctx)?;
+        let f3 = i16::read(r, "LCTN.ACSR.GridY", ctx)?;
+        let f4 = i16::read(r, "LCTN.ACSR.GridX", ctx)?;
+        let f5 = Field::read(r, "LCTN.ACSR.Bytes16", ctx)?;
+        Ok(Self {
+            ref_type: f0,
+            ref_: f1,
+            world_or_cell: f2,
+            grid_y: f3,
+            grid_x: f4,
+            bytes16: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_type.write(out);
+        self.ref_.write(out);
+        self.world_or_cell.write(out);
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+        self.bytes16.write(out);
+    }
+}
+
+impl Visit for LctnAddedSpecialRefsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_type, "LCTN.ACSR.RefType", out);
+        visit_form_ids(&self.ref_, "LCTN.ACSR.Ref", out);
+        visit_form_ids(&self.world_or_cell, "LCTN.ACSR.WorldOrCell", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_type, "LCTN.ACSR.RefType", out);
+        visit_form_ids_mut(&mut self.ref_, "LCTN.ACSR.Ref", out);
+        visit_form_ids_mut(&mut self.world_or_cell, "LCTN.ACSR.WorldOrCell", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedSpecialRefs(pub Vec<LctnAddedSpecialRefsItem>);
+
+impl Field for LctnAddedSpecialRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedSpecialRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnSpecialRefsItem {
+    pub ref_type: FormId,
+    pub ref_: FormId,
+    pub world_or_cell: FormId,
+    pub grid_y: i16,
+    pub grid_x: i16,
+    pub bytes16: [u8; 4],
+}
+
+impl Field for LctnSpecialRefsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.LCSR.RefType", ctx)?;
+        let f1 = Field::read(r, "LCTN.LCSR.Ref", ctx)?;
+        let f2 = Field::read(r, "LCTN.LCSR.WorldOrCell", ctx)?;
+        let f3 = i16::read(r, "LCTN.LCSR.GridY", ctx)?;
+        let f4 = i16::read(r, "LCTN.LCSR.GridX", ctx)?;
+        let f5 = Field::read(r, "LCTN.LCSR.Bytes16", ctx)?;
+        Ok(Self {
+            ref_type: f0,
+            ref_: f1,
+            world_or_cell: f2,
+            grid_y: f3,
+            grid_x: f4,
+            bytes16: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_type.write(out);
+        self.ref_.write(out);
+        self.world_or_cell.write(out);
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+        self.bytes16.write(out);
+    }
+}
+
+impl Visit for LctnSpecialRefsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_type, "LCTN.LCSR.RefType", out);
+        visit_form_ids(&self.ref_, "LCTN.LCSR.Ref", out);
+        visit_form_ids(&self.world_or_cell, "LCTN.LCSR.WorldOrCell", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_type, "LCTN.LCSR.RefType", out);
+        visit_form_ids_mut(&mut self.ref_, "LCTN.LCSR.Ref", out);
+        visit_form_ids_mut(&mut self.world_or_cell, "LCTN.LCSR.WorldOrCell", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnSpecialRefs(pub Vec<LctnSpecialRefsItem>);
+
+impl Field for LctnSpecialRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnSpecialRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnRemovedSpecialRefs(pub Vec<FormId>);
+
+impl Field for LctnRemovedSpecialRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnRemovedSpecialRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedWorldCellsCells {
+    pub grid_y: i16,
+    pub grid_x: i16,
+}
+
+impl Field for LctnAddedWorldCellsCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "LCTN.ACEC.Cells.GridY", ctx)?;
+        let f1 = i16::read(r, "LCTN.ACEC.Cells.GridX", ctx)?;
+        Ok(Self {
+            grid_y: f0,
+            grid_x: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+    }
+}
+
+impl Visit for LctnAddedWorldCellsCells {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedWorldCells {
+    pub world: FormId,
+    pub cells: Vec<LctnAddedWorldCellsCells>,
+}
+
+impl Field for LctnAddedWorldCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.ACEC.World", ctx)?;
+        let f1 = Field::read(r, "LCTN.ACEC.Cells", ctx)?;
+        Ok(Self {
+            world: f0,
+            cells: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.world.write(out);
+        self.cells.write(out);
+    }
+}
+
+impl Visit for LctnAddedWorldCells {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.world, "LCTN.ACEC.World", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.world, "LCTN.ACEC.World", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnWorldCellsCells {
+    pub grid_y: i16,
+    pub grid_x: i16,
+}
+
+impl Field for LctnWorldCellsCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "LCTN.LCEC.Cells.GridY", ctx)?;
+        let f1 = i16::read(r, "LCTN.LCEC.Cells.GridX", ctx)?;
+        Ok(Self {
+            grid_y: f0,
+            grid_x: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+    }
+}
+
+impl Visit for LctnWorldCellsCells {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnWorldCells {
+    pub world: FormId,
+    pub cells: Vec<LctnWorldCellsCells>,
+}
+
+impl Field for LctnWorldCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.LCEC.World", ctx)?;
+        let f1 = Field::read(r, "LCTN.LCEC.Cells", ctx)?;
+        Ok(Self {
+            world: f0,
+            cells: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.world.write(out);
+        self.cells.write(out);
+    }
+}
+
+impl Visit for LctnWorldCells {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.world, "LCTN.LCEC.World", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.world, "LCTN.LCEC.World", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnRemovedWorldCellsCells {
+    pub grid_y: i16,
+    pub grid_x: i16,
+}
+
+impl Field for LctnRemovedWorldCellsCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i16::read(r, "LCTN.RCEC.Cells.GridY", ctx)?;
+        let f1 = i16::read(r, "LCTN.RCEC.Cells.GridX", ctx)?;
+        Ok(Self {
+            grid_y: f0,
+            grid_x: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.grid_y.write(out);
+        self.grid_x.write(out);
+    }
+}
+
+impl Visit for LctnRemovedWorldCellsCells {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnRemovedWorldCells {
+    pub world: FormId,
+    pub cells: Vec<LctnRemovedWorldCellsCells>,
+}
+
+impl Field for LctnRemovedWorldCells {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.RCEC.World", ctx)?;
+        let f1 = Field::read(r, "LCTN.RCEC.Cells", ctx)?;
+        Ok(Self {
+            world: f0,
+            cells: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.world.write(out);
+        self.cells.write(out);
+    }
+}
+
+impl Visit for LctnRemovedWorldCells {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.world, "LCTN.RCEC.World", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.world, "LCTN.RCEC.World", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedInitiallyDisabledRefs(pub Vec<FormId>);
+
+impl Field for LctnAddedInitiallyDisabledRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedInitiallyDisabledRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnInitiallyDisabledRefs(pub Vec<FormId>);
+
+impl Field for LctnInitiallyDisabledRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnInitiallyDisabledRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LctnAddedEnableParentRefsItemFlags(pub u8);
+
+impl LctnAddedEnableParentRefsItemFlags {
+    pub const OPPOSITE_OF_PARENT: u8 = 0x1;
+    pub const POP_IN: u8 = 0x2;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LctnAddedEnableParentRefsItemFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedEnableParentRefsItemFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedEnableParentRefsItem {
+    pub ref_: FormId,
+    pub parent: FormId,
+    pub flags: LctnAddedEnableParentRefsItemFlags,
+    pub unused: [u8; 3],
+}
+
+impl Field for LctnAddedEnableParentRefsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.ACEP.Ref", ctx)?;
+        let f1 = Field::read(r, "LCTN.ACEP.Parent", ctx)?;
+        let f2 = Field::read(r, "LCTN.ACEP.Flags", ctx)?;
+        let f3 = Field::read(r, "LCTN.ACEP.Unused", ctx)?;
+        Ok(Self {
+            ref_: f0,
+            parent: f1,
+            flags: f2,
+            unused: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.parent.write(out);
+        self.flags.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for LctnAddedEnableParentRefsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "LCTN.ACEP.Ref", out);
+        visit_form_ids(&self.parent, "LCTN.ACEP.Parent", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "LCTN.ACEP.Ref", out);
+        visit_form_ids_mut(&mut self.parent, "LCTN.ACEP.Parent", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnAddedEnableParentRefs(pub Vec<LctnAddedEnableParentRefsItem>);
+
+impl Field for LctnAddedEnableParentRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnAddedEnableParentRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LctnEnableParentRefsItemFlags(pub u8);
+
+impl LctnEnableParentRefsItemFlags {
+    pub const OPPOSITE_OF_PARENT: u8 = 0x1;
+    pub const POP_IN: u8 = 0x2;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LctnEnableParentRefsItemFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnEnableParentRefsItemFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnEnableParentRefsItem {
+    pub ref_: FormId,
+    pub parent: FormId,
+    pub flags: LctnEnableParentRefsItemFlags,
+    pub unused: [u8; 3],
+}
+
+impl Field for LctnEnableParentRefsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.LCEP.Ref", ctx)?;
+        let f1 = Field::read(r, "LCTN.LCEP.Parent", ctx)?;
+        let f2 = Field::read(r, "LCTN.LCEP.Flags", ctx)?;
+        let f3 = Field::read(r, "LCTN.LCEP.Unused", ctx)?;
+        Ok(Self {
+            ref_: f0,
+            parent: f1,
+            flags: f2,
+            unused: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.parent.write(out);
+        self.flags.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for LctnEnableParentRefsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "LCTN.LCEP.Ref", out);
+        visit_form_ids(&self.parent, "LCTN.LCEP.Parent", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "LCTN.LCEP.Ref", out);
+        visit_form_ids_mut(&mut self.parent, "LCTN.LCEP.Parent", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnEnableParentRefs(pub Vec<LctnEnableParentRefsItem>);
+
+impl Field for LctnEnableParentRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnEnableParentRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnProperties2(pub Vec<PropertyValue>);
+
+impl Field for LctnProperties2 {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnProperties2 {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct LctnDataLevelFlags(pub u8);
+
+impl LctnDataLevelFlags {
+    pub const NEVER_RESETS: u8 = 0x1;
+    pub const MATCH_PC_LEVEL: u8 = 0x2;
+    pub const DISABLE_COMBAT_BOUNDARY: u8 = 0x4;
+    pub const WORKSHOP: u8 = 0x8;
+    pub const USE_PARENTS_LOCKED_LEVEL: u8 = 0x10;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for LctnDataLevelFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for LctnDataLevelFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct LctnData {
+    pub owner: FormId,
+    pub faction_rank: i8,
+    pub min_level: u8,
+    pub level_flags: LctnDataLevelFlags,
+    pub max_level: u8,
+}
+
+impl Field for LctnData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "LCTN.DATA.Owner", ctx)?;
+        let f1 = i8::read(r, "LCTN.DATA.FactionRank", ctx)?;
+        let f2 = u8::read(r, "LCTN.DATA.MinLevel", ctx)?;
+        let f3 = Field::read(r, "LCTN.DATA.LevelFlags", ctx)?;
+        let f4 = u8::read(r, "LCTN.DATA.MaxLevel", ctx)?;
+        Ok(Self {
+            owner: f0,
+            faction_rank: f1,
+            min_level: f2,
+            level_flags: f3,
+            max_level: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.owner.write(out);
+        self.faction_rank.write(out);
+        self.min_level.write(out);
+        self.level_flags.write(out);
+        self.max_level.write(out);
+    }
+}
+
+impl Visit for LctnData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.owner, "LCTN.DATA.Owner", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.owner, "LCTN.DATA.Owner", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct LctnRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `PRPS`, optional.
+    pub properties: Option<Sub<LctnProperties>>,
+    /// `ACPR`, optional.
+    pub added_persistent_refs: Option<Sub<LctnAddedPersistentRefs>>,
+    /// `LCPR`, optional.
+    pub persistent_refs: Option<Sub<LctnPersistentRefs>>,
+    /// `RCPR`, optional.
+    pub removed_persistent_refs: Option<Sub<LctnRemovedPersistentRefs>>,
+    /// `ACUR`, optional.
+    pub added_unique_base_forms: Option<Sub<LctnAddedUniqueBaseForms>>,
+    /// `LCUR`, optional.
+    pub unique_base_forms: Option<Sub<LctnUniqueBaseForms>>,
+    /// `RCUR`, optional.
+    pub removed_unique_base_forms: Option<Sub<LctnRemovedUniqueBaseForms>>,
+    /// `ACUN`, optional.
+    pub added_unique_npcs: Option<Sub<LctnAddedUniqueNpcs>>,
+    /// `LCUN`, optional.
+    pub unique_npcs: Option<Sub<LctnUniqueNpcs>>,
+    /// `RCUN`, optional.
+    pub removed_unique_npcs: Option<Sub<LctnRemovedUniqueNpcs>>,
+    /// `ACSR`, optional.
+    pub added_special_refs: Option<Sub<LctnAddedSpecialRefs>>,
+    /// `LCSR`, optional.
+    pub special_refs: Option<Sub<LctnSpecialRefs>>,
+    /// `RCSR`, optional.
+    pub removed_special_refs: Option<Sub<LctnRemovedSpecialRefs>>,
+    /// `ACEC`, repeated.
+    pub added_world_cells: Vec<Sub<LctnAddedWorldCells>>,
+    /// `LCEC`, repeated.
+    pub world_cells: Vec<Sub<LctnWorldCells>>,
+    /// `RCEC`, repeated.
+    pub removed_world_cells: Vec<Sub<LctnRemovedWorldCells>>,
+    /// `ACID`, optional.
+    pub added_initially_disabled_refs: Option<Sub<LctnAddedInitiallyDisabledRefs>>,
+    /// `LCID`, optional.
+    pub initially_disabled_refs: Option<Sub<LctnInitiallyDisabledRefs>>,
+    /// `ACEP`, optional.
+    pub added_enable_parent_refs: Option<Sub<LctnAddedEnableParentRefs>>,
+    /// `LCEP`, optional.
+    pub enable_parent_refs: Option<Sub<LctnEnableParentRefs>>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// Group `Keywords`, optional.
+    pub keywords: Option<Keywords>,
+    /// `PRPS`, optional.
+    pub properties2: Option<Sub<LctnProperties2>>,
+    /// `DATA`, optional.
+    pub data: Option<Sub<LctnData>>,
+    /// `PNAM`, optional.
+    pub parent_location: Option<Sub<FormId>>,
+    /// `NAM1`, optional.
+    pub music_type: Option<Sub<FormId>>,
+    /// `FNAM`, optional.
+    pub unreported_crime_faction: Option<Sub<FormId>>,
+    /// `MNAM`, optional.
+    pub world_location_marker_ref: Option<Sub<FormId>>,
+    /// `RNAM`, optional.
+    pub world_location_radius: Option<Sub<f32>>,
+    /// `ANAM`, optional.
+    pub actor_fade_mult: Option<Sub<f32>>,
+    /// `TNAM`, optional.
+    pub random_conversation_timer: Option<Sub<f32>>,
+    /// `NAM0`, optional.
+    pub nam0: Option<Sub<[u8; 4]>>,
+    /// `CNAM`, optional.
+    pub color: Option<Sub<ColorRgba>>,
+    /// `XNAM`, optional.
+    pub star_id: Option<Sub<i32>>,
+    /// `YNAM`, optional.
+    pub planet_id: Option<Sub<i32>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl LctnRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRPS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACPR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCPR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RCPR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACUR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCUR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RCUR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACUN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCUN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RCUN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACSR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCSR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RCSR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACEC",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCEC",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"RCEC",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ACEP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LCEP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Keywords::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRPS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM1",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"RNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ANAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM0",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"YNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "LCTN.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "LCTN.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.properties, subs, *index, "LCTN.PRPS", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.added_persistent_refs,
+                    subs,
+                    *index,
+                    "LCTN.ACPR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.persistent_refs,
+                    subs,
+                    *index,
+                    "LCTN.LCPR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.removed_persistent_refs,
+                    subs,
+                    *index,
+                    "LCTN.RCPR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.added_unique_base_forms,
+                    subs,
+                    *index,
+                    "LCTN.ACUR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.unique_base_forms,
+                    subs,
+                    *index,
+                    "LCTN.LCUR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.removed_unique_base_forms,
+                    subs,
+                    *index,
+                    "LCTN.RCUR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.added_unique_npcs,
+                    subs,
+                    *index,
+                    "LCTN.ACUN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.unique_npcs, subs, *index, "LCTN.LCUN", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.removed_unique_npcs,
+                    subs,
+                    *index,
+                    "LCTN.RCUN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.added_special_refs,
+                    subs,
+                    *index,
+                    "LCTN.ACSR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.special_refs,
+                    subs,
+                    *index,
+                    "LCTN.LCSR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.removed_special_refs,
+                    subs,
+                    *index,
+                    "LCTN.RCSR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 16, index } => push(
+                    &mut self.added_world_cells,
+                    subs,
+                    *index,
+                    "LCTN.ACEC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    push(&mut self.world_cells, subs, *index, "LCTN.LCEC", ctx, extra)
+                }
+                Hit::Sub { member: 18, index } => push(
+                    &mut self.removed_world_cells,
+                    subs,
+                    *index,
+                    "LCTN.RCEC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 19, index } => put(
+                    &mut self.added_initially_disabled_refs,
+                    subs,
+                    *index,
+                    "LCTN.ACID",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 20, index } => put(
+                    &mut self.initially_disabled_refs,
+                    subs,
+                    *index,
+                    "LCTN.LCID",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 21, index } => put(
+                    &mut self.added_enable_parent_refs,
+                    subs,
+                    *index,
+                    "LCTN.ACEP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 22, index } => put(
+                    &mut self.enable_parent_refs,
+                    subs,
+                    *index,
+                    "LCTN.LCEP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 23, index } => {
+                    put(&mut self.name, subs, *index, "LCTN.FULL", ctx, extra)
+                }
+                Hit::Group { member: 24, hits } if self.keywords.is_none() => {
+                    let mut group = Keywords::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.keywords = Some(group);
+                }
+                Hit::Sub { member: 25, index } => {
+                    put(&mut self.properties2, subs, *index, "LCTN.PRPS", ctx, extra)
+                }
+                Hit::Sub { member: 26, index } => {
+                    put(&mut self.data, subs, *index, "LCTN.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 27, index } => put(
+                    &mut self.parent_location,
+                    subs,
+                    *index,
+                    "LCTN.PNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 28, index } => {
+                    put(&mut self.music_type, subs, *index, "LCTN.NAM1", ctx, extra)
+                }
+                Hit::Sub { member: 29, index } => put(
+                    &mut self.unreported_crime_faction,
+                    subs,
+                    *index,
+                    "LCTN.FNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 30, index } => put(
+                    &mut self.world_location_marker_ref,
+                    subs,
+                    *index,
+                    "LCTN.MNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 31, index } => put(
+                    &mut self.world_location_radius,
+                    subs,
+                    *index,
+                    "LCTN.RNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 32, index } => put(
+                    &mut self.actor_fade_mult,
+                    subs,
+                    *index,
+                    "LCTN.ANAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 33, index } => put(
+                    &mut self.random_conversation_timer,
+                    subs,
+                    *index,
+                    "LCTN.TNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 34, index } => {
+                    put(&mut self.nam0, subs, *index, "LCTN.NAM0", ctx, extra)
+                }
+                Hit::Sub { member: 35, index } => {
+                    put(&mut self.color, subs, *index, "LCTN.CNAM", ctx, extra)
+                }
+                Hit::Sub { member: 36, index } => {
+                    put(&mut self.star_id, subs, *index, "LCTN.XNAM", ctx, extra)
+                }
+                Hit::Sub { member: 37, index } => {
+                    put(&mut self.planet_id, subs, *index, "LCTN.YNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"PRPS", self.properties.as_ref());
+        emit(out, *b"ACPR", self.added_persistent_refs.as_ref());
+        emit(out, *b"LCPR", self.persistent_refs.as_ref());
+        emit(out, *b"RCPR", self.removed_persistent_refs.as_ref());
+        emit(out, *b"ACUR", self.added_unique_base_forms.as_ref());
+        emit(out, *b"LCUR", self.unique_base_forms.as_ref());
+        emit(out, *b"RCUR", self.removed_unique_base_forms.as_ref());
+        emit(out, *b"ACUN", self.added_unique_npcs.as_ref());
+        emit(out, *b"LCUN", self.unique_npcs.as_ref());
+        emit(out, *b"RCUN", self.removed_unique_npcs.as_ref());
+        emit(out, *b"ACSR", self.added_special_refs.as_ref());
+        emit(out, *b"LCSR", self.special_refs.as_ref());
+        emit(out, *b"RCSR", self.removed_special_refs.as_ref());
+        for value in &self.added_world_cells {
+            emit(out, *b"ACEC", Some(value));
+        }
+        for value in &self.world_cells {
+            emit(out, *b"LCEC", Some(value));
+        }
+        for value in &self.removed_world_cells {
+            emit(out, *b"RCEC", Some(value));
+        }
+        emit(out, *b"ACID", self.added_initially_disabled_refs.as_ref());
+        emit(out, *b"LCID", self.initially_disabled_refs.as_ref());
+        emit(out, *b"ACEP", self.added_enable_parent_refs.as_ref());
+        emit(out, *b"LCEP", self.enable_parent_refs.as_ref());
+        emit(out, *b"FULL", self.name.as_ref());
+        if let Some(group) = &self.keywords {
+            group.emit(out);
+        }
+        emit(out, *b"PRPS", self.properties2.as_ref());
+        emit(out, *b"DATA", self.data.as_ref());
+        emit(out, *b"PNAM", self.parent_location.as_ref());
+        emit(out, *b"NAM1", self.music_type.as_ref());
+        emit(out, *b"FNAM", self.unreported_crime_faction.as_ref());
+        emit(out, *b"MNAM", self.world_location_marker_ref.as_ref());
+        emit(out, *b"RNAM", self.world_location_radius.as_ref());
+        emit(out, *b"ANAM", self.actor_fade_mult.as_ref());
+        emit(out, *b"TNAM", self.random_conversation_timer.as_ref());
+        emit(out, *b"NAM0", self.nam0.as_ref());
+        emit(out, *b"CNAM", self.color.as_ref());
+        emit(out, *b"XNAM", self.star_id.as_ref());
+        emit(out, *b"YNAM", self.planet_id.as_ref());
+    }
+}
+
+impl Visit for LctnRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.properties, "LCTN.PRPS", out);
+        visit_form_ids(&self.added_persistent_refs, "LCTN.ACPR", out);
+        visit_form_ids(&self.persistent_refs, "LCTN.LCPR", out);
+        visit_form_ids(&self.removed_persistent_refs, "LCTN.RCPR", out);
+        visit_form_ids(&self.added_unique_base_forms, "LCTN.ACUR", out);
+        visit_form_ids(&self.unique_base_forms, "LCTN.LCUR", out);
+        visit_form_ids(&self.removed_unique_base_forms, "LCTN.RCUR", out);
+        visit_form_ids(&self.added_unique_npcs, "LCTN.ACUN", out);
+        visit_form_ids(&self.unique_npcs, "LCTN.LCUN", out);
+        visit_form_ids(&self.removed_unique_npcs, "LCTN.RCUN", out);
+        visit_form_ids(&self.added_special_refs, "LCTN.ACSR", out);
+        visit_form_ids(&self.special_refs, "LCTN.LCSR", out);
+        visit_form_ids(&self.removed_special_refs, "LCTN.RCSR", out);
+        visit_form_ids(&self.added_world_cells, "LCTN.ACEC", out);
+        visit_form_ids(&self.world_cells, "LCTN.LCEC", out);
+        visit_form_ids(&self.removed_world_cells, "LCTN.RCEC", out);
+        visit_form_ids(&self.added_initially_disabled_refs, "LCTN.ACID", out);
+        visit_form_ids(&self.initially_disabled_refs, "LCTN.LCID", out);
+        visit_form_ids(&self.added_enable_parent_refs, "LCTN.ACEP", out);
+        visit_form_ids(&self.enable_parent_refs, "LCTN.LCEP", out);
+        visit_form_ids(&self.keywords, "LCTN.Keywords", out);
+        visit_form_ids(&self.properties2, "LCTN.PRPS", out);
+        visit_form_ids(&self.data, "LCTN.DATA", out);
+        visit_form_ids(&self.parent_location, "LCTN.PNAM", out);
+        visit_form_ids(&self.music_type, "LCTN.NAM1", out);
+        visit_form_ids(&self.unreported_crime_faction, "LCTN.FNAM", out);
+        visit_form_ids(&self.world_location_marker_ref, "LCTN.MNAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.properties, "LCTN.PRPS", out);
+        visit_form_ids_mut(&mut self.added_persistent_refs, "LCTN.ACPR", out);
+        visit_form_ids_mut(&mut self.persistent_refs, "LCTN.LCPR", out);
+        visit_form_ids_mut(&mut self.removed_persistent_refs, "LCTN.RCPR", out);
+        visit_form_ids_mut(&mut self.added_unique_base_forms, "LCTN.ACUR", out);
+        visit_form_ids_mut(&mut self.unique_base_forms, "LCTN.LCUR", out);
+        visit_form_ids_mut(&mut self.removed_unique_base_forms, "LCTN.RCUR", out);
+        visit_form_ids_mut(&mut self.added_unique_npcs, "LCTN.ACUN", out);
+        visit_form_ids_mut(&mut self.unique_npcs, "LCTN.LCUN", out);
+        visit_form_ids_mut(&mut self.removed_unique_npcs, "LCTN.RCUN", out);
+        visit_form_ids_mut(&mut self.added_special_refs, "LCTN.ACSR", out);
+        visit_form_ids_mut(&mut self.special_refs, "LCTN.LCSR", out);
+        visit_form_ids_mut(&mut self.removed_special_refs, "LCTN.RCSR", out);
+        visit_form_ids_mut(&mut self.added_world_cells, "LCTN.ACEC", out);
+        visit_form_ids_mut(&mut self.world_cells, "LCTN.LCEC", out);
+        visit_form_ids_mut(&mut self.removed_world_cells, "LCTN.RCEC", out);
+        visit_form_ids_mut(&mut self.added_initially_disabled_refs, "LCTN.ACID", out);
+        visit_form_ids_mut(&mut self.initially_disabled_refs, "LCTN.LCID", out);
+        visit_form_ids_mut(&mut self.added_enable_parent_refs, "LCTN.ACEP", out);
+        visit_form_ids_mut(&mut self.enable_parent_refs, "LCTN.LCEP", out);
+        visit_form_ids_mut(&mut self.keywords, "LCTN.Keywords", out);
+        visit_form_ids_mut(&mut self.properties2, "LCTN.PRPS", out);
+        visit_form_ids_mut(&mut self.data, "LCTN.DATA", out);
+        visit_form_ids_mut(&mut self.parent_location, "LCTN.PNAM", out);
+        visit_form_ids_mut(&mut self.music_type, "LCTN.NAM1", out);
+        visit_form_ids_mut(&mut self.unreported_crime_faction, "LCTN.FNAM", out);
+        visit_form_ids_mut(&mut self.world_location_marker_ref, "LCTN.MNAM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "LCTN.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "LCTN.FULL", out);
+    }
+}
+
+impl LctnRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"LCTN";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_INTERIOR_CELLS_USE_REF_LOCATION_FOR_WORLD_MAP_PLAYER_MARKER: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_PARTIAL_FORM: u32 = 0x4000;
+    /// Record-header flag.
+    pub const FLAG_OFF_LIMITS: u32 = 0x20000;
+    /// Record-header flag.
+    pub const FLAG_CANT_WAIT: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_PUBLIC_AREA: u32 = 0x100000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("LCTN", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("LCTN", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("LCTN", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("LCTN", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct OmodRecord {
     /// `EDID`, required.
@@ -4813,6 +6665,7 @@ pub enum Record {
     Gmst(Box<GmstRecord>),
     Kywd(Box<KywdRecord>),
     Lcrt(Box<LcrtRecord>),
+    Lctn(Box<LctnRecord>),
     Omod(Box<OmodRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
@@ -4828,6 +6681,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"GMST", GmstRecord::MEMBERS),
     (*b"KYWD", KywdRecord::MEMBERS),
     (*b"LCRT", LcrtRecord::MEMBERS),
+    (*b"LCTN", LctnRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
@@ -4846,6 +6700,7 @@ impl Record {
             b"GMST" => Self::Gmst(Box::new(GmstRecord::decode(subs, ctx))),
             b"KYWD" => Self::Kywd(Box::new(KywdRecord::decode(subs, ctx))),
             b"LCRT" => Self::Lcrt(Box::new(LcrtRecord::decode(subs, ctx))),
+            b"LCTN" => Self::Lctn(Box::new(LctnRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
@@ -4864,6 +6719,7 @@ impl Record {
             Self::Gmst(record) => record.encode(),
             Self::Kywd(record) => record.encode(),
             Self::Lcrt(record) => record.encode(),
+            Self::Lctn(record) => record.encode(),
             Self::Omod(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
@@ -4881,6 +6737,7 @@ impl Record {
             Self::Gmst(_) => GmstRecord::SIGNATURE,
             Self::Kywd(_) => KywdRecord::SIGNATURE,
             Self::Lcrt(_) => LcrtRecord::SIGNATURE,
+            Self::Lctn(_) => LctnRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
@@ -4898,6 +6755,7 @@ impl Record {
             Self::Gmst(record) => record.form_ids(),
             Self::Kywd(record) => record.form_ids(),
             Self::Lcrt(record) => record.form_ids(),
+            Self::Lctn(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
@@ -4915,6 +6773,7 @@ impl Record {
             Self::Gmst(record) => record.form_ids_mut(),
             Self::Kywd(record) => record.form_ids_mut(),
             Self::Lcrt(record) => record.form_ids_mut(),
+            Self::Lctn(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
@@ -4932,6 +6791,7 @@ impl Record {
             Self::Gmst(record) => record.lstrings(),
             Self::Kywd(record) => record.lstrings(),
             Self::Lcrt(record) => record.lstrings(),
+            Self::Lctn(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
@@ -4949,6 +6809,7 @@ impl Record {
             Self::Gmst(record) => record.lstrings_mut(),
             Self::Kywd(record) => record.lstrings_mut(),
             Self::Lcrt(record) => record.lstrings_mut(),
+            Self::Lctn(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
@@ -4967,6 +6828,7 @@ impl Record {
             Self::Gmst(record) => &record.extra,
             Self::Kywd(record) => &record.extra,
             Self::Lcrt(record) => &record.extra,
+            Self::Lctn(record) => &record.extra,
             Self::Omod(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
