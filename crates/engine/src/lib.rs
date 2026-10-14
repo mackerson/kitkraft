@@ -19,6 +19,7 @@
 
 pub mod args;
 pub mod cmdline;
+pub mod edit;
 mod envelope;
 mod exec;
 mod handlers;
