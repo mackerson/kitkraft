@@ -150,9 +150,9 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "AMDL", "AMMO", "COBJ", "GBFM", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN", "PCCN",
-            "PCMT", "PKIN", "RSGD", "RSPJ", "SFBK", "SFPT", "STDT", "SUNP", "TES4", "TRAV", "WEAP",
-            "ZOOM"
+            "AMDL", "AMMO", "BIOM", "COBJ", "GBFM", "GLOB", "GMST", "KYWD", "LVLP", "OMOD", "PCBN",
+            "PCCN", "PCMT", "PKIN", "RSGD", "RSPJ", "SFBK", "SFPT", "STDT", "SUNP", "TES4", "TRAV",
+            "WEAP", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -162,6 +162,8 @@ fn builtin_set_loads_and_matches_the_directory() {
         common,
         [
             "BfcbBlock",
+            "BiomeNoiseLayer",
+            "ColorBgra",
             "Condition",
             "Keywords",
             "ObjectBounds",
