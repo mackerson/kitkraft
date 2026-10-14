@@ -177,7 +177,7 @@ gate is the CI.
 ## Commits
 
 - Commit after every arc that builds and passes `cargo xtask ci`. Small, frequent commits.
-- Local repo only, branch `main`, no remote yet. Do not add a remote or push.
+- Local repo only, branch `main`, no remote yet. The remote is https://github.com/mackerson/kitkraft (private). Only the director pushes `main`, after an integration passes the gate; lanes never push, never force-push, and never push their worktree branches.
 - Message: imperative subject naming the crate (`esm: preserve XXXX oversize prefix`), body
   says why. Update `plan/STATUS.md` in the same commit when a task finishes.
 
