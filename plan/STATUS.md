@@ -374,6 +374,8 @@ is under "Next".
     `inspect` shows the new name winning. Automated in `crates/engine/tests/smoke_rename.rs`
     (64 s debug). Owner steps: M2.O6 below and `docs/smoke-rename.md`.
 - Lane E round 2 (Fable review, 13 findings, each with a regression test), 2026-10-14:
+**M2.O6 result (2026-10-14):** PASS. Owner loaded `OldSovietMarksmanRifle.esm` (SHA-256 9c0b28a6...) through MO2 on a disposable save, `player.additem 0021BBCD 1`, and the item displayed as "Old Soviet Marksman Rifle". First in-game confirmation of the set/validate/build pipeline and of inline UTF-8 lstrings in a non-localized override of a localized master.
+
   `build` guards `out` like any patch target (a load-order plugin named as `out` was
   overwritten) and needs `overwrite` for an existing file; `set` stages, runs the plugin
   rules and writes only when its records pass; both stage under the OS temp dir (stale
