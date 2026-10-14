@@ -178,6 +178,85 @@ each type. Limitations always state that classification is by signature only; wi
 `--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
 `cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
 
+### `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4)
+
+Archives are read through `kitcraft-ba2` (GNRL v2/v3, DX10 v2/v3; `docs/corpus.md`
+"Archives"). Patterns are regular expressions matched case-insensitively against archive
+paths (`scripts/form.pex`). No command writes under a game `Data` directory (a directory
+holding `Starfield.esm`, or `KITCRAFT_DATA_DIR`): such an `out_dir` / `out` is a `failed`
+error before anything is written. A bad pattern is `invalid_args` (`rule: "pattern"`).
+
+- `ba2.list {archive, filter?, limit = 1000, start = 0}`; CLI `kit ba2 list <archive>`.
+  `data`: `archive`, `version`, `kind` (`gnrl`/`dx10`), `codec` (`zlib`/`lz4-block`),
+  `compression_field`, `file_count`, `bytes`, `has_names`, `filter`, `matched`, `start`,
+  `shown`, `summary`, and `entries[]` with `index`, `name`, `size` (bytes extraction
+  produces; for a texture the synthesized DDS header included), `stored`, `compressed`,
+  `record_offset`, `data_offset`, and for textures `texture {width, height, mips,
+  dxgi_format, cubemap, chunks}`. Evidence: the header, the record table and the name
+  table. A page shorter than `matched` adds a limitation.
+- `ba2.extract {archive, out_dir, pattern?, overwrite = false}`; CLI
+  `kit ba2 extract <archive> <out_dir> [--pattern re]`. Every target is checked first: an
+  existing file without `overwrite` fails with nothing written. Each file is streamed and
+  checked against its declared size; a failure removes the partial file. `data`:
+  `archive`, `out_dir`, `pattern`, `extracted`, `bytes`, `files[]` (first 1,000: `index`,
+  `name`, `size`, `path`), `summary`. DX10 entries get a DDS header byte-identical to
+  `Archive2.exe` 1.2.0.1's extraction of the official archives (stated as a limitation).
+- `ba2.pack {dir, out, format = "gnrl", version = 2, compress = true}`; CLI
+  `kit ba2 pack <dir> <out> [--format dx10] [--version 3]`. `dir` is the Data root:
+  `dir\scripts\x.pex` is stored as `scripts/x.pex` (lower-cased, `/`). Version 2 packs
+  with zlib, 3 with LZ4 blocks; a blob is stored when compression does not shrink it. The
+  same inputs give the same bytes. `dx10` takes only `.dds` files and needs pixel data of
+  exactly the mip chain's size; DDS headers are not stored (extraction synthesizes them,
+  a limitation). `out` may not be inside `dir`; it is written as `<out>.partial` and
+  renamed. `data`: `dir`, `out`, `format`, `version`, `compress`, `packed`, `bytes`,
+  `files[]` (first 1,000: `name`, `size`, `stored`), `summary`; evidence: the whole
+  archive.
+
+### `papyrus.disasm`, `papyrus.compile` (M2.G6, M2.G7)
+
+- `papyrus.disasm {pex, archive?, format = "text"}`; CLI `kit papyrus disasm <pex>`
+  (alias `pexdis`). With `archive`, `pex` is a path inside that `.ba2`. `format`: `text`
+  (`pexdis.py`'s format), `json` (the structured model) or `both`. `data`: `pex`,
+  `archive`, `bytes`, `version`, `game_id`, `source`, `objects`, `functions`,
+  `instructions`, `text` and/or `script` (header, string count, debug block summary,
+  user flags, objects with structs, variables, guards, properties, property functions
+  and states; every function with params, locals and instructions with `offset`,
+  `opcode`, `op`, `args` / `varargs` as `{type, value, text}`), and `summary` = the text
+  without its final newline, so `kit papyrus disasm x.pex` prints what `pexdis.py x.pex`
+  prints. Structs are in the model, not the text (a limitation when present).
+- `papyrus.compile {source, out_dir, imports?, flags?, compiler?, optimize = false}`; CLI
+  `kit papyrus compile <source> <out_dir> --imports <dir> ...`. Runs Bethesda's
+  `PapyrusCompiler.exe` (black box) on one script by name: a `.psc` path becomes its name
+  with its folder imported first; `.ppj` projects are refused. Arguments are only the
+  object, `-f=`, `-i=`, `-o=` and `-op`; release and final mode can never be requested
+  (any extra argument such as `release` is `invalid_args`). The flags file defaults to
+  `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
+  the `Scripts\Source` folder of `Tools\ContentResources.zip`, extracted by the caller.
+  `data`: `source`, `script`, `out_dir`, `compiler`, `args`, `exit_code`, `passed` (the
+  compiler's success; `kit` exits 1 when false), `stdout`, `stderr`, `pex` (`path`,
+  `bytes`, `parsed`, `text`: the output disassembled through `kitcraft-pex`) and
+  `summary`. A missing compiler is a `failed` error naming every path looked at
+  (`compiler`, `KITCRAFT_PAPYRUS_COMPILER`, `KITCRAFT_DATA_DIR`'s game folder, the Steam
+  default).
+
+### `strings.dump`, `strings.merge` (M2.G9)
+
+- `strings.dump {table, archive?, id?, contains?, limit = 100, start = 0}`; CLI
+  `kit strings dump <table> [--archive a.ba2] [--id 0x0002E469]`. `table` is a
+  `.strings`/`.dlstrings`/`.ilstrings` file, or with `archive` its path inside the `.ba2`
+  (`strings/starfield_en.strings` in `Starfield - Localization.ba2`). `id` is `0x` hex or
+  decimal; `contains` filters text case-insensitively. `data`: `table`, `archive`, `kind`,
+  `count`, `matched`, `start`, `shown`, `summary`, `entries[]` with `id` (`0x%08X`),
+  `text` (UTF-8, lossy), `utf8`, `offset` and `length` in the table file, and `bytes_hex`
+  when not valid UTF-8. Evidence: each shown string's bytes in the table file (a
+  limitation says so when the table came from an archive).
+- `strings.merge {tables, out}`: tables of one kind; a later table wins for an ID; the
+  output is sorted by ID and written in the official layout, so the same inputs give the
+  same bytes. `out` must have the inputs' extension, may not be an input, and is never
+  under the game Data directory. `data`: `tables`, `out`, `kind`, `entries`, `bytes`,
+  `conflict_count`, `conflicts[]` (first 100: `id`, `replaced`, `winner`, `old`, `new`),
+  `identical_repeats`, `summary`.
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends
