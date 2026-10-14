@@ -1,0 +1,74 @@
+# TRAV: Traversal, a kind of navmesh traversal (jump, vault, ladder, doorway, ...) with the
+# height range it covers.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18344-L18379 - member order, the record flags, the
+#     DNAM layout and the traversal type values. Helpers: script data (L3393-L3411, kept
+#     opaque), the base form component block (L5984-L6832, kept raw).
+#   corpus: the 23 TRAV records (all in Starfield.esm, form version 581), 2026-10-14: every
+#     record is EDID DNAM, DNAM 16 bytes; types 0, 3, 4, 5, 6 occur; the last field is 0 or
+#     1. Every record decodes and re-encodes identically.
+signature = "TRAV"
+name = "Traversal"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379"
+evidence = [
+  "corpus: the 23 TRAV records of the 14 official ESMs (Starfield.esm), 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; kept raw; not present in the official TRAV records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; none in the official TRAV records"
+
+[[member]]
+sig = "DNAM"
+name = "Data"
+type = "struct"
+size = 16
+field = [
+  { name = "Type", type = "enum", base = "u32", values = [
+    ["Jump", 0],
+    ["JumpUp", 1],
+    ["JumpDown", 2],
+    ["Vault", 3],
+    ["Ladder", 4],
+    ["Doorway", 5],
+    ["Activate", 6],
+  ] },
+  { name = "MinHeight", type = "f32" },
+  { name = "MaxHeight", type = "f32" },
+  { name = "Value4", type = "u32", note = "unnamed upstream; 0 or 1 in the official records" },
+]

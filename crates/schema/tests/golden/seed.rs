@@ -24,6 +24,7 @@
 // - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - SUNP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18064-L18069; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
+// - TRAV (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18344-L18379; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
 // - ZOOM (corpus: ZOOM records of the 14 official ESMs, scan 2026-10-14; corpus)
 
@@ -6505,6 +6506,250 @@ impl Tes4Record {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TravDataType {
+    Jump,
+    JumpUp,
+    JumpDown,
+    Vault,
+    Ladder,
+    Doorway,
+    Activate,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl TravDataType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::Jump,
+            1 => Self::JumpUp,
+            2 => Self::JumpDown,
+            3 => Self::Vault,
+            4 => Self::Ladder,
+            5 => Self::Doorway,
+            6 => Self::Activate,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Jump => 0,
+            Self::JumpUp => 1,
+            Self::JumpDown => 2,
+            Self::Vault => 3,
+            Self::Ladder => 4,
+            Self::Doorway => 5,
+            Self::Activate => 6,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for TravDataType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for TravDataType {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TravData {
+    pub type_: TravDataType,
+    pub min_height: f32,
+    pub max_height: f32,
+    pub value4: u32,
+}
+
+impl Field for TravData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "TRAV.DNAM.Type", ctx)?;
+        let f1 = f32::read(r, "TRAV.DNAM.MinHeight", ctx)?;
+        let f2 = f32::read(r, "TRAV.DNAM.MaxHeight", ctx)?;
+        let f3 = u32::read(r, "TRAV.DNAM.Value4", ctx)?;
+        Ok(Self {
+            type_: f0,
+            min_height: f1,
+            max_height: f2,
+            value4: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.type_.write(out);
+        self.min_height.write(out);
+        self.max_height.write(out);
+        self.value4.write(out);
+    }
+}
+
+impl Visit for TravData {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct TravRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `DNAM`, required.
+    pub data: Option<Sub<TravData>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl TravRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "TRAV.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "TRAV.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.data, subs, *index, "TRAV.DNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"DNAM", self.data.as_ref());
+    }
+}
+
+impl Visit for TravRecord {}
+
+impl TravRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"TRAV";
+    /// Record-header flag.
+    pub const FLAG_NON_PLAYABLE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_GROUND_PIECE: u32 = 0x10;
+    /// Record-header flag.
+    pub const FLAG_HIDDEN_FROM_LOCAL_MAP: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_USED_AS_PLATFORM: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_HAS_CURRENTS: u32 = 0x80000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_FILTER: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_BOUNDING_BOX: u32 = 0x8000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_ONLY_CUT: u32 = 0x10000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_IGNORE_EROSION: u32 = 0x20000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GROUND: u32 = 0x40000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("TRAV", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("TRAV", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("TRAV", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("TRAV", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct WeapRecord {
     /// `EDID`, required.
@@ -7201,6 +7446,7 @@ pub enum Record {
     Pkin(Box<PkinRecord>),
     Sunp(Box<SunpRecord>),
     Tes4(Box<Tes4Record>),
+    Trav(Box<TravRecord>),
     Weap(Box<WeapRecord>),
     Zoom(Box<ZoomRecord>),
 }
@@ -7222,6 +7468,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PKIN", PkinRecord::MEMBERS),
     (*b"SUNP", SunpRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
+    (*b"TRAV", TravRecord::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
     (*b"ZOOM", ZoomRecord::MEMBERS),
 ];
@@ -7246,6 +7493,7 @@ impl Record {
             b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
             b"SUNP" => Self::Sunp(Box::new(SunpRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
+            b"TRAV" => Self::Trav(Box::new(TravRecord::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
             b"ZOOM" => Self::Zoom(Box::new(ZoomRecord::decode(subs, ctx))),
             _ => return None,
@@ -7270,6 +7518,7 @@ impl Record {
             Self::Pkin(record) => record.encode(),
             Self::Sunp(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
+            Self::Trav(record) => record.encode(),
             Self::Weap(record) => record.encode(),
             Self::Zoom(record) => record.encode(),
         }
@@ -7293,6 +7542,7 @@ impl Record {
             Self::Pkin(_) => PkinRecord::SIGNATURE,
             Self::Sunp(_) => SunpRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
+            Self::Trav(_) => TravRecord::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
             Self::Zoom(_) => ZoomRecord::SIGNATURE,
         }
@@ -7316,6 +7566,7 @@ impl Record {
             Self::Pkin(record) => record.form_ids(),
             Self::Sunp(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
+            Self::Trav(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
             Self::Zoom(record) => record.form_ids(),
         }
@@ -7339,6 +7590,7 @@ impl Record {
             Self::Pkin(record) => record.form_ids_mut(),
             Self::Sunp(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
+            Self::Trav(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
             Self::Zoom(record) => record.form_ids_mut(),
         }
@@ -7362,6 +7614,7 @@ impl Record {
             Self::Pkin(record) => record.lstrings(),
             Self::Sunp(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
+            Self::Trav(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
             Self::Zoom(record) => record.lstrings(),
         }
@@ -7385,6 +7638,7 @@ impl Record {
             Self::Pkin(record) => record.lstrings_mut(),
             Self::Sunp(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
+            Self::Trav(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
             Self::Zoom(record) => record.lstrings_mut(),
         }
@@ -7409,6 +7663,7 @@ impl Record {
             Self::Pkin(record) => &record.extra,
             Self::Sunp(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
+            Self::Trav(record) => &record.extra,
             Self::Weap(record) => &record.extra,
             Self::Zoom(record) => &record.extra,
         }
