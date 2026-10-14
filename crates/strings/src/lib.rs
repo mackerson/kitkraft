@@ -20,6 +20,11 @@
 //! byte-identically. Text is UTF-8 in the official files except a few entries of the
 //! English tables, so strings are kept as bytes and decoded lossily for display.
 //!
+//! [`Table::parse`] is strict: the header's data size must match the bytes after the
+//! directory. [`ParseMode::Tolerant`] (M3.G2) also reads a table padded past its declared
+//! data (no official table is), ignoring the padding and naming it ([`Padding`]), along
+//! with any unreferenced bytes at the end of the declared data.
+//!
 //! LAYER: L0
 
 use std::borrow::Cow;
@@ -156,6 +161,77 @@ pub enum Error {
     },
 }
 
+/// How strictly [`Table::parse_with`] reads a table.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ParseMode {
+    /// The header's data size equals the bytes after the directory, as in every official
+    /// table; anything else is [`Error::DataSize`]. What [`Table::parse`] does.
+    #[default]
+    Strict,
+    /// Also accepts bytes after the declared data (a table padded, for example to an
+    /// alignment, by another tool). Every padding run, and any unreferenced bytes at the
+    /// end of the declared data, is reported in [`Parsed::padding`]. A file shorter than
+    /// its declared data is still [`Error::DataSize`].
+    Tolerant,
+}
+
+/// Where a padding run sits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PaddingKind {
+    /// Inside the header's data size, after the end of the last string.
+    DataTail,
+    /// After the header's data size, to the end of the file.
+    AfterData,
+}
+
+/// Bytes a [`ParseMode::Tolerant`] parse found outside every string, and ignored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Padding {
+    /// Where it sits.
+    pub kind: PaddingKind,
+    /// Absolute offset in the table file.
+    pub offset: u64,
+    /// Length in bytes.
+    pub len: u64,
+    /// Whether every byte is zero.
+    pub zeros: bool,
+}
+
+impl Padding {
+    fn new(kind: PaddingKind, offset: u64, bytes: &[u8]) -> Self {
+        Self {
+            kind,
+            offset,
+            len: bytes.len() as u64,
+            zeros: bytes.iter().all(|&b| b == 0),
+        }
+    }
+}
+
+impl std::fmt::Display for Padding {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let where_ = match self.kind {
+            PaddingKind::DataTail => "inside the declared data, after the last string",
+            PaddingKind::AfterData => "after the header's data size",
+        };
+        let what = if self.zeros { "zero" } else { "non-zero" };
+        write!(
+            f,
+            "{} bytes of {what} padding at offset {} ({where_})",
+            self.len, self.offset
+        )
+    }
+}
+
+/// A table and what a [`ParseMode::Tolerant`] parse ignored.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Parsed {
+    /// The table.
+    pub table: Table,
+    /// Padding runs in file order; always empty in [`ParseMode::Strict`].
+    pub padding: Vec<Padding>,
+}
+
 /// One string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
@@ -224,8 +300,16 @@ impl Table {
         }
     }
 
-    /// Parses a table.
+    /// Parses a table strictly: the header's data size must equal the bytes after the
+    /// directory (the layout of every official table).
     pub fn parse(kind: Kind, bytes: &[u8]) -> Result<Self, Error> {
+        Self::parse_with(kind, bytes, ParseMode::Strict).map(|p| p.table)
+    }
+
+    /// Parses a table in `mode`. [`ParseMode::Tolerant`] also accepts a file that runs past
+    /// the header's data size, and reports that and any unreferenced bytes at the end of
+    /// the data as [`Parsed::padding`]; strings must still lie inside the declared data.
+    pub fn parse_with(kind: Kind, bytes: &[u8], mode: ParseMode) -> Result<Parsed, Error> {
         let len = bytes.len() as u64;
         let u32_at = |at: u64| -> Result<u32, Error> {
             usize::try_from(at)
@@ -250,17 +334,33 @@ impl Table {
                 available: len.saturating_sub(8),
             });
         }
-        let data_len = len.saturating_sub(data_start);
-        if declared != data_len {
-            return Err(Error::DataSize {
-                declared,
-                actual: data_len,
-            });
-        }
+        let actual = len.saturating_sub(data_start);
+        let mut padding = Vec::new();
+        let data_len = match mode {
+            ParseMode::Tolerant if declared < actual => {
+                let offset = data_start.saturating_add(declared);
+                padding.push(Padding::new(
+                    PaddingKind::AfterData,
+                    offset,
+                    usize::try_from(offset)
+                        .ok()
+                        .and_then(|o| bytes.get(o..))
+                        .unwrap_or_default(),
+                ));
+                declared
+            }
+            _ if declared != actual => {
+                return Err(Error::DataSize { declared, actual });
+            }
+            _ => actual,
+        };
         let data = usize::try_from(data_start)
             .ok()
-            .and_then(|s| bytes.get(s..))
+            .zip(usize::try_from(data_len).ok())
+            .and_then(|(s, n)| bytes.get(s..s.checked_add(n)?))
             .unwrap_or_default();
+        // End of the furthest string, relative to the data (for the data-tail padding).
+        let mut used = 0u64;
 
         // `count` <= (len - 8) / 8, so this allocation is bounded by the input size.
         let mut entries = Vec::with_capacity(usize::try_from(count).unwrap_or(0));
@@ -306,13 +406,31 @@ impl Table {
                     .ok_or_else(|| bad("no NUL before the end of the data"))?;
                 rest.get(..nul).unwrap_or_default()
             };
+            let stored = (text.len() as u64)
+                .saturating_add(1)
+                .saturating_add(if kind.length_prefixed() { 4 } else { 0 });
+            used = used.max(rel.saturating_add(stored));
             entries.push(Entry {
                 id,
                 bytes: text.to_vec(),
                 offset: Some(abs),
             });
         }
-        Ok(Self::new(kind, entries))
+        if mode == ParseMode::Tolerant && used < data_len {
+            let start = usize::try_from(used).unwrap_or(usize::MAX);
+            padding.insert(
+                0,
+                Padding::new(
+                    PaddingKind::DataTail,
+                    data_start.saturating_add(used),
+                    data.get(start..).unwrap_or_default(),
+                ),
+            );
+        }
+        Ok(Parsed {
+            table: Self::new(kind, entries),
+            padding,
+        })
     }
 
     /// Reads a table file; the kind comes from its extension.

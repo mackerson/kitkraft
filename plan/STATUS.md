@@ -258,7 +258,7 @@ is under "Next".
     and reports in-table duplicate IDs (`duplicates`, first wins) apart from cross-table
     conflicts; `.pex` object size fields are checked (all 5,708 official scripts agree)
     and versions other than 3.12 are flagged. Not done (optional): a tolerant parse mode
-    for padded string tables.
+    for padded string tables (done in M3.G2, below).
 
 - Lane D, M2.D1..D13 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
   `handlers/{load,inspect,query,diff,conflicts}.rs`), all checked 2026-10-14:
@@ -414,6 +414,12 @@ is under "Next".
     DefaultCounterQuestA and the noc patch's nocOutfitChangerQuest,
     nocOutfitChangerContainer, SQ_Airlock_QuestScript, CS7_SpaceshipLandingQuestScript all
     compile (first call 14.5 s with the extraction, then 1-2 s each). Gaps row closed.
+  - M3.G2 tolerant string-table parse: `kitcraft_strings::ParseMode::{Strict, Tolerant}`,
+    `Table::parse_with` -> `Parsed { table, padding }` (`Padding { kind: DataTail |
+    AfterData, offset, len, zeros }`); `Table::parse` stays strict and unchanged.
+    `strings.dump` / `strings.merge` take `tolerant` and name each padding run in
+    `limitations` and `data.padding`; a strict `DataSize` failure hints at `tolerant`.
+    Lane D's string loading (`crates/doc`) still parses strictly.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in

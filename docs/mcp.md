@@ -617,6 +617,15 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   under the game Data directory. `data`: `tables`, `out`, `kind`, `entries`, `bytes`,
   `conflict_count`, `conflicts[]` (first 100: `id`, `replaced`, `winner`, `old`, `new`),
   `identical_repeats`, `summary`.
+- Both take `tolerant = false` (M3.G2). Tables are parsed strictly by default: the
+  header's data size must equal the bytes after the directory, as in every official
+  table, and a mismatch fails with a hint. With `tolerant: true` a table padded past its
+  data size is read too; each padding run (bytes after the declared data, and
+  unreferenced bytes at the end of the declared data) is a `limitations` entry naming
+  the table, offset, length and whether it is all zeros, and is listed in `data.padding`
+  (`table`, `where` = `after_data` or `data_tail`, `offset`, `length`, `zeros`); strings
+  must still lie inside the declared data. `strings.merge` writes the official layout,
+  without padding, and says so. `data.tolerant` echoes the mode.
 
 ### `set` (M2.E5)
 

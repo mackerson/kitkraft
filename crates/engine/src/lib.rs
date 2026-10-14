@@ -274,7 +274,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Dump a .STRINGS/.DLSTRINGS/.ILSTRINGS table (loose or inside a .ba2), by ID or text",
-        args_schema: r#"{"type":"object","properties":{"table":{"type":"string","description":"Table file, or its path inside archive"},"archive":{"type":"string","description":"Read the table from this .ba2"},"id":{"type":"string","description":"String ID, 0x-prefixed hex or decimal"},"contains":{"type":"string","description":"Case-insensitive text filter"},"limit":{"type":"integer","minimum":1,"default":100},"start":{"type":"integer","minimum":0,"default":0}},"required":["table"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"table":{"type":"string","description":"Table file, or its path inside archive"},"archive":{"type":"string","description":"Read the table from this .ba2"},"id":{"type":"string","description":"String ID, 0x-prefixed hex or decimal"},"contains":{"type":"string","description":"Case-insensitive text filter"},"limit":{"type":"integer","minimum":1,"default":100},"start":{"type":"integer","minimum":0,"default":0},"tolerant":{"type":"boolean","default":false,"description":"Also read a table padded past its header's data size; the padding is named in limitations"}},"required":["table"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -284,7 +284,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Merge string tables of one kind into one (later table wins; conflicts reported; deterministic)",
-        args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"}},"required":["tables","out"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"},"tolerant":{"type":"boolean","default":false,"description":"Also read tables padded past their header's data size; the padding is named in limitations and not written"}},"required":["tables","out"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
 ];
