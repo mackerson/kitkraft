@@ -4,7 +4,7 @@ Check this before claiming something works. Remove a row only with the commit th
 
 | Gap                                                               | Impact                                                   | Closes in        |
 | ----------------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
-| Only `roundtrip`, `coverage` and a minimal `inspect` are implemented; every other catalog entry is `Planned` | Planned commands exit 2 with a stub or `not_implemented` error | M2 |
+| Only `roundtrip`, `coverage`, a minimal `inspect` and the lane G commands (`ba2.*`, `papyrus.*`, `strings.*`) are implemented; every other catalog entry is `Planned` | Planned commands exit 2 with a stub or `not_implemented` error | M2 |
 | `roundtrip` compares at container level only; compressed bodies are re-emitted, not decompressed | A compressed record whose zlib stream is corrupt but well-sized still roundtrips identical | M2 (`roundtrip --decode`) |
 | CLI exit 1 is wired (`data.passed: false`) but no parseable plugin can produce a `roundtrip` mismatch today | The exit-1 path is unit-tested, not exercised end to end | when the writer gains a lossy path |
 | `inspect` is single-plugin and untyped                            | No winning override; every payload is hex; FormIDs are file-relative as stored | M2 (load order), schema wiring |
@@ -21,6 +21,10 @@ Check this before claiming something works. Remove a row only with the commit th
 | Localized strings not loaded                                      | FULL/DESC on localized plugins show string IDs only      | M2               |
 | No load-order resolution                                          | Cannot answer "which plugin wins"                        | M2               |
 | MCP server not implemented                                        | Agents use the CLI only                                  | M2               |
+| `ba2.pack` stores no DDS header; extraction synthesizes the one `Archive2.exe` writes | A texture packed with a different (valid) header extracts with the same pixels and a different header | permanent (the format has no header field) |
+| DDS header choices for DXGI formats absent from the official archives are unobserved | Those formats extract with the DX10 extension header, which Archive2 may not choose | when such a texture is observed |
+| `papyrus.compile` cannot read `Tools\ContentResources.zip` | The caller extracts `Scripts\Source` and passes it in `imports` | later (zip reader) |
+| `.pex` assembly, editing and decompiling to `.psc` | Scripts can be disassembled and compiled from source only | after M2 |
 | No fuzzing harness (cargo-fuzz needs nightly)                     | Hostile-input coverage limited to deterministic mutation | after M1         |
 | `forbid(unsafe_code)` covers workspace crates only. zlib-rs (our flate2 backend) is pure Rust but uses `unsafe` internally: 469 source lines of zlib-rs 0.6.8 mention it | Decompression of hostile streams relies on that crate's own unsafe code being sound | permanent (dependency review) |
 | Spriggit round trip lost data on 2 of 5 real mods tested          | Not an oracle; inventory facts only (ADR 0001 §4)        | permanent        |
