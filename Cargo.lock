@@ -185,7 +185,7 @@ dependencies = [
 name = "kitcraft-doc"
 version = "0.0.0"
 dependencies = [
- "flate2",
+ "kitcraft-ba2",
  "kitcraft-esm",
  "kitcraft-schema",
  "kitcraft-strings",

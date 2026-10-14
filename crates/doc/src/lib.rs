@@ -25,6 +25,7 @@ pub mod overrides;
 pub mod query;
 pub mod record;
 pub mod search;
+pub mod strings;
 pub mod subject;
 #[cfg(test)]
 pub(crate) mod testdata;

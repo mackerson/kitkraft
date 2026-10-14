@@ -12,6 +12,7 @@ use crate::lstring::{decode_lstring, is_lstring, unresolved, LString};
 use crate::overrides::Version;
 use crate::query::{FieldValue, Lookup, Path, Subject};
 use crate::record::{LoadedRecord, RecordReader};
+use crate::strings::StringTables;
 
 /// One version, evaluated lazily.
 pub struct VersionSubject<'a> {
@@ -19,6 +20,7 @@ pub struct VersionSubject<'a> {
     reader: &'a mut RecordReader,
     version: Version,
     loaded: Option<Result<LoadedRecord, String>>,
+    strings: Option<&'a mut StringTables>,
 }
 
 impl<'a> VersionSubject<'a> {
@@ -29,7 +31,14 @@ impl<'a> VersionSubject<'a> {
             reader,
             version,
             loaded: None,
+            strings: None,
         }
+    }
+
+    /// Resolve localized lstrings through `strings`.
+    pub fn with_strings(mut self, strings: Option<&'a mut StringTables>) -> Self {
+        self.strings = strings;
+        self
     }
 
     /// The record, read on first use.
@@ -138,13 +147,21 @@ impl Subject for VersionSubject<'_> {
                     );
                 }
                 if is_lstring(&sig) {
+                    let ids: Vec<LString> = occurrences
+                        .iter()
+                        .map(|d| decode_lstring(d, localized))
+                        .collect();
                     let mut values = Vec::new();
-                    for d in occurrences {
-                        match decode_lstring(d, localized) {
+                    for l in ids {
+                        match l {
                             LString::Text(t) => values.push(FieldValue::Text(t)),
-                            LString::Id(id) => {
-                                return Lookup::Unknown(unresolved(&sig, &plugin, id))
-                            }
+                            LString::Id(id) => match self.strings.as_deref_mut() {
+                                Some(st) => match st.lookup(&plugin, id) {
+                                    Ok(r) => values.push(FieldValue::Text(r.text)),
+                                    Err(why) => return Lookup::Unknown(why),
+                                },
+                                None => return Lookup::Unknown(unresolved(&sig, &plugin, id)),
+                            },
                             LString::Malformed { len } => {
                                 return Lookup::Unknown(format!(
                                     "{sig} in {plugin} is {len} bytes; a localized string ID is 4"

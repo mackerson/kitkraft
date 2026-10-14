@@ -1,15 +1,14 @@
 //! `query` (M2.D11): records of one type matching a `where` predicate, over the load order,
 //! a page at a time. Grammar and semantics: `kitcraft_doc::query`, `docs/mcp.md`.
 
-use kitcraft_doc::lstring::{decode_lstring, unresolved, LString};
 use kitcraft_doc::query::Query;
-use kitcraft_doc::search::{run_page, Scope, DEFAULT_LIMIT};
+use kitcraft_doc::search::{run_page, PageRequest, Scope, DEFAULT_LIMIT};
 use kitcraft_doc::{RecordReader, Version};
 use kitcraft_esm::HEADER_LEN;
 use serde_json::{json, Value};
 
 use super::failed;
-use super::load::{acquire, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, lstring_json, Loaded, RUNTIME_ASSUMED};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
@@ -22,8 +21,14 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     run_on(loaded, args)
 }
 
-fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
-    let lo = &loaded.lo;
+fn run_on(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
+    let Loaded {
+        lo,
+        strings,
+        limitations: shared,
+        ..
+    } = loaded;
+    let lo = &*lo;
     let type_text = args.get("type").and_then(Value::as_str).unwrap_or_default();
     let signature: [u8; 4] = type_text
         .to_ascii_uppercase()
@@ -52,23 +57,23 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
     let cursor = args.get("cursor").and_then(Value::as_str);
     let started = std::time::Instant::now();
     let mut reader = RecordReader::new();
-    let page = run_page(
-        lo,
-        &mut reader,
+    let request = PageRequest {
         signature,
-        query.as_ref(),
+        query: query.as_ref(),
         scope,
         limit,
         cursor,
-    )
-    .map_err(|e| failed(ID, e))?;
+    };
+    let page =
+        run_page(lo, &mut reader, &request, Some(&mut *strings)).map_err(|e| failed(ID, e))?;
 
     let mut evidence = Vec::new();
     let mut notes: Vec<String> = Vec::new();
     let mut results = Vec::with_capacity(page.matched.len());
     for v in &page.matched {
         results.push(result_json(
-            loaded,
+            lo,
+            strings,
             &mut reader,
             v,
             &mut evidence,
@@ -86,7 +91,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
             })
         })
         .collect();
-    let mut limitations = loaded.limitations.clone();
+    let mut limitations = shared.clone();
     if !limitations.iter().any(|l| l == RUNTIME_ASSUMED) {
         limitations.push(RUNTIME_ASSUMED.to_string());
     }
@@ -143,13 +148,13 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
 
 /// One matched version: identity, EditorID, FULL (decoded when possible), evidence.
 fn result_json(
-    loaded: &Loaded,
+    lo: &kitcraft_doc::LoadOrder,
+    strings: &mut kitcraft_doc::strings::StringTables,
     reader: &mut RecordReader,
     v: &Version,
     evidence: &mut Vec<Evidence>,
     notes: &mut Vec<String>,
 ) -> Value {
-    let lo = &loaded.lo;
     let form = v.form();
     let plugin = lo.plugin(v.plugin);
     let name = plugin.map_or_else(String::new, |p| p.name.clone());
@@ -178,14 +183,14 @@ fn result_json(
                 .zip(spans)
                 .find(|(s, _)| s.signature().0 == *b"FULL")
             {
-                full = match decode_lstring(s.data(), localized) {
-                    LString::Text(t) => json!({"text": t}),
-                    LString::Id(id) => {
-                        notes.push(unresolved("FULL", &name, id));
-                        json!({"string_id": format!("0x{id:08X}")})
-                    }
-                    LString::Malformed { len } => json!({"malformed_len": len}),
-                };
+                full = lstring_json(
+                    strings,
+                    (&name, label.as_deref().unwrap_or_default(), "FULL"),
+                    s.data(),
+                    localized,
+                    evidence,
+                    notes,
+                );
                 evidence.push(Evidence {
                     file: name.clone(),
                     offset: span

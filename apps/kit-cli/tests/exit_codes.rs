@@ -62,7 +62,10 @@ fn per_command_help_exits_0() {
 
 #[test]
 fn planned_command_exits_2_with_clear_message() {
-    for args in [&["query", "WEAP"][..], &["validate", "X.esm"]] {
+    for args in [
+        &["build", "spec.toml", "out.esm"][..],
+        &["validate", "X.esm"],
+    ] {
         let out = kit(args);
         assert_eq!(out.status.code(), Some(2), "{args:?}");
         assert!(stderr(&out).contains("not implemented"), "{}", stderr(&out));

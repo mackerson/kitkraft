@@ -58,6 +58,9 @@ pub enum Depth {
 pub struct Overlay {
     files: HashMap<String, Resolved>,
     data_dir: PathBuf,
+    /// Overwrite and enabled mod folders, highest priority first.
+    roots: Vec<(Provider, PathBuf)>,
+    depth: Depth,
     /// Enabled mods whose folder is missing.
     pub missing_mod_dirs: Vec<String>,
 }
@@ -75,13 +78,19 @@ impl Overlay {
         let mut overlay = Overlay {
             files: HashMap::new(),
             data_dir: profile.data_dir.clone(),
+            roots: Vec::new(),
+            depth,
             missing_mod_dirs: Vec::new(),
         };
         overlay.add_tree(&profile.overwrite_dir, &Provider::Overwrite, depth);
+        overlay
+            .roots
+            .push((Provider::Overwrite, profile.overwrite_dir.clone()));
         for m in profile.enabled_mods() {
             let dir = profile.mods_dir.join(&m.name);
             if dir.is_dir() {
                 overlay.add_tree(&dir, &Provider::Mod(m.name.clone()), depth);
+                overlay.roots.push((Provider::Mod(m.name.clone()), dir));
             } else {
                 overlay.missing_mod_dirs.push(m.name.clone());
             }
@@ -127,16 +136,55 @@ impl Overlay {
         }
     }
 
-    /// Resolve `rel` (relative to Data).
+    /// Resolve `rel` (relative to Data). With a root-only overlay, a path below the root
+    /// is looked up in each provider's folder in priority order.
     pub fn resolve(&self, rel: &str) -> Option<Resolved> {
         let key = normalize(rel);
         if let Some(found) = self.files.get(&key) {
             return Some(found.clone());
         }
+        if self.depth == Depth::Root && key.contains('/') {
+            for (provider, root) in &self.roots {
+                if let Some(path) = find_ci(root, &key) {
+                    return Some(Resolved {
+                        path,
+                        provider: provider.clone(),
+                    });
+                }
+            }
+        }
         find_ci(&self.data_dir, &key).map(|path| Resolved {
             path,
             provider: Provider::GameData,
         })
+    }
+
+    /// Root-level `.ba2` files whose name starts with `<stem> - ` (case-insensitive), from
+    /// the overlay and the game Data dir, one per name (the providing one), Localization
+    /// archives first.
+    pub fn archives_for(&self, stem: &str) -> Vec<PathBuf> {
+        let prefix = format!("{} - ", stem.to_ascii_lowercase());
+        let matches = |name: &str| name.starts_with(&prefix) && name.ends_with(".ba2");
+        let mut names: Vec<String> = self
+            .files
+            .keys()
+            .filter(|k| !k.contains('/') && matches(k))
+            .cloned()
+            .collect();
+        if let Ok(read) = std::fs::read_dir(&self.data_dir) {
+            for e in read.flatten() {
+                let n = e.file_name().to_string_lossy().to_ascii_lowercase();
+                if matches(&n) && !names.contains(&n) {
+                    names.push(n);
+                }
+            }
+        }
+        let mut paths: Vec<PathBuf> = names
+            .iter()
+            .filter_map(|n| self.resolve(n).map(|r| r.path))
+            .collect();
+        kitcraft_doc::strings::sort_archives(&mut paths);
+        paths
     }
 
     /// Files indexed from mods and overwrite.
@@ -174,4 +222,13 @@ fn find_ci(root: &Path, key: &str) -> Option<PathBuf> {
         dir = found;
     }
     None
+}
+
+impl kitcraft_doc::strings::StringSource for Overlay {
+    fn loose(&self, rel: &str) -> Option<PathBuf> {
+        self.resolve(rel).map(|r| r.path)
+    }
+    fn archives(&self, stem: &str) -> Vec<PathBuf> {
+        self.archives_for(stem)
+    }
 }

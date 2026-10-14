@@ -7,7 +7,8 @@
 //!   `plugin` when that is given, otherwise as a runtime ID under the runtime-slot
 //!   assumption), or an EditorID. The result lists every version in load order with the
 //!   winner marked, each override classed against the version before it, and `FULL`/`DESC`
-//!   decoded as lstrings (inline text, or the string ID while string tables are not loaded).
+//!   decoded as lstrings (inline text, or the string ID resolved through the plugin's
+//!   string tables, with the table and offset as evidence).
 //! - **Single plugin** (kept from M1), when only `plugin` is given: below.
 //!
 //! Single-plugin lookup: when `form` is 1-8 hex digits (optionally `0x`-prefixed), the first record whose
@@ -28,10 +29,11 @@ use kitcraft_esm::{
 use serde_json::{json, Value};
 
 use kitcraft_doc::compare::{spans, OverrideClass};
-use kitcraft_doc::lstring::{decode_lstring, is_lstring, unresolved, LString};
+use kitcraft_doc::lstring::is_lstring;
+use kitcraft_doc::strings::StringTables;
 use kitcraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
 
-use super::load::{acquire, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, lstring_json, Loaded, RUNTIME_ASSUMED};
 use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
@@ -436,6 +438,7 @@ fn find_form(
 
 /// Subrecords of one version as JSON, with evidence; lstrings decoded.
 fn version_subrecords(
+    strings: &mut StringTables,
     file: &str,
     rec: &LoadedRecord,
     localized: bool,
@@ -470,21 +473,16 @@ fn version_subrecords(
             "payload_truncated": truncated,
         });
         if is_lstring(&sig) {
-            if let Some(obj) = entry.as_object_mut() {
-                match decode_lstring(data, localized) {
-                    LString::Text(t) => {
-                        obj.insert("text".into(), json!(t));
-                    }
-                    LString::Id(id) => {
-                        obj.insert("string_id".into(), json!(format!("0x{id:08X}")));
-                        notes.push(unresolved(&sig, file, id));
-                    }
-                    LString::Malformed { len } => {
-                        notes.push(format!(
-                            "{sig} in {file} ({record_id}) is {len} bytes; a localized string ID is 4"
-                        ));
-                    }
-                }
+            let resolved = lstring_json(
+                strings,
+                (file, &record_id, &sig),
+                data,
+                localized,
+                evidence,
+                notes,
+            );
+            if let (Some(obj), Value::Object(extra)) = (entry.as_object_mut(), resolved) {
+                obj.extend(extra);
             }
         } else if sig == "EDID" {
             if let Some(obj) = entry.as_object_mut() {
@@ -537,7 +535,7 @@ fn class_json(class: &OverrideClass) -> Value {
 }
 
 /// Load-order mode.
-fn run_load_order(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
+fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
     let form_arg = str_arg(ID, args, "form")?;
     let plugin = args.get("plugin").and_then(Value::as_str);
     let lo = &loaded.lo;
@@ -581,7 +579,14 @@ fn run_load_order(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError>
             record: Some(rec.label()),
             subrecord: None,
         });
-        let (subs, cut) = version_subrecords(&p.name, rec, localized, &mut evidence, &mut notes);
+        let (subs, cut) = version_subrecords(
+            &mut loaded.strings,
+            &p.name,
+            rec,
+            localized,
+            &mut evidence,
+            &mut notes,
+        );
         cut_any |= cut;
         compressed_any |= rec.compressed;
         opaque = opaque.saturating_add(rec.subs.len() as u64);

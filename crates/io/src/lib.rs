@@ -143,6 +143,35 @@ mod tests {
     }
 
     #[test]
+    fn root_overlay_resolves_deep_paths_and_lists_archives() {
+        let inst = Instance::new("deep");
+        inst.write("profiles/P/modlist.txt", b"+Patch\n+Base\n");
+        inst.write("mods/Patch/Strings/mod_en.strings", b"p");
+        inst.write("mods/Base/strings/MOD_EN.STRINGS", b"b");
+        inst.write("mods/Base/Mod - Main.ba2", b"x");
+        inst.write("Game/Data/Mod - Localization.ba2", b"x");
+        inst.write("Game/Data/Mod - Textures.ba2", b"x");
+        inst.write("Game/Data/Other - Main.ba2", b"x");
+        let load = plan(&inst);
+        let found = load.overlay.resolve("Strings/mod_en.strings").unwrap();
+        assert_eq!(found.provider, Provider::Mod("Patch".into()));
+        let names: Vec<String> = load
+            .overlay
+            .archives_for("Mod")
+            .iter()
+            .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Mod - Localization.ba2",
+                "Mod - Main.ba2",
+                "Mod - Textures.ba2"
+            ]
+        );
+    }
+
+    #[test]
     fn active_plugins_and_order() {
         let inst = Instance::new("plugins");
         inst.write(

@@ -457,11 +457,11 @@ mod execute_tests {
 
     #[test]
     fn planned_command_without_handler_is_not_implemented() {
-        let err = execute("query", json!({"type": "WEAP"})).unwrap_err();
-        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "query"));
+        let err = execute("build", json!({"spec": "a.toml", "out": "b.esm"})).unwrap_err();
+        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "build"));
         // Validation still runs first.
         assert_eq!(
-            execute("query", json!({})).unwrap_err().kind(),
+            execute("build", json!({})).unwrap_err().kind(),
             "invalid_args"
         );
     }

@@ -9,6 +9,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use kitcraft_doc::strings::{DirSource, StringSource, StringTables};
 use kitcraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, Scale};
 use kitcraft_io::{plan_profile, Active, ProfileOptions};
 use serde_json::{json, Value};
@@ -24,10 +25,6 @@ const ID: &str = "load";
 pub(crate) const RUNTIME_ASSUMED: &str = "runtime slots and IDs follow the assumption \
      `runtime-slots-by-scale` (docs/load-order.md): not yet observed in game or in the CK";
 
-/// Stated while string tables are not read.
-pub(crate) const STRINGS_PENDING: &str = "string tables are not loaded yet (M2.D7 waits for \
-     the BA2 and string-table readers): lstrings of localized plugins stay string IDs";
-
 /// A loaded load order, kept in the session.
 pub(crate) struct Loaded {
     /// The model.
@@ -38,6 +35,8 @@ pub(crate) struct Loaded {
     pub language: String,
     /// Limitations every command using this load order repeats.
     pub limitations: Vec<String>,
+    /// String tables of the load order's plugins, read on first use.
+    pub strings: StringTables,
 }
 
 fn has_load_args(args: &Value) -> bool {
@@ -49,13 +48,13 @@ pub(crate) fn acquire<'s>(
     session: &'s mut Session,
     args: &Value,
     command: &str,
-) -> Result<&'s Loaded, EngineError> {
+) -> Result<&'s mut Loaded, EngineError> {
     if has_load_args(args) {
         let (loaded, listing, _, _) = load(args, command)?;
         session.set_load_order(Some(listing));
         session.insert(loaded);
     }
-    session.get::<Loaded>().ok_or_else(|| {
+    session.get_mut::<Loaded>().ok_or_else(|| {
         failed(
             command,
             "no load order: pass --profile <MO2 profile dir> or --plugins <file>... \
@@ -134,7 +133,13 @@ fn load(
     // name -> (why active, provider)
     let mut why: Vec<(String, String, String)> = Vec::new();
     let mut inactive: Vec<String> = Vec::new();
-    let (specs, source, profile_name): (Vec<PluginSpec>, String, Option<String>) =
+    type Picked = (
+        Vec<PluginSpec>,
+        String,
+        Option<String>,
+        Box<dyn StringSource>,
+    );
+    let (specs, source, profile_name, string_source): Picked =
         match (args.get("profile"), args.get("plugins")) {
             (Some(_), Some(_)) => {
                 return Err(failed(command, "pass `profile` or `plugins`, not both"));
@@ -188,6 +193,7 @@ fn load(
                     pl.plan.specs(),
                     format!("profile:{dir}"),
                     Some(pl.profile.name.clone()),
+                    Box::new(pl.overlay),
                 )
             }
             (None, Some(list)) => {
@@ -209,7 +215,20 @@ fn load(
                 for s in &specs {
                     why.push((s.name.clone(), "listed".into(), "path".into()));
                 }
-                (specs, "plugins".to_string(), None)
+                let dir = data_dir
+                    .clone()
+                    .or_else(|| {
+                        specs
+                            .first()
+                            .and_then(|s| s.path.parent().map(Path::to_path_buf))
+                    })
+                    .unwrap_or_default();
+                (
+                    specs,
+                    "plugins".to_string(),
+                    None,
+                    Box::new(DirSource { data_dir: dir }),
+                )
             }
             (None, None) => return Err(failed(command, "pass `profile` or `plugins`")),
         };
@@ -222,7 +241,7 @@ fn load(
     let cache_dir = cache.as_ref().map(|c| c.dir().display().to_string());
     let lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
         .map_err(|e| failed(command, e.to_string()))?;
-    let mut shared = vec![RUNTIME_ASSUMED.to_string(), STRINGS_PENDING.to_string()];
+    let mut shared = vec![RUNTIME_ASSUMED.to_string()];
 
     for w in &warnings {
         limitations.push(format!("profile: {w}"));
@@ -332,6 +351,7 @@ fn load(
         Loaded {
             lo,
             source,
+            strings: StringTables::new(&language, string_source),
             language,
             limitations: shared.clone(),
         },
@@ -341,6 +361,54 @@ fn load(
     ))
 }
 
+/// An lstring payload as JSON: `{text}` for inline text; for a string ID `{string_id, text,
+/// string_table, string_offset}` when the table has it (with evidence at the string in the
+/// table), else `{string_id}` and the reason in `notes`.
+/// `at` is (plugin, `SIGN:FORMID` of the record, subrecord signature).
+pub(crate) fn lstring_json(
+    strings: &mut StringTables,
+    at: (&str, &str, &str),
+    data: &[u8],
+    localized: bool,
+    evidence: &mut Vec<Evidence>,
+    notes: &mut Vec<String>,
+) -> Value {
+    use kitcraft_doc::lstring::{decode_lstring, LString};
+    let (plugin, record, signature) = at;
+    match decode_lstring(data, localized) {
+        LString::Text(t) => json!({"text": t}),
+        LString::Malformed { len } => {
+            notes.push(format!(
+                "{signature} of {record} in {plugin} is {len} bytes; a localized string ID is 4"
+            ));
+            json!({"malformed_len": len})
+        }
+        LString::Id(id) => match strings.lookup(plugin, id) {
+            Ok(r) => {
+                if let Some(offset) = r.offset {
+                    evidence.push(Evidence {
+                        file: r.origin.clone(),
+                        offset,
+                        length: r.length,
+                        record: Some(record.to_string()),
+                        subrecord: Some(signature.to_string()),
+                    });
+                }
+                json!({
+                    "string_id": format!("0x{id:08X}"),
+                    "text": r.text,
+                    "string_table": r.origin,
+                    "string_kind": r.kind,
+                    "string_offset": r.offset,
+                })
+            }
+            Err(why) => {
+                notes.push(why);
+                json!({"string_id": format!("0x{id:08X}")})
+            }
+        },
+    }
+}
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 pub(crate) mod tests {

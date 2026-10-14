@@ -13,6 +13,7 @@ use crate::load_order::LoadOrder;
 use crate::overrides::Version;
 use crate::query::{decode_cursor, encode_cursor, Query, Tri};
 use crate::record::RecordReader;
+use crate::strings::StringTables;
 use crate::subject::VersionSubject;
 
 /// Default and largest page size.
@@ -91,16 +92,35 @@ pub fn fingerprint(lo: &LoadOrder, signature: [u8; 4], query: Option<&Query>, sc
     h.finish()
 }
 
-/// Evaluate one page.
+/// What one page asks for.
+#[derive(Debug, Clone, Copy)]
+pub struct PageRequest<'a> {
+    /// Record type.
+    pub signature: [u8; 4],
+    /// Predicate; `None` matches every candidate.
+    pub query: Option<&'a Query>,
+    /// Which versions.
+    pub scope: Scope,
+    /// Most matches on the page (clamped to 1..=[`MAX_LIMIT`]).
+    pub limit: usize,
+    /// Cursor from the previous page.
+    pub cursor: Option<&'a str>,
+}
+
+/// Evaluate one page; localized lstrings resolve through `strings` when given.
 pub fn run_page(
     lo: &LoadOrder,
     reader: &mut RecordReader,
-    signature: [u8; 4],
-    query: Option<&Query>,
-    scope: Scope,
-    limit: usize,
-    cursor: Option<&str>,
+    request: &PageRequest<'_>,
+    mut strings: Option<&mut StringTables>,
 ) -> Result<Page, String> {
+    let PageRequest {
+        signature,
+        query,
+        scope,
+        limit,
+        cursor,
+    } = *request;
     let limit = limit.clamp(1, MAX_LIMIT);
     let fp = fingerprint(lo, signature, query, scope);
     let start = match cursor {
@@ -120,7 +140,8 @@ pub fn run_page(
             None => Tri::True,
             Some(q) => {
                 let mut reasons = Vec::new();
-                let mut subject = VersionSubject::new(lo, reader, *v);
+                let mut subject =
+                    VersionSubject::new(lo, reader, *v).with_strings(strings.as_deref_mut());
                 let t = q.eval(&mut subject, &mut reasons);
                 if t == Tri::Unknown {
                     page.unknown_count = page.unknown_count.saturating_add(1);
@@ -208,15 +229,34 @@ mod tests {
         LoadOrder::load(specs, &LoadOptions::default()).unwrap()
     }
 
+    fn page(
+        lo: &LoadOrder,
+        reader: &mut RecordReader,
+        sig: &[u8; 4],
+        q: Option<&Query>,
+        scope: Scope,
+        limit: usize,
+        cursor: Option<&str>,
+    ) -> Result<Page, String> {
+        let request = PageRequest {
+            signature: *sig,
+            query: q,
+            scope,
+            limit,
+            cursor,
+        };
+        run_page(lo, reader, &request, None)
+    }
+
     #[test]
     fn pages_cover_the_same_set_as_one_page() {
         let lo = lo();
         let mut reader = RecordReader::new();
         let q = Query::parse(r#"FULL ~ "rifle""#).unwrap();
-        let all = run_page(
+        let all = page(
             &lo,
             &mut reader,
-            *b"WEAP",
+            b"WEAP",
             Some(&q),
             Scope::Winner,
             1000,
@@ -237,18 +277,18 @@ mod tests {
         let mut paged = Vec::new();
         let mut cursor = None;
         loop {
-            let page = run_page(
+            let p = page(
                 &lo,
                 &mut reader,
-                *b"WEAP",
+                b"WEAP",
                 Some(&q),
                 Scope::Winner,
                 7,
                 cursor.as_deref(),
             )
             .unwrap();
-            paged.extend(page.matched);
-            match page.next_cursor {
+            paged.extend(p.matched);
+            match p.next_cursor {
                 Some(c) => cursor = Some(c),
                 None => break,
             }
@@ -256,14 +296,14 @@ mod tests {
         assert_eq!(paged, all.matched);
         // A cursor for another query is refused.
         let other = Query::parse(r#"FULL ~ "x""#).unwrap();
-        let c = run_page(&lo, &mut reader, *b"WEAP", Some(&q), Scope::Winner, 7, None)
+        let c = page(&lo, &mut reader, b"WEAP", Some(&q), Scope::Winner, 7, None)
             .unwrap()
             .next_cursor
             .unwrap();
-        assert!(run_page(
+        assert!(page(
             &lo,
             &mut reader,
-            *b"WEAP",
+            b"WEAP",
             Some(&other),
             Scope::Winner,
             7,
@@ -273,31 +313,51 @@ mod tests {
     }
 
     #[test]
+    fn localized_strings_resolve_through_tables() {
+        use crate::strings::{DirSource, StringTables};
+        use kitcraft_strings::{Entry, Kind, Table};
+        let lo = lo();
+        let dir = lo.plugins[2].path.parent().unwrap().to_path_buf();
+        std::fs::create_dir_all(dir.join("Strings")).unwrap();
+        let table = Table::new(Kind::Strings, vec![Entry::new(1, "Localized Rifle")]);
+        std::fs::write(
+            dir.join("Strings").join("loc_en.strings"),
+            table.to_bytes().unwrap(),
+        )
+        .unwrap();
+        let mut st = StringTables::new("en", Box::new(DirSource { data_dir: dir }));
+        let mut reader = RecordReader::new();
+        let q = Query::parse(r#"FULL ~ "localized""#).unwrap();
+        let request = PageRequest {
+            signature: *b"WEAP",
+            query: Some(&q),
+            scope: Scope::Winner,
+            limit: 50,
+            cursor: None,
+        };
+        let p = run_page(&lo, &mut reader, &request, Some(&mut st)).unwrap();
+        assert_eq!(p.matched.len(), 1);
+        assert_eq!(p.unknown_count, 0);
+        assert_eq!(p.matched[0].plugin, 2);
+    }
+
+    #[test]
     fn scope_all_and_order() {
         let lo = lo();
         let mut reader = RecordReader::new();
         let q = Query::parse(r#"@edid == "Gun5""#).unwrap();
-        let winner = run_page(
-            &lo,
-            &mut reader,
-            *b"WEAP",
-            Some(&q),
-            Scope::Winner,
-            50,
-            None,
-        )
-        .unwrap();
+        let winner = page(&lo, &mut reader, b"WEAP", Some(&q), Scope::Winner, 50, None).unwrap();
         assert_eq!(
             winner.matched.iter().map(|v| v.plugin).collect::<Vec<_>>(),
             [1]
         );
-        let all = run_page(&lo, &mut reader, *b"WEAP", Some(&q), Scope::All, 50, None).unwrap();
+        let all = page(&lo, &mut reader, b"WEAP", Some(&q), Scope::All, 50, None).unwrap();
         assert_eq!(
             all.matched.iter().map(|v| v.plugin).collect::<Vec<_>>(),
             [0, 1]
         );
         assert_eq!(all.candidates, 32);
-        let none = run_page(&lo, &mut reader, *b"KYWD", None, Scope::Winner, 50, None).unwrap();
+        let none = page(&lo, &mut reader, b"KYWD", None, Scope::Winner, 50, None).unwrap();
         assert_eq!(none.matched.len(), 1);
     }
 }
