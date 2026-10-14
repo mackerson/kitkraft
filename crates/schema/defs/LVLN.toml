@@ -1,0 +1,263 @@
+# LVLN: Leveled NPC, a leveled list whose entries are actors (NPC_) or other leveled
+# actor lists. NPC_ templates (TPLT and the TPTA slots) and spawn markers point at it; the
+# game picks an entry by the player's level, the chance values and the entry conditions.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14077-L14116 - member order, the record flag,
+#     LVLD/LVLM/LVLF/LVLG/LLCT, the entry group (LVLO, COED, conditions), LLKC, ONAM and
+#     the model block. Helpers: EDID (L3182), script data (L3393-L3411, kept opaque),
+#     object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS
+#     (L3925-L3962), XALG (L3230), the base form component block (L5984-L6832, kept raw),
+#     LLCT (L2250), LVLD (L2252), the conditions (L4750-L4840, common/Condition.toml), the
+#     leveled entry (wbDefinitionsCommon.pas L9062-L9084), COED (L2294-L2302, kept raw),
+#     LLKC (L7791-L7800), the generic model (L7008-L7029) with MOLM (L7000-L7006), FLLD
+#     (L3818-L3823), MODC (L3812) and the model flags (L3801-L3804).
+#   corpus: the 298 LVLN records (Starfield.esm 243, ShatteredSpace 25, SFBGS050 16,
+#     SFBGS00D 8, SFBGS003 6; form versions 581, 582), 2026-10-14: order EDID [VMAD] OBND
+#     ODTY [BFCB block] LVLD LVLM LVLF LLCT (LVLO [CTDA...])* [ONAM] [MODL] FLLD; LVLO 12
+#     bytes (up to 58 per record), LVLD 4, LVLM 1 (0 everywhere), LVLF 2, LLCT 1, CTDA 32,
+#     ONAM 4 (localized), FLLD 4 (always 1), VMAD 136. Every record decodes and re-encodes
+#     identically.
+#
+# The entry count LLCT is a separate subrecord, stored, not derived: an edit that adds or
+# removes an Entry must update EntryCount too (the format cannot tie a count subrecord to a
+# group's repetitions; the M3.B10 count_from rule covers counts inside one payload only).
+# The two unused byte runs of LVLO are 0 in all 2,604 official entries.
+signature = "LVLN"
+name = "LeveledNpc"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14077-L14116"
+evidence = [
+  "corpus: the 298 LVLN records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
+]
+confidence = "corpus"
+flags = [["CalculateAll", 0x8000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+note = "script data; its property values are unions by property type, kept raw; observed in 19 records"
+
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official LVLN records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official LVLN records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed in 1 record (BGSKeywordForm_Component)"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags2"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "the second XALG slot upstream lists after the component blocks; not present in the official LVLN records"
+
+[[member]]
+sig = "LVLD"
+name = "ChanceNone"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2252-L2252"]
+
+[[member]]
+sig = "LVLM"
+name = "MaxCount"
+type = "u8"
+note = "0 in every official record"
+
+[[member]]
+sig = "LVLF"
+name = "Flags"
+type = "flags"
+base = "u16"
+bits = [
+  ["CalculateFromAllLevels", 0x1],
+  ["CalculateForEachItemInCount", 0x2],
+  ["CalculateAll", 0x4],
+  ["DisableIfDoesNotResolve1", 0x8],
+  ["DisableIfDoesNotResolve2", 0x10],
+  ["EvalAsStack", 0x20],
+  ["AllowShiftUp", 0x40],
+  ["DoAllBeforeRepeating", 0x100],
+]
+note = "CalculateFromAllLevels means levels at or below the player's"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "list-level conditions, without a CITC count; not present in the official LVLN records"
+
+[[member]]
+sig = "LVLG"
+name = "UseGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official LVLN records"
+
+[[member]]
+sig = "LLCT"
+name = "EntryCount"
+type = "u8"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2250-L2250"]
+note = "number of Entries that follow; stored, not derived; present in every official record"
+
+[[member]]
+group = "Entry"
+card = "repeated"
+note = "observed up to 58 per record"
+
+[[member.member]]
+sig = "LVLO"
+name = "Data"
+type = "struct"
+size = 12
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084"]
+field = [
+  { name = "Level", type = "u16" },
+  { name = "Unused1", type = "opaque", size = 2 },
+  { name = "Npc", type = "formid", targets = ["LVLN", "NPC_"] },
+  { name = "Count", type = "u16" },
+  { name = "ChanceNone", type = "u8" },
+  { name = "Unused2", type = "opaque", size = 1 },
+]
+
+[[member.member]]
+sig = "COED"
+name = "ExtraData"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2294-L2302"]
+confidence = "reference"
+note = "owner, a union of global or required rank, and item condition; not present in the official LVLN records"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "conditions of this entry, without a CITC count; observed in 24 records, up to 25 per record"
+
+[[member]]
+sig = "LLKC"
+name = "FilterKeywordChances"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7791-L7800"]
+confidence = "reference"
+note = "not present in the official LVLN records"
+field = [
+  { name = "Keyword", type = "formid", targets = ["KYWD"] },
+  { name = "Chance", type = "u32" },
+  { name = "Unused", type = "opaque", size = 4 },
+]
+
+[[member]]
+sig = "ONAM"
+name = "OverrideName"
+type = "lstring"
+card = "optional"
+note = "observed in 3 records"
+
+[[member]]
+group = "Model"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+note = "upstream allows these members in any order; listed in upstream order, which every official record follows; FLLD is in every official record"
+
+[[member.member]]
+sig = "MODL"
+name = "FileName"
+type = "zstring"
+card = "optional"
+note = "observed in 10 records"
+
+[[member.member]]
+sig = "MOLM"
+name = "MaterialSwaps"
+type = "struct"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+confidence = "reference"
+note = "not present in the official LVLN records"
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+
+[[member.member]]
+sig = "MODC"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3812-L3812"]
+confidence = "reference"
+note = "not present in the official LVLN records"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "reference"
+note = "not present in the official LVLN records"
