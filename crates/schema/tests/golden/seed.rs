@@ -15,11 +15,12 @@
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
-// - LVLP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14156; corpus)
+// - LVLP (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14158; corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - PCBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785; corpus)
 // - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
+// - PKIN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
 // - ZOOM (corpus: ZOOM records of the 14 official ESMs, scan 2026-10-14; corpus)
@@ -5133,6 +5134,551 @@ impl PcmtRecord {
     }
 }
 
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct PkinFlags(pub u32);
+
+impl PkinFlags {
+    pub const GROUPED_WORKSHOP_OBJECT: u32 = 0x2;
+    pub const FIXED: u32 = 0x4;
+    pub const GROUPED: u32 = 0x8;
+    pub const ONE_MOTION: u32 = 0x10;
+    pub const USER_DEFINED_PRIMITIVES: u32 = 0x20;
+    pub const OVERRIDE_DIRTINESS: u32 = 0x40;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for PkinFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PkinFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PkinForcedLocRefTypes(pub Vec<FormId>);
+
+impl Field for PkinForcedLocRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PkinForcedLocRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PkinPropertiesItem {
+    pub actor_value: FormId,
+    pub value: f32,
+    pub curve_table: FormId,
+}
+
+impl Field for PkinPropertiesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "PKIN.PRPS.ActorValue", ctx)?;
+        let f1 = f32::read(r, "PKIN.PRPS.Value", ctx)?;
+        let f2 = Field::read(r, "PKIN.PRPS.CurveTable", ctx)?;
+        Ok(Self {
+            actor_value: f0,
+            value: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.actor_value.write(out);
+        self.value.write(out);
+        self.curve_table.write(out);
+    }
+}
+
+impl Visit for PkinPropertiesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.actor_value, "PKIN.PRPS.ActorValue", out);
+        visit_form_ids(&self.curve_table, "PKIN.PRPS.CurveTable", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.actor_value, "PKIN.PRPS.ActorValue", out);
+        visit_form_ids_mut(&mut self.curve_table, "PKIN.PRPS.CurveTable", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PkinProperties(pub Vec<PkinPropertiesItem>);
+
+impl Field for PkinProperties {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PkinProperties {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct PkinMaterialSwaps {
+    pub count: u16,
+    pub swaps: Vec<FormId>,
+}
+
+impl Field for PkinMaterialSwaps {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "PKIN.MOLM.Count", ctx)?;
+        let n1 = count(f0, "PKIN.MOLM.Swaps", r.position())?;
+        let f1 = read_array(r, n1, "PKIN.MOLM.Swaps", ctx)?;
+        Ok(Self {
+            count: f0,
+            swaps: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.count.write(out);
+        self.swaps.write(out);
+    }
+}
+
+impl Visit for PkinMaterialSwaps {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.swaps, "PKIN.MOLM.Swaps", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.swaps, "PKIN.MOLM.Swaps", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PkinRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `OBND`, required.
+    pub object_bounds: Option<Sub<ObjectBounds>>,
+    /// `ODTY`, required.
+    pub dirtiness_scale: Option<Sub<f32>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults: Option<Sub<ObjectPaletteDefaults>>,
+    /// `PTT2`, optional.
+    pub transforms: Option<Sub<Transforms>>,
+    /// `SNTP`, optional.
+    pub snap_template: Option<Sub<FormId>>,
+    /// `SNBH`, optional.
+    pub snap_behavior: Option<Sub<FormId>>,
+    /// `XALG`, optional.
+    pub xalg_flags: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FLTR`, optional.
+    pub filter: Option<Sub<ZString>>,
+    /// `OPDS`, optional.
+    pub object_palette_defaults2: Option<Sub<ObjectPaletteDefaults>>,
+    /// `CNAM`, optional.
+    pub cell: Option<Sub<FormId>>,
+    /// `VNAM`, optional.
+    pub version: Option<Sub<u32>>,
+    /// `FNAM`, optional.
+    pub flags: Option<Sub<PkinFlags>>,
+    /// Group `Keywords`, optional.
+    pub keywords: Option<Keywords>,
+    /// `FTYP`, optional.
+    pub forced_loc_ref_types: Option<Sub<PkinForcedLocRefTypes>>,
+    /// `PRPS`, optional.
+    pub properties: Option<Sub<PkinProperties>>,
+    /// `NTRM`, optional.
+    pub native_terminal: Option<Sub<FormId>>,
+    /// `MOLM`, optional.
+    pub material_swaps: Option<Sub<PkinMaterialSwaps>>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl PkinRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OBND",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"ODTY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PTT2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNTP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"SNBH",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FLTR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"OPDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: Keywords::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FTYP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRPS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NTRM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MOLM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "PKIN.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "PKIN.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "PKIN.OBND",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.dirtiness_scale,
+                    subs,
+                    *index,
+                    "PKIN.ODTY",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.object_palette_defaults,
+                    subs,
+                    *index,
+                    "PKIN.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.transforms, subs, *index, "PKIN.PTT2", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.snap_template,
+                    subs,
+                    *index,
+                    "PKIN.SNTP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.snap_behavior,
+                    subs,
+                    *index,
+                    "PKIN.SNBH",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => {
+                    put(&mut self.xalg_flags, subs, *index, "PKIN.XALG", ctx, extra)
+                }
+                Hit::Group { member: 9, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.filter, subs, *index, "PKIN.FLTR", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.object_palette_defaults2,
+                    subs,
+                    *index,
+                    "PKIN.OPDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.cell, subs, *index, "PKIN.CNAM", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => {
+                    put(&mut self.version, subs, *index, "PKIN.VNAM", ctx, extra)
+                }
+                Hit::Sub { member: 14, index } => {
+                    put(&mut self.flags, subs, *index, "PKIN.FNAM", ctx, extra)
+                }
+                Hit::Group { member: 15, hits } if self.keywords.is_none() => {
+                    let mut group = Keywords::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.keywords = Some(group);
+                }
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.forced_loc_ref_types,
+                    subs,
+                    *index,
+                    "PKIN.FTYP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.properties, subs, *index, "PKIN.PRPS", ctx, extra)
+                }
+                Hit::Sub { member: 18, index } => put(
+                    &mut self.native_terminal,
+                    subs,
+                    *index,
+                    "PKIN.NTRM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 19, index } => put(
+                    &mut self.material_swaps,
+                    subs,
+                    *index,
+                    "PKIN.MOLM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 20, index } => {
+                    put(&mut self.name, subs, *index, "PKIN.FULL", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
+        emit(out, *b"ODTY", self.dirtiness_scale.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults.as_ref());
+        emit(out, *b"PTT2", self.transforms.as_ref());
+        emit(out, *b"SNTP", self.snap_template.as_ref());
+        emit(out, *b"SNBH", self.snap_behavior.as_ref());
+        emit(out, *b"XALG", self.xalg_flags.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FLTR", self.filter.as_ref());
+        emit(out, *b"OPDS", self.object_palette_defaults2.as_ref());
+        emit(out, *b"CNAM", self.cell.as_ref());
+        emit(out, *b"VNAM", self.version.as_ref());
+        emit(out, *b"FNAM", self.flags.as_ref());
+        if let Some(group) = &self.keywords {
+            group.emit(out);
+        }
+        emit(out, *b"FTYP", self.forced_loc_ref_types.as_ref());
+        emit(out, *b"PRPS", self.properties.as_ref());
+        emit(out, *b"NTRM", self.native_terminal.as_ref());
+        emit(out, *b"MOLM", self.material_swaps.as_ref());
+        emit(out, *b"FULL", self.name.as_ref());
+    }
+}
+
+impl Visit for PkinRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.transforms, "PKIN.PTT2", out);
+        visit_form_ids(&self.snap_template, "PKIN.SNTP", out);
+        visit_form_ids(&self.snap_behavior, "PKIN.SNBH", out);
+        visit_form_ids(&self.cell, "PKIN.CNAM", out);
+        visit_form_ids(&self.keywords, "PKIN.Keywords", out);
+        visit_form_ids(&self.forced_loc_ref_types, "PKIN.FTYP", out);
+        visit_form_ids(&self.properties, "PKIN.PRPS", out);
+        visit_form_ids(&self.native_terminal, "PKIN.NTRM", out);
+        visit_form_ids(&self.material_swaps, "PKIN.MOLM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.transforms, "PKIN.PTT2", out);
+        visit_form_ids_mut(&mut self.snap_template, "PKIN.SNTP", out);
+        visit_form_ids_mut(&mut self.snap_behavior, "PKIN.SNBH", out);
+        visit_form_ids_mut(&mut self.cell, "PKIN.CNAM", out);
+        visit_form_ids_mut(&mut self.keywords, "PKIN.Keywords", out);
+        visit_form_ids_mut(&mut self.forced_loc_ref_types, "PKIN.FTYP", out);
+        visit_form_ids_mut(&mut self.properties, "PKIN.PRPS", out);
+        visit_form_ids_mut(&mut self.native_terminal, "PKIN.NTRM", out);
+        visit_form_ids_mut(&mut self.material_swaps, "PKIN.MOLM", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "PKIN.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "PKIN.FULL", out);
+    }
+}
+
+impl PkinRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"PKIN";
+    /// Record-header flag.
+    pub const FLAG_INSTANCED: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_CALC_LPIS: u32 = 0x400;
+    /// Record-header flag.
+    pub const FLAG_INSTANCED_STATIC: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_PACK_IN_USE_ONLY: u32 = 0x2000;
+    /// Record-header flag.
+    pub const FLAG_OBSTACLE: u32 = 0x2000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("PKIN", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("PKIN", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("PKIN", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("PKIN", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Tes4Header {
     pub version: f32,
@@ -6156,6 +6702,7 @@ pub enum Record {
     Pcbn(Box<PcbnRecord>),
     Pccn(Box<PccnRecord>),
     Pcmt(Box<PcmtRecord>),
+    Pkin(Box<PkinRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
     Zoom(Box<ZoomRecord>),
@@ -6174,6 +6721,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"PCBN", PcbnRecord::MEMBERS),
     (*b"PCCN", PccnRecord::MEMBERS),
     (*b"PCMT", PcmtRecord::MEMBERS),
+    (*b"PKIN", PkinRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
     (*b"ZOOM", ZoomRecord::MEMBERS),
@@ -6195,6 +6743,7 @@ impl Record {
             b"PCBN" => Self::Pcbn(Box::new(PcbnRecord::decode(subs, ctx))),
             b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
+            b"PKIN" => Self::Pkin(Box::new(PkinRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
             b"ZOOM" => Self::Zoom(Box::new(ZoomRecord::decode(subs, ctx))),
@@ -6216,6 +6765,7 @@ impl Record {
             Self::Pcbn(record) => record.encode(),
             Self::Pccn(record) => record.encode(),
             Self::Pcmt(record) => record.encode(),
+            Self::Pkin(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
             Self::Zoom(record) => record.encode(),
@@ -6236,6 +6786,7 @@ impl Record {
             Self::Pcbn(_) => PcbnRecord::SIGNATURE,
             Self::Pccn(_) => PccnRecord::SIGNATURE,
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
+            Self::Pkin(_) => PkinRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
             Self::Zoom(_) => ZoomRecord::SIGNATURE,
@@ -6256,6 +6807,7 @@ impl Record {
             Self::Pcbn(record) => record.form_ids(),
             Self::Pccn(record) => record.form_ids(),
             Self::Pcmt(record) => record.form_ids(),
+            Self::Pkin(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
             Self::Zoom(record) => record.form_ids(),
@@ -6276,6 +6828,7 @@ impl Record {
             Self::Pcbn(record) => record.form_ids_mut(),
             Self::Pccn(record) => record.form_ids_mut(),
             Self::Pcmt(record) => record.form_ids_mut(),
+            Self::Pkin(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
             Self::Zoom(record) => record.form_ids_mut(),
@@ -6296,6 +6849,7 @@ impl Record {
             Self::Pcbn(record) => record.lstrings(),
             Self::Pccn(record) => record.lstrings(),
             Self::Pcmt(record) => record.lstrings(),
+            Self::Pkin(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
             Self::Zoom(record) => record.lstrings(),
@@ -6316,6 +6870,7 @@ impl Record {
             Self::Pcbn(record) => record.lstrings_mut(),
             Self::Pccn(record) => record.lstrings_mut(),
             Self::Pcmt(record) => record.lstrings_mut(),
+            Self::Pkin(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
             Self::Zoom(record) => record.lstrings_mut(),
@@ -6337,6 +6892,7 @@ impl Record {
             Self::Pcbn(record) => &record.extra,
             Self::Pccn(record) => &record.extra,
             Self::Pcmt(record) => &record.extra,
+            Self::Pkin(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
             Self::Zoom(record) => &record.extra,

@@ -3,7 +3,7 @@
 # level, chance and per-entry conditions.
 #
 # Sources (ADR 0005 Amendment 2):
-#   xedit: wbDefinitionsSF1.pas@9fb01688 L14119-L14156 - member order, the record flag,
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L14119-L14158 - member order, the record flag,
 #     LVLD/LVLM/LVLF/LVLG/LLCT, the entry group (LVLO plus its conditions), the model block
 #     and FTYP. Helpers: script data (L3407-L3411, kept opaque), object bounds
 #     (wbDefinitionsCommon.pas L9348-L9365, common/ObjectBounds.toml), ODTY (L3921-L3923),
@@ -22,7 +22,7 @@
 # chance-none byte is also 0 everywhere.
 signature = "LVLP"
 name = "LeveledPackIn"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14156"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14119-L14158"
 evidence = [
   "corpus: the 52 LVLP records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
 ]
