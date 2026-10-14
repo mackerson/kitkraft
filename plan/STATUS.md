@@ -374,6 +374,8 @@ is under "Next".
     `inspect` shows the new name winning. Automated in `crates/engine/tests/smoke_rename.rs`
     (64 s debug). Owner steps: M2.O6 below and `docs/smoke-rename.md`.
 - Lane E round 2 (Fable review, 13 findings, each with a regression test), 2026-10-14:
+**M2.O6 result (2026-10-14):** PASS. Owner loaded `OldSovietMarksmanRifle.esm` (SHA-256 9c0b28a6...) through MO2 on a disposable save, `player.additem 0021BBCD 1`, and the item displayed as "Old Soviet Marksman Rifle". First in-game confirmation of the set/validate/build pipeline and of inline UTF-8 lstrings in a non-localized override of a localized master.
+
   `build` guards `out` like any patch target (a load-order plugin named as `out` was
   overwritten) and needs `overwrite` for an existing file; `set` stages, runs the plugin
   rules and writes only when its records pass; both stage under the OS temp dir (stale
@@ -401,8 +403,7 @@ is under "Next".
     `corpus` confidence; `--check` passes on the regenerated file.
   - M3.F3 hygiene: `docs/gaps.md` rows name their closing M3 tasks (the `PLANNED_IN_M2`
     and "MCP server not implemented" rows removed); answered Requests struck through with
-    where they were done; `docs/mcp.md` names the coming `refs` (M3.D4) and
-    `overhaul.scaffold` (M3.E7).
+    where they were done; `docs/mcp.md` names the coming `refs` (M3.D4).
   - M3.F4: `plan/adr/0007-egui-shell-over-the-catalog.md`, status **Proposed**: options
     (A: minimal egui shell in M3 = M3.F5; B: defer to M4; C: iced, Slint, web), costs, and
     the recommendation B. Awaiting the owner's M3.O6; M3.F5 is gated on it. No UI code.
@@ -430,6 +431,41 @@ is under "Next".
     with tests from the observed values, the reader's hash check accepts it for non-ASCII
     names. `ba2.pack` keeps refusing them (collisions, unstable bytes, game lookup not
     observed); gaps row restated.
+- Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
+  `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
+  - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
+    (`kitcraft_doc::RawRef`; a master of unknown scale before the index and
+    `full-style-self` stay unresolved, never guessed); `scripts` takes `.ba2` archives and
+    `plugin_archives` adds the plugin's own `<stem> - *.ba2`. `validate_corpus_official_files`
+    (release, 83 s): 0 errors, unresolved FormIDs 0 on all 14 files, warnings unchanged
+    (92 `override.stripped-name` on CELL/LCTN/NPC_/QUST/WRLD, the DLCs' own; 15
+    `formid.dangling` in SFBGS050, overrides of SFBGS00D forms SFBGS00D lacks).
+  - M3.E6 `build` spec v2 (`crates/engine/src/build/`): named classes, `[[rule]]` over a
+    class with `via` (typed FormID members followed hop by hop; lane D's `follow`, M3.D4,
+    replaces the local one when it lands), operators `mul`/`add`/`min`/`max`/`clamp`,
+    one write per record across rules and classes (different writes to one field name both
+    keys), `unknown member` checked against the schema, `strict`, `plan` (change list with
+    before/after, per-class and per-rule counts, nothing written), and the
+    `reference`-confidence gate (`allow_reference`). Built and tested on the members typed
+    today (GLOB `FLTV`, GMST `DATA`, `EDID`, `KSIZ`/`KWDA`, `FULL`); the weapon members
+    (WEAP/AMMO/PROJ/AMDL, lane B round 3: M3.B1..B3) plug in through the schema with no
+    code change. The `reference` gate is tested on a synthetic schema (the builtin has no
+    `reference` member yet). Version 1 specs build as before (the rename keeps its hash).
+  - M3.E7 `overhaul.scaffold` (CLI `kit overhaul`, `handlers/overhaul.rs`,
+    `build/scaffold.rs`): a starter spec v2 per record type, one class per `group_by` value
+    with match counts and min/median/max of each typed numeric member as comments, every
+    rule commented out; deterministic; `out` guarded (`.toml`, never game/user Data or
+    MO2, `overwrite`). On the Default profile `kit overhaul WEAP --group-by KWDA`: 541
+    winning WEAP, 40 classes, 0.8 s warm (release); `kit build <scaffold> --plan`: 0
+    changes, every class's count equal to the scaffold's (4.5 s). Today the only typed
+    numeric WEAP member is `KSIZ`; the weapon stats appear when lane B types WEAP (M3.B1).
+  - M3.E8 design brief template `docs/overhaul/brief.md` (source, critique points with
+    owner's-words claim, timestamp, classes, desired change, measurable target; out of
+    scope; in-game checklist; the traceability rule `brief = "B<n>"`). Next for the owner:
+    **M3.O4** (pick the critique, fill the brief), which gates M3.E9.
+  - Not started, gated: M3.E1/E2 on lane D's M3.D1 (`missing_active_plugins`,
+    `Resolved.bytes`, not on main); M3.E4 on M3.B8; M3.E5 on M3.A3 (and M3.H3/M3.O1);
+    M3.E9 on M3.O4 (owner); M3.E10 on M3.B1 (typed WEAP).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -798,6 +834,15 @@ Agents append here when they need a change in a crate they do not own.
   GMST, KYWD, TES4, WEAP), so `check_subrecords` misses `NotDecoded` conflicts in AMDL,
   AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.
   `coverage` (engine) does not depend on it.
+- **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
+  `overhaul.scaffold` (alias `overhaul`, session handler registered in
+  `handlers::session_defaults`), `build` gained `plan`, `validate` gained
+  `plugin_archives` and `.ba2` inputs in `scripts`; `docs/mcp.md` has their sections, the
+  command list (M3.F3) may want them. **Lane F:** (1) answered: the sections are the
+  command list; no shortcut tool (`execute` and `command_line` reach it, and the tool
+  descriptions and `kitcraft://commands` list it from the catalog). (2) Lane D: `build`'s `via` follows typed FormID
+  members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
+  `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
 - **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3

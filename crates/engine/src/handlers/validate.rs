@@ -57,6 +57,17 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
         .into_iter()
         .map(PathBuf::from)
         .collect();
+    let plugin_archives = args
+        .get("plugin_archives")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    if plugin_archives && plugin.is_none() {
+        return Err(invalid(
+            "/plugin_archives".into(),
+            "required",
+            "plugin_archives needs `plugin` (its archives are found next to it)".into(),
+        ));
+    }
     if plugin.is_none() && scripts.is_empty() {
         return Err(invalid(
             String::new(),
@@ -86,6 +97,7 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
     Ok(Options {
         plugin,
         scripts,
+        plugin_archives,
         rules,
         plugins: strings(args, "plugins")
             .into_iter()
@@ -181,16 +193,11 @@ pub(crate) fn outcome(options: &Options, report: &validate::Report) -> Outcome {
             report.checked_form_ids, report.unchecked_subrecords, report.unresolved_form_ids
         ));
     }
-    if !options.scripts.is_empty() {
-        limitations.push(
-            "scripts are read as loose .pex files; scripts inside archives are not scanned".into(),
-        );
-    }
     let complete = report.unchecked_subrecords == 0 && report.unresolved_form_ids == 0;
     Outcome {
         data: json!({
             "plugin": plugin,
-            "scripts": options.scripts.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
+            "scripts": report.script_inputs.iter().map(|p| p.display().to_string()).collect::<Vec<_>>(),
             "passed": passed,
             "errors": errors,
             "warnings": warnings,

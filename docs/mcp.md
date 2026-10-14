@@ -672,8 +672,12 @@ not write.
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
-Arguments `{plugin?, scripts?, rules?}` (`plugin`, `scripts`, or both) plus the
-load-order arguments (all optional). **Masters of a standalone plugin are searched in
+Arguments `{plugin?, scripts?, plugin_archives?, rules?}` (`plugin`, `scripts`, or both)
+plus the load-order arguments (all optional). `scripts` takes `.pex` files, directories
+of them, and `.ba2` archives (each `.pex` entry is read in memory; a finding names it
+`<archive>/<path in archive>`, an entry that does not parse is a limitation);
+`plugin_archives: true` (CLI `--plugin-archives`, needs `plugin`) adds the plugin's own
+`<stem> - *.ba2` archives (M3.E3). **Masters of a standalone plugin are searched in
 order:** the named (`profile`/`plugins`) or session load order, the plugin's own
 directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable set,
 `kit validate --plugin out\X.esm` finds `Starfield.esm` with no other argument. A bare
@@ -692,11 +696,33 @@ directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable s
 FormID was left unchecked; opaque subrecords count as `opaque_subrecords`. Evidence: one
 byte at each finding's offset.
 
-### `build` (M2.E9)
+### `build` (M2.E9; spec v2 M3.E6)
 
-Arguments `{spec, out, overwrite = false, allow_untyped_lstrings = false}` plus the
-load-order arguments (used when the spec has no `[load_order]`). CLI
-`kit build rename.toml <out> [--overwrite]`. `out` is checked like `set`'s `into` (never a
+Arguments `{spec, out, plan = false, overwrite = false, allow_untyped_lstrings = false}`
+plus the load-order arguments (used when the spec has no `[load_order]`). CLI
+`kit build rename.toml <out> [--plan] [--overwrite]`.
+
+**Spec version 2** (`crates/engine/src/build/spec.rs` has the full grammar): `[class.<name>]`
+tables (`type`, optional `where`: every winning record of the type when absent, optional
+`brief`), `[[rule]]` entries naming a `class`, with `fields`, optional `via` (typed FormID
+member paths followed hop by hop: `via = ["KWDA"]` reaches a weapon's keywords),
+`allow_reference` and `brief`; `[[set]]` as in version 1 (plus `allow_reference`);
+top-level `strict`; `[plugin] style = "kit"` (the `ck` style is refused until M3.A3).
+Operators on typed numbers: a value, `{ mul }`, `{ add }`, `{ min }` (at least),
+`{ max }` (at most), `{ clamp = [lo, hi] }`; other types take only a value. In version 2 a
+record reached by several rules or classes is written once (the same write twice is one
+write; `changes[].by` lists every entry that asked for it), two different writes to one
+field are an error naming both keys, a field path the record type's schema does not have
+is `unknown member`, a rule that matches nothing is a warning (`data.warnings`, and an
+error with `strict = true`), and a write to a `reference`-only member is refused unless
+the entry has `allow_reference = true` (then named in `limitations`). Version 1 specs
+build as before. `plan: true` writes nothing to `out` (the plugin is built and validated
+in the OS temp dir only) and returns `plan`, `changes[]` (`form`, `signature`,
+`editor_id`, `path`, `before`, `after`, `changed`, `by`), `changed_fields`, `classes[]`
+(`class`, `type`, `where`, `brief`, `matched`, `undecided`), `rules[]` (`rule`, `class`,
+`brief`, `matched`, `via[]` hops with `from`/`reached`/`unfollowed`, `records`,
+`fields_written`, `fields_changed`), `validate` and `passed`; a plan with nothing to write
+(a fresh `overhaul.scaffold` spec) reports 0 changes. `out` is checked like `set`'s `into` (never a
 load-order plugin, the game or user Data dir, or MO2) before anything is written, and an
 existing `out` is replaced only with `overwrite`. The spec (TOML):
 
@@ -727,22 +753,40 @@ the command fails with the errors. Spec errors are `failed` with `spec: <key>: .
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
 
-### Coming in M3: `refs` (M3.D4), `overhaul.scaffold` (M3.E7)
+### Coming in M3: `refs` (M3.D4)
 
-Not in the catalog yet: each lands as one `CommandSpec` with its task, and its result
-shape is documented here by the owning lane when it does. Until then `execute` answers
-`unknown_command` for both. Neither gets an MCP shortcut tool (the tool list stays at
-eight); both are reached through `execute` and `command_line`, and listed in
-`kitcraft://commands` with their `cli` words, like every other command.
+Not in the catalog yet: it lands as one `CommandSpec` with M3.D4, and lane D documents its
+result shape here when it does; until then `execute` answers `unknown_command`. It gets no
+MCP shortcut tool (the tool list stays at eight): `execute` and `command_line` reach it,
+and `kitcraft://commands` lists it with its `cli` words, like every other command.
 
 - `refs {form, profile?, plugins?, ...}` (lane D); CLI `kit refs <form>`. The CK's "Use
   Info": every record whose header or typed FormID members name `form` across the load
   order (the shared load-order arguments above), with evidence per reference and the
   count of opaque payloads not scanned in `limitations`. Read only.
-- `overhaul.scaffold {type, where?, group_by?, out, overwrite = false}` (lane E); CLI `kit
-  overhaul` (alias `overhaul`). Writes a starter `build` spec v2 (one class per group,
-  match counts and min/median/max per typed numeric member as comments, every rule
-  commented out) to `out`; refuses an existing `out` without `overwrite`. Deterministic.
+
+### `overhaul.scaffold` (M3.E7; CLI `kit overhaul`)
+
+Arguments `{type, where?, group_by?, out?, overwrite = false, max_groups = 40}` plus the
+load-order arguments. CLI `kit overhaul WEAP --group-by KWDA --out weapons.toml
+--profile <dir>` (or `kit overhaul --type WEAP ...`). Emits a starter `build` spec v2 for
+the winning records of `type` matching `where`: one class per value of `group_by` (a
+`where` path such as `KWDA`, `@plugin` or `DNAM.Member`; a record with several values
+joins one class per value; without it, one class), the largest `max_groups` as classes
+and the rest listed in a comment, each class with its `where` (exactly its group), its
+match count and the min/median/max of every typed numeric member of the type as comments,
+a `brief` placeholder and a commented-out rule. Every rule is commented out, so
+`build --plan` on a fresh scaffold reports 0 changes with each class matching what the
+scaffold counted. The text is deterministic; the `[load_order]` repeats the
+`profile`/`plugins`/`data_dir`/`language`/`no_cache` arguments. With `out` (a `.toml`
+file, never in the game or user Data dir or MO2; an existing one only with `overwrite`)
+it is written; without, `data.spec_text` (and the summary) holds it. `data`: `type`,
+`where`, `group_by`, `out`, `written`, `bytes`, `records`, `undecided`, `ungrouped`,
+`group_undecodable`, `unexpressible`, `classes[]` (`class`, `where`, `matched`, `label`,
+`stats[]` with `member`, `records`, `undecodable`, `min`, `median`, `max`), `omitted[]`,
+`numeric_members[]` (`path`, `member`, `kind`, `confidence`, `in_array`), `spec_text`,
+`summary`. On the owner's Default profile, `kit overhaul WEAP --group-by KWDA` takes
+0.8 s warm (release, 541 winning WEAP, 2026-10-14).
 
 ## Errors
 
