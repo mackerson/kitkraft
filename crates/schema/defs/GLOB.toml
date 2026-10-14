@@ -1,4 +1,9 @@
-# GLOB: subrecord inventory only. Every payload is opaque until its layout is decided.
+# GLOB: a global variable. EDID (universal, M2.B2) and the FLTV value (M2.B9) are typed;
+# the BFCB block stays opaque.
+#
+# FLTV: the UESP Skyrim GLOB page states that every global is stored as a float whatever
+# its declared type (short, long, float), with the type in an FNAM byte; Starfield's
+# records have no FNAM, and every FLTV in the corpus is a finite 4-byte float.
 #
 # Source (ADR 0005 "inventory" row): corpus scan of the GLOB top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
@@ -7,19 +12,22 @@
 #
 # BFCB ... BFCE brackets a block of subrecords: the shared group common/BfcbBlock.toml.
 #
-# FLTV stays opaque: no layout source yet.
-#
-# Member names are placeholders derived from the signature.
+# Opaque member names are placeholders derived from the signature.
 signature = "GLOB"
 name = "Global"
 source = "corpus: GLOB records of the official ESMs (12 files with a GLOB group)"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
-name = "Edid"
-type = "opaque"
+name = "EditorId"
+type = "zstring"
 card = "optional"
 note = "absent in 3 of 3319 records"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
 
 [[member]]
 group_ref = "BfcbBlock"
@@ -27,6 +35,10 @@ card = "repeated"
 
 [[member]]
 sig = "FLTV"
-name = "Fltv"
-type = "opaque"
-note = "observed 4 bytes"
+name = "Value"
+type = "f32"
+note = "stored as a float whatever the global's type; Starfield has no FNAM type byte"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/GLOB",
+  "corpus: GLOB scan 2026-10-14: all 3,319 FLTV payloads are 4 bytes and finite as f32 (139 non-integral); no GLOB record has FNAM",
+]

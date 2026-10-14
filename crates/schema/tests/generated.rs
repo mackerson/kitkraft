@@ -404,7 +404,8 @@ fn record_dispatch() {
     assert_eq!(rec.encode(), subs);
     assert!(Record::decode(*b"NONE", &raws, ctx(15, false)).is_none());
     let sigs: Vec<[u8; 4]> = RECORDS.iter().map(|(sig, _)| *sig).collect();
-    assert_eq!(sigs, [*b"EMPT", *b"YYYY", *b"ZZZZ"]);
+    assert_eq!(sigs, [*b"EMPT", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]);
+    assert!(rec.extra().is_empty());
 }
 
 #[test]
@@ -561,17 +562,42 @@ fn seed_weap_inventory_shape() {
         b"DESC", b"OBTE", b"OBTF", b"FULL", b"OBTS", b"FULL", b"OBTS", b"STOP", b"NNAM", b"WFIR",
         b"FLLD", b"WTRM",
     ];
+    // Typed members (M2.B2) get well-formed payloads for a localized plugin; the opaque
+    // ones get arbitrary bytes.
+    let kwda = [7u32.to_le_bytes(), 0x0100_0009u32.to_le_bytes()].concat();
     let subs: Vec<seed::OwnedSub> = sigs
         .iter()
         .enumerate()
-        .map(|(i, sig)| s(sig, &vec![i as u8; i % 5]))
+        .map(|(i, sig)| match *sig {
+            b"EDID" => s(sig, b"Gun\0"),
+            b"FULL" | b"DESC" => s(sig, &(0x0100_0000 + i as u32).to_le_bytes()),
+            b"KSIZ" => s(sig, &2u32.to_le_bytes()),
+            b"KWDA" => s(sig, &kwda),
+            _ => s(sig, &vec![i as u8; i % 5]),
+        })
         .collect();
     let raws = seed_raw(&subs);
-    let rec = WeapRecord::decode(&raws, Ctx::default());
+    let localized = Ctx {
+        form_version: 582,
+        localized: true,
+    };
+    let rec = WeapRecord::decode(&raws, localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert_eq!(rec.bfcb_block.len(), 1);
     assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
-    assert!(rec.full.is_some());
+    assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gun");
+    assert_eq!(**rec.name.as_ref().unwrap(), seed::LString::Id(0x0100_0006));
+    let keywords = rec.keywords.as_ref().unwrap();
+    assert_eq!(**keywords.count.as_ref().unwrap(), 2);
+    assert_eq!(keywords.forms.as_ref().unwrap().0.len(), 2);
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(ids, [("Keywords.KWDA", 7), ("Keywords.KWDA", 0x0100_0009)]);
+    // FULL, DESC and the two FULL entries of the OBTE block.
+    assert_eq!(rec.lstrings().len(), 4);
+    // Without the localized flag a 4-byte FULL is no zstring: it stays raw, losslessly.
+    let plain = WeapRecord::decode(&raws, Ctx::default());
+    assert_eq!(plain.extra.len(), 4);
+    assert_eq!(plain.encode(), subs);
     let block = rec.obte_block.as_ref().unwrap();
     assert!(block.obte.is_some() && block.stop.is_some());
     assert_eq!(block.obts_entry.len(), 2);
@@ -601,26 +627,51 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     ];
     let rec = GlobRecord::decode(&seed_raw(&glob), Ctx::default());
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
-    assert_eq!(rec.edid.as_ref().unwrap().0, b"Gv\0");
+    assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gv");
     assert_eq!(rec.bfcb_block.len(), 1);
     assert_eq!(rec.bfcb_block[0].bfcb_body.len(), 1);
-    assert_eq!(rec.fltv.as_ref().unwrap().0.len(), 4);
+    assert_eq!(**rec.value.as_ref().unwrap(), 1.0);
     assert_eq!(rec.encode(), glob);
     let bare = vec![s(b"FLTV", &[0; 4])];
     let rec = GlobRecord::decode(&seed_raw(&bare), Ctx::default());
-    assert!(rec.edid.is_none() && rec.fltv.is_some() && rec.extra.is_empty());
+    assert!(rec.editor_id.is_none() && rec.value.is_some() && rec.extra.is_empty());
 
-    // GMST "EDID XALG DATA".
+    // GMST "EDID XALG DATA": the EditorID prefix picks the DATA layout (M2.B9).
+    let localized = Ctx {
+        form_version: 582,
+        localized: true,
+    };
     let gmst = vec![
         s(b"EDID", b"fX\0"),
         s(b"XALG", &[0; 8]),
         s(b"DATA", &[0, 0, 128, 63]),
     ];
-    let rec = GmstRecord::decode(&seed_raw(&gmst), Ctx::default());
+    let rec = GmstRecord::decode(&seed_raw(&gmst), localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert!(rec.xalg.is_some());
-    assert_eq!(rec.data.as_ref().unwrap().0, [0, 0, 128, 63]);
+    assert_eq!(**rec.value.as_ref().unwrap(), seed::GmstValue::Float(1.0));
     assert_eq!(rec.encode(), gmst);
+    for (edid, data, value) in [
+        (&b"bOn\0"[..], 1u32.to_le_bytes(), seed::GmstValue::Bool(1)),
+        (b"iCount\0", (-3i32).to_le_bytes(), seed::GmstValue::Int(-3)),
+        (b"uSize\0", 9u32.to_le_bytes(), seed::GmstValue::Unsigned(9)),
+        (
+            b"sLabel\0",
+            0x0003_3055u32.to_le_bytes(),
+            seed::GmstValue::String(seed::LString::Id(0x0003_3055)),
+        ),
+    ] {
+        let subs = vec![s(b"EDID", edid), s(b"DATA", &data)];
+        let rec = GmstRecord::decode(&seed_raw(&subs), localized);
+        assert_eq!(**rec.value.as_ref().unwrap(), value);
+        assert_eq!(rec.value.as_ref().unwrap().prefix(), edid[0]);
+        assert_eq!(rec.encode(), subs);
+    }
+    // A prefix no variant names keeps DATA raw, losslessly.
+    let odd = vec![s(b"EDID", b"xOdd\0"), s(b"DATA", &[1, 2, 3, 4])];
+    let rec = GmstRecord::decode(&seed_raw(&odd), localized);
+    assert!(rec.value.is_none() && rec.extra.len() == 1);
+    assert_eq!(rec.encode(), odd);
 
     // KYWD with a BFCB block, DNAM and FULL; a stray subrecord goes to extra.
     let kywd = vec![
@@ -641,4 +692,155 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     assert!(rec.bfcb_block[0].bfcb_body.is_empty());
     assert!(rec.dnam.is_some() && rec.enam.is_some() && rec.data.is_none());
     assert_eq!(rec.encode(), kywd);
+}
+
+/// M2.B3: `form_ids()` and `lstrings()` yield every typed FormID and lstring in definition
+/// order, through struct arrays, repeated groups, shared types behind a `count_from` array
+/// and version-gated fields; the `_mut` forms edit in place.
+#[test]
+fn visitors_yield_every_form_id_and_lstring_in_order() {
+    fn id(v: u32) -> Vec<u8> {
+        v.to_le_bytes().to_vec()
+    }
+    let weight = |w: u16| w.to_le_bytes().to_vec();
+    let links = [id(0x0100_0001), weight(7), id(0x0100_0002), weight(8)].concat();
+    let pairs = [
+        vec![2u8],
+        id(0x0000_0A01),
+        vec![1],
+        id(0x0000_0A02),
+        vec![2],
+    ]
+    .concat();
+    let last = [id(0x0200_0003), id(0x0200_0004), id(77)].concat();
+    let subs = vec![
+        sub(b"FULL", &id(11)),
+        sub(b"LNKS", &links),
+        sub(b"SREF", &id(0x0000_0B01)),
+        sub(b"SDSC", &id(22)),
+        sub(b"SPRS", &pairs),
+        sub(b"SREF", &id(0x0000_0B02)),
+        sub(b"LAST", &last),
+    ];
+    let mut rec = Record::decode(*b"VVVV", &raw(&subs), ctx(10, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("VVVV.LNKS.Target", 0x0100_0001),
+            ("VVVV.LNKS.Target", 0x0100_0002),
+            ("VVVV.Slot.SREF", 0x0000_0B01),
+            ("Link.Form", 0x0000_0A01),
+            ("Link.Form", 0x0000_0A02),
+            ("VVVV.Slot.SREF", 0x0000_0B02),
+            ("VVVV.LAST.Owner", 0x0200_0003),
+            ("VVVV.LAST.Extra", 0x0200_0004),
+        ]
+    );
+    let strings: Vec<(&str, LString)> = rec
+        .lstrings()
+        .into_iter()
+        .map(|(p, s)| (p, s.clone()))
+        .collect();
+    assert_eq!(
+        strings,
+        [
+            ("VVVV.FULL", LString::Id(11)),
+            ("VVVV.Slot.SDSC", LString::Id(22)),
+            ("VVVV.LAST.Label", LString::Id(77)),
+        ]
+    );
+    // A gated field that is absent is not visited.
+    let mut old_subs = subs.clone();
+    old_subs[6] = sub(b"LAST", &[id(0x0200_0003), id(77)].concat());
+    let old = Record::decode(*b"VVVV", &raw(&old_subs), ctx(9, true)).unwrap();
+    assert!(old.extra().is_empty());
+    assert_eq!(old.form_ids().len(), 7);
+
+    // Remap every master-0x01 FormID to master 0x03 and replace a string ID with text.
+    for (_, form) in rec.form_ids_mut() {
+        if form.0 >> 24 == 1 {
+            *form = FormId(form.0 & 0x00FF_FFFF | 0x0300_0000);
+        }
+    }
+    for (path, text) in rec.lstrings_mut() {
+        if path == "VVVV.FULL" {
+            *text = LString::Text(ZString(b"Named".to_vec()));
+        }
+    }
+    let encoded = rec.encode();
+    let new_links = [id(0x0300_0001), weight(7), id(0x0300_0002), weight(8)].concat();
+    assert_eq!(encoded[0], sub(b"FULL", b"Named\0"));
+    assert_eq!(encoded[1], sub(b"LNKS", &new_links));
+    assert_eq!(encoded[2..], subs[2..]);
+
+    // A record without FormID or lstring members gives empty lists.
+    let empty = Record::decode(*b"EMPT", &[], ctx(1, true)).unwrap();
+    assert!(empty.form_ids().is_empty() && empty.lstrings().is_empty());
+}
+
+/// M2.B9: `type = "union"` with `decider = "edid-prefix"`, once and repeated; FormID and
+/// lstring variants are visited; without a decider the payload stays raw.
+#[test]
+fn unions_follow_the_editor_id_prefix() {
+    use fixture::{UuuuItems, UuuuValue};
+    let id = |v: u32| v.to_le_bytes().to_vec();
+    let subs = vec![
+        sub(b"EDID", b"rLink\0"),
+        sub(b"DATA", &id(0x0100_0042)),
+        sub(b"LIST", &id(7)),
+        sub(b"LIST", &id(8)),
+    ];
+    let rec = Record::decode(*b"UUUU", &raw(&subs), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let Record::Uuuu(u) = &rec else {
+        panic!("UUUU");
+    };
+    assert_eq!(
+        **u.value.as_ref().unwrap(),
+        UuuuValue::Ref(FormId(0x0100_0042))
+    );
+    let items: Vec<UuuuItems> = u.items.iter().map(|s| s.value.clone()).collect();
+    assert_eq!(
+        items,
+        [UuuuItems::Form(FormId(7)), UuuuItems::Form(FormId(8))]
+    );
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(
+        ids,
+        [
+            ("UUUU.DATA", 0x0100_0042),
+            ("UUUU.LIST", 7),
+            ("UUUU.LIST", 8)
+        ]
+    );
+    assert_eq!(rec.encode(), subs);
+
+    // A string variant is an lstring.
+    let text = vec![sub(b"EDID", b"sName\0"), sub(b"DATA", &id(99))];
+    let rec = Record::decode(*b"UUUU", &raw(&text), ctx(1, true)).unwrap();
+    assert_eq!(rec.lstrings().len(), 1);
+    assert!(rec.form_ids().is_empty());
+
+    // The variant's own size rule still applies: a 1-byte `f` item, a 2-byte one fails.
+    let small = vec![
+        sub(b"EDID", b"fX\0"),
+        sub(b"DATA", &1.5f32.to_le_bytes()),
+        sub(b"LIST", &[3]),
+        sub(b"LIST", &[3, 4]),
+    ];
+    let rec = Record::decode(*b"UUUU", &raw(&small), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 1);
+    assert_eq!(rec.extra()[0].0, 3);
+    assert_eq!(rec.encode(), small);
+
+    // No EDID: no layout, everything raw, nothing lost.
+    let bare = vec![sub(b"DATA", &id(1)), sub(b"LIST", &id(2))];
+    let rec = Record::decode(*b"UUUU", &raw(&bare), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 2);
+    assert_eq!(rec.encode(), bare);
+    let err = fixture::decode::<UuuuValue>(&id(1), "UUUU.DATA", ctx(1, true)).unwrap_err();
+    assert_eq!(err, DecodeError::Undecided { field: "UUUU.DATA" });
+    assert!(err.to_string().contains("EditorID prefix"));
 }

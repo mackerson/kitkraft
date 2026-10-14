@@ -1,0 +1,27 @@
+# AMDL: subrecord inventory. EDID is typed as a universal subrecord (M2.B2); ANAM is opaque
+# until the record layout is transcribed (lane B round 3, xEdit at the pin).
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the AMDL top groups of the 14 official
+# ESMs (2026-10-14): 126 records, form versions 581/582, one shape "EDID ANAM"; ANAM is 65
+# bytes in every record.
+#
+# Opaque member names are placeholders derived from the signature.
+signature = "AMDL"
+name = "AimModel"
+source = "corpus: AMDL records of the 14 official ESMs, scan 2026-10-14"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "ANAM"
+name = "Anam"
+type = "opaque"
+note = "observed 65 bytes"
