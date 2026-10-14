@@ -15,6 +15,7 @@
 //!
 //! LAYER: L0
 
+pub mod bridge;
 pub mod compress;
 pub mod driver;
 mod error;
