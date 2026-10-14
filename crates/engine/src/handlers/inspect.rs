@@ -954,7 +954,10 @@ mod tests {
         assert_eq!(versions[1]["payloads_comparable"], true);
         // Fields the schema defines carry their member name and decoded value.
         assert_eq!(versions[0]["subrecords"][0]["member"], "EditorId");
-        assert_eq!(versions[0]["subrecords"][0]["value"], "OldEarthHuntingRifle");
+        assert_eq!(
+            versions[0]["subrecords"][0]["value"],
+            "OldEarthHuntingRifle"
+        );
         assert!(result["coverage"]["decoded_subrecords"].as_u64().unwrap() >= 2);
         // Every payload has evidence pointing at its bytes.
         let patch = std::fs::read(dir.join("Patch.esm")).unwrap();
