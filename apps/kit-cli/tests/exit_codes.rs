@@ -115,6 +115,49 @@ fn without_timing(mut result: Value) -> Value {
 }
 
 #[test]
+fn roundtrip_exit_codes() {
+    let bytes = synthetic_plugin();
+    let path = temp_plugin("roundtrip", &bytes);
+    let p = path.to_str().expect("utf-8 temp path");
+
+    // Identical: exit 0, with and without --verify; text output is the summary line.
+    for args in [&["roundtrip", p, "--verify"][..], &["roundtrip", p]] {
+        let out = kit(args);
+        assert_eq!(out.status.code(), Some(0), "{args:?}: {}", stderr(&out));
+        let text = stdout(&out);
+        assert!(text.contains(": identical ("), "{text}");
+        assert!(text.contains("limitation: container level"), "{text}");
+    }
+
+    // --out writes the rebuilt bytes.
+    let rebuilt = path.with_extension("out.esm");
+    let r = rebuilt.to_str().expect("utf-8 temp path");
+    assert_eq!(code(&["roundtrip", p, "--verify", "--out", r]), 0);
+    assert_eq!(std::fs::read(&rebuilt).expect("rebuilt"), bytes);
+    std::fs::remove_file(&rebuilt).expect("cleanup");
+
+    // Errors: missing file, truncated plugin, not a plugin -> exit 2.
+    let missing = std::env::temp_dir().join("kit-cli-no-such-plugin.esm");
+    assert_eq!(code(&["roundtrip", missing.to_str().expect("utf-8")]), 2);
+    let truncated = temp_plugin("truncated", &bytes[..bytes.len() - 1]);
+    let out = kit(&["roundtrip", truncated.to_str().expect("utf-8"), "--verify"]);
+    assert_eq!(out.status.code(), Some(2));
+    assert!(stderr(&out).contains("offset"), "{}", stderr(&out));
+    let out = kit(&["roundtrip", truncated.to_str().expect("utf-8"), "--json"]);
+    assert_eq!(out.status.code(), Some(2));
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(got["error"]["kind"], "failed");
+    let not_plugin = temp_plugin("notplugin", &bytes[bytes.len() - 70..]);
+    assert_eq!(code(&["roundtrip", not_plugin.to_str().expect("utf-8")]), 2);
+
+    // Exit 1 (a --verify mismatch) cannot be produced from a parseable file today, since
+    // the writer re-emits every byte as read; `result_code` in main.rs covers the mapping.
+    for p in [&path, &truncated, &not_plugin] {
+        std::fs::remove_file(p).expect("cleanup");
+    }
+}
+
+#[test]
 fn json_output_equals_the_execute_result() {
     let path = temp_plugin("json", &synthetic_plugin());
     let p = path.to_str().expect("utf-8 temp path");

@@ -6,10 +6,13 @@
 //! (`kitcraft_engine::parse_words`, shared with the MCP `command_line` tool), and the
 //! result to `kitcraft_engine::execute`. No format or editing logic lives here.
 //!
-//! Exit codes: 0 success or help; 1 the command ran and reported a negative result
-//! (reserved for `roundtrip --verify` mismatches and validation findings); 2 usage error,
+//! Exit codes: 0 success or help; 1 the command ran and its check failed (`data.passed`
+//! is `false`: a `roundtrip --verify` mismatch, later validation findings); 2 usage error,
 //! unknown command, invalid arguments, a command that is not implemented yet (including
 //! a stub result from a `Planned` command), a failed command, or `kit mcp` before M2.
+//!
+//! Text output prints `data.summary` when the command provides one, otherwise `data` as
+//! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
 //!
 //! LAYER: APP
 
@@ -22,6 +25,7 @@ use kitcraft_engine::{
 };
 use serde_json::{json, Value};
 
+const EXIT_NEGATIVE: u8 = 1;
 const EXIT_ERROR: u8 = 2;
 
 fn main() -> ExitCode {
@@ -189,16 +193,32 @@ fn run(words: &[String], json: bool) -> ExitCode {
     match kitcraft_engine::execute(spec.id, args) {
         Ok(result) => {
             print_result(&result, json);
+            let code = result_code(spec, &result);
             if spec.status == Status::Planned {
                 eprintln!(
                     "kit: `{}` is planned but not implemented yet; the result is a stub",
                     cmdline::command_words(spec)
                 );
-                return ExitCode::from(EXIT_ERROR);
+            } else if code == EXIT_NEGATIVE {
+                eprintln!("kit: `{}` check failed", cmdline::command_words(spec));
             }
-            ExitCode::SUCCESS
+            ExitCode::from(code)
         }
         Err(err) => fail(&err, json),
+    }
+}
+
+/// Exit code for a result `execute` returned: a `Planned` command's stub is an error, a
+/// result whose `data.passed` is `false` is a negative result, anything else is success.
+fn result_code(spec: &CommandSpec, result: &Value) -> u8 {
+    if spec.status == Status::Planned {
+        return EXIT_ERROR;
+    }
+    let passed = result.get("data").and_then(|d| d.get("passed"));
+    if passed == Some(&Value::Bool(false)) {
+        EXIT_NEGATIVE
+    } else {
+        0
     }
 }
 
@@ -208,7 +228,10 @@ fn print_result(result: &Value, json: bool) {
         return;
     }
     if let Some(data) = result.get("data").filter(|d| !d.is_null()) {
-        println!("{}", to_pretty(data));
+        match data.get("summary").and_then(Value::as_str) {
+            Some(summary) => println!("{summary}"),
+            None => println!("{}", to_pretty(data)),
+        }
     }
     let limitations = result.get("limitations").and_then(Value::as_array);
     for limitation in limitations.into_iter().flatten() {
@@ -286,5 +309,24 @@ fn print_catalog_help() {
     );
     println!();
     println!("Every command is also an MCP tool call and a future menu item.");
-    println!("Exit codes: 0 ok, 1 negative result (e.g. roundtrip mismatch), 2 error.");
+    println!("Exit codes: 0 ok, 1 check failed (e.g. roundtrip --verify mismatch), 2 error.");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{result_code, EXIT_ERROR, EXIT_NEGATIVE};
+    use kitcraft_engine::find_command;
+    use serde_json::json;
+
+    #[test]
+    fn exit_code_follows_status_and_passed() {
+        let roundtrip = find_command("roundtrip").unwrap();
+        let planned = find_command("ba2.list").unwrap();
+        let with = |passed| json!({"data": {"passed": passed}});
+        assert_eq!(result_code(roundtrip, &with(json!(true))), 0);
+        assert_eq!(result_code(roundtrip, &with(json!(null))), 0);
+        assert_eq!(result_code(roundtrip, &json!({"data": null})), 0);
+        assert_eq!(result_code(roundtrip, &with(json!(false))), EXIT_NEGATIVE);
+        assert_eq!(result_code(planned, &with(json!(true))), EXIT_ERROR);
+    }
 }
