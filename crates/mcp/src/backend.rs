@@ -112,7 +112,13 @@ impl Backend {
         }
     }
 
-    fn run_execute(&self, tool: &Tool, arguments: Value) -> Result<Value, EngineError> {
+    fn run_execute(&self, tool: &Tool, mut arguments: Value) -> Result<Value, EngineError> {
+        // `args: null` means `{}` (as for every command), so it is not a type violation.
+        if let Some(obj) = arguments.as_object_mut() {
+            if obj.get("args").is_some_and(Value::is_null) {
+                obj.insert("args".into(), Value::Object(serde_json::Map::new()));
+            }
+        }
         check_tool_args(tool, &arguments)?;
         let command = arguments
             .get("command")
@@ -198,13 +204,13 @@ fn check_tool_args(tool: &Tool, arguments: &Value) -> Result<(), EngineError> {
     let mut violations = args::validate(&schema, arguments);
     if tool.target == Target::Execute {
         if let Some(command) = arguments.get("command").and_then(Value::as_str) {
-            if find_command(command).is_some() {
-                // The enum lists canonical ids; aliases (`show`) are accepted too.
-                violations.retain(|v| !(v.pointer == "/command" && v.rule == "enum"));
-            } else if !violations.is_empty() && violations.iter().all(|v| v.pointer == "/command") {
-                // An unknown id is reported as such, not as an enum violation.
+            if find_command(command).is_none() {
+                // An unknown id is reported as such, not as an enum dump, whatever else
+                // is wrong with the call.
                 return Err(EngineError::UnknownCommand(command.to_string()));
             }
+            // The enum lists canonical ids; aliases (`show`) are accepted too.
+            violations.retain(|v| !(v.pointer == "/command" && v.rule == "enum"));
         }
     }
     if violations.is_empty() {
@@ -229,4 +235,76 @@ fn error_json(err: &EngineError) -> Value {
         }
     }
     json!({ "error": body })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Backend, ToolOutput};
+    use kitcraft_engine::Engine;
+    use serde_json::json;
+
+    fn backend() -> Backend {
+        Backend::new(Engine::with_default_handlers())
+    }
+
+    fn error_kind(out: &ToolOutput) -> &str {
+        assert!(out.is_error, "{}", out.text);
+        out.structured["error"]["kind"].as_str().unwrap_or_default()
+    }
+
+    /// `execute {command, args: null}` is `{}` args, not a type violation of `args`.
+    #[test]
+    fn execute_null_args_mean_empty_object() {
+        let b = backend();
+        let null = b
+            .call_tool("execute", json!({"command": "roundtrip", "args": null}))
+            .unwrap();
+        let omitted = b
+            .call_tool("execute", json!({"command": "roundtrip"}))
+            .unwrap();
+        // Both reach the command and fail its own schema (`plugin` is required).
+        assert_eq!(error_kind(&null), "invalid_args");
+        assert_eq!(null.structured, omitted.structured);
+        assert_eq!(
+            null.structured["error"]["violations"][0]["pointer"],
+            "/plugin"
+        );
+        // A command without required arguments runs (here: the planned stub's error).
+        let out = b
+            .call_tool("execute", json!({"command": "load", "args": null}))
+            .unwrap();
+        assert_eq!(error_kind(&out), "not_implemented");
+        // Any other non-object is still a violation of the tool's own schema.
+        let out = b
+            .call_tool("execute", json!({"command": "load", "args": [1]}))
+            .unwrap();
+        assert_eq!(error_kind(&out), "invalid_args");
+        assert_eq!(out.structured["error"]["violations"][0]["pointer"], "/args");
+    }
+
+    /// An unknown command is `unknown_command` even when the call has other faults,
+    /// never an `invalid_args` dump of the catalog enum.
+    #[test]
+    fn unknown_command_wins_over_other_violations() {
+        let b = backend();
+        for arguments in [
+            json!({"command": "frobnicate"}),
+            json!({"command": "frobnicate", "args": "x"}),
+            json!({"command": "frobnicate", "args": {}, "extra": 1}),
+        ] {
+            let out = b.call_tool("execute", arguments.clone()).unwrap();
+            assert_eq!(error_kind(&out), "unknown_command", "{arguments}");
+            assert!(out.structured["error"].get("violations").is_none());
+            assert!(!out.text.contains("papyrus"), "no enum dump: {}", out.text);
+        }
+        // A known alias with an extra member is an argument error on the tool.
+        let out = b
+            .call_tool("execute", json!({"command": "show", "extra": 1}))
+            .unwrap();
+        assert_eq!(error_kind(&out), "invalid_args");
+        assert_eq!(
+            out.structured["error"]["violations"][0]["pointer"],
+            "/extra"
+        );
+    }
 }

@@ -287,13 +287,17 @@ errors are tool results rather than JSON-RPC errors so the model sees the pointe
 rule and can fix its call; MCP 2026-07-28 ("Tools", "Error Handling") classes input
 validation as a tool execution error. `execute` and `command_line` validate their own
 `{command, args}` / `{text}` with the same validator (`invalid_args` names the tool).
+`execute` checks `command` first: an id or alias that is not in the catalog is
+`unknown_command` whatever else is wrong with the call (never an `enum` violation listing
+the catalog), and `args: null` is taken as `{}` before validation.
 
 Argument validation implements the JSON Schema subset the catalog uses: `type`, `enum`,
 `properties`, `required`, `additionalProperties`, `items`, `minItems`/`maxItems`,
 `minLength`/`maxLength`, `minimum`/`maximum`; `default`, `description`, `title`,
 `examples`, `$schema` are annotations. Any other keyword in a catalog schema is refused
 (a test enforces it), so a schema can never silently accept what it claims to reject.
-Top-level `default`s are filled in before the handler runs; `null` arguments mean `{}`.
+Top-level `default`s are filled in before the handler runs; `null` arguments mean `{}`
+(`execute`'s `args: null` included).
 
 - Invalid arguments: an `isError` result with the failing JSON pointer and the schema rule.
 - Command failures (unreadable file, parse error, missing master): a tool result with
