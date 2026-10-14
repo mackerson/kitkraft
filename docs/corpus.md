@@ -573,6 +573,21 @@ Rules (all 14 files, no exception unless one is listed):
 What the Creation Kit writes for a new plugin (which style, and the stamps) is F20's
 question (M4.O1); until it is observed KitCraft writes the official pipeline's style.
 
+**Cross-check with the WORLD family lane** (`docs/schema/world-family.md` on its branch,
+`crates/esm/tests/world_family.rs`, derived independently): every group count of the table
+above agrees, and so do the children-group rules (types 1 and 6 follow their record and
+carry its FormID; types 8 and 9 sit in the type 6 group with the same label) and the
+exterior labels (two `i16`, y in the low half, which that page writes "Y first"; sub-block
+= grid div 8, block = grid div 32, 22,682 of 22,682); that lane takes the grid from the
+pinned xEdit `CELL` definition (`XCLC`: X, Y), which agrees with the corpus search here.
+Two findings are refined here: (1) the interior rule holds for 17,020 of 17,020 cells,
+not 17,019, once the object ID is read at the width of its scale class (the one cell
+the 24-bit reading misses, `SFBGS047.esm` `FE001016`, is a small file's own cell, whose
+object ID is the low 12 bits); (2) the order of a cell's persistent and temporary groups,
+which that page reports as "either order", is fixed per writer: all 2,364 cells with type
+9 before type 8 are in the 12 files of the official pipeline and all 815 with type 8 first
+are in the two `BlueprintShips` files, so each style has a default to write.
+
 ### Rebuild gate (M4.A2)
 
 `corpus_rebuild_full` (`crates/esm/tests/rebuild.rs`, release, 116 s;
