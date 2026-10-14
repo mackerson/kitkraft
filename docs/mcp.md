@@ -240,8 +240,14 @@ driver one top-level group at a time, rewrites it, and compares the output with 
 ### Load-order arguments (`load`, `inspect`, `query`, `conflicts`)
 
 `profile` (an MO2 profile dir, read-only) or `plugins` (files in load order; bare names
-resolve against `data_dir`), plus `data_dir` (default: the MO2 instance's `gamePath` +
-`Data`) and `no_cache`. Given, the command loads first and the load order replaces the
+resolve against `data_dir`), plus `data_dir` and `no_cache`.
+
+**`data_dir` defaults to `KITCRAFT_DATA_DIR`** (every command that takes it: `load`,
+`inspect`, `query`, `conflicts`, `set`, `build`, `validate`, `diff`) when the argument is
+absent and the variable is set and not empty; an explicit `data_dir` always wins. For a
+`profile` the MO2 instance's `gamePath` + `Data` comes first, and `KITCRAFT_DATA_DIR` is
+used only when the instance names no `gamePath` (a limitation says so). String tables for a
+`plugins` list are read next to the first plugin unless `data_dir` is given. Given, the command loads first and the load order replaces the
 session's; absent, the command uses the session's load order (an MCP server keeps one;
 each `kit` process starts empty, so CLI users pass `--profile` to each command). No load
 order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitcraft\cache`
@@ -379,7 +385,8 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
 
 Arguments `{a, b, form?, data_dir?, limit = 200}`; CLI `kit diff <a> <b>`. Stateless (no
 load order needed). Each file's FormIDs are resolved through its own masters by name;
-masters' scales are read from their headers next to each file or in `data_dir`. A file's
+masters' scales are read from their headers next to each file or in `data_dir` (default
+`KITCRAFT_DATA_DIR`). A file's
 own records match the other file's records of it when the other lists it as a master, and
 match each other otherwise (an edited copy). If a master cannot be found but both files
 list the same masters in the same order, records are matched by raw FormID
@@ -564,8 +571,11 @@ master list extended, FormIDs remapped.
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
 Arguments `{plugin?, scripts?, rules?}` (`plugin`, `scripts`, or both) plus the
-load-order arguments (optional: masters are searched in the named or session load order
-first, then next to the plugin, then in `data_dir`). CLI
+load-order arguments (all optional). **Masters of a standalone plugin are searched in
+order:** the named (`profile`/`plugins`) or session load order, the plugin's own
+directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable set,
+`kit validate --plugin out\X.esm` finds `Starfield.esm` with no other argument. A bare
+`plugin` name that is not in the working directory resolves in `data_dir`. CLI
 `kit validate --plugin X.esp [--data-dir D]`, `kit validate --scripts dir\with\pex`;
 `--rules masters.missing --rules lstring.copied-id` limits the run (an unknown id is
 `invalid_args` at `/rules/<i>`). The rules, their severities and sources:

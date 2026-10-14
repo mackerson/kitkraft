@@ -9,7 +9,7 @@ masters, and compiled scripts against a denylist. Every finding is
 from scratch).
 
 Masters are found in the named or session load order, next to the plugin, then in
-`data_dir` (case-insensitive file names). Their headers give flags (localized, scale);
+`data_dir`, which defaults to `KITCRAFT_DATA_DIR` (case-insensitive file names). Their headers give flags (localized, scale);
 their record indexes are built when `formid.dangling` or `override.stripped-name` runs.
 
 ## Rules

@@ -124,10 +124,13 @@ fn load(
         .and_then(Value::as_str)
         .unwrap_or("en")
         .to_string();
-    let data_dir = args
+    // An explicit `data_dir` wins; `KITCRAFT_DATA_DIR` is the default for a plugin list,
+    // and for a profile only when its MO2 instance names no game (gamePath).
+    let explicit_data_dir = args
         .get("data_dir")
         .and_then(Value::as_str)
         .map(PathBuf::from);
+    let data_dir = super::data_dir(args);
     let mut limitations = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     // name -> (why active, provider)
@@ -146,13 +149,30 @@ fn load(
             }
             (Some(_), None) => {
                 let dir = str_arg(command, args, "profile")?;
-                let pl = plan_profile(
+                let planned = plan_profile(
                     Path::new(dir),
                     &ProfileOptions {
-                        data_dir: data_dir.clone(),
+                        data_dir: explicit_data_dir.clone(),
                     },
-                )
-                .map_err(|e| failed(command, e.to_string()))?;
+                );
+                let pl = match (planned, &explicit_data_dir, &data_dir) {
+                    (Ok(pl), _, _) => pl,
+                    (Err(first), None, Some(env_dir)) => plan_profile(
+                        Path::new(dir),
+                        &ProfileOptions {
+                            data_dir: Some(env_dir.clone()),
+                        },
+                    )
+                    .inspect(|_| {
+                        limitations.push(format!(
+                            "the MO2 instance names no game Data dir; used {} = {}",
+                            super::DATA_DIR_ENV,
+                            env_dir.display()
+                        ));
+                    })
+                    .map_err(|_| failed(command, first.to_string()))?,
+                    (Err(e), _, _) => return Err(failed(command, e.to_string())),
+                };
                 warnings.extend(pl.profile.warnings.iter().cloned());
                 warnings.extend(pl.plan.warnings.iter().cloned());
                 let mut assumed: Vec<String> = Vec::new();
@@ -215,7 +235,9 @@ fn load(
                 for s in &specs {
                     why.push((s.name.clone(), "listed".into(), "path".into()));
                 }
-                let dir = data_dir
+                // String tables: the explicit Data dir, else where the first plugin is
+                // (for bare names that is the default Data dir).
+                let dir = explicit_data_dir
                     .clone()
                     .or_else(|| {
                         specs

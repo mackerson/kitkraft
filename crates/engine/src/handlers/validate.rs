@@ -1,7 +1,7 @@
 //! `validate` (M2.E6): the rule registry in [`crate::validate`] over one plugin and/or
 //! compiled scripts. `data.passed` is false on any error finding (CLI exit 1).
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
@@ -43,10 +43,16 @@ fn invalid(pointer: String, rule: &'static str, message: String) -> EngineError 
 
 /// Reads the arguments into [`Options`]; an unknown rule id is `invalid_args`.
 pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
+    let data_dir = super::data_dir(args);
+    // A bare file name that is not in the working directory resolves in the Data dir.
     let plugin = args
         .get("plugin")
         .and_then(Value::as_str)
-        .map(PathBuf::from);
+        .map(PathBuf::from)
+        .map(|p| match &data_dir {
+            Some(dir) if !p.exists() && p.parent() == Some(Path::new("")) => dir.join(&p),
+            _ => p,
+        });
     let scripts: Vec<PathBuf> = strings(args, "scripts")
         .into_iter()
         .map(PathBuf::from)
@@ -85,10 +91,7 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
             .into_iter()
             .map(PathBuf::from)
             .collect(),
-        data_dir: args
-            .get("data_dir")
-            .and_then(Value::as_str)
-            .map(PathBuf::from),
+        data_dir,
         limits: kitcraft_esm::DecodeLimits::default(),
         indexed: std::collections::HashMap::new(),
     })

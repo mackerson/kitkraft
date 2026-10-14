@@ -225,3 +225,131 @@ fn mcp_exits_0_when_stdin_closes() {
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
     assert_eq!(stdout(&out), "", "stdout carries only MCP messages");
 }
+
+/// A header-only plugin (`TES4` with `HEDR` and one `MAST`/`DATA` pair per master).
+fn header_plugin(flags: u32, masters: &[&str]) -> Vec<u8> {
+    fn sub(sig: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut out = sig.to_vec();
+        out.extend_from_slice(&u16::try_from(data.len()).expect("small").to_le_bytes());
+        out.extend_from_slice(data);
+        out
+    }
+    let mut hedr = 0.96f32.to_le_bytes().to_vec();
+    hedr.extend_from_slice(&0u32.to_le_bytes());
+    hedr.extend_from_slice(&0x800u32.to_le_bytes());
+    let mut body = sub(b"HEDR", &hedr);
+    for m in masters {
+        body.extend(sub(b"MAST", format!("{m}\0").as_bytes()));
+        body.extend(sub(b"DATA", &[0; 8]));
+    }
+    let mut out = b"TES4".to_vec();
+    out.extend_from_slice(&u32::try_from(body.len()).expect("small").to_le_bytes());
+    out.extend_from_slice(&flags.to_le_bytes());
+    out.extend_from_slice(&[0; 12]);
+    out.extend(body);
+    out
+}
+
+/// `validate` finds a standalone plugin's masters in `KITCRAFT_DATA_DIR` when no
+/// `--data-dir` is given, and a bare plugin name resolves there too.
+#[test]
+fn validate_defaults_data_dir_to_kitcraft_data_dir() {
+    let root = std::env::temp_dir().join(format!("kit-cli-data-dir-{}", std::process::id()));
+    let (data, out) = (root.join("Data"), root.join("out"));
+    std::fs::create_dir_all(&data).expect("data dir");
+    std::fs::create_dir_all(&out).expect("out dir");
+    std::fs::write(data.join("KitMaster.esm"), header_plugin(1, &[])).expect("master");
+    let patch = out.join("KitPatch.esp");
+    std::fs::write(&patch, header_plugin(0, &["KitMaster.esm"])).expect("patch");
+    let p = patch.to_str().expect("utf-8 temp path");
+    let run = |args: &[&str], env: Option<&PathBuf>| {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_kit"));
+        cmd.args(args).arg("--json");
+        match env {
+            Some(dir) => cmd.env("KITCRAFT_DATA_DIR", dir),
+            None => cmd.env_remove("KITCRAFT_DATA_DIR"),
+        };
+        let out = cmd.output().expect("run kit");
+        let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+        (out.status.code(), got)
+    };
+
+    let (status, got) = run(&["validate", "--plugin", p], Some(&data));
+    assert_eq!(status, Some(0), "{got:#}");
+    assert_eq!(got["data"]["errors"], 0, "{got:#}");
+    let found = got["data"]["masters"][0]["path"].as_str().expect("found");
+    assert!(found.ends_with("KitMaster.esm"), "{found}");
+
+    let (status, got) = run(&["validate", "--plugin", p], None);
+    assert_eq!(status, Some(1), "{got:#}");
+    assert_eq!(got["data"]["findings"][0]["rule"], "masters.missing");
+    let message = got["data"]["findings"][0]["message"]
+        .as_str()
+        .expect("text");
+    assert!(message.contains("KITCRAFT_DATA_DIR"), "{message}");
+
+    // An explicit --data-dir still wins over the environment.
+    let elsewhere = root.join("elsewhere");
+    let (status, _) = run(
+        &[
+            "validate",
+            "--plugin",
+            p,
+            "--data-dir",
+            elsewhere.to_str().expect("utf-8"),
+        ],
+        Some(&data),
+    );
+    assert_eq!(status, Some(1));
+
+    // A bare name resolves in the Data dir.
+    let (status, got) = run(&["validate", "--plugin", "KitMaster.esm"], Some(&data));
+    assert_eq!(status, Some(0), "{got:#}");
+    std::fs::remove_dir_all(&root).expect("cleanup");
+}
+
+/// A profile whose MO2 instance names no gamePath loads from `KITCRAFT_DATA_DIR`, and
+/// says so; without the variable it fails naming the missing gamePath.
+#[test]
+fn load_profile_without_game_path_falls_back_to_kitcraft_data_dir() {
+    let root = std::env::temp_dir().join(format!("kit-cli-mo2-{}", std::process::id()));
+    let (data, profile) = (root.join("Data"), root.join("profiles").join("P"));
+    std::fs::create_dir_all(&data).expect("data dir");
+    std::fs::create_dir_all(&profile).expect("profile dir");
+    std::fs::write(root.join("ModOrganizer.ini"), b"[General]\n").expect("ini");
+    std::fs::write(profile.join("modlist.txt"), b"").expect("modlist");
+    std::fs::write(profile.join("plugins.txt"), b"*KitMaster.esm\r\n").expect("plugins");
+    std::fs::write(profile.join("loadorder.txt"), b"KitMaster.esm\r\n").expect("order");
+    std::fs::write(data.join("KitMaster.esm"), header_plugin(1, &[])).expect("master");
+    let p = profile.to_str().expect("utf-8 temp path");
+    let run = |env: Option<&PathBuf>| {
+        let mut cmd = Command::new(env!("CARGO_BIN_EXE_kit"));
+        cmd.args(["load", "--profile", p, "--no-cache", "--json"]);
+        match env {
+            Some(dir) => cmd.env("KITCRAFT_DATA_DIR", dir),
+            None => cmd.env_remove("KITCRAFT_DATA_DIR"),
+        };
+        let out = cmd.output().expect("run kit");
+        let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+        (out.status.code(), got)
+    };
+    let (status, got) = run(Some(&data));
+    assert_eq!(status, Some(0), "{got:#}");
+    assert_eq!(
+        got["data"]["plugins"][0]["name"], "KitMaster.esm",
+        "{got:#}"
+    );
+    let limitations = got["limitations"].to_string();
+    assert!(
+        limitations.contains("used KITCRAFT_DATA_DIR"),
+        "{limitations}"
+    );
+
+    let (status, got) = run(None);
+    assert_eq!(status, Some(2), "{got:#}");
+    assert!(
+        got["error"]["message"].to_string().contains("gamePath"),
+        "{got:#}"
+    );
+    std::fs::remove_dir_all(&root).expect("cleanup");
+}

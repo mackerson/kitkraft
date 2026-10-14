@@ -348,6 +348,24 @@ fn print_catalog_help() {
         "mcp"
     );
     println!();
+    println!("ENVIRONMENT:");
+    println!(
+        "  {:<18} Game Data dir; the default for --data-dir: plugin names (--plugins,",
+        "KITCRAFT_DATA_DIR"
+    );
+    println!(
+        "  {:<18} validate --plugin) resolve there, and masters are searched in the load",
+        ""
+    );
+    println!(
+        "  {:<18} order, next to the plugin, then there. A profile uses MO2's gamePath first.",
+        ""
+    );
+    println!(
+        "  {:<18} Index cache (default %LOCALAPPDATA%\\kitcraft\\cache)",
+        "KITCRAFT_CACHE_DIR"
+    );
+    println!();
     println!("Every command is also an MCP tool call and a future menu item.");
     println!("Exit codes: 0 ok, 1 check failed (e.g. roundtrip --verify mismatch), 2 error.");
 }

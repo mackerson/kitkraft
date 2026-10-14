@@ -11,8 +11,9 @@ Tests and tools find the game data through `KITCRAFT_DATA_DIR`:
 $env:KITCRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
 ```
 
-When the variable is unset or the directory is missing, corpus tests print one skip line and
-pass, so `cargo xtask ci` works on machines without the game. The data directory is read-only
+The commands use it too: it is the default `data_dir` of every command that takes one
+(`docs/mcp.md`, "Load-order arguments"). When the variable is unset or the directory is
+missing, corpus tests print one skip line and pass, so `cargo xtask ci` works on machines without the game. The data directory is read-only
 to us: nothing is ever written there. Roundtrip output, when written at all, goes to a temp
 directory or `corpus/out/` (gitignored).
 

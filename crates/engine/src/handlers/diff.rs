@@ -31,12 +31,7 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     let b = str_arg(ID, args, "b")?;
     let (pa, pb) = (Path::new(a), Path::new(b));
     let (na, nb) = (file_name(pa), file_name(pb));
-    let extra: Vec<PathBuf> = args
-        .get("data_dir")
-        .and_then(Value::as_str)
-        .map(PathBuf::from)
-        .into_iter()
-        .collect();
+    let extra: Vec<PathBuf> = super::data_dir(args).into_iter().collect();
     let limit = args
         .get("limit")
         .and_then(Value::as_u64)
