@@ -13,7 +13,7 @@ Check this before claiming something works. Remove a row only with the commit th
 | lstrings are found by schema type (whole subrecord, or the last field of a struct) and by the `FULL`/`DESC` fallback on undefined record types; lstrings elsewhere in a payload are not seen | Such an ID would be copied as stored into a non-localized patch; `validate` would not flag it either | lane B round 3 |
 | Inline text in patches is written as UTF-8; whether the game reads inline FULL as UTF-8 or a code page is not observed (M2.O4, M2.O6) | Non-ASCII names may show wrong in game; ASCII names are unaffected | M2.O4 / M2.O6 |
 | `validate` scans loose `.pex` files only; `formid.dangling` skips `FE`/`FD` FormIDs and FormIDs inside opaque subrecords (counted in the result) | Scripts in archives and FormIDs in untyped payloads are not checked | M3 |
-| Recompression is 99.88%, not 100%, identical (160 of 136,741 records differ at level 9) | An edited compressed record may differ from what the CK would write; unedited ones, and decoded ones touched without a change, are always byte-identical | M3 |
+| Recompression is 99.88%, not 100%, identical (160 of 136,741 records differ at level 9): 12 NAVM were written at level 8, 147 NPC_/CELL differ only in the distance of their last match (not reproducible by any zlib-rs setting), 1 NAVM is unexplained (M3.A1, "Recompression parity" below) | An edited compressed record may differ from what the official tools or the CK would write; unedited ones, and decoded ones touched without a change, are always byte-identical | M3 (CK observation F07; M3.H3) |
 | `HEDR` record count has two meanings in the corpus: records including `TES4` without groups (12 files), records excluding `TES4` plus groups (both `BlueprintShips` files) | Written verbatim unless records or groups are added or removed; then recomputed by the majority meaning, which may not be what the CK writes for a `BlueprintShips`-style plugin | M3 (CK observation) |
 | TES4 bits 0x100 (small), 0x400 (medium), 0x800 (blueprint) are named from the pinned xEdit file and their FormID encoding is corpus-confirmed (`docs/load-order.md`), but runtime slots (`FE`/`FD` IDs) are not observed in game or the CK | Runtime IDs in results are the assumption `runtime-slots-by-scale`; `esm::tes4` still names only 0x1 and 0x80 | M2.O4 |
 | Streaming `rewrite_file` writes `TES4` before it sees the edits | When an edit adds or removes records or groups, the `HEDR` count must be patched afterwards: `rewrite_file_to_path` does it; a caller streaming to its own sink applies `RewriteReport::hedr_fix` (`HedrFix::apply` on a seekable sink) | permanent (by design of the one-pass stream) |
@@ -60,9 +60,84 @@ All 136,741 streams start with zlib header `78 DA` (maximum-compression level cl
 Per file with zlib-rs at level 9: 100% for BlueprintShips-SFBGS050, SFBGS004, SFBGS008,
 SFBGS047 and ShatteredSpace; misses are 149 in Starfield.esm, 3 in BlueprintShips-Starfield,
 3 in SFBGS003, 2 in SFBGS006, 2 in SFBGS00D, 1 in SFBGS050. The workspace now builds flate2
-with only the zlib-rs backend and recompresses edited records at level 9. Why the remaining
-0.1% differ (a different compressor setting, or records the official tools wrote another
-way) is not known; deciding that needs CK observation (M3).
+with only the zlib-rs backend and recompresses edited records at level 9.
+
+### The 160 misses (M3.A1, 2026-10-14)
+
+Every miss is listed in `docs/corpus.md` ("Recompression misses"), with its file, type,
+FormID, offset, sizes, first differing stream byte and class. The listing is
+`corpus_recompression_misses` (`crates/esm/tests/recompress.rs`); the classes come from an
+out-of-tree study that decodes both streams to LZ77 tokens and searches compressor
+settings (procedure below).
+
+Per file and class (E, N, U as defined after the tables):
+
+| File                         | Compressed records | Misses | E   | N  | U |
+| ---------------------------- | ------------------ | ------ | --- | -- | - |
+| Starfield.esm                | 91,149             | 149    | 136 | 12 | 1 |
+| BlueprintShips-Starfield.esm | 1,218              | 3      | 3   | 0  | 0 |
+| SFBGS003.esm                 | 1,034              | 3      | 3   | 0  | 0 |
+| SFBGS006.esm                 | 360                | 2      | 2   | 0  | 0 |
+| SFBGS00D.esm                 | 5,935              | 2      | 2   | 0  | 0 |
+| SFBGS050.esm                 | 3,184              | 1      | 1   | 0  | 0 |
+| The other 8 files            | 33,861             | 0      | 0   | 0  | 0 |
+| Total                        | 136,741            | 160    | 147 | 12 | 1 |
+
+Per record type (all files):
+
+| Type | Compressed records | Misses | Rate  | E   | N  | U | Inflated size of the misses (min / median / max) |
+| ---- | ------------------ | ------ | ----- | --- | -- | - | ------------------------------------------------ |
+| NPC_ | 8,447              | 118    | 1.4%  | 118 | 0  | 0 | 643 / 4,511 / 6,206                              |
+| CELL | 32,230             | 29     | 0.09% | 29  | 0  | 0 | 282 / 605 / 36,764                               |
+| NAVM | 92,764             | 13     | 0.01% | 0   | 12 | 1 | 10,355 / 29,109 / 103,552                        |
+
+No other record type has a miss. Every miss has zlib header `78 DA`, one stream that ends
+exactly at the end of the record (no trailing bytes) and a correct Adler-32.
+
+- **E, end-of-input match (147: 118 NPC_, 29 CELL, in six files).** The original stream
+  and level 9's carry the same LZ77 tokens except the last one: a match that runs to the
+  end of the record's data, of the same length, at a larger distance in the original (NPC_:
+  length 35 at distance 38 where level 9 picks 37 in 117 of 118, the other 31 at 33 for
+  32; CELL: lengths 4 to 28). The streams differ only in their last bytes, except in four
+  where the changed distance code also changes the dynamic Huffman tables (from stream
+  byte 3, 3, 4 and 91 on). In all 147, the data byte that follows the original's
+  candidate is `00` and the one after level 9's is not. zlib-rs 0.6.8 stops at the first
+  hash-chain candidate whose match reaches the end of the input; a compressor that keeps
+  comparing past the end (where its buffer holds whatever it held before) picks a farther
+  candidate whenever those bytes extend it.
+- **N, level 8 (12 NAVM, Starfield.esm).** Reproduced exactly by zlib-rs at level 8 (two of
+  them also at level 7), window 15, memory level 8 (most also 9, two also 7); the streams
+  differ from level 9's near the start (data byte 14 in ten of them). All 12 sit in one
+  group, the temporary children of interior cell `00000025` (`CELL > block 7 > sub-block
+  3`), as does the U record.
+- **U, unexplained (1 NAVM, `001BA29F`, 103,552 bytes, same group).** No setting tried
+  reproduces it; it differs from data byte 24 on and has 4 deflate blocks (level 9: 3).
+
+What was tried, out of tree (a scratch crate outside the workspace, zlib-rs 0.6.8 through
+its `__internal-api` feature, the official files read in place; nothing of it is in the
+repository or the build):
+
+| Variant | Misses reproduced |
+| ------- | ----------------- |
+| Levels 1-9 x window bits 9-15 x memory level 1-9 x strategy default, filtered, Huffman-only, RLE, fixed (full stream) | the 12 N |
+| The same grid, comparing everything after the 2-byte zlib header (a header written separately) | the 12 N |
+| Levels 7-9 tuned: good 4-258 x lazy 16-258 x nice 32-258 x chain 256-65,535 (7 x 5 x 4 x 9 values) | the 12 N (chain <= 1,024) |
+| Input fed in 512 B to 256 KiB pieces, no / partial / sync / full / block flush between pieces, levels 7-9 | the 12 N |
+| One stream reused for every record of a file in file order (reset between records, window kept), level 9 | none (same as fresh) |
+| C zlib 1.3.2 (libz-sys), levels 1-9 x memory level 1-9 x strategies 0-4, window 15 | none |
+| miniz_oxide 0.9.1, levels 0-10 | none |
+| zlib-rs patched to keep searching after a match reaches the end of the input (zero bytes past the input), levels 7-9, every record | 14 of the 148 that no stock level reproduces; at level 9 it matches 136,172 records instead of 136,581 |
+| The same patched zlib-rs, one stream reused per file in file order (window kept), level 9 | 18 of the 147 E; 30 that stock level 9 reproduces now differ (136,569 identical) |
+
+Conclusions: class N is a setting (level 8), probably a separate navmesh pass. Class E is
+not a setting of any compressor tried; its last token tracks the byte after each candidate,
+and changing what lies past the input changes which records match (zero fill: 14, a
+window carried over in file order: 18). So its last token most likely depends on memory
+past the end of the input (what the official tool's buffer held from earlier work), and a
+compressor that sees only a record's own bytes is not expected to reproduce all of them.
+Whether the CK's own writes show the same effect, and which bytes the CK writes for these
+records, is F07's question (M3.H1 candidates in `plan/STATUS.md`). The default writer is
+unchanged (zlib-rs, level 9) until M3.H3 says otherwise.
 
 ## Spriggit 0.41.0 is not a byte-exact Starfield roundtrip
 
