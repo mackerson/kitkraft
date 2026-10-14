@@ -364,7 +364,7 @@ note = "not present in the official NPC_ records (races carry them)"
 
 [[member]]
 sig = "SPOR"
-name = "SpectatorOverridePackageList"
+name = "SpectatorOverridePackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -372,7 +372,7 @@ note = "observed in 1 record"
 
 [[member]]
 sig = "OCOR"
-name = "ObserveDeadBodyOverridePackageList"
+name = "DeadBodyOverridePackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -381,7 +381,7 @@ note = "not present in the official NPC_ records"
 
 [[member]]
 sig = "GWOR"
-name = "GuardWarnOverridePackageList"
+name = "GuardWarnOverridePackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -390,14 +390,14 @@ note = "not present in the official NPC_ records"
 
 [[member]]
 sig = "ECOR"
-name = "CombatOverridePackageList"
+name = "CombatOverridePackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
 
 [[member]]
 sig = "FCPL"
-name = "FollowerCommandPackageList"
+name = "FollowerCommandPackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -406,7 +406,7 @@ note = "not present in the official NPC_ records"
 
 [[member]]
 sig = "RCLR"
-name = "FollowerElevatorPackageList"
+name = "FollowerElevatorPackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -415,7 +415,7 @@ note = "not present in the official NPC_ records"
 
 [[member]]
 sig = "RPLD"
-name = "SoundDetectionPackageList"
+name = "SoundDetectionPackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -424,7 +424,7 @@ note = "not present in the official NPC_ records"
 
 [[member]]
 sig = "RPLI"
-name = "SightDetectionPackageList"
+name = "SightDetectionPackages"
 type = "formid"
 targets = ["FLST"]
 card = "optional"
@@ -793,7 +793,7 @@ evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3
 
 [[member.member]]
 sig = "CS3F"
-name = "StopConsciousLoopWhenUnconscious"
+name = "StopLoopWhenUnconscious"
 type = "u8"
 note = "0 or 1"
 

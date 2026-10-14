@@ -266,7 +266,7 @@ field = [
   ] },
   { name = "MaxSize", type = "enum", base = "i32", values = [["Small", 0], ["Medium", 1], ["Large", 2], ["ExtraLarge", 3]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7911-L7923"] },
   { name = "IntelligenceLevel", type = "enum", base = "u32", values = [["None", 0], ["Moderate", 1], ["Normal", 2], ["High", 3]] },
-  { name = "ElectromagneticShocked", type = "struct", field = [
+  { name = "EmShock", type = "struct", note = "electromagnetic shock behaviour", field = [
     { name = "SupportEmShock", type = "u8", note = "0 or 1" },
     { name = "RecoverChance", type = "f32" },
     { name = "TimeMin", type = "f32" },
