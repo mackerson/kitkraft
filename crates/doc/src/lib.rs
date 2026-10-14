@@ -12,6 +12,7 @@
 
 pub mod cache;
 pub mod compare;
+pub mod confidence;
 pub mod conflicts;
 pub mod diff;
 mod error;

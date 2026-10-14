@@ -327,7 +327,10 @@ for the first version, else `{class: identical-to-previous | deleted | differs,
 flags_differ, order_differs, subrecords[] {signature, occurrence, change, member?,
 fields?, as_bytes?}}`, typed members compared by value as in `diff`) and
 `payloads_comparable` (whether the two plugins encode FormIDs alike; when false a byte
-difference may be encoding only). Evidence: every version's header and every payload.
+difference may be encoding only). Evidence: every version's header and every payload. A
+`value` decoded through a member whose definition has `reference` confidence (documented in
+the pinned xEdit file, not yet confirmed by our corpus or the CK) is named in
+`limitations` (`... reference confidence ...: WEAP DNAM.Data.Speed`; M3.D3).
 
 **Single-plugin mode** (only `plugin` given): CLI `kit inspect <form> --plugin <file>`.
 `form` is a FormID (1-8 hex digits, optional `0x`, matched against the record header as
@@ -393,7 +396,8 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3; object ID
   path may start with the subrecord's own member name (`KSIZ.Count` = `KSIZ`). FormID
   members compare as formrefs (`KWDA == Starfield.esm:0004A0BB`); lstrings compare as
   their resolved text. A record type or subrecord without a definition falls back to
-  `EDID` as text and `FULL`/`DESC` as lstrings.
+  `EDID` as text and `FULL`/`DESC` as lstrings. A path that reads a member whose
+  definition has `reference` confidence is named in `limitations` (M3.D3), as in `inspect`.
 - A subrecord the record does not have makes a comparison false and `has` false. A value
   of a union member (the schema picks its variant per record) of another kind than the
   literal (a GMST string variant against `DATA > 100`) is another variant: not equal, not

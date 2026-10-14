@@ -51,6 +51,22 @@ impl Loaded {
     }
 }
 
+/// Test-only: definitions to decode with instead of the builtin ones (a `reference`
+/// member, which no builtin definition has yet; M3.D3).
+#[cfg(test)]
+pub(crate) struct SchemaOverride(pub &'static kitcraft_schema::Schema);
+
+/// The schema `inspect` and `query` decode with: the builtin definitions (tests may
+/// install a [`SchemaOverride`] in the session).
+pub(crate) fn schema_of(session: &Session) -> Option<&'static kitcraft_schema::Schema> {
+    #[cfg(test)]
+    if let Some(o) = session.get::<SchemaOverride>() {
+        return Some(o.0);
+    }
+    let _ = session;
+    kitcraft_schema::builtin().ok()
+}
+
 fn has_load_args(args: &Value) -> bool {
     args.get("profile").is_some() || args.get("plugins").is_some()
 }

@@ -1,15 +1,16 @@
 //! `query` (M2.D11): records of one type matching a `where` predicate, over the load order,
 //! a page at a time. Grammar and semantics: `kitcraft_doc::query`, `docs/mcp.md`.
 
+use kitcraft_doc::confidence::{reference_limitation, reference_members};
 use kitcraft_doc::flags::RECORD_FLAG_DELETED;
 use kitcraft_doc::query::Query;
-use kitcraft_doc::search::{run_page, PageRequest, Scope, DEFAULT_LIMIT};
+use kitcraft_doc::search::{run_page_with, PageRequest, Scope, DEFAULT_LIMIT};
 use kitcraft_doc::{RecordReader, Version};
 use kitcraft_esm::HEADER_LEN;
 use serde_json::{json, Value};
 
 use super::failed;
-use super::load::{acquire, lstring_json, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, lstring_json, schema_of, Loaded, RUNTIME_ASSUMED};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
@@ -18,11 +19,16 @@ const ID: &str = "query";
 
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
+    let schema = schema_of(session);
     let loaded = acquire(session, args, ID)?;
-    run_on(loaded, args)
+    run_on(loaded, args, schema)
 }
 
-fn run_on(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
+fn run_on(
+    loaded: &mut Loaded,
+    args: &Value,
+    schema: Option<&kitcraft_schema::Schema>,
+) -> Result<Outcome, EngineError> {
     let Loaded {
         lo,
         strings,
@@ -65,8 +71,8 @@ fn run_on(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
         limit,
         cursor,
     };
-    let page =
-        run_page(lo, &mut reader, &request, Some(&mut *strings)).map_err(|e| failed(ID, e))?;
+    let page = run_page_with(lo, &mut reader, &request, Some(&mut *strings), schema)
+        .map_err(|e| failed(ID, e))?;
 
     let mut evidence = Vec::new();
     let mut notes: Vec<String> = Vec::new();
@@ -116,6 +122,19 @@ fn run_on(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
              `deleted: true`): `where` never evaluates their payload, only index paths \
              (@form, @plugin, @edid, @flags)"
         ));
+    }
+    // M3.D3: `where` paths that read `reference`-confidence members.
+    let mut reference: Vec<String> = Vec::new();
+    if let (Some(q), Some(sc)) = (query.as_ref(), schema) {
+        for (sub, members) in q.field_paths() {
+            reference.extend(reference_members(sc, signature, sub, Some(members)));
+        }
+    }
+    reference.sort();
+    reference.dedup();
+    let type_name = String::from_utf8_lossy(&signature).into_owned();
+    if let Some(l) = reference_limitation(&[(type_name, reference)]) {
+        limitations.push(l);
     }
     limitations.extend(page.reasons.iter().take(20).cloned());
     notes.sort();
@@ -301,5 +320,83 @@ mod tests {
         assert_eq!(execute("query", bad.clone()).unwrap_err().kind(), "failed");
         bad["scope"] = json!("some");
         assert_eq!(execute("query", bad).unwrap_err().kind(), "invalid_args");
+    }
+
+    /// The builtin definitions with GLOB's `FLTV.Value` from the pinned xEdit file at
+    /// `reference` confidence (no builtin member is `reference` yet).
+    fn schema_with_reference_member() -> &'static kitcraft_schema::Schema {
+        let owned: Vec<(String, String)> = kitcraft_schema::BUILTIN_DEFINITIONS
+            .iter()
+            .map(|(file, text)| {
+                if *file != "GLOB.toml" {
+                    return (file.to_string(), text.to_string());
+                }
+                let cut = text.find("[[member]]\nsig = \"FLTV\"").unwrap();
+                let glob = format!(
+                    "{}[[member]]\nsig = \"FLTV\"\nname = \"Value\"\ntype = \"f32\"\n\
+                     source = \"xedit: wbDefinitionsSF1.pas@{}#L1-L2\"\nconfidence = \"reference\"\n",
+                    &text[..cut],
+                    kitcraft_schema::XEDIT_REVISION
+                );
+                (file.to_string(), glob)
+            })
+            .collect();
+        let schema =
+            kitcraft_schema::load_sources(owned.iter().map(|(f, t)| (f.as_str(), t.as_str())))
+                .unwrap();
+        Box::leak(Box::new(schema))
+    }
+
+    /// M3.D3: values read through a `reference`-confidence member are named in
+    /// `limitations` by `inspect` and `query`; other paths are not.
+    #[test]
+    fn reference_members_surface_as_limitations() {
+        use crate::handlers::load::tests::plugin;
+        use crate::handlers::load::SchemaOverride;
+        use crate::handlers::testdata::sub;
+        let dir =
+            std::env::temp_dir().join(format!("kitcraft-engine-reference-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let glob = [
+            sub(b"EDID", b"Speed\0"),
+            sub(b"FLTV", &2.5f32.to_le_bytes()),
+        ]
+        .concat();
+        std::fs::write(
+            dir.join("G.esm"),
+            plugin(0x1, &[], &[(b"GLOB", 0x800, glob)]),
+        )
+        .unwrap();
+        let load =
+            json!({"plugins": ["G.esm"], "data_dir": dir.display().to_string(), "no_cache": true});
+        let mentions = |r: &serde_json::Value| {
+            r["limitations"].as_array().unwrap().iter().any(|l| {
+                l.as_str().unwrap().contains("`reference` confidence")
+                    && l.as_str().unwrap().contains("GLOB FLTV.Value")
+            })
+        };
+        let engine = crate::Engine::with_default_handlers();
+        engine.with_session(|s| s.insert(SchemaOverride(schema_with_reference_member())));
+        engine.execute("load", load.clone()).unwrap();
+        let r = engine.execute("inspect", json!({"form": "Speed"})).unwrap();
+        assert_eq!(r["data"]["versions"][0]["subrecords"][1]["value"], 2.5);
+        assert!(mentions(&r), "{}", r["limitations"]);
+        let r = engine
+            .execute("query", json!({"type": "GLOB", "where": "FLTV.Value > 1"}))
+            .unwrap();
+        assert_eq!(r["data"]["matched"], 1);
+        assert!(mentions(&r), "{}", r["limitations"]);
+        let r = engine
+            .execute(
+                "query",
+                json!({"type": "GLOB", "where": "EDID == \"Speed\""}),
+            )
+            .unwrap();
+        assert!(!mentions(&r), "{}", r["limitations"]);
+        // The builtin definitions have no `reference` member: nothing to say.
+        let mut args = load;
+        args["form"] = json!("Speed");
+        assert!(!mentions(&execute("inspect", args).unwrap()));
     }
 }

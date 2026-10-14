@@ -415,6 +415,13 @@ is under "Next".
     WEAP/AMMO/... fields beyond the universal subrecords follow automatically once lane B
     types them (M3.B1+). Default profile `conflicts --count-classes`: 6,029 differs, 1,644
     identical (unchanged by the typed comparison), 2.7 s warm.
+  - M3.D3: `kitcraft_doc::confidence::reference_members` finds the `reference`-confidence
+    members behind a value (a whole decoded subrecord, or a `where` path); `inspect` and
+    `query` name them in `limitations` (`... reference confidence ...: GLOB FLTV.Value`).
+    No builtin member is `reference` yet, so the test (`reference_members_surface_as_
+    limitations`, through `execute`) installs a schema whose GLOB `FLTV` cites xEdit at
+    `reference` (a test-only session slot, `SchemaOverride`). `query` decodes through
+    `search::run_page_with(.., schema)` (`run_page` keeps the builtin schema).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -578,7 +585,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> lane C (partly done, lane F round 3).** `cargo xtask parity` now has a
   "Definitions by confidence" table (from `kit schema --json`), and `kit schema` /
   `record_schema` states `reference`-confidence definitions as a limitation; `inspect` and
-  `query` results do not yet.
+  `query` results do not yet. **Done (lane D, M3.D3):** `inspect` and `query` name the
+  `reference`-confidence members behind the values they show or test.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
