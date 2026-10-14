@@ -446,6 +446,17 @@ is under "Next".
     (and F11/F26). `tests/forms.rs`: every small/medium official file refused; the 6 full
     ones start one past their largest own object ID (Starfield.esm `003FFD5A`).
     `Tes4::set_next_object_id` added.
+  - M4.A4 NAVM passthrough `kitcraft_esm::navmesh`: `import_navmeshes(&source, &mut
+    target, &style)` (in memory) and `navmesh_placements(&source, &target_index,
+    read_cell, &style) -> Vec<Placed>` (for the streaming upsert) copy every `NAVM` of a
+    CK-saved plugin unchanged (compressed bodies as written) into the temporary children
+    of the same cell in the target, `NAVM` first; refused (`Error::Refused`) when the
+    master lists differ in any way (payload FormIDs are opaque), when the target lacks the
+    cell, or for a `NAVM` outside a cell's temporary children. Synthetic test: a "CK"
+    plugin minus its navmesh plus the import equals the CK plugin byte for byte, in memory
+    and streamed. `tests/navmesh.rs` runs on `observe\<date>-F22\` and skips with one line
+    without it (F22 not observed yet). `NAVI` is not imported (F22 will show whether the
+    CK changes it).
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:

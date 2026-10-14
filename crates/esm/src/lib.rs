@@ -66,6 +66,7 @@ pub mod forms;
 pub mod generated;
 pub mod index;
 mod model;
+pub mod navmesh;
 mod parse;
 mod reader;
 mod signature;
