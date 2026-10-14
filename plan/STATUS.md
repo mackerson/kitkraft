@@ -572,6 +572,16 @@ is under "Next".
     no other Papyrus parser, compiler or grammar is read; source comments are shown only on
     request and never cached or quoted. Registry rows PAPYRUS, CORPUS-ARCHIVES and
     OPEN-PAPYRUS updated.
+  - M4.G1: `kitcraft_pex::psc::parse` reads a `.psc`'s declarations (header with parent
+    and flags; functions and events with typed parameters, defaults, return types, flags
+    and state; remote event handlers; properties with groups, `RequiresGuard(...)` and
+    full Get/Set forms; structs and members; variables; imports, custom events, guards,
+    states, groups); bodies skipped; a statement it does not understand is a diagnostic
+    with its line, a structural fault a typed `PscError` with its line. Synthetic fixtures
+    per construct, truncation and noise never panic. Corpus (`every_official_source_parses`,
+    the zip read in memory, 1.5 s debug): all 5,033 `.psc` files parse with 0 errors and
+    0 unread statements: 21,175 functions (1,223 native), 3,567 events (515 remote
+    handlers), 27,000 properties, 167 structs, 58 custom events.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
