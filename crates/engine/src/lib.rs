@@ -151,9 +151,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Diff Plugins...",
         shortcut: None,
         aliases: &[],
-        summary: "Record-level semantic diff of two plugins",
-        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string"}},"required":["a","b"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Record-level diff of two plugins: FormIDs matched through each file's masters by name; added, removed, changed records with per-subrecord byte ranges",
+        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "build",

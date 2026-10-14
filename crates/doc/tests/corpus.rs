@@ -101,6 +101,66 @@ fn small_official_files_resolve_every_header_formid() {
     }
 }
 
+/// M2.D12: a corpus file against a copy with one edited payload byte reports exactly that
+/// change, with offsets on both sides; the file against itself is empty.
+#[test]
+fn corpus_diff_reports_exactly_one_edit() {
+    use kitcraft_doc::compare::{Change, OverrideClass};
+    use kitcraft_doc::diff::diff_plugins;
+    let Some(dir) = data_dir() else {
+        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        return;
+    };
+    let original = dir.join("SFBGS004.esm");
+    let index = PluginIndex::build(&original).unwrap();
+    let bytes = std::fs::read(&original).unwrap();
+    // The first uncompressed record with a subrecord payload of at least 4 bytes.
+    let (loc, at) = index
+        .records
+        .iter()
+        .filter(|r| r.flags & 0x0004_0000 == 0)
+        .find_map(|r| {
+            let rec = kitcraft_doc::record::read_record_file(&original, r).unwrap();
+            rec.subs
+                .iter()
+                .find(|s| s.data().len() >= 4 && s.signature().0 != *b"EDID")
+                .and_then(|s| s.data_offset())
+                .map(|o| (*r, o as usize + 2))
+        })
+        .unwrap();
+    let mut edited = bytes.clone();
+    edited[at] ^= 0xFF;
+    let tmp = std::env::temp_dir().join(format!("kitcraft-doc-diff-{}", std::process::id()));
+    std::fs::create_dir_all(&tmp).unwrap();
+    let copy = tmp.join("SFBGS004 - edited.esm");
+    std::fs::write(&copy, &edited).unwrap();
+
+    let same = diff_plugins(&original, &original, &[], None).unwrap();
+    assert!(same.added.is_empty() && same.removed.is_empty() && same.changed.is_empty());
+    assert_eq!(same.unchanged as usize, index.records.len());
+
+    let d = diff_plugins(&original, &copy, &[dir.clone()], None).unwrap();
+    assert_eq!(d.keyed_by, "name");
+    assert!(d.added.is_empty() && d.removed.is_empty());
+    assert_eq!(d.changed.len(), 1);
+    let c = &d.changed[0];
+    assert_eq!((c.a.loc.offset, c.b.loc.offset), (loc.offset, loc.offset));
+    let OverrideClass::Differs { subrecords, .. } = &c.class else {
+        panic!("{:?}", c.class)
+    };
+    assert_eq!(subrecords.len(), 1);
+    let s = &subrecords[0];
+    assert_eq!(s.change, Change::Changed);
+    let (a, b) = (s.a.unwrap(), s.b.unwrap());
+    assert_eq!(a.file_offset, b.file_offset);
+    assert_eq!(
+        a.file_offset.unwrap() + s.first_difference.unwrap(),
+        at as u64
+    );
+    assert_eq!(d.unchanged as usize, index.records.len() - 1);
+    std::fs::remove_dir_all(&tmp).unwrap();
+}
+
 #[test]
 #[ignore = "release: indexes all 14 official files (about 2.5 GB)"]
 fn corpus_official_load_order_resolves_and_overrides_exist() {

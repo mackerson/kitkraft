@@ -18,7 +18,7 @@ use kitcraft_esm::{DecodeLimits, HEADER_LEN};
 use crate::compare::{classify, OverrideClass};
 use crate::error::{DocError, Result};
 use crate::flags::Scale;
-use crate::form::MasterMap;
+use crate::form::{FormRef, MasterMap};
 use crate::index::{file_name_of, read_header, PluginIndex, RecordLoc};
 use crate::record::{read_record_at, LoadedRecord};
 
@@ -133,9 +133,12 @@ fn key_map(
     Ok((MasterMap::new(&index.file_name, 0, own, &masters), names))
 }
 
+/// `as_master`: when set, the file's own records are keyed as that master's (the other
+/// file names this one as a master, or both files have the same name).
 fn keys(
     index: &PluginIndex,
     map: Option<&(MasterMap, Vec<String>)>,
+    as_master: Option<&str>,
 ) -> (Vec<Option<Key>>, u64, Option<String>) {
     let mut bad = 0u64;
     let mut first = None;
@@ -145,7 +148,10 @@ fn keys(
         .map(|r| match map {
             None => Some(Key::Raw(r.form_id)),
             Some((m, names)) => match m.resolve(r.form_id) {
-                Ok(g) if g.plugin == 0 => Some(Key::Own(g.object_id)),
+                Ok(g) if g.plugin == 0 => Some(match as_master {
+                    Some(name) => Key::Master(name.to_string(), g.object_id),
+                    None => Key::Own(g.object_id),
+                }),
                 Ok(g) => names
                     .get(usize::from(g.plugin))
                     .map(|n| Key::Master(n.clone(), g.object_id)),
@@ -173,12 +179,13 @@ fn raw_bytes(file: &mut File, name: &str, loc: &RecordLoc) -> Result<Vec<u8>> {
 }
 
 /// Diff `a` against `b`. `extra_dirs` are searched for masters after each file's own
-/// directory. `only` restricts the diff to one key.
+/// directory. `only` restricts the diff to one form (`Plugin.esm:XXXXXX`; naming `a` or
+/// `b` means that file's own record).
 pub fn diff_plugins(
     a: &Path,
     b: &Path,
     extra_dirs: &[PathBuf],
-    only: Option<&Key>,
+    only: Option<&FormRef>,
 ) -> Result<PluginDiff> {
     let ia = PluginIndex::build(a)?;
     let ib = PluginIndex::build(b)?;
@@ -208,8 +215,23 @@ pub fn diff_plugins(
             )))
         }
     };
-    let (ka, bad_a, err_a) = keys(&ia, maps.0.as_ref());
-    let (kb, bad_b, err_b) = keys(&ib, maps.1.as_ref());
+    // A file's own records are the other file's master records when the other lists it as
+    // a master; two files with the same name are versions of one plugin. Otherwise the two
+    // files' own records are matched with each other (an edited copy under another name).
+    let (la, lb) = (
+        ia.file_name.to_ascii_lowercase(),
+        ib.file_name.to_ascii_lowercase(),
+    );
+    let lists = |idx: &PluginIndex, name: &str| {
+        idx.header
+            .masters
+            .iter()
+            .any(|m| m.eq_ignore_ascii_case(name))
+    };
+    let a_as = (la == lb || lists(&ib, &la)).then_some(la.as_str());
+    let b_as = (la == lb || lists(&ia, &lb)).then_some(lb.as_str());
+    let (ka, bad_a, err_a) = keys(&ia, maps.0.as_ref(), a_as);
+    let (kb, bad_b, err_b) = keys(&ib, maps.1.as_ref(), b_as);
     let mut ia_sorted: Vec<(Key, usize)> = ka
         .into_iter()
         .enumerate()
@@ -220,7 +242,20 @@ pub fn diff_plugins(
         .enumerate()
         .filter_map(|(i, k)| Some((k?, i)))
         .collect();
-    if let Some(k) = only {
+    if let Some(f) = only {
+        let name = f.plugin.to_ascii_lowercase();
+        let k = if name == la {
+            a_as.map_or(Key::Own(f.object_id), |n| {
+                Key::Master(n.to_string(), f.object_id)
+            })
+        } else if name == lb {
+            b_as.map_or(Key::Own(f.object_id), |n| {
+                Key::Master(n.to_string(), f.object_id)
+            })
+        } else {
+            Key::Master(name, f.object_id)
+        };
+        let k = &k;
         ia_sorted.retain(|(x, _)| x == k);
         ib_sorted.retain(|(x, _)| x == k);
     }
@@ -381,7 +416,7 @@ mod tests {
         let d = diff_plugins(&a, &b, &[], None).unwrap();
         assert_eq!(d.changed.len(), 1);
         let c = &d.changed[0];
-        assert_eq!(c.key, Key::Own(0x801));
+        assert_eq!(c.key, Key::Master("mod.esm".into(), 0x801));
         let OverrideClass::Differs { subrecords, .. } = &c.class else {
             panic!()
         };
@@ -440,7 +475,8 @@ mod tests {
         assert_eq!(d.added[0].0, Key::Own(0x804));
         assert!(d.changed.is_empty());
         assert_eq!(d.unchanged, 4);
-        let only = diff_plugins(&a, &b, &[], Some(&Key::Master("x.esm".into(), 0x800))).unwrap();
+        let only =
+            diff_plugins(&a, &b, &[], Some(&FormRef::parse("X.esm:000800").unwrap())).unwrap();
         assert_eq!(only.unchanged, 1);
         assert!(only.added.is_empty());
     }

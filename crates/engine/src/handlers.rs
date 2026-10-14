@@ -5,6 +5,7 @@
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
 mod coverage;
+mod diff;
 mod inspect;
 mod load;
 mod query;
@@ -21,6 +22,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
         ("roundtrip", Box::new(roundtrip::run)),
         ("coverage", Box::new(coverage::run)),
+        ("diff", Box::new(diff::run)),
     ]
 }
 
