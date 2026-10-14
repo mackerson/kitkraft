@@ -26,9 +26,13 @@
 //! | wstring/bstring | text, written with its length prefix                            |
 //! | opaque, structs, arrays | only `hex:0A0B...` raw bytes (or a member path)          |
 //!
-//! `hex:` is accepted for any type; for a fixed-size type the byte count must match. An
-//! object `{"mul": x}` or `{"add": x}` scales or offsets the current value of a typed number
-//! (integers are rounded to the nearest value, ties away from zero, then range-checked).
+//! `hex:` is accepted for any type; for a fixed-size type the byte count must match, and a
+//! zstring or (non-localized) lstring must still be one NUL-terminated string. An object
+//! `{"mul": x}` or `{"add": x}` scales or offsets the current value of a typed number
+//! (integers are rounded to the nearest value, ties away from zero, then range-checked; an
+//! integral `add` is exact on 64-bit fields, while `mul` and a fractional `add` go through
+//! `f64` and are refused beyond 2^53). Non-finite numbers (`inf`, `nan`, `1e400`) are
+//! `range` errors.
 //!
 //! `FULL` and `DESC` are lstrings (`uesp-skyrim` fact in `plan/execution-plan.md`, "Format
 //! facts M2 relies on"; lane B's M2.B2 types them, with corpus evidence, on every record
@@ -573,6 +577,17 @@ pub fn encode_value(
             let bytes = parse_hex(hex).ok_or_else(|| {
                 type_err("hex: needs an even number of hex digits (spaces allowed)".into())
             })?;
+            // A string set as raw bytes must still be one NUL-terminated string: the game
+            // reads it up to the first NUL (an lstring of a non-localized plugin too).
+            let text_type = matches!(ty, FieldType::ZString)
+                || (matches!(ty, FieldType::LString) && !ctx.localized_target);
+            if text_type && !is_one_zstring(&bytes) {
+                return Err(type_err(format!(
+                    "a {} set as hex: must be one NUL-terminated string (ending in 00, no other 00); got {} byte(s)",
+                    type_name(ty),
+                    bytes.len()
+                )));
+            }
             if let Some(size) = ty
                 .fixed_size(Some(ctx.form_version))
                 .and_then(|s| usize::try_from(s).ok())
@@ -604,16 +619,8 @@ pub fn encode_value(
                 Op::Mul(_) | Op::Add(_) => {
                     let current = read_int(*s, old).ok_or_else(|| {
                         FieldError::new(path, "payload", "current value unreadable")
-                    })? as f64;
-                    let next = match op {
-                        Op::Mul(m) => current * m,
-                        Op::Add(a) => current + a,
-                        Op::Set(_) => current,
-                    };
-                    if !next.is_finite() || next.abs() > 1.0e30 {
-                        return Err(FieldError::new(path, "range", "result out of range"));
-                    }
-                    next.round() as i128
+                    })?;
+                    int_op(path, current, op)?
                 }
             };
             encode_int(*s, value).ok_or_else(|| {
@@ -626,8 +633,14 @@ pub fn encode_value(
         }
         FieldType::Scalar(s) => {
             let value = match op {
-                Op::Set(v) => parse_float(v)
-                    .ok_or_else(|| type_err(format!("{} takes a number", s.as_str())))?,
+                Op::Set(v) => parse_float(v).map_err(|e| match e {
+                    FloatError::NotANumber => type_err(format!("{} takes a number", s.as_str())),
+                    FloatError::NotFinite(text) => FieldError::new(
+                        path,
+                        "range",
+                        format!("`{text}` is not a finite number (infinite, NaN, or beyond f64); {} takes a finite value", s.as_str()),
+                    ),
+                })?,
                 Op::Mul(m) => {
                     read_float(*s, old).ok_or_else(|| {
                         FieldError::new(path, "payload", "current value unreadable")
@@ -797,6 +810,46 @@ fn text_value<'v>(path: &str, op: &'v Op) -> Result<&'v str, FieldError> {
     }
 }
 
+/// Largest integer magnitude `f64` holds exactly (2^53).
+pub const EXACT_F64_INT: i128 = 1 << 53;
+
+/// `{mul}` / `{add}` on an integer `current`. An integral `add` is exact in `i128` (64-bit
+/// fields included); a fractional `add` and every `mul` go through `f64`, so they are
+/// refused when the current value or the result is beyond 2^53, where `f64` drops bits.
+fn int_op(path: &str, current: i128, op: &Op) -> Result<i128, FieldError> {
+    let range = |message: String| FieldError::new(path, "range", message);
+    if let Op::Add(a) = op {
+        if a.fract() == 0.0 && a.abs() < 1.0e30 {
+            return current
+                .checked_add(*a as i128)
+                .ok_or_else(|| range(format!("{current} + {a} overflows")));
+        }
+    }
+    if current.abs() > EXACT_F64_INT {
+        return Err(range(format!(
+            "{current} is beyond 2^53, where mul and fractional add are inexact; set the value, or add an integer"
+        )));
+    }
+    let next = match op {
+        Op::Mul(m) => current as f64 * m,
+        Op::Add(a) => current as f64 + a,
+        Op::Set(_) => current as f64,
+    };
+    if !next.is_finite() || next.abs() > EXACT_F64_INT as f64 {
+        return Err(range(format!(
+            "the result of {op:?} on {current} is beyond 2^53 (exact integer range of f64)"
+        )));
+    }
+    Ok(next.round() as i128)
+}
+
+/// Whether `bytes` is one NUL-terminated string: non-empty, ends in NUL, no other NUL.
+pub fn is_one_zstring(bytes: &[u8]) -> bool {
+    bytes
+        .strip_suffix(&[0])
+        .is_some_and(|body| !body.contains(&0))
+}
+
 fn zstring(path: &str, text: &str) -> Result<Vec<u8>, FieldError> {
     if text.contains('\0') {
         return Err(FieldError::new(path, "type", "text may not contain NUL"));
@@ -847,24 +900,51 @@ pub fn parse_int(value: &Value) -> Option<i128> {
     }
 }
 
-/// A finite number from a JSON number or decimal text.
-pub fn parse_float(value: &Value) -> Option<f64> {
+/// Why [`parse_float`] gave no value.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FloatError {
+    /// Not a number at all (a `type` error).
+    NotANumber,
+    /// A number, but infinite, NaN, or beyond `f64` (`1e400`): a `range` error. Holds the
+    /// text as given.
+    NotFinite(String),
+}
+
+/// A finite number from a JSON number or decimal text. `inf`, `infinity` and `nan` (any
+/// case, signed) and decimals beyond `f64` (`1e400`) are numbers that are not finite.
+pub fn parse_float(value: &Value) -> Result<f64, FloatError> {
     let v = match value {
-        Value::Number(n) => n.as_f64()?,
+        Value::Number(n) => n.as_f64().ok_or(FloatError::NotANumber)?,
         Value::String(s) => {
             let s = s.trim();
-            // Rust also parses "inf" and "NaN"; only plain decimals are accepted.
-            if !s
-                .bytes()
-                .all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'+' | b'e' | b'E'))
-            {
-                return None;
+            let unsigned = s.trim_start_matches(['+', '-']).to_ascii_lowercase();
+            if matches!(unsigned.as_str(), "inf" | "infinity" | "nan") {
+                return Err(FloatError::NotFinite(s.to_string()));
             }
-            s.parse::<f64>().ok()?
+            // Only plain decimals; Rust would also parse other spellings.
+            if s.is_empty()
+                || !s
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || matches!(b, b'.' | b'-' | b'+' | b'e' | b'E'))
+            {
+                return Err(FloatError::NotANumber);
+            }
+            s.parse::<f64>().map_err(|_| FloatError::NotANumber)?
         }
-        _ => return None,
+        _ => return Err(FloatError::NotANumber),
     };
-    v.is_finite().then_some(v)
+    if v.is_finite() {
+        Ok(v)
+    } else {
+        Err(FloatError::NotFinite(value_text(value)))
+    }
+}
+
+fn value_text(value: &Value) -> String {
+    match value {
+        Value::String(s) => s.trim().to_string(),
+        other => other.to_string(),
+    }
 }
 
 fn encode_int(s: Scalar, value: i128) -> Option<Vec<u8>> {
@@ -1086,13 +1166,74 @@ mod tests {
         assert_eq!(got.unwrap_err().rule, "range");
     }
 
+    /// `{add}` on 64-bit integers is exact (i128); `{mul}` and fractional `{add}` are
+    /// refused beyond 2^53, where f64 drops bits (Fable review round 2, finding 9).
+    #[test]
+    fn sixty_four_bit_mul_and_add() {
+        let i64t = FieldType::Scalar(Scalar::I64);
+        let u64t = FieldType::Scalar(Scalar::U64);
+        let big = (1i64 << 60) + 1;
+        let op = |ty: &FieldType, old: &[u8], op: Op| encode_value("X", ty, old, &op, &ctx(false));
+        // Through f64 this was 2^60 + 0: the low bit was lost.
+        let got = op(&i64t, &big.to_le_bytes(), Op::Add(1.0)).unwrap();
+        assert_eq!(got, (big + 1).to_le_bytes());
+        let got = op(&u64t, &u64::MAX.to_le_bytes(), Op::Add(-1.0)).unwrap();
+        assert_eq!(got, (u64::MAX - 1).to_le_bytes());
+        assert_eq!(
+            op(&u64t, &u64::MAX.to_le_bytes(), Op::Add(1.0))
+                .unwrap_err()
+                .rule,
+            "range"
+        );
+        for refused in [Op::Mul(1.0), Op::Add(0.5)] {
+            let err = op(&i64t, &big.to_le_bytes(), refused).unwrap_err();
+            assert_eq!(err.rule, "range");
+            assert!(err.message.contains("2^53"), "{err}");
+        }
+        // A result beyond 2^53 is refused too; within it, mul works.
+        let near = 1i64 << 52;
+        assert_eq!(
+            op(&i64t, &near.to_le_bytes(), Op::Mul(4.0))
+                .unwrap_err()
+                .rule,
+            "range"
+        );
+        let got = op(&i64t, &near.to_le_bytes(), Op::Mul(0.5)).unwrap();
+        assert_eq!(got, (near / 2).to_le_bytes());
+    }
+
+    /// A zstring or (non-localized) lstring set as `hex:` must be one NUL-terminated
+    /// string (Fable review round 2, finding 4).
+    #[test]
+    fn hex_strings_must_be_one_zstring() {
+        for ty in [FieldType::ZString, FieldType::LString] {
+            for bad in ["hex:", "hex:4142", "hex:41004200", "hex:00 00"] {
+                let err = set(&ty, json!(bad)).unwrap_err();
+                assert_eq!(err.rule, "type", "{bad}");
+                assert!(err.message.contains("NUL-terminated"), "{err}");
+            }
+            assert_eq!(set(&ty, json!("hex:414200")).unwrap(), b"AB\0");
+            assert_eq!(set(&ty, json!("hex:00")).unwrap(), b"\0");
+        }
+        assert!(is_one_zstring(b"x\0") && !is_one_zstring(b"") && !is_one_zstring(b"\0\0"));
+    }
+
     #[test]
     fn floats() {
         let f32t = FieldType::Scalar(Scalar::F32);
         assert_eq!(set(&f32t, json!(1.5)).unwrap(), 1.5f32.to_le_bytes());
         assert_eq!(set(&f32t, json!("1.5")).unwrap(), 1.5f32.to_le_bytes());
-        assert_eq!(set(&f32t, json!("inf")).unwrap_err().rule, "type");
         assert_eq!(set(&f32t, json!(1e300)).unwrap_err().rule, "range");
+        // Non-finite spellings and decimals beyond f64 are range errors, not type errors
+        // (Fable review round 2, finding 10); other text is a type error.
+        let f64t = FieldType::Scalar(Scalar::F64);
+        for text in ["inf", "-Infinity", "NaN", "1e400", "-1e400"] {
+            let err = set(&f64t, json!(text)).unwrap_err();
+            assert_eq!(err.rule, "range", "{text}");
+            assert!(err.message.contains("not a finite number"), "{err}");
+        }
+        assert_eq!(set(&f64t, json!("abc")).unwrap_err().rule, "type");
+        assert_eq!(set(&f64t, json!("")).unwrap_err().rule, "type");
         let f64t = FieldType::Scalar(Scalar::F64);
         assert_eq!(set(&f64t, json!(1e300)).unwrap(), 1e300f64.to_le_bytes());
         let old = 2.0f32.to_le_bytes();
