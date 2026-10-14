@@ -1,7 +1,9 @@
 //! Repository automation.
 //!
-//! - `cargo xtask ci`: the gate every commit passes (layers, fmt, clippy, test).
+//! - `cargo xtask ci`: the gate every commit passes (layers, codegen --check, fmt, clippy,
+//!   test).
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
+//! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //!
 //! The layer check has three parts.
 //!
@@ -23,6 +25,7 @@
 //!
 //! LAYER: TOOL
 
+mod codegen;
 mod graph;
 mod smuggle;
 
@@ -112,6 +115,14 @@ fn run() -> Result<()> {
     match task.as_deref() {
         Some("ci") => ci(&workspace_root()?),
         Some("layers") => layers(&workspace_root()?),
+        Some("codegen") => {
+            let check = match std::env::args().nth(2).as_deref() {
+                None => false,
+                Some("--check") => true,
+                Some(other) => bail!("codegen: unknown argument `{other}`; expected --check"),
+            };
+            codegen::run(&workspace_root()?, check)
+        }
         None | Some("help" | "-h" | "--help") => {
             print_help();
             Ok(())
@@ -123,8 +134,11 @@ fn run() -> Result<()> {
 fn print_help() {
     println!("cargo xtask <task>");
     println!();
-    println!("  ci       layers, then cargo fmt --check, clippy -D warnings, test");
+    println!("  ci       layers, codegen --check, cargo fmt --check, clippy -D warnings, test");
     println!("  layers   enforce the crate layer graph, sources and resolved deps (see AGENTS.md)");
+    println!(
+        "  codegen  write crates/esm/src/generated/ from the schema; --check fails when stale"
+    );
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -137,6 +151,8 @@ fn workspace_root() -> Result<PathBuf> {
 fn ci(root: &Path) -> Result<()> {
     println!("xtask ci: layers");
     layers(root)?;
+    println!("xtask ci: codegen --check");
+    codegen::run(root, true)?;
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     cargo(
         root,
