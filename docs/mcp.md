@@ -529,6 +529,90 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   `conflict_count`, `conflicts[]` (first 100: `id`, `replaced`, `winner`, `old`, `new`),
   `identical_repeats`, `summary`.
 
+### `set` (M2.E5)
+
+Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`profile` |
+`plugins`, `data_dir`, `language`, `no_cache`), or the session's load order. CLI
+`kit set <form> <into> FULL="..." [--profile DIR | --plugins A.esm ... --data-dir D]`, or
+`kit set <form> FULL="..." --into X.esp ...` (the `FIELD=value` shorthand, see
+`command_line` grammar).
+
+- `form`: `Plugin.esm:00ABCDEF` (formref), an EditorID, or a hex FormID as stored in
+  `plugin`. Its winning version in the load order is the record copied.
+- `fields`: field path -> value (`crate::edit::fields`): `FULL`, `FULL[1]`, `DNAM.Member`,
+  `DNAM.Member[2]`; values are JSON numbers or text parsed by the schema type (integers by
+  width, `f32`/`f64`, enums and flags by name, zstring, lstring, FormIDs as formrefs mapped
+  into the patch's masters), `{"mul": x}` / `{"add": x}` on typed numbers, `hex:0A0B` for
+  opaque payloads (the only form they take). A bad path or value is `invalid_args` at
+  `/fields/<path>` with a rule id (`path-syntax`, `no-subrecord`, `no-member`, `type`,
+  `range`, `opaque`, `formref`, `layout`).
+- `into`: the patch, created or updated (`.esm` gets the master flag, `.esp` does not;
+  `.esl` is refused). Never a plugin of the load order, never inside the game Data dir or
+  an MO2 instance or profile (any depth). The writer rules (masters, lstrings inline,
+  remapping, header) are in `crates/engine/src/edit/patch.rs` and `docs/corpus.md`
+  "Writing rules".
+
+`data`: `target`, `file`, `created`, `masters`, `flags`, `bytes`, `summary`, and
+`records[]` (parents copied to hold a cell/world/topic child come first, `parent: true`)
+with `signature`, `form_id` (as stored in the patch), `form`, `editor_id`, `source`,
+`outcome` (`inserted` | `replaced`), `fields[]` (`path`, `before`, `after`, `changed`;
+an lstring of a localized source shows `{"string_id"}` before), `inlined_lstrings[]`
+(`at`, `string_id`, `text`, `table`), `offset`/`length` in the patch, and `copied_from`
+(`plugin`, `load_index`, `offset`, `record`, `versions_in_load_order`). Evidence: the
+copied record in its source file, the record in the patch, each edited payload in the
+patch. Limitations: the load order's, the M2.E3 `ck-diff` part not observed yet, a
+master list extended, FormIDs remapped.
+
+### `validate` (M2.E6, M2.E7, M2.E8)
+
+Arguments `{plugin?, scripts?, rules?}` (`plugin`, `scripts`, or both) plus the
+load-order arguments (optional: masters are searched in the named or session load order
+first, then next to the plugin, then in `data_dir`). CLI
+`kit validate --plugin X.esp [--data-dir D]`, `kit validate --scripts dir\with\pex`;
+`--rules masters.missing --rules lstring.copied-id` limits the run (an unknown id is
+`invalid_args` at `/rules/<i>`). The rules, their severities and sources:
+`docs/validate.md`.
+
+`data`: `plugin`, `scripts`, `passed` (no `error` finding; `kit` exits 1 when false),
+`errors`, `warnings`, `rules` (ids run), `findings[]` (first 1,000: `rule`, `severity`,
+`plugin`, `record` = `SIGN:FORMID` or `Script.Function`, `subrecord`, `offset`,
+`message`), `findings_total`, `masters[]` (`name`, `path`, `flags`, `localized`),
+`records`, `groups`, `subrecords`, `checked_form_ids`, `unresolved_form_ids`,
+`unchecked_subrecords`, `scripts_checked`, `summary`. Coverage is `complete` only when no
+FormID was left unchecked; opaque subrecords count as `opaque_subrecords`. Evidence: one
+byte at each finding's offset.
+
+### `build` (M2.E9)
+
+Arguments `{spec, out}` plus the load-order arguments (used when the spec has no
+`[load_order]`). CLI `kit build rename.toml <out>`. The spec (TOML):
+
+```toml
+version = 1
+[plugin]
+localized = false                     # the only value accepted
+[load_order]                          # optional: profile | plugins, data_dir, no_cache, language
+plugins = ["Starfield.esm"]
+data_dir = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+[[rule]]                              # every winning record of `type` matching `where`
+type = "WEAP"
+where = 'EDID ~ "Rifle"'
+fields = { FULL = "Renamed" }          # or { "SIG.Member" = { mul = 0.8 } } on a typed number
+[[set]]                               # one record, as `set`
+form = "Starfield.esm:0021BBCD"
+fields = { FULL = "Old Soviet Marksman Rifle" }
+```
+
+Rules expand over their `query` matches (winners, load order then FormID); `[[set]]`
+entries apply after rules; a field written twice is an error naming both keys. The plugin
+is written fresh into a temporary directory next to `out`, validated, and moved over
+`out` only when `validate` finds no error; otherwise nothing is written and the command
+fails with the errors. Spec errors are `failed` with `spec: <key>: ...`
+(`spec: set[0].fields.full: ...`). `data` is `set`'s plus `spec`, `rules[]` (`rule`,
+`matched`, `undecided`), `validate` (`passed`, `errors`, `warnings`, `findings`, `rules`)
+and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
+the bytes `set` writes.
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends
@@ -613,6 +697,6 @@ human messages go to stderr.
 1. `execute {command: "load", args: {profile: "C:\\Modding\\MO2-Starfield\\profiles\\Default"}}`
 2. `query_records {type: "WEAP", where: "WDMG.Damage > 100", limit: 20}`
 3. `inspect_record {form: "0001A2B3"}`: see the winning override and which plugin set it.
-4. `execute {command: "set", args: {form: "0001A2B3", fields: {"FULL": "Old Soviet Marksman Rifle"}, into: "MyPatch.esm"}}`
-5. `execute {command: "validate", args: {plugin: "MyPatch.esm"}}`: catches a localized FULL
-   copied as a string ID before the game does.
+4. `execute {command: "set", args: {form: "Starfield.esm:0021BBCD", fields: {"FULL": "Old Soviet Marksman Rifle"}, into: "C:\\Modding\\kitcraft\\out\\MyPatch.esm"}}`
+5. `execute {command: "validate", args: {plugin: "C:\\Modding\\kitcraft\\out\\MyPatch.esm"}}`:
+   catches a localized FULL copied as a string ID before the game does.
