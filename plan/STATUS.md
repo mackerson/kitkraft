@@ -401,6 +401,14 @@ is under "Next".
     zlib 1.3.2 or miniz_oxide, reproduces class E (out-of-tree study, procedure in
     `docs/gaps.md`). Default writer unchanged (level 9) pending M3.H3. F07 candidates filed
     to lane H (Requests).
+  - M3.A2 `roundtrip --decode` in the driver: with `RoundtripOptions::decode` every
+    compressed body is inflated strictly (declared size, end marker and checksum, nothing
+    after the stream), its subrecords parsed and re-encoded to the inflated bytes; a body
+    that fails is a `Mismatch` (offset where inflating stopped, path ending in
+    `> compressed body: <fault>`), decode limits stay errors. Synthetic fixtures for each
+    fault; the M1.7 harness accepts only such decode mismatches. Full corpus 14/14
+    identical with it (18.3 s, 1,397 MiB, `docs/corpus.md`). The command side is M3.F1
+    (Request to lane F).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -783,3 +791,16 @@ Agents append here when they need a change in a crate they do not own.
      outside NAVM).
   The 12 level-8 NAVM and the unexplained NAVM (`001BA29F`) are navmeshes of cell
   `00000025`, not dialog-editable, so F07 does not cover them.
+- **Lane A -> lane F (M3.A2 landed; for M3.F1).** `RoundtripOptions::decode:
+  Some(DecodeLimits)` (or `RoundtripOptions::with_decode()`) is the driver half of
+  `roundtrip --decode`: a compressed body that does not inflate to exactly its declared
+  size, whose stream lacks its end marker or checksum or is followed by other bytes, or
+  whose subrecords do not parse or re-encode, comes back as `report.mismatch` (so
+  `identical()` is false and the CLI's exit 1 applies) with `expected` and `actual` both
+  `None`, `offset` where inflating stopped (the body start for size and content faults),
+  and `path` ending in ` > compressed body: <fault>` (e.g. `GRUP LAND (type 0) @330 >
+  LAND 00000501 @439 > compressed body: invalid zlib stream: ...`). A decode limit
+  (`DecompressedTooLarge`, `TooManySubrecords`) is still an `Err`. No public type changed
+  (`Mismatch` and `RoundtripReport` have the same fields), so the engine compiles as is;
+  for an end-to-end exit-1 fixture, a compressed record whose last stream byte is flipped
+  (Adler-32) is the simplest (`driver::tests::decode_reports_a_corrupt_well_sized_stream`).

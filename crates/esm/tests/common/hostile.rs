@@ -70,7 +70,26 @@ pub fn check(bytes: &[u8], what: &str) {
             Err(e) => assert_in_bounds(&e, bytes.len(), what),
         }
         match roundtrip_bytes(bytes, &RoundtripOptions::with_decode()) {
-            Ok(report) => assert!(report.identical(), "{what}: driver mismatch {report:?}"),
+            Ok(report) => match &report.mismatch {
+                // Only a compressed body that does not decode may be a mismatch (M3.A2):
+                // the bytes themselves still write back as read.
+                Some(m) => {
+                    assert!(
+                        m.path.contains(" > compressed body: ")
+                            && m.expected.is_none()
+                            && m.actual.is_none()
+                            && m.offset <= bytes.len() as u64,
+                        "{what}: driver mismatch {report:?}"
+                    );
+                    match roundtrip_bytes(bytes, &RoundtripOptions::default()) {
+                        Ok(plain) => {
+                            assert!(plain.identical(), "{what}: container mismatch {plain:?}")
+                        }
+                        Err(e) => assert_in_bounds(&e, bytes.len(), what),
+                    }
+                }
+                None => assert!(report.identical(), "{what}: driver mismatch {report:?}"),
+            },
             Err(e) => assert_in_bounds(&e, bytes.len(), what),
         }
         // The index validates at least what the parser does, so anything it accepts

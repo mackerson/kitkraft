@@ -26,8 +26,13 @@ use crate::{DecodeLimits, Error, ParseOptions, Result, Signature, WriteOptions};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct RoundtripOptions {
     pub parse: ParseOptions,
-    /// When set, every compressed record is also decompressed and its subrecords parsed
-    /// (and counted). The original compressed bytes are still what is written.
+    /// When set (`roundtrip --decode`, M3.A2), every compressed record is also checked
+    /// strictly: its zlib stream must inflate, end with its end marker and checksum at the
+    /// end of the body, and produce exactly the declared size; its subrecords must parse
+    /// (they are counted) and serialize back to the decompressed bytes. A record that fails
+    /// is a [`Mismatch`] at the fault's offset, with a path naming the record and the
+    /// fault; a decode limit it exceeds is an error. The original compressed bytes are
+    /// still what is written.
     pub decode: Option<DecodeLimits>,
     pub write: WriteOptions,
     /// When set, every record whose type has a schema definition is decoded through it,
@@ -98,17 +103,23 @@ pub struct RecordConflict {
     pub conflict: crate::bridge::TypedConflict,
 }
 
-/// Where the output first differs from the input.
+/// Where the output first differs from the input, or (with [`RoundtripOptions::decode`])
+/// the first compressed record body that does not decode.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Mismatch {
-    /// Absolute offset of the first differing byte.
+    /// Absolute offset of the first differing byte; for a body that does not decode, where
+    /// inflating stopped (or the body's start, see the path).
     pub offset: u64,
-    /// Input byte there (`None` past the end of the input entry).
+    /// Input byte there (`None` past the end of the input entry, and for a body that does
+    /// not decode).
     pub expected: Option<u8>,
-    /// Output byte there (`None` when the output ended early).
+    /// Output byte there (`None` when the output ended early, and for a body that does
+    /// not decode).
     pub actual: Option<u8>,
     /// Path of the innermost node containing the offset, e.g.
-    /// `GRUP WRLD (type 0) @123 > WRLD 0000003C @147 > FULL @171`.
+    /// `GRUP WRLD (type 0) @123 > WRLD 0000003C @147 > FULL @171`. For a body that does
+    /// not decode it ends with the fault:
+    /// `... > NPC_ 0000697A @9000 > compressed body: invalid zlib stream: ...`.
     pub path: String,
 }
 
@@ -177,7 +188,8 @@ pub fn roundtrip_reader<R: Read>(
             decode: options.decode.as_ref(),
             typed: options.typed.then_some(localized),
         };
-        count_entry(&entry, &mut stats, &count)?;
+        let mut fault = None;
+        count_entry(&entry, &mut stats, &count, &mut fault)?;
 
         let mut cmp = Compare {
             expected: &buf,
@@ -196,17 +208,27 @@ pub fn roundtrip_reader<R: Read>(
                 actual: None,
             })
         });
-        if let Some(diff) = diff {
+        let byte_mismatch = diff.map(|diff| {
             let at = offset.saturating_add(diff.at as u64);
+            Mismatch {
+                offset: at,
+                expected: buf.get(diff.at).copied(),
+                actual: diff.actual,
+                path: locate(&entry, at),
+            }
+        });
+        let decode_mismatch =
+            fault.map(|(record_offset, f)| fault_mismatch(&entry, record_offset, f));
+        // Report whichever comes first in the file.
+        let mismatch = match (byte_mismatch, decode_mismatch) {
+            (Some(a), Some(b)) => Some(if b.offset < a.offset { b } else { a }),
+            (a, b) => a.or(b),
+        };
+        if let Some(mismatch) = mismatch {
             return Ok(RoundtripReport {
                 input_len: len,
                 output_len: offset.saturating_add(written),
-                mismatch: Some(Mismatch {
-                    offset: at,
-                    expected: buf.get(diff.at).copied(),
-                    actual: diff.actual,
-                    path: locate(&entry, at),
-                }),
+                mismatch: Some(mismatch),
                 stats,
             });
         }
@@ -665,17 +687,45 @@ struct Count<'l> {
     typed: Option<bool>,
 }
 
-fn count_entry(entry: &Entry<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<()> {
+/// The first compressed body in an entry that failed the strict decode: the record's
+/// offset and the fault.
+type FirstFault = Option<(u64, crate::compress::BodyFault)>;
+
+fn count_entry(
+    entry: &Entry<'_>,
+    stats: &mut Stats,
+    count: &Count<'_>,
+    fault: &mut FirstFault,
+) -> Result<()> {
     match entry {
         Entry::Group(g) => {
             stats.groups = stats.groups.saturating_add(1);
             for child in g.children() {
-                count_entry(child, stats, count)?;
+                count_entry(child, stats, count, fault)?;
             }
         }
-        Entry::Record(r) => count_record(r, stats, count)?,
+        Entry::Record(r) => count_record(r, stats, count, fault)?,
     }
     Ok(())
+}
+
+/// The mismatch for a compressed body that failed the strict decode.
+fn fault_mismatch(
+    entry: &Entry<'_>,
+    record_offset: u64,
+    f: crate::compress::BodyFault,
+) -> Mismatch {
+    let mut path = locate(entry, record_offset);
+    let _ = write!(path, " > compressed body: {}", f.reason);
+    if let Some(at) = f.inflated_offset {
+        let _ = write!(path, " (decompressed offset {at})");
+    }
+    Mismatch {
+        offset: f.offset,
+        expected: None,
+        actual: None,
+        path,
+    }
 }
 
 /// Check one record's subrecords against its definition and add the result to `stats`.
@@ -712,7 +762,12 @@ fn count_subrecords(subs: &[Subrecord<'_>], stats: &mut Stats) {
     stats.oversize_subrecords = stats.oversize_subrecords.saturating_add(oversize);
 }
 
-fn count_record(r: &Record<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<()> {
+fn count_record(
+    r: &Record<'_>,
+    stats: &mut Stats,
+    count: &Count<'_>,
+    fault: &mut FirstFault,
+) -> Result<()> {
     stats.records = stats.records.saturating_add(1);
     let n = stats.record_types.entry(r.header.signature).or_insert(0);
     *n = n.saturating_add(1);
@@ -726,10 +781,19 @@ fn count_record(r: &Record<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<
                 check_typed(r, subs, localized, stats);
             }
         }
-        Body::Compressed { .. } => {
+        Body::Compressed { original, .. } => {
             stats.compressed_records = stats.compressed_records.saturating_add(1);
+            let at = r.offset().unwrap_or(0);
             let decoded = match count.decode {
-                Some(limits) => r.decode(limits)?,
+                Some(limits) => match crate::compress::check_body(original, at, limits)? {
+                    crate::compress::BodyCheck::Decoded(subs) => Some(subs),
+                    crate::compress::BodyCheck::Fault(f) => {
+                        if fault.is_none() {
+                            *fault = Some((at, f));
+                        }
+                        None
+                    }
+                },
                 None => None,
             };
             match (decoded, typed) {
@@ -1039,6 +1103,182 @@ mod tests {
         );
         assert_eq!(c.conflict.offset, Some(24));
         assert_eq!(c.conflict.kind, crate::bridge::ConflictKind::NotDecoded);
+    }
+
+    /// A plugin whose last top-level group holds one compressed LAND record (FormID 0x51)
+    /// with the given body (`u32` size + stream), and the record's offset.
+    fn with_compressed_body(body: &[u8]) -> (Vec<u8>, u64) {
+        let mut bytes = fixture::sample_plugin();
+        let group_at = bytes.len() as u64;
+        let rec = fixture::record(b"LAND", 0x0004_0000, 0x51, body);
+        bytes.extend(group(b"LAND", 0, &rec));
+        (bytes, group_at + 24)
+    }
+
+    fn land_fields() -> Vec<u8> {
+        [sub(b"EDID", b"corrupt\0"), sub(b"VHGT", &[5u8; 300])].concat()
+    }
+
+    /// Roundtrip with and without `decode`: identical without (the bytes are re-emitted
+    /// as read), a mismatch with. Returns that mismatch.
+    fn decode_mismatch(bytes: &[u8]) -> super::Mismatch {
+        let plain = roundtrip_bytes(bytes, &RoundtripOptions::default()).unwrap();
+        assert!(plain.identical(), "{plain:?}");
+        let report = roundtrip_bytes(bytes, &RoundtripOptions::with_decode()).unwrap();
+        assert!(!report.identical());
+        assert_eq!(report.output_len, bytes.len() as u64);
+        let m = report.mismatch.unwrap();
+        assert_eq!((m.expected, m.actual), (None, None));
+        m
+    }
+
+    /// M3.A2: a corrupt stream whose declared size is right is a mismatch under `decode`,
+    /// with the offset where inflating stopped and the record's path.
+    #[test]
+    fn decode_reports_a_corrupt_well_sized_stream() {
+        let fields = land_fields();
+        let mut body = crate::compress::deflate(&fields, 9, 0).unwrap();
+        // Corrupt the Adler-32 trailer: every size still agrees.
+        let last = body.len() - 1;
+        body[last] ^= 0x01;
+        let (bytes, at) = with_compressed_body(&body);
+        let m = decode_mismatch(&bytes);
+        let prefix = format!(
+            "GRUP LAND (type 0) @{} > LAND 00000051 @{at} > compressed body: invalid zlib stream",
+            at - 24
+        );
+        assert!(m.path.starts_with(&prefix), "{}", m.path);
+        let stream_at = at + 24 + 4;
+        let end = at + 24 + body.len() as u64;
+        assert!((stream_at..=end).contains(&m.offset), "{}", m.offset);
+
+        // A corrupt deflate block in the middle of the stream.
+        let mut body = crate::compress::deflate(&fields, 9, 0).unwrap();
+        body[8] ^= 0xFF;
+        let (bytes, at) = with_compressed_body(&body);
+        let m = decode_mismatch(&bytes);
+        assert!(m.path.contains("LAND 00000051 @"), "{}", m.path);
+        assert!(m.offset >= at + 28, "{}", m.offset);
+    }
+
+    /// Each kind of body defect `decode` finds, with where it points.
+    #[test]
+    fn decode_reports_each_body_fault() {
+        let fields = land_fields();
+        let good = crate::compress::deflate(&fields, 9, 0).unwrap();
+        let declared = fields.len() as u32;
+
+        // Declared size one byte short and one byte long.
+        for wrong in [declared - 1, declared + 1] {
+            let mut body = good.clone();
+            body[..4].copy_from_slice(&wrong.to_le_bytes());
+            let (bytes, at) = with_compressed_body(&body);
+            let m = decode_mismatch(&bytes);
+            assert!(
+                m.path.contains("compressed body: the zlib stream inflates"),
+                "{}",
+                m.path
+            );
+            assert!((at + 24..=at + 24 + body.len() as u64).contains(&m.offset));
+        }
+
+        // Bytes after the end of the zlib stream.
+        let mut body = good.clone();
+        body.extend_from_slice(b"junk");
+        let (bytes, at) = with_compressed_body(&body);
+        let m = decode_mismatch(&bytes);
+        assert!(
+            m.path
+                .ends_with("compressed body: 4 bytes follow the end of the zlib stream"),
+            "{}",
+            m.path
+        );
+        assert_eq!(m.offset, at + 24 + good.len() as u64);
+
+        // A stream cut before its end marker (the record size shrinks with it).
+        let (bytes, at) = with_compressed_body(&good[..good.len() - 6]);
+        let m = decode_mismatch(&bytes);
+        assert!(m.path.contains("compressed body: "), "{}", m.path);
+        assert!(m.offset >= at + 28);
+
+        // A body shorter than its size prefix.
+        let (bytes, at) = with_compressed_body(&[1, 0]);
+        let m = decode_mismatch(&bytes);
+        assert!(
+            m.path.contains("shorter than its 4-byte decompressed size"),
+            "{}",
+            m.path
+        );
+        assert_eq!(m.offset, at + 24);
+
+        // A valid stream whose decompressed data is not subrecords.
+        let junk = b"EDID\x09\x00ab";
+        let mut body = (junk.len() as u32).to_le_bytes().to_vec();
+        body.extend(fixture::zlib_stored(junk));
+        let (bytes, at) = with_compressed_body(&body);
+        let m = decode_mismatch(&bytes);
+        assert!(
+            m.path.contains("the decompressed data does not parse")
+                && m.path.ends_with("(decompressed offset 6)"),
+            "{}",
+            m.path
+        );
+        assert_eq!(m.offset, at + 24);
+    }
+
+    /// Decode limits stay errors under `decode`: they are our caps, not defects.
+    #[test]
+    fn decode_limits_are_errors_not_mismatches() {
+        let body = crate::compress::deflate(&land_fields(), 9, 0).unwrap();
+        let (bytes, at) = with_compressed_body(&body);
+        let options = RoundtripOptions {
+            decode: Some(crate::DecodeLimits {
+                max_decompressed: 10,
+                ..crate::DecodeLimits::default()
+            }),
+            ..RoundtripOptions::default()
+        };
+        assert!(matches!(
+            roundtrip_bytes(&bytes, &options),
+            Err(Error::DecompressedTooLarge { offset, cap: 10, .. }) if offset == at
+        ));
+        let options = RoundtripOptions {
+            decode: Some(crate::DecodeLimits {
+                max_subrecords: 1,
+                ..crate::DecodeLimits::default()
+            }),
+            ..RoundtripOptions::default()
+        };
+        assert!(matches!(
+            roundtrip_bytes(&bytes, &options),
+            Err(Error::TooManySubrecords { max: 1, .. })
+        ));
+        // Within the default limits it decodes and is identical.
+        let report = roundtrip_bytes(&bytes, &RoundtripOptions::with_decode()).unwrap();
+        assert!(report.identical(), "{report:?}");
+        assert_eq!(report.stats.decoded_records, 1);
+        let plain = roundtrip_bytes(&bytes, &RoundtripOptions::default()).unwrap();
+        assert_eq!(report.stats.subrecords, plain.stats.subrecords + 2);
+    }
+
+    /// The first fault in file order is reported, and the roundtrip stops at its entry.
+    #[test]
+    fn decode_reports_the_first_fault() {
+        let fields = land_fields();
+        let mut bad = crate::compress::deflate(&fields, 9, 0).unwrap();
+        let last = bad.len() - 1;
+        bad[last] ^= 0x10;
+        let first = fixture::record(b"LAND", 0x0004_0000, 0x60, &bad);
+        let second = fixture::record(b"LAND", 0x0004_0000, 0x61, &[0, 0]);
+        let mut bytes = fixture::sample_plugin();
+        let at = bytes.len() as u64 + 24;
+        bytes.extend(group(b"LAND", 0, &[first, second].concat()));
+        let m = decode_mismatch(&bytes);
+        assert!(
+            m.path.contains(&format!("LAND 00000060 @{at}")),
+            "{}",
+            m.path
+        );
     }
 
     #[test]
