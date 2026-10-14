@@ -16,6 +16,7 @@
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - AMDL (corpus: AMDL records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - AMMO (corpus: AMMO records of the 14 official ESMs, scan 2026-10-14; corpus)
+// - CELL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10589-L10744; corpus)
 // - COBJ (corpus: COBJ records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - GLOB (corpus: GLOB records of the official ESMs (12 files with a GLOB group); corpus)
 // - GMST (corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14; corpus)
@@ -2476,6 +2477,1126 @@ impl AmmoRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("AMMO", &mut out);
+        out
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CellFlags(pub u32);
+
+impl CellFlags {
+    pub const INTERIOR: u32 = 0x1;
+    pub const HAS_WATER: u32 = 0x2;
+    pub const CANT_TRAVEL_FROM_HERE: u32 = 0x4;
+    pub const NO_LOD_WATER: u32 = 0x8;
+    pub const PUBLIC_AREA: u32 = 0x20;
+    pub const HAND_CHANGED: u32 = 0x40;
+    pub const SHOW_SKY: u32 = 0x80;
+    pub const USE_SKY_LIGHTING: u32 = 0x100;
+    pub const HIDDEN_FROM_INTERIOR_CELL_LIST: u32 = 0x400;
+    pub const SUNLIGHT_SHADOWS: u32 = 0x800;
+    pub const DISTANT_LOD_ONLY: u32 = 0x1000;
+    pub const FOLLOWERS_CANT_TRAVEL_HERE: u32 = 0x2000;
+    pub const USE_LOCATION_AS_NAME: u32 = 0x10000;
+    pub const USE_PLANET_GRAVITY: u32 = 0x20000;
+    pub const USE_IS_VOLUMES_INTERIOR_CRITERIA: u32 = 0x80000;
+    pub const NO_BIOME_LAYERED_MATERIAL_SWAPS: u32 = 0x100000;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for CellFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for CellFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellGrid {
+    pub x: i32,
+    pub y: i32,
+    pub land_flags: u8,
+    pub unused: [u8; 3],
+}
+
+impl Field for CellGrid {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = i32::read(r, "CELL.XCLC.X", ctx)?;
+        let f1 = i32::read(r, "CELL.XCLC.Y", ctx)?;
+        let f2 = u8::read(r, "CELL.XCLC.LandFlags", ctx)?;
+        let f3 = Field::read(r, "CELL.XCLC.Unused", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            land_flags: f2,
+            unused: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.land_flags.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for CellGrid {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellMaxHeight {
+    pub offset: f32,
+    pub heights: Vec<u8>,
+}
+
+impl Field for CellMaxHeight {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "CELL.MHDT.Offset", ctx)?;
+        let f1 = Field::read(r, "CELL.MHDT.Heights", ctx)?;
+        Ok(Self {
+            offset: f0,
+            heights: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.offset.write(out);
+        self.heights.write(out);
+    }
+}
+
+impl Visit for CellMaxHeight {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CellLightingInteriorType {
+    Interior,
+    ShipCell,
+    SpaceCell,
+    PackIn,
+    InstanceableInterior,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl CellLightingInteriorType {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Interior,
+            1 => Self::ShipCell,
+            2 => Self::SpaceCell,
+            3 => Self::PackIn,
+            4 => Self::InstanceableInterior,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Interior => 0,
+            Self::ShipCell => 1,
+            Self::SpaceCell => 2,
+            Self::PackIn => 3,
+            Self::InstanceableInterior => 4,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for CellLightingInteriorType {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for CellLightingInteriorType {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellLighting {
+    pub ambient: ColorRgb,
+    pub directional: ColorRgb,
+    pub fog_color_near: ColorRgb,
+    pub fog_near: f32,
+    pub fog_far: f32,
+    pub directional_rotation_xy: i32,
+    pub directional_rotation_z: i32,
+    pub gravity_scale: f32,
+    pub fog_clip_distance: f32,
+    pub fog_power: f32,
+    pub fog_color_far: ColorRgb,
+    pub fog_max: f32,
+    pub light_fade_begin: f32,
+    pub light_fade_end: f32,
+    pub color56: ColorRgb,
+    pub near_height_mid: f32,
+    pub near_height_range: f32,
+    pub fog_color_high_near: ColorRgb,
+    pub fog_color_high_far: ColorRgb,
+    pub high_density_scale: f32,
+    pub fog_near_scale: f32,
+    pub fog_far_scale: f32,
+    pub fog_high_near_scale: f32,
+    pub fog_high_far_scale: f32,
+    pub far_height_mid: f32,
+    pub far_height_range: f32,
+    pub interior_type: CellLightingInteriorType,
+    pub unused: [u8; 3],
+}
+
+impl Field for CellLighting {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "CELL.XCLL.Ambient", ctx)?;
+        let f1 = Field::read(r, "CELL.XCLL.Directional", ctx)?;
+        let f2 = Field::read(r, "CELL.XCLL.FogColorNear", ctx)?;
+        let f3 = f32::read(r, "CELL.XCLL.FogNear", ctx)?;
+        let f4 = f32::read(r, "CELL.XCLL.FogFar", ctx)?;
+        let f5 = i32::read(r, "CELL.XCLL.DirectionalRotationXy", ctx)?;
+        let f6 = i32::read(r, "CELL.XCLL.DirectionalRotationZ", ctx)?;
+        let f7 = f32::read(r, "CELL.XCLL.GravityScale", ctx)?;
+        let f8 = f32::read(r, "CELL.XCLL.FogClipDistance", ctx)?;
+        let f9 = f32::read(r, "CELL.XCLL.FogPower", ctx)?;
+        let f10 = Field::read(r, "CELL.XCLL.FogColorFar", ctx)?;
+        let f11 = f32::read(r, "CELL.XCLL.FogMax", ctx)?;
+        let f12 = f32::read(r, "CELL.XCLL.LightFadeBegin", ctx)?;
+        let f13 = f32::read(r, "CELL.XCLL.LightFadeEnd", ctx)?;
+        let f14 = Field::read(r, "CELL.XCLL.Color56", ctx)?;
+        let f15 = f32::read(r, "CELL.XCLL.NearHeightMid", ctx)?;
+        let f16 = f32::read(r, "CELL.XCLL.NearHeightRange", ctx)?;
+        let f17 = Field::read(r, "CELL.XCLL.FogColorHighNear", ctx)?;
+        let f18 = Field::read(r, "CELL.XCLL.FogColorHighFar", ctx)?;
+        let f19 = f32::read(r, "CELL.XCLL.HighDensityScale", ctx)?;
+        let f20 = f32::read(r, "CELL.XCLL.FogNearScale", ctx)?;
+        let f21 = f32::read(r, "CELL.XCLL.FogFarScale", ctx)?;
+        let f22 = f32::read(r, "CELL.XCLL.FogHighNearScale", ctx)?;
+        let f23 = f32::read(r, "CELL.XCLL.FogHighFarScale", ctx)?;
+        let f24 = f32::read(r, "CELL.XCLL.FarHeightMid", ctx)?;
+        let f25 = f32::read(r, "CELL.XCLL.FarHeightRange", ctx)?;
+        let f26 = Field::read(r, "CELL.XCLL.InteriorType", ctx)?;
+        let f27 = Field::read(r, "CELL.XCLL.Unused", ctx)?;
+        Ok(Self {
+            ambient: f0,
+            directional: f1,
+            fog_color_near: f2,
+            fog_near: f3,
+            fog_far: f4,
+            directional_rotation_xy: f5,
+            directional_rotation_z: f6,
+            gravity_scale: f7,
+            fog_clip_distance: f8,
+            fog_power: f9,
+            fog_color_far: f10,
+            fog_max: f11,
+            light_fade_begin: f12,
+            light_fade_end: f13,
+            color56: f14,
+            near_height_mid: f15,
+            near_height_range: f16,
+            fog_color_high_near: f17,
+            fog_color_high_far: f18,
+            high_density_scale: f19,
+            fog_near_scale: f20,
+            fog_far_scale: f21,
+            fog_high_near_scale: f22,
+            fog_high_far_scale: f23,
+            far_height_mid: f24,
+            far_height_range: f25,
+            interior_type: f26,
+            unused: f27,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ambient.write(out);
+        self.directional.write(out);
+        self.fog_color_near.write(out);
+        self.fog_near.write(out);
+        self.fog_far.write(out);
+        self.directional_rotation_xy.write(out);
+        self.directional_rotation_z.write(out);
+        self.gravity_scale.write(out);
+        self.fog_clip_distance.write(out);
+        self.fog_power.write(out);
+        self.fog_color_far.write(out);
+        self.fog_max.write(out);
+        self.light_fade_begin.write(out);
+        self.light_fade_end.write(out);
+        self.color56.write(out);
+        self.near_height_mid.write(out);
+        self.near_height_range.write(out);
+        self.fog_color_high_near.write(out);
+        self.fog_color_high_far.write(out);
+        self.high_density_scale.write(out);
+        self.fog_near_scale.write(out);
+        self.fog_far_scale.write(out);
+        self.fog_high_near_scale.write(out);
+        self.fog_high_far_scale.write(out);
+        self.far_height_mid.write(out);
+        self.far_height_range.write(out);
+        self.interior_type.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for CellLighting {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CellXclaEntry {
+    /// `XCLA`, required.
+    pub xcla: Option<Sub<u32>>,
+    /// `XCLD`, optional.
+    pub xcld: Option<Sub<ZString>>,
+}
+
+impl CellXclaEntry {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XCLA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCLD",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.xcla,
+                    subs,
+                    *index,
+                    "CELL.XclaEntry.XCLA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.xcld,
+                    subs,
+                    *index,
+                    "CELL.XclaEntry.XCLD",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XCLA", self.xcla.as_ref());
+        emit(out, *b"XCLD", self.xcld.as_ref());
+    }
+}
+
+impl Visit for CellXclaEntry {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellShipSnapLinksItem {
+    pub parent_ref: FormId,
+    pub linked_ref: FormId,
+    pub parent_node: u32,
+    pub linked_node: u32,
+}
+
+impl Field for CellShipSnapLinksItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "CELL.XBPS.ParentRef", ctx)?;
+        let f1 = Field::read(r, "CELL.XBPS.LinkedRef", ctx)?;
+        let f2 = u32::read(r, "CELL.XBPS.ParentNode", ctx)?;
+        let f3 = u32::read(r, "CELL.XBPS.LinkedNode", ctx)?;
+        Ok(Self {
+            parent_ref: f0,
+            linked_ref: f1,
+            parent_node: f2,
+            linked_node: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.parent_ref.write(out);
+        self.linked_ref.write(out);
+        self.parent_node.write(out);
+        self.linked_node.write(out);
+    }
+}
+
+impl Visit for CellShipSnapLinksItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.parent_ref, "CELL.XBPS.ParentRef", out);
+        visit_form_ids(&self.linked_ref, "CELL.XBPS.LinkedRef", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.parent_ref, "CELL.XBPS.ParentRef", out);
+        visit_form_ids_mut(&mut self.linked_ref, "CELL.XBPS.LinkedRef", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellShipSnapLinks(pub Vec<CellShipSnapLinksItem>);
+
+impl Field for CellShipSnapLinks {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for CellShipSnapLinks {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CellGlobalDirtLayerInheritBiomeLayer {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl CellGlobalDirtLayerInheritBiomeLayer {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for CellGlobalDirtLayerInheritBiomeLayer {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for CellGlobalDirtLayerInheritBiomeLayer {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CellGlobalDirtLayer {
+    /// `XCGD`, optional.
+    pub material: Option<Sub<ZString>>,
+    /// `XCIB`, optional.
+    pub inherit_biome_layer: Option<Sub<CellGlobalDirtLayerInheritBiomeLayer>>,
+}
+
+impl CellGlobalDirtLayer {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XCGD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCIB",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.material,
+                    subs,
+                    *index,
+                    "CELL.GlobalDirtLayer.XCGD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.inherit_biome_layer,
+                    subs,
+                    *index,
+                    "CELL.GlobalDirtLayer.XCIB",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XCGD", self.material.as_ref());
+        emit(out, *b"XCIB", self.inherit_biome_layer.as_ref());
+    }
+}
+
+impl Visit for CellGlobalDirtLayer {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellWaterCurrentsVelocitiesItemVelocity {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for CellWaterCurrentsVelocitiesItemVelocity {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "CELL.WaterCurrents.XWCU.Velocity.X", ctx)?;
+        let f1 = f32::read(r, "CELL.WaterCurrents.XWCU.Velocity.Y", ctx)?;
+        let f2 = f32::read(r, "CELL.WaterCurrents.XWCU.Velocity.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for CellWaterCurrentsVelocitiesItemVelocity {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellWaterCurrentsVelocitiesItem {
+    pub velocity: CellWaterCurrentsVelocitiesItemVelocity,
+    pub float12: f32,
+}
+
+impl Field for CellWaterCurrentsVelocitiesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "CELL.WaterCurrents.XWCU.Velocity", ctx)?;
+        let f1 = f32::read(r, "CELL.WaterCurrents.XWCU.Float12", ctx)?;
+        Ok(Self {
+            velocity: f0,
+            float12: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.velocity.write(out);
+        self.float12.write(out);
+    }
+}
+
+impl Visit for CellWaterCurrentsVelocitiesItem {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct CellWaterCurrentsVelocities(pub Vec<CellWaterCurrentsVelocitiesItem>);
+
+impl Field for CellWaterCurrentsVelocities {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for CellWaterCurrentsVelocities {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CellWaterCurrents {
+    /// `XWCN`, required.
+    pub count: Option<Sub<u32>>,
+    /// `XWCU`, optional.
+    pub velocities: Option<Sub<CellWaterCurrentsVelocities>>,
+}
+
+impl CellWaterCurrents {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XWCN",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XWCU",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.count,
+                    subs,
+                    *index,
+                    "CELL.WaterCurrents.XWCN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.velocities,
+                    subs,
+                    *index,
+                    "CELL.WaterCurrents.XWCU",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XWCN", self.count.as_ref());
+        emit(out, *b"XWCU", self.velocities.as_ref());
+    }
+}
+
+impl Visit for CellWaterCurrents {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CellRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// `DATA`, optional.
+    pub flags: Option<Sub<CellFlags>>,
+    /// `XCLC`, optional.
+    pub grid: Option<Sub<CellGrid>>,
+    /// `MHDT`, optional.
+    pub max_height: Option<Sub<CellMaxHeight>>,
+    /// `XCLL`, optional.
+    pub lighting: Option<Sub<CellLighting>>,
+    /// `LTMP`, optional.
+    pub lighting_template: Option<Sub<FormId>>,
+    /// `XCLW`, optional.
+    pub water_height: Option<Sub<f32>>,
+    /// `XILS`, optional.
+    pub xils: Option<Sub<f32>>,
+    /// Group `XclaEntry`, repeated.
+    pub xcla_entry: Vec<CellXclaEntry>,
+    /// `XCIM`, optional.
+    pub image_space: Option<Sub<FormId>>,
+    /// `XBPS`, optional.
+    pub ship_snap_links: Option<Sub<CellShipSnapLinks>>,
+    /// `XCCM`, optional.
+    pub sky_region: Option<Sub<FormId>>,
+    /// `XLCN`, optional.
+    pub location: Option<Sub<FormId>>,
+    /// `XWEM`, optional.
+    pub water_environment_map: Option<Sub<ZString>>,
+    /// `XCMO`, optional.
+    pub music_type: Option<Sub<FormId>>,
+    /// Group `GlobalDirtLayer`, optional.
+    pub global_dirt_layer: Option<CellGlobalDirtLayer>,
+    /// `XCWT`, optional.
+    pub water: Option<Sub<FormId>>,
+    /// `XCAS`, optional.
+    pub acoustic_space: Option<Sub<FormId>>,
+    /// `XILL`, optional.
+    pub lock_list: Option<Sub<FormId>>,
+    /// `TODD`, optional.
+    pub time_of_day: Option<Sub<FormId>>,
+    /// Group `WaterCurrents`, optional.
+    pub water_currents: Option<CellWaterCurrents>,
+    /// `XCWM`, optional.
+    pub water_type: Option<Sub<ZString>>,
+    /// `XOWN`, optional.
+    pub owner: Option<Sub<OwnerData>>,
+    /// `XRNK`, optional.
+    pub faction_rank: Option<Sub<i32>>,
+    /// `XEMP`, optional.
+    pub environment_map: Option<Sub<ZString>>,
+    /// `XTV2`, optional.
+    pub traversals: Option<Sub<Bytes>>,
+    /// Group `LinkedReferences`, optional.
+    pub linked_references: Option<LinkedReferences>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl CellRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCLC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MHDT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCLL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"LTMP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCLW",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XILS",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: CellXclaEntry::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCIM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XBPS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCCM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XWEM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCMO",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: CellGlobalDirtLayer::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCWT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCAS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XILL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TODD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: CellWaterCurrents::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCWM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XOWN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRNK",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEMP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XTV2",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: LinkedReferences::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "CELL.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "CELL.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.name, subs, *index, "CELL.FULL", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.flags, subs, *index, "CELL.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.grid, subs, *index, "CELL.XCLC", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => {
+                    put(&mut self.max_height, subs, *index, "CELL.MHDT", ctx, extra)
+                }
+                Hit::Sub { member: 7, index } => {
+                    put(&mut self.lighting, subs, *index, "CELL.XCLL", ctx, extra)
+                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.lighting_template,
+                    subs,
+                    *index,
+                    "CELL.LTMP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.water_height,
+                    subs,
+                    *index,
+                    "CELL.XCLW",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.xils, subs, *index, "CELL.XILS", ctx, extra)
+                }
+                Hit::Group { member: 11, hits } => {
+                    let mut group = CellXclaEntry::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.xcla_entry.push(group);
+                }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.image_space, subs, *index, "CELL.XCIM", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.ship_snap_links,
+                    subs,
+                    *index,
+                    "CELL.XBPS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => {
+                    put(&mut self.sky_region, subs, *index, "CELL.XCCM", ctx, extra)
+                }
+                Hit::Sub { member: 15, index } => {
+                    put(&mut self.location, subs, *index, "CELL.XLCN", ctx, extra)
+                }
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.water_environment_map,
+                    subs,
+                    *index,
+                    "CELL.XWEM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.music_type, subs, *index, "CELL.XCMO", ctx, extra)
+                }
+                Hit::Group { member: 18, hits } if self.global_dirt_layer.is_none() => {
+                    let mut group = CellGlobalDirtLayer::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.global_dirt_layer = Some(group);
+                }
+                Hit::Sub { member: 19, index } => {
+                    put(&mut self.water, subs, *index, "CELL.XCWT", ctx, extra)
+                }
+                Hit::Sub { member: 20, index } => put(
+                    &mut self.acoustic_space,
+                    subs,
+                    *index,
+                    "CELL.XCAS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 21, index } => {
+                    put(&mut self.lock_list, subs, *index, "CELL.XILL", ctx, extra)
+                }
+                Hit::Sub { member: 22, index } => {
+                    put(&mut self.time_of_day, subs, *index, "CELL.TODD", ctx, extra)
+                }
+                Hit::Group { member: 23, hits } if self.water_currents.is_none() => {
+                    let mut group = CellWaterCurrents::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.water_currents = Some(group);
+                }
+                Hit::Sub { member: 24, index } => {
+                    put(&mut self.water_type, subs, *index, "CELL.XCWM", ctx, extra)
+                }
+                Hit::Sub { member: 25, index } => {
+                    put(&mut self.owner, subs, *index, "CELL.XOWN", ctx, extra)
+                }
+                Hit::Sub { member: 26, index } => put(
+                    &mut self.faction_rank,
+                    subs,
+                    *index,
+                    "CELL.XRNK",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 27, index } => put(
+                    &mut self.environment_map,
+                    subs,
+                    *index,
+                    "CELL.XEMP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 28, index } => {
+                    put(&mut self.traversals, subs, *index, "CELL.XTV2", ctx, extra)
+                }
+                Hit::Group { member: 29, hits } if self.linked_references.is_none() => {
+                    let mut group = LinkedReferences::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.linked_references = Some(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"DATA", self.flags.as_ref());
+        emit(out, *b"XCLC", self.grid.as_ref());
+        emit(out, *b"MHDT", self.max_height.as_ref());
+        emit(out, *b"XCLL", self.lighting.as_ref());
+        emit(out, *b"LTMP", self.lighting_template.as_ref());
+        emit(out, *b"XCLW", self.water_height.as_ref());
+        emit(out, *b"XILS", self.xils.as_ref());
+        for group in &self.xcla_entry {
+            group.emit(out);
+        }
+        emit(out, *b"XCIM", self.image_space.as_ref());
+        emit(out, *b"XBPS", self.ship_snap_links.as_ref());
+        emit(out, *b"XCCM", self.sky_region.as_ref());
+        emit(out, *b"XLCN", self.location.as_ref());
+        emit(out, *b"XWEM", self.water_environment_map.as_ref());
+        emit(out, *b"XCMO", self.music_type.as_ref());
+        if let Some(group) = &self.global_dirt_layer {
+            group.emit(out);
+        }
+        emit(out, *b"XCWT", self.water.as_ref());
+        emit(out, *b"XCAS", self.acoustic_space.as_ref());
+        emit(out, *b"XILL", self.lock_list.as_ref());
+        emit(out, *b"TODD", self.time_of_day.as_ref());
+        if let Some(group) = &self.water_currents {
+            group.emit(out);
+        }
+        emit(out, *b"XCWM", self.water_type.as_ref());
+        emit(out, *b"XOWN", self.owner.as_ref());
+        emit(out, *b"XRNK", self.faction_rank.as_ref());
+        emit(out, *b"XEMP", self.environment_map.as_ref());
+        emit(out, *b"XTV2", self.traversals.as_ref());
+        if let Some(group) = &self.linked_references {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for CellRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.lighting_template, "CELL.LTMP", out);
+        visit_form_ids(&self.image_space, "CELL.XCIM", out);
+        visit_form_ids(&self.ship_snap_links, "CELL.XBPS", out);
+        visit_form_ids(&self.sky_region, "CELL.XCCM", out);
+        visit_form_ids(&self.location, "CELL.XLCN", out);
+        visit_form_ids(&self.music_type, "CELL.XCMO", out);
+        visit_form_ids(&self.water, "CELL.XCWT", out);
+        visit_form_ids(&self.acoustic_space, "CELL.XCAS", out);
+        visit_form_ids(&self.lock_list, "CELL.XILL", out);
+        visit_form_ids(&self.time_of_day, "CELL.TODD", out);
+        visit_form_ids(&self.owner, "CELL.XOWN", out);
+        visit_form_ids(&self.linked_references, "CELL.LinkedReferences", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.lighting_template, "CELL.LTMP", out);
+        visit_form_ids_mut(&mut self.image_space, "CELL.XCIM", out);
+        visit_form_ids_mut(&mut self.ship_snap_links, "CELL.XBPS", out);
+        visit_form_ids_mut(&mut self.sky_region, "CELL.XCCM", out);
+        visit_form_ids_mut(&mut self.location, "CELL.XLCN", out);
+        visit_form_ids_mut(&mut self.music_type, "CELL.XCMO", out);
+        visit_form_ids_mut(&mut self.water, "CELL.XCWT", out);
+        visit_form_ids_mut(&mut self.acoustic_space, "CELL.XCAS", out);
+        visit_form_ids_mut(&mut self.lock_list, "CELL.XILL", out);
+        visit_form_ids_mut(&mut self.time_of_day, "CELL.TODD", out);
+        visit_form_ids_mut(&mut self.owner, "CELL.XOWN", out);
+        visit_form_ids_mut(&mut self.linked_references, "CELL.LinkedReferences", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "CELL.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "CELL.FULL", out);
+    }
+}
+
+impl CellRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"CELL";
+    /// Record-header flag.
+    pub const FLAG_IS_UNIQUE: u32 = 0x4;
+    /// Record-header flag.
+    pub const FLAG_NO_PRE_VIS: u32 = 0x80;
+    /// Record-header flag.
+    pub const FLAG_PERSISTENT: u32 = 0x400;
+    /// Record-header flag.
+    pub const FLAG_PARTIAL_FORM: u32 = 0x4000;
+    /// Record-header flag.
+    pub const FLAG_OFF_LIMITS: u32 = 0x20000;
+    /// Record-header flag.
+    pub const FLAG_CANT_WAIT: u32 = 0x80000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("CELL", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("CELL", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("CELL", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("CELL", &mut out);
         out
     }
 }
@@ -8139,6 +9260,7 @@ impl ZoomRecord {
 pub enum Record {
     Amdl(Box<AmdlRecord>),
     Ammo(Box<AmmoRecord>),
+    Cell(Box<CellRecord>),
     Cobj(Box<CobjRecord>),
     Glob(Box<GlobRecord>),
     Gmst(Box<GmstRecord>),
@@ -8157,6 +9279,7 @@ pub enum Record {
 pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"AMDL", AmdlRecord::MEMBERS),
     (*b"AMMO", AmmoRecord::MEMBERS),
+    (*b"CELL", CellRecord::MEMBERS),
     (*b"COBJ", CobjRecord::MEMBERS),
     (*b"GLOB", GlobRecord::MEMBERS),
     (*b"GMST", GmstRecord::MEMBERS),
@@ -8178,6 +9301,7 @@ impl Record {
         Some(match &signature {
             b"AMDL" => Self::Amdl(Box::new(AmdlRecord::decode(subs, ctx))),
             b"AMMO" => Self::Ammo(Box::new(AmmoRecord::decode(subs, ctx))),
+            b"CELL" => Self::Cell(Box::new(CellRecord::decode(subs, ctx))),
             b"COBJ" => Self::Cobj(Box::new(CobjRecord::decode(subs, ctx))),
             b"GLOB" => Self::Glob(Box::new(GlobRecord::decode(subs, ctx))),
             b"GMST" => Self::Gmst(Box::new(GmstRecord::decode(subs, ctx))),
@@ -8199,6 +9323,7 @@ impl Record {
         match self {
             Self::Amdl(record) => record.encode(),
             Self::Ammo(record) => record.encode(),
+            Self::Cell(record) => record.encode(),
             Self::Cobj(record) => record.encode(),
             Self::Glob(record) => record.encode(),
             Self::Gmst(record) => record.encode(),
@@ -8219,6 +9344,7 @@ impl Record {
         match self {
             Self::Amdl(_) => AmdlRecord::SIGNATURE,
             Self::Ammo(_) => AmmoRecord::SIGNATURE,
+            Self::Cell(_) => CellRecord::SIGNATURE,
             Self::Cobj(_) => CobjRecord::SIGNATURE,
             Self::Glob(_) => GlobRecord::SIGNATURE,
             Self::Gmst(_) => GmstRecord::SIGNATURE,
@@ -8239,6 +9365,7 @@ impl Record {
         match self {
             Self::Amdl(record) => record.form_ids(),
             Self::Ammo(record) => record.form_ids(),
+            Self::Cell(record) => record.form_ids(),
             Self::Cobj(record) => record.form_ids(),
             Self::Glob(record) => record.form_ids(),
             Self::Gmst(record) => record.form_ids(),
@@ -8259,6 +9386,7 @@ impl Record {
         match self {
             Self::Amdl(record) => record.form_ids_mut(),
             Self::Ammo(record) => record.form_ids_mut(),
+            Self::Cell(record) => record.form_ids_mut(),
             Self::Cobj(record) => record.form_ids_mut(),
             Self::Glob(record) => record.form_ids_mut(),
             Self::Gmst(record) => record.form_ids_mut(),
@@ -8279,6 +9407,7 @@ impl Record {
         match self {
             Self::Amdl(record) => record.lstrings(),
             Self::Ammo(record) => record.lstrings(),
+            Self::Cell(record) => record.lstrings(),
             Self::Cobj(record) => record.lstrings(),
             Self::Glob(record) => record.lstrings(),
             Self::Gmst(record) => record.lstrings(),
@@ -8299,6 +9428,7 @@ impl Record {
         match self {
             Self::Amdl(record) => record.lstrings_mut(),
             Self::Ammo(record) => record.lstrings_mut(),
+            Self::Cell(record) => record.lstrings_mut(),
             Self::Cobj(record) => record.lstrings_mut(),
             Self::Glob(record) => record.lstrings_mut(),
             Self::Gmst(record) => record.lstrings_mut(),
@@ -8320,6 +9450,7 @@ impl Record {
         match self {
             Self::Amdl(record) => &record.extra,
             Self::Ammo(record) => &record.extra,
+            Self::Cell(record) => &record.extra,
             Self::Cobj(record) => &record.extra,
             Self::Glob(record) => &record.extra,
             Self::Gmst(record) => &record.extra,

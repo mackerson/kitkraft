@@ -426,18 +426,17 @@ mod tests {
             panic!("{typed:?}")
         };
         assert_eq!(gmst.editor_id.as_ref().unwrap().0, b"fFoo");
-        // Undefined types have no typed form.
+        // CELL has a definition since the world-family schema (undefined types are covered
+        // by `undecoded_compressed_records_are_told_apart_and_decoded_on_the_fly`).
         let Entry::Group(cells) = &plugin.entries()[1] else {
             panic!()
         };
         let Entry::Record(cell) = &cells.children()[0] else {
             panic!()
         };
-        assert!(plugin.typed(cell, &limits).unwrap().is_none());
-        assert_eq!(
-            cell.typed(Ctx::default()).unwrap_err(),
-            NotTyped::NoDefinition
-        );
+        let typed_cell = plugin.typed(cell, &limits).unwrap().unwrap();
+        assert!(matches!(typed_cell, Typed::Cell(_)), "{typed_cell:?}");
+        assert!(typed_cell.extra().is_empty());
 
         let Entry::Group(g) = &mut plugin.entries_mut()[0] else {
             panic!()
