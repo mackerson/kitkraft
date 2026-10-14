@@ -34,6 +34,7 @@ use kitcraft_ba2::{Kind, PackOptions};
 use serde_json::{json, Value};
 
 use super::{failed, file_name, str_arg};
+use crate::edit::patch::absolute;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
@@ -85,19 +86,6 @@ fn valid_component(c: &str) -> bool {
     }
     let stem = c.split('.').next().unwrap_or_default().trim_end();
     !DEVICES.iter().any(|d| stem.eq_ignore_ascii_case(d))
-}
-
-/// `path` made absolute and canonical as far as it exists.
-fn absolute(path: &Path) -> PathBuf {
-    if let Ok(p) = fs::canonicalize(path) {
-        return p;
-    }
-    match (path.parent(), path.file_name()) {
-        (Some(dir), Some(name)) if !dir.as_os_str().is_empty() => absolute(dir).join(name),
-        _ => std::env::current_dir()
-            .map(|d| d.join(path))
-            .unwrap_or_else(|_| path.to_path_buf()),
-    }
 }
 
 /// Every regular file under `root`, as `(parts below root, path)`, sorted; symbolic links

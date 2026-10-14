@@ -209,6 +209,26 @@ fn out_is_guarded_before_anything_is_written() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// Fable review (deploy round), finding 2: `out` through a junction into MO2's `mods\`,
+/// followed by folders that do not exist yet, is refused before anything is staged.
+#[test]
+fn out_through_a_junction_is_refused() {
+    let d = dir("build-junction");
+    let data = data(&d);
+    let rename = spec(&d, "rename.toml", &data, RENAME);
+    let Some((link, mods)) = crate::edit::patch_tests::junction_into_mods(&d) else {
+        return;
+    };
+    let out = link.join("new").join("deeper").join("P.esp");
+    for result in [build(&rename, &out), rebuild(&rename, &out)] {
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("junction"), "{err}");
+    }
+    assert!(std::fs::read_dir(&mods).unwrap().next().is_none());
+    std::fs::remove_dir(&link).unwrap();
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// Fable review round 2, finding 8: a whole subrecord and a member of it, from two
 /// entries, conflict; another occurrence does not.
 #[test]

@@ -388,6 +388,26 @@ fn out_and_replacement_guards() {
     fs::remove_dir_all(&dir).unwrap();
 }
 
+/// Fable review (deploy round), finding 2: an `out` through a junction into MO2's `mods\`,
+/// followed by folders that do not exist yet, used to keep its unresolved spelling and
+/// pass the guard. Refused; nothing lands in `mods\`.
+#[test]
+fn out_through_a_junction_is_refused() {
+    let dir = temp("junction");
+    let (plugin, _, _) = inputs(&dir);
+    let Some((link, mods)) = crate::edit::patch_tests::junction_into_mods(&dir) else {
+        return;
+    };
+    let out = link.join("new").join("deeper");
+    let err = execute("package", json!({"plugin": s(&plugin), "out": s(&out)}))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("junction"), "{err}");
+    assert!(fs::read_dir(&mods).unwrap().next().is_none());
+    fs::remove_dir(&link).unwrap();
+    fs::remove_dir_all(&dir).unwrap();
+}
+
 /// The CLI form `kit package <plugin> <out> --ba2`.
 #[test]
 fn command_line_form() {

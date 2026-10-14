@@ -5,7 +5,10 @@ into a folder Mod Organizer 2 can install, a `.zip` of it, and a manifest that p
 is inside. It never installs anything: it writes only under the `out` folder you name, and
 refuses an `out` inside the game's `Data` folder, `Documents\My Games\Starfield`, or a Mod
 Organizer instance or profile (`C:\Modding\MO2-Starfield` and everything under it,
-`mods\` included). Installing is your step, in MO2 (owner decision M4.O5, default).
+`mods\` included), and an `out` any component of which is a symbolic link or junction
+(the path is resolved through its deepest existing folder, so a junction followed by
+folders that do not exist yet cannot redirect it; `set` and `build` share the check).
+Installing is your step, in MO2 (owner decision M4.O5, default).
 
 ## What it does
 
