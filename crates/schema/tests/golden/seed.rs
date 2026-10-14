@@ -14,6 +14,7 @@
 // - common RagdollBone (xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423; corpus)
 // - header GroupHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
 // - header RecordHeader (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format; corpus)
+// - ACHR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527; corpus)
 // - AMDL (corpus: AMDL records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - AMMO (corpus: AMMO records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - CELL (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10589-L10744; corpus)
@@ -2090,6 +2091,845 @@ impl RecordHeader {
     /// Decodes a header; `data` must be exactly [`Self::SIZE`] bytes.
     pub fn decode(data: &[u8]) -> Result<Self, DecodeError> {
         decode(data, "RecordHeader", Ctx::default())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AchrLevelModifier {
+    Easy,
+    Medium,
+    Hard,
+    VeryHard,
+    /// A value the definition does not name.
+    Other(i32),
+}
+
+impl AchrLevelModifier {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: i32) -> Self {
+        match raw {
+            0 => Self::Easy,
+            1 => Self::Medium,
+            2 => Self::Hard,
+            3 => Self::VeryHard,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> i32 {
+        match self {
+            Self::Easy => 0,
+            Self::Medium => 1,
+            Self::Hard => 2,
+            Self::VeryHard => 3,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for AchrLevelModifier {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        i32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for AchrLevelModifier {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AchrRagdollBones(pub Vec<RagdollBone>);
+
+impl Field for AchrRagdollBones {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AchrRagdollBones {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AchrPowerLinks {
+    pub ref_: FormId,
+    pub int4: u32,
+}
+
+impl Field for AchrPowerLinks {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "ACHR.XPLK.Ref", ctx)?;
+        let f1 = u32::read(r, "ACHR.XPLK.Int4", ctx)?;
+        Ok(Self { ref_: f0, int4: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.int4.write(out);
+    }
+}
+
+impl Visit for AchrPowerLinks {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "ACHR.XPLK.Ref", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "ACHR.XPLK.Ref", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AchrLayeredMaterialSwaps(pub Vec<FormId>);
+
+impl Field for AchrLayeredMaterialSwaps {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AchrLayeredMaterialSwaps {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AchrBipedRotation {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for AchrBipedRotation {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "ACHR.XRGB.X", ctx)?;
+        let f1 = f32::read(r, "ACHR.XRGB.Y", ctx)?;
+        let f2 = f32::read(r, "ACHR.XRGB.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for AchrBipedRotation {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AchrExternalEmittanceOverrideEnabled {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl AchrExternalEmittanceOverrideEnabled {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for AchrExternalEmittanceOverrideEnabled {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for AchrExternalEmittanceOverrideEnabled {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AchrExternalEmittance {
+    pub luminance_scale: f32,
+    pub override_enabled: AchrExternalEmittanceOverrideEnabled,
+    pub unused: [u8; 3],
+}
+
+impl Field for AchrExternalEmittance {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "ACHR.XEED.LuminanceScale", ctx)?;
+        let f1 = Field::read(r, "ACHR.XEED.OverrideEnabled", ctx)?;
+        let f2 = Field::read(r, "ACHR.XEED.Unused", ctx)?;
+        Ok(Self {
+            luminance_scale: f0,
+            override_enabled: f1,
+            unused: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.luminance_scale.write(out);
+        self.override_enabled.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for AchrExternalEmittance {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct AchrLocationRefTypes(pub Vec<FormId>);
+
+impl Field for AchrLocationRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for AchrLocationRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct AchrRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `XALG`, optional.
+    pub xalg: Option<Sub<u64>>,
+    /// `NAME`, required.
+    pub base: Option<Sub<FormId>>,
+    /// `XLCM`, optional.
+    pub level_modifier: Option<Sub<AchrLevelModifier>>,
+    /// `XRGD`, optional.
+    pub ragdoll_bones: Option<Sub<AchrRagdollBones>>,
+    /// `XRFG`, optional.
+    pub reference_group: Option<Sub<FormId>>,
+    /// `XPCS`, optional.
+    pub source_pack_in: Option<Sub<FormId>>,
+    /// `XEMI`, optional.
+    pub emittance: Option<Sub<FormId>>,
+    /// `XRDS`, optional.
+    pub radius: Option<Sub<f32>>,
+    /// `XLRL`, optional.
+    pub location_reference: Option<Sub<FormId>>,
+    /// `XPLK`, repeated.
+    pub power_links: Vec<Sub<AchrPowerLinks>>,
+    /// Group `GroupedPackIn`, optional.
+    pub grouped_pack_in: Option<GroupedPackIn>,
+    /// `XBPO`, optional.
+    pub blueprint_part_origin: Option<Sub<u32>>,
+    /// `XLMS`, optional.
+    pub layered_material_swaps: Option<Sub<AchrLayeredMaterialSwaps>>,
+    /// `XHTW`, optional.
+    pub head_tracking_weight: Option<Sub<f32>>,
+    /// `XFVC`, optional.
+    pub favor_cost: Option<Sub<f32>>,
+    /// `XATR`, optional.
+    pub attach_ref: Option<Sub<FormId>>,
+    /// `XATP`, optional.
+    pub activation_point: Option<Sub<Empty>>,
+    /// `XRGB`, optional.
+    pub biped_rotation: Option<Sub<AchrBipedRotation>>,
+    /// `XLYR`, optional.
+    pub layer: Option<Sub<FormId>>,
+    /// `XLCN`, optional.
+    pub persist_location: Option<Sub<FormId>>,
+    /// `XEED`, optional.
+    pub external_emittance: Option<Sub<AchrExternalEmittance>>,
+    /// Group `LinkedReferences`, optional.
+    pub linked_references: Option<LinkedReferences>,
+    /// `XLRT`, optional.
+    pub location_ref_types: Option<Sub<AchrLocationRefTypes>>,
+    /// `XHLT`, optional.
+    pub health_percent: Option<Sub<u32>>,
+    /// `XRNK`, optional.
+    pub faction_rank: Option<Sub<i32>>,
+    /// `XESP`, optional.
+    pub enable_parent: Option<Sub<EnableParent>>,
+    /// `XOWN`, optional.
+    pub owner: Option<Sub<OwnerData>>,
+    /// `XIS2`, optional.
+    pub ignored_by_sandbox: Option<Sub<Empty>>,
+    /// `XSCL`, optional.
+    pub scale: Option<Sub<f32>>,
+    /// `XEZN`, optional.
+    pub location_override: Option<Sub<FormId>>,
+    /// `XGDS`, optional.
+    pub xgds: Option<Sub<Bytes>>,
+    /// `DATA`, optional.
+    pub placement: Option<Sub<PositionRotation>>,
+    /// `MNAM`, optional.
+    pub comments: Option<Sub<ZString>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl AchrRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAME",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRGD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRFG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPCS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEMI",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLRL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPLK",
+            card: Card::Repeated,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: GroupedPackIn::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XBPO",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLMS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XHTW",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XFVC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XATR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XATP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRGB",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLYR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEED",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: LinkedReferences::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLRT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XHLT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRNK",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XESP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XOWN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XIS2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XSCL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEZN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XGDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "ACHR.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "ACHR.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.xalg, subs, *index, "ACHR.XALG", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.base, subs, *index, "ACHR.NAME", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.level_modifier,
+                    subs,
+                    *index,
+                    "ACHR.XLCM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.ragdoll_bones,
+                    subs,
+                    *index,
+                    "ACHR.XRGD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.reference_group,
+                    subs,
+                    *index,
+                    "ACHR.XRFG",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.source_pack_in,
+                    subs,
+                    *index,
+                    "ACHR.XPCS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => {
+                    put(&mut self.emittance, subs, *index, "ACHR.XEMI", ctx, extra)
+                }
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.radius, subs, *index, "ACHR.XRDS", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.location_reference,
+                    subs,
+                    *index,
+                    "ACHR.XLRL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => {
+                    push(&mut self.power_links, subs, *index, "ACHR.XPLK", ctx, extra)
+                }
+                Hit::Group { member: 13, hits } if self.grouped_pack_in.is_none() => {
+                    let mut group = GroupedPackIn::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.grouped_pack_in = Some(group);
+                }
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.blueprint_part_origin,
+                    subs,
+                    *index,
+                    "ACHR.XBPO",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.layered_material_swaps,
+                    subs,
+                    *index,
+                    "ACHR.XLMS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.head_tracking_weight,
+                    subs,
+                    *index,
+                    "ACHR.XHTW",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.favor_cost, subs, *index, "ACHR.XFVC", ctx, extra)
+                }
+                Hit::Sub { member: 18, index } => {
+                    put(&mut self.attach_ref, subs, *index, "ACHR.XATR", ctx, extra)
+                }
+                Hit::Sub { member: 19, index } => put(
+                    &mut self.activation_point,
+                    subs,
+                    *index,
+                    "ACHR.XATP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 20, index } => put(
+                    &mut self.biped_rotation,
+                    subs,
+                    *index,
+                    "ACHR.XRGB",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 21, index } => {
+                    put(&mut self.layer, subs, *index, "ACHR.XLYR", ctx, extra)
+                }
+                Hit::Sub { member: 22, index } => put(
+                    &mut self.persist_location,
+                    subs,
+                    *index,
+                    "ACHR.XLCN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 23, index } => put(
+                    &mut self.external_emittance,
+                    subs,
+                    *index,
+                    "ACHR.XEED",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 24, hits } if self.linked_references.is_none() => {
+                    let mut group = LinkedReferences::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.linked_references = Some(group);
+                }
+                Hit::Sub { member: 25, index } => put(
+                    &mut self.location_ref_types,
+                    subs,
+                    *index,
+                    "ACHR.XLRT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 26, index } => put(
+                    &mut self.health_percent,
+                    subs,
+                    *index,
+                    "ACHR.XHLT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 27, index } => put(
+                    &mut self.faction_rank,
+                    subs,
+                    *index,
+                    "ACHR.XRNK",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 28, index } => put(
+                    &mut self.enable_parent,
+                    subs,
+                    *index,
+                    "ACHR.XESP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 29, index } => {
+                    put(&mut self.owner, subs, *index, "ACHR.XOWN", ctx, extra)
+                }
+                Hit::Sub { member: 30, index } => put(
+                    &mut self.ignored_by_sandbox,
+                    subs,
+                    *index,
+                    "ACHR.XIS2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 31, index } => {
+                    put(&mut self.scale, subs, *index, "ACHR.XSCL", ctx, extra)
+                }
+                Hit::Sub { member: 32, index } => put(
+                    &mut self.location_override,
+                    subs,
+                    *index,
+                    "ACHR.XEZN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 33, index } => {
+                    put(&mut self.xgds, subs, *index, "ACHR.XGDS", ctx, extra)
+                }
+                Hit::Sub { member: 34, index } => {
+                    put(&mut self.placement, subs, *index, "ACHR.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 35, index } => {
+                    put(&mut self.comments, subs, *index, "ACHR.MNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"XALG", self.xalg.as_ref());
+        emit(out, *b"NAME", self.base.as_ref());
+        emit(out, *b"XLCM", self.level_modifier.as_ref());
+        emit(out, *b"XRGD", self.ragdoll_bones.as_ref());
+        emit(out, *b"XRFG", self.reference_group.as_ref());
+        emit(out, *b"XPCS", self.source_pack_in.as_ref());
+        emit(out, *b"XEMI", self.emittance.as_ref());
+        emit(out, *b"XRDS", self.radius.as_ref());
+        emit(out, *b"XLRL", self.location_reference.as_ref());
+        for value in &self.power_links {
+            emit(out, *b"XPLK", Some(value));
+        }
+        if let Some(group) = &self.grouped_pack_in {
+            group.emit(out);
+        }
+        emit(out, *b"XBPO", self.blueprint_part_origin.as_ref());
+        emit(out, *b"XLMS", self.layered_material_swaps.as_ref());
+        emit(out, *b"XHTW", self.head_tracking_weight.as_ref());
+        emit(out, *b"XFVC", self.favor_cost.as_ref());
+        emit(out, *b"XATR", self.attach_ref.as_ref());
+        emit(out, *b"XATP", self.activation_point.as_ref());
+        emit(out, *b"XRGB", self.biped_rotation.as_ref());
+        emit(out, *b"XLYR", self.layer.as_ref());
+        emit(out, *b"XLCN", self.persist_location.as_ref());
+        emit(out, *b"XEED", self.external_emittance.as_ref());
+        if let Some(group) = &self.linked_references {
+            group.emit(out);
+        }
+        emit(out, *b"XLRT", self.location_ref_types.as_ref());
+        emit(out, *b"XHLT", self.health_percent.as_ref());
+        emit(out, *b"XRNK", self.faction_rank.as_ref());
+        emit(out, *b"XESP", self.enable_parent.as_ref());
+        emit(out, *b"XOWN", self.owner.as_ref());
+        emit(out, *b"XIS2", self.ignored_by_sandbox.as_ref());
+        emit(out, *b"XSCL", self.scale.as_ref());
+        emit(out, *b"XEZN", self.location_override.as_ref());
+        emit(out, *b"XGDS", self.xgds.as_ref());
+        emit(out, *b"DATA", self.placement.as_ref());
+        emit(out, *b"MNAM", self.comments.as_ref());
+    }
+}
+
+impl Visit for AchrRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.base, "ACHR.NAME", out);
+        visit_form_ids(&self.reference_group, "ACHR.XRFG", out);
+        visit_form_ids(&self.source_pack_in, "ACHR.XPCS", out);
+        visit_form_ids(&self.emittance, "ACHR.XEMI", out);
+        visit_form_ids(&self.location_reference, "ACHR.XLRL", out);
+        visit_form_ids(&self.power_links, "ACHR.XPLK", out);
+        visit_form_ids(&self.grouped_pack_in, "ACHR.GroupedPackIn", out);
+        visit_form_ids(&self.layered_material_swaps, "ACHR.XLMS", out);
+        visit_form_ids(&self.attach_ref, "ACHR.XATR", out);
+        visit_form_ids(&self.layer, "ACHR.XLYR", out);
+        visit_form_ids(&self.persist_location, "ACHR.XLCN", out);
+        visit_form_ids(&self.linked_references, "ACHR.LinkedReferences", out);
+        visit_form_ids(&self.location_ref_types, "ACHR.XLRT", out);
+        visit_form_ids(&self.enable_parent, "ACHR.XESP", out);
+        visit_form_ids(&self.owner, "ACHR.XOWN", out);
+        visit_form_ids(&self.location_override, "ACHR.XEZN", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.base, "ACHR.NAME", out);
+        visit_form_ids_mut(&mut self.reference_group, "ACHR.XRFG", out);
+        visit_form_ids_mut(&mut self.source_pack_in, "ACHR.XPCS", out);
+        visit_form_ids_mut(&mut self.emittance, "ACHR.XEMI", out);
+        visit_form_ids_mut(&mut self.location_reference, "ACHR.XLRL", out);
+        visit_form_ids_mut(&mut self.power_links, "ACHR.XPLK", out);
+        visit_form_ids_mut(&mut self.grouped_pack_in, "ACHR.GroupedPackIn", out);
+        visit_form_ids_mut(&mut self.layered_material_swaps, "ACHR.XLMS", out);
+        visit_form_ids_mut(&mut self.attach_ref, "ACHR.XATR", out);
+        visit_form_ids_mut(&mut self.layer, "ACHR.XLYR", out);
+        visit_form_ids_mut(&mut self.persist_location, "ACHR.XLCN", out);
+        visit_form_ids_mut(&mut self.linked_references, "ACHR.LinkedReferences", out);
+        visit_form_ids_mut(&mut self.location_ref_types, "ACHR.XLRT", out);
+        visit_form_ids_mut(&mut self.enable_parent, "ACHR.XESP", out);
+        visit_form_ids_mut(&mut self.owner, "ACHR.XOWN", out);
+        visit_form_ids_mut(&mut self.location_override, "ACHR.XEZN", out);
+    }
+}
+
+impl AchrRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"ACHR";
+    /// Record-header flag.
+    pub const FLAG_STARTS_DEAD: u32 = 0x200;
+    /// Record-header flag.
+    pub const FLAG_PERSISTENT: u32 = 0x400;
+    /// Record-header flag.
+    pub const FLAG_INITIALLY_DISABLED: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_STARTS_UNCONSCIOUS: u32 = 0x2000;
+    /// Record-header flag.
+    pub const FLAG_NO_AI_ACQUIRE: u32 = 0x2000000;
+    /// Record-header flag.
+    pub const FLAG_DONT_HAVOK_SETTLE: u32 = 0x20000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("ACHR", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("ACHR", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("ACHR", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("ACHR", &mut out);
+        out
     }
 }
 
@@ -9258,6 +10098,7 @@ impl ZoomRecord {
 /// A decoded record of any type the schema defines (boxed: record structs are large).
 #[derive(Debug, Clone, PartialEq)]
 pub enum Record {
+    Achr(Box<AchrRecord>),
     Amdl(Box<AmdlRecord>),
     Ammo(Box<AmmoRecord>),
     Cell(Box<CellRecord>),
@@ -9277,6 +10118,7 @@ pub enum Record {
 
 /// The member list of every defined record type, by signature.
 pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
+    (*b"ACHR", AchrRecord::MEMBERS),
     (*b"AMDL", AmdlRecord::MEMBERS),
     (*b"AMMO", AmmoRecord::MEMBERS),
     (*b"CELL", CellRecord::MEMBERS),
@@ -9299,6 +10141,7 @@ impl Record {
     /// definition for it (the container keeps such records raw).
     pub fn decode(signature: Sig, subs: &[RawSub<'_>], ctx: Ctx) -> Option<Self> {
         Some(match &signature {
+            b"ACHR" => Self::Achr(Box::new(AchrRecord::decode(subs, ctx))),
             b"AMDL" => Self::Amdl(Box::new(AmdlRecord::decode(subs, ctx))),
             b"AMMO" => Self::Ammo(Box::new(AmmoRecord::decode(subs, ctx))),
             b"CELL" => Self::Cell(Box::new(CellRecord::decode(subs, ctx))),
@@ -9321,6 +10164,7 @@ impl Record {
     /// Encodes the record body.
     pub fn encode(&self) -> Vec<OwnedSub> {
         match self {
+            Self::Achr(record) => record.encode(),
             Self::Amdl(record) => record.encode(),
             Self::Ammo(record) => record.encode(),
             Self::Cell(record) => record.encode(),
@@ -9342,6 +10186,7 @@ impl Record {
     /// The record signature.
     pub fn signature(&self) -> Sig {
         match self {
+            Self::Achr(_) => AchrRecord::SIGNATURE,
             Self::Amdl(_) => AmdlRecord::SIGNATURE,
             Self::Ammo(_) => AmmoRecord::SIGNATURE,
             Self::Cell(_) => CellRecord::SIGNATURE,
@@ -9363,6 +10208,7 @@ impl Record {
     /// Every FormID-typed value with its path (see each record's `form_ids`).
     pub fn form_ids(&self) -> FormIds<'_> {
         match self {
+            Self::Achr(record) => record.form_ids(),
             Self::Amdl(record) => record.form_ids(),
             Self::Ammo(record) => record.form_ids(),
             Self::Cell(record) => record.form_ids(),
@@ -9384,6 +10230,7 @@ impl Record {
     /// Every FormID-typed value with its path, mutably.
     pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
         match self {
+            Self::Achr(record) => record.form_ids_mut(),
             Self::Amdl(record) => record.form_ids_mut(),
             Self::Ammo(record) => record.form_ids_mut(),
             Self::Cell(record) => record.form_ids_mut(),
@@ -9405,6 +10252,7 @@ impl Record {
     /// Every lstring value with its path (see each record's `lstrings`).
     pub fn lstrings(&self) -> LStrings<'_> {
         match self {
+            Self::Achr(record) => record.lstrings(),
             Self::Amdl(record) => record.lstrings(),
             Self::Ammo(record) => record.lstrings(),
             Self::Cell(record) => record.lstrings(),
@@ -9426,6 +10274,7 @@ impl Record {
     /// Every lstring value with its path, mutably.
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         match self {
+            Self::Achr(record) => record.lstrings_mut(),
             Self::Amdl(record) => record.lstrings_mut(),
             Self::Ammo(record) => record.lstrings_mut(),
             Self::Cell(record) => record.lstrings_mut(),
@@ -9448,6 +10297,7 @@ impl Record {
     /// in the body as read (empty when every subrecord decoded into a typed member).
     pub fn extra(&self) -> &[(usize, OwnedSub)] {
         match self {
+            Self::Achr(record) => &record.extra,
             Self::Amdl(record) => &record.extra,
             Self::Ammo(record) => &record.extra,
             Self::Cell(record) => &record.extra,
