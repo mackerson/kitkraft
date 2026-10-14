@@ -607,3 +607,15 @@ until it is, `set` and `build` name it in `limitations`.
 | **String ID 0** is in no `starfield_en` table (`.strings` lowest ID 22, `.dlstrings` 3607, `.ilstrings` 7): an lstring holding ID 0 has no text, and is written inline as the empty string. | `corpus:` `corpus_string_id_zero_has_no_text` (`starfield_en` in `Starfield - Localization.ba2`) |
 | **`ONAM` is not needed for an override of a top-level record.** In the 5 files with an `ONAM` (SFBGS003, SFBGS006, SFBGS00D, SFBGS050, ShatteredSpace) every listed FormID is a record of the same file in a group of type 7 (topic children: INFO), 9 (cell temporary children: REFR, ACHR, NAVM) or 10 (DIAL, SCEN); no top-level record is listed, although 10 files override 853 top-level master records between them (SFBGS003 58, SFBGS004 20, SFBGS006 15, SFBGS008 8, SFBGS00D 133, SFBGS047 1, SFBGS050 142, ShatteredSpace 86, BlueprintShips 357 and 33). Patches therefore write no `ONAM`. Not every overridden temporary child is listed (SFBGS050 overrides 9 type-9 NAVM records it does not list), so what decides membership is open; a patch that overrides cell children would need it (not in M2). | `corpus:` `corpus_onam_inventory_full` |
 | **Inline text encoding**: UTF-8, NUL-terminated (the string tables hold UTF-8, `crates/strings`). Whether the game reads inline FULL as UTF-8 or a code page is a `ck-diff` / in-game fact (M2.O4, M2.O6); ASCII names are unaffected. Every written or inlined lstring with a byte >= 0x80 is named in a limitation. A string set as `hex:` must be one NUL-terminated string. | `corpus:` string tables; open |
+
+## Typed check times of large record types (M4 family lanes)
+
+Full-corpus typed check (every official record of the type decoded through the generated
+decoder, `extra` empty, re-encoded and compared), all 14 files in parallel, release build,
+dev box, 2026-10-14. The out-of-tree checker of each family lane; see its family guide.
+
+| Types | Records | Compressed | Time | Family guide |
+| ----- | ------: | ---------: | ---: | ------------ |
+| INFO | 162,028 | 0 | ~5 s | `docs/schema/quest-family.md` |
+| DIAL | 87,031 | 0 | ~4 s | `docs/schema/quest-family.md` |
+| all ten QUEST family types | 267,549 | 0 | ~6 s | `docs/schema/quest-family.md` |
