@@ -691,6 +691,33 @@ fn package_manifest_is_verified() {
     assert!(err_text(mo2.deploy(&pkg)).contains("package-manifest"));
 }
 
+/// The manifest shape `package` (M4.E5) writes: `plugins` is a list of objects naming the
+/// plugin in `file` (M4.BX1 end-to-end check); with two plugins at the root, the listed one
+/// is the dev mod's.
+#[test]
+fn package_command_manifest_names_the_plugin() {
+    let mo2 = Mo2::new("pkgshape");
+    let pkg = mo2.package("v1", b"TES4");
+    fs::write(pkg.join("Extra.esp"), b"TES4 extra").unwrap();
+    let entry =
+        |p: &str, b: &[u8]| json!({"path": p, "size": b.len(), "sha256": super::sha256::hex(b)});
+    let manifest = json!({
+        "format": 1,
+        "plugins": [{"file": "MyMod.esm", "sha256": super::sha256::hex(b"TES4"), "masters": []}],
+        "files": [
+            entry("Extra.esp", b"TES4 extra"),
+            entry("MyMod - Main.ba2", b"BTDX archive"),
+            entry("MyMod.esm", b"TES4"),
+            entry("Scripts/MyScript.pex", b"v1"),
+        ],
+    });
+    fs::write(pkg.join("kitcraft-manifest.json"), manifest.to_string()).unwrap();
+    let r = mo2.deploy(&pkg).unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+    assert_eq!(r["limitations"], json!([]));
+    assert_eq!(mo2.manifest(&mo2.target())["plugin"], "MyMod.esm");
+}
+
 #[cfg(windows)]
 #[test]
 fn junction_in_the_target_path_is_refused() {

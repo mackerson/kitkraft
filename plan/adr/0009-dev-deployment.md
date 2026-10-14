@@ -133,3 +133,37 @@ refusal names the rule and the path.
   development convenience and is on no critical path.
 - AGENTS.md "Windows specifics" gains one line: the MO2 profile is still never modified;
   `kit deploy --dev` (ADR 0009) is the only write into `mods\`.
+
+## Amendment 1 (2026-10-14): the implementation's departures, accepted
+
+M4.E11 implemented this ADR from the owner's M4.E11 brief, which differs from the text
+above in five places. `docs/deploy.md` ("Where this differs from ADR 0009's text") records
+them; they are accepted as the design (director's ruling, recorded by the integrator in
+M4.BX1). Where this amendment and the sections above disagree, this amendment wins.
+
+1. **Rollback copy inside `mods\`.** The previous deployment is kept as
+   `<target>.previous` beside the live folder, and the new one is staged in
+   `<target>.staging` inside `mods\`, so every swap is a same-volume folder rename. This
+   replaces the per-file temp + rename with backups in a KitKraft state folder outside MO2
+   (three kept): one previous deployment is kept, and `deploy.rollback`'s `to` only
+   confirms which one `.previous` holds. The `.previous` folder is a separate MO2 mod the
+   owner leaves disabled.
+2. **Journal beside the folders.** The operation journal is
+   `<target>.kitkraft-journal.json`, a file in `mods\` (MO2 never lists a file as a mod),
+   not in a state folder, so recovering an interrupted call needs nothing but the MO2
+   instance.
+3. **`dry_run` instead of `plan`.** The read-only preview is the `dry_run` argument (CLI
+   `--dry-run`), the brief's word.
+4. **`kitkraft-deploy.json`.** The ownership marker and deployment manifest written into
+   the dev mod is `kitkraft-deploy.json` (with the `kitkraft-dev-mod` kind), using the final
+   product name; the package manifest it reads is still `package`'s
+   `kitcraft-manifest.json`.
+5. **Unmanaged files refuse a deploy.** A file in the live folder that its manifest does
+   not list (other than MO2's `meta.ini`) refuses the deploy (`target-modified`) instead
+   of being left in place, because the folder swap would move it into `.previous` and a
+   later deploy would drop it.
+
+Unchanged: profiles, `ModOrganizer.ini`, other mods and the game folder are never written;
+the `Default` profile is refused by name (AGENTS.md, 2026-10-14). Still open (Requests):
+the MO2 instance check lives in the engine (`deploy/instance.rs`), not yet in `crates/io`
+as the Consequences above say.

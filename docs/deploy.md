@@ -202,8 +202,8 @@ touched (0):
 
 ## Where this differs from ADR 0009's text
 
-The owner's brief for M4.E11 is the spec where the two differ; recorded here so the ADR
-can be amended:
+The owner's brief for M4.E11 is the spec where the two differ; ADR 0009 Amendment 1
+accepts these departures:
 
 - **Rollback copy inside `mods\`.** The brief keeps the previous deployment as
   `<target>.previous` beside the live folder and stages in a temp folder inside `mods\`,
@@ -227,9 +227,14 @@ can be amended:
 - The MO2 instance check lives in the engine (`deploy/instance.rs`, using `kitcraft-io`'s
   INI and profile readers). ADR 0009 puts it in `crates/io` (lane D); a request is in
   `plan/STATUS.md`.
-- `package` (M4.E5) is not merged yet. The package manifest is read tolerantly: a `files`
-  array of `{path, sha256, size?}` is verified; another shape is named in `limitations`
-  and the files are hashed as found. Check the pairing when M4.E5 lands.
+- The package manifest is read tolerantly: a `files` array of `{path, sha256, size?}` is
+  verified; another shape is named in `limitations` and the files are hashed as found.
+  Paired with `package` (M4.E5) in M4.BX1: an end-to-end run on a synthetic MO2 instance
+  (`set` rename -> `package` -> `deploy --dev` -> redeploy -> `deploy.rollback` ->
+  `deploy.status`) verified the manifest with no limitation, restored the first
+  deployment's plugin byte for byte and left the profiles and `ModOrganizer.ini`
+  untouched. One mismatch was fixed: `package` writes `plugins` as objects naming the
+  plugin in `file`, which `deploy` now reads (`package_command_manifest_names_the_plugin`).
 - Whether MO2 or the game holds files open is not detected up front; a rename that fails
   with a file in use stops the deployment and rolls it back. Refresh MO2 after each
   deployment.

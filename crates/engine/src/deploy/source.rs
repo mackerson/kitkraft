@@ -238,8 +238,9 @@ fn walk(
 }
 
 /// Checks the files against the package manifest when its shape is recognized (an array
-/// `files` of `{path, sha256, size?}`); returns its `plugins` list, if any. A manifest of
-/// another shape is named in `limitations` and not used.
+/// `files` of `{path, sha256, size?}`); returns its `plugins` list, if any (names, or
+/// objects naming the plugin in `file` as `package` writes them, or in `name`). A manifest
+/// of another shape is named in `limitations` and not used.
 fn verify_package(
     path: &Path,
     files: &[SourceFile],
@@ -264,9 +265,11 @@ fn verify_package(
         .map(|a| {
             a.iter()
                 .filter_map(|p| {
+                    // `package` (M4.E5) writes `{"file": ..., "sha256": ..., ...}` entries.
                     p.as_str()
+                        .or_else(|| p.get("file").and_then(Value::as_str))
+                        .or_else(|| p.get("name").and_then(Value::as_str))
                         .map(str::to_string)
-                        .or_else(|| p.get("name").and_then(Value::as_str).map(str::to_string))
                 })
                 .collect()
         })

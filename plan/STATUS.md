@@ -719,6 +719,16 @@ is under "Next".
   files in both orders (the 12 official-pipeline files whole and byte-identical;
   BlueprintShips-Starfield 65 and BlueprintShips-SFBGS050 4 listed normalizations),
   roundtrip 14/14, typed check 0 conflicts; parity unchanged.
+- M4.BX1 later merges (integrator, 2026-10-14): the policy docs (ADR 0007 amendment, 0008,
+  0009), lane F (bare-name resolver, `roundtrip --decode`), main (owner's brief, live-game
+  rules), lane E M4.E11 (`deploy`), lane G M4 (`.psc` reader, `papyrus.events`,
+  `package`). `docs/source-registry.md`: the policy branch's COMMONLIB/SFSE rows, lane G's
+  PAPYRUS/OPEN-PAPYRUS rows. End-to-end on a synthetic MO2 instance in a temp dir (`set`
+  rename -> `package` -> `deploy --dev` -> redeploy -> `deploy.rollback` ->
+  `deploy.status`): the package manifest verified, rollback restored the first plugin byte
+  for byte, profiles and `ModOrganizer.ini` untouched; one mismatch fixed (`package`
+  writes `plugins` as `{file, ...}` objects, which `deploy` now reads). ADR 0009
+  Amendment 1 accepts the five departures `docs/deploy.md` lists.
 - **M4.E11 `deploy --dev` (lane E, ADR 0009, 2026-10-14).** Commands `deploy` (CLI
   `kit deploy --dev <source> <mo2>`), `deploy.rollback`, `deploy.status` in
   `crates/engine/src/deploy/` and `handlers/deploy.rs`; `docs/deploy.md` has the shapes,
