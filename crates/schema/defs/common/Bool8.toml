@@ -2,6 +2,9 @@
 #
 # Source (ADR 0004): the boolean enumeration of wbDefinitionsCommon.pas at the pin, which
 # the Starfield definitions attach to one-byte integers throughout. Values only.
+#
+# Integrated (M4.BX1): also OwnerData's NoCrime (WORLD family), which wrote the same
+# enumeration inline.
 name = "Bool8"
 kind = "type"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"

@@ -3,7 +3,7 @@
 // Helpers outside `#[test]` fns panic to fail the calling test; this is test code.
 #![allow(clippy::panic, clippy::unwrap_used, clippy::arithmetic_side_effects)]
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use kitcraft_schema::{
@@ -142,13 +142,13 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "ACTI", "ALCH", "AMDL", "AMMO", "AVIF", "BIOM", "BOOK", "BPTD", "CELL", "CHAL", "CLAS",
-            "COBJ", "CONT", "DIAL", "DMGT", "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN",
-            "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES",
-            "KEYM", "KYWD", "LCTN", "LSCR", "LVLI", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NPC_",
-            "OMOD", "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT", "PNDT", "PROJ", "QUST", "RACE",
-            "REFR", "RSGD", "RSPJ", "SFBK", "SFPT", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4",
-            "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
+            "ACHR", "ACTI", "ALCH", "AMDL", "AMMO", "AVIF", "BIOM", "BOOK", "BPTD", "CELL", "CHAL",
+            "CLAS", "COBJ", "CONT", "DIAL", "DMGT", "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST",
+            "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR",
+            "IRES", "KEYM", "KYWD", "LCRT", "LCTN", "LSCR", "LVLI", "LVLP", "MESG", "MGEF", "MISC",
+            "MSTT", "NAVM", "NPC_", "OMOD", "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT", "PNDT",
+            "PROJ", "QUST", "RACE", "REFR", "RSGD", "RSPJ", "SFBK", "SFPT", "SPEL", "STAT", "STDT",
+            "SUNP", "TERM", "TES4", "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -161,15 +161,24 @@ fn builtin_set_loads_and_matches_the_directory() {
             "BiomeNoiseLayer",
             "Bool8",
             "ColorBgra",
+            "ColorRgb",
+            "ColorRgba",
             "Component",
             "Condition",
             "Destructible",
+            "EnableParent",
+            "GroupedPackIn",
             "Keywords",
+            "LinkedReferences",
             "Model",
             "ObjectBounds",
             "ObjectModProperty",
             "ObjectPaletteDefaults",
             "ObteBlock",
+            "OwnerData",
+            "PositionRotation",
+            "PropertyValue",
+            "RagdollBone",
             "ResourceBiomeTier",
             "ResourceCellTier",
             "SoundReference",
@@ -527,12 +536,12 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 
 /// Record types with an lstring-only definition (M3.B8): EDID and their lstrings. A family
 /// lane's full definition replaces one (M4.BX1: BIOM, GBFM, PKIN, PNDT, RSPJ and STDT from
-/// the planet family).
+/// the planet family; CELL, LCTN, REFR and WRLD from the world family).
 const LSTRING_ONLY: &[&str] = &[
-    "ACTI", "ALCH", "AVIF", "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "CONT", "DIAL", "DMGT", "DOOR",
-    "ENCH", "EXPL", "FACT", "FLOR", "FURN", "FXPD", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "IRES",
-    "KEYM", "LCTN", "LSCR", "MESG", "MGEF", "MISC", "MSTT", "NPC_", "PERK", "PMFT", "QUST", "RACE",
-    "REFR", "SPEL", "STAT", "TERM", "TMLM", "WATR", "WRLD",
+    "ACTI", "ALCH", "AVIF", "BOOK", "BPTD", "CHAL", "CLAS", "CONT", "DIAL", "DMGT", "DOOR", "ENCH",
+    "EXPL", "FACT", "FLOR", "FURN", "FXPD", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "IRES", "KEYM",
+    "LSCR", "MESG", "MGEF", "MISC", "MSTT", "NPC_", "PERK", "PMFT", "QUST", "RACE", "SPEL", "STAT",
+    "TERM", "TMLM", "WATR",
 ];
 
 /// Corpus-table lstrings that official records carry only inside a base form component
@@ -665,4 +674,163 @@ fn tes4_container_layout() {
             "Unknown"
         ]
     );
+}
+
+/// A layout fingerprint of a field type: names, types and sizes, not provenance or notes.
+/// A shared type stays a reference (`ref:Name`), so a block that uses `Vec3` and one that
+/// spells the three floats out differ here; [`inline_shapes`] catches the second.
+fn ty_shape(ty: &FieldType) -> String {
+    match ty {
+        FieldType::Scalar(s) => format!("{s:?}"),
+        FieldType::FormId { targets } => {
+            let t: Vec<String> = targets.iter().map(ToString::to_string).collect();
+            format!("formid[{}]", t.join(","))
+        }
+        FieldType::Enum { base, values } => {
+            let v: Vec<String> = values
+                .iter()
+                .map(|n| format!("{}={}", n.name, n.value))
+                .collect();
+            format!("enum {base:?} [{}]", v.join(","))
+        }
+        FieldType::Flags { base, bits } => {
+            let v: Vec<String> = bits
+                .iter()
+                .map(|n| format!("{}={}", n.name, n.value))
+                .collect();
+            format!("flags {base:?} [{}]", v.join(","))
+        }
+        FieldType::Array { element, count } => format!("array {count:?} of {}", ty_shape(element)),
+        FieldType::Struct { fields } => {
+            let f: Vec<String> = fields
+                .iter()
+                .map(|f| {
+                    format!(
+                        "{}:{}{:?}{:?}{}",
+                        f.name,
+                        ty_shape(&f.ty),
+                        f.since,
+                        f.until,
+                        f.if_remaining
+                    )
+                })
+                .collect();
+            format!("struct {{{}}}", f.join(";"))
+        }
+        FieldType::Opaque { size } => format!("opaque {size:?}"),
+        FieldType::Ref { name, .. } => format!("ref:{name}"),
+        FieldType::Union { variants, .. } => format!("union {}", variants.len()),
+        other => format!("{other:?}"),
+    }
+}
+
+fn members_shape(members: &[Member]) -> String {
+    let m: Vec<String> = members
+        .iter()
+        .map(|m| match m {
+            Member::Subrecord(s) => format!(
+                "{} {} {:?} {:?} {}",
+                s.signature,
+                s.name,
+                s.cardinality,
+                s.size,
+                ty_shape(&s.ty)
+            ),
+            Member::Group(g) => match &g.shared {
+                Some(shared) => format!("group_ref {shared} {} {:?}", g.name, g.cardinality),
+                None => format!(
+                    "group {} {:?} ({})",
+                    g.name,
+                    g.cardinality,
+                    members_shape(&g.members)
+                ),
+            },
+            Member::AnyUntil(a) => format!("any_until {} {}", a.until, a.name),
+        })
+        .collect();
+    m.join("; ")
+}
+
+/// Shapes of the struct and enum layouts written out inline (not through `ref:`) anywhere
+/// below `ty`; `top` skips `ty` itself.
+fn inline_shapes(ty: &FieldType, top: bool, out: &mut Vec<String>) {
+    if !top && matches!(ty, FieldType::Struct { .. } | FieldType::Enum { .. }) {
+        out.push(ty_shape(ty));
+    }
+    match ty {
+        FieldType::Struct { fields } => {
+            for f in fields {
+                inline_shapes(&f.ty, false, out);
+            }
+        }
+        FieldType::Array { element, .. } => inline_shapes(element, false, out),
+        _ => {}
+    }
+}
+
+fn inline_member_shapes(members: &[Member], out: &mut Vec<String>) {
+    for m in members {
+        match m {
+            Member::Subrecord(s) => inline_shapes(&s.ty, false, out),
+            Member::Group(g) if g.shared.is_none() => inline_member_shapes(&g.members, out),
+            _ => {}
+        }
+    }
+}
+
+/// M4.BX1: no two shared definitions (`defs/common/`) have the same layout, and no shared
+/// definition spells out inline a struct or enum another shared type already names (the
+/// families each wrote some of these; the integrator folds them into one, with every
+/// reference updated).
+#[test]
+fn common_blocks_are_not_duplicated() {
+    let schema = builtin().unwrap();
+    let mut seen: BTreeMap<String, &str> = BTreeMap::new();
+    let mut types: Vec<(String, &str)> = Vec::new();
+    for c in schema.common() {
+        let shape = match &c.body {
+            CommonBody::Group(members) => format!("group {}", members_shape(members)),
+            CommonBody::Type(ty) => {
+                let s = ty_shape(ty);
+                types.push((s.clone(), c.name.as_str()));
+                s
+            }
+        };
+        if let Some(other) = seen.insert(shape, c.name.as_str()) {
+            panic!("common/{} and common/{other} have the same layout", c.name);
+        }
+    }
+    for c in schema.common() {
+        let mut inline = Vec::new();
+        match &c.body {
+            CommonBody::Group(members) => inline_member_shapes(members, &mut inline),
+            CommonBody::Type(ty) => inline_shapes(ty, true, &mut inline),
+        }
+        for s in &inline {
+            for (shape, name) in &types {
+                assert!(
+                    s != shape,
+                    "common/{} spells out common/{name} inline; use ref:{name}",
+                    c.name
+                );
+            }
+        }
+    }
+    // The folds of M4.BX1 hold.
+    for (name, field, target) in [
+        ("PositionRotation", "Position", "Vec3"),
+        ("PositionRotation", "Rotation", "Vec3"),
+        ("ObjectBounds", "Min", "Vec3"),
+        ("ObjectBounds", "Max", "Vec3"),
+        ("OwnerData", "NoCrime", "Bool8"),
+    ] {
+        let CommonBody::Type(FieldType::Struct { fields }) = &schema.common[name].body else {
+            panic!("{name} is a struct type");
+        };
+        let f = fields.iter().find(|f| f.name == field).unwrap();
+        assert!(
+            matches!(&f.ty, FieldType::Ref { name, .. } if name == target),
+            "{name}.{field}"
+        );
+    }
 }

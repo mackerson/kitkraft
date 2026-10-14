@@ -1,51 +1,406 @@
-# LCTN: Location, lstring-only definition (lane B round 3, M3.B8).
+# LCTN: location. Persistent, unique and special references, the cells and worldspaces
+# the location covers, ownership, encounter levels and the parent location.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official LCTN record.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
 #   xedit: the LCTN definition of wbDefinitionsSF1.pas at the pinned revision (L13376-L13587)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#     and the helpers it uses there and in wbDefinitionsCommon.pas: member order, field
+#     layouts, FormID target types, flag values.
+#   corpus: tests/world_family.rs over every LCTN record of the 14 official ESMs (see the
+#     record evidence).
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# The reference lists come in three flavours (xEdit's naming): "Added" (ACxx, written by a
+# plugin that adds to a master's location), "Master" (LCxx, the location's own list) and
+# "Removed" (RCxx). Each payload is a list to its end. PRPS (properties) occurs at two
+# positions, before the reference lists and after the keywords; the members are
+# `Properties` and `Properties2`.
+#
+# Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored values
+# (0 means none). Fields xEdit leaves unnamed are named by their byte offset (`Bytes12`).
+# Members no official LCTN has stay at `reference`.
 signature = "LCTN"
 name = "Location"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587",
-]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587"
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["InteriorCellsUseRefLocationForWorldMapPlayerMarker", 0x800], ["PartialForm", 0x4000], ["OffLimits", 0x20000], ["CantWait", 0x80000], ["PublicArea", 0x100000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13397-L13397"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
+note = "7,316 EDID placed in the corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official LCTN records are lstrings (lane E's table, edit::lstrings)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13398-L13398"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; not in any official LCTN"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13399-L13399"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+]
+confidence = "reference"
+note = "base form components; payloads kept raw"
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+card = "optional"
+count = "rest"
+element = "ref:PropertyValue"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13400-L13400"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+note = "first PRPS position; 52 PRPS placed in the corpus"
 
-[[member.member]]
+[[member]]
+sig = "ACPR"
+name = "AddedPersistentRefs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "WorldOrCell", type = "formid", targets = ["WRLD", "CELL"] },
+  { name = "GridY", type = "i16" },
+  { name = "GridX", type = "i16" },
+  { name = "Bytes12", type = "opaque", size = 4 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13401-L13409"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 4 ACPR placed in the corpus"
+
+[[member]]
+sig = "LCPR"
+name = "PersistentRefs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "WorldOrCell", type = "formid", targets = ["WRLD", "CELL"] },
+  { name = "GridY", type = "i16" },
+  { name = "GridX", type = "i16" },
+  { name = "Bytes12", type = "opaque", size = 4 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13410-L13418"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 702 LCPR placed in the corpus"
+
+[[member]]
+sig = "RCPR"
+name = "RemovedPersistentRefs"
+type = "array"
+card = "optional"
+targets = ["ACHR", "REFR"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13419-L13421"
+confidence = "reference"
+note = "not in any official LCTN"
+
+[[member]]
+sig = "ACUR"
+name = "AddedUniqueBaseForms"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "GenericBaseForm", type = "formid", targets = ["GBFM"] },
+  { name = "PlacedObject", type = "formid", targets = ["REFR"] },
+  { name = "Location", type = "formid", targets = ["LCTN"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13422-L13428"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "4 ACUR placed in the corpus"
+
+[[member]]
+sig = "LCUR"
+name = "UniqueBaseForms"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "GenericBaseForm", type = "formid", targets = ["GBFM"] },
+  { name = "PlacedObject", type = "formid", targets = ["REFR"] },
+  { name = "Location", type = "formid", targets = ["LCTN"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13429-L13435"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "209 LCUR placed in the corpus"
+
+[[member]]
+sig = "RCUR"
+name = "RemovedUniqueBaseForms"
+type = "array"
+card = "optional"
+targets = ["GBFM"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13436-L13438"
+confidence = "reference"
+note = "not in any official LCTN"
+
+[[member]]
+sig = "ACUN"
+name = "AddedUniqueNpcs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Npc", type = "formid", targets = ["NPC_"] },
+  { name = "ActorRef", type = "formid", targets = ["ACHR"] },
+  { name = "Location", type = "formid", targets = ["LCTN"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13439-L13445"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "40 ACUN placed in the corpus"
+
+[[member]]
+sig = "LCUN"
+name = "UniqueNpcs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Npc", type = "formid", targets = ["NPC_"] },
+  { name = "ActorRef", type = "formid", targets = ["ACHR"] },
+  { name = "Location", type = "formid", targets = ["LCTN"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13446-L13452"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "209 LCUN placed in the corpus"
+
+[[member]]
+sig = "RCUN"
+name = "RemovedUniqueNpcs"
+type = "array"
+card = "optional"
+targets = ["NPC_"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13453-L13455"
+confidence = "reference"
+note = "not in any official LCTN"
+
+[[member]]
+sig = "ACSR"
+name = "AddedSpecialRefs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "RefType", type = "formid", targets = ["LCRT"] },
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "WorldOrCell", type = "formid", targets = ["WRLD", "CELL"] },
+  { name = "GridY", type = "i16" },
+  { name = "GridX", type = "i16" },
+  { name = "Bytes16", type = "opaque", size = 4 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13456-L13465"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 52 ACSR placed in the corpus"
+
+[[member]]
+sig = "LCSR"
+name = "SpecialRefs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "RefType", type = "formid", targets = ["LCRT"] },
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "WorldOrCell", type = "formid", targets = ["WRLD", "CELL"] },
+  { name = "GridY", type = "i16" },
+  { name = "GridX", type = "i16" },
+  { name = "Bytes16", type = "opaque", size = 4 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13466-L13475"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 1,806 LCSR placed in the corpus"
+
+[[member]]
+sig = "RCSR"
+name = "RemovedSpecialRefs"
+type = "array"
+card = "optional"
+targets = ["ACHR", "REFR"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13476-L13478"
+confidence = "reference"
+note = "not in any official LCTN"
+
+[[member]]
+sig = "ACEC"
+name = "AddedWorldCells"
+type = "struct"
+card = "repeated"
+field = [
+  { name = "World", type = "formid", targets = ["WRLD"] },
+  { name = "Cells", type = "array", element = "struct", count = "rest", field = [{ name = "GridY", type = "i16" }, { name = "GridX", type = "i16" }] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13479-L13489"
+confidence = "reference"
+note = "one subrecord per worldspace; not in any official LCTN"
+
+[[member]]
+sig = "LCEC"
+name = "WorldCells"
+type = "struct"
+card = "repeated"
+field = [
+  { name = "World", type = "formid", targets = ["WRLD"] },
+  { name = "Cells", type = "array", element = "struct", count = "rest", field = [{ name = "GridY", type = "i16" }, { name = "GridX", type = "i16" }] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13490-L13500"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "one subrecord per worldspace; 81 LCEC placed in the corpus"
+
+[[member]]
+sig = "RCEC"
+name = "RemovedWorldCells"
+type = "struct"
+card = "repeated"
+field = [
+  { name = "World", type = "formid", targets = ["WRLD"] },
+  { name = "Cells", type = "array", element = "struct", count = "rest", field = [{ name = "GridY", type = "i16" }, { name = "GridX", type = "i16" }] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13501-L13511"
+confidence = "reference"
+note = "one subrecord per worldspace; not in any official LCTN"
+
+[[member]]
+sig = "ACID"
+name = "AddedInitiallyDisabledRefs"
+type = "array"
+card = "optional"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13512-L13514"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 41 ACID placed in the corpus"
+
+[[member]]
+sig = "LCID"
+name = "InitiallyDisabledRefs"
+type = "array"
+card = "optional"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13515-L13517"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 1,577 LCID placed in the corpus"
+
+[[member]]
+sig = "ACEP"
+name = "AddedEnableParentRefs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "Parent", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "Flags", type = "flags", base = "u8", bits = [["OppositeOfParent", 1], ["PopIn", 2]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13518-L13530"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "20 ACEP placed in the corpus"
+
+[[member]]
+sig = "LCEP"
+name = "EnableParentRefs"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Ref", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "Parent", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "Flags", type = "flags", base = "u8", bits = [["OppositeOfParent", 1], ["PopIn", 2]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13531-L13543"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "271 LCEP placed in the corpus"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
@@ -53,6 +408,191 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13544-L13544"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official LCTN records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
+note = "7,005 FULL placed in the corpus"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13545-L13545"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "PRPS"
+name = "Properties2"
+type = "array"
+card = "optional"
+count = "rest"
+element = "ref:PropertyValue"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13546-L13546"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "second PRPS position; 52 PRPS placed in the corpus"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "Owner", type = "formid", targets = ["FACT", "NPC_"] },
+  { name = "FactionRank", type = "i8" },
+  { name = "MinLevel", type = "u8" },
+  { name = "LevelFlags", type = "flags", base = "u8", bits = [["NeverResets", 1], ["MatchPcLevel", 2], ["DisableCombatBoundary", 4], ["Workshop", 8], ["UseParentsLockedLevel", 16]] },
+  { name = "MaxLevel", type = "u8" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13547-L13561"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "ownership and encounter levels; 7,268 DATA placed in the corpus"
+
+[[member]]
+sig = "PNAM"
+name = "ParentLocation"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13562-L13562"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "5,634 PNAM placed in the corpus"
+
+[[member]]
+sig = "NAM1"
+name = "MusicType"
+type = "formid"
+card = "optional"
+targets = ["MUSC"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13563-L13563"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2 NAM1 placed in the corpus"
+
+[[member]]
+sig = "FNAM"
+name = "UnreportedCrimeFaction"
+type = "formid"
+card = "optional"
+targets = ["FACT"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13564-L13564"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1 FNAM placed in the corpus"
+
+[[member]]
+sig = "MNAM"
+name = "WorldLocationMarkerRef"
+type = "formid"
+card = "optional"
+targets = ["REFR", "ACHR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13565-L13565"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1 MNAM placed in the corpus"
+
+[[member]]
+sig = "RNAM"
+name = "WorldLocationRadius"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13566-L13566"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "7,268 RNAM placed in the corpus"
+
+[[member]]
+sig = "ANAM"
+name = "ActorFadeMult"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13567-L13567"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "7,268 ANAM placed in the corpus"
+
+[[member]]
+sig = "TNAM"
+name = "RandomConversationTimer"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13568-L13568"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "7,268 TNAM placed in the corpus"
+
+[[member]]
+sig = "NAM0"
+name = "Nam0"
+type = "opaque"
+card = "optional"
+size = 4
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13569-L13569"
+confidence = "reference"
+note = "marked unused in xEdit; not in any official LCTN"
+
+[[member]]
+sig = "CNAM"
+name = "Color"
+type = "ref:ColorRgba"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13570-L13570"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1 CNAM placed in the corpus"
+
+[[member]]
+sig = "XNAM"
+name = "StarId"
+type = "i32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13571-L13585"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "star system identifier; 5,310 XNAM placed in the corpus"
+
+[[member]]
+sig = "YNAM"
+name = "PlanetId"
+type = "i32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13586-L13586"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "5,310 YNAM placed in the corpus"

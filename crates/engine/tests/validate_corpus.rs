@@ -13,16 +13,34 @@ use serde_json::json;
 
 /// Errors the official files really have: real dangling FormIDs that more typed members
 /// expose, not layout errors. Each entry is matched by plugin, rule, member path and stored
-/// value, and must occur exactly `count` times, so a new error (or a fixed one) fails the
-/// test instead of being hidden.
+/// value (`None`: any value of that member), and must occur exactly `count` times, so a
+/// new error (or a fixed one) fails the test instead of being hidden.
 struct Known {
     plugin: &'static str,
     rule: &'static str,
     member: &'static str,
-    value: u32,
+    value: Option<u32>,
     count: u64,
     /// Why this is a corpus fact.
     evidence: &'static str,
+}
+
+/// A `formid.dangling` known error.
+const fn dangling(
+    plugin: &'static str,
+    member: &'static str,
+    value: Option<u32>,
+    count: u64,
+    evidence: &'static str,
+) -> Known {
+    Known {
+        plugin,
+        rule: "formid.dangling",
+        member,
+        value,
+        count,
+        evidence,
+    }
 }
 
 const PRPS_AV: &str = "PKIN PRPS (properties: actor value, value, curve; xedit \
@@ -41,15 +59,33 @@ const FLST_AV: &str = "FLST LNAM (one FormID per entry; xedit wbDefinitionsSF1.p
 
 /// One `FLST.LNAM` known error of Starfield.esm.
 const fn flst_av(value: u32, count: u64) -> Known {
-    Known {
-        plugin: "Starfield.esm",
-        rule: "formid.dangling",
-        member: "FLST.LNAM",
-        value,
-        count,
-        evidence: FLST_AV,
-    }
+    dangling("Starfield.esm", "FLST.LNAM", Some(value), count, FLST_AV)
 }
+
+const PLAYER_REF: &str = "object ID 0x14 in a placed-reference slot (world family, M4: enable \
+    parent, attach ref, linked ref, location enable parent) whose xEdit target list names \
+    PLYR, the player reference (xedit wbDefinitionsSF1.pas L3892-L3899 and the \
+    placed-reference target lists); no official file defines 0x14. Grade D hypothesis: the \
+    engine's player reference (validate could resolve it, request to lane E)";
+
+const LOW_BASE: &str = "REFR:00014893's NAME (base object) is 0x1FB, an object ID below \
+    0x800 that no official file defines, the same class as the PKIN PRPS and FLST LNAM \
+    actor values (world family, M4). Grade D hypothesis: an engine-reserved form";
+
+const XPLK_INDEX: &str = "REFR XPLK (power links: reference, u32; xedit wbDefinitionsSF1.pas \
+    L8844, world family, M4) in the DLC files stores its reference with a file index one \
+    above the plugin's own (SFBGS00D 02 for 01, SFBGS050 03 for 02, ShatteredSpace 02 for \
+    01); with the plugin's own index every target exists (kit inspect: SFBGS00D 0103065F, \
+    SFBGS050 0202599E and 02028369 are REFR records next to the linking ones), and \
+    Starfield.esm's XPLK all resolve. The layout fits (8 bytes, 0 typed conflicts); the \
+    numbering is a corpus fact to check in the CK (plan/STATUS.md)";
+
+const XBPS_SELF: &str = "CELL XBPS (ship snap links: parent ref, linked ref, two node \
+    indexes; xedit wbDefinitionsSF1.pas L10695-L10704, world family, M4) in three \
+    SFBGS050.esm cells (020A38DA, 02073D30, 02043C48) names SFBGS050 references the file \
+    does not contain (nor BlueprintShips-SFBGS050.esm); every XBPS entry is 16 bytes with 0 \
+    typed conflicts and Starfield.esm's resolve, so these are dangling links, not a layout \
+    error";
 
 const KNOWN_ERRORS: &[Known] = &[
     flst_av(0x0000_02D8, 2),
@@ -64,34 +100,58 @@ const KNOWN_ERRORS: &[Known] = &[
     flst_av(0x0000_0352, 2),
     flst_av(0x0000_0355, 1),
     flst_av(0x0000_0359, 2),
-    Known {
-        plugin: "Starfield.esm",
-        rule: "formid.dangling",
-        member: "PKIN.PRPS.ActorValue",
-        value: 0x0000_033D,
-        count: 7,
-        evidence: PRPS_AV,
-    },
-    Known {
-        plugin: "Starfield.esm",
-        rule: "formid.dangling",
-        member: "PKIN.PRPS.ActorValue",
-        value: 0x0000_033E,
-        count: 14,
-        evidence: PRPS_AV,
-    },
-    Known {
-        plugin: "SFBGS050.esm",
-        rule: "formid.dangling",
-        member: "PNDT.EOVR.Worldspace",
-        value: 0x0202_B2F4,
-        count: 1,
-        evidence: "PNDT:0005DE57's EOVR (edited worldspaces) entry names WRLD 0202B2F4, a \
+    dangling(
+        "Starfield.esm",
+        "PKIN.PRPS.ActorValue",
+        Some(0x0000_033D),
+        7,
+        PRPS_AV,
+    ),
+    dangling(
+        "Starfield.esm",
+        "PKIN.PRPS.ActorValue",
+        Some(0x0000_033E),
+        14,
+        PRPS_AV,
+    ),
+    dangling(
+        "SFBGS050.esm",
+        "PNDT.EOVR.Worldspace",
+        Some(0x0202_B2F4),
+        1,
+        "PNDT:0005DE57's EOVR (edited worldspaces) entry names WRLD 0202B2F4, a \
             form of SFBGS050.esm itself that the file does not contain (planet lane, \
             docs/schema/planet-family.md)",
-    },
+    ),
+    dangling(
+        "Starfield.esm",
+        "EnableParent.Ref",
+        Some(0x14),
+        6,
+        PLAYER_REF,
+    ),
+    dangling("Starfield.esm", "REFR.XATR", Some(0x14), 4, PLAYER_REF),
+    dangling(
+        "Starfield.esm",
+        "LinkedReferences.XLKR.Ref",
+        Some(0x14),
+        1,
+        PLAYER_REF,
+    ),
+    dangling(
+        "Starfield.esm",
+        "LCTN.LCEP.Parent",
+        Some(0x14),
+        2,
+        PLAYER_REF,
+    ),
+    dangling("Starfield.esm", "REFR.NAME", Some(0x1FB), 1, LOW_BASE),
+    dangling("SFBGS00D.esm", "REFR.XPLK.Ref", None, 4, XPLK_INDEX),
+    dangling("SFBGS050.esm", "REFR.XPLK.Ref", None, 4, XPLK_INDEX),
+    dangling("ShatteredSpace.esm", "REFR.XPLK.Ref", None, 30, XPLK_INDEX),
+    dangling("SFBGS050.esm", "CELL.XBPS.ParentRef", None, 24, XBPS_SELF),
+    dangling("SFBGS050.esm", "CELL.XBPS.LinkedRef", None, 23, XBPS_SELF),
 ];
-
 /// The stored FormID a `formid.dangling` message names (`... = 0000033E names ...`).
 fn named_value(message: &str) -> Option<u32> {
     let at = message.find(" = ")?;
@@ -128,7 +188,7 @@ fn validate_corpus_official_files() {
     };
     let mut failures = Vec::new();
     // (plugin, rule, member, value) -> count of errors on the known list.
-    let mut known: BTreeMap<(String, String, String, u32), u64> = BTreeMap::new();
+    let mut known: BTreeMap<(String, String, String, Option<u32>), u64> = BTreeMap::new();
     for name in CORPUS {
         let started = std::time::Instant::now();
         let result = execute(
@@ -174,7 +234,10 @@ fn validate_corpus_official_files() {
             let member = f["subrecord"].as_str().unwrap_or_default();
             let value = f["message"].as_str().and_then(named_value);
             let hit = KNOWN_ERRORS.iter().find(|k| {
-                k.plugin == name && k.rule == rule && k.member == member && Some(k.value) == value
+                k.plugin == name
+                    && k.rule == rule
+                    && k.member == member
+                    && k.value.is_none_or(|v| Some(v) == value)
             });
             match hit {
                 Some(k) => {
@@ -203,9 +266,12 @@ fn validate_corpus_official_files() {
             .get(&(k.plugin.into(), k.rule.into(), k.member.into(), k.value))
             .copied()
             .unwrap_or(0);
+        let value = k
+            .value
+            .map_or_else(|| "any".to_owned(), |v| format!("{v:08X}"));
         println!(
-            "known: {} {} {} = {:08X}: {seen} (expected {}): {}",
-            k.plugin, k.rule, k.member, k.value, k.count, k.evidence
+            "known: {} {} {} = {value}: {seen} (expected {}): {}",
+            k.plugin, k.rule, k.member, k.count, k.evidence
         );
         if seen != k.count {
             failures.push(k.plugin);

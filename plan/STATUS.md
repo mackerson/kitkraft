@@ -583,6 +583,43 @@ is under "Next".
   identical, M2.A3 typed check 0 conflicts, doc `typed_corpus` 7,127,228 typed records and
   181 pinned unresolved lstrings); parity: 72 record definitions, 1,028,119 typed (0
   failed), 26,866 opaque, 49,364,576 unknown subrecord occurrences.
+- **World schema family (parallel schema lane, 2026-10-14).** WRLD, CELL, REFR, ACHR,
+  NAVM, LCTN and LCRT typed from the pinned xEdit files (`crates/schema/defs/`, nine new
+  shared definitions in `defs/common/`), each member cited with its lines and `confidence`
+  (`corpus` where the corpus has it, else `reference`). `crates/esm/tests/world_family.rs`
+  checks every record of the seven types in the 14 files (6,880,278 records; REFR sampled
+  1 in 20 in `cargo test`, all in `--ignored` release, 78 s): nothing placed fails to
+  decode and every record re-encodes identically. CELL, REFR and ACHR are unordered in the
+  files: 784, 1,814,375 and 11,288 subrecords fall outside the best linear member order and
+  stay raw in `extra` (gaps row). The full run also asserts the cell/world group layout
+  (types 1..9, block and subblock label rules); `docs/schema/world-family.md` has the
+  counts. Other lanes' tests touched to stay green (each a few lines): `esm` bridge and
+  driver unit tests (CELL/REFR/NAVM now defined), engine `schema` test (REFR -> LAND as the
+  undefined type), schema `defs.rs` lists, the golden `seed.rs` (regenerate with
+  `KITCRAFT_UPDATE_GOLDEN=1` after merging), and `doc` `typed_corpus.rs` now resolves a
+  subrecord's layout by the generated matcher's placement (REFR has two `INAM` layouts,
+  and BFCB bodies hold `PNAM`/`NAM*` of other sizes). `crates/esm/src/generated/` is not
+  committed: run `cargo xtask codegen` after merging.
+- M4.BX1 WORLD merge (integrator, 2026-10-14): the world family's full CELL, LCTN, REFR and
+  WRLD win over round 3's lstring-only stubs (every lstring round 3 listed is a member);
+  `typed_corpus.rs` keeps main's positional resolution (it supersedes the lane's
+  `match_members` placement); `bridge`/`driver`/`schema` tests take "the type is defined"
+  (LAND is the undefined type). Shared blocks folded: PositionRotation's position and
+  rotation and ObjectBounds' corners are `ref:Vec3`, OwnerData's NoCrime is `ref:Bool8`;
+  `common_blocks_are_not_duplicated` (`crates/schema/tests/defs.rs`) fails on two
+  `common/` blocks with the same layout or one spelling out another shared type inline.
+  `validate_corpus_official_files` explains the 86 new errors as `KNOWN_ERRORS`: object ID
+  0x14 in PLYR-capable reference slots (EnableParent x6, XATR x4, XLKR x1, LCTN LCEP x2),
+  REFR NAME 0x1FB x1 (Starfield.esm); REFR XPLK stored one file index above the plugin's
+  own in SFBGS00D (4), SFBGS050 (4) and ShatteredSpace (30), every target present at the
+  plugin's own index; SFBGS050 CELL XBPS snap links to 47 references the file lacks.
+  Gates: `cargo xtask ci`, ignored release corpus tests (14/14 identical, typed check 0
+  conflicts, `world_family_full` passes, doc `typed_corpus` 7,239,631 typed records);
+  parity: 75 record definitions, 41,197,795 typed, 2,035,002 opaque, 7,186,764 unknown;
+  **1,712,200 failed**, all subrecords the ordered matcher cannot place in unordered CELL
+  (784), REFR (1,700,128) and ACHR (11,288) records (kept raw in `extra`, lossless; the
+  gaps row), none a payload that failed to decode. They go to 0 with lane B's `unordered`
+  record mode (Requests).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -1062,6 +1099,44 @@ Agents append here when they need a change in a crate they do not own.
   as the undefined type). **Lane B -> lane A (FYI):** CELL and REFR now have lstring-only
   definitions, so `bridge` and `driver` tests use NAVM as the undefined type and count CELL
   and the three REFR as typed records.
+- **World schema lane -> lane A (child-group placement).** The world family is typed
+  (`docs/schema/world-family.md`). To add cells and placed references, the builder needs
+  to derive the group path itself: interior CELL -> top `CELL` group, type 2 block and
+  type 3 subblock (labels from the FormID's object part, mod 10 and div 10 mod 10: 17,019
+  of 17,020 official cells; the exception is a small-master FormID), then the CELL, its
+  type 6 children right after it, then type 8 (persistent) or 9 (temporary); exterior
+  CELL -> the world's type 1 group, type 4 block (Y div 32, X div 32 of `XCLC`) and type 5
+  subblock (div 8), both labels two i16 with Y first (22,682 of 22,682), then as above;
+  NAVM goes in type 9. Type 8 and 9 occur in either order inside type 6 (most cells have
+  type 9 only). The full corpus counts and the asserted rules are in the doc and in
+  `crates/esm/tests/world_family.rs` (`world_family_full`).
+- **World schema lane -> lane B (schema owner).** CELL, REFR and ACHR need an `unordered`
+  record mode (match members in any order, keep the input order for encoding): with the
+  ordered matcher 889,512 REFR, 6,434 ACHR and 502 CELL records keep some subrecords in
+  `extra` (counts per signature in the member notes). Until then the definitions use the
+  best linear order. Also, the world family adds shared types `PositionRotation`,
+  `OwnerData`, `EnableParent`, `ColorRgb`, `ColorRgba`, `PropertyValue`, `RagdollBone` and
+  groups `LinkedReferences`, `GroupedPackIn`; ~~if round 3 adds equivalents (`Vec3`, `Bool8`
+  exist in the round 3 worktree), fold them together at integration.~~ Done in M4.BX1 (WORLD
+  merge): PositionRotation's position and rotation and ObjectBounds' corners are `Vec3`,
+  OwnerData's NoCrime is `Bool8`; the unordered mode is still open.
+- **World schema lane -> lane D.** `kitcraft_doc::typed::field_type` picks a layout by
+  signature, which is ambiguous for REFR `INAM` (patrol idle FormID vs pack-in u16) and
+  wrong for subrecords inside BFCB bodies that share a member's signature (WRLD `PNAM`,
+  `NAM2`..`NAM9`). `crates/doc/tests/typed_corpus.rs` now maps each subrecord to the member
+  the generated matcher placed it in (`match_members` hits); `inspect`/`where`/`diff`
+  should do the same. Done in M4.BX1 (positional layouts, `typed::placements`/`layout_at`);
+  `typed_corpus.rs` uses them.
+- **World schema lane -> lane A (bridge).** `esm::bridge::extra_of` still lists five
+  variants; the seven world types also need `typed.extra()` for `check_subrecords` to report
+  `NotDecoded` (lane F's request above). `world_family.rs` uses `Record::extra()` directly.
+  Done: `extra_of` returns `typed.extra()` for every type (lane B round 3, merged in M4.BX1).
+- **Integrator (M4.BX1) -> lane E.** `formid.dangling` flags object ID 0x14 in reference
+  slots whose targets include PLYR (13 errors in Starfield.esm, now `KNOWN_ERRORS`); if a
+  source confirms 0x14 is the engine's player reference, resolve it there. **-> owner/lane H
+  (CK check):** REFR `XPLK` references in SFBGS00D, SFBGS050 and ShatteredSpace are stored
+  one file index above the plugin's own (38 occurrences); does the CK write or read them
+  that way?
 - **Lane H -> lane E (and the `docs/corpus.md` "TES4 header" text).** Our patches write
   `TES4` as `HEDR CNAM MAST DATA INCC`, but no official file has a `DATA` after `MAST`: a
   walk of all 14 `TES4` records (13 with masters) finds none, as `crates/schema/defs/TES4.toml`

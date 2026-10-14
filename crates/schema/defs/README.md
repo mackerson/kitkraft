@@ -318,9 +318,12 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB blocks |
 | `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
 | `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union (VMAD, BFCB component data, CTDA, OMOD property values, LVLI COED owner data) or does not describe it (WEAP MO4C, OMOD XFLG) |
-| 43 more `<SIG>.toml` (ACTI ... WRLD) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
+| 39 more `<SIG>.toml` (ACTI ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
 | `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
 | `common/ObteBlock.toml` | group | xEdit object template + corpus | OBTE count, combinations (OBTF, FULL, OBTS template item), STOP |
+| `WRLD.toml` `CELL.toml` `REFR.toml` `ACHR.toml` `NAVM.toml` `LCTN.toml` `LCRT.toml` | record | xedit (pinned) + corpus (`tests/world_family.rs`) | World family: typed from xEdit, checked on every official record; VMAD, NVNM, NAVM MNAM, XSL1, XTV2, XNSE and unknowns opaque; CELL/REFR/ACHR member order is the best linear fit (xEdit marks them unordered). `docs/schema/world-family.md` |
+| `common/PositionRotation.toml` `OwnerData` `EnableParent` `ColorRgb` `ColorRgba` `PropertyValue` `RagdollBone` | type | xedit (pinned) + corpus | Shared payload layouts of the world family (positions and rotations are `Vec3`, OwnerData NoCrime is `Bool8`, M4.BX1) |
+| `common/LinkedReferences.toml` `GroupedPackIn.toml` | group | xedit (pinned) + corpus | XLKR*/XLKT and the XWPK..XWPK pack-in block |
 | `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |
 | `common/Model.toml`     | group | xEdit generic model block       | MODL, MOLM, FLLD, MODC, XFLG |
 | `common/Destructible.toml` | group | xEdit destructible block     | DEST, DAMC, DSDL, stages (DSTD, DSTA, DMDL, FLLD, DMDS, DSTF) |

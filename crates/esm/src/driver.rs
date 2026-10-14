@@ -1063,9 +1063,9 @@ mod tests {
 
     #[test]
     fn the_typed_option_checks_records_with_a_definition() {
-        // GMST, KYWD and TES4 have definitions, and CELL and REFR lstring-only ones (lane B
-        // round 3, M3.B8); NAVM does not. In `bad` below, the TES4 HEDR (a typed member) is
-        // too short to decode.
+        // GMST, KYWD, TES4 and (since the world-family schema) CELL, REFR and NAVM have
+        // definitions; LAND does not. In `bad`
+        // below, the TES4 HEDR (a typed member) is too short to decode.
         let kywd = fixture::compressed_record_stored(b"KYWD", 0x900, &sub(b"EDID", b"kw\0"));
         let mut bytes = fixture::sample_plugin();
         bytes.extend(group(b"KYWD", 0, &kywd));
@@ -1076,12 +1076,13 @@ mod tests {
         let report = roundtrip_bytes(&bytes, &options).unwrap();
         assert!(report.identical());
         let s = &report.stats;
-        assert_eq!(s.typed_records, 8);
+        assert_eq!(s.typed_records, 9);
         assert_eq!(s.typed_unchecked, 0);
         assert_eq!(s.typed_failed_records, 0);
         assert!(s.typed_conflict_list.is_empty());
-        // TES4 7 + GMST 2 + 2 + KYWD 1 + CELL 1 (EDID; the REFR NAME and DATA are not placed).
-        assert_eq!(s.typed_subrecords, 13);
+        // TES4 7 + GMST 2 + 2 + KYWD 1 + CELL 1 + REFR 3 x 2 + NAVM 1 (its EDID comes after
+        // NVNM, outside the member order, so it is kept raw and not counted as placed).
+        assert_eq!(s.typed_subrecords, 20);
 
         // Without decoding, the compressed KYWD is not checked.
         let options = RoundtripOptions {
@@ -1089,7 +1090,7 @@ mod tests {
             ..RoundtripOptions::default()
         };
         let s = roundtrip_bytes(&bytes, &options).unwrap().stats;
-        assert_eq!((s.typed_records, s.typed_unchecked), (7, 1));
+        assert_eq!((s.typed_records, s.typed_unchecked), (8, 1));
 
         // A short HEDR: one conflict, listed with its record and offset.
         let tes4 = crate::fixture::record(b"TES4", 0x81, 0, &sub(b"HEDR", &[0u8; 8]));

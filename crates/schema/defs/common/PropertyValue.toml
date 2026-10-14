@@ -1,0 +1,20 @@
+# PropertyValue: one entry of a property list (LCTN PRPS, REFR XPPS): an actor value, its
+# value, and an optional curve table.
+#
+# Source (ADR 0004): the object property helper of wbDefinitionsSF1.pas at the pin and the
+# actor value helper it uses. xEdit adds the curve table from form version 152; every
+# official LCTN and REFR is form version 576 or later, so the field is always present there.
+name = "PropertyValue"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5684"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every LCTN PRPS and REFR XPPS payload the definitions place in the 14 official ESMs is a whole number of 12-byte entries and decodes with this layout",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]

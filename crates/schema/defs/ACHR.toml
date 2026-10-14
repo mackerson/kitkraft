@@ -1,0 +1,475 @@
+# ACHR: placed NPC. Lives in the persistent (type 8) or temporary (type 9) children group
+# of a cell; NAME is the NPC_ placed.
+#
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the ACHR definition of wbDefinitionsSF1.pas at the pinned revision (L8474-L8527)
+#     and the helpers it uses there and in wbDefinitionsCommon.pas: field layouts, FormID
+#     target types, flag values.
+#   corpus: tests/world_family.rs over every ACHR record of the 14 official ESMs (see the
+#     record evidence).
+#
+# Member order: xEdit marks the members of placed references as unordered, and the official
+# files do not follow one order. The order below is the linear order that agrees with the
+# most official records (computed from every corpus record); a subrecord outside it is
+# kept raw at its position (`extra`), so the record still writes back identically.
+# docs/schema/world-family.md has the counts per signature.
+#
+# Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored values
+# (0 means none). Fields xEdit leaves unnamed are named by their byte offset (`Float12`,
+# `Bytes8`). Members no official record of this type has stay at `reference`.
+signature = "ACHR"
+name = "PlacedNpc"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8474-L8527"
+confidence = "corpus"
+flags = [["StartsDead", 0x200], ["Persistent", 0x400], ["InitiallyDisabled", 0x800], ["StartsUnconscious", 0x2000], ["NoAiAcquire", 0x2000000], ["DontHavokSettle", 0x20000000]]
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8483-L8483"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "876 EDID placed in the corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8484-L8484"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; 201 VMAD placed in the corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8485-L8485"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "base form components; payloads kept raw"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8486-L8486"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3195-L3230",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "64-bit flags; xEdit marks its bit names as unverified, so they are not transcribed; 132 XALG placed in the corpus"
+
+[[member]]
+sig = "NAME"
+name = "Base"
+type = "formid"
+targets = ["NPC_"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8487-L8487"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "14,731 NAME placed in the corpus"
+
+[[member]]
+sig = "XLCM"
+name = "LevelModifier"
+type = "enum"
+card = "optional"
+base = "i32"
+values = [["Easy", 0], ["Medium", 1], ["Hard", 2], ["VeryHard", 3]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8488-L8488"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3980-L3985",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "9,880 XLCM placed in the corpus, 471 more out of member order (kept raw)"
+
+[[member]]
+sig = "XRGD"
+name = "RagdollBones"
+type = "array"
+card = "optional"
+count = "rest"
+element = "ref:RagdollBone"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8491-L8491"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,751 XRGD placed in the corpus, 915 more out of member order (kept raw)"
+
+[[member]]
+sig = "XRFG"
+name = "ReferenceGroup"
+type = "formid"
+card = "optional"
+targets = ["RFGP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8492-L8492"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "100 XRFG placed in the corpus, 35 more out of member order (kept raw)"
+
+[[member]]
+sig = "XPCS"
+name = "SourcePackIn"
+type = "formid"
+card = "optional"
+targets = ["PKIN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8493-L8493"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7051-L7051",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "682 XPCS placed in the corpus, 36 more out of member order (kept raw)"
+
+[[member]]
+sig = "XEMI"
+name = "Emittance"
+type = "formid"
+card = "optional"
+targets = ["LIGH", "REGN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8489-L8489"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XRDS"
+name = "Radius"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8490-L8490"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XLRL"
+name = "LocationReference"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8495-L8495"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XPLK"
+name = "PowerLinks"
+type = "struct"
+card = "repeated"
+size = 8
+field = [
+  { name = "Ref", type = "formid", targets = ["REFR", "ACHR"] },
+  { name = "Int4", type = "u32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8497-L8497"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7053-L7061",
+]
+confidence = "reference"
+note = "second field: xEdit names one value only, as unknown; not in any official ACHR"
+
+[[member]]
+group_ref = "GroupedPackIn"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8502-L8511"
+confidence = "reference"
+
+[[member]]
+sig = "XBPO"
+name = "BlueprintPartOrigin"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8512-L8512"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XLMS"
+name = "LayeredMaterialSwaps"
+type = "array"
+card = "optional"
+targets = ["LMSW"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8515-L8515"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XHTW"
+name = "HeadTrackingWeight"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8516-L8516"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XFVC"
+name = "FavorCost"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8517-L8517"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XATR"
+name = "AttachRef"
+type = "formid"
+card = "optional"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8518-L8518"
+confidence = "reference"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; not in any official ACHR"
+
+[[member]]
+sig = "XATP"
+name = "ActivationPoint"
+type = "empty"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8522-L8522"
+confidence = "reference"
+note = "not in any official ACHR"
+
+[[member]]
+sig = "XRGB"
+name = "BipedRotation"
+type = "struct"
+card = "optional"
+size = 12
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+  { name = "Z", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8491-L8491"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "19 XRGB placed in the corpus, 20 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLYR"
+name = "Layer"
+type = "formid"
+card = "optional"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8514-L8514"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "4,224 XLYR placed in the corpus, 2,731 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLCN"
+name = "PersistLocation"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8494-L8494"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "7,736 XLCN placed in the corpus, 3,212 more out of member order (kept raw)"
+
+[[member]]
+sig = "XEED"
+name = "ExternalEmittance"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "LuminanceScale", type = "f32" },
+  { name = "OverrideEnabled", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8499-L8499"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3987-L3993",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1 XEED placed in the corpus"
+
+[[member]]
+group_ref = "LinkedReferences"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8498-L8498"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7039-L7049",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "XLRT"
+name = "LocationRefTypes"
+type = "array"
+card = "optional"
+targets = ["LCRT"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8519-L8519"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "3,011 XLRT placed in the corpus, 278 more out of member order (kept raw)"
+
+[[member]]
+sig = "XHLT"
+name = "HealthPercent"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8520-L8520"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1 XHLT placed in the corpus"
+
+[[member]]
+sig = "XRNK"
+name = "FactionRank"
+type = "i32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8500-L8500"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "14 XRNK placed in the corpus, 1 more out of member order (kept raw)"
+
+[[member]]
+sig = "XESP"
+name = "EnableParent"
+type = "ref:EnableParent"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8521-L8521"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3892-L3899",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,910 XESP placed in the corpus, 3 more out of member order (kept raw)"
+
+[[member]]
+sig = "XOWN"
+name = "Owner"
+type = "ref:OwnerData"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8500-L8500"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "81 XOWN placed in the corpus"
+
+[[member]]
+sig = "XIS2"
+name = "IgnoredBySandbox"
+type = "empty"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8496-L8496"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "13 XIS2 placed in the corpus"
+
+[[member]]
+sig = "XSCL"
+name = "Scale"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8523-L8523"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3194-L3194",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "60 XSCL placed in the corpus"
+
+[[member]]
+sig = "XEZN"
+name = "LocationOverride"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8501-L8501"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "3 XEZN placed in the corpus"
+
+[[member]]
+sig = "XGDS"
+name = "Xgds"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8513-L8513"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "meaning unknown in xEdit for ACHR; 1 XGDS placed in the corpus"
+
+[[member]]
+sig = "DATA"
+name = "Placement"
+type = "ref:PositionRotation"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8524-L8524"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6765",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 14,731 ACHR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "position, then rotation; 14,726 DATA placed in the corpus"
+
+[[member]]
+sig = "MNAM"
+name = "Comments"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8525-L8525"
+confidence = "reference"
+note = "not in any official ACHR"

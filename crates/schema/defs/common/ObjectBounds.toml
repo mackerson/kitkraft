@@ -8,7 +8,8 @@
 #     every payload is 24 bytes.
 #
 # The field names match the inline OBND layout of the weapon family (lane B round 3), so the
-# two can share this type later.
+# two can share this type later. Integrated (M4.BX1): each corner is the shared Vec3 (the same
+# vector helper, L6725-L6740) instead of an inline three-float struct; member paths unchanged.
 name = "ObjectBounds"
 kind = "type"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"
@@ -19,14 +20,6 @@ evidence = [
 confidence = "corpus"
 type = "struct"
 field = [
-  { name = "Min", type = "struct", field = [
-    { name = "X", type = "f32" },
-    { name = "Y", type = "f32" },
-    { name = "Z", type = "f32" },
-  ] },
-  { name = "Max", type = "struct", field = [
-    { name = "X", type = "f32" },
-    { name = "Y", type = "f32" },
-    { name = "Z", type = "f32" },
-  ] },
+  { name = "Min", type = "ref:Vec3" },
+  { name = "Max", type = "ref:Vec3" },
 ]

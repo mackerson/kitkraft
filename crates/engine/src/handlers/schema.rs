@@ -749,10 +749,10 @@ mod tests {
         let grup = data(json!({"type": "GRUP"}));
         assert_eq!(grup["kind"], "header");
         assert_eq!(grup["size"], 24);
-        // ARMO has no definition yet (REFR has an lstring-only one since M3.B8).
-        let refr = execute("schema", json!({"type": "ARMO"})).unwrap();
-        assert_eq!(refr["data"]["defined"], false);
-        assert!(refr["limitations"]
+        // LAND has no definition (REFR is typed by the world family since M4).
+        let land = execute("schema", json!({"type": "LAND"})).unwrap();
+        assert_eq!(land["data"]["defined"], false);
+        assert!(land["limitations"]
             .to_string()
             .contains("unknown (not absent)"));
         let err = execute("schema", json!({"type": "WEAP", "member": "NOPE"})).unwrap_err();
