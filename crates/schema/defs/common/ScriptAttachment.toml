@@ -1,0 +1,32 @@
+# ScriptAttachment: the VMAD payload, the Papyrus scripts attached to a form with their
+# property values, followed on quests, dialogue responses, scenes and packages by script
+# fragments. Records use it as an optional `sig = "VMAD"` member of
+# `type = "ref:ScriptAttachment"`.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L3393-L3411 - the plain script data: a signed
+#     16-bit version, a signed 16-bit object format, then the script list with a 16-bit
+#     count. L3413-L3583 - the record-specific variants (INFO, PACK, PERK, QUST, SCEN): the
+#     same three leading fields, then a fragment block after the script list.
+#   corpus: not yet checked (raised by the record types that carry VMAD in the corpus).
+#
+# What stays opaque, and why: each script entry holds properties whose value layout the
+# property's type byte selects (object, string, integers, floats, booleans, structs and
+# arrays of each), a union decided by a sibling field that the format cannot express; the
+# fragment block that follows differs per record type and repeats script entries. So
+# everything after the script count is kept as raw bytes (lossless). Raw FormIDs inside
+# object properties stay raw and are not visited.
+name = "ScriptAttachment"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3413-L3583",
+]
+confidence = "reference"
+type = "struct"
+field = [
+  { name = "Version", type = "i16", note = "observed 6" },
+  { name = "ObjectFormat", type = "i16", note = "observed 2" },
+  { name = "ScriptCount", type = "u16", note = "number of script entries at the start of Data" },
+  { name = "Data", type = "opaque", note = "script entries (name, flags, properties) and, on QUST, INFO, PACK and SCEN, the fragment block; property values are unions by property type, kept raw" },
+]

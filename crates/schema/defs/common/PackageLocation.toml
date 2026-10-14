@@ -1,0 +1,46 @@
+# PackageLocation: a location an AI package or a vendor refers to (FACT PLVD, PACK PLDT and
+# the location procedure inputs): what kind of place it is, the value that names it, a
+# radius and a collection index.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L3710-L3742 - the four fields, their widths and
+#     order, and that the last field is optional upstream. L3657-L3674 - the location type
+#     enumeration (values 15 and 16 are unnamed upstream and stay unnamed here).
+#   corpus: PLVD in the FACT records of the 14 official ESMs (2026-10-14 scan): all 80 are
+#     16 bytes, the sum of the field widths below, and decode and re-encode identically.
+#
+# What stays opaque, and why: the 4-byte value is a union selected by the location type
+# (a reference, a cell, an object, an object type code, a keyword, an alias index, ...);
+# the format cannot express a union decided by a sibling field, so it is kept as its raw
+# 4 bytes (lossless). A FormID inside it stays raw and is not visited.
+name = "PackageLocation"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3710-L3742"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3657-L3674",
+  "corpus: the 80 PLVD in the FACT records of the 14 official ESMs, 2026-10-14 scan: all 16 bytes, every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Type", type = "enum", base = "i32", values = [
+    ["NearReference", 0],
+    ["InCell", 1],
+    ["NearPackageStartLocation", 2],
+    ["NearEditorLocation", 3],
+    ["ObjectId", 4],
+    ["ObjectType", 5],
+    ["NearLinkedReference", 6],
+    ["AtPackageLocation", 7],
+    ["ReferenceAlias", 8],
+    ["LocationAlias", 9],
+    ["Target", 10],
+    ["TargetLocation", 11],
+    ["NearSelf", 12],
+    ["NearEditorLocationCell", 13],
+    ["RefCollectionAlias", 14],
+  ] },
+  { name = "Value", type = "opaque", size = 4, note = "union selected by Type: a reference, cell, object or keyword FormID, an object type code or an alias index" },
+  { name = "Radius", type = "f32" },
+  { name = "CollectionIndex", type = "u32", note = "optional upstream; present in every official occurrence" },
+]
