@@ -72,7 +72,8 @@ fn shared_definitions_are_emitted_once() {
 #[test]
 fn colliding_type_names_are_errors() {
     // A struct member named `Record` would produce `TestRecord`, the record type itself.
-    let text = "signature = \"TEST\"\nname = \"Test\"\nsource = \"corpus: t\"\n\
+    let text =
+        "signature = \"TEST\"\nname = \"Test\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
                 [[member]]\nsig = \"DATA\"\nname = \"Record\"\ntype = \"struct\"\n\
                 field = [{ name = \"A\", type = \"u8\" }]\n";
     let schema = load_sources([("TEST.toml", text)]).unwrap();
@@ -84,7 +85,7 @@ fn colliding_type_names_are_errors() {
 
 #[test]
 fn prelude_names_are_reserved() {
-    let text = "name = \"Sub\"\nkind = \"type\"\nsource = \"corpus: t\"\ntype = \"struct\"\n\
+    let text = "name = \"Sub\"\nkind = \"type\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\ntype = \"struct\"\n\
                 field = [{ name = \"A\", type = \"u8\" }]\n";
     let schema = load_sources([("common/Sub.toml", text)]).unwrap();
     assert_eq!(generate(&schema), Err(CodegenError::Reserved("Sub".into())));
@@ -92,7 +93,7 @@ fn prelude_names_are_reserved() {
 
 #[test]
 fn schema_without_records_has_no_dispatch() {
-    let text = "signature = \"HDR0\"\nname = \"Hdr\"\nkind = \"header\"\nsource = \"corpus: t\"\n\
+    let text = "signature = \"HDR0\"\nname = \"Hdr\"\nkind = \"header\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
                 size = 4\nfield = [{ name = \"Size\", type = \"u32\" }]\n";
     let schema = load_sources([("HDR0.toml", text)]).unwrap();
     let generated = generate(&schema).unwrap();

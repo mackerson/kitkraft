@@ -5,6 +5,7 @@
 signature = "YYYY"
 name = "Synthetic2"
 source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
 
 [[member]]
 group = "Head"

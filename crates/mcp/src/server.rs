@@ -8,16 +8,22 @@
 //!   `-32602`, an unsupported version `-32022` with the supported list. `server/discover`
 //!   returns versions, capabilities and identity. Results carry `resultType: "complete"`
 //!   and `_meta["io.modelcontextprotocol/serverInfo"]`; list and read results carry
-//!   `ttlMs`/`cacheScope`.
-//! - **Legacy** (`2025-11-25` back to `2024-11-05`): `initialize` negotiates the version
-//!   (the client's if we know it, else `2025-11-25`), then `notifications/initialized`,
+//!   `ttlMs`/`cacheScope`. `initialize` and `ping` do not exist in this era (`-32601`).
+//! - **Legacy** (`2025-11-25`, `2025-06-18`): `initialize` negotiates the version (the
+//!   client's if we know it, else `2025-11-25`), then `notifications/initialized`,
 //!   `ping`, and the same `tools/*` and `resources/*` methods. Requests before
-//!   `initialize` are served too (lenient; nothing depends on the handshake).
+//!   `initialize` are served too (lenient; nothing depends on the handshake). A request
+//!   whose `_meta` names one of these versions is served as legacy. `2025-03-26` and
+//!   `2024-11-05` are not offered: they require JSON-RPC batches, which this server
+//!   refuses (`-32600`); a client asking for them is offered `2025-11-25`.
+//!
+//! Every version served is listed in `server/discover`'s `supportedVersions` and in a
+//! `-32022` error's `supported`, newest first.
 //!
 //! Methods: `server/discover`, `initialize`, `ping`, `tools/list`, `tools/call`,
 //! `resources/list`, `resources/read`, `resources/templates/list`; notifications are
 //! accepted and never answered. Malformed JSON is `-32700`, a non-request `-32600`, an
-//! unknown method `-32601`, bad params `-32602`. A line longer than
+//! unknown method (or one the request's era lacks) `-32601`, bad params `-32602`. A line longer than
 //! [`MAX_MESSAGE_BYTES`] is refused (`-32600`) without buffering it. Nothing here
 //! panics on input.
 //!
@@ -36,8 +42,13 @@ use kitcraft_engine::Engine;
 pub const PROTOCOL_VERSION: &str = "2026-07-28";
 /// Modern revisions accepted in `_meta`.
 pub const MODERN_VERSIONS: &[&str] = &[PROTOCOL_VERSION];
-/// Handshake-era revisions accepted by `initialize`, newest first.
-pub const LEGACY_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05"];
+/// Handshake-era revisions accepted by `initialize`, newest first. Older revisions
+/// (`2025-03-26`, `2024-11-05`) require JSON-RPC batch support, which this server does
+/// not have, so a client asking for them is offered the first entry instead.
+pub const LEGACY_VERSIONS: &[&str] = &["2025-11-25", "2025-06-18"];
+/// Every revision this process serves, newest first: [`MODERN_VERSIONS`] then
+/// [`LEGACY_VERSIONS`] (`server/discover` and `-32022` name these).
+pub const SUPPORTED_VERSIONS: &[&str] = &[PROTOCOL_VERSION, "2025-11-25", "2025-06-18"];
 /// Longest accepted message line in bytes (without the newline).
 pub const MAX_MESSAGE_BYTES: usize = 8 * 1024 * 1024;
 
@@ -254,19 +265,21 @@ impl Server {
     }
 
     fn dispatch(&mut self, method: &str, params: &Value) -> Result<Value, RpcError> {
-        if method == "initialize" {
-            return self.initialize(params);
-        }
         let era = era_of(params)?;
         let result = match (method, era) {
+            ("initialize", Era::Legacy) => self.initialize(params),
             ("server/discover", Era::Modern) => Ok(self.discover()),
             ("server/discover", Era::Legacy) => Err(missing_meta(META_VERSION)),
-            ("ping", _) => Ok(json!({})),
+            ("ping", Era::Legacy) => Ok(json!({})),
             ("tools/list", _) => self.tools_list(params, era),
             ("tools/call", _) => self.tools_call(params),
             ("resources/list", _) => self.resources_list(params, era),
             ("resources/templates/list", _) => Ok(json!({ "resourceTemplates": [] })),
             ("resources/read", _) => self.resources_read(params, era),
+            ("initialize" | "ping", Era::Modern) => Err(RpcError::new(
+                code::METHOD_NOT_FOUND,
+                format!("method not found: {method} (not part of MCP {PROTOCOL_VERSION})"),
+            )),
             _ => Err(RpcError::new(
                 code::METHOD_NOT_FOUND,
                 format!("method not found: {method}"),
@@ -305,7 +318,7 @@ impl Server {
 
     fn discover(&self) -> Value {
         json!({
-            "supportedVersions": MODERN_VERSIONS,
+            "supportedVersions": SUPPORTED_VERSIONS,
             "capabilities": capabilities(),
             "instructions": self.instructions(),
             "ttlMs": STATIC_TTL_MS,
@@ -415,7 +428,8 @@ impl Server {
     }
 }
 
-/// The era of a request from its `_meta`, checking the modern required fields.
+/// The era of a request from its `_meta`, checking the modern required fields. No
+/// version, or a handshake-era one, is legacy.
 fn era_of(params: &Value) -> Result<Era, RpcError> {
     let meta = params.get("_meta").and_then(Value::as_object);
     let Some(version) = meta.and_then(|m| m.get(META_VERSION)) else {
@@ -427,11 +441,14 @@ fn era_of(params: &Value) -> Result<Era, RpcError> {
             format!("_meta[\"{META_VERSION}\"] must be a string"),
         ));
     };
+    if LEGACY_VERSIONS.contains(&version) {
+        return Ok(Era::Legacy);
+    }
     if !MODERN_VERSIONS.contains(&version) {
         return Err(RpcError {
             code: code::UNSUPPORTED_PROTOCOL_VERSION,
             message: "Unsupported protocol version".to_string(),
-            data: Some(json!({ "supported": MODERN_VERSIONS, "requested": version })),
+            data: Some(json!({ "supported": SUPPORTED_VERSIONS, "requested": version })),
         });
     }
     if !meta
@@ -575,7 +592,10 @@ fn read_frame<R: BufRead>(input: &mut R, max: usize) -> io::Result<Frame> {
 #[cfg(test)]
 #[allow(clippy::indexing_slicing)]
 mod tests {
-    use super::{read_frame, Frame, Server, LEGACY_VERSIONS, PROTOCOL_VERSION};
+    use super::{
+        read_frame, Frame, Server, LEGACY_VERSIONS, MODERN_VERSIONS, PROTOCOL_VERSION,
+        SUPPORTED_VERSIONS,
+    };
     use kitcraft_engine::Engine;
     use serde_json::{json, Value};
 
@@ -640,6 +660,63 @@ mod tests {
         assert_eq!(r["error"]["code"], -32602);
     }
 
+    /// The batch-era revisions are not offered: a client asking for them is answered
+    /// with our newest legacy revision, which has no batches.
+    #[test]
+    fn batch_era_versions_negotiate_to_the_newest_legacy_one() {
+        assert!(!LEGACY_VERSIONS.contains(&"2025-03-26"));
+        assert!(!LEGACY_VERSIONS.contains(&"2024-11-05"));
+        let mut s = server();
+        for (id, requested) in [(1, "2025-03-26"), (2, "2024-11-05")] {
+            let r = call(
+                &mut s,
+                legacy(id, "initialize", json!({"protocolVersion": requested})),
+            );
+            assert_eq!(r["result"]["protocolVersion"], "2025-11-25", "{requested}");
+        }
+        assert_eq!(s.negotiated_version(), Some("2025-11-25"));
+        // A batch is still refused.
+        let line = s
+            .handle_line(r#"[{"jsonrpc":"2.0","id":1,"method":"ping"}]"#)
+            .unwrap();
+        let reply: Value = serde_json::from_str(&line).unwrap();
+        assert_eq!(reply["error"]["code"], -32600);
+    }
+
+    #[test]
+    fn supported_versions_name_every_era() {
+        let expected: Vec<&str> = MODERN_VERSIONS
+            .iter()
+            .chain(LEGACY_VERSIONS)
+            .copied()
+            .collect();
+        assert_eq!(SUPPORTED_VERSIONS, expected.as_slice());
+        // A request whose _meta names a legacy version is served as legacy (no
+        // clientCapabilities needed, no modern result fields).
+        let mut s = server();
+        let msg = json!({"jsonrpc": "2.0", "id": 1, "method": "ping", "params": {"_meta": {
+            "io.modelcontextprotocol/protocolVersion": "2025-06-18"}}});
+        assert_eq!(call(&mut s, msg)["result"], json!({}));
+    }
+
+    /// `initialize` and `ping` belong to the handshake era: a modern request for either
+    /// is method-not-found, and an unsupported version is -32022 even for `initialize`.
+    #[test]
+    fn handshake_methods_are_legacy_only() {
+        let mut s = server();
+        let r = call(
+            &mut s,
+            modern(1, "initialize", json!({"protocolVersion": "2025-11-25"})),
+        );
+        assert_eq!(r["error"]["code"], -32601);
+        assert_eq!(s.negotiated_version(), None);
+        let msg = json!({"jsonrpc": "2.0", "id": 2, "method": "initialize", "params": {
+            "protocolVersion": "2025-11-25",
+            "_meta": {"io.modelcontextprotocol/protocolVersion": "1900-01-01",
+                      "io.modelcontextprotocol/clientCapabilities": {}}}});
+        assert_eq!(call(&mut s, msg)["error"]["code"], -32022);
+    }
+
     #[test]
     fn notifications_get_no_reply() {
         let mut s = server();
@@ -660,16 +737,12 @@ mod tests {
     }
 
     #[test]
-    fn ping_in_both_eras() {
+    fn ping_is_legacy_only() {
         let mut s = server();
         let r = call(&mut s, legacy(1, "ping", json!(null)));
         assert_eq!(r["result"], json!({}));
         let r = call(&mut s, modern(2, "ping", json!({})));
-        assert_eq!(r["result"]["resultType"], "complete");
-        assert_eq!(
-            r["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
-            "kitcraft"
-        );
+        assert_eq!(r["error"]["code"], -32601);
     }
 
     #[test]
@@ -677,7 +750,8 @@ mod tests {
         let mut s = server();
         let r = call(&mut s, modern(1, "server/discover", json!({})));
         let result = &r["result"];
-        assert_eq!(result["supportedVersions"], json!([PROTOCOL_VERSION]));
+        assert_eq!(result["supportedVersions"], json!(SUPPORTED_VERSIONS));
+        assert_eq!(result["supportedVersions"][0], PROTOCOL_VERSION);
         assert_eq!(result["resultType"], "complete");
         assert!(result["capabilities"]["tools"].is_object());
         assert!(result["ttlMs"].is_u64());
@@ -697,7 +771,7 @@ mod tests {
             "io.modelcontextprotocol/clientCapabilities": {}}}});
         let r = call(&mut s, msg);
         assert_eq!(r["error"]["code"], -32022);
-        assert_eq!(r["error"]["data"]["supported"], json!([PROTOCOL_VERSION]));
+        assert_eq!(r["error"]["data"]["supported"], json!(SUPPORTED_VERSIONS));
         assert_eq!(r["error"]["data"]["requested"], "1900-01-01");
 
         // Missing clientCapabilities: -32602.
@@ -829,7 +903,7 @@ mod tests {
             modern(
                 9,
                 "tools/call",
-                json!({"name": "execute", "arguments": {"command": "ba2.list", "args": {"archive": "A.ba2"}}}),
+                json!({"name": "execute", "arguments": {"command": "query", "args": {"type": "WEAP"}}}),
             ),
         );
         tool_error(&r, "not_implemented");

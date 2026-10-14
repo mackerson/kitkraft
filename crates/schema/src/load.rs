@@ -15,9 +15,9 @@ use std::path::Path;
 use serde::Deserialize;
 
 use crate::model::{
-    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Definition, FieldDef, FieldType,
-    GroupDef, HeaderDef, Member, NamedValue, RecordDef, Scalar, Schema, Signature, SubrecordDef,
-    VersionedSize,
+    AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
+    FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, Provenance, RecordDef, Scalar,
+    Schema, Signature, SubrecordDef, UnionVariant, VersionedSize,
 };
 use crate::names::{is_pascal_case, snake_case};
 
@@ -129,7 +129,7 @@ pub enum ErrorKind {
     },
     #[error("unknown confidence {0:?}: expected reference, corpus, ck-diff or verified")]
     UnknownConfidence(String),
-    #[error("`confidence` is required when a citation is {0} (ADR 0005 Amendment 2)")]
+    #[error("`confidence` is required {0} (ADR 0005 Amendment 2, M2.B1)")]
     MissingConfidence(&'static str),
     #[error("confidence {confidence:?} needs {needs} (ADR 0005 Amendment 2)")]
     UnsupportedConfidence {
@@ -155,6 +155,16 @@ pub enum ErrorKind {
     },
     #[error("shared definition {0:?} refers to itself")]
     RefCycle(String),
+    #[error("unknown union decider {0:?}: expected edid-prefix")]
+    UnknownDecider(String),
+    #[error("union variant key `when = {0:?}` must be one ASCII letter or digit")]
+    BadWhen(String),
+    #[error("`type = \"union\"` is only valid on a whole subrecord member, not inside a field, array or shared type")]
+    UnionPlacement,
+    #[error(
+        "a union with `decider = \"edid-prefix\"` needs an EDID subrecord member in the record"
+    )]
+    UnionWithoutEditorId,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -209,6 +219,22 @@ struct RawMember {
     field: Option<Vec<RawField>>,
     size_by_version: Option<Vec<RawVersionedSize>>,
     member: Option<Vec<RawMember>>,
+    source: Option<String>,
+    evidence: Option<Vec<String>>,
+    confidence: Option<String>,
+    decider: Option<String>,
+    variants: Option<Vec<RawVariant>>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RawVariant {
+    when: String,
+    name: String,
+    #[serde(rename = "type")]
+    ty: String,
+    targets: Option<Vec<String>>,
+    note: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -230,6 +256,36 @@ struct RawField {
     until: Option<u16>,
     if_remaining: Option<bool>,
     note: Option<String>,
+    source: Option<String>,
+    evidence: Option<Vec<String>>,
+    confidence: Option<String>,
+}
+
+/// The provenance keys a member or field may set (all optional; see [`provenance`]).
+struct ProvKeys<'a> {
+    source: Option<&'a String>,
+    evidence: Option<&'a Vec<String>>,
+    confidence: Option<&'a str>,
+}
+
+impl RawMember {
+    fn prov(&self) -> ProvKeys<'_> {
+        ProvKeys {
+            source: self.source.as_ref(),
+            evidence: self.evidence.as_ref(),
+            confidence: self.confidence.as_deref(),
+        }
+    }
+}
+
+impl RawField {
+    fn prov(&self) -> ProvKeys<'_> {
+        ProvKeys {
+            source: self.source.as_ref(),
+            evidence: self.evidence.as_ref(),
+            confidence: self.confidence.as_deref(),
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -520,11 +576,7 @@ impl Cx<'_, '_> {
 
 fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaError> {
     check_name(cx, &raw.name)?;
-    check_source(cx, &raw.source)?;
-    for note in &raw.evidence {
-        check_source(cx, note)?;
-    }
-    check_confidence(cx, &raw)?;
+    let prov = file_provenance(cx, &raw)?;
     let kind = raw.kind.as_deref().unwrap_or("record");
     if kind != "type" {
         reject_file_type_keys(cx, &raw, kind)?;
@@ -546,13 +598,24 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
                 None => Vec::new(),
             };
             let members = raw.member.unwrap_or_default();
-            let members = convert_members(cx, &members, "member")?;
+            let members = convert_members(cx, &members, "member", &prov)?;
             check_group_depth(cx, &members, 0)?;
+            let leaves = {
+                let mut out = Vec::new();
+                leaf_types(&members, &mut out);
+                out
+            };
+            let has_union = leaves
+                .iter()
+                .any(|(_, ty)| matches!(ty, FieldType::Union { .. }));
+            let edid = Signature::parse("EDID");
+            if has_union && !leaves.iter().any(|(sig, _)| Some(*sig) == edid) {
+                return Err(cx.err(ErrorKind::UnionWithoutEditorId));
+            }
             Ok(Definition::Record(RecordDef {
                 signature,
                 name: raw.name,
-                source: raw.source,
-                evidence: raw.evidence,
+                provenance: prov,
                 flags,
                 members,
                 note: raw.note,
@@ -592,7 +655,7 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
                 .field
                 .as_ref()
                 .ok_or_else(|| cx.err(ErrorKind::MissingKey("field")))?;
-            let fields = convert_fields(cx, fields)?;
+            let fields = convert_fields(cx, fields, &prov)?;
             let ty = FieldType::Struct { fields };
             check_size(cx, &ty, Some(size), &[])?;
             let FieldType::Struct { fields } = ty else {
@@ -601,8 +664,7 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
             Ok(Definition::Header(HeaderDef {
                 signature,
                 name: raw.name,
-                source: raw.source,
-                evidence: raw.evidence,
+                provenance: prov,
                 size,
                 fields,
                 note: raw.note,
@@ -620,7 +682,7 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
                     .member
                     .as_ref()
                     .ok_or_else(|| cx.err(ErrorKind::MissingKey("member")))?;
-                let members = convert_members(cx, raw_members, "member")?;
+                let members = convert_members(cx, raw_members, "member", &prov)?;
                 match members.first() {
                     None => return Err(cx.err(ErrorKind::Empty)),
                     Some(Member::AnyUntil(_)) => return Err(cx.err(ErrorKind::GroupStart)),
@@ -646,12 +708,11 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
                     size: raw.size,
                     field: raw.field.as_ref(),
                 };
-                CommonBody::Type(convert_type(cx, &spec, false)?)
+                CommonBody::Type(convert_type(cx, &spec, false, &prov)?)
             };
             Ok(Definition::Common(CommonDef {
                 name: raw.name,
-                source: raw.source,
-                evidence: raw.evidence,
+                provenance: prov,
                 body,
                 note: raw.note,
             }))
@@ -694,10 +755,11 @@ const XEDIT_PREFIX: &str = "xedit: ";
 
 /// The upstream xEdit revision every `xedit:` citation must name (ADR 0004). Changing it
 /// needs an ADR 0004 amendment and a re-check of every cited line range.
-const XEDIT_REVISION: &str = "9fb016884bec138ea6c7b872cec831537d464c3e";
+pub const XEDIT_REVISION: &str = "9fb016884bec138ea6c7b872cec831537d464c3e";
 
-/// The xEdit files the owner decision covers (ADR 0004).
-const XEDIT_FILES: &[&str] = &["wbDefinitionsSF1.pas"];
+/// The xEdit files the owner decision covers (ADR 0004; `wbDefinitionsCommon.pas` added
+/// by the owner on 2026-10-14 for the shared helpers the Starfield definitions invoke).
+pub const XEDIT_FILES: &[&str] = &["wbDefinitionsSF1.pas", "wbDefinitionsCommon.pas"];
 
 fn check_source(cx: &Cx<'_, '_>, text: &str) -> Result<(), SchemaError> {
     if !SOURCE_PREFIXES.iter().any(|p| text.starts_with(p)) {
@@ -725,7 +787,7 @@ fn check_source(cx: &Cx<'_, '_>, text: &str) -> Result<(), SchemaError> {
 fn check_xedit_citation(rest: &str) -> Result<(), &'static str> {
     let (file, rest) = rest.split_once('@').ok_or("missing `@<sha>`")?;
     if !XEDIT_FILES.contains(&file) {
-        return Err("the file must be wbDefinitionsSF1.pas");
+        return Err("the file must be wbDefinitionsSF1.pas or wbDefinitionsCommon.pas");
     }
     let (sha, lines) = rest.split_once('#').ok_or("missing `#L<start>-L<end>`")?;
     let is_hex = sha.len() == 40
@@ -758,44 +820,103 @@ fn line_number(text: &str) -> Result<u32, &'static str> {
     }
 }
 
-/// The `confidence` levels of ADR 0005 Amendment 2, weakest first.
-const CONFIDENCE_LEVELS: &[&str] = &["reference", "corpus", "ck-diff", "verified"];
+fn parse_confidence(cx: &Cx<'_, '_>, text: &str) -> Result<Confidence, SchemaError> {
+    Confidence::parse(text).ok_or_else(|| cx.err(ErrorKind::UnknownConfidence(text.to_owned())))
+}
 
-/// `confidence` is required when any citation is `xedit:`, optional otherwise, and when
-/// present the claimed level must be backed by matching citations; a `uesp-skyrim:` fact
-/// is never `reference` (ADR 0005 Amendment 2). Making it required for `uesp-skyrim:`
-/// citations waits until the container definitions carry it (`plan/STATUS.md`).
-fn check_confidence(cx: &Cx<'_, '_>, raw: &RawFile) -> Result<(), SchemaError> {
-    let cites = |prefix: &str| {
-        std::iter::once(&raw.source)
-            .chain(&raw.evidence)
-            .any(|c| c.starts_with(prefix))
-    };
-    let xedit = cites(XEDIT_PREFIX);
-    let skyrim = cites("uesp-skyrim: ");
-    let Some(level) = raw.confidence.as_deref() else {
-        if xedit {
-            return Err(cx.err(ErrorKind::MissingConfidence("`xedit:`")));
-        }
-        return Ok(());
-    };
-    if !CONFIDENCE_LEVELS.contains(&level) {
-        return Err(cx.err(ErrorKind::UnknownConfidence(level.to_owned())));
+/// The provenance of a definition file: `source` (required), `evidence`, and
+/// `confidence`, which every file must state (M2.B1; ADR 0005 Amendment 2 requires it on
+/// `xedit:` and `uesp-skyrim:` citations, and the project requires it everywhere so every
+/// member has a level to report).
+fn file_provenance(cx: &Cx<'_, '_>, raw: &RawFile) -> Result<Provenance, SchemaError> {
+    check_source(cx, &raw.source)?;
+    for note in &raw.evidence {
+        check_source(cx, note)?;
     }
+    let level = raw
+        .confidence
+        .as_deref()
+        .ok_or_else(|| cx.err(ErrorKind::MissingConfidence("on every definition file")))?;
+    let prov = Provenance {
+        source: raw.source.clone(),
+        evidence: raw.evidence.clone(),
+        confidence: parse_confidence(cx, level)?,
+    };
+    check_level(cx, &prov)?;
+    Ok(prov)
+}
+
+/// The effective provenance of a member or field. With its own `source`, the member
+/// states its own citations (`source` plus its own `evidence`) and must state its own
+/// `confidence`. Without one, it inherits `parent`'s source, adds its own `evidence` to
+/// the inherited evidence, and may raise or lower the inherited `confidence`. Whenever a
+/// key is set, the resulting level is checked against the resulting citations.
+fn provenance(
+    cx: &Cx<'_, '_>,
+    parent: &Provenance,
+    keys: &ProvKeys<'_>,
+) -> Result<Provenance, SchemaError> {
+    if keys.source.is_none() && keys.evidence.is_none() && keys.confidence.is_none() {
+        return Ok(parent.clone());
+    }
+    for note in keys
+        .source
+        .into_iter()
+        .chain(keys.evidence.into_iter().flatten())
+    {
+        check_source(cx, note)?;
+    }
+    let own_evidence = keys.evidence.cloned().unwrap_or_default();
+    let prov = match keys.source {
+        Some(source) => {
+            let level = keys.confidence.ok_or_else(|| {
+                cx.err(ErrorKind::MissingConfidence(
+                    "on a member or field with its own `source`",
+                ))
+            })?;
+            Provenance {
+                source: source.clone(),
+                evidence: own_evidence,
+                confidence: parse_confidence(cx, level)?,
+            }
+        }
+        None => {
+            let mut evidence = parent.evidence.clone();
+            evidence.extend(own_evidence);
+            let confidence = match keys.confidence {
+                Some(level) => parse_confidence(cx, level)?,
+                None => parent.confidence,
+            };
+            Provenance {
+                source: parent.source.clone(),
+                evidence,
+                confidence,
+            }
+        }
+    };
+    check_level(cx, &prov)?;
+    Ok(prov)
+}
+
+/// The claimed level must be backed by matching citations (the mechanical minimum of ADR
+/// 0004 "Constraints", kept by the owner approval of 2026-10-14), and a `uesp-skyrim:`
+/// fact is never `reference` (ADR 0005 Amendment 2).
+fn check_level(cx: &Cx<'_, '_>, prov: &Provenance) -> Result<(), SchemaError> {
+    let cites = |prefix: &str| prov.citations().any(|c| c.starts_with(prefix));
     let unsupported = |needs| {
         cx.err(ErrorKind::UnsupportedConfidence {
-            confidence: level.to_owned(),
+            confidence: prov.confidence.as_str().to_owned(),
             needs,
         })
     };
-    match level {
-        "reference" if !xedit => Err(unsupported("an `xedit:` citation")),
-        "reference" if skyrim => Err(unsupported(
+    match prov.confidence {
+        Confidence::Reference if !cites(XEDIT_PREFIX) => Err(unsupported("an `xedit:` citation")),
+        Confidence::Reference if cites("uesp-skyrim: ") => Err(unsupported(
             "no `uesp-skyrim:` citation (Skyrim facts need `corpus` or better)",
         )),
-        "corpus" if !cites("corpus: ") => Err(unsupported("a `corpus:` citation")),
-        "ck-diff" if !cites("ck-diff: ") => Err(unsupported("a `ck-diff:` citation")),
-        "verified" if !(cites("corpus: ") && cites("ck-diff: ")) => {
+        Confidence::Corpus if !cites("corpus: ") => Err(unsupported("a `corpus:` citation")),
+        Confidence::CkDiff if !cites("ck-diff: ") => Err(unsupported("a `ck-diff:` citation")),
+        Confidence::Verified if !(cites("corpus: ") && cites("ck-diff: ")) => {
             Err(unsupported("both a `corpus:` and a `ck-diff:` citation"))
         }
         _ => Ok(()),
@@ -858,6 +979,17 @@ fn cardinality(cx: &Cx<'_, '_>, card: Option<&str>) -> Result<Cardinality, Schem
     }
 }
 
+/// Every subrecord member's signature and type, groups expanded.
+fn leaf_types<'m>(members: &'m [Member], out: &mut Vec<(Signature, &'m FieldType)>) {
+    for member in members {
+        match member {
+            Member::Subrecord(s) => out.push((s.signature, &s.ty)),
+            Member::Group(g) => leaf_types(&g.members, out),
+            Member::AnyUntil(_) => {}
+        }
+    }
+}
+
 /// Names reserved in member lists: generated record structs have an `extra` field.
 const RESERVED_MEMBER_NAMES: &[&str] = &["Extra"];
 
@@ -878,13 +1010,14 @@ fn convert_members(
     cx: &mut Cx<'_, '_>,
     raw: &[RawMember],
     list: &str,
+    parent: &Provenance,
 ) -> Result<Vec<Member>, SchemaError> {
     if cx.depth() > MAX_DEPTH {
         return Err(cx.err(ErrorKind::TooDeep(MAX_DEPTH)));
     }
     let mut members = Vec::with_capacity(raw.len());
     for (i, m) in raw.iter().enumerate() {
-        let member = cx.scoped(format!("{list}[{i}]"), |cx| convert_member(cx, m))?;
+        let member = cx.scoped(format!("{list}[{i}]"), |cx| convert_member(cx, m, parent))?;
         members.push(member);
     }
     check_unique_names(cx, members.iter().map(Member::name), RESERVED_MEMBER_NAMES)?;
@@ -903,7 +1036,12 @@ fn convert_members(
     Ok(members)
 }
 
-fn convert_member(cx: &mut Cx<'_, '_>, m: &RawMember) -> Result<Member, SchemaError> {
+fn convert_member(
+    cx: &mut Cx<'_, '_>,
+    m: &RawMember,
+    parent: &Provenance,
+) -> Result<Member, SchemaError> {
+    let prov = provenance(cx, parent, &m.prov())?;
     let kinds = [
         m.sig.is_some(),
         m.group.is_some(),
@@ -919,11 +1057,17 @@ fn convert_member(cx: &mut Cx<'_, '_>, m: &RawMember) -> Result<Member, SchemaEr
         "count_from",
         "a member (only struct fields have siblings)",
     )?;
+    let is_union = m.sig.is_some() && m.ty.as_deref() == Some("union");
+    if !is_union {
+        let context = "a member that is not `type = \"union\"`";
+        reject(cx, m.decider.is_some(), "decider", context)?;
+        reject(cx, m.variants.is_some(), "variants", context)?;
+    }
     if let Some(group) = &m.group {
-        return convert_group(cx, group, m).map(Member::Group);
+        return convert_group(cx, group, m, prov).map(Member::Group);
     }
     if let Some(name) = &m.group_ref {
-        return convert_group_ref(cx, name, m).map(Member::Group);
+        return convert_group_ref(cx, name, m, prov).map(Member::Group);
     }
     if let Some(until) = &m.any_until {
         let until = signature(cx, until)?;
@@ -945,6 +1089,7 @@ fn convert_member(cx: &mut Cx<'_, '_>, m: &RawMember) -> Result<Member, SchemaEr
             name,
             until,
             note: m.note.clone(),
+            provenance: prov,
         }));
     }
     let sig_text = m.sig.as_deref().unwrap_or_default();
@@ -958,19 +1103,24 @@ fn convert_member(cx: &mut Cx<'_, '_>, m: &RawMember) -> Result<Member, SchemaEr
     let ty_text =
         m.ty.as_deref()
             .ok_or_else(|| cx.err(ErrorKind::MissingKey("type")))?;
-    let spec = TypeSpec {
-        ty: ty_text,
-        targets: m.targets.as_ref(),
-        count: m.count.as_ref(),
-        count_from: None,
-        element: m.element.as_deref(),
-        base: m.base.as_deref(),
-        values: m.values.as_ref(),
-        bits: m.bits.as_ref(),
-        size: m.size,
-        field: m.field.as_ref(),
+    let ty = if is_union {
+        reject_type_keys(cx, m, "a union member (variants carry their own types)")?;
+        convert_union(cx, m, &prov)?
+    } else {
+        let spec = TypeSpec {
+            ty: ty_text,
+            targets: m.targets.as_ref(),
+            count: m.count.as_ref(),
+            count_from: None,
+            element: m.element.as_deref(),
+            base: m.base.as_deref(),
+            values: m.values.as_ref(),
+            bits: m.bits.as_ref(),
+            size: m.size,
+            field: m.field.as_ref(),
+        };
+        convert_type(cx, &spec, true, &prov)?
     };
-    let ty = convert_type(cx, &spec, true)?;
     let mut size_by_version = Vec::new();
     for (i, v) in m.size_by_version.iter().flatten().enumerate() {
         cx.scoped(format!("size_by_version[{i}]"), |cx| {
@@ -993,7 +1143,70 @@ fn convert_member(cx: &mut Cx<'_, '_>, m: &RawMember) -> Result<Member, SchemaEr
         size: m.size,
         size_by_version,
         note: m.note.clone(),
+        provenance: prov,
     }))
+}
+
+/// `type = "union"` on a subrecord member: `decider` plus `variants`, each a `when` value,
+/// a name and a simple type (scalars, `formid` with `targets`, strings, `sig`, fixed
+/// opaque). Payloads no variant claims stay raw at decode time.
+fn convert_union(
+    cx: &mut Cx<'_, '_>,
+    m: &RawMember,
+    prov: &Provenance,
+) -> Result<FieldType, SchemaError> {
+    let decider = match m.decider.as_deref() {
+        Some("edid-prefix") => Decider::EditorIdPrefix,
+        Some(other) => return Err(cx.err(ErrorKind::UnknownDecider(other.to_owned()))),
+        None => return Err(cx.err(ErrorKind::MissingKey("decider"))),
+    };
+    let raw = m
+        .variants
+        .as_ref()
+        .ok_or_else(|| cx.err(ErrorKind::MissingKey("variants")))?;
+    if raw.is_empty() {
+        return Err(cx.err(ErrorKind::Empty));
+    }
+    let mut variants: Vec<UnionVariant> = Vec::with_capacity(raw.len());
+    for (i, v) in raw.iter().enumerate() {
+        let variant = cx.scoped(format!("variants[{i}]"), |cx| {
+            let when = match v.when.as_bytes() {
+                [b] if b.is_ascii_alphanumeric() => *b,
+                _ => return Err(cx.err(ErrorKind::BadWhen(v.when.clone()))),
+            };
+            if variants.iter().any(|seen| seen.when == when) {
+                return Err(cx.err(ErrorKind::DuplicateValue(i128::from(when))));
+            }
+            if v.ty == "union" || v.ty == "struct" || v.ty == "array" {
+                return Err(cx.err(ErrorKind::UnexpectedKey {
+                    key: "type",
+                    context: format!("a union variant (type {:?})", v.ty),
+                }));
+            }
+            let spec = TypeSpec {
+                ty: &v.ty,
+                targets: v.targets.as_ref(),
+                count: None,
+                count_from: None,
+                element: None,
+                base: None,
+                values: None,
+                bits: None,
+                size: None,
+                field: None,
+            };
+            let ty = convert_type(cx, &spec, false, prov)?;
+            Ok(UnionVariant {
+                when,
+                name: v.name.clone(),
+                ty,
+                note: v.note.clone(),
+            })
+        })?;
+        variants.push(variant);
+    }
+    check_unique_names(cx, variants.iter().map(|v| v.name.as_str()), &[])?;
+    Ok(FieldType::Union { decider, variants })
 }
 
 fn reject_type_keys(cx: &Cx<'_, '_>, m: &RawMember, context: &str) -> Result<(), SchemaError> {
@@ -1011,7 +1224,12 @@ fn reject_type_keys(cx: &Cx<'_, '_>, m: &RawMember, context: &str) -> Result<(),
     Ok(())
 }
 
-fn convert_group(cx: &mut Cx<'_, '_>, name: &str, m: &RawMember) -> Result<GroupDef, SchemaError> {
+fn convert_group(
+    cx: &mut Cx<'_, '_>,
+    name: &str,
+    m: &RawMember,
+    prov: Provenance,
+) -> Result<GroupDef, SchemaError> {
     for (present, key) in [
         (m.name.is_some(), "name"),
         (m.ty.is_some(), "type"),
@@ -1032,7 +1250,7 @@ fn convert_group(cx: &mut Cx<'_, '_>, name: &str, m: &RawMember) -> Result<Group
         .member
         .as_ref()
         .ok_or_else(|| cx.err(ErrorKind::MissingKey("member")))?;
-    let members = convert_members(cx, raw, "member")?;
+    let members = convert_members(cx, raw, "member", &prov)?;
     match members.first() {
         None => return Err(cx.err(ErrorKind::Empty)),
         Some(Member::AnyUntil(_)) => return Err(cx.err(ErrorKind::GroupStart)),
@@ -1044,6 +1262,7 @@ fn convert_group(cx: &mut Cx<'_, '_>, name: &str, m: &RawMember) -> Result<Group
         members,
         shared: None,
         note: m.note.clone(),
+        provenance: prov,
     })
 }
 
@@ -1053,6 +1272,7 @@ fn convert_group_ref(
     cx: &mut Cx<'_, '_>,
     shared: &str,
     m: &RawMember,
+    prov: Provenance,
 ) -> Result<GroupDef, SchemaError> {
     for (present, key) in [
         (m.ty.is_some(), "type"),
@@ -1077,10 +1297,15 @@ fn convert_group_ref(
         members,
         shared: Some(def.name),
         note: m.note.clone(),
+        provenance: prov,
     })
 }
 
-fn convert_fields(cx: &mut Cx<'_, '_>, raw: &[RawField]) -> Result<Vec<FieldDef>, SchemaError> {
+fn convert_fields(
+    cx: &mut Cx<'_, '_>,
+    raw: &[RawField],
+    parent: &Provenance,
+) -> Result<Vec<FieldDef>, SchemaError> {
     if cx.depth() > MAX_DEPTH {
         return Err(cx.err(ErrorKind::TooDeep(MAX_DEPTH)));
     }
@@ -1090,6 +1315,7 @@ fn convert_fields(cx: &mut Cx<'_, '_>, raw: &[RawField]) -> Result<Vec<FieldDef>
     let mut fields: Vec<FieldDef> = Vec::with_capacity(raw.len());
     for (i, f) in raw.iter().enumerate() {
         let field = cx.scoped(format!("field[{i}]"), |cx| {
+            let prov = provenance(cx, parent, &f.prov())?;
             version_range(cx, f.since, f.until)?;
             let spec = TypeSpec {
                 ty: &f.ty,
@@ -1103,7 +1329,7 @@ fn convert_fields(cx: &mut Cx<'_, '_>, raw: &[RawField]) -> Result<Vec<FieldDef>
                 size: f.size,
                 field: f.field.as_ref(),
             };
-            let ty = convert_type(cx, &spec, false)?;
+            let ty = convert_type(cx, &spec, false, &prov)?;
             if let FieldType::Array {
                 count: ArrayCount::From(source),
                 ..
@@ -1127,6 +1353,7 @@ fn convert_fields(cx: &mut Cx<'_, '_>, raw: &[RawField]) -> Result<Vec<FieldDef>
                 until: f.until,
                 if_remaining: f.if_remaining.unwrap_or(false),
                 note: f.note.clone(),
+                provenance: prov,
             })
         })?;
         fields.push(field);
@@ -1158,6 +1385,7 @@ fn convert_type(
     cx: &mut Cx<'_, '_>,
     spec: &TypeSpec<'_>,
     is_member: bool,
+    prov: &Provenance,
 ) -> Result<FieldType, SchemaError> {
     let context = format!("type {:?}", spec.ty);
     let allow = |cx: &Cx<'_, '_>, allowed: &[&str]| -> Result<(), SchemaError> {
@@ -1196,6 +1424,9 @@ fn convert_type(
             name: def.name,
             ty: Box::new(ty),
         });
+    }
+    if spec.ty == "union" {
+        return Err(cx.err(ErrorKind::UnionPlacement));
     }
     let ty = match spec.ty {
         "formid" => {
@@ -1262,7 +1493,7 @@ fn convert_type(
                 .field
                 .ok_or_else(|| cx.err(ErrorKind::MissingKey("field")))?;
             FieldType::Struct {
-                fields: convert_fields(cx, raw)?,
+                fields: convert_fields(cx, raw, prov)?,
             }
         }
         "array" => {
@@ -1318,7 +1549,7 @@ fn convert_type(
                 field: spec.field,
             };
             let element = cx.scoped("element".into(), |cx| {
-                convert_type(cx, &element_spec, false)
+                convert_type(cx, &element_spec, false, prov)
             })?;
             // Elements must be self-delimiting and consume at least one byte.
             if element.reads_to_end() || element.fixed_size(None) == Some(0) {

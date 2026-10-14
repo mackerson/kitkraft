@@ -1,0 +1,34 @@
+# UUUU: a synthetic record for the `union` type (M2.B9): payloads whose layout the
+# record's EditorID prefix selects, once and repeated, with FormID and lstring variants.
+signature = "UUUU"
+name = "Unioned"
+source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+
+[[member]]
+sig = "DATA"
+name = "Value"
+type = "union"
+decider = "edid-prefix"
+variants = [
+  { when = "f", name = "Float", type = "f32" },
+  { when = "i", name = "Int", type = "i32" },
+  { when = "s", name = "Text", type = "lstring" },
+  { when = "r", name = "Ref", type = "formid", targets = ["KYWD"] },
+]
+
+[[member]]
+sig = "LIST"
+name = "Items"
+type = "union"
+decider = "edid-prefix"
+card = "repeated"
+variants = [
+  { when = "f", name = "Small", type = "u8" },
+  { when = "r", name = "Form", type = "formid" },
+]

@@ -14,6 +14,7 @@
 name = "RecordHeader"
 kind = "header"
 source = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format"
+confidence = "corpus"
 evidence = ["corpus: header walk of 8 small official ESMs, 2026-10-14"]
 size = 24
 field = [

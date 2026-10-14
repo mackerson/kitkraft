@@ -15,6 +15,12 @@
 //! Compressed records are decompressed (bounded by the default `DecodeLimits`) unless
 //! `decode` is `false`; a record that fails to decompress is listed in
 //! `coverage.not_examined`, not fatal.
+//!
+//! Size controls (the totals always cover the whole plugin): `signatures: false` leaves
+//! out each type's per-signature list (`record_types[].signatures` is `null`), and
+//! `top: N` lists only the N record types with the most records. `signatures` has no
+//! schema default: absent means `true` here (the CLI), and the MCP server passes `false`
+//! unless the caller sets it, so an MCP call returns a summary by default.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -42,6 +48,15 @@ pub(crate) const COMPRESSED_SKIPPED: &str = "decode is off: compressed records a
 
 /// Decode failures listed one by one before the rest are summarized.
 const MAX_LISTED_FAILURES: usize = 20;
+
+/// What the result lists beyond the totals.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Listing {
+    /// Include `record_types[].signatures`.
+    signatures: bool,
+    /// List at most this many record types (most records first); `None` lists all.
+    top: Option<usize>,
+}
 
 /// How a subrecord signature relates to its record type's definition.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -242,6 +257,17 @@ impl Tally {
 pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     let plugin = str_arg(ID, args, "plugin")?;
     let decode = args.get("decode").and_then(Value::as_bool).unwrap_or(true);
+    let listing = Listing {
+        signatures: args
+            .get("signatures")
+            .and_then(Value::as_bool)
+            .unwrap_or(true),
+        // The schema bounds `top` to a non-negative integer; a count past `usize` lists all.
+        top: args
+            .get("top")
+            .and_then(Value::as_u64)
+            .map(|n| usize::try_from(n).unwrap_or(usize::MAX)),
+    };
     let path = Path::new(plugin);
     let schema = kitcraft_schema::builtin()
         .map_err(|e| failed(ID, format!("the builtin schema does not load: {e}")))?;
@@ -255,10 +281,24 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         Ok(())
     })
     .map_err(|e| failed(ID, format!("{plugin}: {e}")))?;
-    Ok(outcome(plugin, &file_name(path), bytes, decode, &walk))
+    Ok(outcome(
+        plugin,
+        &file_name(path),
+        bytes,
+        decode,
+        listing,
+        &walk,
+    ))
 }
 
-fn outcome(plugin: &str, file: &str, bytes: u64, decode: bool, walk: &Walk) -> Outcome {
+fn outcome(
+    plugin: &str,
+    file: &str,
+    bytes: u64,
+    decode: bool,
+    listing: Listing,
+    walk: &Walk,
+) -> Outcome {
     let mut types: Vec<(&[u8; 4], &TypeStats)> = walk.types.iter().collect();
     types.sort_by(|a, b| b.1.records.cmp(&a.1.records).then(a.0.cmp(b.0)));
 
@@ -272,7 +312,8 @@ fn outcome(plugin: &str, file: &str, bytes: u64, decode: bool, walk: &Walk) -> O
         subrecord: None,
     }];
     let mut defined = 0u64;
-    for (sig, stats) in &types {
+    let listed = listing.top.unwrap_or(usize::MAX).min(types.len());
+    for (index, (sig, stats)) in types.iter().enumerate() {
         let signature = Signature(**sig).to_string();
         let mut distinct = Tally::default();
         let mut type_occurrences = Tally::default();
@@ -295,6 +336,10 @@ fn outcome(plugin: &str, file: &str, bytes: u64, decode: bool, walk: &Walk) -> O
         occurrences.add(Class::Unknown, type_occurrences.unknown);
         if stats.schema.definition.is_some() {
             defined = defined.saturating_add(1);
+        }
+        if index >= listed {
+            // Counted in the totals above, not listed (nor its evidence).
+            continue;
         }
         let (offset, length, form) = stats.first;
         evidence.push(Evidence {
@@ -319,7 +364,7 @@ fn outcome(plugin: &str, file: &str, bytes: u64, decode: bool, walk: &Walk) -> O
                 "unknown": distinct.unknown,
             },
             "first_offset": offset,
-            "signatures": subs,
+            "signatures": if listing.signatures { Value::Array(subs) } else { Value::Null },
         }));
     }
 
@@ -340,6 +385,14 @@ fn outcome(plugin: &str, file: &str, bytes: u64, decode: bool, walk: &Walk) -> O
         if rest > 0 {
             not_examined.push(format!("{rest} more compressed records failed to decode"));
         }
+    }
+    let omitted = types.len().saturating_sub(listed);
+    if omitted > 0 {
+        limitations.push(format!(
+            "record_types lists the {listed} of {} record types with the most records (top); \
+             the totals cover all of them",
+            types.len()
+        ));
     }
     let complete = occurrences.opaque == 0 && occurrences.unknown == 0 && skipped == 0;
     let summary = format!(
@@ -367,6 +420,9 @@ fn outcome(plugin: &str, file: &str, bytes: u64, decode: bool, walk: &Walk) -> O
         "record_types_defined": defined,
         "subrecords": occurrences.total(),
         "occurrences": occurrences.json(),
+        "signatures": listing.signatures,
+        "top": listing.top,
+        "record_types_listed": listed,
         "record_types": list,
         "summary": summary,
     });
@@ -442,8 +498,9 @@ mod tests {
         assert_eq!(hedr["members"], json!(["Header"]));
         assert_eq!(hedr["first_record"], "TES4:00000000");
 
-        // WEAP: EDID twice (once from the compressed record), FULL and MODL opaque in the
-        // inventory definition; DNAM and DATA are not in it.
+        // WEAP: EDID twice (once from the compressed record) and FULL typed (universal
+        // subrecords, M2.B2), MODL opaque in the inventory definition; DNAM and DATA are
+        // not in it.
         let weap = find(types, "WEAP");
         assert_eq!(weap["definition"], "Weapon");
         assert_eq!(weap["records"], 2);
@@ -455,7 +512,7 @@ mod tests {
             (json!(1), json!(1))
         );
         assert_eq!(find(&weap["signatures"], "EDID")["count"], 2);
-        assert_eq!(find(&weap["signatures"], "EDID")["class"], "opaque");
+        assert_eq!(find(&weap["signatures"], "EDID")["class"], "typed");
         assert_eq!(find(&weap["signatures"], "MODL")["class"], "opaque");
         let dnam = find(&weap["signatures"], "DNAM");
         assert_eq!(dnam["class"], "unknown");
@@ -466,22 +523,22 @@ mod tests {
         );
         assert_eq!(
             weap["distinct"],
-            json!({"seen": 5, "typed": 0, "opaque": 3, "unknown": 2})
+            json!({"seen": 5, "typed": 2, "opaque": 1, "unknown": 2})
         );
         assert_eq!(
             weap["occurrences"],
-            json!({"typed": 0, "opaque": 4, "unknown": 2})
+            json!({"typed": 3, "opaque": 1, "unknown": 2})
         );
 
         // Totals and the envelope agree with the per-type counts.
         assert_eq!(data["subrecords"], 10);
         assert_eq!(
             data["occurrences"],
-            json!({"typed": 2, "opaque": 6, "unknown": 2})
+            json!({"typed": 7, "opaque": 1, "unknown": 2})
         );
         assert_eq!(result["coverage"]["status"], "partial");
-        assert_eq!(result["coverage"]["decoded_subrecords"], 2);
-        assert_eq!(result["coverage"]["opaque_subrecords"], 8);
+        assert_eq!(result["coverage"]["decoded_subrecords"], 7);
+        assert_eq!(result["coverage"]["opaque_subrecords"], 3);
         assert_eq!(result["coverage"]["not_examined"], json!([]));
         assert_eq!(result["limitations"], json!([BY_SIGNATURE]));
 
@@ -525,6 +582,65 @@ mod tests {
             result["limitations"],
             json!([BY_SIGNATURE, COMPRESSED_SKIPPED])
         );
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// `signatures: false` and `top` shrink the listing; the totals do not change.
+    #[test]
+    fn signatures_and_top_shrink_the_listing_not_the_totals() {
+        let path = testdata::write_temp("coverage-summary", &testdata::plugin());
+        let plugin = path.to_str().unwrap();
+        let full = execute("coverage", json!({"plugin": plugin})).unwrap();
+        assert_eq!(full["data"]["signatures"], true, "absent means true");
+        assert_eq!(full["data"]["top"], Value::Null);
+        assert_eq!(full["data"]["record_types_listed"], 3);
+        assert!(full["data"]["record_types"][0]["signatures"].is_array());
+
+        let summary = execute(
+            "coverage",
+            json!({"plugin": plugin, "signatures": false, "top": 1}),
+        )
+        .unwrap();
+        let data = &summary["data"];
+        for total in [
+            "records",
+            "subrecords",
+            "occurrences",
+            "record_types_seen",
+            "record_types_defined",
+            "summary",
+        ] {
+            assert_eq!(data[total], full["data"][total], "{total}");
+        }
+        assert_eq!(summary["coverage"], full["coverage"]);
+        assert_eq!(data["signatures"], false);
+        assert_eq!(data["top"], 1);
+        assert_eq!(data["record_types_listed"], 1);
+        let types = data["record_types"].as_array().unwrap();
+        assert_eq!(types.len(), 1);
+        assert_eq!(types[0]["signature"], "WEAP");
+        assert_eq!(types[0]["signatures"], Value::Null);
+        assert_eq!(
+            types[0]["occurrences"],
+            full["data"]["record_types"][0]["occurrences"]
+        );
+        // Evidence: the whole file and the one listed type.
+        assert_eq!(summary["evidence"].as_array().unwrap().len(), 2);
+        assert_eq!(
+            summary["limitations"],
+            json!([
+                BY_SIGNATURE,
+                "record_types lists the 1 of 3 record types with the most records (top); \
+                 the totals cover all of them"
+            ])
+        );
+
+        // top: 0 lists none; a top past the type count lists all without a limitation.
+        let none = execute("coverage", json!({"plugin": plugin, "top": 0})).unwrap();
+        assert_eq!(none["data"]["record_types"], json!([]));
+        let all = execute("coverage", json!({"plugin": plugin, "top": 99})).unwrap();
+        assert_eq!(all["data"]["record_types"], full["data"]["record_types"]);
+        assert_eq!(all["limitations"], json!([BY_SIGNATURE]));
         std::fs::remove_file(&path).unwrap();
     }
 

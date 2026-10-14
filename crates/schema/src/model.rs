@@ -71,6 +71,70 @@ impl Cardinality {
     }
 }
 
+/// How far a fact has been checked (ADR 0005 Amendment 2, with the owner's semantics of
+/// 2026-10-14). Ordered weakest first.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub enum Confidence {
+    /// Documented in an allowed source (today: xEdit at the pinned revision), not yet
+    /// observed in a fixture.
+    Reference,
+    /// Observed in a local fixture: sizes, counts and order agree with every occurrence
+    /// in the 14 official ESMs (or in our synthetic plugins).
+    Corpus,
+    /// Checked against the Creation Kit's own output (differential observation).
+    CkDiff,
+    /// Independently validated: both `corpus` and `ck-diff`.
+    Verified,
+}
+
+impl Confidence {
+    /// Every level, weakest first.
+    pub const ALL: [Confidence; 4] = [Self::Reference, Self::Corpus, Self::CkDiff, Self::Verified];
+
+    /// The TOML spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Reference => "reference",
+            Self::Corpus => "corpus",
+            Self::CkDiff => "ck-diff",
+            Self::Verified => "verified",
+        }
+    }
+
+    /// Parses the TOML spelling.
+    pub fn parse(text: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|c| c.as_str() == text)
+    }
+}
+
+impl fmt::Display for Confidence {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+/// Where a definition, member or field comes from and how far it has been checked.
+///
+/// Every node of the model carries its *effective* provenance: a member or field without
+/// its own `source`/`evidence`/`confidence` keys inherits its parent's (the record, header
+/// or shared definition file, then the enclosing member). Members expanded from a shared
+/// definition keep that definition's provenance, not the referencing record's.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Provenance {
+    /// The primary source, in an ADR 0005 form (see [`crate::SOURCE_PREFIXES`]).
+    pub source: String,
+    /// Further citations, same forms.
+    pub evidence: Vec<String>,
+    pub confidence: Confidence,
+}
+
+impl Provenance {
+    /// The source followed by the evidence.
+    pub fn citations(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.source.as_str()).chain(self.evidence.iter().map(String::as_str))
+    }
+}
+
 /// Fixed-size little-endian scalar types.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Scalar {
@@ -220,6 +284,40 @@ pub enum FieldType {
     Empty,
     /// A shared type from `defs/common/` (`type = "ref:Name"`), resolved at load time.
     Ref { name: String, ty: Box<FieldType> },
+    /// A whole-subrecord payload whose layout is chosen by `decider` (a discriminated
+    /// union). A payload no variant claims stays raw.
+    Union {
+        decider: Decider,
+        variants: Vec<UnionVariant>,
+    },
+}
+
+/// What selects the variant of a [`FieldType::Union`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Decider {
+    /// The first byte of the record's first `EDID` payload (`decider = "edid-prefix"`).
+    EditorIdPrefix,
+}
+
+impl Decider {
+    /// The TOML spelling.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::EditorIdPrefix => "edid-prefix",
+        }
+    }
+}
+
+/// One layout of a [`FieldType::Union`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnionVariant {
+    /// The decider value that selects this layout (for `edid-prefix`, one ASCII letter or
+    /// digit, compared exactly).
+    pub when: u8,
+    /// PascalCase name, unique in the union.
+    pub name: String,
+    pub ty: FieldType,
+    pub note: Option<String>,
 }
 
 impl FieldType {
@@ -252,6 +350,11 @@ impl FieldType {
             Self::Opaque { size } => *size,
             Self::Empty => Some(0),
             Self::Ref { ty, .. } => ty.fixed_size(form_version),
+            Self::Union { variants, .. } => {
+                let mut sizes = variants.iter().map(|v| v.ty.fixed_size(form_version));
+                let first = sizes.next()??;
+                sizes.all(|s| s == Some(first)).then_some(first)
+            }
         }
     }
 
@@ -269,6 +372,7 @@ impl FieldType {
                 .last()
                 .is_some_and(|f| f.if_remaining || f.ty.reads_to_end()),
             Self::Ref { ty, .. } => ty.reads_to_end(),
+            Self::Union { variants, .. } => variants.iter().any(|v| v.ty.reads_to_end()),
             Self::Scalar(_)
             | Self::FormId { .. }
             | Self::Sig
@@ -329,6 +433,8 @@ pub struct FieldDef {
     /// trailing field that some occurrences omit). Always the last field.
     pub if_remaining: bool,
     pub note: Option<String>,
+    /// Effective provenance (own keys, else the enclosing member's or definition's).
+    pub provenance: Provenance,
 }
 
 impl FieldDef {
@@ -362,6 +468,8 @@ pub struct SubrecordDef {
     /// Declared sizes per form-version range, for layouts that change between versions.
     pub size_by_version: Vec<VersionedSize>,
     pub note: Option<String>,
+    /// Effective provenance (own keys, else the enclosing group's or definition's).
+    pub provenance: Provenance,
 }
 
 /// A run of consecutive subrecords that belong together (a master and its size, a
@@ -375,6 +483,9 @@ pub struct GroupDef {
     /// emits a shared group's type once, under this name.
     pub shared: Option<String>,
     pub note: Option<String>,
+    /// Effective provenance of the group's place in its list (own keys, else inherited).
+    /// The members of a shared group keep the shared definition's provenance.
+    pub provenance: Provenance,
 }
 
 /// Any number of subrecords of any signature, kept as raw bytes, up to (not including)
@@ -384,6 +495,8 @@ pub struct AnyUntilDef {
     pub name: String,
     pub until: Signature,
     pub note: Option<String>,
+    /// Effective provenance (own keys, else inherited).
+    pub provenance: Provenance,
 }
 
 /// An entry in a record's (or group's) ordered member list.
@@ -420,10 +533,8 @@ pub struct RecordDef {
     pub signature: Signature,
     /// PascalCase name.
     pub name: String,
-    /// Where the facts come from, in an ADR 0005 form (see [`crate::SOURCE_PREFIXES`]).
-    pub source: String,
-    /// Further provenance notes.
-    pub evidence: Vec<String>,
+    /// Where the facts come from and how far they are checked; members inherit it.
+    pub provenance: Provenance,
     /// Named record-header flag bits that apply to this record type.
     pub flags: Vec<NamedValue>,
     pub members: Vec<Member>,
@@ -469,8 +580,8 @@ pub struct HeaderDef {
     pub signature: Option<Signature>,
     /// PascalCase name; also the generated type name.
     pub name: String,
-    pub source: String,
-    pub evidence: Vec<String>,
+    /// Where the facts come from and how far they are checked; fields inherit it.
+    pub provenance: Provenance,
     /// Total header size in bytes; equals the sum of `fields`.
     pub size: u32,
     pub fields: Vec<FieldDef>,
@@ -491,8 +602,9 @@ pub enum CommonBody {
 pub struct CommonDef {
     /// PascalCase name; also the generated type name.
     pub name: String,
-    pub source: String,
-    pub evidence: Vec<String>,
+    /// Where the facts come from and how far they are checked; members and fields
+    /// inherit it wherever the definition is expanded.
+    pub provenance: Provenance,
     pub body: CommonBody,
     pub note: Option<String>,
 }

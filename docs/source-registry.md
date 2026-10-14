@@ -60,6 +60,19 @@ G archives, scripts, strings (`plan/execution-plan.md`).
 | CK-WIKI | <https://www.creationkit.com/> | Not checked; prose never copied | permitted-reference | B | Level 4: names and meanings in our own words. Cite `ck-wiki:`. Under maintenance per CK-HELP |
 | CORPUS | The 14 official ESMs on this machine (`corpus/manifest.toml`) and our synthetic plugins | Bethesda data, read in place, never committed | permitted-reference | A, B, D, E | Level 3. Cite `corpus:` |
 
+## Sources for archives, scripts and strings (ADR 0006)
+
+| Key | Source URL | License | Our status | Lanes it serves | Notes |
+| --- | ---------- | ------- | ---------- | --------------- | ----- |
+| OURS-SCRIPTS | `C:\Modding\scripts` (`ba2x.py`, `pexdis.py`, `pexgrep.py`) | Ours (ADR 0001 provenance note) | permitted-reference | G | The reference implementation for GNRL reading and the `.pex` layout and text format. Cite `ours: <script>`. Corrected where the corpus disagrees (`pexdis.py` struct layout, `crates/pex`) |
+| CORPUS-ARCHIVES | The 90 official `.ba2` archives under `KITCRAFT_DATA_DIR`, the string tables and `.pex` scripts inside them, `Tools\ContentResources.zip` (`Scripts\Source`) | Bethesda data, read in place, never committed | permitted-reference | G | Level 1 for lane G: every BA2, `.pex` and string-table fact. Cite `corpus:`; inventories in `docs/corpus.md` ("Archives") |
+| ARCHIVE2 | `Tools\Archive2\Archive2.exe` (1.2.0.1) | Bethesda proprietary | external-oracle-only (run, never read) | G | Differential extraction and opening our archives; also the source of the DDS header choices `crates/ba2/src/dds.rs` copies. Never disassembled; output in temp dirs only |
+| PAPYRUS-COMPILER | `Tools\Papyrus Compiler\PapyrusCompiler.exe` (4.7.0.5), `PapyrusAssembler.exe` | Bethesda proprietary | external-oracle-only (run, never read) | G | Wrapped by `papyrus.compile`; never passed `-release`/`-final`. Never disassembled |
+| MS-DDS | <https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide> (`DDS_HEADER`, `DDS_PIXELFORMAT`, `DDS_HEADER_DXT10`, `DXGI_FORMAT`) | Microsoft documentation | permitted-reference | G | DDS header structure and DXGI format sizes. Cite `ms-docs: <page>` |
+| UESP-STRINGS | <https://en.uesp.net/wiki/Skyrim_Mod:String_Table_File_Format> | CC BY-SA 2.5 | permitted-reference | G, D | Hypothesis for the string-table layout, confirmed on all 378 official tables. Cite `uesp-skyrim:` |
+| BA2-IMPLEMENTATIONS | Bethesda Archive Extractor, BSArch, xEdit's `wbBSArchive.pas`, archive crates | Various | forbidden | - | Other implementations of the format are not read (ADR 0006 §2); BSArch may be listed under BML-TOOLS but is not consulted |
+| PEX-DECOMPILERS | Champollion and other `.pex` decompilers or disassemblers | Various | forbidden | - | Not read (ADR 0006 §2) |
+
 ## Evidence grades
 
 Claims drawn from any row are graded A (upstream code, official tool output, reproducible

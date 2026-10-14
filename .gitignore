@@ -33,3 +33,4 @@ desktop.ini
 
 # Live MCP client config (copy of .mcp.json.example with local paths); never committed
 /.mcp.json
+/bin/

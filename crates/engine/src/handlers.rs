@@ -4,13 +4,16 @@
 //! add it to [`defaults`]. Flip the catalog `status` to `Implemented` only when the
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
+mod ba2;
 mod conflicts;
 mod coverage;
 mod diff;
 mod inspect;
 mod load;
+mod papyrus;
 mod query;
 mod roundtrip;
+mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
 
@@ -24,6 +27,13 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("roundtrip", Box::new(roundtrip::run)),
         ("coverage", Box::new(coverage::run)),
         ("diff", Box::new(diff::run)),
+        ("ba2.list", Box::new(ba2::list)),
+        ("ba2.extract", Box::new(ba2::extract)),
+        ("ba2.pack", Box::new(ba2::pack)),
+        ("strings.dump", Box::new(strings::dump)),
+        ("strings.merge", Box::new(strings::merge)),
+        ("papyrus.disasm", Box::new(papyrus::disasm)),
+        ("papyrus.compile", Box::new(papyrus::compile::run)),
     ]
 }
 

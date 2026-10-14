@@ -182,3 +182,13 @@ pub fn all_files(test: &str) -> Option<Vec<CorpusFile>> {
     let refs: Vec<&str> = names.iter().map(String::as_str).collect();
     files(test, &refs)
 }
+
+/// Peak working set of this process (Windows, via PowerShell), in bytes.
+pub fn peak_working_set() -> Option<u64> {
+    let script = format!("(Get-Process -Id {}).PeakWorkingSet64", std::process::id());
+    let out = std::process::Command::new("powershell")
+        .args(["-NoProfile", "-Command", &script])
+        .output()
+        .ok()?;
+    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
+}

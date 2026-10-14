@@ -138,7 +138,9 @@ is under "Next".
 - Lane F (M2.F1..F6, F8): `Engine` owns a `Session` (`SessionHandler`s registered in
   `handlers::session_defaults()`; typed slots; `Session::load_order` listing); stdio MCP
   server in `crates/mcp`, hand-written over `serde_json`, MCP 2026-07-28 plus the
-  handshake revisions 2025-11-25..2024-11-05; tools `execute`, `command_line`,
+  handshake revisions 2025-11-25 and 2025-06-18 (the batch-era 2025-03-26 and 2024-11-05
+  negotiate to 2025-11-25; every served version is in `server/discover` and `-32022`;
+  `ping`/`initialize` are legacy-only); tools `execute`, `command_line`,
   `inspect_record`, `query_records`, `diff_plugins`, `coverage`, `roundtrip` generated from
   the catalog; resources `kitcraft://commands`, `kitcraft://load-order`; argument and
   command errors as `isError` results, engine bugs `-32603` (`docs/mcp.md`); `kit mcp
@@ -147,6 +149,80 @@ is under "Next".
   answers `not_implemented` until M2.D11); `Status::Deferred { reason, milestone }` and
   the `catalog_closure` test (every `Planned` command must be listed in `PLANNED_IN_M2`
   with its owning M2 task; nothing is deferred yet because every command has an M2 owner).
+  Review round 2 (Fable, no blockers) fixed: `roundtrip --out` opens with `create_new`
+  unless `overwrite: true`, and `destructiveHint` is `true` on the tools that can write;
+  `coverage` gained `signatures` and `top`, and MCP defaults them to `false`/`20`
+  (`backend::MCP_DEFAULTS`; `Starfield.esm`: 18 KB instead of 695 KB, text leads with
+  `data.summary`); `execute` reports `unknown_command` before other violations and takes
+  `args: null` as `{}`; a `not_implemented` `--profile` preload stays out of the
+  instructions; `docs/mcp.md` states that paths are not confined to `KITCRAFT_DATA_DIR`.
+
+- Lane A, M2 (`crates/esm`): M2.A0 review round 3 follow-ups 1-10 (each with a
+  regression test); M2.A1 record index (`Starfield.esm` in 3.3 s release, 288 MiB peak;
+  counts equal the streaming parse on all 14 files); M2.A2 random access (1,000 seeded
+  `Starfield.esm` entries and every small-file record equal the streaming parse); M2.A5
+  plugin builder and streaming upsert (replacing one record of each small file changes
+  only that record and its ancestors' size fields; top-level group order checked against
+  all 14 files); M2.A6 record edit API (set, insert, remove; edited compressed corpus
+  records decompress to the edits, every other record keeps its bytes); M2.A3 typed decode
+  check in the driver (all 14 files: 13,168 typed records, 0 conflicts); M2.A4 `XXXX`
+  writer policy in `docs/corpus.md`. TES4 flag constants named from the pinned xEdit
+  definitions. Full release roundtrip at b27d0dc: 14/14 identical, 16.7 s, 1,394 MiB.
+
+- Lane B, M2 (`crates/schema`): **M2.B1** provenance on every node: `Provenance { source,
+  evidence, confidence }` on records, headers, shared definitions, members and fields
+  (members and fields may set their own keys or inherit); `confidence` required on every
+  file (so on every `uesp-skyrim:` citation too), ADR 0004 values; TES4/GRUP/RECORD say
+  `corpus`; loader accepts `wbDefinitionsCommon.pas` at the pin; `XEDIT_REVISION` and
+  `XEDIT_FILES` public. **M2.B2** universal subrecords typed with corpus evidence (scan of
+  all 14 ESMs: 265,346 EDID, 44,077 FULL and 16,434 DESC all 4 bytes, 110,383 KSIZ/KWDA
+  pairs consistent, 180,802 of 180,804 KWDA FormIDs resolve to KYWD): `EditorId`, `Name`,
+  `Description`, shared group `Keywords { Count, Forms }`; new inventory definitions for
+  AMMO, AMDL, COBJ, OMOD, ZOOM. **M2.B3** generated `form_ids()`/`form_ids_mut()`/
+  `lstrings()`/`lstrings_mut()` with member paths on every record and on `Record`, plus
+  `Record::extra()`. **M2.B9** GMST `DATA` as a union by EditorID prefix (new format
+  construct `type = "union"`, `decider = "edid-prefix"`: b/f/i/s/u), GLOB `FLTV` as `f32`;
+  KYWD bodies stay opaque (no readable source; `docs/gaps.md`). Corpus check through the
+  generated records: every AMDL (126), AMMO (154), COBJ (3,518), GLOB (3,319), GMST
+  (2,418), KYWD (6,965), OMOD (3,330), TES4 (14), WEAP (452) and ZOOM (141) record decodes
+  with an empty `extra` and re-encodes identical. `BUILTIN_DEFINITIONS` has a marked
+  generated region (answers lane C's request).
+
+- Lane G, M2.G0..G9 (`crates/ba2`, `crates/pex`, `crates/strings`; engine
+  `handlers/{ba2,papyrus,strings}.rs`), all checked 2026-10-14:
+  - G0: ADR 0006 (sources for BA2, `.pex`, string tables); `docs/source-registry.md` rows.
+  - G1-G3 `ba2`: GNRL/DX10 v2/v3 reader, zlib and LZ4-block codecs, DDS header synthesis,
+    deterministic packer. All 90 official archives list (1,763,906 entries; every
+    name/dir hash recomputes; 65 GNRL v2, 10 DX10 v2, 15 DX10 v3 LZ4); 100 seeded entries
+    per archive extract to their declared sizes (7,360 entries, 7.3 GB, 16 s release);
+    every texture's chunks equal its mip chain (`docs/corpus.md` "Archives").
+    **Archive2.exe 1.2.0.1 differential:** our extraction is byte-identical to Archive2's
+    for every entry of `Starfield - Textures01` (5,574) and `Textures05` (7,084, all 16
+    DXGI formats, 25 cube maps), `SFBGS004 - Textures` (18), `OldMars - Textures` (42),
+    `Starfield - Localization` (27), `Starfield - Misc` (4,753), `SFBGS004 - Main` (739).
+    Sample hash: `strings/starfield_en.strings` (1,542,583 bytes) SHA-256
+    `E18CADD47270CC7C0F37A33BDE9FE3B4049468CF94558379DA36356BB144951E` from ours, from
+    `ba2x.py`, and from Archive2. Archive2 opens our packed archives (Localization strings as
+    GNRL v2 and v3, OldMars textures as DX10 v2 and v3) and extracts every file
+    byte-identical to the input.
+  - G4: `ba2.list`, `ba2.extract`, `ba2.pack` `Implemented` (refuse writes under a game
+    Data dir).
+  - G5 `pex`: all 5,708 official scripts (Misc, SFBGS00D/047/050 Main, ShatteredSpace
+    Main01) parse to their last byte; **text equals `pexdis.py`'s on all 5,575 scripts
+    `pexdis.py` can read** (0 differ). `pexdis.py` fails on the other 133: it reads an
+    extra `u16` after each struct name; the corpus wins (ADR 0006), so `crates/pex` reads
+    structs without it.
+  - G6 `papyrus.disasm`, G7 `papyrus.compile` `Implemented`. PapyrusCompiler 4.7.0.5 run
+    on Scripts/Source from `Tools\ContentResources.zip`: DefaultAliasOnActivate,
+    DefaultCounterQuestA and the owner's noc patch scripts nocOutfitChangerQuest,
+    nocOutfitChangerContainer, SQ_Airlock_QuestScript, CS7_SpaceshipLandingQuestScript
+    compile through `kit papyrus compile` and `kit papyrus disasm` equals `pexdis.py` on
+    each (6 scripts). Never `-release`.
+  - G8 `strings`: all 378 official tables (13 archives, 9 languages) parse and rewrite
+    byte-identically. G9 `strings.dump`, `strings.merge` `Implemented`. Known string:
+    `strings/starfield_en.strings` ID `0x0002E469` = "Old Earth Hunting Rifle", the FULL
+    (`69E40200` at offset 21,546,047) of `Starfield.esm` WEAP `0021BBCD`
+    (`RussianHuntingRifle`).
 
 ## In progress
 
@@ -164,9 +240,12 @@ is under "Next".
      `--profile` preloading needs M2.D8).
   5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
      .mcp.json --allowedTools "mcp__kitcraft__*"`.
-- **M2.F9** waits for M2.A3 and M2.B1 on `main` (neither is there at fdd254e).
+- **M2.F9** waits for M2.A3 and M2.B1 on `main` (M2.B1 is in lane B's branch; the model
+  now carries `provenance.confidence` on every member).
 - **Lane B round 3** (M2.B4..B8, M2.B10): gate lifted by the owner approval of
-  2026-10-14; in progress in lane B's current worktree. OMOD (M2.B7) is in scope.
+  2026-10-14, but **blocked in the 2026-10-14 lane B session**: the session's permission
+  policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
+  WEAP). No layout was transcribed; see Blockers.
 
 ## Next
 
@@ -183,7 +262,7 @@ when M2 is broken down in `plan/execution-plan.md`.
 | edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
 | smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
 | container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
-| schema     | Round 3 (in progress): typed layouts from the pinned xEdit files (see below)                                   | `crates/schema` (lane B)                     |
+| schema     | Round 3 (blocked, see Blockers): typed layouts from the pinned xEdit files (see below)                         | `crates/schema` (lane B)                     |
 
 Lane B round 3 transcribes definitions from the pinned xEdit files (`xedit:` provenance,
 `confidence = "reference"` until the corpus confirms) in this priority: **WEAP, AMMO, PROJ,
@@ -193,7 +272,12 @@ definition is checked against every corpus occurrence before it moves to
 
 ## Blockers
 
-- None.
+- **Lane B round 3 needs the pinned xEdit files on disk.** Downloading
+  `Core/wbDefinitionsSF1.pas` and `Core/wbDefinitionsCommon.pas` at `9fb01688...` from
+  raw.githubusercontent.com (to the agent's target dir, outside version control) was denied
+  by the agent session's permission policy on 2026-10-14. The owner either allows that
+  fetch for the lane B agent, or places the two files (outside the repo) and names the
+  path. Until then M2.B4..B8 and M2.B10 cannot start.
 
 ## Open owner decisions
 
@@ -253,21 +337,14 @@ Agents append here when they need a change in a crate they do not own.
 - ~~Lane B -> owner / AGENTS.md maintainer: point AGENTS.md at ADR 0005 Amendment 1.~~
   Done 2026-10-14: AGENTS.md "Clean room" now states the Amendment 2 hierarchy, with UESP's
   Starfield pages at level 4.
-- **Policy -> lane B.** `confidence` is validated by the loader but not stored in the model
-  (the policy change was limited to `load.rs`). Add it to `RecordDef`/`HeaderDef`/`CommonDef`
-  so coverage can report it, and consider re-exporting the pinned revision for tools.
-  Then add `confidence = "corpus"` to `TES4`, `GRUP`, `RECORD` (their `corpus:` evidence
-  already claims it), make it required for `uesp-skyrim:` citations (ADR 0005 Amendment 2),
-  and rerun `cargo xtask codegen` (the defs hash changes). Not done in the policy change
-  because it would have touched `crates/esm/src/generated/`.
+- ~~**Policy -> lane B.** Store `confidence` in the model, `corpus` on TES4/GRUP/RECORD,
+  required on `uesp-skyrim:`, re-export the pin.~~ Done in M2.B1 (lane B branch):
+  `Provenance` on every node, `confidence` required on every file, `XEDIT_REVISION`.
 - **Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence` next to
   the source kind once the model carries it; `confidence = "reference"` values should surface as
   a `limitations[]` entry in `inspect`/`query` results.
-- **Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
-  `xedit:` citations: add it to `XEDIT_FILES` in `crates/schema/src/load.rs` (same pinned
-  SHA), update the error text, `crates/schema/tests/loader.rs` (a positive case for the
-  common file, the existing negative cases for other files) and `crates/schema/tests/defs.rs`,
-  and `crates/schema/defs/README.md`.
+- ~~**Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
+  `xedit:` citations.~~ Done in M2.B1 (loader, tests, README).
 - **Policy -> AGENTS.md / plan maintainer.** AGENTS.md "Clean room" ("Other xEdit files are
   not covered yet") and owner decision 2 ("extending the reference beyond
   `wbDefinitionsSF1.pas`"), ADR 0001 Amendment 1 (only the SF1 file), and
@@ -278,8 +355,21 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
-  signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
-  is a breaking change for `kit query`. Default: accept the rename when it happens.
+  signature (`Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
+  is a breaking change for `kit query`. Default: accept the rename when it happens. Done
+  for the universal subrecords in M2.B2: `Edid` is now `EditorId`, `Full` `Name`, `Desc`
+  `Description`, `Ksiz`/`Kwda` the group `Keywords { Count, Forms }`; GMST `Data` is
+  `Value`, GLOB `Fltv` is `Value`.
+- **Lane B -> lane A (FYI, done in lane B's branch).** The M2.B2 rename broke one line of
+  the bridge test (`gmst.edid` was opaque bytes); lane B changed it to
+  `gmst.editor_id ... == b"fFoo"` in `crates/esm/src/bridge.rs` so the gate stays green.
+  Generated API additions you may use: `Record::extra()`, the four visitors, and union
+  enums (`GmstValue`) decoded through `put_by_prefix` (a missing EDID keeps DATA raw).
+- **Lane B -> lane F / coverage owner (FYI, done in lane B's branch).** The engine coverage
+  test now counts EDID, FULL and GMST DATA as `typed` (expectations updated in
+  `crates/engine/src/handlers/coverage.rs`). For M2.F9: per-member confidence is
+  `SubrecordDef::provenance.confidence` (also on groups, fields, records); a union member
+  is `FieldType::Union`, not opaque.
 - **Lane F -> lanes D, E, G (session and catalog closure).** A handler that needs the
   load order is a `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` added to
   `handlers::session_defaults()` (stateless handlers stay in `defaults()`). Keep your
@@ -288,7 +378,87 @@ Agents append here when they need a change in a crate they do not own.
   When you flip a command to `Implemented`, removing its `PLANNED_IN_M2` line in
   `crates/engine/src/lib.rs` is optional (a stale entry only prints); a command you will
   not finish in M2 becomes `Status::Deferred { reason, milestone: "M3" }`.
-- **Lane C -> lane B.** `cargo xtask codegen` can own `BUILTIN_DEFINITIONS` once
-  `crates/schema/src/lib.rs` marks a generated region for it (for example
-  `// BEGIN generated by cargo xtask codegen` / `// END`); until then
-  `tests/defs.rs` is the guard and xtask leaves the file alone.
+- **Lane G -> lane D (M2.G8 landed; for M2.D7).** `kitcraft-strings` API:
+  - `Kind::{Strings, DlStrings, IlStrings}`, `Kind::from_path(&Path)`,
+    `Kind::from_extension(&str)`, `kind.extension()`;
+    `table_name("Starfield.esm", "en", Kind::Strings) == "starfield_en.strings"`.
+  - `Table::parse(kind, &bytes) -> Result<Table, Error>`, `Table::read_file(&Path)`;
+    `table.get(id: u32) -> Option<&Entry>`; `Entry { id, bytes, offset: Option<u64> }`
+    with `entry.text() -> Cow<str>` (lossy UTF-8), `entry.is_utf8()`,
+    `entry.stored_len(kind)`; `offset` is the absolute offset in the table file (evidence).
+    `Error` variants carry byte offsets.
+  - Tables in archives: `kitcraft_ba2::Archive::open(&path) -> (Archive, File)`,
+    `archive.find("strings/starfield_en.strings") -> Option<usize>` (case-insensitive,
+    either separator), `archive.extract_vec(&mut file, index)`. Corpus: base-game tables are
+    in `Starfield - Localization.ba2`; the DLC and Creation tables are in
+    `<Plugin> - Localization.ba2` or `<Plugin> - Main.ba2`; names are lower-case
+    `strings/<plugin>_<lang>.<ext>`, languages `de en es fr it ja pl ptbr zhhans`. In
+    `starfield_en` the ID sets of the three kinds are disjoint (FULL is in `.strings`).
+- **Lane G -> lane E (for M2.E8).** `kitcraft_pex::Pex::parse(&bytes)`; calls are
+  `Instruction`s with `opcode_name(op)` `callmethod` / `callstatic` / `callparent`, the
+  function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base
+  object in `args[1]`; `.pex` inside archives via `kitcraft_ba2` as above, or
+  `execute("papyrus.disasm", {pex, archive?, format: "json"})`.
+- **Lane G -> lane F.** (1) Tests that used `ba2.list` as their example of a `Planned`
+  command now use `query` (engine `lib.rs`, `apps/kit-cli` `main.rs` and
+  `tests/exit_codes.rs`, `crates/mcp/src/server.rs`); they break again when `query`
+  lands, so a spec built in the test may be better. (2) `papyrus.disasm` puts the
+  multi-line disassembly in `data.summary` so `kit` prints `pexdis.py`'s output; if `kit`
+  should prefer a `data.text` member instead, say so. (3) `PLANNED_IN_M2` still lists the
+  seven lane G commands (now `Implemented`; prune at will). (4) The status paragraph at the
+  top of `docs/mcp.md` still lists only `roundtrip`, `coverage` and `inspect`.
+- ~~**Lane C -> lane B.** Mark a generated region for `BUILTIN_DEFINITIONS`.~~ Done
+  (lane B, M2.B2 commit): the entries sit between
+  `    // BEGIN generated by cargo xtask codegen: BUILTIN_DEFINITIONS` and
+  `    // END generated by cargo xtask codegen: BUILTIN_DEFINITIONS` in
+  `crates/schema/src/lib.rs`, one rustfmt-formatted entry per file in file-name order
+  (top level, then `common/`). xtask (lane F) may rewrite exactly those lines;
+  `tests/defs.rs` checks the markers and stays the guard until it does.
+- **Lane A -> lane D (M2.A1, M2.A2 landed).** `kitcraft_esm::index`:
+  `index_file(&Path, &IndexOptions) -> Result<PluginIndex>` (also `index_bytes`,
+  `index_reader`). `PluginIndex { file_len, header: Record<'static> /* TES4, parsed */,
+  records: Vec<RecordLoc> /* file order, TES4 first */, groups: Vec<GroupLoc> }`;
+  `RecordLoc { signature, form_id /* as stored */, flags, form_version, offset, data_size,
+  group: Option<u32> /* innermost group, index into groups */, edid: Option<Box<[u8]>> }`;
+  `GroupLoc { header: GroupHeader, offset, size, parent: Option<u32>, depth }`;
+  `PluginIndex::group_path(Option<u32>)`, `group_headers(&RecordLoc)`. Masters and flags:
+  `tes4::Tes4::new(&index.header)`. Random access: `read_record_at(&mut R: Read+Seek,
+  offset, Option<&DecodeLimits>) -> Result<Record<'static>>` and `read_indexed(&mut R,
+  &RecordLoc, ...)` (header checked against the entry: `Error::IndexMismatch`; a group
+  offset is `Error::NotARecord`). `INDEX_FORMAT_VERSION` (1) for the M2.D5 cache key. The
+  index is not serializable yet (no serde in esm); say if D5 wants a byte format from
+  esm instead of its own.
+- **Lane A -> lane E (M2.A5 landed; review follow-ups 1, 3, 8, 9 in).**
+  `kitcraft_esm::build`: `Plugin::create(&HeaderSpec)`; `HeaderSpec::new(masters)` fills
+  corpus-observed defaults (flags 0, form version 582, `HEDR` 0.96, next object ID
+  0xFF001000) that M2.E3 should confirm or change; masters are written exactly as given
+  (`MAST` + 8-byte zero `DATA`), nothing inferred. `Plugin::upsert(&[GroupHeader],
+  Record) -> Result<Upsert /* Replaced | Inserted */>`: the path is
+  `PluginIndex::group_headers(&loc)` of the source record; a record under cell or world
+  children needs its parent CELL/WRLD record upserted first (a missing children group goes
+  right after the record whose FormID is its label, else at the end). Streaming:
+  `upsert_file_to_path(in, out, &RewriteOptions, Vec<Placed>, |tes4| ...)` (temp file +
+  rename, `HEDR` patched, `set_masters` for the header edit), `upsert_reader` for a
+  `Read + Seek` input. `driver::rewrite_file_to_path` applies the `HEDR` fix itself.
+  `Record::typed(ctx) -> Result<TypedRecord, NotTyped>` (`NoDefinition` | `NotDecoded`);
+  `Plugin::typed(&record, &DecodeLimits) -> Result<Option<TypedRecord>>` decodes
+  compressed records on the fly. `Subrecord::from_owned` / `set_typed` choose `XXXX` by
+  size; unchanged subrecords keep their bytes. FormIDs are copied as stored; remapping is
+  E4's (via B3). M2.A6 edit API (decodes a compressed record on first edit, recompresses
+  only if changed): `Record::find_subrecord(sig, nth) -> Option<usize>`,
+  `set_subrecord(index, data, &DecodeLimits) -> Result<bool /* changed */>`,
+  `insert_subrecord(index, Subrecord, &limits)`, `remove_subrecord(index, &limits)`,
+  `edit_subrecords(&limits) -> Result<&mut Vec<Subrecord>>`; out-of-range is
+  `Error::NoSuchSubrecord`.
+- **Lane A -> lanes D, F (M2.A3 landed).** Typed decode check: `Record::check_typed(ctx)` /
+  `bridge::check_subrecords(sig, &subs, ctx) -> Result<TypedCheck, NotTyped>`
+  (`subrecords`, `placed`, `conflicts: Vec<TypedConflict { index, signature, offset,
+  kind: NotDecoded | Reencoded }>`); `RoundtripOptions { typed: true, .. }` fills
+  `Stats::{typed_records, typed_subrecords, typed_unchecked, typed_failed_records,
+  typed_conflicts, typed_conflict_list}` for `coverage` and `cargo xtask parity` (M2.F9).
+  On all 14 files today: 13,168 typed records, 0 conflicts (`docs/corpus.md`).
+- **Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
+  kept: `generated::records::Record::extra(&self) -> &[(usize, OwnedSub)]`. Until then
+  `esm::bridge::check_subrecords` matches the five variants generated today to find
+  payloads that did not decode, and cannot see them for a new record type (it still
+  catches re-encoding differences for every type).

@@ -1,0 +1,123 @@
+# AMMO: subrecord inventory. The universal subrecords (EDID, FULL, DESC, and KSIZ/KWDA as
+# the shared Keywords group) are typed (M2.B2, sources on each member); every other payload
+# is opaque until the record layout is transcribed (lane B round 3, xEdit at the pin).
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the AMMO top groups of the 14 official
+# ESMs (2026-10-14): 154 records, form versions 581/582, 9 distinct subrecord sequences, all
+# consistent with the order below. FLLD occurs exactly twice per record, at the two
+# positions listed. "required" means present in every corpus record.
+#
+# Opaque member names are placeholders derived from the signature.
+signature = "AMMO"
+name = "Ammunition"
+source = "corpus: AMMO records of the 14 official ESMs, scan 2026-10-14"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+note = "observed 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "PTT2"
+name = "Ptt2"
+type = "opaque"
+card = "optional"
+note = "observed 32 bytes, in 71 records"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+note = "first of two FLLD slots; observed 4 bytes"
+
+[[member]]
+sig = "PUSH"
+name = "Push"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "PDSH"
+name = "Pdsh"
+type = "opaque"
+card = "optional"
+note = "observed 40 bytes"
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+note = "observed 8 bytes"
+
+[[member]]
+sig = "DNAM"
+name = "Dnam"
+type = "opaque"
+note = "observed 16 bytes"
+
+[[member]]
+sig = "ONAM"
+name = "Onam"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "NAM1"
+name = "Nam1"
+type = "opaque"
+card = "optional"
+note = "observed variable size"
+
+[[member]]
+sig = "FLLD"
+name = "Flld2"
+type = "opaque"
+note = "second of two FLLD slots; observed 4 bytes"

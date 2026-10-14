@@ -1,0 +1,58 @@
+# VVVV: a synthetic record for the codegen visitors (M2.B3): FormIDs and lstrings at the
+# top level, inside struct array elements, inside a repeated group, inside a shared type
+# reached through a `count_from` array, and inside a version-gated field.
+signature = "VVVV"
+name = "Visited"
+source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member]]
+sig = "LNKS"
+name = "Links"
+type = "array"
+element = "struct"
+count = "rest"
+card = "optional"
+field = [{ name = "Target", type = "formid" }, { name = "Weight", type = "u16" }]
+
+[[member]]
+group = "Slot"
+card = "repeated"
+
+[[member.member]]
+sig = "SREF"
+name = "Ref"
+type = "formid"
+
+[[member.member]]
+sig = "SDSC"
+name = "Text"
+type = "lstring"
+card = "optional"
+
+[[member.member]]
+sig = "SPRS"
+name = "Pairs"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Count", type = "u8" },
+  { name = "Items", type = "array", element = "ref:Link", count_from = "Count" },
+]
+
+[[member]]
+sig = "LAST"
+name = "Last"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Owner", type = "formid" },
+  { name = "Extra", type = "formid", since = 10 },
+  { name = "Label", type = "lstring" },
+]

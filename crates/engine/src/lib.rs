@@ -192,7 +192,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -202,7 +202,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Record types and subrecords in a plugin vs what the schema defines (typed, opaque, unknown)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"},"signatures":{"type":"boolean","description":"List each record type's subrecord signatures (record_types[].signatures; null when false). Omitted: true from kit, false over MCP"},"top":{"type":"integer","minimum":0,"description":"List only the N record types with the most records; the totals still cover every type. Omitted: all from kit, 20 over MCP"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -211,9 +211,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Archive/List",
         shortcut: None,
         aliases: &[],
-        summary: "List files in a .ba2 archive",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string"}},"required":["archive"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "List files in a .ba2 archive (GNRL or DX10): sizes, compression, texture formats",
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string","description":"Case-insensitive regex over archive paths"},"limit":{"type":"integer","minimum":1,"default":1000,"description":"Most entries to return"},"start":{"type":"integer","minimum":0,"default":0,"description":"Skip this many matching entries"}},"required":["archive"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "ba2.extract",
@@ -222,8 +222,8 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Extract files from a .ba2 archive (all, or those matching --pattern)",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Regex over archive paths; omit to extract everything"},"out_dir":{"type":"string"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "ba2.pack",
@@ -231,9 +231,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Archive/Pack...",
         shortcut: None,
         aliases: &[],
-        summary: "Pack a directory into a .ba2 archive",
-        args_schema: r#"{"type":"object","properties":{"dir":{"type":"string"},"out":{"type":"string"},"format":{"type":"string","enum":["gnrl","dx10"]}},"required":["dir","out"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Pack a directory (as the Data root) into a .ba2 archive; deterministic",
+        args_schema: r#"{"type":"object","properties":{"dir":{"type":"string"},"out":{"type":"string","description":"Never under the game Data directory"},"format":{"type":"string","enum":["gnrl","dx10"],"default":"gnrl","description":"dx10 packs .dds textures"},"version":{"type":"integer","minimum":2,"maximum":3,"default":2,"description":"2: zlib, 3: LZ4 blocks"},"compress":{"type":"boolean","default":true}},"required":["dir","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "papyrus.disasm",
@@ -241,9 +241,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Papyrus/Disassemble",
         shortcut: None,
         aliases: &["pexdis"],
-        summary: "Disassemble a compiled Papyrus .pex",
-        args_schema: r#"{"type":"object","properties":{"pex":{"type":"string"}},"required":["pex"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Disassemble a compiled Papyrus .pex (loose or inside a .ba2) as pexdis.py does, or as JSON",
+        args_schema: r#"{"type":"object","properties":{"pex":{"type":"string","description":"Script file, or its path inside archive"},"archive":{"type":"string","description":"Read the script from this .ba2"},"format":{"type":"string","enum":["text","json","both"],"default":"text","description":"text: pexdis.py format; json: the structured model with offsets"}},"required":["pex"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "papyrus.compile",
@@ -251,9 +251,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Papyrus/Compile...",
         shortcut: None,
         aliases: &[],
-        summary: "Compile .psc with Bethesda's compiler (never -release)",
-        args_schema: r#"{"type":"object","properties":{"source":{"type":"string"},"out_dir":{"type":"string"},"imports":{"type":"array","items":{"type":"string"}}},"required":["source","out_dir"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Compile one script with Bethesda's PapyrusCompiler.exe by name with import dirs (never -release)",
+        args_schema: r#"{"type":"object","properties":{"source":{"type":"string","description":"Script name (MyScript, Ns:MyScript) or a .psc path (its folder is imported first); .ppj projects are refused"},"out_dir":{"type":"string","description":"Where the .pex goes; never under the game Data directory"},"imports":{"type":"array","items":{"type":"string"},"description":"Import directories, in order (e.g. an extraction of Tools/ContentResources.zip Scripts/Source)"},"flags":{"type":"string","description":"Flags file; default: Starfield_Papyrus_Flags.flg from the first import directory that has it"},"compiler":{"type":"string","description":"PapyrusCompiler.exe; default: KITCRAFT_PAPYRUS_COMPILER, then the game's Tools folder"},"optimize":{"type":"boolean","default":false}},"required":["source","out_dir"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "strings.dump",
@@ -261,9 +261,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Strings/Dump",
         shortcut: None,
         aliases: &[],
-        summary: "Dump a .STRINGS/.DLSTRINGS/.ILSTRINGS table",
-        args_schema: r#"{"type":"object","properties":{"table":{"type":"string"}},"required":["table"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Dump a .STRINGS/.DLSTRINGS/.ILSTRINGS table (loose or inside a .ba2), by ID or text",
+        args_schema: r#"{"type":"object","properties":{"table":{"type":"string","description":"Table file, or its path inside archive"},"archive":{"type":"string","description":"Read the table from this .ba2"},"id":{"type":"string","description":"String ID, 0x-prefixed hex or decimal"},"contains":{"type":"string","description":"Case-insensitive text filter"},"limit":{"type":"integer","minimum":1,"default":100},"start":{"type":"integer","minimum":0,"default":0}},"required":["table"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "strings.merge",
@@ -271,9 +271,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Strings/Merge...",
         shortcut: None,
         aliases: &[],
-        summary: "Merge string tables into one",
-        args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string"}},"required":["tables","out"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Merge string tables of one kind into one (later table wins; conflicts reported; deterministic)",
+        args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"}},"required":["tables","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
 ];
 
@@ -457,11 +457,11 @@ mod execute_tests {
 
     #[test]
     fn planned_command_without_handler_is_not_implemented() {
-        let err = execute("ba2.list", json!({"archive": "a.ba2"})).unwrap_err();
-        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "ba2.list"));
+        let err = execute("query", json!({"type": "WEAP"})).unwrap_err();
+        assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "query"));
         // Validation still runs first.
         assert_eq!(
-            execute("ba2.list", json!({})).unwrap_err().kind(),
+            execute("query", json!({})).unwrap_err().kind(),
             "invalid_args"
         );
     }
@@ -535,7 +535,10 @@ mod execute_tests {
         let result = engine
             .execute("roundtrip", json!({"plugin": "X.esm"}))
             .unwrap();
-        assert_eq!(result["data"], json!({"plugin": "X.esm", "verify": false}));
+        assert_eq!(
+            result["data"],
+            json!({"plugin": "X.esm", "verify": false, "overwrite": false})
+        );
         assert_eq!(result["limitations"], json!([]));
         assert_eq!(
             result["evidence"],

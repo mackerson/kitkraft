@@ -1,0 +1,27 @@
+# ZOOM: subrecord inventory. EDID is typed as a universal subrecord (M2.B2); ZNAM is opaque
+# until the record layout is transcribed (lane B round 3, xEdit at the pin).
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the ZOOM top groups of the 14 official
+# ESMs (2026-10-14): 141 records, form versions 581/582, one shape "EDID ZNAM"; ZNAM is 35
+# bytes in every record.
+#
+# Opaque member names are placeholders derived from the signature.
+signature = "ZOOM"
+name = "Zoom"
+source = "corpus: ZOOM records of the 14 official ESMs, scan 2026-10-14"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "ZNAM"
+name = "Znam"
+type = "opaque"
+note = "observed 35 bytes"

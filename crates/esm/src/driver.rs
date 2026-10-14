@@ -8,13 +8,16 @@
 //!   read as it is produced (never buffered). The first mismatch is reported as an
 //!   absolute offset and a group/record/subrecord path.
 //! - [`visit_file`] hands each entry to a closure.
-//! - [`rewrite_file`] lets a closure edit each entry, then streams it to a sink.
+//! - [`rewrite_file`] lets a closure edit each entry, then streams it to a sink;
+//!   [`rewrite_file_to_path`] does the same into a new file and patches its `HEDR` count.
+//!   A closure cannot add a top-level entry; [`crate::build::upsert_file_to_path`] adds
+//!   records (creating missing top-level groups in order) while streaming the rest.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs::File;
-use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
 
 use crate::model::{Body, Counts, Entry, Group, Record, Subrecord, HEADER_LEN};
 use crate::{DecodeLimits, Error, ParseOptions, Result, Signature, WriteOptions};
@@ -27,6 +30,11 @@ pub struct RoundtripOptions {
     /// (and counted). The original compressed bytes are still what is written.
     pub decode: Option<DecodeLimits>,
     pub write: WriteOptions,
+    /// When set, every record whose type has a schema definition is decoded through it,
+    /// encoded again and compared, subrecord by subrecord
+    /// ([`crate::bridge::check_subrecords`], M2.A3). Compressed records are checked only
+    /// when `decode` is set too. Results are in [`Stats`] (`typed_*`).
+    pub typed: bool,
 }
 
 impl RoundtripOptions {
@@ -62,6 +70,32 @@ pub struct Stats {
     pub largest_decompressed: u64,
     /// Record count per signature.
     pub record_types: BTreeMap<Signature, u64>,
+    /// With [`RoundtripOptions::typed`]: records checked through their definition.
+    pub typed_records: u64,
+    /// With [`RoundtripOptions::typed`]: compressed records with a definition that were
+    /// not checked because they were not decoded.
+    pub typed_unchecked: u64,
+    /// With [`RoundtripOptions::typed`]: subrecords the definitions placed in members.
+    pub typed_subrecords: u64,
+    /// With [`RoundtripOptions::typed`]: checked records with at least one conflict.
+    pub typed_failed_records: u64,
+    /// With [`RoundtripOptions::typed`]: conflicts found, in total.
+    pub typed_conflicts: u64,
+    /// The first [`MAX_LISTED_CONFLICTS`] conflicts, in file order.
+    pub typed_conflict_list: Vec<RecordConflict>,
+}
+
+/// How many typed-decode conflicts [`Stats::typed_conflict_list`] keeps.
+pub const MAX_LISTED_CONFLICTS: usize = 100;
+
+/// A typed-decode conflict and the record it is in.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RecordConflict {
+    pub signature: Signature,
+    pub form_id: u32,
+    /// Absolute offset of the record.
+    pub record_offset: u64,
+    pub conflict: crate::bridge::TypedConflict,
 }
 
 /// Where the output first differs from the input.
@@ -130,12 +164,20 @@ pub fn roundtrip_reader<R: Read>(
 ) -> Result<RoundtripReport> {
     let mut stats = Stats::default();
     let mut entries = TopLevelReader::new(&mut input, len);
+    let mut localized = false;
     while let Some((offset, buf)) = entries.next_entry()? {
         let total = buf.len() as u64;
         let entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
         stats.top_level_entries = stats.top_level_entries.saturating_add(1);
         stats.largest_top_level_entry = stats.largest_top_level_entry.max(total);
-        count_entry(&entry, &mut stats, options.decode.as_ref())?;
+        if let (0, Entry::Record(r)) = (offset, &entry) {
+            localized = crate::tes4::Tes4::new(r).is_localized();
+        }
+        let count = Count {
+            decode: options.decode.as_ref(),
+            typed: options.typed.then_some(localized),
+        };
+        count_entry(&entry, &mut stats, &count)?;
 
         let mut cmp = Compare {
             expected: &buf,
@@ -229,7 +271,9 @@ impl HedrFix {
     }
 }
 
-/// Result of [`rewrite_file`].
+/// Result of [`rewrite_file`]. Check [`RewriteReport::hedr_fix`]: when it is set, the
+/// output's `HEDR` count is stale until the fix is applied.
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RewriteReport {
     /// Input length in bytes.
@@ -243,8 +287,12 @@ pub struct RewriteReport {
     /// Records (excluding `TES4`) and groups written.
     pub counts_written: Counts,
     /// Set when the counts differ and the `HEDR` record count written is not the majority
-    /// count for what was written. `None` also when the header has no readable `HEDR`.
+    /// count for what was written. [`rewrite_file_to_path`] has already applied it.
     pub hedr_fix: Option<HedrFix>,
+    /// The counts differ but the header has no `HEDR` with room for a count, so the
+    /// header was written as read and its count is stale (as
+    /// [`crate::tes4::HedrCount::Unreadable`] for an in-memory write).
+    pub hedr_unreadable: bool,
 }
 
 /// Stream the file at `path` to `sink`, letting `edit` change each top-level entry (the
@@ -279,11 +327,106 @@ pub fn rewrite_file(
 
 /// As [`rewrite_file`], over `len` bytes from `input`.
 pub fn rewrite_reader<R: Read>(
-    mut input: R,
+    input: R,
     len: u64,
     options: &RewriteOptions,
     sink: &mut dyn Write,
     mut edit: impl FnMut(&mut Entry<'_>) -> Result<()>,
+) -> Result<RewriteReport> {
+    stream_rewrite(
+        input,
+        len,
+        options,
+        sink,
+        &mut edit,
+        &mut |_| Ok(Vec::new()),
+    )
+}
+
+/// [`rewrite_file`] into a new file at `out`, with the `HEDR` count patched when records
+/// or groups were added or removed (the report's `hedr_fix` says what was applied).
+///
+/// The output is written to a temporary file next to `out` and renamed over it only when
+/// the whole stream succeeded, so a failed rewrite leaves `out` as it was. `out` may not be
+/// `path` itself.
+pub fn rewrite_file_to_path(
+    path: &Path,
+    out: &Path,
+    options: &RewriteOptions,
+    mut edit: impl FnMut(&mut Entry<'_>) -> Result<()>,
+) -> Result<RewriteReport> {
+    to_path(path, out, |input, len, sink| {
+        stream_rewrite(
+            input,
+            len,
+            options,
+            sink,
+            &mut edit,
+            &mut |_| Ok(Vec::new()),
+        )
+    })
+}
+
+/// Open `path`, stream it through `run` into a temporary file next to `out`, apply the
+/// report's `HEDR` fix, and rename the result to `out`.
+pub(crate) fn to_path(
+    path: &Path,
+    out: &Path,
+    run: impl FnOnce(BufReader<File>, u64, &mut dyn Write) -> Result<RewriteReport>,
+) -> Result<RewriteReport> {
+    let io0 = |source| Error::Io { offset: 0, source };
+    if out.exists()
+        && std::fs::canonicalize(path).map_err(io0)? == std::fs::canonicalize(out).map_err(io0)?
+    {
+        return Err(io0(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the output path is the input file",
+        )));
+    }
+    let file = File::open(path).map_err(io0)?;
+    let len = file.metadata().map_err(io0)?.len();
+    let mut tmp_name = out.as_os_str().to_owned();
+    tmp_name.push(".kitcraft-tmp");
+    let tmp = PathBuf::from(tmp_name);
+    let result = (|| {
+        let mut sink = BufWriter::with_capacity(1 << 20, File::create(&tmp).map_err(io0)?);
+        let report = run(BufReader::with_capacity(1 << 20, file), len, &mut sink)?;
+        if let Some(fix) = report.hedr_fix {
+            fix.apply(&mut sink)?;
+        }
+        let file = sink.into_inner().map_err(|e| Error::Io {
+            offset: report.output_len,
+            source: e.into_error(),
+        })?;
+        file.sync_all().map_err(|source| Error::Io {
+            offset: report.output_len,
+            source,
+        })?;
+        Ok(report)
+    })();
+    match result {
+        Ok(report) => {
+            std::fs::rename(&tmp, out).map_err(io0)?;
+            Ok(report)
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
+}
+
+/// The streaming loop behind [`rewrite_reader`] and the build module's upsert: `edit`
+/// changes each top-level entry; `insert` is called before each top-level entry after
+/// `TES4` (with that entry, after its edit) and once at the end (with `None`), and the
+/// entries it returns are written first.
+pub(crate) fn stream_rewrite<R: Read>(
+    mut input: R,
+    len: u64,
+    options: &RewriteOptions,
+    sink: &mut dyn Write,
+    edit: &mut dyn FnMut(&mut Entry<'_>) -> Result<()>,
+    insert: &mut dyn FnMut(Option<&Entry<'_>>) -> Result<Vec<Entry<'static>>>,
 ) -> Result<RewriteReport> {
     let mut entries = TopLevelReader::new(&mut input, len);
     let mut pos: u64 = 0;
@@ -291,6 +434,20 @@ pub fn rewrite_reader<R: Read>(
     let mut counts_read = Counts::default();
     let mut counts_written = Counts::default();
     let mut hedr: Option<(u64, u32)> = None;
+    let write_new = |new: Vec<Entry<'static>>,
+                     pos: &mut u64,
+                     counts_written: &mut Counts,
+                     modified_entries: &mut u64,
+                     sink: &mut dyn Write|
+     -> Result<()> {
+        for entry in new {
+            counts_written.add_entry(&entry);
+            *modified_entries = modified_entries.saturating_add(1);
+            let written = entry.write_to(sink, *pos, &options.write)?;
+            *pos = pos.saturating_add(written);
+        }
+        Ok(())
+    };
     while let Some((offset, buf)) = entries.next_entry()? {
         let mut entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
         let is_header = offset == 0;
@@ -303,6 +460,14 @@ pub fn rewrite_reader<R: Read>(
                 hedr = hedr_count_at(r).map(|(at, count)| (pos.saturating_add(at), count));
             }
         } else {
+            let new = insert(Some(&entry))?;
+            write_new(
+                new,
+                &mut pos,
+                &mut counts_written,
+                &mut modified_entries,
+                sink,
+            )?;
             counts_written.add_entry(&entry);
         }
         if entry.is_modified() {
@@ -311,11 +476,23 @@ pub fn rewrite_reader<R: Read>(
         let written = entry.write_to(sink, pos, &options.write)?;
         pos = pos.saturating_add(written);
     }
-    let hedr_fix = match (hedr, counts_read == counts_written) {
-        (Some((offset, current)), false) => crate::tes4::majority_record_count(counts_written)
-            .filter(|count| *count != current)
-            .map(|count| HedrFix { offset, count }),
-        _ => None,
+    let new = insert(None)?;
+    write_new(
+        new,
+        &mut pos,
+        &mut counts_written,
+        &mut modified_entries,
+        sink,
+    )?;
+    let changed = counts_read != counts_written;
+    let majority = crate::tes4::majority_record_count(counts_written);
+    let (hedr_fix, hedr_unreadable) = match (changed, hedr, majority) {
+        (false, _, _) => (None, false),
+        (true, Some((offset, current)), Some(count)) => (
+            (count != current).then_some(HedrFix { offset, count }),
+            false,
+        ),
+        (true, _, _) => (None, true),
     };
     Ok(RewriteReport {
         input_len: len,
@@ -324,6 +501,7 @@ pub fn rewrite_reader<R: Read>(
         counts_read,
         counts_written,
         hedr_fix,
+        hedr_unreadable,
     })
 }
 
@@ -364,9 +542,10 @@ impl<R: Read> TopLevelReader<R> {
     /// The next entry's absolute offset and bytes, or `None` at the end of the input.
     fn next_entry(&mut self) -> Result<Option<(u64, Vec<u8>)>> {
         let offset = self.offset;
-        if offset >= self.len {
+        if offset >= self.len && offset > 0 {
             return Ok(None);
         }
+        // An empty input is not a plugin: it has no `TES4` header.
         let available = self.len.saturating_sub(offset);
         if available < HEADER_LEN as u64 {
             return Err(Error::UnexpectedEof {
@@ -479,17 +658,52 @@ impl Write for Compare<'_, '_> {
     }
 }
 
-fn count_entry(entry: &Entry<'_>, stats: &mut Stats, decode: Option<&DecodeLimits>) -> Result<()> {
+/// What [`count_entry`] does besides counting.
+struct Count<'l> {
+    decode: Option<&'l DecodeLimits>,
+    /// `Some(localized)` to check typed records with that plugin flag.
+    typed: Option<bool>,
+}
+
+fn count_entry(entry: &Entry<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<()> {
     match entry {
         Entry::Group(g) => {
             stats.groups = stats.groups.saturating_add(1);
             for child in g.children() {
-                count_entry(child, stats, decode)?;
+                count_entry(child, stats, count)?;
             }
         }
-        Entry::Record(r) => count_record(r, stats, decode)?,
+        Entry::Record(r) => count_record(r, stats, count)?,
     }
     Ok(())
+}
+
+/// Check one record's subrecords against its definition and add the result to `stats`.
+fn check_typed(r: &Record<'_>, subs: &[Subrecord<'_>], localized: bool, stats: &mut Stats) {
+    let ctx = crate::bridge::Ctx::for_record(r, localized);
+    let Ok(check) = crate::bridge::check_subrecords(r.header.signature, subs, ctx) else {
+        return;
+    };
+    stats.typed_records = stats.typed_records.saturating_add(1);
+    stats.typed_subrecords = stats.typed_subrecords.saturating_add(check.placed as u64);
+    if check.is_clean() {
+        return;
+    }
+    stats.typed_failed_records = stats.typed_failed_records.saturating_add(1);
+    stats.typed_conflicts = stats
+        .typed_conflicts
+        .saturating_add(check.conflicts.len() as u64);
+    for conflict in check.conflicts {
+        if stats.typed_conflict_list.len() >= MAX_LISTED_CONFLICTS {
+            break;
+        }
+        stats.typed_conflict_list.push(RecordConflict {
+            signature: r.header.signature,
+            form_id: r.header.form_id,
+            record_offset: r.offset().unwrap_or(0),
+            conflict,
+        });
+    }
 }
 
 fn count_subrecords(subs: &[Subrecord<'_>], stats: &mut Stats) {
@@ -498,23 +712,42 @@ fn count_subrecords(subs: &[Subrecord<'_>], stats: &mut Stats) {
     stats.oversize_subrecords = stats.oversize_subrecords.saturating_add(oversize);
 }
 
-fn count_record(r: &Record<'_>, stats: &mut Stats, decode: Option<&DecodeLimits>) -> Result<()> {
+fn count_record(r: &Record<'_>, stats: &mut Stats, count: &Count<'_>) -> Result<()> {
     stats.records = stats.records.saturating_add(1);
     let n = stats.record_types.entry(r.header.signature).or_insert(0);
     *n = n.saturating_add(1);
+    let typed = count
+        .typed
+        .filter(|_| crate::bridge::has_definition(r.header.signature));
     match r.body() {
-        Body::Raw(subs) => count_subrecords(subs, stats),
+        Body::Raw(subs) => {
+            count_subrecords(subs, stats);
+            if let Some(localized) = typed {
+                check_typed(r, subs, localized, stats);
+            }
+        }
         Body::Compressed { .. } => {
             stats.compressed_records = stats.compressed_records.saturating_add(1);
-            if let Some(limits) = decode {
-                if let Some(subs) = r.decode(limits)? {
+            let decoded = match count.decode {
+                Some(limits) => r.decode(limits)?,
+                None => None,
+            };
+            match (decoded, typed) {
+                (Some(subs), _) => {
                     stats.decoded_records = stats.decoded_records.saturating_add(1);
                     let size = subs
                         .iter()
                         .fold(0u64, |acc, s| acc.saturating_add(s.encoded_len()));
                     stats.largest_decompressed = stats.largest_decompressed.max(size);
                     count_subrecords(&subs, stats);
+                    if let Some(localized) = typed {
+                        check_typed(r, &subs, localized, stats);
+                    }
                 }
+                (None, Some(_)) => {
+                    stats.typed_unchecked = stats.typed_unchecked.saturating_add(1);
+                }
+                (None, None) => {}
             }
         }
     }
@@ -647,6 +880,7 @@ mod tests {
         assert_eq!(report.modified_entries, 1);
         assert_eq!(report.counts_read, report.counts_written);
         assert_eq!(report.hedr_fix, None);
+        assert!(!report.hedr_unreadable);
     }
 
     #[test]
@@ -680,6 +914,46 @@ mod tests {
         assert_eq!(out, plugin.to_bytes().unwrap());
         let reparsed = Plugin::parse(&out).unwrap();
         assert_eq!(reparsed.tes4().hedr().unwrap().unwrap().record_count, 7);
+    }
+
+    /// Review round 3, finding 3: the caller had to apply `hedr_fix` by hand.
+    #[test]
+    fn rewrite_to_path_patches_hedr_and_refuses_its_input() {
+        let dir = std::env::temp_dir().join(format!("kitcraft-esm-rewrite-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("in.esm");
+        let output = dir.join("out.esm");
+        let bytes = fixture::sample_plugin();
+        std::fs::write(&input, &bytes).unwrap();
+        let report =
+            super::rewrite_file_to_path(&input, &output, &RewriteOptions::default(), |e| {
+                drop_gmst(e);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(report.hedr_fix.map(|f| f.count), Some(7));
+        let out = std::fs::read(&output).unwrap();
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        plugin.entries_mut().iter_mut().for_each(drop_gmst);
+        assert_eq!(out, plugin.to_bytes().unwrap());
+        assert!(!dir.join("out.esm.kitcraft-tmp").exists());
+
+        // The input is never its own output.
+        let same =
+            super::rewrite_file_to_path(&input, &input, &RewriteOptions::default(), |_| Ok(()));
+        assert!(matches!(same, Err(Error::Io { .. })));
+        assert_eq!(std::fs::read(&input).unwrap(), bytes);
+
+        // A failing edit leaves an existing output untouched and no temporary file.
+        let failed =
+            super::rewrite_file_to_path(&input, &output, &RewriteOptions::default(), |e| match e {
+                Entry::Group(_) => Err(Error::DanglingOversize { offset: 1 }),
+                Entry::Record(_) => Ok(()),
+            });
+        assert!(failed.is_err());
+        assert_eq!(std::fs::read(&output).unwrap(), out);
+        assert!(!dir.join("out.esm.kitcraft-tmp").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -724,6 +998,50 @@ mod tests {
     }
 
     #[test]
+    fn the_typed_option_checks_records_with_a_definition() {
+        // GMST, KYWD and TES4 have definitions; CELL, REFR and NAVM do not. In `bad`
+        // below, the TES4 HEDR (a typed member) is too short to decode.
+        let kywd = fixture::compressed_record_stored(b"KYWD", 0x900, &sub(b"EDID", b"kw\0"));
+        let mut bytes = fixture::sample_plugin();
+        bytes.extend(group(b"KYWD", 0, &kywd));
+        let options = RoundtripOptions {
+            typed: true,
+            ..RoundtripOptions::with_decode()
+        };
+        let report = roundtrip_bytes(&bytes, &options).unwrap();
+        assert!(report.identical());
+        let s = &report.stats;
+        assert_eq!(s.typed_records, 4);
+        assert_eq!(s.typed_unchecked, 0);
+        assert_eq!(s.typed_failed_records, 0);
+        assert!(s.typed_conflict_list.is_empty());
+        // TES4 7 + GMST 2 + 2 + KYWD 1.
+        assert_eq!(s.typed_subrecords, 12);
+
+        // Without decoding, the compressed KYWD is not checked.
+        let options = RoundtripOptions {
+            typed: true,
+            ..RoundtripOptions::default()
+        };
+        let s = roundtrip_bytes(&bytes, &options).unwrap().stats;
+        assert_eq!((s.typed_records, s.typed_unchecked), (3, 1));
+
+        // A short HEDR: one conflict, listed with its record and offset.
+        let tes4 = crate::fixture::record(b"TES4", 0x81, 0, &sub(b"HEDR", &[0u8; 8]));
+        let bad = [tes4, group(b"KYWD", 0, &kywd)].concat();
+        let s = roundtrip_bytes(&bad, &options).unwrap().stats;
+        assert_eq!(s.typed_failed_records, 1);
+        assert_eq!(s.typed_conflicts, 1);
+        let c = s.typed_conflict_list[0];
+        assert_eq!(
+            (c.signature, c.form_id, c.record_offset),
+            (crate::Signature::TES4, 0, 0)
+        );
+        assert_eq!(c.conflict.offset, Some(24));
+        assert_eq!(c.conflict.kind, crate::bridge::ConflictKind::NotDecoded);
+    }
+
+    #[test]
     fn mismatch_reports_offset_and_path() {
         let bytes = fixture::sample_plugin();
         let plugin = Plugin::parse(&bytes).unwrap();
@@ -762,6 +1080,21 @@ mod tests {
             Err(Error::UnexpectedEof { what: "group", .. }) => {}
             other => panic!("{other:?}"),
         }
+        // Review round 3, finding 2: an empty input is an error, not an identical rewrite.
+        assert!(matches!(
+            roundtrip_bytes(&[], &RoundtripOptions::default()),
+            Err(Error::UnexpectedEof {
+                offset: 0,
+                available: 0,
+                ..
+            })
+        ));
+        let mut out = Vec::new();
+        assert!(matches!(
+            rewrite_reader(&[][..], 0, &RewriteOptions::default(), &mut out, |_| Ok(())),
+            Err(Error::UnexpectedEof { offset: 0, .. })
+        ));
+        assert!(out.is_empty());
         let not_plugin = group(b"GMST", 0, &[]);
         assert!(matches!(
             roundtrip_bytes(&not_plugin, &RoundtripOptions::default()),

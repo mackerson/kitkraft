@@ -85,8 +85,16 @@ pub fn inflate(original: &[u8], record_offset: u64, limits: &DecodeLimits) -> Re
     Ok(out)
 }
 
+#[cfg(test)]
+thread_local! {
+    /// Calls to [`deflate`] on this thread, for tests that check compression happens once.
+    pub(crate) static DEFLATE_CALLS: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 /// Compress `fields` into a record body: `u32` size + zlib stream at `level` (0-9).
 pub fn deflate(fields: &[u8], level: u32, record_offset: u64) -> Result<Vec<u8>> {
+    #[cfg(test)]
+    DEFLATE_CALLS.with(|n| n.set(n.get().saturating_add(1)));
     let len = fields.len() as u64;
     let declared = u32::try_from(len).map_err(|_| Error::TooLarge {
         offset: record_offset,
@@ -148,7 +156,7 @@ fn decode_body(
             None,
         ));
     }
-    Ok((subs, Inflated(buf)))
+    Ok((subs, Inflated::new(buf)))
 }
 
 impl<'a> Record<'a> {

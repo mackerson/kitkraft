@@ -4,8 +4,11 @@
 //! The driver always compares. `verify` decides whether a difference is a failed check:
 //! with it, `data.passed` is `identical` (and `kit` exits 1 on `false`); without it,
 //! `data.passed` is `null` and a difference is only reported.
+//!
+//! `out` never replaces an existing file unless `overwrite` is `true`: the file is opened
+//! with `create_new`, so an existing one is a `failed` error and stays untouched.
 
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::Instant;
@@ -37,6 +40,10 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     let plugin = str_arg(ID, args, "plugin")?;
     let verify = args.get("verify").and_then(Value::as_bool).unwrap_or(false);
     let out = args.get("out").and_then(Value::as_str);
+    let overwrite = args
+        .get("overwrite")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let path = Path::new(plugin);
     let options = RoundtripOptions::default();
 
@@ -46,7 +53,7 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         Some(out) => {
             let out_path = Path::new(out);
             refuse_same_file(path, out_path)?;
-            let file = File::create(out_path)
+            let file = open_out(out_path, overwrite)
                 .map_err(|e| failed(ID, format!("cannot create `{out}`: {e}")))?;
             let mut writer = BufWriter::new(file);
             let report = roundtrip_file_to(path, &options, Some(&mut writer));
@@ -72,6 +79,27 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         &report,
         elapsed_ms,
     ))
+}
+
+/// Opens `out` for writing: a new file, or (with `overwrite`) an existing one truncated.
+fn open_out(out: &Path, overwrite: bool) -> std::io::Result<fs::File> {
+    let mut options = OpenOptions::new();
+    options.write(true);
+    if overwrite {
+        options.create(true).truncate(true);
+    } else {
+        options.create_new(true);
+    }
+    options.open(out).map_err(|e| {
+        if e.kind() == std::io::ErrorKind::AlreadyExists {
+            std::io::Error::new(
+                e.kind(),
+                "the file exists; pass `overwrite: true` (`--overwrite`) to replace it",
+            )
+        } else {
+            e
+        }
+    })
 }
 
 /// Writing the output over the input would truncate it before it is read.
@@ -315,10 +343,41 @@ mod tests {
         let bytes = testdata::plugin();
         let path = testdata::write_temp("roundtrip-self", &bytes);
         let p = path.to_str().unwrap();
-        let err = execute("roundtrip", json!({"plugin": p, "out": p})).unwrap_err();
+        for overwrite in [false, true] {
+            let err = execute(
+                "roundtrip",
+                json!({"plugin": p, "out": p, "overwrite": overwrite}),
+            )
+            .unwrap_err();
+            assert_eq!(err.kind(), "failed");
+            assert!(err.to_string().contains("refusing"), "{err}");
+            assert_eq!(std::fs::read(&path).unwrap(), bytes, "input untouched");
+        }
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// An existing `out` is never truncated unless `overwrite` is set.
+    #[test]
+    fn existing_out_needs_overwrite() {
+        let bytes = testdata::plugin();
+        let path = testdata::write_temp("roundtrip-exists-in", &bytes);
+        let out = testdata::write_temp("roundtrip-exists-out", b"keep me");
+        let args = json!({"plugin": path.to_str().unwrap(), "out": out.to_str().unwrap()});
+        let err = execute("roundtrip", args.clone()).unwrap_err();
         assert_eq!(err.kind(), "failed");
-        assert!(err.to_string().contains("refusing"), "{err}");
-        assert_eq!(std::fs::read(&path).unwrap(), bytes, "input untouched");
+        assert!(err.to_string().contains("overwrite"), "{err}");
+        assert_eq!(
+            std::fs::read(&out).unwrap(),
+            b"keep me",
+            "existing file untouched"
+        );
+
+        let mut args = args;
+        args["overwrite"] = json!(true);
+        let result = execute("roundtrip", args).unwrap();
+        assert_eq!(result["data"]["identical"], true);
+        assert_eq!(std::fs::read(&out).unwrap(), bytes);
+        std::fs::remove_file(&out).unwrap();
         std::fs::remove_file(&path).unwrap();
     }
 
