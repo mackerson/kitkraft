@@ -103,7 +103,7 @@ question for M3.
 | `query_records`  | `query`'s args (`{type, where?, limit?, cursor?}`) | Records of one type matching a field predicate; paged        |
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
 | `coverage`       | `coverage`'s args (`{plugin, decode?}`)   | Record types and subrecords vs the schema                             |
-| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?}`) | Parse and rewrite a plugin; `verify` demands identical bytes     |
+| `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
 Tool shapes are generated from the catalog (`tools.rs`): a shortcut's `inputSchema` is its
@@ -111,7 +111,9 @@ command's `args_schema` verbatim and its description is the command's `summary` 
 `planned: ...` or `deferred to M3: ...` when not implemented); `execute`'s `command` enum
 and its description (one line per command with its argument names) list the catalog as
 it is. Adding or changing a command needs no edit in `crates/mcp`; tests enforce both.
-Shortcuts that never write carry `readOnlyHint: true`.
+Shortcuts that never write carry `readOnlyHint: true` and `destructiveHint: false`; `execute`,
+`command_line` (which reach every writing command) and `roundtrip` (whose `out` replaces an
+existing file with `overwrite: true`) carry `readOnlyHint: false`, `destructiveHint: true`.
 
 Every successful call returns the envelope as `structuredContent` and as JSON text in
 one `text` content block (identical). `command_line` with `help` returns
@@ -176,7 +178,7 @@ Rules:
 
 ### `roundtrip` (M1.12)
 
-Arguments `{plugin, verify = false, out?}`. Streams the plugin through the `kitcraft-esm`
+Arguments `{plugin, verify = false, out?, overwrite = false}`. Streams the plugin through the `kitcraft-esm`
 driver one top-level group at a time, rewrites it, and compares the output with the input.
 
 ```json
@@ -204,9 +206,11 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   length 1 at `offset` with the record (`WEAP:0001A2B3`) and subrecord taken from the path,
   `coverage.status: "partial"`, the unread byte range in `not_examined`, and a limitation
   saying the counts stop at the mismatch. The counts cover only what was read.
-- `out` writes the rebuilt bytes. It is refused when it names the input file; a failed
-  roundtrip removes its partial output; after a mismatch the file stops at the top-level
-  entry that differs (stated as a limitation).
+- `out` writes the rebuilt bytes to a new file: an existing file is a `failed` error and is
+  left untouched unless `overwrite` is `true` (`kit roundtrip X.esm --out Y.esm
+  --overwrite`). It is refused when it names the input file, even with `overwrite`; a
+  failed roundtrip removes its partial output; after a mismatch the file stops at the
+  top-level entry that differs (stated as a limitation).
 
 ### `inspect` (minimal)
 

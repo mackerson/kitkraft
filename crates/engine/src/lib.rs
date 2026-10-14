@@ -182,7 +182,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -525,7 +525,10 @@ mod execute_tests {
         let result = engine
             .execute("roundtrip", json!({"plugin": "X.esm"}))
             .unwrap();
-        assert_eq!(result["data"], json!({"plugin": "X.esm", "verify": false}));
+        assert_eq!(
+            result["data"],
+            json!({"plugin": "X.esm", "verify": false, "overwrite": false})
+        );
         assert_eq!(result["limitations"], json!([]));
         assert_eq!(
             result["evidence"],

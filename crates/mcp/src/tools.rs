@@ -32,6 +32,10 @@ pub struct Tool {
     /// Never writes a file (`readOnlyHint`). `execute`, `command_line` and `roundtrip`
     /// (which writes with `out`) can.
     pub read_only: bool,
+    /// May replace or change an existing file (`destructiveHint`): `execute` and
+    /// `command_line` reach `set`, `build` and the archive writers, `roundtrip` replaces
+    /// its `out` file when `overwrite` is `true`. `false` only for read-only tools.
+    pub destructive: bool,
 }
 
 /// Tools exposed by `kit mcp`, in the order `tools/list` returns them. `render` comes later.
@@ -41,42 +45,49 @@ pub const TOOLS: &[Tool] = &[
         title: "Run a KitCraft command",
         target: Target::Execute,
         read_only: false,
+        destructive: true,
     },
     Tool {
         name: "command_line",
         title: "Run a kit command line",
         target: Target::CommandLine,
         read_only: false,
+        destructive: true,
     },
     Tool {
         name: "inspect_record",
         title: "Inspect a record",
         target: Target::Command("inspect"),
         read_only: true,
+        destructive: false,
     },
     Tool {
         name: "query_records",
         title: "Query records",
         target: Target::Command("query"),
         read_only: true,
+        destructive: false,
     },
     Tool {
         name: "diff_plugins",
         title: "Diff two plugins",
         target: Target::Command("diff"),
         read_only: true,
+        destructive: false,
     },
     Tool {
         name: "coverage",
         title: "Schema coverage of a plugin",
         target: Target::Command("coverage"),
         read_only: true,
+        destructive: false,
     },
     Tool {
         name: "roundtrip",
         title: "Roundtrip a plugin",
         target: Target::Command("roundtrip"),
         read_only: false,
+        destructive: true,
     },
 ];
 
@@ -204,7 +215,7 @@ pub fn definition(tool: &Tool) -> Result<Value, EngineError> {
         json!({
             "title": tool.title,
             "readOnlyHint": tool.read_only,
-            "destructiveHint": false,
+            "destructiveHint": tool.destructive,
             "openWorldHint": false
         }),
     );
@@ -270,6 +281,21 @@ mod tests {
         assert!(find_tool("nope").is_none());
     }
 
+    /// Annotations are honest: a tool that can write is not read-only and may be
+    /// destructive; a read-only tool never is.
+    #[test]
+    fn annotations_match_what_tools_write() {
+        let defs = definitions().unwrap();
+        for (tool, def) in TOOLS.iter().zip(&defs) {
+            let a = &def["annotations"];
+            assert_eq!(a["readOnlyHint"], tool.read_only, "{}", tool.name);
+            assert_eq!(a["destructiveHint"], !tool.read_only, "{}", tool.name);
+        }
+        for name in ["execute", "command_line", "roundtrip"] {
+            assert!(find_tool(name).unwrap().destructive, "{name}");
+        }
+    }
+
     /// Every shortcut's schema is its catalog entry's `args_schema`, and its description
     /// is the entry's summary.
     #[test]
@@ -310,7 +336,7 @@ mod tests {
             assert!(text.contains(&format!("\n- {} {{", spec.id)), "{}", spec.id);
         }
         assert!(
-            text.contains("- roundtrip {plugin, out?, verify?}"),
+            text.contains("- roundtrip {plugin, out?, overwrite?, verify?}"),
             "{text}"
         );
     }
