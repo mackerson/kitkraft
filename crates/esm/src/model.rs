@@ -224,10 +224,13 @@ pub enum Body<'a> {
     /// Uncompressed: a sequence of subrecords.
     Raw(Vec<Subrecord<'a>>),
     /// Compressed: the original bytes (the `u32` decompressed size and the zlib stream,
-    /// exactly as read) and, once decoded, the subrecords they hold.
+    /// exactly as read) and, once decoded, the subrecords they hold (owned data).
+    ///
+    /// The writer re-emits `original` unless the record is marked modified and `decoded`
+    /// is present, in which case the decoded subrecords are recompressed.
     Compressed {
         original: Cow<'a, [u8]>,
-        decoded: Option<Vec<Subrecord<'static>>>,
+        decoded: Option<Vec<Subrecord<'a>>>,
     },
 }
 
@@ -287,6 +290,21 @@ impl<'a> Record<'a> {
         }
     }
 
+    /// Mutable subrecords, or `None` for a compressed record that has not been decoded
+    /// (see [`Record::decompress`]). Marks the record modified.
+    pub fn subrecords_mut(&mut self) -> Option<&mut Vec<Subrecord<'a>>> {
+        let subs = match &mut self.body {
+            Body::Raw(subs) => subs,
+            Body::Compressed {
+                decoded: Some(subs),
+                ..
+            } => subs,
+            Body::Compressed { decoded: None, .. } => return None,
+        };
+        self.modified = true;
+        Some(subs)
+    }
+
     /// Whether the record was reached mutably or built in memory.
     pub fn is_modified(&self) -> bool {
         self.modified || self.data_size.is_none()
@@ -298,7 +316,7 @@ impl<'a> Record<'a> {
             Body::Raw(subs) => Body::Raw(subs.into_iter().map(Subrecord::into_owned).collect()),
             Body::Compressed { original, decoded } => Body::Compressed {
                 original: Cow::Owned(original.into_owned()),
-                decoded,
+                decoded: decoded.map(|subs| subs.into_iter().map(Subrecord::into_owned).collect()),
             },
         };
         Record {

@@ -14,16 +14,19 @@
 //!
 //! LAYER: L0
 
+pub mod compress;
 mod error;
 mod model;
 mod parse;
 mod reader;
 mod signature;
 pub mod tes4;
+mod write;
 
 #[cfg(test)]
 mod fixture;
 
+pub use compress::DecodeLimits;
 pub use error::{Error, Result};
 pub use model::{
     Body, Entry, Group, GroupHeader, Plugin, Record, RecordHeader, Subrecord, FLAG_COMPRESSED,
@@ -32,3 +35,4 @@ pub use model::{
 pub use parse::ParseOptions;
 pub use reader::Reader;
 pub use signature::Signature;
+pub use write::WriteOptions;
