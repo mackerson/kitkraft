@@ -210,6 +210,7 @@ name = "kitcraft-io"
 version = "0.0.0"
 dependencies = [
  "kitcraft-doc",
+ "thiserror",
 ]
 
 [[package]]
