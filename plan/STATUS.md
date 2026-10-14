@@ -258,7 +258,7 @@ is under "Next".
     and reports in-table duplicate IDs (`duplicates`, first wins) apart from cross-table
     conflicts; `.pex` object size fields are checked (all 5,708 official scripts agree)
     and versions other than 3.12 are flagged. Not done (optional): a tolerant parse mode
-    for padded string tables.
+    for padded string tables (done in M3.G2, below).
 
 - Lane D, M2.D1..D13 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
   `handlers/{load,inspect,query,diff,conflicts}.rs`), all checked 2026-10-14:
@@ -392,6 +392,140 @@ is under "Next".
   `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
   15 warnings). The rename plugin was regenerated (TES4 only changed):
   **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
+- M3 lane A (container), 2026-10-14:
+  - M3.A1 recompression study: the 160 compressed records zlib-rs level 9 does not
+    reproduce are listed in `docs/corpus.md` ("Recompression misses";
+    `corpus_recompression_misses`) and classified in `docs/gaps.md` ("Recompression
+    parity"): 147 NPC_/CELL (class E) differ only in the distance of their last match,
+    which runs to the end of the data, so the original compressor's choice depends on
+    bytes past the end of the record; 12 NAVM of one cell (class N) are level 8; 1 NAVM is
+    unexplained. No zlib-rs window/memory-level/strategy/level/tuning/flush variant, nor C
+    zlib 1.3.2 or miniz_oxide, reproduces class E (out-of-tree study, procedure in
+    `docs/gaps.md`). Default writer unchanged (level 9) pending M3.H3. F07 candidates filed
+    to lane H (Requests).
+  - M3.A2 `roundtrip --decode` in the driver: with `RoundtripOptions::decode` every
+    compressed body is inflated strictly (declared size, end marker and checksum, nothing
+    after the stream), its subrecords parsed and re-encoded to the inflated bytes; a body
+    that fails is a `Mismatch` (offset where inflating stopped, path ending in
+    `> compressed body: <fault>`), decode limits stay errors. Synthetic fixtures for each
+    fault; the M1.7 harness accepts only such decode mismatches. Full corpus 14/14
+    identical with it (18.3 s, 1,397 MiB, `docs/corpus.md`). The command side is M3.F1
+    (Request to lane F).
+- Lanes F and G, M3 (2026-10-14):
+  - M3.F2 `coverage` decodes every record of a defined type through its generated
+    definition (plugin context: form version, TES4 localized flag) and encodes it again:
+    typed occurrences whose payload does not decode are `failed` (counted apart, first 20
+    in `typed_failures` with offsets), re-encode differences are `reencode_conflicts`,
+    decoded occurrences are split by member confidence (`decoded_by_confidence`).
+    `cargo xtask parity [--check]` adds a "Decoded through the definitions" table; corpus:
+    20,437 records decoded, 40,776 typed occurrences, 0 failed, 0 re-encode conflicts, all
+    `corpus` confidence; `--check` passes on the regenerated file.
+  - M3.F3 hygiene: `docs/gaps.md` rows name their closing M3 tasks (the `PLANNED_IN_M2`
+    and "MCP server not implemented" rows removed); answered Requests struck through with
+    where they were done; `docs/mcp.md` names the coming `refs` (M3.D4).
+  - M3.F4: `plan/adr/0007-egui-shell-over-the-catalog.md`, status **Proposed**: options
+    (A: minimal egui shell in M3 = M3.F5; B: defer to M4; C: iced, Slint, web), costs, and
+    the recommendation B. Awaiting the owner's M3.O6; M3.F5 is gated on it. No UI code.
+  - M3.G1 `papyrus.compile` takes `sources_zip` (`kit papyrus compile ... --sources-zip
+    <Tools\ContentResources.zip>`): the zip's 5,034 `Scripts/Source` `.psc`/`.flg` files
+    (12.3 MB) are extracted once into the KitCraft cache, keyed by name, size and CRC-32,
+    hostile names refused before any write, and imported after `imports` (zip crate 9,
+    deflate only). PapyrusCompiler 4.7.0.5 with only the zip: DefaultAliasOnActivate,
+    DefaultCounterQuestA and the noc patch's nocOutfitChangerQuest,
+    nocOutfitChangerContainer, SQ_Airlock_QuestScript, CS7_SpaceshipLandingQuestScript all
+    compile (first call 14.5 s with the extraction, then 1-2 s each). Gaps row closed.
+  - M3.G2 tolerant string-table parse: `kitcraft_strings::ParseMode::{Strict, Tolerant}`,
+    `Table::parse_with` -> `Parsed { table, padding }` (`Padding { kind: DataTail |
+    AfterData, offset, len, zeros }`); `Table::parse` stays strict and unchanged.
+    `strings.dump` / `strings.merge` take `tolerant` and name each padding run in
+    `limitations` and `data.padding`; a strict `DataSize` failure hints at `tolerant`.
+    Lane D's string loading (`crates/doc`) still parses strictly.
+  - M3.G3 (research) Archive2 1.2.0.1 and non-ASCII names, black-box runs on synthetic
+    files (`docs/corpus.md` "Non-ASCII names in Archive2"): names lower-cased and stored
+    as Windows-1252 (characters outside it fail the run); name/dir hashes stop at the
+    first non-ASCII byte (extension field: 0 there), so such names collide and Archive2
+    silently kept 1 of 4; bytes 0xF0..F5/F8..FD hash to run-dependent values (16 of 256
+    hashes changed between two runs). `crates/ba2`: names decoded as Windows-1252 (was
+    Latin-1; extraction now matches Archive2's names), `hash::archive2_record_hashes`
+    with tests from the observed values, the reader's hash check accepts it for non-ASCII
+    names. `ba2.pack` keeps refusing them (collisions, unstable bytes, game lookup not
+    observed); gaps row restated.
+- Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
+  `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
+  - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
+    (`kitcraft_doc::RawRef`; a master of unknown scale before the index and
+    `full-style-self` stay unresolved, never guessed); `scripts` takes `.ba2` archives and
+    `plugin_archives` adds the plugin's own `<stem> - *.ba2`. `validate_corpus_official_files`
+    (release, 83 s): 0 errors, unresolved FormIDs 0 on all 14 files, warnings unchanged
+    (92 `override.stripped-name` on CELL/LCTN/NPC_/QUST/WRLD, the DLCs' own; 15
+    `formid.dangling` in SFBGS050, overrides of SFBGS00D forms SFBGS00D lacks).
+  - M3.E6 `build` spec v2 (`crates/engine/src/build/`): named classes, `[[rule]]` over a
+    class with `via` (typed FormID members followed hop by hop; lane D's `follow`, M3.D4,
+    replaces the local one when it lands), operators `mul`/`add`/`min`/`max`/`clamp`,
+    one write per record across rules and classes (different writes to one field name both
+    keys), `unknown member` checked against the schema, `strict`, `plan` (change list with
+    before/after, per-class and per-rule counts, nothing written), and the
+    `reference`-confidence gate (`allow_reference`). Built and tested on the members typed
+    today (GLOB `FLTV`, GMST `DATA`, `EDID`, `KSIZ`/`KWDA`, `FULL`); the weapon members
+    (WEAP/AMMO/PROJ/AMDL, lane B round 3: M3.B1..B3) plug in through the schema with no
+    code change. The `reference` gate is tested on a synthetic schema (the builtin has no
+    `reference` member yet). Version 1 specs build as before (the rename keeps its hash).
+  - M3.E7 `overhaul.scaffold` (CLI `kit overhaul`, `handlers/overhaul.rs`,
+    `build/scaffold.rs`): a starter spec v2 per record type, one class per `group_by` value
+    with match counts and min/median/max of each typed numeric member as comments, every
+    rule commented out; deterministic; `out` guarded (`.toml`, never game/user Data or
+    MO2, `overwrite`). On the Default profile `kit overhaul WEAP --group-by KWDA`: 541
+    winning WEAP, 40 classes, 0.8 s warm (release); `kit build <scaffold> --plan`: 0
+    changes, every class's count equal to the scaffold's (4.5 s). Today the only typed
+    numeric WEAP member is `KSIZ`; the weapon stats appear when lane B types WEAP (M3.B1).
+  - M3.E8 design brief template `docs/overhaul/brief.md` (source, critique points with
+    owner's-words claim, timestamp, classes, desired change, measurable target; out of
+    scope; in-game checklist; the traceability rule `brief = "B<n>"`). Next for the owner:
+    **M3.O4** (pick the critique, fill the brief), which gates M3.E9.
+  - Not started, gated: M3.E1/E2 on lane D's M3.D1 (`missing_active_plugins`,
+    `Resolved.bytes`, not on main); M3.E4 on M3.B8; M3.E5 on M3.A3 (and M3.H3/M3.O1);
+    M3.E9 on M3.O4 (owner); M3.E10 on M3.B1 (typed WEAP).
+- Lane D, M3 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
+  `handlers/{load,inspect,query,diff,conflicts}.rs`), 2026-10-14:
+  - M3.D1 lane E's round 2 requests: `Loaded::missing_active_plugins` (a field; also
+    `missing_active_plugins` in `load`'s listing) and `kitcraft_doc::source`:
+    `LoadOrder::source_check(form, missing_active)` / `Loaded::source_check(form)` returns
+    the winner with `blocking` and `unrelated` problems (`is_safe()`); `inspect` shows it as
+    `winner_source`. Blocking: no or deleted winner, a version's plugin loading before its
+    master, a plugin after the winner that failed to load or has unresolved records that
+    could be this form (it names the defining plugin and a stored object ID matches). Default
+    profile: the rifle `Starfield.esm:0021BBCD` is safe (unrelated: 4 unresolved records of
+    `HG_ShipCargoHoldAtHome.esm`, none can be it). `strings::Resolved` has `bytes` (the
+    table's exact bytes) and `utf8`; every non-UTF-8 `starfield_en` entry resolves with its
+    bytes (`crates/doc/tests/strings_corpus.rs`).
+  - M3.D2 (generic part; proven on today's typed members): `kitcraft_doc::fields` compares
+    a subrecord with a schema layout member by member (`typed::decode`), FormIDs resolved
+    by plugin name on each side, opaque members as payload byte ranges
+    (`Decoded::Opaque { at, len }`); `compare::classify_with` / `diff_subrecords_with`,
+    `conflicts::classify_versions`. `diff`, `conflicts` and `inspect`'s `vs_previous` report
+    `member` and `fields[] {path, before, after}` (paths `KWDA.Forms[1]`, `FULL.Name`) and
+    count `equal_by_value` (bytes differ, values equal: another master order). Corpus:
+    SFBGS004.esm vs a copy with one keyword changed reports `KWDA.Forms[0]`
+    (`crates/engine/tests/diff_corpus.rs`); differently ordered master lists compare equal.
+    WEAP/AMMO/... fields beyond the universal subrecords follow automatically once lane B
+    types them (M3.B1+). Default profile `conflicts --count-classes`: 6,029 differs, 1,644
+    identical (unchanged by the typed comparison), 2.7 s warm.
+  - M3.D3: `kitcraft_doc::confidence::reference_members` finds the `reference`-confidence
+    members behind a value (a whole decoded subrecord, or a `where` path); `inspect` and
+    `query` name them in `limitations` (`... reference confidence ...: GLOB FLTV.Value`).
+    No builtin member is `reference` yet, so the test (`reference_members_surface_as_
+    limitations`, through `execute`) installs a schema whose GLOB `FLTV` cites xEdit at
+    `reference` (a test-only session slot, `SchemaOverride`). `query` decodes through
+    `search::run_page_with(.., schema)` (`run_page` keeps the builtin schema).
+  - M3.D6: `crates/doc/tests/typed_corpus.rs` (five small files fast, all 14 `#[ignore]`,
+    release 24 s): the interpreter `inspect`/`where`/`diff` decode with agrees with the
+    generated decoder behind `Plugin::typed` on all 20,423 records of defined types
+    (FormIDs and string IDs), and every lstring ID resolves except 181 pinned corpus facts
+    (85 ARMO FULL IDs of Starfield.esm; BlueprintShips-SFBGS050.esm ships no string
+    tables). Counts in `docs/corpus.md`; the stale schema/inspect row of `docs/gaps.md`
+    closed, the lstring row restated.
+  - Not done, gated: M3.D4 (`follow`, `refs`) needs M3.B1 and M3.B2 (typed WEAP, AMMO,
+    PROJ) on main; M3.D5 needs the owner sessions M3.O1 (F00) and M3.O2.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -460,6 +594,15 @@ is under "Next".
     Corpus check: every lstring occurrence of those 49 types is visited (counts equal), 0
     conflicts, 0 re-encode differences, including 6.7 million REFR.
 
+### M3 lane H (evidence: CK observation and oracles)
+
+| Task | State |
+| ---- | ----- |
+| M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitCraft's assumed runtime IDs, and the `fixture.toml` template |
+| M3.H2 `cargo xtask observe` | **done**: `cargo xtask observe <fixture-dir>` writes `report.md`/`report.json` in the fixture folder only (SHA-256 of every file; per plugin TES4, `roundtrip --verify`, `coverage`, `validate`; base, `[[compare]]` and `kit_equivalent` comparisons as byte runs, TES4 diff and `kit diff`, our equivalent in both styles with `ck` reported unavailable until M3.E5); `cargo xtask observe new <F-id>` writes the fixture's `fixture.toml`. Tests: synthetic fixture dirs with a fake `kit` (nothing written outside, rerun byte-identical) and the real `kit` when built |
+| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part blocked on M3.O3** (`cargo xtask oracle sf1edit` says so) |
+| M3.H3 findings, M3.H5 CK feature ranking | **blocked on M3.O1** (the owner's CK session; `docs/ck-observations.md` has the resolved script, `cargo xtask observe new <id>` the templates) |
+
 ## Next
 
 M2 lanes (from `PLAN.md` "M2 - agent surface" and the step 2 ladder). Owners are assigned
@@ -475,7 +618,7 @@ when M2 is broken down in `plan/execution-plan.md`.
 | edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
 | smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
 | container  | `roundtrip --decode`; typed edits through `Record::set_typed` (decode side wired: `Record::typed`)             | `crates/esm` (lane A)                        |
-| schema     | Round 3 (blocked, see Blockers): typed layouts from the pinned xEdit files (see below)                         | `crates/schema` (lane B)                     |
+| schema     | Round 3: M3.B0-B5, B7, B8 done (see In progress); B6, B9-B12 open                                               | `crates/schema` (lane B)                     |
 
 Lane B round 3 transcribes definitions from the pinned xEdit files (`xedit:` provenance,
 `confidence = "reference"` until the corpus confirms) in this priority: **WEAP, AMMO, PROJ,
@@ -568,7 +711,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Lane A -> lane C.** The decode side of the typed wiring is in esm: `Plugin::typed(record)`
   / `Record::typed(ctx)` (`None` for a type without a definition or an undecoded compressed
   record: call `Record::decompress` first) and `Record::set_typed`. `coverage` and `inspect`
-  can now decode payloads instead of classifying by signature. API changes from round 2
+  can now decode payloads instead of classifying by signature (**`coverage` done in
+  M3.F2**; `inspect` is M3.D6, lane D). API changes from round 2
   that engine code may meet: `Body::Compressed` has a third field `inflated` (patterns need
   `..`), `DecodeLimits` has `max_subrecords` (build it with `..DecodeLimits::default()`),
   new `Error` variants (`FlagBodyMismatch`, `ReservedSignature`, `TooManySubrecords`), and
@@ -580,9 +724,11 @@ Agents append here when they need a change in a crate they do not own.
 - ~~**Policy -> lane B.** Store `confidence` in the model, `corpus` on TES4/GRUP/RECORD,
   required on `uesp-skyrim:`, re-export the pin.~~ Done in M2.B1 (lane B branch):
   `Provenance` on every node, `confidence` required on every file, `XEDIT_REVISION`.
-- **Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence` next to
-  the source kind once the model carries it; `confidence = "reference"` values should surface as
-  a `limitations[]` entry in `inspect`/`query` results.
+- ~~**Policy -> lane C.** `coverage` / `cargo xtask parity` should show `confidence`;
+  `reference` values should surface in `inspect`/`query` limitations.~~ Coverage and parity
+  half done: M2.F9 ("Definitions by confidence") and M3.F2 (`decoded_by_confidence` per
+  record type, "Decoded through the definitions"); the `inspect`/`query` half is M3.D3
+  (lane D), see the next-but-one entry.
 - ~~**Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
   `xedit:` citations.~~ Done in M2.B1 (loader, tests, README).
 - ~~**Policy -> AGENTS.md / plan maintainer.**~~ Done (lane F round 3): AGENTS.md, ADR 0001
@@ -597,8 +743,11 @@ Agents append here when they need a change in a crate they do not own.
 - **Policy -> lane C (partly done, lane F round 3).** `cargo xtask parity` now has a
   "Definitions by confidence" table (from `kit schema --json`), and `kit schema` /
   `record_schema` states `reference`-confidence definitions as a limitation; `inspect` and
-  `query` results do not yet.
+  `query` results do not yet. **Done (lane D, M3.D3):** `inspect` and `query` name the
+  `reference`-confidence members behind the values they show or test.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
+  `query` results do not yet (M3.D3).
+- **Policy -> M2 (now M3.O3).** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
@@ -611,12 +760,12 @@ Agents append here when they need a change in a crate they do not own.
   `gmst.editor_id ... == b"fFoo"` in `crates/esm/src/bridge.rs` so the gate stays green.
   Generated API additions you may use: `Record::extra()`, the four visitors, and union
   enums (`GmstValue`) decoded through `put_by_prefix` (a missing EDID keeps DATA raw).
-- **Lane B -> lane F / coverage owner (FYI, done in lane B's branch).** The engine coverage
+- ~~**Lane B -> lane F / coverage owner (FYI, done in lane B's branch).** The engine coverage
   test now counts EDID, FULL and GMST DATA as `typed` (expectations updated in
   `crates/engine/src/handlers/coverage.rs`). For M2.F9: per-member confidence is
   `SubrecordDef::provenance.confidence` (also on groups, fields, records); a union member
-  is `FieldType::Union`, not opaque.
-- **Lane D -> lane F.** (1) `inspect`'s `plugin` is no longer required, so it is no longer
+  is `FieldType::Union`, not opaque.~~ Used in M2.F9 (`schema`) and M3.F2 (`coverage`).
+- ~~**Lane D -> lane F.**~~ Answered in lane F round 3 (below). (1) `inspect`'s `plugin` is no longer required, so it is no longer
   positional: `kit inspect <form> --plugin <file>`; the tests that used the positional form
   (engine `cmdline.rs`, kit-cli `exit_codes.rs`, mcp `tests/stdio.rs`) were updated. (2)
   `query` is implemented: tests that used it as the `Planned` example now use `build`
@@ -640,6 +789,13 @@ Agents append here when they need a change in a crate they do not own.
   in game would show their slots. Lead: the CK's own `EditorDataFilesLoaded.txt` in the game
   dir lists each loaded file with its index and ID form (`001 - (FE000XXX) -
   'KZ_Mantis.esm'`); a CK session with the full profile would record the CK's order.
+- **Lane D -> lane H / owner (M3.O2 script, from M3.D6).** BlueprintShips-SFBGS050.esm is
+  localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
+  nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
+  `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
+  (30 of the 96 IDs exist there) or shows none. **Lane H:** in the M3.O2 script
+  (`docs/ck-observations.md`, step 3) with `BlueprintInteriorSFTER_TerranShip_Generic_TESTLocation`
+  (`FULL` 0x0002E9C4; none of the 66 LCTN name IDs is in `sfbgs050_en.strings`).
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
   `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
@@ -656,7 +812,8 @@ Agents append here when they need a change in a crate they do not own.
 - **Lane D -> lane B.** 14 official GMST string settings hold string ID 0, which is in no
   table; `query` leaves them unknown. A source for what ID 0 means would close it.
   `where` member names are the schema's PascalCase names, matched case-insensitively.
-- **Lane E -> lane F (tests touched, catalog closure).** `set`, `validate` and `build`
+- ~~**Lane E -> lane F (tests touched, catalog closure).**~~ Done in lane F round 3 (see
+  the end of this entry). `set`, `validate` and `build`
   are `Implemented`, so no catalog command is `Planned` any more. Tests that used `build`
   as the Planned example were changed in lane E's commit 714bfe6: engine
   `command_without_handler_is_not_implemented` (an engine without the handler),
@@ -676,6 +833,11 @@ Agents append here when they need a change in a crate they do not own.
   `sfbgs00d.esm` and `SFBGS047.esm`. (2) `strings::Resolved` has only lossy `text`; lane G
   notes some official strings are not UTF-8. `set` refuses such a string (a U+FFFD in the
   text) rather than change it; a `bytes` field would let it copy them exactly.
+  **Done (lane D, M3.D1):** (1) `Loaded::missing_active_plugins` (the limitation text stays
+  for readers, but nothing needs to match it) and `Loaded::source_check(form)`
+  (`kitcraft_doc::SourceCheck { winner, blocking, unrelated }`, `is_safe()`): refuse on
+  `blocking`, report `unrelated` as limitations (M3.E1). (2) `Resolved::bytes` and
+  `Resolved::utf8` (M3.E2).
 - **Lane E -> owner (M2.O4).** The `ck-diff` half of M2.E3 is open: what the CK writes for
   a new non-localized plugin (master flag for `.esm`, `HEDR` next object ID, inline text
   encoding: we write UTF-8). Until observed it is a limitation on every `set`/`build`.
@@ -710,7 +872,8 @@ Agents append here when they need a change in a crate they do not own.
   it changes them. A table may repeat an ID: `Table::get` and `strings.merge` both use the
   **first** occurrence (merge reports the others in `duplicates`, apart from cross-table
   `conflicts`); use `get`, not a map built by later-wins insertion.
-- **Lane G -> lane F (FYI, review round 2).** `ba2.extract` gained `max_entry_bytes` and
+- ~~**Lane G -> lane F (FYI, review round 2).**~~ Answered in lane F round 3 (end of this
+  entry). `ba2.extract` gained `max_entry_bytes` and
   `ba2.pack` gained `overwrite` in the catalog; the expected parameter list in
   `crates/engine/src/params.rs` `required_first_in_required_order` was updated to match.
   Also seen once in a full `cargo xtask ci` run after merging lane D (passed on rerun and
@@ -728,7 +891,8 @@ Agents append here when they need a change in a crate they do not own.
   function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base
   object in `args[1]`; `.pex` inside archives via `kitcraft_ba2` as above, or
   `execute("papyrus.disasm", {pex, archive?, format: "json"})`.
-- **Lane G -> lane F.** (1) Tests that used `ba2.list` as their example of a `Planned`
+- ~~**Lane G -> lane F.**~~ Answered in lane F round 3 (end of this entry; (1) is moot: no
+  catalog command is `Planned`, and those tests build their own spec). (1) Tests that used `ba2.list` as their example of a `Planned`
   command now use `query` (engine `lib.rs`, `apps/kit-cli` `main.rs` and
   `tests/exit_codes.rs`, `crates/mcp/src/server.rs`); they break again when `query`
   lands, so a spec built in the test may be better. (2) `papyrus.disasm` puts the
@@ -787,12 +951,17 @@ Agents append here when they need a change in a crate they do not own.
   `Stats::{typed_records, typed_subrecords, typed_unchecked, typed_failed_records,
   typed_conflicts, typed_conflict_list}` for `coverage` and `cargo xtask parity` (M2.F9).
   On all 14 files today: 13,168 typed records, 0 conflicts (`docs/corpus.md`).
+  **Lane F (M3.F2):** answered for `coverage`, which runs the same decode + re-encode check
+  per record (with `Record::extra()`, see below) and feeds `cargo xtask parity`.
 - ~~**Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
-  kept: `generated::records::Record::extra(&self) -> &[(usize, OwnedSub)]`.~~ Done (the
-  accessor exists since M2.B2). **Lane B -> lane A (FYI, done in lane B's M3.B1 commit):**
-  `esm::bridge::extra_of` now returns `typed.extra()` for every record type instead of
-  matching five variants, so the M2.A3 typed check (`corpus_full_roundtrip`) sees payloads
-  that do not decode in every typed record type; a one-function change.
+  kept: `generated::records::Record::extra(&self)`.~~ Done in M2.B3 (`Record::extra()` is
+  generated for every defined type).
+- ~~**Lane F -> lane A (M3.F2).** `esm::bridge::extra_of` still matches five variants (GLOB,
+  GMST, KYWD, TES4, WEAP), so `check_subrecords` misses `NotDecoded` conflicts in AMDL,
+  AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.~~
+  Done in lane B's M3.B1 commit (FYI to lane A): `extra_of` returns `typed.extra()` for
+  every record type, a one-function change, so `corpus_full_roundtrip`'s typed check sees
+  undecoded payloads in every round 3 type.
 - **Lane B -> lanes D, E, F (FYI, done in lane B's M3.B1 commit).** Typing WEAP changed five
   engine test expectations, updated in the same commit: `edit::fields` (WEAP WABB is a
   schema lstring now, no table fallback), `edit::patch_tests` (the opaque subrecord in the
@@ -804,6 +973,20 @@ Agents append here when they need a change in a crate they do not own.
   are `CombinationCount`/`Combination`/`TemplateItem`/`EndMarker`; WEAP's placeholder names
   (`Obnd`, `Wfir`, `Flld2`, ...) are replaced by the xEdit-backed layout (`kit schema
   --type WEAP --deep`).
+  After merging main (lane B's merge commit), three more expectations followed the typed
+  schema: `handlers::coverage` (the M3.F2 `failed` counts with MODL typed; 8 decoded by
+  confidence), `handlers::overhaul_tests` (KSIZ is looked up by name: WEAP's numeric
+  members now come first) and `tests/diff_corpus.rs` (picks a record type whose definition
+  places KWDA, since lstring-only definitions keep it raw).
+- **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
+  `overhaul.scaffold` (alias `overhaul`, session handler registered in
+  `handlers::session_defaults`), `build` gained `plan`, `validate` gained
+  `plugin_archives` and `.ba2` inputs in `scripts`; `docs/mcp.md` has their sections, the
+  command list (M3.F3) may want them. **Lane F:** (1) answered: the sections are the
+  command list; no shortcut tool (`execute` and `command_line` reach it, and the tool
+  descriptions and `kitcraft://commands` list it from the catalog). (2) Lane D: `build`'s `via` follows typed FormID
+  members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
+  `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
 - ~~**Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3
@@ -818,3 +1001,46 @@ Agents append here when they need a change in a crate they do not own.
   as the undefined type). **Lane B -> lane A (FYI):** CELL and REFR now have lstring-only
   definitions, so `bridge` and `driver` tests use NAVM as the undefined type and count CELL
   and the three REFR as typed records.
+- **Lane H -> lane E (and the `docs/corpus.md` "TES4 header" text).** Our patches write
+  `TES4` as `HEDR CNAM MAST DATA INCC`, but no official file has a `DATA` after `MAST`: a
+  walk of all 14 `TES4` records (13 with masters) finds none, as `crates/schema/defs/TES4.toml`
+  says ("MAST is never followed by DATA"), while `docs/corpus.md` says "Every MAST is
+  followed by an 8-byte DATA". Spriggit 0.41.0 drops our `DATA` on a round trip
+  (`docs/oracles.md` S3). Suggest: correct the `docs/corpus.md` sentence, and either stop
+  writing `DATA` or list it as a stated deviation in "Writing rules" until M3.O1's F01/F02
+  show what the CK writes (`docs/ck-observations.md`). Changing it changes the rename
+  plugin's SHA-256.
+- **Lane H -> lane A (M3.A1).** File the F07 recompression candidates (up to 5, CK-openable
+  in a dialog) as a Request here; lane H adds them to F07 in `docs/ck-observations.md` and
+  the `observe new F07` template.
+- **Lane A -> lane H (M3.A1, F07 candidates for M3.H1).** Five compressed records from
+  `Starfield.esm` that zlib-rs level 9 does not recompress identically and that the CK
+  opens in a dialog, for F07's "one trivial edit each" (all class E in `docs/gaps.md`:
+  the last match differs). Each override then shows whether the CK writes the original
+  stream, ours (level 9), or a third; compare the CK's body with the original and with
+  `deflate(level 9)` of the same decompressed bytes (and say whether the CK recompressed
+  the edited record at all, or stored it uncompressed).
+  1. NPC_ `0000697A` `UC_NA_CL_TolimanScene_Friend` (3,858 bytes inflated, 1,468 stream;
+     the typical NPC_ case: last match 35 at distance 38, ours 37).
+  2. NPC_ `002BF312` `Traits_OctopedeA_HornedCrab_Small` (645 / 343; the smallest NPC_
+     miss).
+  3. NPC_ `00196BB2` `PCM_Porrima_Porrima-III_Predator01` (1,379 / 667; the changed
+     distance also changes the Huffman tables, so the streams differ from byte 4).
+  4. CELL `0027459B` `LC125SonasHome` (interior cell; 330 / 270; last match length 4).
+  5. CELL `000090AF` `SM015DeimosStaryardExterior` (36,764 / 12,614; the largest miss
+     outside NAVM).
+  The 12 level-8 NAVM and the unexplained NAVM (`001BA29F`) are navmeshes of cell
+  `00000025`, not dialog-editable, so F07 does not cover them.
+- **Lane A -> lane F (M3.A2 landed; for M3.F1).** `RoundtripOptions::decode:
+  Some(DecodeLimits)` (or `RoundtripOptions::with_decode()`) is the driver half of
+  `roundtrip --decode`: a compressed body that does not inflate to exactly its declared
+  size, whose stream lacks its end marker or checksum or is followed by other bytes, or
+  whose subrecords do not parse or re-encode, comes back as `report.mismatch` (so
+  `identical()` is false and the CLI's exit 1 applies) with `expected` and `actual` both
+  `None`, `offset` where inflating stopped (the body start for size and content faults),
+  and `path` ending in ` > compressed body: <fault>` (e.g. `GRUP LAND (type 0) @330 >
+  LAND 00000501 @439 > compressed body: invalid zlib stream: ...`). A decode limit
+  (`DecompressedTooLarge`, `TooManySubrecords`) is still an `Err`. No public type changed
+  (`Mismatch` and `RoundtripReport` have the same fields), so the engine compiles as is;
+  for an end-to-end exit-1 fixture, a compressed record whose last stream byte is flipped
+  (Adler-32) is the simplest (`driver::tests::decode_reports_a_corrupt_well_sized_stream`).

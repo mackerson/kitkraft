@@ -147,8 +147,10 @@ pub struct Finding {
 pub struct Options {
     /// The plugin.
     pub plugin: Option<PathBuf>,
-    /// Compiled scripts (`.pex` files or directories of them).
+    /// Compiled scripts: `.pex` files, directories of them, or `.ba2` archives.
     pub scripts: Vec<PathBuf>,
+    /// Also scan the scripts in the plugin's own archives (`<stem> - *.ba2` next to it).
+    pub plugin_archives: bool,
     /// Rules to run (`None`: every rule whose input was given).
     pub rules: Option<Vec<&'static str>>,
     /// Explicit load order, searched first for masters.
@@ -198,6 +200,9 @@ pub struct Report {
     pub subrecords: u64,
     /// Scripts examined.
     pub scripts: u64,
+    /// The script inputs scanned (files, directories, archives), the plugin's archives
+    /// included.
+    pub script_inputs: Vec<PathBuf>,
     /// Limitations.
     pub limitations: Vec<String>,
 }
@@ -241,16 +246,30 @@ pub fn validate(options: &Options) -> Result<Report, String> {
         validate_plugin(plugin, options, &rules, &mut report)?;
         report.rules.extend(rules);
     }
-    if !options.scripts.is_empty() {
+    let mut script_inputs = options.scripts.clone();
+    if options.plugin_archives {
+        if let Some(plugin) = &options.plugin {
+            let found = scripts::plugin_archives(plugin);
+            if found.is_empty() {
+                report.limitations.push(format!(
+                    "plugin_archives: no archive named after {} next to it",
+                    file_name(plugin)
+                ));
+            }
+            script_inputs.extend(found);
+        }
+    }
+    if !script_inputs.is_empty() {
         let rules: Vec<&'static str> = RULES
             .iter()
             .filter(|r| r.input == Input::Scripts && selected(r.id))
             .map(|r| r.id)
             .collect();
         if !rules.is_empty() {
-            scripts::denylisted_calls(&options.scripts, &mut report)?;
+            scripts::denylisted_calls(&script_inputs, &mut report)?;
         }
         report.rules.extend(rules);
+        report.script_inputs = script_inputs;
     }
     Ok(report)
 }
@@ -336,7 +355,7 @@ impl Pass<'_> {
     fn space_of(&self, file: &MasterFile) -> Space {
         Space {
             name: file.name.clone(),
-            scaled: file.flags.is_some_and(forms::scaled),
+            flags: file.flags,
             masters: file
                 .masters
                 .iter()
@@ -497,7 +516,7 @@ fn validate_plugin(
 
     let space = Space {
         name: name.clone(),
-        scaled: forms::scaled(flags),
+        flags: Some(flags),
         masters: masters
             .iter()
             .map(|m| {
@@ -567,15 +586,9 @@ fn validate_plugin(
             }
         }
     }
-    if pass.space.scaled
-        || pass
-            .space
-            .masters
-            .iter()
-            .any(|(_, f)| f.is_some_and(forms::scaled))
-    {
+    if pass.space.scaled() {
         report.limitations.push(
-            "small/medium (FE/FD) FormIDs are not resolved (lane D's scale-aware load order); they are counted as unresolved".into(),
+            "this plugin is small or medium: its own records stored full-style (lane D's assumption full-style-self) are counted as unresolved, not guessed".into(),
         );
     }
     Ok(())
@@ -938,11 +951,15 @@ fn check_form_id(
         Target::Unknown(_) => {
             report.unresolved_form_ids = report.unresolved_form_ids.saturating_add(1);
         }
-        Target::Beyond { index, full } => {
+        Target::Beyond {
+            index,
+            count,
+            class,
+        } => {
             report.checked_form_ids = report.checked_form_ids.saturating_add(1);
             push(
                 Severity::Error,
-                format!("{what} names master slot {index:02X}, but the plugin has {full} full-scale master(s) before itself"),
+                format!("{what} names {class} master slot {index:02X}, but the plugin has {count} {class} master(s) and is not itself in that slot"),
             );
         }
         Target::Form {

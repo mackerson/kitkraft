@@ -30,8 +30,13 @@ pub enum Decoded {
     Struct(Vec<(String, Decoded)>),
     /// Elements.
     Array(Vec<Decoded>),
-    /// Bytes the schema does not decode.
-    Opaque,
+    /// Bytes the schema does not decode: where they are in the payload.
+    Opaque {
+        /// Offset in the subrecord payload.
+        at: usize,
+        /// Length in bytes.
+        len: usize,
+    },
 }
 
 /// What decoding depends on besides the bytes.
@@ -134,15 +139,12 @@ fn decode_in(
             ))
         }
         FieldType::Opaque { size } => {
-            match size {
-                Some(n) => {
-                    c.take(usize::try_from(*n).map_err(|_| "size")?)?;
-                }
-                None => {
-                    c.rest();
-                }
-            }
-            Ok(Decoded::Opaque)
+            let at = c.pos;
+            let len = match size {
+                Some(n) => c.take(usize::try_from(*n).map_err(|_| "size")?)?.len(),
+                None => c.rest().len(),
+            };
+            Ok(Decoded::Opaque { at, len })
         }
         FieldType::Empty => Ok(Decoded::Struct(Vec::new())),
         FieldType::Ref { ty, .. } => decode_in(ty, c, ctx, siblings),
@@ -151,8 +153,9 @@ fn decode_in(
             match variants.iter().find(|v| Some(v.when) == ctx.edid_first) {
                 Some(v) => decode_in(&v.ty, c, ctx, siblings),
                 None => {
-                    c.rest();
-                    Ok(Decoded::Opaque)
+                    let at = c.pos;
+                    let len = c.rest().len();
+                    Ok(Decoded::Opaque { at, len })
                 }
             }
         }
@@ -296,7 +299,7 @@ fn collect(v: Decoded, member: &str, label: &str, out: &mut Vec<Decoded>) -> Res
             }
             Ok(())
         }
-        Decoded::Opaque => Err(format!(
+        Decoded::Opaque { .. } => Err(format!(
             "{label}: `{member}` is inside bytes the schema keeps opaque"
         )),
         _ => Err(format!(
@@ -330,7 +333,10 @@ mod tests {
             edid_first: Some(b'#'),
             ..ctx()
         };
-        assert_eq!(decode(ty, &[1, 2, 3, 4], &other).unwrap(), Decoded::Opaque);
+        assert_eq!(
+            decode(ty, &[1, 2, 3, 4], &other).unwrap(),
+            Decoded::Opaque { at: 0, len: 4 }
+        );
         // A record type without a definition, and a subrecord the definition lacks.
         assert!(field_type(schema, *b"QQQQ", *b"DATA").unwrap().is_none());
         assert!(field_type(schema, *b"GMST", *b"ZZZZ").unwrap().is_none());

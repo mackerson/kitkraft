@@ -4,7 +4,9 @@
 //!   test).
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
-//! - `cargo xtask parity`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
+//! - `cargo xtask oracle`: external tools (Spriggit) run as oracles (lane H, [`oracle`]).
 //!
 //! The layer check has three parts.
 //!
@@ -27,7 +29,10 @@
 //! LAYER: TOOL
 
 mod codegen;
+mod evidence;
 mod graph;
+mod observe;
+mod oracle;
 mod parity;
 mod smuggle;
 
@@ -117,15 +122,16 @@ fn run() -> Result<()> {
     match task.as_deref() {
         Some("ci") => ci(&workspace_root()?),
         Some("layers") => layers(&workspace_root()?),
-        Some("codegen") => {
-            let check = match std::env::args().nth(2).as_deref() {
-                None => false,
-                Some("--check") => true,
-                Some(other) => bail!("codegen: unknown argument `{other}`; expected --check"),
-            };
-            codegen::run(&workspace_root()?, check)
+        Some("codegen") => codegen::run(&workspace_root()?, check_flag("codegen")?),
+        Some("parity") => parity::run(&workspace_root()?, check_flag("parity")?),
+        Some("observe") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            observe::run(&workspace_root()?, &rest)
         }
-        Some("parity") => parity::run(&workspace_root()?),
+        Some("oracle") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            oracle::run(&workspace_root()?, &rest)
+        }
         None | Some("help" | "-h" | "--help") => {
             print_help();
             Ok(())
@@ -143,7 +149,20 @@ fn print_help() {
         "  codegen  write crates/esm/src/generated/ from the schema; --check fails when stale"
     );
     println!("  parity   run `kit coverage` over the corpus (KITCRAFT_DATA_DIR) and write");
-    println!("           docs/record-parity.md");
+    println!("           docs/record-parity.md; --check fails when it is stale");
+    println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
+    println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
+    println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
+    println!("           round trips compared with kit (YAML never read; lane H)");
+}
+
+/// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).
+fn check_flag(task: &str) -> Result<bool> {
+    match std::env::args().nth(2).as_deref() {
+        None => Ok(false),
+        Some("--check") => Ok(true),
+        Some(other) => bail!("{task}: unknown argument `{other}`; expected --check"),
+    }
 }
 
 fn workspace_root() -> Result<PathBuf> {

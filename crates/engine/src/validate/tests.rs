@@ -5,7 +5,7 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
+use kitcraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
 use kitcraft_esm::{Body, Record, RecordHeader, Signature, Subrecord};
 use serde_json::{json, Value};
 
@@ -516,6 +516,154 @@ fn papyrus_denylisted_call_on_the_local_noc_patch() {
     };
     assert_eq!(count("SQ_Airlock_QuestScript.pex"), 0);
     assert_eq!(count("CS7_SpaceshipLandingQuestScript.pex"), 4);
+}
+
+/// M3.E3: `FE`/`FD` FormIDs are checked through lane D's class encoding. A small master's
+/// keyword the master has passes, one it lacks is a warning, a small index past the
+/// small masters is an error; none of them is counted as unresolved any more.
+#[test]
+fn formid_dangling_resolves_small_and_medium_masters() {
+    let d = dir("validate-scaled");
+    master(&d);
+    let small = write_plugin(
+        &d,
+        "Small.esm",
+        &["Master.esm"],
+        FLAG_MASTER | FLAG_SMALL,
+        vec![record(
+            b"KYWD",
+            0xFE00_0123,
+            vec![sub(b"EDID", b"SmallKw\0")],
+        )],
+    );
+    let medium = write_plugin(
+        &d,
+        "Medium.esm",
+        &["Master.esm"],
+        FLAG_MASTER | FLAG_MEDIUM,
+        vec![record(
+            b"KYWD",
+            0xFD00_4567,
+            vec![sub(b"EDID", b"MediumKw\0")],
+        )],
+    );
+    let _ = (small, medium);
+    let with_keyword = |kw: u32| {
+        let mut w = good_weapon();
+        let subs = w.subrecords_mut().unwrap();
+        let at = subs
+            .iter()
+            .position(|s| s.signature() == Signature(*b"DESC"))
+            .unwrap();
+        subs.insert(at, sub(b"KWDA", &kw.to_le_bytes()));
+        subs.insert(at, sub(b"KSIZ", &1u32.to_le_bytes()));
+        w
+    };
+    let masters = ["Master.esm", "Small.esm", "Medium.esm"];
+    // Small.esm is small index 0, Medium.esm medium index 0; Master.esm full index 0.
+    let good = patch(&d, "Good.esp", &masters, vec![with_keyword(0xFE00_0123)]);
+    let data = check(&good, &["formid.dangling"]);
+    assert_eq!(found(&data), [], "{data:#}");
+    assert_eq!(data["unresolved_form_ids"], json!(0), "{data:#}");
+    let medium_ok = patch(
+        &d,
+        "MediumOk.esp",
+        &masters,
+        vec![with_keyword(0xFD00_4567)],
+    );
+    assert_eq!(found(&check(&medium_ok, &["formid.dangling"])), []);
+    let lacking = patch(&d, "Lacking.esp", &masters, vec![with_keyword(0xFE00_0999)]);
+    let data = check(&lacking, &["formid.dangling"]);
+    assert_eq!(
+        found(&data),
+        [pair("formid.dangling", "warning")],
+        "{data:#}"
+    );
+    assert!(data["findings"][0]["message"]
+        .as_str()
+        .unwrap()
+        .contains("Small.esm:000999"));
+    let beyond = patch(&d, "Beyond.esp", &masters, vec![with_keyword(0xFE00_1001)]);
+    let data = check(&beyond, &["formid.dangling"]);
+    assert_eq!(found(&data), [pair("formid.dangling", "error")], "{data:#}");
+    assert!(data["findings"][0]["message"]
+        .as_str()
+        .unwrap()
+        .contains("small master slot"));
+    // A master of unknown scale (missing) before the index is still not guessed.
+    let unknown = patch(
+        &d,
+        "Unknown.esp",
+        &["Master.esm", "Nope.esm", "Small.esm"],
+        vec![with_keyword(0xFE00_0123)],
+    );
+    let data = check(&unknown, &["formid.dangling"]);
+    assert_eq!(found(&data), []);
+    assert_eq!(data["unresolved_form_ids"], json!(1));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// M3.E3: scripts inside archives. A `.ba2` given in `scripts` is scanned entry by entry,
+/// and `plugin_archives` adds the plugin's own `<stem> - *.ba2`.
+#[test]
+fn papyrus_denylisted_call_in_archives() {
+    let d = dir("validate-ba2");
+    let loose = d.join("loose");
+    std::fs::create_dir_all(loose.join("Scripts")).unwrap();
+    std::fs::write(
+        loose.join("Scripts").join("Bad.pex"),
+        pex("Debug", "SetGodMode"),
+    )
+    .unwrap();
+    std::fs::write(
+        loose.join("Scripts").join("Good.pex"),
+        pex("Debug", "Notification"),
+    )
+    .unwrap();
+    std::fs::write(loose.join("Scripts").join("Broken.pex"), b"not a pex").unwrap();
+    let archive = d.join("Mod - Main.ba2");
+    execute(
+        "ba2.pack",
+        json!({"dir": loose.display().to_string(), "out": archive.display().to_string()}),
+    )
+    .unwrap();
+    let data = execute(
+        "validate",
+        json!({"scripts": [archive.display().to_string()]}),
+    )
+    .unwrap();
+    let result = data.clone();
+    let data = &data["data"];
+    assert_eq!(found(data), [pair("papyrus.denylisted-call", "warning")]);
+    assert_eq!(data["scripts_checked"], json!(2));
+    assert_eq!(
+        data["findings"][0]["plugin"],
+        json!("Mod - Main.ba2/scripts/bad.pex")
+    );
+    assert!(
+        result["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("broken.pex")),
+        "{result:#}"
+    );
+    // The plugin's own archives.
+    let plugin = patch(&d, "Mod.esp", &[], vec![]);
+    let data = execute(
+        "validate",
+        json!({"plugin": plugin.display().to_string(), "plugin_archives": true}),
+    )
+    .unwrap()["data"]
+        .clone();
+    assert_eq!(found(&data), [pair("papyrus.denylisted-call", "warning")]);
+    assert_eq!(data["scripts"], json!([archive.display().to_string()]));
+    // Without the flag the plugin's archives are not read.
+    let data = check(&plugin, &["papyrus.denylisted-call"]);
+    assert_eq!(found(&data), []);
+    let err = execute("validate", json!({"scripts": [], "plugin_archives": true})).unwrap_err();
+    assert_eq!(err.kind(), "invalid_args");
+    let _ = std::fs::remove_dir_all(&d);
 }
 
 #[test]

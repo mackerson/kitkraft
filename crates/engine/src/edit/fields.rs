@@ -31,8 +31,10 @@
 //! `{"mul": x}` or `{"add": x}` scales or offsets the current value of a typed number
 //! (integers are rounded to the nearest value, ties away from zero, then range-checked; an
 //! integral `add` is exact on 64-bit fields, while `mul` and a fractional `add` go through
-//! `f64` and are refused beyond 2^53). Non-finite numbers (`inf`, `nan`, `1e400`) are
-//! `range` errors.
+//! `f64` and are refused beyond 2^53). `{"min": x}` raises a typed number to at least `x`,
+//! `{"max": x}` lowers it to at most `x`, and `{"clamp": [lo, hi]}` does both (`build` spec
+//! v2, M3.E6; on integers the bounds round inwards and the value stays exact). Non-finite
+//! numbers (`inf`, `nan`, `1e400`) are `range` errors.
 //!
 //! `FULL` and `DESC` are lstrings (`uesp-skyrim` fact in `plan/execution-plan.md`, "Format
 //! facts M2 relies on"; lane B's M2.B2 types them, with corpus evidence, on every record
@@ -160,25 +162,80 @@ pub enum Op {
     Mul(f64),
     /// Add to a typed number.
     Add(f64),
+    /// Raise a typed number to at least this (the value's lower bound; `build` spec v2).
+    Min(f64),
+    /// Lower a typed number to at most this (the value's upper bound).
+    Max(f64),
+    /// Keep a typed number within `[lo, hi]` (`lo <= hi`).
+    Clamp(f64, f64),
 }
 
-/// Reads an op from its JSON form: `{"mul": x}`, `{"add": x}`, or any other value to set.
+impl Op {
+    /// Whether this op reads the current value (every op but a plain value).
+    pub fn is_operator(&self) -> bool {
+        !matches!(self, Op::Set(_))
+    }
+
+    /// The bounds of `min`, `max` and `clamp`.
+    fn bounds(&self) -> Option<(Option<f64>, Option<f64>)> {
+        match self {
+            Op::Min(lo) => Some((Some(*lo), None)),
+            Op::Max(hi) => Some((None, Some(*hi))),
+            Op::Clamp(lo, hi) => Some((Some(*lo), Some(*hi))),
+            _ => None,
+        }
+    }
+}
+
+/// The operator names an object value may use.
+pub const OPERATORS: [&str; 5] = ["mul", "add", "min", "max", "clamp"];
+
+/// Reads an op from its JSON form: `{"mul": x}`, `{"add": x}`, `{"min": x}` (at least x),
+/// `{"max": x}` (at most x), `{"clamp": [lo, hi]}`, or any other value to set.
 pub fn parse_op(path: &str, value: &Value) -> Result<Op, FieldError> {
     let Value::Object(map) = value else {
         return Ok(Op::Set(value.clone()));
     };
-    let number = |v: &Value| {
-        v.as_f64()
-            .filter(|x| x.is_finite())
-            .ok_or_else(|| FieldError::new(path, "type", "`mul` / `add` take a finite JSON number"))
+    let number = |key: &str, v: &Value| {
+        v.as_f64().filter(|x| x.is_finite()).ok_or_else(|| {
+            FieldError::new(path, "type", format!("`{key}` takes a finite JSON number"))
+        })
     };
-    match (map.len(), map.get("mul"), map.get("add")) {
-        (1, Some(m), None) => Ok(Op::Mul(number(m)?)),
-        (1, None, Some(a)) => Ok(Op::Add(number(a)?)),
-        _ => Err(FieldError::new(
+    let mut entries = map.iter();
+    let (Some((key, v)), None) = (entries.next(), entries.next()) else {
+        return Err(FieldError::new(
             path,
             "type",
-            "an object value must be exactly {\"mul\": x} or {\"add\": x}",
+            "an object value must have exactly one operator: {\"mul\": x}, {\"add\": x}, {\"min\": x}, {\"max\": x} or {\"clamp\": [lo, hi]}",
+        ));
+    };
+    match key.as_str() {
+        "mul" => Ok(Op::Mul(number(key, v)?)),
+        "add" => Ok(Op::Add(number(key, v)?)),
+        "min" => Ok(Op::Min(number(key, v)?)),
+        "max" => Ok(Op::Max(number(key, v)?)),
+        "clamp" => {
+            let pair = v.as_array().filter(|a| a.len() == 2).ok_or_else(|| {
+                FieldError::new(path, "type", "`clamp` takes [lo, hi]: two finite numbers")
+            })?;
+            let lo = number(key, pair.first().unwrap_or(&Value::Null))?;
+            let hi = number(key, pair.get(1).unwrap_or(&Value::Null))?;
+            if lo > hi {
+                return Err(FieldError::new(
+                    path,
+                    "range",
+                    format!("`clamp` [{lo}, {hi}]: lo is above hi"),
+                ));
+            }
+            Ok(Op::Clamp(lo, hi))
+        }
+        other => Err(FieldError::new(
+            path,
+            "type",
+            format!(
+                "unknown operator `{other}`; an object value is one of {}",
+                OPERATORS.join(", ")
+            ),
         )),
     }
 }
@@ -630,7 +687,7 @@ pub fn encode_value(
                         s.as_str()
                     ))
                 })?,
-                Op::Mul(_) | Op::Add(_) => {
+                _ => {
                     let current = read_int(*s, old).ok_or_else(|| {
                         FieldError::new(path, "payload", "current value unreadable")
                     })?;
@@ -655,15 +712,21 @@ pub fn encode_value(
                         format!("`{text}` is not a finite number (infinite, NaN, or beyond f64); {} takes a finite value", s.as_str()),
                     ),
                 })?,
-                Op::Mul(m) => {
-                    read_float(*s, old).ok_or_else(|| {
+                _ => {
+                    let current = read_float(*s, old).ok_or_else(|| {
                         FieldError::new(path, "payload", "current value unreadable")
-                    })? * m
-                }
-                Op::Add(a) => {
-                    read_float(*s, old).ok_or_else(|| {
-                        FieldError::new(path, "payload", "current value unreadable")
-                    })? + a
+                    })?;
+                    match op {
+                        Op::Mul(m) => current * m,
+                        Op::Add(a) => current + a,
+                        _ => match op.bounds() {
+                            Some((lo, hi)) => {
+                                let raised = lo.map_or(current, |lo| current.max(lo));
+                                hi.map_or(raised, |hi| raised.min(hi))
+                            }
+                            None => current,
+                        },
+                    }
                 }
             };
             if !value.is_finite() {
@@ -685,7 +748,8 @@ pub fn encode_value(
             }
         }
         _ if !matches!(op, Op::Set(_)) => Err(type_err(format!(
-            "mul/add apply to typed numbers, not to a {}",
+            "operators ({}) apply to typed numbers, not to a {}; give a value",
+            OPERATORS.join(", "),
             type_name(ty)
         ))),
         FieldType::Enum { base, values } => {
@@ -830,8 +894,33 @@ pub const EXACT_F64_INT: i128 = 1 << 53;
 /// `{mul}` / `{add}` on an integer `current`. An integral `add` is exact in `i128` (64-bit
 /// fields included); a fractional `add` and every `mul` go through `f64`, so they are
 /// refused when the current value or the result is beyond 2^53, where `f64` drops bits.
+///
+/// `{min}`, `{max}` and `{clamp}` are exact: the bounds are rounded inwards to integers
+/// (`min` 2.5 is at least 3) and the current value is kept when it is within them.
 fn int_op(path: &str, current: i128, op: &Op) -> Result<i128, FieldError> {
     let range = |message: String| FieldError::new(path, "range", message);
+    if let Some((lo, hi)) = op.bounds() {
+        let whole = |b: f64| (b.abs() < 1.0e30).then_some(b as i128);
+        let lo = match lo {
+            Some(b) => {
+                Some(whole(b.ceil()).ok_or_else(|| range(format!("bound {b} is out of range")))?)
+            }
+            None => None,
+        };
+        let hi = match hi {
+            Some(b) => {
+                Some(whole(b.floor()).ok_or_else(|| range(format!("bound {b} is out of range")))?)
+            }
+            None => None,
+        };
+        if let (Some(lo), Some(hi)) = (lo, hi) {
+            if lo > hi {
+                return Err(range(format!("no integer lies in [{lo}, {hi}]")));
+            }
+        }
+        let raised = lo.map_or(current, |lo| current.max(lo));
+        return Ok(hi.map_or(raised, |hi| raised.min(hi)));
+    }
     if let Op::Add(a) = op {
         if a.fract() == 0.0 && a.abs() < 1.0e30 {
             return current
@@ -847,7 +936,7 @@ fn int_op(path: &str, current: i128, op: &Op) -> Result<i128, FieldError> {
     let next = match op {
         Op::Mul(m) => current as f64 * m,
         Op::Add(a) => current as f64 + a,
-        Op::Set(_) => current as f64,
+        _ => current as f64,
     };
     if !next.is_finite() || next.abs() > EXACT_F64_INT as f64 {
         return Err(range(format!(
@@ -1426,6 +1515,60 @@ mod tests {
             assert!(layout.fallback.is_none());
         }
         assert_eq!(layout_for("ATTX", *b"WEAP", *b"ATTX").unwrap(), None);
+    }
+
+    /// M3.E6 operators: `min` raises to at least, `max` lowers to at most, `clamp` both;
+    /// integer bounds round inwards and keep the current value exact.
+    #[test]
+    fn min_max_clamp_on_numbers() {
+        assert_eq!(parse_op("X", &json!({"min": 1})).unwrap(), Op::Min(1.0));
+        assert_eq!(parse_op("X", &json!({"max": 2.5})).unwrap(), Op::Max(2.5));
+        assert_eq!(
+            parse_op("X", &json!({"clamp": [0, 1]})).unwrap(),
+            Op::Clamp(0.0, 1.0)
+        );
+        for bad in [
+            json!({"clamp": [1]}),
+            json!({"clamp": [2, 1]}),
+            json!({"clamp": 3}),
+            json!({"min": "x"}),
+            json!({"pow": 2}),
+        ] {
+            assert!(parse_op("X", &bad).is_err(), "{bad}");
+        }
+        let f32t = FieldType::Scalar(Scalar::F32);
+        let f = |v: f32, op: Op| {
+            let b = encode_value("X", &f32t, &v.to_le_bytes(), &op, &ctx(false)).unwrap();
+            f32::from_le_bytes(b.try_into().unwrap())
+        };
+        assert_eq!(f(0.5, Op::Min(1.0)), 1.0);
+        assert_eq!(f(1.5, Op::Min(1.0)), 1.5);
+        assert_eq!(f(3.0, Op::Max(2.0)), 2.0);
+        assert_eq!(f(1.0, Op::Max(2.0)), 1.0);
+        assert_eq!(f(-1.0, Op::Clamp(0.0, 1.0)), 0.0);
+        assert_eq!(f(0.25, Op::Clamp(0.0, 1.0)), 0.25);
+        assert_eq!(f(9.0, Op::Clamp(0.0, 1.0)), 1.0);
+        let i32t = FieldType::Scalar(Scalar::I32);
+        let i = |v: i32, op: Op| {
+            encode_value("X", &i32t, &v.to_le_bytes(), &op, &ctx(false))
+                .map(|b| i32::from_le_bytes(b.try_into().unwrap()))
+        };
+        assert_eq!(i(1, Op::Min(2.5)).unwrap(), 3);
+        assert_eq!(i(7, Op::Max(2.5)).unwrap(), 2);
+        assert_eq!(i(5, Op::Clamp(-1.5, 9.9)).unwrap(), 5);
+        assert_eq!(i(-5, Op::Clamp(-1.5, 9.9)).unwrap(), -1);
+        assert_eq!(i(5, Op::Clamp(0.2, 0.8)).unwrap_err().rule, "range");
+        assert_eq!(i(5, Op::Min(1e40)).unwrap_err().rule, "range");
+        // 64-bit values stay exact (no f64 round trip).
+        let u64t = FieldType::Scalar(Scalar::U64);
+        let big = u64::MAX - 1;
+        let got = encode_value("X", &u64t, &big.to_le_bytes(), &Op::Min(1.0), &ctx(false)).unwrap();
+        assert_eq!(got, big.to_le_bytes());
+        // Not a number: refused.
+        let err =
+            encode_value("X", &FieldType::ZString, b"a\0", &Op::Max(1.0), &ctx(false)).unwrap_err();
+        assert_eq!(err.rule, "type");
+        assert!(err.message.contains("apply to typed numbers"));
     }
 
     #[test]
