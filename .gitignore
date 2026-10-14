@@ -34,3 +34,6 @@ desktop.ini
 # Live MCP client config (copy of .mcp.json.example with local paths); never committed
 /.mcp.json
 /bin/
+
+# Patch plugins written by kit set/build for the owner to install (M2.E10)
+/out/
