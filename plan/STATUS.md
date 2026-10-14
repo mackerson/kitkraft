@@ -549,6 +549,31 @@ is under "Next".
   pinned unresolved lstrings as before); `docs/record-parity.md` regenerated: 25 record
   definitions, 50,419,561 subrecord occurrences, 379,633 typed (0 failed), 218,127
   opaque, 49,821,801 unknown (Starfield.esm parity pass 43.6 s).
+- Quest schema family (parallel schema lane M4.BQ1, `crates/schema/defs`, 2026-10-14):
+  FACT, QUST, PACK, DIAL, INFO, SCEN, SMBN, SMQN, SMEN, CHAL transcribed from the pinned
+  xEdit files (one commit per type, every member cited with its line range); new shared
+  `common/` definitions ScriptAttachment (VMAD header typed, scripts and fragments raw; a
+  type), PackageLocation, QuestReferenceAlias, SoundReference; PLANET's Condition reused.
+  Corpus check (14 files, out-of-tree checker over the regenerated decoder): all 267,549
+  records of the ten types decode with every subrecord placed, nothing in `extra`, and
+  re-encode byte-identically (FACT 953, QUST 2,610, PACK 4,578, DIAL 87,031, INFO
+  162,028, SCEN 9,673, SMBN 173, SMQN 471, SMEN 22, CHAL 10; none compressed; about 6 s in
+  release for all ten). INFO and DIAL are not order-unstable: every official record
+  follows the upstream member order. DIAL and SCEN live only in quest children groups
+  (type 10), INFO in topic children groups (type 7). QUST stages, objectives and the
+  three alias kinds are typed at `corpus` (W10 acceptance input for M4.D1); aliases
+  interleave, so QUST stores runs (`Aliases`: reference, then location, then collection
+  aliases per entry; lossless). Opaque by design: VMAD after its header, CTDA unions,
+  component blocks (all of CHAL), SCEN action type-specific subrecords (union by action
+  type, `any_until` the end marker), PACK input values/targets, INFO ENAM flag sets, QUST
+  ALFG/ALAM/create-matching ALCA, unnamed slots (gaps rows). Mod-author guide:
+  `docs/schema/quest-family.md`. `cargo xtask ci` passed locally with
+  `KITCRAFT_DATA_DIR` and the derived files regenerated (the ignored official-files
+  validate test needs BX's known-error update, see Requests). Derived files are left to the
+  integrator (M4 family lane rule, BX): `crates/esm/src/generated/`, the
+  `BUILTIN_DEFINITIONS` region of `crates/schema/src/lib.rs` (14 new entries: 10 records,
+  4 common), `crates/schema/tests/golden/seed.rs` (`KITCRAFT_UPDATE_GOLDEN=1`) and the
+  builtin-set lists in `crates/schema/tests/defs.rs`.
 - M4.BX1 position-dependent layouts (integrator, 2026-10-14): `kitcraft_doc::typed` now
   resolves a subrecord's layout by its position in the definition (`placements`,
   `layout_of`, `layout_at`, `path_layout`: the generated matcher's rules over the schema
@@ -1054,3 +1079,38 @@ Agents append here when they need a change in a crate they do not own.
   (5) which CK checkboxes set the record flags named only upstream (PKIN, GBFM, STDT,
   LVLP); (6) the unnamed values (BIOM BNAM/GNAM slots, PNDT PPBD/HNAM slots, TRAV DNAM
   `Value4`, SFBK NAM1, PKIN FNAM bit 0); (7) RSPJ `NumberCreated`/`Tier`, 0 everywhere.
+- **Quest schema lane -> BX (integrator).** (1) Regenerate the four derived files on merge
+  (see Done, quest family). (2) `common/Condition.toml` (PLANET's, which a family lane may
+  not edit) keeps CIS1/CIS2 at `reference`, but they occur in this family (CIS1: QUST 14,
+  PACK 2, SCEN 1; CIS2: QUST 43, PACK 18, INFO 115, SCEN 34) and decode identically: raise
+  them to `corpus` with that evidence, and add the family's 102,280 CTDA (all decode)
+  to the Condition evidence. (3) `validate_corpus_official_files` (ignored, release) with
+  this family regenerated reports 22 new errors in Starfield.esm, all object IDs below
+  0x800 that no official file defines, the class of the PKIN `KNOWN_ERRORS`: SMEN `PNAM`
+  = 0x5B on 20 event nodes and QUST `QuestReferenceAlias.ALFR` = 0x14 on 2 aliases (plus
+  warnings: SMEN in SFBGS003 and ShatteredSpace, QUST in SFBGS00D and ShatteredSpace, 1
+  each). Please list them as known with that evidence. INFO TRDA Emotion was demoted to
+  raw in this lane (0xFFFFFFFF sentinel, 53,844 lines). (4) No duplicate shared blocks
+  expected from this lane; BC/BI may
+  define their own script-attachment block: this lane's is a `type` (VMAD payload), not a
+  group.
+- **Quest schema lane -> lane B (codegen library, `crates/schema/src/codegen.rs`).** The
+  generator's rustfmt mimicry has two gaps the golden test (`golden_files_are_rustfmt_clean`)
+  hits: (1) a shared group with exactly one member emits a one-element `MEMBERS` array
+  rustfmt would join onto one line; (2) a call whose arguments exceed rustfmt's call width
+  (long member paths in `read`, long field names in `emit`) is not broken. This lane
+  worked around both (ScriptAttachment is a type; shorter member names), but other lanes
+  will meet them.
+- **Quest schema lane -> lane A.** As the planet lane's entry: `bridge::extra_of` lists five
+  types, so `check_subrecords` reports no `NotDecoded` for the ten quest family types; the
+  out-of-tree check covered it.
+- **Quest schema lane -> lane H (CK observation).** Questions only the CK can answer (details
+  in `docs/schema/quest-family.md`, "Open questions"): (1) QUST alias ALFG: float or
+  integer (official values 0 and the bit pattern 2)? (2) QUST create-matching ALCA: 4 bytes
+  in the corpus, 6 upstream; what they hold. (3) QUST collection ALAM: which CK field (0,
+  twice 0x40000000). (4) INFO ENAM: which flag set the CK shows for an info group. (5) SCEN
+  VNAM (20 bytes, every scene) and INFO INTV (4 bytes after TSCE): which CK fields.
+  (6) SMEN PNAM = 0x5B on every event node and QUST ALFR = 0x14 on two aliases: what
+  those low object IDs are to the CK (engine-reserved forms?). (7) Whether the CK
+  writes a CITC before quest, scene, package-level and response conditions on a new record
+  (no official one has it).
