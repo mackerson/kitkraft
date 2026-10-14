@@ -118,6 +118,30 @@ pub enum Error {
         found: u64,
     },
 
+    /// A `TES4` `HEDR` subrecord too short to hold the record count (12 bytes: version,
+    /// count, next object ID). `offset` is the subrecord data's source offset, or 0 for one
+    /// built in memory.
+    #[error("HEDR at offset {offset} has {len} bytes; the record count needs 8")]
+    BadHedr { offset: u64, len: u64 },
+
+    /// A subrecord position past the end of a record's subrecords. `offset` is the record's
+    /// source offset, or 0 for a record built in memory.
+    #[error("record at offset {offset} has {len} subrecords; there is no subrecord {index}")]
+    NoSuchSubrecord {
+        offset: u64,
+        index: usize,
+        len: usize,
+    },
+
+    /// A record cannot be placed where it was asked to go (see [`crate::Plugin::upsert`]).
+    /// `offset` is the record's source offset, or 0 for a record built in memory.
+    #[error("cannot place the record at offset {offset}: {reason}")]
+    Placement { offset: u64, reason: &'static str },
+
+    /// A broken internal invariant: a bug in this crate, reported instead of a panic.
+    #[error("internal error at offset {offset}: {message}")]
+    Internal { offset: u64, message: &'static str },
+
     /// An I/O error while streaming a file.
     #[error("I/O error at offset {offset}: {source}")]
     Io {
@@ -149,6 +173,10 @@ impl Error {
             | Error::ReservedSignature { offset }
             | Error::NotARecord { offset, .. }
             | Error::IndexMismatch { offset, .. }
+            | Error::BadHedr { offset, .. }
+            | Error::NoSuchSubrecord { offset, .. }
+            | Error::Placement { offset, .. }
+            | Error::Internal { offset, .. }
             | Error::Io { offset, .. } => *offset,
         }
     }

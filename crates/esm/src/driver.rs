@@ -8,13 +8,16 @@
 //!   read as it is produced (never buffered). The first mismatch is reported as an
 //!   absolute offset and a group/record/subrecord path.
 //! - [`visit_file`] hands each entry to a closure.
-//! - [`rewrite_file`] lets a closure edit each entry, then streams it to a sink.
+//! - [`rewrite_file`] lets a closure edit each entry, then streams it to a sink;
+//!   [`rewrite_file_to_path`] does the same into a new file and patches its `HEDR` count.
+//!   A closure cannot add a top-level entry; the build module (M2.A5) adds records
+//!   (creating missing top-level groups in order) while streaming the rest.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs::File;
-use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write};
+use std::path::{Path, PathBuf};
 
 use crate::model::{Body, Counts, Entry, Group, Record, Subrecord, HEADER_LEN};
 use crate::{DecodeLimits, Error, ParseOptions, Result, Signature, WriteOptions};
@@ -229,7 +232,9 @@ impl HedrFix {
     }
 }
 
-/// Result of [`rewrite_file`].
+/// Result of [`rewrite_file`]. Check [`RewriteReport::hedr_fix`]: when it is set, the
+/// output's `HEDR` count is stale until the fix is applied.
+#[must_use]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RewriteReport {
     /// Input length in bytes.
@@ -243,8 +248,12 @@ pub struct RewriteReport {
     /// Records (excluding `TES4`) and groups written.
     pub counts_written: Counts,
     /// Set when the counts differ and the `HEDR` record count written is not the majority
-    /// count for what was written. `None` also when the header has no readable `HEDR`.
+    /// count for what was written. [`rewrite_file_to_path`] has already applied it.
     pub hedr_fix: Option<HedrFix>,
+    /// The counts differ but the header has no `HEDR` with room for a count, so the
+    /// header was written as read and its count is stale (as
+    /// [`crate::tes4::HedrCount::Unreadable`] for an in-memory write).
+    pub hedr_unreadable: bool,
 }
 
 /// Stream the file at `path` to `sink`, letting `edit` change each top-level entry (the
@@ -279,11 +288,106 @@ pub fn rewrite_file(
 
 /// As [`rewrite_file`], over `len` bytes from `input`.
 pub fn rewrite_reader<R: Read>(
-    mut input: R,
+    input: R,
     len: u64,
     options: &RewriteOptions,
     sink: &mut dyn Write,
     mut edit: impl FnMut(&mut Entry<'_>) -> Result<()>,
+) -> Result<RewriteReport> {
+    stream_rewrite(
+        input,
+        len,
+        options,
+        sink,
+        &mut edit,
+        &mut |_| Ok(Vec::new()),
+    )
+}
+
+/// [`rewrite_file`] into a new file at `out`, with the `HEDR` count patched when records
+/// or groups were added or removed (the report's `hedr_fix` says what was applied).
+///
+/// The output is written to a temporary file next to `out` and renamed over it only when
+/// the whole stream succeeded, so a failed rewrite leaves `out` as it was. `out` may not be
+/// `path` itself.
+pub fn rewrite_file_to_path(
+    path: &Path,
+    out: &Path,
+    options: &RewriteOptions,
+    mut edit: impl FnMut(&mut Entry<'_>) -> Result<()>,
+) -> Result<RewriteReport> {
+    to_path(path, out, |input, len, sink| {
+        stream_rewrite(
+            input,
+            len,
+            options,
+            sink,
+            &mut edit,
+            &mut |_| Ok(Vec::new()),
+        )
+    })
+}
+
+/// Open `path`, stream it through `run` into a temporary file next to `out`, apply the
+/// report's `HEDR` fix, and rename the result to `out`.
+pub(crate) fn to_path(
+    path: &Path,
+    out: &Path,
+    run: impl FnOnce(BufReader<File>, u64, &mut dyn Write) -> Result<RewriteReport>,
+) -> Result<RewriteReport> {
+    let io0 = |source| Error::Io { offset: 0, source };
+    if out.exists()
+        && std::fs::canonicalize(path).map_err(io0)? == std::fs::canonicalize(out).map_err(io0)?
+    {
+        return Err(io0(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "the output path is the input file",
+        )));
+    }
+    let file = File::open(path).map_err(io0)?;
+    let len = file.metadata().map_err(io0)?.len();
+    let mut tmp_name = out.as_os_str().to_owned();
+    tmp_name.push(".kitcraft-tmp");
+    let tmp = PathBuf::from(tmp_name);
+    let result = (|| {
+        let mut sink = BufWriter::with_capacity(1 << 20, File::create(&tmp).map_err(io0)?);
+        let report = run(BufReader::with_capacity(1 << 20, file), len, &mut sink)?;
+        if let Some(fix) = report.hedr_fix {
+            fix.apply(&mut sink)?;
+        }
+        let file = sink.into_inner().map_err(|e| Error::Io {
+            offset: report.output_len,
+            source: e.into_error(),
+        })?;
+        file.sync_all().map_err(|source| Error::Io {
+            offset: report.output_len,
+            source,
+        })?;
+        Ok(report)
+    })();
+    match result {
+        Ok(report) => {
+            std::fs::rename(&tmp, out).map_err(io0)?;
+            Ok(report)
+        }
+        Err(e) => {
+            let _ = std::fs::remove_file(&tmp);
+            Err(e)
+        }
+    }
+}
+
+/// The streaming loop behind [`rewrite_reader`] and the build module's upsert: `edit`
+/// changes each top-level entry; `insert` is called before each top-level entry after
+/// `TES4` (with that entry, after its edit) and once at the end (with `None`), and the
+/// entries it returns are written first.
+pub(crate) fn stream_rewrite<R: Read>(
+    mut input: R,
+    len: u64,
+    options: &RewriteOptions,
+    sink: &mut dyn Write,
+    edit: &mut dyn FnMut(&mut Entry<'_>) -> Result<()>,
+    insert: &mut dyn FnMut(Option<&Entry<'_>>) -> Result<Vec<Entry<'static>>>,
 ) -> Result<RewriteReport> {
     let mut entries = TopLevelReader::new(&mut input, len);
     let mut pos: u64 = 0;
@@ -291,6 +395,20 @@ pub fn rewrite_reader<R: Read>(
     let mut counts_read = Counts::default();
     let mut counts_written = Counts::default();
     let mut hedr: Option<(u64, u32)> = None;
+    let write_new = |new: Vec<Entry<'static>>,
+                     pos: &mut u64,
+                     counts_written: &mut Counts,
+                     modified_entries: &mut u64,
+                     sink: &mut dyn Write|
+     -> Result<()> {
+        for entry in new {
+            counts_written.add_entry(&entry);
+            *modified_entries = modified_entries.saturating_add(1);
+            let written = entry.write_to(sink, *pos, &options.write)?;
+            *pos = pos.saturating_add(written);
+        }
+        Ok(())
+    };
     while let Some((offset, buf)) = entries.next_entry()? {
         let mut entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
         let is_header = offset == 0;
@@ -303,6 +421,14 @@ pub fn rewrite_reader<R: Read>(
                 hedr = hedr_count_at(r).map(|(at, count)| (pos.saturating_add(at), count));
             }
         } else {
+            let new = insert(Some(&entry))?;
+            write_new(
+                new,
+                &mut pos,
+                &mut counts_written,
+                &mut modified_entries,
+                sink,
+            )?;
             counts_written.add_entry(&entry);
         }
         if entry.is_modified() {
@@ -311,11 +437,23 @@ pub fn rewrite_reader<R: Read>(
         let written = entry.write_to(sink, pos, &options.write)?;
         pos = pos.saturating_add(written);
     }
-    let hedr_fix = match (hedr, counts_read == counts_written) {
-        (Some((offset, current)), false) => crate::tes4::majority_record_count(counts_written)
-            .filter(|count| *count != current)
-            .map(|count| HedrFix { offset, count }),
-        _ => None,
+    let new = insert(None)?;
+    write_new(
+        new,
+        &mut pos,
+        &mut counts_written,
+        &mut modified_entries,
+        sink,
+    )?;
+    let changed = counts_read != counts_written;
+    let majority = crate::tes4::majority_record_count(counts_written);
+    let (hedr_fix, hedr_unreadable) = match (changed, hedr, majority) {
+        (false, _, _) => (None, false),
+        (true, Some((offset, current)), Some(count)) => (
+            (count != current).then_some(HedrFix { offset, count }),
+            false,
+        ),
+        (true, _, _) => (None, true),
     };
     Ok(RewriteReport {
         input_len: len,
@@ -324,6 +462,7 @@ pub fn rewrite_reader<R: Read>(
         counts_read,
         counts_written,
         hedr_fix,
+        hedr_unreadable,
     })
 }
 
@@ -648,6 +787,7 @@ mod tests {
         assert_eq!(report.modified_entries, 1);
         assert_eq!(report.counts_read, report.counts_written);
         assert_eq!(report.hedr_fix, None);
+        assert!(!report.hedr_unreadable);
     }
 
     #[test]
@@ -681,6 +821,46 @@ mod tests {
         assert_eq!(out, plugin.to_bytes().unwrap());
         let reparsed = Plugin::parse(&out).unwrap();
         assert_eq!(reparsed.tes4().hedr().unwrap().unwrap().record_count, 7);
+    }
+
+    /// Review round 3, finding 3: the caller had to apply `hedr_fix` by hand.
+    #[test]
+    fn rewrite_to_path_patches_hedr_and_refuses_its_input() {
+        let dir = std::env::temp_dir().join(format!("kitcraft-esm-rewrite-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let input = dir.join("in.esm");
+        let output = dir.join("out.esm");
+        let bytes = fixture::sample_plugin();
+        std::fs::write(&input, &bytes).unwrap();
+        let report =
+            super::rewrite_file_to_path(&input, &output, &RewriteOptions::default(), |e| {
+                drop_gmst(e);
+                Ok(())
+            })
+            .unwrap();
+        assert_eq!(report.hedr_fix.map(|f| f.count), Some(7));
+        let out = std::fs::read(&output).unwrap();
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        plugin.entries_mut().iter_mut().for_each(drop_gmst);
+        assert_eq!(out, plugin.to_bytes().unwrap());
+        assert!(!dir.join("out.esm.kitcraft-tmp").exists());
+
+        // The input is never its own output.
+        let same =
+            super::rewrite_file_to_path(&input, &input, &RewriteOptions::default(), |_| Ok(()));
+        assert!(matches!(same, Err(Error::Io { .. })));
+        assert_eq!(std::fs::read(&input).unwrap(), bytes);
+
+        // A failing edit leaves an existing output untouched and no temporary file.
+        let failed =
+            super::rewrite_file_to_path(&input, &output, &RewriteOptions::default(), |e| match e {
+                Entry::Group(_) => Err(Error::DanglingOversize { offset: 1 }),
+                Entry::Record(_) => Ok(()),
+            });
+        assert!(failed.is_err());
+        assert_eq!(std::fs::read(&output).unwrap(), out);
+        assert!(!dir.join("out.esm.kitcraft-tmp").exists());
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
