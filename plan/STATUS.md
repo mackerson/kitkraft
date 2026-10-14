@@ -156,6 +156,24 @@ is under "Next".
   `data.summary`); `execute` reports `unknown_command` before other violations and takes
   `args: null` as `{}`; a `not_implemented` `--profile` preload stays out of the
   instructions; `docs/mcp.md` states that paths are not confined to `KITCRAFT_DATA_DIR`.
+  **Round 3 (2026-10-14):** M2.F8 closed: every catalog command is `Implemented`,
+  `PLANNED_IN_M2` is gone and `catalog_closure` fails on any `Planned` command; partial
+  commands say so in `limitations` (inspect single-plugin mode, diff/conflicts compare
+  stored bytes). `data_dir` defaults to `KITCRAFT_DATA_DIR` on every command that takes it
+  (a profile prefers MO2's `gamePath`); `validate` searches a standalone plugin's masters in
+  the load order, next to the plugin, then the Data dir, and resolves a bare plugin name
+  there (`kit validate --plugin out\X.esm` now passes with only the variable set). M2.F9:
+  `schema` command (`kit schema --type WEAP [--member KWDA] [--deep]`, alias `defs`, MCP
+  tool `record_schema`): members with type, source citation and confidence, top level by
+  default; `cargo xtask parity` adds a per-confidence table from it. Resources:
+  `kitcraft://validate-rules` (rules, severities, denylist, docs); `kitcraft://commands`
+  gains `cli` and `tools`. The flaky `kit_mcp_on_an_official_file`: spawned servers use a
+  private `KITCRAFT_CACHE_DIR` under the test target dir (no more sharing the user's index
+  cache with other worktrees' gates), stderr is drained on a thread, and an EOF reports the
+  child's exit status and stderr; 20 consecutive runs pass (the original crash did not
+  reproduce under 4-way parallel cold-cache stress either). AGENTS.md, ADR 0001 Amendment
+  1 and the plan name both xEdit files at one SHA; README has the M2 status and a quick
+  start.
 
 - Lane A, M2 (`crates/esm`): M2.A0 review round 3 follow-ups 1-10 (each with a
   regression test); M2.A1 record index (`Starfield.esm` in 3.3 s release, 288 MiB peak;
@@ -362,17 +380,15 @@ is under "Next".
   1. `cargo build --release -p kit-cli`
   2. `claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp`
      (or copy `.mcp.json.example` to `.mcp.json`, which is gitignored, and approve it).
-  3. New Claude Code session: `/mcp` lists `kitcraft` connected, 7 tools.
+  3. New Claude Code session: `/mcp` lists `kitcraft` connected, 8 tools.
   4. Ask it to call `mcp__kitcraft__coverage` on `<Data>\Constellation.esm`, then
      `mcp__kitcraft__execute` with `{command: "roundtrip", args: {plugin, verify: true}}`,
      then `mcp__kitcraft__inspect_record` on a form `coverage` names (`first_record`), then
-     `mcp__kitcraft__query_records {type: "WEAP"}`; each returns an envelope
-     (`query_records` returns a `not_implemented` tool error until M2.D11, and
-     `--profile` preloading needs M2.D8).
+     `mcp__kitcraft__query_records {type: "WEAP"}` and `mcp__kitcraft__record_schema
+     {type: "WEAP"}`; each returns an envelope (`query_records` needs a load order: pass
+     `--profile` to `kit mcp`, which now preloads it).
   5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
      .mcp.json --allowedTools "mcp__kitcraft__*"`.
-- **M2.F9** waits for M2.A3 and M2.B1 on `main` (M2.B1 is in lane B's branch; the model
-  now carries `provenance.confidence` on every member).
 - **Lane B round 3** (M2.B4..B8, M2.B10): gate lifted by the owner approval of
   2026-10-14, but **blocked in the 2026-10-14 lane B session**: the session's permission
   policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
@@ -507,13 +523,19 @@ Agents append here when they need a change in a crate they do not own.
   a `limitations[]` entry in `inspect`/`query` results.
 - ~~**Policy -> lane B (owner approval 2026-10-14).** Accept `wbDefinitionsCommon.pas` in
   `xedit:` citations.~~ Done in M2.B1 (loader, tests, README).
-- **Policy -> AGENTS.md / plan maintainer.** AGENTS.md "Clean room" ("Other xEdit files are
+- ~~**Policy -> AGENTS.md / plan maintainer.**~~ Done (lane F round 3): AGENTS.md, ADR 0001
+  Amendment 1 and `plan/execution-plan.md` (M2.O1, M2.O2, M2.B1 confidence names) updated.
+  Was: AGENTS.md "Clean room" ("Other xEdit files are
   not covered yet") and owner decision 2 ("extending the reference beyond
   `wbDefinitionsSF1.pas`"), ADR 0001 Amendment 1 (only the SF1 file), and
   `plan/execution-plan.md` M2.O1/M2.O2 should reflect the approval (the common file at the
   same SHA; O1 and O2 done). Also: M2.B1 names confidence values
   `confirmed`/`corpus-consistent`/`hypothesis`, while ADR 0004 and the loader use
   `reference`/`corpus`/`ck-diff`/`verified`; the ADR wins.
+- **Policy -> lane C (partly done, lane F round 3).** `cargo xtask parity` now has a
+  "Definitions by confidence" table (from `kit schema --json`), and `kit schema` /
+  `record_schema` states `reference`-confidence definitions as a limitation; `inspect` and
+  `query` results do not yet.
 - **Policy -> M2.** Install SF1Edit (matching the pin if possible, else record the build) for
   the differential comparison in ADR 0005 Amendment 2 §2a; never bundle it.
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
@@ -541,7 +563,9 @@ Agents append here when they need a change in a crate they do not own.
   loads `Starfield.esm` + `Constellation.esm` for `query_records`. (3) `PLANNED_IN_M2`
   entries `load`, `query`, `diff` are stale. (4) M2.F7 step 4: `query_records` answers
   now, and `kit mcp --profile` preloads through `load`. (5) New catalog entry `conflicts`
-  (alias `esmscan`); the MCP tool set may want a `conflicts` shortcut.
+  (alias `esmscan`); the MCP tool set may want a `conflicts` shortcut. **Lane F round 3:**
+  (3) pruned (`PLANNED_IN_M2` is gone); (4) in the M2.F7 steps; (5) not added: `execute`
+  reaches it, and the tool list stays small (8 tools with `record_schema`).
 - **Lane D -> owner (M2.O4).** In one session: (a) MO2's left pane for `StarUI Inventory`
   vs its Free Lanes patch (which mod MO2 shows providing `Interface\inventorymenu.swf`);
   (b) in game, `help` or a console click on a Constellation.esm object should show an
@@ -579,7 +603,8 @@ Agents append here when they need a change in a crate they do not own.
   spec / plugin), `crates/mcp/src/server.rs` (build with a missing spec is `failed`).
   `PLANNED_IN_M2` still lists `set`, `build`, `validate` (stale; prune at will).
   `validate`'s `plugin` is optional, so it is a flag (`kit validate --plugin X.esp`), as
-  lane D did for `inspect`.
+  lane D did for `inspect`. **Done (lane F round 3):** `PLANNED_IN_M2` removed; the
+  closure test now fails on any `Planned` command.
 - **Lane E -> lane D (round 2).** (1) `set`/`build` refuse a load order with failed
   plugins, late or missing masters, or active plugins without a file ("load order
   unverified"); the last is found by the text of `load`'s limitation ("active plugins with
@@ -628,7 +653,11 @@ Agents append here when they need a change in a crate they do not own.
   `crates/engine/src/params.rs` `required_first_in_required_order` was updated to match.
   Also seen once in a full `cargo xtask ci` run after merging lane D (passed on rerun and
   in isolation): `apps/kit-cli/tests/mcp.rs` `kit_mcp_on_an_official_file` read EOF from
-  the `kit mcp` child (it exited mid-session); worth a look if it recurs.
+  the `kit mcp` child (it exited mid-session); worth a look if it recurs. **Lane F round
+  3:** not reproduced (20 runs, and 4-way parallel cold-cache stress); the spawned servers
+  now use a private index cache under the test target dir instead of the user's (shared
+  with every other worktree's gate across cache format changes), stderr is drained, and an
+  EOF fails with the child's exit status and stderr.
 - **Lane G -> lane D (FYI, done in the lane G merge).** `Archive::extract_vec` takes a
   byte cap now; `crates/doc/src/strings.rs` passes 256 MiB (the `strings.dump` cap). An
   entry above it is `kitcraft_ba2::Error::TooLarge`, reported like any other table error.
@@ -644,7 +673,8 @@ Agents append here when they need a change in a crate they do not own.
   multi-line disassembly in `data.summary` so `kit` prints `pexdis.py`'s output; if `kit`
   should prefer a `data.text` member instead, say so. (3) `PLANNED_IN_M2` still lists the
   seven lane G commands (now `Implemented`; prune at will). (4) The status paragraph at the
-  top of `docs/mcp.md` still lists only `roundtrip`, `coverage` and `inspect`.
+  top of `docs/mcp.md` still lists only `roundtrip`, `coverage` and `inspect`. **Lane F
+  round 3:** (2) `data.summary` stays (`kit schema` does the same); (3) and (4) done.
 - ~~**Lane C -> lane B.** Mark a generated region for `BUILTIN_DEFINITIONS`.~~ Done
   (lane B, M2.B2 commit): the entries sit between
   `    // BEGIN generated by cargo xtask codegen: BUILTIN_DEFINITIONS` and
