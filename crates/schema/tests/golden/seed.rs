@@ -22,6 +22,7 @@
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
 // - LCRT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13344-L13373; corpus)
 // - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
+// - NAVM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14894-L14917; corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
@@ -5421,6 +5422,159 @@ impl LctnRecord {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
+pub struct NavmRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `NVNM`, optional.
+    pub geometry: Option<Sub<Bytes>>,
+    /// `MNAM`, optional.
+    pub pre_cut_map: Option<Sub<Bytes>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl NavmRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"NVNM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "NAVM.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "NAVM.VMAD", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.geometry, subs, *index, "NAVM.NVNM", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.pre_cut_map, subs, *index, "NAVM.MNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"NVNM", self.geometry.as_ref());
+        emit(out, *b"MNAM", self.pre_cut_map.as_ref());
+    }
+}
+
+impl Visit for NavmRecord {}
+
+impl NavmRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"NAVM";
+    /// Record-header flag.
+    pub const FLAG_INITIALLY_DISABLED: u32 = 0x800;
+    /// Record-header flag.
+    pub const FLAG_AUTO_GEN: u32 = 0x4000000;
+    /// Record-header flag.
+    pub const FLAG_NAVMESH_GEN_CELL: u32 = 0x80000000;
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("NAVM", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("NAVM", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("NAVM", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("NAVM", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct OmodRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
@@ -7991,6 +8145,7 @@ pub enum Record {
     Kywd(Box<KywdRecord>),
     Lcrt(Box<LcrtRecord>),
     Lctn(Box<LctnRecord>),
+    Navm(Box<NavmRecord>),
     Omod(Box<OmodRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
@@ -8008,6 +8163,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"KYWD", KywdRecord::MEMBERS),
     (*b"LCRT", LcrtRecord::MEMBERS),
     (*b"LCTN", LctnRecord::MEMBERS),
+    (*b"NAVM", NavmRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
@@ -8028,6 +8184,7 @@ impl Record {
             b"KYWD" => Self::Kywd(Box::new(KywdRecord::decode(subs, ctx))),
             b"LCRT" => Self::Lcrt(Box::new(LcrtRecord::decode(subs, ctx))),
             b"LCTN" => Self::Lctn(Box::new(LctnRecord::decode(subs, ctx))),
+            b"NAVM" => Self::Navm(Box::new(NavmRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
@@ -8048,6 +8205,7 @@ impl Record {
             Self::Kywd(record) => record.encode(),
             Self::Lcrt(record) => record.encode(),
             Self::Lctn(record) => record.encode(),
+            Self::Navm(record) => record.encode(),
             Self::Omod(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
@@ -8067,6 +8225,7 @@ impl Record {
             Self::Kywd(_) => KywdRecord::SIGNATURE,
             Self::Lcrt(_) => LcrtRecord::SIGNATURE,
             Self::Lctn(_) => LctnRecord::SIGNATURE,
+            Self::Navm(_) => NavmRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
@@ -8086,6 +8245,7 @@ impl Record {
             Self::Kywd(record) => record.form_ids(),
             Self::Lcrt(record) => record.form_ids(),
             Self::Lctn(record) => record.form_ids(),
+            Self::Navm(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
@@ -8105,6 +8265,7 @@ impl Record {
             Self::Kywd(record) => record.form_ids_mut(),
             Self::Lcrt(record) => record.form_ids_mut(),
             Self::Lctn(record) => record.form_ids_mut(),
+            Self::Navm(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
@@ -8124,6 +8285,7 @@ impl Record {
             Self::Kywd(record) => record.lstrings(),
             Self::Lcrt(record) => record.lstrings(),
             Self::Lctn(record) => record.lstrings(),
+            Self::Navm(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
@@ -8143,6 +8305,7 @@ impl Record {
             Self::Kywd(record) => record.lstrings_mut(),
             Self::Lcrt(record) => record.lstrings_mut(),
             Self::Lctn(record) => record.lstrings_mut(),
+            Self::Navm(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
@@ -8163,6 +8326,7 @@ impl Record {
             Self::Kywd(record) => &record.extra,
             Self::Lcrt(record) => &record.extra,
             Self::Lctn(record) => &record.extra,
+            Self::Navm(record) => &record.extra,
             Self::Omod(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
