@@ -267,6 +267,9 @@ pub fn visit_file(
 pub struct RewriteOptions {
     pub parse: ParseOptions,
     pub write: WriteOptions,
+    /// Group order and stamps for records a streaming upsert places
+    /// ([`crate::build::upsert_reader`]); ignored by a plain rewrite.
+    pub placement: crate::cells::PlacementStyle,
 }
 
 /// Where and what to patch when a streaming rewrite added or removed records or groups:

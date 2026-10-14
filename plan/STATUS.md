@@ -411,6 +411,72 @@ is under "Next".
     fault; the M1.7 harness accepts only such decode mismatches. Full corpus 14/14
     identical with it (18.3 s, 1,397 MiB, `docs/corpus.md`). The command side is M3.F1
     (Request to lane F).
+- M4 lane A (container), 2026-10-14:
+  - M4.A1 cell and world group structure (`docs/corpus.md` "Cell and world groups";
+    `kitcraft_esm::cells`; `crates/esm/tests/cells.rs`, every rule asserted on every group
+    and record of the 14 files, 27 s release): group types 1..10 with parents, labels and
+    contents; type 10 = quest children (`DLBR`, `DIAL` + type 7, `SCEN`); persistence =
+    flag 0x400 and type 8 together (115,985 / 6,714,413, no exception); a world's
+    persistent references in its persistent cell (the flag-0x400 `CELL` first in type 1);
+    interior block/sub-block = last two decimal digits of the object ID (17,020 cells; `FE`
+    object IDs are 12 bits, decided by `SFBGS047` `FE001016`); exterior sub-block = grid/8,
+    block = sub-block/4, labels y low / x high (22,682 cells); grid = `XCLC` i32 pair, x
+    first, and cell width 100 units (99.983 % of 2,038,073 exterior references), both found
+    by corpus search, not from a definition; order rules; the official-pipeline vs
+    `BlueprintShips` differences (`PlacementStyle`). Not waiting on BW: the two layout
+    facts used (`XCLC` grid, `DATA` floats 0-1) are corpus-derived and named as such.
+  - M4.A2 computed placement paths and the rebuild gate: `cells::placement(&RecordHeader,
+    &Parent, &PlacementStyle)` (cell children persistent by flag 0x400; refusals where the
+    corpus never shows a combination), `cells::cell_place_in` / `persistent_cell` from an
+    index; `Plugin::upsert_styled` and the streaming upsert (`RewriteOptions::placement`)
+    create blocks, sub-blocks, world, cell, quest and topic children and records in corpus
+    order, with style stamps and the placeholder top-level groups. **Rebuild gate**
+    (`crates/esm/tests/rebuild.rs`): every top-level group of all 14 files rebuilt from
+    an empty plugin through computed paths, in file order and shuffled, is byte-identical
+    (12 pipeline files including the whole of `Starfield.esm`, not a sample; the two
+    `BlueprintShips` files after 69 listed differences: 17 empty cell children groups, 52
+    off-majority group stamps). 116 s release; the five small files whole in every gate.
+    `Plugin::upsert` keeps its signature (official style); INCC stays the caller's (lane E
+    already adds inserted interior cells).
+  - M4.A3 new-form allocator `kitcraft_esm::forms::NewForms` (`for_index`, `for_plugin`,
+    `allocate`, `peek`, `write_hedr`): own FormIDs `<master count><object ID>` above both
+    the `HEDR` next object ID and the highest own object ID, `HEDR` advanced keeping its
+    high byte; small/medium plugins, both scale bits, 253+ masters and object IDs past
+    `0xFFFFFF` are `Error::Refused`. Corpus defaults named in `forms::LIMITATIONS` until F06
+    (and F11/F26). `tests/forms.rs`: every small/medium official file refused; the 6 full
+    ones start one past their largest own object ID (Starfield.esm `003FFD5A`).
+    `Tes4::set_next_object_id` added.
+  - M4.A4 NAVM passthrough `kitcraft_esm::navmesh`: `import_navmeshes(&source, &mut
+    target, &style)` (in memory) and `navmesh_placements(&source, &target_index,
+    read_cell, &style) -> Vec<Placed>` (for the streaming upsert) copy every `NAVM` of a
+    CK-saved plugin unchanged (compressed bodies as written) into the temporary children
+    of the same cell in the target, `NAVM` first; refused (`Error::Refused`) when the
+    master lists differ in any way (payload FormIDs are opaque), when the target lacks the
+    cell, or for a `NAVM` outside a cell's temporary children. Synthetic test: a "CK"
+    plugin minus its navmesh plus the import equals the CK plugin byte for byte, in memory
+    and streamed. `tests/navmesh.rs` runs on `observe\<date>-F22\` and skips with one line
+    without it (F22 not observed yet). `NAVI` is not imported (F22 will show whether the
+    CK changes it).
+  - M4.A5 reference composition `kitcraft_esm::refs`: `compose_reference(&RefSpec,
+    allow_reference) -> ComposedRef { record, members, limitations }` and
+    `ComposedRef::placed(CellPlace, cell, &style) -> Placed` (persistent -> the cell's
+    type 8, which for a world is its persistent cell). Raw subrecords in corpus order
+    (`EDID`, leading, `NAME`, extra, `DATA`, trailing); flags 0x400/0x800 from the spec.
+    Each member's confidence comes from the schema's `REFR`/`ACHR` definition when one is
+    built in (lane BW's, after BX), else from the corpus: `NAME`, `DATA` X/Y, persistence
+    `corpus`; `DATA` Z, rotation, flag 0x800 and raw flags below corpus, refused unless in
+    `allow_reference`. So until BW+BX land, a POI placement must allow
+    `DATA.Position.Z` and `DATA.Rotation`; afterwards nothing changes in code.
+    `tests/refs.rs`: reference shape on all 6,734,456 references; 9,144 sampled
+    references composed from their decoded values are byte-identical.
+  - M4.A6 (corpus half; F23 still open for the CK's own choices): `ONAM` membership rule
+    found and asserted on every record of the 14 files (`tests/onam.rs`): listed exactly
+    when the record overrides a record its master has and sits in group type 7, 9 or 10
+    (`cells::ONAM_GROUP_TYPES`); never type 8, cells or top-level records. The official
+    list order is not reproducible (neither file nor FormID order). Writer:
+    `cells::onam_forms(&plugin, overrides_master_record) -> Vec<u32>` (file order, a
+    stated choice until F23) and `Tes4::set_overridden_forms(&mut tes4, &forms)` (after
+    the master list, as in every file). Request to lane E below.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
@@ -620,6 +686,15 @@ is under "Next".
   (784), REFR (1,700,128) and ACHR (11,288) records (kept raw in `extra`, lossless; the
   gaps row), none a payload that failed to decode. They go to 0 with lane B's `unordered`
   record mode (Requests).
+- M4.BX1 lane A M4 merge (integrator, 2026-10-14): `esm::cells`, the rebuild gate, the
+  forms allocator, NAVM import, `refs::compose_reference`, `upsert_styled`; `bridge` keeps
+  one implementation (lane A's: `check_subrecords` reads `Record::extra()`, no `extra_of`)
+  with its all-types test. With the world family on the branch, `compose_reference` takes
+  REFR/ACHR `DATA` Z and rotation at `corpus` (gaps row updated; flag 0x800 still needs
+  `allow_reference`). Ignored release tests: `corpus_rebuild_full` 0 differences on all 14
+  files in both orders (the 12 official-pipeline files whole and byte-identical;
+  BlueprintShips-Starfield 65 and BlueprintShips-SFBGS050 4 listed normalizations),
+  roundtrip 14/14, typed check 0 conflicts; parity unchanged.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -1059,7 +1134,9 @@ Agents append here when they need a change in a crate they do not own.
   AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.~~
   Done in lane B's M3.B1 commit (FYI to lane A): `extra_of` returns `typed.extra()` for
   every record type, a one-function change, so `corpus_full_roundtrip`'s typed check sees
-  undecoded payloads in every round 3 type.
+  undecoded payloads in every round 3 type. Lane A (M4) then removed `extra_of`:
+  `check_subrecords` reads the generated `Record::extra()` directly, and a test checks every
+  defined type (merged in M4.BX1).
 - **Lane B -> lanes D, E, F (FYI, done in lane B's M3.B1 commit).** Typing WEAP changed five
   engine test expectations, updated in the same commit: `edit::fields` (WEAP WABB is a
   schema lstring now, no table fallback), `edit::patch_tests` (the opaque subrecord in the
@@ -1076,6 +1153,33 @@ Agents append here when they need a change in a crate they do not own.
   confidence), `handlers::overhaul_tests` (KSIZ is looked up by name: WEAP's numeric
   members now come first) and `tests/diff_corpus.rs` (picks a record type whose definition
   places KWDA, since lstring-only definitions keep it raw).
+- **Lane A -> lane E (M4.A1..A6 landed; for M4.E1, E2, E3, E4).** `kitcraft_esm`:
+  - `forms::NewForms::for_index(&index)` / `for_plugin(&plugin)` -> `allocate() ->
+    Result<u32>`, `write_hedr(&mut tes4)`; `Error::Refused` for small/medium targets;
+    name `forms::LIMITATIONS` in results.
+  - `refs::compose_reference(&RefSpec, allow_reference: &[&str]) -> Result<ComposedRef>`
+    (`RefSpec::new(sig, form_id, base, position, rotation)`, then `persistent`,
+    `initially_disabled`, `editor_id`, `extra`...); `ComposedRef { record, members,
+    limitations }`; `composed.placed(place, cell, &style) -> Result<Placed>`. Until BW's
+    `REFR`/`ACHR` definitions reach `main` through BX, `DATA.Position.Z` and
+    `DATA.Rotation` are below `corpus` and must be in `allow_reference` (nothing to change
+    when they land). They have landed (M4.BX1): both come from the REFR/ACHR `DATA`
+    definition at `corpus`.
+  - `cells::cell_place_in(&index, &loc, &cell_record, &limits) -> Result<CellPlace>`
+    (interior / world persistent cell / exterior with its `XCLC` grid),
+    `cells::persistent_cell(&index, world) -> Option<&RecordLoc>` (where a persistent
+    reference in a world goes), `cells::Grid::of_position(x, y)` (cell of a position,
+    100 units), `cells::placement(&header, &Parent, &style)` for any record under a cell,
+    quest or topic; `Plugin::upsert_styled` / `RewriteOptions::placement` place in corpus
+    order. A placed reference needs its parent `CELL` (and `WRLD`) carried in the plugin
+    for the corpus shape; without it the children group still lands in a sane place.
+  - `navmesh::import_navmeshes(&ck_plugin, &mut target, &style)` and
+    `navmesh::navmesh_placements(&ck_plugin, &target_index, read_cell, &style)` for
+    `[[import]]`; refused unless both plugins have the same masters.
+  - ONAM (M4.A6): when a patch overrides records in groups 7, 9 or 10, set
+    `Tes4::set_overridden_forms(&mut tes4, &cells::onam_forms(&plugin, |id| <id is a
+    master's and the master has it>))`; patches that only override top-level records or
+    persistent references still need none. INCC stays yours (as M2.E3).
 - **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
   `overhaul.scaffold` (alias `overhaul`, session handler registered in
   `handlers::session_defaults`), `build` gained `plan`, `validate` gained

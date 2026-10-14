@@ -90,6 +90,7 @@ Record each full run here: date, commit, files identical/total, wall time, peak 
 | 2026-10-14 | 087ab97 | 14/14     | 15.4 s    | 1,379 MiB   | Review round 2 (lane A); manifest SHA-256 of all 14 verified first (5.9 s, not in the wall time); same counts |
 | 2026-10-14 | b27d0dc | 14/14     | 16.7 s    | 1,394 MiB   | M2 lane A; every record with a schema definition also checked through it (M2.A3, table below); same counts |
 | 2026-10-14 | M3.A2   | 14/14     | 18.3 s    | 1,397 MiB   | Strict decode (`roundtrip --decode` in the driver): every compressed body inflated to exactly its declared size, its stream ending with end marker and checksum at the body's end (no trailing bytes in any of the 136,741), and its subrecords re-encoded to the inflated bytes; typed check on (definitions of 52e852a); same counts |
+| 2026-10-14 | M4 lane A | 14/14   | 18.8 s    | 1,397 MiB   | After M4.A1..A6 and the main merge; the typed check now reads `Record::extra()` for every defined type (lane F's request): still 0 conflicts on 20,437 typed records; same counts |
 
 Wall time is the test's own timer (`corpus_full_roundtrip`, release, one thread); peak
 memory is the test process's `PeakWorkingSet64` (polled every 100 ms from PowerShell for
@@ -485,12 +486,144 @@ Additional observations:
   `Subrecord::set_oversize_prefix(true)` still forces a prefix, for experiments only.
   Payloads over `u32::MAX` are an error (`TooLarge`).
 - Group types 0 to 10 occur. UESP's Skyrim table stops at 9; type 10 is Starfield-only
-  (meaning not documented on a permitted source). The parser treats group types opaquely.
+  (meaning not documented on a permitted source; the corpus shows it holding the children
+  of a quest). The parser treats group types opaquely; what each holds is in "Cell and
+  world groups" below.
 - Groups nest at most 6 deep (the parser's default cap is 16).
 - The record header's last `u16` ("unknown" on UESP) is non-zero in nearly every record of
   12 files (3,817,455 of 3,829,247 in `Starfield.esm`) but in only 341 and 33 records of the
   two BlueprintShips files. The group header's `u32` "unknown" takes a single value per file except in the BlueprintShips
   files (5 and 4 distinct values). Both are preserved verbatim.
+
+## Cell and world groups (M4.A1)
+
+Group types 1 to 10 and where the records of cells, worlds and quests live, from every
+group and record of the 14 files. Each rule below is asserted on every occurrence by
+`corpus_group_rules_full` (`crates/esm/tests/cells.rs`, release, 27 s; the five small files
+run in every gate as `corpus_group_rules_small`), and is what `kitcraft_esm::cells` computes
+from. Type numbers and names: `uesp-skyrim: Skyrim_Mod:Mod_File_Format` ("Groups"), a
+container source, confirmed here; type 10 has no name on a permitted source and is called
+"quest children" after its contents. No record layout is used except two facts found by
+searching the corpus (the `XCLC` grid and the `DATA` position, below); xEdit was not read
+for any of this.
+
+| Type | Name                       | Parent (count)                                 | Label                       | Holds (records over all 14 files)                                                   |
+| ---- | -------------------------- | ---------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
+| 0    | top                        | file (695, of which 30 empty)                  | record type                 | that type's records; `CELL` holds type 2, `WRLD` type 1, `QUST` type 10              |
+| 1    | world children             | top `WRLD` (581)                               | the `WRLD` FormID           | 549 persistent `CELL` with their type 6, then type 4 (2,299)                         |
+| 2    | interior cell block        | top `CELL` (85)                                | block number 0..9           | type 3 (695)                                                                        |
+| 3    | interior cell sub-block    | 2 (695)                                        | sub-block number 0..9       | 17,020 `CELL`, each followed by its type 6 (16,979)                                 |
+| 4    | exterior cell block        | 1 (2,299)                                      | block grid                  | type 5 (2,461)                                                                      |
+| 5    | exterior cell sub-block    | 4 (2,461)                                      | sub-block grid              | 22,682 `CELL`, each followed by its type 6 (4,734)                                  |
+| 6    | cell children              | 1 (545), 3 (16,979), 5 (4,734)                 | the `CELL` FormID           | type 8 (3,757), type 9 (21,663)                                                     |
+| 7    | topic children             | 10 (81,287)                                    | the `DIAL` FormID           | 162,028 `INFO`                                                                      |
+| 8    | cell persistent children   | 6 (3,757)                                      | the `CELL` FormID           | `REFR` 115,119, `ACHR` 780, `PGRE` 53, `PHZD` 33                                    |
+| 9    | cell temporary children    | 6 (21,663)                                     | the `CELL` FormID           | `REFR` 6,604,606, `NAVM` 92,893, `ACHR` 13,951, `PGRE` 2,546, `PHZD` 417           |
+| 10   | quest children             | top `QUST` (1,808)                             | the `QUST` FormID           | `DIAL` 87,031 (each followed by its type 7), `SCEN` 9,673, `DLBR` 135               |
+
+Rules (all 14 files, no exception unless one is listed):
+
+- **Children groups follow their record.** Every group of type 1, 6, 7 and 10 directly
+  follows the `WRLD`, `CELL`, `DIAL` or `QUST` record its label names (581, 22,258, 81,287,
+  1,808). Types 8 and 9 carry their cell children group's label. No record of a type that
+  lives in these groups (`CELL REFR ACHR PGRE PHZD NAVM DLBR DIAL SCEN INFO`) sits in a
+  top-level group.
+- **Persistence is the record flag 0x400 and the group together.** All 115,985 records in
+  type 8 have flag 0x400; none of the 6,714,413 in type 9 does (no `NAVM` ever does). A
+  world's persistent references live in its persistent cell: the one `CELL` directly in
+  type 1, always its first child, always flag 0x400 (549 of 581 worlds have one; no other
+  cell has the flag), whose children group holds type 8 only (545). Exterior cells (type 5)
+  have type 9 only (4,734); interior cells have either or both.
+- **Interior blocks.** Block = last decimal digit of the cell's object ID, sub-block = the
+  digit before it, on all 17,020 interior cells. The object ID is the stored FormID's low
+  24 bits, or 12 bits for a stored `FE` FormID and 16 for `FD` (`docs/load-order.md` scale
+  classes): the master byte is not part of it (the full 32-bit reading fails on 4,989 cells,
+  all overrides), and one cell decides the `FE` width: `SFBGS047.esm` `FE001016` is in block
+  2, sub-block 2 (object `0x016` = 22, where 24 bits would give 4,118). Medium files' cells
+  are all `FD00xxxx`, where 16 and 24 bits agree.
+- **Exterior grid.** A cell at grid (x, y) is in sub-block (floor(x/8), floor(y/8)) and block
+  (floor(sub x/4), floor(sub y/4)); a block or sub-block label holds y in its low 16 bits
+  and x in its high 16 bits, each an `i16` (22,682 cells; 2,461 sub-blocks under the right
+  block). The grid is the first two `i32` of the cell's `XCLC`, x first: found by trying
+  every (subrecord, byte offset, order) reading of two `i32` in every exterior cell; only
+  this one holds for all 22,682 (the swapped order holds for 11,083). Every exterior and
+  persistent cell has one `XCLC`; no interior cell has one.
+- **Cell size.** Of the 2,038,073 exterior temporary references with a `DATA`, 2,037,719
+  (99.983 %) have `DATA` floats 0 and 1 inside their cell's square when a cell is 100
+  units wide (found the same way: the first two floats of `DATA` against the grid, for
+  widths 100 to 8,192; only 100 fits). The 354 outside: 118 by under 1 unit, 219 by 1 to 10,
+  7 by 10 to 100, 10 by more (8 `ShatteredSpace.esm` `REFR` `010C6B30`..`010C6B39` by 216 to
+  230; `Starfield.esm` `000DD340` and `003FF0EC` by 45,423 and 37,039). The other 5,738
+  exterior temporary references have no `DATA` and are all deleted (flag 0x20).
+- **Order.** Records ascend by stored FormID in types 3 (695 groups), 5 (2,461) and 7
+  (81,287) and in the top-level `WRLD` and `QUST` groups; type 10 holds `DLBR`, then `DIAL`
+  (with their type 7), then `SCEN`, each ascending (1,808). Sibling groups of types 2, 3, 4
+  and 5 ascend by label read as a `u32` (so grid labels order by x, then y, as unsigned
+  16-bit values). Records in types 8 and 9 follow no FormID order.
+- **Where the two writers differ** (`cells::PlacementStyle`). The 12 files of the official
+  build pipeline put type 9 before type 8 when a cell has both (2,364 cells), every `NAVM`
+  first in its type 9 (3,017 groups), stamp every group 0, and keep an empty top-level
+  group for each of `NAVM DIAL INFO DLBR SCEN` the file has records of (the 30 empty
+  top-level groups, exactly). The two `BlueprintShips` files put type 8 first (815 cells),
+  append `NAVM` after references (405 of their type 9 groups), keep no empty top-level
+  group, stamp groups with one timestamp per file (13505, 13501) and an unknown field of 0
+  (top level), 3 (types 2 to 6) or 1 (types 8, 9), except 52 groups (below), and leave 17
+  cells with an empty children group (`BlueprintShips-Starfield.esm` 16, from
+  `011BA314`; `BlueprintShips-SFBGS050.esm` `03022FE6`).
+
+What the Creation Kit writes for a new plugin (which style, and the stamps) is F20's
+question (M4.O1); until it is observed KitCraft writes the official pipeline's style.
+
+**Cross-check with the WORLD family lane** (`docs/schema/world-family.md` on its branch,
+`crates/esm/tests/world_family.rs`, derived independently): every group count of the table
+above agrees, and so do the children-group rules (types 1 and 6 follow their record and
+carry its FormID; types 8 and 9 sit in the type 6 group with the same label) and the
+exterior labels (two `i16`, y in the low half, which that page writes "Y first"; sub-block
+= grid div 8, block = grid div 32, 22,682 of 22,682); that lane takes the grid from the
+pinned xEdit `CELL` definition (`XCLC`: X, Y), which agrees with the corpus search here.
+Two findings are refined here: (1) the interior rule holds for 17,020 of 17,020 cells,
+not 17,019, once the object ID is read at the width of its scale class (the one cell
+the 24-bit reading misses, `SFBGS047.esm` `FE001016`, is a small file's own cell, whose
+object ID is the low 12 bits); (2) the order of a cell's persistent and temporary groups,
+which that page reports as "either order", is fixed per writer: all 2,364 cells with type
+9 before type 8 are in the 12 files of the official pipeline and all 815 with type 8 first
+are in the two `BlueprintShips` files, so each style has a default to write.
+
+### Rebuild gate (M4.A2)
+
+`corpus_rebuild_full` (`crates/esm/tests/rebuild.rs`, release, 116 s;
+`corpus_rebuild_small` runs the five small files whole in every gate) rebuilds every
+top-level group of all 14 files from an empty plugin with the same `TES4`: each record is
+upserted (`Plugin::upsert_styled`) through the path `cells::placement` computes from the
+record's header and its parent (the world, cell, quest or topic it belongs to), never the
+path it was read from, once in file order and once in a seeded shuffled order (parents
+first; records of types 8 and 9, and of top-level groups other than `WRLD` and `QUST`,
+keep their relative order, which the corpus gives no rule for). Result, 2026-10-14:
+
+| Files | Compared | Result |
+| ----- | -------- | ------ |
+| The 12 files of the official pipeline (`Starfield.esm` whole: no sample) | every top-level group, byte for byte, both orders | identical; the empty top-level groups the rebuild creates equal the file's |
+| `BlueprintShips-Starfield.esm`, `BlueprintShips-SFBGS050.esm` (style `blueprint`) | the same, after the listed normalizations | identical after 69 listed differences: the 17 empty cell children groups above (no record puts them there), and 52 group stamps that are not the style's majority: 50 cell children groups with unknown 1 (28), 2 (19) or 7 (3), and the top-level `CELL` group of each file with 3 |
+
+The `HEDR` record count of a rebuilt plugin follows the majority rule ("TES4 header
+inventory"), so it equals the 12 files' and differs from the two `BlueprintShips` files';
+the gate compares the groups, not `TES4`.
+
+### Placed references (M4.A5)
+
+`crates/esm/tests/refs.rs` (release, 63 s for the shape, 31 s for the sample): in all
+6,719,725 `REFR` and 14,731 `ACHR` of the 14 files, `NAME` occurs once with 4 bytes; `DATA`
+occurs once with 24 bytes, except in the 5,847 deleted `REFR` (flag 0x20), which have none;
+`EDID`, when present, is the first subrecord; and `DATA` is the last subrecord in all but
+3 `REFR` of `Starfield.esm` (`00182E1A`, `002119C0`, `0001E709`: an `MNAM` follows). Before
+`NAME` the corpus has `EDID`, `VMAD`, `XALG` and component blocks (`BFCB`..`BFCE`); the
+other members sit between `NAME` and `DATA`. In `Starfield.esm` every `NAME` is a record of
+the file that is not a reference, cell, world or navmesh (2,323,009 `STAT`, 309,021 `PDCL`,
+165,362 `MSTT`, ...), except `REFR` `00014893`, whose `NAME` `000001FB` is no record.
+`kitcraft_esm::refs::compose_reference` writes this order; a seeded 1,000 references per
+file (all of them in the files with fewer: 9,144 in all) decomposed into their base,
+position, rotation, flags, EditorID, other subrecords and header fields, and composed
+again, equal their bytes in the file.
 
 ## Archives (M2.G1-G3)
 
@@ -605,5 +738,5 @@ until it is, `set` and `build` name it in `limitations`.
 | **`INCC` = number of interior cells** (`CELL` records under the top-level `CELL` group), after the masters: true in all 14 files (0 in Constellation, OldMars, SFBGS007; 11,985 in `Starfield.esm`). A new patch writes it (0 unless it copies interior cells); an update adds the interior cells it inserts to an existing `INCC`. | `corpus:` `corpus_tes4_metadata`, `corpus_incc_is_interior_cells_full` |
 | **Not written (stated deviation)**: `BNAM` ("Dev_Main", 12 of 14 files: the official branch name), `CHGL` (12 of 14, absent from both BlueprintShips files: a build changelist number), `SNAM` (above). They describe Bethesda's build, which a patch does not have; whether the CK writes them for a new plugin is M2.O4's (`CK_DIFF_PENDING` in `set`/`build` limitations). | `corpus:` `corpus_tes4_metadata` |
 | **String ID 0** is in no `starfield_en` table (`.strings` lowest ID 22, `.dlstrings` 3607, `.ilstrings` 7): an lstring holding ID 0 has no text, and is written inline as the empty string. | `corpus:` `corpus_string_id_zero_has_no_text` (`starfield_en` in `Starfield - Localization.ba2`) |
-| **`ONAM` is not needed for an override of a top-level record.** In the 5 files with an `ONAM` (SFBGS003, SFBGS006, SFBGS00D, SFBGS050, ShatteredSpace) every listed FormID is a record of the same file in a group of type 7 (topic children: INFO), 9 (cell temporary children: REFR, ACHR, NAVM) or 10 (DIAL, SCEN); no top-level record is listed, although 10 files override 853 top-level master records between them (SFBGS003 58, SFBGS004 20, SFBGS006 15, SFBGS008 8, SFBGS00D 133, SFBGS047 1, SFBGS050 142, ShatteredSpace 86, BlueprintShips 357 and 33). Patches therefore write no `ONAM`. Not every overridden temporary child is listed (SFBGS050 overrides 9 type-9 NAVM records it does not list), so what decides membership is open; a patch that overrides cell children would need it (not in M2). | `corpus:` `corpus_onam_inventory_full` |
+| **`ONAM` is not needed for an override of a top-level record.** In the 5 files with an `ONAM` (SFBGS003, SFBGS006, SFBGS00D, SFBGS050, ShatteredSpace) every listed FormID is a record of the same file in a group of type 7 (topic children: INFO), 9 (cell temporary children: REFR, ACHR, NAVM) or 10 (DIAL, SCEN); no top-level record is listed, although 10 files override 853 top-level master records between them (SFBGS003 58, SFBGS004 20, SFBGS006 15, SFBGS008 8, SFBGS00D 133, SFBGS047 1, SFBGS050 142, ShatteredSpace 86, BlueprintShips 357 and 33). Patches therefore write no `ONAM`. **Membership (M4.A6):** a record is listed exactly when it overrides a record its master has and sits in a group of type 7, 9 or 10: true for every record of the 14 files (7,137 listed; overrides in type 8, cells and top-level records never are; the 9 NAVM and 5 deleted REFR of SFBGS050 that are not listed override SFBGS00D objects SFBGS00D lacks). The order of the list is neither file order nor FormID order in SFBGS003, SFBGS006, SFBGS00D and SFBGS050 (it looks unordered); `cells::onam_forms` writes file order, a choice until the Creation Kit is observed (F23). `ONAM` sits right after the master list in every file (`Tes4::set_overridden_forms`). | `corpus:` `corpus_onam_inventory_full`; `corpus_onam_membership_full` (`crates/esm/tests/onam.rs`) |
 | **Inline text encoding**: UTF-8, NUL-terminated (the string tables hold UTF-8, `crates/strings`). Whether the game reads inline FULL as UTF-8 or a code page is a `ck-diff` / in-game fact (M2.O4, M2.O6); ASCII names are unaffected. Every written or inlined lstring with a byte >= 0x80 is named in a limitation. A string set as `hex:` must be one NUL-terminated string. | `corpus:` string tables; open |

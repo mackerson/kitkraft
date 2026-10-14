@@ -89,6 +89,8 @@ const ONAM: Signature = Signature::new(b"ONAM");
 
 /// Offset of the record count inside `HEDR` data (after the `f32` version).
 const COUNT_AT: usize = 4;
+/// Offset of the next object ID inside `HEDR` data.
+const NEXT_ID_AT: usize = 8;
 
 /// What [`Plugin::write_to`] does with the `HEDR` record count.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -160,6 +162,17 @@ impl<'r, 'a> Tes4<'r, 'a> {
     /// or the record is compressed and not decoded), and [`Error::BadHedr`] when the
     /// `HEDR` is too short to hold a count. Marks the record modified.
     pub fn set_record_count(record: &mut Record<'_>, count: u32) -> Result<bool> {
+        Self::set_hedr_u32(record, COUNT_AT, count)
+    }
+
+    /// Set the `HEDR` next object ID of `record` (a `TES4` record), keeping every other
+    /// byte; as [`Tes4::set_record_count`] otherwise (the `HEDR` must hold 12 bytes).
+    pub fn set_next_object_id(record: &mut Record<'_>, value: u32) -> Result<bool> {
+        Self::set_hedr_u32(record, NEXT_ID_AT, value)
+    }
+
+    /// Write `value` at byte `at` of the `HEDR` data.
+    fn set_hedr_u32(record: &mut Record<'_>, at: usize, value: u32) -> Result<bool> {
         let Some(subs) = record.subrecords_mut() else {
             return Ok(false);
         };
@@ -168,19 +181,67 @@ impl<'r, 'a> Tes4<'r, 'a> {
         };
         let mut data = sub.data().to_vec();
         let len = data.len() as u64;
-        let Some(slot) = data.get_mut(COUNT_AT..COUNT_AT.saturating_add(4)) else {
+        let Some(slot) = data.get_mut(at..at.saturating_add(4)) else {
             return Err(Error::BadHedr {
                 offset: sub.data_offset().unwrap_or(0),
                 len,
             });
         };
-        slot.copy_from_slice(&count.to_le_bytes());
+        slot.copy_from_slice(&value.to_le_bytes());
         let prefix = sub.has_oversize_prefix();
         sub.set_data(data);
         if prefix {
             sub.set_oversize_prefix(true);
         }
         Ok(true)
+    }
+
+    /// Replace the `ONAM` list of `record` (a `TES4` record) with `forms`, in the order
+    /// given; an empty list removes `ONAM`. A new `ONAM` goes right after the master list
+    /// (the last `MAST`, or the `DATA` that follows it), where every official file has it
+    /// (`tests/onam.rs`), else after `HEDR`, `CNAM` and `SNAM`. Returns `false` (and
+    /// changes nothing) for a compressed record that has not been decoded. Which forms
+    /// belong in it: [`crate::cells::onam_forms`].
+    pub fn set_overridden_forms(record: &mut Record<'_>, forms: &[u32]) -> bool {
+        let Some(subs) = record.subrecords_mut() else {
+            return false;
+        };
+        let data: Vec<u8> = forms.iter().flat_map(|f| f.to_le_bytes()).collect();
+        let existing = subs.iter().position(|s| s.signature() == ONAM);
+        match (existing, forms.is_empty()) {
+            (Some(i), true) => {
+                subs.remove(i);
+            }
+            (Some(i), false) => {
+                if let Some(s) = subs.get_mut(i) {
+                    if s.data() != data.as_slice() {
+                        s.set_data(data);
+                    }
+                }
+            }
+            (None, true) => {}
+            (None, false) => {
+                let last_master = subs.iter().rposition(|s| s.signature() == MAST);
+                let at = match last_master {
+                    Some(m) => {
+                        let next = m.saturating_add(1);
+                        if subs.get(next).is_some_and(|s| s.signature() == DATA) {
+                            next.saturating_add(1)
+                        } else {
+                            next
+                        }
+                    }
+                    None => {
+                        let leading = [b"HEDR", b"CNAM", b"SNAM"].map(Signature::new);
+                        subs.iter()
+                            .take_while(|s| leading.contains(&s.signature()))
+                            .count()
+                    }
+                };
+                subs.insert(at.min(subs.len()), crate::Subrecord::new(ONAM, data));
+            }
+        }
+        true
     }
 
     /// Masters in order, each with the `DATA` value that follows it.
@@ -386,6 +447,38 @@ mod tests {
         assert!(
             diffs.iter().all(|&i| (24 + 6 + 4..24 + 6 + 8).contains(&i)),
             "{diffs:?}"
+        );
+    }
+
+    #[test]
+    fn onam_and_next_object_id_are_set_in_place() {
+        let bytes = fixture::plugin(&[]);
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let before = Tes4::new(plugin.header()).overridden_forms();
+        // Same list: same bytes.
+        assert!(Tes4::set_overridden_forms(plugin.header_mut(), &before));
+        assert_eq!(plugin.to_bytes().unwrap(), bytes);
+        // Removed, then added back after the last MAST/DATA pair.
+        assert!(Tes4::set_overridden_forms(plugin.header_mut(), &[]));
+        assert!(plugin.tes4().overridden_forms().is_empty());
+        assert!(Tes4::set_overridden_forms(plugin.header_mut(), &before));
+        assert_eq!(plugin.to_bytes().unwrap(), bytes);
+        assert!(Tes4::set_overridden_forms(plugin.header_mut(), &[5, 6, 7]));
+        assert_eq!(plugin.tes4().overridden_forms(), [5, 6, 7]);
+        // No masters: after HEDR.
+        let mut bare = crate::build::HeaderSpec::new(Vec::new()).to_record();
+        assert!(Tes4::set_overridden_forms(&mut bare, &[9]));
+        let sigs: Vec<String> = bare
+            .subrecords()
+            .unwrap()
+            .iter()
+            .map(|s| s.signature().to_string())
+            .collect();
+        assert_eq!(sigs, ["HEDR", "ONAM"]);
+        assert!(Tes4::set_next_object_id(&mut bare, 0xFF00_2000).unwrap());
+        assert_eq!(
+            Tes4::new(&bare).hedr().unwrap().unwrap().next_object_id,
+            0xFF00_2000
         );
     }
 
