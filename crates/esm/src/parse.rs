@@ -13,16 +13,29 @@
 use std::borrow::Cow;
 
 use crate::model::{
-    Body, Encoding, Entry, Group, GroupHeader, Plugin, Record, RecordHeader, Subrecord, HEADER_LEN,
+    Body, Counts, Data, Encoding, Entry, Group, GroupHeader, Plugin, Record, RecordHeader,
+    Subrecord, HEADER_LEN,
 };
 use crate::{Error, Reader, Result, Signature};
+
+/// Hard ceiling on [`ParseOptions::max_depth`]: larger values are clamped to this, so no
+/// setting lets hostile nesting exhaust the stack of the recursive parser and writer.
+pub const MAX_DEPTH_CAP: usize = 64;
 
 /// Parser limits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ParseOptions {
     /// Deepest group nesting accepted; a top-level group is depth 1. Official files nest
     /// at most 6 deep (world > block > sub-block > cell children > persistent/temporary).
+    /// Clamped to [`MAX_DEPTH_CAP`].
     pub max_depth: usize,
+}
+
+impl ParseOptions {
+    /// The nesting limit actually applied: `max_depth` clamped to [`MAX_DEPTH_CAP`].
+    pub fn effective_max_depth(&self) -> usize {
+        self.max_depth.min(MAX_DEPTH_CAP)
+    }
 }
 
 impl Default for ParseOptions {
@@ -42,7 +55,12 @@ impl<'a> Plugin<'a> {
         let mut r = Reader::new(data, 0);
         let header = parse_header_record(&mut r)?;
         let entries = parse_entries(&mut r, 1, options)?;
-        Ok(Plugin { header, entries })
+        let counts_as_read = Some(Counts::of(&entries));
+        Ok(Plugin {
+            header,
+            entries,
+            counts_as_read,
+        })
     }
 }
 
@@ -102,11 +120,9 @@ fn parse_entry<'a>(r: &mut Reader<'a>, depth: usize, options: &ParseOptions) -> 
 
 fn parse_group<'a>(r: &mut Reader<'a>, depth: usize, options: &ParseOptions) -> Result<Group<'a>> {
     let offset = r.offset();
-    if depth > options.max_depth {
-        return Err(Error::TooDeep {
-            offset,
-            max: options.max_depth,
-        });
+    let max = options.effective_max_depth();
+    if depth > max {
+        return Err(Error::TooDeep { offset, max });
     }
     let _grup = r.signature()?;
     let size = r.u32()?;
@@ -159,6 +175,7 @@ pub(crate) fn parse_record<'a>(r: &mut Reader<'a>) -> Result<Record<'a>> {
         Body::Compressed {
             original: Cow::Borrowed(data),
             decoded: None,
+            inflated: None,
         }
     } else {
         Body::Raw(parse_subrecords(data, data_offset)?)
@@ -172,52 +189,95 @@ pub(crate) fn parse_record<'a>(r: &mut Reader<'a>) -> Result<Record<'a>> {
     })
 }
 
-/// Parse a record body (`data`, starting at absolute offset `base`) into subrecords.
+/// One subrecord as laid out in a body, before it is turned into a [`Subrecord`].
+pub(crate) struct SubrecordAt<'d> {
+    pub(crate) signature: Signature,
+    pub(crate) encoding: Encoding,
+    pub(crate) data: &'d [u8],
+    /// Offset of the subrecord's first byte (its `XXXX` prefix, if any).
+    pub(crate) offset: u64,
+    /// Offset of the data.
+    pub(crate) data_offset: u64,
+}
+
+/// Read the next subrecord (folding an `XXXX` prefix into the subrecord it sizes).
+pub(crate) fn next_subrecord<'d>(r: &mut Reader<'d>) -> Result<SubrecordAt<'d>> {
+    let offset = r.offset();
+    let signature = r.signature()?;
+    let size = r.u16()?;
+    if signature != Signature::XXXX {
+        let data_offset = r.offset();
+        let data = r.take_labeled(usize::from(size), "subrecord data")?;
+        return Ok(SubrecordAt {
+            signature,
+            encoding: Encoding::AsRead {
+                size_field: size,
+                oversize: false,
+            },
+            data,
+            offset,
+            data_offset,
+        });
+    }
+    if size != 4 {
+        return Err(Error::BadOversize { offset, size });
+    }
+    let real_size = r.u32()?;
+    if r.is_empty() {
+        return Err(Error::DanglingOversize { offset });
+    }
+    let signature = r.signature()?;
+    let size_field = r.u16()?;
+    let data_offset = r.offset();
+    let len = usize::try_from(real_size).map_err(|_| Error::UnexpectedEof {
+        offset: data_offset,
+        what: "oversize subrecord data",
+        needed: u64::from(real_size),
+        available: r.remaining() as u64,
+    })?;
+    let data = r.take_labeled(len, "oversize subrecord data")?;
+    Ok(SubrecordAt {
+        signature,
+        encoding: Encoding::AsRead {
+            size_field,
+            oversize: true,
+        },
+        data,
+        offset,
+        data_offset,
+    })
+}
+
+/// Parse a record body (`data`, starting at absolute offset `base`) into subrecords that
+/// borrow from it.
 pub(crate) fn parse_subrecords(data: &[u8], base: u64) -> Result<Vec<Subrecord<'_>>> {
     let mut r = Reader::new(data, base);
     let mut subs = Vec::new();
     while !r.is_empty() {
-        let offset = r.offset();
-        let signature = r.signature()?;
-        let size = r.u16()?;
-        if signature == Signature::XXXX {
-            if size != 4 {
-                return Err(Error::BadOversize { offset, size });
-            }
-            let real_size = r.u32()?;
-            if r.is_empty() {
-                return Err(Error::DanglingOversize { offset });
-            }
-            let signature = r.signature()?;
-            let size_field = r.u16()?;
-            let len = usize::try_from(real_size).map_err(|_| Error::UnexpectedEof {
-                offset: r.offset(),
-                what: "oversize subrecord data",
-                needed: u64::from(real_size),
-                available: r.remaining() as u64,
-            })?;
-            let data = r.take_labeled(len, "oversize subrecord data")?;
-            subs.push(Subrecord {
-                signature,
-                data: Cow::Borrowed(data),
-                encoding: Encoding::AsRead {
-                    size_field,
-                    oversize: true,
-                },
-            });
-        } else {
-            let data = r.take_labeled(usize::from(size), "subrecord data")?;
-            subs.push(Subrecord {
-                signature,
-                data: Cow::Borrowed(data),
-                encoding: Encoding::AsRead {
-                    size_field: size,
-                    oversize: false,
-                },
-            });
-        }
+        let at = next_subrecord(&mut r)?;
+        subs.push(Subrecord::read(
+            at.signature,
+            Data::Borrowed(at.data),
+            at.encoding,
+            Some(at.offset),
+        ));
     }
     Ok(subs)
+}
+
+/// Count the subrecords in `data` without allocating, stopping as soon as the count
+/// exceeds `max`. Returns `None` when it does.
+pub(crate) fn count_subrecords(data: &[u8], max: u64) -> Result<Option<usize>> {
+    let mut r = Reader::new(data, 0);
+    let mut count: u64 = 0;
+    while !r.is_empty() {
+        next_subrecord(&mut r)?;
+        count = count.saturating_add(1);
+        if count > max {
+            return Ok(None);
+        }
+    }
+    Ok(usize::try_from(count).ok())
 }
 
 #[cfg(test)]
@@ -312,7 +372,12 @@ mod tests {
         };
         assert!(r.header.is_compressed());
         assert!(r.subrecords().is_none());
-        let Body::Compressed { original, decoded } = r.body() else {
+        let Body::Compressed {
+            original,
+            decoded,
+            inflated: None,
+        } = r.body()
+        else {
             panic!()
         };
         assert_eq!(original.len(), rec.len() - 24);
@@ -348,6 +413,23 @@ mod tests {
         }
         let options = ParseOptions { max_depth: 20 };
         assert!(Plugin::parse_with(&bytes, &options).is_ok());
+    }
+
+    #[test]
+    fn nesting_limit_is_clamped_to_64() {
+        let mut inner = record(b"REFR", 0, 9, &sub(b"EDID", b"a\0"));
+        for _ in 0..70 {
+            inner = group(b"\0\0\0\0", 6, &inner);
+        }
+        let bytes = fixture::plugin(&[inner]);
+        let options = ParseOptions {
+            max_depth: usize::MAX,
+        };
+        assert_eq!(options.effective_max_depth(), crate::MAX_DEPTH_CAP);
+        assert!(matches!(
+            Plugin::parse_with(&bytes, &options),
+            Err(Error::TooDeep { max: 64, .. })
+        ));
     }
 
     #[test]

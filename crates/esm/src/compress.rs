@@ -6,9 +6,10 @@
 //! allocated, and the inflater never produces more than the declared size plus one byte.
 
 use std::io::{Read, Write};
+use std::sync::Arc;
 
-use crate::model::{Body, Record, Subrecord, HEADER_LEN};
-use crate::parse::parse_subrecords;
+use crate::model::{Body, Data, Inflated, Record, Subrecord, HEADER_LEN};
+use crate::parse::{count_subrecords, next_subrecord};
 use crate::{Error, Reader, Result};
 
 /// zlib level used when a modified compressed record is recompressed. Every compressed record
@@ -19,17 +20,27 @@ pub const DEFAULT_LEVEL: u32 = 9;
 /// Default cap on one record's decompressed size: 64 MiB.
 pub const DEFAULT_MAX_DECOMPRESSED: u64 = 64 * 1024 * 1024;
 
+/// Default cap on the number of subrecords in one decompressed record: 1,000,000. The
+/// largest decompressed record in the official ESMs is 3.4 MiB, which holds at most
+/// about 590,000 six-byte subrecords.
+pub const DEFAULT_MAX_SUBRECORDS: u64 = 1_000_000;
+
 /// Bounds on decompression.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct DecodeLimits {
     /// Largest decompressed size accepted for a single record.
     pub max_decompressed: u64,
+    /// Most subrecords accepted in a single decompressed record. A small stream can
+    /// inflate to megabytes of empty 6-byte subrecords; this bounds the tree built from it
+    /// independently of `max_decompressed`.
+    pub max_subrecords: u64,
 }
 
 impl Default for DecodeLimits {
     fn default() -> DecodeLimits {
         DecodeLimits {
             max_decompressed: DEFAULT_MAX_DECOMPRESSED,
+            max_subrecords: DEFAULT_MAX_SUBRECORDS,
         }
     }
 }
@@ -93,18 +104,51 @@ pub fn deflate(fields: &[u8], level: u32, record_offset: u64) -> Result<Vec<u8>>
     Ok(out)
 }
 
-/// Inflate and parse a compressed body into owned subrecords.
+/// Inflate a compressed body and parse it once into subrecords that share the inflated
+/// buffer (one allocation for the data of every subrecord). The subrecords are counted
+/// first, without allocating, so a body holding more than
+/// [`DecodeLimits::max_subrecords`] fails before any subrecord is built.
 fn decode_body(
     original: &[u8],
     record_offset: u64,
     limits: &DecodeLimits,
-) -> Result<Vec<Subrecord<'static>>> {
+) -> Result<(Vec<Subrecord<'static>>, Inflated)> {
     let fields = inflate(original, record_offset, limits)?;
-    let subs = parse_subrecords(&fields, 0).map_err(|e| Error::InCompressed {
+    let in_compressed = |e: Error| Error::InCompressed {
         offset: record_offset,
         source: Box::new(e),
-    })?;
-    Ok(subs.into_iter().map(Subrecord::into_owned).collect())
+    };
+    let count = count_subrecords(&fields, limits.max_subrecords)
+        .map_err(in_compressed)?
+        .ok_or(Error::TooManySubrecords {
+            offset: record_offset,
+            max: limits.max_subrecords,
+        })?;
+    let buf = Arc::new(fields);
+    let mut subs = Vec::with_capacity(count);
+    let mut r = Reader::new(&buf, 0);
+    while !r.is_empty() {
+        let at = next_subrecord(&mut r).map_err(in_compressed)?;
+        // `inflate` caps the buffer at a `u32` declared size, so both always fit.
+        let too_large = || Error::TooLarge {
+            offset: record_offset,
+            what: "decompressed record data",
+            len: buf.len() as u64,
+        };
+        let start = u32::try_from(at.data_offset).map_err(|_| too_large())?;
+        let len = u32::try_from(at.data.len()).map_err(|_| too_large())?;
+        subs.push(Subrecord::read(
+            at.signature,
+            Data::Shared {
+                buf: Arc::clone(&buf),
+                start,
+                len,
+            },
+            at.encoding,
+            None,
+        ));
+    }
+    Ok((subs, Inflated(buf)))
 }
 
 impl<'a> Record<'a> {
@@ -115,7 +159,7 @@ impl<'a> Record<'a> {
         match &self.body {
             Body::Raw(_) => Ok(None),
             Body::Compressed { original, .. } => {
-                decode_body(original, self.offset.unwrap_or(0), limits).map(Some)
+                decode_body(original, self.offset.unwrap_or(0), limits).map(|(subs, _)| Some(subs))
             }
         }
     }
@@ -123,15 +167,19 @@ impl<'a> Record<'a> {
     /// Decode a compressed record in place so [`Record::subrecords`] returns its
     /// subrecords. Does not mark the record modified: until it is reached through
     /// [`Record::subrecords_mut`] or [`Record::body_mut`], it is written with its original
-    /// compressed bytes.
+    /// compressed bytes, and after that too unless its subrecords no longer serialize to
+    /// the decompressed bytes.
     pub fn decompress(&mut self, limits: &DecodeLimits) -> Result<()> {
         let offset = self.offset.unwrap_or(0);
         if let Body::Compressed {
             original,
             decoded: decoded @ None,
+            inflated,
         } = &mut self.body
         {
-            *decoded = Some(decode_body(original, offset, limits)?);
+            let (subs, bytes) = decode_body(original, offset, limits)?;
+            *decoded = Some(subs);
+            *inflated = Some(bytes);
         }
         Ok(())
     }
@@ -251,6 +299,7 @@ mod tests {
         // A configurable cap.
         let small = DecodeLimits {
             max_decompressed: 0,
+            ..DecodeLimits::default()
         };
         let rec = fixture::compressed_record_stored(b"LAND", 1, b"abc");
         assert!(matches!(
@@ -261,6 +310,86 @@ mod tests {
                 ..
             })
         ));
+    }
+
+    #[test]
+    fn subrecord_bomb_is_an_error_before_any_subrecord_is_built() {
+        // 8 MiB of zeros deflates to about 8 KB and parses as 1,398,101 empty subrecords
+        // with signature 00 00 00 00 (and 2 bytes left over that would be a parse error).
+        let zeros = vec![0u8; 8 * 1024 * 1024];
+        let body = deflate(&zeros, 9, 0).unwrap();
+        assert!(body.len() < 16 * 1024, "{}", body.len());
+        let rec =
+            fixture::compressed_record_from_stream(b"LAND", 1, zeros.len() as u32, &body[4..]);
+        let bytes = fixture::plugin(&[group(b"LAND", 0, &rec)]);
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let r = first_record(&mut plugin);
+        let at = r.offset().unwrap();
+        let start = std::time::Instant::now();
+        match r.decode(&DecodeLimits::default()) {
+            Err(Error::TooManySubrecords { offset, max }) => {
+                assert_eq!(offset, at);
+                assert_eq!(max, 1_000_000);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(matches!(
+            r.decompress(&DecodeLimits::default()),
+            Err(Error::TooManySubrecords { .. })
+        ));
+        assert!(r.subrecords().is_none());
+        // Generous even for a debug build; the old path built 1.4 M subrecords twice.
+        assert!(start.elapsed().as_secs() < 10);
+
+        // Under a lower cap a normal record fails the same way; at the exact count it
+        // decodes.
+        let fields = [sub(b"EDID", b"a\0"), sub(b"DATA", b"b")].concat();
+        let rec = fixture::compressed_record_stored(b"LAND", 2, &fields);
+        let bytes = fixture::plugin(&[group(b"LAND", 0, &rec)]);
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let r = first_record(&mut plugin);
+        let one = DecodeLimits {
+            max_subrecords: 1,
+            ..DecodeLimits::default()
+        };
+        assert!(matches!(
+            r.decode(&one),
+            Err(Error::TooManySubrecords { max: 1, .. })
+        ));
+        let two = DecodeLimits {
+            max_subrecords: 2,
+            ..DecodeLimits::default()
+        };
+        assert_eq!(r.decode(&two).unwrap().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn decoded_subrecords_share_one_buffer() {
+        let fields = [sub(b"EDID", b"shared\0"), sub(b"DATA", &[9u8; 50])].concat();
+        let rec = fixture::compressed_record_stored(b"LAND", 3, &fields);
+        let bytes = fixture::plugin(&[group(b"LAND", 0, &rec)]);
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let r = first_record(&mut plugin);
+        r.decompress(&DecodeLimits::default()).unwrap();
+        let crate::Body::Compressed {
+            decoded: Some(subs),
+            inflated: Some(inflated),
+            ..
+        } = r.body()
+        else {
+            panic!()
+        };
+        assert_eq!(inflated.bytes(), &fields[..]);
+        // Each subrecord's data lies inside the inflated buffer.
+        let range = inflated.bytes().as_ptr_range();
+        for s in subs {
+            assert!(range.contains(&s.data().as_ptr()));
+            assert_eq!(s.offset(), None);
+        }
+        assert_eq!(subs[1].data(), &[9u8; 50][..]);
+        // Owned copies keep sharing it.
+        let owned = r.clone().into_owned();
+        assert_eq!(owned.subrecords().unwrap()[0].data(), b"shared\0");
     }
 
     #[test]

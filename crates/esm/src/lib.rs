@@ -8,9 +8,10 @@
 //!
 //! Input bytes are hostile: every length and offset is bounds-checked before use.
 //!
-//! Format source: the UESP wiki. Starfield's page defers to the Skyrim container layout
-//! (`Skyrim_Mod:Mod_File_Format`, `Skyrim_Mod:Mod_File_Format/TES4`); facts UESP does not
-//! state for Starfield are taken from our own corpus and say so where they are used.
+//! Format source: UESP's Skyrim pages (`Skyrim_Mod:Mod_File_Format`,
+//! `Skyrim_Mod:Mod_File_Format/TES4`) for the shared container, confirmed against our own
+//! corpus; facts UESP does not state for Starfield are taken from the corpus and say so
+//! where they are used (`plan/adr/0005-spec-sources-per-fact.md`).
 //!
 //! LAYER: L0
 
@@ -26,16 +27,14 @@ mod write;
 
 #[cfg(test)]
 mod fixture;
-#[cfg(test)]
-mod hostile;
 
 pub use compress::DecodeLimits;
 pub use error::{Error, Result};
 pub use model::{
-    Body, Entry, Group, GroupHeader, Plugin, Record, RecordHeader, Subrecord, FLAG_COMPRESSED,
-    HEADER_LEN, SUBRECORD_HEADER_LEN,
+    Body, Counts, Entry, Group, GroupHeader, Inflated, Plugin, Record, RecordHeader, Subrecord,
+    FLAG_COMPRESSED, HEADER_LEN, SUBRECORD_HEADER_LEN,
 };
-pub use parse::ParseOptions;
+pub use parse::{ParseOptions, MAX_DEPTH_CAP};
 pub use reader::Reader;
 pub use signature::Signature;
 pub use write::WriteOptions;
