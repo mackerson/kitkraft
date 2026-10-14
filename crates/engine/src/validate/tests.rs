@@ -173,6 +173,72 @@ fn formid_dangling() {
     let data = check(&good, &["formid.dangling"]);
     assert_eq!(found(&data), []);
     assert!(data["unchecked_subrecords"].as_u64().unwrap() > 0);
+    // A typed member naming a form of the plugin itself that it lacks is an error (Fable
+    // review round 2, finding 3: what a verbatim copy from a small/medium plugin leaves).
+    let own = patch(&d, "Own.esp", &["Master.esm"], vec![keywords(0x0100_0999)]);
+    let data = check(&own, &["formid.dangling"]);
+    assert_eq!(found(&data), [pair("formid.dangling", "error")]);
+    assert!(data["findings"][0]["message"]
+        .as_str()
+        .unwrap()
+        .contains("a form of this plugin that it does not have"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review round 2, findings 2b and 2c: in an override of a localized master, a raw
+/// 4-byte lstring the corpus table knows (WEAP WABB) is a copied ID (error), and a
+/// non-zero 4-byte payload nothing describes (WEAP ATTX) is a warning; one the table
+/// classes as not an lstring (WEAP INRD), or a zero one, is nothing.
+#[test]
+fn lstring_table_and_unknown_four_byte_payloads() {
+    let d = dir("validate-untyped");
+    master(&d);
+    let with = |extra: Vec<Subrecord<'static>>| {
+        let mut w = good_weapon();
+        w.subrecords_mut().unwrap().extend(extra);
+        w
+    };
+    let id = 0x0002_E46Au32.to_le_bytes();
+    let bad = patch(
+        &d,
+        "Bad.esp",
+        &["Master.esm"],
+        vec![with(vec![sub(b"WABB", &id), sub(b"ATTX", &id)])],
+    );
+    let data = check(&bad, &["lstring.copied-id"]);
+    assert_eq!(
+        found(&data),
+        [
+            pair("lstring.copied-id", "error"),
+            pair("lstring.copied-id", "warning")
+        ],
+        "{data:#}"
+    );
+    assert_eq!(data["findings"][0]["subrecord"], json!("WABB[0]"));
+    assert_eq!(data["findings"][1]["subrecord"], json!("ATTX[0]"));
+    assert!(data["findings"][1]["message"]
+        .as_str()
+        .unwrap()
+        .contains("unknown layout"));
+    let quiet = patch(
+        &d,
+        "Quiet.esp",
+        &["Master.esm"],
+        vec![with(vec![
+            sub(b"WABB", b"Rifle\0"),
+            sub(b"ATTX", &[0; 4]),
+            sub(b"INRD", &id),
+        ])],
+    );
+    assert_eq!(found(&check(&quiet, &["lstring.copied-id"])), []);
+    // Not an override of a localized master: no warning.
+    let fresh = patch(
+        &d,
+        "Fresh.esp",
+        &[],
+        vec![record(b"WEAP", 0x0000_0001, vec![sub(b"ATTX", &id)])],
+    );
+    assert_eq!(found(&check(&fresh, &["lstring.copied-id"])), []);
     let _ = std::fs::remove_dir_all(&d);
 }
 

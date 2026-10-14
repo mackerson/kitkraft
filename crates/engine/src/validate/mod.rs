@@ -26,6 +26,7 @@ use kitcraft_schema::FieldType;
 use serde::Serialize;
 
 use crate::edit::fields::{self, Layout};
+use crate::edit::lstrings;
 use crate::edit::patch::has_opaque;
 use crate::edit::source::file_name;
 use forms::{Space, Target};
@@ -89,13 +90,13 @@ pub const RULES: &[RuleInfo] = &[
         id: "formid.dangling",
         severity: Severity::Error,
         input: Input::Plugin,
-        summary: "A FormID (record header or typed member) names no master slot (error) or a form its master lacks (warning)",
+        summary: "A FormID (record header or typed member) names no master slot, or a form of the plugin itself it lacks (error); a form its master lacks (warning)",
     },
     RuleInfo {
         id: "lstring.copied-id",
         severity: Severity::Error,
         input: Input::Plugin,
-        summary: "A non-localized plugin holds a 4-byte string ID in an lstring (FULL, DESC): the game shows its bytes as text",
+        summary: "A non-localized plugin holds a 4-byte string ID in an lstring (FULL, DESC, or one of the corpus lstring table): the game shows its bytes as text; a warning for 4-byte payloads of unknown layout in overrides of a localized master",
     },
     RuleInfo {
         id: "override.stripped-name",
@@ -748,7 +749,26 @@ fn check_record(
             let n = nth.entry(s.signature().0).or_insert(0);
             let occurrence = *n;
             *n = n.saturating_add(1);
-            let Some(layout) = pass.layout(sig, s.signature().0).cloned() else {
+            let layout = pass.layout(sig, s.signature().0).cloned();
+            // A 4-byte payload nothing describes (no layout, or opaque bytes, and not
+            // classed by the corpus lstring table) in an override of a localized master
+            // may be a copied string ID: a warning (Fable review round 2, finding 2c).
+            let unknown = layout.as_ref().is_none_or(|l| has_opaque(&l.ty));
+            if unknown {
+                let data = s.data();
+                let maybe_id = data.len() == 4 && data.iter().any(|b| *b != 0);
+                if maybe_id
+                    && !pass.localized
+                    && master_localized == Some(true)
+                    && pass.on("lstring.copied-id")
+                    && lstrings::class(sig, s.signature().0) == lstrings::Class::Unclassified
+                {
+                    let label = format!("{}[{occurrence}]", s.signature());
+                    push(findings, "lstring.copied-id", Severity::Warning, Some(label), sub_offset(s), format!("{} is 4 bytes of unknown layout (0x{}) in an override of a localized master: if it is an lstring, it is a copied string ID the game shows as text. Neither the schema nor the corpus lstring table says (docs/validate.md)", s.signature(), fields::to_hex(data)));
+                }
+                continue;
+            }
+            let Some(layout) = layout else {
                 continue;
             };
             for (member, start, len) in spans(&layout, s.data(), r.header.form_version) {
@@ -933,8 +953,8 @@ fn check_form_id(
                 report.checked_form_ids = report.checked_form_ids.saturating_add(1);
                 if !header && !pass.own_ids.contains(&raw) {
                     push(
-                        Severity::Warning,
-                        format!("{what} names {owner}:{object_id:06X}, a form of this plugin that it does not have"),
+                        Severity::Error,
+                        format!("{what} names {owner}:{object_id:06X}, a form of this plugin that it does not have (a dangling self-reference: a record copied from a small or medium plugin, or a form that was removed)"),
                     );
                 }
                 return;

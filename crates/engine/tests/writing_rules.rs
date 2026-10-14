@@ -5,7 +5,7 @@
 //! inventory is `#[ignore]` (release: `cargo test -p kitcraft-engine --release --test
 //! writing_rules -- --ignored --nocapture`).
 
-#![allow(clippy::arithmetic_side_effects)]
+#![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
 
 use std::collections::BTreeMap;
 use std::fs::File;
@@ -88,6 +88,106 @@ fn corpus_new_plugin_header_facts() {
         assert_ne!(tes4.flags() & FLAG_LOCALIZED, 0, "{name}: localized flag");
         let hedr = tes4.hedr().unwrap().unwrap();
         assert_eq!(hedr.version, 0.96, "{name}");
+    }
+}
+
+/// The `TES4` subrecords of a file, by signature, in order.
+fn tes4_subrecords(path: &std::path::Path) -> Vec<(String, Vec<u8>)> {
+    let mut file = File::open(path).unwrap();
+    let header = read_record_at(&mut file, 0, None).unwrap();
+    header
+        .subrecords()
+        .unwrap()
+        .iter()
+        .map(|s| (s.signature().to_string(), s.data().to_vec()))
+        .collect()
+}
+
+/// Interior cells: `CELL` records under the top-level `CELL` group (exterior cells are
+/// under `WRLD`).
+fn interior_cells(index: &PluginIndex) -> u32 {
+    let top_of = |mut g: Option<u32>| {
+        let mut top = None;
+        while let Some(i) = g {
+            let group = index.groups.get(usize::try_from(i).ok()?)?;
+            top = Some(group);
+            g = group.parent;
+        }
+        top
+    };
+    let count = index
+        .records
+        .iter()
+        .filter(|r| r.signature.to_string() == "CELL")
+        .filter(|r| {
+            top_of(r.group).is_some_and(|t| t.header.group_type == 0 && t.header.label == *b"CELL")
+        })
+        .count();
+    u32::try_from(count).unwrap()
+}
+
+fn incc(subs: &[(String, Vec<u8>)]) -> u32 {
+    let (_, data) = subs.iter().find(|(s, _)| s == "INCC").unwrap();
+    u32::from_le_bytes(data.as_slice().try_into().unwrap())
+}
+
+/// Fable review round 2, finding 5: the `TES4` metadata a new patch writes or deliberately
+/// leaves out (`docs/corpus.md`, Writing rules). Every file has `CNAM` and `INCC`; the 12
+/// files of the official build pipeline carry `CNAM` "Python" and `SNAM` "Script", the two
+/// BlueprintShips files `CNAM` "DEFAULT" and no `SNAM` or `CHGL`; `BNAM` ("Dev_Main") is in
+/// 12 files, `CHGL` in the 12 pipeline files. `INCC` is the number of interior cells,
+/// checked here on four small files (all 14: `corpus_incc_is_interior_cells_full`).
+#[test]
+fn corpus_tes4_metadata() {
+    let Some(dir) = data_dir() else { return };
+    let (mut bnam, mut chgl) = (0, 0);
+    for name in CORPUS {
+        let subs = tes4_subrecords(&dir.join(name));
+        let get = |sig: &str| {
+            subs.iter()
+                .find(|(s, _)| s == sig)
+                .map(|(_, d)| d.as_slice())
+        };
+        let blueprint = name.starts_with("BlueprintShips");
+        let cnam: &[u8] = if blueprint { b"DEFAULT\0" } else { b"Python\0" };
+        assert_eq!(get("CNAM"), Some(cnam), "{name}: CNAM");
+        assert_eq!(get("SNAM").is_some(), !blueprint, "{name}: SNAM");
+        assert_eq!(get("CHGL").is_some(), !blueprint, "{name}: CHGL");
+        assert!(get("INCC").is_some_and(|d| d.len() == 4), "{name}: INCC");
+        // INCC is the last subrecord when there is no CHGL, else just before CHGL.
+        let last: Vec<&str> = subs.iter().rev().take(2).map(|(s, _)| s.as_str()).collect();
+        assert!(
+            last[0] == "INCC" || (last[0] == "CHGL" && last[1] == "INCC"),
+            "{name}: {last:?}"
+        );
+        bnam += usize::from(get("BNAM") == Some(b"Dev_Main\0".as_slice()));
+        chgl += usize::from(get("CHGL").is_some());
+    }
+    assert_eq!((bnam, chgl), (12, 12));
+    for (name, cells) in [
+        ("Constellation.esm", 0),
+        ("SFBGS004.esm", 1),
+        ("SFBGS008.esm", 4),
+        ("SFBGS003.esm", 42),
+    ] {
+        let path = dir.join(name);
+        let index = index_file(&path, &IndexOptions::default()).unwrap();
+        assert_eq!(interior_cells(&index), cells, "{name}");
+        assert_eq!(incc(&tes4_subrecords(&path)), cells, "{name}");
+    }
+}
+
+/// Full: `INCC` equals the interior cell count in all 14 files.
+#[test]
+#[ignore = "indexes 2.5 GB of plugins; run in release"]
+fn corpus_incc_is_interior_cells_full() {
+    let Some(dir) = data_dir() else { return };
+    for name in CORPUS {
+        let path = dir.join(name);
+        let index = index_file(&path, &IndexOptions::default()).unwrap();
+        let cells = interior_cells(&index);
+        assert_eq!(incc(&tes4_subrecords(&path)), cells, "{name}");
+        println!("{name}: INCC {cells} = interior cells");
     }
 }
 

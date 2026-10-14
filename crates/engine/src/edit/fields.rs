@@ -37,7 +37,9 @@
 //! `FULL` and `DESC` are lstrings (`uesp-skyrim` fact in `plan/execution-plan.md`, "Format
 //! facts M2 relies on"; lane B's M2.B2 types them, with corpus evidence, on every record
 //! type the schema defines). In a record type the schema does not define (`CELL`, `NPC_`,
-//! ...) they are treated as lstrings anyway and [`Layout::fallback`] says so.
+//! ...) they are treated as lstrings anyway and [`Layout::fallback`] says so. Other
+//! signatures the schema leaves untyped or opaque are lstrings when the corpus lstring
+//! table says so ([`super::lstrings`]), again with a [`Layout::fallback`] note.
 
 use kitcraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, Scalar};
 use serde_json::{json, Value};
@@ -222,24 +224,36 @@ pub fn layout_for(path: &str, record: [u8; 4], sub: [u8; 4]) -> Result<Option<La
     }
     let lstring_fallback = LSTRING_FALLBACK.contains(&&sub);
     let sig_text = String::from_utf8_lossy(&sub).into_owned();
+    // FULL/DESC by the uesp-skyrim fact, else an lstring of the corpus table
+    // (`super::lstrings`), where the schema has nothing or only opaque bytes.
+    let untyped = || {
+        if lstring_fallback {
+            Some(Layout {
+                ty: FieldType::LString,
+                fallback: Some(fallback_note(&sig_text)),
+            })
+        } else if super::lstrings::class(record, sub) == super::lstrings::Class::LString {
+            Some(Layout {
+                ty: FieldType::LString,
+                fallback: Some(super::lstrings::table_note(record, sub)),
+            })
+        } else {
+            None
+        }
+    };
     match types.as_slice() {
-        [] if lstring_fallback => Ok(Some(Layout {
-            ty: FieldType::LString,
-            fallback: Some(fallback_note(&sig_text)),
-        })),
-        [] => Ok(None),
-        [ty] if lstring_fallback && ty.is_opaque() => Ok(Some(Layout {
-            ty: FieldType::LString,
-            fallback: Some(fallback_note(&sig_text)),
+        [] => Ok(untyped()),
+        [ty] if ty.is_opaque() => Ok(untyped().or_else(|| {
+            Some(Layout {
+                ty: ty.clone(),
+                fallback: None,
+            })
         })),
         [ty] => Ok(Some(Layout {
             ty: ty.clone(),
             fallback: None,
         })),
-        _ if lstring_fallback && types.iter().all(FieldType::is_opaque) => Ok(Some(Layout {
-            ty: FieldType::LString,
-            fallback: Some(fallback_note(&sig_text)),
-        })),
+        _ if types.iter().all(FieldType::is_opaque) && untyped().is_some() => Ok(untyped()),
         _ => Err(FieldError::new(
             path,
             "layout",
@@ -850,6 +864,11 @@ pub fn is_one_zstring(bytes: &[u8]) -> bool {
         .is_some_and(|body| !body.contains(&0))
 }
 
+/// Whether `ty` (behind any `ref:`) is an lstring.
+pub fn is_lstring(ty: &FieldType) -> bool {
+    matches!(deref(ty), FieldType::LString)
+}
+
 fn zstring(path: &str, text: &str) -> Result<Vec<u8>, FieldError> {
     if text.contains('\0') {
         return Err(FieldError::new(path, "type", "text may not contain NUL"));
@@ -1399,6 +1418,14 @@ mod tests {
         assert_eq!(layout_for("XNAM", *b"ZZZZ", *b"XNAM").unwrap(), None);
         // EDID is described by the WEAP definition.
         assert!(layout_for("EDID", *b"WEAP", *b"EDID").unwrap().is_some());
+        // Lstrings the schema does not type come from the corpus table (finding 2b):
+        // ACTI ATTX and WEAP WABB are lstrings; WEAP has no ATTX in the corpus.
+        for (record, sub) in [(*b"ACTI", *b"ATTX"), (*b"WEAP", *b"WABB")] {
+            let layout = layout_for("X", record, sub).unwrap().unwrap();
+            assert_eq!(layout.ty, FieldType::LString);
+            assert!(layout.fallback.unwrap().contains("corpus lstring table"));
+        }
+        assert_eq!(layout_for("ATTX", *b"WEAP", *b"ATTX").unwrap(), None);
     }
 
     #[test]

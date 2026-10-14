@@ -11,7 +11,15 @@
 //!   as inline text: the edited value, or the source's text from its string tables
 //!   ([`super::strings`]); string ID 0 is written as the empty string. A string that cannot
 //!   be resolved refuses the write, naming every unresolved subrecord (the Resupply door:
-//!   a copied ID read as text by the game).
+//!   a copied ID read as text by the game). Lstrings are the schema's, `FULL`/`DESC`, and
+//!   the corpus table's ([`super::lstrings`]); a non-zero 4-byte subrecord none of them
+//!   describes may be a string ID too, so it refuses the write unless
+//!   [`PatchOptions::allow_untyped_lstrings`] (then a limitation names it). Inline text with
+//!   bytes >= 0x80 is named in a limitation (how the game decodes it is unverified).
+//! - **Scale.** A copy whose source, or a master of the source, is small or medium (or of
+//!   unknown scale) is refused: its FormIDs address masters by scale class (and its own
+//!   records full-style-self), and a verbatim copy into a full-scale patch would change
+//!   what they mean, until a scale-aware remap exists.
 //! - **Masters.** A new target gets the first source's masters in order, then the source.
 //!   A record joins a target whose master list starts with its source's masters plus the
 //!   source (FormIDs then mean the same in both). When the target's list is shorter and a
@@ -21,8 +29,12 @@
 //!   its subrecords is opaque (a FormID could hide there), or when a plugin involved is
 //!   small or medium (scale classes are lane D's).
 //! - **Header.** A new target: `HEDR` 0.96, next object ID `0xFF001000`, form version 582,
-//!   master flag when the file name ends in `.esm`, never localized, no `ONAM`; the `HEDR`
-//!   record count is the majority meaning (lane A writes it). `.esl` is refused.
+//!   `CNAM` "DEFAULT", the masters, `INCC` (interior cells), master flag when the file name
+//!   ends in `.esm`, never localized, no `ONAM`, `SNAM`, `BNAM` or `CHGL`; the `HEDR` record
+//!   count is the majority meaning (lane A writes it). `.esl` is refused.
+//! - **Atomic.** The file is written next to the target under a temporary name, every
+//!   written record is located in it (the evidence), and only then is it renamed over the
+//!   target; any failure leaves the target as it was.
 //! - **Where.** Never over a plugin in the load order, never inside the game's Data
 //!   directory (a directory holding `Starfield.esm`), the user Data directory
 //!   (`My Games\Starfield\Data`) or an MO2 instance (a directory holding
@@ -37,11 +49,12 @@ use kitcraft_esm::build::{set_masters, upsert_file_to_path, HeaderSpec, Placed, 
 use kitcraft_esm::driver::RewriteOptions;
 use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
 use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
-use kitcraft_esm::{DecodeLimits, GroupHeader, Plugin, Record, Signature};
+use kitcraft_esm::{DecodeLimits, GroupHeader, Plugin, Record, Signature, Subrecord};
 use kitcraft_schema::FieldType;
 use serde_json::{json, Value};
 
 use super::fields::{self, FieldError, FieldPath, Op, ValueCtx};
+use super::lstrings;
 use super::source::{file_name, SourcePlugin};
 use super::strings::StringLookup;
 use super::{apply_field, FieldChange};
@@ -102,6 +115,9 @@ pub struct PatchOptions<'a> {
     pub plugin_flags: Vec<(String, u32)>,
     /// Decompression bounds.
     pub limits: DecodeLimits,
+    /// Copy 4-byte subrecords of unknown layout from a localized source as stored (each
+    /// named in a limitation) instead of refusing (module docs, "Non-localized").
+    pub allow_untyped_lstrings: bool,
 }
 
 /// One lstring written inline in place of a string ID.
@@ -187,11 +203,65 @@ pub struct PatchReport {
     pub limitations: Vec<String>,
 }
 
-/// The `ck-diff` half of M2.E3 that is not observed yet (M2.O4).
+/// The `ck-diff` half of M2.E3 that is not observed yet (M2.O4), and the header
+/// subrecords the official files have that a new patch does not write.
 pub const CK_DIFF_PENDING: &str = "header of a new plugin follows the corpus rules in \
-     docs/corpus.md (Writing rules); what the Creation Kit writes for a new non-localized \
-     plugin (flags, HEDR next object ID, inline text encoding) is not observed yet (M2.E3 \
-     ck-diff part, M2.O4)";
+     docs/corpus.md (Writing rules): CNAM \"DEFAULT\" and INCC (interior cell count) as in \
+     the two BlueprintShips files; SNAM, BNAM (branch name) and CHGL (changelist), which \
+     the official build pipeline writes, are deliberately not written. What the Creation Kit \
+     writes for a new non-localized plugin (flags, HEDR next object ID, these subrecords, \
+     inline text encoding) is not observed yet (M2.E3 ck-diff part, M2.O4)";
+
+/// `CNAM` (author) of a new patch: the value the two official files not built by the
+/// "Python"/"Script" pipeline carry (`BlueprintShips-Starfield.esm`,
+/// `BlueprintShips-SFBGS050.esm`; `corpus:` `corpus_tes4_metadata`).
+pub const NEW_PLUGIN_AUTHOR: &[u8] = b"DEFAULT";
+
+const INCC: Signature = Signature(*b"INCC");
+
+/// Whether `placed` is an interior cell: a `CELL` under the top-level `CELL` group
+/// (exterior cells live under `WRLD`). `INCC` counts these (`corpus:` all 14 files,
+/// `corpus_tes4_metadata`).
+fn is_interior_cell(placed: &Placed) -> bool {
+    placed.record.header.signature == Signature(*b"CELL")
+        && placed
+            .path
+            .first()
+            .is_some_and(|g| g.group_type == 0 && g.label == *b"CELL")
+}
+
+/// Refuses a copy whose FormIDs use scale classes (Fable review round 2, finding 3): its
+/// source is small or medium (its own records are found by lane D's `full-style-self`
+/// assumption and its FormIDs address masters by scale class), or one of the source's
+/// masters is, or a master's scale is unknown. A verbatim copy into a full-scale patch
+/// would change what those FormIDs mean; refused until a scale-aware remap exists.
+fn refuse_scaled(copy: &Copy, flag_of: &dyn Fn(&str) -> Option<u32>) -> Result<(), PatchError> {
+    let what = format!("{} {}", copy.record.header.signature, copy.formref);
+    if copy.source.scaled() {
+        return Err(refused(format!(
+            "{what}: its version comes from {}, a small or medium plugin, whose FormIDs address masters by scale class; a verbatim copy into a full-scale patch would change what they mean (refused until a scale-aware remap exists, lane D)",
+            copy.source.name
+        )));
+    }
+    for m in &copy.source.masters {
+        match flag_of(m) {
+            None => {
+                return Err(refused(format!(
+                    "{what}: the scale of {m}, a master of {}, is unknown (its header was not read), so what the copy's FormIDs mean cannot be checked; add it to the load order",
+                    copy.source.name
+                )))
+            }
+            Some(f) if f & (FLAG_SMALL | FLAG_MEDIUM) != 0 => {
+                return Err(refused(format!(
+                    "{what}: {} has the small or medium master {m}, so its FormIDs address masters by scale class; a verbatim copy into a full-scale patch could change what they mean (refused until a scale-aware remap exists, lane D)",
+                    copy.source.name
+                )))
+            }
+            Some(_) => {}
+        }
+    }
+    Ok(())
+}
 
 /// Copies `copies` into the plugin at `target` (created, or updated in place), applying
 /// their edits. See the module docs for the rules; on any refusal nothing is written.
@@ -224,7 +294,19 @@ pub fn write_patch(
         None
     };
 
-    // Pass 1: the target's master list, and which copies need FormIDs remapped.
+    let flag_of = |name: &str| {
+        options
+            .plugin_flags
+            .iter()
+            .find(|(n, _)| n.eq_ignore_ascii_case(name))
+            .map(|(_, f)| *f)
+    };
+
+    // Pass 1: no scaled sources, the target's master list, and which copies need FormIDs
+    // remapped.
+    for copy in &copies {
+        refuse_scaled(copy, &flag_of)?;
+    }
     let original_masters: Vec<String> = existing
         .as_ref()
         .map(|(p, _)| p.masters.clone())
@@ -266,14 +348,6 @@ pub fn write_patch(
             }
         }
     }
-    let flag_of = |name: &str| {
-        options
-            .plugin_flags
-            .iter()
-            .find(|(n, _)| n.eq_ignore_ascii_case(name))
-            .map(|(_, f)| *f)
-    };
-
     // Pass 2: each copy into the target's FormID space, edits, lstrings.
     let mut limitations: Vec<String> = Vec::new();
     let mut placed: Vec<Placed> = Vec::new();
@@ -300,7 +374,13 @@ pub fn write_patch(
             if in_target || !seen.insert(key) {
                 continue;
             }
-            let inlined = inline_lstrings(&mut record, &copy.source, &BTreeSet::new(), options)?;
+            let inlined = inline_lstrings(
+                &mut record,
+                &copy.source,
+                &BTreeSet::new(),
+                options,
+                &mut limitations,
+            )?;
             reports.push(report_for(
                 &record,
                 &copy,
@@ -333,17 +413,21 @@ pub fn write_patch(
         let mut written: BTreeSet<usize> = BTreeSet::new();
         for edit in &copy.edits {
             let change = apply_field(&mut record, &edit.path, &edit.op, &ctx, &options.limits)?;
-            if let Some(note) = &change.note {
-                if !limitations.contains(note) {
-                    limitations.push(note.clone());
-                }
+            for note in &change.notes {
+                push_once(&mut limitations, note.clone());
             }
-            if edit.path.steps.is_empty() {
+            if marks_written(edit, &change) {
                 written.insert(change.subrecord_index);
             }
             changes.push(change);
         }
-        let inlined = inline_lstrings(&mut record, &copy.source, &written, options)?;
+        let inlined = inline_lstrings(
+            &mut record,
+            &copy.source,
+            &written,
+            options,
+            &mut limitations,
+        )?;
         let key = (record.header.form_id, record.header.signature.0);
         if !seen.insert(key) {
             return Err(refused(format!(
@@ -361,15 +445,31 @@ pub fn write_patch(
     }
 
     // Write.
+    // Write to a temporary file next to the target, find every written record in it (the
+    // evidence), and only then rename it over the target: a failure leaves the target as
+    // it was.
     let created = existing.is_none();
     let extended = masters != original_masters;
+    let temp = temp_path(target);
+    let discard = |e: PatchError| {
+        let _ = std::fs::remove_file(&temp);
+        e
+    };
     let (outcomes, flags): (Vec<Upsert>, u32) = match &existing {
         None => {
             let mut spec = HeaderSpec::new(masters.iter().map(|m| m.as_bytes().to_vec()).collect());
+            spec.author = Some(NEW_PLUGIN_AUTHOR.to_vec());
             if is_esm(target) {
                 spec.flags |= FLAG_MASTER;
             }
-            let mut plugin = Plugin::create(&spec);
+            // INCC after the masters, as in every official file.
+            let interior = placed.iter().filter(|p| is_interior_cell(p)).count();
+            let mut header = spec.to_record();
+            if let Some(subs) = header.subrecords_mut() {
+                let count = u32::try_from(interior).unwrap_or(u32::MAX);
+                subs.push(Subrecord::new(INCC, count.to_le_bytes().to_vec()));
+            }
+            let mut plugin = Plugin::new(header);
             let mut outcomes = Vec::new();
             for p in placed {
                 outcomes.push(
@@ -381,27 +481,42 @@ pub fn write_patch(
             let bytes = plugin
                 .to_bytes()
                 .map_err(|e| PatchError::Io(format!("writing {target_name}: {e}")))?;
-            write_atomically(target, &bytes)?;
+            std::fs::write(&temp, &bytes)
+                .map_err(|e| discard(PatchError::Io(format!("writing {}: {e}", temp.display()))))?;
             (outcomes, spec.flags)
         }
-        Some((plugin, _)) => {
-            let temp = temp_path(target);
+        Some((plugin, index)) => {
             let names: Vec<Vec<u8>> = masters.iter().map(|m| m.as_bytes().to_vec()).collect();
+            let added_cells = placed
+                .iter()
+                .filter(|p| {
+                    is_interior_cell(p)
+                        && !index.records.iter().any(|r| {
+                            r.form_id == p.record.header.form_id
+                                && r.signature == p.record.header.signature
+                        })
+                })
+                .count();
+            let has_incc = index
+                .header
+                .subrecords()
+                .is_some_and(|subs| subs.iter().any(|s| s.signature() == INCC));
+            if added_cells > 0 && !has_incc {
+                limitations.push(format!(
+                    "{target_name} has no INCC (interior cell count); {added_cells} interior cell(s) were added without one"
+                ));
+            }
             let report =
                 upsert_file_to_path(target, &temp, &RewriteOptions::default(), placed, |tes4| {
                     if extended {
                         set_masters(tes4, &names);
                     }
+                    if added_cells > 0 {
+                        add_to_incc(tes4, added_cells);
+                    }
                     Ok(())
                 })
-                .map_err(|e| {
-                    let _ = std::fs::remove_file(&temp);
-                    PatchError::Io(format!("updating {target_name}: {e}"))
-                })?;
-            std::fs::rename(&temp, target).map_err(|e| {
-                let _ = std::fs::remove_file(&temp);
-                PatchError::Io(format!("replacing {}: {e}", target.display()))
-            })?;
+                .map_err(|e| discard(PatchError::Io(format!("updating {target_name}: {e}"))))?;
             (report.outcomes, plugin.flags)
         }
     };
@@ -417,7 +532,7 @@ pub fn write_patch(
             Upsert::Inserted => "inserted",
         };
     }
-    let bytes = locate_written(target, &mut reports, &options.limits)?;
+    let bytes = finish(&temp, target, &mut reports, &options.limits)?;
     limitations.push(CK_DIFF_PENDING.to_string());
     Ok(PatchReport {
         target: target.to_path_buf(),
@@ -444,8 +559,10 @@ fn is_prefix(prefix: &[String], list: &[String]) -> bool {
             .all(|(a, b)| a.eq_ignore_ascii_case(b))
 }
 
-/// Refuses targets the module docs rule out.
-fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchError> {
+/// Refuses targets the module docs rule out: not `.esm`/`.esp`, a protected (load-order)
+/// plugin, or inside the game's Data directory, the user Data directory or an MO2
+/// instance or profile, at any depth. `build` checks its `out` with it too.
+pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchError> {
     let name = file_name(target);
     let ext = target
         .extension()
@@ -697,12 +814,19 @@ pub fn lstring_spans(
 }
 
 /// Writes every lstring of a localized source's record as inline text (module docs).
-/// `written` holds subrecord indices an edit already set whole.
+/// `written` holds subrecord indices an edit already wrote (whole, or its lstring tail).
+///
+/// An lstring is what the schema types as one, `FULL`/`DESC` by the fallback, or what the
+/// corpus table (`super::lstrings`) lists. A subrecord none of them describes (no layout,
+/// or opaque bytes) whose payload is a non-zero 4-byte value the table does not class as
+/// "not an lstring" may be a string ID: the write is refused, naming each, unless
+/// `allow_untyped_lstrings` (then they are copied as stored and named in `limitations`).
 fn inline_lstrings(
     record: &mut Record<'static>,
     source: &SourcePlugin,
     written: &BTreeSet<usize>,
     options: &PatchOptions<'_>,
+    limitations: &mut Vec<String>,
 ) -> Result<Vec<Inlined>, PatchError> {
     if !source.localized() {
         return Ok(Vec::new());
@@ -722,6 +846,8 @@ fn inline_lstrings(
     let mut nth: std::collections::BTreeMap<[u8; 4], usize> = std::collections::BTreeMap::new();
     let mut inlined = Vec::new();
     let mut unresolved: Vec<String> = Vec::new();
+    let mut untyped: Vec<String> = Vec::new();
+    let mut notes: Vec<String> = Vec::new();
     let mut updates: Vec<(usize, Vec<u8>)> = Vec::new();
     for (i, (s, payload)) in subs.iter().enumerate() {
         let n = nth.entry(s.0).or_insert(0);
@@ -730,7 +856,20 @@ fn inline_lstrings(
         if written.contains(&i) {
             continue;
         }
+        let layout = fields::layout_for(&s.to_string(), sig, s.0)?;
+        if layout.as_ref().is_none_or(|l| has_opaque(&l.ty)) {
+            let maybe_id = payload.len() == 4 && payload.iter().any(|b| *b != 0);
+            if maybe_id && lstrings::class(sig, s.0) == lstrings::Class::Unclassified {
+                untyped.push(format!("{s}[{occurrence}]"));
+            }
+            continue;
+        }
         let spans = lstring_spans(sig, s.0, payload, form_version)?;
+        if !spans.is_empty() {
+            if let Some(note) = layout.and_then(|l| l.fallback) {
+                notes.push(note);
+            }
+        }
         let mut next = payload.clone();
         for (member, start, len) in spans.into_iter().rev() {
             let at = format!("{s}[{occurrence}]{member}");
@@ -766,6 +905,7 @@ fn inline_lstrings(
                 unresolved.push(format!("{at}: string 0x{id:08X} contains a NUL"));
                 continue;
             }
+            notes.extend(super::high_bytes_note(&at, &text));
             let mut inline = text.clone();
             inline.push(0);
             next.splice(start..start.saturating_add(len), inline);
@@ -786,6 +926,22 @@ fn inline_lstrings(
             source.name,
             unresolved.join("; ")
         )));
+    }
+    if !untyped.is_empty() {
+        let list = untyped.join(", ");
+        if !options.allow_untyped_lstrings {
+            return Err(refused(format!(
+                "{what} from localized {} has 4-byte subrecords of unknown layout that may be string IDs: {list}. Neither the schema nor the corpus lstring table (docs/validate.md) says what they are, and a string ID copied into a non-localized patch shows as garbage text; pass allow_untyped_lstrings (--allow-untyped-lstrings) to copy them as stored",
+                source.name
+            )));
+        }
+        notes.push(format!(
+            "{what} from localized {}: {list} copied as stored under allow_untyped_lstrings (4-byte payloads of unknown layout; if any is a string ID the game shows its bytes as text)",
+            source.name
+        ));
+    }
+    for note in notes {
+        push_once(limitations, note);
     }
     for (i, data) in updates {
         record
@@ -879,14 +1035,52 @@ fn temp_path(target: &Path) -> PathBuf {
     target.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()))
 }
 
-fn write_atomically(target: &Path, bytes: &[u8]) -> Result<(), PatchError> {
-    let temp = temp_path(target);
-    std::fs::write(&temp, bytes)
-        .and_then(|()| std::fs::rename(&temp, target))
-        .map_err(|e| {
-            let _ = std::fs::remove_file(&temp);
-            PatchError::Io(format!("writing {}: {e}", target.display()))
-        })
+/// Whether an edit leaves its subrecord for the lstring inliner to skip: it wrote the whole
+/// subrecord, or an lstring member (a struct's tail, the only lstring a struct holds here;
+/// Fable review round 2, finding 7: inlining it again would read the new text as an ID).
+pub(crate) fn marks_written(edit: &Edit, change: &FieldChange) -> bool {
+    edit.path.steps.is_empty() || change.lstring
+}
+
+/// Finds every written record in the staged file `temp` (the evidence), then renames it
+/// over `target`. On any failure `temp` is removed and `target` is left as it was (Fable
+/// review round 2, finding 12: the evidence pass used to run after the rename).
+pub(crate) fn finish(
+    temp: &Path,
+    target: &Path,
+    reports: &mut [RecordReport],
+    limits: &DecodeLimits,
+) -> Result<u64, PatchError> {
+    let done = locate_written(temp, reports, limits).and_then(|bytes| {
+        std::fs::rename(temp, target)
+            .map(|()| bytes)
+            .map_err(|e| PatchError::Io(format!("replacing {}: {e}", target.display())))
+    });
+    if done.is_err() {
+        let _ = std::fs::remove_file(temp);
+    }
+    done
+}
+
+/// Adds `added` to the `INCC` count of a `TES4` record, if it has one.
+fn add_to_incc(tes4: &mut Record<'_>, added: usize) {
+    let Some(subs) = tes4.subrecords_mut() else {
+        return;
+    };
+    for s in subs.iter_mut().filter(|s| s.signature() == INCC) {
+        if let Ok(old) = <[u8; 4]>::try_from(s.data()) {
+            let count =
+                u32::from_le_bytes(old).saturating_add(u32::try_from(added).unwrap_or(u32::MAX));
+            s.set_data(count.to_le_bytes().to_vec());
+        }
+    }
+}
+
+/// Appends `note` unless it is already there.
+fn push_once(limitations: &mut Vec<String>, note: String) {
+    if !limitations.contains(&note) {
+        limitations.push(note);
+    }
 }
 
 /// The flags a source contributes to [`PatchOptions::plugin_flags`].

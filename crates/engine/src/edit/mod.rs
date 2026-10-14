@@ -5,6 +5,7 @@
 //!   edited subrecord changes; a compressed record is recompressed only if it changed).
 
 pub mod fields;
+pub mod lstrings;
 pub mod patch;
 #[cfg(test)]
 pub(crate) mod patch_tests;
@@ -29,8 +30,11 @@ pub struct FieldChange {
     pub after: Value,
     /// Whether the bytes changed.
     pub changed: bool,
-    /// A limitation to report (the lstring fallback), if any.
-    pub note: Option<String>,
+    /// Limitations to report: the lstring fallback, and inline text whose encoding the
+    /// game has not been seen to read (bytes >= 0x80).
+    pub notes: Vec<String>,
+    /// Whether the value written is an lstring (whole subrecord or a struct's tail).
+    pub lstring: bool,
 }
 
 impl FieldChange {
@@ -78,9 +82,9 @@ pub fn apply_field(
         .unwrap_or_default();
     let layout = fields::layout_for(text, record.header.signature.0, path.signature)?;
     let raw = kitcraft_schema::FieldType::Opaque { size: None };
-    let (ty, note) = match &layout {
-        Some(layout) => (&layout.ty, layout.fallback.clone()),
-        None if path.steps.is_empty() => (&raw, None),
+    let (ty, mut notes) = match &layout {
+        Some(layout) => (&layout.ty, layout.fallback.clone().into_iter().collect()),
+        None if path.steps.is_empty() => (&raw, Vec::new()),
         None => {
             return Err(FieldError::new(
                 text,
@@ -103,6 +107,10 @@ pub fn apply_field(
         .get(at.start..end)
         .ok_or_else(|| FieldError::new(text, "payload", "value outside the payload"))?;
     let new = fields::encode_value(text, at.ty, old, op, ctx)?;
+    let lstring = fields::is_lstring(at.ty);
+    if lstring && !ctx.localized_target {
+        notes.extend(high_bytes_note(text, &new));
+    }
     let before = fields::display(at.ty, old, ctx.localized_source);
     let after = fields::display(at.ty, &new, ctx.localized_target);
     let mut next = payload.get(..at.start).unwrap_or_default().to_vec();
@@ -117,7 +125,19 @@ pub fn apply_field(
         before,
         after,
         changed,
-        note,
+        notes,
+        lstring,
+    })
+}
+
+/// The limitation for inline lstring text with bytes >= 0x80 at `at` (`FULL[0]`): the
+/// patch writes UTF-8, and whether the game reads inline text as UTF-8 or a code page is
+/// not observed yet (`docs/corpus.md`, Writing rules; M2.O4, M2.O6).
+pub fn high_bytes_note(at: &str, text: &[u8]) -> Option<String> {
+    text.iter().any(|b| *b >= 0x80).then(|| {
+        format!(
+            "{at}: inline lstring text has bytes >= 0x80 (written as UTF-8); how the game decodes inline text is unverified in game (M2.O4, M2.O6), so non-ASCII may show wrong"
+        )
     })
 }
 
@@ -185,6 +205,48 @@ mod tests {
         )
         .unwrap();
         assert_eq!(change.subrecord_index, 3);
+    }
+
+    /// Inline lstring text with bytes >= 0x80 carries a limitation naming the subrecord
+    /// (Fable review round 2, finding 6); ASCII does not. Both report an lstring write.
+    #[test]
+    fn non_ascii_lstrings_are_noted() {
+        let mut r = weapon();
+        let limits = DecodeLimits::default();
+        let path = parse_path("FULL[1]").unwrap();
+        let change = apply_field(
+            &mut r,
+            &path,
+            &Op::Set(json!("Fusil Améliorée")),
+            &ctx(),
+            &limits,
+        )
+        .unwrap();
+        assert!(change.lstring);
+        assert_eq!(change.notes.len(), 1, "{:?}", change.notes);
+        assert!(change.notes[0].starts_with("FULL[1]: ") && change.notes[0].contains("0x80"));
+        let change = apply_field(&mut r, &path, &Op::Set(json!("Plain")), &ctx(), &limits).unwrap();
+        assert!(change.lstring && change.notes.is_empty());
+        // The same through hex:.
+        let change = apply_field(
+            &mut r,
+            &path,
+            &Op::Set(json!("hex:C3A900")),
+            &ctx(),
+            &limits,
+        )
+        .unwrap();
+        assert_eq!(change.notes.len(), 1);
+        // Not an lstring: no note, not an lstring write.
+        let change = apply_field(
+            &mut r,
+            &parse_path("DNAM").unwrap(),
+            &Op::Set(json!("hex:FF")),
+            &ctx(),
+            &limits,
+        )
+        .unwrap();
+        assert!(!change.lstring && change.notes.is_empty());
     }
 
     /// GMST `DATA` is a union chosen by the EditorID's first letter (lane B, M2.B9).

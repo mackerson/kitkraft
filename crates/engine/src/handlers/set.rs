@@ -269,6 +269,7 @@ pub(crate) fn write(
         protected,
         plugin_flags,
         limits: DecodeLimits::default(),
+        allow_untyped_lstrings: false,
     };
     write_patch(into, copies, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {

@@ -13,7 +13,9 @@ use kitcraft_esm::{
 use serde_json::json;
 
 use super::fields::{parse_path, Op};
-use super::patch::{flags_entry, write_patch, Copy, Edit, PatchError, PatchOptions};
+use super::patch::{
+    finish, flags_entry, marks_written, write_patch, Copy, Edit, PatchError, PatchOptions,
+};
 use super::source::{find_winner, index_plugins, read_copy, Indexed};
 use super::strings::{MemoryStrings, NoStrings, StringLookup};
 
@@ -120,6 +122,7 @@ fn options<'a>(lookup: &'a dyn StringLookup, plugins: &[Indexed]) -> PatchOption
         protected: plugins.iter().map(|p| p.plugin.path.clone()).collect(),
         plugin_flags: plugins.iter().map(|p| flags_entry(&p.plugin)).collect(),
         limits: DecodeLimits::default(),
+        allow_untyped_lstrings: false,
     }
 }
 
@@ -444,5 +447,288 @@ fn refusals() {
     let own = write_plugin(&d, "Own.esp", &[], 0, vec![weapon(0x0000_0001, "Mine", 1)]);
     let err = go(&own, rename("x")).unwrap_err().to_string();
     assert!(err.contains("records of its own"), "{err}");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+fn rec(sig: &[u8; 4], form_id: u32, subs: Vec<Subrecord<'static>>) -> Record<'static> {
+    Record::new(
+        RecordHeader {
+            signature: Signature(*sig),
+            form_id,
+            form_version: 582,
+            ..RecordHeader::default()
+        },
+        Body::Raw(subs),
+    )
+}
+
+/// Fable review round 2, finding 2a: lstrings the schema does not type. ACTI has no
+/// definition: FULL is inlined by the fallback, ATTX by the corpus table. WEAP has no ATTX
+/// in the corpus: a non-zero 4-byte ATTX from a localized source is refused, naming it,
+/// unless `allow_untyped_lstrings`; a zero one is harmless and copied.
+#[test]
+fn untyped_lstrings_of_localized_sources() {
+    let d = dir("untyped");
+    let acti = rec(
+        b"ACTI",
+        0x0000_0802,
+        vec![
+            sub(b"EDID", b"Panel\0"),
+            sub(b"FULL", &0x0002_E469u32.to_le_bytes()),
+            sub(b"ATTX", &0x0002_EDD8u32.to_le_bytes()),
+        ],
+    );
+    let mut rifle = weapon(0x0000_0800, "OldRifle", 0x0002_E469);
+    rifle
+        .subrecords_mut()
+        .unwrap()
+        .push(sub(b"ATTX", &0x0002_E46Au32.to_le_bytes()));
+    let mut zero = weapon(0x0000_0801, "ZeroRifle", 0x0002_E469);
+    zero.subrecords_mut().unwrap().push(sub(b"ATTX", &[0; 4]));
+    let src = write_plugin(
+        &d,
+        "Source.esm",
+        &[],
+        FLAG_MASTER | FLAG_LOCALIZED,
+        vec![rifle, zero, acti],
+    );
+    let plugins = index_plugins(&[src]).unwrap();
+    let lookup = strings();
+    let opts = options(&lookup, &plugins);
+
+    let target = d.join("A.esp");
+    let report = write_patch(
+        &target,
+        vec![copy_of(&plugins, "Source.esm:000802", vec![])],
+        &opts,
+    )
+    .unwrap();
+    let at: Vec<&str> = report.records[0]
+        .inlined
+        .iter()
+        .map(|i| i.at.as_str())
+        .collect();
+    assert_eq!(at, ["FULL[0]", "ATTX[0]"]);
+    assert!(report
+        .limitations
+        .iter()
+        .any(|l| l.contains("ACTI.ATTX treated as an lstring by the corpus lstring table")));
+    let bytes = std::fs::read(&target).unwrap();
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let attx: Vec<&[u8]> = first_record(&plugin, 0)
+        .subrecords()
+        .unwrap()
+        .iter()
+        .filter(|s| s.signature() == Signature(*b"ATTX"))
+        .map(|s| s.data())
+        .collect();
+    assert_eq!(attx, [b"Simple\0"]);
+
+    let refused_target = d.join("W.esp");
+    let err = write_patch(
+        &refused_target,
+        vec![copy_of(&plugins, "OldRifle", rename("x"))],
+        &opts,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        err.contains("ATTX[0]") && err.contains("allow_untyped_lstrings"),
+        "{err}"
+    );
+    assert!(!refused_target.exists());
+
+    let mut allowed = options(&lookup, &plugins);
+    allowed.allow_untyped_lstrings = true;
+    let report = write_patch(
+        &refused_target,
+        vec![copy_of(&plugins, "OldRifle", rename("x"))],
+        &allowed,
+    )
+    .unwrap();
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|l| l.contains("ATTX[0] copied as stored under allow_untyped_lstrings")),
+        "{:?}",
+        report.limitations
+    );
+
+    // A zero ATTX is not a string ID worth refusing.
+    write_patch(
+        &d.join("Z.esp"),
+        vec![copy_of(&plugins, "ZeroRifle", rename("x"))],
+        &opts,
+    )
+    .unwrap();
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review round 2, finding 3: a copy from a small or medium plugin, or from one with
+/// a small or medium master (or a master of unknown scale), is refused in pass 1.
+#[test]
+fn scaled_sources_are_refused() {
+    let d = dir("scaled");
+    let small = write_plugin(
+        &d,
+        "Small.esm",
+        &[],
+        FLAG_MASTER | kitcraft_esm::tes4::FLAG_SMALL,
+        vec![],
+    );
+    let child = write_plugin(&d, "Child.esm", &["Small.esm"], FLAG_MASTER, vec![]);
+    let plugins = index_plugins(&[small, child]).unwrap();
+    let copy = |p: &Indexed| Copy {
+        source: p.plugin.clone(),
+        record: weapon(0x0000_0800, "Rifle", 0),
+        path: vec![GroupHeader::top(Signature(*b"WEAP"))],
+        parents: Vec::new(),
+        edits: Vec::new(),
+        formref: format!("{}:000800", p.plugin.name),
+    };
+    let target = d.join("P.esp");
+    let opts = options(&NoStrings, &plugins);
+    let err = write_patch(&target, vec![copy(&plugins[0])], &opts)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("Small.esm, a small or medium plugin"), "{err}");
+    let err = write_patch(&target, vec![copy(&plugins[1])], &opts)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("small or medium master Small.esm"), "{err}");
+    // The master's header was not read: its scale is unknown, never guessed.
+    let mut unknown = options(&NoStrings, &plugins);
+    unknown.plugin_flags.retain(|(n, _)| n != "small.esm");
+    let err = write_patch(&target, vec![copy(&plugins[1])], &unknown)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("scale of Small.esm"), "{err}");
+    assert!(!target.exists());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review round 2, finding 5: a new patch's TES4 has `CNAM` "DEFAULT" and `INCC`
+/// (interior cells), as the two BlueprintShips files; no SNAM, BNAM or CHGL. `INCC` counts
+/// interior cells, and grows when one is added to an existing patch.
+#[test]
+fn new_header_metadata_and_interior_cell_count() {
+    let d = dir("tes4");
+    let src = write_plugin(&d, "Cells.esm", &[], FLAG_MASTER, vec![]);
+    let plugins = index_plugins(&[src]).unwrap();
+    let cell_copy = |form_id: u32| {
+        let block = |group_type: i32, label: u32| GroupHeader {
+            label: label.to_le_bytes(),
+            group_type,
+            timestamp: 0,
+            version_control: 0,
+            unknown: 0,
+        };
+        Copy {
+            source: plugins[0].plugin.clone(),
+            record: rec(b"CELL", form_id, vec![sub(b"EDID", b"Room\0")]),
+            path: vec![
+                GroupHeader::top(Signature(*b"CELL")),
+                block(2, 1),
+                block(3, 1),
+            ],
+            parents: Vec::new(),
+            edits: Vec::new(),
+            formref: format!("Cells.esm:{form_id:06X}"),
+        }
+    };
+    let header = |path: &Path| -> Vec<(String, Vec<u8>)> {
+        let bytes = std::fs::read(path).unwrap();
+        let plugin = Plugin::parse(&bytes).unwrap();
+        plugin
+            .header()
+            .subrecords()
+            .unwrap()
+            .iter()
+            .map(|s| (s.signature().to_string(), s.data().to_vec()))
+            .collect()
+    };
+    let opts = options(&NoStrings, &plugins);
+    let target = d.join("P.esp");
+    write_patch(&target, vec![cell_copy(0x0000_0900)], &opts).unwrap();
+    let subs = header(&target);
+    let names: Vec<&str> = subs.iter().map(|(s, _)| s.as_str()).collect();
+    assert_eq!(names, ["HEDR", "CNAM", "MAST", "DATA", "INCC"]);
+    assert_eq!(subs[1].1, b"DEFAULT\0");
+    assert_eq!(subs[4].1, 1u32.to_le_bytes());
+    write_patch(&target, vec![cell_copy(0x0000_0901)], &opts).unwrap();
+    assert_eq!(header(&target)[4].1, 2u32.to_le_bytes());
+    // Replacing a cell the patch has does not count it twice.
+    write_patch(&target, vec![cell_copy(0x0000_0901)], &opts).unwrap();
+    assert_eq!(header(&target)[4].1, 2u32.to_le_bytes());
+    let bytes = std::fs::read(&target).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review round 2, finding 6: an lstring inlined from a table with bytes >= 0x80 is
+/// named in a limitation (encoding unverified in game).
+#[test]
+fn non_ascii_inlined_text_is_a_limitation() {
+    let d = dir("nonascii");
+    let plugins = source(&d);
+    let mut lookup = strings();
+    lookup
+        .0
+        .insert(("Source.esm".into(), 0x0002_EDD8), "Fusée".into());
+    let report = write_patch(
+        &d.join("P.esp"),
+        vec![copy_of(&plugins, "OldRifle", rename("Plain"))],
+        &options(&lookup, &plugins),
+    )
+    .unwrap();
+    let notes: Vec<&String> = report
+        .limitations
+        .iter()
+        .filter(|l| l.contains("0x80"))
+        .collect();
+    assert_eq!(notes.len(), 1, "{:?}", report.limitations);
+    assert!(notes[0].starts_with("FULL[1]: "), "{}", notes[0]);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review round 2, finding 7: an edit of a struct's lstring tail (a member path)
+/// marks the subrecord written, so the inliner does not read the new text as an ID; an
+/// edit of another member does not.
+#[test]
+fn member_lstring_edits_mark_the_subrecord_written() {
+    let edit = |path: &str| Edit {
+        path: parse_path(path).unwrap(),
+        op: Op::Set(json!("x")),
+    };
+    let change = |lstring: bool| crate::edit::FieldChange {
+        path: String::new(),
+        subrecord_index: 3,
+        before: json!(null),
+        after: json!(null),
+        changed: true,
+        notes: Vec::new(),
+        lstring,
+    };
+    assert!(marks_written(&edit("DNAM.Name"), &change(true)));
+    assert!(!marks_written(&edit("DNAM.Speed"), &change(false)));
+    assert!(marks_written(&edit("DNAM"), &change(false)));
+}
+
+/// Fable review round 2, finding 12: the evidence pass runs on the staged file before the
+/// rename; when it fails, the target is untouched and the staged file is removed.
+#[test]
+fn a_failed_evidence_pass_leaves_the_target_alone() {
+    let d = dir("finish");
+    let target = d.join("P.esp");
+    let temp = d.join(".P.esp.tmp");
+    std::fs::write(&target, b"previous").unwrap();
+    std::fs::write(&temp, b"not a plugin").unwrap();
+    let err = finish(&temp, &target, &mut [], &DecodeLimits::default());
+    assert!(err.is_err());
+    assert_eq!(std::fs::read(&target).unwrap(), b"previous");
+    assert!(!temp.exists());
     let _ = std::fs::remove_dir_all(&d);
 }
