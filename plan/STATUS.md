@@ -608,6 +608,23 @@ is under "Next".
     plugins by name only (suffixes `Main`, `Main01/02`, `Textures`, `Localization`,
     `Voices_<lang>`). Rule for `package`: `<plugin stem> - Main.ba2` (GNRL) and `<plugin
     stem> - Textures.ba2` (DX10). Grade C until M4.O2 sees a mod's `- Main.ba2` load.
+  - `package` (the plan's M4.E5 shape, assigned to lane G for M4; `Implemented`; CLI `kit
+    package <plugin> <out>`; MCP via `execute`/`command_line`): `validate` first (a failing
+    plugin is refused, nothing written); `<out>\<name>\` with the plugin, loose files and
+    scripts (`Scripts\<namespace>\<name>.pex` from the name inside each `.pex`) at their
+    Data paths or packed per M4.G4; `kitcraft-manifest.json` (SHA-256 and size of every
+    file, masters, record counts per type, KitCraft version, spec SHA-256, validate
+    result, archive contents); a deterministic zip; only `out` is written, and an `out` in
+    Data, the user Data dir or MO2 (its `mods\` included) is refused. Deviation from the
+    plan's arguments: one `plugin` (not `plugins`), since `plugins` names the load order
+    in every other command. Tests: two runs byte-identical (folder and zip), the manifest
+    verifies after a copy, ba2 names and contents, validate refusal, every guard,
+    command-line form. Real runs 2026-10-14: the rename plugin packaged (manifest SHA-256
+    equals `docs/smoke-rename.md`); `black-box: Archive2.exe 1.2.0.1` extracts a `--ba2`
+    package's two archives with the same file list (general files identical, texture
+    pixels identical under Archive2's own DDS header). Install steps and the manifest check
+    in `docs/packaging.md`. **Owner (M4.O2):** install the rename package through MO2 on
+    `KitKraft Dev` and check the hashes on disk against the manifest.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -743,6 +760,16 @@ wins") but still the owner's to confirm:
 - **To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Lane G -> lanes E, F, H (M4 lane G).** (1) Lane E: `package` (M4.E5's shape) landed in
+  lane G (`handlers/package.rs`, `docs/packaging.md`), validating with `validate::run`
+  and guarding `out` with `edit::patch::guard_location`; `testplan` (M4.E6) can read the
+  folder's `kitcraft-manifest.json` for plugin hashes. (2) Lane F (M4.F1): `package`
+  writes files (`destructiveHint`), `papyrus.events` is read-only; both are in the
+  `docs/mcp.md` command sections. (3) Lane H (M4.H3): take event names for
+  `docs/design/persistence.md` from `kit papyrus events --event <name>
+  --declarations-only` (or `--script ObjectReference --kind event`); M4.G2's acceptance
+  test that the cited events exist is added once that file is on main.
 
 - **Lane A -> lane B (answer to the RawSub/XXXX request; re-checked after lane B round 2).**
   `esm::bridge` re-exports the generated `RawSub`/`OwnedSub`/`Ctx` (checked against `main`

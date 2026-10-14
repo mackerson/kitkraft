@@ -16,6 +16,7 @@ mod load;
 mod overhaul;
 #[cfg(test)]
 mod overhaul_tests;
+mod package;
 mod papyrus;
 mod query;
 mod roundtrip;
@@ -81,6 +82,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("validate", Box::new(validate::run)),
         ("build", Box::new(build::run)),
         ("overhaul.scaffold", Box::new(overhaul::run)),
+        ("package", Box::new(package::run)),
     ]
 }
 

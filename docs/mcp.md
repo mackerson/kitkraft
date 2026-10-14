@@ -846,6 +846,27 @@ it is written; without, `data.spec_text` (and the summary) holds it. `data`: `ty
 `summary`. On the owner's Default profile, `kit overhaul WEAP --group-by KWDA` takes
 0.8 s warm (release, 541 winning WEAP, 2026-10-14).
 
+### `package` (M4, the M4.E5 shape)
+
+`package {plugin, out, name?, version?, loose?, scripts?, ba2 = false, ba2_version = 2,
+ba2_compress = true, zip = true, spec?, overwrite = false}` plus `profile`, `plugins`,
+`data_dir`, `no_cache` for `validate`'s master lookup; CLI `kit package <plugin> <out>
+[--loose <dir>] [--scripts <pex|dir> ...] [--ba2] [--version 1.0.0] [--spec poi.toml]`.
+Writes (only under `out`): `<out>/<name>/` with the plugin, the loose files and scripts at
+their Data paths (or, with `ba2`, packed into `<plugin stem> - Main.ba2` and `<plugin
+stem> - Textures.ba2`, `docs/corpus.md` "Archive names"), `kitcraft-manifest.json`, and
+`<out>/<name>[-<version>].zip` of the folder's contents. `validate` runs first; a failing
+plugin is a `failed` error naming its first errors and nothing is written. Refused: an
+`out` in the game or user Data dir or an MO2 instance or profile, an existing folder
+without `overwrite` or without a manifest, two inputs for one Data path, a second plugin
+in `loose`, a `.pex` that does not parse. Deterministic (no times, no absolute paths).
+`data`: `plugin`, `name`, `version`, `folder`, `zip` (`path`, `size`, `sha256`, or
+`null`), `manifest` (`format`, `kitcraft_version`, `name`, `version`, `plugins[]` with
+`file`, `sha256`, `masters`, `records`, `record_types`; `spec` (`file`, `size`, `sha256`);
+`validate` (`passed`, `errors`, `warnings`, `rules`); `archives[]` (`file`, `format`,
+`version`, `files[] {name, size, sha256}`); `files[] {path, size, sha256}`), `files`,
+`bytes`, `summary`. Install steps and the manifest check: `docs/packaging.md`.
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends
