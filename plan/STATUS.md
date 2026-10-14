@@ -354,7 +354,7 @@ is under "Next".
   - E5 `set` across the load order (session or `profile`/`plugins`): winning version,
     before/after per field, evidence in source and patch. Until lane D's round 2 it refuses
     an unverified load order (failed plugin, late or missing master, active plugin without
-    a file) and a deleted winner, and notes `full-style-self` for scaled sources.
+    a file) and a deleted winner; scaled sources are refused (round 2).
   - E6-E8 `validate` (session-aware; `{plugin?, scripts?, rules?}`): `masters.missing`,
     `masters.order`, `formid.dangling` (header + typed members, scale-aware full slots),
     `lstring.copied-id`, `override.stripped-name`, `record.flags-body`,
@@ -373,6 +373,23 @@ is under "Next".
     0 errors / 0 warnings; `roundtrip --verify` identical; with the plugin appended
     `inspect` shows the new name winning. Automated in `crates/engine/tests/smoke_rename.rs`
     (64 s debug). Owner steps: M2.O6 below and `docs/smoke-rename.md`.
+- Lane E round 2 (Fable review, 13 findings, each with a regression test), 2026-10-14:
+  `build` guards `out` like any patch target (a load-order plugin named as `out` was
+  overwritten) and needs `overwrite` for an existing file; `set` stages, runs the plugin
+  rules and writes only when its records pass; both stage under the OS temp dir (stale
+  dirs removed). Corpus lstring table (`edit::lstrings`, `docs/validate.md`: the xEdit
+  file is not on this machine, so the corpus method; 185 types, 105 lstring signatures,
+  checked by `lstring_table_matches_the_corpus`): untyped lstrings (ATTX, ITXT, SHRT, ...)
+  are inlined, a non-zero 4-byte subrecord of unknown layout from a localized source
+  refuses the copy unless `allow_untyped_lstrings`, `validate` warns on them in overrides
+  of localized masters. Small/medium sources (or masters) refused; own-form dangling
+  FormIDs are errors. New `TES4`: `CNAM` "DEFAULT" + `INCC` (interior cells, true in all
+  14 files); `SNAM`/`BNAM`/`CHGL` a stated deviation. Non-ASCII inline text, struct-tail
+  lstring edits, whole-vs-member build conflicts, exact 64-bit `add` / 2^53 `mul`,
+  `inf`/`nan`/`1e400` range errors, hex strings NUL-terminated, evidence before rename,
+  `callmethod` class matching. `validate_corpus_official_files` unchanged (0 errors, 92 +
+  15 warnings). The rename plugin was regenerated (TES4 only changed):
+  **2,221 bytes, SHA-256 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`**.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -452,8 +469,9 @@ definition is checked against every corpus occurrence before it moves to
 
 #### M2.O6: in-game check of the rename plugin (owner)
 
-The plugin is `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` (2,197 bytes,
-SHA-256 `73F3F92F...194A3C24`; full hash and details in `docs/smoke-rename.md`). It
+The plugin is `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` (2,221 bytes,
+SHA-256 `9C0B28A6...4078EA27`, regenerated 2026-10-14 after lane E round 2 added `CNAM`
+and `INCC` to its `TES4`; full hash and details in `docs/smoke-rename.md`). It
 renames `Starfield.esm:0021BBCD` (WEAP `RussianHuntingRifle`, "Old Earth Hunting Rifle")
 to "Old Soviet Marksman Rifle". In the Default profile the rifle's winner is
 `Starfield.esm` (no mod overrides it, checked 2026-10-14 with `kit inspect --profile`), so
@@ -730,3 +748,9 @@ Agents append here when they need a change in a crate they do not own.
   `esm::bridge::check_subrecords` matches the five variants generated today to find
   payloads that did not decode, and cannot see them for a new record type (it still
   catches re-encoding differences for every type).
+- **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
+  stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
+  `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3
+  transcribes definitions from the pinned xEdit file, please type these as `lstring`
+  (`confidence = "corpus"` is already backed by `lstring_table_matches_the_corpus`); the
+  schema then wins and the table entry becomes redundant.
