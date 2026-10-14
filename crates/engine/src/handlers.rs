@@ -4,6 +4,7 @@
 //! add it to [`defaults`]. Flip the catalog `status` to `Implemented` only when the
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
+mod coverage;
 mod inspect;
 mod roundtrip;
 #[cfg(test)]
@@ -18,6 +19,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
         ("roundtrip", Box::new(roundtrip::run)),
         ("inspect", Box::new(inspect::run)),
+        ("coverage", Box::new(coverage::run)),
     ]
 }
 

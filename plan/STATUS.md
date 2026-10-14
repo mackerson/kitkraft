@@ -2,10 +2,14 @@
 
 Updated: 2026-10-14
 
-## Current milestone: M1 (data parity)
+## Current milestone: M2 (agent surface)
 
-M0 (scaffold) is done. M1 lane A is done; lane C has M1.14/M1.15 left (blocked on lane B
-round 2); see `plan/execution-plan.md`.
+M0 (scaffold) and M1 (data parity) are done. Every "M1 is done when" criterion in
+`plan/execution-plan.md` holds: M1.6 roundtrips all 14 corpus files in `--release` and M1.7
+passes (lane A); `kit roundtrip --verify` reports identical on all 14 (M1.13, rechecked by
+`cargo xtask parity`); `docs/record-parity.md` is generated (M1.14); `cargo xtask ci` is
+green. M2 is not broken down into tasks in `plan/execution-plan.md` yet; the lanes are under
+"Next".
 
 ## Toolchain (verified on the dev box)
 
@@ -74,20 +78,42 @@ round 2); see `plan/execution-plan.md`.
   `builtin()` cached; `leaf_subrecords`, `known_signatures`, `Signature::from_bytes`;
   `examples/generated.rs` compiles the goldens outside `cfg(test)`; ADR 0005 Amendment 1
   (`uesp-starfield:`, `/CTDA` forbidden, `/Raw_Data` as inventory cross-check).
+- M1.15 (lane C) `cargo xtask codegen [--check]`: `builtin()` -> `generate()` -> rustfmt
+  (workspace `rustfmt.toml`) -> `crates/esm/src/generated/{mod.rs,records.rs}`, DO NOT EDIT
+  header with the defs hash (FNV-1a 64 over `BUILTIN_DEFINITIONS`); `--check` fails on a
+  stale, missing or foreign file and runs in `cargo xtask ci` after `layers`. esm exposes it
+  as `pub mod generated` (not wired into the reader). `BUILTIN_DEFINITIONS` has no generated
+  region, so `crates/schema/tests/defs.rs` stays its guard (see Requests).
+- M1.14 (lane C) `coverage` command (`Implemented`): per record type, record and compressed
+  counts and every subrecord signature with its count, classed `typed` / `opaque` /
+  `unknown` against the schema; compressed records decompressed by default (Starfield.esm
+  8.3 s, 2.4 s with `--no-decode`, release). `cargo xtask parity` runs `kit coverage` and
+  `kit roundtrip --verify` over the corpus and writes `docs/record-parity.md` (idempotent,
+  checked): 186 record types, 7,490,102 records, 136,741/136,741 compressed records
+  examined, 50,419,561 subrecords of which 77 typed, 59,660 opaque, 50,359,824 unknown.
+- AGENTS.md clean-room section points to ADR 0005 Amendment 1 (starfieldwiki.net);
+  `docs/gaps.md` stale scaffold row removed.
 
 ## In progress
 
-- Nothing in lane B.
+- Nothing.
 
 ## Next
 
-1. M1 lane A: done for M1. Next per the plan is M2 groundwork, or `roundtrip --decode`
-   (decompress every compressed record during the gate; see `docs/gaps.md`).
-2. M1 lane B: round 2 done. Next: typed layouts via ck-diff observations (ADR 0005
-   section 2) or `uesp-starfield` pages confirmed on the corpus (Amendment 1); inventories
-   as M1.14 coverage asks for them.
-3. M1 lane C: M1.14 `coverage` + `cargo xtask parity` and M1.15 `cargo xtask codegen
-   [--check]`, unblocked by lane B round 2 (see Requests).
+M2 lanes (from `PLAN.md` "M2 - agent surface" and the step 2 ladder). Owners are assigned
+when M2 is broken down in `plan/execution-plan.md`.
+
+| Lane       | Scope                                                                                                          | Where                                        |
+| ---------- | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| doc        | Load order, FormID resolution across masters, overrides and conflicts ("which plugin wins")                    | `crates/doc`                                 |
+| io         | MO2 profile reader: `plugins.txt`, mod list, Creations manifests                                               | `crates/io`                                  |
+| mcp        | stdio MCP server over `execute()` (`execute`, `command_line`, ...); `kit mcp` launcher                         | `crates/mcp`, `apps/kit-cli`                 |
+| ports      | `ba2` (`ba2x.py`), `pex` (`pexdis.py`), `strings` ported from `C:\Modding\scripts`                             | `crates/ba2`, `crates/pex`, `crates/strings` |
+| validate   | Rules: missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode pex calls               | `crates/engine`                              |
+| edit       | `set`, `query`, `diff` over load order and typed records (needs generated records wired in esm)                | `crates/engine`                              |
+| smoke test | Rename "Old Earth Hunting Rifle" to "Old Soviet Marksman Rifle": `kit set` -> `kit validate` -> launch via MO2 | all                                          |
+| container  | Wire the generated records into the reader; `roundtrip --decode`                                               | `crates/esm` (lane A)                        |
+| schema     | Typed layouts from ck-diff observations or `uesp-starfield` pages confirmed on the corpus                      | `crates/schema` (lane B)                     |
 
 ## Blockers
 
@@ -111,8 +137,9 @@ wins") but still the owner's to confirm:
 
 - **xEdit stance.** The brief called xEdit's MPL source "readable as a reference"; AGENTS.md
   and ADR 0004 keep it off limits (option A) until the owner decides. ADR 0004 has been
-  escalated: with no UESP Starfield page (ADR 0005), option A means Starfield field layouts
-  come only from CK differential observation, which is slower. The owner has been asked.
+  escalated: UESP's Starfield pages are thin (ADR 0005 Amendment 1), so under option A
+  most Starfield field layouts come from CK differential observation, which is slower. The
+  owner has been asked.
 - **No push.** The brief said "push to main"; AGENTS.md says commit to local `main`, no
   remote (owner decision 6).
 
@@ -120,17 +147,6 @@ wins") but still the owner's to confirm:
 
 Agents append here when they need a change in a crate they do not own.
 
-- **Lane B -> lane C (M1.15, M1.14).** `cargo xtask codegen` should write
-  `kitcraft_schema::generate(kitcraft_schema::builtin()?)` (`builtin()` now returns a cached
-  `Result<&'static Schema, &'static SchemaError>`) to `crates/esm/src/generated/mod.rs`. The
-  output is self-contained (std only), rustfmt-clean for the current set (checked by a
-  test), and lint-clean outside `cfg(test)` (`crates/schema/examples/generated.rs`). Suggest
-  still piping it through `rustfmt --edition 2021` before writing/comparing, since the
-  generator only mirrors rustfmt's width rules for the constructs it emits today. xtask may
-  also take over generating `BUILTIN_DEFINITIONS` (today `crates/schema/tests/defs.rs`
-  fails with the lines to add when `defs/` and the list differ). For coverage:
-  `RecordDef::leaf_subrecords()` (member paths), `Schema::known_signatures(sig)`,
-  `Signature::from_bytes`, and the generated `RECORDS` table.
 - **Lane B -> lane A.** Generated records decode from `&[RawSub { signature: [u8; 4], data:
   &[u8], oversized: bool }]` (subrecords after `XXXX` resolution; `oversized` = the size came
   from `XXXX`) plus `Ctx { form_version, localized }` (`localized` = TES4 flag `0x80`), via
@@ -138,12 +154,14 @@ Agents append here when they need a change in a crate they do not own.
   flag; write `XXXX` when it is set or the payload exceeds `u16::MAX`. The 24-byte record
   header is now a definition too (`RECORD.toml`, generated `RecordHeader`). Also please
   count `XXXX` subrecords with a payload <= 0xFFFF in the corpus inventory (`docs/gaps.md`).
-- **Lane B -> owner / AGENTS.md maintainer.** ADR 0005 Amendment 1 records the UESP
-  Starfield pages (starfieldwiki.net, 23 pages, `/CTDA` forbidden, `/Raw_Data` an inventory
-  cross-check, `/PERK`'s OMOD layout unused until the owner decides OMOD scope). AGENTS.md
-  "Clean room" and the "xEdit stance" paragraph above still say there is no UESP Starfield
-  page; they should point to the amendment. (Replaces the earlier lane B request asking
-  whether ADR 0005 should list the site.)
 - **Lane B -> owner (default chosen).** Inventory definitions name members after their
   signature (`Edid`, `Wfir`, `Flld2`); renaming them once meanings are sourced (`ck-wiki`)
   is a breaking change for `kit query`. Default: accept the rename when it happens.
+- **Lane C -> lane B.** `cargo xtask codegen` can own `BUILTIN_DEFINITIONS` once
+  `crates/schema/src/lib.rs` marks a generated region for it (for example
+  `// BEGIN generated by cargo xtask codegen` / `// END`); until then
+  `tests/defs.rs` is the guard and xtask leaves the file alone.
+- **Lane C -> lane A.** `crates/esm/src/lib.rs` now has `pub mod generated;` (plus a doc
+  comment) for `crates/esm/src/generated/`, written only by `cargo xtask codegen`; keep the
+  line when merging. Wiring the generated `Record::decode` into the reader would let
+  `coverage` check payloads against layouts instead of classifying by signature.

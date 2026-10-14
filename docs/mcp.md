@@ -8,7 +8,8 @@ Status: the server is planned (M2). The engine side it adapts exists since M1.11
 `kitcraft_engine::execute(id: &str, args: serde_json::Value) -> Result<Value, EngineError>`
 returns the envelope below, and `kitcraft_engine::parse_line` is the `command_line`
 grammar. This document is the contract the implementation follows. Implemented commands
-today: `roundtrip` (M1.12) and a minimal single-plugin `inspect`; the rest are `Planned`.
+today: `roundtrip` (M1.12), `coverage` (M1.14) and a minimal single-plugin `inspect`; the
+rest are `Planned`.
 
 Front-end launchers (`kit mcp`, a future `kit ui`) start a front end; they are not actions
 and are deliberately not `CommandSpec`s. Everything else a user can do is.
@@ -149,6 +150,33 @@ any `XXXX` prefix), `data_offset`, `payload_hex` (first 256 bytes, uppercase hex
 record, the compressed body). Coverage is `partial`; every subrecord counts as opaque.
 Limitations always include `typed decode pending schema wiring` and the single-plugin
 note.
+
+### `coverage` (M1.14)
+
+Arguments `{plugin, decode = true}`; CLI `kit coverage <plugin> [--no-decode]`. Streams the
+plugin and classifies every subrecord occurrence against the builtin schema by its record
+type and signature: `typed` (the type's definition names it with a layout), `opaque`
+(named, kept as raw bytes) or `unknown` (the type has no definition, or the definition does
+not name the signature; subrecords inside an `any_until` run count here). Payloads are not
+decoded against the layouts. With `decode` (the default) compressed records are
+decompressed under the default `DecodeLimits` and counted; one that fails to decompress is
+listed in `coverage.not_examined` (first 20, then a count), not fatal.
+
+`data`: `plugin`, `file`, `bytes`, `decode`, `records`, `groups`, `compressed_records`,
+`compressed_examined`, `record_types_seen`, `record_types_defined`, `subrecords`
+(occurrences), `occurrences {typed, opaque, unknown}`, `summary`, and `record_types[]`
+sorted by record count (then signature), each with `signature`, `definition` (the schema
+name or `null`), `records`, `compressed`, `compressed_examined`, `subrecords`,
+`occurrences`, `distinct {seen, typed, opaque, unknown}` (distinct signatures),
+`first_offset`, and `signatures[]` (`signature`, `count`, `class`, `members` = member
+paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it).
+
+Coverage: `decoded_subrecords` is the `typed` occurrence count, `opaque_subrecords` the
+`opaque` plus `unknown` count; `status` is `complete` only when both of those are zero and
+every compressed record was examined. Evidence: the whole file, then the first record of
+each type. Limitations always state that classification is by signature only; with
+`--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
+`cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
 
 ## Errors
 
