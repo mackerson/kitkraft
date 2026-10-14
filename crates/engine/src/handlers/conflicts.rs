@@ -150,6 +150,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
                 "plugin": name(o.version.plugin),
                 "previous": o.previous.map(|p| name(p.plugin)),
                 "class": label,
+                "resolved_by": o.version.basis.as_str(),
                 "comparable": o.comparable,
                 "subrecords": match &o.class {
                     Some(OverrideClass::Differs { subrecords, .. }) => subrecords.iter().map(|d| json!({
@@ -193,6 +194,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
          `differs` names subrecords, not fields"
             .to_string(),
     ];
+    limitations.extend(loaded.limitations.iter().cloned());
     if incomparable > 0 {
         limitations.push(format!(
             "{incomparable} override(s) on this page are not `comparable`: the two plugins encode \
@@ -323,6 +325,13 @@ mod tests {
         assert!(ev
             .iter()
             .any(|e| e["subrecord"] == "FULL" && e["file"] == "Patch.esm"));
+        assert_eq!(items[0]["overrides"][0]["resolved_by"], "direct");
+        // Review round 2: the load order's limitations are repeated here too.
+        assert!(r["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("runtime-slots-by-scale")));
 
         // Paging and the all-forms class count.
         args["limit"] = json!(1);

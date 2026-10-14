@@ -253,7 +253,8 @@ is under "Next".
     case-insensitive), plugin plan naming why each plugin is active (`Starfield.ccc`,
     hardcoded official masters, `plugins.txt`, MO2 unmanaged entries, BlueprintShips
     companions). Default profile: 84 active plugins, every one an existing file (70 from
-    mods, 14 from Data), order equals `loadorder.txt`, profile files unchanged.
+    mods, 14 from Data), order is `loadorder.txt`'s entries under `hardcoded-official-slots`
+    (review round 2 below), profile files unchanged.
   - D3 (a, b) corpus: raw FormIDs address master *classes* by scale (`FE` small, `FD`
     medium, else full; the index counts that class only; the file itself is the next index
     of its own class), confirmed on SFBGS047 (masters full, small, full: its overrides of
@@ -285,6 +286,34 @@ is under "Next".
     every per-type count (8,234 override records).** All `Implemented`, tested through
     `execute`, reachable over MCP (`execute`, `inspect_record`, `query_records`,
     `diff_plugins`; `load` fills `kitcraft://load-order`).
+  - **Review round 2 (2026-10-14), all 13 findings fixed with regression tests:**
+    (1) order by the named assumption `hardcoded-official-slots`: `Starfield.ccc` plugins,
+    then official plugins without a `plugins.txt` entry (`ShatteredSpace`, `SFBGS004`,
+    `SFBGS00D`, `SFBGS050`, `BlueprintShips-SFBGS050`, `SFBGS047`, which MO2's
+    `loadorder.txt` lists after managed plugins naming them as masters), then the rest.
+    Default profile: late master links 2 -> 0; 15 forms change winner, all from a slotted
+    official plugin to a later managed mod (the reviewer's 15). Remaining late masters are
+    an ordering error in every result's limitations. M2.O4 stays open for the game's own
+    order. (2) `full-style-self` IDs masked to the plugin's scale (`01012345` in a medium
+    file = its `2345`), `resolved_by` per version, examples in `load`, same-plugin
+    collisions reported; Default profile: 63,798 records of 27 plugins, none masked, no
+    collisions. (3) raw `00000000` is null (`ResolveError::Null`, `{"null": true}`, `where`
+    `null`); formrefs refuse object 0. (4)/(5) the load order's limitations (failed or
+    missing plugins, missing masters, ordering errors, assumptions, profile warnings) are
+    shared by `load`, `inspect`, `query` and `conflicts`, implicit loads included. (6)
+    `ResolveError::MasterNotLoaded` / `PluginNotLoaded`. (7) `deleted` on versions, results
+    and the inspect summary; `where` never evaluates a deleted payload (unknown with the
+    reason). (8) kind mismatches are unknown except union variants; `&` bit test
+    (`@flags & 0x20`). (9) `inspect` bare hex needs `plugin`; runtime IDs take `runtime:`.
+    (10) cache staleness rule documented; mtime 0 never cached; a content sample (size +
+    first/last 64 KiB) catches same-size-and-mtime edits; cache format 3. (11) `diff` keeps
+    the files' plugin spelling; raw fallback names the own-scale condition. (12) `@flags`
+    without an index entry is unknown. (13) runtime slots follow the scale bits only (update
+    and blueprint flags do not change the class), doc and code agree; no profile plugin sets
+    0x200. New Default-profile numbers (release): `kit load` cold 4.7 s / peak working set
+    482 MB, warm 0.73 s / 376 MB (reviewer: 478 / 375 MB); conflicts 15,586 forms, 15,893
+    overrides (8,206 deleted, 6,028 differs, 1,644 identical, 15 first versions), 2.7 s;
+    esmscan counts unchanged (8,234 records from Starfield.esm by 59 plugins).
 - Lane E, M2.E1..E10 (engine `src/edit/`, `src/validate/`, `handlers/{set,validate,build}.rs`,
   the `FIELD=value` shorthand; `docs/validate.md`, `docs/smoke-rename.md`), all checked
   2026-10-14:
@@ -401,7 +430,7 @@ definition is checked against every corpus occurrence before it moves to
 | M2.O1 | Approve ADR 0004, ADR 0005 Amendment 2, `docs/xedit-reference.md` | **done 2026-10-14** (with six clarifications) |
 | M2.O2 | Whether OMOD is in scope                                    | **done 2026-10-14**: in scope (M2.B7)  |
 | M2.O3 | Install SF1Edit (agents do not download executables)        | open; blocks M2.B11                    |
-| M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), M2.E3 `ck-diff` part |
+| M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), the `hardcoded-official-slots` check, M2.E3 `ck-diff` part |
 | M2.O5 | Third-party mod plugins as inventory evidence               | open; default **no**                   |
 | M2.O6 | In-game check of the rename plugin                          | **ready**: plugin built, steps below   |
 
@@ -517,8 +546,27 @@ Agents append here when they need a change in a crate they do not own.
   vs its Free Lanes patch (which mod MO2 shows providing `Interface\inventorymenu.swf`);
   (b) in game, `help` or a console click on a Constellation.esm object should show an
   `FE000xxx` ID and a full plugin's object `<slot>xxxxxx` (`kit inspect <form> --profile
-  ...` prints the runtime ID it assumes); (c) whether `HG_ShipCargoHoldAtHome.esm`'s
-  records (stored `02xxxxxx` with one master) exist in game.
+  ...` prints the runtime ID it assumes; `inspect` now needs `runtime:<hex>` for a runtime
+  ID); (c) whether `HG_ShipCargoHoldAtHome.esm`'s records (stored `02xxxxxx` with one
+  master) exist in game; (d) where the game loads `ShatteredSpace`, `SFBGS004`, `SFBGS00D`,
+  `SFBGS050`, `BlueprintShips-SFBGS050` and `SFBGS047` (KitCraft now assumes right after
+  the `Starfield.ccc` plugins, `hardcoded-official-slots`): the runtime IDs of their objects
+  in game would show their slots. Lead: the CK's own `EditorDataFilesLoaded.txt` in the game
+  dir lists each loaded file with its index and ID form (`001 - (FE000XXX) -
+  'KZ_Mantis.esm'`); a CK session with the full profile would record the CK's order.
+- **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
+  `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
+  show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
+  (`kitcraft_doc::Basis`: `Direct`, `FullStyleSelf`, `FullStyleSelfMasked`);
+  `MasterMap::resolve_detailed` returns it instead of a bool. `ResolveError` gained
+  `MasterNotLoaded`, `PluginNotLoaded` and `Null` (raw `00000000` never resolves);
+  `FormRef::parse` refuses object ID 0. `inspect` reads bare hex only with `plugin`; a
+  runtime ID is `runtime:<hex>` (front ends and examples that pass bare hex runtime IDs
+  need the prefix). Index cache format 3: old entries rebuild once. For lane E's
+  `verify_load_order`: the Default profile now has no late master, and the "active plugins
+  with no file" limitation is now in `Loaded::limitations` (it was only in `load`'s own
+  result before, so the `NO_FILE` check could not see it); whether `set`/`build` can drop
+  the "unverified" refusal is lane E's call.
 - **Lane D -> lane B.** 14 official GMST string settings hold string ID 0, which is in no
   table; `query` leaves them unknown. A source for what ID 0 means would close it.
   `where` member names are the schema's PascalCase names, matched case-insensitively.

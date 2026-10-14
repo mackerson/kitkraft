@@ -8,15 +8,18 @@
 //! not     = "not" not | atom ;
 //! atom    = "(" or ")" | "has" SIG | path op value ;
 //! path    = SIG { "." member } [ "[" index "]" ] | "@form" | "@plugin" | "@edid" | "@flags" ;
-//! op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" ;
-//! value   = number | hex | string | formref | "true" | "false" ;
+//! op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" | "&" ;
+//! value   = number | hex | string | formref | "true" | "false" | "null" ;
 //! formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
 //! ```
 //!
 //! Semantics are documented in `docs/mcp.md` (`query`). In short: keywords and member
 //! names are ASCII case-insensitive; text comparisons are ASCII case-insensitive; a
 //! repeated subrecord matches if any occurrence matches; an absent subrecord makes a
-//! comparison false; a value that cannot be decoded makes it unknown.
+//! comparison false; a value that cannot be decoded makes it unknown, and so does a value
+//! of another kind than the literal (a FormID against a number), except for a union
+//! member, whose other variants are known not to match. `&` tests bits: `@flags & 0x20` is
+//! true when every bit of the mask is set. `null` is the null FormID (`00000000`).
 
 use std::fmt;
 
@@ -65,6 +68,8 @@ pub enum Op {
     NotContains,
     /// `^=` starts with
     StartsWith,
+    /// `&` every bit of the mask is set
+    BitsSet,
 }
 
 impl Op {
@@ -89,6 +94,8 @@ pub enum Literal {
     Form(FormRef),
     /// `true` / `false`
     Bool(bool),
+    /// `null`: the null FormID.
+    Null,
 }
 
 /// A field path.
@@ -181,6 +188,8 @@ pub enum FieldValue {
     },
     /// Boolean.
     Bool(bool),
+    /// The null FormID (`00000000`): a FormID member that references nothing.
+    Null,
 }
 
 /// What a path yields on one record.
@@ -192,6 +201,9 @@ pub enum Lookup {
     Unknown(String),
     /// One value per occurrence.
     Values(Vec<FieldValue>),
+    /// Values of a union member (the schema picks the variant per record): a value of
+    /// another kind than the literal is a different variant, known not to match.
+    UnionValues(Vec<FieldValue>),
 }
 
 /// The record a query is evaluated against.
@@ -290,27 +302,35 @@ fn eval(e: &Expr, s: &mut dyn Subject, unknown: &mut Vec<String>) -> Tri {
                 Tri::Unknown
             }
         },
-        Expr::Cmp { path, op, value } => match s.lookup(path) {
-            Lookup::Absent => Tri::False,
-            Lookup::Unknown(reason) => {
-                unknown.push(reason);
-                Tri::Unknown
-            }
-            Lookup::Values(values) => {
-                let mut out = Tri::False;
-                for v in &values {
-                    match compare(v, *op, value) {
-                        Ok(true) => return Tri::True,
-                        Ok(false) => {}
-                        Err(reason) => {
-                            unknown.push(reason);
-                            out = Tri::Unknown;
-                        }
+        Expr::Cmp { path, op, value } => {
+            let (values, union) = match s.lookup(path) {
+                Lookup::Absent => return Tri::False,
+                Lookup::Unknown(reason) => {
+                    unknown.push(reason);
+                    return Tri::Unknown;
+                }
+                Lookup::Values(v) => (v, false),
+                Lookup::UnionValues(v) => (v, true),
+            };
+            let mut out = Tri::False;
+            for v in &values {
+                let verdict = match compare(v, *op, value) {
+                    Ok(b) => Ok(b),
+                    // Another variant of a union member: known not to match.
+                    Err(Mismatch::Kind(_)) if union => Ok(matches!(op, Op::Ne | Op::NotContains)),
+                    Err(Mismatch::Kind(reason) | Mismatch::Op(reason)) => Err(reason),
+                };
+                match verdict {
+                    Ok(true) => return Tri::True,
+                    Ok(false) => {}
+                    Err(reason) => {
+                        unknown.push(reason);
+                        out = Tri::Unknown;
                     }
                 }
-                out
             }
-        },
+            out
+        }
     }
 }
 
@@ -319,24 +339,76 @@ fn ci_contains(hay: &str, needle: &str) -> bool {
         .contains(&needle.to_ascii_lowercase())
 }
 
-fn compare(v: &FieldValue, op: Op, lit: &Literal) -> Result<bool, String> {
-    match (v, lit) {
-        (FieldValue::Text(t), Literal::Text(x)) => Ok(match op {
-            Op::Eq => t.eq_ignore_ascii_case(x),
-            Op::Ne => !t.eq_ignore_ascii_case(x),
-            Op::Contains => ci_contains(t, x),
-            Op::NotContains => !ci_contains(t, x),
-            Op::StartsWith => t.get(..x.len()).is_some_and(|p| p.eq_ignore_ascii_case(x)),
-            Op::Lt | Op::Le | Op::Gt | Op::Ge => false,
-        }),
-        (FieldValue::Form { plugin, object_id }, Literal::Form(f)) => {
-            let same = plugin.eq_ignore_ascii_case(&f.plugin) && *object_id == f.object_id;
-            match op {
-                Op::Eq => Ok(same),
-                Op::Ne => Ok(!same),
-                _ => Err("FormIDs compare only with == and !=".into()),
-            }
+/// Why a value and a literal do not compare.
+enum Mismatch {
+    /// The value is of another kind than the literal (a FormID against a number).
+    Kind(String),
+    /// The kinds match but the operator does not apply to them.
+    Op(String),
+}
+
+fn kind_name(v: &FieldValue) -> &'static str {
+    match v {
+        FieldValue::Text(_) => "text",
+        FieldValue::Int(_) => "an integer",
+        FieldValue::Float(_) => "a float",
+        FieldValue::Form { .. } => "a FormID",
+        FieldValue::Bool(_) => "a boolean",
+        FieldValue::Null => "the null FormID",
+    }
+}
+
+fn literal_name(l: &Literal) -> &'static str {
+    match l {
+        Literal::Number(_) | Literal::Hex(_) => "a number",
+        Literal::Text(_) => "text",
+        Literal::Form(_) => "a formref",
+        Literal::Bool(_) => "a boolean",
+        Literal::Null => "null",
+    }
+}
+
+/// The mask of `&`: a non-negative integer.
+fn mask_of(lit: &Literal) -> Option<u64> {
+    match lit {
+        Literal::Hex(h) => Some(*h),
+        Literal::Number(n) if *n >= 0.0 && n.fract() == 0.0 && *n <= u64::MAX as f64 => {
+            Some(*n as u64)
         }
+        _ => None,
+    }
+}
+
+fn op_err(message: &str) -> Result<bool, Mismatch> {
+    Err(Mismatch::Op(message.to_string()))
+}
+
+/// Same or not; `==` and `!=` only.
+fn equality(op: Op, same: bool, what: &str) -> Result<bool, Mismatch> {
+    match op {
+        Op::Eq => Ok(same),
+        Op::Ne => Ok(!same),
+        _ => op_err(&format!("{what} compare only with == and !=")),
+    }
+}
+
+fn compare(v: &FieldValue, op: Op, lit: &Literal) -> Result<bool, Mismatch> {
+    match (v, lit) {
+        (FieldValue::Text(t), Literal::Text(x)) => match op {
+            Op::Eq => Ok(t.eq_ignore_ascii_case(x)),
+            Op::Ne => Ok(!t.eq_ignore_ascii_case(x)),
+            Op::Contains => Ok(ci_contains(t, x)),
+            Op::NotContains => Ok(!ci_contains(t, x)),
+            Op::StartsWith => Ok(t.get(..x.len()).is_some_and(|p| p.eq_ignore_ascii_case(x))),
+            Op::Lt | Op::Le | Op::Gt | Op::Ge | Op::BitsSet => {
+                op_err("text compares only with ==, !=, ~, !~ and ^=")
+            }
+        },
+        (FieldValue::Form { plugin, object_id }, Literal::Form(f)) => equality(
+            op,
+            plugin.eq_ignore_ascii_case(&f.plugin) && *object_id == f.object_id,
+            "FormIDs",
+        ),
         (FieldValue::Form { plugin, object_id }, Literal::Text(x)) => match FormRef::parse(x) {
             Some(f) => compare(
                 &FieldValue::Form {
@@ -346,13 +418,25 @@ fn compare(v: &FieldValue, op: Op, lit: &Literal) -> Result<bool, String> {
                 op,
                 &Literal::Form(f),
             ),
-            None => Err(format!("`{x}` is not a formref (Plugin.esm:XXXXXX)")),
+            None => Err(Mismatch::Kind(format!(
+                "`{x}` is not a formref (Plugin.esm:XXXXXX, object ID not 0)"
+            ))),
         },
-        (FieldValue::Bool(b), Literal::Bool(x)) => match op {
-            Op::Eq => Ok(b == x),
-            Op::Ne => Ok(b != x),
-            _ => Err("booleans compare only with == and !=".into()),
-        },
+        // The null FormID: equal to `null`, unequal to every form.
+        (FieldValue::Null, Literal::Null) => equality(op, true, "FormIDs"),
+        (FieldValue::Form { .. }, Literal::Null) | (FieldValue::Null, Literal::Form(_)) => {
+            equality(op, false, "FormIDs")
+        }
+        (FieldValue::Null, Literal::Text(x)) if FormRef::parse(x).is_some() => {
+            equality(op, false, "FormIDs")
+        }
+        (FieldValue::Bool(b), Literal::Bool(x)) => equality(op, b == x, "booleans"),
+        (FieldValue::Int(i), Literal::Number(_) | Literal::Hex(_)) if op == Op::BitsSet => {
+            match (u64::try_from(*i).ok(), mask_of(lit)) {
+                (Some(bits), Some(mask)) => Ok(bits & mask == mask),
+                _ => op_err("& needs a non-negative integer value and mask"),
+            }
+        }
         (FieldValue::Int(_) | FieldValue::Float(_), Literal::Number(_) | Literal::Hex(_)) => {
             let a = match v {
                 FieldValue::Int(i) => *i as f64,
@@ -371,12 +455,17 @@ fn compare(v: &FieldValue, op: Op, lit: &Literal) -> Result<bool, String> {
                 Op::Le => Ok(a <= b),
                 Op::Gt => Ok(a > b),
                 Op::Ge => Ok(a >= b),
-                _ => Err("~, !~ and ^= need text".into()),
+                Op::BitsSet => op_err("& needs an integer value"),
+                Op::Contains | Op::NotContains | Op::StartsWith => op_err("~, !~ and ^= need text"),
             }
         }
-        // A value of another kind (a union variant, a text field compared with a number):
-        // known not equal, not ordered, not containing.
-        _ => Ok(matches!(op, Op::Ne | Op::NotContains)),
+        // A value of another kind than the literal: undecided (a union member's other
+        // variants are handled by the caller as known not to match).
+        _ => Err(Mismatch::Kind(format!(
+            "{} does not compare with {}",
+            kind_name(v),
+            literal_name(lit)
+        ))),
     }
 }
 
@@ -457,6 +546,7 @@ fn lex(text: &str) -> Result<Vec<Token>, QueryError> {
             ']' => Some(Kind::RBracket),
             '.' if !next.is_some_and(|n| n.is_ascii_digit()) => Some(Kind::Dot),
             '~' => Some(Kind::Op(Op::Contains)),
+            '&' => Some(Kind::Op(Op::BitsSet)),
             _ => None,
         };
         if let Some(kind) = single {
@@ -753,6 +843,7 @@ impl Parser {
                 Kind::FormRef(f) => Literal::Form(f),
                 Kind::Ident(w) if w.eq_ignore_ascii_case("true") => Literal::Bool(true),
                 Kind::Ident(w) if w.eq_ignore_ascii_case("false") => Literal::Bool(false),
+                Kind::Ident(w) if w.eq_ignore_ascii_case("null") => Literal::Null,
                 other => {
                     return Err(err(
                         value_column,
@@ -874,6 +965,12 @@ fn check(
     if op.is_ordering() && !matches!(value, Literal::Number(_) | Literal::Hex(_)) {
         return Err(err(value_col, "ordering operators need a number"));
     }
+    if op == Op::BitsSet && mask_of(value).is_none() {
+        return Err(err(value_col, "& needs a non-negative integer mask"));
+    }
+    if matches!(value, Literal::Null) && !matches!(op, Op::Eq | Op::Ne) {
+        return Err(err(op_col, "null compares only with == and !="));
+    }
     match path {
         Path::Form => {
             let formish = matches!(value, Literal::Form(_))
@@ -971,6 +1068,14 @@ mod tests {
                     b"EDID" => self.edid.clone().map_or(Lookup::Absent, |e| {
                         Lookup::Values(vec![FieldValue::Text(e)])
                     }),
+                    // A union member holding its text variant (a GMST string setting).
+                    b"DATA" => Lookup::UnionValues(vec![FieldValue::Text("abc".into())]),
+                    b"CNAM" => Lookup::Values(vec![FieldValue::Form {
+                        plugin: "Starfield.esm".into(),
+                        object_id: 0x800,
+                    }]),
+                    b"ANAM" => Lookup::Values(vec![FieldValue::Null]),
+                    b"BNAM" => Lookup::Values(vec![FieldValue::Bool(true)]),
                     _ => {
                         Lookup::Unknown(format!("{} is opaque", String::from_utf8_lossy(signature)))
                     }
@@ -1032,10 +1137,62 @@ mod tests {
         assert_eq!(run(r#"FULL ~ "x" and EDID ~ "rifle""#).0, Tri::Unknown);
         assert_eq!(run(r#"not FULL ~ "x""#).0, Tri::Unknown);
         assert_eq!(run(r#"not (EDID ~ "rifle" or FULL ~ "x")"#).0, Tri::False);
-        // A value of another kind is known not to match (text is not ordered against 5).
-        assert_eq!(run(r#"EDID > 5"#).0, Tri::False);
-        assert_eq!(run(r#"KWDA ~ "x""#).0, Tri::False);
-        assert_eq!(run(r#"KWDA !~ "x""#).0, Tri::True);
+        // A value of another kind than the literal is undecided, with the reason.
+        let (t, why) = run(r#"EDID > 5"#);
+        assert_eq!(t, Tri::Unknown);
+        assert_eq!(why, ["text does not compare with a number"]);
+        assert_eq!(run(r#"KWDA ~ "x""#).0, Tri::Unknown);
+        assert_eq!(run(r#"KWDA !~ "x""#).0, Tri::Unknown);
+    }
+
+    /// Review round 2: a FormID or boolean against a number is unknown, not "known false";
+    /// only a union member's other variant is known not to match.
+    #[test]
+    fn kind_mismatches_are_unknown_except_union_variants() {
+        let (t, why) = run("CNAM == 5");
+        assert_eq!(t, Tri::Unknown);
+        assert_eq!(why, ["a FormID does not compare with a number"]);
+        assert_eq!(run("CNAM != 5").0, Tri::Unknown);
+        assert_eq!(run("BNAM == 1").0, Tri::Unknown);
+        assert_eq!(run("BNAM == true").0, Tri::True);
+        // DATA is a union holding text here: a number is another variant.
+        assert_eq!(run("DATA == 5").0, Tri::False);
+        assert_eq!(run("DATA != 5").0, Tri::True);
+        assert_eq!(run("DATA > 5").0, Tri::False);
+        assert_eq!(run(r#"DATA == "ABC""#).0, Tri::True);
+        // Same kind, wrong operator: unknown even for a union.
+        assert_eq!(run("CNAM ~ \"x\"").0, Tri::Unknown);
+        assert_eq!(run(r#"CNAM == Starfield.esm:000800"#).0, Tri::True);
+    }
+
+    #[test]
+    fn bit_test_on_flags() {
+        // fake flags are 0x20.
+        assert_eq!(run("@flags & 0x20").0, Tri::True);
+        assert_eq!(run("@flags & 32").0, Tri::True);
+        assert_eq!(run("@flags & 0x21").0, Tri::False);
+        assert_eq!(run("not @flags & 0x40000").0, Tri::True);
+        assert_eq!(run("KWDA & 3").0, Tri::True);
+        assert_eq!(run("KWDA[0] & 4").0, Tri::False);
+        let e = Query::parse("@flags & 1.5").unwrap_err();
+        assert!(e.message.contains("non-negative integer mask"), "{e}");
+        assert!(Query::parse("@flags & -1").is_err());
+        assert!(Query::parse(r#"@edid & 1"#).is_err());
+    }
+
+    #[test]
+    fn null_formids_compare_with_null() {
+        assert_eq!(run("ANAM == null").0, Tri::True);
+        assert_eq!(run("ANAM != null").0, Tri::False);
+        assert_eq!(run("CNAM == null").0, Tri::False);
+        assert_eq!(run("CNAM != null").0, Tri::True);
+        assert_eq!(run("ANAM == Starfield.esm:000800").0, Tri::False);
+        assert_eq!(run("ANAM != 'Starfield.esm:000800'").0, Tri::True);
+        // Object 0 is not a formref: the null FormID is spelled `null`.
+        let e = Query::parse("ANAM == Starfield.esm:000000").unwrap_err();
+        assert!(e.message.contains("not a formref"), "{e}");
+        assert!(Query::parse("ANAM < null").is_err());
+        assert_eq!(run("ANAM == 5").0, Tri::Unknown);
     }
 
     #[test]
@@ -1166,6 +1323,11 @@ mod tests {
             "!",
             "true",
             "false",
+            "null",
+            "&",
+            "DATA",
+            "CNAM",
+            "ANAM",
             "Starfield.esm:0001A2B3",
             "x.esm:",
             ":",

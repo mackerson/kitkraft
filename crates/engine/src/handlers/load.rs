@@ -33,7 +33,8 @@ pub(crate) struct Loaded {
     pub source: String,
     /// Requested string-table language.
     pub language: String,
-    /// Limitations every command using this load order repeats.
+    /// Limitations every command using this load order repeats: assumptions, ordering
+    /// errors, plugins that failed to load or have no file, unresolved records.
     pub limitations: Vec<String>,
     /// String tables of the load order's plugins, read on first use.
     pub strings: StringTables,
@@ -50,7 +51,7 @@ pub(crate) fn acquire<'s>(
     command: &str,
 ) -> Result<&'s mut Loaded, EngineError> {
     if has_load_args(args) {
-        let (loaded, listing, _, _) = load(args, command)?;
+        let (loaded, listing, _) = load(args, command)?;
         session.set_load_order(Some(listing));
         session.insert(loaded);
     }
@@ -71,7 +72,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             "pass `profile` (an MO2 profile dir) or `plugins`",
         ));
     }
-    let (loaded, listing, evidence, mut limitations) = load(args, ID)?;
+    let (loaded, listing, evidence) = load(args, ID)?;
     let failed_plugins: Vec<String> = loaded
         .lo
         .plugins
@@ -79,13 +80,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .filter(|p| p.error.is_some())
         .map(|p| p.name.clone())
         .collect();
-    if !failed_plugins.is_empty() {
-        limitations.push(format!(
-            "{} plugin(s) failed to load and have no records: {}",
-            failed_plugins.len(),
-            failed_plugins.join(", ")
-        ));
-    }
+    let limitations = loaded.limitations.clone();
     session.set_load_order(Some(listing.clone()));
     session.insert(loaded);
     Ok(Outcome {
@@ -113,11 +108,37 @@ fn scale_label(s: Option<Scale>) -> Value {
     s.map_or(Value::Null, |s| json!(s.as_str()))
 }
 
-/// Load per `args`: the session value, its JSON listing, and evidence.
-fn load(
-    args: &Value,
-    command: &str,
-) -> Result<(Loaded, Value, Vec<Evidence>, Vec<String>), EngineError> {
+/// Raw FormIDs listed per plugin for records resolved by an assumption.
+const ASSUMED_LISTED: usize = 10;
+
+/// Up to [`ASSUMED_LISTED`] records of plugin `index` resolved by an assumption, as
+/// `{raw_form_id, form, basis}`.
+fn assumed_examples(lo: &LoadOrder, index: u16) -> Vec<Value> {
+    let Some(p) = lo.plugin(index) else {
+        return Vec::new();
+    };
+    let Ok(map) = p.map.as_ref() else {
+        return Vec::new();
+    };
+    p.records()
+        .iter()
+        .filter_map(|r| {
+            let (g, basis) = map.resolve_detailed(r.form_id).ok()?;
+            basis.assumed().then(|| {
+                json!({
+                    "raw_form_id": format!("{:08X}", r.form_id),
+                    "form": lo.form_label(g),
+                    "basis": basis.as_str(),
+                })
+            })
+        })
+        .take(ASSUMED_LISTED)
+        .collect()
+}
+
+/// Load per `args`: the session value (whose `limitations` every command over it repeats),
+/// its JSON listing, and evidence.
+fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), EngineError> {
     let started = Instant::now();
     let language = args
         .get("language")
@@ -202,6 +223,19 @@ fn load(
                         assumed.join(", ")
                     ));
                 }
+                if !pl.plan.hardcoded_slots.is_empty() {
+                    let moved = if pl.plan.moved.is_empty() {
+                        String::new()
+                    } else {
+                        format!("; loadorder.txt lists {} later", pl.plan.moved.join(", "))
+                    };
+                    limitations.push(format!(
+                        "load order by the assumption `hardcoded-official-slots` \
+                         (docs/load-order.md, \"Order\"): official plugins without a plugins.txt \
+                         entry load right after the Starfield.ccc plugins: {}{moved}",
+                        pl.plan.hardcoded_slots.join(", ")
+                    ));
+                }
                 let missing = pl.plan.missing();
                 if !missing.is_empty() {
                     limitations.push(format!(
@@ -263,8 +297,6 @@ fn load(
     let cache_dir = cache.as_ref().map(|c| c.dir().display().to_string());
     let lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
         .map_err(|e| failed(command, e.to_string()))?;
-    let mut shared = vec![RUNTIME_ASSUMED.to_string()];
-
     for w in &warnings {
         limitations.push(format!("profile: {w}"));
     }
@@ -275,6 +307,10 @@ fn load(
     let mut missing_masters_total = 0usize;
     let mut full_style: Vec<String> = Vec::new();
     let mut unresolved: Vec<String> = Vec::new();
+    let mut duplicated: Vec<String> = Vec::new();
+    let mut ordering: Vec<String> = Vec::new();
+    let mut missing_links: Vec<String> = Vec::new();
+    let mut failed_plugins: Vec<String> = Vec::new();
     for (i, p) in lo.plugins.iter().enumerate() {
         let index = u16::try_from(i).unwrap_or(u16::MAX);
         let header = p.header();
@@ -283,15 +319,38 @@ fn load(
         }
         records = records.saturating_add(p.records().len() as u64);
         let assumed_self = lo.forms.full_style_self_count(index);
+        let masked = lo.forms.masked_count(index);
         if assumed_self > 0 {
-            full_style.push(format!("{} ({assumed_self})", p.name));
+            full_style.push(if masked > 0 {
+                format!("{} ({assumed_self}, {masked} masked)", p.name)
+            } else {
+                format!("{} ({assumed_self})", p.name)
+            });
         }
         let bad = lo.forms.unresolved_count(index);
         if bad > 0 {
             unresolved.push(format!("{} ({bad})", p.name));
         }
+        let duplicates = lo.forms.duplicate_count(index);
+        if duplicates > 0 {
+            duplicated.push(format!("{} ({duplicates})", p.name));
+        }
         let missing = p.missing_masters();
         missing_masters_total = missing_masters_total.saturating_add(missing.len());
+        if !missing.is_empty() {
+            missing_links.push(format!("{} needs {}", p.name, missing.join(", ")));
+        }
+        let late = p.late_masters(index);
+        if !late.is_empty() {
+            ordering.push(format!(
+                "{} loads before its master(s) {}",
+                p.name,
+                late.join(", ")
+            ));
+        }
+        if let Some(e) = &p.error {
+            failed_plugins.push(format!("{} ({e})", p.name));
+        }
         let (active, provider) = why
             .iter()
             .find(|(n, _, _)| n.eq_ignore_ascii_case(&p.name))
@@ -318,22 +377,58 @@ fn load(
             "form_version": header.map(|h| h.form_version),
             "masters": p.masters.iter().map(|m| json!({"name": m.name, "index": m.plugin})).collect::<Vec<_>>(),
             "missing_masters": missing,
-            "late_masters": p.late_masters(index),
+            "late_masters": late,
             "resolvable": p.map.is_ok(),
             "resolve_error": p.map.as_ref().err().map(ToString::to_string),
             "records": p.records().len(),
             "unresolved_records": bad,
             "full_style_self_records": assumed_self,
+            "full_style_self_masked_records": masked,
+            "assumed_records": if assumed_self > 0 { assumed_examples(&lo, index) } else { Vec::new() },
+            "duplicate_records": duplicates,
             "runtime_slot": p.runtime_slot.map(|s| s.label()),
             "cache": cache_label(p.cache),
             "error": p.error,
         }));
     }
+    // Every command over this load order repeats these (`Loaded::limitations`).
+    let mut shared = Vec::new();
+    if !ordering.is_empty() {
+        shared.push(format!(
+            "ordering error: {} master link(s) point later in the load order, so overrides and \
+             winners involving them may be wrong: {}",
+            ordering.len(),
+            ordering.join("; ")
+        ));
+    }
+    if !failed_plugins.is_empty() {
+        shared.push(format!(
+            "{} plugin(s) failed to load and have no records: {}",
+            failed_plugins.len(),
+            failed_plugins.join("; ")
+        ));
+    }
+    if !missing_links.is_empty() {
+        shared.push(format!(
+            "masters not in the load order (FormIDs of these plugins do not resolve): {}",
+            missing_links.join("; ")
+        ));
+    }
+    shared.push(RUNTIME_ASSUMED.to_string());
     if !full_style.is_empty() {
         shared.push(format!(
             "own records of small/medium plugins stored in the full class resolve to the plugin \
-             itself by the assumption `full-style-self` (docs/load-order.md): {}",
+             itself by the assumption `full-style-self`, object IDs masked to the plugin's scale \
+             (docs/load-order.md); each version says so in `resolved_by`, and `load` lists \
+             examples per plugin in `assumed_records`: {}",
             full_style.join(", ")
+        ));
+    }
+    if !duplicated.is_empty() {
+        shared.push(format!(
+            "records of one plugin that resolve to the same form (a masked full-style ID or a \
+             repeated FormID; both kept, the later record last): {}",
+            duplicated.join(", ")
         ));
     }
     if !unresolved.is_empty() {
@@ -342,6 +437,7 @@ fn load(
             unresolved.join(", ")
         ));
     }
+    shared.extend(limitations);
     let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let summary = format!(
         "{}: {} plugins loaded, {} records ({} versions resolved), {} missing master link(s), index cache {}/{} hits, {} ms",
@@ -375,11 +471,10 @@ fn load(
             source,
             strings: StringTables::new(&language, string_source),
             language,
-            limitations: shared.clone(),
+            limitations: shared,
         },
         listing,
         evidence,
-        shared.into_iter().chain(limitations).collect(),
     ))
 }
 
@@ -444,6 +539,19 @@ pub(crate) mod tests {
         masters: &[&str],
         records: &[(&[u8; 4], u32, Vec<u8>)],
     ) -> Vec<u8> {
+        let flagged: Vec<(&[u8; 4], u32, u32, Vec<u8>)> = records
+            .iter()
+            .map(|(s, id, b)| (*s, 0, *id, b.clone()))
+            .collect();
+        plugin_flagged(flags, masters, &flagged)
+    }
+
+    /// As [`plugin`], with record flags: `(signature, record flags, FormID, body)`.
+    pub(crate) fn plugin_flagged(
+        flags: u32,
+        masters: &[&str],
+        records: &[(&[u8; 4], u32, u32, Vec<u8>)],
+    ) -> Vec<u8> {
         let mut hedr = 0.96f32.to_le_bytes().to_vec();
         hedr.extend_from_slice(&1u32.to_le_bytes());
         hedr.extend_from_slice(&0x800u32.to_le_bytes());
@@ -454,7 +562,7 @@ pub(crate) mod tests {
         }
         let mut out = record(b"TES4", flags, 0, &tes4);
         let mut sigs: Vec<&[u8; 4]> = Vec::new();
-        for (s, _, _) in records {
+        for (s, _, _, _) in records {
             if !sigs.contains(s) {
                 sigs.push(s);
             }
@@ -462,8 +570,8 @@ pub(crate) mod tests {
         for s in sigs {
             let body: Vec<u8> = records
                 .iter()
-                .filter(|(x, _, _)| x == &s)
-                .flat_map(|(x, id, b)| record(x, 0, *id, b))
+                .filter(|(x, _, _, _)| x == &s)
+                .flat_map(|(x, f, id, b)| record(x, *f, *id, b))
                 .collect();
             out.extend(group(s, 0, &body));
         }
@@ -595,5 +703,52 @@ pub(crate) mod tests {
         assert_eq!(p["resolvable"], false);
         assert!(p["resolve_error"].as_str().unwrap().contains("Base.esm"));
         assert_eq!(p["unresolved_records"], 2);
+        // Every command over the load order repeats the missing master.
+        let q = json!({"plugins": ["Patch.esm"], "data_dir": dir.display().to_string(), "no_cache": true, "type": "WEAP"});
+        let r = crate::execute("query", q).unwrap();
+        assert!(has_limitation(&r, "masters not in the load order"), "{r}");
+    }
+
+    fn has_limitation(result: &Value, needle: &str) -> bool {
+        result["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains(needle))
+    }
+
+    /// Review round 2: a command that loads implicitly (a fresh CLI session) reports failed
+    /// plugins and ordering errors like `load` does.
+    #[test]
+    fn implicit_loads_keep_failed_plugins_and_ordering_errors() {
+        let dir = fixture("load-implicit");
+        std::fs::write(dir.join("Bad.esm"), b"GRUPxxxx").unwrap();
+        let args = json!({
+            "plugins": ["Patch.esm", "Base.esm", "Bad.esm"],
+            "data_dir": dir.display().to_string(),
+            "no_cache": true,
+        });
+        let mut q = args.clone();
+        q["type"] = json!("WEAP");
+        let r = crate::execute("query", q).unwrap();
+        assert!(has_limitation(&r, "1 plugin(s) failed to load"), "{r}");
+        assert!(has_limitation(&r, "Bad.esm"), "{r}");
+        assert!(
+            has_limitation(&r, "ordering error: 1 master link(s)")
+                && has_limitation(&r, "Patch.esm loads before its master(s) Base.esm"),
+            "{r}"
+        );
+        let mut i = args.clone();
+        i["form"] = json!("Pistol");
+        let r = crate::execute("inspect", i).unwrap();
+        assert!(has_limitation(&r, "failed to load"), "{r}");
+        assert!(has_limitation(&r, "ordering error"), "{r}");
+        let r = crate::execute("conflicts", args.clone()).unwrap();
+        assert!(has_limitation(&r, "failed to load"), "{r}");
+        assert!(has_limitation(&r, "ordering error"), "{r}");
+        let r = crate::execute("load", args).unwrap();
+        assert!(has_limitation(&r, "failed to load"), "{r}");
+        assert_eq!(r["coverage"]["not_examined"], json!(["Bad.esm"]));
+        assert_eq!(r["data"]["plugins"][0]["late_masters"], json!(["Base.esm"]));
     }
 }

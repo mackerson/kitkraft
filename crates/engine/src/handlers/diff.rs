@@ -47,7 +47,7 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         })?),
     };
     let d = diff_plugins(pa, pb, &extra, only.as_ref()).map_err(|e| failed(ID, e.to_string()))?;
-    let own = |k: &Key| k.label(&na);
+    let own = |k: &Key| d.label(k);
     let mut evidence = Vec::new();
     let mut limitations = vec![
         "payloads are compared as stored bytes (not decoded through the schema), so a change \
@@ -57,7 +57,8 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     if d.keyed_by == "raw" {
         limitations.push(
             "a master could not be read, so records are matched by raw FormID (both files list \
-             the same masters in the same order)"
+             the same masters in the same order and have the same own scale, so their encodings \
+             agree)"
                 .to_string(),
         );
     }
@@ -254,7 +255,9 @@ mod tests {
         assert_eq!(data["keyed_by"], "name");
         assert_eq!(data["counts"]["changed"], 1);
         assert_eq!(data["counts"]["removed"], 1);
-        assert_eq!(data["changed"][0]["form"], "base.esm:000800");
+        // Review round 2: plugin names keep the files' spelling, as in other commands.
+        assert_eq!(data["changed"][0]["form"], "Base.esm:000800");
+        assert_eq!(data["removed"][0]["form"], "Base.esm:000802");
         assert_eq!(data["changed"][0]["subrecords"][0]["signature"], "FULL");
         let b_off = data["changed"][0]["subrecords"][0]["b"]["file_offset"]
             .as_u64()
@@ -276,6 +279,36 @@ mod tests {
             one["data"]["counts"],
             json!({"added": 0, "removed": 0, "changed": 0, "unchanged": 1})
         );
+        // Raw fallback (a master missing, same masters and same own scale): said so.
+        use crate::handlers::load::tests::plugin;
+        let a = dir.join("RawA.esm");
+        let b = dir.join("RawB.esm");
+        std::fs::write(&a, plugin(0x1, &["Gone.esm"], &[(b"WEAP", 0x800, vec![])])).unwrap();
+        std::fs::write(
+            &b,
+            plugin(
+                0x1,
+                &["Gone.esm"],
+                &[(
+                    b"WEAP",
+                    0x800,
+                    crate::handlers::testdata::sub(b"DATA", &[1]),
+                )],
+            ),
+        )
+        .unwrap();
+        let raw = execute(
+            "diff",
+            json!({"a": a.display().to_string(), "b": b.display().to_string()}),
+        )
+        .unwrap();
+        assert_eq!(raw["data"]["keyed_by"], "raw");
+        assert_eq!(raw["data"]["changed"][0]["form"], "raw:00000800");
+        assert!(raw["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("same own scale")));
         let err = execute("diff", json!({"a": "x", "b": "y", "form": "nope"})).unwrap_err();
         assert_eq!(err.kind(), "failed");
         assert_eq!(

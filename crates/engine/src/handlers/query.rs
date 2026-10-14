@@ -1,6 +1,7 @@
 //! `query` (M2.D11): records of one type matching a `where` predicate, over the load order,
 //! a page at a time. Grammar and semantics: `kitcraft_doc::query`, `docs/mcp.md`.
 
+use kitcraft_doc::flags::RECORD_FLAG_DELETED;
 use kitcraft_doc::query::Query;
 use kitcraft_doc::search::{run_page, PageRequest, Scope, DEFAULT_LIMIT};
 use kitcraft_doc::{RecordReader, Version};
@@ -99,6 +100,21 @@ fn run_on(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineError> {
         limitations.push(format!(
             "{} record(s) on this page could not be decided and are not matched (see data.unknown_records)",
             page.unknown_count
+        ));
+    }
+    let deleted = page
+        .matched
+        .iter()
+        .filter(|v| {
+            lo.record(v.plugin, v.record)
+                .is_some_and(|l| l.flags & RECORD_FLAG_DELETED != 0)
+        })
+        .count();
+    if deleted > 0 {
+        limitations.push(format!(
+            "{deleted} result(s) on this page are deleted versions (record flag 0x20, \
+             `deleted: true`): `where` never evaluates their payload, only index paths \
+             (@form, @plugin, @edid, @flags)"
         ));
     }
     limitations.extend(page.reasons.iter().take(20).cloned());
@@ -218,6 +234,8 @@ fn result_json(
         "offset": loc.map(|l| l.offset),
         "runtime_id": lo.runtime_id(form).map(|r| format!("{r:08X}")),
         "winner": lo.forms.winner(form) == Some(v),
+        "deleted": loc.is_some_and(|l| l.flags & RECORD_FLAG_DELETED != 0),
+        "resolved_by": v.basis.as_str(),
     })
 }
 

@@ -259,9 +259,14 @@ order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitcr
 (`KITCRAFT_CACHE_DIR`): a warm load of the owner's 84-plugin profile takes about 0.7 s.
 Rules, evidence and assumptions: `docs/load-order.md`.
 
-Every result over a load order repeats the limitations that affect it: runtime IDs are an
-assumption (`runtime-slots-by-scale`), plugins whose own records resolve by the
-`full-style-self` assumption, and plugins with records whose FormIDs do not resolve.
+Every result over a load order (`load`, `inspect`, `query`, `conflicts`) repeats the
+limitations that affect it, whether it loaded the plugins itself or used the session's:
+ordering errors (a master loading after a plugin that names it), plugins that failed to
+load or have no file, masters missing from the load order, runtime IDs as an assumption
+(`runtime-slots-by-scale`), plugins whose own records resolve by the `full-style-self`
+assumption, records of one plugin resolving to the same form, records whose FormIDs do not
+resolve, the profile's warnings, which plugins are active by an assumption, and the
+`hardcoded-official-slots` order.
 
 String tables (M2.D7): the load order keeps the tables of its localized plugins in the
 `language` given to `load` (default `en`), read on first use per plugin from a loose
@@ -285,29 +290,35 @@ Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load 
 `localized`, `form_version`, `masters[]` `{name, index}` (index null when missing),
 `missing_masters`, `late_masters` (masters loading after the plugin), `resolvable` and
 `resolve_error`, `records`, `unresolved_records`, `full_style_self_records`,
+`full_style_self_masked_records`, `assumed_records` (the first ten records resolved by an
+assumption: `{raw_form_id, form, basis}`), `duplicate_records`,
 `runtime_slot` (`05`, `FD:01`, `FE:00A`; assumed), `cache` (`hit` | `built` |
 `uncached`), `error` (a plugin that failed to parse stays listed with no records)),
 `inactive` (plugins the profile lists but does not activate), `records`, `versions`,
 `cache_dir`, `cache_hits`, `index_ms`, `table_ms`, `elapsed_ms`, `summary`. Evidence: each
-plugin's TES4 header. Limitations add the profile's warnings and which plugins are active
-by an assumption.
+plugin's TES4 header. Coverage `not_examined` lists the plugins that failed to load.
 
 ### `inspect` (M2.D9; single-plugin mode kept)
 
 Arguments `{form, plugin?, profile?, plugins?, data_dir?, no_cache?}`.
 
 **Load-order mode** (a load order given or in the session): `form` is a formref
-(`Starfield.esm:01A2B3`: defining plugin and object ID), a hex FormID read as stored in
-`plugin` (the plugin's own master numbering), a hex runtime ID when `plugin` is absent
-(under the runtime-slot assumption), or an EditorID (ASCII case-insensitive). `data`:
+(`Starfield.esm:01A2B3`: defining plugin and object ID, never 0), a hex FormID read as
+stored in `plugin` (the plugin's own master numbering; bare hex without `plugin` is
+refused unless it is an EditorID), `runtime:<hex>` (a runtime ID under the runtime-slot
+assumption), or an EditorID (ASCII case-insensitive). `data`:
 `mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
 `form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
 `object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
-`signature`, `editor_id` (the winner's), `winner`, `summary`, and `versions[]` in load
-order: `plugin`, `load_index`, `winner`, `raw_form_id` (as stored in that plugin),
+`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `summary` (says
+"(deleted)" after a deleted winner), and `versions[]` in load
+order: `plugin`, `load_index`, `winner`, `deleted` (record flag 0x20), `resolved_by`
+(`direct` | `assumed:full-style-self` | `assumed:full-style-self-masked`), `raw_form_id`
+(as stored in that plugin),
 `record` (header fields), `subrecord_offsets`, `subrecords[]` (as below, plus `text` for
 EDID; for FULL/DESC the lstring members above; `member` (the schema's member name) and
-`value` (decoded through the schema: structs as objects, FormIDs as `{raw, form}`) where
+`value` (decoded through the schema: structs as objects, FormIDs as `{raw, form}`, the null
+FormID as `{raw: "00000000", form: null, null: true}`) where
 lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
 flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
@@ -343,7 +354,8 @@ Candidates are the winning version of every form of `type` (`winner`) or every v
 `data`: `type`, `where`, `scope`, `limit`, `matched`, `unknown` (records on this page that
 could not be decided: not matched), `scanned`, `candidates`, `next_cursor` (null on the
 last page), `results[]` (`form`, `signature`, `editor_id`, `full` (`{text}` inline, or the
-lstring members above), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`),
+lstring members above), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`,
+`deleted`, `resolved_by`),
 `unknown_records[]` (first 20: `form`, `plugin`, `reasons`), `elapsed_ms`, `summary`.
 Evidence: each result's record header and its FULL payload. A cursor is opaque; one from
 another load order, type, `where` or scope is a `failed` error. Paging returns the same set
@@ -358,16 +370,18 @@ and     = not { "and" not } ;
 not     = "not" not | atom ;
 atom    = "(" or ")" | "has" SIG | path op value ;
 path    = SIG { "." member } [ "[" index "]" ] | "@form" | "@plugin" | "@edid" | "@flags" ;
-op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" ;
-value   = number | hex | string | formref | "true" | "false" ;
-formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
+op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" | "&" ;
+value   = number | hex | string | formref | "true" | "false" | "null" ;
+formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3; object ID not 0)
 ```
 
 - Keywords, signatures and member names are ASCII case-insensitive. Text comparisons
   (`==`, `!=`, `~` contains, `!~` does not contain, `^=` starts with) are ASCII
   case-insensitive. Ordering operators need a number; `@form` takes `==`/`!=` and a
   formref (bare, or quoted when the file name has spaces); `@plugin` and `@edid` take
-  text; `@flags` (record flags) takes numbers.
+  text; `@flags` (record flags) takes numbers. `&` tests bits: `@flags & 0x20` is true when
+  every bit of the mask (a non-negative integer) is set; it applies to integer fields too.
+  `null` is the null FormID (`00000000`): `KWDA == null`; it takes `==`/`!=` only.
 - A repeated subrecord matches if any occurrence matches; `[n]` picks occurrence `n`
   (0-based).
 - Field paths are decoded through lane B's schema definitions (`crates/doc/src/typed.rs`):
@@ -377,12 +391,17 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
   their resolved text. A record type or subrecord without a definition falls back to
   `EDID` as text and `FULL`/`DESC` as lstrings.
 - A subrecord the record does not have makes a comparison false and `has` false. A value
-  of another kind than the literal (a GMST string variant against `DATA > 100`) is not
-  equal, not ordered and does not contain: false (`!=` and `!~` true). Unknown: a member
+  of a union member (the schema picks its variant per record) of another kind than the
+  literal (a GMST string variant against `DATA > 100`) is another variant: not equal, not
+  ordered and does not contain, so false (`!=` and `!~` true). Any other kind mismatch (a
+  FormID or boolean against a number, text against a number) is unknown, with the reason.
+  Unknown also: a member
   inside bytes the schema keeps opaque or a payload its layout does not cover, a subrecord
   without any definition, a string ID in no table, a FormID that does not resolve, a record
-  that cannot be read. `and`/`or`/`not` follow Kleene logic; an unknown record is not
-  matched, is counted, and its reasons are listed.
+  that cannot be read, a record missing from the index (`@flags` too), and any field path or
+  `has` on a deleted version (record flag 0x20: its payload is not the form's data).
+  `and`/`or`/`not` follow Kleene logic; an unknown record is not matched, is counted, and
+  its reasons are listed.
 - Errors (`failed`) carry a 1-based column: `where: column 6: ...`. Text is capped at 4,096
   characters and nesting at 64.
 
@@ -394,8 +413,9 @@ masters' scales are read from their headers next to each file or in `data_dir` (
 `KITCRAFT_DATA_DIR`). A file's
 own records match the other file's records of it when the other lists it as a master, and
 match each other otherwise (an edited copy). If a master cannot be found but both files
-list the same masters in the same order, records are matched by raw FormID
-(`keyed_by: "raw"`); otherwise the diff fails naming the master.
+list the same masters in the same order and have the same own scale, records are matched by
+raw FormID (`keyed_by: "raw"`, forms labelled `raw:XXXXXXXX`); otherwise the diff fails
+naming the master. Formrefs spell plugin names as the files do (`Base.esm:000800`).
 
 `data`: `a`, `b`, `form`, `keyed_by` (`name` | `raw`), `counts {added, removed, changed,
 unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offset`), and
@@ -417,7 +437,7 @@ Starfield.esm --profile <dir>` (alias `esmscan`).
 (overridden forms passing the filters), `items[]` (a page: `form`, `signature`,
 `editor_id`, `base_present`, `versions` (plugin names in load order), `overrides[]`:
 `plugin`, `previous`, `class` (`identical-to-previous` | `deleted` | `differs` |
-`first-version`), `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
+`first-version`), `resolved_by`, `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
 `class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
 Evidence: each override's record header and its differing payloads.
 `only_conflicts` keeps forms that two or more plugins override.

@@ -54,16 +54,50 @@ A plugin is active when the first of these rules applies (`kitcraft_io::Active`)
 | `mo2-unmanaged:<entry>` (**assumption**) | The plugin of a `*Unmanaged: X` modlist entry. Evidence it is loaded: `ShatteredSpace.esm` is in neither `plugins.txt` nor `Starfield.ccc` nor the LOOT list, yet it is a master of the active `SVF-ShatteredSpace-Patch.esm`, so the game must load it. How the game learns about it (its own Creations list) is **not observed**. |
 | `blueprint-companion-of:<base>` | `BlueprintShips-<base>.esm` when `<base>` is active (LOOT 0.29.0: BlueprintShips plugins "displayed as active when there is an active plugin that matches the BlueprintShips plugin's suffix"; 0.29.1: they are no longer written to `plugins.txt`). In the Default profile both companions are already active by other rules (`BlueprintShips-Starfield.esm` through `Starfield.ccc`, `BlueprintShips-SFBGS050.esm` through its unmanaged entry), so the rule is fixture-tested only. |
 
-Order: `loadorder.txt`; an active plugin it does not list is appended with a warning.
+### Order (assumption `hardcoded-official-slots`)
+
+1. The `Starfield.ccc` plugins, in the ccc's order.
+2. The other official plugins the game loads without a `plugins.txt` entry: the
+   `hardcoded-official` and `mo2-unmanaged` ones, and blueprint companions of either, in
+   `loadorder.txt`'s relative order (any it does not list last).
+3. Everything else in `loadorder.txt` order; an active plugin it does not list is appended
+   with a warning.
+
+Why: MO2's `loadorder.txt` does not reflect where the game puts these plugins. The owner's
+file lists `ShatteredSpace`, `SFBGS004`, `SFBGS00D`, `SFBGS050`,
+`BlueprintShips-SFBGS050` and `SFBGS047` at lines 68-84, after managed plugins; yet
+`stroudpremiumedition.esm` (line 73) names `sfbgs00d.esm` and `SFBGS047.esm` as masters,
+and a master always loads before its dependents. LOOT 0.29.0 (2026-04-11, changelog above)
+says `SFBGS00D`, `SFBGS047` and `SFBGS050` have hardcoded positions, and the owner's
+`loadorder.staged.txt` (2026-09-30) puts all six right after `SFBGS003.esm`, the last ccc
+plugin. Their exact order among themselves is **not observed**: KitCraft keeps
+`loadorder.txt`'s relative order (the staged file differs only in where
+`BlueprintShips-SFBGS050.esm` sits). **Still open (M2.O4):** the game's or the CK's own
+view of this order. Results over a profile name the assumption and the plugins it moved.
+
 Where blueprint masters really load is **open**: LOOT 0.29.0 writes their timestamps "to
 match their load order" because the game drops them from `plugins.txt`, which suggests the
-game orders them by timestamp. KitCraft uses the `loadorder.txt` position.
+game orders them by timestamp.
+
+Any master that still loads after a plugin naming it (`late_masters` in `load`) is an
+**ordering error**, carried in the limitations of every result over that load order
+(`load`, `inspect`, `query`, `conflicts`), since overrides and winners involving it may be
+wrong. `diff` takes no load order.
+
+Effect on the Default profile (`crates/io/tests/default_profile.rs`, ignored release test
+`hardcoded_slots_effect_on_the_default_profile`, 2026-10-14): in `loadorder.txt` order 2
+master links point later (`stroudpremiumedition.esm` before `sfbgs00d.esm` and
+`SFBGS047.esm`); in this order none. 15 overridden forms change winner, every one from a
+slotted official plugin (`SFBGS050` 11, `SFBGS00D` 3, `BlueprintShips-SFBGS050` 1) to a
+managed mod that loads after it (`stroudpremiumedition` 4, `TIG_Shipyards` 4, `MB_Scrappy`
+3, `TNClassM`, `Resupply`, `outfit_variety_paradiso`, `NPC Outfit Changer` 1 each).
 
 On the Default profile (`crates/io/tests/default_profile.rs`, counts computed from the files):
 84 plugins, all active: 8 `Starfield.ccc`, 3 hardcoded, 70 `plugins.txt`, 3 unmanaged
 (`SFBGS004.esm`, `ShatteredSpace.esm`, `BlueprintShips-SFBGS050.esm`); every one resolves
-to an existing file (70 from mod folders, 14 from the game Data dir), and the active list in
-order equals `loadorder.txt`. The profile files' sizes and mtimes are unchanged by the run.
+to an existing file (70 from mod folders, 14 from the game Data dir), and the active list is
+exactly `loadorder.txt`'s entries in the order above. The profile files' sizes and mtimes
+are unchanged by the run.
 
 ## Plugin flags and scale
 
@@ -120,8 +154,16 @@ https://blog.ortham.net/posts/2024-06-28-load-order-in-starfield/):
 The index counts **only the file's masters of that class**, in master-list order; the
 index equal to that count, in the file's own class, is the file itself. The file does not
 say what scale its masters are, so resolution loads every master's header first; a
-missing master makes every FormID of the file unresolvable (a typed error,
-`ResolveError::MissingMaster`), never a guess.
+master that is unavailable makes every FormID of the file unresolvable, never a guess
+(ADR 0004, owner approval rule 5). The errors are typed (`kitcraft_doc::ResolveError`):
+`MissingMaster` (not in the load order), `MasterNotLoaded` (in the load order, but its file
+failed to load), `PluginNotLoaded` (the file itself failed to load), `BadScale` (both scale
+bits set), `IndexOutOfRange`, and `Null`.
+
+**The null FormID.** A raw `00000000` is the null reference, not a form: it never resolves
+(`ResolveError::Null`, never `Starfield.esm:000000`). A typed FormID member holding it
+shows as `{"raw": "00000000", "form": null, "null": true}` in `inspect` and as the value
+`null` in `where` (`KWDA == null`); a formref with object ID 0 does not parse.
 
 Corpus confirmation (`crates/doc/tests/corpus.rs`, `corpus:` source):
 
@@ -146,10 +188,20 @@ this (`crates/doc/tests/corpus.rs` asserts zero), but on the owner's Default pro
 third-party small or medium plugins do (for example `Resupply.esm` stores `01000CA6` with
 one full master; `Hatch-22.esm`, masters `Starfield.esm` (full) and `SFBGS006.esm`
 (medium), stores its own records `01xxxxxx`, so the index counts full masters only).
-KitCraft resolves these to the file itself, counts them per plugin
-(`full_style_self_records` in `load`) and names the plugins in a limitation. Third-party
-files are the user's load order here, not evidence for the rule (M2.O5); the rule's source
-is Ortham's example.
+KitCraft resolves these to the file itself, with the stored 24-bit object ID **masked to
+the file's own scale** (`0xFFFF` medium, `0xFFF` small), as in Ortham's example, where
+`02051808` appears as `FD011808`: object `1808`, the `05` dropped. So `01012345` in a medium
+file with one full master is that file's object `2345` (`crates/doc/src/form.rs` and
+`load_order.rs` tests). Every version says how it resolved (`resolved_by`: `direct`,
+`assumed:full-style-self`, or `assumed:full-style-self-masked` when the mask dropped set
+bits) in `inspect`, `query` and `conflicts`; `load` counts them per plugin
+(`full_style_self_records`, `full_style_self_masked_records`) and lists the first ten
+(`assumed_records`). Two records of one plugin that resolve to the same form (a masked ID
+landing on another record, or a repeated FormID) are both kept, the later record last, and
+reported (`duplicate_records`, and a limitation). Third-party files are the user's load
+order here, not evidence for the rule (M2.O5); the rule's source is Ortham's example.
+Default profile, 2026-10-14: 63,798 records of 27 plugins resolve this way, none needs the
+mask, and no plugin has duplicates.
 
 Still unresolved on the Default profile: the 4 records of `HG_ShipCargoHoldAtHome.esm`,
 which has one master and stores its records `02xxxxxx`. They stay typed errors (left out of
@@ -163,33 +215,71 @@ payload bytes as stored and say so.
 
 **Assumption** `runtime-slots-by-scale` (Ortham 2024; LOOT guide): active plugins take
 slots in load order per scale: full plugins `00`..`FC` (runtime ID `SSxxxxxx`), medium
-plugins `FD00`..`FDFF` (`FDSSxxxx`), small plugins `FE000`..`FEFFF` (`FESSSxxx`). Update
-plugins (0x200) take full slots (Ortham: since game version 1.12.30.0); blueprint plugins
-(0x800) are treated as full because they set neither scale bit. **Not observed** in the
-game console or the CK on this machine (M2.O4); results that show a runtime ID say it is
-assumed. Our scripts README says the in-game high byte is "the plugin's load-order index",
-which matches the full-slot case.
+plugins `FD00`..`FDFF` (`FDSSxxxx`), small plugins `FE000`..`FEFFF` (`FESSSxxx`). The slot
+class comes from the **scale bits only** (0x100 small, 0x400 medium, else full;
+`kitcraft_doc::form::runtime_slots`): the update flag (0x200) and the blueprint flag (0x800)
+do not change it, so an update or blueprint plugin without a scale bit takes a full slot.
+This is part of the assumption. An earlier version of this page said update plugins take
+full slots (citing Ortham for game version 1.12.30.0); the two readings differ only for an
+update plugin that also sets a scale bit, which no corpus file and no Default-profile
+plugin does (no plugin there sets 0x200). **Not observed** in the game console or the CK
+on this machine (M2.O4); results that show a runtime ID say it is assumed. Our scripts
+README says the in-game high byte is "the plugin's load-order index", which matches the
+full-slot case.
+
+`inspect` reads a bare hex `form` only as stored in a named `plugin`; a runtime ID needs
+the explicit `runtime:` prefix (`runtime:FE00A801`), so a raw FormID is never taken for a
+runtime one by accident.
+
+## Deleted records
+
+Record flag 0x20 marks a deleted record (UESP, Skyrim mod file format, a container fact).
+`inspect` shows `deleted` on every version and `winner_deleted` (with "(deleted)" in the
+summary and a limitation); `query` results carry `deleted`, and `where` never evaluates a
+deleted version's payload: field paths and `has` are unknown there (with the reason),
+while the index paths `@form`, `@plugin`, `@edid` and `@flags` still work (`@flags & 0x20`
+finds deleted versions). Default profile: 8,206 of the 15,893 override records are deleted.
 
 ## Index cache (M2.D5)
 
 `%LOCALAPPDATA%\kitcraft\cache\<fnv64(path)>.kcidx`, or `KITCRAFT_CACHE_DIR`; never in the
-game Data dir or a profile. An entry stores the absolute path, file size, mtime (ns),
-format version and an FNV-1a checksum; any mismatch, truncation or corruption rebuilds the
-entry. Format: `crates/doc/src/cache.rs`.
+game Data dir or a profile. Format: `crates/doc/src/cache.rs` (format version 3).
 
-Timings (release, this machine):
+**Staleness rule** (exactly what is compared; anything else rebuilds the entry, never
+trusts it):
+
+1. the entry's FNV-1a checksum verifies, and its format version and the esm index format
+   version match;
+2. its stored absolute path equals the plugin's;
+3. the plugin's current size and modification time (nanoseconds since the Unix epoch, as
+   the file system reports them) equal the stored ones;
+4. a content sample equals the stored one: FNV-1a over the file size and the first and
+   last 64 KiB of the file (the first part holds the TES4 header: flags and masters).
+
+A plugin whose modification time is unknown or 0 is never cached or read from the cache.
+Not detected: an edit that keeps the size and the mtime and changes only bytes outside the
+two sampled ends (tools that write plugins update the mtime). Tests: a new mtime, a new
+size, and the same size and mtime with changed content each rebuild; mtime 0 is never
+stored.
+
+Timings and memory (release, this machine; peak working set sampled from the process):
 
 | Load | Cold (no cache) | Warm |
 | ---- | --------------- | ---- |
 | 14 official files (`crates/doc/tests/corpus.rs`) | 6.8 s | 0.65 s |
-| Default profile, 84 plugins, 7,739,193 records (`kit load --profile`, wall clock) | 6.0 s | 0.68 s |
+| Default profile, 84 plugins, 7,739,193 records (`kit load --profile`, wall clock) | 4.7 s, peak working set 482 MB | 0.73 s, 376 MB |
+
+The review of 2026-10-14 measured the same load at 478 MB cold and 375 MB warm peak working
+set. Memory is dominated by the per-plugin indexes (32 bytes per record) and the override
+table (16 bytes per record).
 
 On the warm Default profile (release, `kit` wall clock including the load): `query --type
-WEAP --where "FULL ~ 'Old Earth Hunting Rifle'"` about 1 s (541 candidates; the string tables
-of every plugin with a WEAP are read on first use), `inspect
-Starfield.esm:001116` 0.8 s, `conflicts --count-classes` (15,586 overridden forms, 15,893
-override records: 8,206 deleted, 6,031 differs, 1,641 identical to the previous version,
-15 first versions without a base record) 2.8 s.
+WEAP --where "FULL ~ 'Old Earth Hunting Rifle'"` about 1.7 s (1.0 s in process; 541
+candidates; the string tables of every plugin with a WEAP are read on first use), `inspect
+Starfield.esm:001116` 0.7 s, `conflicts --count-classes` (15,586 overridden forms, 15,893
+override records: 8,206 deleted, 6,028 differs, 1,644 identical to the previous version,
+15 first versions without a base record) 2.7 s. (Before `hardcoded-official-slots`: 6,031
+differs and 1,641 identical; reordering changes which version is "previous".)
 
 ## String tables (M2.D7)
 
