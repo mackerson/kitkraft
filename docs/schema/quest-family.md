@@ -27,7 +27,7 @@ entirely as bytes.
 | QUST | 2,610 | 7 | 162 / 12 / 11 | component block, ALFG, create-matching ALCA, ALAM, COED | SNAM, COED |
 | PACK | 4,578 | 5 | 38 / 12 / 4 | component block, data-input CNAM | component block, CNAM combat style |
 | DIAL | 87,031 | 6 | 11 / 0 / 3 | component block | - |
-| INFO | 162,028 | 6 | 49 / 5 / 6 | component block, NAM9, INTV, animation DTGT | TPIC, TROI, SOFT, SPOR, SHRT, DTGT, ACEP, animation conditions |
+| INFO | 162,028 | 6 | 48 / 6 / 6 | component block, NAM9, INTV, animation DTGT | TPIC, TROI, SOFT, SPOR, SHRT, DTGT, ACEP, animation conditions |
 | SCEN | 9,673 | 6 | 51 / 4 / 2 | action type-specific subrecords, VNAM | - |
 | SMBN | 173 | 5 | 8 / 1 / 0 | - | - |
 | SMQN | 471 | 5 | 13 / 1 / 0 | - | - |
@@ -129,7 +129,7 @@ topics have an EditorID; 301 have a player-visible name (FULL).
 **INFO (response).** `ResponseFlags` (ENAM: a flags word and the reset time), optional
 `SharedInfo` (DNAM: reuse another response's lines) and `InfoGroup` (GNAM: 61,464 responses
 belong to an info group), then the `Response` lines (164,632 in all): TRDA (emotion
-keyword, voice file number, emotion out), per-voice-type emotions (TROT), the text (NAM1,
+keyword or none, voice file number, emotion out), per-voice-type emotions (TROT), the text (NAM1,
 a string-table ID), script notes, edits and alternate lip text (NAM2..NAM4), a text hash,
 an optional animation block (BNAM idle, subgraph, body/face/flavor archetype keywords,
 markers, delay, action, ended by XNAM), an optional head-tracking block between two HNAM
@@ -225,6 +225,7 @@ NNAM entries (counts are stored, not derived).
 | Base form component blocks (FACT 1, QUST 1, DIAL 4, INFO 6, CHAL 10) | each block's layout is chosen by its component name | CHAL's whole content (activities, their FULL/DESC string IDs, conditions, rewards) is raw |
 | SCEN action type-specific subrecords | layout chosen by the action type; the same signature means different things in different action types (HNAM marker/float/alias, SNAM phase/time, DATA topic) | topics, packages, scenes, references and keywords named by actions are not visited |
 | PACK data-input CNAM, PTDA target, PLDT/PLVD value, PDTO data | unions selected by the input type text or a type field | the targets are not visited |
+| INFO TRDA emotion | a KYWD FormID or the sentinel 0xFFFFFFFF (53,844 response lines of Starfield.esm); a FormID member would report every sentinel as `formid.dangling` | emotion keywords are not visited |
 | INFO ENAM flags | two flag sets, chosen by the record's InfoGroup header flag | kept as a 16-bit number |
 | QUST ALFG | a float upstream, but every official value is 0 or the bit pattern 0x00000002 | kept as 4 raw bytes until the CK settles it |
 | QUST create-matching ALCA | 6 bytes upstream, 4 in all 13 official occurrences | raw |
