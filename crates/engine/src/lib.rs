@@ -131,9 +131,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Query...",
         shortcut: Some("Ctrl+F"),
         aliases: &["find"],
-        summary: "Find records by type and field predicate",
-        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string"},"limit":{"type":"integer","minimum":1},"cursor":{"type":"string","description":"Opaque paging token from the previous result"}},"required":["type"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Records of one type matching a where predicate across the load order (winner or all versions), paged",
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string","description":"Predicate, e.g. FULL ~ \"Rifle\" and not has KWDA (docs/mcp.md, query)"},"scope":{"type":"string","enum":["winner","all"],"default":"winner","description":"winner: the winning version of each form; all: every version"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "set",

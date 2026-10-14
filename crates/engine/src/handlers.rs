@@ -7,6 +7,7 @@
 mod coverage;
 mod inspect;
 mod load;
+mod query;
 mod roundtrip;
 #[cfg(test)]
 pub(crate) mod testdata;
@@ -30,6 +31,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
     vec![
         ("load", Box::new(load::run)),
         ("inspect", Box::new(inspect::run)),
+        ("query", Box::new(query::run)),
     ]
 }
 
