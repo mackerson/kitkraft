@@ -11,16 +11,28 @@
 //!
 //! A record goes where its [`GroupHeader`] path says: the top-level group first (type 0,
 //! labelled with a record type), then each nested group, matched by label and group type.
-//! [`crate::index::PluginIndex::group_headers`] gives the path of a record in the plugin
-//! it comes from. A missing top-level group is created in the order of
-//! [`TOP_GROUP_ORDER`]; a missing nested group whose label is the FormID of a record in
-//! its parent (cell, world and topic children: UESP, Skyrim_Mod:Mod_File_Format, "Groups")
-//! is created right after that record, any other at the end of its parent.
+//! The path is computed by [`crate::cells::placement`] (M4.A2) from the record and the
+//! world, cell, quest or topic it belongs to, or taken from the plugin a record comes from
+//! ([`crate::index::PluginIndex::group_headers`]).
+//!
+//! Missing groups and new records go where the corpus rules of [`crate::cells`] put them
+//! (M4.A2; the rebuild gate in `tests/rebuild.rs` reproduces every top-level group of the
+//! 14 official files this way): a top-level group in [`TOP_GROUP_ORDER`] order; a children
+//! group (types 1, 6, 7, 10) right after the record its label names (at the end of its
+//! parent when that record is missing); blocks and sub-blocks (types 2 to 5) by label; a
+//! cell's persistent and temporary children in the [`PlacementStyle`]'s order; records by
+//! FormID where the corpus orders them (sub-blocks, topic and quest children, the
+//! top-level `WRLD` and `QUST` groups), a world's persistent cell first, `NAVM` first in a
+//! temporary group when the style says so, and appended everywhere else. A new group gets
+//! the style's stamps, and a nested `NAVM`, `DIAL`, `INFO`, `DLBR` or `SCEN` also gets its
+//! empty top-level group when the style keeps one ([`Plugin::upsert_styled`];
+//! [`Plugin::upsert`] and the streaming upsert's default use the official pipeline's style,
+//! [`RewriteOptions::placement`] another).
 //!
 //! Inside the innermost group a direct child record with the same FormID and signature is
-//! replaced in place; otherwise the record is appended. Records are copied as given: their
-//! FormIDs are stored values, file-relative to the masters of the plugin they are written
-//! into, and nothing here remaps them or infers anything about a master.
+//! replaced in place. Records are copied as given: their FormIDs are stored values,
+//! file-relative to the masters of the plugin they are written into, and nothing here
+//! remaps them or infers anything about a master.
 //!
 //! The `HEDR` record count follows [`crate::tes4`]: recomputed (majority meaning) when
 //! records are added, kept when one is only replaced.
@@ -28,6 +40,7 @@
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
+use crate::cells::{ChildOrder, PlacementStyle};
 use crate::driver::{stream_rewrite, to_path, RewriteOptions, RewriteReport};
 use crate::model::{Body, Entry, Group, GroupHeader, Plugin, Record, RecordHeader, Subrecord};
 use crate::{Error, Reader, Result, Signature, HEADER_LEN};
@@ -281,9 +294,106 @@ fn check_path(path: &[GroupHeader], record: &Record<'_>) -> Result<()> {
     }
 }
 
-/// Place `record` under the groups `rest` inside `children` (the children of the group
-/// the path has reached).
-fn place<'a>(children: &mut Vec<Entry<'a>>, rest: &[GroupHeader], record: Record<'a>) -> Upsert {
+/// Sort key of a record among the records of a group whose records ascend (see
+/// [`records_ascend`]): quest children order `DLBR`, `DIAL`, `SCEN` first, then all by
+/// stored FormID.
+fn record_key(record: &Record<'_>) -> (u8, u32) {
+    let class = match &record.header.signature.0 {
+        b"DLBR" => 0,
+        b"DIAL" => 1,
+        b"SCEN" => 2,
+        _ => 3,
+    };
+    (class, record.header.form_id)
+}
+
+/// Whether the records of a group with header `parent` ascend by [`record_key`] in the
+/// corpus (`crate::cells`, "Order"): interior and exterior sub-blocks, topic and quest
+/// children, and the top-level `WRLD` and `QUST` groups.
+fn records_ascend(parent: &GroupHeader) -> bool {
+    use crate::cells::group_type::*;
+    match parent.group_type {
+        TOP => parent.label == *b"WRLD" || parent.label == *b"QUST",
+        INTERIOR_SUB_BLOCK | EXTERIOR_SUB_BLOCK | TOPIC_CHILDREN | QUEST_CHILDREN => true,
+        _ => false,
+    }
+}
+
+/// Where a new record goes among `children`, the children of the group `parent`.
+fn record_position(
+    children: &[Entry<'_>],
+    parent: &GroupHeader,
+    record: &Record<'_>,
+    style: &PlacementStyle,
+) -> usize {
+    use crate::cells::group_type::*;
+    let end = children.len();
+    if records_ascend(parent) {
+        let key = record_key(record);
+        return children
+            .iter()
+            .position(|e| matches!(e, Entry::Record(r) if record_key(r) > key))
+            .unwrap_or(end);
+    }
+    match parent.group_type {
+        // The world's persistent cell comes before the exterior blocks.
+        WORLD_CHILDREN => children
+            .iter()
+            .position(|e| matches!(e, Entry::Group(g) if g.header.group_type == EXTERIOR_BLOCK))
+            .unwrap_or(end),
+        CELL_TEMPORARY if style.navmesh_first && record.header.signature.0 == *b"NAVM" => children
+            .iter()
+            .position(|e| !matches!(e, Entry::Record(r) if r.header.signature.0 == *b"NAVM"))
+            .unwrap_or(end),
+        _ => end,
+    }
+}
+
+/// Where a new group `header` goes among `children`.
+fn group_position(children: &[Entry<'_>], header: &GroupHeader, style: &PlacementStyle) -> usize {
+    use crate::cells::group_type::*;
+    let end = children.len();
+    match header.group_type {
+        // Blocks and sub-blocks ascend by label read as a u32.
+        INTERIOR_BLOCK | INTERIOR_SUB_BLOCK | EXTERIOR_BLOCK | EXTERIOR_SUB_BLOCK => children
+            .iter()
+            .position(|e| {
+                matches!(e, Entry::Group(g) if g.header.group_type == header.group_type
+                    && g.header.label_u32() > header.label_u32())
+            })
+            .unwrap_or(end),
+        CELL_PERSISTENT | CELL_TEMPORARY => {
+            let first = match style.cell_children {
+                ChildOrder::TemporaryFirst => CELL_TEMPORARY,
+                ChildOrder::PersistentFirst => CELL_PERSISTENT,
+            };
+            if header.group_type == first {
+                0
+            } else {
+                end
+            }
+        }
+        // Children groups follow the record their label names; anything else (or a
+        // children group whose record is missing) goes to the end.
+        _ => {
+            let parent = header.label_u32();
+            children
+                .iter()
+                .position(|e| matches!(e, Entry::Record(r) if r.header.form_id == parent))
+                .map_or(end, |i| i.saturating_add(1))
+        }
+    }
+}
+
+/// Place `record` under the groups `rest` inside `children`, the children of the group
+/// `parent` the path has reached.
+fn place<'a>(
+    children: &mut Vec<Entry<'a>>,
+    parent: &GroupHeader,
+    rest: &[GroupHeader],
+    record: Record<'a>,
+    style: &PlacementStyle,
+) -> Upsert {
     let Some((next, deeper)) = rest.split_first() else {
         let same = children.iter().position(|e| match e {
             Entry::Record(r) => {
@@ -298,7 +408,8 @@ fn place<'a>(children: &mut Vec<Entry<'a>>, rest: &[GroupHeader], record: Record
                 Upsert::Replaced
             }
             None => {
-                children.push(Entry::Record(record));
+                let at = record_position(children, parent, &record, style);
+                children.insert(at, Entry::Record(record));
                 Upsert::Inserted
             }
         };
@@ -310,20 +421,34 @@ fn place<'a>(children: &mut Vec<Entry<'a>>, rest: &[GroupHeader], record: Record
     let index = match found {
         Some(i) => i,
         None => {
-            let parent = u32::from_le_bytes(next.label);
-            let at = children
-                .iter()
-                .position(|e| matches!(e, Entry::Record(r) if r.header.form_id == parent))
-                .map_or(children.len(), |i| i.saturating_add(1));
+            let at = group_position(children, next, style);
             children.insert(at, Entry::Group(Group::new(*next)));
             at
         }
     };
     match children.get_mut(index) {
-        Some(Entry::Group(g)) => place(g.children_mut(), deeper, record),
+        Some(Entry::Group(g)) => {
+            let header = g.header;
+            place(g.children_mut(), &header, deeper, record, style)
+        }
         // `index` was found or inserted as a group just above.
         _ => Upsert::Inserted,
     }
+}
+
+/// The empty top-level group a record placed at `path` needs under `style`, if any: the
+/// official pipeline keeps an empty top-level group for each of
+/// [`crate::cells::PLACEHOLDER_TYPES`] it has nested records of.
+fn placeholder_for(
+    path: &[GroupHeader],
+    record: &Record<'_>,
+    style: &PlacementStyle,
+) -> Option<GroupHeader> {
+    let signature = record.header.signature;
+    (style.placeholder_groups
+        && path.len() > 1
+        && crate::cells::PLACEHOLDER_TYPES.contains(&signature))
+    .then(|| style.header(signature.0, 0))
 }
 
 impl Plugin<'static> {
@@ -339,16 +464,48 @@ impl<'a> Plugin<'a> {
     /// creating missing groups. The top-level group is created in [`TOP_GROUP_ORDER`]
     /// order, before the first top-level entry ranked after it.
     pub fn upsert(&mut self, path: &[GroupHeader], record: Record<'a>) -> Result<Upsert> {
+        self.upsert_styled(path, record, &PlacementStyle::OFFICIAL)
+    }
+
+    /// [`Plugin::upsert`] with the group order and stamps of `style` (see
+    /// [`crate::cells`]): new groups and records go where the corpus rules put them, and
+    /// a nested `NAVM`, `DIAL`, `INFO`, `DLBR` or `SCEN` also gets its empty top-level
+    /// group when the style keeps one.
+    pub fn upsert_styled(
+        &mut self,
+        path: &[GroupHeader],
+        record: Record<'a>,
+        style: &PlacementStyle,
+    ) -> Result<Upsert> {
         check_path(path, &record)?;
         let Some((top, rest)) = path.split_first() else {
             return Ok(Upsert::Inserted);
         };
+        if let Some(placeholder) = placeholder_for(path, &record, style) {
+            self.top_group(&placeholder);
+        }
+        let index = self.top_group(top);
+        match self.entries_mut().get_mut(index) {
+            Some(Entry::Group(g)) => {
+                let header = g.header;
+                Ok(place(g.children_mut(), &header, rest, record, style))
+            }
+            _ => Err(Error::Internal {
+                offset: 0,
+                message: "top-level group vanished while placing a record",
+            }),
+        }
+    }
+
+    /// The index of the top-level group `top` names, created in [`TOP_GROUP_ORDER`] order
+    /// when missing.
+    fn top_group(&mut self, top: &GroupHeader) -> usize {
         let entries = self.entries_mut();
         let found = entries.iter().position(|e| match e {
             Entry::Group(g) => g.header.same_group(top),
             Entry::Record(_) => false,
         });
-        let index = match found {
+        match found {
             Some(i) => i,
             None => {
                 let rank = top_group_rank(Signature(top.label)).unwrap_or(usize::MAX);
@@ -359,13 +516,6 @@ impl<'a> Plugin<'a> {
                 entries.insert(at, Entry::Group(Group::new(*top)));
                 at
             }
-        };
-        match entries.get_mut(index) {
-            Some(Entry::Group(g)) => Ok(place(g.children_mut(), rest, record)),
-            _ => Err(Error::Internal {
-                offset: 0,
-                message: "top-level group vanished while placing a record",
-            }),
         }
     }
 }
@@ -439,33 +589,43 @@ pub fn upsert_reader<R: Read + Seek>(
     for p in &placed {
         check_path(&p.path, &p.record)?;
     }
+    let style = options.placement;
     let existing = top_level_labels(&mut input, len)?;
     let mut outcomes: Vec<Option<Upsert>> = vec![None; placed.len()];
     // Records whose top-level group the plugin has wait for it in the stream; the others
     // go into new top-level groups now, written before the first entry ranked after them.
     let mut pending: Vec<Option<Placed>> = Vec::with_capacity(placed.len());
     let mut created: Vec<(usize, Group<'static>)> = Vec::new();
-    for (p, outcome) in placed.into_iter().zip(outcomes.iter_mut()) {
-        let Some(top) = p.path.first().copied() else {
-            pending.push(None);
-            continue;
-        };
-        if existing.iter().any(|g| g.same_group(&top)) {
-            pending.push(Some(p));
-            continue;
-        }
-        pending.push(None);
-        let rest = p.path.get(1..).unwrap_or(&[]);
-        let i = match created.iter().position(|(_, g)| g.header.same_group(&top)) {
+    let create = |created: &mut Vec<(usize, Group<'static>)>, top: GroupHeader| -> usize {
+        match created.iter().position(|(_, g)| g.header.same_group(&top)) {
             Some(i) => i,
             None => {
                 let rank = top_group_rank(Signature(top.label)).unwrap_or(usize::MAX);
                 created.push((rank, Group::new(top)));
                 created.len().saturating_sub(1)
             }
+        }
+    };
+    for (p, outcome) in placed.into_iter().zip(outcomes.iter_mut()) {
+        let Some(top) = p.path.first().copied() else {
+            pending.push(None);
+            continue;
         };
+        if let Some(placeholder) = placeholder_for(&p.path, &p.record, &style) {
+            if !existing.iter().any(|g| g.same_group(&placeholder)) {
+                create(&mut created, placeholder);
+            }
+        }
+        if existing.iter().any(|g| g.same_group(&top)) {
+            pending.push(Some(p));
+            continue;
+        }
+        pending.push(None);
+        let rest = p.path.get(1..).unwrap_or(&[]);
+        let i = create(&mut created, top);
         if let Some((_, g)) = created.get_mut(i) {
-            *outcome = Some(place(g.children_mut(), rest, p.record));
+            let header = g.header;
+            *outcome = Some(place(g.children_mut(), &header, rest, p.record, &style));
         }
     }
     // Stable: groups of equal rank (unknown types) keep their first-use order.
@@ -491,7 +651,8 @@ pub fn upsert_reader<R: Read + Seek>(
                     }
                     if let Some(p) = slot.take() {
                         let rest = p.path.get(1..).unwrap_or(&[]);
-                        *outcome = Some(place(g.children_mut(), rest, p.record));
+                        let header = g.header;
+                        *outcome = Some(place(g.children_mut(), &header, rest, p.record, &style));
                     }
                 }
             }
@@ -892,5 +1053,235 @@ mod tests {
         assert_eq!(parsed.tes4().hedr().unwrap().unwrap().record_count, 9);
         assert_eq!(top_labels(&parsed), ["GMST", "WEAP", "CELL", "NAVM"]);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// One line per entry, indented by depth: `G<type>:<label>` or `<sig>:<FormID>`.
+    fn outline(entries: &[Entry<'_>], depth: usize, out: &mut Vec<String>) {
+        for e in entries {
+            match e {
+                Entry::Group(g) => {
+                    let label = if g.header.group_type == 0 {
+                        g.header.label_signature().to_string()
+                    } else {
+                        format!("{:X}", g.header.label_u32())
+                    };
+                    out.push(format!(
+                        "{}G{}:{label}",
+                        " ".repeat(depth),
+                        g.header.group_type
+                    ));
+                    outline(g.children(), depth + 1, out);
+                }
+                Entry::Record(r) => out.push(format!(
+                    "{}{}:{:X}",
+                    " ".repeat(depth),
+                    r.header.signature,
+                    r.header.form_id
+                )),
+            }
+        }
+    }
+
+    /// M4.A2: new groups and records go where the corpus rules put them, whatever the order
+    /// of the upserts, and the two styles differ where the corpus files do.
+    #[test]
+    fn computed_paths_build_corpus_order_from_any_insertion_order() {
+        use crate::cells::{placement, CellPlace, Grid, Parent, PlacementStyle};
+        let world = 0x30u32;
+        let ext = CellPlace::Exterior {
+            world,
+            grid: Grid::new(-1, 0),
+        };
+        let pers = CellPlace::Persistent { world };
+        let flagged = |sig: &[u8; 4], flags: u32, id: u32| {
+            let mut r = rec(sig, id, b"x");
+            r.header.flags = flags;
+            r
+        };
+        let records = vec![
+            (flagged(b"WRLD", 0, world), Parent::None),
+            (flagged(b"QUST", 0, 0x40), Parent::None),
+            (
+                flagged(b"CELL", 0, 0x0000_0012),
+                Parent::CellAt(CellPlace::Interior),
+            ),
+            (
+                flagged(b"CELL", 0, 0x0000_0002),
+                Parent::CellAt(CellPlace::Interior),
+            ),
+            (
+                flagged(b"CELL", 0, 0x0000_0011),
+                Parent::CellAt(CellPlace::Interior),
+            ),
+            (flagged(b"CELL", 0, 0x0000_0050), Parent::CellAt(ext)),
+            (flagged(b"CELL", 0x400, 0x0000_0051), Parent::CellAt(pers)),
+            (flagged(b"DIAL", 0, 0x60), Parent::Quest { quest: 0x40 }),
+            (flagged(b"SCEN", 0, 0x58), Parent::Quest { quest: 0x40 }),
+            (flagged(b"DLBR", 0, 0x70), Parent::Quest { quest: 0x40 }),
+            (flagged(b"DIAL", 0, 0x5F), Parent::Quest { quest: 0x40 }),
+            (
+                flagged(b"INFO", 0, 0x63),
+                Parent::Topic {
+                    quest: 0x40,
+                    topic: 0x60,
+                },
+            ),
+            (
+                flagged(b"INFO", 0, 0x62),
+                Parent::Topic {
+                    quest: 0x40,
+                    topic: 0x60,
+                },
+            ),
+            (
+                flagged(b"REFR", 0, 0x80),
+                Parent::Cell {
+                    place: CellPlace::Interior,
+                    cell: 0x12,
+                },
+            ),
+            (
+                flagged(b"REFR", 0x400, 0x81),
+                Parent::Cell {
+                    place: CellPlace::Interior,
+                    cell: 0x12,
+                },
+            ),
+            (
+                flagged(b"NAVM", 0, 0x82),
+                Parent::Cell {
+                    place: CellPlace::Interior,
+                    cell: 0x12,
+                },
+            ),
+            (
+                flagged(b"REFR", 0x400, 0x83),
+                Parent::Cell {
+                    place: pers,
+                    cell: 0x51,
+                },
+            ),
+            (
+                flagged(b"REFR", 0, 0x84),
+                Parent::Cell {
+                    place: ext,
+                    cell: 0x50,
+                },
+            ),
+        ];
+        let build = |style: &PlacementStyle, reverse: bool| {
+            let mut plugin = Plugin::create(&HeaderSpec::new(Vec::new()));
+            let mut items: Vec<_> = records.clone();
+            if reverse {
+                // Parents (WRLD, QUST, CELL, DIAL) stay first; the rest go in reverse.
+                let (parents, mut rest): (Vec<_>, Vec<_>) =
+                    items.into_iter().partition(|(r, _)| {
+                        matches!(&r.header.signature.0, b"WRLD" | b"QUST" | b"CELL" | b"DIAL")
+                    });
+                let mut parents = parents;
+                parents.reverse();
+                parents.sort_by_key(|(r, _)| !matches!(&r.header.signature.0, b"WRLD" | b"QUST"));
+                rest.reverse();
+                items = parents.into_iter().chain(rest).collect();
+            }
+            for (r, parent) in items {
+                let path = placement(&r.header, &parent, style).unwrap();
+                plugin.upsert_styled(&path, r, style).unwrap();
+            }
+            let mut out = Vec::new();
+            outline(plugin.entries(), 0, &mut out);
+            out
+        };
+        let official = build(&PlacementStyle::OFFICIAL, false);
+        assert_eq!(official, build(&PlacementStyle::OFFICIAL, true));
+        let expected = [
+            // 0x2 = 2: block 2, sub-block 0; 0x11 = 17: 7, 1; 0x12 = 18: 8, 1.
+            "G0:CELL",
+            " G2:2",
+            "  G3:0",
+            "   CELL:2",
+            " G2:7",
+            "  G3:1",
+            "   CELL:11",
+            " G2:8",
+            "  G3:1",
+            "   CELL:12",
+            "   G6:12",
+            "    G9:12",
+            "     NAVM:82",
+            "     REFR:80",
+            "    G8:12",
+            "     REFR:81",
+            "G0:WRLD",
+            " WRLD:30",
+            " G1:30",
+            "  CELL:51",
+            "  G6:51",
+            "   G8:51",
+            "    REFR:83",
+            "  G4:FFFF0000",
+            "   G5:FFFF0000",
+            "    CELL:50",
+            "    G6:50",
+            "     G9:50",
+            "      REFR:84",
+            "G0:NAVM",
+            "G0:DIAL",
+            "G0:INFO",
+            "G0:QUST",
+            " QUST:40",
+            " G10:40",
+            "  DLBR:70",
+            "  DIAL:5F",
+            "  DIAL:60",
+            "  G7:60",
+            "   INFO:62",
+            "   INFO:63",
+            "  SCEN:58",
+            "G0:DLBR",
+            "G0:SCEN",
+        ];
+        // The reversed build inserted INFO 63 after 62 and NAVM after the references:
+        // both land where the corpus order puts them.
+        assert_eq!(official, expected);
+        let blueprint = build(&PlacementStyle::blueprint(7), false);
+        assert!(!blueprint.iter().any(|l| l == "G0:NAVM" || l == "G0:DLBR"));
+        let g6 = blueprint.iter().position(|l| l == "   G6:12").unwrap();
+        assert_eq!(
+            &blueprint[g6 + 1..g6 + 6],
+            [
+                "    G8:12",
+                "     REFR:81",
+                "    G9:12",
+                "     REFR:80",
+                "     NAVM:82"
+            ]
+        );
+        // The streaming upsert places the same way, placeholders included.
+        let base = Plugin::create(&HeaderSpec::new(Vec::new()))
+            .to_bytes()
+            .unwrap();
+        let placed: Vec<Placed> = records
+            .iter()
+            .map(|(r, parent)| Placed {
+                path: placement(&r.header, parent, &PlacementStyle::OFFICIAL).unwrap(),
+                record: r.clone(),
+            })
+            .collect();
+        let mut sink = Cursor::new(Vec::new());
+        let report = upsert_reader(
+            Cursor::new(&base),
+            base.len() as u64,
+            &RewriteOptions::default(),
+            &mut sink,
+            placed,
+            |_| Ok(()),
+        )
+        .unwrap();
+        report.rewrite.hedr_fix.unwrap().apply(&mut sink).unwrap();
+        let streamed = Plugin::parse(sink.get_ref()).unwrap();
+        let mut out = Vec::new();
+        outline(streamed.entries(), 0, &mut out);
+        assert_eq!(out, expected);
     }
 }

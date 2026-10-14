@@ -36,6 +36,11 @@
 //!   [`build::upsert_file_to_path`]`(in, out, &RewriteOptions, Vec<Placed>, header_edit)`
 //!   does the same while streaming an existing plugin into a new file, `HEDR` count
 //!   patched. [`build::set_masters`] rewrites a `TES4` master list.
+//! - Cell, world and quest groups (M4.A1, M4.A2): [`cells`] states the corpus rules and
+//!   computes placement paths: [`cells::placement`]`(&RecordHeader, &Parent, &PlacementStyle)
+//!   -> Result<Vec<GroupHeader>>` for a record under a cell (interior, a world's persistent
+//!   cell, or an exterior cell at a grid), a quest or a topic; [`Plugin::upsert_styled`]
+//!   places it in corpus order.
 //! - Editing one record (M2.A6), compressed or not (decoded on first edit under
 //!   [`DecodeLimits`], recompressed only if its bytes changed):
 //!   [`Record::find_subrecord`]`(sig, nth)`, [`Record::set_subrecord`]`(index, data,

@@ -425,6 +425,19 @@ is under "Next".
     by corpus search, not from a definition; order rules; the official-pipeline vs
     `BlueprintShips` differences (`PlacementStyle`). Not waiting on BW: the two layout
     facts used (`XCLC` grid, `DATA` floats 0-1) are corpus-derived and named as such.
+  - M4.A2 computed placement paths and the rebuild gate: `cells::placement(&RecordHeader,
+    &Parent, &PlacementStyle)` (cell children persistent by flag 0x400; refusals where the
+    corpus never shows a combination), `cells::cell_place_in` / `persistent_cell` from an
+    index; `Plugin::upsert_styled` and the streaming upsert (`RewriteOptions::placement`)
+    create blocks, sub-blocks, world, cell, quest and topic children and records in corpus
+    order, with style stamps and the placeholder top-level groups. **Rebuild gate**
+    (`crates/esm/tests/rebuild.rs`): every top-level group of all 14 files rebuilt from
+    an empty plugin through computed paths, in file order and shuffled, is byte-identical
+    (12 pipeline files including the whole of `Starfield.esm`, not a sample; the two
+    `BlueprintShips` files after 69 listed differences: 17 empty cell children groups, 52
+    off-majority group stamps). 116 s release; the five small files whole in every gate.
+    `Plugin::upsert` keeps its signature (official style); INCC stays the caller's (lane E
+    already adds inserted interior cells).
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
