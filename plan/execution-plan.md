@@ -672,16 +672,21 @@ editor/game, G5 dependency semantics.
 | ID    | Task | Gates |
 | ----- | ---- | ----- |
 | M3.O0 | **owner**: stage `Core/wbDefinitionsSF1.pas` and `Core/wbDefinitionsCommon.pas` at SHA `9fb016884bec138ea6c7b872cec831537d464c3e` outside the repo (suggested `C:\Modding\xedit-ref\9fb01688\`) and record the path in `plan/STATUS.md` (Blockers); or allow the lane B session to fetch them from raw.githubusercontent.com at that SHA | M3.B0 and all of lane B round 3 |
-| M3.O1 | **owner** (or an agent with desktop control the owner assigns): CK observation session per the script below (was M2.O4, CK part); two sittings are fine (F00..F06 and F13, then F07..F12 and F14) | M3.H3, M3.A3, M3.A4, M3.E5, M3.H5, M3.D5 (F00) |
+| M3.O1 | **owner** (or an agent with desktop control the owner assigns): CK observation session per the script below (was M2.O4, CK part); two sittings are fine (F00..F06 and F13, then F07..F12 and F14). **Deferred by the owner 2026-10-14** until the developer workbench exists (M4.W2..W5), so the owner can A/B the CK against KitKraft's inspection surface; an agent with computer use may then drive the session under the M3.O1 rules | M3.H3, M3.A3, M3.A4, M3.E5, M3.H5, M3.D5 (F00) |
 | M3.O2 | **owner**: MO2 and in-game session per the script below (was M2.O4, MO2 and game parts) | M3.D5; the inline-encoding gaps row (with F13) |
-| M3.O3 | **owner**: download and install SF1Edit and note its build (was M2.O3; agents do not download executables) | M3.B11, M3.H4 (SF1Edit part) |
+| M3.O3 | **owner**: download and install SF1Edit and note its build (was M2.O3; agents do not download executables). **Done 2026-10-14**: xEdit installed at `C:\Modding\tools\xEdit\`, Starfield mode `xSFEdit64.exe` (file version 4.1.5.0; older than the `dev-4.1.6` pin, so M3.B11 records the skew) | M3.B11, M3.H4 (SF1Edit part) |
 | M3.O4 | **owner**, decision 3: pick the YouTube critique and fill `docs/overhaul/brief.md` (M3.E8) in your own words | M3.E9 |
 | M3.O5 | **owner**: in-game acceptance of the overhaul build on a disposable save (steps in `docs/overhaul/build-1.md`); record a pass, or a failure with what was seen | M3 exit |
-| M3.O6 | **owner**: decide ADR 0007: build the UI shell in M3 (M3.F5), or defer it to M4 | M3.F5 |
+| M3.O6 | **owner**: decide ADR 0007: build the UI shell in M3 (M3.F5), or defer it to M4. **Decided 2026-10-14**: ADR 0007 **accepted with scope** (Amendment 1): a minimal read-only developer workbench after M4's inspection APIs stabilize (M4 lane W), the full authoring UI in M5; M3.F5 is not built in M3 | M3.F5 (not built), M4 lane W |
 
 Still open from M2 and unchanged: M2.F7 (Claude Code transcript), M2.O6 (in-game rename;
 M3.O5 reuses its procedure and should follow a pass), owner decisions 1, 4, 5 (Sim
 Settlements 2: still "later") and 6.
+
+Update 2026-10-14: M2.F7 and M2.O6 **passed** (`plan/STATUS.md`); M2 is fully closed.
+Owner decision 1 **decided**: the name is **KitKraft**; identifiers are renamed to
+`kitkraft-*`, `KITKRAFT_*`, `kitkraft://` (binary stays `kit`) as the last integration
+step after the in-flight lanes land; until then they read `kitcraft`.
 
 #### M3.O1: CK session script
 
@@ -753,6 +758,13 @@ The overhaul path is the long pole: lane B's transcription of WEAP, AMMO, PROJ a
 gated by the owner session M3.O1; lane H prepares everything up to it (H1, H2), and lane A's
 recompression study (A1) supplies the F07 candidates. The hardening tasks (A2, A5, B10, D1,
 D3, D6, E1..E3, F1..F3, G1..G3) are off both paths and fill idle time.
+
+*Update 2026-10-14:* the owner deferred M3.O1 until M4's developer workbench exists
+(M4.W2..W5). The overhaul path does not need it. What waits: every `ck-diff` and
+`verified` confidence upgrade (M3.B12), the `ck` write style (M3.A3, M3.E5), CK fixtures
+as container tests (M3.A4), the findings and feature ranking (M3.H3, M3.H5), F00 for
+M3.D5, and with them the TES4 `SNAM`/`BNAM`/`CHGL` and F07 recompression questions. M3's
+CK exit criteria are carried until that session; the rest of M3 can close without them.
 
 ### M3 is done when
 
@@ -905,6 +917,7 @@ One agent per lane, each in its own worktree and `CARGO_TARGET_DIR`.
 | F    | mcp + surface                  | as M3, plus the BX role |
 | G    | archives + scripts + strings   | as M3, plus `crates/pex/src/psc/`, `docs/research/asset-formats.md`, the ADR 0006 amendment |
 | H    | evidence                       | as M3, plus `docs/design/persistence.md`, `docs/game-observations.md` |
+| W    | developer workbench (planned)  | `crates/ui-egui`, `apps/kit`, the `kit ui` launcher lines in `apps/kit-cli`, the dependency list in ADR 0007 (added 2026-10-14; starts after M4.W0) |
 | O    | owner                          | decisions, installs, CK, MO2 and game sessions, reviews |
 
 **Family lane rules** (BQ, BC and BI here; BW and BP run under the same rules):
@@ -968,21 +981,24 @@ or will provide (schema, builder, validate, commands), what it depends on outsid
 KitCraft, what KitCraft **cannot** do, and the first deliverable that proves the path.
 "Cannot" holds for all of M4 unless a task says otherwise. SFSE and CommonLibSF appear
 only where a runtime hook might be needed; nothing in M4 depends on them (M4.O3).
+*Amended 2026-10-14 (M4.O3 decided, ADR 0008):* runtime extensions are supported where
+technically justified; no M4 task builds one, and a deliverable whose data path proves
+insufficient writes a runtime-need record (ADR 0008 §5) and is carried, not dropped.
 
 | W | Record types | KitCraft capabilities | External dependencies; what KitCraft cannot do | First deliverable (task) |
 | - | ------------ | --------------------- | ---------------------------------------------- | ------------------------ |
 | W1 | `TES4` (`HEDR` next object ID, masters, `ONAM`, `INCC`); the FormID members of every family | Schema: FormID members typed in every family, each checked by `formid.dangling` on the official files at merge (M4.BX1). Builder: new-form allocator (M4.A3), computed placement paths (M4.A2), `ONAM` for overridden children (M4.A6). Commands: `new`, `clone` (M4.E1), `refs` across families (M4.D1); `inspect`, `diff`, `conflicts` exist | CK fixtures F06, F11 (M3.O1) and F26 (M4.O1). Cannot: write a new form into a small or medium plugin before F11/F26 evidence (refused, never guessed) | M4.E1: a new `GLOB` and a clone of a vanilla `STAT` in a fresh plugin; FormIDs and `HEDR` next object ID equal the CK's F06 choice or the difference is a ledger entry; `validate` 0 errors |
 | W2 | `WRLD CELL REFR ACHR NAVM LCTN LCRT` (BW); `PKIN LVLP` (BP); `LAYR`, `RFGP` (inventory, M4.BX2) | Schema: BW, BP. Builder: cell and world group structure (M4.A1, M4.A2), reference composition (M4.A5), NAVM passthrough (M4.A4). Validate: cell rules (M4.E4). Commands: `place` (M4.E2), build spec v3 (M4.E3), placement context in `inspect`/`query` (M4.D2), placed instances in `refs` (M4.D1) | CK for navmesh: **KitCraft cannot generate `NAVM`**; the owner generates it in the CK for our cell (F22) and `build` imports it unchanged (M4.A4). Cannot: edit terrain or preview a placement (no viewport): positions are numbers, taken from existing references or read in game by the owner | M4.E2 + M4.O2: the **first POI** (below) |
-| W3 | `COBJ FLST KYWD` (BR); `STAT MSTT ACTI FURN CONT TERM` (BI); `WKMF` (inventory, M4.BX2) | Schema: BR, BI. Commands: `clone`, spec v3 `[[clone]]` and `[[new]]`. What registers an object in the outpost build menu is found from the vanilla records with `query` and `refs` (M4.E7, a recipe with its corpus evidence) | Cannot: create meshes, collision or snap points (they live in model files; clones reuse vanilla models); change outpost logic in the game's scripts (read through `papyrus.events`, never changed). SFSE only if M4.E7 finds the build menu cannot be extended by data (then M4.O3) | M4.E7 + M4.O4: a cloned vanilla outpost object with its own recipe appears in the outpost build menu and builds on a disposable save |
+| W3 | `COBJ FLST KYWD` (BR); `STAT MSTT ACTI FURN CONT TERM` (BI); `WKMF` (inventory, M4.BX2) | Schema: BR, BI. Commands: `clone`, spec v3 `[[clone]]` and `[[new]]`. What registers an object in the outpost build menu is found from the vanilla records with `query` and `refs` (M4.E7, a recipe with its corpus evidence) | Cannot: create meshes, collision or snap points (they live in model files; clones reuse vanilla models); change outpost logic in the game's scripts (read through `papyrus.events`, never changed). SFSE only if M4.E7 finds the build menu cannot be extended by data (then a runtime-need record, ADR 0008 §5; M4.O3 decided) | M4.E7 + M4.O4: a cloned vanilla outpost object with its own recipe appears in the outpost build menu and builds on a disposable save |
 | W4 | Ownership members of `CELL`, `REFR`, `LCTN` (BW); `FACT` (BQ); `NPC_` (BC); `QUST` and scripts for claim flows | Schema: whatever ownership members the pinned file defines, typed by BW. Builder: `ONAM` for edited vanilla references (M4.A6). Commands: `set` on a cell override, `query` by owner (M4.E8). Validate: owners resolve (`formid.dangling`) | Claiming and restoration are script and quest behaviour, observable only in game. Cannot: read runtime ownership from a save (KitCraft does not read saves) | M4.E8 + M4.O4: an override changes the owner of a vanilla interior cell (M4.H1 picks it) and the owner confirms in game that taking its items is no longer stealing; `query` lists cells by owning faction |
-| W5 | Reference persistence (group types 8 and 9, BW); `LCTN LCRT` (BW); quest aliases (BQ); `PCMT PCBN PCCN LVLP PKIN` (BP) | Research: `docs/design/persistence.md` (M4.H3), `docs/design/planet-content.md` (M4.D3). Validate: `ref.persistence` (M4.E4, warning). Commands: `testplan` leave, save, reload and return steps (M4.E6); `planet` (M4.D3). Experiment: procedural placement (M4.E10) | Resets and procedural generation are runtime behaviour, known only from in-game observation (`docs/game-observations.md`, M4.H4) and level 4 sources. Cannot: read or write save files, or predict a reset. Plugins are never removed from a save that is not disposable | M4.H3 skeleton + M4.O2: the POI's persistence steps recorded in the game ledger |
-| W6 | The script-attachment block on every scripted record (BQ, shared); quest fragments (BQ) | Commands: `papyrus.compile` (M2.G7, M3.G1), `papyrus.disasm` (M2.G6), `papyrus.events` (M4.G2), script attachment on `place`, `set` and `new` (M4.E9). Validate: `papyrus.missing-script`, `papyrus.property-unresolved` (M4.E9), `papyrus.denylisted-call` (exists) | Bethesda's `PapyrusCompiler.exe`, run as a black box, never `-release`. SFSE only if an event or function a deliverable needs is absent from the base sources (M4.O3); CommonLibSF is never read (GPL, `docs/source-registry.md`). Cannot: decompile, assemble or edit `.pex`; debug scripts at runtime; compile without Bethesda's compiler | M4.G2, then M4.E9 + M4.O4: a script compiled by KitCraft, attached to the POI's reference, runs on an event chosen from `papyrus.events` output and shows a message in game |
+| W5 | Reference persistence (group types 8 and 9, BW); `LCTN LCRT` (BW); quest aliases (BQ); `PCMT PCBN PCCN LVLP PKIN` (BP) | Research: `docs/design/persistence.md` (M4.H3), `docs/design/planet-content.md` (M4.D3). Validate: `ref.persistence` (M4.E4, warning). Commands: `testplan` leave, save, reload and return steps (M4.E6); `planet` (M4.D3). Experiment: procedural placement (M4.E10) | Resets and procedural generation are runtime behaviour, known only from in-game observation (`docs/game-observations.md`, M4.H4) and level 4 sources. Cannot: read or write save files, or predict a reset. Plugins are never removed from a save that is not disposable. If M4.H3 and the testplan show state that vanilla persistence cannot keep, a save persistence hook is a runtime-need record (ADR 0008 §5, M5 at the earliest) | M4.H3 skeleton + M4.O2: the POI's persistence steps recorded in the game ledger |
+| W6 | The script-attachment block on every scripted record (BQ, shared); quest fragments (BQ) | Commands: `papyrus.compile` (M2.G7, M3.G1), `papyrus.disasm` (M2.G6), `papyrus.events` (M4.G2), script attachment on `place`, `set` and `new` (M4.E9). Validate: `papyrus.missing-script`, `papyrus.property-unresolved` (M4.E9), `papyrus.denylisted-call` (exists) | Bethesda's `PapyrusCompiler.exe`, run as a black box, never `-release`. SFSE only if an event or function a deliverable needs is absent from the base sources: then a runtime event handler is a runtime-need record (ADR 0008 §5; M4.O3 decided); CommonLibSF is not read or linked until ADR 0008 §3's license review. Cannot: decompile, assemble or edit `.pex`; debug scripts at runtime; compile without Bethesda's compiler | M4.G2, then M4.E9 + M4.O4: a script compiled by KitCraft, attached to the POI's reference, runs on an event chosen from `papyrus.events` output and shows a message in game |
 | W7 | `PNDT STDT BIOM PCMT PCBN PCCN SUNP` and `RS*` (BP); `IRES` (inventory, M4.BX2); extractor objects (BI) | Schema: BP. Commands: `planet` (M4.D3), `query` over planet and biome members | Cannot: change procedural terrain or biome generation outside records (any such data in archives is inventoried in M4.G3, not read) | M4.D3: `kit planet <PNDT>` lists one planet's biomes and resources with evidence; `docs/design/planet-content.md` |
 | W8 | `COBJ FLST LVLI OMOD` (BR); `MISC CONT TERM` (BI); `IRES` (M4.BX2); `GMST GLOB` (typed); vendor data on `FACT` (BQ) | Spec v2 rules (exist) and v3 new records (M4.E3); `formid.dangling` on recipe components | Cannot: change economy behaviour the records do not express | M4.E7 + M4.O4: a new fabricator recipe for an existing item builds in game |
 | W9 | `NPC_ LVLN RACE OTFT CLAS AFFE PERK SPEL MGEF` (BC); `PACK SMBN SMQN` (BQ); `ACHR NAVM` (BW) | Schema: BC. Commands: `place` an `ACHR`, `clone` an `NPC_`. Validate: `cell.actor-without-navmesh` (M4.E4). Builder: NAVM passthrough (M4.A4) | CK for navmesh (F22) and for face generation of new appearances. Cannot: generate navmesh, face data, voice, lip sync or animation | M4.E8 + M4.O4: a vanilla NPC placed into a vanilla cell that has navmesh stands and moves there in game |
 | W10 | `QUST DIAL INFO SCEN PACK FACT SMBN SMQN SMEN CHAL` (BQ); `MESG` (M4.BX2) | Schema: BQ (stages, objectives and aliases only where the pinned file defines them and the corpus confirms). Builder: topic and type-10 children (M4.A1, M4.A2). Commands: `refs` from quests to references; fragments through M4.E9 | Cannot: create voiced dialogue (audio) or lip sync. A new quest is in reach only once aliases and stages type at `corpus` confidence | M4.BQ1 + M4.D1: `inspect` of a vanilla quest shows stages, objectives and aliases typed, and `refs` resolves their targets. A new quest with an alias on the POI's reference is a stretch, carried with the reason if aliases stay opaque |
 | W11 | `LSCR MESG SOUN WWED ARTO TXST` and map-marker data (inventory, or BW); asset files in the archives | `ba2.list`, `ba2.extract`, `ba2.pack` (exist); `crates/nif` stays read-only metadata with no M4 work. **Scoping only** (M4.G3) | Cannot: create or edit meshes (`.nif`), materials (`.mat`), Wwise audio (`.wem`, `.bnk`) or interface files; textures only as DDS the user supplies, packed; no viewport | M4.G3: `docs/research/asset-formats.md` |
-| W12 | `TES4`; everything | `package` (M4.E5), `testplan` (M4.E6), archive naming (M4.G4), `validate`, `conflicts`, `roundtrip --verify`, the game ledger (M4.H4), `cargo xtask ci` | MO2 (the owner installs), `Archive2.exe` (black-box check), the game (the owner). Cannot: launch or drive the game; publish anything (owner decision 6; no Creations upload) | M4.E5 + M4.O2: the rename plugin (M2.O6) packaged and installed by the owner through MO2 from the package, with the hashes on disk equal to the manifest; then the POI package |
+| W12 | `TES4`; everything | `package` (M4.E5, target-independent), `testplan` (M4.E6), archive naming (M4.G4), `validate`, `conflicts`, `roundtrip --verify`, the game ledger (M4.H4), `cargo xtask ci`; later `kit deploy --dev` into one isolated KitKraft-managed MO2 mod (M4.E11, ADR 0009) | MO2 (the owner installs the package; `deploy --dev` never touches profiles or other mods), `Archive2.exe` (black-box check), the game (the owner). Cannot: launch or drive the game; publish anything (owner decision 6; no Creations upload) | M4.E5 + M4.O2: the rename plugin (M2.O6) packaged and installed by the owner through MO2 from the package, with the hashes on disk equal to the manifest; then the POI package |
 
 ### Schema family lanes (lane B)
 
@@ -1032,6 +1048,7 @@ in parallel, each in its own worktree; the staged xEdit files must be on disk (M
 | M4.E8  | Recipes for W4 and W9 (`docs/recipes/ownership.md`, `docs/recipes/actors.md`): a cell owner override; an `ACHR` of a vanilla NPC in a vanilla cell with navmesh; `query` by owner | BW; BQ (`FACT`); BC; M4.E2 | As M4.E7 |
 | M4.E9  | Script attachment: `place`, `set` and `new` take `scripts = [{name, properties}]`, written through BQ's typed script-attachment block, property values as formrefs or spec names; rules `papyrus.missing-script` (no `.pex` for an attached script in the plugin's archives, loose files or the load order's archives: **error**) and `papyrus.property-unresolved` (**error**); recipe `docs/recipes/scripts.md` with a script compiled by `papyrus.compile` | BQ (script-attachment block at `corpus`); M4.G2; M4.E2 | Through `execute`; a synthetic fixture per rule; attaching a script to a corpus copy and reading it back gives the same block; feeds M4.O4 |
 | M4.E10 | *(experiment)* Procedural placement: a test plugin that attaches the POI's pack-in to the planet content system the way M4.D3 shows vanilla content attached, with a testplan for a fresh landing | M4.D3; M4.E3 | A result recorded in `docs/game-observations.md` from M4.O4, either way; on no critical path; carried to M5 with the evidence if M4.D3 finds no data path |
+| M4.E11 | *(later; added 2026-10-14, ADR 0009)* `deploy` (CLI `kit deploy --dev`), `deploy.rollback`, `deploy.status`: a `package` folder into `<mo2>\mods\KitKraft Dev - <plugin>\` only, `dev: true` and `mo2` required on every call; path validation (MO2 instance check in `crates/io`, a Request to lane D), ownership marker and `kitcraft-deploy.json` with hashes, per-file temp + rename, backups and rollback, journal recovery, diagnostics; never touches profiles, `plugins.txt`, `loadorder.txt`, `modlist.txt`, `overwrite\` or any other mod | M4.E5 | Tests on a synthetic MO2 instance in a temp dir only: first deploy, redeploy, rollback, an interrupted deploy recovered, a same-named unmarked folder refused, a junction in the path refused, a hand-edited deployed file reported and not overwritten, profile files byte-identical before and after; through `execute` and the CLI; `destructiveHint` over MCP; on no critical path |
 
 #### First POI (critical-path deliverable)
 
@@ -1094,19 +1111,45 @@ Folders and names as in M3 (`observe\<yyyy-mm-dd>-<id>\`, plugins named `KC_`).
 | F27 | The owner of one vanilla interior cell changed | F01 | The ownership members M4.E8 writes |
 | F28 | A vanilla outpost object duplicated in the CK | F01 | The CK's clone choices (FormID, EditorID, what is copied) against `clone` |
 
+### Lane W: developer workbench (planning only; added 2026-10-14, ADR 0007 Amendment 1)
+
+A minimal, read-only egui workbench over `Engine::execute`: an observability and
+development surface with no application logic of its own. It starts only after M4.W0, is
+on no critical path, and interrupts no running lane. The full authoring UI is M5.
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.W0 | *(gate, lane F)* Inspection APIs stable: `data` shape tests for `inspect`, `query`, `diff`, `conflicts`, `refs`, `schema --deep`, `validate`, and `build` with `plan`; the catalog marks every writing command (the source of MCP's `destructiveHint`) | M4.D1, M4.D2, M4.E4, M4.F1 | A shape change fails a test; every catalog command is marked writing or not |
+| M4.W1 | Shell model and launcher: `crates/ui-egui` (L5, engine only) and `apps/kit`; `kit ui` launcher; engine on a worker thread; only non-writing commands offered; dependency list and licenses in ADR 0007 before merge | M4.W0 | `cargo xtask layers` passes; a test drives a command through the shell model without a window; a writing command cannot be reached from the shell |
+| M4.W2 | Record browser: `load`, `query` with `where`, `inspect` (override chain, `limitations`, evidence, M4.D2 placement context) | M4.W1 | A test through the shell model per view; no data computed outside `execute` |
+| M4.W3 | Structural diff: `diff` and `conflicts` with `fields[]` paths, before and after, opaque byte ranges | M4.W1 | As M4.W2 |
+| M4.W4 | Schema and provenance: `schema --deep` members with `source`, `evidence`, `confidence`; `reference`-only members marked | M4.W1 | As M4.W2 |
+| M4.W5 | FormID and reference diagnostics: raw and resolved FormIDs side by side, an unavailable master's scale shown as unknown, `refs`, `formid.dangling` and missing masters from `validate` | M4.W1 | As M4.W2 |
+| M4.W6 | Build validation: `validate` by rule, `build` with `plan: true`, `roundtrip --verify` | M4.W1 | As M4.W2; nothing written |
+
 ### Owner (lane O)
 
 | ID    | Task | Gates |
 | ----- | ---- | ----- |
-| M4.O1 | **owner** (or a desktop-control agent the owner assigns): CK session for F20..F28 under the M3.O1 rules (MO2 executable #4, observe only, nothing into Data, no Creations features). F22 is the only way KitCraft content gets navmesh | M4.H2; confidence for M4.A1..A6 and M4.E4; M4.A4's fixture part |
+| M4.O1 | **owner** (or a desktop-control agent the owner assigns): CK session for F20..F28 under the M3.O1 rules (MO2 executable #4, observe only, nothing into Data, no Creations features). F22 is the only way KitCraft content gets navmesh. **Deferred by the owner 2026-10-14**, with M3.O1, until the developer workbench exists (M4.W2..W5); an agent with computer use may then drive it | M4.H2; confidence for M4.A1..A6 and M4.E4; M4.A4's fixture part |
 | M4.O2 | **owner**: in-game session 1 on a disposable save: install the rename package (W12), then the first POI (rung 0 interior, then the exterior POI) with its testplan; confirm or refute the batch-file mechanism and the archive naming (M4.G4); record everything in `docs/game-observations.md` | M4 exit (first POI) |
-| M4.O3 | **owner decision**: whether SFSE-dependent features may be planned. Default **no**: KitCraft's output is plugins, archives and Papyrus; nothing it builds requires SFSE; CommonLibSF stays unread (GPL). A yes needs an ADR (distribution terms, Steam-only runtime) and lands in M5 at the earliest | any task that finds a needed hook missing (M4.E7, M4.E9) |
+| M4.O3 | **owner decision**: whether SFSE-dependent features may be planned. Default **no**: KitCraft's output is plugins, archives and Papyrus; nothing it builds requires SFSE; CommonLibSF stays unread (GPL). A yes needs an ADR (distribution terms, Steam-only runtime) and lands in M5 at the earliest. **Decided 2026-10-14: default overturned** (ADR 0008): SFSE, native runtime extensions and analogous frameworks are supported where technically justified; core crates never depend on them; runtime components live behind `runtime/` (or an `RT` crate); CommonLibSF is not read or linked until its license exceptions are quoted and reviewed; SFSE binaries are never bundled; PC-first; first component M5 at the earliest | any task that finds a needed hook missing (M4.E7, M4.E9): it writes a runtime-need record (ADR 0008 §5) |
 | M4.O4 | **owner**: in-game session 2 on a disposable save: the M4.E7, M4.E8 and M4.E9 recipes (outpost object, fabricator recipe, cell ownership, placed NPC, script event) and the M4.E10 experiment | M4 exit (P0 and P1 deliverables) |
-| M4.O5 | **owner decision**: whether `package` may install into MO2's `mods\` directly. Default **no**: it writes a folder (and an optional zip) elsewhere and the owner installs it | M4.E5 |
+| M4.O5 | **owner decision**: whether `package` may install into MO2's `mods\` directly. Default **no**: it writes a folder (and an optional zip) elsewhere and the owner installs it. **Decided 2026-10-14: default approved with an exception** (ADR 0009): `package` stays target-independent; a separate, explicitly invoked `kit deploy --dev` (M4.E11) writes one isolated `KitKraft Dev - <plugin>` mod with path validation, a hashed manifest, safe replacement, diagnostics and rollback, and never touches profiles, load orders or other mods | M4.E5, M4.E11 |
 
 Unchanged and still open: owner decision 5 (Sim Settlements 2: **later**; rung 3 needs
 kinggath's consent before any of its assets or scripts are touched), decisions 1, 4 and 6,
 every open M3 owner task (M3.O0..O6), M2.F7 and M2.O6. M4.O2 should follow a pass of M2.O6.
+
+**Owner rulings 2026-10-14** (ADR 0007 Amendment 1, ADR 0008, ADR 0009), which win over
+older M4 text: M2.F7, M2.O6 and M3.O3 are done; M3.O6, M4.O3 and M4.O5 are decided.
+Binding constraint 6's "no new crate" and "UI only if M3.O6 says so" give way to lane W
+(`crates/ui-egui`, `apps/kit`, both already in `LAYER_TABLE`); M4.F3 is superseded by lane
+W. In "Not in M4": SFSE and CommonLibSF plugins are still not built in M4, but features are
+no longer excluded for needing them (a runtime-need record carries them); writing into
+MO2's `mods\` has the one exception M4.E11; UI implementation is lane W's read-only
+workbench only. Ordering adds `W: M4.D1 + M4.D2 + M4.E4 + M4.F1 -> W0 -> W1 -> W2..W6` and
+`E: E5 -> E11`, both off the critical paths.
 
 ### Ordering
 
@@ -1136,6 +1179,15 @@ carries every rule there, and F20..F28 raise confidence and settle what the corp
 show (the CK's allocation, `ONAM`, navmesh). `PKIN` needs no typed layout to be placed, so
 BP is off the critical path; it gates the planet work (W5, W7). The second in-game session
 collects the P0 and P1 recipes once their families merge.
+
+*Update 2026-10-14:* M4.O1 (F20..F28) is deferred with M3.O1 until the workbench exists
+(M4.W2..W5). The first POI still waits for no CK session. What waits: `ck-diff` confidence
+for the M4.A1..A6 rules and M4.E4's cell rules (they ship at `corpus` confidence from the
+corpus alone); the CK's own FormID choices for M4.A3 (F06; corpus defaults are named in
+`limitations`) and new forms in small or medium plugins (F11, F26: refused until then);
+M4.A4's fixture half (F22; KitKraft content has no navmesh until then, so M4.E8's placed
+NPC uses a vanilla cell that has one); the `ONAM` rule for edited vanilla references
+(M4.A6, F23: refused while open); `ref.persistence` stays grade D (F25); M4.H2.
 
 ### M4 is done when
 

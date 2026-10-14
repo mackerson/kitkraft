@@ -1,7 +1,8 @@
 # ADR 0007: An egui shell over the command catalog
 
-- Status: **Proposed** (owner decision M3.O6; nothing below is decided until the owner
-  records it here)
+- Status: **ACCEPTED-WITH-SCOPE** (owner ruling 2026-10-14, M3.O6; see "Amendment 1"
+  at the end: a minimal read-only developer workbench after M4's inspection APIs
+  stabilize, the full authoring UI in M5). Was: Proposed.
 - Date: 2026-10-14
 - Scope: `crates/ui-egui` (L5, not created), `apps/kit` (APP, not created), a `kit ui`
   launcher in `apps/kit-cli`
@@ -127,8 +128,8 @@ the four items above; it does not move any M3 critical path. C is not recommende
 
 ## Decision
 
-_Pending: the owner records "A (build M3.F5)" or "B (defer to M4)" here, with the date
-(M3.O6)._
+Decided 2026-10-14 by the owner: neither A nor B as written. See "Amendment 1: owner
+ruling 2026-10-14" below, which wins where it differs from the text above.
 
 ## Consequences
 
@@ -136,3 +137,75 @@ _Pending: the owner records "A (build M3.F5)" or "B (defer to M4)" here, with th
   "Layers" marks them as existing; the dependency list goes into this ADR before merge.
 - B: M3.F5 is carried to M4 with this ADR as its scope; `PLAN.md` and ROADMAP stay as
   they are.
+
+## Amendment 1: owner ruling 2026-10-14 (M3.O6)
+
+Recorded in the owner's meaning: the M5 deferral of egui is **partially overturned**.
+
+1. The complete authoring UI stays deferred to **M5**.
+2. An early, **minimal developer workbench** is introduced once the underlying read-only
+   inspection APIs are stable.
+3. It prioritizes: record browsing, structural diffing, schema and provenance
+   inspection, FormID and reference diagnostics, and build validation.
+4. The UI is an observability and development surface, not a competing implementation of
+   application logic: every operation uses the same underlying services as the CLI.
+5. It is integrated into the roadmap without interrupting running lanes or a broad
+   architecture rewrite.
+
+### Scope of the workbench
+
+- **Where.** `crates/ui-egui` (L5, depends on `kitcraft-engine` only) and `apps/kit` (APP),
+  both already in xtask's `LAYER_TABLE`; a `kit ui` launcher in `apps/kit-cli` (a
+  front-end launcher, no `CommandSpec`, like `kit mcp`). egui/eframe as in option A; the
+  dependency list (`cargo tree`, licenses) goes into this ADR before the first UI merge,
+  and any license outside MIT/Apache/Zlib/BSD-style goes to the owner. This is the one
+  exception to M4 binding constraint 6 ("no new crate in M4"), by the owner's ruling.
+- **Over `Engine::execute` only.** The shell builds `(id, args)` and renders the result
+  envelope. It has no parser, resolver, diff or validation code of its own; a view that
+  needs data no command returns gets a field in that command's result (by the lane owning
+  it) or a new command first.
+- **Read-only.** The workbench offers only commands the catalog marks as not writing (the
+  same marking that drives MCP's `destructiveHint`, M4.F1); `build` only with
+  `plan: true`; `roundtrip` only with `verify` and no `out`. No `set`, `build` output,
+  `package`, `deploy` or other writing command, and no argument form for them, until the
+  M5 authoring UI.
+- **Views** (each one command or a fixed sequence of commands):
+  1. Record browser: `load` (profile or plugin list), `query` with `where`, `inspect` with
+     the override chain, `limitations`, `coverage` and byte-offset evidence (M4.D2
+     placement context where present).
+  2. Structural diff: `diff` and `conflicts` with member paths (`fields[]`), before and
+     after, opaque ranges as byte ranges.
+  3. Schema and provenance: `schema --deep` per record type: members, `source`,
+     `evidence`, `confidence`; `reference`-only members marked as unconfirmed.
+  4. FormID and reference diagnostics: raw stored FormIDs next to master-aware resolved
+     identities (ADR 0004 clarification 5; an unavailable master's scale shown as
+     unknown), `refs` (M4.D1), `validate`'s `formid.dangling` and missing-master
+     findings.
+  5. Build validation: `validate` results by rule, `build` with `plan: true`, and
+     `roundtrip --verify`.
+- **Engine on a worker thread**, one command at a time, busy state shown (as option A,
+  item 4). Shell model without egui types, so tests drive a view through the same path a
+  click takes, without a window.
+- **Out of scope until M5:** argument forms for writing commands, editing, undo, the
+  command palette for writing commands, layout persistence beyond window size, the
+  viewport (`crates/render`).
+
+### When
+
+After M4's inspection APIs stabilize: `inspect`, `query`, `diff`, `conflicts`, `refs`
+(M4.D1), `schema --deep`, `validate` (with M4.E4's cell rules) and placement context
+(M4.D2) are `Implemented`, and the shape of each result's `data` is fixed by a shape test
+(M4.W0). Planned as lane W in `plan/execution-plan.md` M4 (M4.W0..W6); on no critical
+path. M3.F5 is not built in M3; M4.F3 is superseded by lane W.
+
+The owner also deferred the CK observation sessions (M3.O1, M4.O1) until the workbench
+exists, to A/B the CK against KitKraft's inspection surface (an agent with computer use
+may drive that session). The workbench is still on no critical path, but the `ck-diff`
+confidence upgrades now wait for M4.W2..W5.
+
+### Consequences of the amendment
+
+- `plan/execution-plan.md`: M3.O6 decided; lane W task block in M4 (planning only);
+  ROADMAP M4 gains the workbench, M5 keeps the full authoring UI.
+- AGENTS.md "Layers": `crates/ui-egui` and `apps/kit` are marked as existing when lane W
+  creates them, not before.

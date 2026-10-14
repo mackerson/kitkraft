@@ -801,11 +801,50 @@ definition is checked against every corpus occurrence before it moves to
 
 - None for lane B (the pinned xEdit files are staged, M3.O0).
 
+## Decision records (owner, 2026-10-14)
+
+- **M2 fully closed.** M2.F7 (fresh-session MCP check) and M2.O6 (in-game rename) both
+  passed (results under "In progress" and "Done" above); no M2 task remains open.
+- **M3.O3 done** (was M2.O3): xEdit is installed at `C:\Modding\tools\xEdit\`; Starfield
+  mode is `xSFEdit64.exe` (file version 4.1.5.0, older than the `dev-4.1.6` pin
+  `9fb01688...`, so M3.B11 records the skew). Unblocks M3.H4's SF1Edit part
+  (`KITCRAFT_SF1EDIT`) and M3.B11 (see Requests).
+- **Owner decision 1 closed: the name is KitKraft.** Identifiers are renamed too:
+  crates `kitkraft-*`, env vars `KITKRAFT_*` (`DATA_DIR`, `CACHE_DIR`, `SF1EDIT`), MCP
+  server name `kitkraft`, resource URIs `kitkraft://`, the cache dir, and the repo folder
+  `C:\Modding\kitkraft`; the binary stays `kit`. **Rename pending**: scheduled as the last
+  integration step after the in-flight lanes land; nobody renames identifiers before
+  then. Prose uses KitKraft now.
+- **M4.O3 decided, default overturned** (ADR 0008): SFSE, native runtime extensions and
+  analogous frameworks are supported where technically justified; core crates never
+  depend on them (`runtime/` or an `RT` crate); CommonLibSF not read or linked until its
+  license exceptions are quoted from its `LICENSE` and reviewed; SFSE binaries never
+  bundled; game versions tracked (owner's install: `Starfield.exe` 1.16.244.0 Steam, SFSE
+  0.2.21); PC-first; gameplay is not compromised only to avoid SFSE. Policy, not an
+  implementation order: no runtime component in M4.
+- **M4.O5 decided, default approved with an exception** (ADR 0009): `package` stays
+  target-independent and never writes into MO2; a separate, explicitly invoked
+  `kit deploy --dev` (M4.E11, lane E, later) writes one isolated
+  `KitKraft Dev - <plugin>` mod under MO2's `mods\` with path validation, a hashed
+  manifest, temp + rename replacement, diagnostics and rollback; never profiles,
+  `plugins.txt`, `loadorder.txt` or other mods.
+- **M3.O6 decided: ADR 0007 accepted with scope** (Amendment 1): the egui M5 deferral is
+  partially overturned. A minimal read-only developer workbench (L5 `crates/ui-egui`,
+  `apps/kit`, over `Engine::execute` only: record browser, structural diff, schema and
+  provenance, FormID and reference diagnostics, build validation) is planned as M4 lane W
+  (M4.W0..W6) after the inspection APIs stabilize; the full authoring UI stays M5. M3.F5
+  is not built; M4.F3 is superseded.
+- **CK sessions deferred** (M3.O1 and M4.O1, F00..F28): until the developer workbench
+  exists (M4.W2..W5), so the owner can A/B the CK against KitKraft's inspection surface;
+  computer use is available for an agent-driven CK session then. The first POI path does
+  not wait; `ck-diff` confidence, the `ck` write style and the CK fixture questions do
+  (`plan/execution-plan.md`, M3 and M4 "Ordering" updates).
+
 ## Open owner decisions
 
 | #   | Decision                                | Default until decided             |
 | --- | --------------------------------------- | --------------------------------- |
-| 1   | Project name                            | `KitCraft` / `kitcraft-*` / `kit` |
+| 1   | Project name                            | **decided 2026-10-14**: KitKraft; identifier rename to `kitkraft-*` / `KITKRAFT_*` / `kitkraft://` pending (last integration step); binary `kit` |
 | 2   | xEdit MPL source policy (ADR 0004)      | **decided 2026-10-14** (pinned xEdit SF1 definitions as reference) |
 | 2a  | Review `docs/xedit-reference.md` and ADRs 0004/0005/0001 before lane B round 3 | **approved 2026-10-14** (M2.O1; lane B unpaused) |
 | 2b  | Whether `wbDefinitionsCommon.pas` (helpers the SF1 file uses) may be cited too | **approved 2026-10-14**: yes, same SHA, same rules (ADR 0004 owner approval) |
@@ -813,6 +852,9 @@ definition is checked against every corpus occurrence before it moves to
 | 4   | License                                 | MIT OR Apache-2.0 (scaffolded)    |
 | 5   | Contact kinggath about SS2 now or later | later                             |
 | 6   | Git remote / publishing                 | local only                        |
+| M3.O6 | UI (ADR 0007)                         | **decided 2026-10-14**: accepted with scope (read-only workbench, M4 lane W; authoring UI M5) |
+| M4.O3 | SFSE / runtime extensions             | **decided 2026-10-14**: supported where technically justified (ADR 0008) |
+| M4.O5 | Installing into MO2                   | **decided 2026-10-14**: `package` never; `kit deploy --dev` only (ADR 0009) |
 
 ### M2 owner tasks (lane O, `plan/execution-plan.md`)
 
@@ -820,10 +862,10 @@ definition is checked against every corpus occurrence before it moves to
 | ----- | ----------------------------------------------------------- | -------------------------------------- |
 | M2.O1 | Approve ADR 0004, ADR 0005 Amendment 2, `docs/xedit-reference.md` | **done 2026-10-14** (with six clarifications) |
 | M2.O2 | Whether OMOD is in scope                                    | **done 2026-10-14**: in scope (M2.B7)  |
-| M2.O3 | Install SF1Edit (agents do not download executables)        | open; blocks M2.B11                    |
+| M2.O3 | Install SF1Edit (agents do not download executables)        | **done 2026-10-14** (as M3.O3): `C:\Modding\tools\xEdit\xSFEdit64.exe` |
 | M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), the `hardcoded-official-slots` check, M2.E3 `ck-diff` part |
 | M2.O5 | Third-party mod plugins as inventory evidence               | open; default **no**                   |
-| M2.O6 | In-game check of the rename plugin                          | **ready**: plugin built, steps below   |
+| M2.O6 | In-game check of the rename plugin                          | **done 2026-10-14: PASS** (M2 fully closed) |
 
 #### M2.O6: in-game check of the rename plugin (owner)
 
@@ -872,6 +914,19 @@ wins") but still the owner's to confirm:
 - **To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Owner -> lanes H and B (M3.O3 done 2026-10-14).** SF1Edit is installed:
+  `C:\Modding\tools\xEdit\xSFEdit64.exe` (file version 4.1.5.0). Lane H: run M3.H4's
+  SF1Edit part with `KITCRAFT_SF1EDIT` pointing there, and update the SF1EDIT row of
+  `docs/source-registry.md` ("not installed yet"). Lane B: M3.B11 is unblocked on the
+  SF1Edit side; record the build's skew from the pin.
+- **Policy -> lane D (later, for M4.E11, ADR 0009).** A read-only MO2 instance check in
+  `crates/io` (`ModOrganizer.ini`, `mods\`, `profiles\`; reparse points reported) for
+  `kit deploy --dev`.
+- **Policy -> lane F (later, M4.W0, ADR 0007 Amendment 1).** `data` shape tests for the
+  inspection commands and a catalog marking of writing commands, as the gate for lane W.
+- **Policy -> all lanes (naming).** Write KitKraft in prose; do not rename `kitcraft`
+  identifiers: the rename is the last integration step (Decision records).
 
 - **Lane A -> lane B (answer to the RawSub/XXXX request; re-checked after lane B round 2).**
   `esm::bridge` re-exports the generated `RawSub`/`OwnedSub`/`Ctx` (checked against `main`

@@ -83,7 +83,12 @@ clarifications bind every task.
   recorded as evidence in `docs/oracles.md`.
 - Hardening from `docs/gaps.md` and the open cross-lane requests.
 - UI: an ADR 0007 proposal (egui shell over the command catalog) as an owner decision; no
-  implementation unless the owner opts in.
+  implementation unless the owner opts in. Decided 2026-10-14: accepted with scope (a
+  read-only developer workbench in M4, the full authoring UI in M5); nothing is built in
+  M3.
+- CK session deferred (owner, 2026-10-14) until the developer workbench exists, so the CK
+  can be compared side by side with KitKraft's inspection views; the `ck` write style and
+  `ck-diff` confidence wait for it, and M3's CK exit criteria are carried until then.
 
 Exit criteria:
 - Round 3 types decode and re-encode identical on all 14 corpus files, every member sourced.
@@ -117,9 +122,23 @@ new crate, no layer change).
   sources); validation rules for cells.
 - Research: persistence and the planet content system as design documents with sources;
   UI, asset and audio formats scoped only.
-- Owner: a CK session for world fixtures (including navmesh), two in-game sessions on
-  disposable saves, decisions on SFSE-dependent features (default no) and on installing
-  into MO2 directly (default no). Sim Settlements 2 stays "later".
+- Owner: a CK session for world fixtures (including navmesh; deferred with M3's until the
+  workbench exists; the first POI does not need it), two in-game sessions on disposable
+  saves. Sim Settlements 2 stays "later".
+- Owner rulings 2026-10-14:
+  - Runtime extensions (ADR 0008): SFSE, native runtime extensions and analogous
+    frameworks are supported where technically justified; the core crates never depend
+    on them; runtime components sit behind their own boundary, with game versions tracked;
+    PC-first. Nothing runtime is built in M4: a deliverable that needs a hook gets a
+    runtime-need record instead of being dropped.
+  - Development deployment (ADR 0009): `package` stays target-independent; a later,
+    explicitly invoked `kit deploy --dev` writes one isolated KitKraft-managed MO2 mod
+    (path validation, hashed manifest, safe replace, rollback) and never touches profiles
+    or other mods.
+  - Developer workbench (ADR 0007 Amendment 1): a minimal read-only egui workbench over
+    the same commands as the CLI (record browser, structural diff, schema and provenance,
+    FormID and reference diagnostics, build validation), started once the inspection
+    APIs are stable (lane W), off the critical path.
 
 Exit criteria:
 - The first POI placed by KitCraft is visited in game on a disposable save, with its
@@ -132,9 +151,9 @@ Exit criteria:
 
 ## M5+: editor
 
-- egui UI over the command catalog (`crates/ui-egui`, `apps/kit`), unless the owner's
-  ADR 0007 decision brings it earlier.
+- The full authoring UI in egui over the command catalog (`crates/ui-egui`, `apps/kit`),
+  growing from M4's read-only workbench (ADR 0007 Amendment 1).
 - NIF and material metadata.
-- Procedural placement and SFSE-dependent features, if M4's research and the owner's
-  decision call for them.
+- Procedural placement, if M4's research calls for it.
+- Runtime extensions (SFSE first) where a runtime-need record justifies them (ADR 0008).
 - Render viewport (`crates/render`), last.
