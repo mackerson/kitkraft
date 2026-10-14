@@ -1,22 +1,36 @@
 //! Shared helpers for corpus tests.
 //!
 //! The official ESMs are read in place from `KITCRAFT_DATA_DIR` and never copied into the
-//! repository (see `docs/corpus.md`). `corpus/manifest.toml` pins each file by size; a size
-//! that disagrees with the manifest is reported as "corpus changed", not as a roundtrip
-//! failure. When the variable is unset or names a missing directory, [`files`] prints one
-//! skip line and returns `None` so the test passes on machines without the game.
+//! repository (see `docs/corpus.md`). `corpus/manifest.toml` pins each file by size and
+//! SHA-256; [`files`] checks the size, [`verify_hashes`] the hash, and a mismatch in either
+//! is reported as "corpus changed", not as a roundtrip failure. When the variable is unset
+//! or names a missing directory, [`files`] prints one skip line and returns `None` so the
+//! test passes on machines without the game.
 
 // Test-only code: a panic here fails the test, it is not a crash in shipped code. Clippy's
 // `allow-*-in-tests` covers `#[test]` functions but not helpers in an integration-test module.
 #![allow(dead_code, clippy::panic, clippy::unwrap_used, clippy::expect_used)]
+
+pub mod hostile;
+pub mod sha256;
 
 use std::path::{Path, PathBuf};
 
 /// Environment variable naming the Starfield `Data` directory.
 pub const DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
 
-/// The three small files used by the fast tests.
-pub const SMALL: [&str; 3] = ["OldMars.esm", "SFBGS007.esm", "Constellation.esm"];
+/// The files used by the fast tests (under 512 KiB each). `SFBGS047.esm` has 2 compressed
+/// records and one `XXXX` subrecord; `SFBGS004.esm` has 2 compressed records.
+pub const SMALL: [&str; 5] = [
+    "OldMars.esm",
+    "SFBGS007.esm",
+    "Constellation.esm",
+    "SFBGS004.esm",
+    "SFBGS047.esm",
+];
+
+/// The three tiny files (under 64 KiB) the mutation tests run on.
+pub const TINY: [&str; 3] = ["OldMars.esm", "SFBGS007.esm", "Constellation.esm"];
 
 /// One entry of `corpus/manifest.toml`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +46,35 @@ pub struct CorpusFile {
     pub name: String,
     pub size: u64,
     pub path: PathBuf,
+    /// SHA-256 the manifest pins (lower-case hex).
+    pub sha256: String,
+}
+
+/// Hash every file (one thread per file) and panic with "corpus changed" on the first
+/// that disagrees with the manifest.
+pub fn verify_hashes(files: &[CorpusFile]) {
+    let results: Vec<(String, String, String)> = std::thread::scope(|s| {
+        let handles: Vec<_> = files
+            .iter()
+            .map(|f| {
+                s.spawn(move || {
+                    let file = std::fs::File::open(&f.path)
+                        .unwrap_or_else(|e| panic!("opening {}: {e}", f.path.display()));
+                    let actual = sha256::hex_digest(file)
+                        .unwrap_or_else(|e| panic!("reading {}: {e}", f.path.display()));
+                    (f.name.clone(), f.sha256.to_ascii_lowercase(), actual)
+                })
+            })
+            .collect();
+        handles.into_iter().map(|h| h.join().unwrap()).collect()
+    });
+    for (name, expected, actual) in results {
+        assert!(
+            expected == actual,
+            "corpus changed: {name} has SHA-256 {actual}, manifest says {expected}; \
+             update corpus/manifest.toml"
+        );
+    }
 }
 
 /// Path of `corpus/manifest.toml` in this repository.
@@ -127,6 +170,7 @@ pub fn files(test: &str, names: &[&str]) -> Option<Vec<CorpusFile>> {
             name: entry.name.clone(),
             size,
             path,
+            sha256: entry.sha256.clone(),
         });
     }
     Some(out)
