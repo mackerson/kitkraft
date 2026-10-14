@@ -26,6 +26,8 @@ mod write;
 
 #[cfg(test)]
 mod fixture;
+#[cfg(test)]
+mod hostile;
 
 pub use compress::DecodeLimits;
 pub use error::{Error, Result};
