@@ -207,6 +207,22 @@ Don't stop to ask unless the decision is one of these. Everything else: decide a
 5. Whether and when to contact kinggath about Sim Settlements 2.
 6. Adding a git remote or publishing anything.
 
+## Owner's live game is off limits (2026-10-14)
+
+The owner has an active Starfield playthrough on the MO2 profile `Default`. Rules, binding
+for every lane and every command:
+
+- `Default` is read-only input for load-order resolution and never a test target. No agent
+  enables, disables, copies or deploys a plugin into it, and `deploy --dev` (ADR 0009) must
+  refuse it by name.
+- In-game checks run only on the MO2 profile `KitKraft Dev` (a copy of `Default` with
+  profile-specific saves) on disposable saves. Owner-run steps in STATUS name that profile.
+- Plugins that own forms are never removed from a save in progress. Built artifacts for the
+  overhaul stay override-only (no new forms, no leveled-list injection, no scripts) so they
+  can be removed safely; anything that owns forms says so in its build report.
+- Nothing writes under the game `Data` folder, `Documents\My Games\Starfield`, or
+  `C:\Modding\MO2-Starfield` except `deploy --dev` into its own isolated mod folder.
+
 ## Windows specifics
 
 - Primary dev box is Windows 11. Paths in docs and tests use Windows form; code uses
