@@ -1,0 +1,79 @@
+# SMEN: Story Manager Event Node, a root of the story manager tree: the event it reacts
+# to (ENAM, a four-character code such as a script event or a location change) and the
+# conditions on that event; branch and quest nodes hang under it through their PNAM.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17689-L17703 - member order, the DNAM flag bits,
+#     XNAM, ENAM, PNAM/SNAM targets. Helpers: the condition count (L2251) and list
+#     (L4750-L4840, common/Condition.toml), the quest event codes (wbDefinitionsCommon.pas
+#     L8119-L8172).
+#   corpus: the 22 SMEN records (Starfield.esm 20, SFBGS003 1, ShatteredSpace 1; form
+#     versions 581 and 582; none compressed), 2026-10-14: order [EDID] PNAM SNAM CITC DNAM
+#     XNAM ENAM; all 4 bytes; CITC, DNAM and XNAM 0 and PNAM 0x5B in every record; no
+#     conditions. Every record decodes with nothing left over and re-encodes identically.
+signature = "SMEN"
+name = "StoryManagerEventNode"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17689-L17703"
+evidence = [
+  "corpus: the 22 SMEN records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "12 of the 22 official nodes have none"
+
+[[member]]
+sig = "PNAM"
+name = "ParentNode"
+type = "formid"
+targets = ["SMQN", "SMBN", "SMEN"]
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "SNAM"
+name = "PreviousNode"
+type = "formid"
+targets = ["SMQN", "SMBN", "SMEN"]
+note = "previous sibling; a null FormID is allowed"
+
+[[member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of Conditions that follow; stored, not derived"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "no official event node has conditions"
+
+[[member]]
+sig = "DNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["Random", 0x1], ["WarnIfNoChildQuestStarted", 0x2]]
+
+[[member]]
+sig = "XNAM"
+name = "MaxConcurrentQuests"
+type = "u32"
+
+[[member]]
+sig = "ENAM"
+name = "Type"
+type = "sig"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8119-L8172"]
+note = "the story manager event, a four-character code"
