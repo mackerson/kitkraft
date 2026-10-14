@@ -190,23 +190,13 @@ fn corpus_full_roundtrip() {
     let start = Instant::now();
     let failures = run(&files);
     println!("total wall time: {:.1} s", start.elapsed().as_secs_f64());
-    if let Some(peak) = peak_working_set() {
+    if let Some(peak) = common::peak_working_set() {
         println!(
             "peak working set: {peak} bytes ({:.0} MiB)",
             peak as f64 / 1048576.0
         );
     }
     assert!(failures.is_empty(), "{failures:#?}");
-}
-
-/// Peak working set of this process (Windows, via PowerShell), in bytes.
-fn peak_working_set() -> Option<u64> {
-    let script = format!("(Get-Process -Id {}).PeakWorkingSet64", std::process::id());
-    let out = std::process::Command::new("powershell")
-        .args(["-NoProfile", "-Command", &script])
-        .output()
-        .ok()?;
-    String::from_utf8_lossy(&out.stdout).trim().parse().ok()
 }
 
 /// Descend to the first record in the deepest-first chain of last children and grow its
@@ -279,7 +269,7 @@ fn corpus_rewrite_edit_in_largest_group() {
     })
     .unwrap();
     let secs = start.elapsed().as_secs_f64();
-    let peak = peak_working_set();
+    let peak = common::peak_working_set();
     println!(
         "edited one subrecord at depth {edited_depth:?} of WRLD: wrote {} bytes (input {}), \
          {} modified top-level entries, {secs:.1} s, peak working set {}",

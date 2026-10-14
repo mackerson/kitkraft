@@ -104,6 +104,20 @@ pub enum Error {
     #[error("subrecord written at output offset {offset} uses the reserved signature XXXX")]
     ReservedSignature { offset: u64 },
 
+    /// [`crate::index::read_record_at`] found a group header where a record was expected.
+    #[error("expected a record at offset {offset}, found {found}")]
+    NotARecord { offset: u64, found: Signature },
+
+    /// [`crate::index::read_indexed`] read a record header that disagrees with its index
+    /// entry: the index is stale or does not belong to this file.
+    #[error("record at offset {offset} does not match its index entry: {what} is {found:#x}, index says {expected:#x}")]
+    IndexMismatch {
+        offset: u64,
+        what: &'static str,
+        expected: u64,
+        found: u64,
+    },
+
     /// An I/O error while streaming a file.
     #[error("I/O error at offset {offset}: {source}")]
     Io {
@@ -133,6 +147,8 @@ impl Error {
             | Error::Deflate { offset, .. }
             | Error::FlagBodyMismatch { offset, .. }
             | Error::ReservedSignature { offset }
+            | Error::NotARecord { offset, .. }
+            | Error::IndexMismatch { offset, .. }
             | Error::Io { offset, .. } => *offset,
         }
     }

@@ -364,9 +364,10 @@ impl<R: Read> TopLevelReader<R> {
     /// The next entry's absolute offset and bytes, or `None` at the end of the input.
     fn next_entry(&mut self) -> Result<Option<(u64, Vec<u8>)>> {
         let offset = self.offset;
-        if offset >= self.len {
+        if offset >= self.len && offset > 0 {
             return Ok(None);
         }
+        // An empty input is not a plugin: it has no `TES4` header.
         let available = self.len.saturating_sub(offset);
         if available < HEADER_LEN as u64 {
             return Err(Error::UnexpectedEof {
@@ -762,6 +763,21 @@ mod tests {
             Err(Error::UnexpectedEof { what: "group", .. }) => {}
             other => panic!("{other:?}"),
         }
+        // Review round 3, finding 2: an empty input is an error, not an identical rewrite.
+        assert!(matches!(
+            roundtrip_bytes(&[], &RoundtripOptions::default()),
+            Err(Error::UnexpectedEof {
+                offset: 0,
+                available: 0,
+                ..
+            })
+        ));
+        let mut out = Vec::new();
+        assert!(matches!(
+            rewrite_reader(&[][..], 0, &RewriteOptions::default(), &mut out, |_| Ok(())),
+            Err(Error::UnexpectedEof { offset: 0, .. })
+        ));
+        assert!(out.is_empty());
         let not_plugin = group(b"GMST", 0, &[]);
         assert!(matches!(
             roundtrip_bytes(&not_plugin, &RoundtripOptions::default()),

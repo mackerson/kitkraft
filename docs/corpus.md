@@ -108,6 +108,37 @@ grows one subrecord by one byte in the first record of the deepest group chain o
 | ---------- | ------- | ------------------- | -------------------------- | --------- | ---------------- |
 | 2026-10-14 | 087ab97 | input + 1 byte      | 1 (`WRLD`)                 | 2.6 s     | 1,293 MiB        |
 
+### Record index (M2.A1) and random access (M2.A2)
+
+`kitcraft_esm::index::index_file` walks group and record headers without building the
+tree, reading each record body once (to find its first `EDID`; compressed records are
+inflated only until that subrecord). `cargo test -p kitcraft-esm --release --test index --
+--ignored --nocapture` (2026-10-14, lane A, warm file cache):
+
+| File                         | Records   | Groups  | EditorIDs | Index time (s) |
+| ---------------------------- | --------- | ------- | --------- | -------------- |
+| Starfield.esm                | 3,829,247 | 101,341 | 204,930   | 3.33           |
+| Constellation.esm            | 57        | 7       | 56        | 0.00           |
+| OldMars.esm                  | 39        | 5       | 38        | 0.00           |
+| BlueprintShips-Starfield.esm | 1,503,333 | 2,404   | 5,719     | 0.31           |
+| BlueprintShips-SFBGS050.esm  | 80,008    | 283     | 217       | 0.02           |
+| SFBGS003.esm                 | 65,476    | 1,437   | 3,375     | 0.05           |
+| SFBGS004.esm                 | 892       | 58      | 310       | 0.00           |
+| SFBGS006.esm                 | 60,922    | 1,177   | 1,121     | 0.01           |
+| SFBGS007.esm                 | 63        | 12      | 62        | 0.00           |
+| SFBGS008.esm                 | 182       | 45      | 169       | 0.01           |
+| SFBGS00D.esm                 | 434,991   | 7,005   | 9,905     | 0.17           |
+| SFBGS047.esm                 | 43        | 29      | 36        | 0.00           |
+| SFBGS050.esm                 | 485,320   | 6,039   | 10,967    | 0.13           |
+| ShatteredSpace.esm           | 1,029,529 | 17,747  | 28,441    | 1.80           |
+
+Record counts (per signature, `TES4` included) equal the streaming parse's, which are the
+counts `coverage` reports, on all 14 files. Indexing `Starfield.esm` alone peaks at a
+288 MiB working set (the M1.5 bound is 1,903 MiB): the index holds about 48 bytes per
+record plus EditorIDs, and one record body at a time. `read_indexed` on 1,000 seeded
+`Starfield.esm` entries (and on every record of the five small files) returns records equal
+to the streaming parse's, compressed ones decompressed on both sides.
+
 The modified `WRLD` group (823.6 MiB) is not buffered: its size and those of the modified
 groups inside it are computed first (unmodified children answer from the sizes they were
 read with), its header is written, and its children stream to the sink. Peak memory is the
