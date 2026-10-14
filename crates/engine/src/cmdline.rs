@@ -436,8 +436,8 @@ mod tests {
         );
         assert_eq!(run("ba2.list A.ba2").0, "ba2.list");
         assert_eq!(
-            run("show 0001A2B3"),
-            ("inspect", json!({"form": "0001A2B3"}))
+            run("show 0001A2B3 X.esm"),
+            ("inspect", json!({"form": "0001A2B3", "plugin": "X.esm"}))
         );
         assert_eq!(run("pexdis x.pex").0, "papyrus.disasm");
         assert_eq!(run("ba2 extract A.ba2 --out-dir o").1["out_dir"], "o");

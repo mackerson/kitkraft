@@ -88,9 +88,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Inspect",
         shortcut: Some("Enter"),
         aliases: &["show"],
-        summary: "Resolved record, winning override, and every overrider",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"FormID (hex, load-order or file-relative) or EditorID"}},"required":["form"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "One record by FormID or EditorID: header fields and subrecords (typed fields and overrides later)",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"FormID (hex, file-relative) or EditorID"},"plugin":{"type":"string","description":"Plugin to search (until load order exists)"}},"required":["form","plugin"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "query",
@@ -382,7 +382,9 @@ mod execute_tests {
                 Box::new(|_: &Value| Ok(Outcome::not_implemented())),
             )
             .unwrap();
-        let result = engine.execute("show", json!({"form": "0001A2B3"})).unwrap();
+        let result = engine
+            .execute("show", json!({"form": "0001A2B3", "plugin": "X.esm"}))
+            .unwrap();
         assert_eq!(result["command"], "inspect");
     }
 
@@ -473,6 +475,7 @@ mod execute_tests {
     fn default_handlers_cover_every_implemented_command() {
         let engine = Engine::with_default_handlers();
         assert!(engine.has_handler("roundtrip"));
+        assert!(engine.has_handler("inspect"));
         for spec in catalog() {
             assert_eq!(
                 spec.status == Status::Implemented,
