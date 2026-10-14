@@ -103,9 +103,12 @@ catalog instead of acting on data, so they are plain CLI subcommands and need no
 ## Clean room
 
 - **Every fact has one permitted source, listed in `plan/adr/0005-spec-sources-per-fact.md`.**
-  UESP has no Starfield format page; its Skyrim pages cover only the shared container. Corpus
-  statistics give the inventory, CK differential observation gives Starfield field layouts,
-  and the Creation Kit wiki gives field names. Our own hex dumps of the official ESMs are the
+  UESP's Starfield format pages exist on starfieldwiki.net (`Starfield_Mod:Mod_File_Format`,
+  ADR 0005 Amendment 1) but are thin: cite them as `uesp-starfield:`, never use `/CTDA` (it
+  is derived from xEdit), and use `/Raw_Data` only to cross-check our own corpus inventory.
+  UESP's Skyrim pages cover the shared container. Corpus statistics give the inventory, CK
+  differential observation gives Starfield field layouts, and the Creation Kit wiki gives
+  field names. Our own hex dumps of the official ESMs are the
   tiebreaker. Record facts (signatures, sizes, offsets, types) in `crates/schema` definitions
   with their ADR 0005 `source`; never paste UESP or wiki prose into code or docs, and never
   write a Starfield layout from memory.
