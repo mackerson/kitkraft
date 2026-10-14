@@ -185,8 +185,22 @@ Timings (release, this machine):
 | Default profile, 84 plugins, 7,739,193 records (`kit load --profile`, wall clock) | 6.0 s | 0.68 s |
 
 On the warm Default profile (release, `kit` wall clock including the load): `query --type
-WEAP --where "FULL ~ 'Old Earth Hunting Rifle'"` 0.76 s (541 candidates, 415 unknown
-because `Starfield.esm` is localized and string tables are not loaded yet), `inspect
+WEAP --where "FULL ~ 'Old Earth Hunting Rifle'"` about 1 s (541 candidates; the string tables
+of every plugin with a WEAP are read on first use), `inspect
 Starfield.esm:001116` 0.8 s, `conflicts --count-classes` (15,586 overridden forms, 15,893
 override records: 8,206 deleted, 6,031 differs, 1,641 identical to the previous version,
 15 first versions without a base record) 2.8 s.
+
+## String tables (M2.D7)
+
+A localized plugin's lstrings resolve through `strings/<stem>_<language>.{strings,
+dlstrings,ilstrings}` (`kitcraft_doc::strings`): a loose file under `Strings\` wins (through
+the MO2 overlay: overwrite, mods by priority, then Data), else the plugin's `<stem> - *.ba2`
+archives in the overlay or Data, Localization archives first, then Main (placement per
+lane G's corpus survey in `plan/STATUS.md`; archive names from the official files). The ID
+is looked up in every table found. Checked: `Starfield.esm` WEAP `21BBCD`
+(`RussianHuntingRifle`) FULL `0x0002E469` resolves to "Old Earth Hunting Rifle" in
+`Starfield - Localization.ba2:strings/starfield_en.strings`
+(`crates/engine/tests/load_order_corpus.rs`). Not settled: string ID 0 occurs in 14 official
+GMST string settings and is in no table; it stays unknown rather than being read as an empty
+string.

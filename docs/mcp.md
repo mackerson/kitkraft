@@ -251,9 +251,17 @@ order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitcr
 Rules, evidence and assumptions: `docs/load-order.md`.
 
 Every result over a load order repeats the limitations that affect it: runtime IDs are an
-assumption (`runtime-slots-by-scale`), string tables are not loaded (lstrings of localized
-plugins stay string IDs, M2.D7), plugins whose own records resolve by the `full-style-self`
-assumption, and plugins with records whose FormIDs do not resolve.
+assumption (`runtime-slots-by-scale`), plugins whose own records resolve by the
+`full-style-self` assumption, and plugins with records whose FormIDs do not resolve.
+
+String tables (M2.D7): the load order keeps the tables of its localized plugins in the
+`language` given to `load` (default `en`), read on first use per plugin from a loose
+`Strings\<plugin>_<language>.{strings,dlstrings,ilstrings}` (through the MO2 overlay, or the
+Data dir) or from the plugin's `<stem> - *.ba2` archives (Localization first). A resolved
+lstring carries `string_id`, `text`, `string_table` (`Starfield - Localization.ba2:strings/
+starfield_en.strings`), `string_kind` and `string_offset`, with an evidence entry at that
+offset in the table; a table or ID that cannot be found leaves `string_id` alone and a
+limitation saying where it looked.
 
 ### `load` (M2.D8)
 
@@ -289,7 +297,9 @@ Arguments `{form, plugin?, profile?, plugins?, data_dir?, no_cache?}`.
 `signature`, `editor_id` (the winner's), `winner`, `summary`, and `versions[]` in load
 order: `plugin`, `load_index`, `winner`, `raw_form_id` (as stored in that plugin),
 `record` (header fields), `subrecord_offsets`, `subrecords[]` (as below, plus `text` for
-EDID and inline lstrings, or `string_id` for a localized FULL/DESC), `vs_previous` (null
+EDID; for FULL/DESC the lstring members above; `member` (the schema's member name) and
+`value` (decoded through the schema: structs as objects, FormIDs as `{raw, form}`) where
+lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
 flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
 `payloads_comparable` (whether the two plugins encode FormIDs alike; when false a byte
@@ -323,8 +333,8 @@ Candidates are the winning version of every form of `type` (`winner`) or every v
 (`all`), ordered by the load-order index of the plugin holding the version, then FormID.
 `data`: `type`, `where`, `scope`, `limit`, `matched`, `unknown` (records on this page that
 could not be decided: not matched), `scanned`, `candidates`, `next_cursor` (null on the
-last page), `results[]` (`form`, `signature`, `editor_id`, `full` (`{text}` or
-`{string_id}`), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`),
+last page), `results[]` (`form`, `signature`, `editor_id`, `full` (`{text}` inline, or the
+lstring members above), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`),
 `unknown_records[]` (first 20: `form`, `plugin`, `reasons`), `elapsed_ms`, `summary`.
 Evidence: each result's record header and its FULL payload. A cursor is opaque; one from
 another load order, type, `where` or scope is a `failed` error. Paging returns the same set
@@ -351,11 +361,19 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
   text; `@flags` (record flags) takes numbers.
 - A repeated subrecord matches if any occurrence matches; `[n]` picks occurrence `n`
   (0-based).
-- A subrecord the record does not have makes a comparison false and `has` false.
-  Unknown: a path into a subrecord without a typed layout (today every member path and
-  every signature except `EDID`, `FULL` and `DESC`), a localized `FULL`/`DESC` (string
-  tables not loaded), a record that cannot be read. `and`/`or`/`not` follow Kleene logic;
-  an unknown record is not matched, is counted, and its reasons are listed.
+- Field paths are decoded through lane B's schema definitions (`crates/doc/src/typed.rs`):
+  `SIG.Member.Member` walks struct members, arrays fan out (any element matches), and a
+  path may start with the subrecord's own member name (`KSIZ.Count` = `KSIZ`). FormID
+  members compare as formrefs (`KWDA == Starfield.esm:0004A0BB`); lstrings compare as
+  their resolved text. A record type or subrecord without a definition falls back to
+  `EDID` as text and `FULL`/`DESC` as lstrings.
+- A subrecord the record does not have makes a comparison false and `has` false. A value
+  of another kind than the literal (a GMST string variant against `DATA > 100`) is not
+  equal, not ordered and does not contain: false (`!=` and `!~` true). Unknown: a member
+  inside bytes the schema keeps opaque or a payload its layout does not cover, a subrecord
+  without any definition, a string ID in no table, a FormID that does not resolve, a record
+  that cannot be read. `and`/`or`/`not` follow Kleene logic; an unknown record is not
+  matched, is counted, and its reasons are listed.
 - Errors (`failed`) carry a 1-based column: `where: column 6: ...`. Text is capped at 4,096
   characters and nesting at 64.
 
