@@ -11,7 +11,10 @@
 //! line tables, property groups, struct member orders); user flags; objects, each with
 //! structs, variables, guards (v3.12), properties (auto, or get/set functions) and states
 //! of named functions. Instructions are an opcode and a fixed number of values, plus a
-//! counted list for the call and guard opcodes.
+//! counted list for the call and guard opcodes. Each object's `u32` size counts the bytes
+//! from that size field to the object's end (`corpus:` every official script); a mismatch
+//! is [`Error::ObjectSize`]. Only version 3.12 occurs in the corpus; the engine flags any
+//! other version in `limitations[]`.
 //!
 //! One correction to `pexdis.py`: it reads an extra `u16` after each struct's name, so it
 //! fails on the 133 official scripts that define structs. Without it all 5,708 official

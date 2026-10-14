@@ -203,6 +203,15 @@ fn hostile_input_gives_typed_errors() {
         Pex::parse(&trailing),
         Err(Error::TrailingBytes { count: 1, .. })
     ));
+    // Regression (review round 2): the object size field must match the body.
+    let size_at = Pex::parse(&good).unwrap().objects[0].offset as usize + 2;
+    let mut sized = good.clone();
+    let declared = u32::from_le_bytes(sized[size_at..size_at + 4].try_into().unwrap());
+    sized[size_at..size_at + 4].copy_from_slice(&(declared + 1).to_le_bytes());
+    assert!(matches!(
+        Pex::parse(&sized),
+        Err(Error::ObjectSize { actual, .. }) if actual == u64::from(declared)
+    ));
     let mut magic = good.clone();
     magic[0] = 0;
     assert!(matches!(Pex::parse(&magic), Err(Error::BadMagic { .. })));

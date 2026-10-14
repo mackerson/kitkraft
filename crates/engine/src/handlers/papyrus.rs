@@ -72,6 +72,14 @@ pub(super) fn disasm(args: &Json) -> Result<Outcome, EngineError> {
         }
     }
     let mut limitations = Vec::new();
+    if (pex.header.major, pex.header.minor) != (3, 12) {
+        limitations.push(format!(
+            "version {}.{}: only 3.12 (every official Starfield script) is checked against \
+             the corpus; other versions parse by the same layout (guards from 3.12 on) and \
+             may be misread",
+            pex.header.major, pex.header.minor
+        ));
+    }
     if structs > 0 {
         limitations.push(format!(
             "{structs} structs are in the model but, as in pexdis.py's format, not in the text"
@@ -343,6 +351,20 @@ pub(super) mod tests {
         assert_eq!(r["data"]["summary"], want.trim_end());
         assert_eq!(r["data"]["functions"], 1);
         assert!(r["data"].get("script").is_none());
+        assert_eq!(r["limitations"].as_array().unwrap().len(), 0);
+        // Regression (review round 2): a version other than 3.12 is flagged.
+        let mut other = tiny_pex();
+        other[5] = 13;
+        fs::write(&pex, &other).unwrap();
+        let r = execute("papyrus.disasm", json!({"pex": pex.to_str().unwrap()})).unwrap();
+        assert!(
+            r["limitations"][0]
+                .as_str()
+                .unwrap()
+                .contains("version 3.13"),
+            "{r}"
+        );
+        fs::write(&pex, tiny_pex()).unwrap();
         let j = execute(
             "papyrus.disasm",
             json!({"pex": pex.to_str().unwrap(), "format": "json"}),
