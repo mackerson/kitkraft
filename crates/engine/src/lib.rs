@@ -19,11 +19,13 @@
 
 pub mod args;
 pub mod cmdline;
+pub mod edit;
 mod envelope;
 mod exec;
 mod handlers;
 mod params;
 mod session;
+pub mod validate;
 
 pub use args::Violation;
 pub use cmdline::{parse_line, parse_words, Invocation};
@@ -141,9 +143,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Set Field...",
         shortcut: None,
         aliases: &[],
-        summary: "Write field values on a record into a target plugin",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string"},"fields":{"type":"object"},"into":{"type":"string"}},"required":["form","fields","into"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Write field values on the winning version of a record into a patch plugin (non-localized; FULL=\"...\" shorthand)",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"fields":{"type":"object","description":"Field path -> value: FULL, DNAM.Member, FULL[1]; numbers or text; {\"mul\": x} / {\"add\": x}; hex:0A0B for opaque payloads"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp; never a load-order plugin, the game Data dir or MO2)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form","fields","into"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "diff",
@@ -171,9 +173,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "File/Build Patch...",
         shortcut: Some("Ctrl+B"),
         aliases: &[],
-        summary: "Compile a data-driven patch spec (TOML) into one plugin",
-        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string"},"out":{"type":"string"}},"required":["spec","out"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Compile a data-driven patch spec (TOML: [[set]] and [[rule]] entries) into one fresh plugin, validated",
+        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp), replaced only when the new one validates"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "validate",
@@ -181,9 +183,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Tools/Validate",
         shortcut: Some("F7"),
         aliases: &["check"],
-        summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"}},"required":["plugin"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir: plugin names resolve here, and masters are searched here after the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "roundtrip",
@@ -456,12 +458,17 @@ mod execute_tests {
     }
 
     #[test]
-    fn planned_command_without_handler_is_not_implemented() {
-        let err = execute("build", json!({"spec": "a.toml", "out": "b.esm"})).unwrap_err();
+    fn command_without_handler_is_not_implemented() {
+        // No catalog command is Planned any more (M2.F8); an engine without the handler
+        // is the not-implemented case.
+        let engine = Engine::empty();
+        let err = engine
+            .execute("build", json!({"spec": "a.toml", "out": "b.esm"}))
+            .unwrap_err();
         assert!(matches!(err, EngineError::NotImplemented(ref id) if id == "build"));
         // Validation still runs first.
         assert_eq!(
-            execute("build", json!({})).unwrap_err().kind(),
+            engine.execute("build", json!({})).unwrap_err().kind(),
             "invalid_args"
         );
     }

@@ -366,7 +366,11 @@ mod tests {
     #[test]
     fn exit_code_follows_status_and_passed() {
         let roundtrip = find_command("roundtrip").unwrap();
-        let planned = find_command("build").unwrap();
+        // No catalog command is Planned any more; a spec built here stands in for one.
+        let planned = &kitcraft_engine::CommandSpec {
+            status: kitcraft_engine::Status::Planned,
+            ..*find_command("build").unwrap()
+        };
         let with = |passed| json!({"data": {"passed": passed}});
         assert_eq!(result_code(roundtrip, &with(json!(true))), 0);
         assert_eq!(result_code(roundtrip, &with(json!(null))), 0);

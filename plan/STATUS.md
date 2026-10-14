@@ -314,6 +314,47 @@ is under "Next".
     482 MB, warm 0.73 s / 376 MB (reviewer: 478 / 375 MB); conflicts 15,586 forms, 15,893
     overrides (8,206 deleted, 6,028 differs, 1,644 identical, 15 first versions), 2.7 s;
     esmscan counts unchanged (8,234 records from Starfield.esm by 59 plugins).
+- Lane E, M2.E1..E10 (engine `src/edit/`, `src/validate/`, `handlers/{set,validate,build}.rs`,
+  the `FIELD=value` shorthand; `docs/validate.md`, `docs/smoke-rename.md`), all checked
+  2026-10-14:
+  - E1 shorthand: `kit set <form> FULL="..." --into X.esp`, `SIG.member=1.5`,
+    `SIG=hex:...` give exactly the `--fields` JSON (values always strings; the command
+    parses them by type). E2 field paths `SIG`, `SIG[n]`, `SIG.Member[n]` against lane B's
+    schema (unions by EditorID prefix), typed values range-checked, `hex:` for opaque,
+    `{mul}/{add}`, FormID 0 is `null`; errors name the path and a rule id.
+  - E3 writing rules in `docs/corpus.md` ("Writing rules"), asserted by
+    `crates/engine/tests/writing_rules.rs`: master flag for `.esm`, `HEDR` 0.96 / next ID
+    `0xFF001000` / form version 582, never localized, string ID 0 has no text, **no ONAM for
+    top-level overrides** (ONAM lists only group-type 7/9/10 children; 853 top-level
+    overrides in 10 official files are never listed). The `ck-diff` half (M2.O4) is a
+    limitation of `set` and `build`.
+  - E4 patch writer: lossless copies (only edited subrecords change), every lstring of a
+    localized source inlined from lane D's string tables (ID 0 -> empty; unresolved or
+    non-UTF-8 refuses), masters = source masters + source (prefix-compatible targets
+    extended; otherwise remapped through the M2.B3 visitors, refused when opaque), the
+    cell/world/topic parent rule, never a load-order plugin / game Data / user Data / MO2.
+  - E5 `set` across the load order (session or `profile`/`plugins`): winning version,
+    before/after per field, evidence in source and patch. Until lane D's round 2 it refuses
+    an unverified load order (failed plugin, late or missing master, active plugin without
+    a file) and a deleted winner, and notes `full-style-self` for scaled sources.
+  - E6-E8 `validate` (session-aware; `{plugin?, scripts?, rules?}`): `masters.missing`,
+    `masters.order`, `formid.dangling` (header + typed members, scale-aware full slots),
+    `lstring.copied-id`, `override.stripped-name`, `record.flags-body`,
+    `papyrus.denylisted-call` (`Debug.SetGodMode`, from our noc patch). On the 14 official
+    files (`validate_corpus_official_files`, release, 76 s): **0 errors**; warnings: 92
+    `override.stripped-name` on CELL/LCTN/NPC_/QUST/WRLD (the DLCs drop those names
+    themselves, so those types warn instead of erroring) and 15 `formid.dangling` in
+    SFBGS050 (overrides of SFBGS00D forms SFBGS00D lacks: injected records, the same 15
+    lane D found).
+  - E9 `build` from TOML (`[[rule]]` over `query` matches, `[[set]]`, conflicts named by
+    key, fresh plugin validated before it replaces `out`).
+  - E10 rename: `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` (2,197 bytes; `TES4`
+    master flag, `HEDR` 2 records, master `Starfield.esm`; one `WEAP 0021BBCD`
+    `RussianHuntingRifle` with FULL "Old Soviet Marksman Rifle" and its 8 other lstrings
+    inline), identical from `kit set` and `kit build docs\smoke-rename.toml`; `validate`
+    0 errors / 0 warnings; `roundtrip --verify` identical; with the plugin appended
+    `inspect` shows the new name winning. Automated in `crates/engine/tests/smoke_rename.rs`
+    (64 s debug). Owner steps: M2.O6 below and `docs/smoke-rename.md`.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -391,7 +432,38 @@ definition is checked against every corpus occurrence before it moves to
 | M2.O3 | Install SF1Edit (agents do not download executables)        | open; blocks M2.B11                    |
 | M2.O4 | CK and MO2 observation sessions                             | open; blocks M2.D1 check, M2.D3 (c), the `hardcoded-official-slots` check, M2.E3 `ck-diff` part |
 | M2.O5 | Third-party mod plugins as inventory evidence               | open; default **no**                   |
-| M2.O6 | In-game check of the rename plugin                          | open; at M2 exit                       |
+| M2.O6 | In-game check of the rename plugin                          | **ready**: plugin built, steps below   |
+
+#### M2.O6: in-game check of the rename plugin (owner)
+
+The plugin is `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` (2,197 bytes,
+SHA-256 `73F3F92F...194A3C24`; full hash and details in `docs/smoke-rename.md`). It
+renames `Starfield.esm:0021BBCD` (WEAP `RussianHuntingRifle`, "Old Earth Hunting Rifle")
+to "Old Soviet Marksman Rifle". In the Default profile the rifle's winner is
+`Starfield.esm` (no mod overrides it, checked 2026-10-14 with `kit inspect --profile`), so
+the patch's only master is `Starfield.esm`. Use a disposable save.
+
+1. MO2: right-click the mod list > *Create empty mod* > `Old Soviet Marksman Rifle
+   (kitcraft smoke test)`.
+2. Copy the plugin into `C:\Modding\MO2-Starfield\mods\Old Soviet Marksman Rifle
+   (kitcraft smoke test)\`.
+3. Enable the mod and its plugin; put the plugin last in the load order (it must load
+   after the rifle's winner; if a mod that overrides `0021BBCD` is added later, rebuild
+   the patch from that load order and keep the patch after it).
+4. Launch Starfield through MO2, load the disposable save, console:
+   `player.additem 0021BBCD 1`.
+5. Read the name in the inventory and the weapon's inspect view; record it here (pass or
+   fail, with a screenshot if possible).
+
+Expected: "Old Soviet Marksman Rifle". The shown name is the base FULL plus the
+instance naming rules of INNR `dn_CommonGun` (the rifle's `INRD`), which prefix names by
+keyword ("Titanium", "Elemental", ...): a modded instance may read "Elemental Old Soviet
+Marksman Rifle", which is still a pass. The old name means the plugin is inactive or not
+last, or an OMOD/INNR string supplies the name (record which); garbage such as `%@` means a
+string ID was read as text (a `lstring.copied-id` miss). Disable the mod afterwards; it adds
+no forms and no scripts.
+
+Result: _pending (owner)_.
 
 ### Divergence from the brief (for the owner)
 
@@ -490,10 +562,36 @@ Agents append here when they need a change in a crate they do not own.
   `MasterNotLoaded`, `PluginNotLoaded` and `Null` (raw `00000000` never resolves);
   `FormRef::parse` refuses object ID 0. `inspect` reads bare hex only with `plugin`; a
   runtime ID is `runtime:<hex>` (front ends and examples that pass bare hex runtime IDs
-  need the prefix). Index cache format 3: old entries rebuild once.
+  need the prefix). Index cache format 3: old entries rebuild once. For lane E's
+  `verify_load_order`: the Default profile now has no late master, and the "active plugins
+  with no file" limitation is now in `Loaded::limitations` (it was only in `load`'s own
+  result before, so the `NO_FILE` check could not see it); whether `set`/`build` can drop
+  the "unverified" refusal is lane E's call.
 - **Lane D -> lane B.** 14 official GMST string settings hold string ID 0, which is in no
   table; `query` leaves them unknown. A source for what ID 0 means would close it.
   `where` member names are the schema's PascalCase names, matched case-insensitively.
+- **Lane E -> lane F (tests touched, catalog closure).** `set`, `validate` and `build`
+  are `Implemented`, so no catalog command is `Planned` any more. Tests that used `build`
+  as the Planned example were changed in lane E's commit 714bfe6: engine
+  `command_without_handler_is_not_implemented` (an engine without the handler),
+  `apps/kit-cli` `exit_code_follows_status_and_passed` (a Planned spec built in the test),
+  `apps/kit-cli/tests/exit_codes.rs` `failing_command_exits_2_with_clear_message` (missing
+  spec / plugin), `crates/mcp/src/server.rs` (build with a missing spec is `failed`).
+  `PLANNED_IN_M2` still lists `set`, `build`, `validate` (stale; prune at will).
+  `validate`'s `plugin` is optional, so it is a flag (`kit validate --plugin X.esp`), as
+  lane D did for `inspect`.
+- **Lane E -> lane D (round 2).** (1) `set`/`build` refuse a load order with failed
+  plugins, late or missing masters, or active plugins without a file ("load order
+  unverified"); the last is found by the text of `load`'s limitation ("active plugins with
+  no file"). Please expose the missing active plugins as a field of `Loaded` and say when
+  the winning override is a safe source again, so lane E can drop the blanket refusal. The
+  owner's Default profile is refused today: `stroudpremiumedition.esm` loads before
+  `sfbgs00d.esm` and `SFBGS047.esm`. (2) `strings::Resolved` has only lossy `text`; lane G
+  notes some official strings are not UTF-8. `set` refuses such a string (a U+FFFD in the
+  text) rather than change it; a `bytes` field would let it copy them exactly.
+- **Lane E -> owner (M2.O4).** The `ck-diff` half of M2.E3 is open: what the CK writes for
+  a new non-localized plugin (master flag for `.esm`, `HEDR` next object ID, inline text
+  encoding: we write UTF-8). Until observed it is a limitation on every `set`/`build`.
 - **Lane F -> lanes D, E, G (session and catalog closure).** A handler that needs the
   load order is a `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` added to
   `handlers::session_defaults()` (stateless handlers stay in `defaults()`). Keep your

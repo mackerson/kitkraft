@@ -1,0 +1,23 @@
+# Rename smoke test (M2.E10, docs/smoke-rename.md): the Old Earth Hunting Rifle
+# (Starfield.esm WEAP 0021BBCD, EditorID RussianHuntingRifle) becomes the
+# "Old Soviet Marksman Rifle" in a new non-localized plugin whose only master is
+# Starfield.esm.
+#
+#   kit build docs\smoke-rename.toml C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm
+#
+# writes the same bytes as
+#
+#   kit set Starfield.esm:0021BBCD FULL="Old Soviet Marksman Rifle" --into <out> --plugins Starfield.esm --data-dir <Data>
+
+version = 1
+
+[plugin]
+localized = false
+
+[load_order]
+plugins = ["Starfield.esm"]
+data_dir = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+
+[[set]]
+form = "Starfield.esm:0021BBCD"
+fields = { FULL = "Old Soviet Marksman Rifle" }

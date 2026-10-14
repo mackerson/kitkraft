@@ -5,6 +5,9 @@
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
 mod ba2;
+mod build;
+#[cfg(test)]
+mod build_tests;
 mod conflicts;
 mod coverage;
 mod diff;
@@ -13,9 +16,13 @@ mod load;
 mod papyrus;
 mod query;
 mod roundtrip;
+mod set;
+#[cfg(test)]
+mod set_tests;
 mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
+mod validate;
 
 use std::path::Path;
 
@@ -46,6 +53,9 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("inspect", Box::new(inspect::run)),
         ("query", Box::new(query::run)),
         ("conflicts", Box::new(conflicts::run)),
+        ("set", Box::new(set::run)),
+        ("validate", Box::new(validate::run)),
+        ("build", Box::new(build::run)),
     ]
 }
 
