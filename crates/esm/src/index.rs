@@ -8,9 +8,9 @@
 //! [`read_record_at`] and [`read_indexed`] then read single records back by offset, with
 //! their absolute offsets, optionally decompressed.
 //!
-//! The EditorID is the payload of the record's first `EDID` subrecord, without its
-//! terminating NUL (a zstring: UESP, Skyrim_Mod:Mod_File_Format, "Data types"; every
-//! official ESM's `EDID` payloads end in one NUL, `docs/corpus.md`). For a compressed
+//! The EditorID is the payload of the record's first `EDID` subrecord with one trailing
+//! NUL removed if there is one (`EDID` is a zstring: UESP, Skyrim_Mod:Mod_File_Format,
+//! "Data types"); other bytes are kept as they are. For a compressed
 //! record the zlib stream is inflated only until that subrecord has been read, under
 //! [`DecodeLimits`]; a compressed record without `EDID` is inflated to its end (streamed,
 //! never held whole).
