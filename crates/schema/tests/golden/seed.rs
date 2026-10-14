@@ -14,6 +14,7 @@
 // - KYWD (corpus: KYWD records of the official ESMs (12 files with a KYWD group); corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
 // - PCBN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15764-L15785; corpus)
+// - PCCN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15788-L15796; corpus)
 // - PCMT (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15799-L15826; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
@@ -3508,6 +3509,220 @@ impl PcbnRecord {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct PccnKeywords(pub Vec<FormId>);
+
+impl Field for PccnKeywords {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for PccnKeywords {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct PccnRecord {
+    /// `EDID`, required.
+    pub editor_id: Option<Sub<ZString>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `PCCC`, optional.
+    pub content: Option<Sub<FormId>>,
+    /// `IOVR`, optional.
+    pub override_content_properties: Option<Sub<Empty>>,
+    /// `KWDA`, optional.
+    pub keywords: Option<Sub<PccnKeywords>>,
+    /// `PRTN`, required.
+    pub parent_node: Option<Sub<FormId>>,
+    /// `PRVN`, optional.
+    pub previous_node: Option<Sub<FormId>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl PccnRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"PCCC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"IOVR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"KWDA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRTN",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PRVN",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "PCCN.EDID", ctx, extra)
+                }
+                Hit::Group { member: 1, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.content, subs, *index, "PCCN.PCCC", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.override_content_properties,
+                    subs,
+                    *index,
+                    "PCCN.IOVR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.keywords, subs, *index, "PCCN.KWDA", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.parent_node, subs, *index, "PCCN.PRTN", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.previous_node,
+                    subs,
+                    *index,
+                    "PCCN.PRVN",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"PCCC", self.content.as_ref());
+        emit(out, *b"IOVR", self.override_content_properties.as_ref());
+        emit(out, *b"KWDA", self.keywords.as_ref());
+        emit(out, *b"PRTN", self.parent_node.as_ref());
+        emit(out, *b"PRVN", self.previous_node.as_ref());
+    }
+}
+
+impl Visit for PccnRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.content, "PCCN.PCCC", out);
+        visit_form_ids(&self.keywords, "PCCN.KWDA", out);
+        visit_form_ids(&self.parent_node, "PCCN.PRTN", out);
+        visit_form_ids(&self.previous_node, "PCCN.PRVN", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.content, "PCCN.PCCC", out);
+        visit_form_ids_mut(&mut self.keywords, "PCCN.KWDA", out);
+        visit_form_ids_mut(&mut self.parent_node, "PCCN.PRTN", out);
+        visit_form_ids_mut(&mut self.previous_node, "PCCN.PRVN", out);
+    }
+}
+
+impl PccnRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"PCCN";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("PCCN", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("PCCN", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("PCCN", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("PCCN", &mut out);
+        out
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PcmtNodeType {
     Root,
@@ -4903,6 +5118,7 @@ pub enum Record {
     Kywd(Box<KywdRecord>),
     Omod(Box<OmodRecord>),
     Pcbn(Box<PcbnRecord>),
+    Pccn(Box<PccnRecord>),
     Pcmt(Box<PcmtRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
@@ -4919,6 +5135,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"KYWD", KywdRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
     (*b"PCBN", PcbnRecord::MEMBERS),
+    (*b"PCCN", PccnRecord::MEMBERS),
     (*b"PCMT", PcmtRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
@@ -4938,6 +5155,7 @@ impl Record {
             b"KYWD" => Self::Kywd(Box::new(KywdRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
             b"PCBN" => Self::Pcbn(Box::new(PcbnRecord::decode(subs, ctx))),
+            b"PCCN" => Self::Pccn(Box::new(PccnRecord::decode(subs, ctx))),
             b"PCMT" => Self::Pcmt(Box::new(PcmtRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
@@ -4957,6 +5175,7 @@ impl Record {
             Self::Kywd(record) => record.encode(),
             Self::Omod(record) => record.encode(),
             Self::Pcbn(record) => record.encode(),
+            Self::Pccn(record) => record.encode(),
             Self::Pcmt(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
@@ -4975,6 +5194,7 @@ impl Record {
             Self::Kywd(_) => KywdRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
             Self::Pcbn(_) => PcbnRecord::SIGNATURE,
+            Self::Pccn(_) => PccnRecord::SIGNATURE,
             Self::Pcmt(_) => PcmtRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
@@ -4993,6 +5213,7 @@ impl Record {
             Self::Kywd(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
             Self::Pcbn(record) => record.form_ids(),
+            Self::Pccn(record) => record.form_ids(),
             Self::Pcmt(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
@@ -5011,6 +5232,7 @@ impl Record {
             Self::Kywd(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
             Self::Pcbn(record) => record.form_ids_mut(),
+            Self::Pccn(record) => record.form_ids_mut(),
             Self::Pcmt(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
@@ -5029,6 +5251,7 @@ impl Record {
             Self::Kywd(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
             Self::Pcbn(record) => record.lstrings(),
+            Self::Pccn(record) => record.lstrings(),
             Self::Pcmt(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
@@ -5047,6 +5270,7 @@ impl Record {
             Self::Kywd(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
             Self::Pcbn(record) => record.lstrings_mut(),
+            Self::Pccn(record) => record.lstrings_mut(),
             Self::Pcmt(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
@@ -5066,6 +5290,7 @@ impl Record {
             Self::Kywd(record) => &record.extra,
             Self::Omod(record) => &record.extra,
             Self::Pcbn(record) => &record.extra,
+            Self::Pccn(record) => &record.extra,
             Self::Pcmt(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
