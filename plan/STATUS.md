@@ -457,6 +457,18 @@ is under "Next".
     and streamed. `tests/navmesh.rs` runs on `observe\<date>-F22\` and skips with one line
     without it (F22 not observed yet). `NAVI` is not imported (F22 will show whether the
     CK changes it).
+  - M4.A5 reference composition `kitcraft_esm::refs`: `compose_reference(&RefSpec,
+    allow_reference) -> ComposedRef { record, members, limitations }` and
+    `ComposedRef::placed(CellPlace, cell, &style) -> Placed` (persistent -> the cell's
+    type 8, which for a world is its persistent cell). Raw subrecords in corpus order
+    (`EDID`, leading, `NAME`, extra, `DATA`, trailing); flags 0x400/0x800 from the spec.
+    Each member's confidence comes from the schema's `REFR`/`ACHR` definition when one is
+    built in (lane BW's, after BX), else from the corpus: `NAME`, `DATA` X/Y, persistence
+    `corpus`; `DATA` Z, rotation, flag 0x800 and raw flags below corpus, refused unless in
+    `allow_reference`. So until BW+BX land, a POI placement must allow
+    `DATA.Position.Z` and `DATA.Rotation`; afterwards nothing changes in code.
+    `tests/refs.rs`: reference shape on all 6,734,456 references; 9,144 sampled
+    references composed from their decoded values are byte-identical.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:

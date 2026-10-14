@@ -608,6 +608,22 @@ The `HEDR` record count of a rebuilt plugin follows the majority rule ("TES4 hea
 inventory"), so it equals the 12 files' and differs from the two `BlueprintShips` files';
 the gate compares the groups, not `TES4`.
 
+### Placed references (M4.A5)
+
+`crates/esm/tests/refs.rs` (release, 63 s for the shape, 31 s for the sample): in all
+6,719,725 `REFR` and 14,731 `ACHR` of the 14 files, `NAME` occurs once with 4 bytes; `DATA`
+occurs once with 24 bytes, except in the 5,847 deleted `REFR` (flag 0x20), which have none;
+`EDID`, when present, is the first subrecord; and `DATA` is the last subrecord in all but
+3 `REFR` of `Starfield.esm` (`00182E1A`, `002119C0`, `0001E709`: an `MNAM` follows). Before
+`NAME` the corpus has `EDID`, `VMAD`, `XALG` and component blocks (`BFCB`..`BFCE`); the
+other members sit between `NAME` and `DATA`. In `Starfield.esm` every `NAME` is a record of
+the file that is not a reference, cell, world or navmesh (2,323,009 `STAT`, 309,021 `PDCL`,
+165,362 `MSTT`, ...), except `REFR` `00014893`, whose `NAME` `000001FB` is no record.
+`kitcraft_esm::refs::compose_reference` writes this order; a seeded 1,000 references per
+file (all of them in the files with fewer: 9,144 in all) decomposed into their base,
+position, rotation, flags, EditorID, other subrecords and header fields, and composed
+again, equal their bytes in the file.
+
 ## Archives (M2.G1-G3)
 
 The 90 official `.ba2` archives (about 148.7 GB) are read in place, never copied (ADR 0006).

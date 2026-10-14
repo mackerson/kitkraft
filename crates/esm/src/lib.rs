@@ -41,6 +41,11 @@
 //!   -> Result<Vec<GroupHeader>>` for a record under a cell (interior, a world's persistent
 //!   cell, or an exterior cell at a grid), a quest or a topic; [`Plugin::upsert_styled`]
 //!   places it in corpus order.
+//! - New forms and placed references (M4.A3..A5): [`forms::NewForms`] allocates own
+//!   FormIDs of a full-scale plugin and advances `HEDR`; [`refs::compose_reference`]
+//!   builds a `REFR`/`ACHR` from a [`refs::RefSpec`] with a confidence gate, and
+//!   [`refs::ComposedRef::placed`] gives its computed path; [`navmesh::import_navmeshes`]
+//!   copies a CK-saved plugin's navmesh unchanged.
 //! - Editing one record (M2.A6), compressed or not (decoded on first edit under
 //!   [`DecodeLimits`], recompressed only if its bytes changed):
 //!   [`Record::find_subrecord`]`(sig, nth)`, [`Record::set_subrecord`]`(index, data,
@@ -69,6 +74,7 @@ mod model;
 pub mod navmesh;
 mod parse;
 mod reader;
+pub mod refs;
 mod signature;
 pub mod tes4;
 mod write;

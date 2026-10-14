@@ -350,9 +350,20 @@ fn record_position(
 }
 
 /// Where a new group `header` goes among `children`.
-fn group_position(children: &[Entry<'_>], header: &GroupHeader, style: &PlacementStyle) -> usize {
+fn group_position(
+    children: &[Entry<'_>],
+    parent: &GroupHeader,
+    header: &GroupHeader,
+    style: &PlacementStyle,
+) -> usize {
     use crate::cells::group_type::*;
     let end = children.len();
+    let first_block = || {
+        children
+            .iter()
+            .position(|e| matches!(e, Entry::Group(g) if g.header.group_type == EXTERIOR_BLOCK))
+            .unwrap_or(end)
+    };
     match header.group_type {
         // Blocks and sub-blocks ascend by label read as a u32.
         INTERIOR_BLOCK | INTERIOR_SUB_BLOCK | EXTERIOR_BLOCK | EXTERIOR_SUB_BLOCK => children
@@ -373,16 +384,30 @@ fn group_position(children: &[Entry<'_>], header: &GroupHeader, style: &Placemen
                 end
             }
         }
-        // Children groups follow the record their label names; anything else (or a
-        // children group whose record is missing) goes to the end.
+        // Children groups follow the record their label names. Without that record, the
+        // children of a world's persistent cell still come before the exterior blocks;
+        // anything else goes to the end (the record, when it comes, is put before it).
         _ => {
-            let parent = header.label_u32();
-            children
+            let owner = header.label_u32();
+            match children
                 .iter()
-                .position(|e| matches!(e, Entry::Record(r) if r.header.form_id == parent))
-                .map_or(end, |i| i.saturating_add(1))
+                .position(|e| matches!(e, Entry::Record(r) if r.header.form_id == owner))
+            {
+                Some(i) => i.saturating_add(1),
+                None if parent.group_type == WORLD_CHILDREN => first_block(),
+                None => end,
+            }
         }
     }
+}
+
+/// Whether `group` is the children group (types 1, 6, 7, 10) of the record `form_id`.
+fn is_children_of(group: &GroupHeader, form_id: u32) -> bool {
+    use crate::cells::group_type::*;
+    matches!(
+        group.group_type,
+        WORLD_CHILDREN | CELL_CHILDREN | TOPIC_CHILDREN | QUEST_CHILDREN
+    ) && group.label_u32() == form_id
 }
 
 /// Place `record` under the groups `rest` inside `children`, the children of the group
@@ -408,8 +433,19 @@ fn place<'a>(
                 Upsert::Replaced
             }
             None => {
+                // A children group placed before its record moves to follow it.
+                let form_id = record.header.form_id;
+                let orphan = children
+                    .iter()
+                    .position(
+                        |e| matches!(e, Entry::Group(g) if is_children_of(&g.header, form_id)),
+                    )
+                    .map(|j| children.remove(j));
                 let at = record_position(children, parent, &record, style);
                 children.insert(at, Entry::Record(record));
+                if let Some(group) = orphan {
+                    children.insert(at.saturating_add(1), group);
+                }
                 Upsert::Inserted
             }
         };
@@ -421,7 +457,7 @@ fn place<'a>(
     let index = match found {
         Some(i) => i,
         None => {
-            let at = group_position(children, next, style);
+            let at = group_position(children, parent, next, style);
             children.insert(at, Entry::Group(Group::new(*next)));
             at
         }
@@ -1169,10 +1205,15 @@ mod tests {
                 },
             ),
         ];
-        let build = |style: &PlacementStyle, reverse: bool| {
+        // Mode 0: as listed; 1: parents first, the rest reversed; 2: all reversed (children
+        // before the records their groups belong to).
+        let build = |style: &PlacementStyle, mode: u8| {
             let mut plugin = Plugin::create(&HeaderSpec::new(Vec::new()));
             let mut items: Vec<_> = records.clone();
-            if reverse {
+            if mode == 2 {
+                items.reverse();
+            }
+            if mode == 1 {
                 // Parents (WRLD, QUST, CELL, DIAL) stay first; the rest go in reverse.
                 let (parents, mut rest): (Vec<_>, Vec<_>) =
                     items.into_iter().partition(|(r, _)| {
@@ -1192,8 +1233,9 @@ mod tests {
             outline(plugin.entries(), 0, &mut out);
             out
         };
-        let official = build(&PlacementStyle::OFFICIAL, false);
-        assert_eq!(official, build(&PlacementStyle::OFFICIAL, true));
+        let official = build(&PlacementStyle::OFFICIAL, 0);
+        assert_eq!(official, build(&PlacementStyle::OFFICIAL, 1));
+        assert_eq!(official, build(&PlacementStyle::OFFICIAL, 2));
         let expected = [
             // 0x2 = 2: block 2, sub-block 0; 0x11 = 17: 7, 1; 0x12 = 18: 8, 1.
             "G0:CELL",
@@ -1244,7 +1286,7 @@ mod tests {
         // The reversed build inserted INFO 63 after 62 and NAVM after the references:
         // both land where the corpus order puts them.
         assert_eq!(official, expected);
-        let blueprint = build(&PlacementStyle::blueprint(7), false);
+        let blueprint = build(&PlacementStyle::blueprint(7), 0);
         assert!(!blueprint.iter().any(|l| l == "G0:NAVM" || l == "G0:DLBR"));
         let g6 = blueprint.iter().position(|l| l == "   G6:12").unwrap();
         assert_eq!(
