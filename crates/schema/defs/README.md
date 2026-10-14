@@ -315,20 +315,34 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
 | `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
-| `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB block opaque |
+| `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB blocks |
 | `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
-| `AMMO.toml` `AMDL.toml` `COBJ.toml` `OMOD.toml` `ZOOM.toml` | record | corpus scan | Inventories (M2.B2): universal subrecords typed, the rest opaque until lane B round 3 |
-| `WEAP.toml` | record    | corpus scan                              | Inventory; universal subrecords typed (M2.B2); the body layout waits for lane B round 3 (`xedit:`) |
-| `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
-| `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |
+| `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union (VMAD, BFCB component data, CTDA, OMOD property values, LVLI COED owner data) or does not describe it (WEAP MO4C, OMOD XFLG) |
+| 49 more `<SIG>.toml` (ACTI ... WRLD) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
+| `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
+| `common/ObteBlock.toml` | group | xEdit object template + corpus | OBTE count, combinations (OBTF, FULL, OBTS template item), STOP |
 | `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |
+| `common/Model.toml`     | group | xEdit generic model block       | MODL, MOLM, FLLD, MODC, XFLG |
+| `common/Destructible.toml` | group | xEdit destructible block     | DEST, DAMC, DSDL, stages (DSTD, DSTA, DMDL, FLLD, DMDS, DSTF) |
+| `common/Condition.toml` | group | xEdit condition list + corpus   | CTDA (opaque, unions) with CIS1/CIS2 |
+| `common/SoundReference.toml` `common/ObjectModProperty.toml` `common/Component.toml` `common/Vec3.toml` `common/Bool8.toml` | type | xEdit helpers (+ corpus) | Sound reference (40 bytes), object mod property (24 bytes), crafting component (12 bytes), three floats, one-byte boolean |
 
 Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
 is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`
 (`Count`, `Forms`). Each typed member carries its own `evidence` (the UESP string
 conventions page and the universal corpus scan of 2026-10-14) and `confidence = "corpus"`.
 
-Opaque inventory members are named after their signature (`Wfir`, `Flld2`). These are
+Round 3 definitions (M3) cite the pinned xEdit file per member (`source`), with the helper
+ranges in `evidence`; a member is `corpus` when the round 3 typed check of every official
+record of the type confirms it (`corpus_full_roundtrip` and a per-type scan: nothing left in
+`extra`, zero re-encode differences), and `reference` when no official record has it.
+Counts stored in their own field or subrecord (`IncludeCount`, `LLCT`, `CITC`, `VNAM`,
+`OBTE`) are kept as read: an edit that changes the list must update them. Length prefixes
+xEdit folds into its string and array types (a u32 before OMOD's name, PROJ's particle
+defines and OMOD's attach parent slots; a u8 before a template item's keywords) are written
+as explicit count fields with a `count_from` array.
+
+Opaque inventory members are named after their signature (`Dnam`, `Xalg`). These are
 placeholders: giving a member a real name later is a breaking change for queries.
 
 ## Example

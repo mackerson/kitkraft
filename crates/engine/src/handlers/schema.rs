@@ -749,7 +749,8 @@ mod tests {
         let grup = data(json!({"type": "GRUP"}));
         assert_eq!(grup["kind"], "header");
         assert_eq!(grup["size"], 24);
-        let refr = execute("schema", json!({"type": "REFR"})).unwrap();
+        // ARMO has no definition yet (REFR has an lstring-only one since M3.B8).
+        let refr = execute("schema", json!({"type": "ARMO"})).unwrap();
         assert_eq!(refr["data"]["defined"], false);
         assert!(refr["limitations"]
             .to_string()

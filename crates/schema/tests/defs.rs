@@ -142,8 +142,12 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "AMDL", "AMMO", "COBJ", "FLST", "GLOB", "GMST", "INNR", "KYWD", "LVLI", "OMOD", "PROJ",
-            "TES4", "WEAP", "ZOOM"
+            "ACTI", "ALCH", "AMDL", "AMMO", "AVIF", "BIOM", "BOOK", "BPTD", "CELL", "CHAL", "CLAS",
+            "COBJ", "CONT", "DIAL", "DMGT", "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN",
+            "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES",
+            "KEYM", "KYWD", "LCTN", "LSCR", "LVLI", "MESG", "MGEF", "MISC", "MSTT", "NPC_", "OMOD",
+            "PERK", "PKIN", "PMFT", "PNDT", "PROJ", "QUST", "RACE", "REFR", "RSPJ", "SPEL", "STAT",
+            "STDT", "TERM", "TES4", "TMLM", "WATR", "WEAP", "WRLD", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -399,6 +403,170 @@ fn round3_definitions_cite_xedit_per_member() {
         .map(|(p, _)| p)
         .collect();
     assert_eq!(opaque, ["Scripts", "FirstPersonModel.Mo4c"]);
+}
+
+/// The (record type, subrecord) pairs lane E's corpus lstring table classifies as lstrings
+/// (`crates/engine/src/edit/lstrings.rs`, built and checked by
+/// `lstring_table_matches_the_corpus`): 105 pairs over 58 record types, copied here so the
+/// schema can be checked against them without depending on the engine.
+const CORPUS_LSTRINGS: &[(&str, &str)] = &[
+    ("ACTI", "ATTX"),
+    ("ACTI", "FULL"),
+    ("ALCH", "DESC"),
+    ("ALCH", "DNAM"),
+    ("ALCH", "FULL"),
+    ("AMMO", "FULL"),
+    ("AMMO", "ONAM"),
+    ("AVIF", "ANAM"),
+    ("AVIF", "FULL"),
+    ("BIOM", "FULL"),
+    ("BOOK", "DESC"),
+    ("BOOK", "ENAM"),
+    ("BOOK", "FNAM"),
+    ("BOOK", "FULL"),
+    ("BPTD", "BPTN"),
+    ("CELL", "FULL"),
+    ("CHAL", "DESC"),
+    ("CHAL", "FULL"),
+    ("CLAS", "FULL"),
+    ("COBJ", "DESC"),
+    ("CONT", "FULL"),
+    ("DIAL", "FULL"),
+    ("DMGT", "FULL"),
+    ("DOOR", "FULL"),
+    ("ENCH", "FULL"),
+    ("EXPL", "FULL"),
+    ("FACT", "FULL"),
+    ("FLOR", "ATTX"),
+    ("FLOR", "FULL"),
+    ("FLST", "FULL"),
+    ("FURN", "ATTX"),
+    ("FURN", "FULL"),
+    ("FXPD", "FULL"),
+    ("GBFM", "FULL"),
+    ("GBFM", "HULL"),
+    ("GPOF", "DNAM"),
+    ("GPOF", "NNAM"),
+    ("GPOF", "RESN"),
+    ("GPOF", "VOVS"),
+    ("HAZD", "FULL"),
+    ("HDPT", "FULL"),
+    ("IDLE", "FULL"),
+    ("INFO", "NAM1"),
+    ("INFO", "RNAM"),
+    ("INNR", "WNAM"),
+    ("IRES", "FULL"),
+    ("IRES", "NNAM"),
+    ("KEYM", "FULL"),
+    ("KYWD", "FULL"),
+    ("LCTN", "FULL"),
+    ("LSCR", "DESC"),
+    ("LVLI", "ONAM"),
+    ("MESG", "DESC"),
+    ("MESG", "FULL"),
+    ("MESG", "ITXT"),
+    ("MESG", "NNAM"),
+    ("MGEF", "DNAM"),
+    ("MGEF", "FULL"),
+    ("MISC", "FULL"),
+    ("MISC", "NNAM"),
+    ("MSTT", "FULL"),
+    ("NPC_", "ATTX"),
+    ("NPC_", "FULL"),
+    ("NPC_", "LNAM"),
+    ("NPC_", "SHRT"),
+    ("OMOD", "DESC"),
+    ("OMOD", "FULL"),
+    ("PERK", "DESC"),
+    ("PERK", "EPF2"),
+    ("PERK", "FULL"),
+    ("PKIN", "FULL"),
+    ("PMFT", "FULL"),
+    ("PNDT", "FULL"),
+    ("PROJ", "FULL"),
+    ("QUST", "CNAM"),
+    ("QUST", "FULL"),
+    ("QUST", "NNAM"),
+    ("QUST", "QMDP"),
+    ("QUST", "QMDS"),
+    ("QUST", "QMDT"),
+    ("QUST", "QMSU"),
+    ("RACE", "DESC"),
+    ("RACE", "FDSL"),
+    ("RACE", "FMRN"),
+    ("RACE", "FULL"),
+    ("RACE", "SNAM"),
+    ("REFR", "FULL"),
+    ("REFR", "UNAM"),
+    ("RSPJ", "DESC"),
+    ("RSPJ", "FULL"),
+    ("SPEL", "DESC"),
+    ("SPEL", "FULL"),
+    ("STAT", "FULL"),
+    ("STDT", "FULL"),
+    ("TERM", "FULL"),
+    ("TMLM", "BTXT"),
+    ("TMLM", "FULL"),
+    ("TMLM", "INAM"),
+    ("TMLM", "ISTX"),
+    ("TMLM", "ITXT"),
+    ("TMLM", "UNAM"),
+    ("WATR", "FULL"),
+    ("WEAP", "FULL"),
+    ("WEAP", "WABB"),
+    ("WRLD", "FULL"),
+];
+
+/// Record types with an lstring-only definition (M3.B8): EDID and their lstrings.
+const LSTRING_ONLY: &[&str] = &[
+    "ACTI", "ALCH", "AVIF", "BIOM", "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "CONT", "DIAL", "DMGT",
+    "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FURN", "FXPD", "GBFM", "GPOF", "HAZD", "HDPT", "IDLE",
+    "INFO", "IRES", "KEYM", "LCTN", "LSCR", "MESG", "MGEF", "MISC", "MSTT", "NPC_", "PERK", "PKIN",
+    "PMFT", "PNDT", "QUST", "RACE", "REFR", "RSPJ", "SPEL", "STAT", "STDT", "TERM", "TMLM", "WATR",
+    "WRLD",
+];
+
+/// Signatures of the whole-subrecord lstring members of a record, at any depth.
+fn lstring_signatures(rec: &kitcraft_schema::RecordDef) -> BTreeSet<String> {
+    rec.leaf_subrecords()
+        .into_iter()
+        .filter(|(_, s)| s.ty == FieldType::LString)
+        .map(|(_, s)| s.signature.to_string())
+        .collect()
+}
+
+/// M3.B8: every lstring of lane E's corpus table is an lstring member of its record type's
+/// definition, and the lstring-only definitions type nothing else (EDID aside).
+#[test]
+fn lstring_members_cover_the_corpus_table() {
+    let schema = builtin().unwrap();
+    assert_eq!(CORPUS_LSTRINGS.len(), 105);
+    let mut types = BTreeSet::new();
+    for (record, sub) in CORPUS_LSTRINGS {
+        types.insert(*record);
+        let rec = schema
+            .record(sig(record))
+            .unwrap_or_else(|| panic!("{record} has no definition"));
+        assert!(
+            lstring_signatures(rec).contains(*sub),
+            "{record}.{sub} is not an lstring member"
+        );
+    }
+    assert_eq!(types.len(), 58);
+    for record in LSTRING_ONLY {
+        let rec = schema.record(sig(record)).unwrap();
+        let expected: BTreeSet<String> = CORPUS_LSTRINGS
+            .iter()
+            .filter(|(r, _)| r == record)
+            .map(|(_, s)| (*s).to_owned())
+            .collect();
+        assert_eq!(lstring_signatures(rec), expected, "{record}");
+        let typed: Vec<String> = typed_leaves(rec)
+            .into_iter()
+            .filter(|p| !p.starts_with("LocalizedStrings."))
+            .collect();
+        assert_eq!(typed, ["EditorId"], "{record}");
+    }
 }
 
 /// The record types lane B round 3 has transcribed from the pinned xEdit file.

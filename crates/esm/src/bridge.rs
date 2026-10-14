@@ -416,16 +416,17 @@ mod tests {
             panic!("{typed:?}")
         };
         assert_eq!(gmst.editor_id.as_ref().unwrap().0, b"fFoo");
-        // Undefined types have no typed form.
-        let Entry::Group(cells) = &plugin.entries()[1] else {
+        // Undefined types have no typed form (NAVM; CELL has an lstring-only definition
+        // since lane B round 3, M3.B8).
+        let Entry::Group(navm) = &plugin.entries()[2] else {
             panic!()
         };
-        let Entry::Record(cell) = &cells.children()[0] else {
+        let Entry::Record(navm) = &navm.children()[0] else {
             panic!()
         };
-        assert!(plugin.typed(cell, &limits).unwrap().is_none());
+        assert!(plugin.typed(navm, &limits).unwrap().is_none());
         assert_eq!(
-            cell.typed(Ctx::default()).unwrap_err(),
+            navm.typed(Ctx::default()).unwrap_err(),
             NotTyped::NoDefinition
         );
 

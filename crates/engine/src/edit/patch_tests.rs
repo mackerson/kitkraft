@@ -513,7 +513,8 @@ fn untyped_lstrings_of_localized_sources() {
         .map(|i| i.at.as_str())
         .collect();
     assert_eq!(at, ["FULL[0]", "ATTX[0]"]);
-    assert!(report
+    // ACTI ATTX is a schema lstring since lane B round 3 (M3.B8), so no table limitation.
+    assert!(!report
         .limitations
         .iter()
         .any(|l| l.contains("ACTI.ATTX treated as an lstring by the corpus lstring table")));

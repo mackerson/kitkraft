@@ -1059,8 +1059,18 @@ impl {name} {{
         } else {
             format!("    fn emit(&self, out: &mut Vec<OwnedSub>) {{\n{emits}    }}\n")
         };
+        let single_literal = members.len() == 1 && descs.lines().count() > 1;
         let members_list = if descs.is_empty() {
             "&[]".to_owned()
+        } else if single_literal {
+            // rustfmt lets a lone struct literal overflow the brackets: `&[X {` ... `}]`.
+            let body: Vec<&str> = descs
+                .trim_end()
+                .trim_end_matches(',')
+                .lines()
+                .map(|l| l.strip_prefix("    ").unwrap_or(l))
+                .collect();
+            format!("&[{}]", body.join("\n").trim_start())
         } else {
             format!(
                 "&[

@@ -450,6 +450,15 @@ is under "Next".
     conditional entries (INAM, CITC, conditions), ANAM. INNR: rulesets with their names,
     keywords, XNAM properties (the target byte is an xEdit union by UNAM, kept as an
     integer) and indexes.
+  - **M3.B8 lstrings**: all 105 lstring signatures of lane E's corpus table are schema
+    `lstring` members (`corpus`; the xEdit line cited for 103, CHAL DESC corpus only).
+    The 49 record types without a definition got lstring-only definitions: EDID plus a
+    repeated `LocalizedStrings` group of optional lstring members, so every occurrence is
+    typed wherever it stands and every other subrecord stays raw in place. That is less
+    than the plan's "inventory definition" (corpus order and cardinality of every member):
+    a full inventory for types such as NPC_, QUST, REFR, INFO is left to later rounds.
+    Corpus check: every lstring occurrence of those 49 types is visited (counts equal), 0
+    conflicts, 0 re-encode differences, including 6.7 million REFR.
 
 ## Next
 
@@ -795,9 +804,17 @@ Agents append here when they need a change in a crate they do not own.
   are `CombinationCount`/`Combination`/`TemplateItem`/`EndMarker`; WEAP's placeholder names
   (`Obnd`, `Wfir`, `Flld2`, ...) are replaced by the xEdit-backed layout (`kit schema
   --type WEAP --deep`).
-- **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
+- ~~**Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3
-  transcribes definitions from the pinned xEdit file, please type these as `lstring`
-  (`confidence = "corpus"` is already backed by `lstring_table_matches_the_corpus`); the
-  schema then wins and the table entry becomes redundant.
+  transcribes definitions from the pinned xEdit file, please type these as `lstring`.~~
+  Done in lane B's M3.B8 commit: all 105 are schema `lstring` members (`corpus`, citing
+  `lstring_table_matches_the_corpus`, plus the xEdit line for 103 of them; CHAL `DESC` is
+  not in xEdit's CHAL definition, the corpus wins). `crates/schema/tests/defs.rs`
+  `lstring_members_cover_the_corpus_table` keeps a copy of the 105 pairs. **Lane B -> lane E
+  (M3.E4):** `layout_for` no longer reaches the table fallback for any of them; tests
+  updated in the same commit (`edit::fields` layouts, `edit::patch_tests` untyped lstrings:
+  ACTI `ATTX` now comes from the schema, no table limitation; `handlers::schema` uses ARMO
+  as the undefined type). **Lane B -> lane A (FYI):** CELL and REFR now have lstring-only
+  definitions, so `bridge` and `driver` tests use NAVM as the undefined type and count CELL
+  and the three REFR as typed records.

@@ -1,0 +1,113 @@
+# TMLM: TerminalMenu, lstring-only definition (lane B round 3, M3.B8).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
+#     lstring_table_matches_the_corpus): BTXT, FULL, INAM, ISTX, ITXT, UNAM are lstrings in every official TMLM record.
+#   xedit: the TMLM definition of wbDefinitionsSF1.pas at the pinned revision (L18257-L18342)
+#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
+#     string.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+#
+# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
+# are all optional, so every occurrence is typed wherever it stands in the record; every other
+# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
+# This is not an inventory of the record (corpus order and cardinality of the other members
+# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
+# Names are ours (PascalCase, CK wording where it exists).
+signature = "TMLM"
+name = "TerminalMenu"
+source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18257-L18342",
+]
+confidence = "corpus"
+note = "lstring-only definition (M3.B8); other subrecords stay raw"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+confidence = "corpus"
+
+[[member]]
+group = "LocalizedStrings"
+card = "repeated"
+source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: BTXT, FULL, INAM, ISTX, ITXT, UNAM in the official TMLM records are lstrings (lane E's table, edit::lstrings)"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18257-L18342",
+]
+confidence = "corpus"
+note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+
+[[member.member]]
+sig = "BTXT"
+name = "BodyText"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18297-L18297"
+evidence = [
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TMLM records every BTXT is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18276-L18276"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TMLM records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "INAM"
+name = "Inam"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18293-L18293"
+evidence = [
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TMLM records every INAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "ISTX"
+name = "ItemShortText"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18306-L18306"
+evidence = [
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TMLM records every ISTX is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "ITXT"
+name = "ItemText"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18305-L18305"
+evidence = [
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TMLM records every ITXT is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "UNAM"
+name = "DisplayText"
+type = "lstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18332-L18332"
+evidence = [
+  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TMLM records every UNAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+]
+confidence = "corpus"

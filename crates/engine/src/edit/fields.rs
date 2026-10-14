@@ -1418,15 +1418,13 @@ mod tests {
         assert_eq!(layout_for("XNAM", *b"ZZZZ", *b"XNAM").unwrap(), None);
         // EDID is described by the WEAP definition.
         assert!(layout_for("EDID", *b"WEAP", *b"EDID").unwrap().is_some());
-        // Lstrings the schema does not type come from the corpus table (finding 2b):
-        // ACTI ATTX is an lstring; WEAP has no ATTX in the corpus.
-        let layout = layout_for("X", *b"ACTI", *b"ATTX").unwrap().unwrap();
-        assert_eq!(layout.ty, FieldType::LString);
-        assert!(layout.fallback.unwrap().contains("corpus lstring table"));
-        // WEAP WABB is typed by the schema since lane B round 3 (M3.B1): no fallback.
-        let layout = layout_for("X", *b"WEAP", *b"WABB").unwrap().unwrap();
-        assert_eq!(layout.ty, FieldType::LString);
-        assert!(layout.fallback.is_none());
+        // Every lstring of the corpus table (finding 2b) is typed by the schema since lane B
+        // round 3 (M3.B1, M3.B8): no fallback. WEAP has no ATTX in the corpus.
+        for (record, sub) in [(*b"ACTI", *b"ATTX"), (*b"WEAP", *b"WABB")] {
+            let layout = layout_for("X", record, sub).unwrap().unwrap();
+            assert_eq!(layout.ty, FieldType::LString);
+            assert!(layout.fallback.is_none());
+        }
         assert_eq!(layout_for("ATTX", *b"WEAP", *b"ATTX").unwrap(), None);
     }
 
