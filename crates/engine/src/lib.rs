@@ -143,9 +143,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Set Field...",
         shortcut: None,
         aliases: &[],
-        summary: "Write field values on a record into a target plugin",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string"},"fields":{"type":"object"},"into":{"type":"string"}},"required":["form","fields","into"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "Write field values on the winning version of a record into a patch plugin (non-localized; FULL=\"...\" shorthand)",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"fields":{"type":"object","description":"Field path -> value: FULL, DNAM.Member, FULL[1]; numbers or text; {\"mul\": x} / {\"add\": x}; hex:0A0B for opaque payloads"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp; never a load-order plugin, the game Data dir or MO2)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form","fields","into"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "diff",
@@ -184,7 +184,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("F7"),
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Load order searched first for masters"},"data_dir":{"type":"string","description":"Directory searched for masters after the plugin's own"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir: plugin names resolve here, and masters are searched here after the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {

@@ -13,6 +13,9 @@ mod load;
 mod papyrus;
 mod query;
 mod roundtrip;
+mod set;
+#[cfg(test)]
+mod set_tests;
 mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
@@ -35,7 +38,6 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("strings.merge", Box::new(strings::merge)),
         ("papyrus.disasm", Box::new(papyrus::disasm)),
         ("papyrus.compile", Box::new(papyrus::compile::run)),
-        ("validate", Box::new(validate::run)),
     ]
 }
 
@@ -48,6 +50,8 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("inspect", Box::new(inspect::run)),
         ("query", Box::new(query::run)),
         ("conflicts", Box::new(conflicts::run)),
+        ("set", Box::new(set::run)),
+        ("validate", Box::new(validate::run)),
     ]
 }
 
