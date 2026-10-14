@@ -399,6 +399,13 @@ is under "Next".
     `cargo xtask parity [--check]` adds a "Decoded through the definitions" table; corpus:
     20,437 records decoded, 40,776 typed occurrences, 0 failed, 0 re-encode conflicts, all
     `corpus` confidence; `--check` passes on the regenerated file.
+  - M3.F3 hygiene: `docs/gaps.md` rows name their closing M3 tasks (the `PLANNED_IN_M2`
+    and "MCP server not implemented" rows removed); answered Requests struck through with
+    where they were done; `docs/mcp.md` names the coming `refs` (M3.D4) and
+    `overhaul.scaffold` (M3.E7).
+  - M3.F4: `plan/adr/0007-egui-shell-over-the-catalog.md`, status **Proposed**: options
+    (A: minimal egui shell in M3 = M3.F5; B: defer to M4; C: iced, Slint, web), costs, and
+    the recommendation B. Awaiting the owner's M3.O6; M3.F5 is gated on it. No UI code.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
