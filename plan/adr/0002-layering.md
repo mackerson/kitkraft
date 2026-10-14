@@ -45,4 +45,6 @@ everything. The craft suite solves this with a fixed layer stack checked in CI.
   `doc`. `doc` itself never touches the filesystem layout of a mod manager.
 - `render` (L2) can read the document but cannot reach engine commands; it is driven from
   L5.
+- The L2 `render` slot is reserved, not designed: no crate exists yet, and it may move to a
+  different layer (with an ADR) once the viewport work starts.
 - Adding a crate means editing `LAYER_TABLE` and the AGENTS.md table in the same commit.

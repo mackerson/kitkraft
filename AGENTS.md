@@ -76,6 +76,9 @@ dialog, prompts, or blocks on input.** Interactive front ends collect arguments 
 call the same command. If an action cannot be expressed as a command with JSON arguments, it
 is not designed yet.
 
+Exception: front-end launchers (`kit mcp`, a future `kit ui`) start another front end over the
+catalog instead of acting on data, so they are plain CLI subcommands and need no `CommandSpec`.
+
 ## CLI / MCP / UI parity
 
 - `kit <command>` (with `--json`), the MCP `execute`/`command_line` tools, and UI menu items
