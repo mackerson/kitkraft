@@ -91,8 +91,9 @@ container and others).
 - The form list `OutpostRecipeCategories` holds the 15 category keywords; the list
   `OutpostFollowCameraCategoryList` holds six of them plus two recipes.
 - The outpost beacon activators (`OutpostBeaconActivator` and its faction variants FC, RI,
-  UC; ACTI, Starfield.esm) carry the category keywords in their own keyword list, as do
-  `OutpostPlayerHouseActivator` and `SFBGS006_SBShipDecorationMarker`. The beacon's list is
+  UC; ACTI, Starfield.esm) carry the category keywords in their own keyword list;
+  `OutpostPlayerHouseActivator` and `SFBGS006_SBShipDecorationMarker` carry some of them
+  too. The beacon's list is
   `MustPersist`, `WorkshopKeyword`, all 15 categories, `OutpostCategoryPower_InteriorLights`
   (a sixteenth recipe-filter keyword no official recipe uses as BNAM) and
   `WorkshopNoStackingOn`; its properties (PRPS) are the actor values
@@ -149,7 +150,7 @@ CONT, 2 TERM):
   STOP marker; 157 have a destruction block, 157 attach-parent slots (APPR).
 - **Components**: harvesters and builders carry `BGSAnimationGraph_Component` (170 CONT, all
   5 ACTI); furniture `BGSEffectSequenceComponent` and `BGSLodOwner_Component` (64 each);
-  statics only the keyword component. No component name is specific to outposts
+  statics the keyword component (one also a LOD owner). No component name is specific to outposts
   (`BGSWorkshopItemColor` occurs once, on a STAT that no outpost recipe creates).
 
 ### Leftovers that are not the outpost menu
