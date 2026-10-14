@@ -5,7 +5,9 @@
 //! recorded in `docs/validate.md`: `Debug.SetGodMode` is the call that leaves the player
 //! invulnerable when a script stops between turning it on and off. Calls are matched as
 //! `callstatic <class> <function>` (operands 0 and 1) and `callmethod <function> <object>`
-//! (operand 0), names ASCII case-insensitive.
+//! (operand 0, and the declared type of the object variable, operand 1, as the class), names
+//! ASCII case-insensitive. A user script's own method that happens to share a denylisted
+//! name (`MyQuest.SetGodMode`) is not a match.
 
 use std::path::{Path, PathBuf};
 
@@ -73,6 +75,36 @@ fn collect(path: &Path, depth: usize, out: &mut Vec<PathBuf>) -> Result<(), Stri
     }
 }
 
+/// The declared type (lower case) of the variable `receiver` (lower case) that a
+/// `callmethod` in `function` of `object` calls on: `self` is the object, else a parameter,
+/// a local, or an object variable. Empty when it is none of them (never guessed).
+fn receiver_type(
+    pex: &Pex,
+    object: &kitcraft_pex::Object,
+    function: &Function,
+    receiver: &str,
+) -> String {
+    if receiver == "self" {
+        return pex.string(object.name).to_ascii_lowercase();
+    }
+    let named = |name: u16| pex.string(name).eq_ignore_ascii_case(receiver);
+    function
+        .params
+        .iter()
+        .chain(&function.locals)
+        .find(|(name, _)| named(*name))
+        .map(|(_, ty)| *ty)
+        .or_else(|| {
+            object
+                .variables
+                .iter()
+                .find(|v| named(v.name))
+                .map(|v| v.type_name)
+        })
+        .map(|ty| pex.string(ty).to_ascii_lowercase())
+        .unwrap_or_default()
+}
+
 /// Findings for one parsed script.
 pub fn scan(pex: &Pex, file: &str, findings: &mut Vec<Finding>) {
     for object in &pex.objects {
@@ -105,12 +137,15 @@ pub fn scan(pex: &Pex, file: &str, findings: &mut Vec<Finding>) {
                 };
                 let (class, name) = match op {
                     "callstatic" => (ident(0), ident(1)),
-                    "callmethod" => (String::new(), ident(0)),
+                    // The receiver's declared type: `self` is this object, else a
+                    // parameter, local or object variable (empty when not found).
+                    "callmethod" => (receiver_type(pex, object, function, &ident(1)), ident(0)),
                     _ => continue,
                 };
-                let Some((c, f, why)) = DENYLIST.iter().find(|(c, f, _)| {
-                    *f == name && (c.is_empty() || *c == class || class.is_empty())
-                }) else {
+                let Some((c, f, why)) = DENYLIST
+                    .iter()
+                    .find(|(c, f, _)| *f == name && (c.is_empty() || *c == class))
+                else {
                     continue;
                 };
                 let args: Vec<String> = ins

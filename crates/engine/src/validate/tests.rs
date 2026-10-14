@@ -298,15 +298,25 @@ fn record_flags_body() {
 /// Little-endian `.pex` bytes (layout: `kitcraft-pex`, `pexdis.py`): one object, one
 /// function, one `callstatic <class> <function> ::nonevar <bool>`.
 fn pex(class: &str, function: &str) -> Vec<u8> {
+    pex_call(25, class, function, None)
+}
+
+/// As [`pex`], with opcode `op`: 25 `callstatic <a> <function>`, or 23
+/// `callmethod <function> <a>` (`a` the receiver variable). `local` declares one local
+/// variable `(name, type)` in the function.
+fn pex_call(op: u8, a: &str, function: &str, local: Option<(&str, &str)>) -> Vec<u8> {
+    let (local_name, local_type) = local.unwrap_or(("unused", "None"));
     let strings = [
         "",
         "Gm",
         "Form",
-        class,
+        a,
         function,
         "::nonevar",
         "OnInit",
         "None",
+        local_name,
+        local_type,
     ];
     let mut b: Vec<u8> = Vec::new();
     let ws = |b: &mut Vec<u8>, s: &str| {
@@ -345,10 +355,17 @@ fn pex(class: &str, function: &str) -> Vec<u8> {
     o.extend(0u32.to_le_bytes()); // user flags
     o.push(0); // flags
     o.extend(0u16.to_le_bytes()); // params
-    o.extend(0u16.to_le_bytes()); // locals
+    if local.is_some() {
+        o.extend(1u16.to_le_bytes()); // one local
+        o.extend(8u16.to_le_bytes());
+        o.extend(9u16.to_le_bytes());
+    } else {
+        o.extend(0u16.to_le_bytes()); // locals
+    }
     o.extend(1u16.to_le_bytes()); // one instruction
-    o.push(25); // callstatic
-    for i in [3u16, 4, 5] {
+    o.push(op);
+    let operands: [u16; 3] = if op == 23 { [4, 3, 5] } else { [3, 4, 5] };
+    for i in operands {
         o.push(1);
         o.extend(i.to_le_bytes());
     }
@@ -381,6 +398,35 @@ fn papyrus_denylisted_call() {
     assert_eq!(found(&run(d.join("Good.pex"))), []);
     // A directory is scanned recursively.
     assert_eq!(run(d.clone())["scripts_checked"], json!(2));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review round 2, finding 13: `callmethod` matches on the receiver's class too, so a
+/// user script's own `SetGodMode` (on `self`, or on a variable of a user type) is not a
+/// finding; a receiver of a denylisted class is.
+#[test]
+fn papyrus_callmethod_matches_the_class() {
+    let d = dir("validate-callmethod");
+    let run = |name: &str, bytes: Vec<u8>| {
+        let path = d.join(name);
+        std::fs::write(&path, bytes).unwrap();
+        execute("validate", json!({"scripts": [path.display().to_string()]})).unwrap()["data"]
+            .clone()
+    };
+    let own = run("Own.pex", pex_call(23, "self", "SetGodMode", None));
+    assert_eq!(found(&own), []);
+    let user = run(
+        "User.pex",
+        pex_call(23, "q", "SetGodMode", Some(("q", "MyQuestScript"))),
+    );
+    assert_eq!(found(&user), []);
+    let unknown = run("Unknown.pex", pex_call(23, "nowhere", "SetGodMode", None));
+    assert_eq!(found(&unknown), []);
+    let debug = run(
+        "Debug.pex",
+        pex_call(23, "d", "SetGodMode", Some(("d", "Debug"))),
+    );
+    assert_eq!(found(&debug), [pair("papyrus.denylisted-call", "warning")]);
     let _ = std::fs::remove_dir_all(&d);
 }
 
