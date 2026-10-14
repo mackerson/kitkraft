@@ -18,6 +18,9 @@ mod overhaul;
 mod overhaul_tests;
 mod papyrus;
 mod query;
+mod resolve;
+#[cfg(test)]
+mod resolve_tests;
 mod roundtrip;
 mod schema;
 mod set;
@@ -32,6 +35,7 @@ use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
 use crate::exec::{CommandHandler, EngineError, SessionHandler};
+use resolve::{Input, Resolving};
 
 /// Names the game Data dir when a command is not given `data_dir` (`docs/corpus.md`).
 pub(crate) const DATA_DIR_ENV: &str = "KITCRAFT_DATA_DIR";
@@ -53,25 +57,42 @@ fn data_dir_or(args: &serde_json::Value, env: Option<OsString>) -> Option<PathBu
 /// Stateless handlers registered by [`crate::Engine::with_default_handlers`].
 pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
-        ("roundtrip", Box::new(roundtrip::run)),
-        ("coverage", Box::new(coverage::run)),
         ("schema", Box::new(schema::run)),
-        ("diff", Box::new(diff::run)),
-        ("ba2.list", Box::new(ba2::list)),
-        ("ba2.extract", Box::new(ba2::extract)),
         ("ba2.pack", Box::new(ba2::pack)),
-        ("strings.dump", Box::new(strings::dump)),
-        ("strings.merge", Box::new(strings::merge)),
-        ("papyrus.disasm", Box::new(papyrus::disasm)),
         ("papyrus.compile", Box::new(papyrus::compile::run)),
+    ]
+}
+
+/// Single-file commands whose input names resolve through [`resolve`] (the session's load
+/// order, then the working directory, then the Data dir) before the stateless handler runs.
+fn resolving() -> Vec<Resolving> {
+    const PLUGIN: &[Input] = &[Input::file("plugin")];
+    const AB: &[Input] = &[Input::file("a"), Input::file("b")];
+    const ARCHIVE: &[Input] = &[Input::file("archive")];
+    const TABLE: &[Input] = &[Input::file("archive"), Input::unless("table", "archive")];
+    const TABLES: &[Input] = &[Input::file("tables")];
+    const PEX: &[Input] = &[Input::file("archive"), Input::unless("pex", "archive")];
+    type Run = fn(&serde_json::Value) -> Result<crate::Outcome, EngineError>;
+    let entry =
+        |id: &'static str, inputs: &'static [Input], run: Run| Resolving { id, inputs, run };
+    vec![
+        entry("roundtrip", PLUGIN, roundtrip::run),
+        entry("coverage", PLUGIN, coverage::run),
+        entry("diff", AB, diff::run),
+        entry("ba2.list", ARCHIVE, ba2::list),
+        entry("ba2.extract", ARCHIVE, ba2::extract),
+        entry("strings.dump", TABLE, strings::dump),
+        entry("strings.merge", TABLES, strings::merge),
+        entry("papyrus.disasm", PEX, papyrus::disasm),
     ]
 }
 
 /// Session-aware handlers (`fn(&mut Session, &Value) -> Result<Outcome, EngineError>`)
 /// registered by [`crate::Engine::with_default_handlers`]: commands that read or change
-/// the loaded load order. A command appears in this table or in [`defaults`], not both.
+/// the loaded load order, or resolve input names in it ([`resolving`]). A command appears
+/// in this table or in [`defaults`], not both.
 pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)> {
-    vec![
+    let mut table: Vec<(&'static str, Box<dyn SessionHandler>)> = vec![
         ("load", Box::new(load::run)),
         ("inspect", Box::new(inspect::run)),
         ("query", Box::new(query::run)),
@@ -80,7 +101,11 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("validate", Box::new(validate::run)),
         ("build", Box::new(build::run)),
         ("overhaul.scaffold", Box::new(overhaul::run)),
-    ]
+    ];
+    for r in resolving() {
+        table.push((r.id, Box::new(r)));
+    }
+    table
 }
 
 /// A required string argument. `execute` validated the schema already, so a missing one

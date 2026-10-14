@@ -155,7 +155,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Record-level diff of two plugins: FormIDs matched through each file's masters by name; added, removed, changed records with per-subrecord byte ranges",
-        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory (default KITCRAFT_DATA_DIR)"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory (default KITCRAFT_DATA_DIR); a bare a or b name resolves in the session's load order, then the working directory, then here"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -195,7 +195,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("F7"),
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files, directories of them, or .ba2 archives (their .pex entries) to scan"},"plugin_archives":{"type":"boolean","default":false,"description":"Also scan the scripts in the plugin's own archives (<plugin stem> - *.ba2 next to it)"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves here, and masters are searched here after the load order and the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files, directories of them, or .ba2 archives (their .pex entries) to scan"},"plugin_archives":{"type":"boolean","default":false,"description":"Also scan the scripts in the plugin's own archives (<plugin stem> - *.ba2 next to it)"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin or script name resolves in the session's load order, then the working directory, then here, and masters are searched here after the load order and the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -205,7 +205,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves in the session's load order, then the working directory, then here"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -215,7 +215,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Record types and subrecords in a plugin vs what the schema defines (typed, opaque, unknown)",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"},"signatures":{"type":"boolean","description":"List each record type's subrecord signatures (record_types[].signatures; null when false). Omitted: true from kit, false over MCP"},"top":{"type":"integer","minimum":0,"description":"List only the N record types with the most records; the totals still cover every type. Omitted: all from kit, 20 over MCP"}},"required":["plugin"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"},"signatures":{"type":"boolean","description":"List each record type's subrecord signatures (record_types[].signatures; null when false). Omitted: true from kit, false over MCP"},"top":{"type":"integer","minimum":0,"description":"List only the N record types with the most records; the totals still cover every type. Omitted: all from kit, 20 over MCP"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves in the session's load order, then the working directory, then here"}},"required":["plugin"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -235,7 +235,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "List files in a .ba2 archive (GNRL or DX10): sizes, compression, texture formats",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string","description":"Case-insensitive regex over archive paths"},"limit":{"type":"integer","minimum":1,"default":1000,"description":"Most entries to return"},"start":{"type":"integer","minimum":0,"default":0,"description":"Skip this many matching entries"}},"required":["archive"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string","description":"Case-insensitive regex over archive paths"},"limit":{"type":"integer","minimum":1,"default":1000,"description":"Most entries to return"},"start":{"type":"integer","minimum":0,"default":0,"description":"Skip this many matching entries"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare archive name resolves in the working directory, then here"}},"required":["archive"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -245,7 +245,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Extract files from a .ba2 archive (all, or those matching --pattern)",
-        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"},"max_entry_bytes":{"type":"integer","minimum":0,"default":1073741824,"description":"Refuse, before writing anything, an entry that extracts to more bytes than this (default 1 GiB)"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"},"max_entry_bytes":{"type":"integer","minimum":0,"default":1073741824,"description":"Refuse, before writing anything, an entry that extracts to more bytes than this (default 1 GiB)"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare archive name resolves in the working directory, then here (out_dir never does)"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -265,7 +265,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &["pexdis"],
         summary: "Disassemble a compiled Papyrus .pex (loose or inside a .ba2) as pexdis.py does, or as JSON",
-        args_schema: r#"{"type":"object","properties":{"pex":{"type":"string","description":"Script file, or its path inside archive"},"archive":{"type":"string","description":"Read the script from this .ba2"},"format":{"type":"string","enum":["text","json","both"],"default":"text","description":"text: pexdis.py format; json: the structured model with offsets"}},"required":["pex"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"pex":{"type":"string","description":"Script file, or its path inside archive"},"archive":{"type":"string","description":"Read the script from this .ba2"},"format":{"type":"string","enum":["text","json","both"],"default":"text","description":"text: pexdis.py format; json: the structured model with offsets"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare archive (or loose script) name resolves in the working directory, then here"}},"required":["pex"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -285,7 +285,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Dump a .STRINGS/.DLSTRINGS/.ILSTRINGS table (loose or inside a .ba2), by ID or text",
-        args_schema: r#"{"type":"object","properties":{"table":{"type":"string","description":"Table file, or its path inside archive"},"archive":{"type":"string","description":"Read the table from this .ba2"},"id":{"type":"string","description":"String ID, 0x-prefixed hex or decimal"},"contains":{"type":"string","description":"Case-insensitive text filter"},"limit":{"type":"integer","minimum":1,"default":100},"start":{"type":"integer","minimum":0,"default":0},"tolerant":{"type":"boolean","default":false,"description":"Also read a table padded past its header's data size; the padding is named in limitations"}},"required":["table"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"table":{"type":"string","description":"Table file, or its path inside archive"},"archive":{"type":"string","description":"Read the table from this .ba2"},"id":{"type":"string","description":"String ID, 0x-prefixed hex or decimal"},"contains":{"type":"string","description":"Case-insensitive text filter"},"limit":{"type":"integer","minimum":1,"default":100},"start":{"type":"integer","minimum":0,"default":0},"tolerant":{"type":"boolean","default":false,"description":"Also read a table padded past its header's data size; the padding is named in limitations"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare archive (or loose table) name resolves in the working directory, then here"}},"required":["table"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -295,7 +295,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Merge string tables of one kind into one (later table wins; conflicts reported; deterministic)",
-        args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"},"tolerant":{"type":"boolean","default":false,"description":"Also read tables padded past their header's data size; the padding is named in limitations and not written"}},"required":["tables","out"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"},"tolerant":{"type":"boolean","default":false,"description":"Also read tables padded past their header's data size; the padding is named in limitations and not written"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare table name resolves in the working directory, then here (out never does)"}},"required":["tables","out"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
 ];

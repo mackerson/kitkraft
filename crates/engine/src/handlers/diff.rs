@@ -438,7 +438,8 @@ mod tests {
             .unwrap()
             .iter()
             .any(|l| l.as_str().unwrap().contains("encode FormIDs differently")));
-        let err = execute("diff", json!({"a": "x", "b": "y", "form": "nope"})).unwrap_err();
+        let (a, b) = (xa.display().to_string(), xb.display().to_string());
+        let err = execute("diff", json!({"a": a, "b": b, "form": "nope"})).unwrap_err();
         assert_eq!(err.kind(), "failed");
         assert_eq!(
             execute("diff", json!({"a": "x"})).unwrap_err().kind(),

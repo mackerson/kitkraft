@@ -168,6 +168,22 @@ fn roundtrip_exit_codes() {
     }
 }
 
+/// M4.F1: a bare name found nowhere is `not_found`, naming each place searched.
+#[test]
+fn bare_name_not_found_exits_2_naming_the_places() {
+    let empty = std::env::temp_dir().join(format!("kit-cli-empty-{}", std::process::id()));
+    std::fs::create_dir_all(&empty).expect("temp dir");
+    let e = empty.to_str().expect("utf-8 temp path");
+    let out = kit(&["coverage", "NoSuchPlugin.esm", "--data-dir", e, "--json"]);
+    assert_eq!(out.status.code(), Some(2));
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(got["error"]["kind"], "not_found");
+    let searched = got["error"]["searched"].as_array().expect("searched");
+    assert_eq!(searched.len(), 3, "{got}");
+    assert!(searched[2].as_str().expect("text").contains(e), "{got}");
+    std::fs::remove_dir_all(&empty).expect("cleanup");
+}
+
 #[test]
 fn json_output_equals_the_execute_result() {
     let path = temp_plugin("json", &synthetic_plugin());

@@ -7,7 +7,7 @@
 //! | Engine error kind                                       | MCP                          |
 //! | ------------------------------------------------------- | ---------------------------- |
 //! | `unknown_command`, `usage`, `invalid_args`              | tool result, `isError: true` |
-//! | `not_implemented`, `deferred`, `failed`                 | tool result, `isError: true` |
+//! | `not_implemented`, `deferred`, `failed`, `not_found`    | tool result, `isError: true` |
 //! | `bad_schema`, `registration`, `serialize` (engine bugs) | JSON-RPC `-32603`            |
 //! | (no such MCP tool)                                      | JSON-RPC `-32602`            |
 //!
@@ -344,7 +344,8 @@ fn ordered_object(
     format!("{{{}}}", members.join(","))
 }
 
-/// `{"error": {"kind", "message", "violations"?}}`, the shape `kit --json` prints.
+/// `{"error": {"kind", "message", "violations"?, "searched"?}}`, the shape `kit --json`
+/// prints.
 fn error_json(err: &EngineError) -> Value {
     let mut body = json!({ "kind": err.kind(), "message": err.to_string() });
     if let EngineError::InvalidArgs { violations, .. } = err {
@@ -355,6 +356,9 @@ fn error_json(err: &EngineError) -> Value {
         if let Some(obj) = body.as_object_mut() {
             obj.insert("violations".to_string(), Value::Array(list));
         }
+    }
+    if let (EngineError::NotFound { searched, .. }, Some(obj)) = (err, body.as_object_mut()) {
+        obj.insert("searched".to_string(), json!(searched));
     }
     json!({ "error": body })
 }

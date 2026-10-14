@@ -70,6 +70,20 @@ pub enum EngineError {
         /// What went wrong; includes the byte offset when the failure is in a plugin.
         message: String,
     },
+    /// A bare input file name (`Constellation.esm`) is in none of the places an input
+    /// name resolves (`docs/mcp.md`, "Paths"): the session's load order, the working
+    /// directory, the Data dir.
+    #[error("`{command}`: {argument} `{name}` was not found; searched {}", searched.join("; "))]
+    NotFound {
+        /// Canonical command id.
+        command: String,
+        /// JSON pointer of the argument (`/plugin`, `/tables/1`).
+        argument: String,
+        /// The name as given.
+        name: String,
+        /// Every place looked, in order.
+        searched: Vec<String>,
+    },
     /// The result could not be serialized (a bug in a handler).
     #[error("could not serialize the result: {0}")]
     Serialize(#[from] serde_json::Error),
@@ -87,6 +101,7 @@ impl EngineError {
             Self::BadSchema { .. } => "bad_schema",
             Self::Registration(..) => "registration",
             Self::Failed { .. } => "failed",
+            Self::NotFound { .. } => "not_found",
             Self::Serialize(_) => "serialize",
         }
     }

@@ -1024,9 +1024,13 @@ mod tests {
             &root.join("My Games").join("Starfield").join("Saves"),
         )
         .unwrap();
+        // The guard runs before the tables are read (they only need to exist).
+        let (a, b) = (root.join("a.strings"), root.join("b.strings"));
+        fs::write(&a, b"").unwrap();
+        fs::write(&b, b"").unwrap();
         let err = execute(
             "strings.merge",
-            json!({"tables": ["a.strings", "b.strings"],
+            json!({"tables": [a.to_str().unwrap(), b.to_str().unwrap()],
                    "out": user.join("Strings").join("m.strings").to_str().unwrap()}),
         )
         .unwrap_err();

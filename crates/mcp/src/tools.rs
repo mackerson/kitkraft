@@ -359,7 +359,7 @@ mod tests {
             assert!(text.contains(&format!("\n- {} {{", spec.id)), "{}", spec.id);
         }
         assert!(
-            text.contains("- roundtrip {plugin, out?, overwrite?, verify?}"),
+            text.contains("- roundtrip {plugin, data_dir?, out?, overwrite?, verify?}"),
             "{text}"
         );
     }
