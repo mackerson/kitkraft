@@ -55,7 +55,8 @@ cargo test -p kitcraft-esm --release -- --ignored corpus_full --nocapture
 
 `cargo test -p kitcraft-esm --release -- --ignored` runs every ignored test: the full
 roundtrip, the streaming-edit measurement, the TES4 table, the inventory, the recompression
-measurement (about 100 s) and an extended hostile-input run.
+measurement (about 100 s), the list of its misses (M3.A1) and an extended hostile-input
+run.
 
 ## How it is used
 
@@ -88,6 +89,7 @@ Record each full run here: date, commit, files identical/total, wall time, peak 
 | 2026-10-14 | adaf097 | 14/14     | 14.7 s    | 1,238 MiB   | After merging main and switching flate2 to zlib-rs; same counts |
 | 2026-10-14 | 087ab97 | 14/14     | 15.4 s    | 1,379 MiB   | Review round 2 (lane A); manifest SHA-256 of all 14 verified first (5.9 s, not in the wall time); same counts |
 | 2026-10-14 | b27d0dc | 14/14     | 16.7 s    | 1,394 MiB   | M2 lane A; every record with a schema definition also checked through it (M2.A3, table below); same counts |
+| 2026-10-14 | M3.A2   | 14/14     | 18.3 s    | 1,397 MiB   | Strict decode (`roundtrip --decode` in the driver): every compressed body inflated to exactly its declared size, its stream ending with end marker and checksum at the body's end (no trailing bytes in any of the 136,741), and its subrecords re-encoded to the inflated bytes; typed check on (definitions of 52e852a); same counts |
 
 Wall time is the test's own timer (`corpus_full_roundtrip`, release, one thread); peak
 memory is the test process's `PeakWorkingSet64` (polled every 100 ms from PowerShell for
@@ -244,6 +246,180 @@ include those inside compressed records; XXXX counts subrecords whose size came 
 The largest decompressed record (3.4 MiB) is well under the 64 MiB default decode cap, and
 cannot reach the default cap of 1,000,000 subrecords per decompressed record (3.4 MiB
 holds at most about 590,000 six-byte subrecords).
+
+### Recompression misses (M3.A1)
+
+The 160 compressed records that zlib-rs level 9 does not recompress to their original bytes
+(`docs/gaps.md`, "Recompression parity", which defines the classes and lists the
+compressor settings tried). `cargo test -p kitcraft-esm --release --test recompress --
+--ignored corpus_recompression_misses --nocapture` prints the first seven columns (43 s on
+the dev box, 2026-10-14); the class and the token comparison come from the out-of-tree
+study. Offsets are of the record header; "Stream" is the zlib stream after the `u32`
+decompressed size; "First differing stream byte" counts from the start of that stream.
+
+| File | Type | FormID | Offset | Inflated | Stream | First differing stream byte | Class | Where the LZ77 tokens differ |
+| --- | --- | --- | ---: | ---: | ---: | ---: | --- | --- |
+| Starfield.esm | NPC_ | 0000697A | 21,972,552 | 3,858 | 1,468 | 1,461 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0000961A | 21,992,349 | 5,824 | 2,084 | 2,077 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00017076 | 22,133,340 | 5,857 | 1,997 | 1,990 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00017083 | 22,135,365 | 4,878 | 1,836 | 1,830 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00017085 | 22,137,229 | 4,915 | 1,643 | 1,636 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00017086 | 22,138,900 | 4,921 | 1,632 | 1,625 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0001708E | 22,140,560 | 3,992 | 1,471 | 1,464 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 000831B3 | 22,721,139 | 3,901 | 1,401 | 1,395 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 000937FC | 22,746,097 | 4,817 | 1,614 | 1,607 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 000937FF | 22,747,739 | 4,811 | 1,611 | 1,605 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0016B419 | 24,002,503 | 5,860 | 2,119 | 2,112 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0016B41F | 24,004,650 | 3,893 | 1,439 | 1,433 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00182E00 | 24,141,666 | 714 | 383 | 377 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00191D6A | 24,283,198 | 4,612 | 1,583 | 1,576 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00191D6B | 24,284,809 | 4,004 | 1,494 | 1,487 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00196BB2 | 24,314,613 | 1,379 | 667 | 4 | E | last token: match 31 at distance 33 (level 9: 32) |
+| Starfield.esm | NPC_ | 001C3895 | 24,698,405 | 3,011 | 1,251 | 1,244 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0452 | 24,777,274 | 5,783 | 2,001 | 1,995 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0453 | 24,779,303 | 3,875 | 1,473 | 1,466 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0454 | 24,780,804 | 4,429 | 1,526 | 1,519 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0455 | 24,782,358 | 4,819 | 1,601 | 1,594 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0457 | 24,783,987 | 4,829 | 1,643 | 1,637 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0458 | 24,785,658 | 5,035 | 1,705 | 1,698 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D0459 | 24,787,391 | 4,285 | 1,530 | 1,523 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D045A | 24,788,949 | 6,079 | 2,053 | 2,047 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D045B | 24,791,030 | 6,206 | 2,106 | 2,099 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001D045C | 24,793,164 | 3,327 | 1,376 | 1,369 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001EA2BB | 25,063,331 | 723 | 384 | 378 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001EA2C3 | 25,066,577 | 784 | 404 | 397 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001F678B | 25,156,061 | 4,920 | 1,647 | 1,640 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 001F678C | 25,157,736 | 5,779 | 1,991 | 1,984 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00203BC7 | 25,202,977 | 5,880 | 2,034 | 2,027 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00203BC8 | 25,205,039 | 3,266 | 1,370 | 1,364 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00205DCF | 25,207,068 | 776 | 401 | 394 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021C67C | 25,313,015 | 3,336 | 1,305 | 1,298 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021C67D | 25,314,348 | 4,646 | 1,597 | 1,591 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021C6A5 | 25,316,384 | 5,788 | 2,020 | 2,013 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021C6A6 | 25,318,432 | 4,824 | 1,606 | 1,599 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021D3D5 | 25,333,096 | 3,336 | 1,301 | 1,295 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021D3D6 | 25,334,425 | 5,946 | 2,070 | 2,063 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021D3D7 | 25,336,523 | 3,880 | 1,477 | 1,471 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021D3D8 | 25,338,028 | 4,953 | 1,669 | 1,662 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021D3D9 | 25,339,725 | 5,010 | 1,701 | 1,695 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0021D3DA | 25,341,454 | 3,315 | 1,385 | 1,379 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0022BCA3 | 25,512,680 | 3,819 | 1,458 | 1,451 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0022BE94 | 25,525,484 | 6,052 | 2,067 | 2,060 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0022BEEF | 25,527,579 | 5,004 | 1,700 | 1,693 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00235D62 | 25,567,633 | 4,386 | 1,504 | 1,497 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0023CEC6 | 25,609,491 | 6,157 | 2,087 | 2,080 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CEC | 25,803,535 | 4,192 | 1,508 | 1,502 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CED | 25,805,071 | 4,000 | 1,449 | 1,442 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CEE | 25,806,548 | 4,264 | 1,641 | 1,634 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CEF | 25,808,217 | 3,816 | 1,482 | 1,475 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CF8 | 25,815,513 | 6,055 | 2,066 | 2,059 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CF9 | 25,817,607 | 4,961 | 1,680 | 1,673 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CFB | 25,819,828 | 4,046 | 1,515 | 1,508 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CFC | 25,821,371 | 6,199 | 2,122 | 2,115 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CFD | 25,823,521 | 5,021 | 1,722 | 1,715 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255CFE | 25,825,271 | 4,975 | 1,671 | 1,664 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255D01 | 25,826,970 | 5,944 | 2,082 | 2,075 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255D02 | 25,829,080 | 5,926 | 2,070 | 2,063 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255D03 | 25,831,178 | 4,917 | 1,865 | 1,859 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255D04 | 25,833,071 | 4,974 | 1,695 | 1,689 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255D05 | 25,834,794 | 4,655 | 1,601 | 1,594 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00255D06 | 25,836,423 | 3,315 | 1,391 | 1,385 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FC0 | 25,999,555 | 3,524 | 1,481 | 1,474 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FC3 | 26,001,064 | 3,730 | 1,439 | 1,433 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FC5 | 26,002,531 | 3,316 | 1,286 | 1,279 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FC6 | 26,003,845 | 4,201 | 1,532 | 1,525 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FC8 | 26,005,405 | 2,125 | 915 | 909 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FCA | 26,006,348 | 5,423 | 1,791 | 1,785 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FCE | 26,008,167 | 3,912 | 1,448 | 1,441 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FE1 | 26,009,643 | 4,927 | 1,875 | 1,868 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FE3 | 26,011,546 | 769 | 405 | 399 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FE5 | 26,011,979 | 729 | 381 | 374 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FE7 | 26,012,388 | 4,052 | 1,510 | 1,503 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FE9 | 26,013,926 | 6,058 | 2,063 | 2,056 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FEB | 26,016,017 | 5,870 | 2,049 | 2,043 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FED | 26,018,094 | 3,556 | 1,369 | 1,362 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FEF | 26,019,491 | 5,014 | 1,704 | 1,698 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00264FF0 | 26,021,223 | 3,315 | 1,386 | 1,379 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F94 | 26,365,912 | 785 | 403 | 396 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F97 | 26,366,343 | 5,865 | 2,041 | 2,035 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F98 | 26,368,412 | 4,235 | 1,507 | 1,500 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F99 | 26,369,947 | 3,879 | 1,471 | 1,465 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F9A | 26,371,446 | 4,645 | 1,581 | 1,574 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F9D | 26,375,825 | 6,026 | 2,011 | 2,005 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F9E | 26,377,864 | 6,180 | 2,094 | 2,087 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273F9F | 26,379,986 | 4,916 | 1,855 | 1,849 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273FA0 | 26,381,869 | 781 | 403 | 396 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273FA1 | 26,382,300 | 4,403 | 1,501 | 1,494 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273FA2 | 26,383,829 | 4,803 | 1,630 | 1,623 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 00273FA3 | 26,385,487 | 4,913 | 1,659 | 1,652 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0028B91A | 26,490,727 | 5,912 | 2,075 | 2,068 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0028B91C | 26,492,830 | 4,456 | 1,546 | 1,539 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0028B91F | 26,494,404 | 6,076 | 2,074 | 2,068 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0028B920 | 26,496,506 | 5,032 | 1,717 | 1,710 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF30F | 26,857,011 | 736 | 375 | 369 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF312 | 26,857,734 | 645 | 349 | 343 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF314 | 26,858,469 | 645 | 349 | 343 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF316 | 26,858,846 | 643 | 347 | 341 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF317 | 26,859,221 | 660 | 363 | 356 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF318 | 26,859,612 | 645 | 349 | 343 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF319 | 26,859,989 | 645 | 345 | 338 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF31A | 26,860,362 | 660 | 358 | 352 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF31B | 26,860,748 | 643 | 343 | 336 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF31D | 26,861,119 | 645 | 345 | 338 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF31F | 26,861,846 | 645 | 345 | 338 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002BF322 | 26,862,536 | 736 | 379 | 373 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002CCF9E | 26,966,831 | 5,024 | 1,716 | 1,709 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002CCF9F | 26,968,575 | 6,195 | 2,114 | 2,107 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 002FCB50 | 27,569,524 | 5,852 | 2,100 | 2,093 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0038679A | 27,995,978 | 4,397 | 1,514 | 1,508 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0039EC80 | 28,119,164 | 3,863 | 1,470 | 1,463 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | NPC_ | 0039EC81 | 28,120,662 | 4,783 | 1,584 | 1,578 | E | last token: match 35 at distance 38 (level 9: 37) |
+| Starfield.esm | CELL | 0002C786 | 139,142,869 | 325 | 229 | 223 | E | last token: match 8 at distance 189 (level 9: 188) |
+| Starfield.esm | CELL | 0005B77A | 139,346,590 | 613 | 417 | 410 | E | last token: match 17 at distance 336 (level 9: 168) |
+| Starfield.esm | CELL | 0015DEDF | 152,405,220 | 1,801 | 734 | 3 | E | last token: match 4 at distance 1606 (level 9: 32) |
+| Starfield.esm | CELL | 000FBC17 | 179,000,960 | 605 | 412 | 405 | E | last token: match 28 at distance 517 (level 9: 516) |
+| Starfield.esm | CELL | 00029A06 | 180,019,247 | 495 | 272 | 265 | E | last token: match 4 at distance 326 (level 9: 144) |
+| Starfield.esm | CELL | 0027459B | 208,880,197 | 330 | 270 | 263 | E | last token: match 4 at distance 176 (level 9: 175) |
+| Starfield.esm | CELL | 000073B8 | 231,299,986 | 334 | 205 | 198 | E | last token: match 4 at distance 205 (level 9: 68) |
+| Starfield.esm | CELL | 0012C069 | 251,922,324 | 8,573 | 2,956 | 2,948 | E | last token: match 8 at distance 1168 (level 9: 32) |
+| Starfield.esm | CELL | 001DBCA3 | 257,282,456 | 368 | 219 | 212 | E | last token: match 12 at distance 283 (level 9: 282) |
+| Starfield.esm | CELL | 00093068 | 287,593,248 | 7,944 | 2,658 | 2,650 | E | last token: match 8 at distance 1040 (level 9: 48) |
+| Starfield.esm | CELL | 000F71A8 | 294,395,852 | 9,020 | 3,030 | 3,022 | E | last token: match 8 at distance 2672 (level 9: 32) |
+| Starfield.esm | CELL | 00004D90 | 296,983,501 | 400 | 282 | 275 | E | last token: match 12 at distance 293 (level 9: 292) |
+| Starfield.esm | CELL | 00214663 | 313,012,349 | 4,411 | 1,576 | 1,568 | E | last token: match 8 at distance 3184 (level 9: 80) |
+| Starfield.esm | CELL | 0005AE5D | 316,274,534 | 437 | 245 | 239 | E | last token: match 4 at distance 241 (level 9: 240) |
+| Starfield.esm | NAVM | 00017F17 | 318,400,440 | 31,255 | 17,687 | 3 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 000267A8 | 318,418,155 | 29,097 | 16,284 | 4 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 000267A9 | 318,434,467 | 29,097 | 16,280 | 4 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 000267AA | 318,450,775 | 29,109 | 16,284 | 4 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 00029AA4 | 318,467,087 | 36,184 | 20,629 | 2 | N | level 8 reproduces it; first difference at byte 66 of the data |
+| Starfield.esm | NAVM | 00103414 | 318,487,744 | 28,179 | 15,833 | 4 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 00110AD3 | 318,503,605 | 10,926 | 6,427 | 3 | N | levels 7 and 8 reproduce it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 0014FC69 | 318,510,060 | 28,337 | 14,909 | 3 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 0017FEC6 | 318,524,997 | 10,355 | 5,920 | 3 | N | levels 7 and 8 reproduce it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 001BA29E | 318,530,945 | 49,210 | 28,867 | 3 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 001BA29F | 318,559,840 | 103,552 | 60,647 | 4 | U | from byte 24 of the data; 4 deflate blocks (level 9: 3) |
+| Starfield.esm | NAVM | 002F01CA | 318,620,515 | 55,538 | 29,121 | 2 | N | level 8 reproduces it; first difference at byte 14 of the data |
+| Starfield.esm | NAVM | 003CFA13 | 318,649,664 | 68,557 | 37,566 | 2 | N | level 8 reproduces it; first difference at byte 24 of the data |
+| Starfield.esm | CELL | 0037A56C | 340,554,679 | 440 | 327 | 320 | E | last token: match 16 at distance 349 (level 9: 348) |
+| Starfield.esm | CELL | 000090AE | 340,688,671 | 21,763 | 7,500 | 7,492 | E | last token: match 11 at distance 3152 (level 9: 112) |
+| Starfield.esm | CELL | 000F69A8 | 354,812,467 | 397 | 279 | 272 | E | last token: match 12 at distance 293 (level 9: 292) |
+| Starfield.esm | CELL | 000994BA | 356,872,202 | 629 | 394 | 388 | E | last token: match 28 at distance 535 (level 9: 534) |
+| Starfield.esm | CELL | 000090AF | 361,698,075 | 36,764 | 12,614 | 12,606 | E | last token: match 4 at distance 9088 (level 9: 16) |
+| Starfield.esm | CELL | 000D131B | 368,853,066 | 282 | 198 | 192 | E | last token: match 4 at distance 93 (level 9: 92) |
+| Starfield.esm | CELL | 000DBF69 | 369,638,232 | 355 | 243 | 236 | E | last token: match 8 at distance 207 (level 9: 206) |
+| BlueprintShips-Starfield.esm | CELL | 010BD33D | 120,846,037 | 10,520 | 3,666 | 3,658 | E | last token: match 8 at distance 4816 (level 9: 128) |
+| BlueprintShips-Starfield.esm | CELL | 010FFF0F | 164,353,359 | 748 | 386 | 379 | E | last token: match 4 at distance 538 (level 9: 212) |
+| BlueprintShips-Starfield.esm | CELL | 01102CA7 | 204,982,254 | 1,608 | 631 | 91 | E | last token: match 4 at distance 640 (level 9: 20) |
+| SFBGS003.esm | NPC_ | FD000829 | 100,733 | 4,577 | 1,486 | 1,480 | E | last token: match 35 at distance 38 (level 9: 37) |
+| SFBGS003.esm | NPC_ | FD00505C | 116,328 | 5,324 | 1,773 | 1,766 | E | last token: match 35 at distance 38 (level 9: 37) |
+| SFBGS003.esm | NPC_ | FD005BB7 | 122,614 | 4,567 | 1,478 | 1,471 | E | last token: match 35 at distance 38 (level 9: 37) |
+| SFBGS006.esm | CELL | FD00C91D | 4,212,126 | 405 | 287 | 280 | E | last token: match 12 at distance 293 (level 9: 292) |
+| SFBGS006.esm | CELL | FD00AB5D | 7,013,611 | 287 | 203 | 197 | E | last token: match 4 at distance 93 (level 9: 92) |
+| SFBGS00D.esm | CELL | 01072FC4 | 8,010,102 | 549 | 373 | 366 | E | last token: match 24 at distance 461 (level 9: 460) |
+| SFBGS00D.esm | CELL | 01068043 | 11,695,342 | 1,533 | 685 | 3 | E | last token: match 4 at distance 1350 (level 9: 16) |
+| SFBGS050.esm | CELL | 0201B11B | 20,036,603 | 5,086 | 1,793 | 1,786 | E | last token: match 10 at distance 32 (level 9: 16) |
+
 
 ## TES4 header inventory (M1.2b)
 
