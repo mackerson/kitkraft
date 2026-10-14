@@ -301,6 +301,14 @@ arguments, generated from each `args_schema`; `kit` calls the same parser.
 - Every argument is also `--name value` / `--name=value` (`_` may be written `-`).
 - Booleans: `--verify`, `--no-verify`, `--verify=false`. String lists repeat the flag.
   Object arguments take JSON text: `--fields '{"FULL":"Rifle"}'`. `--` ends flags.
+- `FIELD=value` shorthand (lane E): a command with exactly one object argument (`set`'s
+  `fields`) also takes its entries as words: `kit set <form> FULL="Old Soviet Marksman
+  Rifle" --into X.esp`, `DNAM.Speed=1.5`, `FULL[1]=x`, `MODL=hex:0A0B`. A word is an
+  assignment when it starts with a field path (four characters of `A-Z`, `0-9`, `_`, then
+  `.member` / `[n]` steps) and `=`; the value is always the string after the first `=`,
+  exactly what `--fields '{"PATH":"value"}'` gives (the command parses it against the
+  field's type). Assignments merge with `--fields`; a path given twice is a `usage` error.
+  After `--` such a word is positional.
 - `help`, `help <command>`, `<command> --help` return help instead of running.
 - Quotes (`'` or `"`) group words; there are no backslash escapes, so Windows paths are
   written as-is.

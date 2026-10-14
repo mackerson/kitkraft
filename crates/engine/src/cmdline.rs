@@ -12,6 +12,9 @@
 //! - Booleans: `--name` is `true`, `--no-name` is `false`, `--name=true|false` works too.
 //! - String lists repeat the flag: `--tables a.STRINGS --tables b.STRINGS`.
 //! - Object (and other) arguments take JSON text: `--fields '{"FULL":"Rifle"}'`.
+//! - A command with exactly one object argument also takes its entries as `PATH=value`
+//!   words (`FULL="Old Soviet Marksman Rifle"`, `DNAM.Speed=1.5`, `MODL=hex:0A0B`); the
+//!   value is the string after the first `=` (see [`field_assignment`]).
 //! - `--` ends flags; everything after it is positional.
 //! - `-h` / `--help` anywhere, or `help [command...]`, asks for help instead of running.
 //!
@@ -149,6 +152,8 @@ fn parse_args(spec: &'static CommandSpec, words: &[&str]) -> Result<Invocation, 
     let positional: Vec<&Param> = params.iter().filter(|p| is_positional(p)).collect();
     let mut next_positional = positional.iter();
     let mut map = Map::new();
+    let shorthand_target = object_param(spec)?;
+    let mut fields = Map::new();
     let mut flags_done = false;
     let mut iter = words.iter();
     while let Some(&word) = iter.next() {
@@ -196,16 +201,133 @@ fn parse_args(spec: &'static CommandSpec, words: &[&str]) -> Result<Invocation, 
         if !flags_done && word.len() > 1 && word.starts_with('-') && word.parse::<f64>().is_err() {
             return Err(usage(Some(spec), format!("unknown option `{word}`")));
         }
+        if let (false, Some(target), Some((path, value))) =
+            (flags_done, &shorthand_target, field_assignment(word))
+        {
+            if fields
+                .insert(path.to_string(), Value::String(value.to_string()))
+                .is_some()
+            {
+                return Err(usage(
+                    Some(spec),
+                    format!("field `{path}` is assigned more than once (`{target}`)"),
+                ));
+            }
+            continue;
+        }
         let param = next_positional
             .next()
             .ok_or_else(|| usage(Some(spec), format!("unexpected argument `{word}`")))?;
         let value = convert(spec, param, word)?;
         insert(spec, &mut map, param, value)?;
     }
+    if let Some(target) = shorthand_target.filter(|_| !fields.is_empty()) {
+        merge_fields(spec, &mut map, &target, fields)?;
+    }
     Ok(Invocation::Run {
         command: spec,
         args: Value::Object(map),
     })
+}
+
+// `FIELD=value` shorthand (M2.E1, lane E).
+//
+// A command whose schema has exactly one object-typed argument (`set`'s `fields`) also
+// accepts that object's entries as words: `FULL="Old Soviet Marksman Rifle"`,
+// `DNAM.Speed=1.5`, `FULL[1]=x`, `MODL=hex:0A0B`. A word is an assignment when it starts
+// with a field path (a four-character signature of `A-Z`, `0-9` or `_`, then any
+// `.member` or `[n]` steps) followed by `=`. The value is always the JSON string after
+// the first `=`, exactly as `--fields '{"PATH": "value"}'` would give it; the command
+// parses it against the field's type (so `1.5` and `"1.5"` mean the same thing there).
+// Assignments merge with a `--fields` object; a path given twice is a usage error.
+
+/// The one argument whose schema type is `object`, if the command has exactly one.
+fn object_param(spec: &CommandSpec) -> Result<Option<String>, EngineError> {
+    let schema = crate::args::parse_schema(spec.id, spec.args_schema)?;
+    let Some(props) = schema.get("properties").and_then(Value::as_object) else {
+        return Ok(None);
+    };
+    let mut objects = props
+        .iter()
+        .filter(|(_, sub)| sub.get("type").and_then(Value::as_str) == Some("object"))
+        .map(|(name, _)| name.clone());
+    match (objects.next(), objects.next()) {
+        (Some(name), None) => Ok(Some(name)),
+        _ => Ok(None),
+    }
+}
+
+/// Splits `PATH=value` when `PATH` has the field-path shape; `None` otherwise.
+pub fn field_assignment(word: &str) -> Option<(&str, &str)> {
+    let (path, value) = word.split_once('=')?;
+    is_field_path(path).then_some((path, value))
+}
+
+/// Whether `path` is `SIG`, then any number of `.member` / `[n]` steps.
+pub fn is_field_path(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    let Some(sig) = bytes.get(..4) else {
+        return false;
+    };
+    if !sig
+        .iter()
+        .all(|b| b.is_ascii_uppercase() || b.is_ascii_digit() || *b == b'_')
+    {
+        return false;
+    }
+    let mut rest = bytes.get(4..).unwrap_or_default();
+    while let Some((&first, tail)) = rest.split_first() {
+        match first {
+            b'.' => {
+                let len = tail
+                    .iter()
+                    .take_while(|b| b.is_ascii_alphanumeric() || **b == b'_')
+                    .count();
+                if len == 0 || tail.first().is_some_and(u8::is_ascii_digit) {
+                    return false;
+                }
+                rest = tail.get(len..).unwrap_or_default();
+            }
+            b'[' => {
+                let len = tail.iter().take_while(|b| b.is_ascii_digit()).count();
+                if len == 0 || tail.get(len) != Some(&b']') {
+                    return false;
+                }
+                rest = tail.get(len.saturating_add(1)..).unwrap_or_default();
+            }
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Merges shorthand assignments into the object argument `target` (which `--target`
+/// JSON may already have set).
+fn merge_fields(
+    spec: &CommandSpec,
+    map: &mut Map<String, Value>,
+    target: &str,
+    fields: Map<String, Value>,
+) -> Result<(), EngineError> {
+    let entry = map
+        .entry(target.to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+    let Value::Object(object) = entry else {
+        return Err(usage(
+            Some(spec),
+            format!("`--{target}` is not a JSON object, so `FIELD=value` words cannot join it"),
+        ));
+    };
+    for (path, value) in fields {
+        if object.contains_key(&path) {
+            return Err(usage(
+                Some(spec),
+                format!("field `{path}` is assigned more than once (`{target}`)"),
+            ));
+        }
+        object.insert(path, value);
+    }
+    Ok(())
 }
 
 fn is_positional(param: &Param) -> bool {
@@ -461,6 +583,83 @@ mod tests {
         );
         assert_eq!(kind("query WEAP --limit five"), "usage");
         assert_eq!(kind("set F out.esm --fields {nope"), "usage");
+    }
+
+    /// M2.E1: every shorthand form gives the same arguments as `--fields` JSON.
+    #[test]
+    fn field_shorthand_equals_fields_json() {
+        let cases = [
+            (
+                r#"set Starfield.esm:0021BBCD FULL="Old Soviet Marksman Rifle" --into X.esp"#,
+                r#"set Starfield.esm:0021BBCD --into X.esp --fields '{"FULL":"Old Soviet Marksman Rifle"}'"#,
+            ),
+            (
+                "set F X.esp DNAM.Speed=1.5",
+                r#"set F X.esp --fields '{"DNAM.Speed":"1.5"}'"#,
+            ),
+            (
+                "set F X.esp MODL=hex:0A0B FULL[1]=x DNAM.Inner.Value[2]=-3",
+                r#"set F X.esp --fields '{"MODL":"hex:0A0B","FULL[1]":"x","DNAM.Inner.Value[2]":"-3"}'"#,
+            ),
+            // An `=` inside the value is kept; an empty value is an empty string.
+            (
+                "set F X.esp EDID=a=b FULL=",
+                r#"set F X.esp --fields '{"EDID":"a=b","FULL":""}'"#,
+            ),
+            // Shorthand and `--fields` merge.
+            (
+                r#"set F X.esp FULL=x --fields '{"EDID":"y"}'"#,
+                r#"set F X.esp --fields '{"EDID":"y","FULL":"x"}'"#,
+            ),
+        ];
+        for (short, long) in cases {
+            assert_eq!(run(short), run(long), "{short}");
+        }
+        // Same arguments after schema preparation, too.
+        let (id, args) = run("set F X.esp FULL=Rifle");
+        let spec = find_command(id).unwrap();
+        assert_eq!(
+            crate::prepare_args(spec, args).unwrap(),
+            crate::prepare_args(
+                spec,
+                json!({"form": "F", "into": "X.esp", "fields": {"FULL": "Rifle"}})
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn field_shorthand_errors_and_non_matches() {
+        assert_eq!(kind("set F X.esp FULL=a FULL=b"), "usage");
+        assert_eq!(
+            kind(r#"set F X.esp FULL=a --fields '{"FULL":"b"}'"#),
+            "usage"
+        );
+        assert_eq!(kind("set F X.esp FULL=a --fields [1]"), "usage");
+        // Not field paths: positional as before (and too many positionals here).
+        assert_eq!(kind("set F X.esp full=a"), "usage");
+        assert_eq!(kind("set F X.esp FUL=a"), "usage");
+        // A command without an object argument has no shorthand.
+        assert_eq!(kind("roundtrip X.esm FULL=a"), "usage");
+        // After `--` the word is positional.
+        assert_eq!(
+            run("set F -- FULL=a.esp").1,
+            json!({"form": "F", "into": "FULL=a.esp"})
+        );
+        for ok in [
+            "FULL",
+            "DNAM.Speed",
+            "FULL[0]",
+            "A_B1.x[3].y_2",
+            "DNAM.a[1][2]",
+        ] {
+            assert!(super::is_field_path(ok), "{ok}");
+        }
+        for bad in [
+            "", "FUL", "FULLX", "full", "FULL.", "FULL.1a", "FULL[", "FULL[x]", "FULL[]", "FULL..a",
+        ] {
+            assert!(!super::is_field_path(bad), "{bad}");
+        }
     }
 
     #[test]
