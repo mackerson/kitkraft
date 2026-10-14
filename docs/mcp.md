@@ -208,12 +208,66 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   roundtrip removes its partial output; after a mismatch the file stops at the top-level
   entry that differs (stated as a limitation).
 
-### `inspect` (minimal)
+### Load-order arguments (`load`, `inspect`, `query`, `conflicts`)
 
-Arguments `{form, plugin}`; CLI `kit inspect <form> <plugin>`. `form` is a FormID (1-8 hex
-digits, optional `0x`, matched against the record header as stored in the file) or an
-EditorID (ASCII case-insensitive). A hex form that matches no FormID is retried as an
-EditorID. Not found is a `failed` error.
+`profile` (an MO2 profile dir, read-only) or `plugins` (files in load order; bare names
+resolve against `data_dir`), plus `data_dir` (default: the MO2 instance's `gamePath` +
+`Data`) and `no_cache`. Given, the command loads first and the load order replaces the
+session's; absent, the command uses the session's load order (an MCP server keeps one;
+each `kit` process starts empty, so CLI users pass `--profile` to each command). No load
+order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitcraft\cache`
+(`KITCRAFT_CACHE_DIR`): a warm load of the owner's 84-plugin profile takes about 0.7 s.
+Rules, evidence and assumptions: `docs/load-order.md`.
+
+Every result over a load order repeats the limitations that affect it: runtime IDs are an
+assumption (`runtime-slots-by-scale`), string tables are not loaded (lstrings of localized
+plugins stay string IDs, M2.D7), plugins whose own records resolve by the `full-style-self`
+assumption, and plugins with records whose FormIDs do not resolve.
+
+### `load` (M2.D8)
+
+Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load --profile
+<dir>`. Fills the session; the MCP `kitcraft://load-order` resource serves the same JSON.
+
+`data`: `loaded`, `source` (`profile:<dir>` or `plugins`), `language`, `plugins[]`
+(`index`, `name`, `path`, `active` (the rule that made it active: `Starfield.ccc`,
+`hardcoded-official`, `plugins.txt`, `mo2-unmanaged:<entry>`,
+`blueprint-companion-of:<base>`, or `listed`), `provider` (`overwrite`, `mod:<name>`,
+`data`), `flags` (`0x%08X`), `flag_names`, `scale` (`full` | `medium` | `small` | null),
+`localized`, `form_version`, `masters[]` `{name, index}` (index null when missing),
+`missing_masters`, `late_masters` (masters loading after the plugin), `resolvable` and
+`resolve_error`, `records`, `unresolved_records`, `full_style_self_records`,
+`runtime_slot` (`05`, `FD:01`, `FE:00A`; assumed), `cache` (`hit` | `built` |
+`uncached`), `error` (a plugin that failed to parse stays listed with no records)),
+`inactive` (plugins the profile lists but does not activate), `records`, `versions`,
+`cache_dir`, `cache_hits`, `index_ms`, `table_ms`, `elapsed_ms`, `summary`. Evidence: each
+plugin's TES4 header. Limitations add the profile's warnings and which plugins are active
+by an assumption.
+
+### `inspect` (M2.D9; single-plugin mode kept)
+
+Arguments `{form, plugin?, profile?, plugins?, data_dir?, no_cache?}`.
+
+**Load-order mode** (a load order given or in the session): `form` is a formref
+(`Starfield.esm:01A2B3`: defining plugin and object ID), a hex FormID read as stored in
+`plugin` (the plugin's own master numbering), a hex runtime ID when `plugin` is absent
+(under the runtime-slot assumption), or an EditorID (ASCII case-insensitive). `data`:
+`mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
+`form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
+`object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
+`signature`, `editor_id` (the winner's), `winner`, `summary`, and `versions[]` in load
+order: `plugin`, `load_index`, `winner`, `raw_form_id` (as stored in that plugin),
+`record` (header fields), `subrecord_offsets`, `subrecords[]` (as below, plus `text` for
+EDID and inline lstrings, or `string_id` for a localized FULL/DESC), `vs_previous` (null
+for the first version, else `{class: identical-to-previous | deleted | differs,
+flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
+`payloads_comparable` (whether the two plugins encode FormIDs alike; when false a byte
+difference may be encoding only). Evidence: every version's header and every payload.
+
+**Single-plugin mode** (only `plugin` given): CLI `kit inspect <form> --plugin <file>`.
+`form` is a FormID (1-8 hex digits, optional `0x`, matched against the record header as
+stored in the file) or an EditorID (ASCII case-insensitive). A hex form that matches no
+FormID is retried as an EditorID. Not found is a `failed` error.
 
 `data`: `plugin`, `form`, `matched_by` (`form_id` | `editor_id`), `record` (`signature`,
 `form_id`, `editor_id`, `flags` as `0x%08X`, `compressed`, `offset`, `data_size`,
@@ -227,6 +281,91 @@ record, the compressed body). Coverage is `partial`; every subrecord counts as o
 Limitations always include `typed decode pending schema wiring` and the single-plugin
 note.
 
+### `query` (M2.D10, M2.D11)
+
+Arguments `{type, where?, scope = "winner" | "all", limit = 50 (max 1000), cursor?}` plus
+the load-order arguments; CLI `kit query --type WEAP --where "FULL ~ 'Rifle'" --profile
+<dir>` (strings take `"` or `'`; in PowerShell use `'` inside a `"..."` argument, since
+PowerShell 5.1 drops embedded `"` when calling a program).
+
+Candidates are the winning version of every form of `type` (`winner`) or every version
+(`all`), ordered by the load-order index of the plugin holding the version, then FormID.
+`data`: `type`, `where`, `scope`, `limit`, `matched`, `unknown` (records on this page that
+could not be decided: not matched), `scanned`, `candidates`, `next_cursor` (null on the
+last page), `results[]` (`form`, `signature`, `editor_id`, `full` (`{text}` or
+`{string_id}`), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`),
+`unknown_records[]` (first 20: `form`, `plugin`, `reasons`), `elapsed_ms`, `summary`.
+Evidence: each result's record header and its FULL payload. A cursor is opaque; one from
+another load order, type, `where` or scope is a `failed` error. Paging returns the same set
+as one large page.
+
+`where` grammar (`crates/doc/src/query.rs`):
+
+```
+query   = or ;
+or      = and { "or" and } ;
+and     = not { "and" not } ;
+not     = "not" not | atom ;
+atom    = "(" or ")" | "has" SIG | path op value ;
+path    = SIG { "." member } [ "[" index "]" ] | "@form" | "@plugin" | "@edid" | "@flags" ;
+op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" ;
+value   = number | hex | string | formref | "true" | "false" ;
+formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
+```
+
+- Keywords, signatures and member names are ASCII case-insensitive. Text comparisons
+  (`==`, `!=`, `~` contains, `!~` does not contain, `^=` starts with) are ASCII
+  case-insensitive. Ordering operators need a number; `@form` takes `==`/`!=` and a
+  formref (bare, or quoted when the file name has spaces); `@plugin` and `@edid` take
+  text; `@flags` (record flags) takes numbers.
+- A repeated subrecord matches if any occurrence matches; `[n]` picks occurrence `n`
+  (0-based).
+- A subrecord the record does not have makes a comparison false and `has` false.
+  Unknown: a path into a subrecord without a typed layout (today every member path and
+  every signature except `EDID`, `FULL` and `DESC`), a localized `FULL`/`DESC` (string
+  tables not loaded), a record that cannot be read. `and`/`or`/`not` follow Kleene logic;
+  an unknown record is not matched, is counted, and its reasons are listed.
+- Errors (`failed`) carry a 1-based column: `where: column 6: ...`. Text is capped at 4,096
+  characters and nesting at 64.
+
+### `diff` (M2.D12)
+
+Arguments `{a, b, form?, data_dir?, limit = 200}`; CLI `kit diff <a> <b>`. Stateless (no
+load order needed). Each file's FormIDs are resolved through its own masters by name;
+masters' scales are read from their headers next to each file or in `data_dir`. A file's
+own records match the other file's records of it when the other lists it as a master, and
+match each other otherwise (an edited copy). If a master cannot be found but both files
+list the same masters in the same order, records are matched by raw FormID
+(`keyed_by: "raw"`); otherwise the diff fails naming the master.
+
+`data`: `a`, `b`, `form`, `keyed_by` (`name` | `raw`), `counts {added, removed, changed,
+unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offset`), and
+`changed[]`: `form`, `signature`, `class`, `a`/`b` (`raw_form_id`, `offset`, `flags`,
+`compressed`), `flags_differ`, `order_differs`, `subrecords[]` (`signature`, `occurrence`,
+`change`: `added` | `removed` | `changed`, `a`/`b` spans `{file_offset, body_offset,
+length}`, `first_difference`). Lists stop at `limit` (counts are complete). Records whose
+bodies and flags are byte-identical count as unchanged without being parsed. Evidence:
+both sides of every listed record and differing payload.
+
+### `conflicts` (M2.D13, port of `esmscan.py`)
+
+Arguments `{master?, plugin?, type?, only_conflicts = false, count_classes = false, limit =
+50 (max 1000), cursor?}` plus the load-order arguments; CLI `kit conflicts --master
+Starfield.esm --profile <dir>` (alias `esmscan`).
+
+`data`: `counts[]` (`master`, `plugin`, `total`, `types {SIG: n}`: override records of
+`master`'s forms by `plugin`, as `esmscan.py` prints them), `override_records`, `forms`
+(overridden forms passing the filters), `items[]` (a page: `form`, `signature`,
+`editor_id`, `base_present`, `versions` (plugin names in load order), `overrides[]`:
+`plugin`, `previous`, `class` (`identical-to-previous` | `deleted` | `differs` |
+`first-version`), `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
+`class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
+Evidence: each override's record header and its differing payloads.
+`only_conflicts` keeps forms that two or more plugins override.
+
+Checked 2026-10-14 against `esmscan.py` run read-only on the owner's Default profile
+(master `Starfield.esm`, the other 83 plugins): the same 59 plugins and identical per-type
+counts, 8,234 override records in total.
 ### `coverage` (M1.14)
 
 Arguments `{plugin, decode = true}`; CLI `kit coverage <plugin> [--no-decode]`. Streams the
