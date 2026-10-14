@@ -60,6 +60,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("NAVM.toml", include_str!("../defs/NAVM.toml")),
     ("OMOD.toml", include_str!("../defs/OMOD.toml")),
     ("RECORD.toml", include_str!("../defs/RECORD.toml")),
+    ("REFR.toml", include_str!("../defs/REFR.toml")),
     ("TES4.toml", include_str!("../defs/TES4.toml")),
     ("WEAP.toml", include_str!("../defs/WEAP.toml")),
     ("WRLD.toml", include_str!("../defs/WRLD.toml")),

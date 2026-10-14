@@ -1,0 +1,1360 @@
+# REFR: placed object. Lives in the persistent (type 8) or temporary (type 9) children
+# group of a cell; NAME is the base object placed. The bulk of every official ESM.
+#
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the REFR definition of wbDefinitionsSF1.pas at the pinned revision (L8530-L9042)
+#     and the helpers it uses there and in wbDefinitionsCommon.pas: field layouts, FormID
+#     target types, flag values.
+#   corpus: tests/world_family.rs over every REFR record of the 14 official ESMs (see the
+#     record evidence).
+#
+# Record header flags: xEdit names them per base object type (a formatting union decided by
+# NAME's record type), so no bit names are listed here; the flags are kept as stored.
+#
+# Member order: xEdit marks the members of placed references as unordered, and the official
+# files do not follow one order. The order below is the linear order that agrees with the
+# most official records (computed from every corpus record); a subrecord outside it is
+# kept raw at its position (`extra`), so the record still writes back identically.
+# docs/schema/world-family.md has the counts per signature.
+#
+# Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored values
+# (0 means none). Fields xEdit leaves unnamed are named by their byte offset (`Float12`,
+# `Bytes8`). Members no official record of this type has stay at `reference`.
+signature = "REFR"
+name = "PlacedObject"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8530-L9042"
+confidence = "corpus"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8637-L8637"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "32,134 EDID placed in the corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8638-L8638"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; 5,608 VMAD placed in the corpus"
+
+[[member]]
+sig = "XALG"
+name = "Xalg"
+type = "u64"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8639-L8639"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3195-L3230",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "64-bit flags; xEdit marks its bit names as unverified, so they are not transcribed; 86,662 XALG placed in the corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8640-L8640"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "base form components; payloads kept raw"
+
+[[member]]
+sig = "NAME"
+name = "Base"
+type = "formid"
+targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8641-L8641"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "the base object placed; xEdit lists the referenceable record types; 6,719,725 NAME placed in the corpus"
+
+[[member]]
+sig = "XVL2"
+name = "VolumeData"
+type = "struct"
+card = "optional"
+size = 85
+field = [
+  { name = "Bytes0", type = "opaque", size = 8 },
+  { name = "ImageSpace", type = "formid", targets = ["IMGS"] },
+  { name = "Fog", type = "formid", targets = ["FOGV"] },
+  { name = "Bytes16", type = "opaque", size = 4 },
+  { name = "Float20", type = "f32" },
+  { name = "Float24", type = "f32" },
+  { name = "Float28", type = "f32" },
+  { name = "Float32", type = "f32" },
+  { name = "Bytes36", type = "opaque", size = 4 },
+  { name = "Float40", type = "f32" },
+  { name = "Float44", type = "f32" },
+  { name = "Float48", type = "f32" },
+  { name = "Bytes52", type = "opaque", size = 4 },
+  { name = "Float56", type = "f32" },
+  { name = "Float60", type = "f32" },
+  { name = "Float64", type = "f32" },
+  { name = "Float68", type = "f32" },
+  { name = "Float72", type = "f32" },
+  { name = "Float76", type = "f32" },
+  { name = "Bytes80", type = "opaque", size = 1 },
+  { name = "Float81", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8642-L8664"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "xEdit names only the two FormIDs; the rest is laid out by position; 19,459 XVL2 placed in the corpus, 3,688 more out of member order (kept raw)"
+
+[[member]]
+sig = "XVOI"
+name = "ProbeOffsetIntensity"
+type = "struct"
+card = "optional"
+size = 16
+field = [
+  { name = "Float0", type = "f32" },
+  { name = "Float4", type = "f32" },
+  { name = "Float8", type = "f32" },
+  { name = "Float12", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8703-L8708"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "reflection probe offset and intensity; 18,888 XVOI placed in the corpus, 4,177 more out of member order (kept raw)"
+
+[[member]]
+group = "Patrol"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8749-L8754"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XPRD"
+name = "IdleTime"
+type = "f32"
+note = "4,692 XPRD placed in the corpus, 2,068 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "XPPA"
+name = "ScriptMarker"
+type = "empty"
+note = "4,692 XPPA placed in the corpus, 2,068 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "INAM"
+name = "Idle"
+type = "formid"
+targets = ["IDLE"]
+note = "1,627,145 INAM placed in the corpus, 116,313 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "PDTO"
+name = "Topics"
+type = "struct"
+card = "repeated"
+size = 8
+field = [
+  { name = "Kind", type = "enum", base = "u32", values = [["TopicRef", 0], ["TopicSubtype", 1]] },
+  { name = "Data", type = "opaque", size = 4 },
+]
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3901-L3913",
+]
+note = "Data is a DIAL FormID or a 4-character subtype depending on Kind (a union), kept raw; 4,692 PDTO placed in the corpus, 2,068 more out of member order (kept raw)"
+
+[[member]]
+sig = "XACT"
+name = "ActionFlags"
+type = "flags"
+card = "optional"
+base = "u32"
+bits = [["UseDefault", 1], ["Activate", 2], ["Open", 4], ["OpenByDefault", 8]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8682-L8682"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8660-L8671",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "3,098 XACT placed in the corpus"
+
+[[member]]
+sig = "XRNK"
+name = "FactionRank"
+type = "i32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8976-L8976"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "42,066 XRNK placed in the corpus, 4,271 more out of member order (kept raw)"
+
+[[member]]
+sig = "XRDS"
+name = "Radius"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8727-L8727"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "224,559 XRDS placed in the corpus, 20,440 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLIG"
+name = "LightData"
+type = "struct"
+card = "optional"
+size = 32
+field = [
+  { name = "Fov", type = "f32" },
+  { name = "LuminousScale", type = "f32" },
+  { name = "EndDistanceCap", type = "f32" },
+  { name = "NearClip", type = "f32" },
+  { name = "InnerFov", type = "f32" },
+  { name = "ShadowOffset", type = "f32" },
+  { name = "Bytes24", type = "opaque", size = 4 },
+  { name = "Bytes28", type = "opaque", size = 4 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8717-L8726"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "the first and fifth floats change meaning with the base light type (omni or spot); 259,362 XLIG placed in the corpus, 10,648 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLBD"
+name = "Barndoors"
+type = "struct"
+card = "optional"
+size = 24
+field = [
+  { name = "Bottom", type = "f32" },
+  { name = "Right", type = "f32" },
+  { name = "Left", type = "f32" },
+  { name = "Top", type = "f32" },
+  { name = "FalloffIntensity", type = "f32" },
+  { name = "HasBarndoors", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "HasFalloff", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 2 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8978-L8987"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "106,997 XLBD placed in the corpus, 16,696 more out of member order (kept raw)"
+
+[[member]]
+sig = "XPRM"
+name = "Primitive"
+type = "struct"
+card = "optional"
+size = 32
+field = [
+  { name = "BoundsX", type = "f32" },
+  { name = "BoundsY", type = "f32" },
+  { name = "BoundsZ", type = "f32" },
+  { name = "Red", type = "f32" },
+  { name = "Green", type = "f32" },
+  { name = "Blue", type = "f32" },
+  { name = "Alpha", type = "f32" },
+  { name = "Shape", type = "enum", base = "u32", values = [["None", 0], ["Box", 1], ["Sphere", 2], ["Plane", 3], ["Line", 4], ["Ellipsoid", 5], ["Cylinder", 7]] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8683-L8702"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7173-L7195",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "51,197 XPRM placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member]]
+group = "ProjectedDecal"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8786-L8795"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XPDD"
+name = "DecalData"
+type = "struct"
+size = 16
+field = [
+  { name = "WidthScale", type = "f32" },
+  { name = "HeightScale", type = "f32" },
+  { name = "Float8", type = "f32" },
+  { name = "Int12", type = "u8" },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+note = "567,444 XPDD placed in the corpus, 55,725 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "XPDO"
+name = "DecalRefs"
+type = "array"
+card = "optional"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
+count = "rest"
+element = "formid"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 222,872 XPDO placed in the corpus, 19,894 more out of member order (kept raw)"
+
+[[member]]
+sig = "XCDD"
+name = "ConstrainedDecal"
+type = "struct"
+card = "optional"
+size = 12
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+  { name = "Z", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8796-L8796"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "754,721 XCDD placed in the corpus, 51,050 more out of member order (kept raw)"
+
+[[member]]
+sig = "XBSD"
+name = "BendableSpline"
+type = "struct"
+card = "optional"
+size = 24
+field = [
+  { name = "Slack", type = "f32" },
+  { name = "Thickness", type = "f32" },
+  { name = "HalfExtents", type = "struct", field = [{ name = "X", type = "f32" }, { name = "Y", type = "f32" }, { name = "Z", type = "f32" }] },
+  { name = "WindDetachedEnd", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9016-L9022"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "13,390 XBSD placed in the corpus, 50 more out of member order (kept raw)"
+
+[[member]]
+sig = "XNSE"
+name = "Xnse"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9023-L9023"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "reflection data; the helper is not read, kept raw; 11,431 XNSE placed in the corpus, 2 more out of member order (kept raw)"
+
+[[member]]
+sig = "XTEL"
+name = "TeleportDestination"
+type = "struct"
+card = "optional"
+size = 36
+field = [
+  { name = "Door", type = "formid", targets = ["REFR"] },
+  { name = "Placement", type = "ref:PositionRotation" },
+  { name = "Flags", type = "flags", base = "u32", bits = [["NoAlarm", 1], ["NoLoadScreen", 2], ["RelativePosition", 4]] },
+  { name = "TransitionInterior", type = "formid", targets = ["CELL"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8756-L8767"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6765",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2,113 XTEL placed in the corpus"
+
+[[member]]
+sig = "XCNT"
+name = "ItemCount"
+type = "i32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8847-L8847"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "32 XCNT placed in the corpus, 3 more out of member order (kept raw)"
+
+[[member]]
+sig = "XCOL"
+name = "Collision"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "Layer", type = "u32" },
+  { name = "Material", type = "formid", targets = ["MATT"] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8823-L8843"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "Layer indexes the collision layers; 2,773 XCOL placed in the corpus, 714 more out of member order (kept raw)"
+
+[[member]]
+sig = "XSAD"
+name = "ShipArrival"
+type = "struct"
+card = "optional"
+size = 17
+field = [
+  { name = "Target", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+  { name = "Location", type = "enum", base = "u32", values = [["EditorLocation", 0], ["TargetAbove", 1], ["TargetBelow", 2], ["TargetBehind", 3], ["TargetFront", 4], ["TargetLeft", 5], ["TargetRight", 6]] },
+  { name = "Distance", type = "f32" },
+  { name = "Delay", type = "f32" },
+  { name = "GravJumpFx", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8666-L8680"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "distance in metres, delay in seconds; 9 XSAD placed in the corpus, 3 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLLD"
+name = "LightLayer"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8972-L8972"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "23 XLLD placed in the corpus, 4 more out of member order (kept raw)"
+
+[[member]]
+sig = "XALD"
+name = "AreaLight"
+type = "struct"
+card = "optional"
+size = 16
+field = [
+  { name = "Width", type = "f32" },
+  { name = "Height", type = "f32" },
+  { name = "Radius", type = "f32" },
+  { name = "Kind", type = "enum", base = "u8", values = [["None", 0], ["Rectangle", 1], ["Sphere", 2]] },
+  { name = "IsDiffuse", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 2 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8665-L8665"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2349-L2365",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2400-L2400",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "190,045 XALD placed in the corpus, 13,011 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLSM"
+name = "StaticShadowMap"
+type = "enum"
+card = "optional"
+base = "u32"
+values = [["False", 0], ["True", 1]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8988-L8988"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "155,670 XLSM placed in the corpus, 23,818 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLVD"
+name = "Volumetric"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8973-L8973"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "112,319 XLVD placed in the corpus, 19,468 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLGD"
+name = "GoboAnimation"
+type = "struct"
+card = "optional"
+size = 88
+field = [
+  { name = "StaticRotation", type = "f32" },
+  { name = "RotationSpeed", type = "f32" },
+  { name = "WaveRotationSpeed", type = "f32" },
+  { name = "WaveRotationAmount", type = "f32" },
+  { name = "StaticScaleU", type = "f32" },
+  { name = "StaticScaleV", type = "f32" },
+  { name = "WaveScalingUSpeed", type = "f32" },
+  { name = "WaveScalingVSpeed", type = "f32" },
+  { name = "WaveScalingUAmount", type = "f32" },
+  { name = "WaveScalingVAmount", type = "f32" },
+  { name = "StaticOffsetU", type = "f32" },
+  { name = "StaticOffsetV", type = "f32" },
+  { name = "RotationPivotU", type = "f32" },
+  { name = "RotationPivotV", type = "f32" },
+  { name = "ScrollSpeedU", type = "f32" },
+  { name = "ScrollSpeedV", type = "f32" },
+  { name = "WaveScrollSpeedU", type = "f32" },
+  { name = "WaveScrollSpeedV", type = "f32" },
+  { name = "WaveScrollAmountU", type = "f32" },
+  { name = "WaveScrollAmountV", type = "f32" },
+  { name = "RandomTimeOffsetRange", type = "f32" },
+  { name = "IsAnimated", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8798-L8822"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "257 XLGD placed in the corpus, 54 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLCD"
+name = "LightColors"
+type = "struct"
+card = "repeated"
+size = 12
+field = [
+  { name = "Color", type = "ref:ColorRgba" },
+  { name = "Bytes4", type = "opaque", size = 5 },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8989-L8993"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "162,876 XLCD placed in the corpus, 13,345 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLMS"
+name = "LayeredMaterialSwaps"
+type = "array"
+card = "optional"
+targets = ["LMSW"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8994-L8994"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,165,596 XLMS placed in the corpus, 298,641 more out of member order (kept raw)"
+
+[[member]]
+sig = "TODD"
+name = "TimeOfDay"
+type = "formid"
+card = "optional"
+targets = ["TODD"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9027-L9027"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "344 TODD placed in the corpus, 299 more out of member order (kept raw)"
+
+[[member]]
+sig = "XRGD"
+name = "RagdollBones"
+type = "array"
+card = "optional"
+count = "rest"
+element = "ref:RagdollBone"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8755-L8755"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "49,052 XRGD placed in the corpus, 2,540 more out of member order (kept raw)"
+
+[[member]]
+sig = "XEED"
+name = "ExternalEmittance"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "LuminanceScale", type = "f32" },
+  { name = "OverrideEnabled", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8975-L8975"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3987-L3993",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "36,259 XEED placed in the corpus, 18,163 more out of member order (kept raw)"
+
+[[member]]
+group = "DebugText"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8709-L8715"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XDTS"
+name = "Text"
+type = "zstring"
+note = "380 XDTS placed in the corpus, 9 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "XDTF"
+name = "Format"
+type = "struct"
+size = 8
+field = [
+  { name = "Color", type = "ref:ColorRgba" },
+  { name = "Size", type = "u32" },
+]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
+]
+note = "380 XDTF placed in the corpus, 9 more out of member order (kept raw)"
+
+[[member]]
+sig = "XEMI"
+name = "Emittance"
+type = "formid"
+card = "optional"
+targets = ["LIGH", "REGN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8716-L8716"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "46 XEMI placed in the corpus"
+
+[[member]]
+group = "MapMarker"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8861-L8971"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XMRK"
+name = "Marker"
+type = "empty"
+note = "660 XMRK placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "FNAM"
+name = "MapFlags"
+type = "flags"
+base = "u32"
+bits = [["Visible", 1], ["CanTravelTo", 2], ["ShowAllHidden", 4], ["UseLocationName", 8], ["VisibleOnStarMap", 16], ["Discovered", 32], ["RequiresScanning", 64], ["AllowGravJump", 128], ["SuppressDiscovery", 0x200], ["UseAccurateZHeight", 0x400], ["LimitVisibilityToCompassRange", 0x800], ["MustCruiseToFirst", 0x1000]]
+note = "660 FNAM placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3185-L3185",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+note = "660 FULL placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "TNAM"
+name = "MarkerType"
+type = "u16"
+note = "map marker type; xEdit enumerates 70 values, kept as stored; 660 TNAM placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "VNAM"
+name = "Category"
+type = "enum"
+base = "u16"
+values = [["None", 0], ["Landmark", 1], ["Structure", 2], ["LifeSigns", 3], ["Hazard", 4], ["SpaceLandmark", 5], ["Ship", 6], ["Station", 7], ["Asteroids", 8], ["Simple", 9]]
+note = "660 VNAM placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "UNAM"
+name = "UnexploredName"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+note = "660 UNAM placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member.member]]
+sig = "VISI"
+name = "UndiscoveredVisibility"
+type = "enum"
+card = "optional"
+base = "u8"
+values = [["Always", 0], ["System", 1], ["Planet", 2]]
+note = "660 VISI placed in the corpus, 126 more out of member order (kept raw)"
+
+[[member]]
+sig = "XPLK"
+name = "PowerLinks"
+type = "struct"
+card = "repeated"
+size = 8
+field = [
+  { name = "Ref", type = "formid", targets = ["REFR", "ACHR"] },
+  { name = "Int4", type = "u32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8844-L8844"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7053-L7061",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "second field: xEdit names one value only, as unknown; 381 XPLK placed in the corpus, 166 more out of member order (kept raw)"
+
+[[member]]
+sig = "XFLG"
+name = "ExtraFlags"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8848-L8848"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2563-L2572",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "xEdit names one bit only, as unknown; 139 XFLG placed in the corpus, 45 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLYR"
+name = "Layer"
+type = "formid"
+card = "optional"
+targets = ["LAYR"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9009-L9009"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2,987,118 XLYR placed in the corpus, 364,914 more out of member order (kept raw)"
+
+[[member]]
+sig = "XRFG"
+name = "ReferenceGroup"
+type = "formid"
+card = "optional"
+targets = ["RFGP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8769-L8769"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,294,470 XRFG placed in the corpus, 43,841 more out of member order (kept raw)"
+
+[[member]]
+sig = "BOLV"
+name = "WaterReflection"
+type = "u16"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9012-L9015"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "xEdit knows the values 0 and 1, both unnamed; 23 BOLV placed in the corpus"
+
+[[member]]
+sig = "XLRT"
+name = "LocationRefTypes"
+type = "array"
+card = "optional"
+targets = ["LCRT"]
+count = "rest"
+element = "formid"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9025-L9025"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "23,495 XLRT placed in the corpus, 2,981 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLCM"
+name = "LevelModifier"
+type = "enum"
+card = "optional"
+base = "i32"
+values = [["Easy", 0], ["Medium", 1], ["Hard", 2], ["VeryHard", 3]]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8681-L8681"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3980-L3985",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "417 XLCM placed in the corpus, 95 more out of member order (kept raw)"
+
+[[member]]
+sig = "XRGB"
+name = "BipedRotation"
+type = "struct"
+card = "optional"
+size = 12
+field = [
+  { name = "X", type = "f32" },
+  { name = "Y", type = "f32" },
+  { name = "Z", type = "f32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8755-L8755"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9407-L9423",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+]
+confidence = "reference"
+note = "not in any official REFR"
+
+[[member]]
+sig = "XLRL"
+name = "LocationReference"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8785-L8785"
+confidence = "reference"
+note = "not in any official REFR"
+
+[[member]]
+sig = "XRFE"
+name = "RadiusFalloffExponent"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8974-L8974"
+confidence = "reference"
+note = "not in any official REFR"
+
+[[member]]
+sig = "XFVC"
+name = "FavorCost"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9011-L9011"
+confidence = "reference"
+note = "not in any official REFR"
+
+[[member]]
+sig = "XLTW"
+name = "Xltw"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9038-L9038"
+confidence = "reference"
+note = "meaning unknown in xEdit; not in any official REFR"
+
+[[member]]
+group = "WaterCurrents"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8737-L8748"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XWCN"
+name = "Count"
+type = "u32"
+note = "2 XWCN placed in the corpus"
+
+[[member.member]]
+sig = "XWCU"
+name = "Velocities"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+field = [
+  { name = "Velocity", type = "struct", field = [{ name = "X", type = "f32" }, { name = "Y", type = "f32" }, { name = "Z", type = "f32" }] },
+  { name = "Float12", type = "f32" },
+]
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6742-L6758",
+]
+note = "as many entries as Count; 2 XWCU placed in the corpus"
+
+[[member]]
+group = "WaterCurrent"
+card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8736"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "XCZR or XCZC (one of the two), then XCZA"
+
+[[member.member]]
+sig = "XCZR"
+name = "Ref"
+type = "formid"
+card = "optional"
+targets = ["REFR"]
+note = "2 XCZR placed in the corpus"
+
+[[member.member]]
+sig = "XCZC"
+name = "Cell"
+type = "formid"
+card = "optional"
+targets = ["CELL"]
+note = "3 XCZC placed in the corpus"
+
+[[member.member]]
+sig = "XCZA"
+name = "Xcza"
+type = "opaque"
+card = "optional"
+note = "meaning unknown in xEdit; 5 XCZA placed in the corpus"
+
+[[member]]
+sig = "XHTW"
+name = "HeadTrackingWeight"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9010-L9010"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2 XHTW placed in the corpus"
+
+[[member]]
+sig = "XPCK"
+name = "Xpck"
+type = "formid"
+card = "optional"
+targets = ["RFGP"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8770-L8770"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "unnamed in xEdit; a reference group; 185,752 XPCK placed in the corpus, 1,950 more out of member order (kept raw)"
+
+[[member]]
+sig = "XPCS"
+name = "SourcePackIn"
+type = "formid"
+card = "optional"
+targets = ["PKIN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8783-L8783"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7051-L7051",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "272,438 XPCS placed in the corpus, 4,755 more out of member order (kept raw)"
+
+[[member]]
+sig = "XGDS"
+name = "GeometryDirtinessScale"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8996-L8996"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "29,921 XGDS placed in the corpus, 141 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLRD"
+name = "Roundness"
+type = "struct"
+card = "optional"
+size = 20
+field = [
+  { name = "Width", type = "f32" },
+  { name = "Height", type = "f32" },
+  { name = "Roundness", type = "f32" },
+  { name = "Falloff", type = "f32" },
+  { name = "UsesRoundness", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8977-L8977"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2337-L2347",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2402-L2402",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "146,312 XLRD placed in the corpus, 7,264 more out of member order (kept raw)"
+
+[[member]]
+group_ref = "GroupedPackIn"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8997-L9006"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "XBPO"
+name = "BlueprintPartOrigin"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8771-L8771"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,669,732 XBPO placed in the corpus, 19,567 more out of member order (kept raw)"
+
+[[member]]
+sig = "XLFD"
+name = "LightFlicker"
+type = "struct"
+card = "optional"
+size = 16
+field = [
+  { name = "Period", type = "f32" },
+  { name = "IntensityAmplitude", type = "f32" },
+  { name = "MovementAmplitude", type = "f32" },
+  { name = "Effect", type = "enum", base = "u8", values = [["None", 0], ["Flicker", 1], ["Pulse", 2]] },
+  { name = "Unused", type = "opaque", size = 3 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8849-L8860"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "9,831 XLFD placed in the corpus, 239 more out of member order (kept raw)"
+
+[[member]]
+group_ref = "LinkedReferences"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8845-L8845"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7039-L7049",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "XLCN"
+name = "PersistLocation"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8784-L8784"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "138 XLCN placed in the corpus"
+
+[[member]]
+sig = "XSL1"
+name = "SnapLinks"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8772-L8782"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "counted list of (linked REFR, counted list of node pairs); an array element cannot hold a counted array, kept raw; 54,451 XSL1 placed in the corpus"
+
+[[member]]
+sig = "XLOC"
+name = "Lock"
+type = "struct"
+card = "optional"
+size = 16
+field = [
+  { name = "Level", type = "u8" },
+  { name = "Unused1", type = "opaque", size = 3 },
+  { name = "Key", type = "formid", targets = ["KEYM"] },
+  { name = "Flags", type = "flags", base = "u8", bits = [["LeveledLock", 4]] },
+  { name = "Unused9", type = "opaque", size = 3 },
+  { name = "Int12", type = "u32" },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9007-L9007"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3776-L3795",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "Level: 0 none to 100 master; 251 to 255 barred, chained, terminal, inaccessible, key; 3,185 XLOC placed in the corpus, 101 more out of member order (kept raw)"
+
+[[member]]
+sig = "XATR"
+name = "AttachRef"
+type = "formid"
+card = "optional"
+targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9024-L9024"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 7,649 XATR placed in the corpus, 69 more out of member order (kept raw)"
+
+[[member]]
+sig = "XTNM"
+name = "TeleportName"
+type = "formid"
+card = "optional"
+targets = ["MESG"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8768-L8768"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "58 XTNM placed in the corpus"
+
+[[member]]
+sig = "XESP"
+name = "EnableParent"
+type = "ref:EnableParent"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9028-L9028"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3892-L3899",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "119,839 XESP placed in the corpus, 209 more out of member order (kept raw)"
+
+[[member]]
+sig = "XIS2"
+name = "IgnoredBySandbox"
+type = "empty"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8797-L8797"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,288 XIS2 placed in the corpus, 104 more out of member order (kept raw)"
+
+[[member]]
+sig = "XOWN"
+name = "Owner"
+type = "ref:OwnerData"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8976-L8976"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "41,673 XOWN placed in the corpus, 1 more out of member order (kept raw)"
+
+[[member]]
+sig = "XPPS"
+name = "Properties"
+type = "array"
+card = "optional"
+count = "rest"
+element = "ref:PropertyValue"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9008-L9008"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "524 XPPS placed in the corpus"
+
+[[member]]
+sig = "XEZN"
+name = "LocationOverride"
+type = "formid"
+card = "optional"
+targets = ["LCTN"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8995-L8995"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "6 XEZN placed in the corpus"
+
+[[member]]
+sig = "XHLT"
+name = "HealthPercent"
+type = "u32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9026-L9026"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "15 XHLT placed in the corpus"
+
+[[member]]
+sig = "XATP"
+name = "ActivationPoint"
+type = "empty"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9035-L9035"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2,320 XATP placed in the corpus"
+
+[[member]]
+sig = "XLIB"
+name = "LeveledItemBase"
+type = "formid"
+card = "optional"
+targets = ["LVLI"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8846-L8846"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2 XLIB placed in the corpus"
+
+[[member]]
+sig = "XTV2"
+name = "Traversals"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9029-L9029"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5789-L5813",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7136-L7141",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "56-byte traversal entries whose FormID is present only when a flag says so; kept raw; 6,027 XTV2 placed in the corpus"
+
+[[member]]
+sig = "XNDP"
+name = "NavmeshDoorLink"
+type = "struct"
+card = "optional"
+size = 8
+field = [
+  { name = "Navmesh", type = "formid", targets = ["NAVM"] },
+  { name = "Triangle", type = "i16" },
+  { name = "Unused", type = "opaque", size = 2 },
+]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9030-L9034"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "1,634 XNDP placed in the corpus"
+
+[[member]]
+sig = "XSCL"
+name = "Scale"
+type = "f32"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9036-L9036"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3194-L3194",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "2,278,019 XSCL placed in the corpus"
+
+[[member]]
+sig = "ONAM"
+name = "OpenByDefault"
+type = "empty"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9037-L9037"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "3,098 ONAM placed in the corpus"
+
+[[member]]
+sig = "DATA"
+name = "Placement"
+type = "ref:PositionRotation"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9039-L9039"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6826-L6841",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6760-L6765",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "position, then rotation; 6,713,878 DATA placed in the corpus"
+
+[[member]]
+sig = "MNAM"
+name = "Comments"
+type = "zstring"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9040-L9040"
+evidence = [
+  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+]
+confidence = "corpus"
+note = "3 MNAM placed in the corpus"

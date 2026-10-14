@@ -21,7 +21,7 @@
     clippy::indexing_slicing
 )]
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
 use kitcraft_doc::lstring::{decode_lstring, is_lstring, LString};
@@ -29,8 +29,11 @@ use kitcraft_doc::strings::{DirSource, StringTables};
 use kitcraft_doc::typed::{self, Decoded};
 use kitcraft_esm::bridge::{Ctx, RawSub};
 use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::generated::records::{LString as GenLString, Record as Generated};
+use kitcraft_esm::generated::records::{
+    match_members, Hit, LString as GenLString, Record as Generated, RECORDS,
+};
 use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord};
+use kitcraft_schema::{FieldType, Member, Schema, SubrecordDef};
 
 const SMALL: [&str; 5] = [
     "Constellation.esm",
@@ -95,6 +98,40 @@ fn leaves(d: &Decoded, forms: &mut Vec<u32>, ids: &mut Vec<u32>) {
     }
 }
 
+/// Which schema subrecord member the generated matcher put each input subrecord in (by
+/// position; subrecords in an any-until body or outside every member are absent).
+fn placement_of<'s>(
+    schema: &'s Schema,
+    sig: [u8; 4],
+    raw: &[RawSub<'_>],
+) -> HashMap<usize, &'s SubrecordDef> {
+    let mut out = HashMap::new();
+    let def = kitcraft_schema::Signature::from_bytes(sig).and_then(|s| schema.records.get(&s));
+    let descs = RECORDS.iter().find(|(s, _)| *s == sig).map(|(_, m)| *m);
+    if let (Some(def), Some(descs)) = (def, descs) {
+        let (hits, _) = match_members(raw, descs);
+        place(&hits, &def.members, &mut out);
+    }
+    out
+}
+
+fn place<'s>(hits: &[Hit], members: &'s [Member], out: &mut HashMap<usize, &'s SubrecordDef>) {
+    for hit in hits {
+        match hit {
+            Hit::Sub { member, index } => {
+                if let Some(Member::Subrecord(s)) = members.get(*member) {
+                    out.insert(*index, s);
+                }
+            }
+            Hit::Group { member, hits } => {
+                if let Some(Member::Group(g)) = members.get(*member) {
+                    place(hits, &g.members, out);
+                }
+            }
+        }
+    }
+}
+
 fn check_record(
     plugin: &str,
     localized: bool,
@@ -129,13 +166,24 @@ fn check_record(
         .as_ref()
         .map(|g| g.extra().iter().map(|(i, _)| *i).collect())
         .unwrap_or_default();
+    let placement = placement_of(schema, sig, &raw);
     let (mut forms, mut ids) = (Vec::new(), Vec::new());
     let mut lstring_ids: Vec<(String, u32)> = Vec::new();
     for (i, s) in subs.iter().enumerate() {
         let sub_sig = s.signature().0;
-        let layout = typed::field_type(schema, sig, sub_sig).unwrap();
+        // The layout of the member the generated decoder placed the subrecord in (a
+        // subrecord inside an any-until body is raw there); for one it kept raw, the
+        // signature's layout, to count payloads that would decode.
+        let layout: Option<&FieldType> = if extra.contains(&i) {
+            typed::field_type(schema, sig, sub_sig)
+                .ok()
+                .flatten()
+                .map(|(t, _)| t)
+        } else {
+            placement.get(&i).map(|d| &d.ty)
+        };
         match layout {
-            Some((ty, _)) => {
+            Some(ty) => {
                 let decoded = typed::decode(ty, s.data(), &ctx);
                 if extra.contains(&i) {
                     if decoded.is_ok() {

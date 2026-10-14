@@ -748,9 +748,9 @@ mod tests {
         let grup = data(json!({"type": "GRUP"}));
         assert_eq!(grup["kind"], "header");
         assert_eq!(grup["size"], 24);
-        let refr = execute("schema", json!({"type": "REFR"})).unwrap();
-        assert_eq!(refr["data"]["defined"], false);
-        assert!(refr["limitations"]
+        let land = execute("schema", json!({"type": "LAND"})).unwrap();
+        assert_eq!(land["data"]["defined"], false);
+        assert!(land["limitations"]
             .to_string()
             .contains("unknown (not absent)"));
         let err = execute("schema", json!({"type": "WEAP", "member": "NOPE"})).unwrap_err();

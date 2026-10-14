@@ -26,6 +26,7 @@
 // - LCTN (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587; corpus)
 // - NAVM (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14894-L14917; corpus)
 // - OMOD (corpus: OMOD records of the 14 official ESMs, scan 2026-10-14; corpus)
+// - REFR (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8530-L9042; corpus)
 // - TES4 (uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4; corpus)
 // - WEAP (corpus: WEAP records of the official ESMs (12 files with a WEAP group); corpus)
 // - WRLD (xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18940-L19035; corpus)
@@ -7763,6 +7764,3710 @@ impl OmodRecord {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct RefrVolumeData {
+    pub bytes0: [u8; 8],
+    pub image_space: FormId,
+    pub fog: FormId,
+    pub bytes16: [u8; 4],
+    pub float20: f32,
+    pub float24: f32,
+    pub float28: f32,
+    pub float32: f32,
+    pub bytes36: [u8; 4],
+    pub float40: f32,
+    pub float44: f32,
+    pub float48: f32,
+    pub bytes52: [u8; 4],
+    pub float56: f32,
+    pub float60: f32,
+    pub float64: f32,
+    pub float68: f32,
+    pub float72: f32,
+    pub float76: f32,
+    pub bytes80: [u8; 1],
+    pub float81: f32,
+}
+
+impl Field for RefrVolumeData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XVL2.Bytes0", ctx)?;
+        let f1 = Field::read(r, "REFR.XVL2.ImageSpace", ctx)?;
+        let f2 = Field::read(r, "REFR.XVL2.Fog", ctx)?;
+        let f3 = Field::read(r, "REFR.XVL2.Bytes16", ctx)?;
+        let f4 = f32::read(r, "REFR.XVL2.Float20", ctx)?;
+        let f5 = f32::read(r, "REFR.XVL2.Float24", ctx)?;
+        let f6 = f32::read(r, "REFR.XVL2.Float28", ctx)?;
+        let f7 = f32::read(r, "REFR.XVL2.Float32", ctx)?;
+        let f8 = Field::read(r, "REFR.XVL2.Bytes36", ctx)?;
+        let f9 = f32::read(r, "REFR.XVL2.Float40", ctx)?;
+        let f10 = f32::read(r, "REFR.XVL2.Float44", ctx)?;
+        let f11 = f32::read(r, "REFR.XVL2.Float48", ctx)?;
+        let f12 = Field::read(r, "REFR.XVL2.Bytes52", ctx)?;
+        let f13 = f32::read(r, "REFR.XVL2.Float56", ctx)?;
+        let f14 = f32::read(r, "REFR.XVL2.Float60", ctx)?;
+        let f15 = f32::read(r, "REFR.XVL2.Float64", ctx)?;
+        let f16 = f32::read(r, "REFR.XVL2.Float68", ctx)?;
+        let f17 = f32::read(r, "REFR.XVL2.Float72", ctx)?;
+        let f18 = f32::read(r, "REFR.XVL2.Float76", ctx)?;
+        let f19 = Field::read(r, "REFR.XVL2.Bytes80", ctx)?;
+        let f20 = f32::read(r, "REFR.XVL2.Float81", ctx)?;
+        Ok(Self {
+            bytes0: f0,
+            image_space: f1,
+            fog: f2,
+            bytes16: f3,
+            float20: f4,
+            float24: f5,
+            float28: f6,
+            float32: f7,
+            bytes36: f8,
+            float40: f9,
+            float44: f10,
+            float48: f11,
+            bytes52: f12,
+            float56: f13,
+            float60: f14,
+            float64: f15,
+            float68: f16,
+            float72: f17,
+            float76: f18,
+            bytes80: f19,
+            float81: f20,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.bytes0.write(out);
+        self.image_space.write(out);
+        self.fog.write(out);
+        self.bytes16.write(out);
+        self.float20.write(out);
+        self.float24.write(out);
+        self.float28.write(out);
+        self.float32.write(out);
+        self.bytes36.write(out);
+        self.float40.write(out);
+        self.float44.write(out);
+        self.float48.write(out);
+        self.bytes52.write(out);
+        self.float56.write(out);
+        self.float60.write(out);
+        self.float64.write(out);
+        self.float68.write(out);
+        self.float72.write(out);
+        self.float76.write(out);
+        self.bytes80.write(out);
+        self.float81.write(out);
+    }
+}
+
+impl Visit for RefrVolumeData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.image_space, "REFR.XVL2.ImageSpace", out);
+        visit_form_ids(&self.fog, "REFR.XVL2.Fog", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.image_space, "REFR.XVL2.ImageSpace", out);
+        visit_form_ids_mut(&mut self.fog, "REFR.XVL2.Fog", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrProbeOffsetIntensity {
+    pub float0: f32,
+    pub float4: f32,
+    pub float8: f32,
+    pub float12: f32,
+}
+
+impl Field for RefrProbeOffsetIntensity {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XVOI.Float0", ctx)?;
+        let f1 = f32::read(r, "REFR.XVOI.Float4", ctx)?;
+        let f2 = f32::read(r, "REFR.XVOI.Float8", ctx)?;
+        let f3 = f32::read(r, "REFR.XVOI.Float12", ctx)?;
+        Ok(Self {
+            float0: f0,
+            float4: f1,
+            float8: f2,
+            float12: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.float0.write(out);
+        self.float4.write(out);
+        self.float8.write(out);
+        self.float12.write(out);
+    }
+}
+
+impl Visit for RefrProbeOffsetIntensity {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrPatrolTopicsKind {
+    TopicRef,
+    TopicSubtype,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl RefrPatrolTopicsKind {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::TopicRef,
+            1 => Self::TopicSubtype,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::TopicRef => 0,
+            Self::TopicSubtype => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrPatrolTopicsKind {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrPatrolTopicsKind {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrPatrolTopics {
+    pub kind: RefrPatrolTopicsKind,
+    pub data: [u8; 4],
+}
+
+impl Field for RefrPatrolTopics {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.Patrol.PDTO.Kind", ctx)?;
+        let f1 = Field::read(r, "REFR.Patrol.PDTO.Data", ctx)?;
+        Ok(Self { kind: f0, data: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.kind.write(out);
+        self.data.write(out);
+    }
+}
+
+impl Visit for RefrPatrolTopics {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrPatrol {
+    /// `XPRD`, required.
+    pub idle_time: Option<Sub<f32>>,
+    /// `XPPA`, required.
+    pub script_marker: Option<Sub<Empty>>,
+    /// `INAM`, required.
+    pub idle: Option<Sub<FormId>>,
+    /// `PDTO`, repeated.
+    pub topics: Vec<Sub<RefrPatrolTopics>>,
+}
+
+impl RefrPatrol {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XPRD",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPPA",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"INAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PDTO",
+            card: Card::Repeated,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.idle_time,
+                    subs,
+                    *index,
+                    "REFR.Patrol.XPRD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.script_marker,
+                    subs,
+                    *index,
+                    "REFR.Patrol.XPPA",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.idle, subs, *index, "REFR.Patrol.INAM", ctx, extra)
+                }
+                Hit::Sub { member: 3, index } => push(
+                    &mut self.topics,
+                    subs,
+                    *index,
+                    "REFR.Patrol.PDTO",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XPRD", self.idle_time.as_ref());
+        emit(out, *b"XPPA", self.script_marker.as_ref());
+        emit(out, *b"INAM", self.idle.as_ref());
+        for value in &self.topics {
+            emit(out, *b"PDTO", Some(value));
+        }
+    }
+}
+
+impl Visit for RefrPatrol {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.idle, "REFR.Patrol.INAM", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.idle, "REFR.Patrol.INAM", out);
+    }
+}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RefrActionFlags(pub u32);
+
+impl RefrActionFlags {
+    pub const USE_DEFAULT: u32 = 0x1;
+    pub const ACTIVATE: u32 = 0x2;
+    pub const OPEN: u32 = 0x4;
+    pub const OPEN_BY_DEFAULT: u32 = 0x8;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for RefrActionFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrActionFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrLightData {
+    pub fov: f32,
+    pub luminous_scale: f32,
+    pub end_distance_cap: f32,
+    pub near_clip: f32,
+    pub inner_fov: f32,
+    pub shadow_offset: f32,
+    pub bytes24: [u8; 4],
+    pub bytes28: [u8; 4],
+}
+
+impl Field for RefrLightData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XLIG.Fov", ctx)?;
+        let f1 = f32::read(r, "REFR.XLIG.LuminousScale", ctx)?;
+        let f2 = f32::read(r, "REFR.XLIG.EndDistanceCap", ctx)?;
+        let f3 = f32::read(r, "REFR.XLIG.NearClip", ctx)?;
+        let f4 = f32::read(r, "REFR.XLIG.InnerFov", ctx)?;
+        let f5 = f32::read(r, "REFR.XLIG.ShadowOffset", ctx)?;
+        let f6 = Field::read(r, "REFR.XLIG.Bytes24", ctx)?;
+        let f7 = Field::read(r, "REFR.XLIG.Bytes28", ctx)?;
+        Ok(Self {
+            fov: f0,
+            luminous_scale: f1,
+            end_distance_cap: f2,
+            near_clip: f3,
+            inner_fov: f4,
+            shadow_offset: f5,
+            bytes24: f6,
+            bytes28: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.fov.write(out);
+        self.luminous_scale.write(out);
+        self.end_distance_cap.write(out);
+        self.near_clip.write(out);
+        self.inner_fov.write(out);
+        self.shadow_offset.write(out);
+        self.bytes24.write(out);
+        self.bytes28.write(out);
+    }
+}
+
+impl Visit for RefrLightData {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrBarndoorsHasBarndoors {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrBarndoorsHasBarndoors {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrBarndoorsHasBarndoors {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrBarndoorsHasBarndoors {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrBarndoorsHasFalloff {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrBarndoorsHasFalloff {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrBarndoorsHasFalloff {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrBarndoorsHasFalloff {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrBarndoors {
+    pub bottom: f32,
+    pub right: f32,
+    pub left: f32,
+    pub top: f32,
+    pub falloff_intensity: f32,
+    pub has_barndoors: RefrBarndoorsHasBarndoors,
+    pub has_falloff: RefrBarndoorsHasFalloff,
+    pub unused: [u8; 2],
+}
+
+impl Field for RefrBarndoors {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XLBD.Bottom", ctx)?;
+        let f1 = f32::read(r, "REFR.XLBD.Right", ctx)?;
+        let f2 = f32::read(r, "REFR.XLBD.Left", ctx)?;
+        let f3 = f32::read(r, "REFR.XLBD.Top", ctx)?;
+        let f4 = f32::read(r, "REFR.XLBD.FalloffIntensity", ctx)?;
+        let f5 = Field::read(r, "REFR.XLBD.HasBarndoors", ctx)?;
+        let f6 = Field::read(r, "REFR.XLBD.HasFalloff", ctx)?;
+        let f7 = Field::read(r, "REFR.XLBD.Unused", ctx)?;
+        Ok(Self {
+            bottom: f0,
+            right: f1,
+            left: f2,
+            top: f3,
+            falloff_intensity: f4,
+            has_barndoors: f5,
+            has_falloff: f6,
+            unused: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.bottom.write(out);
+        self.right.write(out);
+        self.left.write(out);
+        self.top.write(out);
+        self.falloff_intensity.write(out);
+        self.has_barndoors.write(out);
+        self.has_falloff.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrBarndoors {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrPrimitiveShape {
+    None,
+    Box,
+    Sphere,
+    Plane,
+    Line,
+    Ellipsoid,
+    Cylinder,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl RefrPrimitiveShape {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Box,
+            2 => Self::Sphere,
+            3 => Self::Plane,
+            4 => Self::Line,
+            5 => Self::Ellipsoid,
+            7 => Self::Cylinder,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::None => 0,
+            Self::Box => 1,
+            Self::Sphere => 2,
+            Self::Plane => 3,
+            Self::Line => 4,
+            Self::Ellipsoid => 5,
+            Self::Cylinder => 7,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrPrimitiveShape {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrPrimitiveShape {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrPrimitive {
+    pub bounds_x: f32,
+    pub bounds_y: f32,
+    pub bounds_z: f32,
+    pub red: f32,
+    pub green: f32,
+    pub blue: f32,
+    pub alpha: f32,
+    pub shape: RefrPrimitiveShape,
+}
+
+impl Field for RefrPrimitive {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XPRM.BoundsX", ctx)?;
+        let f1 = f32::read(r, "REFR.XPRM.BoundsY", ctx)?;
+        let f2 = f32::read(r, "REFR.XPRM.BoundsZ", ctx)?;
+        let f3 = f32::read(r, "REFR.XPRM.Red", ctx)?;
+        let f4 = f32::read(r, "REFR.XPRM.Green", ctx)?;
+        let f5 = f32::read(r, "REFR.XPRM.Blue", ctx)?;
+        let f6 = f32::read(r, "REFR.XPRM.Alpha", ctx)?;
+        let f7 = Field::read(r, "REFR.XPRM.Shape", ctx)?;
+        Ok(Self {
+            bounds_x: f0,
+            bounds_y: f1,
+            bounds_z: f2,
+            red: f3,
+            green: f4,
+            blue: f5,
+            alpha: f6,
+            shape: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.bounds_x.write(out);
+        self.bounds_y.write(out);
+        self.bounds_z.write(out);
+        self.red.write(out);
+        self.green.write(out);
+        self.blue.write(out);
+        self.alpha.write(out);
+        self.shape.write(out);
+    }
+}
+
+impl Visit for RefrPrimitive {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrProjectedDecalDecalData {
+    pub width_scale: f32,
+    pub height_scale: f32,
+    pub float8: f32,
+    pub int12: u8,
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrProjectedDecalDecalData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.ProjectedDecal.XPDD.WidthScale", ctx)?;
+        let f1 = f32::read(r, "REFR.ProjectedDecal.XPDD.HeightScale", ctx)?;
+        let f2 = f32::read(r, "REFR.ProjectedDecal.XPDD.Float8", ctx)?;
+        let f3 = u8::read(r, "REFR.ProjectedDecal.XPDD.Int12", ctx)?;
+        let f4 = Field::read(r, "REFR.ProjectedDecal.XPDD.Unused", ctx)?;
+        Ok(Self {
+            width_scale: f0,
+            height_scale: f1,
+            float8: f2,
+            int12: f3,
+            unused: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.width_scale.write(out);
+        self.height_scale.write(out);
+        self.float8.write(out);
+        self.int12.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrProjectedDecalDecalData {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrProjectedDecalDecalRefs(pub Vec<FormId>);
+
+impl Field for RefrProjectedDecalDecalRefs {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrProjectedDecalDecalRefs {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrProjectedDecal {
+    /// `XPDD`, required.
+    pub decal_data: Option<Sub<RefrProjectedDecalDecalData>>,
+    /// `XPDO`, optional.
+    pub decal_refs: Option<Sub<RefrProjectedDecalDecalRefs>>,
+}
+
+impl RefrProjectedDecal {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XPDD",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPDO",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.decal_data,
+                    subs,
+                    *index,
+                    "REFR.ProjectedDecal.XPDD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.decal_refs,
+                    subs,
+                    *index,
+                    "REFR.ProjectedDecal.XPDO",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XPDD", self.decal_data.as_ref());
+        emit(out, *b"XPDO", self.decal_refs.as_ref());
+    }
+}
+
+impl Visit for RefrProjectedDecal {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.decal_refs, "REFR.ProjectedDecal.XPDO", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.decal_refs, "REFR.ProjectedDecal.XPDO", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrConstrainedDecal {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for RefrConstrainedDecal {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XCDD.X", ctx)?;
+        let f1 = f32::read(r, "REFR.XCDD.Y", ctx)?;
+        let f2 = f32::read(r, "REFR.XCDD.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for RefrConstrainedDecal {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrBendableSplineHalfExtents {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for RefrBendableSplineHalfExtents {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XBSD.HalfExtents.X", ctx)?;
+        let f1 = f32::read(r, "REFR.XBSD.HalfExtents.Y", ctx)?;
+        let f2 = f32::read(r, "REFR.XBSD.HalfExtents.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for RefrBendableSplineHalfExtents {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrBendableSplineWindDetachedEnd {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrBendableSplineWindDetachedEnd {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrBendableSplineWindDetachedEnd {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrBendableSplineWindDetachedEnd {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrBendableSpline {
+    pub slack: f32,
+    pub thickness: f32,
+    pub half_extents: RefrBendableSplineHalfExtents,
+    pub wind_detached_end: RefrBendableSplineWindDetachedEnd,
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrBendableSpline {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XBSD.Slack", ctx)?;
+        let f1 = f32::read(r, "REFR.XBSD.Thickness", ctx)?;
+        let f2 = Field::read(r, "REFR.XBSD.HalfExtents", ctx)?;
+        let f3 = Field::read(r, "REFR.XBSD.WindDetachedEnd", ctx)?;
+        let f4 = Field::read(r, "REFR.XBSD.Unused", ctx)?;
+        Ok(Self {
+            slack: f0,
+            thickness: f1,
+            half_extents: f2,
+            wind_detached_end: f3,
+            unused: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.slack.write(out);
+        self.thickness.write(out);
+        self.half_extents.write(out);
+        self.wind_detached_end.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrBendableSpline {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RefrTeleportDestinationFlags(pub u32);
+
+impl RefrTeleportDestinationFlags {
+    pub const NO_ALARM: u32 = 0x1;
+    pub const NO_LOAD_SCREEN: u32 = 0x2;
+    pub const RELATIVE_POSITION: u32 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for RefrTeleportDestinationFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrTeleportDestinationFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrTeleportDestination {
+    pub door: FormId,
+    pub placement: PositionRotation,
+    pub flags: RefrTeleportDestinationFlags,
+    pub transition_interior: FormId,
+}
+
+impl Field for RefrTeleportDestination {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XTEL.Door", ctx)?;
+        let f1 = Field::read(r, "REFR.XTEL.Placement", ctx)?;
+        let f2 = Field::read(r, "REFR.XTEL.Flags", ctx)?;
+        let f3 = Field::read(r, "REFR.XTEL.TransitionInterior", ctx)?;
+        Ok(Self {
+            door: f0,
+            placement: f1,
+            flags: f2,
+            transition_interior: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.door.write(out);
+        self.placement.write(out);
+        self.flags.write(out);
+        self.transition_interior.write(out);
+    }
+}
+
+impl Visit for RefrTeleportDestination {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.door, "REFR.XTEL.Door", out);
+        visit_form_ids(
+            &self.transition_interior,
+            "REFR.XTEL.TransitionInterior",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.door, "REFR.XTEL.Door", out);
+        visit_form_ids_mut(
+            &mut self.transition_interior,
+            "REFR.XTEL.TransitionInterior",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrCollision {
+    pub layer: u32,
+    pub material: FormId,
+}
+
+impl Field for RefrCollision {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "REFR.XCOL.Layer", ctx)?;
+        let f1 = Field::read(r, "REFR.XCOL.Material", ctx)?;
+        Ok(Self {
+            layer: f0,
+            material: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.layer.write(out);
+        self.material.write(out);
+    }
+}
+
+impl Visit for RefrCollision {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.material, "REFR.XCOL.Material", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.material, "REFR.XCOL.Material", out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrShipArrivalLocation {
+    EditorLocation,
+    TargetAbove,
+    TargetBelow,
+    TargetBehind,
+    TargetFront,
+    TargetLeft,
+    TargetRight,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl RefrShipArrivalLocation {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::EditorLocation,
+            1 => Self::TargetAbove,
+            2 => Self::TargetBelow,
+            3 => Self::TargetBehind,
+            4 => Self::TargetFront,
+            5 => Self::TargetLeft,
+            6 => Self::TargetRight,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::EditorLocation => 0,
+            Self::TargetAbove => 1,
+            Self::TargetBelow => 2,
+            Self::TargetBehind => 3,
+            Self::TargetFront => 4,
+            Self::TargetLeft => 5,
+            Self::TargetRight => 6,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrShipArrivalLocation {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrShipArrivalLocation {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrShipArrivalGravJumpFx {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrShipArrivalGravJumpFx {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrShipArrivalGravJumpFx {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrShipArrivalGravJumpFx {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrShipArrival {
+    pub target: FormId,
+    pub location: RefrShipArrivalLocation,
+    pub distance: f32,
+    pub delay: f32,
+    pub grav_jump_fx: RefrShipArrivalGravJumpFx,
+}
+
+impl Field for RefrShipArrival {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XSAD.Target", ctx)?;
+        let f1 = Field::read(r, "REFR.XSAD.Location", ctx)?;
+        let f2 = f32::read(r, "REFR.XSAD.Distance", ctx)?;
+        let f3 = f32::read(r, "REFR.XSAD.Delay", ctx)?;
+        let f4 = Field::read(r, "REFR.XSAD.GravJumpFx", ctx)?;
+        Ok(Self {
+            target: f0,
+            location: f1,
+            distance: f2,
+            delay: f3,
+            grav_jump_fx: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.target.write(out);
+        self.location.write(out);
+        self.distance.write(out);
+        self.delay.write(out);
+        self.grav_jump_fx.write(out);
+    }
+}
+
+impl Visit for RefrShipArrival {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.target, "REFR.XSAD.Target", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.target, "REFR.XSAD.Target", out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrAreaLightKind {
+    None,
+    Rectangle,
+    Sphere,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrAreaLightKind {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Rectangle,
+            2 => Self::Sphere,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::None => 0,
+            Self::Rectangle => 1,
+            Self::Sphere => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrAreaLightKind {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrAreaLightKind {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrAreaLightIsDiffuse {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrAreaLightIsDiffuse {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrAreaLightIsDiffuse {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrAreaLightIsDiffuse {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrAreaLight {
+    pub width: f32,
+    pub height: f32,
+    pub radius: f32,
+    pub kind: RefrAreaLightKind,
+    pub is_diffuse: RefrAreaLightIsDiffuse,
+    pub unused: [u8; 2],
+}
+
+impl Field for RefrAreaLight {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XALD.Width", ctx)?;
+        let f1 = f32::read(r, "REFR.XALD.Height", ctx)?;
+        let f2 = f32::read(r, "REFR.XALD.Radius", ctx)?;
+        let f3 = Field::read(r, "REFR.XALD.Kind", ctx)?;
+        let f4 = Field::read(r, "REFR.XALD.IsDiffuse", ctx)?;
+        let f5 = Field::read(r, "REFR.XALD.Unused", ctx)?;
+        Ok(Self {
+            width: f0,
+            height: f1,
+            radius: f2,
+            kind: f3,
+            is_diffuse: f4,
+            unused: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.width.write(out);
+        self.height.write(out);
+        self.radius.write(out);
+        self.kind.write(out);
+        self.is_diffuse.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrAreaLight {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrStaticShadowMap {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl RefrStaticShadowMap {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrStaticShadowMap {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrStaticShadowMap {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrGoboAnimationIsAnimated {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrGoboAnimationIsAnimated {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrGoboAnimationIsAnimated {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrGoboAnimationIsAnimated {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrGoboAnimation {
+    pub static_rotation: f32,
+    pub rotation_speed: f32,
+    pub wave_rotation_speed: f32,
+    pub wave_rotation_amount: f32,
+    pub static_scale_u: f32,
+    pub static_scale_v: f32,
+    pub wave_scaling_u_speed: f32,
+    pub wave_scaling_v_speed: f32,
+    pub wave_scaling_u_amount: f32,
+    pub wave_scaling_v_amount: f32,
+    pub static_offset_u: f32,
+    pub static_offset_v: f32,
+    pub rotation_pivot_u: f32,
+    pub rotation_pivot_v: f32,
+    pub scroll_speed_u: f32,
+    pub scroll_speed_v: f32,
+    pub wave_scroll_speed_u: f32,
+    pub wave_scroll_speed_v: f32,
+    pub wave_scroll_amount_u: f32,
+    pub wave_scroll_amount_v: f32,
+    pub random_time_offset_range: f32,
+    pub is_animated: RefrGoboAnimationIsAnimated,
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrGoboAnimation {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XLGD.StaticRotation", ctx)?;
+        let f1 = f32::read(r, "REFR.XLGD.RotationSpeed", ctx)?;
+        let f2 = f32::read(r, "REFR.XLGD.WaveRotationSpeed", ctx)?;
+        let f3 = f32::read(r, "REFR.XLGD.WaveRotationAmount", ctx)?;
+        let f4 = f32::read(r, "REFR.XLGD.StaticScaleU", ctx)?;
+        let f5 = f32::read(r, "REFR.XLGD.StaticScaleV", ctx)?;
+        let f6 = f32::read(r, "REFR.XLGD.WaveScalingUSpeed", ctx)?;
+        let f7 = f32::read(r, "REFR.XLGD.WaveScalingVSpeed", ctx)?;
+        let f8 = f32::read(r, "REFR.XLGD.WaveScalingUAmount", ctx)?;
+        let f9 = f32::read(r, "REFR.XLGD.WaveScalingVAmount", ctx)?;
+        let f10 = f32::read(r, "REFR.XLGD.StaticOffsetU", ctx)?;
+        let f11 = f32::read(r, "REFR.XLGD.StaticOffsetV", ctx)?;
+        let f12 = f32::read(r, "REFR.XLGD.RotationPivotU", ctx)?;
+        let f13 = f32::read(r, "REFR.XLGD.RotationPivotV", ctx)?;
+        let f14 = f32::read(r, "REFR.XLGD.ScrollSpeedU", ctx)?;
+        let f15 = f32::read(r, "REFR.XLGD.ScrollSpeedV", ctx)?;
+        let f16 = f32::read(r, "REFR.XLGD.WaveScrollSpeedU", ctx)?;
+        let f17 = f32::read(r, "REFR.XLGD.WaveScrollSpeedV", ctx)?;
+        let f18 = f32::read(r, "REFR.XLGD.WaveScrollAmountU", ctx)?;
+        let f19 = f32::read(r, "REFR.XLGD.WaveScrollAmountV", ctx)?;
+        let f20 = f32::read(r, "REFR.XLGD.RandomTimeOffsetRange", ctx)?;
+        let f21 = Field::read(r, "REFR.XLGD.IsAnimated", ctx)?;
+        let f22 = Field::read(r, "REFR.XLGD.Unused", ctx)?;
+        Ok(Self {
+            static_rotation: f0,
+            rotation_speed: f1,
+            wave_rotation_speed: f2,
+            wave_rotation_amount: f3,
+            static_scale_u: f4,
+            static_scale_v: f5,
+            wave_scaling_u_speed: f6,
+            wave_scaling_v_speed: f7,
+            wave_scaling_u_amount: f8,
+            wave_scaling_v_amount: f9,
+            static_offset_u: f10,
+            static_offset_v: f11,
+            rotation_pivot_u: f12,
+            rotation_pivot_v: f13,
+            scroll_speed_u: f14,
+            scroll_speed_v: f15,
+            wave_scroll_speed_u: f16,
+            wave_scroll_speed_v: f17,
+            wave_scroll_amount_u: f18,
+            wave_scroll_amount_v: f19,
+            random_time_offset_range: f20,
+            is_animated: f21,
+            unused: f22,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.static_rotation.write(out);
+        self.rotation_speed.write(out);
+        self.wave_rotation_speed.write(out);
+        self.wave_rotation_amount.write(out);
+        self.static_scale_u.write(out);
+        self.static_scale_v.write(out);
+        self.wave_scaling_u_speed.write(out);
+        self.wave_scaling_v_speed.write(out);
+        self.wave_scaling_u_amount.write(out);
+        self.wave_scaling_v_amount.write(out);
+        self.static_offset_u.write(out);
+        self.static_offset_v.write(out);
+        self.rotation_pivot_u.write(out);
+        self.rotation_pivot_v.write(out);
+        self.scroll_speed_u.write(out);
+        self.scroll_speed_v.write(out);
+        self.wave_scroll_speed_u.write(out);
+        self.wave_scroll_speed_v.write(out);
+        self.wave_scroll_amount_u.write(out);
+        self.wave_scroll_amount_v.write(out);
+        self.random_time_offset_range.write(out);
+        self.is_animated.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrGoboAnimation {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrLightColors {
+    pub color: ColorRgba,
+    pub bytes4: [u8; 5],
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrLightColors {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XLCD.Color", ctx)?;
+        let f1 = Field::read(r, "REFR.XLCD.Bytes4", ctx)?;
+        let f2 = Field::read(r, "REFR.XLCD.Unused", ctx)?;
+        Ok(Self {
+            color: f0,
+            bytes4: f1,
+            unused: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.color.write(out);
+        self.bytes4.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrLightColors {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrLayeredMaterialSwaps(pub Vec<FormId>);
+
+impl Field for RefrLayeredMaterialSwaps {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrLayeredMaterialSwaps {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrRagdollBones(pub Vec<RagdollBone>);
+
+impl Field for RefrRagdollBones {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrRagdollBones {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrExternalEmittanceOverrideEnabled {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrExternalEmittanceOverrideEnabled {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrExternalEmittanceOverrideEnabled {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrExternalEmittanceOverrideEnabled {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrExternalEmittance {
+    pub luminance_scale: f32,
+    pub override_enabled: RefrExternalEmittanceOverrideEnabled,
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrExternalEmittance {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XEED.LuminanceScale", ctx)?;
+        let f1 = Field::read(r, "REFR.XEED.OverrideEnabled", ctx)?;
+        let f2 = Field::read(r, "REFR.XEED.Unused", ctx)?;
+        Ok(Self {
+            luminance_scale: f0,
+            override_enabled: f1,
+            unused: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.luminance_scale.write(out);
+        self.override_enabled.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrExternalEmittance {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrDebugTextFormat {
+    pub color: ColorRgba,
+    pub size: u32,
+}
+
+impl Field for RefrDebugTextFormat {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.DebugText.XDTF.Color", ctx)?;
+        let f1 = u32::read(r, "REFR.DebugText.XDTF.Size", ctx)?;
+        Ok(Self {
+            color: f0,
+            size: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.color.write(out);
+        self.size.write(out);
+    }
+}
+
+impl Visit for RefrDebugTextFormat {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrDebugText {
+    /// `XDTS`, required.
+    pub text: Option<Sub<ZString>>,
+    /// `XDTF`, required.
+    pub format: Option<Sub<RefrDebugTextFormat>>,
+}
+
+impl RefrDebugText {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XDTS",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XDTF",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.text,
+                    subs,
+                    *index,
+                    "REFR.DebugText.XDTS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.format,
+                    subs,
+                    *index,
+                    "REFR.DebugText.XDTF",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XDTS", self.text.as_ref());
+        emit(out, *b"XDTF", self.format.as_ref());
+    }
+}
+
+impl Visit for RefrDebugText {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RefrMapMarkerMapFlags(pub u32);
+
+impl RefrMapMarkerMapFlags {
+    pub const VISIBLE: u32 = 0x1;
+    pub const CAN_TRAVEL_TO: u32 = 0x2;
+    pub const SHOW_ALL_HIDDEN: u32 = 0x4;
+    pub const USE_LOCATION_NAME: u32 = 0x8;
+    pub const VISIBLE_ON_STAR_MAP: u32 = 0x10;
+    pub const DISCOVERED: u32 = 0x20;
+    pub const REQUIRES_SCANNING: u32 = 0x40;
+    pub const ALLOW_GRAV_JUMP: u32 = 0x80;
+    pub const SUPPRESS_DISCOVERY: u32 = 0x200;
+    pub const USE_ACCURATE_Z_HEIGHT: u32 = 0x400;
+    pub const LIMIT_VISIBILITY_TO_COMPASS_RANGE: u32 = 0x800;
+    pub const MUST_CRUISE_TO_FIRST: u32 = 0x1000;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u32) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for RefrMapMarkerMapFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrMapMarkerMapFlags {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrMapMarkerCategory {
+    None,
+    Landmark,
+    Structure,
+    LifeSigns,
+    Hazard,
+    SpaceLandmark,
+    Ship,
+    Station,
+    Asteroids,
+    Simple,
+    /// A value the definition does not name.
+    Other(u16),
+}
+
+impl RefrMapMarkerCategory {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u16) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Landmark,
+            2 => Self::Structure,
+            3 => Self::LifeSigns,
+            4 => Self::Hazard,
+            5 => Self::SpaceLandmark,
+            6 => Self::Ship,
+            7 => Self::Station,
+            8 => Self::Asteroids,
+            9 => Self::Simple,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u16 {
+        match self {
+            Self::None => 0,
+            Self::Landmark => 1,
+            Self::Structure => 2,
+            Self::LifeSigns => 3,
+            Self::Hazard => 4,
+            Self::SpaceLandmark => 5,
+            Self::Ship => 6,
+            Self::Station => 7,
+            Self::Asteroids => 8,
+            Self::Simple => 9,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrMapMarkerCategory {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u16::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrMapMarkerCategory {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrMapMarkerUndiscoveredVisibility {
+    Always,
+    System,
+    Planet,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrMapMarkerUndiscoveredVisibility {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Always,
+            1 => Self::System,
+            2 => Self::Planet,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Always => 0,
+            Self::System => 1,
+            Self::Planet => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrMapMarkerUndiscoveredVisibility {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrMapMarkerUndiscoveredVisibility {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrMapMarker {
+    /// `XMRK`, required.
+    pub marker: Option<Sub<Empty>>,
+    /// `FNAM`, required.
+    pub map_flags: Option<Sub<RefrMapMarkerMapFlags>>,
+    /// `FULL`, required.
+    pub name: Option<Sub<LString>>,
+    /// `TNAM`, required.
+    pub marker_type: Option<Sub<u16>>,
+    /// `VNAM`, required.
+    pub category: Option<Sub<RefrMapMarkerCategory>>,
+    /// `UNAM`, optional.
+    pub unexplored_name: Option<Sub<LString>>,
+    /// `VISI`, optional.
+    pub undiscovered_visibility: Option<Sub<RefrMapMarkerUndiscoveredVisibility>>,
+}
+
+impl RefrMapMarker {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XMRK",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"TNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"VNAM",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"UNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VISI",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.marker,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.XMRK",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.map_flags,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.FNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.name,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.FULL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.marker_type,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.TNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.category,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.VNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.unexplored_name,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.UNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.undiscovered_visibility,
+                    subs,
+                    *index,
+                    "REFR.MapMarker.VISI",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XMRK", self.marker.as_ref());
+        emit(out, *b"FNAM", self.map_flags.as_ref());
+        emit(out, *b"FULL", self.name.as_ref());
+        emit(out, *b"TNAM", self.marker_type.as_ref());
+        emit(out, *b"VNAM", self.category.as_ref());
+        emit(out, *b"UNAM", self.unexplored_name.as_ref());
+        emit(out, *b"VISI", self.undiscovered_visibility.as_ref());
+    }
+}
+
+impl Visit for RefrMapMarker {
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "REFR.MapMarker.FULL", out);
+        visit_lstrings(&self.unexplored_name, "REFR.MapMarker.UNAM", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "REFR.MapMarker.FULL", out);
+        visit_lstrings_mut(&mut self.unexplored_name, "REFR.MapMarker.UNAM", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrPowerLinks {
+    pub ref_: FormId,
+    pub int4: u32,
+}
+
+impl Field for RefrPowerLinks {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XPLK.Ref", ctx)?;
+        let f1 = u32::read(r, "REFR.XPLK.Int4", ctx)?;
+        Ok(Self { ref_: f0, int4: f1 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.ref_.write(out);
+        self.int4.write(out);
+    }
+}
+
+impl Visit for RefrPowerLinks {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "REFR.XPLK.Ref", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "REFR.XPLK.Ref", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrLocationRefTypes(pub Vec<FormId>);
+
+impl Field for RefrLocationRefTypes {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrLocationRefTypes {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrLevelModifier {
+    Easy,
+    Medium,
+    Hard,
+    VeryHard,
+    /// A value the definition does not name.
+    Other(i32),
+}
+
+impl RefrLevelModifier {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: i32) -> Self {
+        match raw {
+            0 => Self::Easy,
+            1 => Self::Medium,
+            2 => Self::Hard,
+            3 => Self::VeryHard,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> i32 {
+        match self {
+            Self::Easy => 0,
+            Self::Medium => 1,
+            Self::Hard => 2,
+            Self::VeryHard => 3,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrLevelModifier {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        i32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrLevelModifier {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrBipedRotation {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for RefrBipedRotation {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XRGB.X", ctx)?;
+        let f1 = f32::read(r, "REFR.XRGB.Y", ctx)?;
+        let f2 = f32::read(r, "REFR.XRGB.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for RefrBipedRotation {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrWaterCurrentsVelocitiesItemVelocity {
+    pub x: f32,
+    pub y: f32,
+    pub z: f32,
+}
+
+impl Field for RefrWaterCurrentsVelocitiesItemVelocity {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.WaterCurrents.XWCU.Velocity.X", ctx)?;
+        let f1 = f32::read(r, "REFR.WaterCurrents.XWCU.Velocity.Y", ctx)?;
+        let f2 = f32::read(r, "REFR.WaterCurrents.XWCU.Velocity.Z", ctx)?;
+        Ok(Self {
+            x: f0,
+            y: f1,
+            z: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.x.write(out);
+        self.y.write(out);
+        self.z.write(out);
+    }
+}
+
+impl Visit for RefrWaterCurrentsVelocitiesItemVelocity {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrWaterCurrentsVelocitiesItem {
+    pub velocity: RefrWaterCurrentsVelocitiesItemVelocity,
+    pub float12: f32,
+}
+
+impl Field for RefrWaterCurrentsVelocitiesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.WaterCurrents.XWCU.Velocity", ctx)?;
+        let f1 = f32::read(r, "REFR.WaterCurrents.XWCU.Float12", ctx)?;
+        Ok(Self {
+            velocity: f0,
+            float12: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.velocity.write(out);
+        self.float12.write(out);
+    }
+}
+
+impl Visit for RefrWaterCurrentsVelocitiesItem {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrWaterCurrentsVelocities(pub Vec<RefrWaterCurrentsVelocitiesItem>);
+
+impl Field for RefrWaterCurrentsVelocities {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrWaterCurrentsVelocities {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrWaterCurrents {
+    /// `XWCN`, required.
+    pub count: Option<Sub<u32>>,
+    /// `XWCU`, optional.
+    pub velocities: Option<Sub<RefrWaterCurrentsVelocities>>,
+}
+
+impl RefrWaterCurrents {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XWCN",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XWCU",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.count,
+                    subs,
+                    *index,
+                    "REFR.WaterCurrents.XWCN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.velocities,
+                    subs,
+                    *index,
+                    "REFR.WaterCurrents.XWCU",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XWCN", self.count.as_ref());
+        emit(out, *b"XWCU", self.velocities.as_ref());
+    }
+}
+
+impl Visit for RefrWaterCurrents {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrWaterCurrent {
+    /// `XCZR`, optional.
+    pub ref_: Option<Sub<FormId>>,
+    /// `XCZC`, optional.
+    pub cell: Option<Sub<FormId>>,
+    /// `XCZA`, optional.
+    pub xcza: Option<Sub<Bytes>>,
+}
+
+impl RefrWaterCurrent {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"XCZR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCZC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCZA",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.ref_,
+                    subs,
+                    *index,
+                    "REFR.WaterCurrent.XCZR",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.cell,
+                    subs,
+                    *index,
+                    "REFR.WaterCurrent.XCZC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.xcza,
+                    subs,
+                    *index,
+                    "REFR.WaterCurrent.XCZA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"XCZR", self.ref_.as_ref());
+        emit(out, *b"XCZC", self.cell.as_ref());
+        emit(out, *b"XCZA", self.xcza.as_ref());
+    }
+}
+
+impl Visit for RefrWaterCurrent {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.ref_, "REFR.WaterCurrent.XCZR", out);
+        visit_form_ids(&self.cell, "REFR.WaterCurrent.XCZC", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.ref_, "REFR.WaterCurrent.XCZR", out);
+        visit_form_ids_mut(&mut self.cell, "REFR.WaterCurrent.XCZC", out);
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrRoundnessUsesRoundness {
+    False,
+    True,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrRoundnessUsesRoundness {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::False,
+            1 => Self::True,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::False => 0,
+            Self::True => 1,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrRoundnessUsesRoundness {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrRoundnessUsesRoundness {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrRoundness {
+    pub width: f32,
+    pub height: f32,
+    pub roundness: f32,
+    pub falloff: f32,
+    pub uses_roundness: RefrRoundnessUsesRoundness,
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrRoundness {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XLRD.Width", ctx)?;
+        let f1 = f32::read(r, "REFR.XLRD.Height", ctx)?;
+        let f2 = f32::read(r, "REFR.XLRD.Roundness", ctx)?;
+        let f3 = f32::read(r, "REFR.XLRD.Falloff", ctx)?;
+        let f4 = Field::read(r, "REFR.XLRD.UsesRoundness", ctx)?;
+        let f5 = Field::read(r, "REFR.XLRD.Unused", ctx)?;
+        Ok(Self {
+            width: f0,
+            height: f1,
+            roundness: f2,
+            falloff: f3,
+            uses_roundness: f4,
+            unused: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.width.write(out);
+        self.height.write(out);
+        self.roundness.write(out);
+        self.falloff.write(out);
+        self.uses_roundness.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrRoundness {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RefrLightFlickerEffect {
+    None,
+    Flicker,
+    Pulse,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl RefrLightFlickerEffect {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::None,
+            1 => Self::Flicker,
+            2 => Self::Pulse,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::None => 0,
+            Self::Flicker => 1,
+            Self::Pulse => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for RefrLightFlickerEffect {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for RefrLightFlickerEffect {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrLightFlicker {
+    pub period: f32,
+    pub intensity_amplitude: f32,
+    pub movement_amplitude: f32,
+    pub effect: RefrLightFlickerEffect,
+    pub unused: [u8; 3],
+}
+
+impl Field for RefrLightFlicker {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "REFR.XLFD.Period", ctx)?;
+        let f1 = f32::read(r, "REFR.XLFD.IntensityAmplitude", ctx)?;
+        let f2 = f32::read(r, "REFR.XLFD.MovementAmplitude", ctx)?;
+        let f3 = Field::read(r, "REFR.XLFD.Effect", ctx)?;
+        let f4 = Field::read(r, "REFR.XLFD.Unused", ctx)?;
+        Ok(Self {
+            period: f0,
+            intensity_amplitude: f1,
+            movement_amplitude: f2,
+            effect: f3,
+            unused: f4,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.period.write(out);
+        self.intensity_amplitude.write(out);
+        self.movement_amplitude.write(out);
+        self.effect.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrLightFlicker {}
+
+/// Bit flags; bits without a name are preserved.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RefrLockFlags(pub u8);
+
+impl RefrLockFlags {
+    pub const LEVELED_LOCK: u8 = 0x4;
+
+    /// Whether every bit of `mask` is set.
+    pub fn contains(self, mask: u8) -> bool {
+        self.0 & mask == mask
+    }
+}
+
+impl Field for RefrLockFlags {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrLockFlags {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrLock {
+    pub level: u8,
+    pub unused1: [u8; 3],
+    pub key: FormId,
+    pub flags: RefrLockFlags,
+    pub unused9: [u8; 3],
+    pub int12: u32,
+}
+
+impl Field for RefrLock {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "REFR.XLOC.Level", ctx)?;
+        let f1 = Field::read(r, "REFR.XLOC.Unused1", ctx)?;
+        let f2 = Field::read(r, "REFR.XLOC.Key", ctx)?;
+        let f3 = Field::read(r, "REFR.XLOC.Flags", ctx)?;
+        let f4 = Field::read(r, "REFR.XLOC.Unused9", ctx)?;
+        let f5 = u32::read(r, "REFR.XLOC.Int12", ctx)?;
+        Ok(Self {
+            level: f0,
+            unused1: f1,
+            key: f2,
+            flags: f3,
+            unused9: f4,
+            int12: f5,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.level.write(out);
+        self.unused1.write(out);
+        self.key.write(out);
+        self.flags.write(out);
+        self.unused9.write(out);
+        self.int12.write(out);
+    }
+}
+
+impl Visit for RefrLock {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.key, "REFR.XLOC.Key", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.key, "REFR.XLOC.Key", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrProperties(pub Vec<PropertyValue>);
+
+impl Field for RefrProperties {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for RefrProperties {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct RefrNavmeshDoorLink {
+    pub navmesh: FormId,
+    pub triangle: i16,
+    pub unused: [u8; 2],
+}
+
+impl Field for RefrNavmeshDoorLink {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XNDP.Navmesh", ctx)?;
+        let f1 = i16::read(r, "REFR.XNDP.Triangle", ctx)?;
+        let f2 = Field::read(r, "REFR.XNDP.Unused", ctx)?;
+        Ok(Self {
+            navmesh: f0,
+            triangle: f1,
+            unused: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.navmesh.write(out);
+        self.triangle.write(out);
+        self.unused.write(out);
+    }
+}
+
+impl Visit for RefrNavmeshDoorLink {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.navmesh, "REFR.XNDP.Navmesh", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.navmesh, "REFR.XNDP.Navmesh", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct RefrRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `VMAD`, optional.
+    pub scripts: Option<Sub<Bytes>>,
+    /// `XALG`, optional.
+    pub xalg: Option<Sub<u64>>,
+    /// Group `BfcbBlock`, repeated.
+    pub bfcb_block: Vec<BfcbBlock>,
+    /// `NAME`, required.
+    pub base: Option<Sub<FormId>>,
+    /// `XVL2`, optional.
+    pub volume_data: Option<Sub<RefrVolumeData>>,
+    /// `XVOI`, optional.
+    pub probe_offset_intensity: Option<Sub<RefrProbeOffsetIntensity>>,
+    /// Group `Patrol`, repeated.
+    pub patrol: Vec<RefrPatrol>,
+    /// `XACT`, optional.
+    pub action_flags: Option<Sub<RefrActionFlags>>,
+    /// `XRNK`, optional.
+    pub faction_rank: Option<Sub<i32>>,
+    /// `XRDS`, optional.
+    pub radius: Option<Sub<f32>>,
+    /// `XLIG`, optional.
+    pub light_data: Option<Sub<RefrLightData>>,
+    /// `XLBD`, optional.
+    pub barndoors: Option<Sub<RefrBarndoors>>,
+    /// `XPRM`, optional.
+    pub primitive: Option<Sub<RefrPrimitive>>,
+    /// Group `ProjectedDecal`, optional.
+    pub projected_decal: Option<RefrProjectedDecal>,
+    /// `XCDD`, optional.
+    pub constrained_decal: Option<Sub<RefrConstrainedDecal>>,
+    /// `XBSD`, optional.
+    pub bendable_spline: Option<Sub<RefrBendableSpline>>,
+    /// `XNSE`, optional.
+    pub xnse: Option<Sub<Bytes>>,
+    /// `XTEL`, optional.
+    pub teleport_destination: Option<Sub<RefrTeleportDestination>>,
+    /// `XCNT`, optional.
+    pub item_count: Option<Sub<i32>>,
+    /// `XCOL`, optional.
+    pub collision: Option<Sub<RefrCollision>>,
+    /// `XSAD`, optional.
+    pub ship_arrival: Option<Sub<RefrShipArrival>>,
+    /// `XLLD`, optional.
+    pub light_layer: Option<Sub<u32>>,
+    /// `XALD`, optional.
+    pub area_light: Option<Sub<RefrAreaLight>>,
+    /// `XLSM`, optional.
+    pub static_shadow_map: Option<Sub<RefrStaticShadowMap>>,
+    /// `XLVD`, optional.
+    pub volumetric: Option<Sub<f32>>,
+    /// `XLGD`, optional.
+    pub gobo_animation: Option<Sub<RefrGoboAnimation>>,
+    /// `XLCD`, repeated.
+    pub light_colors: Vec<Sub<RefrLightColors>>,
+    /// `XLMS`, optional.
+    pub layered_material_swaps: Option<Sub<RefrLayeredMaterialSwaps>>,
+    /// `TODD`, optional.
+    pub time_of_day: Option<Sub<FormId>>,
+    /// `XRGD`, optional.
+    pub ragdoll_bones: Option<Sub<RefrRagdollBones>>,
+    /// `XEED`, optional.
+    pub external_emittance: Option<Sub<RefrExternalEmittance>>,
+    /// Group `DebugText`, optional.
+    pub debug_text: Option<RefrDebugText>,
+    /// `XEMI`, optional.
+    pub emittance: Option<Sub<FormId>>,
+    /// Group `MapMarker`, optional.
+    pub map_marker: Option<RefrMapMarker>,
+    /// `XPLK`, repeated.
+    pub power_links: Vec<Sub<RefrPowerLinks>>,
+    /// `XFLG`, optional.
+    pub extra_flags: Option<Sub<u32>>,
+    /// `XLYR`, optional.
+    pub layer: Option<Sub<FormId>>,
+    /// `XRFG`, optional.
+    pub reference_group: Option<Sub<FormId>>,
+    /// `BOLV`, optional.
+    pub water_reflection: Option<Sub<u16>>,
+    /// `XLRT`, optional.
+    pub location_ref_types: Option<Sub<RefrLocationRefTypes>>,
+    /// `XLCM`, optional.
+    pub level_modifier: Option<Sub<RefrLevelModifier>>,
+    /// `XRGB`, optional.
+    pub biped_rotation: Option<Sub<RefrBipedRotation>>,
+    /// `XLRL`, optional.
+    pub location_reference: Option<Sub<FormId>>,
+    /// `XRFE`, optional.
+    pub radius_falloff_exponent: Option<Sub<f32>>,
+    /// `XFVC`, optional.
+    pub favor_cost: Option<Sub<f32>>,
+    /// `XLTW`, optional.
+    pub xltw: Option<Sub<Bytes>>,
+    /// Group `WaterCurrents`, optional.
+    pub water_currents: Option<RefrWaterCurrents>,
+    /// Group `WaterCurrent`, repeated.
+    pub water_current: Vec<RefrWaterCurrent>,
+    /// `XHTW`, optional.
+    pub head_tracking_weight: Option<Sub<f32>>,
+    /// `XPCK`, optional.
+    pub xpck: Option<Sub<FormId>>,
+    /// `XPCS`, optional.
+    pub source_pack_in: Option<Sub<FormId>>,
+    /// `XGDS`, optional.
+    pub geometry_dirtiness_scale: Option<Sub<f32>>,
+    /// `XLRD`, optional.
+    pub roundness: Option<Sub<RefrRoundness>>,
+    /// Group `GroupedPackIn`, optional.
+    pub grouped_pack_in: Option<GroupedPackIn>,
+    /// `XBPO`, optional.
+    pub blueprint_part_origin: Option<Sub<u32>>,
+    /// `XLFD`, optional.
+    pub light_flicker: Option<Sub<RefrLightFlicker>>,
+    /// Group `LinkedReferences`, optional.
+    pub linked_references: Option<LinkedReferences>,
+    /// `XLCN`, optional.
+    pub persist_location: Option<Sub<FormId>>,
+    /// `XSL1`, optional.
+    pub snap_links: Option<Sub<Bytes>>,
+    /// `XLOC`, optional.
+    pub lock: Option<Sub<RefrLock>>,
+    /// `XATR`, optional.
+    pub attach_ref: Option<Sub<FormId>>,
+    /// `XTNM`, optional.
+    pub teleport_name: Option<Sub<FormId>>,
+    /// `XESP`, optional.
+    pub enable_parent: Option<Sub<EnableParent>>,
+    /// `XIS2`, optional.
+    pub ignored_by_sandbox: Option<Sub<Empty>>,
+    /// `XOWN`, optional.
+    pub owner: Option<Sub<OwnerData>>,
+    /// `XPPS`, optional.
+    pub properties: Option<Sub<RefrProperties>>,
+    /// `XEZN`, optional.
+    pub location_override: Option<Sub<FormId>>,
+    /// `XHLT`, optional.
+    pub health_percent: Option<Sub<u32>>,
+    /// `XATP`, optional.
+    pub activation_point: Option<Sub<Empty>>,
+    /// `XLIB`, optional.
+    pub leveled_item_base: Option<Sub<FormId>>,
+    /// `XTV2`, optional.
+    pub traversals: Option<Sub<Bytes>>,
+    /// `XNDP`, optional.
+    pub navmesh_door_link: Option<Sub<RefrNavmeshDoorLink>>,
+    /// `XSCL`, optional.
+    pub scale: Option<Sub<f32>>,
+    /// `ONAM`, optional.
+    pub open_by_default: Option<Sub<Empty>>,
+    /// `DATA`, optional.
+    pub placement: Option<Sub<PositionRotation>>,
+    /// `MNAM`, optional.
+    pub comments: Option<Sub<ZString>>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl RefrRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VMAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALG",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: BfcbBlock::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAME",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"XVL2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XVOI",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: RefrPatrol::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XACT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRNK",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLIG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLBD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPRM",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: RefrProjectedDecal::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCDD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XBSD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XNSE",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XTEL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCNT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XCOL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XSAD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLLD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XALD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLSM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLVD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLGD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCD",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLMS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"TODD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRGD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEED",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: RefrDebugText::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEMI",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: RefrMapMarker::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPLK",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"XFLG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLYR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRFG",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"BOLV",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLRT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRGB",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLRL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XRFE",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XFVC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLTW",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: RefrWaterCurrents::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: RefrWaterCurrent::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XHTW",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPCK",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPCS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XGDS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLRD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: GroupedPackIn::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XBPO",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLFD",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: LinkedReferences::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLCN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XSL1",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLOC",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XATR",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XTNM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XESP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XIS2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XOWN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XPPS",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XEZN",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XHLT",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XATP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XLIB",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XTV2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XNDP",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XSCL",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ONAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"MNAM",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "REFR.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.scripts, subs, *index, "REFR.VMAD", ctx, extra)
+                }
+                Hit::Sub { member: 2, index } => {
+                    put(&mut self.xalg, subs, *index, "REFR.XALG", ctx, extra)
+                }
+                Hit::Group { member: 3, hits } => {
+                    let mut group = BfcbBlock::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.bfcb_block.push(group);
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.base, subs, *index, "REFR.NAME", ctx, extra)
+                }
+                Hit::Sub { member: 5, index } => {
+                    put(&mut self.volume_data, subs, *index, "REFR.XVL2", ctx, extra)
+                }
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.probe_offset_intensity,
+                    subs,
+                    *index,
+                    "REFR.XVOI",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 7, hits } => {
+                    let mut group = RefrPatrol::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.patrol.push(group);
+                }
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.action_flags,
+                    subs,
+                    *index,
+                    "REFR.XACT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.faction_rank,
+                    subs,
+                    *index,
+                    "REFR.XRNK",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => {
+                    put(&mut self.radius, subs, *index, "REFR.XRDS", ctx, extra)
+                }
+                Hit::Sub { member: 11, index } => {
+                    put(&mut self.light_data, subs, *index, "REFR.XLIG", ctx, extra)
+                }
+                Hit::Sub { member: 12, index } => {
+                    put(&mut self.barndoors, subs, *index, "REFR.XLBD", ctx, extra)
+                }
+                Hit::Sub { member: 13, index } => {
+                    put(&mut self.primitive, subs, *index, "REFR.XPRM", ctx, extra)
+                }
+                Hit::Group { member: 14, hits } if self.projected_decal.is_none() => {
+                    let mut group = RefrProjectedDecal::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.projected_decal = Some(group);
+                }
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.constrained_decal,
+                    subs,
+                    *index,
+                    "REFR.XCDD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 16, index } => put(
+                    &mut self.bendable_spline,
+                    subs,
+                    *index,
+                    "REFR.XBSD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 17, index } => {
+                    put(&mut self.xnse, subs, *index, "REFR.XNSE", ctx, extra)
+                }
+                Hit::Sub { member: 18, index } => put(
+                    &mut self.teleport_destination,
+                    subs,
+                    *index,
+                    "REFR.XTEL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 19, index } => {
+                    put(&mut self.item_count, subs, *index, "REFR.XCNT", ctx, extra)
+                }
+                Hit::Sub { member: 20, index } => {
+                    put(&mut self.collision, subs, *index, "REFR.XCOL", ctx, extra)
+                }
+                Hit::Sub { member: 21, index } => put(
+                    &mut self.ship_arrival,
+                    subs,
+                    *index,
+                    "REFR.XSAD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 22, index } => {
+                    put(&mut self.light_layer, subs, *index, "REFR.XLLD", ctx, extra)
+                }
+                Hit::Sub { member: 23, index } => {
+                    put(&mut self.area_light, subs, *index, "REFR.XALD", ctx, extra)
+                }
+                Hit::Sub { member: 24, index } => put(
+                    &mut self.static_shadow_map,
+                    subs,
+                    *index,
+                    "REFR.XLSM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 25, index } => {
+                    put(&mut self.volumetric, subs, *index, "REFR.XLVD", ctx, extra)
+                }
+                Hit::Sub { member: 26, index } => put(
+                    &mut self.gobo_animation,
+                    subs,
+                    *index,
+                    "REFR.XLGD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 27, index } => push(
+                    &mut self.light_colors,
+                    subs,
+                    *index,
+                    "REFR.XLCD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 28, index } => put(
+                    &mut self.layered_material_swaps,
+                    subs,
+                    *index,
+                    "REFR.XLMS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 29, index } => {
+                    put(&mut self.time_of_day, subs, *index, "REFR.TODD", ctx, extra)
+                }
+                Hit::Sub { member: 30, index } => put(
+                    &mut self.ragdoll_bones,
+                    subs,
+                    *index,
+                    "REFR.XRGD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 31, index } => put(
+                    &mut self.external_emittance,
+                    subs,
+                    *index,
+                    "REFR.XEED",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 32, hits } if self.debug_text.is_none() => {
+                    let mut group = RefrDebugText::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.debug_text = Some(group);
+                }
+                Hit::Sub { member: 33, index } => {
+                    put(&mut self.emittance, subs, *index, "REFR.XEMI", ctx, extra)
+                }
+                Hit::Group { member: 34, hits } if self.map_marker.is_none() => {
+                    let mut group = RefrMapMarker::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.map_marker = Some(group);
+                }
+                Hit::Sub { member: 35, index } => {
+                    push(&mut self.power_links, subs, *index, "REFR.XPLK", ctx, extra)
+                }
+                Hit::Sub { member: 36, index } => {
+                    put(&mut self.extra_flags, subs, *index, "REFR.XFLG", ctx, extra)
+                }
+                Hit::Sub { member: 37, index } => {
+                    put(&mut self.layer, subs, *index, "REFR.XLYR", ctx, extra)
+                }
+                Hit::Sub { member: 38, index } => put(
+                    &mut self.reference_group,
+                    subs,
+                    *index,
+                    "REFR.XRFG",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 39, index } => put(
+                    &mut self.water_reflection,
+                    subs,
+                    *index,
+                    "REFR.BOLV",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 40, index } => put(
+                    &mut self.location_ref_types,
+                    subs,
+                    *index,
+                    "REFR.XLRT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 41, index } => put(
+                    &mut self.level_modifier,
+                    subs,
+                    *index,
+                    "REFR.XLCM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 42, index } => put(
+                    &mut self.biped_rotation,
+                    subs,
+                    *index,
+                    "REFR.XRGB",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 43, index } => put(
+                    &mut self.location_reference,
+                    subs,
+                    *index,
+                    "REFR.XLRL",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 44, index } => put(
+                    &mut self.radius_falloff_exponent,
+                    subs,
+                    *index,
+                    "REFR.XRFE",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 45, index } => {
+                    put(&mut self.favor_cost, subs, *index, "REFR.XFVC", ctx, extra)
+                }
+                Hit::Sub { member: 46, index } => {
+                    put(&mut self.xltw, subs, *index, "REFR.XLTW", ctx, extra)
+                }
+                Hit::Group { member: 47, hits } if self.water_currents.is_none() => {
+                    let mut group = RefrWaterCurrents::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.water_currents = Some(group);
+                }
+                Hit::Group { member: 48, hits } => {
+                    let mut group = RefrWaterCurrent::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.water_current.push(group);
+                }
+                Hit::Sub { member: 49, index } => put(
+                    &mut self.head_tracking_weight,
+                    subs,
+                    *index,
+                    "REFR.XHTW",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 50, index } => {
+                    put(&mut self.xpck, subs, *index, "REFR.XPCK", ctx, extra)
+                }
+                Hit::Sub { member: 51, index } => put(
+                    &mut self.source_pack_in,
+                    subs,
+                    *index,
+                    "REFR.XPCS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 52, index } => put(
+                    &mut self.geometry_dirtiness_scale,
+                    subs,
+                    *index,
+                    "REFR.XGDS",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 53, index } => {
+                    put(&mut self.roundness, subs, *index, "REFR.XLRD", ctx, extra)
+                }
+                Hit::Group { member: 54, hits } if self.grouped_pack_in.is_none() => {
+                    let mut group = GroupedPackIn::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.grouped_pack_in = Some(group);
+                }
+                Hit::Sub { member: 55, index } => put(
+                    &mut self.blueprint_part_origin,
+                    subs,
+                    *index,
+                    "REFR.XBPO",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 56, index } => put(
+                    &mut self.light_flicker,
+                    subs,
+                    *index,
+                    "REFR.XLFD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 57, hits } if self.linked_references.is_none() => {
+                    let mut group = LinkedReferences::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.linked_references = Some(group);
+                }
+                Hit::Sub { member: 58, index } => put(
+                    &mut self.persist_location,
+                    subs,
+                    *index,
+                    "REFR.XLCN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 59, index } => {
+                    put(&mut self.snap_links, subs, *index, "REFR.XSL1", ctx, extra)
+                }
+                Hit::Sub { member: 60, index } => {
+                    put(&mut self.lock, subs, *index, "REFR.XLOC", ctx, extra)
+                }
+                Hit::Sub { member: 61, index } => {
+                    put(&mut self.attach_ref, subs, *index, "REFR.XATR", ctx, extra)
+                }
+                Hit::Sub { member: 62, index } => put(
+                    &mut self.teleport_name,
+                    subs,
+                    *index,
+                    "REFR.XTNM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 63, index } => put(
+                    &mut self.enable_parent,
+                    subs,
+                    *index,
+                    "REFR.XESP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 64, index } => put(
+                    &mut self.ignored_by_sandbox,
+                    subs,
+                    *index,
+                    "REFR.XIS2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 65, index } => {
+                    put(&mut self.owner, subs, *index, "REFR.XOWN", ctx, extra)
+                }
+                Hit::Sub { member: 66, index } => {
+                    put(&mut self.properties, subs, *index, "REFR.XPPS", ctx, extra)
+                }
+                Hit::Sub { member: 67, index } => put(
+                    &mut self.location_override,
+                    subs,
+                    *index,
+                    "REFR.XEZN",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 68, index } => put(
+                    &mut self.health_percent,
+                    subs,
+                    *index,
+                    "REFR.XHLT",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 69, index } => put(
+                    &mut self.activation_point,
+                    subs,
+                    *index,
+                    "REFR.XATP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 70, index } => put(
+                    &mut self.leveled_item_base,
+                    subs,
+                    *index,
+                    "REFR.XLIB",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 71, index } => {
+                    put(&mut self.traversals, subs, *index, "REFR.XTV2", ctx, extra)
+                }
+                Hit::Sub { member: 72, index } => put(
+                    &mut self.navmesh_door_link,
+                    subs,
+                    *index,
+                    "REFR.XNDP",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 73, index } => {
+                    put(&mut self.scale, subs, *index, "REFR.XSCL", ctx, extra)
+                }
+                Hit::Sub { member: 74, index } => put(
+                    &mut self.open_by_default,
+                    subs,
+                    *index,
+                    "REFR.ONAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 75, index } => {
+                    put(&mut self.placement, subs, *index, "REFR.DATA", ctx, extra)
+                }
+                Hit::Sub { member: 76, index } => {
+                    put(&mut self.comments, subs, *index, "REFR.MNAM", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"EDID", self.editor_id.as_ref());
+        emit(out, *b"VMAD", self.scripts.as_ref());
+        emit(out, *b"XALG", self.xalg.as_ref());
+        for group in &self.bfcb_block {
+            group.emit(out);
+        }
+        emit(out, *b"NAME", self.base.as_ref());
+        emit(out, *b"XVL2", self.volume_data.as_ref());
+        emit(out, *b"XVOI", self.probe_offset_intensity.as_ref());
+        for group in &self.patrol {
+            group.emit(out);
+        }
+        emit(out, *b"XACT", self.action_flags.as_ref());
+        emit(out, *b"XRNK", self.faction_rank.as_ref());
+        emit(out, *b"XRDS", self.radius.as_ref());
+        emit(out, *b"XLIG", self.light_data.as_ref());
+        emit(out, *b"XLBD", self.barndoors.as_ref());
+        emit(out, *b"XPRM", self.primitive.as_ref());
+        if let Some(group) = &self.projected_decal {
+            group.emit(out);
+        }
+        emit(out, *b"XCDD", self.constrained_decal.as_ref());
+        emit(out, *b"XBSD", self.bendable_spline.as_ref());
+        emit(out, *b"XNSE", self.xnse.as_ref());
+        emit(out, *b"XTEL", self.teleport_destination.as_ref());
+        emit(out, *b"XCNT", self.item_count.as_ref());
+        emit(out, *b"XCOL", self.collision.as_ref());
+        emit(out, *b"XSAD", self.ship_arrival.as_ref());
+        emit(out, *b"XLLD", self.light_layer.as_ref());
+        emit(out, *b"XALD", self.area_light.as_ref());
+        emit(out, *b"XLSM", self.static_shadow_map.as_ref());
+        emit(out, *b"XLVD", self.volumetric.as_ref());
+        emit(out, *b"XLGD", self.gobo_animation.as_ref());
+        for value in &self.light_colors {
+            emit(out, *b"XLCD", Some(value));
+        }
+        emit(out, *b"XLMS", self.layered_material_swaps.as_ref());
+        emit(out, *b"TODD", self.time_of_day.as_ref());
+        emit(out, *b"XRGD", self.ragdoll_bones.as_ref());
+        emit(out, *b"XEED", self.external_emittance.as_ref());
+        if let Some(group) = &self.debug_text {
+            group.emit(out);
+        }
+        emit(out, *b"XEMI", self.emittance.as_ref());
+        if let Some(group) = &self.map_marker {
+            group.emit(out);
+        }
+        for value in &self.power_links {
+            emit(out, *b"XPLK", Some(value));
+        }
+        emit(out, *b"XFLG", self.extra_flags.as_ref());
+        emit(out, *b"XLYR", self.layer.as_ref());
+        emit(out, *b"XRFG", self.reference_group.as_ref());
+        emit(out, *b"BOLV", self.water_reflection.as_ref());
+        emit(out, *b"XLRT", self.location_ref_types.as_ref());
+        emit(out, *b"XLCM", self.level_modifier.as_ref());
+        emit(out, *b"XRGB", self.biped_rotation.as_ref());
+        emit(out, *b"XLRL", self.location_reference.as_ref());
+        emit(out, *b"XRFE", self.radius_falloff_exponent.as_ref());
+        emit(out, *b"XFVC", self.favor_cost.as_ref());
+        emit(out, *b"XLTW", self.xltw.as_ref());
+        if let Some(group) = &self.water_currents {
+            group.emit(out);
+        }
+        for group in &self.water_current {
+            group.emit(out);
+        }
+        emit(out, *b"XHTW", self.head_tracking_weight.as_ref());
+        emit(out, *b"XPCK", self.xpck.as_ref());
+        emit(out, *b"XPCS", self.source_pack_in.as_ref());
+        emit(out, *b"XGDS", self.geometry_dirtiness_scale.as_ref());
+        emit(out, *b"XLRD", self.roundness.as_ref());
+        if let Some(group) = &self.grouped_pack_in {
+            group.emit(out);
+        }
+        emit(out, *b"XBPO", self.blueprint_part_origin.as_ref());
+        emit(out, *b"XLFD", self.light_flicker.as_ref());
+        if let Some(group) = &self.linked_references {
+            group.emit(out);
+        }
+        emit(out, *b"XLCN", self.persist_location.as_ref());
+        emit(out, *b"XSL1", self.snap_links.as_ref());
+        emit(out, *b"XLOC", self.lock.as_ref());
+        emit(out, *b"XATR", self.attach_ref.as_ref());
+        emit(out, *b"XTNM", self.teleport_name.as_ref());
+        emit(out, *b"XESP", self.enable_parent.as_ref());
+        emit(out, *b"XIS2", self.ignored_by_sandbox.as_ref());
+        emit(out, *b"XOWN", self.owner.as_ref());
+        emit(out, *b"XPPS", self.properties.as_ref());
+        emit(out, *b"XEZN", self.location_override.as_ref());
+        emit(out, *b"XHLT", self.health_percent.as_ref());
+        emit(out, *b"XATP", self.activation_point.as_ref());
+        emit(out, *b"XLIB", self.leveled_item_base.as_ref());
+        emit(out, *b"XTV2", self.traversals.as_ref());
+        emit(out, *b"XNDP", self.navmesh_door_link.as_ref());
+        emit(out, *b"XSCL", self.scale.as_ref());
+        emit(out, *b"ONAM", self.open_by_default.as_ref());
+        emit(out, *b"DATA", self.placement.as_ref());
+        emit(out, *b"MNAM", self.comments.as_ref());
+    }
+}
+
+impl Visit for RefrRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.base, "REFR.NAME", out);
+        visit_form_ids(&self.volume_data, "REFR.XVL2", out);
+        visit_form_ids(&self.patrol, "REFR.Patrol", out);
+        visit_form_ids(&self.projected_decal, "REFR.ProjectedDecal", out);
+        visit_form_ids(&self.teleport_destination, "REFR.XTEL", out);
+        visit_form_ids(&self.collision, "REFR.XCOL", out);
+        visit_form_ids(&self.ship_arrival, "REFR.XSAD", out);
+        visit_form_ids(&self.layered_material_swaps, "REFR.XLMS", out);
+        visit_form_ids(&self.time_of_day, "REFR.TODD", out);
+        visit_form_ids(&self.emittance, "REFR.XEMI", out);
+        visit_form_ids(&self.power_links, "REFR.XPLK", out);
+        visit_form_ids(&self.layer, "REFR.XLYR", out);
+        visit_form_ids(&self.reference_group, "REFR.XRFG", out);
+        visit_form_ids(&self.location_ref_types, "REFR.XLRT", out);
+        visit_form_ids(&self.location_reference, "REFR.XLRL", out);
+        visit_form_ids(&self.water_current, "REFR.WaterCurrent", out);
+        visit_form_ids(&self.xpck, "REFR.XPCK", out);
+        visit_form_ids(&self.source_pack_in, "REFR.XPCS", out);
+        visit_form_ids(&self.grouped_pack_in, "REFR.GroupedPackIn", out);
+        visit_form_ids(&self.linked_references, "REFR.LinkedReferences", out);
+        visit_form_ids(&self.persist_location, "REFR.XLCN", out);
+        visit_form_ids(&self.lock, "REFR.XLOC", out);
+        visit_form_ids(&self.attach_ref, "REFR.XATR", out);
+        visit_form_ids(&self.teleport_name, "REFR.XTNM", out);
+        visit_form_ids(&self.enable_parent, "REFR.XESP", out);
+        visit_form_ids(&self.owner, "REFR.XOWN", out);
+        visit_form_ids(&self.properties, "REFR.XPPS", out);
+        visit_form_ids(&self.location_override, "REFR.XEZN", out);
+        visit_form_ids(&self.leveled_item_base, "REFR.XLIB", out);
+        visit_form_ids(&self.navmesh_door_link, "REFR.XNDP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.base, "REFR.NAME", out);
+        visit_form_ids_mut(&mut self.volume_data, "REFR.XVL2", out);
+        visit_form_ids_mut(&mut self.patrol, "REFR.Patrol", out);
+        visit_form_ids_mut(&mut self.projected_decal, "REFR.ProjectedDecal", out);
+        visit_form_ids_mut(&mut self.teleport_destination, "REFR.XTEL", out);
+        visit_form_ids_mut(&mut self.collision, "REFR.XCOL", out);
+        visit_form_ids_mut(&mut self.ship_arrival, "REFR.XSAD", out);
+        visit_form_ids_mut(&mut self.layered_material_swaps, "REFR.XLMS", out);
+        visit_form_ids_mut(&mut self.time_of_day, "REFR.TODD", out);
+        visit_form_ids_mut(&mut self.emittance, "REFR.XEMI", out);
+        visit_form_ids_mut(&mut self.power_links, "REFR.XPLK", out);
+        visit_form_ids_mut(&mut self.layer, "REFR.XLYR", out);
+        visit_form_ids_mut(&mut self.reference_group, "REFR.XRFG", out);
+        visit_form_ids_mut(&mut self.location_ref_types, "REFR.XLRT", out);
+        visit_form_ids_mut(&mut self.location_reference, "REFR.XLRL", out);
+        visit_form_ids_mut(&mut self.water_current, "REFR.WaterCurrent", out);
+        visit_form_ids_mut(&mut self.xpck, "REFR.XPCK", out);
+        visit_form_ids_mut(&mut self.source_pack_in, "REFR.XPCS", out);
+        visit_form_ids_mut(&mut self.grouped_pack_in, "REFR.GroupedPackIn", out);
+        visit_form_ids_mut(&mut self.linked_references, "REFR.LinkedReferences", out);
+        visit_form_ids_mut(&mut self.persist_location, "REFR.XLCN", out);
+        visit_form_ids_mut(&mut self.lock, "REFR.XLOC", out);
+        visit_form_ids_mut(&mut self.attach_ref, "REFR.XATR", out);
+        visit_form_ids_mut(&mut self.teleport_name, "REFR.XTNM", out);
+        visit_form_ids_mut(&mut self.enable_parent, "REFR.XESP", out);
+        visit_form_ids_mut(&mut self.owner, "REFR.XOWN", out);
+        visit_form_ids_mut(&mut self.properties, "REFR.XPPS", out);
+        visit_form_ids_mut(&mut self.location_override, "REFR.XEZN", out);
+        visit_form_ids_mut(&mut self.leveled_item_base, "REFR.XLIB", out);
+        visit_form_ids_mut(&mut self.navmesh_door_link, "REFR.XNDP", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.map_marker, "REFR.MapMarker", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.map_marker, "REFR.MapMarker", out);
+    }
+}
+
+impl RefrRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"REFR";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
+    /// the indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("REFR", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("REFR", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("REFR", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("REFR", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct Tes4Header {
     pub version: f32,
     pub record_count: u32,
@@ -10110,6 +13815,7 @@ pub enum Record {
     Lctn(Box<LctnRecord>),
     Navm(Box<NavmRecord>),
     Omod(Box<OmodRecord>),
+    Refr(Box<RefrRecord>),
     Tes4(Box<Tes4Record>),
     Weap(Box<WeapRecord>),
     Wrld(Box<WrldRecord>),
@@ -10130,6 +13836,7 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"LCTN", LctnRecord::MEMBERS),
     (*b"NAVM", NavmRecord::MEMBERS),
     (*b"OMOD", OmodRecord::MEMBERS),
+    (*b"REFR", RefrRecord::MEMBERS),
     (*b"TES4", Tes4Record::MEMBERS),
     (*b"WEAP", WeapRecord::MEMBERS),
     (*b"WRLD", WrldRecord::MEMBERS),
@@ -10153,6 +13860,7 @@ impl Record {
             b"LCTN" => Self::Lctn(Box::new(LctnRecord::decode(subs, ctx))),
             b"NAVM" => Self::Navm(Box::new(NavmRecord::decode(subs, ctx))),
             b"OMOD" => Self::Omod(Box::new(OmodRecord::decode(subs, ctx))),
+            b"REFR" => Self::Refr(Box::new(RefrRecord::decode(subs, ctx))),
             b"TES4" => Self::Tes4(Box::new(Tes4Record::decode(subs, ctx))),
             b"WEAP" => Self::Weap(Box::new(WeapRecord::decode(subs, ctx))),
             b"WRLD" => Self::Wrld(Box::new(WrldRecord::decode(subs, ctx))),
@@ -10176,6 +13884,7 @@ impl Record {
             Self::Lctn(record) => record.encode(),
             Self::Navm(record) => record.encode(),
             Self::Omod(record) => record.encode(),
+            Self::Refr(record) => record.encode(),
             Self::Tes4(record) => record.encode(),
             Self::Weap(record) => record.encode(),
             Self::Wrld(record) => record.encode(),
@@ -10198,6 +13907,7 @@ impl Record {
             Self::Lctn(_) => LctnRecord::SIGNATURE,
             Self::Navm(_) => NavmRecord::SIGNATURE,
             Self::Omod(_) => OmodRecord::SIGNATURE,
+            Self::Refr(_) => RefrRecord::SIGNATURE,
             Self::Tes4(_) => Tes4Record::SIGNATURE,
             Self::Weap(_) => WeapRecord::SIGNATURE,
             Self::Wrld(_) => WrldRecord::SIGNATURE,
@@ -10220,6 +13930,7 @@ impl Record {
             Self::Lctn(record) => record.form_ids(),
             Self::Navm(record) => record.form_ids(),
             Self::Omod(record) => record.form_ids(),
+            Self::Refr(record) => record.form_ids(),
             Self::Tes4(record) => record.form_ids(),
             Self::Weap(record) => record.form_ids(),
             Self::Wrld(record) => record.form_ids(),
@@ -10242,6 +13953,7 @@ impl Record {
             Self::Lctn(record) => record.form_ids_mut(),
             Self::Navm(record) => record.form_ids_mut(),
             Self::Omod(record) => record.form_ids_mut(),
+            Self::Refr(record) => record.form_ids_mut(),
             Self::Tes4(record) => record.form_ids_mut(),
             Self::Weap(record) => record.form_ids_mut(),
             Self::Wrld(record) => record.form_ids_mut(),
@@ -10264,6 +13976,7 @@ impl Record {
             Self::Lctn(record) => record.lstrings(),
             Self::Navm(record) => record.lstrings(),
             Self::Omod(record) => record.lstrings(),
+            Self::Refr(record) => record.lstrings(),
             Self::Tes4(record) => record.lstrings(),
             Self::Weap(record) => record.lstrings(),
             Self::Wrld(record) => record.lstrings(),
@@ -10286,6 +13999,7 @@ impl Record {
             Self::Lctn(record) => record.lstrings_mut(),
             Self::Navm(record) => record.lstrings_mut(),
             Self::Omod(record) => record.lstrings_mut(),
+            Self::Refr(record) => record.lstrings_mut(),
             Self::Tes4(record) => record.lstrings_mut(),
             Self::Weap(record) => record.lstrings_mut(),
             Self::Wrld(record) => record.lstrings_mut(),
@@ -10309,6 +14023,7 @@ impl Record {
             Self::Lctn(record) => &record.extra,
             Self::Navm(record) => &record.extra,
             Self::Omod(record) => &record.extra,
+            Self::Refr(record) => &record.extra,
             Self::Tes4(record) => &record.extra,
             Self::Weap(record) => &record.extra,
             Self::Wrld(record) => &record.extra,
