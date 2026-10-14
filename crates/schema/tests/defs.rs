@@ -52,7 +52,7 @@ fn every_file_names_its_source() {
             Definition::Header(h) => &h.source,
         };
         assert!(
-            source.starts_with("UESP: https://en.uesp.net/wiki/Skyrim_Mod:")
+            source.starts_with("uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:")
                 || source.starts_with("corpus: "),
             "{source}"
         );

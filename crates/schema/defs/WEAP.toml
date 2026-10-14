@@ -1,15 +1,13 @@
-# WEAP: subrecord inventory only. Layout pending ADR 0005: every payload is opaque until
-# the source policy for Starfield field layouts is decided.
+# WEAP: subrecord inventory only. Layout pending ADR 0005: Starfield field layouts need
+# ck-diff observations, so every payload is opaque until one is recorded.
 #
-# Source: corpus scan of the WEAP top group in Starfield.esm, ShatteredSpace.esm,
+# Source (ADR 0005 "inventory" row): corpus scan of the WEAP top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
 # 452 records, form versions 581/582, 132 distinct subrecord sequences. After folding
 # BFCB..BFCE blocks and OBTE..STOP template blocks, every sequence fits the order below with
 # no conflicts. FLLD occurs exactly twice per record, at the two positions listed.
 # Members never seen together have an arbitrary relative order. "required" means present
-# in every corpus record. Cross-checked against the UESP Starfield raw-data dump
-# (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data); the dump predates
-# QUPA and lists the same fixed sizes.
+# in every corpus record.
 #
 # Template block: OBTE, then entries of [OBTF?] FULL OBTS, then STOP. STOP also occurs, on
 # its own, in records without OBTE.
@@ -18,7 +16,6 @@
 signature = "WEAP"
 name = "Weapon"
 source = "corpus: WEAP records of the official ESMs (12 files with a WEAP group)"
-evidence = ["UESP Starfield raw-data dump agrees on signatures and sizes: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data"]
 note = "layout pending ADR 0005"
 
 [[member]]

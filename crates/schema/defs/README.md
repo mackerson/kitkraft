@@ -7,15 +7,22 @@ definitions are data.
 
 ## Provenance (mandatory)
 
-Every file states where its facts come from:
+ADR 0005 (`plan/adr/0005-spec-sources-per-fact.md`) decides which source is permitted for
+which kind of fact. Every file names its source in one of the ADR's forms, and the loader
+rejects any other prefix in `source` and `evidence`:
 
-- `source = "UESP: <page URL>"` for facts read from a UESP wiki page, or
-- `source = "corpus: <esm names and what was observed>"` for facts read from our own scans
-  of the official ESMs.
+- `uesp-skyrim: <page URL>`: shared container facts from the UESP Skyrim pages, confirmed
+  against the corpus (TES4, GRUP).
+- `corpus: <evidence note>`: inventory facts from our own scans of the official ESMs
+  (signatures, sizes, counts, order).
+- `ck-diff: <observation id>`: Starfield field layouts from Creation Kit differential
+  observation (`docs/ck-observations.md`).
+- `ck-wiki: <page title>`: field names and meanings, in our own words.
 
-Further notes go in `evidence = ["...", ...]`. Never paste UESP prose; record structured
-facts only (signatures, types, sizes, counts, order). Never consult Mutagen, Spriggit
-(source or its YAML output), or xEdit for names or layouts.
+Further citations go in `evidence = ["corpus: ...", ...]`, and each file opens with a
+comment saying what each source contributed. Never paste prose from any source; record
+structured facts only. Never consult Mutagen, Spriggit (source or its YAML field names), or
+xEdit for names or layouts.
 
 ## Top level
 
@@ -23,9 +30,9 @@ facts only (signatures, types, sizes, counts, order). Never consult Mutagen, Spr
 | ----------- | -------- | ------------------------------------------------------------------ |
 | `signature` | yes      | Four printable ASCII characters; must match the file name          |
 | `name`      | yes      | PascalCase name of the record type                                 |
-| `source`    | yes      | `UESP: ...` or `corpus: ...`                                       |
+| `source`    | yes      | Primary source, in an ADR 0005 form (see above)                    |
 | `kind`      | no       | `record` (default) or `header` (fixed binary header, e.g. `GRUP`)  |
-| `evidence`  | no       | List of extra provenance notes                                     |
+| `evidence`  | no       | Further sources, same forms                                        |
 | `note`      | no       | Free text (our own words)                                          |
 | `flags`     | no       | Record-header flag bits for this type: `[["Master", 0x1], ...]`    |
 | `member`    | no       | Ordered list of members (records only)                             |
@@ -97,8 +104,8 @@ reserved. Fields take `name`, `type`, the type keys, `since`, `until` and `note`
 
 | File        | Kind      | Source                                   | Layouts                                   |
 | ----------- | --------- | ---------------------------------------- | ----------------------------------------- |
-| `TES4.toml` | record    | UESP Skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
-| `GRUP.toml` | header    | UESP Skyrim Mod File Format page         | Fully typed (label kept as 4 raw bytes)   |
+| `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
+| `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory only: order and cardinality; every payload opaque |
 | `WEAP.toml` | record    | corpus scan                              | Inventory only; layout pending ADR 0005   |
 
@@ -110,7 +117,7 @@ are placeholders: giving a member a real name later is a breaking change for que
 ```toml
 signature = "TES4"
 name = "PluginHeader"
-source = "UESP: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4"
+source = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4"
 
 [[member]]
 sig = "HEDR"

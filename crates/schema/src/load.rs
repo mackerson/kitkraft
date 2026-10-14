@@ -99,7 +99,9 @@ pub enum ErrorKind {
     ZeroFlag(String),
     #[error("version range {min:?}..={max:?} is empty")]
     BadVersionRange { min: Option<u16>, max: Option<u16> },
-    #[error("source must start with `UESP:` or `corpus:`, got {0:?}")]
+    #[error(
+        "source must start with `uesp-skyrim:`, `corpus:`, `ck-diff:` or `ck-wiki:` (ADR 0005), got {0:?}"
+    )]
     BadSource(String),
     #[error("a member sets none or several of `sig`, `group`, `any_until`")]
     MemberKind,
@@ -339,8 +341,13 @@ fn convert_file(cx: &mut Cx<'_>, raw: RawFile) -> Result<Definition, SchemaError
         }
     }
     check_name(cx, &raw.name)?;
-    if !(raw.source.starts_with("UESP:") || raw.source.starts_with("corpus:")) {
+    if !has_source_prefix(&raw.source) {
         return Err(cx.err(ErrorKind::BadSource(raw.source)));
+    }
+    for note in &raw.evidence {
+        if !has_source_prefix(note) {
+            return Err(cx.err(ErrorKind::BadSource(note.clone())));
+        }
     }
     let kind = raw.kind.as_deref().unwrap_or("record");
     match kind {
@@ -393,6 +400,13 @@ fn convert_file(cx: &mut Cx<'_>, raw: RawFile) -> Result<Definition, SchemaError
         }
         other => Err(cx.err(ErrorKind::UnknownKind(other.to_owned()))),
     }
+}
+
+/// The `source` key forms permitted by ADR 0005 (specification source per fact).
+pub const SOURCE_PREFIXES: &[&str] = &["uesp-skyrim: ", "corpus: ", "ck-diff: ", "ck-wiki: "];
+
+fn has_source_prefix(text: &str) -> bool {
+    SOURCE_PREFIXES.iter().any(|p| text.starts_with(p))
 }
 
 fn reject(cx: &Cx<'_>, present: bool, key: &'static str, context: &str) -> Result<(), SchemaError> {

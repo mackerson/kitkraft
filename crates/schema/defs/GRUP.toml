@@ -1,18 +1,19 @@
 # GRUP: the 24-byte group header. Groups hold records and nested groups.
 #
-# Source: UESP https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format (section "Groups").
-# UESP's Starfield wiki (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format) says
-# the overall file structure matches Skyrim's.
+# Sources (ADR 0005):
+#   uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format (section "Groups").
+#   corpus: every group in Constellation, OldMars and SFBGS003/004/006/007/008/047.esm
+#     (2026-10-14) walks cleanly with GroupSize including the 24 header bytes; all 180
+#     top-level groups are type 0 with a record signature as label. Types 0..9 all occur,
+#     and so does type 10, which has no name here and is preserved as Other(10).
 #
-# GroupSize includes these 24 header bytes (record and subrecord sizes do not include
-# theirs). Label is four raw bytes whose meaning depends on GroupType: a record signature
-# for Top, a parent FormID for the *Children types, a block number for interior blocks, or
-# two i16 grid coordinates (Y then X) for exterior blocks. Starfield may use group types
-# beyond 0..9; unknown values are preserved.
+# Label is four raw bytes whose meaning depends on GroupType (record signature, parent
+# FormID, block number or grid coordinates); it is kept raw until each case is confirmed.
 signature = "GRUP"
 name = "GroupHeader"
 kind = "header"
-source = "UESP: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format"
+source = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format"
+evidence = ["corpus: group walk of 8 small official ESMs, 2026-10-14"]
 size = 24
 field = [
   { name = "Type", type = "sig", note = "always GRUP" },

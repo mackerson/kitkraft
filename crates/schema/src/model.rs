@@ -345,7 +345,8 @@ pub struct RecordDef {
     pub signature: Signature,
     /// PascalCase name.
     pub name: String,
-    /// Where the facts come from: `UESP: <url>` or `corpus: <note>`.
+    /// Where the facts come from, in an ADR 0005 form: `uesp-skyrim: <page>`,
+    /// `corpus: <note>`, `ck-diff: <observation id>` or `ck-wiki: <page title>`.
     pub source: String,
     /// Further provenance notes.
     pub evidence: Vec<String>,

@@ -233,6 +233,28 @@ fn signature_and_name_rules() {
 }
 
 #[test]
+fn source_forms_follow_adr_0005() {
+    for prefix in [
+        "uesp-skyrim: x",
+        "corpus: x",
+        "ck-diff: obs-1",
+        "ck-wiki: Weapon",
+    ] {
+        let text = format!("signature = \"TEST\"\nname = \"Test\"\nsource = \"{prefix}\"\n");
+        parse_definition("TEST.toml", &text).unwrap();
+    }
+    let old_form = "signature = \"TEST\"\nname = \"Test\"\nsource = \"UESP: x\"\n";
+    assert_eq!(
+        kind_of(parse_definition("TEST.toml", old_form)),
+        ErrorKind::BadSource("UESP: x".into())
+    );
+    assert_eq!(
+        invalid("evidence = [\"corpus: ok\", \"forum post\"]\n"),
+        ErrorKind::BadSource("forum post".into())
+    );
+}
+
+#[test]
 fn layout_rules() {
     assert_eq!(
         invalid(

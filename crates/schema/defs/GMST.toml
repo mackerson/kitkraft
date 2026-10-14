@@ -1,18 +1,14 @@
 # GMST: subrecord inventory only. Every payload is opaque until its layout is decided.
 #
-# Source: corpus scan of the GMST top group in Starfield.esm, ShatteredSpace.esm,
+# Source (ADR 0005 "inventory" row): corpus scan of the GMST top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
 # 2418 records, form versions 581/582, shapes "EDID DATA" (2396) and "EDID XALG DATA" (22).
-# Cross-checked against the UESP Starfield raw-data dump
-# (https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data), which agrees on
-# signatures, sizes and cardinality.
 #
 # Member names are placeholders derived from the signature; they get real names when a
 # layout is decided, which is a breaking change for queries.
 signature = "GMST"
 name = "GameSetting"
 source = "corpus: GMST records of the official ESMs (12 files with a GMST group)"
-evidence = ["UESP Starfield raw-data dump agrees: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/Raw_Data"]
 
 [[member]]
 sig = "EDID"
