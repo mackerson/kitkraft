@@ -117,8 +117,9 @@ the specification exists, as upstream xEdit's Starfield definitions.
   of the last two).
 - **No silent Skyrim substitution.** Skyrim (or Fallout 4) definitions are never used for
   Starfield record bodies; they may describe the shared container only, and each such use
-  carries `confidence = "corpus"` or better (ADR 0005 Amendment 2; the loader enforces it
-  for `uesp-skyrim:` citations).
+  carries `confidence = "corpus"` or better (ADR 0005 Amendment 2; the loader rejects
+  `reference` next to a `uesp-skyrim:` citation, and will require `confidence` there once
+  the container definitions carry it).
 - **Unions** (layouts chosen by a decider) stay opaque until the format can express them.
 - The downloaded `.pas` file lives outside the repository and is deleted after use; `*.pas`
   is gitignored.

@@ -207,14 +207,18 @@ Rules:
 - **Confidence.** A definition carries `confidence`:
   `reference` (from xEdit only), `corpus` (sizes, counts and order confirmed against the 14
   official ESMs), `ck-diff` (confirmed by CK differential observation), `verified` (both).
-  It is required when any `source` or `evidence` entry is `xedit:` and optional otherwise.
+  It is required when any `source` or `evidence` entry is `xedit:` and optional otherwise
+  (but see the Skyrim rule below).
   The loader rejects a level the citations do not support (`reference` without an `xedit:`
   citation, `corpus` without `corpus:`, `ck-diff` without `ck-diff:`, `verified` without
   both).
 - **Skyrim definitions are for the shared container only.** A Skyrim (or other
   Bethesda-family) fact may be used for the container layer, and each such use must carry
-  `confidence = "corpus"` or better after Starfield-specific validation; the loader rejects
-  a `uesp-skyrim:` citation without it. Skyrim definitions are **never** used for
+  `confidence = "corpus"` or better after Starfield-specific validation. The loader rejects
+  `confidence = "reference"` next to a `uesp-skyrim:` citation now, and will reject a
+  missing `confidence` there once `TES4`, `GRUP` and `RECORD` carry it (their `corpus:`
+  evidence already supports `corpus`; adding it changes the definitions hash, so it lands
+  with a `cargo xtask codegen` rerun in lane B's next schema change). Skyrim definitions are **never** used for
   Starfield record bodies, and never silently substituted where xEdit's Starfield
   definition is missing or unclear: such bytes stay opaque.
 - **Names.** Field names come from the CK wiki or the CK's UI labels where they exist,
@@ -271,7 +275,7 @@ commits behind the pin.
 
 - The schema loader accepts `xedit:` (pinned SHA and line range required) and checks
   `confidence` (`crates/schema/defs/README.md`). The three container definitions that cite
-  `uesp-skyrim:` (`TES4`, `GRUP`, `RECORD`) carry `confidence = "corpus"`, which their
-  `corpus:` evidence already claimed.
+  `uesp-skyrim:` (`TES4`, `GRUP`, `RECORD`) gain `confidence = "corpus"` in lane B's next
+  schema change (`plan/STATUS.md`).
 - Lane B round 3 transcribes typed layouts from xEdit after the owner reviews this
   amendment, ADR 0004, and `docs/xedit-reference.md`.
