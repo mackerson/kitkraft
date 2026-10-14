@@ -216,7 +216,7 @@ are ours.
   2).
 - Spans are mechanical (parenthesis matching); a transcriber confirms each range when
   citing it.
-- SF1Edit (the program) is not installed on this machine; installing a build that matches
-  the pin is an M2 task (ADR 0005 Amendment 2). Release `4.1.5f` is 1,459 commits older
-  than the pin, so differential results against it must note the version skew.
+- SF1Edit (the program) is installed by the owner as release `4.1.5f` (M3.O3,
+  `C:\Modding\tools\xEdit\`), 1,459 commits older than the pin, so differential results
+  against it note the version skew (`docs/oracles.md`, SF1Edit section: X1, X3, X5, X7).
 - The MPL summary above is an engineering reading, not legal advice.

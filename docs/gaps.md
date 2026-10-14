@@ -42,7 +42,7 @@ Check this before claiming something works. Remove a row only with the commit th
 | `forbid(unsafe_code)` covers workspace crates only. zlib-rs (our flate2 backend) is pure Rust but uses `unsafe` internally: 469 source lines of zlib-rs 0.6.8 mention it | Decompression of hostile streams relies on that crate's own unsafe code being sound | permanent (dependency review) |
 | Spriggit round trip lost data on 2 of 5 real mods tested          | Not an oracle; inventory facts only (ADR 0001 §4)        | permanent        |
 | Typed Starfield record layouts (WEAP, AMMO, PROJ, AMDL, OMOD, COBJ, ZOOM, LVLI, FLST, INNR) not transcribed yet: ADR 0004 approved, but fetching the pinned xEdit files was not permitted in the 2026-10-14 lane B session | Record bodies beyond the universal subrecords stay opaque | M3.O0 (stage the files), then M3.B1..B7 |
-| SF1Edit not installed (differential comparison, ADR 0005 Am. 2 §2a) | No SF1Edit cross-check of decoded values               | M3.O3 (install), M3.B11, M3.H4 |
+| SF1Edit installed is xEdit 4.1.5f (2024), older than the pin; only its console dumper runs headless (`docs/oracles.md`) | The cross-check (`cargo xtask oracle sf1edit`) cannot judge GPOG/GPOF, light masters (SFBGS047) or newer WEAP components; its editor script mode needs a click | M3.B11 (rerun as members get typed); a build at the pin (owner) |
 | Project name is a placeholder                                     | Package names (`kitcraft-*`, `kit`) may be renamed       | owner            |
 | No remote, no hosted CI                                           | The local `cargo xtask ci` run is the only gate          | owner            |
 
