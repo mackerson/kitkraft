@@ -147,7 +147,10 @@ fn builtin_set_loads_and_matches_the_directory() {
     // Cached: the same instance every time.
     assert!(std::ptr::eq(embedded, builtin().unwrap()));
     let sigs: Vec<&str> = embedded.records.keys().map(Signature::as_str).collect();
-    assert_eq!(sigs, ["GLOB", "GMST", "KYWD", "TES4", "WEAP"]);
+    assert_eq!(
+        sigs,
+        ["AMDL", "AMMO", "COBJ", "GLOB", "GMST", "KYWD", "OMOD", "TES4", "WEAP", "ZOOM"]
+    );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
     let common: Vec<&str> = embedded.common.keys().map(String::as_str).collect();
@@ -256,7 +259,21 @@ fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 4] = [
+    let expected: [(&str, &[&str]); 9] = [
+        ("AMDL", &["EditorId"]),
+        (
+            "AMMO",
+            &[
+                "EditorId",
+                "Name",
+                "Description",
+                "Keywords.Count",
+                "Keywords.Forms",
+            ],
+        ),
+        ("COBJ", &["EditorId", "Description"]),
+        ("OMOD", &["EditorId", "Name", "Description"]),
+        ("ZOOM", &["EditorId"]),
         ("GMST", &["EditorId", "Value"]),
         ("GLOB", &["EditorId", "Value"]),
         ("KYWD", &["EditorId", "Name"]),

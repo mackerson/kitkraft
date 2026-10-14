@@ -317,6 +317,7 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
 | `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB block opaque |
 | `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
+| `AMMO.toml` `AMDL.toml` `COBJ.toml` `OMOD.toml` `ZOOM.toml` | record | corpus scan | Inventories (M2.B2): universal subrecords typed, the rest opaque until lane B round 3 |
 | `WEAP.toml` | record    | corpus scan                              | Inventory; universal subrecords typed (M2.B2); the body layout waits for lane B round 3 (`xedit:`) |
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
 | `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |
