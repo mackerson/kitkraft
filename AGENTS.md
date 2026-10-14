@@ -25,7 +25,8 @@ official ESM and write it back byte-identical.
 
 The workspace is a strict layer stack. A crate may depend only on crates in a lower layer.
 `cargo xtask layers` enforces this from each crate's `Cargo.toml` and its `//! LAYER: Ln`
-marker in `src/lib.rs` (or `src/main.rs`).
+marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from the graph
+`cargo metadata` resolves (so transitive and dev-dependencies count too).
 
 | Layer | Crate            | Package            | Purpose                                                            |
 | ----- | ---------------- | ------------------ | ------------------------------------------------------------------ |
@@ -50,9 +51,16 @@ Rules:
 - Depend downward only. Same-layer edges are illegal unless listed in `SAME_LAYER_ALLOWED` in
   `xtask/src/main.rs` with a reason in `plan/adr/0002-layering.md`. Today the only one is
   `esm -> schema`.
-- Nothing depends on an APP or TOOL package.
-- Nothing below L5 depends on a UI toolkit (egui, eframe, winit).
-- Library crates (L0..L5) use `thiserror`; `anyhow` is for `apps/` and `xtask/` only.
+- Nothing depends on an APP or TOOL package, dev-dependencies included.
+- Nothing below L5 depends on a UI toolkit, directly, transitively, or as a dev-dependency.
+  Banned by name prefix: `egui`, `eframe`, `winit`, `wgpu`, `rfd`, `iced`, `slint`.
+- Library crates (L0..L5) use `thiserror`; `anyhow` and `eyre` (by prefix, transitively) are
+  for `apps/` and `xtask/` only.
+- Dev-dependencies between workspace crates follow the same direction rules; an upward one
+  needs an entry in `DEV_ALLOWED` (`xtask/src/graph.rs`, empty today) and a reason in ADR 0002.
+- No `build.rs` (`BUILD_RS_ALLOWED` is empty). No `#[path = ...]`, `include!`,
+  `include_str!` or `include_bytes!` whose path leaves the package directory; use a string
+  literal or `concat!(env!("CARGO_MANIFEST_DIR"), "...")` so the check can resolve it.
 - A new crate needs an entry in `LAYER_TABLE` (xtask) and in the table above. Moving a crate
   between layers needs an ADR.
 
@@ -125,6 +133,10 @@ Plugins come from the internet. Treat every input byte as hostile.
 - No slice indexing (`buf[i]`, `buf[a..b]`): use `get()` / `get(a..b)` and return an error.
 - Checked arithmetic on every size and offset from input (`checked_add`, `checked_mul`,
   `usize::try_from`). Cap allocations by the bytes actually remaining before allocating.
+  `clippy::arithmetic_side_effects` is denied workspace-wide. Clippy has no allow-in-tests
+  setting for it, so a test module that needs plain `+`/`-` puts
+  `#[allow(clippy::arithmetic_side_effects)]` on its `mod tests` (or `#![allow(...)]` at the
+  top of an integration test file).
 - Bound recursion depth (nested groups) and iteration counts.
 - Errors are typed (`thiserror`) and carry the byte offset where parsing failed.
 - **Every crash fix ships with a regression test** that feeds the minimized input that
@@ -134,12 +146,15 @@ Plugins come from the internet. Treat every input byte as hostile.
 
 `cargo xtask ci` is the gate. It runs, in order:
 
-1. `cargo xtask layers` (layer graph, markers, banned dependencies)
+1. `cargo xtask layers` (layer graph, markers, banned and transitive dependencies,
+   dev-dependencies, build scripts, out-of-package `#[path]`/`include!`)
 2. `cargo fmt --all -- --check`
 3. `cargo clippy --workspace --all-targets -- -D warnings`
 4. `cargo test --workspace`
 
-Nothing is committed unless the gate passes. Corpus tests read the official ESMs in place via
+Nothing is committed unless the gate passes. A pre-commit hook in `.githooks/` runs the two
+fast steps (`cargo xtask layers`, `cargo fmt --all -- --check`); enable it once per clone with
+`git config core.hooksPath .githooks`. Corpus tests read the official ESMs in place via
 `KITCRAFT_DATA_DIR` (see `docs/corpus.md`) and skip with a message when it is unset or
 missing, so the gate runs on machines without the game. There is no remote CI yet; the local
 gate is the CI.

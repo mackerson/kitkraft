@@ -45,6 +45,7 @@ rustfmt and clippy).
 cargo build --workspace
 cargo run -p kit-cli -- help
 cargo xtask ci        # the gate: layer check, fmt, clippy -D warnings, tests
+git config core.hooksPath .githooks   # once per clone: pre-commit runs layers + fmt check
 ```
 
 Corpus tests use your own game install and are skipped without it:

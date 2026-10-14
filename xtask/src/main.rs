@@ -1,21 +1,30 @@
 //! Repository automation.
 //!
 //! - `cargo xtask ci`: the gate every commit passes (layers, fmt, clippy, test).
-//! - `cargo xtask layers`: the layer check alone. Fast; compiles nothing.
+//! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //!
-//! The layer check reads every workspace member's `Cargo.toml` and its `//! LAYER:` marker
-//! (in `src/lib.rs` or `src/main.rs`) and fails on:
-//! - a marker that is missing, malformed, or disagrees with [`LAYER_TABLE`];
-//! - a package missing from [`LAYER_TABLE`];
-//! - an upward dependency, or a same-layer dependency not in [`SAME_LAYER_ALLOWED`];
-//! - any dependency on an app or tool package;
-//! - `anyhow` in a library crate, or a UI toolkit below L5;
-//! - a package without `[lints] workspace = true`.
+//! The layer check has three parts.
 //!
-//! `[dependencies]`, `[build-dependencies]` and their `[target.*]` forms are checked.
-//! `[dev-dependencies]` are exempt.
+//! 1. **Manifests** (fast, TOML only). Every workspace member's `Cargo.toml` and its
+//!    `//! LAYER:` marker (in `src/lib.rs` or `src/main.rs`); fails on:
+//!    - a marker that is missing, malformed, or disagrees with [`LAYER_TABLE`];
+//!    - a package missing from [`LAYER_TABLE`];
+//!    - an upward dependency, or a same-layer dependency not in [`SAME_LAYER_ALLOWED`];
+//!    - any dependency on an app or tool package;
+//!    - a direct dependency matching [`LIBRARY_BANNED`] in a library crate, or
+//!      [`UI_TOOLKIT`] below L5 (name prefixes);
+//!    - a package without `[lints] workspace = true`.
+//!
+//!    `[dependencies]`, `[build-dependencies]` and their `[target.*]` forms are read here.
+//! 2. **Sources** ([`smuggle`]): `#[path]` and `include!`-family paths that leave the package.
+//! 3. **Resolved graph** ([`graph`], via `cargo metadata`): transitive bans,
+//!    dev-dependency rules, build scripts, and agreement between cargo's member list and
+//!    part 1.
 //!
 //! LAYER: TOOL
+
+mod graph;
+mod smuggle;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -49,11 +58,18 @@ const LAYER_TABLE: &[(&str, Layer)] = &[
 /// `plan/adr/0002-layering.md`.
 const SAME_LAYER_ALLOWED: &[(&str, &str)] = &[("kitcraft-esm", "kitcraft-schema")];
 
-/// External crates no library crate (L0..L5) may depend on.
-const LIBRARY_BANNED: &[&str] = &["anyhow"];
+/// Name prefixes of external crates no library crate (L0..L5) may depend on, directly or
+/// transitively. Libraries use `thiserror`.
+const LIBRARY_BANNED: &[&str] = &["anyhow", "eyre"];
 
-/// UI toolkit crates nothing below L5 may depend on.
-const UI_TOOLKIT: &[&str] = &["egui", "eframe", "egui-winit", "egui-wgpu", "winit"];
+/// Name prefixes of UI toolkit crates nothing below L5 may depend on, directly or
+/// transitively (`egui` also covers `egui-winit`, `egui_extras`, ...).
+const UI_TOOLKIT: &[&str] = &["egui", "eframe", "winit", "wgpu", "rfd", "iced", "slint"];
+
+/// The entry of `prefixes` that `name` starts with, if any.
+fn banned_prefix<'a>(name: &str, prefixes: &[&'a str]) -> Option<&'a str> {
+    prefixes.iter().copied().find(|p| name.starts_with(p))
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Layer {
@@ -74,6 +90,7 @@ impl fmt::Display for Layer {
 
 struct Package {
     name: String,
+    dir: PathBuf,
     manifest: PathBuf,
     layer: Layer,
     deps: Vec<String>,
@@ -107,7 +124,7 @@ fn print_help() {
     println!("cargo xtask <task>");
     println!();
     println!("  ci       layers, then cargo fmt --check, clippy -D warnings, test");
-    println!("  layers   enforce the crate layer graph (see AGENTS.md)");
+    println!("  layers   enforce the crate layer graph, sources and resolved deps (see AGENTS.md)");
 }
 
 fn workspace_root() -> Result<PathBuf> {
@@ -182,21 +199,32 @@ fn layers(root: &Path) -> Result<()> {
                 continue;
             }
             let is_library = matches!(pkg.layer, Layer::L(_));
-            if is_library && LIBRARY_BANNED.contains(&dep.as_str()) {
+            if is_library && banned_prefix(dep, LIBRARY_BANNED).is_some() {
                 errors.push(format!(
                     "{at}: library crate `{}` depends on `{dep}`; use thiserror",
                     pkg.name
                 ));
             }
             let below_ui = matches!(pkg.layer, Layer::L(n) if n < 5);
-            if below_ui && UI_TOOLKIT.contains(&dep.as_str()) {
+            if below_ui && banned_prefix(dep, UI_TOOLKIT).is_some() {
                 errors.push(format!(
                     "{at}: `{}` ({}) depends on UI toolkit `{dep}`; only L5 and apps may",
                     pkg.name, pkg.layer
                 ));
             }
         }
+        errors.extend(smuggle::scan_package(&pkg.dir)?);
     }
+
+    let layer_of: BTreeMap<String, Layer> =
+        packages.iter().map(|p| (p.name.clone(), p.layer)).collect();
+    let resolved = graph::load(root)?;
+    errors.extend(graph::check(
+        &resolved,
+        &layer_of,
+        graph::DEV_ALLOWED,
+        graph::BUILD_RS_ALLOWED,
+    ));
 
     if !errors.is_empty() {
         for error in &errors {
@@ -205,7 +233,11 @@ fn layers(root: &Path) -> Result<()> {
         bail!("{} layer violation(s)", errors.len());
     }
 
-    println!("layers: ok ({} packages)", packages.len());
+    println!(
+        "layers: ok ({} workspace packages, {} in the resolved graph, sources clean)",
+        packages.len(),
+        resolved.package_count()
+    );
     for pkg in &packages {
         let internal: Vec<&str> = pkg
             .deps
@@ -346,6 +378,7 @@ fn load_package(dir: &Path, ws_deps: &toml::Table) -> Result<Package> {
         .unwrap_or(false);
     Ok(Package {
         name,
+        dir: dir.to_path_buf(),
         layer: read_layer(dir)?,
         deps: dependency_names(&manifest, ws_deps),
         workspace_lints,
@@ -403,8 +436,22 @@ fn real_name(key: &str, spec: &toml::Value, ws_deps: &toml::Table) -> String {
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{dependency_names, edge_violation, parse_layer, Layer, LAYER_TABLE};
+    use super::{
+        banned_prefix, dependency_names, edge_violation, parse_layer, Layer, LAYER_TABLE,
+        LIBRARY_BANNED, UI_TOOLKIT,
+    };
+
+    #[test]
+    fn ban_lists_match_by_prefix() {
+        assert_eq!(banned_prefix("egui-winit", UI_TOOLKIT), Some("egui"));
+        assert_eq!(banned_prefix("wgpu-core", UI_TOOLKIT), Some("wgpu"));
+        assert_eq!(banned_prefix("slint", UI_TOOLKIT), Some("slint"));
+        assert_eq!(banned_prefix("serde", UI_TOOLKIT), None);
+        assert_eq!(banned_prefix("eyre", LIBRARY_BANNED), Some("eyre"));
+        assert_eq!(banned_prefix("thiserror", LIBRARY_BANNED), None);
+    }
 
     #[test]
     fn parses_layer_markers() {
