@@ -1,0 +1,27 @@
+# BiomeNoiseLayer: the noise settings of one terrain layer of a biome (one of the seven
+# entries of BIOM BTPS: base, flow, flat outer, flat inner, talus, solid, path).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L8382-L8394 - eight 32-bit floats: noise offset
+#     U/V, noise scale U/V, noise contrast, alternate texture coverage, alternate data
+#     contribution min/max.
+#   corpus: BTPS in the 434 BIOM records of the 14 official ESMs (2026-10-14): every payload
+#     is 224 bytes, seven layers of 32.
+name = "BiomeNoiseLayer"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8382-L8394"
+evidence = [
+  "corpus: BTPS in the 434 BIOM records of the 14 official ESMs, 2026-10-14 scan: all 224 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "NoiseOffsetU", type = "f32" },
+  { name = "NoiseOffsetV", type = "f32" },
+  { name = "NoiseScaleU", type = "f32" },
+  { name = "NoiseScaleV", type = "f32" },
+  { name = "NoiseContrast", type = "f32" },
+  { name = "AltTextureCoverage", type = "f32" },
+  { name = "AltDataContributionMin", type = "f32" },
+  { name = "AltDataContributionMax", type = "f32" },
+]

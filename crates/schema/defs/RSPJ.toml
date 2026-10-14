@@ -1,0 +1,137 @@
+# RSPJ: Research Project, an entry of the research lab: the items and perks it requires,
+# what it unlocks (CNAM), its category and the projects it depends on.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16936-L16963 - member order, the FVPA and RQPK
+#     element layouts and targets, CNAM/NNAM/SNAM/TNAM/KNAM and the RNAM list. Helpers: the
+#     base form component block (L5984-L6832, kept raw), FULL and DESC (L3184-L3188), the
+#     conditions (L4750-L4840, common/Condition.toml).
+#   corpus: the 82 RSPJ records (all in Starfield.esm, form version 581), 2026-10-14: order
+#     EDID FULL DESC BNAM FVPA [RQPK] CNAM NNAM SNAM TNAM KNAM RNAM*; FVPA and RQPK are
+#     multiples of 12 bytes (FVPA 36 to 108, RQPK 12 or 24), NNAM 2 bytes, TNAM 1 byte,
+#     the rest 4. No conditions and no component block occur. NNAM and TNAM are 0 in every
+#     record. Every record decodes and re-encodes identically.
+signature = "RSPJ"
+name = "ResearchProject"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16936-L16963"
+evidence = [
+  "corpus: the 82 RSPJ records of the 14 official ESMs (Starfield.esm), 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; none in the official RSPJ records"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads in the 14 official ESMs are 4 bytes",
+]
+
+[[member]]
+sig = "BNAM"
+name = "WorkbenchKeyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "without a CITC count; none in the official RSPJ records"
+
+[[member]]
+sig = "FVPA"
+name = "RequiredItems"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "Item", type = "formid", targets = ["ALCH", "AMMO", "ARMO", "BOOK", "COBJ", "IRES", "KEYM", "LIGH", "LVLI", "MISC", "WEAP"] },
+  { name = "Count", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "RQPK"
+name = "RequiredPerks"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "Perk", type = "formid", targets = ["PERK"] },
+  { name = "Rank", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "CNAM"
+name = "CreatedItem"
+type = "formid"
+card = "optional"
+note = "any form type upstream"
+
+[[member]]
+sig = "NNAM"
+name = "NumberCreated"
+type = "u16"
+card = "optional"
+note = "0 in every official record"
+
+[[member]]
+sig = "SNAM"
+name = "SortingPriority"
+type = "f32"
+card = "optional"
+
+[[member]]
+sig = "TNAM"
+name = "Tier"
+type = "u8"
+note = "0 to 5 upstream; 0 in every official record"
+
+[[member]]
+sig = "KNAM"
+name = "CategoryKeyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+sig = "RNAM"
+name = "RequiredResearch"
+type = "formid"
+targets = ["RSPJ"]
+card = "repeated"

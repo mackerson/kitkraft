@@ -1,0 +1,78 @@
+# Condition: one CTDA condition with its optional CIS1/CIS2 string parameters. Records
+# that carry conditions reference it as `group_ref = "Condition"` with `card = "repeated"`,
+# after their CITC condition count.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L4750-L4840 - the condition list: the CTDA field
+#     order and widths, the Run On enumeration, and the two optional string subrecords.
+#   corpus: the top-level CTDA payloads of the PCMT, PCBN and LVLP records in the 14
+#     official ESMs (2026-10-14 scan): all 504 are 32 bytes, the sum of the field widths
+#     below, and decode and re-encode identically through this group. CTDA inside component
+#     blocks (PCCN, PKIN, GBFM) is kept raw with its block.
+#
+# What stays opaque, and why: the comparison value, parameters 1 to 3 and the reference
+# are unions whose layout another field selects (the comparison value by a flag in the
+# type byte, the parameters by the function index, the reference by Run On); the format
+# cannot express a union decided by a sibling field, so each is kept as its 4 raw bytes
+# (lossless). Raw FormIDs inside them stay raw: the comparison value may be a GLOB, the
+# reference any placed reference, parameter 3 a KYWD (linked keyword), depending on the
+# selectors. The function index is kept as a number; its table (L149-L761) is not
+# transcribed.
+name = "Condition"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"
+evidence = [
+  "corpus: the 504 top-level CTDA in the PCMT, PCBN and LVLP records of the 14 official ESMs (2026-10-14): all 32 bytes, every record decodes and re-encodes identically through this group",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "CTDA"
+name = "Data"
+type = "struct"
+size = 32
+field = [
+  { name = "Type", type = "u8", note = "comparison operator and condition flags packed in one byte; the bit layout is a display callback upstream and is not transcribed" },
+  { name = "Unused1", type = "opaque", size = 3 },
+  { name = "ComparisonValue", type = "opaque", size = 4, note = "union: a float, or a GLOB FormID when the type byte says so" },
+  { name = "Function", type = "u16", note = "condition function index" },
+  { name = "Unused2", type = "opaque", size = 2 },
+  { name = "Parameter1", type = "opaque", size = 4, note = "union selected by the function" },
+  { name = "Parameter2", type = "opaque", size = 4, note = "union selected by the function" },
+  { name = "RunOn", type = "enum", base = "u32", values = [
+    ["Subject", 0],
+    ["Target", 1],
+    ["Reference", 2],
+    ["CombatTarget", 3],
+    ["LinkedReference", 4],
+    ["QuestAlias", 5],
+    ["PackageData", 6],
+    ["EventData", 7],
+    ["CommandTarget", 8],
+    ["EventCameraRef", 9],
+    ["MyKiller", 10],
+    ["SelfPackIn", 11],
+    ["TargetPackIn", 12],
+    ["MyShip", 13],
+    ["PlayerHomeShip", 14],
+    ["Player", 15],
+  ] },
+  { name = "Reference", type = "opaque", size = 4, note = "union: a placed-reference FormID when RunOn is Reference, otherwise unused" },
+  { name = "Parameter3", type = "opaque", size = 4, note = "union selected by the function: an integer, a linked keyword (KYWD) FormID, an alias or event-data code" },
+]
+
+[[member]]
+sig = "CIS1"
+name = "StringParameter1"
+type = "zstring"
+card = "optional"
+confidence = "reference"
+note = "not observed in the PCMT, PCBN and LVLP records"
+
+[[member]]
+sig = "CIS2"
+name = "StringParameter2"
+type = "zstring"
+card = "optional"
+confidence = "reference"
+note = "not observed in the PCMT, PCBN and LVLP records"

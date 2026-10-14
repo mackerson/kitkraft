@@ -1,0 +1,419 @@
+# BIOM: Biome, a planet surface type: its flora, resources (RSGD), procedural object
+# generation per terrain mask (which pack-ins, leveled pack-ins, containers or references
+# to scatter, and how densely), climate, water, density multipliers, colours, marker
+# keywords and the terrain textures and noise of each layer.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L10119-L10241 - member order and every layout:
+#     the mask groups (FNAM name, BNAM, GNAM objects, DNAM footprints), the swap lists,
+#     the water group, multipliers and links, colours, the biome type, the marker groups,
+#     the terrain entries (LNAM/ANAM and the six noise texture strings), TX16, BTPS, BDFS,
+#     EFSD and the three globals. Helpers: keywords (wbDefinitionsCommon.pas L8935-L8951,
+#     common/Keywords.toml), the mask names (L8362-L8380), the noise layer (L8382-L8394,
+#     common/BiomeNoiseLayer.toml), the BGRA colour (wbDefinitionsCommon.pas
+#     L7051-L7067, common/ColorBgra.toml), the boolean enumeration
+#     (wbDefinitionsCommon.pas L7514-L7521), FULL (L3184).
+#   corpus: the 434 BIOM records (Starfield.esm 431, ShatteredSpace 3; form versions 581,
+#     582), 2026-10-14: every record fits the order below (273 distinct sequences); GNAM 84
+#     bytes (50,172 occurrences), DNAM 16, LNAM/ANAM 12, BTPS 224, BDFS 44, colours 4,
+#     PNAM a multiple of 4. BNAM is 01 00 00 00 in all 1,757 masks. Every record decodes and
+#     re-encodes identically.
+#
+# Terrain entries are a list where each element is exactly one of LNAM, ANAM or a noise
+# texture string; modelling them as a repeated group of optional members (in that order)
+# reads every official sequence and writes it back unchanged.
+signature = "BIOM"
+name = "Biome"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10119-L10241"
+evidence = [
+  "corpus: the 434 BIOM records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "SNAM"
+name = "FilterString"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "PNAM"
+name = "Flora"
+type = "array"
+element = "formid"
+targets = ["FLOR"]
+count = "rest"
+card = "optional"
+
+[[member]]
+sig = "RNAM"
+name = "ResourceGeneration"
+type = "formid"
+targets = ["RSGD"]
+card = "repeated"
+
+[[member]]
+group = "Mask"
+card = "repeated"
+note = "procedural object generation for one terrain mask; observed up to 5 per record"
+
+[[member.member]]
+sig = "FNAM"
+name = "MaskName"
+type = "zstring"
+note = "one of Base, Solid, FlatOuter, FlatInner, Talus, Flow, Path"
+
+[[member.member]]
+sig = "BNAM"
+name = "Bnam"
+type = "opaque"
+size = 4
+note = "unnamed upstream; 01 00 00 00 in every official mask"
+
+[[member.member]]
+sig = "GNAM"
+name = "Objects"
+type = "struct"
+size = 84
+card = "repeated"
+note = "one object to scatter; only the object, three floats and the density are identified upstream, the rest stay raw"
+field = [
+  { name = "Object", type = "formid", targets = ["CONT", "LVLP", "PKIN", "REFR"] },
+  { name = "Data1", type = "opaque", size = 4 },
+  { name = "Data2", type = "opaque", size = 4 },
+  { name = "Data3", type = "opaque", size = 4 },
+  { name = "Data4", type = "opaque", size = 4 },
+  { name = "Float5", type = "f32" },
+  { name = "Data6", type = "opaque", size = 4 },
+  { name = "Data7", type = "opaque", size = 4 },
+  { name = "Data8", type = "opaque", size = 4 },
+  { name = "Data9", type = "opaque", size = 4 },
+  { name = "Data10", type = "opaque", size = 4 },
+  { name = "Data11", type = "opaque", size = 4 },
+  { name = "Data12", type = "opaque", size = 4 },
+  { name = "Float13", type = "f32" },
+  { name = "Data14", type = "opaque", size = 4 },
+  { name = "ObjectDensity", type = "f32" },
+  { name = "Float16", type = "f32" },
+  { name = "Data17", type = "opaque", size = 4 },
+  { name = "Data18", type = "opaque", size = 4 },
+  { name = "Data19", type = "opaque", size = 4 },
+  { name = "Data20", type = "opaque", size = 4 },
+]
+
+[[member.member]]
+sig = "DNAM"
+name = "Footprints"
+type = "struct"
+size = 16
+field = [
+  { name = "Giant", type = "f32" },
+  { name = "Large", type = "f32" },
+  { name = "Medium", type = "f32" },
+  { name = "Small", type = "f32" },
+]
+
+[[member]]
+sig = "ONAM"
+name = "ObjectSwaps"
+type = "formid"
+targets = ["OSWP"]
+card = "repeated"
+
+[[member]]
+sig = "NAM1"
+name = "MaterialSwaps"
+type = "formid"
+targets = ["LMSW"]
+card = "repeated"
+
+[[member]]
+sig = "ENAM"
+name = "Climate"
+type = "formid"
+targets = ["CLMT"]
+card = "optional"
+
+[[member]]
+group = "Water"
+note = "required upstream; present in every official record"
+
+[[member.member]]
+sig = "MNAM"
+name = "HasWater"
+type = "enum"
+base = "u8"
+values = [["False", 0], ["True", 1]]
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"]
+
+[[member.member]]
+sig = "INAM"
+name = "Water"
+type = "formid"
+targets = ["WATR"]
+card = "optional"
+
+[[member.member]]
+sig = "JNAM"
+name = "WaterMaterial"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "WNAM"
+name = "BlockDensityMult"
+type = "f32"
+
+[[member]]
+sig = "YNAM"
+name = "CellDensityMult"
+type = "f32"
+
+[[member]]
+sig = "UNAM"
+name = "ScanWorldspaceMult"
+type = "f32"
+
+[[member]]
+sig = "ZNAM"
+name = "Child"
+type = "formid"
+targets = ["BIOM"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official records"
+
+[[member]]
+sig = "BIAS"
+name = "AmbienceSet"
+type = "formid"
+targets = ["AMBS"]
+card = "optional"
+
+[[member]]
+sig = "BIMT"
+name = "MusicType"
+type = "formid"
+targets = ["MUSC"]
+card = "optional"
+
+[[member]]
+sig = "NAM0"
+name = "TimeOfDayData"
+type = "formid"
+targets = ["TODD"]
+card = "optional"
+
+[[member]]
+sig = "NNAM"
+name = "PatternStyle"
+type = "formid"
+targets = ["PTST"]
+card = "optional"
+
+[[member]]
+sig = "CNAM"
+name = "Color"
+type = "ref:ColorBgra"
+
+[[member]]
+sig = "BMC1"
+name = "SurfaceColor1"
+type = "ref:ColorBgra"
+
+[[member]]
+sig = "BMC2"
+name = "SurfaceColor2"
+type = "ref:ColorBgra"
+
+[[member]]
+sig = "BMC3"
+name = "RockTint"
+type = "ref:ColorBgra"
+
+[[member]]
+sig = "TNAM"
+name = "BiomeType"
+type = "enum"
+base = "u32"
+values = [
+  ["Default", 0],
+  ["Ocean", 1],
+  ["Polar", 2],
+  ["Mountain", 3],
+  ["Swamp", 4],
+  ["Archipelago", 5],
+  ["GasGiant", 6],
+]
+
+[[member]]
+group = "Marker"
+card = "repeated"
+note = "a marker type keyword with the keywords that mark it; observed up to 8 per record"
+
+[[member.member]]
+sig = "KNAM"
+name = "MarkerType"
+type = "formid"
+targets = ["KYWD"]
+
+[[member.member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+group = "Terrain"
+card = "repeated"
+note = "terrain data entries; each upstream element is one of these subrecords"
+
+[[member.member]]
+sig = "LNAM"
+name = "MainData"
+type = "struct"
+size = 12
+card = "optional"
+field = [
+  { name = "Mask", type = "enum", base = "u32", values = [["Base", 0], ["Solid", 1], ["FlatOuter", 2], ["FlatInner", 3], ["Talus", 4], ["Flow", 5], ["Path", 6]] },
+  { name = "LandTexture", type = "formid", targets = ["LTEX"] },
+  { name = "GroundCover", type = "formid", targets = ["GCVR"] },
+]
+
+[[member.member]]
+sig = "ANAM"
+name = "AlternateData"
+type = "struct"
+size = 12
+card = "optional"
+field = [
+  { name = "Mask", type = "enum", base = "u32", values = [["Base", 0], ["Solid", 1], ["FlatOuter", 2], ["FlatInner", 3], ["Talus", 4], ["Flow", 5], ["Path", 6]] },
+  { name = "LandTexture", type = "formid", targets = ["LTEX"] },
+  { name = "GroundCover", type = "formid", targets = ["GCVR"] },
+]
+
+[[member.member]]
+sig = "TX00"
+name = "BaseNoiseTexture"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "UX00"
+name = "FlowNoiseTexture"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "VX00"
+name = "FlatOuterNoiseTexture"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "WX00"
+name = "FlatInnerNoiseTexture"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "XX00"
+name = "TalusNoiseTexture"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "YX00"
+name = "SolidNoiseTexture"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "TX16"
+name = "GroundLayerNormal"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "BTPS"
+name = "TerrainNoise"
+type = "struct"
+size = 224
+field = [
+  { name = "Base", type = "ref:BiomeNoiseLayer" },
+  { name = "Flow", type = "ref:BiomeNoiseLayer" },
+  { name = "FlatOuter", type = "ref:BiomeNoiseLayer" },
+  { name = "FlatInner", type = "ref:BiomeNoiseLayer" },
+  { name = "Talus", type = "ref:BiomeNoiseLayer" },
+  { name = "Solid", type = "ref:BiomeNoiseLayer" },
+  { name = "Path", type = "ref:BiomeNoiseLayer", note = "upstream marks this layer's name as uncertain" },
+]
+
+[[member]]
+sig = "BDFS"
+name = "DistantView"
+type = "struct"
+size = 44
+field = [
+  { name = "TextureOffsetU", type = "f32" },
+  { name = "TextureOffsetV", type = "f32" },
+  { name = "TextureScaleU", type = "f32" },
+  { name = "TextureScaleV", type = "f32" },
+  { name = "Float5", type = "f32" },
+  { name = "Float6", type = "f32" },
+  { name = "Float7", type = "f32" },
+  { name = "Float8", type = "f32" },
+  { name = "NormalStrength", type = "f32" },
+  { name = "SlopeStart", type = "f32" },
+  { name = "SlopeRange", type = "f32" },
+]
+
+[[member]]
+sig = "EFSD"
+name = "GlobalLayerMaterial"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "NAM2"
+name = "BlockDensityMultGlobal"
+type = "formid"
+targets = ["GLOB"]
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "NAM3"
+name = "CellDensityMultGlobal"
+type = "formid"
+targets = ["GLOB"]
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "NAM4"
+name = "ScanWorldspaceMultGlobal"
+type = "formid"
+targets = ["GLOB"]
+note = "a null FormID is allowed"

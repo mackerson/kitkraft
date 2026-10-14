@@ -1,0 +1,169 @@
+# SFBK: Surface Block, one tile of procedurally generated planet terrain: its height data
+# file, footprint, height range, edge connections, rarity, alignment settings and source.
+# Surface patterns (SFPT) arrange blocks in 16 x 16 grids.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17525-L17591 - member order and every layout:
+#     ANAM data file, DNAM size, ENAM height, FNAM connections (signed 16-bit list), GNAM
+#     rarity, the placement group (HNAM, INAM, JNAM, KNAM) with its enumerations, WHGT,
+#     NAM0..NAM5. Helper: the base form component block (L5984-L6832, kept raw).
+#   corpus: the 1,877 SFBK records (Starfield.esm 1,753, SFBGS00D 56, ShatteredSpace 47,
+#     SFBGS050 21; form versions 581, 582), 2026-10-14: order [EDID] [BFCB block] [ANAM]
+#     DNAM ENAM [FNAM] GNAM HNAM INAM JNAM KNAM WHGT [NAM0] [NAM1] NAM2 NAM3 NAM4 NAM5; DNAM,
+#     ENAM, NAM2..NAM4 8 bytes, FNAM an even size (18 to 1,352), GNAM/INAM/JNAM/KNAM 1 byte,
+#     HNAM 2, WHGT and NAM5 4. Every record decodes and re-encodes identically. GNAM is 0
+#     (common) in every record.
+signature = "SFBK"
+name = "SurfaceBlock"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17525-L17591"
+evidence = [
+  "corpus: the 1,877 SFBK records of the 14 official ESMs, 2026-10-14 scan; every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "absent from 3 official records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed: BGSBlockEditorMetaData_Component, BGSBlockCellHeighGrid_Component, BGSOverlayDesignatedPlacementInfo_Component"
+
+[[member]]
+sig = "ANAM"
+name = "DataFile"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "DNAM"
+name = "Size"
+type = "struct"
+size = 8
+field = [
+  { name = "X", type = "u32" },
+  { name = "Y", type = "u32" },
+]
+
+[[member]]
+sig = "ENAM"
+name = "Height"
+type = "struct"
+size = 8
+field = [
+  { name = "Min", type = "f32" },
+  { name = "Max", type = "f32" },
+]
+
+[[member]]
+sig = "FNAM"
+name = "Connections"
+type = "array"
+element = "i16"
+count = "rest"
+card = "optional"
+note = "the elements are unnamed upstream"
+
+[[member]]
+sig = "GNAM"
+name = "Rarity"
+type = "enum"
+base = "u8"
+values = [["Common", 0], ["Uncommon", 1], ["Rare", 2]]
+
+[[member]]
+group = "Placement"
+note = "required upstream; present in every official record"
+
+[[member.member]]
+sig = "HNAM"
+name = "ManualAlignmentValue"
+type = "i16"
+
+[[member.member]]
+sig = "INAM"
+name = "ManualAlignmentMode"
+type = "enum"
+base = "u8"
+values = [["Relative", 0], ["Absolute", 1]]
+
+[[member.member]]
+sig = "JNAM"
+name = "GridAlignmentOverride"
+type = "enum"
+base = "u8"
+card = "optional"
+values = [["Default", 0], ["Min", 1], ["Max", 2], ["Average", 3], ["Median", 4], ["Percent", 5]]
+note = "Default follows the game's INI setting (median upstream)"
+
+[[member.member]]
+sig = "KNAM"
+name = "GridSamplingOverride"
+type = "enum"
+base = "u8"
+values = [["Default", 0], ["Legacy", 1], ["Full", 2], ["Borders", 3], ["Corners", 4]]
+note = "Default follows the game's INI setting (borders upstream)"
+
+[[member]]
+sig = "WHGT"
+name = "WaterHeight"
+type = "f32"
+
+[[member]]
+sig = "NAM0"
+name = "SourceFile"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "NAM1"
+name = "Nam1"
+type = "zstring"
+card = "optional"
+note = "a string upstream leaves unnamed; observed values are a block kind (OverlayBlock) or a source name"
+
+[[member]]
+sig = "NAM2"
+name = "CellMin"
+type = "struct"
+size = 8
+field = [
+  { name = "X", type = "i32" },
+  { name = "Y", type = "i32" },
+]
+
+[[member]]
+sig = "NAM3"
+name = "CellMax"
+type = "struct"
+size = 8
+field = [
+  { name = "X", type = "i32" },
+  { name = "Y", type = "i32" },
+]
+
+[[member]]
+sig = "NAM4"
+name = "HeightRange"
+type = "struct"
+size = 8
+field = [
+  { name = "Min", type = "f32" },
+  { name = "Max", type = "f32" },
+]
+
+[[member]]
+sig = "NAM5"
+name = "SourceBlock"
+type = "formid"
+targets = ["SFBK"]
+note = "a null FormID is allowed upstream"
