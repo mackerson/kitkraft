@@ -78,7 +78,7 @@ pub const RULES: &[RuleInfo] = &[
         id: "masters.missing",
         severity: Severity::Error,
         input: Input::Plugin,
-        summary: "A master the plugin lists is not in the load order, next to the plugin, or in data_dir",
+        summary: "A master the plugin lists is not in the load order, next to the plugin, or in data_dir (default KITCRAFT_DATA_DIR)",
     },
     RuleInfo {
         id: "masters.order",
@@ -469,7 +469,7 @@ fn validate_plugin(
                     None,
                     Some("MAST".into()),
                     None,
-                    format!("master {m} was not found (load order, next to the plugin, data_dir)"),
+                    format!("master {m} was not found (load order, next to the plugin, data_dir or KITCRAFT_DATA_DIR)"),
                 ));
             }
         }

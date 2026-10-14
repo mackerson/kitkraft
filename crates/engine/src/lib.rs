@@ -13,7 +13,7 @@
 //!
 //! An [`Engine`] owns a [`Session`] (the loaded load order and caches) that
 //! [`SessionHandler`]s read and change; the free [`execute`] runs on a fresh session.
-//! Undo and validation rules land in M2 and later (see `plan/execution-plan.md`).
+//! Undo lands after M2 (see `plan/execution-plan.md`).
 //!
 //! LAYER: L4
 
@@ -38,7 +38,7 @@ pub use session::Session;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
     /// Listed so every front end agrees on the name and arguments; not callable yet.
-    /// Allowed only while a milestone task owns it (see the `catalog_closure` test).
+    /// None at M2 exit: the `catalog_closure` test fails on one (M2.F8).
     Planned,
     /// Callable from every front end.
     Implemented,
@@ -114,7 +114,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("Ctrl+O"),
         aliases: &["open"],
         summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
-        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir (default: the MO2 instance's gamePath + Data)"},"language":{"type":"string","description":"String-table language, default en (tables are not loaded yet)"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir for plugin names (default KITCRAFT_DATA_DIR; for a profile: the MO2 instance's gamePath + Data, then KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for localized lstrings (FULL, DESC), default en"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -124,7 +124,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("Enter"),
         aliases: &["show"],
         summary: "One record across the load order (every override, the winner, lstrings) or in one plugin: header fields and subrecords with offsets",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, hex FormID (as stored in `plugin`, or a runtime ID), or EditorID"},"plugin":{"type":"string","description":"Single-plugin mode: the plugin file to search. With a load order: the plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, hex FormID (as stored in `plugin`; bare hex needs `plugin`), runtime:<hex> (a runtime ID), or EditorID"},"plugin":{"type":"string","description":"Single-plugin mode: the plugin file to search. With a load order: the plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -134,7 +134,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("Ctrl+F"),
         aliases: &["find"],
         summary: "Records of one type matching a where predicate across the load order (winner or all versions), paged",
-        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string","description":"Predicate, e.g. FULL ~ \"Rifle\" and not has KWDA (docs/mcp.md, query)"},"scope":{"type":"string","enum":["winner","all"],"default":"winner","description":"winner: the winning version of each form; all: every version"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string","description":"Predicate, e.g. FULL ~ \"Rifle\" and not has KWDA (docs/mcp.md, query)"},"scope":{"type":"string","enum":["winner","all"],"default":"winner","description":"winner: the winning version of each form; all: every version"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -144,7 +144,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Write field values on the winning version of a record into a patch plugin (non-localized; FULL=\"...\" shorthand)",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"fields":{"type":"object","description":"Field path -> value: FULL, DNAM.Member, FULL[1]; numbers or text; {\"mul\": x} / {\"add\": x}; hex:0A0B for opaque payloads"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp; never a load-order plugin, the game Data dir or MO2)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"}},"required":["form","fields","into"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"fields":{"type":"object","description":"Field path -> value: FULL, DNAM.Member, FULL[1]; numbers or text; {\"mul\": x} / {\"add\": x}; hex:0A0B for opaque payloads"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp; never a load-order plugin, the game Data dir or MO2)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"}},"required":["form","fields","into"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -154,7 +154,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &[],
         summary: "Record-level diff of two plugins: FormIDs matched through each file's masters by name; added, removed, changed records with per-subrecord byte ranges",
-        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory (default KITCRAFT_DATA_DIR)"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -164,7 +164,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: None,
         aliases: &["esmscan"],
         summary: "Records plugins override from a master (port of esmscan.py): per-plugin counts by type, and each override classed against the version before it",
-        args_schema: r#"{"type":"object","properties":{"master":{"type":"string","description":"Only forms this plugin defines"},"plugin":{"type":"string","description":"Only overrides by this plugin"},"type":{"type":"string","minLength":4,"maxLength":4,"description":"Only this record type"},"only_conflicts":{"type":"boolean","default":false,"description":"Only forms two or more plugins override"},"count_classes":{"type":"boolean","default":false,"description":"Class every matching form, not just this page"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"master":{"type":"string","description":"Only forms this plugin defines"},"plugin":{"type":"string","description":"Only overrides by this plugin"},"type":{"type":"string","minLength":4,"maxLength":4,"description":"Only this record type"},"only_conflicts":{"type":"boolean","default":false,"description":"Only forms two or more plugins override"},"count_classes":{"type":"boolean","default":false,"description":"Class every matching form, not just this page"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -174,7 +174,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("Ctrl+B"),
         aliases: &[],
         summary: "Compile a data-driven patch spec (TOML: [[set]] and [[rule]] entries) into one fresh plugin, validated",
-        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -184,7 +184,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("F7"),
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
-        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir: plugin names resolve here, and masters are searched here after the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or directories to scan"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir (default KITCRAFT_DATA_DIR): a bare plugin name resolves here, and masters are searched here after the load order and the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -205,6 +205,16 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Record types and subrecords in a plugin vs what the schema defines (typed, opaque, unknown)",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"},"signatures":{"type":"boolean","description":"List each record type's subrecord signatures (record_types[].signatures; null when false). Omitted: true from kit, false over MCP"},"top":{"type":"integer","minimum":0,"description":"List only the N record types with the most records; the totals still cover every type. Omitted: all from kit, 20 over MCP"}},"required":["plugin"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "schema",
+        label: "Record Schema",
+        menu_path: "Help/Record Schema",
+        shortcut: None,
+        aliases: &["defs"],
+        summary: "What the record schema defines for a type: members with type, source citation and confidence (top level; --deep for nested); without --type, every definition with per-confidence counts",
+        args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (WEAP) or header (GRUP); omit to list every definition"},"member":{"type":"string","description":"Only this member (name or signature; also one inside a group), shown deep"},"deep":{"type":"boolean","default":false,"description":"Expand group members, struct fields, enum and flag names and union variants, and list evidence citations"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -311,28 +321,9 @@ mod tests {
         assert!(find_command("nope").is_none());
     }
 
-    /// Commands still `Planned` during M2, each with the M2 task that implements it (or
-    /// defers it). M2.F8: at M2 exit this list is empty and every command is
-    /// `Implemented` or `Deferred`. Lanes remove their entry when they flip the status;
-    /// a stale entry (already implemented) is reported by `catalog_closure_list_is_current`.
-    const PLANNED_IN_M2: &[(&str, &str)] = &[
-        ("load", "M2.D8"),
-        ("query", "M2.D11"),
-        ("set", "M2.E5"),
-        ("diff", "M2.D12"),
-        ("build", "M2.E9"),
-        ("validate", "M2.E6"),
-        ("ba2.list", "M2.G4"),
-        ("ba2.extract", "M2.G4"),
-        ("ba2.pack", "M2.G4"),
-        ("papyrus.disasm", "M2.G6"),
-        ("papyrus.compile", "M2.G7"),
-        ("strings.dump", "M2.G9"),
-        ("strings.merge", "M2.G9"),
-    ];
-
-    /// M2.F8: every command is `Implemented`, `Deferred` with a reason and a milestone,
-    /// or `Planned` under a named M2 task.
+    /// M2.F8 (M2 exit): every command is `Implemented`, or `Deferred` with a reason and a
+    /// milestone. Nothing is `Planned` any more: a command that does only part of its job
+    /// is `Implemented` and says what it does not do in `limitations[]`.
     #[test]
     fn catalog_closure() {
         for spec in catalog() {
@@ -346,33 +337,11 @@ mod tests {
                         spec.id
                     );
                 }
-                Status::Planned => assert!(
-                    PLANNED_IN_M2.iter().any(|(id, _)| *id == spec.id),
-                    "{} is Planned but no M2 task owns it: implement it, defer it with \
-                     Status::Deferred {{ reason, milestone }}, or add it to PLANNED_IN_M2",
+                Status::Planned => panic!(
+                    "{} is Planned at M2 exit: implement it (stating what it does not do in \
+                     limitations[]) or defer it with Status::Deferred {{ reason, milestone }}",
                     spec.id
                 ),
-            }
-        }
-    }
-
-    /// Entries of [`PLANNED_IN_M2`] name catalog commands. An entry whose command is no
-    /// longer `Planned` is only printed, so the lane that flips a status does not have
-    /// to edit this file in the same commit; lane F prunes the list.
-    #[test]
-    fn catalog_closure_list_is_current() {
-        for (id, task) in PLANNED_IN_M2 {
-            let spec = find_command(id).unwrap_or_else(|| panic!("{id} ({task}) not in catalog"));
-            assert_eq!(spec.id, *id, "{id}: use the canonical id, not an alias");
-            assert!(
-                task.starts_with("M2."),
-                "{id}: task `{task}` is not an M2 task"
-            );
-            if spec.status != Status::Planned {
-                println!(
-                    "PLANNED_IN_M2 entry {id} ({task}) is stale: status is {}",
-                    spec.status.label()
-                );
             }
         }
     }

@@ -3,7 +3,9 @@
 - Status: Accepted (license pending owner confirmation, see "Open" below)
 - Date: 2026-10-14
 - Amended: 2026-10-14 by Amendment 1 below (ADR 0004 decided: xEdit's MPL definitions
-  are a permitted reference; §2 and the xEdit item of §3 are superseded)
+  are a permitted reference; §2 and the xEdit item of §3 are superseded); Amendment 1's
+  coverage sentence updated the same day for ADR 0004's owner approval (both xEdit
+  definition files, same SHA)
 
 ## Context
 
@@ -83,8 +85,11 @@ definitions. The clean-room rule now reads:
    ADR 0004 says otherwise" in §3), under ADR 0004's constraints: source material only;
    no coupling of our code to Pascal; no reproduction of xEdit's architecture; no code or
    comments copied; definitions written independently in our TOML with per-definition
-   provenance (`xedit:` citations) and `confidence`. Only `wbDefinitionsSF1.pas` is
-   covered; other xEdit files need an owner decision.
+   provenance (`xedit:` citations) and `confidence`. Covered: `wbDefinitionsSF1.pas` and
+   (owner approval 2026-10-14, recorded in ADR 0004 "Owner approval 2026-10-14")
+   `wbDefinitionsCommon.pas`, both at the same pinned SHA; another upstream helper file
+   needs only a documented dependency under the same rules, and a file with a materially
+   different license or source category goes to the owner.
 4. **GPL stays forbidden.** Reading Mutagen, Spriggit, or any GPL/LGPL/AGPL code that
    handles Bethesda formats is still forbidden (§3 unchanged), as is using Spriggit's
    field names or key structure (§4 unchanged).

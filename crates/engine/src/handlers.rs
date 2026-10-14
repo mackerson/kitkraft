@@ -16,6 +16,7 @@ mod load;
 mod papyrus;
 mod query;
 mod roundtrip;
+mod schema;
 mod set;
 #[cfg(test)]
 mod set_tests;
@@ -24,15 +25,34 @@ mod strings;
 pub(crate) mod testdata;
 mod validate;
 
-use std::path::Path;
+use std::ffi::OsString;
+use std::path::{Path, PathBuf};
 
 use crate::exec::{CommandHandler, EngineError, SessionHandler};
+
+/// Names the game Data dir when a command is not given `data_dir` (`docs/corpus.md`).
+pub(crate) const DATA_DIR_ENV: &str = "KITCRAFT_DATA_DIR";
+
+/// The `data_dir` argument, else `KITCRAFT_DATA_DIR` when it is set and not empty.
+fn data_dir(args: &serde_json::Value) -> Option<PathBuf> {
+    data_dir_or(args, std::env::var_os(DATA_DIR_ENV))
+}
+
+/// [`data_dir`] with the environment value passed in (testable without the process
+/// environment).
+fn data_dir_or(args: &serde_json::Value, env: Option<OsString>) -> Option<PathBuf> {
+    args.get("data_dir")
+        .and_then(serde_json::Value::as_str)
+        .map(PathBuf::from)
+        .or_else(|| env.filter(|d| !d.is_empty()).map(PathBuf::from))
+}
 
 /// Stateless handlers registered by [`crate::Engine::with_default_handlers`].
 pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
     vec![
         ("roundtrip", Box::new(roundtrip::run)),
         ("coverage", Box::new(coverage::run)),
+        ("schema", Box::new(schema::run)),
         ("diff", Box::new(diff::run)),
         ("ba2.list", Box::new(ba2::list)),
         ("ba2.extract", Box::new(ba2::extract)),
@@ -84,4 +104,27 @@ fn file_name(path: &Path) -> String {
         || path.display().to_string(),
         |n| n.to_string_lossy().into_owned(),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::data_dir_or;
+    use serde_json::json;
+    use std::ffi::OsString;
+    use std::path::PathBuf;
+
+    #[test]
+    fn data_dir_argument_wins_then_the_environment() {
+        let env = || Some(OsString::from(r"C:\Game\Data"));
+        assert_eq!(
+            data_dir_or(&json!({"data_dir": r"D:\Other"}), env()),
+            Some(PathBuf::from(r"D:\Other"))
+        );
+        assert_eq!(
+            data_dir_or(&json!({}), env()),
+            Some(PathBuf::from(r"C:\Game\Data"))
+        );
+        assert_eq!(data_dir_or(&json!({}), Some(OsString::new())), None);
+        assert_eq!(data_dir_or(&json!({}), None), None);
+    }
 }

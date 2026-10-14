@@ -21,10 +21,45 @@
 //! **Assumption `full-style-self`**: a small or medium file may also store its own records
 //! in the full class, with the index equal to its number of full masters (Ortham's article
 //! gives a medium plugin's new record stored `02051808`). No official file does this; many
-//! third-party small and medium plugins do. [`MasterMap::resolve_detailed`] says when a
-//! FormID resolved this way, and callers report it.
+//! third-party small and medium plugins do. The object ID is the stored 24 bits masked to the
+//! file's own scale (Ortham's `02051808` appears in game as `FD011808`: object `1808`, the
+//! `05` above the medium width dropped). [`MasterMap::resolve_detailed`] says when a FormID
+//! resolved this way ([`Basis`]), including when the mask dropped set bits, and callers
+//! report it.
+//!
+//! The raw FormID `00000000` is the null reference, never a form: it does not resolve
+//! ([`ResolveError::Null`]), and a formref with object ID 0 does not parse.
 
 use crate::flags::Scale;
+
+/// How a raw FormID resolved: directly, or by a named assumption.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Default)]
+pub enum Basis {
+    /// By the class index (Ortham's encoding, confirmed on the corpus).
+    #[default]
+    Direct,
+    /// A small or medium file's own record stored in the full class (`full-style-self`).
+    FullStyleSelf,
+    /// As [`Basis::FullStyleSelf`], and the stored object ID had bits above the file's
+    /// scale width, which the mask dropped (Ortham's `02051808` -> `FD011808` shape).
+    FullStyleSelfMasked,
+}
+
+impl Basis {
+    /// `direct`, `assumed:full-style-self` or `assumed:full-style-self-masked`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Basis::Direct => "direct",
+            Basis::FullStyleSelf => "assumed:full-style-self",
+            Basis::FullStyleSelfMasked => "assumed:full-style-self-masked",
+        }
+    }
+
+    /// Whether an assumption was needed.
+    pub fn assumed(self) -> bool {
+        self != Basis::Direct
+    }
+}
 
 /// A resolved identity: the plugin that defines the form (its load-order index) and the
 /// object ID within that plugin.
@@ -116,10 +151,34 @@ pub enum ResolveError {
         /// The first missing master.
         master: String,
     },
+    /// A master is in the load order but its file failed to load, so its scale is unknown.
+    #[error("master `{master}` of `{plugin}` failed to load ({reason}): its scale is unknown, so FormIDs of `{plugin}` cannot be resolved")]
+    MasterNotLoaded {
+        /// The file whose FormID was resolved.
+        plugin: String,
+        /// The first master that failed to load.
+        master: String,
+        /// Why it failed.
+        reason: String,
+    },
+    /// The file itself failed to load (or there is no plugin at that index).
+    #[error("`{plugin}` is not loaded ({reason})")]
+    PluginNotLoaded {
+        /// The plugin.
+        plugin: String,
+        /// Why.
+        reason: String,
+    },
     /// A master (or the file itself) sets both scale bits.
     #[error("`{plugin}` sets both the small and the medium flag; no scale is known for that")]
     BadScale {
         /// The plugin with the conflicting bits.
+        plugin: String,
+    },
+    /// `00000000`: the null reference, not a form.
+    #[error("FormID 00000000 in `{plugin}` is the null reference, not a form")]
+    Null {
+        /// The file.
         plugin: String,
     },
     /// The index is past the masters of its class and is not the file itself.
@@ -198,9 +257,16 @@ impl MasterMap {
         self.resolve_detailed(raw).map(|(g, _)| g)
     }
 
-    /// As [`MasterMap::resolve`], also saying whether the `full-style-self` assumption was
-    /// needed (a small or medium file's own record stored in the full class).
-    pub fn resolve_detailed(&self, raw: u32) -> Result<(GlobalForm, bool), ResolveError> {
+    /// As [`MasterMap::resolve`], also saying how: directly, or by the `full-style-self`
+    /// assumption (a small or medium file's own record stored in the full class, its object
+    /// ID masked to the file's scale width; [`Basis::FullStyleSelfMasked`] when the mask
+    /// dropped set bits).
+    pub fn resolve_detailed(&self, raw: u32) -> Result<(GlobalForm, Basis), ResolveError> {
+        if raw == 0 {
+            return Err(ResolveError::Null {
+                plugin: self.plugin_name.clone(),
+            });
+        }
         let r = RawRef::decode(raw);
         let list = self.class(r.class);
         let index = usize::from(r.index);
@@ -210,16 +276,31 @@ impl MasterMap {
                     plugin,
                     object_id: r.object_id,
                 },
-                false,
+                Basis::Direct,
             ));
         }
-        if index == list.len() && (r.class == self.own_scale || r.class == Scale::Full) {
+        if index == list.len() && r.class == self.own_scale {
             return Ok((
                 GlobalForm {
                     plugin: self.own_index,
                     object_id: r.object_id,
                 },
-                r.class != self.own_scale,
+                Basis::Direct,
+            ));
+        }
+        if index == list.len() && r.class == Scale::Full {
+            let object_id = r.object_id & self.own_scale.max_object_id();
+            let basis = if object_id == r.object_id {
+                Basis::FullStyleSelf
+            } else {
+                Basis::FullStyleSelfMasked
+            };
+            return Ok((
+                GlobalForm {
+                    plugin: self.own_index,
+                    object_id,
+                },
+                basis,
             ));
         }
         Err(ResolveError::IndexOutOfRange {
@@ -334,7 +415,8 @@ pub struct FormRef {
 
 impl FormRef {
     /// Parse `Plugin.esm:0001A2B3`. The hex part is 1-8 digits; with 7 or 8 digits the
-    /// digits above the low 24 bits must be zero (the plugin name says which file).
+    /// digits above the low 24 bits must be zero (the plugin name says which file). Object
+    /// ID 0 is refused: `00000000` is the null reference, not a form of any plugin.
     pub fn parse(text: &str) -> Option<FormRef> {
         let (plugin, hex) = text.rsplit_once(':')?;
         let lower = plugin.to_ascii_lowercase();
@@ -351,7 +433,7 @@ impl FormRef {
             return None;
         }
         let value = u32::from_str_radix(digits, 16).ok()?;
-        if value > 0x00FF_FFFF {
+        if value == 0 || value > 0x00FF_FFFF {
             return None;
         }
         Some(FormRef {
@@ -445,16 +527,77 @@ mod tests {
                     plugin: 7,
                     object_id: 1
                 },
-                true
+                Basis::FullStyleSelf
             ))
         );
-        assert_eq!(map.resolve_detailed(0xFE00_1013).map(|(_, a)| a), Ok(false));
+        assert_eq!(
+            map.resolve_detailed(0xFE00_1013).map(|(_, a)| a),
+            Ok(Basis::Direct)
+        );
         assert!(matches!(
             map.resolve(0x0300_0001),
             Err(ResolveError::IndexOutOfRange { count: 2, .. })
         ));
         assert!(map.resolve(0xFD00_0001).is_err());
         assert!(map.resolve(0xFE00_2001).is_err());
+    }
+
+    /// Ortham's shape: a medium file's own record stored in the full class keeps only the
+    /// medium width of its object ID (`02051808` appears as `FD011808`).
+    #[test]
+    fn full_style_self_masks_to_the_own_scale() {
+        // Medium file, one full master (index 0): its full-style self index is 1.
+        let map = MasterMap::new("Medium.esm", 4, Scale::Medium, &[(0, Scale::Full)]);
+        assert_eq!(
+            map.resolve_detailed(0x0101_2345),
+            Ok((
+                GlobalForm {
+                    plugin: 4,
+                    object_id: 0x2345
+                },
+                Basis::FullStyleSelfMasked
+            ))
+        );
+        // Within the width: not masked, still assumed.
+        assert_eq!(
+            map.resolve_detailed(0x0100_2345).map(|(_, b)| b),
+            Ok(Basis::FullStyleSelf)
+        );
+        // The same object in the file's own class: direct.
+        assert_eq!(
+            map.resolve_detailed(0xFD00_2345),
+            Ok((
+                GlobalForm {
+                    plugin: 4,
+                    object_id: 0x2345
+                },
+                Basis::Direct
+            ))
+        );
+        // A small file masks to 12 bits.
+        let small = MasterMap::new("Small.esm", 2, Scale::Small, &[(0, Scale::Full)]);
+        assert_eq!(
+            small
+                .resolve_detailed(0x0100_1ABC)
+                .map(|(g, b)| (g.object_id, b)),
+            Ok((0xABC, Basis::FullStyleSelfMasked))
+        );
+        assert!(Basis::FullStyleSelfMasked.assumed() && !Basis::Direct.assumed());
+    }
+
+    #[test]
+    fn the_null_formid_never_resolves() {
+        let map = sfbgs047_like();
+        assert_eq!(
+            map.resolve(0),
+            Err(ResolveError::Null {
+                plugin: "SFBGS047.esm".into()
+            })
+        );
+        // Object 0 of a master is not the null reference.
+        assert_eq!(map.resolve(0x0100_0000).map(|g| g.plugin), Ok(5));
+        assert_eq!(FormRef::parse("Starfield.esm:000000"), None);
+        assert_eq!(FormRef::parse("Starfield.esm:0"), None);
     }
 
     #[test]

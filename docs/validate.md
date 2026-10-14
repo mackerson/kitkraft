@@ -15,8 +15,10 @@ error is on a record it wrote (or on the plugin as a whole), and reports errors 
 it did not write as a limitation. Their results carry the run as `data.validate`.
 
 Masters are found in the named or session load order, next to the plugin, then in
-`data_dir` (case-insensitive file names). Their headers give flags (localized, scale);
-their record indexes are built when `formid.dangling` or `override.stripped-name` runs.
+`data_dir`, which defaults to `KITCRAFT_DATA_DIR` (case-insensitive file names). Their
+headers give flags (localized, scale); their record indexes are built when
+`formid.dangling` or `override.stripped-name` runs. The MCP resource
+`kitcraft://validate-rules` serves the rule list below as JSON.
 
 ## Rules
 

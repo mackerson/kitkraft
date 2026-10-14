@@ -233,7 +233,10 @@ pub(crate) fn run(root: &Path) -> Result<()> {
     let defined = kitcraft_schema::builtin()
         .map(|s| s.records.len())
         .unwrap_or(0);
-    let doc = render(&manifest, defined, &types, &files, &not_examined);
+    // Per-confidence counts of the definitions (M2.F9), from the same command agents use.
+    let schema = kit(root, &["schema"])?;
+    let schema = schema.get("data").context("schema result has no data")?;
+    let doc = render(&manifest, defined, &types, &files, &not_examined, schema);
     let out = root.join(OUT);
     fs::write(&out, &doc).with_context(|| format!("writing {}", out.display()))?;
     println!("parity: wrote {OUT} ({} record types)", types.len());
@@ -294,12 +297,45 @@ fn n(value: u64) -> String {
     out
 }
 
+/// Confidence levels, weakest first (ADR 0004), as `kit schema` names them.
+const CONFIDENCE: [&str; 4] = ["reference", "corpus", "ck-diff", "verified"];
+
+/// The "Definitions by confidence" table from `kit schema --json`'s `data`.
+fn confidence_table(schema: &Value) -> String {
+    let row = |label: String, name: String, v: &Value| {
+        let mut cells = vec![
+            label,
+            name,
+            n(u(v, "subrecords")),
+            n(u(v, "typed")),
+            n(u(v, "opaque")),
+        ];
+        let counts = v.get("confidence_counts").unwrap_or(&Value::Null);
+        cells.extend(CONFIDENCE.iter().map(|c| n(u(counts, c))));
+        cells
+    };
+    let mut rows: Vec<Vec<String>> = schema
+        .get("records")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .map(|r| row(format!("`{}`", s(r, "type")), s(r, "name").to_string(), r))
+        .collect();
+    rows.push(row("**Total**".to_string(), String::new(), schema));
+    let mut head = vec!["Record", "Schema", "Subrecord defs", "Typed", "Opaque"];
+    head.extend(CONFIDENCE);
+    let mut right = vec![false, false];
+    right.extend([true; 7]);
+    table(&head, &rows, &right)
+}
+
 fn render(
     manifest: &Manifest,
     defined: usize,
     types: &BTreeMap<String, TypeAgg>,
     files: &[FileRow],
     not_examined: &[String],
+    schema: &Value,
 ) -> String {
     let mut sorted: Vec<(&String, &TypeAgg)> = types.iter().collect();
     sorted.sort_by(|a, b| b.1.records.cmp(&a.1.records).then(a.0.cmp(b.0)));
@@ -405,8 +441,8 @@ fn render(
     }
     out.push_str(
         "- Classification is by subrecord signature against the record type's definition;\n  \
-         payloads are not decoded against the layouts yet (generated records are not wired\n  \
-         into the reader).\n\n",
+         `coverage` does not decode payloads against the layouts (the typed decode and\n  \
+         re-encode check over the corpus is lane A's M2.A3 driver test).\n\n",
     );
     out.push_str(
         "Columns:\n\n\
@@ -441,6 +477,16 @@ fn render(
         n(occ("opaque")),
         n(occ("unknown"))
     );
+
+    out.push_str("\n## Definitions by confidence\n\n");
+    out.push_str(
+        "Subrecord definitions per record type (groups expanded) from `kit schema --json`\n\
+         (M2.F9), by `confidence` (ADR 0004: `reference` documented in an allowed source,\n\
+         `corpus` observed in the official files, `ck-diff` checked against Creation Kit\n\
+         output, `verified` both). **Typed** definitions give a layout; **Opaque** ones keep\n\
+         the payload as raw bytes.\n\n",
+    );
+    out.push_str(&confidence_table(schema));
 
     out.push_str("\n## Subrecords outside the definitions\n\n");
     if outside.is_empty() {
@@ -488,7 +534,30 @@ fn render(
 
 #[cfg(test)]
 mod tests {
-    use super::{n, table};
+    use super::{confidence_table, n, table};
+    use serde_json::json;
+
+    #[test]
+    fn confidence_rows_and_total() {
+        let counts = |r, c| json!({"reference": r, "corpus": c, "ck-diff": 0, "verified": 0});
+        let schema = json!({
+            "records": [{"type": "WEAP", "name": "Weapon", "subrecords": 3, "typed": 1,
+                         "opaque": 2, "confidence_counts": counts(1, 2)}],
+            "subrecords": 3, "typed": 1, "opaque": 2, "confidence_counts": counts(1, 2),
+        });
+        let t = confidence_table(&schema);
+        assert!(
+            t.starts_with("| Record    | Schema | Subrecord defs | Typed | Opaque | reference |"),
+            "{t}"
+        );
+        assert!(
+            t.contains(
+                "| `WEAP`    | Weapon |              3 |     1 |      2 |         1 |      2 |"
+            ),
+            "{t}"
+        );
+        assert!(t.contains("| **Total** |"), "{t}");
+    }
 
     #[test]
     fn thousands_separators() {

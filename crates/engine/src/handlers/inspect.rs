@@ -3,8 +3,8 @@
 //! Two modes:
 //!
 //! - **Load order** (M2.D9), when `profile`/`plugins` are given or the session has a load
-//!   order: `form` is a formref (`Starfield.esm:01A2B3`), a hex FormID (read as stored in
-//!   `plugin` when that is given, otherwise as a runtime ID under the runtime-slot
+//!   order: `form` is a formref (`Starfield.esm:01A2B3`), a hex FormID read as stored in
+//!   `plugin` (required for bare hex), `runtime:<hex>` (a runtime ID under the runtime-slot
 //!   assumption), or an EditorID. The result lists every version in load order with the
 //!   winner marked, each override classed against the version before it, and `FULL`/`DESC`
 //!   decoded as lstrings (inline text, or the string ID resolved through the plugin's
@@ -29,6 +29,7 @@ use kitcraft_esm::{
 use serde_json::{json, Value};
 
 use kitcraft_doc::compare::{spans, OverrideClass};
+use kitcraft_doc::flags::RECORD_FLAG_DELETED;
 use kitcraft_doc::lstring::is_lstring;
 use kitcraft_doc::strings::StringTables;
 use kitcraft_doc::typed::{self, Decoded};
@@ -45,12 +46,13 @@ const ID: &str = "inspect";
 /// Payload bytes shown per subrecord.
 pub(crate) const PAYLOAD_CAP: usize = 256;
 
-/// Every subrecord is opaque until the schema crate's typed records are wired in.
-pub(crate) const TYPED_PENDING: &str = "typed decode pending schema wiring";
+/// Single-plugin mode lists raw payloads only; schema-typed values need the load order.
+pub(crate) const TYPED_PENDING: &str = "single-plugin mode lists raw payloads; schema-typed \
+     values (member, value) are shown in load-order mode (pass `plugins` or `profile`)";
 
 /// No load order yet: the record is this plugin's version only.
 pub(crate) const SINGLE_PLUGIN: &str =
-    "single plugin: overrides in other plugins are not considered (load order arrives in M2)";
+    "single plugin: overrides in other plugins are not considered (pass `plugins` or `profile` for the load order)";
 
 /// Stated for a compressed record.
 pub(crate) const COMPRESSED_OFFSETS: &str = "record is compressed: subrecord offsets are \
@@ -398,22 +400,32 @@ fn find_form(
             "formref",
         ));
     }
-    if let Some(raw) = parse_form_id(form) {
-        match plugin {
-            Some(name) => {
-                let p = lo
-                    .find(name)
-                    .ok_or_else(|| failed(ID, format!("`{name}` is not in the load order")))?;
-                let g = lo.resolve(p, raw).map_err(|e| failed(ID, e.to_string()))?;
-                if present(&g) {
-                    return Ok((g, "form_id"));
-                }
-            }
-            None => {
-                if let Some(g) = lo.from_runtime_id(raw).filter(present) {
-                    return Ok((g, "runtime_id"));
-                }
-            }
+    if let Some(text) = form
+        .get(..RUNTIME_PREFIX.len())
+        .filter(|p| p.eq_ignore_ascii_case(RUNTIME_PREFIX))
+        .and_then(|_| form.get(RUNTIME_PREFIX.len()..))
+    {
+        let raw = parse_form_id(text)
+            .ok_or_else(|| failed(ID, format!("`{form}`: `{text}` is not a hex runtime ID")))?;
+        return lo
+            .from_runtime_id(raw)
+            .filter(present)
+            .map(|g| (g, "runtime_id"))
+            .ok_or_else(|| {
+                failed(
+                    ID,
+                    format!("no form has runtime ID {raw:08X} (under `runtime-slots-by-scale`)"),
+                )
+            });
+    }
+    let bare_hex = parse_form_id(form);
+    if let (Some(raw), Some(name)) = (bare_hex, plugin) {
+        let p = lo
+            .find(name)
+            .ok_or_else(|| failed(ID, format!("`{name}` is not in the load order")))?;
+        let g = lo.resolve(p, raw).map_err(|e| failed(ID, e.to_string()))?;
+        if present(&g) {
+            return Ok((g, "form_id"));
         }
     }
     for (i, p) in lo.plugins.iter().enumerate() {
@@ -429,6 +441,16 @@ fn find_form(
             }
         }
     }
+    if bare_hex.is_some() && plugin.is_none() {
+        // A bare hex FormID means nothing without the file whose masters number it.
+        return Err(failed(
+            ID,
+            format!(
+                "`{form}` is no EditorID; as a hex FormID it needs `plugin` (the plugin whose \
+                 numbering it uses), or write `runtime:{form}` for a runtime ID"
+            ),
+        ));
+    }
     Err(failed(
         ID,
         format!(
@@ -436,6 +458,9 @@ fn find_form(
         ),
     ))
 }
+
+/// Prefix naming a runtime ID in `form` (load-order mode).
+const RUNTIME_PREFIX: &str = "runtime:";
 
 /// Where a version comes from.
 struct VersionCtx<'a> {
@@ -453,6 +478,7 @@ fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>) -> Value {
         Decoded::Float(f) => {
             serde_json::Number::from_f64(*f).map_or_else(|| json!(f.to_string()), Value::Number)
         }
+        Decoded::Form(0) => json!({"raw": "00000000", "form": null, "null": true}),
         Decoded::Form(raw) => match vc.lo.resolve(vc.plugin, *raw) {
             Ok(g) => json!({"raw": format!("{raw:08X}"), "form": vc.lo.form_label(g)}),
             Err(e) => json!({"raw": format!("{raw:08X}"), "form": null, "error": e.to_string()}),
@@ -671,6 +697,8 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
             "plugin": p.name,
             "load_index": v.plugin,
             "winner": i == last,
+            "deleted": h.flags & RECORD_FLAG_DELETED != 0,
+            "resolved_by": v.basis.as_str(),
             "raw_form_id": format!("{:08X}", h.form_id),
             "record": {
                 "signature": h.signature.to_string(),
@@ -703,6 +731,22 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
     let winner_name = winner
         .and_then(|w| lo.plugin(w.plugin))
         .map(|p| p.name.clone());
+    let winner_deleted = winner
+        .and_then(|w| lo.record(w.plugin, w.record))
+        .is_some_and(|l| l.flags & RECORD_FLAG_DELETED != 0);
+    let assumed: Vec<String> = versions
+        .iter()
+        .filter(|v| v.basis.assumed())
+        .filter_map(|v| {
+            let p = lo.plugin(v.plugin)?;
+            let raw = lo.record(v.plugin, v.record)?.form_id;
+            Some(format!(
+                "{} stores it as {raw:08X} ({})",
+                p.name,
+                v.basis.as_str()
+            ))
+        })
+        .collect();
     let mut limitations = vec![
         "subrecords show `value` only where the schema defines a layout (lane B); every other payload is hex"
             .to_string(),
@@ -724,14 +768,28 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
                 .to_string(),
         );
     }
+    if winner_deleted {
+        limitations.push(
+            "the winning version is deleted (record flag 0x20): the form is removed in game, \
+             and that version's subrecords are not its data"
+                .to_string(),
+        );
+    }
+    if !assumed.is_empty() {
+        limitations.push(format!(
+            "version(s) resolved to this form by an assumption (docs/load-order.md): {}",
+            assumed.join("; ")
+        ));
+    }
     notes.sort();
     notes.dedup();
     limitations.extend(notes);
     let summary = format!(
-        "{label} {signature} {}: {} version(s), winner {}{}",
+        "{label} {signature} {}: {} version(s), winner {}{}{}",
         editor_id.as_deref().unwrap_or("(no EditorID)"),
         versions.len(),
         winner_name.as_deref().unwrap_or("?"),
+        if winner_deleted { " (deleted)" } else { "" },
         runtime.map_or_else(String::new, |r| format!(", runtime ID {r:08X} (assumed)")),
     );
     let data = json!({
@@ -748,6 +806,7 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         "signature": signature,
         "editor_id": editor_id,
         "winner": winner_name,
+        "winner_deleted": winner_deleted,
         "versions": list,
         "summary": summary,
     });
@@ -983,10 +1042,28 @@ mod tests {
             r["data"]["versions"][1]["vs_previous"]["class"],
             "identical-to-previous"
         );
-        args["form"] = json!("00000801");
+        args["form"] = json!("runtime:00000801");
         let r = execute("inspect", args.clone()).unwrap();
         assert_eq!(r["data"]["matched_by"], "runtime_id");
         assert_eq!(r["data"]["global"], "Base.esm:000801");
+        assert_eq!(r["data"]["versions"][0]["resolved_by"], "direct");
+        assert_eq!(r["data"]["versions"][0]["deleted"], false);
+        // Review round 2: bare hex without `plugin` is no longer read as a runtime ID.
+        args["form"] = json!("00000801");
+        let err = execute("inspect", args.clone()).unwrap_err();
+        assert_eq!(err.kind(), "failed");
+        assert!(
+            err.to_string().contains("needs `plugin`") && err.to_string().contains("runtime:"),
+            "{err}"
+        );
+        args["form"] = json!("runtime:zz");
+        assert_eq!(
+            execute("inspect", args.clone()).unwrap_err().kind(),
+            "failed"
+        );
+        args["form"] = json!("RUNTIME:00000FFF");
+        let err = execute("inspect", args.clone()).unwrap_err();
+        assert!(err.to_string().contains("no form has runtime ID"), "{err}");
         args["form"] = json!("800");
         args["plugin"] = json!("Patch.esm");
         let r = execute("inspect", args.clone()).unwrap();
@@ -1011,6 +1088,115 @@ mod tests {
             .execute("inspect", json!({"form": "Pistol"}))
             .unwrap();
         assert_eq!(r["data"]["winner"], "Patch.esm");
+    }
+
+    /// Review round 2: a raw FormID 0 is the null reference (never `Base.esm:000000`), and a
+    /// deleted winner is flagged on the version, in the summary and in `query`.
+    #[test]
+    fn null_formids_and_deleted_winners() {
+        use crate::handlers::load::tests::plugin_flagged;
+        use crate::handlers::testdata::sub;
+        let dir = std::env::temp_dir().join(format!(
+            "kitcraft-engine-lo-null-deleted-{}",
+            std::process::id()
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let mut kwda = 0u32.to_le_bytes().to_vec();
+        kwda.extend(0x802u32.to_le_bytes());
+        let weap = [
+            sub(b"EDID", b"Gun\0"),
+            sub(b"KSIZ", &2u32.to_le_bytes()),
+            sub(b"KWDA", &kwda),
+        ]
+        .concat();
+        std::fs::write(
+            dir.join("Base.esm"),
+            plugin_flagged(
+                0x1,
+                &[],
+                &[
+                    (b"WEAP", 0, 0x800, weap.clone()),
+                    (b"KYWD", 0, 0x802, sub(b"EDID", b"Kw\0")),
+                ],
+            ),
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("Patch.esm"),
+            plugin_flagged(0x1, &["Base.esm"], &[(b"WEAP", 0x20, 0x800, weap)]),
+        )
+        .unwrap();
+        let mut args = json!({
+            "plugins": ["Base.esm", "Patch.esm"],
+            "data_dir": dir.display().to_string(),
+            "no_cache": true,
+            "form": "Base.esm:000800",
+        });
+        let r = execute("inspect", args.clone()).unwrap();
+        let data = &r["data"];
+        let kwda = data["versions"][0]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == "KWDA")
+            .unwrap()["value"]
+            .clone();
+        assert_eq!(
+            kwda,
+            json!([
+                {"raw": "00000000", "form": null, "null": true},
+                {"raw": "00000802", "form": "Base.esm:000802"}
+            ])
+        );
+        assert_eq!(data["versions"][0]["deleted"], false);
+        assert_eq!(data["versions"][1]["deleted"], true);
+        assert_eq!(data["winner_deleted"], true);
+        assert!(data["summary"]
+            .as_str()
+            .unwrap()
+            .contains("Patch.esm (deleted)"));
+        assert!(r["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("winning version is deleted")));
+        // Object 0 is no formref.
+        args["form"] = json!("Base.esm:000000");
+        assert_eq!(
+            execute("inspect", args.clone()).unwrap_err().kind(),
+            "failed"
+        );
+
+        // query: `null` finds the null keyword in the base version; the deleted winner is
+        // unknown (its payload is not evaluated), never silently matched or rejected.
+        let mut q = args.clone();
+        q.as_object_mut().unwrap().remove("form");
+        q["type"] = json!("WEAP");
+        q["where"] = json!("KWDA == null");
+        q["scope"] = json!("all");
+        let r = execute("query", q.clone()).unwrap();
+        assert_eq!(r["data"]["matched"], 1);
+        assert_eq!(r["data"]["results"][0]["plugin"], "Base.esm");
+        assert_eq!(r["data"]["results"][0]["deleted"], false);
+        assert_eq!(r["data"]["unknown"], 1);
+        q["scope"] = json!("winner");
+        let r = execute("query", q.clone()).unwrap();
+        assert_eq!(r["data"]["matched"], 0);
+        assert_eq!(r["data"]["unknown"], 1);
+        assert!(r["data"]["unknown_records"][0]["reasons"][0]
+            .as_str()
+            .unwrap()
+            .contains("deleted"));
+        // Without `where`, the deleted winner is listed and flagged.
+        q.as_object_mut().unwrap().remove("where");
+        let r = execute("query", q).unwrap();
+        assert_eq!(r["data"]["results"][0]["deleted"], true);
+        assert!(r["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains("deleted versions")));
     }
 
     /// Minimal hex decoding for the assertions above.

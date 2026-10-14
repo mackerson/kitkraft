@@ -12,9 +12,10 @@
     clippy::arithmetic_side_effects
 )]
 
-use std::io::{BufRead, BufReader, Write};
-use std::path::PathBuf;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+use std::thread::JoinHandle;
 
 use serde_json::{json, Value};
 
@@ -22,7 +23,17 @@ struct Kit {
     child: Child,
     stdin: Option<ChildStdin>,
     stdout: BufReader<ChildStdout>,
+    /// Drains the child's stderr as it is written, so a chatty child never blocks on a
+    /// full pipe, and the text is there to report when the child dies.
+    stderr: Option<JoinHandle<String>>,
     next_id: i64,
+}
+
+/// A directory of this test binary's own under the target dir, for the index cache: the
+/// spawned servers never share `%LOCALAPPDATA%\kitcraft\cache` with other processes
+/// (other worktrees' gates, the owner's `kit`), and it stays warm between runs.
+fn private_cache_dir() -> PathBuf {
+    Path::new(env!("CARGO_TARGET_TMPDIR")).join("kit-cli-mcp-index-cache")
 }
 
 impl Kit {
@@ -30,6 +41,7 @@ impl Kit {
         let mut child = Command::new(env!("CARGO_BIN_EXE_kit"))
             .arg("mcp")
             .args(extra)
+            .env("KITCRAFT_CACHE_DIR", private_cache_dir())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -37,10 +49,17 @@ impl Kit {
             .expect("spawn kit mcp");
         let stdin = child.stdin.take();
         let stdout = BufReader::new(child.stdout.take().unwrap());
+        let mut err = child.stderr.take().unwrap();
+        let stderr = std::thread::spawn(move || {
+            let mut text = Vec::new();
+            let _ = err.read_to_end(&mut text);
+            String::from_utf8_lossy(&text).into_owned()
+        });
         Self {
             child,
             stdin,
             stdout,
+            stderr: Some(stderr),
             next_id: 0,
         }
     }
@@ -57,10 +76,25 @@ impl Kit {
         self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}));
         let mut line = String::new();
         self.stdout.read_line(&mut line).unwrap();
+        if line.is_empty() {
+            self.died(method);
+        }
         let reply: Value = serde_json::from_str(&line)
             .unwrap_or_else(|e| panic!("not a JSON-RPC line ({e}): {line:?}"));
         assert_eq!(reply["id"], id, "{reply}");
         reply
+    }
+
+    /// The server closed stdout mid-session: report how it ended and what it said.
+    fn died(&mut self, method: &str) -> ! {
+        drop(self.stdin.take());
+        let status = self.child.wait();
+        let stderr = self
+            .stderr
+            .take()
+            .map(|t| t.join().unwrap_or_default())
+            .unwrap_or_default();
+        panic!("kit mcp closed stdout during `{method}` ({status:?}); stderr:\n{stderr}");
     }
 
     fn call(&mut self, tool: &str, arguments: Value) -> Value {
@@ -81,11 +115,12 @@ impl Kit {
     fn finish(mut self) -> String {
         drop(self.stdin.take());
         let mut rest = String::new();
-        std::io::Read::read_to_string(&mut self.stdout, &mut rest).unwrap();
+        self.stdout.read_to_string(&mut rest).unwrap();
         assert_eq!(rest, "", "stdout after EOF");
-        let out = self.child.wait_with_output().unwrap();
-        assert_eq!(out.status.code(), Some(0));
-        String::from_utf8_lossy(&out.stderr).into_owned()
+        let status = self.child.wait().unwrap();
+        let stderr = self.stderr.take().unwrap().join().unwrap();
+        assert_eq!(status.code(), Some(0), "{stderr}");
+        stderr
     }
 }
 
@@ -172,6 +207,19 @@ fn kit_mcp_serves_tools_on_a_synthetic_plugin() {
     ));
     assert_eq!(got["data"]["record"]["form_id"], "00000100");
 
+    // M2.F9: the schema of the record type just inspected, with sources and confidence.
+    let got = envelope(&kit.call("record_schema", json!({"type": "GMST"})));
+    assert_eq!(got["command"], "schema");
+    let value = got["data"]["members"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["signature"] == "DATA")
+        .unwrap()
+        .clone();
+    assert_eq!(value["name"], "Value");
+    assert!(value["confidence"].is_string() && value["source"].is_string());
+
     let stderr = kit.finish();
     assert_eq!(stderr, "", "no --profile, nothing to report");
     std::fs::remove_file(&path).unwrap();
@@ -186,19 +234,15 @@ fn kit_mcp_profile_preload_failure_is_reported_not_fatal() {
     assert_eq!(kit.request("ping", json!({}))["result"], json!({}));
     let stderr = kit.finish();
     assert!(stderr.contains("preloading --profile failed"), "{stderr}");
-    // While `load` has no handler the failure is `not_implemented`, a documented no-op
-    // that stays out of the instructions; any other failure is told to the model.
-    let not_implemented = stderr.contains("not implemented");
-    assert_eq!(
+    // The model is told too, so it knows the session is empty.
+    assert!(
         instructions.contains("Preloading the profile"),
-        !not_implemented,
         "{instructions} / {stderr}"
     );
 }
 
 /// With the official files: `coverage` names a real record, `inspect_record` finds it,
-/// and `query_records` answers (an envelope once M2.D11 lands; until then the
-/// `not_implemented` tool error).
+/// and `query_records` answers once a load order is given.
 #[test]
 fn kit_mcp_on_an_official_file() {
     let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR") else {

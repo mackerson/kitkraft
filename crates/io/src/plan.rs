@@ -2,6 +2,13 @@
 //!
 //! Each rule is named so results can say why a plugin is active; the evidence and what is
 //! still unverified is in `docs/load-order.md` ("Active plugins").
+//!
+//! Order (assumption `hardcoded-official-slots`, `docs/load-order.md` "Order"): the
+//! `Starfield.ccc` plugins in the ccc's order; then the other official plugins the game
+//! loads without a `plugins.txt` entry (hardcoded, MO2-unmanaged, and their blueprint
+//! companions); then everything else. Within a group, `loadorder.txt`'s order, and plugins
+//! it does not list last. MO2's `loadorder.txt` can list unmanaged DLC after managed
+//! plugins that name them as masters; the game cannot load them there.
 
 use std::path::PathBuf;
 
@@ -78,6 +85,27 @@ pub struct LoadPlan {
     pub plugins: Vec<PlannedPlugin>,
     /// Problems found.
     pub warnings: Vec<String>,
+    /// Plugins placed by the assumption `hardcoded-official-slots`: active official plugins
+    /// without a `plugins.txt` entry (hardcoded, MO2-unmanaged, and blueprint companions of
+    /// those), right after the `Starfield.ccc` plugins, in `loadorder.txt`'s relative order.
+    pub hardcoded_slots: Vec<String>,
+    /// Of those, the ones `loadorder.txt` lists after a plugin that now loads after them.
+    pub moved: Vec<String>,
+}
+
+/// Where a plugin goes: `Starfield.ccc` first (in its order), then the hardcoded slots,
+/// then everything else in `loadorder.txt` order.
+fn slot_group(active: Option<&Active>, slotted: &[String]) -> u8 {
+    match active {
+        Some(Active::Ccc) => 0,
+        Some(Active::Hardcoded | Active::Unmanaged(_)) => 1,
+        Some(Active::BlueprintCompanion(base))
+            if slotted.iter().any(|s| s.eq_ignore_ascii_case(base)) =>
+        {
+            1
+        }
+        _ => 2,
+    }
 }
 
 impl LoadPlan {
@@ -155,12 +183,57 @@ impl LoadPlan {
             if !names.iter().any(|(n, _)| n.eq_ignore_ascii_case(name)) {
                 if profile.loadorder.is_some() {
                     plan.warnings.push(format!(
-                        "{name} is active but not in loadorder.txt; appended"
+                        "{name} is active but not in loadorder.txt; placed last in its group"
                     ));
                 }
                 add(name, false, &mut names);
             }
         }
+
+        // Assumption `hardcoded-official-slots` (docs/load-order.md): Starfield.ccc plugins
+        // in the ccc's order, then the other official plugins that have no plugins.txt
+        // entry, then the rest; loadorder.txt's order within each group.
+        let why_of = |name: &str| {
+            active
+                .iter()
+                .find(|(n, _)| n.eq_ignore_ascii_case(name))
+                .map(|(_, w)| w)
+        };
+        let direct: Vec<String> = active
+            .iter()
+            .filter(|(_, w)| matches!(w, Active::Ccc | Active::Hardcoded | Active::Unmanaged(_)))
+            .map(|(n, _)| n.clone())
+            .collect();
+        let ccc_pos = |name: &str| {
+            profile
+                .ccc
+                .iter()
+                .flatten()
+                .position(|c| c.eq_ignore_ascii_case(name))
+                .unwrap_or(usize::MAX)
+        };
+        let mut keyed: Vec<(u8, usize, usize, String, bool)> = names
+            .into_iter()
+            .enumerate()
+            .map(|(i, (name, from))| {
+                let group = slot_group(why_of(&name), &direct);
+                let within = if group == 0 { ccc_pos(&name) } else { i };
+                (group, within, i, name, from)
+            })
+            .collect();
+        let first_rest = keyed
+            .iter()
+            .filter(|k| k.0 == 2 && k.4 && why_of(&k.3).is_some())
+            .map(|k| k.2)
+            .min();
+        for k in keyed.iter().filter(|k| k.0 == 1) {
+            plan.hardcoded_slots.push(k.3.clone());
+            if k.4 && first_rest.is_some_and(|f| k.2 > f) {
+                plan.moved.push(k.3.clone());
+            }
+        }
+        keyed.sort_by_key(|k| (k.0, k.1, k.2));
+        let names: Vec<(String, bool)> = keyed.into_iter().map(|k| (k.3, k.4)).collect();
         for (name, from_loadorder) in names {
             let why = active
                 .iter()

@@ -9,32 +9,72 @@ evidence (byte offsets, coverage, limitations) so a person or an agent can check
 
 ## Status: pre-alpha
 
-Nothing works yet. The repository is a scaffold (milestone M0). The first real goal (M1) is a
-byte-identical roundtrip of every official Starfield ESM. See [ROADMAP.md](ROADMAP.md) and
-[plan/STATUS.md](plan/STATUS.md).
+- **M1 done:** every official Starfield ESM (14 files) loads and writes back
+  byte-identical (`kit roundtrip --verify`).
+- **M2 commands live:** every catalog command is implemented: load orders from MO2
+  profiles, inspect, query, diff, conflicts, set, build, validate, schema, archives
+  (`.ba2`), Papyrus (`.pex`) and string tables. What a command does not do yet is stated
+  in each result's `limitations`, and in [docs/gaps.md](docs/gaps.md).
+- **MCP registered:** `kit mcp` serves the same catalog to Claude Code and any other MCP
+  client ([docs/mcp.md](docs/mcp.md), "Use from Claude Code").
 
-## Command catalog (first cut)
+Next: the owner's in-game check of the rename patch (M2.O6), typed record layouts (lane B
+round 3), then M3. See [ROADMAP.md](ROADMAP.md) and [plan/STATUS.md](plan/STATUS.md).
+
+## Quick start
+
+Point KitCraft at your game's Data folder once; every command uses it as the default
+`--data-dir` (plugin names, masters):
+
+```powershell
+$env:KITCRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
+cargo build --release -p kit-cli          # target\release\kit.exe
+
+# Load an MO2 profile (read-only) and look around
+kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"
+kit query --type WEAP --where "FULL ~ 'Old Earth Hunting Rifle'" --profile "C:\Modding\MO2-Starfield\profiles\Default"
+kit schema --type WEAP                    # what the schema knows about a record type
+
+# Write a patch: rename the rifle into a new plugin, then check it
+kit set Starfield.esm:0021BBCD FULL="Old Soviet Marksman Rifle" --into out\OldSovietMarksmanRifle.esm --plugins Starfield.esm
+kit validate --plugin out\OldSovietMarksmanRifle.esm
+
+# Serve the same commands to an agent over MCP (stdio)
+kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
+```
+
+Each `kit` run is its own session, so commands that need a load order take `--profile` or
+`--plugins` each time; an MCP session loads once and keeps it. `kit help` lists every
+command, `kit help <command>` its arguments, and `--json` prints the full result envelope
+(data, coverage, limitations, byte-offset evidence).
+
+## Command catalog
 
 Each line is a CLI subcommand, an MCP-reachable command, and a future menu item.
 
 ```
-kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"   # or an explicit plugin list
-kit inspect <FormID|EditorID> [--json]        # resolved record, winning override, all overriders
-kit query  --type WEAP --where "EDID ~ Rifle" --json
+kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"   # or --plugins A.esm B.esp
+kit inspect <FormID|EditorID> --profile ...   # every override, the winner, typed values
+kit query  --type WEAP --where "EDID ~ 'Rifle'"
+kit conflicts --master Starfield.esm          # which plugins override what (esmscan.py port)
 kit set    <form> FULL="Old Soviet Marksman Rifle" --into MyPatch.esm
-kit diff   A.esm B.esm [--form ...]           # record-level semantic diff
-kit build  overhaul.toml -> Overhaul.esm      # data-driven patch compiler
-kit validate <plugin>                         # missing masters, bad links, localized FULL copies,
-                                              #   stripped FULL/NTRM, ...
+kit diff   A.esm B.esm [--form ...]           # record-level diff with byte ranges
+kit build  overhaul.toml <out.esm>            # data-driven patch compiler, validated
+kit validate --plugin <plugin>                # missing masters, bad links, localized FULL
+                                              #   copies, stripped FULL/NTRM, god-mode calls
+kit schema --type WEAP [--deep]               # members, types, sources, confidence
+kit coverage <plugin>                         # record types vs what the schema defines
 kit roundtrip <esm> --verify                  # byte-identical rewrite, the M1 gate
 kit ba2 {list,extract,pack}
 kit papyrus {disasm,compile}                  # wraps Bethesda's compiler; never -release
 kit strings {dump,merge}
-kit mcp                                       # stdio MCP server over the same catalog
+kit mcp [--profile DIR]                       # stdio MCP server over the same catalog
 ```
 
-MCP tools: `execute`, `command_line`, `inspect_record`, `query_records`, `diff_plugins`
-(`render` later). See [docs/mcp.md](docs/mcp.md).
+MCP tools: `execute` (any command), `command_line`, and the shortcuts `inspect_record`,
+`query_records`, `diff_plugins`, `coverage`, `record_schema`, `roundtrip`; resources
+`kitcraft://commands`, `kitcraft://load-order`, `kitcraft://validate-rules`. See
+[docs/mcp.md](docs/mcp.md).
 
 ## Build
 
@@ -48,19 +88,15 @@ cargo xtask ci        # the gate: layer check, fmt, clippy -D warnings, tests
 git config core.hooksPath .githooks   # once per clone: pre-commit runs layers + fmt check
 ```
 
-Corpus tests use your own game install and are skipped without it:
-
-```powershell
-$env:KITCRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
-cargo test --workspace
-```
+Corpus tests use your own game install (`KITCRAFT_DATA_DIR`, as above) and are skipped
+without it; see [docs/corpus.md](docs/corpus.md).
 
 ## Layout
 
 ```
 crates/   schema esm ba2 pex strings nif (L0)  doc (L1)  io (L3)  engine (L4)  mcp (L5)
 apps/     kit-cli
-xtask/    cargo xtask ci | layers
+xtask/    cargo xtask ci | layers | codegen | parity
 plan/     STATUS.md, execution-plan.md, adr/
 docs/     architecture, mcp, parity checklists, gaps, corpus
 corpus/   README only; the corpus lives in your game install
@@ -71,8 +107,8 @@ Contributors and agents: read [AGENTS.md](AGENTS.md) first.
 ## Clean room
 
 Formats are implemented from the shared container described on UESP's (Skyrim) wiki pages,
-Starfield record definitions informed by xEdit's MPL-2.0 `wbDefinitionsSF1.pas` at a pinned
-revision (used as reference only: our definitions are written independently and no xEdit
+Starfield record definitions informed by xEdit's MPL-2.0 `wbDefinitionsSF1.pas` (and the
+helpers it uses in `wbDefinitionsCommon.pas`) at one pinned revision (used as reference only: our definitions are written independently and no xEdit
 code is copied or linked), and validated by our own inspection of files we own and
 black-box observation of the Creation Kit's saved output; the hierarchy is in
 [ADR 0005](plan/adr/0005-spec-sources-per-fact.md) (Amendment 2) and

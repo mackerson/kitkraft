@@ -33,14 +33,27 @@ pub enum Key {
     Raw(u32),
 }
 
-impl Key {
-    /// `Plugin.esm:XXXXXX`, `<self>:XXXXXX` or `raw:XXXXXXXX`.
-    pub fn label(&self, own_name: &str) -> String {
-        match self {
-            Key::Own(o) => format!("{own_name}:{o:06X}"),
-            Key::Master(m, o) => format!("{m}:{o:06X}"),
+impl PluginDiff {
+    /// `Plugin.esm:XXXXXX` (the plugin named as the files spell it: `a`'s name for its own
+    /// records, a master as `a` lists it, else as `b` does), or `raw:XXXXXXXX`.
+    pub fn label(&self, key: &Key) -> String {
+        match key {
+            Key::Own(o) => format!("{}:{o:06X}", self.a.file_name),
+            Key::Master(m, o) => format!("{}:{o:06X}", self.display_name(m)),
             Key::Raw(r) => format!("raw:{r:08X}"),
         }
+    }
+
+    /// A lower-cased plugin name as the two files spell it.
+    fn display_name<'s>(&'s self, lower: &'s str) -> &'s str {
+        self.a
+            .header
+            .masters
+            .iter()
+            .chain(&self.b.header.masters)
+            .chain([&self.a.file_name, &self.b.file_name])
+            .find(|n| n.eq_ignore_ascii_case(lower))
+            .map_or(lower, String::as_str)
     }
 }
 

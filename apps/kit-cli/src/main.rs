@@ -11,9 +11,8 @@
 //! unknown command, invalid arguments, a command that is not implemented yet (including
 //! a stub result from a `Planned` command, and a `Deferred` one), or a failed command.
 //! `kit mcp [--profile DIR]` serves MCP on stdio until stdin closes (exit 0; 2 on an I/O
-//! error); a failed `--profile` preload is reported on stderr and (unless the failure is
-//! only that `load` is not implemented yet) in the server's instructions, and the server
-//! starts with an empty session.
+//! error); a failed `--profile` preload is reported on stderr and in the server's
+//! instructions, and the server starts with an empty session.
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
@@ -90,13 +89,9 @@ fn run_mcp(profile: Option<&str>) -> ExitCode {
                 eprintln!(
                     "kit mcp: preloading --profile failed: {err}; serving with an empty session"
                 );
-                // Until `load` has a handler, --profile is a documented no-op: telling
-                // every session about it would only be noise.
-                if err.kind() != "not_implemented" {
-                    server.add_note(format!(
-                        "Preloading the profile {profile} at startup failed ({err}); the session is empty."
-                    ));
-                }
+                server.add_note(format!(
+                    "Preloading the profile {profile} at startup failed ({err}); the session is empty."
+                ));
             }
         }
     }
@@ -351,6 +346,24 @@ fn print_catalog_help() {
     println!(
         "  {:<18} Serve the same catalog over MCP on stdio (kit mcp [--profile DIR])",
         "mcp"
+    );
+    println!();
+    println!("ENVIRONMENT:");
+    println!(
+        "  {:<18} Game Data dir; the default for --data-dir: plugin names (--plugins,",
+        "KITCRAFT_DATA_DIR"
+    );
+    println!(
+        "  {:<18} validate --plugin) resolve there, and masters are searched in the load",
+        ""
+    );
+    println!(
+        "  {:<18} order, next to the plugin, then there. A profile uses MO2's gamePath first.",
+        ""
+    );
+    println!(
+        "  {:<18} Index cache (default %LOCALAPPDATA%\\kitcraft\\cache)",
+        "KITCRAFT_CACHE_DIR"
     );
     println!();
     println!("Every command is also an MCP tool call and a future menu item.");

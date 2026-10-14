@@ -83,6 +83,13 @@ pub const TOOLS: &[Tool] = &[
         destructive: false,
     },
     Tool {
+        name: "record_schema",
+        title: "Record schema",
+        target: Target::Command("schema"),
+        read_only: true,
+        destructive: false,
+    },
+    Tool {
         name: "roundtrip",
         title: "Roundtrip a plugin",
         target: Target::Command("roundtrip"),
@@ -227,7 +234,21 @@ pub fn definitions() -> Result<Vec<Value>, EngineError> {
     TOOLS.iter().map(definition).collect()
 }
 
-/// The `kitcraft://commands` resource: the catalog with parsed argument schemas.
+/// The MCP tools that run catalog command `id`: `execute` and `command_line` reach every
+/// command; a shortcut reaches its own.
+pub fn tools_for(id: &str) -> Vec<&'static str> {
+    TOOLS
+        .iter()
+        .filter(|t| match t.target {
+            Target::Execute | Target::CommandLine => true,
+            Target::Command(c) => c == id,
+        })
+        .map(|t| t.name)
+        .collect()
+}
+
+/// The `kitcraft://commands` resource: the catalog with parsed argument schemas, the CLI
+/// words and the MCP tools of each command.
 pub fn catalog_json() -> Result<Value, EngineError> {
     let mut out = Vec::new();
     for spec in catalog() {
@@ -251,6 +272,8 @@ pub fn catalog_json() -> Result<Value, EngineError> {
             "status": spec.status.label(),
             "deferred_reason": reason,
             "deferred_to": milestone,
+            "cli": format!("kit {}", kitcraft_engine::cmdline::command_words(spec)),
+            "tools": tools_for(spec.id),
         }));
     }
     Ok(Value::Array(out))
@@ -366,5 +389,18 @@ mod tests {
         assert_eq!(roundtrip["status"], "implemented");
         assert_eq!(roundtrip["args_schema"]["required"][0], "plugin");
         assert_eq!(roundtrip["deferred_reason"], Value::Null);
+        assert_eq!(roundtrip["cli"], "kit roundtrip");
+        assert_eq!(
+            roundtrip["tools"],
+            serde_json::json!(["execute", "command_line", "roundtrip"])
+        );
+        let extract = list.iter().find(|c| c["id"] == "ba2.extract").unwrap();
+        assert_eq!(extract["cli"], "kit ba2 extract");
+        assert_eq!(
+            extract["tools"],
+            serde_json::json!(["execute", "command_line"])
+        );
+        let schema = list.iter().find(|c| c["id"] == "schema").unwrap();
+        assert!(schema["tools"].to_string().contains("record_schema"));
     }
 }

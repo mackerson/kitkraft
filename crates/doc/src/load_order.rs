@@ -177,9 +177,10 @@ impl LoadOrder {
             .collect();
 
         let scales: Vec<Option<Scale>> = plugins.iter().map(LoadedPlugin::scale).collect();
+        let states: Vec<MasterState> = plugins.iter().map(MasterState::of).collect();
         for (i, p) in plugins.iter_mut().enumerate() {
             let own = u16::try_from(i).unwrap_or(u16::MAX);
-            p.map = master_map(p, own, &scales);
+            p.map = master_map(p, own, &states);
         }
         let slots = runtime_slots(
             &scales
@@ -218,9 +219,9 @@ impl LoadOrder {
     pub fn resolve(&self, index: u16, raw: u32) -> std::result::Result<GlobalForm, ResolveError> {
         match self.plugin(index) {
             Some(p) => p.map.clone().and_then(|m| m.resolve(raw)),
-            None => Err(ResolveError::MissingMaster {
+            None => Err(ResolveError::PluginNotLoaded {
                 plugin: format!("#{index}"),
-                master: String::new(),
+                reason: "no plugin at this load-order index".into(),
             }),
         }
     }
@@ -319,20 +320,42 @@ fn elapsed_ms(since: Instant) -> u64 {
     u64::try_from(since.elapsed().as_millis()).unwrap_or(u64::MAX)
 }
 
+/// What a plugin offers to the plugins that name it as a master.
+enum MasterState {
+    /// Loaded, with a scale.
+    Scale(Scale),
+    /// Loaded, but both scale bits are set.
+    BadScale,
+    /// Its file failed to load.
+    Failed(String),
+}
+
+impl MasterState {
+    fn of(p: &LoadedPlugin) -> MasterState {
+        match (p.index.as_deref(), p.scale()) {
+            (Some(_), Some(s)) => MasterState::Scale(s),
+            (Some(_), None) => MasterState::BadScale,
+            (None, _) => {
+                MasterState::Failed(p.error.clone().unwrap_or_else(|| "no index".to_string()))
+            }
+        }
+    }
+}
+
 fn master_map(
     p: &LoadedPlugin,
     own: u16,
-    scales: &[Option<Scale>],
+    states: &[MasterState],
 ) -> std::result::Result<MasterMap, ResolveError> {
+    if p.index.is_none() {
+        return Err(ResolveError::PluginNotLoaded {
+            plugin: p.name.clone(),
+            reason: p.error.clone().unwrap_or_else(|| "no index".to_string()),
+        });
+    }
     let Some(own_scale) = p.scale() else {
-        return Err(match p.index {
-            Some(_) => ResolveError::BadScale {
-                plugin: p.name.clone(),
-            },
-            None => ResolveError::MissingMaster {
-                plugin: p.name.clone(),
-                master: p.name.clone(),
-            },
+        return Err(ResolveError::BadScale {
+            plugin: p.name.clone(),
         });
     };
     let mut masters = Vec::with_capacity(p.masters.len());
@@ -342,11 +365,18 @@ fn master_map(
             master: m.name.clone(),
         };
         let index = m.plugin.ok_or_else(missing)?;
-        let scale = match scales.get(usize::from(index)) {
-            Some(Some(s)) => *s,
-            Some(None) => {
+        let scale = match states.get(usize::from(index)) {
+            Some(MasterState::Scale(s)) => *s,
+            Some(MasterState::BadScale) => {
                 return Err(ResolveError::BadScale {
                     plugin: m.name.clone(),
+                })
+            }
+            Some(MasterState::Failed(reason)) => {
+                return Err(ResolveError::MasterNotLoaded {
+                    plugin: p.name.clone(),
+                    master: m.name.clone(),
+                    reason: reason.clone(),
                 })
             }
             None => return Err(missing()),
@@ -525,6 +555,60 @@ mod tests {
         assert!(lo.resolve(1, 0x0200_0801).is_err());
     }
 
+    /// Ortham's `02051808` -> `FD011808` shape in a medium plugin: `01012345` is its own
+    /// object `2345` (the `01` above the medium width dropped), said per version; a masked
+    /// ID landing on another record of the same plugin is reported as a duplicate.
+    #[test]
+    fn medium_plugin_full_style_ids_are_masked_and_collisions_reported() {
+        let dir = testdata::temp_dir("lo-masked");
+        let base = testdata::plugin_with(0x1, &[], &[rec(b"WEAP", 0x800, &[])]);
+        let medium = testdata::plugin_with(
+            0x401,
+            &["Base.esm"],
+            &[
+                rec(b"KYWD", 0x0101_2345, &[]),
+                rec(b"KYWD", 0x0100_0900, &[]),
+                rec(b"KYWD", 0xFD00_0A00, &[]),
+                rec(b"KYWD", 0x0105_0A00, &[]),
+            ],
+        );
+        let lo = LoadOrder::load(
+            vec![
+                spec(&dir, "Base.esm", &base),
+                spec(&dir, "Medium.esm", &medium),
+            ],
+            &LoadOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            lo.resolve(1, 0x0101_2345),
+            Ok(GlobalForm {
+                plugin: 1,
+                object_id: 0x2345
+            })
+        );
+        let g = GlobalForm {
+            plugin: 1,
+            object_id: 0x2345,
+        };
+        let v = lo.forms.versions(g);
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].basis, crate::form::Basis::FullStyleSelfMasked);
+        let unmasked = lo.forms.versions(GlobalForm {
+            plugin: 1,
+            object_id: 0x900,
+        });
+        assert_eq!(unmasked[0].basis, crate::form::Basis::FullStyleSelf);
+        assert_eq!(lo.forms.full_style_self_count(1), 3);
+        assert_eq!(lo.forms.masked_count(1), 2);
+        // FD000A00 and 01050A00 both mean Medium.esm:000A00.
+        assert_eq!(lo.forms.duplicate_count(1), 1);
+        let d = lo.forms.duplicates()[0];
+        assert_eq!((d.plugin, d.form.object_id, d.masked), (1, 0xA00, true));
+        assert_eq!((d.first, d.second), (2, 3));
+        assert_eq!(lo.forms.duplicate_count(0), 0);
+    }
+
     #[test]
     fn master_after_dependent_is_reported_and_still_resolves() {
         let dir = testdata::temp_dir("lo-late");
@@ -570,7 +654,23 @@ mod tests {
         .unwrap();
         assert!(lo.plugins[1].error.is_some());
         assert!(lo.plugins[1].index.is_none());
-        assert!(lo.plugins[2].map.is_err());
+        // The broken plugin is not loaded; its dependent's master is not loaded (neither is
+        // a missing master nor a bad scale).
+        assert!(
+            matches!(&lo.plugins[1].map, Err(ResolveError::PluginNotLoaded { plugin, .. }) if plugin == "Bad.esm"),
+            "{:?}",
+            lo.plugins[1].map
+        );
+        assert!(
+            matches!(&lo.plugins[2].map, Err(ResolveError::MasterNotLoaded { plugin, master, reason })
+                if plugin == "Child.esm" && master == "Bad.esm" && !reason.is_empty()),
+            "{:?}",
+            lo.plugins[2].map
+        );
+        assert!(matches!(
+            lo.resolve(9, 0x800),
+            Err(ResolveError::PluginNotLoaded { .. })
+        ));
         assert_eq!(lo.plugins[0].cache, CacheUse::Built);
     }
 
@@ -593,7 +693,7 @@ mod tests {
         ));
         assert!(matches!(
             lo.resolve(1, 0x800),
-            Err(ResolveError::BadScale { .. })
+            Err(ResolveError::BadScale { plugin }) if plugin == "Weird.esm"
         ));
         assert_eq!(lo.plugins[0].runtime_slot, None);
         assert_eq!(lo.plugins[1].runtime_slot, Some(RuntimeSlot::Full(0)));

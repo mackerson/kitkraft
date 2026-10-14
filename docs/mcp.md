@@ -7,9 +7,10 @@ count stays small on purpose; capability grows by adding commands, not tools.
 Status: implemented (M2.F2..F6): `crates/mcp` (`server.rs` protocol, `tools.rs` tool
 shapes from the catalog, `backend.rs` calls onto the engine) and the `kit mcp` launcher.
 Every tool resolves to `Engine::execute` on the server's one engine, so the server keeps
-one `Session` for its process: a `load` is seen by every later call. Which commands do
-real work is the catalog's `status` (`kit help`, or the `kitcraft://commands` resource);
-the rest answer with a `not_implemented` or `deferred` tool error.
+one `Session` for its process: a `load` is seen by every later call. Every catalog
+command is `Implemented` (M2.F8: the `catalog_closure` test fails on a `Planned` one); a
+command that does only part of its job says what it does not do in `limitations[]`. A
+`Deferred` command (none today) answers with a `deferred` tool error naming its reason.
 
 Front-end launchers (`kit mcp`, a future `kit ui`) start a front end; they are not actions
 and are deliberately not `CommandSpec`s. Everything else a user can do is.
@@ -21,12 +22,10 @@ kit mcp                                   # empty session
 kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"   # preload a load order
 ```
 
-`--profile` runs the `load` command before serving. **Until M2.D8 lands it is a no-op:**
-`load` is not implemented yet, so the preload fails with `not_implemented`, which is
-noted on stderr only. Any other preload failure (a bad path, once `load` exists) goes to
-stderr and into the server's `instructions`. Either way the server starts with an empty
-session instead of exiting. `.mcp.json.example` and the commands below pass `--profile`
-anyway, so they need no edit when `load` lands.
+`--profile` runs the `load` command before serving (a warm load of the owner's 84-plugin
+profile takes under a second; the first, cold one indexes every plugin). A preload failure
+(a bad path, an unreadable profile) goes to stderr and into the server's `instructions`,
+and the server starts with an empty session instead of exiting.
 `kit mcp` exits 0 when its stdin closes and 2 on a stdio error. stdout carries only MCP
 messages; logs go to stderr.
 
@@ -42,15 +41,14 @@ Client config (any MCP client that launches stdio servers):
    `C:\Modding\kitcraft\target\release\kit.exe` with the default target dir).
 2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the
    file is gitignored, never committed; adjust the paths) and approve the server when
-   Claude Code asks, or register it for yourself only (`--profile` is a no-op until
-   M2.D8, see above):
+   Claude Code asks, or register it for yourself only:
 
    ```powershell
    claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
    ```
 
 3. Restart Claude Code (or start a new session). `/mcp` should list `kitcraft` as connected
-   with 7 tools; Claude Code names them `mcp__kitcraft__execute`, `mcp__kitcraft__coverage`
+   with 8 tools; Claude Code names them `mcp__kitcraft__execute`, `mcp__kitcraft__coverage`
    and so on.
 4. Headless check without the UI:
 
@@ -82,7 +80,7 @@ them is answered with `2025-11-25`. `server/discover`'s `supportedVersions` and 
   `server/discover` returns `supportedVersions`, `capabilities`, `instructions`. Every
   result carries `resultType: "complete"` and `_meta["io.modelcontextprotocol/serverInfo"]`;
   list, read and discover results carry `ttlMs`/`cacheScope` (the load-order resource:
-  `0`/`private`). `initialize` and `ping` are not methods of this revision: a modern
+  `0`/`private`; the catalog and the validation rules: one hour, `public`). `initialize` and `ping` are not methods of this revision: a modern
   request for either is `-32601`.
 - **Legacy requests** (no version in `_meta`, or a handshake-era one): `initialize`
   answers with the client's `protocolVersion` when it is one of the two above, otherwise
@@ -110,10 +108,11 @@ question for M3.
 | ---------------- | ----------------------------------------- | --------------------------------------------------------------------- |
 | `execute`        | `{command, args?}`                        | Run any catalog command by id (or alias) with JSON args matching its `args_schema` |
 | `command_line`   | `{text}`                                  | Run a CLI-style line, e.g. `"inspect 0001A2B3 X.esm"`; same parser as `kit`; `help ...` returns usage text |
-| `inspect_record` | `inspect`'s args (`{form, plugin}`)       | One record: header fields and subrecords (later: winner, overrides, typed fields) |
+| `inspect_record` | `inspect`'s args (`{form, plugin?, profile?, plugins?, ...}`) | One record across the load order (every version, the winner, typed values, lstrings), or in one plugin |
 | `query_records`  | `query`'s args (`{type, where?, limit?, cursor?}`) | Records of one type matching a field predicate; paged        |
 | `diff_plugins`   | `diff`'s args (`{a, b, form?}`)           | Record-level semantic diff between two plugins                        |
 | `coverage`       | `coverage`'s args (`{plugin, decode?, signatures?, top?}`) | Record types and subrecords vs the schema; a summary by default over MCP |
+| `record_schema`  | `schema`'s args (`{type?, member?, deep?}`) | What the schema defines for a record type: members with type, source citation and confidence (M2.F9) |
 | `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, out?, overwrite?}`) | Parse and rewrite a plugin; `verify` demands identical bytes |
 | `render`         | -                                         | Later (needs `crates/render`)                                         |
 
@@ -143,8 +142,12 @@ Resources:
 
 | URI                     | Contents                                                      |
 | ----------------------- | ------------------------------------------------------------- |
-| `kitcraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to |
+| `kitcraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to, `cli` (`kit ba2 extract`), `tools` (the MCP tools that run it: `execute`, `command_line`, and its shortcut if any) |
 | `kitcraft://load-order` | The session's load-order listing as `load` reported it (`Session::load_order`); `{"loaded": false, "plugins": [], ...}` before any load |
+| `kitcraft://validate-rules` | `validate`'s rule registry in run order: `rules[]` (`id`, `severity` of the main finding, `input` = `plugin` or `scripts`, `summary`, `run_only_this`), the script `denylist` (`class`, `function`, `why`), `docs` (`docs/validate.md`) and a note on which rules also warn |
+
+The catalog and the rules change only with the binary: over 2026-07-28 they are served
+with `cacheScope: "public"` and a one-hour `ttlMs`; the load order with `0`/`private`.
 
 ## Result envelope
 
@@ -242,17 +245,28 @@ driver one top-level group at a time, rewrites it, and compares the output with 
 ### Load-order arguments (`load`, `inspect`, `query`, `conflicts`)
 
 `profile` (an MO2 profile dir, read-only) or `plugins` (files in load order; bare names
-resolve against `data_dir`), plus `data_dir` (default: the MO2 instance's `gamePath` +
-`Data`) and `no_cache`. Given, the command loads first and the load order replaces the
+resolve against `data_dir`), plus `data_dir` and `no_cache`.
+
+**`data_dir` defaults to `KITCRAFT_DATA_DIR`** (every command that takes it: `load`,
+`inspect`, `query`, `conflicts`, `set`, `build`, `validate`, `diff`) when the argument is
+absent and the variable is set and not empty; an explicit `data_dir` always wins. For a
+`profile` the MO2 instance's `gamePath` + `Data` comes first, and `KITCRAFT_DATA_DIR` is
+used only when the instance names no `gamePath` (a limitation says so). String tables for a
+`plugins` list are read next to the first plugin unless `data_dir` is given. Given, the command loads first and the load order replaces the
 session's; absent, the command uses the session's load order (an MCP server keeps one;
 each `kit` process starts empty, so CLI users pass `--profile` to each command). No load
 order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitcraft\cache`
 (`KITCRAFT_CACHE_DIR`): a warm load of the owner's 84-plugin profile takes about 0.7 s.
 Rules, evidence and assumptions: `docs/load-order.md`.
 
-Every result over a load order repeats the limitations that affect it: runtime IDs are an
-assumption (`runtime-slots-by-scale`), plugins whose own records resolve by the
-`full-style-self` assumption, and plugins with records whose FormIDs do not resolve.
+Every result over a load order (`load`, `inspect`, `query`, `conflicts`) repeats the
+limitations that affect it, whether it loaded the plugins itself or used the session's:
+ordering errors (a master loading after a plugin that names it), plugins that failed to
+load or have no file, masters missing from the load order, runtime IDs as an assumption
+(`runtime-slots-by-scale`), plugins whose own records resolve by the `full-style-self`
+assumption, records of one plugin resolving to the same form, records whose FormIDs do not
+resolve, the profile's warnings, which plugins are active by an assumption, and the
+`hardcoded-official-slots` order.
 
 String tables (M2.D7): the load order keeps the tables of its localized plugins in the
 `language` given to `load` (default `en`), read on first use per plugin from a loose
@@ -276,29 +290,35 @@ Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load 
 `localized`, `form_version`, `masters[]` `{name, index}` (index null when missing),
 `missing_masters`, `late_masters` (masters loading after the plugin), `resolvable` and
 `resolve_error`, `records`, `unresolved_records`, `full_style_self_records`,
+`full_style_self_masked_records`, `assumed_records` (the first ten records resolved by an
+assumption: `{raw_form_id, form, basis}`), `duplicate_records`,
 `runtime_slot` (`05`, `FD:01`, `FE:00A`; assumed), `cache` (`hit` | `built` |
 `uncached`), `error` (a plugin that failed to parse stays listed with no records)),
 `inactive` (plugins the profile lists but does not activate), `records`, `versions`,
 `cache_dir`, `cache_hits`, `index_ms`, `table_ms`, `elapsed_ms`, `summary`. Evidence: each
-plugin's TES4 header. Limitations add the profile's warnings and which plugins are active
-by an assumption.
+plugin's TES4 header. Coverage `not_examined` lists the plugins that failed to load.
 
 ### `inspect` (M2.D9; single-plugin mode kept)
 
 Arguments `{form, plugin?, profile?, plugins?, data_dir?, no_cache?}`.
 
 **Load-order mode** (a load order given or in the session): `form` is a formref
-(`Starfield.esm:01A2B3`: defining plugin and object ID), a hex FormID read as stored in
-`plugin` (the plugin's own master numbering), a hex runtime ID when `plugin` is absent
-(under the runtime-slot assumption), or an EditorID (ASCII case-insensitive). `data`:
+(`Starfield.esm:01A2B3`: defining plugin and object ID, never 0), a hex FormID read as
+stored in `plugin` (the plugin's own master numbering; bare hex without `plugin` is
+refused unless it is an EditorID), `runtime:<hex>` (a runtime ID under the runtime-slot
+assumption), or an EditorID (ASCII case-insensitive). `data`:
 `mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
 `form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
 `object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
-`signature`, `editor_id` (the winner's), `winner`, `summary`, and `versions[]` in load
-order: `plugin`, `load_index`, `winner`, `raw_form_id` (as stored in that plugin),
+`signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `summary` (says
+"(deleted)" after a deleted winner), and `versions[]` in load
+order: `plugin`, `load_index`, `winner`, `deleted` (record flag 0x20), `resolved_by`
+(`direct` | `assumed:full-style-self` | `assumed:full-style-self-masked`), `raw_form_id`
+(as stored in that plugin),
 `record` (header fields), `subrecord_offsets`, `subrecords[]` (as below, plus `text` for
 EDID; for FULL/DESC the lstring members above; `member` (the schema's member name) and
-`value` (decoded through the schema: structs as objects, FormIDs as `{raw, form}`) where
+`value` (decoded through the schema: structs as objects, FormIDs as `{raw, form}`, the null
+FormID as `{raw: "00000000", form: null, null: true}`) where
 lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
 flags_differ, order_differs, subrecords[] {signature, occurrence, change}}`) and
@@ -319,8 +339,8 @@ outermost first as `{offset, type, label}`), `subrecord_offsets` (`file`, or
 any `XXXX` prefix), `data_offset`, `payload_hex` (first 256 bytes, uppercase hex) and
 `payload_truncated`. Evidence: the record header, then each payload (or, for a compressed
 record, the compressed body). Coverage is `partial`; every subrecord counts as opaque.
-Limitations always include `typed decode pending schema wiring` and the single-plugin
-note.
+Limitations always say that single-plugin mode lists raw payloads (schema-typed values
+are shown in load-order mode) and that overrides in other plugins are not considered.
 
 ### `query` (M2.D10, M2.D11)
 
@@ -334,7 +354,8 @@ Candidates are the winning version of every form of `type` (`winner`) or every v
 `data`: `type`, `where`, `scope`, `limit`, `matched`, `unknown` (records on this page that
 could not be decided: not matched), `scanned`, `candidates`, `next_cursor` (null on the
 last page), `results[]` (`form`, `signature`, `editor_id`, `full` (`{text}` inline, or the
-lstring members above), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`),
+lstring members above), `plugin`, `load_index`, `raw_form_id`, `offset`, `runtime_id`, `winner`,
+`deleted`, `resolved_by`),
 `unknown_records[]` (first 20: `form`, `plugin`, `reasons`), `elapsed_ms`, `summary`.
 Evidence: each result's record header and its FULL payload. A cursor is opaque; one from
 another load order, type, `where` or scope is a `failed` error. Paging returns the same set
@@ -349,16 +370,18 @@ and     = not { "and" not } ;
 not     = "not" not | atom ;
 atom    = "(" or ")" | "has" SIG | path op value ;
 path    = SIG { "." member } [ "[" index "]" ] | "@form" | "@plugin" | "@edid" | "@flags" ;
-op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" ;
-value   = number | hex | string | formref | "true" | "false" ;
-formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
+op      = "==" | "!=" | "<" | "<=" | ">" | ">=" | "~" | "!~" | "^=" | "&" ;
+value   = number | hex | string | formref | "true" | "false" | "null" ;
+formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3; object ID not 0)
 ```
 
 - Keywords, signatures and member names are ASCII case-insensitive. Text comparisons
   (`==`, `!=`, `~` contains, `!~` does not contain, `^=` starts with) are ASCII
   case-insensitive. Ordering operators need a number; `@form` takes `==`/`!=` and a
   formref (bare, or quoted when the file name has spaces); `@plugin` and `@edid` take
-  text; `@flags` (record flags) takes numbers.
+  text; `@flags` (record flags) takes numbers. `&` tests bits: `@flags & 0x20` is true when
+  every bit of the mask (a non-negative integer) is set; it applies to integer fields too.
+  `null` is the null FormID (`00000000`): `KWDA == null`; it takes `==`/`!=` only.
 - A repeated subrecord matches if any occurrence matches; `[n]` picks occurrence `n`
   (0-based).
 - Field paths are decoded through lane B's schema definitions (`crates/doc/src/typed.rs`):
@@ -368,12 +391,17 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
   their resolved text. A record type or subrecord without a definition falls back to
   `EDID` as text and `FULL`/`DESC` as lstrings.
 - A subrecord the record does not have makes a comparison false and `has` false. A value
-  of another kind than the literal (a GMST string variant against `DATA > 100`) is not
-  equal, not ordered and does not contain: false (`!=` and `!~` true). Unknown: a member
+  of a union member (the schema picks its variant per record) of another kind than the
+  literal (a GMST string variant against `DATA > 100`) is another variant: not equal, not
+  ordered and does not contain, so false (`!=` and `!~` true). Any other kind mismatch (a
+  FormID or boolean against a number, text against a number) is unknown, with the reason.
+  Unknown also: a member
   inside bytes the schema keeps opaque or a payload its layout does not cover, a subrecord
   without any definition, a string ID in no table, a FormID that does not resolve, a record
-  that cannot be read. `and`/`or`/`not` follow Kleene logic; an unknown record is not
-  matched, is counted, and its reasons are listed.
+  that cannot be read, a record missing from the index (`@flags` too), and any field path or
+  `has` on a deleted version (record flag 0x20: its payload is not the form's data).
+  `and`/`or`/`not` follow Kleene logic; an unknown record is not matched, is counted, and
+  its reasons are listed.
 - Errors (`failed`) carry a 1-based column: `where: column 6: ...`. Text is capped at 4,096
   characters and nesting at 64.
 
@@ -381,11 +409,13 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3)
 
 Arguments `{a, b, form?, data_dir?, limit = 200}`; CLI `kit diff <a> <b>`. Stateless (no
 load order needed). Each file's FormIDs are resolved through its own masters by name;
-masters' scales are read from their headers next to each file or in `data_dir`. A file's
+masters' scales are read from their headers next to each file or in `data_dir` (default
+`KITCRAFT_DATA_DIR`). A file's
 own records match the other file's records of it when the other lists it as a master, and
 match each other otherwise (an edited copy). If a master cannot be found but both files
-list the same masters in the same order, records are matched by raw FormID
-(`keyed_by: "raw"`); otherwise the diff fails naming the master.
+list the same masters in the same order and have the same own scale, records are matched by
+raw FormID (`keyed_by: "raw"`, forms labelled `raw:XXXXXXXX`); otherwise the diff fails
+naming the master. Formrefs spell plugin names as the files do (`Base.esm:000800`).
 
 `data`: `a`, `b`, `form`, `keyed_by` (`name` | `raw`), `counts {added, removed, changed,
 unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offset`), and
@@ -407,7 +437,7 @@ Starfield.esm --profile <dir>` (alias `esmscan`).
 (overridden forms passing the filters), `items[]` (a page: `form`, `signature`,
 `editor_id`, `base_present`, `versions` (plugin names in load order), `overrides[]`:
 `plugin`, `previous`, `class` (`identical-to-previous` | `deleted` | `differs` |
-`first-version`), `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
+`first-version`), `resolved_by`, `comparable`, `subrecords[]`, `flags_differ`), `class_counts` (this page),
 `class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
 Evidence: each override's record header and its differing payloads.
 `only_conflicts` keeps forms that two or more plugins override.
@@ -449,6 +479,40 @@ every compressed record was examined. Evidence: the whole file, then the first r
 each listed type. Limitations always state that classification is by signature only; with
 `--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
 `cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
+
+### `schema` (M2.F9)
+
+Arguments `{type?, member?, deep = false}`; CLI `kit schema` (every definition), `kit schema
+--type WEAP` (alias `defs`), `kit schema --type WEAP --member KWDA`; MCP tool
+`record_schema`. Reads no plugin: it reports what the builtin schema
+(`crates/schema/defs`, lane B) defines, so an agent can see which members a record type
+has, their types, and how far each is checked before it writes a `query` predicate or a
+`set` field path. `type` is case-insensitive.
+
+- Without `type`: `records[]` (`type`, `name`, `confidence`, `subrecords`, `typed`,
+  `opaque`, `confidence_counts {reference, corpus, ck-diff, verified}`), `headers[]`,
+  `common[]` (shared groups and types), the same totals over every definition, `summary`
+  (one line per record type in text mode).
+- With `type` (a record definition): `defined: true`, `kind: "record"`, `name`,
+  `confidence`, `source`, `evidence`, `note`, `header_flags`, the counts above for the
+  type, and `members[]` in definition order, **top level only** unless `deep`: a subrecord
+  is `{kind: "subrecord", signature, name, card, type, typed, size, confidence, source}`
+  (`type` is a label such as `zstring`, `u32`, `formid<KYWD>`, `[formid<KYWD>; rest]`,
+  `opaque(24)`, `union by edid-prefix (5 variants)`); a group is `{kind: "group", name,
+  card, shared, signatures, confidence, source}`; an `any_until` run names its terminator.
+  `deep` adds `evidence` and `note`, a group's `members`, a struct's `fields` (`name`,
+  `type`, form-version gates, `confidence`, and `source` where it differs from the
+  member's), enum `values`, flag `bits` and union `variants` (`when`, `name`, `type`).
+  `member` (a name or signature, ASCII case-insensitive, also inside a group) returns that
+  one member, deep; an unknown one is `failed` and lists the members.
+- With a header signature (`GRUP`): `kind: "header"`, `size`, `fields[]`.
+- With a type that has no definition: `defined: false` and `defined_types`; a limitation
+  says its subrecords are unknown to the schema (not absent).
+
+Coverage is `complete` with null counts (no plugin bytes are decoded) and `evidence` is
+empty: the values are definitions, each carrying its own source citation. Limitations
+always say so, count the `reference`-confidence definitions (documented upstream, not yet
+corpus-checked) and the opaque ones, and note when only the top level is listed.
 
 ### `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4)
 
@@ -575,8 +639,11 @@ not write.
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
 Arguments `{plugin?, scripts?, rules?}` (`plugin`, `scripts`, or both) plus the
-load-order arguments (optional: masters are searched in the named or session load order
-first, then next to the plugin, then in `data_dir`). CLI
+load-order arguments (all optional). **Masters of a standalone plugin are searched in
+order:** the named (`profile`/`plugins`) or session load order, the plugin's own
+directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable set,
+`kit validate --plugin out\X.esm` finds `Starfield.esm` with no other argument. A bare
+`plugin` name that is not in the working directory resolves in `data_dir`. CLI
 `kit validate --plugin X.esp [--data-dir D]`, `kit validate --scripts dir\with\pex`;
 `--rules masters.missing --rules lstring.copied-id` limits the run (an unknown id is
 `invalid_args` at `/rules/<i>`). The rules, their severities and sources:

@@ -201,7 +201,7 @@ whatever is not observed carries to M3.
 
 | ID     | Task | Depends on | Acceptance |
 | ------ | ---- | ---------- | ---------- |
-| M2.B1  | Provenance per member: `source` per field (ADR 0005 forms, plus any form M2.O1 approves) and `confidence = "confirmed" \| "corpus-consistent" \| "hypothesis"` | - | Loader rejects a missing or unknown value; `defs/README.md` documents it; existing defs migrated; `docs/record-parity.md` shows counts per confidence (M2.F9) |
+| M2.B1  | Provenance per member: `source` per field (ADR 0005 forms, plus any form M2.O1 approves) and `confidence` (ADR 0004 values: `reference` \| `corpus` \| `ck-diff` \| `verified`) | - | Loader rejects a missing or unknown value; `defs/README.md` documents it; existing defs migrated; `docs/record-parity.md` shows counts per confidence (M2.F9) |
 | M2.B2  | Universal subrecords typed from `uesp-skyrim` facts confirmed on the corpus: EDID (zstring), FULL and DESC (lstring), KSIZ/KWDA (count + FormID array via `count_from`), on every M2 record type (inventory defs created for AMMO, PROJ, AMDL, OMOD, COBJ, ZOOM, LVLI, FLST, INNR) | M2.B1, M2.A3 | Through M2.A3 every corpus occurrence decodes and re-encodes identical; FULL is 4 bytes in every record of every (localized) official file; parity shows these `typed` |
 | M2.B3  | Codegen visitors: `form_ids()` / `form_ids_mut()` over every FormID-typed member and `lstrings()` over every lstring member of a generated record | M2.B2 | Golden tests; a test record with FormIDs in nested and repeated members yields all of them, in order |
 | M2.B4  | WEAP typed layout | M2.O1, M2.B1, M2.A3 | Every member has `source` and `confidence`; every corpus WEAP decodes and re-encodes identical; M2.B11 comparison on >= 20 WEAP records with every mismatch explained or the member demoted to opaque |
@@ -351,8 +351,8 @@ scripts are not in M2.
 
 | ID    | Task | Gates |
 | ----- | ---- | ----- |
-| M2.O1 | **owner**: approve the ADR 0004 decision record, the matching ADR 0005 amendment, and `docs/xedit-reference.md` (drafted on a worktree branch at `b121751`, not on `main`). Until then option A applies | M2.B4..B8, M2.B10 |
-| M2.O2 | **owner**: whether OMOD is in scope (ADR 0005 Amendment 1, decision 5) | M2.B7 |
+| M2.O1 | **owner**: approve the ADR 0004 decision record, the matching ADR 0005 amendment, and `docs/xedit-reference.md`. **Done 2026-10-14** (ADR 0004 "Owner approval 2026-10-14": both `wbDefinitionsSF1.pas` and `wbDefinitionsCommon.pas` at the same SHA) | M2.B4..B8, M2.B10 |
+| M2.O2 | **owner**: whether OMOD is in scope (ADR 0005 Amendment 1, decision 5). **Done 2026-10-14**: in scope | M2.B7 |
 | M2.O3 | **owner**: download and install SF1Edit (agents do not download executables) | M2.B11 |
 | M2.O4 | **owner**: CK and MO2 observation sessions (run them, or let an agent drive the desktop): MO2 priority check (M2.D1), small/medium flags and runtime IDs (M2.D3 c), a new non-localized plugin as the CK writes it (M2.E3) | M2.D1 check, M2.D3 (c), M2.E3 `ck-diff` part |
 | M2.O5 | **owner**: whether third-party plugins under `C:\Modding\MO2-Starfield\mods` may serve as read-only inventory evidence (an ADR 0005 amendment). Default: no; they are loaded as the user's load order, but no fact is sourced from them | facts M2.E3 cannot get from the official corpus or the CK |
