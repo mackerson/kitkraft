@@ -180,6 +180,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "place",
+        label: "Place Reference...",
+        menu_path: "World/Place Reference...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Place a new reference (REFR, or ACHR for an NPC_) of a base form at a position and rotation in a cell, or at a world coordinate, into a full-scale patch plugin: the cell (and world) carried unchanged, a new FormID, validated",
+        args_schema: r#"{"type":"object","properties":{"base":{"type":"string","description":"The base form: Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"position":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"Position X, Y, Z (game units; an exterior cell is 100 units wide)"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp, full scale; never a load-order plugin, the game Data dir or MO2)"},"cell":{"type":"string","description":"The CELL (formref or EditorID); or give `world`"},"world":{"type":"string","description":"The WRLD (formref or EditorID): the exterior cell holding the position is used (persistent: the world's persistent cell)"},"rotation":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"Rotation X, Y, Z as stored (default 0 0 0)"},"persistent":{"type":"boolean","default":false,"description":"Persistent reference (record flag 0x400, persistent children; in a world, the world's persistent cell)"},"initially_disabled":{"type":"boolean","default":false,"description":"Record flag 0x800 (below corpus confidence: needs allow_reference flag.initially_disabled)"},"edid":{"type":"string","description":"EditorID for the new reference (letters, digits, _; unique in the load order)"},"allow_reference":{"type":"array","items":{"type":"string"},"description":"Members below corpus confidence to write anyway (DATA.Rotation, flag.initially_disabled, ...)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings of the carried cell, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout of the carried cell from a localized source as stored (named in limitations) instead of refusing"}},"required":["base","position","into"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "overhaul.scaffold",
         label: "New Overhaul Spec...",
         menu_path: "File/New Overhaul Spec...",

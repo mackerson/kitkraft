@@ -19,6 +19,9 @@ mod overhaul;
 mod overhaul_tests;
 mod package;
 mod papyrus;
+mod place;
+#[cfg(test)]
+mod place_tests;
 mod query;
 mod resolve;
 #[cfg(test)]
@@ -108,6 +111,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("build", Box::new(build::run)),
         ("overhaul.scaffold", Box::new(overhaul::run)),
         ("package", Box::new(package::run)),
+        ("place", Box::new(place::run)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

@@ -759,6 +759,28 @@ is under "Next".
     so the few non-UTF-8 official entries are copied exactly instead of refused;
     `record.flags-body` accepts any one NUL-terminated string. The `docs/gaps.md` row is
     closed.
+  - M4.E2 `place` (`Implemented`; `handlers/place.rs`, writer `edit::patch::write_patch_with`;
+    CLI `kit place <base> --position "[x,y,z]" <into> --cell <CELL>` or `--world <WRLD>`):
+    a new `REFR` (`ACHR` for an `NPC_` base) composed by lane A's `compose_reference`, a
+    FormID from `NewForms` once the master list is final, `HEDR` next object ID advanced;
+    the winning `CELL` (and `WRLD`) carried as an unchanged copy before the children groups
+    (a cell the target already has is kept where it is, and the reference goes under its
+    observed path); `world` + position picks the exterior cell by `XCLC` grid, and a
+    persistent reference of a world goes into the world's persistent cell. Typed refusals
+    (`place.<code>:`): base not placeable (references, cells, worlds, navmeshes; `LVLN`
+    until checked), no cell or world, cell and world both, no exterior cell at the grid,
+    a temporary reference in a persistent cell, EditorID invalid or clashing (load order,
+    target, or twice), a small or medium master (`place.scaled-master`, per lane A's review
+    round), a parent not carried, a FormID already in the target; a position outside the
+    named exterior cell is a limitation. Evidence: base and cell winners, every written
+    record; `placed[]` lists base, cell, world, grid, group path and each member with its
+    confidence; `carried[]` says whether each carried record equals its winner byte for
+    byte. Tests through `execute` (synthetic master: interior, persistent and exterior
+    cells; ACHR; observed path; determinism and the CLI form; every refusal) and
+    `tests/place_corpus.rs` (ignored, release, 18.6 s): 8 interior and 8 exterior
+    `Starfield.esm` references with only `NAME`+`DATA` placed again from their base, cell
+    or world, position and rotation reproduce their record bodies byte for byte
+    (header: new FormID, composition-default stamps).
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box

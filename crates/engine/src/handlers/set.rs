@@ -23,7 +23,7 @@ use super::{failed, str_arg};
 use crate::args::Violation;
 use crate::edit::fields::{parse_op, parse_path};
 use crate::edit::patch::{
-    guard_target, write_patch, Copy, Edit, PatchError, PatchOptions, PatchReport,
+    guard_target, write_patch_with, Copy, Edit, NewRef, PatchError, PatchOptions, PatchReport,
 };
 use crate::edit::source::{placement_at, SourcePlugin};
 use crate::edit::strings::TableStrings;
@@ -232,6 +232,7 @@ pub(crate) fn winning_copy(
             parents,
             edits,
             formref: label,
+            carried: false,
         },
         origin,
     ))
@@ -258,6 +259,25 @@ pub(crate) fn write(
     copies: Vec<Copy>,
     allow_untyped_lstrings: bool,
 ) -> Result<PatchReport, EngineError> {
+    write_with(
+        command,
+        loaded,
+        into,
+        copies,
+        Vec::new(),
+        allow_untyped_lstrings,
+    )
+}
+
+/// [`write`] with new placed references (`place`, spec v3 `[[place]]`).
+pub(crate) fn write_with(
+    command: &str,
+    loaded: &mut Loaded,
+    into: &Path,
+    copies: Vec<Copy>,
+    new_refs: Vec<NewRef>,
+    allow_untyped_lstrings: bool,
+) -> Result<PatchReport, EngineError> {
     let protected = protected(loaded);
     let plugin_flags: Vec<(String, u32)> = loaded
         .lo
@@ -273,7 +293,7 @@ pub(crate) fn write(
         limits: DecodeLimits::default(),
         allow_untyped_lstrings,
     };
-    write_patch(into, copies, &options).map_err(|e| match e {
+    write_patch_with(into, copies, new_refs, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {
             command: command.to_string(),
             violations: vec![Violation {

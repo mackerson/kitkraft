@@ -46,8 +46,11 @@ use std::path::{Path, PathBuf};
 
 use kitcraft_esm::bridge::Ctx;
 use kitcraft_esm::build::{set_masters, upsert_file_to_path, HeaderSpec, Placed, Upsert};
+use kitcraft_esm::cells::{CellPlace, PlacementStyle};
 use kitcraft_esm::driver::RewriteOptions;
+use kitcraft_esm::forms::NewForms;
 use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
+use kitcraft_esm::refs::{compose_reference, RefSpec};
 use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
 use kitcraft_esm::{DecodeLimits, GroupHeader, Plugin, Record, Signature, Subrecord};
 use kitcraft_schema::FieldType;
@@ -102,6 +105,106 @@ pub struct Copy {
     pub edits: Vec<Edit>,
     /// `Plugin.esm:00ABCDEF` of the form, for reports.
     pub formref: String,
+    /// Carried only to hold the groups of a new record (`place`'s cell): reported as a
+    /// parent, never edited.
+    pub carried: bool,
+}
+
+/// A form named by its defining plugin's file name and its object ID, mapped into the
+/// target's master list by the writer once that list is final.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FormName {
+    /// The defining plugin (`Starfield.esm`).
+    pub plugin: String,
+    /// The object ID (low 24 bits).
+    pub object_id: u32,
+}
+
+impl FormName {
+    /// `Starfield.esm:00ABCDEF`.
+    pub fn label(&self) -> String {
+        format!("{}:{:08X}", self.plugin, self.object_id)
+    }
+}
+
+/// The cell a new reference goes into ([`kitcraft_esm::cells::CellPlace`] in names).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RefPlace {
+    /// An interior cell.
+    Interior { cell: FormName },
+    /// An exterior cell of `world` at `grid`.
+    Exterior {
+        world: FormName,
+        cell: FormName,
+        grid: kitcraft_esm::cells::Grid,
+    },
+    /// The persistent cell of `world` (where a world's persistent references live).
+    Persistent { world: FormName, cell: FormName },
+}
+
+impl RefPlace {
+    /// The cell.
+    pub fn cell(&self) -> &FormName {
+        match self {
+            RefPlace::Interior { cell }
+            | RefPlace::Exterior { cell, .. }
+            | RefPlace::Persistent { cell, .. } => cell,
+        }
+    }
+
+    /// The world, for an exterior or persistent cell.
+    pub fn world(&self) -> Option<&FormName> {
+        match self {
+            RefPlace::Interior { .. } => None,
+            RefPlace::Exterior { world, .. } | RefPlace::Persistent { world, .. } => Some(world),
+        }
+    }
+}
+
+/// A new placed reference (`place`, M4.E2): composed by `kitcraft_esm::refs` with a FormID
+/// from `kitcraft_esm::forms::NewForms` once the target's master list is final, and placed
+/// by `kitcraft_esm::cells::placement`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewRef {
+    /// `REFR`, or `ACHR` for an NPC base.
+    pub signature: Signature,
+    /// The base form.
+    pub base: FormName,
+    /// Where it goes.
+    pub place: RefPlace,
+    /// Position X, Y, Z.
+    pub position: [f32; 3],
+    /// Rotation X, Y, Z.
+    pub rotation: [f32; 3],
+    /// Persistent (record flag 0x400, persistent children).
+    pub persistent: bool,
+    /// Initially disabled (record flag 0x800; below `corpus` confidence).
+    pub initially_disabled: bool,
+    /// EditorID.
+    pub editor_id: Option<String>,
+    /// Members below `corpus` confidence the caller allows (`DATA.Rotation`, ...).
+    pub allow_reference: Vec<String>,
+    /// The entry that asked for it (`place`, `place[0]`), for reports.
+    pub label: String,
+}
+
+/// What the writer did for one [`NewRef`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct NewFormReport {
+    /// The entry that asked for it.
+    pub label: String,
+    /// The new record's FormID as stored.
+    pub form_id: u32,
+    /// The base's FormID as stored in the target.
+    pub base: u32,
+    /// The cell's FormID as stored in the target.
+    pub cell: u32,
+    /// The world's, for an exterior or persistent cell.
+    pub world: Option<u32>,
+    /// The group path it was placed at: `(group type, label as u32)`, outermost first.
+    pub path: Vec<(i32, u32)>,
+    /// Every member written, with its confidence and source.
+    pub members: Vec<kitcraft_esm::refs::MemberUse>,
 }
 
 /// What the writer needs besides the records.
@@ -201,6 +304,10 @@ pub struct PatchReport {
     pub bytes: u64,
     /// Limitations to report.
     pub limitations: Vec<String>,
+    /// The new records ([`NewRef`]) written, in order.
+    pub new_forms: Vec<NewFormReport>,
+    /// The `HEDR` next object ID after the write, when new forms advanced it.
+    pub next_object_id: Option<u32>,
 }
 
 /// The `ck-diff` half of M2.E3 that is not observed yet (M2.O4), and the header
@@ -270,7 +377,23 @@ pub fn write_patch(
     copies: Vec<Copy>,
     options: &PatchOptions<'_>,
 ) -> Result<PatchReport, PatchError> {
-    if copies.is_empty() {
+    write_patch_with(target, copies, Vec::new(), options)
+}
+
+/// [`write_patch`] that also adds new placed references (`place`, M4.E2): after the
+/// copies (a reference's cell, and its world, are carried as copies), each [`NewRef`] gets
+/// a new own FormID (`kitcraft_esm::forms::NewForms`: full-scale targets only), its base
+/// and cell mapped into the final master list (the plugins they name are added as masters
+/// when missing, which a target with records of its own refuses), is composed by
+/// `kitcraft_esm::refs::compose_reference` (members below `corpus` refused unless allowed)
+/// and placed by `kitcraft_esm::cells::placement`; the `HEDR` next object ID is advanced.
+pub fn write_patch_with(
+    target: &Path,
+    copies: Vec<Copy>,
+    new_refs: Vec<NewRef>,
+    options: &PatchOptions<'_>,
+) -> Result<PatchReport, PatchError> {
+    if copies.is_empty() && new_refs.is_empty() {
         return Err(refused("nothing to write: no records"));
     }
     guard_target(target, &options.protected)?;
@@ -348,6 +471,31 @@ pub fn write_patch(
             }
         }
     }
+    // New references name their base, cell and world: those plugins become masters.
+    for new in &new_refs {
+        let mut named = vec![&new.base, new.place.cell()];
+        named.extend(new.place.world());
+        for form in named {
+            let name = &form.plugin;
+            if name.eq_ignore_ascii_case(&target_name) {
+                return Err(refused(format!(
+                    "{}: {} is a form of {target_name} itself; a new reference names forms of the target's masters",
+                    new.label,
+                    form.label()
+                )));
+            }
+            if !masters.iter().any(|m| m.eq_ignore_ascii_case(name)) {
+                if own_records {
+                    return Err(refused(format!(
+                        "{}: {target_name} has records of its own; adding the master {name} (for {}) would change what their FormIDs mean; write into a new plugin",
+                        new.label,
+                        form.label()
+                    )));
+                }
+                masters.push(name.clone());
+            }
+        }
+    }
     // Pass 2: each copy into the target's FormID space, edits, lstrings.
     let mut limitations: Vec<String> = Vec::new();
     let mut placed: Vec<Placed> = Vec::new();
@@ -390,6 +538,25 @@ pub fn write_patch(
                 inlined,
             ));
             placed.push(Placed { path, record });
+        }
+        // A carried record the target already has stays as it is, where it is (its group
+        // path there may differ from the source's: a block the formula does not predict).
+        if copy.carried
+            && existing.as_ref().is_some_and(|(_, index)| {
+                index.records.iter().any(|r| {
+                    r.form_id == copy.record.header.form_id
+                        && r.signature == copy.record.header.signature
+                })
+            })
+        {
+            push_once(
+                &mut limitations,
+                format!(
+                    "{} {} is already in {target_name}; kept as it is",
+                    copy.record.header.signature, copy.formref
+                ),
+            );
+            continue;
         }
         let mut record = copy.record.clone();
         if needs_remap {
@@ -436,12 +603,202 @@ pub fn write_patch(
             )));
         }
         reports.push(report_for(
-            &record, &copy, &masters, false, changes, inlined,
+            &record,
+            &copy,
+            &masters,
+            copy.carried,
+            changes,
+            inlined,
         ));
         placed.push(Placed {
             path: copy.path,
             record,
         });
+    }
+
+    // New references: FormIDs from the allocator over the final header, then composed and
+    // placed.
+    let created_header = |masters: &[String]| {
+        let mut spec = HeaderSpec::new(masters.iter().map(|m| m.as_bytes().to_vec()).collect());
+        spec.author = Some(NEW_PLUGIN_AUTHOR.to_vec());
+        if is_esm(target) {
+            spec.flags |= FLAG_MASTER;
+        }
+        spec
+    };
+    let mut forms: Option<NewForms> = None;
+    let mut new_forms: Vec<NewFormReport> = Vec::new();
+    if !new_refs.is_empty() {
+        // The allocator's own prefix is the master count, which holds only when every
+        // master is full-scale (small and medium masters take no full slot in the game).
+        for m in &masters {
+            match flag_of(m) {
+                None => {
+                    return Err(refused(format!(
+                        "place.scaled-master: the scale of {m}, a master of {target_name}, is unknown (its header was not read), so the FormID of a new form cannot be chosen; add it to the load order"
+                    )))
+                }
+                Some(f) if f & (FLAG_SMALL | FLAG_MEDIUM) != 0 => {
+                    return Err(refused(format!(
+                        "place.scaled-master: {m}, a master of {target_name}, is a small or medium plugin; new forms are written only when every master is full-scale (the own-FormID prefix counts full masters; refused until lane A's scale-aware allocator)"
+                    )))
+                }
+                Some(_) => {}
+            }
+        }
+        let names: Vec<Vec<u8>> = masters.iter().map(|m| m.as_bytes().to_vec()).collect();
+        let allocator = match &existing {
+            None => NewForms::new(&created_header(&masters).to_record(), None),
+            Some((_, index)) if masters == original_masters => NewForms::for_index(index),
+            Some((_, index)) => {
+                // Extended masters: the target has no records of its own (checked above).
+                let mut header = index.header.clone();
+                set_masters(&mut header, &names);
+                NewForms::new(&header, None)
+            }
+        }
+        .map_err(|e| refused(format!("{target_name}: {e}")))?;
+        let mut allocator = allocator;
+        let target_masters = masters.clone();
+        let stored = |form: &FormName| -> Result<u32, PatchError> {
+            formref_in(
+                &form.plugin,
+                form.object_id,
+                &target_masters,
+                &target_name,
+                &flag_of,
+            )
+            .map_err(|m| refused(format!("{}: {m}", form.label())))
+        };
+        for new in new_refs {
+            let base = stored(&new.base)?;
+            let cell = stored(new.place.cell())?;
+            let world = new.place.world().map(stored).transpose()?;
+            let place = match (&new.place, world) {
+                (RefPlace::Interior { .. }, _) => CellPlace::Interior,
+                (RefPlace::Exterior { grid, .. }, Some(world)) => {
+                    CellPlace::Exterior { world, grid: *grid }
+                }
+                (RefPlace::Persistent { .. }, Some(world)) => CellPlace::Persistent { world },
+                _ => {
+                    return Err(refused(format!(
+                        "{}: a world cell without its world",
+                        new.label
+                    )))
+                }
+            };
+            let form_id = allocator
+                .allocate()
+                .map_err(|e| refused(format!("{}: {e}", new.label)))?;
+            let mut spec = RefSpec::new(new.signature, form_id, base, new.position, new.rotation);
+            spec.persistent = new.persistent;
+            spec.initially_disabled = new.initially_disabled;
+            spec.editor_id = new.editor_id.as_ref().map(|e| e.as_bytes().to_vec());
+            let allow: Vec<&str> = new.allow_reference.iter().map(String::as_str).collect();
+            let composed = compose_reference(&spec, &allow)
+                .map_err(|e| refused(format!("{}: {e}", new.label)))?;
+            let mut at = composed
+                .placed(place, cell, &PlacementStyle::OFFICIAL)
+                .map_err(|e| refused(format!("{}: {e}", new.label)))?;
+            // The cell's own group path where it is observed (the target, else the
+            // carried copy's source), not recomputed: a cell may sit in a block the
+            // formula does not predict. The computed children groups follow it.
+            let in_target = existing.as_ref().and_then(|(_, index)| {
+                index
+                    .records
+                    .iter()
+                    .find(|r| r.form_id == cell && r.signature == Signature(*b"CELL"))
+                    .map(|r| index.group_headers(r))
+            });
+            let observed = in_target.or_else(|| {
+                placed
+                    .iter()
+                    .find(|p| {
+                        p.record.header.form_id == cell
+                            && p.record.header.signature == Signature(*b"CELL")
+                    })
+                    .map(|p| p.path.clone())
+            });
+            let Some(observed) = observed else {
+                return Err(refused(format!(
+                    "place.parent-not-carried: {}: the cell {} is neither in {target_name} nor carried into it; a children group needs its CELL record first",
+                    new.label,
+                    new.place.cell().label()
+                )));
+            };
+            if let Some(w) = world {
+                let has_world = existing.as_ref().is_some_and(|(_, index)| {
+                    index
+                        .records
+                        .iter()
+                        .any(|r| r.form_id == w && r.signature == Signature(*b"WRLD"))
+                }) || placed.iter().any(|p| {
+                    p.record.header.form_id == w && p.record.header.signature == Signature(*b"WRLD")
+                });
+                if !has_world {
+                    return Err(refused(format!(
+                        "place.parent-not-carried: {}: the world {} is neither in {target_name} nor carried into it",
+                        new.label,
+                        new.place.world().map(FormName::label).unwrap_or_default()
+                    )));
+                }
+            }
+            let children = at.path.split_off(at.path.len().saturating_sub(2));
+            at.path = observed;
+            at.path.extend(children);
+            // A FormID the target already has would be a duplicate (or a second copy under
+            // other children).
+            if existing
+                .as_ref()
+                .is_some_and(|(_, index)| index.records.iter().any(|r| r.form_id == form_id))
+            {
+                return Err(refused(format!(
+                    "place.formid-exists: {}: {form_id:08X} is already in {target_name}",
+                    new.label
+                )));
+            }
+            for l in &composed.limitations {
+                push_once(&mut limitations, format!("{}: {l}", new.label));
+            }
+            if !seen.insert((form_id, new.signature.0)) {
+                return Err(refused(format!(
+                    "{}: FormID {form_id:08X} allocated twice",
+                    new.label
+                )));
+            }
+            reports.push(RecordReport {
+                signature: new.signature.to_string(),
+                form_id,
+                formref: format!("{target_name}:{:08X}", form_id & 0x00FF_FFFF),
+                editor_id: new.editor_id.clone(),
+                source: format!("new ({})", new.label),
+                outcome: "inserted",
+                parent: false,
+                changes: Vec::new(),
+                inlined: Vec::new(),
+                offset: None,
+                length: None,
+                edited_subrecords: Vec::new(),
+            });
+            new_forms.push(NewFormReport {
+                label: new.label.clone(),
+                form_id,
+                base,
+                cell,
+                world,
+                path: at
+                    .path
+                    .iter()
+                    .map(|g| (g.group_type, g.label_u32()))
+                    .collect(),
+                members: composed.members,
+            });
+            placed.push(at);
+        }
+        for l in kitcraft_esm::forms::LIMITATIONS {
+            push_once(&mut limitations, (*l).to_string());
+        }
+        forms = Some(allocator);
     }
 
     // Write.
@@ -457,17 +814,17 @@ pub fn write_patch(
     };
     let (outcomes, flags): (Vec<Upsert>, u32) = match &existing {
         None => {
-            let mut spec = HeaderSpec::new(masters.iter().map(|m| m.as_bytes().to_vec()).collect());
-            spec.author = Some(NEW_PLUGIN_AUTHOR.to_vec());
-            if is_esm(target) {
-                spec.flags |= FLAG_MASTER;
-            }
+            let spec = created_header(&masters);
             // INCC after the masters, as in every official file.
             let interior = placed.iter().filter(|p| is_interior_cell(p)).count();
             let mut header = spec.to_record();
             if let Some(subs) = header.subrecords_mut() {
                 let count = u32::try_from(interior).unwrap_or(u32::MAX);
                 subs.push(Subrecord::new(INCC, count.to_le_bytes().to_vec()));
+            }
+            if let Some(f) = &forms {
+                f.write_hedr(&mut header)
+                    .map_err(|e| PatchError::Io(format!("{target_name}: HEDR: {e}")))?;
             }
             let mut plugin = Plugin::new(header);
             let mut outcomes = Vec::new();
@@ -514,6 +871,9 @@ pub fn write_patch(
                     if added_cells > 0 {
                         add_to_incc(tes4, added_cells);
                     }
+                    if let Some(f) = &forms {
+                        f.write_hedr(tes4)?;
+                    }
                     Ok(())
                 })
                 .map_err(|e| discard(PatchError::Io(format!("updating {target_name}: {e}"))))?;
@@ -542,6 +902,8 @@ pub fn write_patch(
         records: reports,
         bytes,
         limitations,
+        new_forms,
+        next_object_id: forms.map(|f| f.hedr_next_object_id()),
     })
 }
 
