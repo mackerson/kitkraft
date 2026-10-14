@@ -1,0 +1,81 @@
+# Effect: one magic effect entry of a spell (or another magic item): the base effect
+# (MGEF), its magnitude, area and duration, conditions, optional globals that override
+# them, flags and a unique index. Records reference it as `group_ref = "Effect"` with
+# `card = "repeated"`.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L6977-L6995 - the effect entry and its list:
+#     member order, EFIF bits. Helpers: EFID (L4663), EFIT (L4665-L4670), the conditions
+#     (L4750-L4840, common/Condition.toml; no CITC count).
+#   corpus: the 1,563 effects in the SPEL records of the 14 official ESMs (2026-10-14):
+#     EFID, EFIT (12 bytes), EFIF and MUID (4 bytes) in every effect; CTDA (32 bytes, 1,608),
+#     MNAM (302), ZNAM (66) and ANAM (2) in this order when present. Every SPEL record
+#     decodes and re-encodes identically through this group.
+name = "Effect"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6977-L6995"
+evidence = [
+  "corpus: the 1,563 effects in the SPEL records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every SPEL record and re-encode it identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EFID"
+name = "BaseEffect"
+type = "formid"
+targets = ["MGEF"]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4663-L4663"]
+
+[[member]]
+sig = "EFIT"
+name = "Data"
+type = "struct"
+size = 12
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4665-L4670"]
+field = [
+  { name = "Magnitude", type = "f32" },
+  { name = "Area", type = "f32" },
+  { name = "Duration", type = "u32" },
+]
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "without a CITC count"
+
+[[member]]
+sig = "MNAM"
+name = "MagnitudeGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "ANAM"
+name = "AreaGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "ZNAM"
+name = "DurationGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "EFIF"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["ValueAsRatio", 0x1], ["AlwaysShowInItemCard", 0x2]]
+card = "optional"
+
+[[member]]
+sig = "MUID"
+name = "IndexUid"
+type = "u32"
+card = "optional"
