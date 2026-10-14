@@ -19,12 +19,14 @@ file names its source in one of these forms, and the loader rejects any other pr
   (`https://en.uesp.net/wiki/Skyrim_Mod:...`), confirmed against the corpus (TES4, GRUP,
   the record header, string types). Never for Starfield record bodies. Should carry
   `confidence = "corpus"` or better; `reference` is rejected (see Confidence).
-- `xedit: wbDefinitionsSF1.pas@<sha>#L<start>-L<end>`: a Starfield record definition read
-  from upstream xEdit's `Core/wbDefinitionsSF1.pas`. `<sha>` must be the revision ADR 0004
-  pins, `9fb016884bec138ea6c7b872cec831537d464c3e` (full 40 lower-case hex); the line range
-  is 1-based and inclusive. Cite the record's own range in `source` and any helper ranges
-  in `evidence`. Requires `confidence`. Facts only: no code, comments or labels copied
-  wholesale; see `docs/xedit-reference.md` for the construct-to-TOML map.
+- `xedit: <file>@<sha>#L<start>-L<end>`: a Starfield record definition read from upstream
+  xEdit's `Core/wbDefinitionsSF1.pas`, or a shared helper the Starfield definitions invoke
+  from `Core/wbDefinitionsCommon.pas` (ADR 0004, owner approval 2026-10-14). `<sha>` must
+  be the revision ADR 0004 pins, `9fb016884bec138ea6c7b872cec831537d464c3e` (full 40
+  lower-case hex), for both files (`kitcraft_schema::XEDIT_REVISION`, `XEDIT_FILES`); the
+  line range is 1-based and inclusive. Cite the record's own range in `source` and helper
+  ranges in `evidence`. Facts only: no code, comments or labels copied wholesale; see
+  `docs/xedit-reference.md` for the construct-to-TOML map.
 - `uesp-starfield: <page URL>`: the UESP Starfield pages at
   `https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format...`, a secondary reference.
   The loader rejects a citation of the `/CTDA` page; cite xEdit at the pin instead.
@@ -42,21 +44,38 @@ names) for anything. Never substitute a Skyrim definition for a Starfield record
 
 ### Confidence
 
-`confidence` says how far a definition has been checked (ADR 0005 Amendment 2):
+`confidence` says how far a fact has been checked (ADR 0004 owner approval, clarification
+3; ADR 0005 Amendment 2):
 
 | Value       | Meaning                                                      | Needs a citation of        |
 | ----------- | ------------------------------------------------------------ | -------------------------- |
-| `reference` | From xEdit only, not yet confirmed                           | `xedit:`                   |
-| `corpus`    | Sizes, counts and order confirmed on the 14 official ESMs    | `corpus:`                  |
-| `ck-diff`   | Confirmed by CK differential observation                     | `ck-diff:`                 |
-| `verified`  | Both of the above                                            | `corpus:` and `ck-diff:`   |
+| `reference` | Documented in an allowed source (xEdit), not yet observed    | `xedit:`                   |
+| `corpus`    | Observed in a local fixture: sizes, counts and order agree with every occurrence in the 14 official ESMs | `corpus:` |
+| `ck-diff`   | Checked against Creation Kit output                          | `ck-diff:`                 |
+| `verified`  | Independently validated: both of the above                   | `corpus:` and `ck-diff:`   |
 
-It is required when any citation is `xedit:`, optional otherwise, and checked against the
-citations whenever it is present; `reference` is rejected next to a `uesp-skyrim:`
-citation. ADR 0005 Amendment 2 also wants it on every `uesp-skyrim:` definition; the loader
-will require that once `TES4`, `GRUP` and `RECORD` carry it (a defs change also means
-rerunning `cargo xtask codegen`; see `plan/STATUS.md`). The loader validates `confidence`;
-the typed model does not carry it yet.
+Every definition file states `confidence` (M2.B1); the loader rejects a missing or unknown
+value, and a level its citations do not back. `reference` is rejected next to a
+`uesp-skyrim:` citation: Skyrim facts describe the shared container only and need the
+corpus. Upstream coverage is not understanding: a member xEdit describes stays `reference`
+until our own evidence raises it.
+
+### Per-member provenance
+
+A subrecord, group, `group_ref` or `any_until` member, and a struct field, may set its own
+`source`, `evidence` and `confidence`. The model stores the *effective* provenance on every
+node (`kitcraft_schema::Provenance`):
+
+- Nothing set: the parent's provenance (the file's, or the enclosing member's or field's).
+- `evidence` and/or `confidence` without `source`: the parent's source, the parent's
+  evidence followed by the member's own, and the member's level (or the parent's).
+- `source` set: the member's own citations only (`source` plus its own `evidence`), and
+  `confidence` is then required on the member.
+
+Each level is checked against the effective citations, at every node that sets a key.
+Members of a shared definition (`defs/common/`) keep that file's provenance wherever it is
+expanded; the `group_ref` member itself (its position and cardinality in the record) has
+the record's.
 
 ## Files
 
@@ -83,7 +102,7 @@ exact lines to add or remove when that list and this directory differ.
 | `source`    | yes             | Primary source, in an ADR 0005 form (see above)                 |
 | `kind`      | no              | `record` (default), `header`, `group` or `type`                 |
 | `evidence`  | no              | Further sources, same forms                                     |
-| `confidence`| with `xedit:` citations | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
+| `confidence`| yes             | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
 | `note`      | no              | Free text (our own words)                                       |
 | `flags`     | no (records)    | Record-header flag bits for this type: `[["Master", 0x1], ...]` |
 | `member`    | records, groups | Ordered list of members                                         |
@@ -98,7 +117,8 @@ exact lines to add or remove when that list and this directory differ.
 **Subrecord** (`sig = "EDID"`): `name` (PascalCase, unique in its list after snake_case
 conversion; `Extra` is reserved), `type` (see Types), `card`, optional `size`,
 `size_by_version`, `note`, plus the type keys (`targets`, `count`, `element`, `base`,
-`values`, `bits`, `field`).
+`values`, `bits`, `field`). Every member kind and every field also takes the provenance
+keys `source`, `evidence` and `confidence` (see Per-member provenance).
 
 **Group** (`group = "Master"`): a run of consecutive subrecords that belong together. The
 group's members go in nested `[[member.member]]` tables. Keys: `card`, `note`. A group must
@@ -149,6 +169,7 @@ names (WEAP has two `FLLD` slots).
 | `opaque`  | `size`  | `size` (omit for "rest of data")   | Bytes we do not decode yet. Never guess a layout         |
 | `empty`   | 0       | -                                  | Zero-length marker subrecord                             |
 | `ref:Name`| shared  | - (a member may add `size`)        | The shared type `common/Name.toml`                       |
+| `union`   | variant | `decider`, `variants`              | Subrecord members only; see Unions                       |
 
 `wstring` and `bstring` follow the string conventions on
 <https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions> (container fact, ADR 0005
@@ -188,10 +209,39 @@ Elements must not read to the end and must not be empty: scalars, `formid`, `sig
 Element keys (`targets`, `base`, `values`, `bits`, `field`) sit on the array itself;
 `element = "ref:Point"` uses a shared type.
 
+### Unions (`type = "union"`)
+
+A whole subrecord whose layout the record's EditorID selects (M2.B9, GMST `DATA`):
+
+```toml
+[[member]]
+sig = "DATA"
+name = "Value"
+type = "union"
+decider = "edid-prefix"
+variants = [
+  { when = "f", name = "Float", type = "f32" },
+  { when = "s", name = "String", type = "lstring" },
+]
+```
+
+- `decider = "edid-prefix"`: the first byte of the record's first `EDID` payload, compared
+  exactly with each variant's `when` (one ASCII letter or digit, unique). The record must
+  have an `EDID` member. It is the only decider so far.
+- Variants take `name`, `type` (anything but `struct`, `array` and `union`; `formid` may
+  have `targets`) and `note`.
+- Only on subrecord members (not on fields, array elements or shared types). A declared
+  `size` must match every variant, so it is not allowed when a variant is variable
+  (`lstring`).
+- Codegen emits an enum with one variant per layout (`GmstValue::Float(f32)`) and a
+  `prefix()` method. A payload whose record has no `EDID`, or whose prefix no variant
+  names, or that does not fit the chosen layout, stays raw in `extra`. Editing the EDID's
+  first letter does not change an already decoded value's variant.
+
 ### Not supported (stays opaque)
 
-Discriminated unions (a layout chosen by the value of another field or subrecord) are not
-expressible yet. Such payloads stay `opaque` until the format grows a construct for them.
+Unions decided by anything other than the EditorID prefix (the value of another field or
+subrecord) are not expressible yet. Such payloads stay `opaque`.
 
 ## Shared definitions (`common/`)
 
@@ -240,7 +290,14 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 - `lstring` decodes to `LString::Id(u32)` or `LString::Text(ZString)` by `ctx.localized`;
   a payload that does not fit the mode stays raw in `extra`.
 - `extra` holds subrecords that matched no member or failed to decode, each with its index
-  in the body as read; `encode` re-inserts each at that index.
+  in the body as read; `encode` re-inserts each at that index. `Record::extra()` returns
+  it for any record type.
+- Visitors (M2.B3): every record has `form_ids()` / `form_ids_mut()` over every
+  `formid`-typed value and `lstrings()` / `lstrings_mut()` over every `lstring` value, in
+  definition order, each paired with the path of the member or field holding it
+  (`WEAP.KWDA`, `Link.Form` inside a shared type); `Record` forwards them. FormIDs are the
+  raw stored values; resolution against masters belongs to the `doc` layer. Values kept
+  raw (`extra`, `any_until` bodies, opaque payloads) are not visited.
 
 ## Rules of thumb
 
@@ -257,13 +314,22 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
 | `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
-| `GMST.toml` `GLOB.toml` `KYWD.toml` | record | corpus scan | Inventory only: order and cardinality; every payload opaque |
-| `WEAP.toml` | record    | corpus scan                              | Inventory only; typed layout waits for lane B round 3 (`xedit:`) |
+| `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
+| `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB block opaque |
+| `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
+| `AMMO.toml` `AMDL.toml` `COBJ.toml` `OMOD.toml` `ZOOM.toml` | record | corpus scan | Inventories (M2.B2): universal subrecords typed, the rest opaque until lane B round 3 |
+| `WEAP.toml` | record    | corpus scan                              | Inventory; universal subrecords typed (M2.B2); the body layout waits for lane B round 3 (`xedit:`) |
 | `common/BfcbBlock.toml` | group | corpus scan (GLOB, KYWD, WEAP)  | BFCB..BFCE block; payloads opaque         |
-| `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; payloads opaque         |
+| `common/ObteBlock.toml` | group | corpus scan (WEAP)              | OBTE..STOP block; FULL typed, the rest opaque |
+| `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |
 
-Inventory definitions name members after their signature (`Edid`, `Wfir`, `Flld2`). These
-are placeholders: giving a member a real name later is a breaking change for queries.
+Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
+is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`
+(`Count`, `Forms`). Each typed member carries its own `evidence` (the UESP string
+conventions page and the universal corpus scan of 2026-10-14) and `confidence = "corpus"`.
+
+Opaque inventory members are named after their signature (`Wfir`, `Flld2`). These are
+placeholders: giving a member a real name later is a breaking change for queries.
 
 ## Example
 

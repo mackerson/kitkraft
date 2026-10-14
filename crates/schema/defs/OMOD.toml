@@ -1,0 +1,101 @@
+# OMOD: subrecord inventory. The universal subrecords (EDID, FULL, DESC) are typed (M2.B2,
+# sources on each member); every other payload is opaque until the record layout is
+# transcribed (lane B round 3, xEdit at the pin; OMOD is in scope since the owner approval
+# of 2026-10-14).
+#
+# Source (ADR 0005 "inventory" row): corpus scan of the OMOD top groups of the 14 official
+# ESMs (2026-10-14): 3,330 records, form versions 552/581/582, 23 distinct subrecord
+# sequences, all consistent with the order below. FNAM, NAM1 and LNAM never occur together,
+# so their relative order is unknown. A KSIZ/KWDA pair occurs only inside BFCB blocks (3
+# records), where it stays raw. DATA varies in size (125 distinct sizes).
+#
+# Opaque member names are placeholders derived from the signature.
+signature = "OMOD"
+name = "ObjectModification"
+source = "corpus: OMOD records of the 14 official ESMs, scan 2026-10-14"
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 16,434 DESC payloads (15 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+
+[[member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "XFLG"
+name = "Xflg"
+type = "opaque"
+card = "optional"
+note = "observed 1 byte, in 5 records"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+note = "observed variable size"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "optional"
+note = "observed 4, 8 or 12 bytes"
+
+[[member]]
+sig = "NAM1"
+name = "Nam1"
+type = "opaque"
+card = "optional"
+note = "observed 1 byte"
+
+[[member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "optional"
+note = "observed 4 bytes, in 14 records"

@@ -1,0 +1,35 @@
+# Keywords: the KSIZ count followed by the KWDA list of keyword FormIDs, shared by every
+# record type that has a keyword list.
+#
+# Sources (ADR 0005):
+#   uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions - the formid
+#     type (a 4-byte FormID as stored).
+#   corpus: universal subrecord scan of the 14 official ESMs (2026-10-14): 110,383 KSIZ in
+#     47 record types, every one 4 bytes, never 0, and every one immediately followed by a
+#     KWDA whose size is exactly 4 x KSIZ. The 180,804 FormIDs in those KWDA resolve to KYWD
+#     records in 180,802 cases (file-relative master index; the other 2, both in
+#     SFBGS047.esm, name no record in the corpus). KWDA without a preceding KSIZ occurs only
+#     in PCBN and PCCN (37 times), which this group does not describe.
+#
+# The count is stored, not derived: an edit that changes the list must update Count too.
+# xEdit's shared keyword helper (wbDefinitionsCommon.pas) is the level-2 reference for this
+# pair; it is not cited until it has been read at the pin.
+name = "Keywords"
+kind = "group"
+source = "corpus: KSIZ/KWDA pairs in the 14 official ESMs, universal subrecord scan 2026-10-14"
+evidence = ["uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions"]
+confidence = "corpus"
+
+[[member]]
+sig = "KSIZ"
+name = "Count"
+type = "u32"
+note = "number of FormIDs in the KWDA that follows"
+
+[[member]]
+sig = "KWDA"
+name = "Forms"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"

@@ -1,4 +1,9 @@
-# KYWD: subrecord inventory only. Every payload is opaque until its layout is decided.
+# KYWD: subrecord inventory. The universal subrecords (EDID, FULL) are typed (M2.B2,
+# sources on each member). M2.B9 found no permitted source for CNAM, DNAM, TNAM, FNAM, DATA
+# or ENAM that this round could read (the UESP Skyrim KYWD page and the pinned xEdit file
+# were not available to it), so they stay opaque (docs/gaps.md). Corpus facts for the next
+# round: CNAM is 4 bytes in every record with a last byte of 0 (6,824) or 0xFF (141); DNAM
+# and ENAM are NUL-terminated text in every observed sample; TNAM and FNAM are 4 bytes.
 #
 # Source (ADR 0005 "inventory" row): corpus scan of the KYWD top group in Starfield.esm, ShatteredSpace.esm,
 # Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
@@ -9,17 +14,22 @@
 # DNAM and ENAM vary in size, but no source splits them into fields, so they stay opaque
 # (an `if_remaining` tail needs the field split as a sourced fact, not just two sizes).
 #
-# Member names are placeholders derived from the signature.
+# Opaque member names are placeholders derived from the signature.
 signature = "KYWD"
 name = "Keyword"
 source = "corpus: KYWD records of the official ESMs (12 files with a KYWD group)"
+confidence = "corpus"
 
 [[member]]
 sig = "EDID"
-name = "Edid"
-type = "opaque"
+name = "EditorId"
+type = "zstring"
 card = "optional"
 note = "absent in 3 of 6965 records"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
 
 [[member]]
 group_ref = "BfcbBlock"
@@ -66,7 +76,10 @@ note = "observed variable size"
 
 [[member]]
 sig = "FULL"
-name = "Full"
-type = "opaque"
+name = "Name"
+type = "lstring"
 card = "optional"
-note = "observed 4 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
+]

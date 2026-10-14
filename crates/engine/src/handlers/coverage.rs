@@ -498,8 +498,9 @@ mod tests {
         assert_eq!(hedr["members"], json!(["Header"]));
         assert_eq!(hedr["first_record"], "TES4:00000000");
 
-        // WEAP: EDID twice (once from the compressed record), FULL and MODL opaque in the
-        // inventory definition; DNAM and DATA are not in it.
+        // WEAP: EDID twice (once from the compressed record) and FULL typed (universal
+        // subrecords, M2.B2), MODL opaque in the inventory definition; DNAM and DATA are
+        // not in it.
         let weap = find(types, "WEAP");
         assert_eq!(weap["definition"], "Weapon");
         assert_eq!(weap["records"], 2);
@@ -511,7 +512,7 @@ mod tests {
             (json!(1), json!(1))
         );
         assert_eq!(find(&weap["signatures"], "EDID")["count"], 2);
-        assert_eq!(find(&weap["signatures"], "EDID")["class"], "opaque");
+        assert_eq!(find(&weap["signatures"], "EDID")["class"], "typed");
         assert_eq!(find(&weap["signatures"], "MODL")["class"], "opaque");
         let dnam = find(&weap["signatures"], "DNAM");
         assert_eq!(dnam["class"], "unknown");
@@ -522,22 +523,22 @@ mod tests {
         );
         assert_eq!(
             weap["distinct"],
-            json!({"seen": 5, "typed": 0, "opaque": 3, "unknown": 2})
+            json!({"seen": 5, "typed": 2, "opaque": 1, "unknown": 2})
         );
         assert_eq!(
             weap["occurrences"],
-            json!({"typed": 0, "opaque": 4, "unknown": 2})
+            json!({"typed": 3, "opaque": 1, "unknown": 2})
         );
 
         // Totals and the envelope agree with the per-type counts.
         assert_eq!(data["subrecords"], 10);
         assert_eq!(
             data["occurrences"],
-            json!({"typed": 2, "opaque": 6, "unknown": 2})
+            json!({"typed": 7, "opaque": 1, "unknown": 2})
         );
         assert_eq!(result["coverage"]["status"], "partial");
-        assert_eq!(result["coverage"]["decoded_subrecords"], 2);
-        assert_eq!(result["coverage"]["opaque_subrecords"], 8);
+        assert_eq!(result["coverage"]["decoded_subrecords"], 7);
+        assert_eq!(result["coverage"]["opaque_subrecords"], 3);
         assert_eq!(result["coverage"]["not_examined"], json!([]));
         assert_eq!(result["limitations"], json!([BY_SIGNATURE]));
 
