@@ -5,6 +5,7 @@
 //! directory holding `Starfield.esm`, any directory above one, or `KITCRAFT_DATA_DIR`
 //! ([`refuse_game_data`], shared with the other lane G commands).
 
+use std::collections::BTreeMap;
 use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -129,36 +130,13 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
     let (archive, mut file) =
         Archive::open(path).map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
 
-    let mut plan = Vec::new();
-    for (i, entry) in archive.entries.iter().enumerate() {
-        if pat.as_ref().is_some_and(|re| !re.is_match(&entry.name)) {
-            continue;
-        }
-        let size = entry.extracted_len();
-        if size > max_entry {
-            return Err(failed(
-                ID,
-                format!(
-                    "`{}` extracts to {size} bytes, above max_entry_bytes ({max_entry}); \
-                     nothing was written",
-                    entry.name
-                ),
-            ));
-        }
-        let rel = kitcraft_ba2::relative_path(&entry.name)
-            .map_err(|e| failed(ID, format!("{archive_arg}: {e}")))?;
-        let target = out_dir.join(rel);
-        if !overwrite && target.exists() {
-            return Err(failed(
-                ID,
-                format!(
-                    "`{}` exists; pass overwrite to replace it (nothing was written)",
-                    target.display()
-                ),
-            ));
-        }
-        plan.push((i, target));
-    }
+    let selected = archive
+        .entries
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| pat.as_ref().is_none_or(|re| re.is_match(&e.name)));
+    let plan = plan_extraction(selected, &out_dir, overwrite, max_entry)
+        .map_err(|why| failed(ID, format!("{archive_arg}: {why}; nothing was written")))?;
 
     let mut files = Vec::new();
     let mut bytes = 0u64;
@@ -239,6 +217,80 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
         limitations,
         evidence: archive_evidence(&archive, &file_label),
     })
+}
+
+/// Validates every target before the first write, so a refused extraction writes nothing:
+/// sizes against `max_entry`, names through [`kitcraft_ba2::relative_path`] (which also
+/// refuses names Windows would alter), two entries that land on one file of a
+/// case-insensitive file system (Windows, the game's), an entry that is both a file and
+/// another entry's directory, an existing directory or file in the way, and existing
+/// files unless `overwrite`. Returns `(entry index, target)` in archive order.
+fn plan_extraction<'a>(
+    selected: impl Iterator<Item = (usize, &'a Entry)>,
+    out_dir: &Path,
+    overwrite: bool,
+    max_entry: u64,
+) -> Result<Vec<(usize, PathBuf)>, String> {
+    let mut plan = Vec::new();
+    // Folded target path -> the entry name that claimed it.
+    let mut files: BTreeMap<String, &str> = BTreeMap::new();
+    let mut dirs: BTreeMap<String, &str> = BTreeMap::new();
+    for (i, entry) in selected {
+        let size = entry.extracted_len();
+        if size > max_entry {
+            return Err(format!(
+                "`{}` extracts to {size} bytes, above max_entry_bytes ({max_entry})",
+                entry.name
+            ));
+        }
+        let rel = kitcraft_ba2::relative_path(&entry.name).map_err(|e| e.to_string())?;
+        let parts: Vec<String> = rel
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
+            .collect();
+        let key = parts.join("/");
+        if let Some(other) = files.insert(key.clone(), &entry.name) {
+            return Err(format!(
+                "`{other}` and `{}` extract to the same file on a case-insensitive file system",
+                entry.name
+            ));
+        }
+        for n in 1..parts.len() {
+            let dir = parts.get(..n).unwrap_or_default().join("/");
+            dirs.entry(dir).or_insert(&entry.name);
+        }
+        let target = out_dir.join(&rel);
+        if target.is_dir() {
+            return Err(format!("`{}` is an existing directory", target.display()));
+        }
+        if !overwrite && target.exists() {
+            return Err(format!(
+                "`{}` exists; pass overwrite to replace it",
+                target.display()
+            ));
+        }
+        for dir in target.ancestors().skip(1) {
+            if !dir.starts_with(out_dir) {
+                break;
+            }
+            if dir.exists() && !dir.is_dir() {
+                return Err(format!(
+                    "`{}` is a file where `{}` needs a directory",
+                    dir.display(),
+                    entry.name
+                ));
+            }
+        }
+        plan.push((i, target));
+    }
+    for (key, name) in &files {
+        if let Some(other) = dirs.get(key) {
+            return Err(format!(
+                "`{name}` is a file but `{other}` needs it as a directory"
+            ));
+        }
+    }
+    Ok(plan)
 }
 
 /// `ba2.pack`.
@@ -775,6 +827,88 @@ mod tests {
         assert!(err.to_string().contains("Starfield.esm"), "{err}");
         let err = execute("ba2.list", json!({"archive": archive.to_str().unwrap()})).unwrap_err();
         assert!(err.to_string().contains("truncated"), "{err}");
+        fs::remove_dir_all(&root).unwrap();
+    }
+
+    /// A stored GNRL archive holding `names` (each file is `x`), its name table patched by
+    /// `renames` (same-length byte replacements, for names `pack` refuses to write).
+    fn archive_of(path: &std::path::Path, names: &[&str], renames: &[(&str, &str)]) {
+        let inputs: Vec<(String, String)> = names
+            .iter()
+            .map(|n| (n.to_string(), n.to_string()))
+            .collect();
+        let mut out = std::io::Cursor::new(Vec::new());
+        let options = kitcraft_ba2::PackOptions {
+            compress: false,
+            ..Default::default()
+        };
+        kitcraft_ba2::pack(&inputs, |_| Ok(b"x".to_vec()), &options, &mut out).unwrap();
+        let mut bytes = out.into_inner();
+        for (from, to) in renames {
+            assert_eq!(from.len(), to.len());
+            let at = bytes
+                .windows(from.len())
+                .position(|w| w == from.as_bytes())
+                .unwrap();
+            bytes[at..at + to.len()].copy_from_slice(to.as_bytes());
+        }
+        fs::write(path, bytes).unwrap();
+    }
+
+    /// Regression (review round 2): names that collide or that Windows would alter are
+    /// refused while planning, before the first file is written.
+    #[test]
+    fn extraction_plan_is_validated_before_writing() {
+        let root = temp_dir("plan");
+        let a = root.join("a.ba2");
+        let dst = root.join("dst");
+        let extract = |dst: &std::path::Path| {
+            execute(
+                "ba2.extract",
+                json!({"archive": a.to_str().unwrap(), "out_dir": dst.to_str().unwrap()}),
+            )
+        };
+        // (names packed, renames in the name table, expected error text)
+        type Case<'a> = (&'a [&'a str], &'a [(&'a str, &'a str)], &'a str);
+        let cases: [Case; 5] = [
+            (
+                &["a/aa.txt", "a/ab.txt", "b.txt"],
+                &[("a/ab.txt", "A/AA.TXT")],
+                "same file",
+            ),
+            (&["x", "x/y.txt"], &[], "as a directory"),
+            (&["a.txt", "bux.txt"], &[("bux.txt", "aux.txt")], "device"),
+            (
+                &["a.txt", "zz/b.txt"],
+                &[("zz/b.txt", "z./b.txt")],
+                "ends in",
+            ),
+            (&["a.txt", "b.txt"], &[("b.txt", "b?txt")], "forbids"),
+        ];
+        for (names, renames, want) in cases {
+            archive_of(&a, names, renames);
+            let err = extract(&dst).unwrap_err();
+            assert!(err.to_string().contains(want), "{names:?}: {err}");
+            assert!(err.to_string().contains("nothing was written"), "{err}");
+            assert!(!dst.exists(), "{names:?}: something was written");
+        }
+        // A file where an entry needs a directory, and a directory where it needs a file.
+        archive_of(&a, &["a.txt", "sub/x.txt"], &[]);
+        fs::create_dir_all(&dst).unwrap();
+        fs::write(dst.join("sub"), b"in the way").unwrap();
+        let err = extract(&dst).unwrap_err();
+        assert!(err.to_string().contains("needs a directory"), "{err}");
+        assert!(!dst.join("a.txt").exists());
+        fs::remove_file(dst.join("sub")).unwrap();
+        fs::create_dir_all(dst.join("a.txt")).unwrap();
+        let err = execute(
+            "ba2.extract",
+            json!({"archive": a.to_str().unwrap(), "out_dir": dst.to_str().unwrap(),
+                   "overwrite": true}),
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("existing directory"), "{err}");
+        assert!(!dst.join("sub").exists());
         fs::remove_dir_all(&root).unwrap();
     }
 

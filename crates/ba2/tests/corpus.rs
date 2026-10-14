@@ -220,6 +220,7 @@ fn corpus_full() {
     let (mut zero_size, mut non_ascii, mut edge_rule_differs) = (0u64, 0u64, 0u64);
     let (mut max_general, mut max_chunk, mut max_extracted) = (0u64, 0u64, 0u64);
     let mut textures = 0u64;
+    let mut unsafe_names = Vec::new();
     for path in archives(&dir) {
         let name = path.file_name().unwrap().to_string_lossy().into_owned();
         let (archive, mut file) = Archive::open(&path).unwrap_or_else(|e| panic!("{name}: {e}"));
@@ -249,6 +250,9 @@ fn corpus_full() {
             }
             if !entry.name.is_ascii() {
                 non_ascii += 1;
+            }
+            if let Err(e) = kitcraft_ba2::relative_path(&entry.name) {
+                unsafe_names.push(format!("{name}: {e}"));
             }
             max_extracted = max_extracted.max(entry.extracted_len());
             match &entry.body {
@@ -329,7 +333,9 @@ fn corpus_full() {
         "textures {textures}; chunk plans the edge rule (w >= 512 && h >= 512) gets wrong: \
          {edge_rule_differs} (the area rule gets none wrong: check_textures)"
     );
+    println!("names relative_path refuses: {}", unsafe_names.len());
     assert!(bad_hashes.is_empty(), "{bad_hashes:#?}");
+    assert!(unsafe_names.is_empty(), "{unsafe_names:#?}");
 }
 
 /// The rejected reading of the chunk rule (both edges at least 512), for the inventory.

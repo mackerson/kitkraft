@@ -254,8 +254,65 @@ fn copy<R: Read, W: Write>(
     }
 }
 
+/// Windows device names: a path component whose stem (the text before its first `.`, with
+/// trailing spaces dropped) is one of these, ASCII case-insensitively, opens the device
+/// instead of a file. `ms-docs: Naming Files, Paths, and Namespaces`.
+const RESERVED_STEMS: [&str; 30] = [
+    "CON",
+    "PRN",
+    "AUX",
+    "NUL",
+    "COM0",
+    "COM1",
+    "COM2",
+    "COM3",
+    "COM4",
+    "COM5",
+    "COM6",
+    "COM7",
+    "COM8",
+    "COM9",
+    "COM\u{b9}",
+    "COM\u{b2}",
+    "COM\u{b3}",
+    "LPT0",
+    "LPT1",
+    "LPT2",
+    "LPT3",
+    "LPT4",
+    "LPT5",
+    "LPT6",
+    "LPT7",
+    "LPT8",
+    "LPT9",
+    "LPT\u{b9}",
+    "LPT\u{b2}",
+    "LPT\u{b3}",
+];
+
+/// Why one path component cannot be a Windows file or directory name, if it cannot.
+fn windows_refusal(part: &str) -> Option<&'static str> {
+    if part.ends_with(['.', ' ']) {
+        return Some("a component ends in `.` or a space (Windows drops them)");
+    }
+    if part
+        .chars()
+        .any(|c| c < ' ' || matches!(c, '<' | '>' | '"' | '|' | '?' | '*'))
+    {
+        return Some("a component has a character Windows forbids in file names");
+    }
+    let stem = part.split('.').next().unwrap_or(part).trim_end_matches(' ');
+    if RESERVED_STEMS.iter().any(|r| r.eq_ignore_ascii_case(stem)) {
+        return Some("a component is a Windows device name (CON, NUL, COM1, ...)");
+    }
+    None
+}
+
 /// The relative file path an archive path extracts to. Refuses absolute paths, drive
-/// prefixes, `..`, and empty names, so extraction never leaves the output directory.
+/// prefixes, `..`, and empty names, so extraction never leaves the output directory, and
+/// names Windows would alter or treat as devices (components ending in `.` or a space,
+/// forbidden characters, `CON`, `NUL.txt`, `com1`, ...), so the path written is the path
+/// planned on every platform.
 pub fn relative_path(name: &str) -> Result<PathBuf> {
     let refuse = |reason| Error::UnsafePath {
         name: name.to_string(),
@@ -274,6 +331,9 @@ pub fn relative_path(name: &str) -> Result<PathBuf> {
         }
         if part == ".." {
             return Err(refuse("contains `..`"));
+        }
+        if let Some(reason) = windows_refusal(part) {
+            return Err(refuse(reason));
         }
         path.push(part);
     }
@@ -360,6 +420,48 @@ mod tests {
         }
         // A leading separator is dropped, not treated as the root.
         assert_eq!(relative_path("/a").unwrap(), PathBuf::from("a"));
+    }
+
+    /// Regression (review round 2): names Windows rewrites or maps to devices.
+    #[test]
+    fn windows_names_are_refused() {
+        for bad in [
+            "a./b.txt",
+            "a /b.txt",
+            "dir/file.",
+            "dir/file ",
+            "...",
+            "con",
+            "CON.txt",
+            "x/Nul.tar.gz",
+            "x/aux /y",
+            "com1.dds",
+            "LPT9",
+            "lpt\u{b9}.txt",
+            "COM0",
+            "a/b?.txt",
+            "a/<b>",
+            "a\"b",
+            "a|b",
+            "a*b",
+            "a\u{1}b",
+        ] {
+            let err = relative_path(bad).unwrap_err();
+            assert!(matches!(err, Error::UnsafePath { .. }), "{bad}: {err}");
+        }
+        for good in [
+            "console.txt",
+            "connector/a.nif",
+            "com10.txt",
+            "lpt.txt",
+            "nul_x.txt",
+            "a.b/c",
+            ".hidden",
+            "con_.dds",
+            "\u{e9}t\u{e9}.txt",
+        ] {
+            assert!(relative_path(good).is_ok(), "{good}");
+        }
     }
 
     #[test]
