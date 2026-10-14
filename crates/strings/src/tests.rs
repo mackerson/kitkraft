@@ -1,6 +1,8 @@
 //! Synthetic fixtures per variant, exact layouts, hostile input and merge.
 
-use super::{merge, table_name, Duplicate, Entry, Error, Kind, Table};
+use super::{
+    merge, table_name, Duplicate, Entry, Error, Kind, Padding, PaddingKind, ParseMode, Table,
+};
 
 fn sample(kind: Kind) -> Table {
     Table::new(
@@ -146,6 +148,100 @@ fn hostile_input_gives_typed_errors() {
     let mut huge = vec![0xFF, 0xFF, 0xFF, 0x7F, 0, 0, 0, 0];
     huge.extend([0u8; 16]);
     assert!(Table::parse(Kind::Strings, &huge).is_err());
+}
+
+/// A table followed by padding the header does not count: strict refuses it, tolerant
+/// reads the same entries and names the padding (M3.G2).
+#[test]
+fn padded_tables_parse_tolerantly_and_name_the_padding() {
+    for kind in Kind::ALL {
+        let good = sample(kind).to_bytes().unwrap();
+        for pad in [&[0u8, 0, 0, 0][..], &[0xCD, 0xCD][..]] {
+            let mut padded = good.clone();
+            padded.extend_from_slice(pad);
+            assert!(
+                matches!(Table::parse(kind, &padded), Err(Error::DataSize { .. })),
+                "{kind:?}: strict mode unchanged"
+            );
+            assert!(matches!(
+                Table::parse_with(kind, &padded, ParseMode::Strict),
+                Err(Error::DataSize { .. })
+            ));
+            let parsed = Table::parse_with(kind, &padded, ParseMode::Tolerant).unwrap();
+            assert_eq!(parsed.table, Table::parse(kind, &good).unwrap(), "{kind:?}");
+            assert_eq!(
+                parsed.padding,
+                [Padding {
+                    kind: PaddingKind::AfterData,
+                    offset: good.len() as u64,
+                    len: pad.len() as u64,
+                    zeros: pad.iter().all(|&b| b == 0),
+                }]
+            );
+            let text = parsed.padding[0].to_string();
+            assert!(
+                text.starts_with(&format!("{} bytes of ", pad.len()))
+                    && text.contains(&format!("at offset {}", good.len()))
+                    && text.contains("after the header's data size"),
+                "{text}"
+            );
+        }
+        // An unpadded table has no padding in either mode.
+        let plain = Table::parse_with(kind, &good, ParseMode::Tolerant).unwrap();
+        assert!(plain.padding.is_empty());
+        // Shorter than the declared data is still an error.
+        let mut short = good.clone();
+        short.pop();
+        assert!(Table::parse_with(kind, &short, ParseMode::Tolerant).is_err());
+    }
+}
+
+/// Padding counted by the header (unreferenced bytes after the last string) parses in
+/// both modes, as before; tolerant names it.
+#[test]
+fn padding_inside_the_declared_data_is_named_in_tolerant_mode() {
+    let good = sample(Kind::Strings).to_bytes().unwrap();
+    let mut padded = good.clone();
+    padded.extend_from_slice(&[0, 0, 0]);
+    let declared = u32::from_le_bytes(padded[4..8].try_into().unwrap()) + 3;
+    padded[4..8].copy_from_slice(&declared.to_le_bytes());
+    let strict = Table::parse(Kind::Strings, &padded).unwrap();
+    assert_eq!(strict, Table::parse(Kind::Strings, &good).unwrap());
+    let parsed = Table::parse_with(Kind::Strings, &padded, ParseMode::Tolerant).unwrap();
+    assert_eq!(parsed.table, strict);
+    assert_eq!(
+        parsed.padding,
+        [Padding {
+            kind: PaddingKind::DataTail,
+            offset: good.len() as u64,
+            len: 3,
+            zeros: true,
+        }]
+    );
+    // Both kinds at once, in file order.
+    padded.extend_from_slice(&[7]);
+    let parsed = Table::parse_with(Kind::Strings, &padded, ParseMode::Tolerant).unwrap();
+    let kinds: Vec<PaddingKind> = parsed.padding.iter().map(|p| p.kind).collect();
+    assert_eq!(kinds, [PaddingKind::DataTail, PaddingKind::AfterData]);
+    assert!(!parsed.padding[1].zeros);
+}
+
+#[test]
+fn tolerant_mode_survives_hostile_input() {
+    for kind in Kind::ALL {
+        let mut good = sample(kind).to_bytes().unwrap();
+        good.extend_from_slice(&[0, 0]);
+        for len in 0..good.len() {
+            let _ = Table::parse_with(kind, &good[..len], ParseMode::Tolerant);
+        }
+        for i in 0..good.len() {
+            for mask in [0x01u8, 0x80, 0xFF] {
+                let mut bad = good.clone();
+                bad[i] ^= mask;
+                let _ = Table::parse_with(kind, &bad, ParseMode::Tolerant);
+            }
+        }
+    }
 }
 
 #[test]

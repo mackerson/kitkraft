@@ -12,9 +12,10 @@
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
   counted (136,741 of 136,741 compressed records examined).
   None failed to decode.
-- Classification is by subrecord signature against the record type's definition;
-  `coverage` does not decode payloads against the layouts (the typed decode and
-  re-encode check over the corpus is lane A's M2.A3 driver test).
+- Classification is by subrecord signature against the record type's definition,
+  and `coverage` decodes every record of a defined type through its generated
+  definition and encodes it again (M3.F2): a typed subrecord whose payload does not
+  decode is counted as failed, not typed (see "Decoded through the definitions").
 
 Columns:
 
@@ -218,7 +219,31 @@ Columns:
 | `SPGD`        | -                   |         1 |          0 |     3 |     0 |      0 |       3 |
 | **186 types** | 10 defined          | 7,490,102 |    136,741 | 2,797 |    29 |     99 |   2,669 |
 
-Subrecord occurrences: 50,419,561 in total; 40,776 typed, 87,260 opaque, 50,291,525 unknown.
+Subrecord occurrences: 50,419,561 in total; 40,776 typed (0 of them failed to decode), 87,260 opaque, 50,291,525 unknown.
+
+## Decoded through the definitions
+
+Per defined record type, from `kit coverage` (M3.F2): **Typed records** decoded
+through the generated definition; **Decoded** typed subrecord occurrences whose
+payload decoded, **Failed** those that did not (the payload does not fit the layout,
+or the definition does not accept it at that position; kept raw); **Re-encode**
+subrecord positions where encoding the decoded record did not reproduce the input.
+The confidence columns split **Decoded** by the confidence of the decoding member
+(the weakest, when several members share a signature).
+
+| Record    | Schema              | Typed records | Decoded | Failed | Re-encode | reference | corpus | ck-diff | verified |
+| --------- | ------------------- | ------------: | ------: | -----: | --------: | --------: | -----: | ------: | -------: |
+| `KYWD`    | Keyword             |         6,965 |   8,244 |      0 |         0 |         0 |  8,244 |       0 |        0 |
+| `COBJ`    | ConstructibleObject |         3,518 |   7,036 |      0 |         0 |         0 |  7,036 |       0 |        0 |
+| `OMOD`    | ObjectModification  |         3,330 |   9,717 |      0 |         0 |         0 |  9,717 |       0 |        0 |
+| `GLOB`    | Global              |         3,319 |   6,635 |      0 |         0 |         0 |  6,635 |       0 |        0 |
+| `GMST`    | GameSetting         |         2,418 |   4,836 |      0 |         0 |         0 |  4,836 |       0 |        0 |
+| `WEAP`    | Weapon              |           452 |   3,247 |      0 |         0 |         0 |  3,247 |       0 |        0 |
+| `AMMO`    | Ammunition          |           154 |     717 |      0 |         0 |         0 |    717 |       0 |        0 |
+| `ZOOM`    | Zoom                |           141 |     141 |      0 |         0 |         0 |    141 |       0 |        0 |
+| `AMDL`    | AimModel            |           126 |     126 |      0 |         0 |         0 |    126 |       0 |        0 |
+| `TES4`    | PluginHeader        |            14 |      77 |      0 |         0 |         0 |     77 |       0 |        0 |
+| **Total** |                     |        20,437 |  40,776 |      0 |         0 |         0 | 40,776 |       0 |        0 |
 
 ## Definitions by confidence
 

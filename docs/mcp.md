@@ -464,15 +464,20 @@ Evidence: each override's record header and its differing payloads.
 Checked 2026-10-14 against `esmscan.py` run read-only on the owner's Default profile
 (master `Starfield.esm`, the other 83 plugins): the same 59 plugins and identical per-type
 counts, 8,234 override records in total.
-### `coverage` (M1.14)
+### `coverage` (M1.14, M3.F2)
 
 Arguments `{plugin, decode = true, signatures?, top?}`; CLI `kit coverage <plugin>
 [--no-decode] [--no-signatures] [--top N]`. Streams the
 plugin and classifies every subrecord occurrence against the builtin schema by its record
-type and signature: `typed` (the type's definition names it with a layout), `opaque`
-(named, kept as raw bytes) or `unknown` (the type has no definition, or the definition does
-not name the signature; subrecords inside an `any_until` run count here). Payloads are not
-decoded against the layouts. With `decode` (the default) compressed records are
+type and signature: `typed` (the type's definition names it with a layout and the payload
+decoded through it), `failed` (named by a typed member, but the payload does not fit the
+layout or the definition does not accept the subrecord at its position; kept as raw
+bytes), `opaque` (named, kept as raw bytes) or `unknown` (the type has no definition, or
+the definition does not name the signature; subrecords inside an `any_until` run count
+here). Every record of a defined type is decoded through its generated definition with
+the plugin's context (form version, TES4 localized flag: what `Plugin::typed` does) and
+encoded again; a subrecord position the encoding does not reproduce is a re-encode
+conflict. With `decode` (the default) compressed records are
 decompressed under the default `DecodeLimits` and counted; one that fails to decompress is
 listed in `coverage.not_examined` (first 20, then a count), not fatal.
 
@@ -482,22 +487,31 @@ none) and adds a limitation naming how many of how many are listed. Omitted, `ki
 `cargo xtask parity`) list everything; over MCP they default to `false` and `20`.
 
 `data`: `plugin`, `file`, `bytes`, `decode`, `records`, `groups`, `compressed_records`,
-`compressed_examined`, `record_types_seen`, `record_types_defined`, `subrecords`
-(occurrences), `occurrences {typed, opaque, unknown}`, `signatures` and `top` (as
-applied), `record_types_listed`, `summary`, and `record_types[]`
-sorted by record count (then signature), each with `signature`, `definition` (the schema
-name or `null`), `records`, `compressed`, `compressed_examined`, `subrecords`,
-`occurrences`, `distinct {seen, typed, opaque, unknown}` (distinct signatures),
-`first_offset`, and `signatures[]` (`signature`, `count`, `class`, `members` = member
-paths in the definition, `first_record` = `SIG:FORMID` of the first record holding it;
-`null` with `signatures: false`).
+`compressed_examined`, `record_types_seen`, `record_types_defined`, `typed_records`
+(records decoded through a definition), `subrecords` (occurrences), `occurrences {typed,
+failed, opaque, unknown}`, `decoded_by_confidence {reference, corpus, ck-diff, verified}`
+(typed occurrences by the confidence of the member that decoded them; the weakest when
+several members share a signature), `reencode_conflicts`, `typed_failures[]` (the first
+20 failed or re-encoded subrecords: `record` = `SIG:FORMID`, `signature`, `index` in the
+record, absolute `offset` or `null` inside a compressed record, `kind` `not_decoded` or
+`reencoded`), `signatures` and `top` (as applied), `record_types_listed`, `summary`, and
+`record_types[]` sorted by record count (then signature), each with `signature`,
+`definition` (the schema name or `null`), `records`, `compressed`, `compressed_examined`,
+`typed_records`, `subrecords`, `occurrences`, `decoded_by_confidence`,
+`reencode_conflicts`, `distinct {seen, typed, opaque, unknown}` (distinct signatures by
+their class in the definition), `first_offset`, and `signatures[]` (`signature`, `count`,
+`class`, `failed` = occurrences that did not decode, `confidence` = the weakest of the
+members using it or `null`, `members` = member paths in the definition, `first_record` =
+`SIG:FORMID` of the first record holding it; `null` with `signatures: false`).
 
 Coverage: `decoded_subrecords` is the `typed` occurrence count, `opaque_subrecords` the
-`opaque` plus `unknown` count; `status` is `complete` only when both of those are zero and
-every compressed record was examined. Evidence: the whole file, then the first record of
-each listed type. Limitations always state that classification is by signature only; with
-`--no-decode` they add that compressed bodies were skipped (also in `not_examined`).
-`cargo xtask parity` runs this command over the corpus to write `docs/record-parity.md`.
+`failed` plus `opaque` plus `unknown` count; `status` is `complete` only when those are
+zero, nothing failed to re-encode and every compressed record was examined. Evidence: the
+whole file, then the first record of each listed type. Limitations always state how
+subrecords are classified; they add a count line when a typed subrecord failed or a
+position did not re-encode, and with `--no-decode` that compressed bodies were skipped
+(also in `not_examined`). `cargo xtask parity` runs this command over the corpus to write
+`docs/record-parity.md`.
 
 ### `schema` (M2.F9)
 
@@ -579,15 +593,26 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   `opcode`, `op`, `args` / `varargs` as `{type, value, text}`), and `summary` = the text
   without its final newline, so `kit papyrus disasm x.pex` prints what `pexdis.py x.pex`
   prints. Structs are in the model, not the text (a limitation when present).
-- `papyrus.compile {source, out_dir, imports?, flags?, compiler?, optimize = false}`; CLI
-  `kit papyrus compile <source> <out_dir> --imports <dir> ...`. Runs Bethesda's
+- `papyrus.compile {source, out_dir, imports?, sources_zip?, flags?, compiler?, optimize =
+  false}`; CLI `kit papyrus compile <source> <out_dir> [--imports <dir> ...]
+  [--sources-zip <Tools\ContentResources.zip>]`. Runs Bethesda's
   `PapyrusCompiler.exe` (black box) on one script by name: a `.psc` path becomes its name
   with its folder imported first; `.ppj` projects are refused. Arguments are only the
   object, `-f=`, `-i=`, `-o=` and `-op`; release and final mode can never be requested
   (any extra argument such as `release` is `invalid_args`). The flags file defaults to
   `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
-  the `Scripts\Source` folder of `Tools\ContentResources.zip`, extracted by the caller.
-  `data`: `source`, `script`, `out_dir`, `compiler`, `args`, `exit_code`, `passed` (the
+  the `Scripts\Source` folder of `Tools\ContentResources.zip`: with `sources_zip` (M3.G1)
+  its `.psc` and `.flg` files are extracted once into the KitCraft cache
+  (`KITCRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitcraft\cache`, folder
+  `papyrus-sources\<key>`, keyed by every entry's name, size and CRC-32, written under a
+  temporary name and renamed when complete) and imported after `imports`; the zip is
+  read in place, its entry names are checked (ASCII letters, digits, `_`, `-`, `.`,
+  spaces; no `..`, device names or case collisions) and sizes capped before anything is
+  written. The first call extracts 5,034 files (12.3 MB, about 10 s); later calls only
+  read the zip's directory. Without `sources_zip` the caller passes an extraction in
+  `imports`. `data`: `source`, `script`, `out_dir`, `compiler`, `sources_zip` (`zip`,
+  `dir`, `files`, `bytes`, `skipped`, `cached`, or `null`; the zip is the first
+  `evidence` entry), `args`, `exit_code`, `passed` (the
   compiler's success; `kit` exits 1 when false), `stdout`, `stderr`, `pex` (`path`,
   `bytes`, `parsed`, `text`: the output disassembled through `kitcraft-pex`) and
   `summary`. A missing compiler is a `failed` error naming every path looked at
@@ -611,6 +636,15 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   under the game Data directory. `data`: `tables`, `out`, `kind`, `entries`, `bytes`,
   `conflict_count`, `conflicts[]` (first 100: `id`, `replaced`, `winner`, `old`, `new`),
   `identical_repeats`, `summary`.
+- Both take `tolerant = false` (M3.G2). Tables are parsed strictly by default: the
+  header's data size must equal the bytes after the directory, as in every official
+  table, and a mismatch fails with a hint. With `tolerant: true` a table padded past its
+  data size is read too; each padding run (bytes after the declared data, and
+  unreferenced bytes at the end of the declared data) is a `limitations` entry naming
+  the table, offset, length and whether it is all zeros, and is listed in `data.padding`
+  (`table`, `where` = `after_data` or `data_tail`, `offset`, `length`, `zeros`); strings
+  must still lie inside the declared data. `strings.merge` writes the official layout,
+  without padding, and says so. `data.tolerant` echoes the mode.
 
 ### `set` (M2.E5)
 
@@ -737,6 +771,18 @@ the command fails with the errors. Spec errors are `failed` with `spec: <key>: .
 `matched`, `undecided`), `validate` (`passed`, `errors`, `warnings`, `findings`, `rules`)
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
+
+### Coming in M3: `refs` (M3.D4)
+
+Not in the catalog yet: it lands as one `CommandSpec` with M3.D4, and lane D documents its
+result shape here when it does; until then `execute` answers `unknown_command`. It gets no
+MCP shortcut tool (the tool list stays at eight): `execute` and `command_line` reach it,
+and `kitcraft://commands` lists it with its `cli` words, like every other command.
+
+- `refs {form, profile?, plugins?, ...}` (lane D); CLI `kit refs <form>`. The CK's "Use
+  Info": every record whose header or typed FormID members name `form` across the load
+  order (the shared load-order arguments above), with evidence per reference and the
+  count of opaque payloads not scanned in `limitations`. Read only.
 
 ### `overhaul.scaffold` (M3.E7; CLI `kit overhaul`)
 

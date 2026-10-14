@@ -4,8 +4,10 @@
 //! header, every record, the data of every file in record order with no padding, then the
 //! name table. Names are stored lower-cased with `/` separators, as in every official
 //! archive, and sorted, so the same inputs always give the same bytes. Refused: non-ASCII
-//! names (every official name is ASCII and Archive2 hashes others by a rule not yet
-//! established), two names with the same hash triple, and empty files (Archive2 skips
+//! names (every official name is ASCII; Archive2 hashes a non-ASCII name only up to its
+//! first non-ASCII byte, or by a run-dependent value for twelve bytes, and whether the game
+//! finds such files is not observed: `hash::archive2_record_hashes`, M3.G3), two names
+//! with the same hash triple, and empty files (Archive2 skips
 //! them; callers should too). GNRL records carry
 //! flags `0x00100100`; DX10 records carry tile mode 8 and split mips into chunks the way
 //! the official archives do: each mip with at least 512 x 512 pixels (`width * height >=
@@ -122,11 +124,15 @@ where
         let stored = normalize(name);
         relative_path(&stored)?;
         if !stored.is_ascii() {
-            // Archive2 hashes non-ASCII names differently from the CRC rule every official
-            // (all-ASCII) name follows; refused until that rule is established.
+            // Archive2 hashes a non-ASCII name only up to its first non-ASCII byte (so
+            // `café` and `cafè` collide and it keeps one), or, for twelve bytes, by a value
+            // that is not reproducible (`hash::archive2_record_hashes`); how the game looks
+            // such names up is not observed. Refused until it is.
             return Err(pack_err(
                 name,
-                "non-ASCII archive paths are not supported (their name hash is unknown)".into(),
+                "non-ASCII archive paths are not supported: Archive2 hashes only up to the \
+                 first non-ASCII byte and the game's lookup of such names is not observed"
+                    .into(),
             ));
         }
         if stored.len() > usize::from(u16::MAX) {

@@ -195,7 +195,8 @@ pub enum Body {
 /// One file in the archive.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Entry {
-    /// Archive path as stored (bytes decoded one-to-one as Latin-1, as `ba2x.py` does).
+    /// Archive path as stored, bytes decoded one-to-one as Windows-1252 (Archive2's code
+    /// page for names; Latin-1, which `ba2x.py` uses, differs only in 0x80..=0x9F).
     pub name: String,
     /// Name hash field.
     pub name_hash: u32,
@@ -247,10 +248,18 @@ impl Entry {
         }
     }
 
-    /// Whether the hash fields agree with the name (`hash` module rule).
+    /// Whether the hash fields agree with the name: by the rule every official (ASCII)
+    /// name follows, or, for a non-ASCII name, by what Archive2 computes
+    /// ([`crate::hash::archive2_record_hashes`]; a name whose Archive2 hash depends on
+    /// the run is never a match).
     pub fn hashes_match_name(&self) -> bool {
-        let bytes = latin1_bytes(&self.name);
-        crate::hash::record_hashes(&bytes) == (self.name_hash, self.ext, self.dir_hash)
+        let bytes = name_bytes(&self.name);
+        let fields = (self.name_hash, self.ext, self.dir_hash);
+        if bytes.is_ascii() {
+            crate::hash::record_hashes(&bytes) == fields
+        } else {
+            crate::hash::archive2_record_hashes(&bytes).is_ok_and(|h| h == fields)
+        }
     }
 }
 
@@ -334,7 +343,7 @@ impl Archive {
             for entry in &mut entries {
                 let len = src.u16()?;
                 let bytes = src.vec(u64::from(len))?;
-                entry.name = latin1(&bytes);
+                entry.name = decode_name(&bytes);
             }
         } else {
             for entry in &mut entries {
@@ -491,15 +500,45 @@ fn synthetic_name(entry: &Entry) -> String {
     )
 }
 
-/// Bytes to `String`, one char per byte (Latin-1), as `ba2x.py` decodes names.
-pub(crate) fn latin1(bytes: &[u8]) -> String {
-    bytes.iter().map(|&b| char::from(b)).collect()
+/// Windows-1252 code points of bytes 0x80..=0x9F; the five bytes the code page leaves
+/// undefined (0x81, 0x8D, 0x8F, 0x90, 0x9D) map to the C1 control of the same value, so
+/// the mapping stays one-to-one. Every other byte is its own code point (as in Latin-1).
+const CP1252_HIGH: [u16; 32] = [
+    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039,
+    0x0152, 0x008D, 0x017D, 0x008F, 0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178,
+];
+
+/// Name bytes to `String`, one char per byte, as Windows-1252: `black-box: Archive2.exe
+/// 1.2.0.1` stores non-ASCII names in that code page and extracts them under the same
+/// names (M3.G3, `docs/corpus.md` "Archives"). Identical to Latin-1 (`ba2x.py`'s reading)
+/// except for 0x80..=0x9F; every official name is ASCII.
+pub(crate) fn decode_name(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|&b| {
+            b.checked_sub(0x80)
+                .and_then(|i| CP1252_HIGH.get(usize::from(i)))
+                .and_then(|&u| char::from_u32(u32::from(u)))
+                .unwrap_or(char::from(b))
+        })
+        .collect()
 }
 
-/// The inverse of [`latin1`]; chars above U+00FF become `?` (never produced by `latin1`).
-pub(crate) fn latin1_bytes(text: &str) -> Vec<u8> {
+/// The inverse of [`decode_name`]; a char outside Windows-1252 becomes `?` (never produced
+/// by `decode_name`).
+pub(crate) fn name_bytes(text: &str) -> Vec<u8> {
     text.chars()
-        .map(|c| u8::try_from(u32::from(c)).unwrap_or(b'?'))
+        .map(|c| {
+            let u = u32::from(c);
+            if let Some(i) = CP1252_HIGH.iter().position(|&h| u32::from(h) == u) {
+                return u8::try_from(i).map_or(b'?', |i| i.saturating_add(0x80));
+            }
+            match u8::try_from(u) {
+                Ok(b) if !(0x80..=0x9F).contains(&b) => b,
+                _ => b'?',
+            }
+        })
         .collect()
 }
 
