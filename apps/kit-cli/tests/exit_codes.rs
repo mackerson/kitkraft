@@ -1,8 +1,13 @@
 //! Runs the built `kit` binary and checks exit codes and output channels.
 
 // Test helpers may fail loudly; clippy's in-test allowance does not reach helper fns.
-#![allow(clippy::expect_used)]
+#![allow(
+    clippy::expect_used,
+    clippy::indexing_slicing,
+    clippy::arithmetic_side_effects
+)]
 
+use std::path::PathBuf;
 use std::process::{Command, Output};
 
 use serde_json::{json, Value};
@@ -57,29 +62,129 @@ fn per_command_help_exits_0() {
 
 #[test]
 fn planned_command_exits_2_with_clear_message() {
-    let out = kit(&["roundtrip", "X.esm"]);
-    assert_eq!(out.status.code(), Some(2));
-    assert!(stderr(&out).contains("not implemented"), "{}", stderr(&out));
+    for args in [&["ba2", "list", "A.ba2"][..], &["validate", "X.esm"]] {
+        let out = kit(args);
+        assert_eq!(out.status.code(), Some(2), "{args:?}");
+        assert!(stderr(&out).contains("not implemented"), "{}", stderr(&out));
+    }
+}
 
-    let out = kit(&["ba2", "list", "A.ba2"]);
+/// A minimal valid plugin: `TES4` (HEDR), then `GRUP GMST` holding one `GMST` record.
+fn synthetic_plugin() -> Vec<u8> {
+    fn sub(sig: &[u8; 4], data: &[u8]) -> Vec<u8> {
+        let mut out = sig.to_vec();
+        out.extend_from_slice(&u16::try_from(data.len()).expect("small").to_le_bytes());
+        out.extend_from_slice(data);
+        out
+    }
+    fn record(sig: &[u8; 4], flags: u32, form_id: u32, body: &[u8]) -> Vec<u8> {
+        let mut out = sig.to_vec();
+        out.extend_from_slice(&u32::try_from(body.len()).expect("small").to_le_bytes());
+        out.extend_from_slice(&flags.to_le_bytes());
+        out.extend_from_slice(&form_id.to_le_bytes());
+        out.extend_from_slice(&[0; 8]);
+        out.extend_from_slice(body);
+        out
+    }
+    let mut hedr = 1.0f32.to_le_bytes().to_vec();
+    hedr.extend_from_slice(&2u32.to_le_bytes());
+    hedr.extend_from_slice(&0x800u32.to_le_bytes());
+    let mut out = record(b"TES4", 1, 0, &sub(b"HEDR", &hedr));
+    let mut gmst = sub(b"EDID", b"fTestValue\0");
+    gmst.extend(sub(b"DATA", &2.5f32.to_le_bytes()));
+    let rec = record(b"GMST", 0, 0x0000_0100, &gmst);
+    out.extend_from_slice(b"GRUP");
+    out.extend_from_slice(&u32::try_from(rec.len() + 24).expect("small").to_le_bytes());
+    out.extend_from_slice(b"GMST");
+    out.extend_from_slice(&[0; 12]);
+    out.extend(rec);
+    out
+}
+
+fn temp_plugin(name: &str, bytes: &[u8]) -> PathBuf {
+    let path = std::env::temp_dir().join(format!("kit-cli-{name}-{}.esm", std::process::id()));
+    std::fs::write(&path, bytes).expect("write temp plugin");
+    path
+}
+
+/// `elapsed_ms` (and the summary that quotes it) vary run to run.
+fn without_timing(mut result: Value) -> Value {
+    result["data"]["elapsed_ms"] = Value::Null;
+    result["data"]["summary"] = Value::Null;
+    result
+}
+
+#[test]
+fn roundtrip_exit_codes() {
+    let bytes = synthetic_plugin();
+    let path = temp_plugin("roundtrip", &bytes);
+    let p = path.to_str().expect("utf-8 temp path");
+
+    // Identical: exit 0, with and without --verify; text output is the summary line.
+    for args in [&["roundtrip", p, "--verify"][..], &["roundtrip", p]] {
+        let out = kit(args);
+        assert_eq!(out.status.code(), Some(0), "{args:?}: {}", stderr(&out));
+        let text = stdout(&out);
+        assert!(text.contains(": identical ("), "{text}");
+        assert!(text.contains("limitation: container level"), "{text}");
+    }
+
+    // --out writes the rebuilt bytes.
+    let rebuilt = path.with_extension("out.esm");
+    let r = rebuilt.to_str().expect("utf-8 temp path");
+    assert_eq!(code(&["roundtrip", p, "--verify", "--out", r]), 0);
+    assert_eq!(std::fs::read(&rebuilt).expect("rebuilt"), bytes);
+    std::fs::remove_file(&rebuilt).expect("cleanup");
+
+    // Errors: missing file, truncated plugin, not a plugin -> exit 2.
+    let missing = std::env::temp_dir().join("kit-cli-no-such-plugin.esm");
+    assert_eq!(code(&["roundtrip", missing.to_str().expect("utf-8")]), 2);
+    let truncated = temp_plugin("truncated", &bytes[..bytes.len() - 1]);
+    let out = kit(&["roundtrip", truncated.to_str().expect("utf-8"), "--verify"]);
     assert_eq!(out.status.code(), Some(2));
-    assert!(stderr(&out).contains("not implemented"), "{}", stderr(&out));
+    assert!(stderr(&out).contains("offset"), "{}", stderr(&out));
+    let out = kit(&["roundtrip", truncated.to_str().expect("utf-8"), "--json"]);
+    assert_eq!(out.status.code(), Some(2));
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(got["error"]["kind"], "failed");
+    let not_plugin = temp_plugin("notplugin", &bytes[bytes.len() - 70..]);
+    assert_eq!(code(&["roundtrip", not_plugin.to_str().expect("utf-8")]), 2);
+
+    // Exit 1 (a --verify mismatch) cannot be produced from a parseable file today, since
+    // the writer re-emits every byte as read; `result_code` in main.rs covers the mapping.
+    for p in [&path, &truncated, &not_plugin] {
+        std::fs::remove_file(p).expect("cleanup");
+    }
 }
 
 #[test]
 fn json_output_equals_the_execute_result() {
-    let expected =
-        kitcraft_engine::execute("roundtrip", json!({"plugin": "X.esm", "verify": true}))
-            .expect("execute");
+    let path = temp_plugin("json", &synthetic_plugin());
+    let p = path.to_str().expect("utf-8 temp path");
+    let expected = kitcraft_engine::execute("roundtrip", json!({"plugin": p, "verify": true}))
+        .expect("execute");
     for args in [
-        &["roundtrip", "X.esm", "--verify", "--json"][..],
-        &["--json", "roundtrip", "X.esm", "--verify"],
+        &["roundtrip", p, "--verify", "--json"][..],
+        &["--json", "roundtrip", p, "--verify"],
     ] {
         let out = kit(args);
-        assert_eq!(out.status.code(), Some(2), "{args:?}");
+        assert_eq!(out.status.code(), Some(0), "{args:?}");
         let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
-        assert_eq!(got, expected, "{args:?}");
+        assert_eq!(
+            without_timing(got),
+            without_timing(expected.clone()),
+            "{args:?}"
+        );
     }
+
+    let expected = kitcraft_engine::execute("inspect", json!({"form": "fTestValue", "plugin": p}))
+        .expect("execute");
+    let out = kit(&["inspect", "fTestValue", p, "--json"]);
+    assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(got, expected);
+    assert_eq!(got["data"]["record"]["form_id"], "00000100");
+    std::fs::remove_file(&path).expect("cleanup");
 }
 
 #[test]

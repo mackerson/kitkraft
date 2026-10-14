@@ -5,11 +5,14 @@ Check this before claiming something works. Remove a row only with the commit th
 | Gap                                                               | Impact                                                   | Closes in        |
 | ----------------------------------------------------------------- | -------------------------------------------------------- | ---------------- |
 | Scaffold has never been compiled                                  | Any file may have compile or fmt errors                  | M0.2             |
-| No command is implemented; catalog entries are all `Planned`      | Every command exits 2; `roundtrip` returns a stub envelope (`limitations: ["not implemented"]`) | M1, M2 |
-| CLI exit code 1 (negative result) is never produced yet           | Scripts cannot yet tell "ran, mismatch" from "error"     | M1.13            |
+| Only `roundtrip` and a minimal `inspect` are implemented; every other catalog entry is `Planned` | Planned commands exit 2 with a stub or `not_implemented` error | M1.14, M2 |
+| `roundtrip` compares at container level only; compressed bodies are re-emitted, not decompressed | A compressed record whose zlib stream is corrupt but well-sized still roundtrips identical | M2 (`roundtrip --decode`) |
+| CLI exit 1 is wired (`data.passed: false`) but no parseable plugin can produce a `roundtrip` mismatch today | The exit-1 path is unit-tested, not exercised end to end | when the writer gains a lossy path |
+| `inspect` is single-plugin and untyped                            | No winning override; every payload is hex; FormIDs are file-relative as stored | M2 (load order), schema wiring |
 | `command_line` cannot express `set`'s `FIELD=value` shorthand      | `kit set` needs `--fields '{"FULL":"..."}'` (JSON)       | M2               |
-| Compressed-record recompression fidelity unknown                  | Edited compressed records may not match CK output bytes  | M1 (measure), M3 |
-| Starfield plugin flag variants (light/medium/update) not verified | Header flags may be preserved but misreported            | M1.2b            |
+| Recompression is 99.88%, not 100%, identical (160 of 136,741 records differ at level 9) | An edited compressed record may differ from what the CK would write; unedited ones are always byte-identical | M3 |
+| Meaning of TES4 flag bits 0x100, 0x400, 0x800 has no permitted source | Bits are preserved and listed raw; `tes4` names only 0x1 and 0x80 | M3 (CK observation) |
+| Group type 10 is not in UESP's table (Starfield-only)            | Preserved and walked; its label is shown as a FormID     | M3 (CK observation) |
 | No schema definitions yet                                         | Every subrecord is opaque; coverage is zero              | M1.9             |
 | Localized strings not loaded                                      | FULL/DESC on localized plugins show string IDs only      | M2               |
 | No load-order resolution                                          | Cannot answer "which plugin wins"                        | M2               |
@@ -19,6 +22,28 @@ Check this before claiming something works. Remove a row only with the commit th
 | xEdit policy undecided (ADR 0004)                                 | Ambiguous fields stay opaque                             | owner            |
 | Project name is a placeholder                                     | Package names (`kitcraft-*`, `kit`) may be renamed       | owner            |
 | No remote, no hosted CI                                           | The local `cargo xtask ci` run is the only gate          | owner            |
+
+## Recompression parity (measured 2026-10-14)
+
+Question: if we decompress a record and compress it again, do we get the original bytes?
+Unedited records never go through this (the writer re-emits their original compressed
+bytes); it decides what an edited compressed record looks like. Measured over every
+compressed record in the 14 official ESMs (136,741 records; `corpus_recompression_parity`).
+
+All 136,741 streams start with zlib header `78 DA` (maximum-compression level class).
+
+| Compressor                                        | Identical at any level | Level 7 | Level 8 | Level 9           | Levels 0-6 |
+| ------------------------------------------------- | ---------------------- | ------- | ------- | ----------------- | ---------- |
+| flate2 default backend (miniz_oxide)              | 3,366 (2.5%)           | 0       | 0       | 3,366             | 0          |
+| C zlib 1.3 via libz-sys (out-of-tree measurement) | 117,664 (86.0%)        | 116,970 | 117,664 | 117,664           | 0          |
+| zlib-rs (workspace backend since adaf097)         | 136,593 (99.9%)        | 2,310   | 2,320   | 136,581 (99.88%)  | 0          |
+
+Per file with zlib-rs at level 9: 100% for BlueprintShips-SFBGS050, SFBGS004, SFBGS008,
+SFBGS047 and ShatteredSpace; misses are 149 in Starfield.esm, 3 in BlueprintShips-Starfield,
+3 in SFBGS003, 2 in SFBGS006, 2 in SFBGS00D, 1 in SFBGS050. The workspace now builds flate2
+with only the zlib-rs backend and recompresses edited records at level 9. Why the remaining
+0.1% differ (a different compressor setting, or records the official tools wrote another
+way) is not known; deciding that needs CK observation (M3).
 
 ## Spriggit 0.41.0 is not a byte-exact Starfield roundtrip
 

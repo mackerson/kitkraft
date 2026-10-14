@@ -88,9 +88,9 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "Record/Inspect",
         shortcut: Some("Enter"),
         aliases: &["show"],
-        summary: "Resolved record, winning override, and every overrider",
-        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"FormID (hex, load-order or file-relative) or EditorID"}},"required":["form"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        summary: "One record by FormID or EditorID: header fields and subrecords (typed fields and overrides later)",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"FormID (hex, file-relative) or EditorID"},"plugin":{"type":"string","description":"Plugin to search (until load order exists)"}},"required":["form","plugin"],"additionalProperties":false}"#,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "query",
@@ -150,7 +150,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here"}},"required":["plugin"],"additionalProperties":false}"#,
-        status: Status::Planned,
+        status: Status::Implemented,
     },
     CommandSpec {
         id: "coverage",
@@ -345,12 +345,21 @@ mod execute_tests {
     }
 
     #[test]
-    fn roundtrip_stub_returns_the_full_envelope() {
-        let result = execute("roundtrip", json!({"plugin": "Constellation.esm"})).unwrap();
+    fn stub_handler_returns_the_full_envelope() {
+        let mut engine = Engine::empty();
+        engine
+            .register(
+                "validate",
+                Box::new(|_: &Value| Ok(Outcome::not_implemented())),
+            )
+            .unwrap();
+        let result = engine
+            .execute("validate", json!({"plugin": "Constellation.esm"}))
+            .unwrap();
         assert_eq!(
             result,
             json!({
-                "command": "roundtrip",
+                "command": "validate",
                 "data": null,
                 "coverage": {
                     "status": "unknown",
@@ -373,7 +382,9 @@ mod execute_tests {
                 Box::new(|_: &Value| Ok(Outcome::not_implemented())),
             )
             .unwrap();
-        let result = engine.execute("show", json!({"form": "0001A2B3"})).unwrap();
+        let result = engine
+            .execute("show", json!({"form": "0001A2B3", "plugin": "X.esm"}))
+            .unwrap();
         assert_eq!(result["command"], "inspect");
     }
 
@@ -464,10 +475,14 @@ mod execute_tests {
     fn default_handlers_cover_every_implemented_command() {
         let engine = Engine::with_default_handlers();
         assert!(engine.has_handler("roundtrip"));
+        assert!(engine.has_handler("inspect"));
         for spec in catalog() {
-            if spec.status == Status::Implemented {
-                assert!(engine.has_handler(spec.id), "{} has no handler", spec.id);
-            }
+            assert_eq!(
+                spec.status == Status::Implemented,
+                engine.has_handler(spec.id),
+                "{}: status and handler disagree",
+                spec.id
+            );
         }
     }
 }

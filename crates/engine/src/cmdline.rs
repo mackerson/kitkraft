@@ -436,8 +436,8 @@ mod tests {
         );
         assert_eq!(run("ba2.list A.ba2").0, "ba2.list");
         assert_eq!(
-            run("show 0001A2B3"),
-            ("inspect", json!({"form": "0001A2B3"}))
+            run("show 0001A2B3 X.esm"),
+            ("inspect", json!({"form": "0001A2B3", "plugin": "X.esm"}))
         );
         assert_eq!(run("pexdis x.pex").0, "papyrus.disasm");
         assert_eq!(run("ba2 extract A.ba2 --out-dir o").1["out_dir"], "o");
@@ -526,9 +526,21 @@ mod tests {
     #[test]
     fn line_result_equals_execute_with_json() {
         let (id, args) = run("roundtrip Constellation.esm");
+        let spec = find_command(id).unwrap();
         assert_eq!(
-            execute(id, args).unwrap(),
-            execute("roundtrip", json!({"plugin": "Constellation.esm"})).unwrap()
+            crate::prepare_args(spec, args).unwrap(),
+            crate::prepare_args(spec, json!({"plugin": "Constellation.esm"})).unwrap()
+        );
+        // Same envelope (here the same failure) either way.
+        let (id, args) = run("roundtrip no-such-dir/Constellation.esm");
+        assert_eq!(
+            execute(id, args).unwrap_err().to_string(),
+            execute(
+                "roundtrip",
+                json!({"plugin": "no-such-dir/Constellation.esm"})
+            )
+            .unwrap_err()
+            .to_string()
         );
     }
 }
