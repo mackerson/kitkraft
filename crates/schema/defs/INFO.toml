@@ -1,0 +1,428 @@
+# INFO: Dialog response, one entry under a dialogue topic: its flags, shared or grouped
+# responses, the response lines (text, emotion, voice file, animation, head tracking),
+# the conditions that pick it, the prompt, speaker, scene to start, quest stages to set,
+# and subtitle priority. INFO records live in their topic's children group (group type 7);
+# the topic (DIAL) lists them in TIFL.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12756-L12884 - member order, ENAM, TRDA, TROT,
+#     the response text members (NAM1..NAM4, NAM9), TIQS, INAM, FormID targets. Helpers:
+#     script data (L3413-L3442, the response variant, common/ScriptAttachment.toml), the
+#     base form component block (L5984-L6832, kept raw), the animation block (L5702-L5722),
+#     the sound reference (L2213-L2227, common/SoundReference.toml), the condition list
+#     (L4750-L4840, common/Condition.toml).
+#   corpus: the 162,028 INFO records (Starfield.esm 126,347, ShatteredSpace 17,938,
+#     SFBGS00D 7,097, SFBGS050 6,979, SFBGS003 3,051, SFBGS004 616; form versions 581 and
+#     582; none compressed; every one in a group of type 7), 2026-10-14: order [EDID] [VMAD]
+#     [BFCB block] ENAM [DNAM] [GNAM] responses CTDA* [RNAM] [ANAM] [TSCE] [INTV] [WED0]
+#     [TIQS] NAM0 [MODQ] INAM [COCT] [NAM8] [SCSP] [PERK]; each response TRDA TROT* NAM1
+#     NAM2 NAM3 NAM4 [NAM9] [animation] [head tracking] [RVSH]. Unlike REFR, the order holds
+#     in every record: all 162,028 decode with nothing left over and re-encode identically.
+#     ENAM, DNAM, GNAM, TROT entries 4 and 8 bytes as below; TRDA 12; NAM9 8; WED0 and RVSH
+#     40; TIQS 4. No TPIC, TROI, CIS1, SOFT, SPOR, SHRT, DTGT or ACEP occurs; no condition
+#     occurs inside an animation block.
+signature = "INFO"
+name = "DialogResponse"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12756-L12884"
+evidence = [
+  "corpus: the 162,028 INFO records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+flags = [["InfoGroup", 0x40], ["ExcludeFromExport", 0x80], ["ActorChanged", 0x2000]]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "11,884 of 162,028 responses have one"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "ref:ScriptAttachment"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3413-L3442"]
+note = "scripts, then begin/end fragments (kept raw); 2,040 records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed in 6 records"
+
+[[member]]
+sig = "ENAM"
+name = "ResponseFlags"
+type = "struct"
+size = 4
+field = [
+  { name = "Flags", type = "u16", note = "two flag sets upstream, chosen by the record's InfoGroup header flag (a response's flags or an info group's); kept as a number" },
+  { name = "ResetHours", type = "u16", note = "shown upstream as hours: the stored value divided by 2730.625" },
+]
+
+[[member]]
+sig = "TPIC"
+name = "PreviousTopic"
+type = "formid"
+targets = ["DIAL"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official files"
+
+[[member]]
+sig = "DNAM"
+name = "SharedInfo"
+type = "formid"
+targets = ["INFO"]
+card = "optional"
+
+[[member]]
+sig = "GNAM"
+name = "InfoGroup"
+type = "formid"
+targets = ["INFO"]
+card = "optional"
+
+[[member]]
+group = "Response"
+card = "repeated"
+note = "164,632 response lines; up to 15 per record"
+
+[[member.member]]
+sig = "TRDA"
+name = "Data"
+type = "struct"
+size = 12
+field = [
+  { name = "Emotion", type = "formid", targets = ["KYWD"], note = "0xFFFFFFFF is allowed upstream" },
+  { name = "WemFile", type = "u32", note = "the voice file number" },
+  { name = "EmotionOut", type = "f32" },
+]
+
+[[member.member]]
+sig = "TROT"
+name = "VoiceTypeEmotions"
+type = "struct"
+size = 8
+card = "repeated"
+note = "observed up to 157 per record"
+field = [
+  { name = "VoiceType", type = "formid", targets = ["VTYP"] },
+  { name = "EmotionOut", type = "f32" },
+]
+
+[[member.member]]
+sig = "TROI"
+name = "OriginalInfo"
+type = "formid"
+targets = ["INFO"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official files"
+
+[[member.member]]
+sig = "NAM1"
+name = "ResponseText"
+type = "lstring"
+note = "an ILSTRINGS ID in a localized plugin (corpus lstring table, docs/validate.md)"
+
+[[member.member]]
+sig = "NAM2"
+name = "ScriptNotes"
+type = "zstring"
+
+[[member.member]]
+sig = "NAM3"
+name = "Edits"
+type = "zstring"
+
+[[member.member]]
+sig = "NAM4"
+name = "AlternateLipText"
+type = "zstring"
+
+[[member.member]]
+sig = "NAM9"
+name = "TextHash"
+type = "opaque"
+card = "optional"
+note = "a hash of the response text; 8 bytes in every official occurrence"
+
+[[member.member]]
+group = "Animation"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5702-L5722"]
+note = "9,609 blocks; from BNAM to the XNAM end marker"
+
+[[member.member.member]]
+sig = "BNAM"
+name = "NpcAnim"
+type = "formid"
+targets = ["IDLE"]
+note = "a null FormID is allowed"
+
+[[member.member.member]]
+sig = "STRV"
+name = "AnimationSubgraph"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "VCLR"
+name = "AnimBodyArchetype"
+type = "formid"
+targets = ["KYWD"]
+note = "a null FormID is allowed"
+
+[[member.member.member]]
+sig = "FLMV"
+name = "AnimFaceArchetype"
+type = "formid"
+targets = ["KYWD"]
+note = "a null FormID is allowed"
+
+[[member.member.member]]
+sig = "FLAV"
+name = "AnimFlavor"
+type = "formid"
+targets = ["KYWD"]
+note = "a null FormID is allowed"
+
+[[member.member.member]]
+sig = "QUAL"
+name = "UseDialogueAnimation"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "DOFT"
+name = "UseAnimBodyArchetype"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "SOFT"
+name = "HasAnimFaceArchetype"
+type = "empty"
+card = "optional"
+confidence = "reference"
+
+[[member.member.member]]
+sig = "DPLT"
+name = "AnimationCompleteEndsPhase"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "SPOR"
+name = "AnimationOnlyMovement"
+type = "empty"
+card = "optional"
+confidence = "reference"
+
+[[member.member.member]]
+sig = "OCOR"
+name = "UseFlavorAnim"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "LVCR"
+name = "DelayStartTimeAction"
+type = "f32"
+
+[[member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+confidence = "reference"
+note = "no official response animation has conditions"
+
+[[member.member.member]]
+sig = "ATAC"
+name = "Action"
+type = "formid"
+targets = ["AACT"]
+note = "a null FormID is allowed; null in every official occurrence"
+
+[[member.member.member]]
+sig = "SHRT"
+name = "UseActorAnimAction"
+type = "empty"
+card = "optional"
+confidence = "reference"
+
+[[member.member.member]]
+sig = "PLRL"
+name = "AnimationHoldEvent"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "DTGT"
+name = "Dtgt"
+type = "opaque"
+size = 4
+card = "optional"
+confidence = "reference"
+note = "unnamed upstream"
+
+[[member.member.member]]
+sig = "ACEP"
+name = "Acep"
+type = "empty"
+card = "optional"
+confidence = "reference"
+note = "unnamed upstream"
+
+[[member.member.member]]
+sig = "XNAM"
+name = "End"
+type = "empty"
+
+[[member.member]]
+group = "HeadTracking"
+card = "optional"
+note = "975 blocks, between two HNAM markers"
+
+[[member.member.member]]
+sig = "HNAM"
+name = "Start"
+type = "empty"
+
+[[member.member.member]]
+sig = "HTID"
+name = "Aliases"
+type = "array"
+element = "i32"
+count = "rest"
+card = "optional"
+note = "actor alias IDs; -1 by default"
+
+[[member.member.member]]
+sig = "FNAM"
+name = "ForceRotate"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "PNAM"
+name = "ForceRotateMustComplete"
+type = "empty"
+card = "optional"
+
+[[member.member.member]]
+sig = "HNAM"
+name = "End"
+type = "empty"
+
+[[member.member]]
+sig = "RVSH"
+name = "Sound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227"]
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+note = "no CITC count precedes this list; 57,098 conditions in 37,623 records"
+
+[[member]]
+sig = "RNAM"
+name = "Prompt"
+type = "lstring"
+card = "optional"
+
+[[member]]
+sig = "ANAM"
+name = "Speaker"
+type = "formid"
+targets = ["NPC_"]
+card = "optional"
+
+[[member]]
+sig = "TSCE"
+name = "StartScene"
+type = "formid"
+targets = ["SCEN"]
+card = "optional"
+
+[[member]]
+sig = "INTV"
+name = "Intv"
+type = "opaque"
+card = "optional"
+note = "unnamed upstream; 4 bytes in every official occurrence, always after TSCE"
+
+[[member]]
+sig = "WED0"
+name = "VoiceOverride"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227"]
+
+[[member]]
+sig = "TIQS"
+name = "SetParentQuestStage"
+type = "struct"
+size = 4
+card = "optional"
+field = [
+  { name = "OnBegin", type = "u16", note = "0xFFFF for none" },
+  { name = "OnEnd", type = "u16", note = "0xFFFF for none" },
+]
+
+[[member]]
+sig = "NAM0"
+name = "StartScenePhase"
+type = "zstring"
+
+[[member]]
+sig = "MODQ"
+name = "ResetGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "INAM"
+name = "SubtitlePriority"
+type = "enum"
+base = "u32"
+values = [["Low", 0], ["Normal", 1], ["High", 2], ["Force", 3]]
+
+[[member]]
+sig = "COCT"
+name = "Coct"
+type = "empty"
+card = "optional"
+note = "unnamed upstream; empty in every official occurrence (97)"
+
+[[member]]
+sig = "NAM8"
+name = "AffinityEvent"
+type = "formid"
+targets = ["AFFE"]
+card = "optional"
+
+[[member]]
+sig = "SCSP"
+name = "SpeechChallenge"
+type = "formid"
+targets = ["SPCH"]
+card = "optional"
+
+[[member]]
+sig = "PERK"
+name = "SkillPerk"
+type = "formid"
+targets = ["PERK"]
+card = "optional"

@@ -1,0 +1,30 @@
+# SoundReference: a Wwise sound as a record stores it: a start and a stop event (each a
+# 16-byte Wwise GUID), a condition form, and a start form (WWED). INFO WED0 and RVSH use it;
+# other families store the same payload under other signatures.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L2213-L2227 - the member form of the sound
+#     reference: an event set (start event, stop event, condition form CNDF) followed by a
+#     form-only part (start form WWED), in that order.
+#   corpus: WED0 and RVSH in the INFO records of the 14 official ESMs (2026-10-14 scan):
+#     all 2,098 and 232 payloads are 40 bytes and decode and re-encode identically. The GUID
+#     helper is defined outside the approved upstream files; its 16-byte width is the
+#     corpus size less the two FormIDs, split evenly between the two GUIDs of the same
+#     helper type. Observed: a start GUID with a zero stop GUID, or zero GUIDs with a start
+#     form.
+#
+# The GUIDs are kept as raw bytes (no display form is transcribed).
+name = "SoundReference"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2227"
+evidence = [
+  "corpus: the 2,098 WED0 and 232 RVSH of the INFO records of the 14 official ESMs, 2026-10-14 scan: all 40 bytes, every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "StartEvent", type = "opaque", size = 16, note = "Wwise event GUID; all zero when unused" },
+  { name = "StopEvent", type = "opaque", size = 16, note = "Wwise event GUID; all zero when unused" },
+  { name = "Condition", type = "formid", targets = ["CNDF"], note = "a null FormID is allowed" },
+  { name = "StartForm", type = "formid", targets = ["WWED"], note = "a null FormID is allowed" },
+]
