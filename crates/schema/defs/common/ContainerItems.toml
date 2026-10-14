@@ -1,0 +1,59 @@
+# ContainerItems: the COCT count followed by the inventory entries of a container or a
+# piece of furniture (CNTO item and count, each with optional COED extra data).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L2293-L2327 - COED (owner, a 4-byte slot whose
+#     meaning the owner's type selects, item condition), CNTO (item, count), COCT and the
+#     list it counts. The COED decider (wbDefinitionsCommon.pas L5718-L5736) picks the
+#     middle slot's layout from the owner's record type.
+#   corpus: COCT/CNTO in the CONT records of the 14 official ESMs (2026-10-14 scan,
+#     ITEMS/WORKSHOP family): COCT 4 bytes, CNTO 8 bytes (1,038 entries in 677 records), no
+#     COED. FURN carries no top-level COCT in any official file.
+#
+# What stays opaque, and why: the middle slot of COED is a global variable FormID or a
+# required faction rank depending on whether the owner is an NPC or a faction (a union
+# decided by another field's target type); it is kept as its 4 raw bytes. The count is
+# stored, not derived: an edit that changes the list must update it.
+name = "ContainerItems"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2293-L2327"
+evidence = [
+  "corpus: COCT and CNTO in the CONT records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family): every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "COCT"
+name = "Count"
+type = "u32"
+note = "number of Items that follow"
+
+[[member]]
+group = "Item"
+card = "repeated"
+
+[[member.member]]
+sig = "CNTO"
+name = "Entry"
+type = "struct"
+size = 8
+note = "the item: upstream allows any base object; the official entries name LVLI (991), MISC, ALCH, WEAP, KEYM, BOOK and AMMO"
+field = [
+  { name = "Item", type = "formid" },
+  { name = "Count", type = "i32" },
+]
+
+[[member.member]]
+sig = "COED"
+name = "ExtraData"
+type = "struct"
+size = 12
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5718-L5736"]
+confidence = "reference"
+note = "not present in the official files"
+field = [
+  { name = "Owner", type = "formid", targets = ["NPC_", "FACT"] },
+  { name = "GlobalOrRank", type = "opaque", size = 4, note = "union: a GLOB FormID when the owner is an NPC, a required rank (i32) when it is a faction" },
+  { name = "ItemCondition", type = "f32" },
+]

@@ -1,0 +1,57 @@
+# ObjectTemplate: the OBTE count followed by the object template combinations of an item
+# or object (an editor-only marker, a combination name, and the template item OBTS).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L6961-L6974 - OBTE, then combinations of OBTF
+#     (empty), FULL and OBTS (any order upstream; OBTS ends a combination). The OBTS item
+#     (L6940-L6959) holds counts, a level range, keywords, includes and an object-mod
+#     property list (L6894 onwards) whose values are unions by value type.
+#   corpus: the template blocks of the ARMO and CONT records of the 14 official ESMs
+#     (2026-10-14 scan, ITEMS/WORKSHOP family): OBTE 4 bytes; every combination is
+#     [OBTF] [FULL] OBTS in that order; OBTF 0 bytes; OBTS variable (18 to over 100 bytes).
+#     Every record decodes and re-encodes identically.
+#
+# What stays opaque, and why: OBTS, because its property list's value slots are unions whose
+# layout a type byte selects. The count is stored, not derived. GBFM carries the same block
+# inline (planet family) and WEAP an inventory form of it (ObteBlock); the integrator may
+# fold them into this group.
+name = "ObjectTemplate"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"
+evidence = [
+  "corpus: OBTE, OBTF, FULL and OBTS in the ARMO and CONT records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family): every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBTE"
+name = "Count"
+type = "u32"
+note = "number of Combinations that follow"
+
+[[member]]
+group = "Combination"
+card = "repeated"
+
+[[member.member]]
+sig = "OBTF"
+name = "EditorOnly"
+type = "empty"
+card = "optional"
+
+[[member.member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+
+[[member.member]]
+sig = "OBTS"
+name = "Item"
+type = "opaque"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959"]
+note = "object mod template item; kept raw (its property values are unions)"
