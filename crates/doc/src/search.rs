@@ -360,4 +360,96 @@ mod tests {
         let none = page(&lo, &mut reader, b"KYWD", None, Scope::Winner, 50, None).unwrap();
         assert_eq!(none.matched.len(), 1);
     }
+
+    /// Review round 2: a deleted winner's payload is never evaluated silently; index paths
+    /// still work (`@flags & 0x20` finds it).
+    #[test]
+    fn deleted_winners_are_not_evaluated() {
+        use crate::testdata::rec_flags;
+        let dir = testdata::temp_dir("search-deleted");
+        let base = testdata::plugin_with(
+            0x1,
+            &[],
+            &[rec(
+                b"WEAP",
+                0x800,
+                &[("EDID", b"Gun\0".to_vec()), ("FULL", b"Rifle\0".to_vec())],
+            )],
+        );
+        // The patch deletes the weapon but leaves stale subrecords behind.
+        let patch = testdata::plugin_with(
+            0x1,
+            &["Base.esm"],
+            &[rec_flags(
+                b"WEAP",
+                0x20,
+                0x800,
+                &[("EDID", b"Gun\0".to_vec()), ("FULL", b"Rifle\0".to_vec())],
+            )],
+        );
+        let mut specs = Vec::new();
+        for (name, bytes) in [("Base.esm", base), ("Patch.esm", patch)] {
+            let path = dir.join(name);
+            std::fs::write(&path, bytes).unwrap();
+            specs.push(PluginSpec {
+                name: name.into(),
+                path,
+            });
+        }
+        let lo = LoadOrder::load(specs, &LoadOptions::default()).unwrap();
+        let mut reader = RecordReader::new();
+        let q = Query::parse(r#"FULL ~ "rifle""#).unwrap();
+        let p = page(&lo, &mut reader, b"WEAP", Some(&q), Scope::Winner, 50, None).unwrap();
+        assert!(p.matched.is_empty());
+        assert_eq!(p.unknown_count, 1);
+        assert!(
+            p.reasons.iter().any(|r| r.contains("deleted")),
+            "{:?}",
+            p.reasons
+        );
+        let has = Query::parse("has FULL").unwrap();
+        let p = page(
+            &lo,
+            &mut reader,
+            b"WEAP",
+            Some(&has),
+            Scope::Winner,
+            50,
+            None,
+        )
+        .unwrap();
+        assert_eq!(p.unknown_count, 1);
+        // The base version (not deleted) still evaluates under scope all.
+        let p = page(&lo, &mut reader, b"WEAP", Some(&q), Scope::All, 50, None).unwrap();
+        assert_eq!(p.matched.iter().map(|v| v.plugin).collect::<Vec<_>>(), [0]);
+        let flags = Query::parse("@flags & 0x20").unwrap();
+        let p = page(
+            &lo,
+            &mut reader,
+            b"WEAP",
+            Some(&flags),
+            Scope::Winner,
+            50,
+            None,
+        )
+        .unwrap();
+        assert_eq!(p.matched.len(), 1);
+    }
+
+    /// Review round 2: `@flags` of a version whose record is missing from the index is
+    /// unknown, not 0.
+    #[test]
+    fn flags_without_an_index_entry_are_unknown() {
+        use crate::query::{Lookup, Path, Subject};
+        let lo = lo();
+        let mut reader = RecordReader::new();
+        let mut v = lo
+            .forms
+            .winner(lo.forms.runs().next().unwrap()[0].form())
+            .copied()
+            .unwrap();
+        v.record = 999_999;
+        let mut subject = crate::subject::VersionSubject::new(&lo, &mut reader, v);
+        assert!(matches!(subject.lookup(&Path::Flags), Lookup::Unknown(_)));
+    }
 }

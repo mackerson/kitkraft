@@ -6,7 +6,8 @@
 //! wired (M2.A3, M2.B2), and a localized lstring is unknown until string tables are loaded
 //! (M2.D7).
 
-use crate::index::zstring;
+use crate::flags::RECORD_FLAG_DELETED;
+use crate::index::{zstring, RecordLoc};
 use crate::load_order::LoadOrder;
 use crate::lstring::{decode_lstring, is_lstring, unresolved, LString};
 use crate::overrides::Version;
@@ -14,6 +15,15 @@ use crate::query::{FieldValue, Lookup, Path, Subject};
 use crate::record::{LoadedRecord, RecordReader};
 use crate::strings::StringTables;
 use crate::typed::{self, Decoded};
+
+/// Whether a schema type is a union (its variant differs per record).
+fn is_union(ty: &kitcraft_schema::FieldType) -> bool {
+    match ty {
+        kitcraft_schema::FieldType::Union { .. } => true,
+        kitcraft_schema::FieldType::Ref { ty, .. } => is_union(ty),
+        _ => false,
+    }
+}
 
 /// One version, evaluated lazily.
 pub struct VersionSubject<'a> {
@@ -69,6 +79,18 @@ impl<'a> VersionSubject<'a> {
             .map_or_else(String::new, |p| p.name.clone())
     }
 
+    /// Why the payload must not be evaluated: the record is deleted (flag 0x20), so its
+    /// subrecords are not the form's data.
+    fn deleted_reason(&self, loc: Option<&RecordLoc>) -> Option<String> {
+        let loc = loc?;
+        (loc.flags & RECORD_FLAG_DELETED != 0).then(|| {
+            format!(
+                "the version in {} is deleted (record flag 0x20): its payload is not evaluated",
+                self.plugin_name()
+            )
+        })
+    }
+
     fn localized(&self) -> bool {
         self.lo
             .plugin(self.version.plugin)
@@ -118,6 +140,7 @@ impl VersionSubject<'_> {
                         },
                         None => return Lookup::Unknown(unresolved(label, plugin, id)),
                     },
+                    Decoded::Form(0) => values.push(FieldValue::Null),
                     Decoded::Form(raw) => match self.lo.resolve(self.version.plugin, raw) {
                         Ok(g) => values.push(FieldValue::Form {
                             plugin: self
@@ -185,15 +208,19 @@ impl Subject for VersionSubject<'_> {
                     None => Lookup::Absent,
                 }
             }
-            Path::Flags => {
-                Lookup::Values(vec![FieldValue::Int(i64::from(loc.map_or(0, |l| l.flags)))])
-            }
+            Path::Flags => match loc {
+                Some(l) => Lookup::Values(vec![FieldValue::Int(i64::from(l.flags))]),
+                None => Lookup::Unknown("@flags: record not in the index".into()),
+            },
             Path::Field {
                 signature,
                 members,
                 index,
             } => {
                 let sig = String::from_utf8_lossy(signature).into_owned();
+                if let Some(why) = self.deleted_reason(loc.as_ref()) {
+                    return Lookup::Unknown(format!("{sig}: {why}"));
+                }
                 let localized = self.localized();
                 let plugin = self.plugin_name();
                 let rec = match self.record() {
@@ -245,7 +272,11 @@ impl Subject for VersionSubject<'_> {
                         } else {
                             format!("{sig}.{}", members.join("."))
                         };
-                        return self.typed_values(&ty, &owned, &ctx, members, &label, &plugin);
+                        return match self.typed_values(&ty, &owned, &ctx, members, &label, &plugin)
+                        {
+                            Lookup::Values(v) if is_union(&ty) => Lookup::UnionValues(v),
+                            other => other,
+                        };
                     }
                     Some(Ok(None)) | None => {}
                 }
@@ -297,6 +328,16 @@ impl Subject for VersionSubject<'_> {
     }
 
     fn has(&mut self, signature: [u8; 4]) -> Result<bool, String> {
+        let loc = self
+            .lo
+            .record(self.version.plugin, self.version.record)
+            .copied();
+        if let Some(why) = self.deleted_reason(loc.as_ref()) {
+            return Err(format!(
+                "has {}: {why}",
+                String::from_utf8_lossy(&signature)
+            ));
+        }
         let rec = self.record()?;
         Ok(rec.subs.iter().any(|s| s.signature().0 == signature))
     }
