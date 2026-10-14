@@ -547,10 +547,15 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   `/fields/<path>` with a rule id (`path-syntax`, `no-subrecord`, `no-member`, `type`,
   `range`, `opaque`, `formref`, `layout`).
 - `into`: the patch, created or updated (`.esm` gets the master flag, `.esp` does not;
-  `.esl` is refused). Never a plugin of the load order, never inside the game Data dir or
-  an MO2 instance or profile (any depth). The writer rules (masters, lstrings inline,
-  remapping, header) are in `crates/engine/src/edit/patch.rs` and `docs/corpus.md`
-  "Writing rules".
+  `.esl` is refused). Never a plugin of the load order, never inside the game Data dir,
+  the user Data dir or an MO2 instance or profile (any depth). The writer rules (masters,
+  lstrings inline, remapping, header, scaled sources refused) are in
+  `crates/engine/src/edit/patch.rs` and `docs/corpus.md` "Writing rules". The write goes
+  to a staged copy, `validate`'s plugin rules run on it, and `into` changes only when the
+  records written have no error (`docs/validate.md`).
+- `allow_untyped_lstrings` (default `false`, CLI `--allow-untyped-lstrings`): copy
+  non-zero 4-byte subrecords of unknown layout from a localized source as stored (each
+  named in a limitation) instead of refusing; they may be string IDs.
 
 `data`: `target`, `file`, `created`, `masters`, `flags`, `bytes`, `summary`, and
 `records[]` (parents copied to hold a cell/world/topic child come first, `parent: true`)
@@ -560,8 +565,12 @@ an lstring of a localized source shows `{"string_id"}` before), `inlined_lstring
 (`at`, `string_id`, `text`, `table`), `offset`/`length` in the patch, and `copied_from`
 (`plugin`, `load_index`, `offset`, `record`, `versions_in_load_order`). Evidence: the
 copied record in its source file, the record in the patch, each edited payload in the
-patch. Limitations: the load order's, the M2.E3 `ck-diff` part not observed yet, a
-master list extended, FormIDs remapped.
+patch. `validate`: the run on the written plugin (`passed`, `errors`, `warnings`,
+`findings`, `rules`). Limitations: the load order's, the M2.E3 `ck-diff` part not observed
+yet (with the header subrecords deliberately not written), a master list extended,
+FormIDs remapped, lstrings typed by the corpus table, inline text with bytes >= 0x80,
+subrecords copied under `allow_untyped_lstrings`, validate errors on records the call did
+not write.
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 
@@ -584,8 +593,11 @@ byte at each finding's offset.
 
 ### `build` (M2.E9)
 
-Arguments `{spec, out}` plus the load-order arguments (used when the spec has no
-`[load_order]`). CLI `kit build rename.toml <out>`. The spec (TOML):
+Arguments `{spec, out, overwrite = false, allow_untyped_lstrings = false}` plus the
+load-order arguments (used when the spec has no `[load_order]`). CLI
+`kit build rename.toml <out> [--overwrite]`. `out` is checked like `set`'s `into` (never a
+load-order plugin, the game or user Data dir, or MO2) before anything is written, and an
+existing `out` is replaced only with `overwrite`. The spec (TOML):
 
 ```toml
 version = 1
@@ -604,11 +616,12 @@ fields = { FULL = "Old Soviet Marksman Rifle" }
 ```
 
 Rules expand over their `query` matches (winners, load order then FormID); `[[set]]`
-entries apply after rules; a field written twice is an error naming both keys. The plugin
-is written fresh into a temporary directory next to `out`, validated, and moved over
-`out` only when `validate` finds no error; otherwise nothing is written and the command
-fails with the errors. Spec errors are `failed` with `spec: <key>: ...`
-(`spec: set[0].fields.full: ...`). `data` is `set`'s plus `spec`, `rules[]` (`rule`,
+entries apply after rules; a field written twice (the same path, or a whole subrecord and
+a member of it) is an error naming both keys. The plugin is written fresh into a staging
+directory under the OS temp dir (stale ones from crashed runs are removed), validated,
+and moved to `out` only when `validate` finds no error; otherwise nothing is written and
+the command fails with the errors. Spec errors are `failed` with `spec: <key>: ...`
+(`spec: set[0].fields.full: ...`); TOML `inf`/`nan` values are range errors. `data` is `set`'s plus `spec`, `rules[]` (`rule`,
 `matched`, `undecided`), `validate` (`passed`, `errors`, `warnings`, `findings`, `rules`)
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
