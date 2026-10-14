@@ -26,3 +26,4 @@ desktop.ini
 
 # Black-box CK observations (screenshots, CK-saved plugins) stay local
 /observe/
+/.claude/worktrees/
