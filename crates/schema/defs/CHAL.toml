@@ -1,0 +1,41 @@
+# CHAL: Challenge. Upstream defines the record as an EditorID plus base form components;
+# everything a challenge says (its type, name, description, activities with conditions,
+# rewards and value) lives inside its component block.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L10747-L10766 - the member list (EDID and the base
+#     form components). Helper: the base form component block (L5984-L6832,
+#     common/BfcbBlock.toml).
+#   corpus: the 10 CHAL records (Starfield.esm 8, ShatteredSpace 2; form versions 581 and
+#     582; none compressed), 2026-10-14: every record is EDID BFCB ... BFCE with exactly one
+#     component (BFCB 19 bytes); inside it ATCP (the activity count), then per activity
+#     ATAN FULL DESC (DNAM CITC CTDA*)* ANAM ATAV ATAF. Every record decodes with nothing
+#     left over and re-encodes identically.
+#
+# What stays opaque, and why: the component body. Its layout is chosen by the component's
+# name in BFCB (a union by that string upstream), so the whole block is kept as raw
+# subrecords; this includes the FULL and DESC lstrings of each activity (listed for CHAL in
+# the corpus lstring table) and any FormIDs in the conditions and rewards, none of which
+# are visited.
+signature = "CHAL"
+name = "Challenge"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10747-L10766"
+evidence = [
+  "corpus: the 10 CHAL records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; exactly one in every official challenge, holding the challenge data (kept raw)"
