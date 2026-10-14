@@ -1,0 +1,11 @@
+# Bool8: a one-byte boolean (0 false, 1 true). Other values are kept as read.
+#
+# Source (ADR 0004): the boolean enumeration of wbDefinitionsCommon.pas at the pin, which
+# the Starfield definitions attach to one-byte integers throughout. Values only.
+name = "Bool8"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"
+confidence = "reference"
+type = "enum"
+base = "u8"
+values = [["False", 0], ["True", 1]]

@@ -408,10 +408,20 @@ is under "Next".
      `--profile` to `kit mcp`, which now preloads it).
   5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
      .mcp.json --allowedTools "mcp__kitcraft__*"`.
-- **Lane B round 3** (M2.B4..B8, M2.B10): gate lifted by the owner approval of
-  2026-10-14, but **blocked in the 2026-10-14 lane B session**: the session's permission
-  policy refused fetching the pinned xEdit files (and two UESP Skyrim pages, KYWD and
-  WEAP). No layout was transcribed; see Blockers.
+- **Lane B round 3 (M3, `crates/schema`).** M3.O0 done: the owner staged the pinned files
+  outside the repo at `C:\Modding\tools\xedit-ref\` (`wbDefinitionsSF1.pas`,
+  `wbDefinitionsCommon.pas`, `PIN.txt`). M3.B0 done 2026-10-14: sizes 789,023 and 338,167
+  bytes, blob hashes `ace733b52e259e559aed0f4c71edf9e3432fc62b` and
+  `cfa80ba05c176d7571e19895e835f8df735a06cf`, SHA-256 `9f01921a...952346d5` and
+  `e616b654...682b7d26`, all as in `docs/xedit-reference.md`; the loader already accepts
+  both files (M2.B1). Typed so far (each checked on every corpus record of its type: typed
+  members decoded, nothing left in `extra`, zero re-encode differences, and the full-corpus
+  typed check of `corpus_full_roundtrip` clean):
+  - **M3.B1 WEAP**: all 452 records; every subrecord xEdit lists is typed except VMAD (script
+    data, unions) and MO4C (unknown upstream); the BFCB component data stays raw (a union
+    decided by the component type). New shared definitions: `Model`, `Destructible`,
+    `SoundReference`, `ObjectModProperty`, `Vec3`, `Bool8`; `BfcbBlock` and `ObteBlock`
+    typed (component type, end markers, object template items).
 
 ## Next
 
@@ -438,12 +448,7 @@ definition is checked against every corpus occurrence before it moves to
 
 ## Blockers
 
-- **Lane B round 3 needs the pinned xEdit files on disk.** Downloading
-  `Core/wbDefinitionsSF1.pas` and `Core/wbDefinitionsCommon.pas` at `9fb01688...` from
-  raw.githubusercontent.com (to the agent's target dir, outside version control) was denied
-  by the agent session's permission policy on 2026-10-14. The owner either allows that
-  fetch for the lane B agent, or places the two files (outside the repo) and names the
-  path. Until then M2.B4..B8 and M2.B10 cannot start.
+- None for lane B (the pinned xEdit files are staged, M3.O0).
 
 ## Open owner decisions
 
@@ -745,11 +750,23 @@ Agents append here when they need a change in a crate they do not own.
   `Stats::{typed_records, typed_subrecords, typed_unchecked, typed_failed_records,
   typed_conflicts, typed_conflict_list}` for `coverage` and `cargo xtask parity` (M2.F9).
   On all 14 files today: 13,168 typed records, 0 conflicts (`docs/corpus.md`).
-- **Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
-  kept: `generated::records::Record::extra(&self) -> &[(usize, OwnedSub)]`. Until then
-  `esm::bridge::check_subrecords` matches the five variants generated today to find
-  payloads that did not decode, and cannot see them for a new record type (it still
-  catches re-encoding differences for every type).
+- ~~**Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
+  kept: `generated::records::Record::extra(&self) -> &[(usize, OwnedSub)]`.~~ Done (the
+  accessor exists since M2.B2). **Lane B -> lane A (FYI, done in lane B's M3.B1 commit):**
+  `esm::bridge::extra_of` now returns `typed.extra()` for every record type instead of
+  matching five variants, so the M2.A3 typed check (`corpus_full_roundtrip`) sees payloads
+  that do not decode in every typed record type; a one-function change.
+- **Lane B -> lanes D, E, F (FYI, done in lane B's M3.B1 commit).** Typing WEAP changed five
+  engine test expectations, updated in the same commit: `edit::fields` (WEAP WABB is a
+  schema lstring now, no table fallback), `edit::patch_tests` (the opaque subrecord in the
+  remap refusal test is VMAD, inserted after EDID, instead of WDMG), `handlers::coverage`
+  (MODL is typed; counts), `handlers::schema` (EDID cites `xedit:`; VMAD is the opaque
+  member checked), `handlers::set_tests` (the `hex:` error now comes from the WDMG struct).
+  Member names changed in the shared blocks: `BfcbBlock.Bfcb`/`BfcbBody`/`Bfce` are
+  `ComponentType`/`ComponentData`/`EndMarker`; `ObteBlock.Obte`/`ObtsEntry`/`Obts`/`Stop`
+  are `CombinationCount`/`Combination`/`TemplateItem`/`EndMarker`; WEAP's placeholder names
+  (`Obnd`, `Wfir`, `Flld2`, ...) are replaced by the xEdit-backed layout (`kit schema
+  --type WEAP --deep`).
 - **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3

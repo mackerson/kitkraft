@@ -1,0 +1,102 @@
+# Destructible: destruction data (header, resistances, secondary damage list, and one
+# entry per destruction stage with its data, animation event, replacement model and end
+# marker).
+#
+# Source (ADR 0004): the destructible helper of wbDefinitionsSF1.pas at the pin
+# (L3829-L3890), with the light layer (L3818-L3823) and material swap (L3825) it uses.
+# The stage count in the header is stored, not derived: an edit that adds or removes a
+# stage must update it. xEdit lets the stage model members appear in any order; they are
+# listed in xEdit's order. Not observed in any record type typed so far.
+name = "Destructible"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"
+confidence = "reference"
+
+[[member]]
+sig = "DEST"
+name = "Header"
+type = "struct"
+size = 8
+field = [
+  { name = "Health", type = "i32" },
+  { name = "StageCount", type = "u8" },
+  { name = "Flags", type = "flags", base = "u8", bits = [["VatsTargetable", 0x1], ["LargeActorDestroys", 0x2], ["ResistAllExcept", 0x4]] },
+  { name = "Unused", type = "opaque", size = 2 },
+]
+
+[[member]]
+sig = "DAMC"
+name = "Resistances"
+type = "array"
+count = "rest"
+card = "optional"
+element = "struct"
+field = [
+  { name = "DamageType", type = "formid", targets = ["DMGT"] },
+  { name = "Value", type = "u32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "DSDL"
+name = "SecondaryDamageList"
+type = "formid"
+targets = ["SDLT"]
+card = "optional"
+
+[[member]]
+group = "Stage"
+card = "repeated"
+
+[[member.member]]
+sig = "DSTD"
+name = "Data"
+type = "struct"
+size = 24
+field = [
+  { name = "HealthPercent", type = "u8" },
+  { name = "Index", type = "u8" },
+  { name = "ModelDamageStage", type = "u8" },
+  { name = "Flags", type = "flags", base = "u8", bits = [["CapDamage", 0x1], ["Disable", 0x2], ["Destroy", 0x4], ["IgnoreExternalDamage", 0x8], ["BecomesDynamic", 0x10], ["ObjectCleared", 0x20], ["SpawnAtBoundsCenter", 0x40]] },
+  { name = "SelfDamagePerSecond", type = "i32" },
+  { name = "Explosion", type = "formid", targets = ["EXPL"] },
+  { name = "Debris", type = "formid", targets = ["DEBR"] },
+  { name = "DebrisCount", type = "i32" },
+  { name = "ReplacementModelDelay", type = "f32" },
+]
+
+[[member.member]]
+sig = "DSTA"
+name = "AnimEvent"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "DMDL"
+name = "ModelFileName"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FLLD"
+name = "ModelLightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"
+confidence = "reference"
+
+[[member.member]]
+sig = "DMDS"
+name = "ModelMaterialSwap"
+type = "formid"
+targets = ["MSWP"]
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3825-L3825"
+confidence = "reference"
+
+[[member.member]]
+sig = "DSTF"
+name = "EndMarker"
+type = "empty"

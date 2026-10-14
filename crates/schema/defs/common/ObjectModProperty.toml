@@ -1,0 +1,27 @@
+# ObjectModProperty: one property change of an object modification (24 bytes): the value
+# type, the function applied, the property, two values and a step.
+#
+# Source (ADR 0004): the object mod property list of wbDefinitionsSF1.pas at the pin
+# (L6894-L6938). Four of its members are unions in xEdit: the function type and the
+# property name (the same width in every variant; only their value names change, by the
+# value type and by the record type the mod applies to) and the two values (4 bytes each;
+# integer, float, boolean, FormID or enum by the value type). Every variant has the same
+# width, so the layout is fixed; the values stay opaque because a FormID can sit in Value1
+# (value types FormIdInt and FormIdFloat) and a typed integer would hide it from the FormID
+# visitors. The function type and property name are kept as plain integers. See
+# docs/gaps.md (unions).
+name = "ObjectModProperty"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6894-L6938"
+confidence = "reference"
+type = "struct"
+field = [
+  { name = "ValueType", type = "enum", base = "u8", values = [["Int", 0], ["Float", 1], ["Bool", 2], ["String", 3], ["FormIdInt", 4], ["Enum", 5], ["FormIdFloat", 6]] },
+  { name = "Unused1", type = "opaque", size = 3 },
+  { name = "FunctionType", type = "u8", note = "SET/MUL+ADD/ADD, SET/AND/OR, SET or SET/REM/ADD by the value type (xEdit union)" },
+  { name = "Unused2", type = "opaque", size = 3 },
+  { name = "Property", type = "u32", note = "property name; its value names depend on the record type the mod applies to (xEdit union)" },
+  { name = "Value1", type = "opaque", size = 4, note = "int, float, bool, FormID or enum by ValueType (xEdit union)" },
+  { name = "Value2", type = "opaque", size = 4, note = "unused, int, float or bool by ValueType (xEdit union)" },
+  { name = "Step", type = "f32" },
+]

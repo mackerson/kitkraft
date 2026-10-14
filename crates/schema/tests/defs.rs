@@ -19,14 +19,6 @@ fn sig(s: &str) -> Signature {
     Signature::parse(s).unwrap()
 }
 
-fn all_opaque(members: &[Member]) -> bool {
-    members.iter().all(|m| match m {
-        Member::Subrecord(s) => s.ty.is_opaque(),
-        Member::Group(g) => all_opaque(&g.members),
-        Member::AnyUntil(_) => true,
-    })
-}
-
 /// `*.toml` names in `dir`, prefixed as `load_dir` names them.
 fn toml_names(dir: &Path, prefix: &str, out: &mut BTreeSet<String>) {
     for entry in std::fs::read_dir(dir).unwrap() {
@@ -154,7 +146,20 @@ fn builtin_set_loads_and_matches_the_directory() {
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
     let common: Vec<&str> = embedded.common.keys().map(String::as_str).collect();
-    assert_eq!(common, ["BfcbBlock", "Keywords", "ObteBlock"]);
+    assert_eq!(
+        common,
+        [
+            "BfcbBlock",
+            "Bool8",
+            "Destructible",
+            "Keywords",
+            "Model",
+            "ObjectModProperty",
+            "ObteBlock",
+            "SoundReference",
+            "Vec3"
+        ]
+    );
 }
 
 /// `BUILTIN_DEFINITIONS` has one marked region a tool may regenerate, holding every entry.
@@ -254,12 +259,14 @@ fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
         .collect()
 }
 
-/// Only sourced members are typed: the universal subrecords (M2.B2) and the layouts M2.B9
-/// sourced; everything else in the inventory definitions stays opaque.
+/// The record types still described by a corpus inventory (M2.B2) type only sourced
+/// members: the universal subrecords, the layouts M2.B9 sourced, and the base form
+/// component frame from the shared `BfcbBlock`; everything else stays opaque until lane B
+/// round 3 transcribes the type.
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 9] = [
+    let expected: [(&str, &[&str]); 8] = [
         ("AMDL", &["EditorId"]),
         (
             "AMMO",
@@ -271,21 +278,43 @@ fn inventory_definitions_type_only_sourced_members() {
                 "Keywords.Forms",
             ],
         ),
-        ("COBJ", &["EditorId", "Description"]),
-        ("OMOD", &["EditorId", "Name", "Description"]),
-        ("ZOOM", &["EditorId"]),
-        ("GMST", &["EditorId", "Value"]),
-        ("GLOB", &["EditorId", "Value"]),
-        ("KYWD", &["EditorId", "Name"]),
         (
-            "WEAP",
+            "COBJ",
             &[
                 "EditorId",
-                "Name",
-                "Keywords.Count",
-                "Keywords.Forms",
+                "BfcbBlock.ComponentType",
+                "BfcbBlock.EndMarker",
                 "Description",
-                "ObteBlock.ObtsEntry.Name",
+            ],
+        ),
+        (
+            "OMOD",
+            &[
+                "EditorId",
+                "BfcbBlock.ComponentType",
+                "BfcbBlock.EndMarker",
+                "Name",
+                "Description",
+            ],
+        ),
+        ("ZOOM", &["EditorId"]),
+        ("GMST", &["EditorId", "Value"]),
+        (
+            "GLOB",
+            &[
+                "EditorId",
+                "BfcbBlock.ComponentType",
+                "BfcbBlock.EndMarker",
+                "Value",
+            ],
+        ),
+        (
+            "KYWD",
+            &[
+                "EditorId",
+                "BfcbBlock.ComponentType",
+                "BfcbBlock.EndMarker",
+                "Name",
             ],
         ),
     ];
@@ -294,21 +323,18 @@ fn inventory_definitions_type_only_sourced_members() {
         assert!(rec.provenance.source.starts_with("corpus: "), "{s}");
         assert_eq!(typed_leaves(rec), typed, "{s}");
     }
+    // The component data inside a BFCB block is a union decided by the component type
+    // and stays raw (docs/gaps.md).
     let bfcb = &schema.common["BfcbBlock"];
     let CommonBody::Group(members) = &bfcb.body else {
         panic!("BfcbBlock is a group");
     };
-    assert!(all_opaque(members), "BfcbBlock must stay opaque");
-    let weap = schema.record(sig("WEAP")).unwrap();
-    assert_eq!(weap.note.as_deref(), Some("layout pending ADR 0005"));
-    // The two FLLD slots and the required core of the corpus inventory.
-    let flld = weap
-        .members
-        .iter()
-        .filter(|m| matches!(m, Member::Subrecord(s) if s.signature == sig("FLLD")))
-        .count();
-    assert_eq!(flld, 2);
-    assert_eq!(weap.members.len(), 44);
+    assert!(
+        members
+            .iter()
+            .any(|m| matches!(m, Member::AnyUntil(a) if a.name == "ComponentData")),
+        "BfcbBlock keeps its component data raw"
+    );
     // Shared blocks are referenced, not copied.
     for s in ["GLOB", "KYWD", "WEAP"] {
         let rec = schema.record(sig(s)).unwrap();
@@ -319,11 +345,90 @@ fn inventory_definitions_type_only_sourced_members() {
             "{s}"
         );
     }
+}
+
+/// Every citation of a node, its own and inherited.
+fn all_provenance(rec: &kitcraft_schema::RecordDef) -> Vec<(String, &Provenance)> {
+    let mut provs = vec![(rec.signature.to_string(), &rec.provenance)];
+    member_provenance(&rec.signature.to_string(), &rec.members, &mut provs);
+    provs
+}
+
+/// Lane B round 3 (M3.B1..B7): record types transcribed from the pinned xEdit file. The
+/// record cites its xEdit range, every top-level member cites its own lines, and every
+/// member at `corpus` names the corpus check.
+#[test]
+fn round3_definitions_cite_xedit_per_member() {
+    let schema = builtin().unwrap();
+    for s in ROUND3 {
+        let rec = schema.record(sig(s)).unwrap();
+        assert!(
+            rec.provenance
+                .source
+                .starts_with("xedit: wbDefinitionsSF1.pas@"),
+            "{s}"
+        );
+        for m in &rec.members {
+            let prov = match m {
+                Member::Subrecord(x) => &x.provenance,
+                Member::Group(g) => &g.provenance,
+                Member::AnyUntil(a) => &a.provenance,
+            };
+            assert!(
+                prov.source.starts_with("xedit: ") && prov.source != rec.provenance.source,
+                "{s}.{}: a member cites its own xEdit lines",
+                m.name()
+            );
+        }
+        for (path, prov) in all_provenance(rec) {
+            if prov.confidence == Confidence::Corpus {
+                assert!(
+                    prov.citations().any(|c| c.starts_with("corpus: ")),
+                    "{path}"
+                );
+            }
+        }
+    }
+    let weap = schema.record(sig("WEAP")).unwrap();
+    // FLLD sits in the model block and in the first-person model block.
+    let groups: Vec<&str> = weap
+        .members
+        .iter()
+        .filter_map(|m| match m {
+            Member::Group(g) => Some(g.name.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        groups,
+        [
+            "BfcbBlock",
+            "Model",
+            "Enchantment",
+            "Destructible",
+            "Keywords",
+            "ObteBlock",
+            "FirstPersonModel"
+        ]
+    );
     let known = schema.known_signatures(sig("WEAP")).unwrap();
-    for s in ["BFCB", "BFCE", "OBTE", "OBTF", "OBTS", "STOP", "WTRM"] {
+    for s in [
+        "BFCB", "BFCE", "FLLD", "OBTE", "OBTF", "OBTS", "STOP", "WTRM", "DAMA",
+    ] {
         assert!(known.contains(&sig(s)), "{s}");
     }
+    // Only payloads xEdit decides by a union (or does not describe) stay opaque.
+    let opaque: Vec<String> = weap
+        .leaf_subrecords()
+        .into_iter()
+        .filter(|(_, s)| s.ty.is_opaque())
+        .map(|(p, _)| p)
+        .collect();
+    assert_eq!(opaque, ["Scripts", "FirstPersonModel.Mo4c"]);
 }
+
+/// The record types lane B round 3 has transcribed from the pinned xEdit file.
+const ROUND3: &[&str] = &["WEAP"];
 
 #[test]
 fn tes4_container_layout() {

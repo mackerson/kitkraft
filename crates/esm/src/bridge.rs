@@ -249,20 +249,10 @@ fn reencode_mismatches(raw: &[RawSub<'_>], encoded: &[OwnedSub]) -> Vec<usize> {
         .collect()
 }
 
-/// The subrecords a typed record kept raw, with their input positions. `None` for a
-/// record type this function does not know yet: the generated `Record` enum has no
-/// accessor for them (requested from lane B in `plan/STATUS.md`), so this matches the
-/// variants generated today and reports the others as unknown.
-#[allow(unreachable_patterns)]
+/// The subrecords a typed record kept raw, with their input positions (the generated
+/// `Record::extra`, available for every record type).
 fn extra_of(typed: &TypedRecord) -> Option<&[(usize, OwnedSub)]> {
-    match typed {
-        TypedRecord::Glob(r) => Some(&r.extra),
-        TypedRecord::Gmst(r) => Some(&r.extra),
-        TypedRecord::Kywd(r) => Some(&r.extra),
-        TypedRecord::Tes4(r) => Some(&r.extra),
-        TypedRecord::Weap(r) => Some(&r.extra),
-        _ => None,
-    }
+    Some(typed.extra())
 }
 
 impl Ctx {

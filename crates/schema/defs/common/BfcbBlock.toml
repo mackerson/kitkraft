@@ -1,27 +1,40 @@
-# BfcbBlock: a BFCB ... BFCE block, shared by every record type that has one.
+# BfcbBlock: one base form component, BFCB ... BFCE, shared by every record type that has
+# components.
 #
-# Source (ADR 0005 "inventory" row): the corpus scans of the GLOB, KYWD, WEAP, OMOD and COBJ top groups
-# (2026-10-14; files and counts in those definitions). BFCB opens the block and holds a
-# NUL-terminated type name in every observed case; BFCE closes it and is always 0 bytes.
-# What lies between depends on the block; it is kept as raw subrecords.
+# Sources (ADR 0004, ADR 0005):
+#   xedit: the base form component list of wbDefinitionsSF1.pas at the pin (L5984-L6832):
+#     BFCB names the component type (a NUL-terminated string from a fixed list), the
+#     component data follows, and an empty BFCE ends the component (L6829).
+#   corpus: the BFCB..BFCE blocks of every official record of the types that use this
+#     group (inventory scans of 2026-10-14 and the round 3 typed check): every BFCB is a
+#     NUL-terminated ASCII name and every BFCE is 0 bytes.
 #
-# Member names are placeholders derived from the signature.
+# The component data is a union decided by the BFCB string (xEdit's record union), with
+# different layouts for the same signature in different components (BNAM is a string in
+# the animation graph component and a FormID in the world space overlay component, for
+# example). Unions decided by another subrecord are not expressible yet (defs/README.md,
+# "Not supported"), so the data stays raw subrecords (`ComponentData`) until M3.B9; see
+# docs/gaps.md.
 name = "BfcbBlock"
 kind = "group"
-source = "corpus: BFCB..BFCE blocks in the GLOB, KYWD, WEAP, OMOD and COBJ records of the official ESMs"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every BFCB..BFCE block in the GLOB, KYWD, WEAP, OMOD and COBJ records of the 14 official ESMs decodes and re-encodes identically",
+]
 confidence = "corpus"
 
 [[member]]
 sig = "BFCB"
-name = "Bfcb"
-type = "opaque"
+name = "ComponentType"
+type = "zstring"
+note = "component type name, for example BGSQualityUpgrade_Component"
 
 [[member]]
 any_until = "BFCE"
-name = "BfcbBody"
+name = "ComponentData"
+note = "union decided by ComponentType; kept raw (not expressible yet)"
 
 [[member]]
 sig = "BFCE"
-name = "Bfce"
-type = "opaque"
-note = "observed 0 bytes"
+name = "EndMarker"
+type = "empty"

@@ -479,13 +479,38 @@ impl Visit for {name} {{}}
                         .position(|s| s.name == *source)
                         .ok_or_else(|| CodegenError::BadIdentifier(source.clone()))?;
                     (
-                        Some(format!("let n{i} = count(f{j}, {p}, r.position())?;")),
-                        format!("read_array(r, n{i}, {p}, ctx)?"),
+                        Some((
+                            format!("let n{i} = "),
+                            "count".to_owned(),
+                            vec![format!("f{j}"), p.clone(), "r.position()".to_owned()],
+                        )),
+                        (
+                            "read_array".to_owned(),
+                            vec!["r".to_owned(), format!("n{i}"), p.clone(), "ctx".to_owned()],
+                        ),
                     )
                 }
-                FieldType::Scalar(s) => (None, format!("{}::read(r, {p}, ctx)?", s.as_str())),
-                _ => (None, format!("Field::read(r, {p}, ctx)?")),
+                FieldType::Scalar(s) => (
+                    None,
+                    (
+                        format!("{}::read", s.as_str()),
+                        vec!["r".to_owned(), p.clone(), "ctx".to_owned()],
+                    ),
+                ),
+                _ => (
+                    None,
+                    (
+                        "Field::read".to_owned(),
+                        vec!["r".to_owned(), p.clone(), "ctx".to_owned()],
+                    ),
+                ),
             };
+            let setup_at = |indent: usize| {
+                setup
+                    .as_ref()
+                    .map(|(lead, func, args)| let_call(indent, lead, func, args))
+            };
+            let read_inline = format!("{}({})?", read.0, read.1.join(", "));
             let mut conditions = Vec::new();
             if f.since.is_some() || f.until.is_some() {
                 conditions.push(format!(
@@ -504,10 +529,10 @@ impl Visit for {name} {{}}
             }
             if conditions.is_empty() {
                 let _ = writeln!(decls, "    pub {ident}: {inner},");
-                if let Some(setup) = &setup {
-                    let _ = writeln!(reads, "        {setup}");
+                if let Some(setup) = setup_at(8) {
+                    reads.push_str(&setup);
                 }
-                let _ = writeln!(reads, "        let f{i} = {read};");
+                reads.push_str(&let_call(8, &format!("let f{i} = "), &read.0, &read.1));
                 let _ = writeln!(writes, "        self.{ident}.write(out);");
             } else {
                 let _ = writeln!(decls, "    pub {ident}: Option<{inner}>,");
@@ -516,12 +541,12 @@ impl Visit for {name} {{}}
                     "        let f{i} = if {} {{",
                     conditions.join(" && ")
                 );
-                if let Some(setup) = &setup {
-                    let _ = writeln!(reads, "            {setup}");
+                if let Some(setup) = setup_at(12) {
+                    reads.push_str(&setup);
                 }
                 let _ = writeln!(
                     reads,
-                    "            Some({read})\n        }} else {{\n            None\n        }};"
+                    "            Some({read_inline})\n        }} else {{\n            None\n        }};"
                 );
                 let _ = writeln!(
                     writes,
@@ -1068,6 +1093,23 @@ const MAX_WIDTH: usize = 100;
 const FN_CALL_WIDTH: usize = 60;
 /// Indentation of match arms inside `fill`.
 const ARM_INDENT: usize = 16;
+
+/// A `{lead}{func}(args)?;` statement at `indent`, laid out the way rustfmt lays it out:
+/// on one line when it fits, otherwise one argument per line.
+fn let_call(indent: usize, lead: &str, func: &str, args: &[String]) -> String {
+    let joined = args.join(", ");
+    let pad = " ".repeat(indent);
+    let line = format!("{pad}{lead}{func}({joined})?;");
+    if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
+        return format!("{line}\n");
+    }
+    let mut out = format!("{pad}{lead}{func}(\n");
+    for arg in args {
+        let _ = writeln!(out, "{pad}    {arg},");
+    }
+    let _ = writeln!(out, "{pad})?;");
+    out
+}
 
 /// One `pattern => func(args),` match arm, laid out the way rustfmt lays it out: on one
 /// line when it fits, one argument per line when the call itself is too wide, otherwise

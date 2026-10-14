@@ -210,7 +210,8 @@ fn set_errors() {
     let err = call(json!({"FULL[7]": "x"}), &target).unwrap_err();
     assert_eq!(err.kind(), "invalid_args");
     assert!(err.to_string().contains("no-subrecord"), "{err}");
-    let err = call(json!({"MODL": "x"}), &target).unwrap_err();
+    // A struct member (typed since lane B round 3) is set member by member or as hex.
+    let err = call(json!({"WDMG": "x"}), &target).unwrap_err();
     assert!(err.to_string().contains("hex:"), "{err}");
     let err = call(json!({}), &target).unwrap_err();
     assert_eq!(err.kind(), "invalid_args");

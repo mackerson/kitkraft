@@ -1,0 +1,22 @@
+# SoundReference: a sound as an event set (start and stop Wwise event GUIDs plus a
+# condition form) followed by a form-only reference (40 bytes).
+#
+# Source (ADR 0004): the sound reference helper of wbDefinitionsSF1.pas at the pin (value
+# form and subrecord form share one layout). The GUID width is not stated there (the GUID
+# type is declared in an xEdit unit we do not read); 16 bytes each is our corpus fact: WEAP
+# WAUD (seven references plus two u32) is 288 bytes and WEAP PUSH/PDSH are 40 bytes in
+# every official record. The GUIDs stay opaque.
+name = "SoundReference"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227"
+evidence = [
+  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: WEAP WAUD 288 bytes and PUSH/PDSH 40 bytes in all 452 WEAP records of the 14 official ESMs",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "StartEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+  { name = "StopEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+  { name = "Condition", type = "formid", targets = ["CNDF"], note = "0 for none" },
+  { name = "StartForm", type = "formid", targets = ["WWED"], note = "form-only reference; 0 for none" },
+]
