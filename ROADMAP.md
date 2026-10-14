@@ -58,12 +58,40 @@ Exit criteria:
 - Every catalog command is Implemented or explicitly deferred with a reason.
 - `cargo xtask ci` is green and the full corpus roundtrip is still byte-identical.
 
-## M3: CK parity checklist
+## M3: CK parity checklist and the gun overhaul
 
-Black-box the real Creation Kit: open the same plugin, save, diff its output against ours.
+Black-box the real Creation Kit: open the same plugin, save, diff its output against ours;
+and use the typed weapon records for rung 2 of the step 2 ladder. Tasks, lanes (A, B, D, E,
+F, G, H, owner) and ordering are in `plan/execution-plan.md`; the owner's six ADR 0004
+clarifications bind every task.
 
-- Reproduce CK's ONAM, override, and compression choices on save.
+- Lane B round 3 from the pinned xEdit files (once staged locally): WEAP, AMMO, PROJ, AMDL,
+  OMOD, COBJ, ZOOM, then LVLI, FLST, INNR, and the 105 corpus lstring signatures typed;
+  confidence per ADR 0004; the SF1Edit differential once SF1Edit is installed.
+- CK differential observation (ADR 0005 §2): a fixture matrix (empty plugin, one and two
+  masters, mixed master tiers, full/medium/small exports, WEAP/AMMO/GMST edits, a compressed
+  record, `XXXX`, localized vs not) saved by the owner or a desktop-control agent; findings
+  in `docs/ck-observations.md` raise confidence to `ck-diff`.
+- Reproduce the CK's TES4 header, ONAM, override and compression choices on save behind a
+  `ck` write style; the omitted TES4 `SNAM`/`BNAM`/`CHGL` and the 160 compressed records
+  that do not recompress identically come first.
 - Rank CK editor features in `docs/ck-parity.md`; viewport explicitly deferred.
+- Gun overhaul kit: `build` spec v2 (classes, type-wide rules over typed weapon fields,
+  link following, dry run), `kit overhaul` scaffold, a design brief the owner fills from
+  the chosen critique, and a first real build on the owner's profile.
+- Oracles run as programs, never read: SF1Edit and Spriggit on fixtures, disagreements
+  recorded as evidence in `docs/oracles.md`.
+- Hardening from `docs/gaps.md` and the open cross-lane requests.
+- UI: an ADR 0007 proposal (egui shell over the command catalog) as an owner decision; no
+  implementation unless the owner opts in.
+
+Exit criteria:
+- Round 3 types decode and re-encode identical on all 14 corpus files, every member sourced.
+- Every fixture the CK produced has ledger entries; `style: "ck"` reproduces the CK's bytes
+  for each expressible edit fixture, or every difference is explained.
+- The overhaul build validates, and the owner's in-game result on a disposable save is
+  recorded.
+- `cargo xtask ci` is green and the full corpus roundtrip is still byte-identical.
 
 ## M4+: editor
 
