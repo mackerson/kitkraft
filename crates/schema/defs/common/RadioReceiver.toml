@@ -1,0 +1,23 @@
+# RadioReceiver: the RADR payload of an activator or terminal that works as a radio.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9263-L9268 (ACTI) and L18222-L18227 (TERM) - two
+#     floats (frequency, volume) and two boolean bytes (starts active, no signal static);
+#     the boolean enumeration is wbDefinitionsCommon.pas L7514-L7521.
+#
+# Never present in an official file (2026-10-14 scan), so the layout is reference only.
+name = "RadioReceiver"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9263-L9268"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18222-L18227",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
+]
+confidence = "reference"
+type = "struct"
+field = [
+  { name = "Frequency", type = "f32" },
+  { name = "Volume", type = "f32" },
+  { name = "StartsActive", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "NoSignalStatic", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+]

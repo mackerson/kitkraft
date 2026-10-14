@@ -1,0 +1,21 @@
+# ColorRgb: a four-byte colour stored red, green, blue, then one unused byte.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsCommon.pas@9fb01688 L6954-L6968 - the byte colour helper (subrecord
+#     form), as the Starfield activator, furniture and terminal definitions use it for PNAM.
+#   corpus: PNAM in the ACTI, FURN and TERM records of the 14 official ESMs (2026-10-14
+#     scan, ITEMS/WORKSHOP family): every payload is 4 bytes.
+name = "ColorRgb"
+kind = "type"
+source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968"
+evidence = [
+  "corpus: PNAM in the ACTI, FURN and TERM records of the 14 official ESMs, 2026-10-14 scan: all 4 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Red", type = "u8" },
+  { name = "Green", type = "u8" },
+  { name = "Blue", type = "u8" },
+  { name = "Unused", type = "opaque", size = 1 },
+]
