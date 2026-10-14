@@ -785,6 +785,13 @@ Agents append here when they need a change in a crate they do not own.
   `esm::bridge::check_subrecords` matches the five variants generated today to find
   payloads that did not decode, and cannot see them for a new record type (it still
   catches re-encoding differences for every type).
+- **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
+  `overhaul.scaffold` (alias `overhaul`, session handler registered in
+  `handlers::session_defaults`), `build` gained `plan`, `validate` gained
+  `plugin_archives` and `.ba2` inputs in `scripts`; `docs/mcp.md` has their sections, the
+  command list (M3.F3) may want them. (2) Lane D: `build`'s `via` follows typed FormID
+  members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
+  `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
 - **Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3
