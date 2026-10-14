@@ -327,9 +327,7 @@ fn compare(v: &FieldValue, op: Op, lit: &Literal) -> Result<bool, String> {
             Op::Contains => ci_contains(t, x),
             Op::NotContains => !ci_contains(t, x),
             Op::StartsWith => t.get(..x.len()).is_some_and(|p| p.eq_ignore_ascii_case(x)),
-            Op::Lt | Op::Le | Op::Gt | Op::Ge => {
-                return Err("ordering operators need a typed numeric member, not text".into())
-            }
+            Op::Lt | Op::Le | Op::Gt | Op::Ge => false,
         }),
         (FieldValue::Form { plugin, object_id }, Literal::Form(f)) => {
             let same = plugin.eq_ignore_ascii_case(&f.plugin) && *object_id == f.object_id;
@@ -376,7 +374,9 @@ fn compare(v: &FieldValue, op: Op, lit: &Literal) -> Result<bool, String> {
                 _ => Err("~, !~ and ^= need text".into()),
             }
         }
-        _ => Err("value type does not match the field's type".into()),
+        // A value of another kind (a union variant, a text field compared with a number):
+        // known not equal, not ordered, not containing.
+        _ => Ok(matches!(op, Op::Ne | Op::NotContains)),
     }
 }
 
@@ -1032,8 +1032,10 @@ mod tests {
         assert_eq!(run(r#"FULL ~ "x" and EDID ~ "rifle""#).0, Tri::Unknown);
         assert_eq!(run(r#"not FULL ~ "x""#).0, Tri::Unknown);
         assert_eq!(run(r#"not (EDID ~ "rifle" or FULL ~ "x")"#).0, Tri::False);
-        // Ordering on text is unknown at run time.
-        assert_eq!(run(r#"EDID > 5"#).0, Tri::Unknown);
+        // A value of another kind is known not to match (text is not ordered against 5).
+        assert_eq!(run(r#"EDID > 5"#).0, Tri::False);
+        assert_eq!(run(r#"KWDA ~ "x""#).0, Tri::False);
+        assert_eq!(run(r#"KWDA !~ "x""#).0, Tri::True);
     }
 
     #[test]

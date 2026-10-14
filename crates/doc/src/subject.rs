@@ -13,6 +13,7 @@ use crate::overrides::Version;
 use crate::query::{FieldValue, Lookup, Path, Subject};
 use crate::record::{LoadedRecord, RecordReader};
 use crate::strings::StringTables;
+use crate::typed::{self, Decoded};
 
 /// One version, evaluated lazily.
 pub struct VersionSubject<'a> {
@@ -76,6 +77,89 @@ impl<'a> VersionSubject<'a> {
     }
 }
 
+impl VersionSubject<'_> {
+    /// Values of a typed path over every occurrence, or why they are unknown.
+    fn typed_values(
+        &mut self,
+        ty: &kitcraft_schema::FieldType,
+        occurrences: &[Vec<u8>],
+        ctx: &typed::Ctx,
+        members: &[String],
+        label: &str,
+        plugin: &str,
+    ) -> Lookup {
+        let mut values = Vec::new();
+        for data in occurrences {
+            let decoded = match typed::decode(ty, data, ctx) {
+                Ok(d) => d,
+                Err(e) => {
+                    return Lookup::Unknown(format!("{label}: payload does not decode ({e})"))
+                }
+            };
+            let leaves = match typed::select(&decoded, members, label) {
+                Ok(l) => l,
+                Err(e) => return Lookup::Unknown(e),
+            };
+            for leaf in leaves {
+                match leaf {
+                    Decoded::Int(i) => match i64::try_from(i) {
+                        Ok(v) => values.push(FieldValue::Int(v)),
+                        Err(_) => values.push(FieldValue::Float(i as f64)),
+                    },
+                    Decoded::Float(f) => values.push(FieldValue::Float(f)),
+                    Decoded::Text(t) => values.push(FieldValue::Text(t)),
+                    Decoded::Sig(s) => {
+                        values.push(FieldValue::Text(String::from_utf8_lossy(&s).into_owned()))
+                    }
+                    Decoded::LStringId(id) => match self.strings.as_deref_mut() {
+                        Some(st) => match st.lookup(plugin, id) {
+                            Ok(r) => values.push(FieldValue::Text(r.text)),
+                            Err(why) => return Lookup::Unknown(why),
+                        },
+                        None => return Lookup::Unknown(unresolved(label, plugin, id)),
+                    },
+                    Decoded::Form(raw) => match self.lo.resolve(self.version.plugin, raw) {
+                        Ok(g) => values.push(FieldValue::Form {
+                            plugin: self
+                                .lo
+                                .plugin(g.plugin)
+                                .map_or_else(String::new, |p| p.name.clone()),
+                            object_id: g.object_id,
+                        }),
+                        Err(e) => {
+                            return Lookup::Unknown(format!("{label}: FormID {raw:08X}: {e}"))
+                        }
+                    },
+                    Decoded::Struct(fields) => {
+                        return Lookup::Unknown(format!(
+                            "{label} is a struct: name a member ({})",
+                            fields
+                                .iter()
+                                .map(|(k, _)| k.as_str())
+                                .collect::<Vec<_>>()
+                                .join(", ")
+                        ))
+                    }
+                    Decoded::Opaque => {
+                        return Lookup::Unknown(format!(
+                            "{label}: the schema keeps these bytes opaque"
+                        ))
+                    }
+                    Decoded::Array(items) => {
+                        if !items.is_empty() {
+                            return Lookup::Unknown(format!("{label} is a nested array"));
+                        }
+                    }
+                }
+            }
+        }
+        if values.is_empty() {
+            return Lookup::Absent;
+        }
+        Lookup::Values(values)
+    }
+}
+
 impl Subject for VersionSubject<'_> {
     fn lookup(&mut self, path: &Path) -> Lookup {
         let loc = self
@@ -116,22 +200,56 @@ impl Subject for VersionSubject<'_> {
                     Ok(r) => r,
                     Err(e) => return Lookup::Unknown(e),
                 };
-                let mut occurrences: Vec<&[u8]> = rec
+                let (record_sig, form_version) = (
+                    rec.record.header.signature.0,
+                    rec.record.header.form_version,
+                );
+                let mut owned: Vec<Vec<u8>> = rec
                     .subs
                     .iter()
                     .filter(|s| s.signature().0 == *signature)
-                    .map(|s| s.data())
+                    .map(|s| s.data().to_vec())
                     .collect();
                 if let Some(i) = index {
-                    occurrences = usize::try_from(*i)
+                    owned = usize::try_from(*i)
                         .ok()
-                        .and_then(|i| occurrences.get(i).copied())
+                        .and_then(|i| owned.get(i).cloned())
                         .into_iter()
                         .collect();
                 }
-                if occurrences.is_empty() {
+                if owned.is_empty() {
                     return Lookup::Absent;
                 }
+                let schema_type = kitcraft_schema::builtin().ok().map(|s| {
+                    typed::field_type(s, record_sig, *signature)
+                        .map(|t| t.map(|(ty, name)| (ty.clone(), name.to_string())))
+                });
+                match schema_type {
+                    Some(Err(why)) => return Lookup::Unknown(why),
+                    Some(Ok(Some((ty, name)))) => {
+                        // `KSIZ.Count`: a path may start with the subrecord's own name.
+                        let members: &[String] = match members.split_first() {
+                            Some((first, rest)) if first.eq_ignore_ascii_case(&name) => rest,
+                            _ => members,
+                        };
+                        let edid_first = loc
+                            .and_then(|l| self.lo.edid(self.version.plugin, &l))
+                            .and_then(|e| e.bytes().next());
+                        let ctx = typed::Ctx {
+                            form_version,
+                            localized,
+                            edid_first,
+                        };
+                        let label = if members.is_empty() {
+                            sig.clone()
+                        } else {
+                            format!("{sig}.{}", members.join("."))
+                        };
+                        return self.typed_values(&ty, &owned, &ctx, members, &label, &plugin);
+                    }
+                    Some(Ok(None)) | None => {}
+                }
+                let occurrences: Vec<&[u8]> = owned.iter().map(Vec::as_slice).collect();
                 if !members.is_empty() {
                     return Lookup::Unknown(format!(
                         "{sig}.{}: no typed layout for {sig} yet (M2.A3/M2.B2); its payload is opaque",
