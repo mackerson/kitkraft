@@ -399,6 +399,17 @@ is under "Next".
     (release, 83 s): 0 errors, unresolved FormIDs 0 on all 14 files, warnings unchanged
     (92 `override.stripped-name` on CELL/LCTN/NPC_/QUST/WRLD, the DLCs' own; 15
     `formid.dangling` in SFBGS050, overrides of SFBGS00D forms SFBGS00D lacks).
+  - M3.E6 `build` spec v2 (`crates/engine/src/build/`): named classes, `[[rule]]` over a
+    class with `via` (typed FormID members followed hop by hop; lane D's `follow`, M3.D4,
+    replaces the local one when it lands), operators `mul`/`add`/`min`/`max`/`clamp`,
+    one write per record across rules and classes (different writes to one field name both
+    keys), `unknown member` checked against the schema, `strict`, `plan` (change list with
+    before/after, per-class and per-rule counts, nothing written), and the
+    `reference`-confidence gate (`allow_reference`). Built and tested on the members typed
+    today (GLOB `FLTV`, GMST `DATA`, `EDID`, `KSIZ`/`KWDA`, `FULL`); the weapon members
+    (WEAP/AMMO/PROJ/AMDL, lane B round 3: M3.B1..B3) plug in through the schema with no
+    code change. The `reference` gate is tested on a synthetic schema (the builtin has no
+    `reference` member yet). Version 1 specs build as before (the rename keeps its hash).
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in

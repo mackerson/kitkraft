@@ -662,11 +662,33 @@ directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable s
 FormID was left unchecked; opaque subrecords count as `opaque_subrecords`. Evidence: one
 byte at each finding's offset.
 
-### `build` (M2.E9)
+### `build` (M2.E9; spec v2 M3.E6)
 
-Arguments `{spec, out, overwrite = false, allow_untyped_lstrings = false}` plus the
-load-order arguments (used when the spec has no `[load_order]`). CLI
-`kit build rename.toml <out> [--overwrite]`. `out` is checked like `set`'s `into` (never a
+Arguments `{spec, out, plan = false, overwrite = false, allow_untyped_lstrings = false}`
+plus the load-order arguments (used when the spec has no `[load_order]`). CLI
+`kit build rename.toml <out> [--plan] [--overwrite]`.
+
+**Spec version 2** (`crates/engine/src/build/spec.rs` has the full grammar): `[class.<name>]`
+tables (`type`, optional `where`: every winning record of the type when absent, optional
+`brief`), `[[rule]]` entries naming a `class`, with `fields`, optional `via` (typed FormID
+member paths followed hop by hop: `via = ["KWDA"]` reaches a weapon's keywords),
+`allow_reference` and `brief`; `[[set]]` as in version 1 (plus `allow_reference`);
+top-level `strict`; `[plugin] style = "kit"` (the `ck` style is refused until M3.A3).
+Operators on typed numbers: a value, `{ mul }`, `{ add }`, `{ min }` (at least),
+`{ max }` (at most), `{ clamp = [lo, hi] }`; other types take only a value. In version 2 a
+record reached by several rules or classes is written once (the same write twice is one
+write; `changes[].by` lists every entry that asked for it), two different writes to one
+field are an error naming both keys, a field path the record type's schema does not have
+is `unknown member`, a rule that matches nothing is a warning (`data.warnings`, and an
+error with `strict = true`), and a write to a `reference`-only member is refused unless
+the entry has `allow_reference = true` (then named in `limitations`). Version 1 specs
+build as before. `plan: true` writes nothing to `out` (the plugin is built and validated
+in the OS temp dir only) and returns `plan`, `changes[]` (`form`, `signature`,
+`editor_id`, `path`, `before`, `after`, `changed`, `by`), `changed_fields`, `classes[]`
+(`class`, `type`, `where`, `brief`, `matched`, `undecided`), `rules[]` (`rule`, `class`,
+`brief`, `matched`, `via[]` hops with `from`/`reached`/`unfollowed`, `records`,
+`fields_written`, `fields_changed`), `validate` and `passed`; a plan with nothing to write
+(a fresh `overhaul.scaffold` spec) reports 0 changes. `out` is checked like `set`'s `into` (never a
 load-order plugin, the game or user Data dir, or MO2) before anything is written, and an
 existing `out` is replaced only with `overwrite`. The spec (TOML):
 

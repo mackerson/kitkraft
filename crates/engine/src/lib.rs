@@ -18,6 +18,7 @@
 //! LAYER: L4
 
 pub mod args;
+pub mod build;
 pub mod cmdline;
 pub mod edit;
 mod envelope;
@@ -173,8 +174,8 @@ static CATALOG: &[CommandSpec] = &[
         menu_path: "File/Build Patch...",
         shortcut: Some("Ctrl+B"),
         aliases: &[],
-        summary: "Compile a data-driven patch spec (TOML: [[set]] and [[rule]] entries) into one fresh plugin, validated",
-        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
+        summary: "Compile a data-driven patch spec (TOML v2: classes, [[rule]] with operators and via, [[set]]; v1 still accepted) into one fresh plugin, validated; --plan lists the changes without writing",
+        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 2, or 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"plan":{"type":"boolean","default":false,"description":"Dry run: list every change (before and after), the classes and rules with their counts and the validation result; write nothing"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
