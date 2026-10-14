@@ -1,0 +1,232 @@
+# TMLM: Terminal Menu, the page a terminal (TERM) or a native terminal (NTRM on a
+# container, activator or furniture) shows: body texts with conditions, then menu items
+# that display text, open a submenu (another TMLM) or open a data slate (BOOK).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18257-L18342 - member order, the record flags,
+#     the script data with terminal-menu fragments (L3584-L3590, kept opaque), TMVT, DNAM,
+#     SNAM and their values, INAM, the body text block (BSIZ, then BTXT, conditions and
+#     TPLT per item), the menu item block (ISIZ, then ITXT, ISTX, ISET, ITID, XLOC, one of
+#     UNAM/TNAM/BNAM, conditions per item). Helpers: FULL (L3184), the lock data XLOC
+#     (L3776-L3795), conditions (L4750-L4840, common/Condition.toml), the boolean values
+#     (wbDefinitionsCommon.pas L7514-L7521).
+#   corpus: the 974 TMLM records (Starfield.esm 700, ShatteredSpace 122, SFBGS00D 86,
+#     SFBGS050 56, SFBGS003 10; form versions 581, 582), 2026-10-14: order EDID [VMAD]
+#     [FULL] TMVT DNAM SNAM INAM BSIZ (BTXT CTDA* [TPLT])* ISIZ (ITXT ISTX ISET ITID [XLOC]
+#     [UNAM|TNAM|BNAM] CTDA*)*; TMVT/SNAM/INAM/BSIZ/ISIZ 4, DNAM 1, ISET 8, ITID 2, XLOC 16,
+#     TPLT 1, CTDA 32 with CIS1/CIS2 after some; UNAM, BTXT, ITXT, ISTX, INAM, FULL are
+#     localized string IDs; TNAM resolves to TMLM (712), BNAM to BOOK (1), the XLOC key to
+#     KEYM or null. No record is compressed. Every record decodes and re-encodes
+#     identically.
+#
+# The upstream choice between UNAM, TNAM and BNAM follows the menu item type in ISET; the
+# three have different signatures, so they are three optional members here and need no
+# decider. The padding bytes of ISET and XLOC hold non-zero filler in official records
+# (AB AB, AD DE) and are kept raw. INAM is unnamed upstream and keeps its signature as its
+# name. BSIZ and ISIZ are stored counts, not derived.
+signature = "TMLM"
+name = "TerminalMenu"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18257-L18342"
+evidence = [
+  "corpus: the 974 TMLM records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+flags = [
+  ["NonPlayable", 0x4],
+  ["GroundPiece", 0x10],
+  ["HiddenFromLocalMap", 0x200],
+  ["UsedAsPlatform", 0x800],
+  ["HasCurrents", 0x80000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3584-L3590"]
+note = "script data with terminal-menu fragments; kept raw; observed in 256 records"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+
+[[member]]
+sig = "TMVT"
+name = "ShowBodyText"
+type = "enum"
+base = "u32"
+values = [["Folder", 0], ["Document", 1]]
+
+[[member]]
+sig = "DNAM"
+name = "MenuButtonStyle"
+type = "flags"
+base = "u8"
+bits = [["CanBeDesktop", 0x1], ["UseLongKioskEntry", 0x2]]
+
+[[member]]
+sig = "SNAM"
+name = "Style"
+type = "enum"
+base = "u32"
+values = [["Windows", 0], ["Kiosk", 1]]
+
+[[member]]
+sig = "INAM"
+name = "Inam"
+type = "lstring"
+evidence = ["corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs): TMLM INAM is an lstring in the official files"]
+note = "unnamed upstream; a localized string, 0 (no string) in 957 official records"
+
+[[member]]
+sig = "BSIZ"
+name = "BodyTextCount"
+type = "u32"
+note = "number of BodyText items that follow"
+
+[[member]]
+group = "BodyText"
+card = "repeated"
+
+[[member.member]]
+sig = "BTXT"
+name = "Text"
+type = "lstring"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member.member]]
+sig = "TPLT"
+name = "UsesTemplatedText"
+type = "enum"
+base = "u8"
+values = [["False", 0], ["True", 1]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"]
+
+[[member]]
+sig = "ISIZ"
+name = "MenuItemCount"
+type = "u32"
+note = "number of MenuItem entries that follow"
+
+[[member]]
+group = "MenuItem"
+card = "repeated"
+
+[[member.member]]
+sig = "ITXT"
+name = "Text"
+type = "lstring"
+
+[[member.member]]
+sig = "ISTX"
+name = "ShortText"
+type = "lstring"
+
+[[member.member]]
+sig = "ISET"
+name = "Settings"
+type = "struct"
+size = 8
+field = [
+  { name = "Type", type = "enum", base = "u16", values = [
+    ["DisplayText", 0],
+    ["Submenu", 1],
+    ["ReturnToDesktop", 2],
+    ["ReturnToPrevious", 3],
+    ["ForceRedraw", 4],
+    ["DataSlate", 5],
+  ], note = "selects which of UNAM, TNAM and BNAM follows" },
+  { name = "Unused1", type = "opaque", size = 2 },
+  { name = "Flags", type = "flags", base = "u8", bits = [["TemplateItem", 0x1], ["StartsOpen", 0x2], ["OverrideItemText", 0x4], ["CreatesNewWindow", 0x8]] },
+  { name = "Unused2", type = "opaque", size = 3 },
+]
+
+[[member.member]]
+sig = "ITID"
+name = "Id"
+type = "u16"
+
+[[member.member]]
+sig = "XLOC"
+name = "Lock"
+type = "struct"
+size = 16
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3776-L3795"]
+note = "upstream allows a payload shortened after the key; every official one is 16 bytes"
+field = [
+  { name = "Level", type = "enum", base = "u8", values = [
+    ["None", 0],
+    ["Novice1", 1],
+    ["Novice25", 25],
+    ["Advanced", 50],
+    ["Expert", 75],
+    ["Master", 100],
+    ["Barred", 251],
+    ["Chained", 252],
+    ["RequiresTerminal", 253],
+    ["Inaccessible", 254],
+    ["RequiresKey", 255],
+  ] },
+  { name = "Unused1", type = "opaque", size = 3 },
+  { name = "Key", type = "formid", targets = ["KEYM"] },
+  { name = "Flags", type = "flags", base = "u8", bits = [["LeveledLock", 0x4]] },
+  { name = "Unused2", type = "opaque", size = 3 },
+  { name = "Value6", type = "u32", note = "unnamed upstream" },
+]
+
+[[member.member]]
+sig = "UNAM"
+name = "DisplayText"
+type = "lstring"
+card = "optional"
+note = "for a DisplayText item"
+
+[[member.member]]
+sig = "TNAM"
+name = "Submenu"
+type = "formid"
+targets = ["TMLM"]
+card = "optional"
+note = "for a Submenu item"
+
+[[member.member]]
+sig = "BNAM"
+name = "DataSlate"
+type = "formid"
+targets = ["BOOK"]
+card = "optional"
+note = "for a DataSlate item; one official record"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
