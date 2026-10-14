@@ -534,6 +534,58 @@ pub fn placement(
     }
 }
 
+/// Group types whose overridden records the official files list in `TES4` `ONAM`: topic
+/// children (7), cell temporary children (9) and quest children (10). Overrides in
+/// persistent children (8), cells and top-level records are never listed (M4.A6,
+/// `tests/onam.rs`, every record of the 14 files).
+pub const ONAM_GROUP_TYPES: [i32; 3] = [
+    group_type::TOPIC_CHILDREN,
+    group_type::CELL_TEMPORARY,
+    group_type::QUEST_CHILDREN,
+];
+
+/// The FormIDs `plugin`'s `ONAM` lists by the corpus rule (M4.A6): every record in a group
+/// of [`ONAM_GROUP_TYPES`] for which `overrides_master_record` is true (the caller decides,
+/// from the load order, that the FormID is a master's and that the master has that
+/// record: the official files list no override of a record its master lacks), in file
+/// order. The official files' own order is not file order or FormID order (it looks
+/// unordered), so the order written is a choice until the Creation Kit is observed (F23).
+/// Write the list with [`crate::tes4::Tes4::set_overridden_forms`].
+pub fn onam_forms(
+    plugin: &crate::Plugin<'_>,
+    mut overrides_master_record: impl FnMut(u32) -> bool,
+) -> Vec<u32> {
+    fn walk(
+        entries: &[crate::Entry<'_>],
+        listed: bool,
+        out: &mut Vec<u32>,
+        pick: &mut dyn FnMut(u32) -> bool,
+    ) {
+        for e in entries {
+            match e {
+                crate::Entry::Group(g) => walk(
+                    g.children(),
+                    ONAM_GROUP_TYPES.contains(&g.header.group_type),
+                    out,
+                    pick,
+                ),
+                crate::Entry::Record(r) if listed && pick(r.header.form_id) => {
+                    out.push(r.header.form_id);
+                }
+                crate::Entry::Record(_) => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(
+        plugin.entries(),
+        false,
+        &mut out,
+        &mut overrides_master_record,
+    );
+    out
+}
+
 /// The persistent cell of world `world` (stored FormID) in `index`: the `CELL` directly in
 /// the world's children group (corpus: at most one, always first, flag 0x400). A
 /// persistent reference placed in that world goes into its persistent children.

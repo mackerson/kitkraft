@@ -469,6 +469,14 @@ is under "Next".
     `DATA.Position.Z` and `DATA.Rotation`; afterwards nothing changes in code.
     `tests/refs.rs`: reference shape on all 6,734,456 references; 9,144 sampled
     references composed from their decoded values are byte-identical.
+  - M4.A6 (corpus half; F23 still open for the CK's own choices): `ONAM` membership rule
+    found and asserted on every record of the 14 files (`tests/onam.rs`): listed exactly
+    when the record overrides a record its master has and sits in group type 7, 9 or 10
+    (`cells::ONAM_GROUP_TYPES`); never type 8, cells or top-level records. The official
+    list order is not reproducible (neither file nor FormID order). Writer:
+    `cells::onam_forms(&plugin, overrides_master_record) -> Vec<u32>` (file order, a
+    stated choice until F23) and `Tes4::set_overridden_forms(&mut tes4, &forms)` (after
+    the master list, as in every file). Request to lane E below.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
@@ -972,10 +980,38 @@ Agents append here when they need a change in a crate they do not own.
 - ~~**Lane A -> lane B.** Please generate an accessor for the raw subrecords a typed record
   kept: `generated::records::Record::extra(&self)`.~~ Done in M2.B3 (`Record::extra()` is
   generated for every defined type).
-- **Lane F -> lane A (M3.F2).** `esm::bridge::extra_of` still matches five variants (GLOB,
+- ~~**Lane F -> lane A (M3.F2).** `esm::bridge::extra_of` still matches five variants (GLOB,
   GMST, KYWD, TES4, WEAP), so `check_subrecords` misses `NotDecoded` conflicts in AMDL,
   AMMO, COBJ, OMOD and ZOOM (and in every round 3 type); `typed.extra()` covers them all.
-  `coverage` (engine) does not depend on it.
+  `coverage` (engine) does not depend on it.~~ Done (lane A, M4): `extra_of` is gone;
+  `check_subrecords` reads the generated `Record::extra()`, so every defined type (and
+  every type a family lane adds) reports undecoded payloads; a test checks all of them.
+- **Lane A -> lane E (M4.A1..A6 landed; for M4.E1, E2, E3, E4).** `kitcraft_esm`:
+  - `forms::NewForms::for_index(&index)` / `for_plugin(&plugin)` -> `allocate() ->
+    Result<u32>`, `write_hedr(&mut tes4)`; `Error::Refused` for small/medium targets;
+    name `forms::LIMITATIONS` in results.
+  - `refs::compose_reference(&RefSpec, allow_reference: &[&str]) -> Result<ComposedRef>`
+    (`RefSpec::new(sig, form_id, base, position, rotation)`, then `persistent`,
+    `initially_disabled`, `editor_id`, `extra`...); `ComposedRef { record, members,
+    limitations }`; `composed.placed(place, cell, &style) -> Result<Placed>`. Until BW's
+    `REFR`/`ACHR` definitions reach `main` through BX, `DATA.Position.Z` and
+    `DATA.Rotation` are below `corpus` and must be in `allow_reference` (nothing to change
+    when they land).
+  - `cells::cell_place_in(&index, &loc, &cell_record, &limits) -> Result<CellPlace>`
+    (interior / world persistent cell / exterior with its `XCLC` grid),
+    `cells::persistent_cell(&index, world) -> Option<&RecordLoc>` (where a persistent
+    reference in a world goes), `cells::Grid::of_position(x, y)` (cell of a position,
+    100 units), `cells::placement(&header, &Parent, &style)` for any record under a cell,
+    quest or topic; `Plugin::upsert_styled` / `RewriteOptions::placement` place in corpus
+    order. A placed reference needs its parent `CELL` (and `WRLD`) carried in the plugin
+    for the corpus shape; without it the children group still lands in a sane place.
+  - `navmesh::import_navmeshes(&ck_plugin, &mut target, &style)` and
+    `navmesh::navmesh_placements(&ck_plugin, &target_index, read_cell, &style)` for
+    `[[import]]`; refused unless both plugins have the same masters.
+  - ONAM (M4.A6): when a patch overrides records in groups 7, 9 or 10, set
+    `Tes4::set_overridden_forms(&mut tes4, &cells::onam_forms(&plugin, |id| <id is a
+    master's and the master has it>))`; patches that only override top-level records or
+    persistent references still need none. INCC stays yours (as M2.E3).
 - **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
   `overhaul.scaffold` (alias `overhaul`, session handler registered in
   `handlers::session_defaults`), `build` gained `plan`, `validate` gained
