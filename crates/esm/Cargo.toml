@@ -11,3 +11,6 @@ workspace = true
 
 [dependencies]
 kitcraft-schema.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
