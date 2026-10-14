@@ -402,6 +402,12 @@ fn refusals() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("Data directory"), "{err}");
+    let user = d.join("My Games").join("Starfield").join("Data");
+    std::fs::create_dir_all(&user).unwrap();
+    let err = go(&user.join("P.esp"), rename("x"))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("user Data directory"), "{err}");
     let mo2 = d.join("MO2");
     std::fs::create_dir_all(mo2.join("mods").join("New")).unwrap();
     std::fs::write(mo2.join("ModOrganizer.ini"), b"x").unwrap();

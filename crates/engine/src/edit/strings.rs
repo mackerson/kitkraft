@@ -73,12 +73,19 @@ impl StringLookup for TableStrings<'_> {
             .0
             .try_borrow_mut()
             .map_err(|_| "string tables are busy".to_string())?;
-        tables.lookup(plugin, id).map(|found| {
-            Some(Resolved {
-                bytes: found.text.into_bytes(),
-                table: found.origin,
-                offset: found.offset,
-            })
-        })
+        let found = tables.lookup(plugin, id)?;
+        // Lane D's lookup gives lossy UTF-8 text; a few official strings are not UTF-8
+        // (lane G), and copying the replacement character would change them. Refuse those
+        // until the lookup gives the stored bytes.
+        if found.text.contains('\u{FFFD}') {
+            return Err(format!(
+                "string 0x{id:08X} of {plugin} is not valid UTF-8, and the load order's string lookup gives only lossy text, so it cannot be copied byte for byte"
+            ));
+        }
+        Ok(Some(Resolved {
+            bytes: found.text.into_bytes(),
+            table: found.origin,
+            offset: found.offset,
+        }))
     }
 }

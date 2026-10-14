@@ -51,8 +51,11 @@ fn corpus_string_id_zero_has_no_text() {
     for kind in kitcraft_strings::Kind::ALL {
         let name = kitcraft_strings::table_name("Starfield.esm", "en", kind);
         let i = ba2.find(&format!("strings/{name}")).unwrap();
-        let table =
-            kitcraft_strings::Table::parse(kind, &ba2.extract_vec(&mut file, i).unwrap()).unwrap();
+        let table = kitcraft_strings::Table::parse(
+            kind,
+            &ba2.extract_vec(&mut file, i, 256 << 20).unwrap(),
+        )
+        .unwrap();
         assert!(!table.is_empty(), "{name}");
         assert!(table.get(0).is_none(), "{name} has string ID 0");
     }

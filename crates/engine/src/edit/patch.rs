@@ -24,9 +24,9 @@
 //!   master flag when the file name ends in `.esm`, never localized, no `ONAM`; the `HEDR`
 //!   record count is the majority meaning (lane A writes it). `.esl` is refused.
 //! - **Where.** Never over a plugin in the load order, never inside the game's Data
-//!   directory (a directory holding `Starfield.esm`) or an MO2 instance (a directory
-//!   holding `ModOrganizer.ini`, or a profile with `modlist.txt` and `plugins.txt`), at any
-//!   depth.
+//!   directory (a directory holding `Starfield.esm`), the user Data directory
+//!   (`My Games\Starfield\Data`) or an MO2 instance (a directory holding
+//!   `ModOrganizer.ini`, or a profile with `modlist.txt` and `plugins.txt`), at any depth.
 
 use std::collections::BTreeSet;
 use std::fs::File;
@@ -482,6 +482,13 @@ fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchError> 
                 d.display()
             )));
         }
+        if is_user_data_dir(d) {
+            return Err(refused(format!(
+                "{} is inside the game's user Data directory ({}), which the game also loads from; write the patch elsewhere",
+                target.display(),
+                d.display()
+            )));
+        }
         if d.join("ModOrganizer.ini").is_file()
             || (d.join("modlist.txt").is_file() && d.join("plugins.txt").is_file())
         {
@@ -494,6 +501,27 @@ fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchError> 
         dir = d.parent();
     }
     Ok(())
+}
+
+/// The per-user Data folder the game also loads plugins from: a directory named `Data`
+/// whose parent is `My Games\Starfield`, or whose parent holds `StarfieldCustom.ini` or
+/// `StarfieldPrefs.ini` (the same test lane G's `ba2.extract` applies).
+fn is_user_data_dir(dir: &Path) -> bool {
+    let named = |p: &Path, want: &str| {
+        p.file_name()
+            .and_then(|n| n.to_str())
+            .is_some_and(|n| n.eq_ignore_ascii_case(want))
+    };
+    if !named(dir, "Data") {
+        return false;
+    }
+    let Some(parent) = dir.parent() else {
+        return false;
+    };
+    (named(parent, "Starfield") && parent.parent().is_some_and(|g| named(g, "My Games")))
+        || ["StarfieldCustom.ini", "StarfieldPrefs.ini"]
+            .iter()
+            .any(|ini| parent.join(ini).is_file())
 }
 
 fn absolute(path: &Path) -> PathBuf {
