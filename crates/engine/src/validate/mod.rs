@@ -50,6 +50,14 @@ pub enum Input {
     Scripts,
 }
 
+/// Record types whose overrides drop a name the previous version has in the official
+/// files themselves (`corpus:` `validate_corpus_official_files`, 2026-10-14: 92 overrides in
+/// SFBGS003, SFBGS008, SFBGS00D, SFBGS047, SFBGS050 and ShatteredSpace, all of these
+/// types). `override.stripped-name` is a warning for them and an error for every other
+/// type (the Resupply door is a DOOR).
+pub const NAMES_STRIPPED_IN_CORPUS: [[u8; 4]; 5] =
+    [*b"CELL", *b"LCTN", *b"NPC_", *b"QUST", *b"WRLD"];
+
 /// One rule in the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct RuleInfo {
@@ -93,7 +101,7 @@ pub const RULES: &[RuleInfo] = &[
         id: "override.stripped-name",
         severity: Severity::Error,
         input: Input::Plugin,
-        summary: "An override lacks the FULL or NTRM the previous version in load order has (the Resupply door: no name, no prompt)",
+        summary: "An override lacks the FULL or NTRM the previous version in load order has (the Resupply door: no name, no prompt); a warning on the types the official DLCs do it to",
     },
     RuleInfo {
         id: "record.flags-body",
@@ -812,7 +820,11 @@ fn check_record(
                     {
                         if has {
                             let w = String::from_utf8_lossy(&wanted).into_owned();
-                            push(findings, "override.stripped-name", Severity::Error, Some(w.clone()), at, format!("this override has no {w}, but the previous version in load order ({plugin}) has one; a stripped name removes the item's name and its activation prompt (the Resupply door)"));
+                            if NAMES_STRIPPED_IN_CORPUS.contains(&r.header.signature.0) {
+                                push(findings, "override.stripped-name", Severity::Warning, Some(w.clone()), at, format!("this override has no {w}, but the previous version in load order ({plugin}) has one; the official DLCs do this on {} overrides (docs/validate.md), so it is a warning here", r.header.signature));
+                            } else {
+                                push(findings, "override.stripped-name", Severity::Error, Some(w.clone()), at, format!("this override has no {w}, but the previous version in load order ({plugin}) has one; a stripped name removes the item's name and its activation prompt (the Resupply door)"));
+                            }
                         }
                     }
                 }

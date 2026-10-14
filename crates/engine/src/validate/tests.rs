@@ -226,6 +226,25 @@ fn override_stripped_name_the_resupply_door() {
     );
     let good = patch(&d, "Good.esp", &["Master.esm"], vec![fixed]);
     assert_eq!(found(&check(&good, &["override.stripped-name"])), []);
+    // The official DLCs strip names of cells (and LCTN, NPC_, QUST, WRLD): a warning.
+    let cell = |subs| record(b"CELL", 0x0000_0B00, subs);
+    let m2 = write_plugin(
+        &d,
+        "Cells.esm",
+        &[],
+        FLAG_MASTER,
+        vec![cell(vec![sub(b"EDID", b"Room\0"), sub(b"FULL", b"Room\0")])],
+    );
+    let _ = m2;
+    let unnamed = patch(
+        &d,
+        "Cell.esp",
+        &["Cells.esm"],
+        vec![cell(vec![sub(b"EDID", b"Room\0")])],
+    );
+    let data = check(&unnamed, &["override.stripped-name"]);
+    assert_eq!(found(&data), [pair("override.stripped-name", "warning")]);
+    assert_eq!(data["passed"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }
 
