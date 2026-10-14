@@ -45,12 +45,13 @@ const ID: &str = "inspect";
 /// Payload bytes shown per subrecord.
 pub(crate) const PAYLOAD_CAP: usize = 256;
 
-/// Every subrecord is opaque until the schema crate's typed records are wired in.
-pub(crate) const TYPED_PENDING: &str = "typed decode pending schema wiring";
+/// Single-plugin mode lists raw payloads only; schema-typed values need the load order.
+pub(crate) const TYPED_PENDING: &str = "single-plugin mode lists raw payloads; schema-typed \
+     values (member, value) are shown in load-order mode (pass `plugins` or `profile`)";
 
 /// No load order yet: the record is this plugin's version only.
 pub(crate) const SINGLE_PLUGIN: &str =
-    "single plugin: overrides in other plugins are not considered (load order arrives in M2)";
+    "single plugin: overrides in other plugins are not considered (pass `plugins` or `profile` for the load order)";
 
 /// Stated for a compressed record.
 pub(crate) const COMPRESSED_OFFSETS: &str = "record is compressed: subrecord offsets are \

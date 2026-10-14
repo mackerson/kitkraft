@@ -189,7 +189,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
     }
 
     let mut limitations = vec![
-        "overrides are compared as stored bytes: no typed layouts are wired yet (M2.A3), so \
+        "overrides are compared as stored bytes (not decoded through the schema), so \
          `differs` names subrecords, not fields"
             .to_string(),
     ];

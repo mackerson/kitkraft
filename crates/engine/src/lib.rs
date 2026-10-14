@@ -13,7 +13,7 @@
 //!
 //! An [`Engine`] owns a [`Session`] (the loaded load order and caches) that
 //! [`SessionHandler`]s read and change; the free [`execute`] runs on a fresh session.
-//! Undo and validation rules land in M2 and later (see `plan/execution-plan.md`).
+//! Undo lands after M2 (see `plan/execution-plan.md`).
 //!
 //! LAYER: L4
 
@@ -38,7 +38,7 @@ pub use session::Session;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Status {
     /// Listed so every front end agrees on the name and arguments; not callable yet.
-    /// Allowed only while a milestone task owns it (see the `catalog_closure` test).
+    /// None at M2 exit: the `catalog_closure` test fails on one (M2.F8).
     Planned,
     /// Callable from every front end.
     Implemented,
@@ -114,7 +114,7 @@ static CATALOG: &[CommandSpec] = &[
         shortcut: Some("Ctrl+O"),
         aliases: &["open"],
         summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
-        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir (default: the MO2 instance's gamePath + Data)"},"language":{"type":"string","description":"String-table language, default en (tables are not loaded yet)"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
+        args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir (default: the MO2 instance's gamePath + Data)"},"language":{"type":"string","description":"String-table language for localized lstrings (FULL, DESC), default en"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -311,28 +311,9 @@ mod tests {
         assert!(find_command("nope").is_none());
     }
 
-    /// Commands still `Planned` during M2, each with the M2 task that implements it (or
-    /// defers it). M2.F8: at M2 exit this list is empty and every command is
-    /// `Implemented` or `Deferred`. Lanes remove their entry when they flip the status;
-    /// a stale entry (already implemented) is reported by `catalog_closure_list_is_current`.
-    const PLANNED_IN_M2: &[(&str, &str)] = &[
-        ("load", "M2.D8"),
-        ("query", "M2.D11"),
-        ("set", "M2.E5"),
-        ("diff", "M2.D12"),
-        ("build", "M2.E9"),
-        ("validate", "M2.E6"),
-        ("ba2.list", "M2.G4"),
-        ("ba2.extract", "M2.G4"),
-        ("ba2.pack", "M2.G4"),
-        ("papyrus.disasm", "M2.G6"),
-        ("papyrus.compile", "M2.G7"),
-        ("strings.dump", "M2.G9"),
-        ("strings.merge", "M2.G9"),
-    ];
-
-    /// M2.F8: every command is `Implemented`, `Deferred` with a reason and a milestone,
-    /// or `Planned` under a named M2 task.
+    /// M2.F8 (M2 exit): every command is `Implemented`, or `Deferred` with a reason and a
+    /// milestone. Nothing is `Planned` any more: a command that does only part of its job
+    /// is `Implemented` and says what it does not do in `limitations[]`.
     #[test]
     fn catalog_closure() {
         for spec in catalog() {
@@ -346,33 +327,11 @@ mod tests {
                         spec.id
                     );
                 }
-                Status::Planned => assert!(
-                    PLANNED_IN_M2.iter().any(|(id, _)| *id == spec.id),
-                    "{} is Planned but no M2 task owns it: implement it, defer it with \
-                     Status::Deferred {{ reason, milestone }}, or add it to PLANNED_IN_M2",
+                Status::Planned => panic!(
+                    "{} is Planned at M2 exit: implement it (stating what it does not do in \
+                     limitations[]) or defer it with Status::Deferred {{ reason, milestone }}",
                     spec.id
                 ),
-            }
-        }
-    }
-
-    /// Entries of [`PLANNED_IN_M2`] name catalog commands. An entry whose command is no
-    /// longer `Planned` is only printed, so the lane that flips a status does not have
-    /// to edit this file in the same commit; lane F prunes the list.
-    #[test]
-    fn catalog_closure_list_is_current() {
-        for (id, task) in PLANNED_IN_M2 {
-            let spec = find_command(id).unwrap_or_else(|| panic!("{id} ({task}) not in catalog"));
-            assert_eq!(spec.id, *id, "{id}: use the canonical id, not an alias");
-            assert!(
-                task.starts_with("M2."),
-                "{id}: task `{task}` is not an M2 task"
-            );
-            if spec.status != Status::Planned {
-                println!(
-                    "PLANNED_IN_M2 entry {id} ({task}) is stale: status is {}",
-                    spec.status.label()
-                );
             }
         }
     }

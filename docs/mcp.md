@@ -7,9 +7,10 @@ count stays small on purpose; capability grows by adding commands, not tools.
 Status: implemented (M2.F2..F6): `crates/mcp` (`server.rs` protocol, `tools.rs` tool
 shapes from the catalog, `backend.rs` calls onto the engine) and the `kit mcp` launcher.
 Every tool resolves to `Engine::execute` on the server's one engine, so the server keeps
-one `Session` for its process: a `load` is seen by every later call. Which commands do
-real work is the catalog's `status` (`kit help`, or the `kitcraft://commands` resource);
-the rest answer with a `not_implemented` or `deferred` tool error.
+one `Session` for its process: a `load` is seen by every later call. Every catalog
+command is `Implemented` (M2.F8: the `catalog_closure` test fails on a `Planned` one); a
+command that does only part of its job says what it does not do in `limitations[]`. A
+`Deferred` command (none today) answers with a `deferred` tool error naming its reason.
 
 Front-end launchers (`kit mcp`, a future `kit ui`) start a front end; they are not actions
 and are deliberately not `CommandSpec`s. Everything else a user can do is.
@@ -21,12 +22,10 @@ kit mcp                                   # empty session
 kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"   # preload a load order
 ```
 
-`--profile` runs the `load` command before serving. **Until M2.D8 lands it is a no-op:**
-`load` is not implemented yet, so the preload fails with `not_implemented`, which is
-noted on stderr only. Any other preload failure (a bad path, once `load` exists) goes to
-stderr and into the server's `instructions`. Either way the server starts with an empty
-session instead of exiting. `.mcp.json.example` and the commands below pass `--profile`
-anyway, so they need no edit when `load` lands.
+`--profile` runs the `load` command before serving (a warm load of the owner's 84-plugin
+profile takes under a second; the first, cold one indexes every plugin). A preload failure
+(a bad path, an unreadable profile) goes to stderr and into the server's `instructions`,
+and the server starts with an empty session instead of exiting.
 `kit mcp` exits 0 when its stdin closes and 2 on a stdio error. stdout carries only MCP
 messages; logs go to stderr.
 
@@ -42,8 +41,7 @@ Client config (any MCP client that launches stdio servers):
    `C:\Modding\kitcraft\target\release\kit.exe` with the default target dir).
 2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the
    file is gitignored, never committed; adjust the paths) and approve the server when
-   Claude Code asks, or register it for yourself only (`--profile` is a no-op until
-   M2.D8, see above):
+   Claude Code asks, or register it for yourself only:
 
    ```powershell
    claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
@@ -319,8 +317,8 @@ outermost first as `{offset, type, label}`), `subrecord_offsets` (`file`, or
 any `XXXX` prefix), `data_offset`, `payload_hex` (first 256 bytes, uppercase hex) and
 `payload_truncated`. Evidence: the record header, then each payload (or, for a compressed
 record, the compressed body). Coverage is `partial`; every subrecord counts as opaque.
-Limitations always include `typed decode pending schema wiring` and the single-plugin
-note.
+Limitations always say that single-plugin mode lists raw payloads (schema-typed values
+are shown in load-order mode) and that overrides in other plugins are not considered.
 
 ### `query` (M2.D10, M2.D11)
 

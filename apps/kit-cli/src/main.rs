@@ -11,9 +11,8 @@
 //! unknown command, invalid arguments, a command that is not implemented yet (including
 //! a stub result from a `Planned` command, and a `Deferred` one), or a failed command.
 //! `kit mcp [--profile DIR]` serves MCP on stdio until stdin closes (exit 0; 2 on an I/O
-//! error); a failed `--profile` preload is reported on stderr and (unless the failure is
-//! only that `load` is not implemented yet) in the server's instructions, and the server
-//! starts with an empty session.
+//! error); a failed `--profile` preload is reported on stderr and in the server's
+//! instructions, and the server starts with an empty session.
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
@@ -90,13 +89,9 @@ fn run_mcp(profile: Option<&str>) -> ExitCode {
                 eprintln!(
                     "kit mcp: preloading --profile failed: {err}; serving with an empty session"
                 );
-                // Until `load` has a handler, --profile is a documented no-op: telling
-                // every session about it would only be noise.
-                if err.kind() != "not_implemented" {
-                    server.add_note(format!(
-                        "Preloading the profile {profile} at startup failed ({err}); the session is empty."
-                    ));
-                }
+                server.add_note(format!(
+                    "Preloading the profile {profile} at startup failed ({err}); the session is empty."
+                ));
             }
         }
     }

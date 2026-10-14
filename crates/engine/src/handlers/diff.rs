@@ -55,8 +55,8 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     let own = |k: &Key| k.label(&na);
     let mut evidence = Vec::new();
     let mut limitations = vec![
-        "payloads are compared as stored bytes: no typed layouts are wired yet (M2.A3), so a \
-         change is reported per subrecord and byte range, not per field"
+        "payloads are compared as stored bytes (not decoded through the schema), so a change \
+         is reported per subrecord and byte range, not per field"
             .to_string(),
     ];
     if d.keyed_by == "raw" {
