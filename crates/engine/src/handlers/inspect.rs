@@ -31,6 +31,7 @@ use serde_json::{json, Value};
 use kitcraft_doc::compare::{spans, OverrideClass};
 use kitcraft_doc::lstring::is_lstring;
 use kitcraft_doc::strings::StringTables;
+use kitcraft_doc::typed::{self, Decoded};
 use kitcraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
 
 use super::load::{acquire, lstring_json, Loaded, RUNTIME_ASSUMED};
@@ -436,15 +437,58 @@ fn find_form(
     ))
 }
 
-/// Subrecords of one version as JSON, with evidence; lstrings decoded.
+/// Where a version comes from.
+struct VersionCtx<'a> {
+    lo: &'a kitcraft_doc::LoadOrder,
+    plugin: u16,
+    file: &'a str,
+    localized: bool,
+    edid_first: Option<u8>,
+}
+
+/// A decoded schema value as JSON; FormIDs as formrefs resolved through the plugin's masters.
+fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>) -> Value {
+    match v {
+        Decoded::Int(i) => i64::try_from(*i).map_or_else(|_| json!(i.to_string()), |x| json!(x)),
+        Decoded::Float(f) => {
+            serde_json::Number::from_f64(*f).map_or_else(|| json!(f.to_string()), Value::Number)
+        }
+        Decoded::Form(raw) => match vc.lo.resolve(vc.plugin, *raw) {
+            Ok(g) => json!({"raw": format!("{raw:08X}"), "form": vc.lo.form_label(g)}),
+            Err(e) => json!({"raw": format!("{raw:08X}"), "form": null, "error": e.to_string()}),
+        },
+        Decoded::Sig(s) => json!(String::from_utf8_lossy(s)),
+        Decoded::Text(t) => json!(t),
+        Decoded::LStringId(id) => json!({"string_id": format!("0x{id:08X}")}),
+        Decoded::Struct(fields) => Value::Object(
+            fields
+                .iter()
+                .map(|(k, v)| (k.clone(), decoded_json(v, vc)))
+                .collect(),
+        ),
+        Decoded::Array(items) => Value::Array(items.iter().map(|i| decoded_json(i, vc)).collect()),
+        Decoded::Opaque => json!("opaque"),
+    }
+}
+
+/// Subrecords of one version as JSON, with evidence; lstrings decoded, and fields decoded
+/// through the schema where it defines the subrecord. Returns the list, whether a payload
+/// was cut, and how many subrecords decoded through the schema.
 fn version_subrecords(
     strings: &mut StringTables,
-    file: &str,
+    vc: &VersionCtx<'_>,
     rec: &LoadedRecord,
-    localized: bool,
     evidence: &mut Vec<Evidence>,
     notes: &mut Vec<String>,
-) -> (Vec<Value>, bool) {
+) -> (Vec<Value>, bool, u64) {
+    let (file, localized) = (vc.file, vc.localized);
+    let schema = kitcraft_schema::builtin().ok();
+    let ctx = typed::Ctx {
+        form_version: rec.record.header.form_version,
+        localized,
+        edid_first: vc.edid_first,
+    };
+    let mut typed_count = 0u64;
     let record_id = rec.label();
     let body_offset = rec.offset().saturating_add(HEADER_LEN as u64);
     let mut cut = false;
@@ -489,6 +533,26 @@ fn version_subrecords(
                 obj.insert("text".into(), json!(kitcraft_doc::index::zstring(data)));
             }
         }
+        let def = schema.and_then(|sc| {
+            typed::field_type(sc, rec.record.header.signature.0, s.signature().0)
+                .ok()
+                .flatten()
+        });
+        if let (Some((ty, name)), Some(obj)) = (def, entry.as_object_mut()) {
+            obj.insert("member".into(), json!(name));
+            match typed::decode(ty, data, &ctx) {
+                Ok(Decoded::Opaque) => {}
+                Ok(v) => {
+                    typed_count = typed_count.saturating_add(1);
+                    obj.insert("value".into(), decoded_json(&v, vc));
+                }
+                Err(e) => {
+                    notes.push(format!(
+                        "{sig} of {record_id} in {file} does not decode through its schema layout ({e})"
+                    ));
+                }
+            }
+        }
         if span.file_offset.is_some() {
             evidence.push(Evidence {
                 file: file.to_string(),
@@ -509,7 +573,7 @@ fn version_subrecords(
             subrecord: None,
         });
     }
-    (list, cut)
+    (list, cut, typed_count)
 }
 
 fn class_json(class: &OverrideClass) -> Value {
@@ -565,6 +629,7 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
     let mut cut_any = false;
     let mut compressed_any = false;
     let mut opaque = 0u64;
+    let mut typed_total = 0u64;
     let mut list = Vec::with_capacity(versions.len());
     let last = versions.len().saturating_sub(1);
     for (i, (v, rec)) in versions.iter().zip(&records).enumerate() {
@@ -579,14 +644,19 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
             record: Some(rec.label()),
             subrecord: None,
         });
-        let (subs, cut) = version_subrecords(
-            &mut loaded.strings,
-            &p.name,
-            rec,
+        let vc = VersionCtx {
+            lo,
+            plugin: v.plugin,
+            file: &p.name,
             localized,
-            &mut evidence,
-            &mut notes,
-        );
+            edid_first: lo
+                .record(v.plugin, v.record)
+                .and_then(|l| lo.edid(v.plugin, l))
+                .and_then(|e| e.bytes().next()),
+        };
+        let (subs, cut, typed_here) =
+            version_subrecords(&mut loaded.strings, &vc, rec, &mut evidence, &mut notes);
+        typed_total = typed_total.saturating_add(typed_here);
         cut_any |= cut;
         compressed_any |= rec.compressed;
         opaque = opaque.saturating_add(rec.subs.len() as u64);
@@ -633,7 +703,10 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
     let winner_name = winner
         .and_then(|w| lo.plugin(w.plugin))
         .map(|p| p.name.clone());
-    let mut limitations = vec![TYPED_PENDING.to_string()];
+    let mut limitations = vec![
+        "subrecords show `value` only where the schema defines a layout (lane B); every other payload is hex"
+            .to_string(),
+    ];
     limitations.extend(loaded.limitations.iter().cloned());
     if runtime.is_some() && !limitations.iter().any(|l| l == RUNTIME_ASSUMED) {
         limitations.push(RUNTIME_ASSUMED.to_string());
@@ -682,8 +755,8 @@ fn run_load_order(loaded: &mut Loaded, args: &Value) -> Result<Outcome, EngineEr
         data,
         coverage: Coverage {
             status: CoverageStatus::Partial,
-            decoded_subrecords: Some(0),
-            opaque_subrecords: Some(opaque),
+            decoded_subrecords: Some(typed_total),
+            opaque_subrecords: Some(opaque.saturating_sub(typed_total)),
             not_examined: Vec::new(),
         },
         limitations,
@@ -879,6 +952,10 @@ mod tests {
             json!([{"signature": "FULL", "occurrence": 0, "change": "changed"}])
         );
         assert_eq!(versions[1]["payloads_comparable"], true);
+        // Fields the schema defines carry their member name and decoded value.
+        assert_eq!(versions[0]["subrecords"][0]["member"], "EditorId");
+        assert_eq!(versions[0]["subrecords"][0]["value"], "OldEarthHuntingRifle");
+        assert!(result["coverage"]["decoded_subrecords"].as_u64().unwrap() >= 2);
         // Every payload has evidence pointing at its bytes.
         let patch = std::fs::read(dir.join("Patch.esm")).unwrap();
         let full = &versions[1]["subrecords"][1];
