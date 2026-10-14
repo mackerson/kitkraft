@@ -12,14 +12,20 @@
 
 pub mod cache;
 pub mod compare;
+pub mod conflicts;
+pub mod diff;
 mod error;
 pub mod flags;
 pub mod form;
 pub mod hash;
 pub mod index;
 pub mod load_order;
+pub mod lstring;
 pub mod overrides;
+pub mod query;
 pub mod record;
+pub mod search;
+pub mod subject;
 #[cfg(test)]
 pub(crate) mod testdata;
 

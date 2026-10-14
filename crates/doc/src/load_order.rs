@@ -273,6 +273,34 @@ impl LoadOrder {
         format!("{name}:{:06X}", form.object_id)
     }
 
+    /// Whether a raw FormID written by plugin `a` means the same form when read in plugin
+    /// `b`, for every form `a` can reference (its masters and itself). When it does, payload
+    /// bytes of the two versions can be compared as stored.
+    pub fn encodings_compatible(&self, a: u16, b: u16) -> bool {
+        let (Some(pa), Some(pb)) = (self.plugin(a), self.plugin(b)) else {
+            return false;
+        };
+        let (Ok(ma), Ok(mb)) = (pa.map.as_ref(), pb.map.as_ref()) else {
+            return false;
+        };
+        let referenced = pa
+            .masters
+            .iter()
+            .filter_map(|m| m.plugin)
+            .chain(std::iter::once(a));
+        for p in referenced {
+            let g = GlobalForm {
+                plugin: p,
+                object_id: 0,
+            };
+            match (ma.to_raw(g), mb.to_raw(g)) {
+                (Some(x), Some(y)) if x == y => {}
+                _ => return false,
+            }
+        }
+        true
+    }
+
     /// Fingerprint of the plugin list (names, sizes, mtimes), for paging cursors.
     pub fn fingerprint(&self) -> u64 {
         let mut h = Fnv::new();
