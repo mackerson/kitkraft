@@ -34,7 +34,7 @@ pub(crate) const FLAGS_FILE: &str = "Starfield_Papyrus_Flags.flg";
 /// The compiler below the game folder.
 const COMPILER_REL: [&str; 3] = ["Tools", "Papyrus Compiler", "PapyrusCompiler.exe"];
 /// Default Steam install.
-const STEAM_GAME: &str = r"C:\Program Files (x86)\Steam\steamapps\common\Starfield";
+pub(crate) const STEAM_GAME: &str = r"C:\Program Files (x86)\Steam\steamapps\common\Starfield";
 /// The compiler is killed after this long.
 const TIMEOUT: Duration = Duration::from_secs(300);
 

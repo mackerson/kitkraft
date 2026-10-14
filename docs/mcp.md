@@ -619,6 +619,45 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   (`compiler`, `KITCRAFT_PAPYRUS_COMPILER`, `KITCRAFT_DATA_DIR`'s game folder, the Steam
   default).
 
+### `papyrus.events` (M4.G2)
+
+`papyrus.events {script?, event?, function?, name?, kind = "all", search?, inherited =
+true, declarations_only = false, with_comments = false, limit = 100, start = 0,
+sources_zip?, data_dir?, no_cache = false}`; CLI `kit papyrus events --script
+ObjectReference`, `kit papyrus events --event OnLoad --declarations-only`, `kit papyrus
+events --search outpost`. Read-only.
+
+- What the base game's script sources declare: every `.psc` under `Scripts/Source` in
+  `Tools\ContentResources.zip` is read in place (in memory, nothing extracted) and parsed
+  by `kitcraft_pex::psc` (M4.G1). The index (scripts, parents, flags; every event,
+  function, property, struct and custom event with its signature and position) is cached
+  as `papyrus-index\<key>-v<format>.json` in the KitCraft cache, keyed by the zip's
+  central directory; it holds no comments. `data.cached` says whether the cache answered.
+  First call on the official zip about 1.5 s (debug build), later calls read the cache.
+- The zip: `sources_zip`, else `<data_dir or KITCRAFT_DATA_DIR>\..\Tools\`, else the Steam
+  install.
+- Filters combine: `script` (its members; with `inherited` its parent chain's too, nearest
+  first; an unknown name is `failed` and lists names containing it), `name` (exact,
+  case-insensitive), `event` / `function` (a name that also sets `kind`), `kind`
+  (`event`, `function`, `property`, `struct`, `custom_event`, `all`), `search`
+  (case-insensitive text in the script or member name). `declarations_only` drops event
+  and function overrides (a member whose name an ancestor already declares) and remote
+  event handlers (`Event ObjectReference.OnLoad(...)`), leaving where a member is
+  declared.
+- `data`: `sources_zip`, `cached`, `files`, `scripts`, `counts` (per kind, whole index),
+  `failures`, `script` (`name`, `parent`, `chain`, `flags`, `file`, `line`, or `null`),
+  `query`, `total`, `start`, `limit`, `next_start`, `matches[]` and `summary` (one line per
+  match: `file:line [script] signature`). A match: `kind`, `name`, `script` (the one that
+  declares it), `file` (`Scripts/Source/...`), `line`, `signature`, `flags`, `native`,
+  `inherited`, `overrides` (the nearest ancestor declaring the same member, else `null`);
+  functions and events add `return_type`, `params[] {type, name, default}`, `state` and
+  `remote`; properties `type`; structs `members[]`. With `with_comments`, `doc` (the `{ }`
+  comment after the declaration) and `comment` (the `;` comments right above it), read at
+  that moment from the user's zip: Bethesda's text, never cached, never committed.
+- `evidence`: per match, the declaration's byte range in its source file (`file` is the
+  path inside the zip). `coverage.not_examined` lists sources that failed to parse
+  (none in the official zip, 2026-10-14).
+
 ### `strings.dump`, `strings.merge` (M2.G9)
 
 - `strings.dump {table, archive?, id?, contains?, limit = 100, start = 0}`; CLI

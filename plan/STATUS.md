@@ -582,6 +582,20 @@ is under "Next".
     the zip read in memory, 1.5 s debug): all 5,033 `.psc` files parse with 0 errors and
     0 unread statements: 21,175 functions (1,223 native), 3,567 events (515 remote
     handlers), 27,000 properties, 167 structs, 58 custom events.
+  - M4.G2: `papyrus.events` (`Implemented`; CLI `kit papyrus events --script
+    ObjectReference`, `--event OnLoad --declarations-only`, `--search outpost`; MCP via
+    `execute`/`command_line`): the zip read in place, index cached by its central
+    directory (no comments in the cache), parent chains resolved, overrides and remote
+    handlers marked, `with_comments` reads doc/comment from the user's zip at query time,
+    `file:line` plus byte-range evidence. Counts per kind on the official zip (5,033
+    scripts): event 3,567, function 21,175, property 27,000, struct 167, custom_event 58;
+    `OnLoad` is declared (not overridden) in ActiveMagicEffect, ObjectReference,
+    RefCollectionAlias and ReferenceAlias; ObjectReference's chain is Form, ScriptObject;
+    `--search outpost` 491 matches. Tests: synthetic zip (chain, overrides, remote
+    handlers, search, paging, comments only on request, cache hit/miss/corrupt, errors,
+    command-line forms) and `official_sources`. **Open:** the acceptance check that the
+    events `docs/design/persistence.md` cites exist waits for that file (M4.H3, lane H; not
+    on main): `kit papyrus events --event <name> --declarations-only` is the check.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in

@@ -279,6 +279,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "papyrus.events",
+        label: "Script Events and Functions...",
+        menu_path: "Papyrus/Events and Functions...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Events, functions, properties, structs and custom events the base game's Papyrus sources declare (Tools/ContentResources.zip, read in place, index cached), by script with its parents, by name or by search, with file:line evidence",
+        args_schema: r#"{"type":"object","properties":{"script":{"type":"string","description":"Script name (ObjectReference, Ns:Script): its members, and with inherited its parents' too"},"event":{"type":"string","description":"Only events with this name (sets kind to event)"},"function":{"type":"string","description":"Only functions with this name (sets kind to function)"},"name":{"type":"string","description":"Only members with this name"},"kind":{"type":"string","enum":["all","event","function","property","struct","custom_event"],"default":"all"},"search":{"type":"string","description":"Case-insensitive text in the script or member name"},"inherited":{"type":"boolean","default":true,"description":"With script: also list the members its parent chain declares"},"declarations_only":{"type":"boolean","default":false,"description":"Drop members that override an ancestor's (event handlers) and remote event handlers"},"with_comments":{"type":"boolean","default":false,"description":"Add each match's doc and comment, read now from the zip (Bethesda's text: never cached)"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":100},"start":{"type":"integer","minimum":0,"default":0},"sources_zip":{"type":"string","description":"Tools/ContentResources.zip; default: next to the game Data dir (data_dir, KITCRAFT_DATA_DIR), then the Steam install"},"data_dir":{"type":"string","description":"Game Data dir whose ../Tools holds the zip (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","default":false,"description":"Parse the sources again instead of reading (or writing) the cached index"}},"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "strings.dump",
         label: "Dump Strings",
         menu_path: "Strings/Dump",

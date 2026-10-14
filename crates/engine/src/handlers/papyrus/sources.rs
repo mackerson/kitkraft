@@ -216,7 +216,6 @@ fn plan<R: Read + std::io::Seek>(
 /// The checked `Scripts/Source` entries of a zip, read in memory without extracting
 /// anything (`papyrus.events`, M4.G2). Names, sizes and the key are checked and computed
 /// exactly as for [`extract_sources`].
-#[allow(dead_code)] // TEMP-G1: papyrus.events (M4.G2) is the caller
 pub(crate) struct ZipSources {
     archive: ZipArchive<BufReader<File>>,
     plan: Vec<Planned>,
@@ -224,7 +223,6 @@ pub(crate) struct ZipSources {
     pub key: u64,
 }
 
-#[allow(dead_code)] // TEMP-G1
 impl ZipSources {
     /// Opens `zip_path` and checks its directory; reads no file data.
     pub(crate) fn open(zip_path: &Path) -> Result<ZipSources, String> {
@@ -262,7 +260,6 @@ impl ZipSources {
     }
 }
 
-#[allow(dead_code)] // TEMP-G1
 fn is_psc(parts: &[String]) -> bool {
     parts
         .last()

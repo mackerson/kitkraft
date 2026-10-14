@@ -64,6 +64,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("strings.merge", Box::new(strings::merge)),
         ("papyrus.disasm", Box::new(papyrus::disasm)),
         ("papyrus.compile", Box::new(papyrus::compile::run)),
+        ("papyrus.events", Box::new(papyrus::events::run)),
     ]
 }
 
