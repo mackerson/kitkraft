@@ -139,7 +139,7 @@ fn corpus_diff_reports_exactly_one_edit() {
     assert!(same.added.is_empty() && same.removed.is_empty() && same.changed.is_empty());
     assert_eq!(same.unchanged as usize, index.records.len());
 
-    let d = diff_plugins(&original, &copy, &[dir.clone()], None).unwrap();
+    let d = diff_plugins(&original, &copy, std::slice::from_ref(&dir), None).unwrap();
     assert_eq!(d.keyed_by, "name");
     assert!(d.added.is_empty() && d.removed.is_empty());
     assert_eq!(d.changed.len(), 1);
@@ -192,6 +192,8 @@ fn corpus_official_load_order_resolves_and_overrides_exist() {
         assert!(p.late_masters(i as u16).is_empty(), "{}", p.name);
         assert!(p.map.is_ok(), "{}: {:?}", p.name, p.map);
         assert_eq!(lo.forms.unresolved_count(i as u16), 0, "{}", p.name);
+        // No official file stores its own records in the full class while small or medium.
+        assert_eq!(lo.forms.full_style_self_count(i as u16), 0, "{}", p.name);
     }
     // M2.D3 (a): an override names a record its master defines.
     let mut overrides: BTreeMap<String, (u64, u64)> = BTreeMap::new();

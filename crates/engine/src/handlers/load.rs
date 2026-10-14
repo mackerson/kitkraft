@@ -51,7 +51,7 @@ pub(crate) fn acquire<'s>(
     command: &str,
 ) -> Result<&'s Loaded, EngineError> {
     if has_load_args(args) {
-        let (loaded, listing, _) = load(args, command)?;
+        let (loaded, listing, _, _) = load(args, command)?;
         session.set_load_order(Some(listing));
         session.insert(loaded);
     }
@@ -72,8 +72,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             "pass `profile` (an MO2 profile dir) or `plugins`",
         ));
     }
-    let (loaded, listing, evidence) = load(args, ID)?;
-    let mut limitations = loaded.limitations.clone();
+    let (loaded, listing, evidence, mut limitations) = load(args, ID)?;
     let failed_plugins: Vec<String> = loaded
         .lo
         .plugins
@@ -116,7 +115,10 @@ fn scale_label(s: Option<Scale>) -> Value {
 }
 
 /// Load per `args`: the session value, its JSON listing, and evidence.
-fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), EngineError> {
+fn load(
+    args: &Value,
+    command: &str,
+) -> Result<(Loaded, Value, Vec<Evidence>, Vec<String>), EngineError> {
     let started = Instant::now();
     let language = args
         .get("language")
@@ -220,8 +222,8 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
     let cache_dir = cache.as_ref().map(|c| c.dir().display().to_string());
     let lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
         .map_err(|e| failed(command, e.to_string()))?;
-    limitations.push(RUNTIME_ASSUMED.to_string());
-    limitations.push(STRINGS_PENDING.to_string());
+    let mut shared = vec![RUNTIME_ASSUMED.to_string(), STRINGS_PENDING.to_string()];
+
     for w in &warnings {
         limitations.push(format!("profile: {w}"));
     }
@@ -230,6 +232,8 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
     let mut plugins = Vec::new();
     let (mut hits, mut records) = (0usize, 0u64);
     let mut missing_masters_total = 0usize;
+    let mut full_style: Vec<String> = Vec::new();
+    let mut unresolved: Vec<String> = Vec::new();
     for (i, p) in lo.plugins.iter().enumerate() {
         let index = u16::try_from(i).unwrap_or(u16::MAX);
         let header = p.header();
@@ -237,6 +241,14 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
             hits = hits.saturating_add(1);
         }
         records = records.saturating_add(p.records().len() as u64);
+        let assumed_self = lo.forms.full_style_self_count(index);
+        if assumed_self > 0 {
+            full_style.push(format!("{} ({assumed_self})", p.name));
+        }
+        let bad = lo.forms.unresolved_count(index);
+        if bad > 0 {
+            unresolved.push(format!("{} ({bad})", p.name));
+        }
         let missing = p.missing_masters();
         missing_masters_total = missing_masters_total.saturating_add(missing.len());
         let (active, provider) = why
@@ -269,11 +281,25 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
             "resolvable": p.map.is_ok(),
             "resolve_error": p.map.as_ref().err().map(ToString::to_string),
             "records": p.records().len(),
-            "unresolved_records": lo.forms.unresolved_count(index),
+            "unresolved_records": bad,
+            "full_style_self_records": assumed_self,
             "runtime_slot": p.runtime_slot.map(|s| s.label()),
             "cache": cache_label(p.cache),
             "error": p.error,
         }));
+    }
+    if !full_style.is_empty() {
+        shared.push(format!(
+            "own records of small/medium plugins stored in the full class resolve to the plugin \
+             itself by the assumption `full-style-self` (docs/load-order.md): {}",
+            full_style.join(", ")
+        ));
+    }
+    if !unresolved.is_empty() {
+        shared.push(format!(
+            "records whose FormID does not resolve are left out of overrides and queries: {}",
+            unresolved.join(", ")
+        ));
     }
     let elapsed_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
     let summary = format!(
@@ -307,10 +333,11 @@ fn load(args: &Value, command: &str) -> Result<(Loaded, Value, Vec<Evidence>), E
             lo,
             source,
             language,
-            limitations: vec![RUNTIME_ASSUMED.to_string(), STRINGS_PENDING.to_string()],
+            limitations: shared.clone(),
         },
         listing,
         evidence,
+        shared.into_iter().chain(limitations).collect(),
     ))
 }
 

@@ -497,6 +497,35 @@ mod tests {
     }
 
     #[test]
+    fn small_plugin_own_records_in_the_full_class_resolve_by_assumption() {
+        let dir = testdata::temp_dir("lo-fullstyle");
+        let base = testdata::plugin_with(0x1, &[], &[rec(b"WEAP", 0x800, &[])]);
+        // A small plugin with one full master storing its own records as 01xxxxxx.
+        let small = testdata::plugin_with(
+            0x101,
+            &["Base.esm"],
+            &[
+                rec(b"KYWD", 0x0100_0801, &[]),
+                rec(b"KYWD", 0xFE00_0802, &[]),
+            ],
+        );
+        let lo = LoadOrder::load(
+            vec![
+                spec(&dir, "Base.esm", &base),
+                spec(&dir, "Small.esm", &small),
+            ],
+            &LoadOptions::default(),
+        )
+        .unwrap();
+        assert_eq!(lo.forms.unresolved_count(1), 0);
+        assert_eq!(lo.forms.full_style_self_count(1), 1);
+        assert_eq!(lo.resolve(1, 0x0100_0801).unwrap().plugin, 1);
+        assert_eq!(lo.resolve(1, 0xFE00_0802).unwrap().plugin, 1);
+        // Index 2 is past the full masters and the file itself.
+        assert!(lo.resolve(1, 0x0200_0801).is_err());
+    }
+
+    #[test]
     fn master_after_dependent_is_reported_and_still_resolves() {
         let dir = testdata::temp_dir("lo-late");
         let base = testdata::plugin_with(0x1, &[], &[rec(b"WEAP", 0x800, &[])]);

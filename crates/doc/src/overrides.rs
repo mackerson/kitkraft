@@ -45,6 +45,7 @@ pub struct FormTable {
     entries: Vec<Version>,
     unresolved_counts: Vec<u64>,
     unresolved: Vec<Unresolved>,
+    full_style_self: Vec<u64>,
 }
 
 impl FormTable {
@@ -54,6 +55,7 @@ impl FormTable {
         let mut entries = Vec::with_capacity(total);
         let mut unresolved_counts = vec![0u64; plugins.len()];
         let mut unresolved = Vec::new();
+        let mut full_style_self = vec![0u64; plugins.len()];
         for (i, p) in plugins.iter().enumerate() {
             let Ok(plugin) = u16::try_from(i) else { break };
             let mut kept = 0usize;
@@ -63,13 +65,20 @@ impl FormTable {
                     .map
                     .as_ref()
                     .map_err(Clone::clone)
-                    .and_then(|m| m.resolve(loc.form_id));
+                    .and_then(|m| m.resolve_detailed(loc.form_id));
                 match result {
-                    Ok(form) => entries.push(Version {
-                        key: form.key(),
-                        plugin,
-                        record,
-                    }),
+                    Ok((form, assumed)) => {
+                        if assumed {
+                            if let Some(c) = full_style_self.get_mut(i) {
+                                *c = c.saturating_add(1);
+                            }
+                        }
+                        entries.push(Version {
+                            key: form.key(),
+                            plugin,
+                            record,
+                        });
+                    }
                     Err(error) => {
                         if let Some(c) = unresolved_counts.get_mut(i) {
                             *c = c.saturating_add(1);
@@ -91,6 +100,7 @@ impl FormTable {
             entries,
             unresolved_counts,
             unresolved,
+            full_style_self,
         }
     }
 
@@ -125,6 +135,15 @@ impl FormTable {
     /// Records of plugin `plugin` whose FormID did not resolve.
     pub fn unresolved_count(&self, plugin: u16) -> u64 {
         self.unresolved_counts
+            .get(usize::from(plugin))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    /// Records of plugin `plugin` resolved by the `full-style-self` assumption (its own
+    /// records stored in the full class although the plugin is small or medium).
+    pub fn full_style_self_count(&self, plugin: u16) -> u64 {
+        self.full_style_self
             .get(usize::from(plugin))
             .copied()
             .unwrap_or(0)

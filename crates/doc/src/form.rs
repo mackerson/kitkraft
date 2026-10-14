@@ -17,6 +17,12 @@
 //!
 //! The index counts the file's masters *of that class only*, in master-list order; the
 //! index equal to that count, in the file's own class, is the file itself.
+//!
+//! **Assumption `full-style-self`**: a small or medium file may also store its own records
+//! in the full class, with the index equal to its number of full masters (Ortham's article
+//! gives a medium plugin's new record stored `02051808`). No official file does this; many
+//! third-party small and medium plugins do. [`MasterMap::resolve_detailed`] says when a
+//! FormID resolved this way, and callers report it.
 
 use crate::flags::Scale;
 
@@ -189,20 +195,32 @@ impl MasterMap {
 
     /// Resolve a raw FormID read from this file.
     pub fn resolve(&self, raw: u32) -> Result<GlobalForm, ResolveError> {
+        self.resolve_detailed(raw).map(|(g, _)| g)
+    }
+
+    /// As [`MasterMap::resolve`], also saying whether the `full-style-self` assumption was
+    /// needed (a small or medium file's own record stored in the full class).
+    pub fn resolve_detailed(&self, raw: u32) -> Result<(GlobalForm, bool), ResolveError> {
         let r = RawRef::decode(raw);
         let list = self.class(r.class);
         let index = usize::from(r.index);
         if let Some(&plugin) = list.get(index) {
-            return Ok(GlobalForm {
-                plugin,
-                object_id: r.object_id,
-            });
+            return Ok((
+                GlobalForm {
+                    plugin,
+                    object_id: r.object_id,
+                },
+                false,
+            ));
         }
-        if index == list.len() && r.class == self.own_scale {
-            return Ok(GlobalForm {
-                plugin: self.own_index,
-                object_id: r.object_id,
-            });
+        if index == list.len() && (r.class == self.own_scale || r.class == Scale::Full) {
+            return Ok((
+                GlobalForm {
+                    plugin: self.own_index,
+                    object_id: r.object_id,
+                },
+                r.class != self.own_scale,
+            ));
         }
         Err(ResolveError::IndexOutOfRange {
             plugin: self.plugin_name.clone(),
@@ -418,9 +436,21 @@ mod tests {
                 object_id: 0x013
             })
         );
-        // Full index 2 == full count, but the file is not full.
+        // Full index 2 == full count in a small file: the file itself, by the
+        // `full-style-self` assumption (and said so).
+        assert_eq!(
+            map.resolve_detailed(0x0200_0001),
+            Ok((
+                GlobalForm {
+                    plugin: 7,
+                    object_id: 1
+                },
+                true
+            ))
+        );
+        assert_eq!(map.resolve_detailed(0xFE00_1013).map(|(_, a)| a), Ok(false));
         assert!(matches!(
-            map.resolve(0x0200_0001),
+            map.resolve(0x0300_0001),
             Err(ResolveError::IndexOutOfRange { count: 2, .. })
         ));
         assert!(map.resolve(0xFD00_0001).is_err());
