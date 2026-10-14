@@ -28,12 +28,22 @@
 //!   the tree; [`index::read_record_at`]`(&mut file, offset, decode) -> Result<Record<'static>>`
 //!   and [`index::read_indexed`]`(&mut file, &RecordLoc, decode)` (which also checks the
 //!   header against the entry) read one record back.
-//! - Header: [`tes4::Tes4`] (flags, `HEDR`, masters, `ONAM`).
+//! - Building and placing records (M2.A5): [`Plugin::create`]`(&HeaderSpec)` makes a new
+//!   plugin ([`build::HeaderSpec`]: raw flags, `HEDR`, author, masters as given);
+//!   [`Plugin::upsert`]`(&[GroupHeader], Record) -> Result<Upsert>` replaces the record
+//!   with the same FormID in the group the path names, or adds it, creating missing
+//!   groups (top-level ones in [`build::TOP_GROUP_ORDER`]);
+//!   [`build::upsert_file_to_path`]`(in, out, &RewriteOptions, Vec<Placed>, header_edit)`
+//!   does the same while streaming an existing plugin into a new file, `HEDR` count
+//!   patched. [`build::set_masters`] rewrites a `TES4` master list.
+//! - Header: [`tes4::Tes4`] (flags, `HEDR`, masters, `ONAM`), the flag constants, and
+//!   [`Plugin::hedr_count_on_write`].
 //! - Typed records: [`bridge`] connects records to the generated types in [`generated`].
 //!
 //! LAYER: L0
 
 pub mod bridge;
+pub mod build;
 pub mod compress;
 pub mod driver;
 mod error;

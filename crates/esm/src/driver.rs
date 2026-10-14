@@ -10,8 +10,8 @@
 //! - [`visit_file`] hands each entry to a closure.
 //! - [`rewrite_file`] lets a closure edit each entry, then streams it to a sink;
 //!   [`rewrite_file_to_path`] does the same into a new file and patches its `HEDR` count.
-//!   A closure cannot add a top-level entry; the build module (M2.A5) adds records
-//!   (creating missing top-level groups in order) while streaming the rest.
+//!   A closure cannot add a top-level entry; [`crate::build::upsert_file_to_path`] adds
+//!   records (creating missing top-level groups in order) while streaming the rest.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
