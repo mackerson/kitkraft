@@ -16,7 +16,7 @@ use crate::{execute, parse_line, Invocation};
 
 /// `Data\Source.esm` (localized: OldRifle 000800, OtherRifle 000801), its loose English
 /// table, and `Data\Override.esp` overriding OtherRifle with an inline name.
-fn data(d: &Path) -> PathBuf {
+pub(crate) fn data(d: &Path) -> PathBuf {
     let data = d.join("Data");
     std::fs::create_dir_all(data.join("Strings")).unwrap();
     write_plugin(
