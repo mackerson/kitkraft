@@ -5,6 +5,9 @@ members = ["crates/*", "apps/*", "xtask"]
 [workspace.package]
 version = "0.0.0"
 edition = "2021"
+# Oldest toolchain the code is written for (`<[T]>::as_chunks` is 1.88). Crates opt in with
+# `rust-version.workspace = true`; the dev box builds with 1.99 (plan/STATUS.md).
+rust-version = "1.88"
 license = "MIT OR Apache-2.0"
 publish = false
 

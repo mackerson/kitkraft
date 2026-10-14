@@ -1,18 +1,22 @@
-//! Streaming roundtrip driver.
+//! Streaming drivers: roundtrip, visit, rewrite.
 //!
-//! Reads a plugin one top-level entry at a time (the `TES4` record, then each top-level
-//! group), parses it, writes it back, and compares the output with the bytes read. Only one
-//! top-level entry is in memory at once, plus its parsed tree; the output is compared as it
-//! is produced and never buffered (unless a caller passes a sink). The first mismatch is
-//! reported as an absolute offset and a group/record/subrecord path.
+//! Each reads a plugin one top-level entry at a time (the `TES4` record, then each
+//! top-level group) and parses it; only one top-level entry is in memory at once, plus its
+//! parsed tree.
+//!
+//! - [`roundtrip_file`] writes each entry back and compares the output with the bytes
+//!   read as it is produced (never buffered). The first mismatch is reported as an
+//!   absolute offset and a group/record/subrecord path.
+//! - [`visit_file`] hands each entry to a closure.
+//! - [`rewrite_file`] lets a closure edit each entry, then streams it to a sink.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs::File;
-use std::io::{self, BufReader, Read, Write};
+use std::io::{self, BufReader, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 
-use crate::model::{Body, Entry, Group, Record, Subrecord, HEADER_LEN};
+use crate::model::{Body, Counts, Entry, Group, Record, Subrecord, HEADER_LEN};
 use crate::{DecodeLimits, Error, ParseOptions, Result, Signature, WriteOptions};
 
 /// Roundtrip settings.
@@ -194,6 +198,152 @@ pub fn visit_file(
     Ok(())
 }
 
+/// Settings for [`rewrite_file`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RewriteOptions {
+    pub parse: ParseOptions,
+    pub write: WriteOptions,
+}
+
+/// Where and what to patch when a streaming rewrite added or removed records or groups:
+/// the `HEDR` record count was already written (it sits in the first entry), so the
+/// caller writes `count` at output offset `offset` (see [`HedrFix::apply`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HedrFix {
+    /// Output offset of the `u32` record count inside `HEDR`.
+    pub offset: u64,
+    /// The count by the majority rule ([`crate::tes4::majority_record_count`]).
+    pub count: u32,
+}
+
+impl HedrFix {
+    /// Write the count into a seekable output (for example the file `rewrite_file` wrote).
+    /// Leaves the position just after the count.
+    pub fn apply<W: Write + Seek + ?Sized>(&self, w: &mut W) -> Result<()> {
+        let io = |source| Error::Io {
+            offset: self.offset,
+            source,
+        };
+        w.seek(SeekFrom::Start(self.offset)).map_err(io)?;
+        w.write_all(&self.count.to_le_bytes()).map_err(io)
+    }
+}
+
+/// Result of [`rewrite_file`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RewriteReport {
+    /// Input length in bytes.
+    pub input_len: u64,
+    /// Bytes written to the sink.
+    pub output_len: u64,
+    /// Top-level entries (`TES4` included) the edit left marked modified.
+    pub modified_entries: u64,
+    /// Records (excluding `TES4`) and groups before the edit.
+    pub counts_read: Counts,
+    /// Records (excluding `TES4`) and groups written.
+    pub counts_written: Counts,
+    /// Set when the counts differ and the `HEDR` record count written is not the majority
+    /// count for what was written. `None` also when the header has no readable `HEDR`.
+    pub hedr_fix: Option<HedrFix>,
+}
+
+/// Stream the file at `path` to `sink`, letting `edit` change each top-level entry (the
+/// `TES4` record first, then each top-level group) before it is written.
+///
+/// Memory: one top-level entry's bytes plus its parsed tree, as in [`roundtrip_file`].
+/// Output is never buffered: a modified group's size is computed from its children
+/// ([`Entry::encoded_len`]) before its header is written, and its children then stream
+/// to `sink`.
+///
+/// The `HEDR` record count is written as read (the header precedes everything an edit
+/// can add or remove); [`RewriteReport::hedr_fix`] says where to patch it afterwards.
+pub fn rewrite_file(
+    path: &Path,
+    options: &RewriteOptions,
+    sink: &mut dyn Write,
+    edit: impl FnMut(&mut Entry<'_>) -> Result<()>,
+) -> Result<RewriteReport> {
+    let file = File::open(path).map_err(|source| Error::Io { offset: 0, source })?;
+    let len = file
+        .metadata()
+        .map_err(|source| Error::Io { offset: 0, source })?
+        .len();
+    rewrite_reader(
+        BufReader::with_capacity(1 << 20, file),
+        len,
+        options,
+        sink,
+        edit,
+    )
+}
+
+/// As [`rewrite_file`], over `len` bytes from `input`.
+pub fn rewrite_reader<R: Read>(
+    mut input: R,
+    len: u64,
+    options: &RewriteOptions,
+    sink: &mut dyn Write,
+    mut edit: impl FnMut(&mut Entry<'_>) -> Result<()>,
+) -> Result<RewriteReport> {
+    let mut entries = TopLevelReader::new(&mut input, len);
+    let mut pos: u64 = 0;
+    let mut modified_entries: u64 = 0;
+    let mut counts_read = Counts::default();
+    let mut counts_written = Counts::default();
+    let mut hedr: Option<(u64, u32)> = None;
+    while let Some((offset, buf)) = entries.next_entry()? {
+        let mut entry = Entry::parse_one(&buf, offset, 1, &options.parse)?;
+        let is_header = offset == 0;
+        if !is_header {
+            counts_read.add_entry(&entry);
+        }
+        edit(&mut entry)?;
+        if is_header {
+            if let Entry::Record(r) = &entry {
+                hedr = hedr_count_at(r).map(|(at, count)| (pos.saturating_add(at), count));
+            }
+        } else {
+            counts_written.add_entry(&entry);
+        }
+        if entry.is_modified() {
+            modified_entries = modified_entries.saturating_add(1);
+        }
+        let written = entry.write_to(sink, pos, &options.write)?;
+        pos = pos.saturating_add(written);
+    }
+    let hedr_fix = match (hedr, counts_read == counts_written) {
+        (Some((offset, current)), false) => crate::tes4::majority_record_count(counts_written)
+            .filter(|count| *count != current)
+            .map(|count| HedrFix { offset, count }),
+        _ => None,
+    };
+    Ok(RewriteReport {
+        input_len: len,
+        output_len: pos,
+        modified_entries,
+        counts_read,
+        counts_written,
+        hedr_fix,
+    })
+}
+
+/// Offset of the `HEDR` record count inside `r` as written, and its value.
+fn hedr_count_at(r: &Record<'_>) -> Option<(u64, u32)> {
+    let hedr = crate::tes4::Tes4::new(r).hedr()?.ok()?;
+    let mut at = HEADER_LEN as u64;
+    for s in r.subrecords()? {
+        if s.signature() == Signature::new(b"HEDR") {
+            let header = s.encoded_len().saturating_sub(s.data().len() as u64);
+            return Some((
+                at.saturating_add(header).saturating_add(4),
+                hedr.record_count,
+            ));
+        }
+        at = at.saturating_add(s.encoded_len());
+    }
+    None
+}
+
 /// Reads a plugin one top-level entry at a time. Each entry's declared size is checked
 /// against the bytes left in the input before anything is allocated for it.
 struct TopLevelReader<R: Read> {
@@ -359,7 +509,9 @@ fn count_record(r: &Record<'_>, stats: &mut Stats, decode: Option<&DecodeLimits>
             if let Some(limits) = decode {
                 if let Some(subs) = r.decode(limits)? {
                     stats.decoded_records = stats.decoded_records.saturating_add(1);
-                    let size: u64 = subs.iter().map(Subrecord::encoded_len).sum();
+                    let size = subs
+                        .iter()
+                        .fold(0u64, |acc, s| acc.saturating_add(s.encoded_len()));
                     stats.largest_decompressed = stats.largest_decompressed.max(size);
                     count_subrecords(&subs, stats);
                 }
@@ -440,9 +592,117 @@ fn contains(entry: &Entry<'_>, at: u64) -> bool {
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{locate, roundtrip_bytes, RoundtripOptions};
+    use super::{locate, rewrite_reader, roundtrip_bytes, RewriteOptions, RoundtripOptions};
     use crate::fixture::{self, group, sub};
     use crate::{Entry, Error, ParseOptions, Plugin};
+
+    /// Grow the NAME of the first REFR under CELL > cell children > persistent.
+    fn edit_refr(entry: &mut Entry<'_>) {
+        let Entry::Group(cells) = entry else { return };
+        if cells.header.label != *b"CELL" {
+            return;
+        }
+        let Entry::Group(children) = &mut cells.children_mut()[1] else {
+            panic!()
+        };
+        let Entry::Group(persistent) = &mut children.children_mut()[0] else {
+            panic!()
+        };
+        let Entry::Record(refr) = &mut persistent.children_mut()[0] else {
+            panic!()
+        };
+        refr.subrecords_mut().unwrap()[0].set_data(vec![7u8; 9]);
+    }
+
+    /// Drop the second GMST record.
+    fn drop_gmst(entry: &mut Entry<'_>) {
+        if let Entry::Group(g) = entry {
+            if g.header.label == *b"GMST" {
+                g.children_mut().pop();
+            }
+        }
+    }
+
+    #[test]
+    fn rewrite_streams_an_edit_like_the_in_memory_writer() {
+        let bytes = fixture::sample_plugin();
+        let mut out = Vec::new();
+        let report = rewrite_reader(
+            &bytes[..],
+            bytes.len() as u64,
+            &RewriteOptions::default(),
+            &mut out,
+            |e| {
+                edit_refr(e);
+                Ok(())
+            },
+        )
+        .unwrap();
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        plugin.entries_mut().iter_mut().for_each(edit_refr);
+        assert_eq!(out, plugin.to_bytes().unwrap());
+        assert_eq!(out.len(), bytes.len() + 5);
+        assert_eq!(report.output_len, out.len() as u64);
+        assert_eq!(report.input_len, bytes.len() as u64);
+        assert_eq!(report.modified_entries, 1);
+        assert_eq!(report.counts_read, report.counts_written);
+        assert_eq!(report.hedr_fix, None);
+    }
+
+    #[test]
+    fn rewrite_that_removes_a_record_says_how_to_fix_hedr() {
+        let bytes = fixture::sample_plugin();
+        let mut out = std::io::Cursor::new(Vec::new());
+        let report = rewrite_reader(
+            &bytes[..],
+            bytes.len() as u64,
+            &RewriteOptions::default(),
+            &mut out,
+            |e| {
+                drop_gmst(e);
+                Ok(())
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            report.counts_read.records,
+            report.counts_written.records + 1
+        );
+        let fix = report.hedr_fix.unwrap();
+        // TES4, CELL, 3 REFR, NAVM and one GMST remain.
+        assert_eq!(fix.count, 7);
+        // The fixture TES4 starts with HEDR: record header, subrecord header, f32 version.
+        assert_eq!(fix.offset, 24 + 6 + 4);
+        fix.apply(&mut out).unwrap();
+        let out = out.into_inner();
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        plugin.entries_mut().iter_mut().for_each(drop_gmst);
+        assert_eq!(out, plugin.to_bytes().unwrap());
+        let reparsed = Plugin::parse(&out).unwrap();
+        assert_eq!(reparsed.tes4().hedr().unwrap().unwrap().record_count, 7);
+    }
+
+    #[test]
+    fn rewrite_errors_from_the_edit_stop_the_stream() {
+        let bytes = fixture::sample_plugin();
+        let mut out = Vec::new();
+        let result = rewrite_reader(
+            &bytes[..],
+            bytes.len() as u64,
+            &RewriteOptions::default(),
+            &mut out,
+            |e| match e {
+                Entry::Group(_) => Err(Error::DanglingOversize { offset: 99 }),
+                Entry::Record(_) => Ok(()),
+            },
+        );
+        assert!(matches!(
+            result,
+            Err(Error::DanglingOversize { offset: 99 })
+        ));
+        // Only the TES4 record was written.
+        assert_eq!(out.len(), fixture::plugin(&[]).len());
+    }
 
     #[test]
     fn sample_roundtrips_with_stats() {

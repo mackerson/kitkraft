@@ -1,4 +1,5 @@
-//! Typed errors. Every variant carries the absolute byte offset where the problem was found.
+//! Typed errors. Every variant carries the absolute byte offset where the problem was found:
+//! an input offset for read errors, an output offset for write errors.
 
 use crate::Signature;
 
@@ -72,17 +73,36 @@ pub enum Error {
         source: Box<Error>,
     },
 
-    /// A modified node is too large for its size field.
-    #[error("{what} written for the node read at offset {offset} is {len} bytes, too large for its size field")]
+    /// A decompressed body holds more subrecords than [`crate::DecodeLimits`] allows.
+    #[error("compressed record at offset {offset} holds more than {max} subrecords")]
+    TooManySubrecords { offset: u64, max: u64 },
+
+    /// A modified node is too large for its size field. `offset` is the output offset.
+    #[error(
+        "{what} written at output offset {offset} is {len} bytes, too large for its size field"
+    )]
     TooLarge {
         offset: u64,
         what: &'static str,
         len: u64,
     },
 
-    /// Compression of a modified record failed.
-    #[error("compressing the record read at offset {offset}: {message}")]
+    /// Compression of a modified record failed. `offset` is the output offset.
+    #[error("compressing the record written at output offset {offset}: {message}")]
     Deflate { offset: u64, message: String },
+
+    /// A record's compressed flag disagrees with its body: the flag is set on a
+    /// [`crate::Body::Raw`] body, or clear on a [`crate::Body::Compressed`] one. Writing it
+    /// would produce a record no reader can parse. `offset` is the output offset.
+    #[error("record written at output offset {offset}: compressed flag {} but the body is {}",
+        if *flag_set { "set" } else { "clear" },
+        if *flag_set { "uncompressed" } else { "compressed" })]
+    FlagBodyMismatch { offset: u64, flag_set: bool },
+
+    /// A subrecord built or changed in memory uses the signature `XXXX`, which the format
+    /// reserves for size prefixes. `offset` is the output offset.
+    #[error("subrecord written at output offset {offset} uses the reserved signature XXXX")]
+    ReservedSignature { offset: u64 },
 
     /// An I/O error while streaming a file.
     #[error("I/O error at offset {offset}: {source}")]
@@ -108,8 +128,11 @@ impl Error {
             | Error::Inflate { offset, .. }
             | Error::DecompressedSizeMismatch { offset, .. }
             | Error::InCompressed { offset, .. }
+            | Error::TooManySubrecords { offset, .. }
             | Error::TooLarge { offset, .. }
             | Error::Deflate { offset, .. }
+            | Error::FlagBodyMismatch { offset, .. }
+            | Error::ReservedSignature { offset }
             | Error::Io { offset, .. } => *offset,
         }
     }
