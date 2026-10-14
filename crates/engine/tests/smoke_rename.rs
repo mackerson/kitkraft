@@ -137,9 +137,10 @@ fn rename_the_old_earth_hunting_rifle() {
     .unwrap();
     assert_eq!(r["data"]["identical"], json!(true));
 
-    // The Resupply mistake, for contrast: the master's string ID copied as is fails.
+    // The Resupply mistake, for contrast: the master's string ID copied as is fails the
+    // record rules `set` runs before it writes, so nothing is written.
     let wrong = out.join("CopiedId.esp");
-    execute(
+    let err = execute(
         "set",
         with(json!({
             "form": "Starfield.esm:0021BBCD",
@@ -147,14 +148,13 @@ fn rename_the_old_earth_hunting_rifle() {
             "into": wrong.display().to_string(),
         })),
     )
-    .unwrap();
-    let v = execute(
-        "validate",
-        with(json!({"plugin": wrong.display().to_string(), "rules": ["lstring.copied-id"]})),
-    )
-    .unwrap();
-    assert_eq!(v["data"]["passed"], json!(false));
-    assert_eq!(v["data"]["findings"][0]["subrecord"], json!("FULL[0]"));
+    .unwrap_err()
+    .to_string();
+    assert!(
+        err.contains("lstring.copied-id") && err.contains("FULL"),
+        "{err}"
+    );
+    assert!(!wrong.exists());
 
     let _ = std::fs::remove_dir_all(&out);
 }

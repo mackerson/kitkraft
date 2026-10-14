@@ -228,6 +228,45 @@ fn set_errors() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// Fable review round 2, finding 4: a string set as `hex:` must be one NUL-terminated
+/// string, and `set` runs the record rules on what it wrote (as `build` does): a record
+/// that fails them leaves the target as it was.
+#[test]
+fn set_refuses_malformed_strings_and_records_that_fail_validate() {
+    let d = dir("set-validate");
+    let data = data(&d);
+    let target = d.join("P.esp");
+    let call = |fields: Value| {
+        execute(
+            "set",
+            json!({
+                "form": "OldRifle", "fields": fields, "into": target.display().to_string(),
+                "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+                "no_cache": true,
+            }),
+        )
+    };
+    for bad in ["hex:", "hex:4142"] {
+        let err = call(json!({ "FULL": bad })).unwrap_err();
+        assert_eq!(err.kind(), "invalid_args");
+        assert!(err.to_string().contains("NUL-terminated"), "{err}");
+    }
+    assert!(!target.exists());
+    let good = call(json!({"FULL": "Good"})).unwrap();
+    assert_eq!(good["data"]["validate"]["passed"], json!(true));
+    let before = std::fs::read(&target).unwrap();
+    // A string ID's bytes end in 00, so the shape passes; the record rules do not.
+    let err = call(json!({"FULL": "hex:69E40200"}))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        err.contains("fails validate") && err.contains("lstring.copied-id"),
+        "{err}"
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// Until lane D's round 2: a load order with a plugin before its master (or missing one)
 /// is refused as a source, and so is a deleted winning version.
 #[test]

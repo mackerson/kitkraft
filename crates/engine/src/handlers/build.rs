@@ -16,13 +16,17 @@
 //! ```
 //!
 //! Rules expand to sets over their `query` matches (load order, then FormID), explicit
-//! `[[set]]` entries apply after the rules, and a field written twice is an error naming
-//! both TOML keys. The plugin is always written fresh (an existing `out` is replaced only
-//! once the new one has passed `validate`); a build with validation errors writes nothing.
-//! Spec errors name the TOML key (`set[0].fields.FULL`).
+//! `[[set]]` entries apply after the rules, and a field written twice (the same path, or a
+//! whole subrecord and a member of it) is an error naming both TOML keys. `out` is checked
+//! like any patch target (never a load-order plugin, the game or user Data directory, or
+//! MO2) before anything is written. The plugin is always written fresh in a staging
+//! directory under the OS temp dir, validated, and only then moved to `out`; an existing
+//! `out` is replaced only with `overwrite: true`, and a build with validation errors
+//! writes nothing. Spec errors name the TOML key (`set[0].fields.FULL`); TOML `inf`/`nan`
+//! are range errors.
 
 use std::collections::BTreeMap;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use kitcraft_doc::query::Query;
 use kitcraft_doc::search::{run_page, PageRequest, Scope, MAX_LIMIT};
@@ -31,13 +35,17 @@ use kitcraft_esm::DecodeLimits;
 use serde_json::{json, Map, Value};
 
 use super::load::{acquire, Loaded};
-use super::set::{edits, find_form, outcome, winning_copy, write, Origin};
+use super::set::{
+    check, describe, edits, find_form, guard, install, outcome, stage, validate_json, winning_copy,
+    write, Origin,
+};
 use super::{failed, str_arg};
+use crate::edit::fields::{FieldPath, Step};
 use crate::edit::patch::Edit;
 use crate::envelope::Outcome;
 use crate::exec::EngineError;
 use crate::session::Session;
-use crate::validate::{self, Options, Severity};
+use crate::validate::{self, Severity};
 
 const ID: &str = "build";
 
@@ -94,6 +102,17 @@ fn fields(table: &toml::Table, at: &str) -> Result<Vec<Edit>, EngineError> {
     let Some(toml::Value::Table(f)) = table.get("fields") else {
         return Err(spec_error(&format!("{at}.fields"), "is required (a table)"));
     };
+    // TOML has inf and nan floats; JSON has none, so they are caught here, as the
+    // range errors they are.
+    if let Some((key, value)) = f
+        .iter()
+        .find_map(|(k, v)| non_finite(v, &format!("{at}.fields.{k}")))
+    {
+        return Err(spec_error(
+            &key,
+            format!("{value} is not a finite number (range): field values and mul/add factors must be finite"),
+        ));
+    }
     let json = match to_json(&toml::Value::Table(f.clone())) {
         Value::Object(m) => m,
         _ => Map::new(),
@@ -115,6 +134,33 @@ fn fields(table: &toml::Table, at: &str) -> Result<Vec<Edit>, EngineError> {
         }
         other => other,
     })
+}
+
+/// Whether two field paths write overlapping bytes: the same subrecord occurrence, and one
+/// path's steps a prefix of the other's (`DNAM` and `DNAM.Speed`, or the same member).
+fn overlaps(a: &FieldPath, b: &FieldPath) -> bool {
+    a.signature == b.signature
+        && a.occurrence == b.occurrence
+        && a.steps.iter().zip(&b.steps).all(|(x, y)| match (x, y) {
+            (Step::Member(x), Step::Member(y)) => x.eq_ignore_ascii_case(y),
+            (x, y) => x == y,
+        })
+}
+
+/// The dotted key of the first float in `value` that is not finite (TOML `inf`, `nan`),
+/// relative to `at`.
+fn non_finite(value: &toml::Value, at: &str) -> Option<(String, f64)> {
+    match value {
+        toml::Value::Float(f) if !f.is_finite() => Some((at.to_string(), *f)),
+        toml::Value::Table(t) => t
+            .iter()
+            .find_map(|(k, v)| non_finite(v, &format!("{at}.{k}"))),
+        toml::Value::Array(a) => a
+            .iter()
+            .enumerate()
+            .find_map(|(i, v)| non_finite(v, &format!("{at}[{i}]"))),
+        _ => None,
+    }
 }
 
 /// A parsed spec.
@@ -259,6 +305,8 @@ fn matches(
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let spec_path = PathBuf::from(str_arg(ID, args, "spec")?);
     let out = PathBuf::from(str_arg(ID, args, "out")?);
+    let flag = |key: &str| args.get(key).and_then(Value::as_bool).unwrap_or(false);
+    let (overwrite, allow_untyped) = (flag("overwrite"), flag("allow_untyped_lstrings"));
     let text = std::fs::read_to_string(&spec_path)
         .map_err(|e| failed(ID, format!("{}: {e}", spec_path.display())))?;
     let spec = parse_spec(&text)?;
@@ -267,6 +315,16 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         None => acquire(session, args, ID)?,
     };
     super::set::verify_load_order(ID, loaded)?;
+    // `out` is checked as the patch writer checks its target (never a load-order plugin,
+    // the game or user Data directory, or MO2), and an existing `out` is replaced only
+    // with `overwrite`, before anything is staged.
+    guard(ID, loaded, &out)?;
+    if !overwrite && out.exists() {
+        return Err(failed(
+            ID,
+            format!("`{}` exists; pass overwrite to replace it", out.display()),
+        ));
+    }
     let mut limitations = loaded.limitations.clone();
 
     // Expand: rules in order, then sets; one entry per form, edits merged.
@@ -279,10 +337,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 order.push(form);
             }
             for edit in list {
-                let key = (edit.path.signature, edit.path.occurrence, &edit.path.steps);
-                if let Some((first, _)) = entry
-                    .iter()
-                    .find(|(_, e)| (e.path.signature, e.path.occurrence, &e.path.steps) == key)
+                if let Some((first, _)) = entry.iter().find(|(_, e)| overlaps(&e.path, &edit.path))
                 {
                     return Err(spec_error(
                         &format!("{at}.fields.{}", edit.path.text),
@@ -321,8 +376,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         ));
     }
 
-    // Write fresh into a temporary directory next to `out` (same file name), validate,
-    // then move it over `out`.
+    // Write fresh into a staging directory (OS temp dir), validate, then move it to `out`.
     let limits = DecodeLimits::default();
     let mut copies = Vec::new();
     let mut origins: Vec<Origin> = Vec::new();
@@ -332,97 +386,39 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .map(|v| v.iter().map(|(_, e)| e.clone()).collect())
             .unwrap_or_default();
         let (copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
-        if let Some(note) = super::set::scale_note(&copy) {
-            limitations.push(note);
-        }
         copies.push(copy);
         origins.push(origin);
     }
-    let name = out
-        .file_name()
-        .ok_or_else(|| failed(ID, format!("{}: not a file path", out.display())))?;
-    let parent = out
-        .parent()
-        .filter(|p| !p.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    let temp_dir = parent.join(format!(".kitcraft-build-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&temp_dir);
-    std::fs::create_dir_all(&temp_dir)
-        .map_err(|e| failed(ID, format!("{}: {e}", temp_dir.display())))?;
-    let temp = temp_dir.join(name);
-    let cleanup = || {
-        let _ = std::fs::remove_dir_all(&temp_dir);
-    };
-    let written = write(ID, loaded, &temp, copies);
-    let mut report = match written {
-        Ok(r) => r,
-        Err(e) => {
-            cleanup();
-            return Err(e);
-        }
-    };
-    let plugins: Vec<PathBuf> = loaded.lo.plugins.iter().map(|p| p.path.clone()).collect();
-    let options = Options {
-        plugin: Some(temp.clone()),
-        plugins,
-        indexed: super::validate::indexes(&loaded.lo),
-        ..Options::default()
-    };
-    let checked = validate::validate(&options);
-    let checked = match checked {
-        Ok(c) => c,
-        Err(m) => {
-            cleanup();
-            return Err(failed(ID, format!("validating the output: {m}")));
-        }
-    };
+    let staged = stage(ID, &out, false)?;
+    let mut report = write(ID, loaded, &staged.path, copies, allow_untyped)?;
+    let checked = check(ID, loaded, &staged)?;
     if !checked.passed() {
-        cleanup();
-        let errors: Vec<String> = checked
+        let errors: Vec<&validate::Finding> = checked
             .findings
             .iter()
             .filter(|f| f.severity == Severity::Error)
-            .take(20)
-            .map(|f| {
-                format!(
-                    "{} {}: {}",
-                    f.rule,
-                    f.record.as_deref().unwrap_or("-"),
-                    f.message
-                )
-            })
             .collect();
         return Err(failed(
             ID,
             format!(
                 "the built plugin fails validate, so nothing was written: {}",
-                errors.join("; ")
+                describe(&errors)
             ),
         ));
     }
-    if let Err(e) = std::fs::rename(&temp, &out) {
-        cleanup();
+    if !overwrite && out.exists() {
         return Err(failed(
             ID,
-            format!("moving the build to {}: {e}", out.display()),
+            format!("`{}` exists; pass overwrite to replace it", out.display()),
         ));
     }
-    cleanup();
+    install(ID, &staged, &out)?;
     report.target = out.clone();
     let mut result = outcome(&report, &origins, limitations);
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("spec".into(), json!(spec_path.display().to_string()));
         obj.insert("rules".into(), Value::Array(expanded));
-        obj.insert(
-            "validate".into(),
-            json!({
-                "passed": checked.passed(),
-                "errors": checked.count(Severity::Error),
-                "warnings": checked.count(Severity::Warning),
-                "findings": checked.findings,
-                "rules": checked.rules,
-            }),
-        );
+        obj.insert("validate".into(), validate_json(&checked));
         obj.insert("passed".into(), json!(true));
     }
     Ok(result)

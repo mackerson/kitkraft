@@ -5,7 +5,9 @@
 //! EditorID, or a hex FormID in `plugin`'s space; its winning version is copied into `into`
 //! through the patch writer (`crate::edit::patch`), with `fields` applied
 //! (`crate::edit::fields`): `{"FULL": "Old Soviet Marksman Rifle"}`, or the CLI shorthand
-//! `FULL="..."`.
+//! `FULL="..."`. The write goes to a staged copy of `into` (OS temp dir), the plugin rules
+//! of `validate` run on it as `build`'s do, and `into` is replaced only when the records
+//! written pass (`docs/validate.md`).
 
 use std::cell::RefCell;
 use std::fs::File;
@@ -20,12 +22,15 @@ use super::load::{acquire, Loaded};
 use super::{failed, str_arg};
 use crate::args::Violation;
 use crate::edit::fields::{parse_op, parse_path};
-use crate::edit::patch::{write_patch, Copy, Edit, PatchError, PatchOptions, PatchReport};
+use crate::edit::patch::{
+    guard_target, write_patch, Copy, Edit, PatchError, PatchOptions, PatchReport,
+};
 use crate::edit::source::{placement_at, SourcePlugin};
 use crate::edit::strings::TableStrings;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
+use crate::validate::{self, Severity};
 
 const ID: &str = "set";
 
@@ -237,15 +242,16 @@ pub(crate) fn winning_copy(
     ))
 }
 
-/// The note for a copy from a small or medium plugin: its own records were found by
-/// lane D's `full-style-self` assumption (`docs/load-order.md`).
-pub(crate) fn scale_note(copy: &Copy) -> Option<String> {
-    copy.source.scaled().then(|| {
-        format!(
-            "{} is a small or medium plugin: its version of {} was found by the `full-style-self` assumption (docs/load-order.md), not yet observed in the CK or in game",
-            copy.source.name, copy.formref
-        )
-    })
+/// The load order's plugin files: never written.
+pub(crate) fn protected(loaded: &Loaded) -> Vec<PathBuf> {
+    loaded.lo.plugins.iter().map(|p| p.path.clone()).collect()
+}
+
+/// Refuses an output path the patch writer would refuse (`guard_target`: extension, a
+/// load-order plugin, the game or user Data directory, an MO2 instance), before anything
+/// is staged.
+pub(crate) fn guard(command: &str, loaded: &Loaded, out: &Path) -> Result<(), EngineError> {
+    guard_target(out, &protected(loaded)).map_err(|e| failed(command, e.to_string()))
 }
 
 /// Writes `copies` into `into` with the load order's string tables, protected files and
@@ -255,8 +261,9 @@ pub(crate) fn write(
     loaded: &mut Loaded,
     into: &Path,
     copies: Vec<Copy>,
+    allow_untyped_lstrings: bool,
 ) -> Result<PatchReport, EngineError> {
-    let protected: Vec<PathBuf> = loaded.lo.plugins.iter().map(|p| p.path.clone()).collect();
+    let protected = protected(loaded);
     let plugin_flags: Vec<(String, u32)> = loaded
         .lo
         .plugins
@@ -269,7 +276,7 @@ pub(crate) fn write(
         protected,
         plugin_flags,
         limits: DecodeLimits::default(),
-        allow_untyped_lstrings: false,
+        allow_untyped_lstrings,
     };
     write_patch(into, copies, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {
@@ -281,6 +288,148 @@ pub(crate) fn write(
             }],
         },
         PatchError::Refused(m) | PatchError::Io(m) => failed(command, m),
+    })
+}
+
+/// A private directory under the OS temp dir where `set` and `build` write and validate a
+/// plugin before it replaces its destination; removed on drop. Directories a crashed run
+/// left behind (older than a day) are removed when a new one is made, and so are `build`'s
+/// old `.kitcraft-build-<pid>` directories next to the destination (the layout before
+/// 2026-10-14, older than an hour).
+pub(crate) struct Staged {
+    dir: PathBuf,
+    /// The staged plugin (same file name as the destination).
+    pub path: PathBuf,
+}
+
+impl Drop for Staged {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.dir);
+    }
+}
+
+/// Prefix of staging directories in the OS temp dir.
+const STAGE_PREFIX: &str = "kitcraft-stage-";
+
+static STAGE_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+
+/// Removes directories in `dir` whose name starts with `prefix` and that were last
+/// modified more than `age` ago (best effort).
+pub(crate) fn remove_stale(dir: &Path, prefix: &str, age: std::time::Duration) {
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let named = entry.file_name().to_string_lossy().starts_with(prefix);
+        let old = entry
+            .metadata()
+            .ok()
+            .filter(std::fs::Metadata::is_dir)
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.elapsed().ok())
+            .is_some_and(|e| e > age);
+        if named && old {
+            let _ = std::fs::remove_dir_all(entry.path());
+        }
+    }
+}
+
+/// Stages `out`: a fresh directory under the OS temp dir holding `out`'s file name, with a
+/// copy of `out` when `copy_existing` and it exists.
+pub(crate) fn stage(command: &str, out: &Path, copy_existing: bool) -> Result<Staged, EngineError> {
+    let temp = std::env::temp_dir();
+    remove_stale(
+        &temp,
+        STAGE_PREFIX,
+        std::time::Duration::from_secs(24 * 3600),
+    );
+    let parent = out
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    remove_stale(
+        parent,
+        ".kitcraft-build-",
+        std::time::Duration::from_secs(3600),
+    );
+    let name = out
+        .file_name()
+        .ok_or_else(|| failed(command, format!("{}: not a file path", out.display())))?;
+    let n = STAGE_COUNTER.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let dir = temp.join(format!("{STAGE_PREFIX}{}-{n}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir)
+        .map_err(|e| failed(command, format!("{}: {e}", dir.display())))?;
+    let staged = Staged {
+        path: dir.join(name),
+        dir,
+    };
+    if copy_existing && out.exists() {
+        std::fs::copy(out, &staged.path)
+            .map_err(|e| failed(command, format!("staging {}: {e}", out.display())))?;
+    }
+    Ok(staged)
+}
+
+/// Moves the staged plugin to `out`: copied next to `out` first, then renamed over it (the
+/// staging dir may be on another volume; the rename stays on `out`'s).
+pub(crate) fn install(command: &str, staged: &Staged, out: &Path) -> Result<(), EngineError> {
+    let name = out
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let temp = out.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()));
+    std::fs::copy(&staged.path, &temp)
+        .and_then(|_| std::fs::rename(&temp, out))
+        .map_err(|e| {
+            let _ = std::fs::remove_file(&temp);
+            failed(
+                command,
+                format!("moving the plugin to {}: {e}", out.display()),
+            )
+        })
+}
+
+/// Runs `validate` on the staged plugin against the load order.
+pub(crate) fn check(
+    command: &str,
+    loaded: &Loaded,
+    staged: &Staged,
+) -> Result<validate::Report, EngineError> {
+    let options = validate::Options {
+        plugin: Some(staged.path.clone()),
+        plugins: protected(loaded),
+        indexed: super::validate::indexes(&loaded.lo),
+        ..validate::Options::default()
+    };
+    validate::validate(&options).map_err(|m| failed(command, format!("validating the output: {m}")))
+}
+
+/// `{rule} {record}: {message}` of up to 20 findings.
+pub(crate) fn describe(findings: &[&validate::Finding]) -> String {
+    findings
+        .iter()
+        .take(20)
+        .map(|f| {
+            format!(
+                "{} {}: {}",
+                f.rule,
+                f.record.as_deref().unwrap_or("-"),
+                f.message
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
+/// The `validate` part of a `set` or `build` result.
+pub(crate) fn validate_json(checked: &validate::Report) -> Value {
+    json!({
+        "passed": checked.passed(),
+        "errors": checked.count(Severity::Error),
+        "warnings": checked.count(Severity::Warning),
+        "findings": checked.findings,
+        "rules": checked.rules,
     })
 }
 
@@ -408,13 +557,56 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .and_then(Value::as_object)
         .ok_or_else(|| failed(ID, "argument `fields` is missing"))?;
     let edits = edits(ID, "/fields", fields)?;
+    let allow_untyped = args
+        .get("allow_untyped_lstrings")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
     let loaded = acquire(session, args, ID)?;
     verify_load_order(ID, loaded)?;
+    guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
     let (copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
     let mut limitations = loaded.limitations.clone();
-    limitations.extend(scale_note(&copy));
-    let report = write(ID, loaded, &into, vec![copy])?;
-    Ok(outcome(&report, &[origin], limitations))
+
+    // Write into a staged copy of `into`, run the record rules on it (as `build` does),
+    // and replace `into` only when the records this call wrote pass.
+    let staged = stage(ID, &into, true)?;
+    let mut report = write(ID, loaded, &staged.path, vec![copy], allow_untyped)?;
+    let checked = check(ID, loaded, &staged)?;
+    let written: Vec<String> = report
+        .records
+        .iter()
+        .map(|r| format!("{}:{:08X}", r.signature, r.form_id))
+        .collect();
+    let (blocking, other): (Vec<&validate::Finding>, Vec<&validate::Finding>) = checked
+        .findings
+        .iter()
+        .filter(|f| f.severity == Severity::Error)
+        .partition(|f| f.record.as_ref().is_none_or(|r| written.contains(r)));
+    if !blocking.is_empty() {
+        return Err(failed(
+            ID,
+            format!(
+                "the written record fails validate, so {} was not changed: {}",
+                into.display(),
+                describe(&blocking)
+            ),
+        ));
+    }
+    if !other.is_empty() {
+        limitations.push(format!(
+            "{} has {} validate error(s) on records this call did not write: {}",
+            into.display(),
+            other.len(),
+            describe(&other)
+        ));
+    }
+    install(ID, &staged, &into)?;
+    report.target = into.clone();
+    let mut result = outcome(&report, &[origin], limitations);
+    if let Some(obj) = result.data.as_object_mut() {
+        obj.insert("validate".into(), validate_json(&checked));
+    }
+    Ok(result)
 }
