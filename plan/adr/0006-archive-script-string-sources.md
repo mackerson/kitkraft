@@ -71,3 +71,42 @@ Rules:
 - Differential checks against Archive2 and the Papyrus compiler are recorded in
   `plan/STATUS.md` with the tool version and what differed.
 - A source not listed here needs an amendment; one that ADR 0005 forbids goes to the owner.
+
+## Amendment 1 (2026-10-14): Papyrus source declarations (M4.G0)
+
+### Context
+
+M4 reads Papyrus *source* (`.psc`) declarations, not only compiled `.pex`: `papyrus.events`
+(M4.G2) answers which events and functions a script and its parents declare, so script
+attachment (M4.E9) and the persistence research (M4.H3) can pick events from evidence.
+The table in §1 names no source for the Papyrus language or for the base game's script
+declarations.
+
+### Decision
+
+| Level | Source | Used for | Cite as |
+| ----- | ------ | -------- | ------- |
+| 1 | **Corpus**: the official sources under `Scripts/Source` in `Tools\ContentResources.zip` (5,034 files), read in place from the zip by our own code. Never extracted into the repo, never quoted in docs, never bundled | Every declaration fact: script names and parents, function and event signatures, flags, properties, structs, custom events; and which constructs the declaration reader must accept | `corpus: ContentResources.zip <inventory note>` |
+| 2 | **Black-box runs** of `PapyrusCompiler.exe` (already in §1): compile synthetic scripts and observe what it accepts or rejects | Whether a construct is legal when the corpus does not settle it | `black-box: PapyrusCompiler <version> <observation>` |
+| 4 | **The CK wiki** (`docs/source-registry.md`, CK-WIKI) | Language semantics (what `Native`, `Global`, `Auto`, `Conditional` mean; comment forms; line continuation), in our own words | `ck-wiki: <page title>` |
+| cross-check | **The Papyrus Index site** (`docs/source-registry.md`, PAPYRUS) | Only to cross-check a signature our reader produced from the corpus; never the source of a fact, never copied | `papyrus-index: <page>` (in a test or STATUS note only) |
+
+Rules:
+
+- The `.psc` reader in `crates/pex` (`psc` module) is written from the corpus and the CK
+  wiki's language description in our own structure. **No other Papyrus parser, compiler,
+  decompiler, grammar file or language server is read** (Caprica, open-papyrus projects,
+  Champollion, editor grammars and the like), whatever its license; OPEN-PAPYRUS stays
+  `future`.
+- Comments in the official sources are Bethesda text: KitCraft shows them only when asked
+  (`with_comments: true`), read at that moment from the user's own zip, and never caches,
+  commits or quotes them. Declarations (names, types, flags) are facts and may appear in
+  results, tests and docs.
+- Tests use synthetic `.psc` fixtures written by us; corpus tests read the user's zip in
+  place and skip without it.
+
+### Consequences
+
+- `crates/pex/src/psc/` cites `corpus:` and `ck-wiki:` in its module docs.
+- `docs/source-registry.md`: PAPYRUS becomes `permitted-reference (cross-check only)`;
+  CORPUS-ARCHIVES names the `.psc` declarations as level 1.

@@ -565,6 +565,13 @@ is under "Next".
   rule but lists the 22 real dangling FormIDs as `KNOWN_ERRORS` with evidence and exact
   counts (Starfield.esm PKIN `PRPS.ActorValue` 0x33D x7 and 0x33E x14; SFBGS050.esm
   PNDT `EOVR.Worldspace` 0202B2F4 x1).
+- Lane G, M4 (archives, scripts, strings; 2026-10-14):
+  - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
+    in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box
+    (level 2) and the CK wiki for semantics (level 4); the Papyrus Index only cross-checks;
+    no other Papyrus parser, compiler or grammar is read; source comments are shown only on
+    request and never cached or quoted. Registry rows PAPYRUS, CORPUS-ARCHIVES and
+    OPEN-PAPYRUS updated.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
