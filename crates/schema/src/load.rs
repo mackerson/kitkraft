@@ -165,6 +165,8 @@ pub enum ErrorKind {
         "a union with `decider = \"edid-prefix\"` needs an EDID subrecord member in the record"
     )]
     UnionWithoutEditorId,
+    #[error("an unordered record cannot have a top-level `any_until` member: it would accept every subrecord out of place")]
+    UnorderedAnyUntil,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -182,6 +184,7 @@ struct RawFile {
     confidence: Option<String>,
     note: Option<String>,
     flags: Option<Vec<(String, i64)>>,
+    unordered: Option<bool>,
     size: Option<u32>,
     member: Option<Vec<RawMember>>,
     field: Option<Vec<RawField>>,
@@ -612,11 +615,16 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
             if has_union && !leaves.iter().any(|(sig, _)| Some(*sig) == edid) {
                 return Err(cx.err(ErrorKind::UnionWithoutEditorId));
             }
+            let unordered = raw.unordered.unwrap_or(false);
+            if unordered && members.iter().any(|m| matches!(m, Member::AnyUntil(_))) {
+                return Err(cx.err(ErrorKind::UnorderedAnyUntil));
+            }
             Ok(Definition::Record(RecordDef {
                 signature,
                 name: raw.name,
                 provenance: prov,
                 flags,
+                unordered,
                 members,
                 note: raw.note,
             }))
@@ -647,6 +655,12 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
                 }
             };
             reject(cx, raw.flags.is_some(), "flags", "a header definition")?;
+            reject(
+                cx,
+                raw.unordered.is_some(),
+                "unordered",
+                "a header definition",
+            )?;
             reject(cx, raw.member.is_some(), "member", "a header definition")?;
             let size = raw
                 .size
@@ -675,6 +689,7 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
             let context = format!("a shared {kind} definition");
             reject(cx, raw.signature.is_some(), "signature", &context)?;
             reject(cx, raw.flags.is_some(), "flags", &context)?;
+            reject(cx, raw.unordered.is_some(), "unordered", &context)?;
             let body = if kind == "group" {
                 reject(cx, raw.size.is_some(), "size", &context)?;
                 reject(cx, raw.field.is_some(), "field", &context)?;
@@ -990,8 +1005,9 @@ fn leaf_types<'m>(members: &'m [Member], out: &mut Vec<(Signature, &'m FieldType
     }
 }
 
-/// Names reserved in member lists: generated record structs have an `extra` field.
-const RESERVED_MEMBER_NAMES: &[&str] = &["Extra"];
+/// Names reserved in member lists: generated record structs have an `extra` field, and
+/// unordered ones a `disk_order` field.
+const RESERVED_MEMBER_NAMES: &[&str] = &["Extra", "DiskOrder"];
 
 /// Group nesting after shared groups are expanded stays within [`MAX_DEPTH`].
 fn check_group_depth(cx: &Cx<'_, '_>, members: &[Member], depth: usize) -> Result<(), SchemaError> {

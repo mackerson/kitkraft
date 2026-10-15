@@ -398,7 +398,8 @@ impl<'s> Matcher<'s, '_> {
 }
 
 /// Places every subrecord of a record of type `record` (its subrecord signatures, in
-/// order) in the definition, as the generated decoder does. `None` when the schema does
+/// order) in the definition, as the generated decoder does (`match_members`, or
+/// `match_unordered` for a record type marked `unordered`). `None` when the schema does
 /// not define the record type.
 pub fn placements<'s>(
     schema: &'s Schema,
@@ -414,7 +415,18 @@ pub fn placements<'s>(
     let (mut pos, mut cursor) = (0, 0);
     while pos < sigs.len() {
         let before = pos;
-        if !m.one(&mut pos, &def.members, &mut cursor, 0, "") || pos == before {
+        let mut placed = m.one(&mut pos, &def.members, &mut cursor, 0, "");
+        // An unordered record (CELL, REFR, ACHR): when no member from the cursor on accepts
+        // the subrecord, match from the first member again (the generated
+        // `match_unordered`).
+        if !placed && def.unordered {
+            let mut wrapped = 0;
+            placed = m.one(&mut pos, &def.members, &mut wrapped, 0, "");
+            if placed {
+                cursor = wrapped;
+            }
+        }
+        if !placed || pos == before {
             pos = before.saturating_add(1);
         }
     }
@@ -667,6 +679,25 @@ mod tests {
     /// PNDT has CNAM, FNAM and GNAM at the top level and again inside the body group, with
     /// different layouts: each occurrence resolves by position, and a path naming all of
     /// them is ambiguous (typed, never a panic).
+    #[test]
+    fn unordered_records_place_members_anywhere() {
+        // REFR is `unordered` (M4.BX1): XSCL and XLYR after DATA are still their members,
+        // as the generated `match_unordered` places them.
+        let schema = kitcraft_schema::builtin().unwrap();
+        let subs = [*b"NAME", *b"DATA", *b"XSCL", *b"XLYR"];
+        let placed = placements(schema, *b"REFR", &subs).unwrap();
+        let paths: Vec<String> = placed
+            .iter()
+            .map(|p| match p {
+                Placement::Member { path, .. } => path.clone(),
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(paths, ["Base", "Placement", "Scale", "Layer"]);
+        let scale = layout_at(schema, *b"REFR", &subs, 2).unwrap().unwrap();
+        assert_eq!(scale.path, "Scale");
+    }
+
     #[test]
     fn pndt_duplicated_signatures_resolve_by_position() {
         let schema = kitcraft_schema::builtin().unwrap();

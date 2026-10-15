@@ -111,6 +111,13 @@ fn roundtrip(subs: &[OwnedSub], ctx: Ctx) -> ZzzzRecord {
     record
 }
 
+fn roundtrip_unor(subs: &[OwnedSub], ctx: Ctx) -> fixture::UnorRecord {
+    let raws = raw(subs);
+    let record = fixture::UnorRecord::decode(&raws, ctx);
+    assert_eq!(record.encode(), subs, "roundtrip changed the record");
+    record
+}
+
 fn roundtrip_y(subs: &[OwnedSub], ctx: Ctx) -> YyyyRecord {
     let raws = raw(subs);
     let record = YyyyRecord::decode(&raws, ctx);
@@ -404,7 +411,11 @@ fn record_dispatch() {
     assert_eq!(rec.encode(), subs);
     assert!(Record::decode(*b"NONE", &raws, ctx(15, false)).is_none());
     let sigs: Vec<[u8; 4]> = RECORDS.iter().map(|(sig, _)| *sig).collect();
-    assert_eq!(sigs, [*b"EMPT", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]);
+    assert_eq!(
+        sigs,
+        [*b"EMPT", *b"UNOR", *b"UUUU", *b"VVVV", *b"YYYY", *b"ZZZZ"]
+    );
+    assert_eq!(fixture::UNORDERED, [*b"UNOR"]);
     assert!(rec.extra().is_empty());
 }
 
@@ -426,10 +437,10 @@ fn decode_errors_display_and_are_errors() {
 /// random payload sizes: whatever the order, decoding then encoding is the identity.
 #[test]
 fn random_bodies_roundtrip() {
-    let pool: [&[u8; 4]; 26] = [
+    let pool: [&[u8; 4]; 29] = [
         b"EDID", b"FULL", b"DATA", b"VERS", b"KWDA", b"ENAM", b"ENTR", b"BEGN", b"BEND", b"TAIL",
         b"BIG8", b"SKIP", b"QQQQ", b"ZZZZ", b"HNAM", b"HFLG", b"SCAL", b"WIDE", b"ONAM", b"LNAM",
-        b"GATE", b"GRST", b"PNTS", b"LIST", b"MRKB", b"MRKD",
+        b"GATE", b"GRST", b"PNTS", b"LIST", b"MRKB", b"MRKD", b"NAME", b"PKEY", b"PVAL",
     ];
     let mut state: u64 = 0x9E37_79B9_7F4A_7C15;
     let mut next = move || {
@@ -458,10 +469,66 @@ fn random_bodies_roundtrip() {
         let c = ctx((next() % 200) as u16, next() % 2 == 0);
         roundtrip(&subs, c);
         roundtrip_y(&subs, c);
+        roundtrip_unor(&subs, c);
         let raws = raw(&subs);
         let empt = Record::decode(*b"EMPT", &raws, c).unwrap();
         assert_eq!(empt.encode(), subs);
     }
+}
+
+/// M4.BX1: an unordered record places every subrecord whatever its position (the ordered
+/// matcher would leave the out-of-order ones raw), encodes the values back in on-disk
+/// order, and after edits writes the remaining values in that order with added ones last.
+#[test]
+fn unordered_record_places_members_in_any_order() {
+    let subs = vec![
+        sub(b"NAME", &7u32.to_le_bytes()),
+        sub(b"FULL", b"Hi\0"),
+        sub(b"PKEY", &[1]),
+        sub(b"PVAL", &[2, 0]),
+        sub(b"EDID", b"Unor\0"),
+        big(b"NAME", &8u32.to_le_bytes()),
+        sub(b"DATA", &5u32.to_le_bytes()),
+        sub(b"PKEY", &[3]),
+    ];
+    let raws = raw(&subs);
+    let rec = roundtrip_unor(&subs, ctx(1, false));
+    assert!(rec.extra.is_empty(), "{:?}", rec.extra);
+    assert_eq!(rec.refs.len(), 2);
+    assert!(rec.refs[1].oversized);
+    assert_eq!(rec.pair.len(), 2);
+    assert_eq!(rec.disk_order, [3, 4, 2, 0, 3, 1, 2]);
+    let (_, ordered) = fixture::match_members(&raws, fixture::UnorRecord::MEMBERS);
+    assert!(!ordered.is_empty());
+    let (_, unmatched) = fixture::match_body(*b"UNOR", &raws, fixture::UnorRecord::MEMBERS);
+    assert!(unmatched.is_empty());
+    let typed = Record::decode(*b"UNOR", &raws, ctx(1, false)).unwrap();
+    assert_eq!(typed.encode(), subs);
+    // Edits: a removed value drops out, the others keep their order, an added one follows.
+    let mut edited = rec.clone();
+    edited.refs.remove(0);
+    edited.refs.push(Sub::new(FormId(9)));
+    edited.editor_id = None;
+    let sigs: Vec<[u8; 4]> = edited.encode().iter().map(|s| s.signature).collect();
+    assert_eq!(
+        sigs,
+        [*b"NAME", *b"FULL", *b"PKEY", *b"PVAL", *b"NAME", *b"DATA", *b"PKEY"]
+    );
+    // A value set on a fresh record (no recorded order) is written in definition order.
+    let fresh = fixture::UnorRecord {
+        name: Some(Sub::new(LString::Text(ZString(b"X".to_vec())))),
+        editor_id: Some(Sub::new(ZString(b"E".to_vec()))),
+        ..Default::default()
+    };
+    let sigs: Vec<[u8; 4]> = fresh.encode().iter().map(|s| s.signature).collect();
+    assert_eq!(sigs, [*b"EDID", *b"FULL"]);
+    // A second EDID (an optional member already filled) stays raw, in place: the first one
+    // read fills the member.
+    let mut twice = subs.clone();
+    twice.insert(1, sub(b"EDID", b"Again\0"));
+    let rec = roundtrip_unor(&twice, ctx(1, false));
+    assert_eq!(rec.extra.len(), 1);
+    assert_eq!(rec.extra[0].0, 5);
 }
 
 // ---------------------------------------------------------------------------------------

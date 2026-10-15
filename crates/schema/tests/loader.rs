@@ -1148,7 +1148,50 @@ fn load_dir_reads_common_definitions() {
     let names: Vec<&str> = schema.common.keys().map(String::as_str).collect();
     assert_eq!(names, ["Link", "Marker", "Point"]);
     let sigs: Vec<&str> = schema.records.keys().map(Signature::as_str).collect();
-    assert_eq!(sigs, ["EMPT", "UUUU", "VVVV", "YYYY", "ZZZZ"]);
+    assert_eq!(sigs, ["EMPT", "UNOR", "UUUU", "VVVV", "YYYY", "ZZZZ"]);
+    assert!(schema.records[&sig("UNOR")].unordered);
+    assert!(!schema.records[&sig("ZZZZ")].unordered);
+}
+
+/// M4.BX1: `unordered = true` marks a record whose members may occur in any order. Only
+/// records take it; an unordered record may not have a top-level `any_until` (it would
+/// accept every subrecord out of place), and `DiskOrder` is a reserved member name.
+#[test]
+fn unordered_records() {
+    let one = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"u32\"\n";
+    let def = parse_definition("TEST.toml", &record(&format!("unordered = true\n{one}"))).unwrap();
+    let Definition::Record(rec) = def else {
+        panic!("expected a record");
+    };
+    assert!(rec.unordered);
+    let any = "[[member]]\nany_until = \"DATA\"\nname = \"Body\"\n";
+    assert_eq!(
+        invalid(&format!("unordered = true\n{any}{one}")),
+        ErrorKind::UnorderedAnyUntil
+    );
+    assert_eq!(
+        invalid("[[member]]\nsig = \"DATA\"\nname = \"DiskOrder\"\ntype = \"u32\"\n"),
+        ErrorKind::ReservedName("DiskOrder".into())
+    );
+    let header = "name = \"Hdr\"\nkind = \"header\"\nsource = \"corpus: t\"\n\
+                  confidence = \"corpus\"\nunordered = true\nsize = 4\n\
+                  field = [{ name = \"Size\", type = \"u32\" }]\n";
+    assert!(matches!(
+        kind_of(parse_definition("HDR.toml", header)),
+        ErrorKind::UnexpectedKey {
+            key: "unordered",
+            ..
+        }
+    ));
+    let shared = "name = \"Pt\"\nkind = \"type\"\nsource = \"corpus: t\"\n\
+                  confidence = \"corpus\"\nunordered = true\ntype = \"u32\"\n";
+    assert!(matches!(
+        kind_of(parse_definition("common/Pt.toml", shared)),
+        ErrorKind::UnexpectedKey {
+            key: "unordered",
+            ..
+        }
+    ));
 }
 
 #[test]

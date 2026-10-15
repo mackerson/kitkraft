@@ -537,6 +537,11 @@ pub struct RecordDef {
     pub provenance: Provenance,
     /// Named record-header flag bits that apply to this record type.
     pub flags: Vec<NamedValue>,
+    /// Members may occur in any order (`unordered = true`; upstream marks CELL, REFR and
+    /// ACHR so): the decoder matches each subrecord from its current member on and, when
+    /// none accepts it there, from the first member again; encoding keeps the on-disk
+    /// order of the values it decoded.
+    pub unordered: bool,
     pub members: Vec<Member>,
     pub note: Option<String>,
 }

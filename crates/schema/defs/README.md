@@ -105,6 +105,7 @@ exact lines to add or remove when that list and this directory differ.
 | `confidence`| yes             | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
 | `note`      | no              | Free text (our own words)                                       |
 | `flags`     | no (records)    | Record-header flag bits for this type: `[["Master", 0x1], ...]` |
+| `unordered` | no (records)    | `true`: members may occur in any order (see Unordered records)  |
 | `member`    | records, groups | Ordered list of members                                         |
 | `size`      | headers         | Total header size in bytes; must equal the sum of `field` sizes |
 | `field`     | headers         | Ordered list of fields                                          |
@@ -137,6 +138,23 @@ it for blocks whose contents are not modelled yet.
 `card` is `required` (exactly once, the default), `optional` (0..1) or `repeated` (0..n,
 consecutive). The same signature may appear at two positions if the members have different
 names (WEAP has two `FLLD` slots).
+
+### Unordered records
+
+`unordered = true` on a record definition (CELL, REFR, ACHR; xEdit marks them so) says
+its members may occur in any order. The decoder (`match_unordered`) matches a subrecord
+from the current member on, as for an ordered record, and when no member from there
+accepts it, from the first member again; a group still matches one consecutive run in its
+own order, and a second occurrence of a member that is not `repeated` stays raw in
+`extra`. Every member keeps its path. The generated record stores the member of each
+typed value in on-disk order (`disk_order`) and `encode` writes the values back in that
+order, so an unedited record re-encodes byte for byte; values added since decoding follow
+the recorded ones, member by member, and a record built from scratch is written in
+definition order. List the members in the order most records use. Not allowed: a
+top-level `any_until` member (it would accept every subrecord out of place), and the
+member name `DiskOrder`. Generated helpers: `UNORDERED` (the signatures) and
+`match_body(signature, subs, members)`, which picks the right matcher for tools that match
+bodies themselves.
 
 ## Sizes
 
@@ -321,7 +339,7 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | 39 more `<SIG>.toml` (ACTI ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
 | `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
 | `common/ObteBlock.toml` | group | xEdit object template + corpus | OBTE count, combinations (OBTF, FULL, OBTS template item), STOP |
-| `WRLD.toml` `CELL.toml` `REFR.toml` `ACHR.toml` `NAVM.toml` `LCTN.toml` `LCRT.toml` | record | xedit (pinned) + corpus (`tests/world_family.rs`) | World family: typed from xEdit, checked on every official record; VMAD, NVNM, NAVM MNAM, XSL1, XTV2, XNSE and unknowns opaque; CELL/REFR/ACHR member order is the best linear fit (xEdit marks them unordered). `docs/schema/world-family.md` |
+| `WRLD.toml` `CELL.toml` `REFR.toml` `ACHR.toml` `NAVM.toml` `LCTN.toml` `LCRT.toml` | record | xedit (pinned) + corpus (`tests/world_family.rs`) | World family: typed from xEdit, checked on every official record; VMAD, NVNM, NAVM MNAM, XSL1, XTV2, XNSE and unknowns opaque; CELL/REFR/ACHR are `unordered = true` (xEdit marks them so; member list in the most common order, M4.BX1). `docs/schema/world-family.md` |
 | `common/PositionRotation.toml` `OwnerData` `EnableParent` `ColorRgb` `ColorRgba` `PropertyValue` `RagdollBone` | type | xedit (pinned) + corpus | Shared payload layouts of the world family (positions and rotations are `Vec3`, OwnerData NoCrime is `Bool8`, M4.BX1) |
 | `common/LinkedReferences.toml` `GroupedPackIn.toml` | group | xedit (pinned) + corpus | XLKR*/XLKT and the XWPK..XWPK pack-in block |
 | `common/Keywords.toml`  | group | corpus scan (47 record types)   | KSIZ count + KWDA FormID list (targets KYWD) |

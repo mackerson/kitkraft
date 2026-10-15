@@ -171,7 +171,7 @@ are ours.
 
 | xEdit construct (family)                          | Count      | What it describes                                             | Our TOML (`crates/schema/defs/README.md`)                       |
 | ------------------------------------------------- | ---------- | ------------------------------------------------------------- | ---------------------------------------------------------------- |
-| `wbRecord`, `wbRefRecord`                         | 194, 3     | A record type: signature, label, record flags, member list     | `<SIG>.toml`, `kind = "record"`, `flags`                         |
+| `wbRecord`, `wbRefRecord`                         | 194, 3     | A record type: signature, label, record flags, member list     | `<SIG>.toml`, `kind = "record"`, `flags`; members xEdit accepts in any order: `unordered = true` |
 | `wbRStruct`, `wbRStructSK`                        | 193, 38    | Consecutive subrecords that belong together                    | `group = "Name"` member with `[[member.member]]`                 |
 | `wbRArray`, `wbRArrayS`                           | 98, 52     | A subrecord or group that repeats                              | `card = "repeated"`                                              |
 | `wbStruct`, `wbStructSK`                          | 479, 72    | Fields in order inside one payload                             | `type = "struct"`, `field = [...]`                               |

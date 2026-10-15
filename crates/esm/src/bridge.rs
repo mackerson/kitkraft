@@ -19,7 +19,7 @@
 
 pub use crate::generated::records::{Ctx, OwnedSub, RawSub, Sig};
 
-use crate::generated::records::{match_members, Record as TypedRecord, RECORDS};
+use crate::generated::records::{match_body, Record as TypedRecord, RECORDS};
 use crate::model::{Plugin, Record, Subrecord};
 use crate::{DecodeLimits, Result, Signature};
 
@@ -191,7 +191,7 @@ pub fn check_subrecords(
         .map(|(_, m)| *m)
         .ok_or(NotTyped::NoDefinition)?;
     let typed = TypedRecord::decode(signature.bytes(), &raw, ctx).ok_or(NotTyped::NoDefinition)?;
-    let (_, unmatched) = match_members(&raw, members);
+    let (_, unmatched) = match_body(signature.bytes(), &raw, members);
     let offset = |i: usize| subs.get(i).and_then(Subrecord::offset);
     let mut conflicts = Vec::new();
     // Every generated record type keeps the subrecords it could not decode in `extra`

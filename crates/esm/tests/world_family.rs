@@ -7,8 +7,9 @@
 //!
 //! - every subrecord the definition places in a member decodes (nothing placed fails);
 //! - the encoding reproduces the record subrecord by subrecord (signature, payload, `XXXX`);
-//! - subrecords outside the member order (placed records are unordered in the files) are
-//!   counted per signature and kept raw; they are reported, not failed.
+//! - CELL, REFR and ACHR are `unordered` records (M4.BX1): every subrecord their definition
+//!   names is placed wherever it stands; a signature no member names is counted per
+//!   signature as unplaced and kept raw.
 //!
 //! The full run also checks the cell and worldspace group layout (types 1 to 9) that
 //! docs/schema/world-family.md describes, and prints the counts that page quotes.
@@ -35,7 +36,7 @@ use std::io::BufReader;
 use std::path::Path;
 
 use kitcraft_esm::bridge::{Ctx, RawSub};
-use kitcraft_esm::generated::records::{match_members, Hit, MemberDesc, Record as Typed, RECORDS};
+use kitcraft_esm::generated::records::{match_body, Hit, MemberDesc, Record as Typed, RECORDS};
 use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
 use kitcraft_esm::tes4::FLAG_LOCALIZED;
 use kitcraft_esm::DecodeLimits;
@@ -143,7 +144,7 @@ fn check_record(
         .find(|(s, _)| *s == sig)
         .map(|(_, m)| *m)
         .unwrap();
-    let (hits, unmatched) = match_members(subs, members);
+    let (hits, unmatched) = match_body(sig, subs, members);
     t.subrecords += subs.len() as u64;
     if !unmatched.is_empty() {
         t.records_with_unplaced += 1;
@@ -407,8 +408,24 @@ fn report(stats: &Stats, full: bool) {
 }
 
 fn assert_clean(stats: &Stats) {
+    let schema = kitcraft_schema::builtin().unwrap();
     let mut problems = Vec::new();
     for (ty, t) in &stats.types {
+        // CELL, REFR and ACHR are `unordered` (M4.BX1): a subrecord their definition names
+        // is placed wherever it stands; only signatures it does not name stay unplaced.
+        let sig = kitcraft_schema::Signature::parse(ty).unwrap();
+        let known = schema.known_signatures(sig).unwrap();
+        let out_of_place: Vec<&String> = t
+            .unplaced
+            .keys()
+            .filter(|s| kitcraft_schema::Signature::parse(s).is_some_and(|s| known.contains(&s)))
+            .collect();
+        if schema.record(sig).is_some_and(|r| r.unordered) {
+            assert!(
+                out_of_place.is_empty(),
+                "{ty}: named signatures left unplaced: {out_of_place:?}"
+            );
+        }
         problems.extend(t.failures.iter().cloned());
         assert!(
             t.failed.is_empty() && t.reencode_mismatches == 0,

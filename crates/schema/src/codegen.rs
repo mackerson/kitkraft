@@ -64,7 +64,9 @@ pub const RESERVED_TYPE_NAMES: &[&str] = &[
     "Record",
     "Self",
     "Sig",
+    "Slots",
     "Sub",
+    "Unordered",
     "Visit",
     "WString",
     "ZString",
@@ -637,7 +639,7 @@ impl Field for {type_name} {{
             return Ok(());
         }
         self.shared.insert(name.to_owned(), name.to_owned());
-        self.member_set(name, name, members, name, false)?;
+        self.member_set(name, name, members, name, false, false)?;
         Ok(())
     }
 
@@ -662,6 +664,11 @@ impl Field for {type_name} {{
         let mut decodes = String::new();
         let mut encodes = String::new();
         let mut sigs = String::new();
+        let unordered: Vec<String> = records
+            .iter()
+            .filter(|r| r.unordered)
+            .map(|r| sig_lit(r.signature))
+            .collect();
         let mut forwards: [String; 5] = Default::default();
         let forward_names = [
             "form_ids",
@@ -709,6 +716,24 @@ pub enum Record {{
 /// The member list of every defined record type, by signature.
 pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
 {table}];
+
+/// Record types whose members may occur in any order (`unordered = true`).
+pub const UNORDERED: &[Sig] = &[{unordered}];
+
+/// Matches a body of record type `signature` against `members` (its [`RECORDS`] entry) as
+/// its decoder does: [`match_unordered`] for the types in [`UNORDERED`], otherwise
+/// [`match_members`].
+pub fn match_body(
+    signature: Sig,
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {{
+    if UNORDERED.contains(&signature) {{
+        match_unordered(subs, members)
+    }} else {{
+        match_members(subs, members)
+    }}
+}}
 
 impl Record {{
     /// Decodes a record body of type `signature`; `None` when the schema has no
@@ -762,7 +787,8 @@ impl Record {{
 {f4}        }}
     }}
 }}
-"
+",
+            unordered = unordered.join(", "),
         );
         Ok(())
     }
@@ -796,7 +822,19 @@ impl {name} {{
     fn record(&mut self, rec: &RecordDef) -> Result<(), CodegenError> {
         let prefix = signature_type_name(rec.signature.as_str());
         let name = format!("{prefix}Record");
-        self.member_set(&name, &prefix, &rec.members, rec.signature.as_str(), true)?;
+        self.member_set(
+            &name,
+            &prefix,
+            &rec.members,
+            rec.signature.as_str(),
+            true,
+            rec.unordered,
+        )?;
+        let matcher = if rec.unordered {
+            "match_unordered"
+        } else {
+            "match_members"
+        };
         let mut flags = String::new();
         for f in &rec.flags {
             let _ = writeln!(
@@ -816,7 +854,7 @@ impl {name} {{
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
     pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {{
-        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let (hits, unmatched_indexes) = {matcher}(subs, Self::MEMBERS);
         let mut record = Self::default();
         let mut extra = Vec::new();
         for index in unmatched_indexes {{
@@ -829,8 +867,8 @@ impl {name} {{
         record
     }}
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in {order}, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {{
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -870,6 +908,11 @@ impl {name} {{
 ",
             sig = sig_lit(rec.signature),
             path = lit(rec.signature.as_str()),
+            order = if rec.unordered {
+                "on-disk order"
+            } else {
+                "definition order"
+            },
         );
         Ok(())
     }
@@ -883,8 +926,12 @@ impl {name} {{
         members: &[Member],
         path: &str,
         is_record: bool,
+        unordered: bool,
     ) -> Result<String, CodegenError> {
         let mut decls = String::new();
+        // Unordered records: per member, its value count and how to emit its `n`th value.
+        let mut counts = String::new();
+        let mut nths = String::new();
         let mut descs = String::new();
         let mut arms = String::new();
         let mut emits = String::new();
@@ -900,6 +947,16 @@ impl {name} {{
                     let ty =
                         self.subrecord_type(sub, &format!("{prefix}{}", sub.name), &sub_path)?;
                     let sig = sig_lit(sub.signature);
+                    let _ = writeln!(
+                        counts,
+                        "            {index} => self.{ident}.count_values(),"
+                    );
+                    nths.push_str(&call_arm_at(
+                        12,
+                        &index.to_string(),
+                        "emit",
+                        &["out", &sig, &format!("self.{ident}.nth_value(n)")],
+                    ));
                     let is_union = matches!(sub.ty, FieldType::Union { .. });
                     let (push_fn, put_fn) = if is_union {
                         ("push_by_prefix", "put_by_prefix")
@@ -962,6 +1019,14 @@ impl {name} {{
                 }
                 Member::Group(group) => {
                     uses_ctx = true;
+                    let _ = writeln!(
+                        counts,
+                        "            {index} => self.{ident}.count_values(),"
+                    );
+                    let _ = writeln!(
+                        nths,
+                        "            {index} => {{\n                if let Some(group) = self.{ident}.nth_value(n) {{\n                    group.emit(out);\n                }}\n            }}"
+                    );
                     calls.add_members(
                         &format!("self.{ident}"),
                         &lit(&format!("{path}.{}", group.name)),
@@ -980,6 +1045,7 @@ impl {name} {{
                                 &group_name,
                                 &group.members,
                                 &group_path,
+                                false,
                                 false,
                             )?;
                             group_name
@@ -1020,6 +1086,16 @@ impl {name} {{
                 }
                 Member::AnyUntil(any) => {
                     let _ = writeln!(
+                        counts,
+                        "            {index} => self.{ident}.count_values(),"
+                    );
+                    nths.push_str(&call_arm_at(
+                        12,
+                        &index.to_string(),
+                        "out.extend",
+                        &[&format!("self.{ident}.nth_value(n).cloned()")],
+                    ));
+                    let _ = writeln!(
                         decls,
                         "    /// Raw subrecords up to `{}`, in order.",
                         any.until
@@ -1040,13 +1116,22 @@ impl {name} {{
             }
         }
         self.claim(name)?;
+        if is_record && unordered {
+            decls.push_str(
+                "    /// The member of each typed value in on-disk order (an unordered record):\n    /// `encode` writes the values back in this order; values added since decoding\n    /// follow, member by member.\n    pub disk_order: Vec<u16>,\n",
+            );
+        }
         if is_record {
             decls.push_str(
                 "    /// Subrecords that matched no member or failed to decode, each with its index\n    /// in the record body as read. `encode` re-inserts them at those indexes (see\n    /// `merge_extra`); when typed values are added or removed, an index stays a number,\n    /// so the entry may land next to different neighbours.\n    pub extra: Vec<(usize, OwnedSub)>,\n",
             );
         }
         let ctx = if uses_ctx { "ctx" } else { "_ctx" };
-        let fill_body = if members.is_empty() {
+        let fill_body = if unordered && !members.is_empty() {
+            format!(
+                "        for hit in hits {{\n            let member = hit.member();\n            let before = self.occurrences(member);\n            match hit {{\n{arms}                _ => unmatched(hit, subs, extra),\n            }}\n            if self.occurrences(member) > before {{\n                note_order(&mut self.disk_order, member);\n            }}\n        }}\n"
+            )
+        } else if members.is_empty() {
             "        for hit in hits {\n            unmatched(hit, subs, extra);\n        }\n"
                 .to_owned()
         } else {
@@ -1054,7 +1139,10 @@ impl {name} {{
                 "        for hit in hits {{\n            match hit {{\n{arms}                _ => unmatched(hit, subs, extra),\n            }}\n        }}\n"
             )
         };
-        let emit_fn = if members.is_empty() {
+        let emit_fn = if unordered && !members.is_empty() {
+            "    fn emit(&self, out: &mut Vec<OwnedSub>) {\n        emit_unordered(self, &self.disk_order, Self::MEMBERS.len(), out);\n    }\n"
+                .to_owned()
+        } else if members.is_empty() {
             "    fn emit(&self, _out: &mut Vec<OwnedSub>) {}\n".to_owned()
         } else {
             format!("    fn emit(&self, out: &mut Vec<OwnedSub>) {{\n{emits}    }}\n")
@@ -1100,6 +1188,26 @@ impl {name} {{
 {emit_fn}}}
 "
         );
+        if unordered && !members.is_empty() {
+            let _ = write!(
+                self.out,
+                "
+impl Unordered for {name} {{
+    fn occurrences(&self, member: usize) -> usize {{
+        match member {{
+{counts}            _ => 0,
+        }}
+    }}
+
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {{
+        match member {{
+{nths}            _ => {{}}
+        }}
+    }}
+}}
+"
+            );
+        }
         self.out.push_str(&visit_impl(name, &calls));
         Ok(name.to_owned())
     }
@@ -1149,10 +1257,15 @@ fn call_stmt(indent: usize, func: &str, args: &[String]) -> String {
 /// line when it fits, one argument per line when the call itself is too wide, otherwise
 /// the call in a block on its own line.
 fn call_arm(pattern: &str, func: &str, args: &[&str]) -> String {
+    call_arm_at(ARM_INDENT, pattern, func, args)
+}
+
+/// [`call_arm`] for arms at `indent`.
+fn call_arm_at(indent: usize, pattern: &str, func: &str, args: &[&str]) -> String {
     let joined = args.join(", ");
     let call = format!("{func}({joined})");
-    let pad = " ".repeat(ARM_INDENT);
-    let one_line = ARM_INDENT
+    let pad = " ".repeat(indent);
+    let one_line = indent
         .saturating_add(pattern.len())
         .saturating_add(" => ".len())
         .saturating_add(call.len())

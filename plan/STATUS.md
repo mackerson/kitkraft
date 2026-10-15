@@ -948,6 +948,22 @@ is under "Next".
   value differences (`docs/oracles.md`, "Rerun after the schema integration"; a comparator
   request to lane H). Gates: `cargo xtask ci`, the ignored release tests for esm, doc and
   engine, parity (unchanged from the ITEMS merge).
+- M4.BX1 `unordered` record mode (integrator, BX3, 2026-10-14; closes the world lane's
+  request and the gaps row): `unordered = true` on a record definition (loader: records
+  only, no top-level `any_until`, `DiskOrder` reserved; `RecordDef::unordered`). Codegen:
+  `match_unordered` matches a subrecord from the current member on and, when none accepts
+  it, from the first member again (groups still match one run in their own order); the
+  record keeps `disk_order` (the member of each typed value in on-disk order) and
+  `encode` writes the values back in that order (edits: remaining values keep their order,
+  added ones follow member by member; a fresh record is written in definition order), so
+  decoding stays lossless and every member keeps its path. Generated `UNORDERED` and
+  `match_body` pick the matcher for `bridge`, `coverage` and the world family test;
+  `kitcraft_doc::typed::placements` mirrors the rule. Applied to CELL, REFR and ACHR.
+  Tests: fixture `UNOR` (any order, `XXXX` kept, edits, a second optional value raw in
+  place, random bodies), loader rules, doc placement. Corpus: `world_family_full` (release,
+  all 6,719,725 REFR, 40,251 CELL, 14,731 ACHR) places every subrecord the definitions name
+  (0 unplaced, 0 failed, 0 re-encode differences, 89 s); parity **failed 1,712,200 -> 0**
+  (46,249,514 typed, 2,261,438 opaque, 1,908,609 unknown; no subrecord is left undecodable).
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
   `docs/mcp.md` are in; an agent cannot restart Claude Code, so the owner runs:
 **M2.F7 result (2026-10-14):** PASS. Owner opened a fresh Claude Code session: `kitcraft` connected with exactly 8 tools (execute, command_line, coverage, diff_plugins, inspect_record, query_records, record_schema, roundtrip), the Default profile preloaded, `record_schema WEAP` returned 50 subrecord definitions (6 typed, 44 opaque), `coverage Constellation.esm` returned 57 records / 8 types. Caveat filed as a lane F request below.
@@ -1564,7 +1580,8 @@ Agents append here when they need a change in a crate they do not own.
   groups `LinkedReferences`, `GroupedPackIn`; ~~if round 3 adds equivalents (`Vec3`, `Bool8`
   exist in the round 3 worktree), fold them together at integration.~~ Done in M4.BX1 (WORLD
   merge): PositionRotation's position and rotation and ObjectBounds' corners are `Vec3`,
-  OwnerData's NoCrime is `Bool8`; the unordered mode is still open.
+  OwnerData's NoCrime is `Bool8`. The unordered mode is done too (M4.BX1, integrator,
+  2026-10-14; see Done).
 - **World schema lane -> lane D.** `kitcraft_doc::typed::field_type` picks a layout by
   signature, which is ambiguous for REFR `INAM` (patrol idle FormID vs pack-in u16) and
   wrong for subrecords inside BFCB bodies that share a member's signature (WRLD `PNAM`,

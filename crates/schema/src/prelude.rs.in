@@ -739,6 +739,134 @@ pub fn match_members(
     (hits, unmatched)
 }
 
+/// [`match_members`] for a record whose members may occur in any order (`unordered = true`
+/// on its definition, as upstream marks CELL, REFR and ACHR): a subrecord is matched from
+/// the current member on, as [`match_members`] does, and when no member from there accepts
+/// it, from the first member again. A group still matches one consecutive run, in its own
+/// order; a subrecord no member accepts is unmatched.
+pub fn match_unordered(
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {
+    let mut pos = 0;
+    let mut cursor = 0;
+    let mut hits = Vec::new();
+    let mut unmatched = Vec::new();
+    while pos < subs.len() {
+        let mut hit = match_one(subs, &mut pos, members, &mut cursor, 0);
+        if hit.is_none() {
+            let mut wrapped = 0;
+            hit = match_one(subs, &mut pos, members, &mut wrapped, 0);
+            if hit.is_some() {
+                cursor = wrapped;
+            }
+        }
+        match hit {
+            Some(hit) => hits.push(hit),
+            None => {
+                unmatched.push(pos);
+                pos = pos.saturating_add(1);
+            }
+        }
+    }
+    (hits, unmatched)
+}
+
+impl Hit {
+    /// The member (an index into its member list) this hit belongs to.
+    pub fn member(&self) -> usize {
+        match self {
+            Self::Sub { member, .. } | Self::Group { member, .. } => *member,
+        }
+    }
+}
+
+/// The values of one member of a record or group: optional (`Option`) or a list (`Vec`).
+pub trait Slots {
+    /// One value.
+    type Item;
+
+    /// How many values the member holds.
+    fn count_values(&self) -> usize;
+
+    /// The `n`th value, if there is one.
+    fn nth_value(&self, n: usize) -> Option<&Self::Item>;
+}
+
+impl<T> Slots for Option<T> {
+    type Item = T;
+
+    fn count_values(&self) -> usize {
+        usize::from(self.is_some())
+    }
+
+    fn nth_value(&self, n: usize) -> Option<&T> {
+        if n == 0 {
+            self.as_ref()
+        } else {
+            None
+        }
+    }
+}
+
+impl<T> Slots for Vec<T> {
+    type Item = T;
+
+    fn count_values(&self) -> usize {
+        self.len()
+    }
+
+    fn nth_value(&self, n: usize) -> Option<&T> {
+        self.get(n)
+    }
+}
+
+/// A record whose members may occur in any order. Decoding records the member of every
+/// typed value in on-disk order (`disk_order`), and encoding writes the values back in that
+/// order, so an unedited record re-encodes byte for byte; values added since decoding are
+/// written after the recorded ones, member by member.
+pub trait Unordered {
+    /// How many values member `member` holds.
+    fn occurrences(&self, member: usize) -> usize;
+
+    /// Appends the `n`th value of member `member` (a whole group for a group member), if
+    /// it has one.
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>);
+}
+
+/// Records that a value of `member` was decoded (the next entry of a `disk_order`).
+pub fn note_order(order: &mut Vec<u16>, member: usize) {
+    if let Ok(member) = u16::try_from(member) {
+        order.push(member);
+    }
+}
+
+/// Emits the values of an unordered record: for each `order` entry the next value of that
+/// member that is still there, then every value no entry reached (added since decoding),
+/// member by member.
+pub fn emit_unordered<T: Unordered>(
+    value: &T,
+    order: &[u16],
+    members: usize,
+    out: &mut Vec<OwnedSub>,
+) {
+    let mut next = vec![0usize; members];
+    for &member in order {
+        let member = usize::from(member);
+        if let Some(n) = next.get_mut(member) {
+            if *n < value.occurrences(member) {
+                value.emit_nth(member, *n, out);
+                *n = n.saturating_add(1);
+            }
+        }
+    }
+    for (member, &n) in next.iter().enumerate() {
+        for k in n..value.occurrences(member) {
+            value.emit_nth(member, k, out);
+        }
+    }
+}
+
 /// Decodes subrecord `index` into an empty slot, or keeps it raw in `extra`.
 pub fn put<T: Field>(
     slot: &mut Option<Sub<T>>,

@@ -13,8 +13,10 @@
 #
 # Member order: xEdit marks the members of placed references as unordered, and the official
 # files do not follow one order. The order below is the linear order that agrees with the
-# most official records (computed from every corpus record); a subrecord outside it is
-# kept raw at its position (`extra`), so the record still writes back identically.
+# most official records (computed from every corpus record). The record is `unordered`
+# (M4.BX1): the decoder matches a subrecord from its current member on and, when none
+# accepts it there, from the first member again, and writes the values back in their
+# on-disk order, so every member is typed wherever it stands.
 # docs/schema/world-family.md has the counts per signature.
 #
 # Names are ours; no xEdit code, comments or labels are copied. FormIDs are raw stored values
@@ -27,6 +29,8 @@ confidence = "corpus"
 evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
+
+unordered = true
 
 [[member]]
 sig = "EDID"
@@ -126,7 +130,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "xEdit names only the two FormIDs; the rest is laid out by position; 19,459 XVL2 placed in the corpus, 3,688 more out of member order (kept raw)"
+note = "xEdit names only the two FormIDs; the rest is laid out by position; 19,459 XVL2 placed in the corpus in member order, 3,688 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XVOI"
@@ -145,7 +149,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "reflection probe offset and intensity; 18,888 XVOI placed in the corpus, 4,177 more out of member order (kept raw)"
+note = "reflection probe offset and intensity; 18,888 XVOI placed in the corpus in member order, 4,177 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 group = "Patrol"
@@ -160,20 +164,20 @@ confidence = "corpus"
 sig = "XPRD"
 name = "IdleTime"
 type = "f32"
-note = "4,692 XPRD placed in the corpus, 2,068 more out of member order (kept raw)"
+note = "4,692 XPRD placed in the corpus in member order, 2,068 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "XPPA"
 name = "ScriptMarker"
 type = "empty"
-note = "4,692 XPPA placed in the corpus, 2,068 more out of member order (kept raw)"
+note = "4,692 XPPA placed in the corpus in member order, 2,068 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "INAM"
 name = "Idle"
 type = "formid"
 targets = ["IDLE"]
-note = "1,627,145 INAM placed in the corpus, 116,313 more out of member order (kept raw)"
+note = "1,627,145 INAM placed in the corpus in member order, 116,313 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "PDTO"
@@ -188,7 +192,7 @@ field = [
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3901-L3913",
 ]
-note = "Data is a DIAL FormID or a 4-character subtype depending on Kind (a union), kept raw; 4,692 PDTO placed in the corpus, 2,068 more out of member order (kept raw)"
+note = "Data is a DIAL FormID or a 4-character subtype depending on Kind (a union), kept raw; 4,692 PDTO placed in the corpus in member order, 2,068 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XACT"
@@ -216,7 +220,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "42,066 XRNK placed in the corpus, 4,271 more out of member order (kept raw)"
+note = "42,066 XRNK placed in the corpus in member order, 4,271 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XRDS"
@@ -228,7 +232,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "224,559 XRDS placed in the corpus, 20,440 more out of member order (kept raw)"
+note = "224,559 XRDS placed in the corpus in member order, 20,440 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLIG"
@@ -251,7 +255,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "the first and fifth floats change meaning with the base light type (omni or spot); 259,362 XLIG placed in the corpus, 10,648 more out of member order (kept raw)"
+note = "the first and fifth floats change meaning with the base light type (omni or spot); 259,362 XLIG placed in the corpus in member order, 10,648 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLBD"
@@ -274,7 +278,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "106,997 XLBD placed in the corpus, 16,696 more out of member order (kept raw)"
+note = "106,997 XLBD placed in the corpus in member order, 16,696 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XPRM"
@@ -298,7 +302,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "51,197 XPRM placed in the corpus, 126 more out of member order (kept raw)"
+note = "51,197 XPRM placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 group = "ProjectedDecal"
@@ -321,7 +325,7 @@ field = [
   { name = "Int12", type = "u8" },
   { name = "Unused", type = "opaque", size = 3 },
 ]
-note = "567,444 XPDD placed in the corpus, 55,725 more out of member order (kept raw)"
+note = "567,444 XPDD placed in the corpus in member order, 55,725 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "XPDO"
@@ -331,7 +335,7 @@ card = "optional"
 targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"]
 count = "rest"
 element = "formid"
-note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 222,872 XPDO placed in the corpus, 19,894 more out of member order (kept raw)"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 222,872 XPDO placed in the corpus in member order, 19,894 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XCDD"
@@ -351,7 +355,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "754,721 XCDD placed in the corpus, 51,050 more out of member order (kept raw)"
+note = "754,721 XCDD placed in the corpus in member order, 51,050 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XBSD"
@@ -373,7 +377,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "13,390 XBSD placed in the corpus, 50 more out of member order (kept raw)"
+note = "13,390 XBSD placed in the corpus in member order, 50 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XNSE"
@@ -385,7 +389,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "reflection data; the helper is not read, kept raw; 11,431 XNSE placed in the corpus, 2 more out of member order (kept raw)"
+note = "reflection data; the helper is not read, kept raw; 11,431 XNSE placed in the corpus in member order, 2 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XTEL"
@@ -420,7 +424,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "32 XCNT placed in the corpus, 3 more out of member order (kept raw)"
+note = "32 XCNT placed in the corpus in member order, 3 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XCOL"
@@ -437,7 +441,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "Layer indexes the collision layers; 2,773 XCOL placed in the corpus, 714 more out of member order (kept raw)"
+note = "Layer indexes the collision layers; 2,773 XCOL placed in the corpus in member order, 714 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XSAD"
@@ -457,7 +461,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "distance in metres, delay in seconds; 9 XSAD placed in the corpus, 3 more out of member order (kept raw)"
+note = "distance in metres, delay in seconds; 9 XSAD placed in the corpus in member order, 3 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLLD"
@@ -469,7 +473,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "23 XLLD placed in the corpus, 4 more out of member order (kept raw)"
+note = "23 XLLD placed in the corpus in member order, 4 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XALD"
@@ -492,7 +496,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "190,045 XALD placed in the corpus, 13,011 more out of member order (kept raw)"
+note = "190,045 XALD placed in the corpus in member order, 13,011 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLSM"
@@ -507,7 +511,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "155,670 XLSM placed in the corpus, 23,818 more out of member order (kept raw)"
+note = "155,670 XLSM placed in the corpus in member order, 23,818 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLVD"
@@ -519,7 +523,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "112,319 XLVD placed in the corpus, 19,468 more out of member order (kept raw)"
+note = "112,319 XLVD placed in the corpus in member order, 19,468 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLGD"
@@ -557,7 +561,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "257 XLGD placed in the corpus, 54 more out of member order (kept raw)"
+note = "257 XLGD placed in the corpus in member order, 54 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLCD"
@@ -577,7 +581,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "162,876 XLCD placed in the corpus, 13,345 more out of member order (kept raw)"
+note = "162,876 XLCD placed in the corpus in member order, 13,345 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLMS"
@@ -592,7 +596,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "1,165,596 XLMS placed in the corpus, 298,641 more out of member order (kept raw)"
+note = "1,165,596 XLMS placed in the corpus in member order, 298,641 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "TODD"
@@ -605,7 +609,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "344 TODD placed in the corpus, 299 more out of member order (kept raw)"
+note = "344 TODD placed in the corpus in member order, 299 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XRGD"
@@ -620,7 +624,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "49,052 XRGD placed in the corpus, 2,540 more out of member order (kept raw)"
+note = "49,052 XRGD placed in the corpus in member order, 2,540 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XEED"
@@ -639,7 +643,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "36,259 XEED placed in the corpus, 18,163 more out of member order (kept raw)"
+note = "36,259 XEED placed in the corpus in member order, 18,163 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 group = "DebugText"
@@ -654,7 +658,7 @@ confidence = "corpus"
 sig = "XDTS"
 name = "Text"
 type = "zstring"
-note = "380 XDTS placed in the corpus, 9 more out of member order (kept raw)"
+note = "380 XDTS placed in the corpus in member order, 9 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "XDTF"
@@ -669,7 +673,7 @@ evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
 ]
-note = "380 XDTF placed in the corpus, 9 more out of member order (kept raw)"
+note = "380 XDTF placed in the corpus in member order, 9 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XEMI"
@@ -697,7 +701,7 @@ confidence = "corpus"
 sig = "XMRK"
 name = "Marker"
 type = "empty"
-note = "660 XMRK placed in the corpus, 126 more out of member order (kept raw)"
+note = "660 XMRK placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "FNAM"
@@ -705,7 +709,7 @@ name = "MapFlags"
 type = "flags"
 base = "u32"
 bits = [["Visible", 1], ["CanTravelTo", 2], ["ShowAllHidden", 4], ["UseLocationName", 8], ["VisibleOnStarMap", 16], ["Discovered", 32], ["RequiresScanning", 64], ["AllowGravJump", 128], ["SuppressDiscovery", 0x200], ["UseAccurateZHeight", 0x400], ["LimitVisibilityToCompassRange", 0x800], ["MustCruiseToFirst", 0x1000]]
-note = "660 FNAM placed in the corpus, 126 more out of member order (kept raw)"
+note = "660 FNAM placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "FULL"
@@ -716,13 +720,13 @@ evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
-note = "660 FULL placed in the corpus, 126 more out of member order (kept raw)"
+note = "660 FULL placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "TNAM"
 name = "MarkerType"
 type = "u16"
-note = "map marker type; xEdit enumerates 70 values, kept as stored; 660 TNAM placed in the corpus, 126 more out of member order (kept raw)"
+note = "map marker type; xEdit enumerates 70 values, kept as stored; 660 TNAM placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "VNAM"
@@ -730,7 +734,7 @@ name = "Category"
 type = "enum"
 base = "u16"
 values = [["None", 0], ["Landmark", 1], ["Structure", 2], ["LifeSigns", 3], ["Hazard", 4], ["SpaceLandmark", 5], ["Ship", 6], ["Station", 7], ["Asteroids", 8], ["Simple", 9]]
-note = "660 VNAM placed in the corpus, 126 more out of member order (kept raw)"
+note = "660 VNAM placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "UNAM"
@@ -740,7 +744,7 @@ card = "optional"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
-note = "660 UNAM placed in the corpus, 126 more out of member order (kept raw)"
+note = "660 UNAM placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member.member]]
 sig = "VISI"
@@ -749,7 +753,7 @@ type = "enum"
 card = "optional"
 base = "u8"
 values = [["Always", 0], ["System", 1], ["Planet", 2]]
-note = "660 VISI placed in the corpus, 126 more out of member order (kept raw)"
+note = "660 VISI placed in the corpus in member order, 126 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XPLK"
@@ -767,7 +771,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "second field: xEdit names one value only, as unknown; 381 XPLK placed in the corpus, 166 more out of member order (kept raw)"
+note = "second field: xEdit names one value only, as unknown; 381 XPLK placed in the corpus in member order, 166 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XFLG"
@@ -780,7 +784,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "xEdit names one bit only, as unknown; 139 XFLG placed in the corpus, 45 more out of member order (kept raw)"
+note = "xEdit names one bit only, as unknown; 139 XFLG placed in the corpus in member order, 45 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLYR"
@@ -793,7 +797,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "2,987,118 XLYR placed in the corpus, 364,914 more out of member order (kept raw)"
+note = "2,987,118 XLYR placed in the corpus in member order, 364,914 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XRFG"
@@ -806,7 +810,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "1,294,470 XRFG placed in the corpus, 43,841 more out of member order (kept raw)"
+note = "1,294,470 XRFG placed in the corpus in member order, 43,841 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "BOLV"
@@ -833,7 +837,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "23,495 XLRT placed in the corpus, 2,981 more out of member order (kept raw)"
+note = "23,495 XLRT placed in the corpus in member order, 2,981 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLCM"
@@ -848,7 +852,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "417 XLCM placed in the corpus, 95 more out of member order (kept raw)"
+note = "417 XLCM placed in the corpus in member order, 95 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XRGB"
@@ -995,7 +999,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "unnamed in xEdit; a reference group; 185,752 XPCK placed in the corpus, 1,950 more out of member order (kept raw)"
+note = "unnamed in xEdit; a reference group; 185,752 XPCK placed in the corpus in member order, 1,950 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XPCS"
@@ -1009,7 +1013,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "272,438 XPCS placed in the corpus, 4,755 more out of member order (kept raw)"
+note = "272,438 XPCS placed in the corpus in member order, 4,755 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XGDS"
@@ -1021,7 +1025,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "29,921 XGDS placed in the corpus, 141 more out of member order (kept raw)"
+note = "29,921 XGDS placed in the corpus in member order, 141 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLRD"
@@ -1044,7 +1048,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "146,312 XLRD placed in the corpus, 7,264 more out of member order (kept raw)"
+note = "146,312 XLRD placed in the corpus in member order, 7,264 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 group_ref = "GroupedPackIn"
@@ -1065,7 +1069,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "1,669,732 XBPO placed in the corpus, 19,567 more out of member order (kept raw)"
+note = "1,669,732 XBPO placed in the corpus in member order, 19,567 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XLFD"
@@ -1085,7 +1089,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "9,831 XLFD placed in the corpus, 239 more out of member order (kept raw)"
+note = "9,831 XLFD placed in the corpus in member order, 239 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 group_ref = "LinkedReferences"
@@ -1142,7 +1146,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "Level: 0 none to 100 master; 251 to 255 barred, chained, terminal, inaccessible, key; 3,185 XLOC placed in the corpus, 101 more out of member order (kept raw)"
+note = "Level: 0 none to 100 master; 251 to 255 barred, chained, terminal, inaccessible, key; 3,185 XLOC placed in the corpus in member order, 101 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XATR"
@@ -1155,7 +1159,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 7,649 XATR placed in the corpus, 69 more out of member order (kept raw)"
+note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 7,649 XATR placed in the corpus in member order, 69 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XTNM"
@@ -1181,7 +1185,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "119,839 XESP placed in the corpus, 209 more out of member order (kept raw)"
+note = "119,839 XESP placed in the corpus in member order, 209 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XIS2"
@@ -1193,7 +1197,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "1,288 XIS2 placed in the corpus, 104 more out of member order (kept raw)"
+note = "1,288 XIS2 placed in the corpus in member order, 104 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XOWN"
@@ -1206,7 +1210,7 @@ evidence = [
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "41,673 XOWN placed in the corpus, 1 more out of member order (kept raw)"
+note = "41,673 XOWN placed in the corpus in member order, 1 more elsewhere (placed since the unordered mode, M4.BX1)"
 
 [[member]]
 sig = "XPPS"

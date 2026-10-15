@@ -37,7 +37,7 @@ use std::path::Path;
 
 use kitcraft_esm::bridge::{Ctx, RawSub};
 use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::generated::records::{match_members, Record as TypedRecord, RECORDS};
+use kitcraft_esm::generated::records::{match_body, Record as TypedRecord, RECORDS};
 use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord, HEADER_LEN};
 use kitcraft_schema::{Confidence, FieldType, Schema};
 use serde_json::{json, Value};
@@ -245,7 +245,7 @@ fn check_typed(signature: Signature, subs: &[Subrecord<'_>], ctx: Ctx) -> Option
         .map(|(_, m)| *m)?;
     let raw: Vec<RawSub<'_>> = subs.iter().map(RawSub::from).collect();
     let typed = TypedRecord::decode(signature.bytes(), &raw, ctx)?;
-    let (_, unmatched) = match_members(&raw, members);
+    let (_, unmatched) = match_body(signature.bytes(), &raw, members);
     let mut not_decoded: BTreeSet<usize> = typed.extra().iter().map(|(i, _)| *i).collect();
     not_decoded.extend(unmatched);
     let encoded = typed.encode();

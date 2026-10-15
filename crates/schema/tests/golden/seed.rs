@@ -867,6 +867,134 @@ pub fn match_members(
     (hits, unmatched)
 }
 
+/// [`match_members`] for a record whose members may occur in any order (`unordered = true`
+/// on its definition, as upstream marks CELL, REFR and ACHR): a subrecord is matched from
+/// the current member on, as [`match_members`] does, and when no member from there accepts
+/// it, from the first member again. A group still matches one consecutive run, in its own
+/// order; a subrecord no member accepts is unmatched.
+pub fn match_unordered(
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {
+    let mut pos = 0;
+    let mut cursor = 0;
+    let mut hits = Vec::new();
+    let mut unmatched = Vec::new();
+    while pos < subs.len() {
+        let mut hit = match_one(subs, &mut pos, members, &mut cursor, 0);
+        if hit.is_none() {
+            let mut wrapped = 0;
+            hit = match_one(subs, &mut pos, members, &mut wrapped, 0);
+            if hit.is_some() {
+                cursor = wrapped;
+            }
+        }
+        match hit {
+            Some(hit) => hits.push(hit),
+            None => {
+                unmatched.push(pos);
+                pos = pos.saturating_add(1);
+            }
+        }
+    }
+    (hits, unmatched)
+}
+
+impl Hit {
+    /// The member (an index into its member list) this hit belongs to.
+    pub fn member(&self) -> usize {
+        match self {
+            Self::Sub { member, .. } | Self::Group { member, .. } => *member,
+        }
+    }
+}
+
+/// The values of one member of a record or group: optional (`Option`) or a list (`Vec`).
+pub trait Slots {
+    /// One value.
+    type Item;
+
+    /// How many values the member holds.
+    fn count_values(&self) -> usize;
+
+    /// The `n`th value, if there is one.
+    fn nth_value(&self, n: usize) -> Option<&Self::Item>;
+}
+
+impl<T> Slots for Option<T> {
+    type Item = T;
+
+    fn count_values(&self) -> usize {
+        usize::from(self.is_some())
+    }
+
+    fn nth_value(&self, n: usize) -> Option<&T> {
+        if n == 0 {
+            self.as_ref()
+        } else {
+            None
+        }
+    }
+}
+
+impl<T> Slots for Vec<T> {
+    type Item = T;
+
+    fn count_values(&self) -> usize {
+        self.len()
+    }
+
+    fn nth_value(&self, n: usize) -> Option<&T> {
+        self.get(n)
+    }
+}
+
+/// A record whose members may occur in any order. Decoding records the member of every
+/// typed value in on-disk order (`disk_order`), and encoding writes the values back in that
+/// order, so an unedited record re-encodes byte for byte; values added since decoding are
+/// written after the recorded ones, member by member.
+pub trait Unordered {
+    /// How many values member `member` holds.
+    fn occurrences(&self, member: usize) -> usize;
+
+    /// Appends the `n`th value of member `member` (a whole group for a group member), if
+    /// it has one.
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>);
+}
+
+/// Records that a value of `member` was decoded (the next entry of a `disk_order`).
+pub fn note_order(order: &mut Vec<u16>, member: usize) {
+    if let Ok(member) = u16::try_from(member) {
+        order.push(member);
+    }
+}
+
+/// Emits the values of an unordered record: for each `order` entry the next value of that
+/// member that is still there, then every value no entry reached (added since decoding),
+/// member by member.
+pub fn emit_unordered<T: Unordered>(
+    value: &T,
+    order: &[u16],
+    members: usize,
+    out: &mut Vec<OwnedSub>,
+) {
+    let mut next = vec![0usize; members];
+    for &member in order {
+        let member = usize::from(member);
+        if let Some(n) = next.get_mut(member) {
+            if *n < value.occurrences(member) {
+                value.emit_nth(member, *n, out);
+                *n = n.saturating_add(1);
+            }
+        }
+    }
+    for (member, &n) in next.iter().enumerate() {
+        for k in n..value.occurrences(member) {
+            value.emit_nth(member, k, out);
+        }
+    }
+}
+
 /// Decodes subrecord `index` into an empty slot, or keeps it raw in `extra`.
 pub fn put<T: Field>(
     slot: &mut Option<Sub<T>>,
@@ -6711,6 +6839,10 @@ pub struct AchrRecord {
     pub placement: Option<Sub<PositionRotation>>,
     /// `MNAM`, optional.
     pub comments: Option<Sub<ZString>>,
+    /// The member of each typed value in on-disk order (an unordered record):
+    /// `encode` writes the values back in this order; values added since decoding
+    /// follow, member by member.
+    pub disk_order: Vec<u16>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -6875,6 +7007,8 @@ impl AchrRecord {
         extra: &mut Vec<(usize, OwnedSub)>,
     ) {
         for hit in hits {
+            let member = hit.member();
+            let before = self.occurrences(member);
             match hit {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "ACHR.EDID", ctx, extra)
@@ -7082,54 +7216,112 @@ impl AchrRecord {
                 }
                 _ => unmatched(hit, subs, extra),
             }
+            if self.occurrences(member) > before {
+                note_order(&mut self.disk_order, member);
+            }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"VMAD", self.scripts.as_ref());
-        for group in &self.bfcb_block {
-            group.emit(out);
+        emit_unordered(self, &self.disk_order, Self::MEMBERS.len(), out);
+    }
+}
+
+impl Unordered for AchrRecord {
+    fn occurrences(&self, member: usize) -> usize {
+        match member {
+            0 => self.editor_id.count_values(),
+            1 => self.scripts.count_values(),
+            2 => self.bfcb_block.count_values(),
+            3 => self.xalg.count_values(),
+            4 => self.base.count_values(),
+            5 => self.level_modifier.count_values(),
+            6 => self.ragdoll_bones.count_values(),
+            7 => self.reference_group.count_values(),
+            8 => self.source_pack_in.count_values(),
+            9 => self.emittance.count_values(),
+            10 => self.radius.count_values(),
+            11 => self.location_reference.count_values(),
+            12 => self.power_links.count_values(),
+            13 => self.grouped_pack_in.count_values(),
+            14 => self.blueprint_part_origin.count_values(),
+            15 => self.layered_material_swaps.count_values(),
+            16 => self.head_tracking_weight.count_values(),
+            17 => self.favor_cost.count_values(),
+            18 => self.attach_ref.count_values(),
+            19 => self.activation_point.count_values(),
+            20 => self.biped_rotation.count_values(),
+            21 => self.layer.count_values(),
+            22 => self.persist_location.count_values(),
+            23 => self.external_emittance.count_values(),
+            24 => self.linked_references.count_values(),
+            25 => self.location_ref_types.count_values(),
+            26 => self.health_percent.count_values(),
+            27 => self.faction_rank.count_values(),
+            28 => self.enable_parent.count_values(),
+            29 => self.owner.count_values(),
+            30 => self.ignored_by_sandbox.count_values(),
+            31 => self.scale.count_values(),
+            32 => self.location_override.count_values(),
+            33 => self.xgds.count_values(),
+            34 => self.placement.count_values(),
+            35 => self.comments.count_values(),
+            _ => 0,
         }
-        emit(out, *b"XALG", self.xalg.as_ref());
-        emit(out, *b"NAME", self.base.as_ref());
-        emit(out, *b"XLCM", self.level_modifier.as_ref());
-        emit(out, *b"XRGD", self.ragdoll_bones.as_ref());
-        emit(out, *b"XRFG", self.reference_group.as_ref());
-        emit(out, *b"XPCS", self.source_pack_in.as_ref());
-        emit(out, *b"XEMI", self.emittance.as_ref());
-        emit(out, *b"XRDS", self.radius.as_ref());
-        emit(out, *b"XLRL", self.location_reference.as_ref());
-        for value in &self.power_links {
-            emit(out, *b"XPLK", Some(value));
+    }
+
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {
+        match member {
+            0 => emit(out, *b"EDID", self.editor_id.nth_value(n)),
+            1 => emit(out, *b"VMAD", self.scripts.nth_value(n)),
+            2 => {
+                if let Some(group) = self.bfcb_block.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            3 => emit(out, *b"XALG", self.xalg.nth_value(n)),
+            4 => emit(out, *b"NAME", self.base.nth_value(n)),
+            5 => emit(out, *b"XLCM", self.level_modifier.nth_value(n)),
+            6 => emit(out, *b"XRGD", self.ragdoll_bones.nth_value(n)),
+            7 => emit(out, *b"XRFG", self.reference_group.nth_value(n)),
+            8 => emit(out, *b"XPCS", self.source_pack_in.nth_value(n)),
+            9 => emit(out, *b"XEMI", self.emittance.nth_value(n)),
+            10 => emit(out, *b"XRDS", self.radius.nth_value(n)),
+            11 => emit(out, *b"XLRL", self.location_reference.nth_value(n)),
+            12 => emit(out, *b"XPLK", self.power_links.nth_value(n)),
+            13 => {
+                if let Some(group) = self.grouped_pack_in.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            14 => emit(out, *b"XBPO", self.blueprint_part_origin.nth_value(n)),
+            15 => emit(out, *b"XLMS", self.layered_material_swaps.nth_value(n)),
+            16 => emit(out, *b"XHTW", self.head_tracking_weight.nth_value(n)),
+            17 => emit(out, *b"XFVC", self.favor_cost.nth_value(n)),
+            18 => emit(out, *b"XATR", self.attach_ref.nth_value(n)),
+            19 => emit(out, *b"XATP", self.activation_point.nth_value(n)),
+            20 => emit(out, *b"XRGB", self.biped_rotation.nth_value(n)),
+            21 => emit(out, *b"XLYR", self.layer.nth_value(n)),
+            22 => emit(out, *b"XLCN", self.persist_location.nth_value(n)),
+            23 => emit(out, *b"XEED", self.external_emittance.nth_value(n)),
+            24 => {
+                if let Some(group) = self.linked_references.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            25 => emit(out, *b"XLRT", self.location_ref_types.nth_value(n)),
+            26 => emit(out, *b"XHLT", self.health_percent.nth_value(n)),
+            27 => emit(out, *b"XRNK", self.faction_rank.nth_value(n)),
+            28 => emit(out, *b"XESP", self.enable_parent.nth_value(n)),
+            29 => emit(out, *b"XOWN", self.owner.nth_value(n)),
+            30 => emit(out, *b"XIS2", self.ignored_by_sandbox.nth_value(n)),
+            31 => emit(out, *b"XSCL", self.scale.nth_value(n)),
+            32 => emit(out, *b"XEZN", self.location_override.nth_value(n)),
+            33 => emit(out, *b"XGDS", self.xgds.nth_value(n)),
+            34 => emit(out, *b"DATA", self.placement.nth_value(n)),
+            35 => emit(out, *b"MNAM", self.comments.nth_value(n)),
+            _ => {}
         }
-        if let Some(group) = &self.grouped_pack_in {
-            group.emit(out);
-        }
-        emit(out, *b"XBPO", self.blueprint_part_origin.as_ref());
-        emit(out, *b"XLMS", self.layered_material_swaps.as_ref());
-        emit(out, *b"XHTW", self.head_tracking_weight.as_ref());
-        emit(out, *b"XFVC", self.favor_cost.as_ref());
-        emit(out, *b"XATR", self.attach_ref.as_ref());
-        emit(out, *b"XATP", self.activation_point.as_ref());
-        emit(out, *b"XRGB", self.biped_rotation.as_ref());
-        emit(out, *b"XLYR", self.layer.as_ref());
-        emit(out, *b"XLCN", self.persist_location.as_ref());
-        emit(out, *b"XEED", self.external_emittance.as_ref());
-        if let Some(group) = &self.linked_references {
-            group.emit(out);
-        }
-        emit(out, *b"XLRT", self.location_ref_types.as_ref());
-        emit(out, *b"XHLT", self.health_percent.as_ref());
-        emit(out, *b"XRNK", self.faction_rank.as_ref());
-        emit(out, *b"XESP", self.enable_parent.as_ref());
-        emit(out, *b"XOWN", self.owner.as_ref());
-        emit(out, *b"XIS2", self.ignored_by_sandbox.as_ref());
-        emit(out, *b"XSCL", self.scale.as_ref());
-        emit(out, *b"XEZN", self.location_override.as_ref());
-        emit(out, *b"XGDS", self.xgds.as_ref());
-        emit(out, *b"DATA", self.placement.as_ref());
-        emit(out, *b"MNAM", self.comments.as_ref());
     }
 }
 
@@ -7192,7 +7384,7 @@ impl AchrRecord {
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
     pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
-        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let (hits, unmatched_indexes) = match_unordered(subs, Self::MEMBERS);
         let mut record = Self::default();
         let mut extra = Vec::new();
         for index in unmatched_indexes {
@@ -7205,8 +7397,8 @@ impl AchrRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in on-disk order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -7879,8 +8071,8 @@ impl ActiRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -8217,8 +8409,8 @@ impl AffeRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -8428,8 +8620,8 @@ impl AlchRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -8646,8 +8838,8 @@ impl AmdlRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -9337,8 +9529,8 @@ impl AmmoRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -9496,8 +9688,8 @@ impl AnioRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -10805,8 +10997,8 @@ impl ArmoRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -10999,8 +11191,8 @@ impl AvifRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -12539,8 +12731,8 @@ impl BiomRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -12767,8 +12959,8 @@ impl BookRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -12942,8 +13134,8 @@ impl BptdRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -13665,6 +13857,10 @@ pub struct CellRecord {
     pub traversals: Option<Sub<Bytes>>,
     /// Group `LinkedReferences`, optional.
     pub linked_references: Option<LinkedReferences>,
+    /// The member of each typed value in on-disk order (an unordered record):
+    /// `encode` writes the values back in this order; values added since decoding
+    /// follow, member by member.
+    pub disk_order: Vec<u16>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -13805,6 +14001,8 @@ impl CellRecord {
         extra: &mut Vec<(usize, OwnedSub)>,
     ) {
         for hit in hits {
+            let member = hit.member();
+            let before = self.occurrences(member);
             match hit {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "CELL.EDID", ctx, extra)
@@ -13943,49 +14141,107 @@ impl CellRecord {
                 }
                 _ => unmatched(hit, subs, extra),
             }
+            if self.occurrences(member) > before {
+                note_order(&mut self.disk_order, member);
+            }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"VMAD", self.scripts.as_ref());
-        for group in &self.bfcb_block {
-            group.emit(out);
+        emit_unordered(self, &self.disk_order, Self::MEMBERS.len(), out);
+    }
+}
+
+impl Unordered for CellRecord {
+    fn occurrences(&self, member: usize) -> usize {
+        match member {
+            0 => self.editor_id.count_values(),
+            1 => self.scripts.count_values(),
+            2 => self.bfcb_block.count_values(),
+            3 => self.name.count_values(),
+            4 => self.flags.count_values(),
+            5 => self.grid.count_values(),
+            6 => self.max_height.count_values(),
+            7 => self.lighting.count_values(),
+            8 => self.lighting_template.count_values(),
+            9 => self.water_height.count_values(),
+            10 => self.xils.count_values(),
+            11 => self.xcla_entry.count_values(),
+            12 => self.image_space.count_values(),
+            13 => self.ship_snap_links.count_values(),
+            14 => self.sky_region.count_values(),
+            15 => self.location.count_values(),
+            16 => self.water_environment_map.count_values(),
+            17 => self.music_type.count_values(),
+            18 => self.global_dirt_layer.count_values(),
+            19 => self.water.count_values(),
+            20 => self.acoustic_space.count_values(),
+            21 => self.lock_list.count_values(),
+            22 => self.time_of_day.count_values(),
+            23 => self.water_currents.count_values(),
+            24 => self.water_type.count_values(),
+            25 => self.owner.count_values(),
+            26 => self.faction_rank.count_values(),
+            27 => self.environment_map.count_values(),
+            28 => self.traversals.count_values(),
+            29 => self.linked_references.count_values(),
+            _ => 0,
         }
-        emit(out, *b"FULL", self.name.as_ref());
-        emit(out, *b"DATA", self.flags.as_ref());
-        emit(out, *b"XCLC", self.grid.as_ref());
-        emit(out, *b"MHDT", self.max_height.as_ref());
-        emit(out, *b"XCLL", self.lighting.as_ref());
-        emit(out, *b"LTMP", self.lighting_template.as_ref());
-        emit(out, *b"XCLW", self.water_height.as_ref());
-        emit(out, *b"XILS", self.xils.as_ref());
-        for group in &self.xcla_entry {
-            group.emit(out);
-        }
-        emit(out, *b"XCIM", self.image_space.as_ref());
-        emit(out, *b"XBPS", self.ship_snap_links.as_ref());
-        emit(out, *b"XCCM", self.sky_region.as_ref());
-        emit(out, *b"XLCN", self.location.as_ref());
-        emit(out, *b"XWEM", self.water_environment_map.as_ref());
-        emit(out, *b"XCMO", self.music_type.as_ref());
-        if let Some(group) = &self.global_dirt_layer {
-            group.emit(out);
-        }
-        emit(out, *b"XCWT", self.water.as_ref());
-        emit(out, *b"XCAS", self.acoustic_space.as_ref());
-        emit(out, *b"XILL", self.lock_list.as_ref());
-        emit(out, *b"TODD", self.time_of_day.as_ref());
-        if let Some(group) = &self.water_currents {
-            group.emit(out);
-        }
-        emit(out, *b"XCWM", self.water_type.as_ref());
-        emit(out, *b"XOWN", self.owner.as_ref());
-        emit(out, *b"XRNK", self.faction_rank.as_ref());
-        emit(out, *b"XEMP", self.environment_map.as_ref());
-        emit(out, *b"XTV2", self.traversals.as_ref());
-        if let Some(group) = &self.linked_references {
-            group.emit(out);
+    }
+
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {
+        match member {
+            0 => emit(out, *b"EDID", self.editor_id.nth_value(n)),
+            1 => emit(out, *b"VMAD", self.scripts.nth_value(n)),
+            2 => {
+                if let Some(group) = self.bfcb_block.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            3 => emit(out, *b"FULL", self.name.nth_value(n)),
+            4 => emit(out, *b"DATA", self.flags.nth_value(n)),
+            5 => emit(out, *b"XCLC", self.grid.nth_value(n)),
+            6 => emit(out, *b"MHDT", self.max_height.nth_value(n)),
+            7 => emit(out, *b"XCLL", self.lighting.nth_value(n)),
+            8 => emit(out, *b"LTMP", self.lighting_template.nth_value(n)),
+            9 => emit(out, *b"XCLW", self.water_height.nth_value(n)),
+            10 => emit(out, *b"XILS", self.xils.nth_value(n)),
+            11 => {
+                if let Some(group) = self.xcla_entry.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            12 => emit(out, *b"XCIM", self.image_space.nth_value(n)),
+            13 => emit(out, *b"XBPS", self.ship_snap_links.nth_value(n)),
+            14 => emit(out, *b"XCCM", self.sky_region.nth_value(n)),
+            15 => emit(out, *b"XLCN", self.location.nth_value(n)),
+            16 => emit(out, *b"XWEM", self.water_environment_map.nth_value(n)),
+            17 => emit(out, *b"XCMO", self.music_type.nth_value(n)),
+            18 => {
+                if let Some(group) = self.global_dirt_layer.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            19 => emit(out, *b"XCWT", self.water.nth_value(n)),
+            20 => emit(out, *b"XCAS", self.acoustic_space.nth_value(n)),
+            21 => emit(out, *b"XILL", self.lock_list.nth_value(n)),
+            22 => emit(out, *b"TODD", self.time_of_day.nth_value(n)),
+            23 => {
+                if let Some(group) = self.water_currents.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            24 => emit(out, *b"XCWM", self.water_type.nth_value(n)),
+            25 => emit(out, *b"XOWN", self.owner.nth_value(n)),
+            26 => emit(out, *b"XRNK", self.faction_rank.nth_value(n)),
+            27 => emit(out, *b"XEMP", self.environment_map.nth_value(n)),
+            28 => emit(out, *b"XTV2", self.traversals.nth_value(n)),
+            29 => {
+                if let Some(group) = self.linked_references.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -14049,7 +14305,7 @@ impl CellRecord {
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
     pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
-        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let (hits, unmatched_indexes) = match_unordered(subs, Self::MEMBERS);
         let mut record = Self::default();
         let mut extra = Vec::new();
         for index in unmatched_indexes {
@@ -14062,8 +14318,8 @@ impl CellRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in on-disk order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -14179,8 +14435,8 @@ impl ChalRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -14402,8 +14658,8 @@ impl ClasRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -15184,8 +15440,8 @@ impl CobjRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -15744,8 +16000,8 @@ impl ContRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -15971,8 +16227,8 @@ impl CpthRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -16358,8 +16614,8 @@ impl DialRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -16533,8 +16789,8 @@ impl DmgtRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -16708,8 +16964,8 @@ impl DoorRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -16883,8 +17139,8 @@ impl EnchRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -17058,8 +17314,8 @@ impl ExplRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -18257,8 +18513,8 @@ impl FactRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -18459,8 +18715,8 @@ impl FlorRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -18733,8 +18989,8 @@ impl FlstRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -19569,8 +19825,8 @@ impl FurnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -19744,8 +20000,8 @@ impl FxpdRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -20012,8 +20268,8 @@ impl GbfmRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -20139,8 +20395,8 @@ impl GlobRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -20348,8 +20604,8 @@ impl GmstRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -20584,8 +20840,8 @@ impl GpofRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -20759,8 +21015,8 @@ impl HazdRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -20934,8 +21190,8 @@ impl HdptRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -21202,8 +21458,8 @@ impl IdleRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -22450,8 +22706,8 @@ impl InfoRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -22927,8 +23183,8 @@ impl InnrRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -23121,8 +23377,8 @@ impl IresRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -23296,8 +23552,8 @@ impl KeymRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -23491,8 +23747,8 @@ impl KywdRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -23743,8 +23999,8 @@ impl LcrtRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -25594,8 +25850,8 @@ impl LctnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -25769,8 +26025,8 @@ impl LscrRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -26888,8 +27144,8 @@ impl LvliRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -27441,8 +27697,8 @@ impl LvlnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -27917,8 +28173,8 @@ impl LvlpRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -28145,8 +28401,8 @@ impl MesgRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -29125,8 +29381,8 @@ impl MgefRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -29698,8 +29954,8 @@ impl MiscRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -30161,8 +30417,8 @@ impl MsttRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -30314,8 +30570,8 @@ impl NavmRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -33541,8 +33797,8 @@ impl NpcRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -34026,8 +34282,8 @@ impl OmodRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -34194,8 +34450,8 @@ impl OtftRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -36282,8 +36538,8 @@ impl PackRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -36704,8 +36960,8 @@ impl PcbnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -36918,8 +37174,8 @@ impl PccnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -37293,8 +37549,8 @@ impl PcmtRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -38618,8 +38874,8 @@ impl PerkRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -39125,8 +39381,8 @@ impl PkinRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -39300,8 +39556,8 @@ impl PmftRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -40801,8 +41057,8 @@ impl PndtRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -41982,8 +42238,8 @@ impl ProjRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -44421,8 +44677,8 @@ impl QustRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -48749,8 +49005,8 @@ impl RaceRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -51496,6 +51752,10 @@ pub struct RefrRecord {
     pub placement: Option<Sub<PositionRotation>>,
     /// `MNAM`, optional.
     pub comments: Option<Sub<ZString>>,
+    /// The member of each typed value in on-disk order (an unordered record):
+    /// `encode` writes the values back in this order; values added since decoding
+    /// follow, member by member.
+    pub disk_order: Vec<u16>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -51824,6 +52084,8 @@ impl RefrRecord {
         extra: &mut Vec<(usize, OwnedSub)>,
     ) {
         for hit in hits {
+            let member = hit.member();
+            let before = self.occurrences(member);
             match hit {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "REFR.EDID", ctx, extra)
@@ -52251,109 +52513,218 @@ impl RefrRecord {
                 }
                 _ => unmatched(hit, subs, extra),
             }
+            if self.occurrences(member) > before {
+                note_order(&mut self.disk_order, member);
+            }
         }
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"VMAD", self.scripts.as_ref());
-        emit(out, *b"XALG", self.xalg.as_ref());
-        for group in &self.bfcb_block {
-            group.emit(out);
+        emit_unordered(self, &self.disk_order, Self::MEMBERS.len(), out);
+    }
+}
+
+impl Unordered for RefrRecord {
+    fn occurrences(&self, member: usize) -> usize {
+        match member {
+            0 => self.editor_id.count_values(),
+            1 => self.scripts.count_values(),
+            2 => self.xalg.count_values(),
+            3 => self.bfcb_block.count_values(),
+            4 => self.base.count_values(),
+            5 => self.volume_data.count_values(),
+            6 => self.probe_offset_intensity.count_values(),
+            7 => self.patrol.count_values(),
+            8 => self.action_flags.count_values(),
+            9 => self.faction_rank.count_values(),
+            10 => self.radius.count_values(),
+            11 => self.light_data.count_values(),
+            12 => self.barndoors.count_values(),
+            13 => self.primitive.count_values(),
+            14 => self.projected_decal.count_values(),
+            15 => self.constrained_decal.count_values(),
+            16 => self.bendable_spline.count_values(),
+            17 => self.xnse.count_values(),
+            18 => self.teleport_destination.count_values(),
+            19 => self.item_count.count_values(),
+            20 => self.collision.count_values(),
+            21 => self.ship_arrival.count_values(),
+            22 => self.light_layer.count_values(),
+            23 => self.area_light.count_values(),
+            24 => self.static_shadow_map.count_values(),
+            25 => self.volumetric.count_values(),
+            26 => self.gobo_animation.count_values(),
+            27 => self.light_colors.count_values(),
+            28 => self.layered_material_swaps.count_values(),
+            29 => self.time_of_day.count_values(),
+            30 => self.ragdoll_bones.count_values(),
+            31 => self.external_emittance.count_values(),
+            32 => self.debug_text.count_values(),
+            33 => self.emittance.count_values(),
+            34 => self.map_marker.count_values(),
+            35 => self.power_links.count_values(),
+            36 => self.extra_flags.count_values(),
+            37 => self.layer.count_values(),
+            38 => self.reference_group.count_values(),
+            39 => self.water_reflection.count_values(),
+            40 => self.location_ref_types.count_values(),
+            41 => self.level_modifier.count_values(),
+            42 => self.biped_rotation.count_values(),
+            43 => self.location_reference.count_values(),
+            44 => self.radius_falloff_exponent.count_values(),
+            45 => self.favor_cost.count_values(),
+            46 => self.xltw.count_values(),
+            47 => self.water_currents.count_values(),
+            48 => self.water_current.count_values(),
+            49 => self.head_tracking_weight.count_values(),
+            50 => self.xpck.count_values(),
+            51 => self.source_pack_in.count_values(),
+            52 => self.geometry_dirtiness_scale.count_values(),
+            53 => self.roundness.count_values(),
+            54 => self.grouped_pack_in.count_values(),
+            55 => self.blueprint_part_origin.count_values(),
+            56 => self.light_flicker.count_values(),
+            57 => self.linked_references.count_values(),
+            58 => self.persist_location.count_values(),
+            59 => self.snap_links.count_values(),
+            60 => self.lock.count_values(),
+            61 => self.attach_ref.count_values(),
+            62 => self.teleport_name.count_values(),
+            63 => self.enable_parent.count_values(),
+            64 => self.ignored_by_sandbox.count_values(),
+            65 => self.owner.count_values(),
+            66 => self.properties.count_values(),
+            67 => self.location_override.count_values(),
+            68 => self.health_percent.count_values(),
+            69 => self.activation_point.count_values(),
+            70 => self.leveled_item_base.count_values(),
+            71 => self.traversals.count_values(),
+            72 => self.navmesh_door_link.count_values(),
+            73 => self.scale.count_values(),
+            74 => self.open_by_default.count_values(),
+            75 => self.placement.count_values(),
+            76 => self.comments.count_values(),
+            _ => 0,
         }
-        emit(out, *b"NAME", self.base.as_ref());
-        emit(out, *b"XVL2", self.volume_data.as_ref());
-        emit(out, *b"XVOI", self.probe_offset_intensity.as_ref());
-        for group in &self.patrol {
-            group.emit(out);
+    }
+
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {
+        match member {
+            0 => emit(out, *b"EDID", self.editor_id.nth_value(n)),
+            1 => emit(out, *b"VMAD", self.scripts.nth_value(n)),
+            2 => emit(out, *b"XALG", self.xalg.nth_value(n)),
+            3 => {
+                if let Some(group) = self.bfcb_block.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            4 => emit(out, *b"NAME", self.base.nth_value(n)),
+            5 => emit(out, *b"XVL2", self.volume_data.nth_value(n)),
+            6 => emit(out, *b"XVOI", self.probe_offset_intensity.nth_value(n)),
+            7 => {
+                if let Some(group) = self.patrol.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            8 => emit(out, *b"XACT", self.action_flags.nth_value(n)),
+            9 => emit(out, *b"XRNK", self.faction_rank.nth_value(n)),
+            10 => emit(out, *b"XRDS", self.radius.nth_value(n)),
+            11 => emit(out, *b"XLIG", self.light_data.nth_value(n)),
+            12 => emit(out, *b"XLBD", self.barndoors.nth_value(n)),
+            13 => emit(out, *b"XPRM", self.primitive.nth_value(n)),
+            14 => {
+                if let Some(group) = self.projected_decal.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            15 => emit(out, *b"XCDD", self.constrained_decal.nth_value(n)),
+            16 => emit(out, *b"XBSD", self.bendable_spline.nth_value(n)),
+            17 => emit(out, *b"XNSE", self.xnse.nth_value(n)),
+            18 => emit(out, *b"XTEL", self.teleport_destination.nth_value(n)),
+            19 => emit(out, *b"XCNT", self.item_count.nth_value(n)),
+            20 => emit(out, *b"XCOL", self.collision.nth_value(n)),
+            21 => emit(out, *b"XSAD", self.ship_arrival.nth_value(n)),
+            22 => emit(out, *b"XLLD", self.light_layer.nth_value(n)),
+            23 => emit(out, *b"XALD", self.area_light.nth_value(n)),
+            24 => emit(out, *b"XLSM", self.static_shadow_map.nth_value(n)),
+            25 => emit(out, *b"XLVD", self.volumetric.nth_value(n)),
+            26 => emit(out, *b"XLGD", self.gobo_animation.nth_value(n)),
+            27 => emit(out, *b"XLCD", self.light_colors.nth_value(n)),
+            28 => emit(out, *b"XLMS", self.layered_material_swaps.nth_value(n)),
+            29 => emit(out, *b"TODD", self.time_of_day.nth_value(n)),
+            30 => emit(out, *b"XRGD", self.ragdoll_bones.nth_value(n)),
+            31 => emit(out, *b"XEED", self.external_emittance.nth_value(n)),
+            32 => {
+                if let Some(group) = self.debug_text.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            33 => emit(out, *b"XEMI", self.emittance.nth_value(n)),
+            34 => {
+                if let Some(group) = self.map_marker.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            35 => emit(out, *b"XPLK", self.power_links.nth_value(n)),
+            36 => emit(out, *b"XFLG", self.extra_flags.nth_value(n)),
+            37 => emit(out, *b"XLYR", self.layer.nth_value(n)),
+            38 => emit(out, *b"XRFG", self.reference_group.nth_value(n)),
+            39 => emit(out, *b"BOLV", self.water_reflection.nth_value(n)),
+            40 => emit(out, *b"XLRT", self.location_ref_types.nth_value(n)),
+            41 => emit(out, *b"XLCM", self.level_modifier.nth_value(n)),
+            42 => emit(out, *b"XRGB", self.biped_rotation.nth_value(n)),
+            43 => emit(out, *b"XLRL", self.location_reference.nth_value(n)),
+            44 => emit(out, *b"XRFE", self.radius_falloff_exponent.nth_value(n)),
+            45 => emit(out, *b"XFVC", self.favor_cost.nth_value(n)),
+            46 => emit(out, *b"XLTW", self.xltw.nth_value(n)),
+            47 => {
+                if let Some(group) = self.water_currents.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            48 => {
+                if let Some(group) = self.water_current.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            49 => emit(out, *b"XHTW", self.head_tracking_weight.nth_value(n)),
+            50 => emit(out, *b"XPCK", self.xpck.nth_value(n)),
+            51 => emit(out, *b"XPCS", self.source_pack_in.nth_value(n)),
+            52 => emit(out, *b"XGDS", self.geometry_dirtiness_scale.nth_value(n)),
+            53 => emit(out, *b"XLRD", self.roundness.nth_value(n)),
+            54 => {
+                if let Some(group) = self.grouped_pack_in.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            55 => emit(out, *b"XBPO", self.blueprint_part_origin.nth_value(n)),
+            56 => emit(out, *b"XLFD", self.light_flicker.nth_value(n)),
+            57 => {
+                if let Some(group) = self.linked_references.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            58 => emit(out, *b"XLCN", self.persist_location.nth_value(n)),
+            59 => emit(out, *b"XSL1", self.snap_links.nth_value(n)),
+            60 => emit(out, *b"XLOC", self.lock.nth_value(n)),
+            61 => emit(out, *b"XATR", self.attach_ref.nth_value(n)),
+            62 => emit(out, *b"XTNM", self.teleport_name.nth_value(n)),
+            63 => emit(out, *b"XESP", self.enable_parent.nth_value(n)),
+            64 => emit(out, *b"XIS2", self.ignored_by_sandbox.nth_value(n)),
+            65 => emit(out, *b"XOWN", self.owner.nth_value(n)),
+            66 => emit(out, *b"XPPS", self.properties.nth_value(n)),
+            67 => emit(out, *b"XEZN", self.location_override.nth_value(n)),
+            68 => emit(out, *b"XHLT", self.health_percent.nth_value(n)),
+            69 => emit(out, *b"XATP", self.activation_point.nth_value(n)),
+            70 => emit(out, *b"XLIB", self.leveled_item_base.nth_value(n)),
+            71 => emit(out, *b"XTV2", self.traversals.nth_value(n)),
+            72 => emit(out, *b"XNDP", self.navmesh_door_link.nth_value(n)),
+            73 => emit(out, *b"XSCL", self.scale.nth_value(n)),
+            74 => emit(out, *b"ONAM", self.open_by_default.nth_value(n)),
+            75 => emit(out, *b"DATA", self.placement.nth_value(n)),
+            76 => emit(out, *b"MNAM", self.comments.nth_value(n)),
+            _ => {}
         }
-        emit(out, *b"XACT", self.action_flags.as_ref());
-        emit(out, *b"XRNK", self.faction_rank.as_ref());
-        emit(out, *b"XRDS", self.radius.as_ref());
-        emit(out, *b"XLIG", self.light_data.as_ref());
-        emit(out, *b"XLBD", self.barndoors.as_ref());
-        emit(out, *b"XPRM", self.primitive.as_ref());
-        if let Some(group) = &self.projected_decal {
-            group.emit(out);
-        }
-        emit(out, *b"XCDD", self.constrained_decal.as_ref());
-        emit(out, *b"XBSD", self.bendable_spline.as_ref());
-        emit(out, *b"XNSE", self.xnse.as_ref());
-        emit(out, *b"XTEL", self.teleport_destination.as_ref());
-        emit(out, *b"XCNT", self.item_count.as_ref());
-        emit(out, *b"XCOL", self.collision.as_ref());
-        emit(out, *b"XSAD", self.ship_arrival.as_ref());
-        emit(out, *b"XLLD", self.light_layer.as_ref());
-        emit(out, *b"XALD", self.area_light.as_ref());
-        emit(out, *b"XLSM", self.static_shadow_map.as_ref());
-        emit(out, *b"XLVD", self.volumetric.as_ref());
-        emit(out, *b"XLGD", self.gobo_animation.as_ref());
-        for value in &self.light_colors {
-            emit(out, *b"XLCD", Some(value));
-        }
-        emit(out, *b"XLMS", self.layered_material_swaps.as_ref());
-        emit(out, *b"TODD", self.time_of_day.as_ref());
-        emit(out, *b"XRGD", self.ragdoll_bones.as_ref());
-        emit(out, *b"XEED", self.external_emittance.as_ref());
-        if let Some(group) = &self.debug_text {
-            group.emit(out);
-        }
-        emit(out, *b"XEMI", self.emittance.as_ref());
-        if let Some(group) = &self.map_marker {
-            group.emit(out);
-        }
-        for value in &self.power_links {
-            emit(out, *b"XPLK", Some(value));
-        }
-        emit(out, *b"XFLG", self.extra_flags.as_ref());
-        emit(out, *b"XLYR", self.layer.as_ref());
-        emit(out, *b"XRFG", self.reference_group.as_ref());
-        emit(out, *b"BOLV", self.water_reflection.as_ref());
-        emit(out, *b"XLRT", self.location_ref_types.as_ref());
-        emit(out, *b"XLCM", self.level_modifier.as_ref());
-        emit(out, *b"XRGB", self.biped_rotation.as_ref());
-        emit(out, *b"XLRL", self.location_reference.as_ref());
-        emit(out, *b"XRFE", self.radius_falloff_exponent.as_ref());
-        emit(out, *b"XFVC", self.favor_cost.as_ref());
-        emit(out, *b"XLTW", self.xltw.as_ref());
-        if let Some(group) = &self.water_currents {
-            group.emit(out);
-        }
-        for group in &self.water_current {
-            group.emit(out);
-        }
-        emit(out, *b"XHTW", self.head_tracking_weight.as_ref());
-        emit(out, *b"XPCK", self.xpck.as_ref());
-        emit(out, *b"XPCS", self.source_pack_in.as_ref());
-        emit(out, *b"XGDS", self.geometry_dirtiness_scale.as_ref());
-        emit(out, *b"XLRD", self.roundness.as_ref());
-        if let Some(group) = &self.grouped_pack_in {
-            group.emit(out);
-        }
-        emit(out, *b"XBPO", self.blueprint_part_origin.as_ref());
-        emit(out, *b"XLFD", self.light_flicker.as_ref());
-        if let Some(group) = &self.linked_references {
-            group.emit(out);
-        }
-        emit(out, *b"XLCN", self.persist_location.as_ref());
-        emit(out, *b"XSL1", self.snap_links.as_ref());
-        emit(out, *b"XLOC", self.lock.as_ref());
-        emit(out, *b"XATR", self.attach_ref.as_ref());
-        emit(out, *b"XTNM", self.teleport_name.as_ref());
-        emit(out, *b"XESP", self.enable_parent.as_ref());
-        emit(out, *b"XIS2", self.ignored_by_sandbox.as_ref());
-        emit(out, *b"XOWN", self.owner.as_ref());
-        emit(out, *b"XPPS", self.properties.as_ref());
-        emit(out, *b"XEZN", self.location_override.as_ref());
-        emit(out, *b"XHLT", self.health_percent.as_ref());
-        emit(out, *b"XATP", self.activation_point.as_ref());
-        emit(out, *b"XLIB", self.leveled_item_base.as_ref());
-        emit(out, *b"XTV2", self.traversals.as_ref());
-        emit(out, *b"XNDP", self.navmesh_door_link.as_ref());
-        emit(out, *b"XSCL", self.scale.as_ref());
-        emit(out, *b"ONAM", self.open_by_default.as_ref());
-        emit(out, *b"DATA", self.placement.as_ref());
-        emit(out, *b"MNAM", self.comments.as_ref());
     }
 }
 
@@ -52440,7 +52811,7 @@ impl RefrRecord {
     /// Decodes a record body. Never fails: subrecords that match no member or do not
     /// decode are kept in `extra`.
     pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
-        let (hits, unmatched_indexes) = match_members(subs, Self::MEMBERS);
+        let (hits, unmatched_indexes) = match_unordered(subs, Self::MEMBERS);
         let mut record = Self::default();
         let mut extra = Vec::new();
         for index in unmatched_indexes {
@@ -52453,8 +52824,8 @@ impl RefrRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in on-disk order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -52731,8 +53102,8 @@ impl RsgdRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -53164,8 +53535,8 @@ impl RspjRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -54640,8 +55011,8 @@ impl ScenRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -55307,8 +55678,8 @@ impl SfbkRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -55657,8 +56028,8 @@ impl SfptRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -55875,8 +56246,8 @@ impl SmbnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -56103,8 +56474,8 @@ impl SmenRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -56442,8 +56813,8 @@ impl SmqnRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -57000,8 +57371,8 @@ impl SpelRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -57498,8 +57869,8 @@ impl StatRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -57807,8 +58178,8 @@ impl StdtRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -57958,8 +58329,8 @@ impl SunpRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -58847,8 +59218,8 @@ impl TermRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -59178,8 +59549,8 @@ impl Tes4Record {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -60112,8 +60483,8 @@ impl TmlmRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -60356,8 +60727,8 @@ impl TravRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -60531,8 +60902,8 @@ impl WatrRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -63305,8 +63676,8 @@ impl WeapRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -64629,8 +65000,8 @@ impl WrldRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -64960,8 +65331,8 @@ impl ZoomRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -65179,6 +65550,24 @@ pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"WRLD", WrldRecord::MEMBERS),
     (*b"ZOOM", ZoomRecord::MEMBERS),
 ];
+
+/// Record types whose members may occur in any order (`unordered = true`).
+pub const UNORDERED: &[Sig] = &[*b"ACHR", *b"CELL", *b"REFR"];
+
+/// Matches a body of record type `signature` against `members` (its [`RECORDS`] entry) as
+/// its decoder does: [`match_unordered`] for the types in [`UNORDERED`], otherwise
+/// [`match_members`].
+pub fn match_body(
+    signature: Sig,
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {
+    if UNORDERED.contains(&signature) {
+        match_unordered(subs, members)
+    } else {
+        match_members(subs, members)
+    }
+}
 
 impl Record {
     /// Decodes a record body of type `signature`; `None` when the schema has no

@@ -4,6 +4,7 @@
 // - common Marker (corpus: synthetic test fixture, not game data; corpus)
 // - common Point (corpus: synthetic test fixture, not game data; corpus)
 // - EMPT (corpus: synthetic test fixture, not game data; corpus)
+// - UNOR (corpus: synthetic test fixture, not game data; corpus)
 // - UUUU (corpus: synthetic test fixture, not game data; corpus)
 // - VVVV (corpus: synthetic test fixture, not game data; corpus)
 // - YYYY (corpus: synthetic test fixture, not game data; corpus)
@@ -750,6 +751,134 @@ pub fn match_members(
     (hits, unmatched)
 }
 
+/// [`match_members`] for a record whose members may occur in any order (`unordered = true`
+/// on its definition, as upstream marks CELL, REFR and ACHR): a subrecord is matched from
+/// the current member on, as [`match_members`] does, and when no member from there accepts
+/// it, from the first member again. A group still matches one consecutive run, in its own
+/// order; a subrecord no member accepts is unmatched.
+pub fn match_unordered(
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {
+    let mut pos = 0;
+    let mut cursor = 0;
+    let mut hits = Vec::new();
+    let mut unmatched = Vec::new();
+    while pos < subs.len() {
+        let mut hit = match_one(subs, &mut pos, members, &mut cursor, 0);
+        if hit.is_none() {
+            let mut wrapped = 0;
+            hit = match_one(subs, &mut pos, members, &mut wrapped, 0);
+            if hit.is_some() {
+                cursor = wrapped;
+            }
+        }
+        match hit {
+            Some(hit) => hits.push(hit),
+            None => {
+                unmatched.push(pos);
+                pos = pos.saturating_add(1);
+            }
+        }
+    }
+    (hits, unmatched)
+}
+
+impl Hit {
+    /// The member (an index into its member list) this hit belongs to.
+    pub fn member(&self) -> usize {
+        match self {
+            Self::Sub { member, .. } | Self::Group { member, .. } => *member,
+        }
+    }
+}
+
+/// The values of one member of a record or group: optional (`Option`) or a list (`Vec`).
+pub trait Slots {
+    /// One value.
+    type Item;
+
+    /// How many values the member holds.
+    fn count_values(&self) -> usize;
+
+    /// The `n`th value, if there is one.
+    fn nth_value(&self, n: usize) -> Option<&Self::Item>;
+}
+
+impl<T> Slots for Option<T> {
+    type Item = T;
+
+    fn count_values(&self) -> usize {
+        usize::from(self.is_some())
+    }
+
+    fn nth_value(&self, n: usize) -> Option<&T> {
+        if n == 0 {
+            self.as_ref()
+        } else {
+            None
+        }
+    }
+}
+
+impl<T> Slots for Vec<T> {
+    type Item = T;
+
+    fn count_values(&self) -> usize {
+        self.len()
+    }
+
+    fn nth_value(&self, n: usize) -> Option<&T> {
+        self.get(n)
+    }
+}
+
+/// A record whose members may occur in any order. Decoding records the member of every
+/// typed value in on-disk order (`disk_order`), and encoding writes the values back in that
+/// order, so an unedited record re-encodes byte for byte; values added since decoding are
+/// written after the recorded ones, member by member.
+pub trait Unordered {
+    /// How many values member `member` holds.
+    fn occurrences(&self, member: usize) -> usize;
+
+    /// Appends the `n`th value of member `member` (a whole group for a group member), if
+    /// it has one.
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>);
+}
+
+/// Records that a value of `member` was decoded (the next entry of a `disk_order`).
+pub fn note_order(order: &mut Vec<u16>, member: usize) {
+    if let Ok(member) = u16::try_from(member) {
+        order.push(member);
+    }
+}
+
+/// Emits the values of an unordered record: for each `order` entry the next value of that
+/// member that is still there, then every value no entry reached (added since decoding),
+/// member by member.
+pub fn emit_unordered<T: Unordered>(
+    value: &T,
+    order: &[u16],
+    members: usize,
+    out: &mut Vec<OwnedSub>,
+) {
+    let mut next = vec![0usize; members];
+    for &member in order {
+        let member = usize::from(member);
+        if let Some(n) = next.get_mut(member) {
+            if *n < value.occurrences(member) {
+                value.emit_nth(member, *n, out);
+                *n = n.saturating_add(1);
+            }
+        }
+    }
+    for (member, &n) in next.iter().enumerate() {
+        for k in n..value.occurrences(member) {
+            value.emit_nth(member, k, out);
+        }
+    }
+}
+
 /// Decodes subrecord `index` into an empty slot, or keeps it raw in `extra`.
 pub fn put<T: Field>(
     slot: &mut Option<Sub<T>>,
@@ -1069,8 +1198,8 @@ impl EmptRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -1104,6 +1233,267 @@ impl EmptRecord {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         let mut out = Vec::new();
         self.visit_lstrings_mut("EMPT", &mut out);
+        out
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UnorData {
+    pub value: u32,
+}
+
+impl Field for UnorData {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "UNOR.DATA.Value", ctx)?;
+        Ok(Self { value: f0 })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.value.write(out);
+    }
+}
+
+impl Visit for UnorData {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UnorPair {
+    /// `PKEY`, required.
+    pub key: Option<Sub<u8>>,
+    /// `PVAL`, optional.
+    pub value: Option<Sub<u16>>,
+}
+
+impl UnorPair {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"PKEY",
+            card: Card::Required,
+        },
+        MemberDesc::Sub {
+            sig: *b"PVAL",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.key, subs, *index, "UNOR.Pair.PKEY", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.value, subs, *index, "UNOR.Pair.PVAL", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"PKEY", self.key.as_ref());
+        emit(out, *b"PVAL", self.value.as_ref());
+    }
+}
+
+impl Visit for UnorPair {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct UnorRecord {
+    /// `EDID`, optional.
+    pub editor_id: Option<Sub<ZString>>,
+    /// `DATA`, optional.
+    pub data: Option<Sub<UnorData>>,
+    /// Group `Pair`, repeated.
+    pub pair: Vec<UnorPair>,
+    /// `NAME`, repeated.
+    pub refs: Vec<Sub<FormId>>,
+    /// `FULL`, optional.
+    pub name: Option<Sub<LString>>,
+    /// The member of each typed value in on-disk order (an unordered record):
+    /// `encode` writes the values back in this order; values added since decoding
+    /// follow, member by member.
+    pub disk_order: Vec<u16>,
+    /// Subrecords that matched no member or failed to decode, each with its index
+    /// in the record body as read. `encode` re-inserts them at those indexes (see
+    /// `merge_extra`); when typed values are added or removed, an index stays a number,
+    /// so the entry may land next to different neighbours.
+    pub extra: Vec<(usize, OwnedSub)>,
+}
+
+impl UnorRecord {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"EDID",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DATA",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: UnorPair::MEMBERS,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAME",
+            card: Card::Repeated,
+        },
+        MemberDesc::Sub {
+            sig: *b"FULL",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            let member = hit.member();
+            let before = self.occurrences(member);
+            match hit {
+                Hit::Sub { member: 0, index } => {
+                    put(&mut self.editor_id, subs, *index, "UNOR.EDID", ctx, extra)
+                }
+                Hit::Sub { member: 1, index } => {
+                    put(&mut self.data, subs, *index, "UNOR.DATA", ctx, extra)
+                }
+                Hit::Group { member: 2, hits } => {
+                    let mut group = UnorPair::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.pair.push(group);
+                }
+                Hit::Sub { member: 3, index } => {
+                    push(&mut self.refs, subs, *index, "UNOR.NAME", ctx, extra)
+                }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.name, subs, *index, "UNOR.FULL", ctx, extra)
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+            if self.occurrences(member) > before {
+                note_order(&mut self.disk_order, member);
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit_unordered(self, &self.disk_order, Self::MEMBERS.len(), out);
+    }
+}
+
+impl Unordered for UnorRecord {
+    fn occurrences(&self, member: usize) -> usize {
+        match member {
+            0 => self.editor_id.count_values(),
+            1 => self.data.count_values(),
+            2 => self.pair.count_values(),
+            3 => self.refs.count_values(),
+            4 => self.name.count_values(),
+            _ => 0,
+        }
+    }
+
+    fn emit_nth(&self, member: usize, n: usize, out: &mut Vec<OwnedSub>) {
+        match member {
+            0 => emit(out, *b"EDID", self.editor_id.nth_value(n)),
+            1 => emit(out, *b"DATA", self.data.nth_value(n)),
+            2 => {
+                if let Some(group) = self.pair.nth_value(n) {
+                    group.emit(out);
+                }
+            }
+            3 => emit(out, *b"NAME", self.refs.nth_value(n)),
+            4 => emit(out, *b"FULL", self.name.nth_value(n)),
+            _ => {}
+        }
+    }
+}
+
+impl Visit for UnorRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.refs, "UNOR.NAME", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.refs, "UNOR.NAME", out);
+    }
+
+    fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
+        visit_lstrings(&self.name, "UNOR.FULL", out);
+    }
+
+    fn visit_lstrings_mut<'a>(&'a mut self, _path: &'static str, out: &mut LStringsMut<'a>) {
+        visit_lstrings_mut(&mut self.name, "UNOR.FULL", out);
+    }
+}
+
+impl UnorRecord {
+    /// Record signature.
+    pub const SIGNATURE: Sig = *b"UNOR";
+
+    /// Decodes a record body. Never fails: subrecords that match no member or do not
+    /// decode are kept in `extra`.
+    pub fn decode(subs: &[RawSub<'_>], ctx: Ctx) -> Self {
+        let (hits, unmatched_indexes) = match_unordered(subs, Self::MEMBERS);
+        let mut record = Self::default();
+        let mut extra = Vec::new();
+        for index in unmatched_indexes {
+            if let Some(sub) = subs.get(index) {
+                extra.push((index, OwnedSub::from(sub)));
+            }
+        }
+        record.fill(&hits, subs, ctx, &mut extra);
+        record.extra = extra;
+        record
+    }
+
+    /// Encodes the record body: typed members in on-disk order, `extra` re-inserted at the
+    /// indexes it was read from.
+    pub fn encode(&self) -> Vec<OwnedSub> {
+        let mut out = Vec::new();
+        self.emit(&mut out);
+        merge_extra(out, &self.extra)
+    }
+
+    /// Every FormID-typed value (raw, as stored), in definition order, with the path of
+    /// the member or field holding it. `extra` and opaque payloads are not visited.
+    pub fn form_ids(&self) -> FormIds<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids("UNOR", &mut out);
+        out
+    }
+
+    /// [`Self::form_ids`], mutably (for remapping FormIDs in place).
+    pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_form_ids_mut("UNOR", &mut out);
+        out
+    }
+
+    /// Every lstring value, in definition order, with the path of the member or field
+    /// holding it. `extra` and opaque payloads are not visited.
+    pub fn lstrings(&self) -> LStrings<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings("UNOR", &mut out);
+        out
+    }
+
+    /// [`Self::lstrings`], mutably (for replacing string IDs with inline text).
+    pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
+        let mut out = Vec::new();
+        self.visit_lstrings_mut("UNOR", &mut out);
         out
     }
 }
@@ -1360,8 +1750,8 @@ impl UuuuRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -1739,8 +2129,8 @@ impl VvvvRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -2427,8 +2817,8 @@ impl YyyyRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -3017,8 +3407,8 @@ impl ZzzzRecord {
         record
     }
 
-    /// Encodes the record body: typed members in definition order, `extra` re-inserted at
-    /// the indexes it was read from.
+    /// Encodes the record body: typed members in definition order, `extra` re-inserted at the
+    /// indexes it was read from.
     pub fn encode(&self) -> Vec<OwnedSub> {
         let mut out = Vec::new();
         self.emit(&mut out);
@@ -3060,6 +3450,7 @@ impl ZzzzRecord {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Record {
     Empt(Box<EmptRecord>),
+    Unor(Box<UnorRecord>),
     Uuuu(Box<UuuuRecord>),
     Vvvv(Box<VvvvRecord>),
     Yyyy(Box<YyyyRecord>),
@@ -3069,11 +3460,30 @@ pub enum Record {
 /// The member list of every defined record type, by signature.
 pub const RECORDS: &[(Sig, &[MemberDesc])] = &[
     (*b"EMPT", EmptRecord::MEMBERS),
+    (*b"UNOR", UnorRecord::MEMBERS),
     (*b"UUUU", UuuuRecord::MEMBERS),
     (*b"VVVV", VvvvRecord::MEMBERS),
     (*b"YYYY", YyyyRecord::MEMBERS),
     (*b"ZZZZ", ZzzzRecord::MEMBERS),
 ];
+
+/// Record types whose members may occur in any order (`unordered = true`).
+pub const UNORDERED: &[Sig] = &[*b"UNOR"];
+
+/// Matches a body of record type `signature` against `members` (its [`RECORDS`] entry) as
+/// its decoder does: [`match_unordered`] for the types in [`UNORDERED`], otherwise
+/// [`match_members`].
+pub fn match_body(
+    signature: Sig,
+    subs: &[RawSub<'_>],
+    members: &'static [MemberDesc],
+) -> (Vec<Hit>, Vec<usize>) {
+    if UNORDERED.contains(&signature) {
+        match_unordered(subs, members)
+    } else {
+        match_members(subs, members)
+    }
+}
 
 impl Record {
     /// Decodes a record body of type `signature`; `None` when the schema has no
@@ -3081,6 +3491,7 @@ impl Record {
     pub fn decode(signature: Sig, subs: &[RawSub<'_>], ctx: Ctx) -> Option<Self> {
         Some(match &signature {
             b"EMPT" => Self::Empt(Box::new(EmptRecord::decode(subs, ctx))),
+            b"UNOR" => Self::Unor(Box::new(UnorRecord::decode(subs, ctx))),
             b"UUUU" => Self::Uuuu(Box::new(UuuuRecord::decode(subs, ctx))),
             b"VVVV" => Self::Vvvv(Box::new(VvvvRecord::decode(subs, ctx))),
             b"YYYY" => Self::Yyyy(Box::new(YyyyRecord::decode(subs, ctx))),
@@ -3093,6 +3504,7 @@ impl Record {
     pub fn encode(&self) -> Vec<OwnedSub> {
         match self {
             Self::Empt(record) => record.encode(),
+            Self::Unor(record) => record.encode(),
             Self::Uuuu(record) => record.encode(),
             Self::Vvvv(record) => record.encode(),
             Self::Yyyy(record) => record.encode(),
@@ -3104,6 +3516,7 @@ impl Record {
     pub fn signature(&self) -> Sig {
         match self {
             Self::Empt(_) => EmptRecord::SIGNATURE,
+            Self::Unor(_) => UnorRecord::SIGNATURE,
             Self::Uuuu(_) => UuuuRecord::SIGNATURE,
             Self::Vvvv(_) => VvvvRecord::SIGNATURE,
             Self::Yyyy(_) => YyyyRecord::SIGNATURE,
@@ -3115,6 +3528,7 @@ impl Record {
     pub fn form_ids(&self) -> FormIds<'_> {
         match self {
             Self::Empt(record) => record.form_ids(),
+            Self::Unor(record) => record.form_ids(),
             Self::Uuuu(record) => record.form_ids(),
             Self::Vvvv(record) => record.form_ids(),
             Self::Yyyy(record) => record.form_ids(),
@@ -3126,6 +3540,7 @@ impl Record {
     pub fn form_ids_mut(&mut self) -> FormIdsMut<'_> {
         match self {
             Self::Empt(record) => record.form_ids_mut(),
+            Self::Unor(record) => record.form_ids_mut(),
             Self::Uuuu(record) => record.form_ids_mut(),
             Self::Vvvv(record) => record.form_ids_mut(),
             Self::Yyyy(record) => record.form_ids_mut(),
@@ -3137,6 +3552,7 @@ impl Record {
     pub fn lstrings(&self) -> LStrings<'_> {
         match self {
             Self::Empt(record) => record.lstrings(),
+            Self::Unor(record) => record.lstrings(),
             Self::Uuuu(record) => record.lstrings(),
             Self::Vvvv(record) => record.lstrings(),
             Self::Yyyy(record) => record.lstrings(),
@@ -3148,6 +3564,7 @@ impl Record {
     pub fn lstrings_mut(&mut self) -> LStringsMut<'_> {
         match self {
             Self::Empt(record) => record.lstrings_mut(),
+            Self::Unor(record) => record.lstrings_mut(),
             Self::Uuuu(record) => record.lstrings_mut(),
             Self::Vvvv(record) => record.lstrings_mut(),
             Self::Yyyy(record) => record.lstrings_mut(),
@@ -3160,6 +3577,7 @@ impl Record {
     pub fn extra(&self) -> &[(usize, OwnedSub)] {
         match self {
             Self::Empt(record) => &record.extra,
+            Self::Unor(record) => &record.extra,
             Self::Uuuu(record) => &record.extra,
             Self::Vvvv(record) => &record.extra,
             Self::Yyyy(record) => &record.extra,

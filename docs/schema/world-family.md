@@ -31,19 +31,19 @@ generated type and encoded again.
 typed one, decoded with the declared layout. Nothing placed failed to decode, and every
 record writes back byte for byte.
 
-**Out of member order.** xEdit marks CELL, REFR and ACHR members as unordered, and the
-official files bear that out: the same record type stores, say, `XLYR` before `XLMS` in one
-record and after it in the next. The schema matches members in one fixed order, so the
-definitions use the linear order that agrees with the most official records (computed
-from every corpus record), and a subrecord that comes earlier than its member allows is
-kept raw in the record's `extra` at its position. Its bytes are never lost and the record
-still writes back identically, but its value is not in the typed field: read `extra` too
-(`Record::extra()`), or treat a missing typed value on these three types as "not read",
-not as "absent". The worst cases: REFR `XLYR` (364,914 of 3,352,032 out of order), `XLMS`
-(298,641 of 1,464,237), the grouped pack-in block (about 114,000 of 1,736,698); ACHR `XLCN`
-(3,212 of 10,948) and `XLYR` (2,731 of 6,955). Each member's `note` gives its own counts.
-An `unordered` matching mode would place all of them (requested from lane B in
-`plan/STATUS.md`).
+**Member order.** xEdit marks CELL, REFR and ACHR members as unordered, and the official
+files bear that out: the same record type stores, say, `XLYR` before `XLMS` in one record
+and after it in the next. The three definitions are `unordered = true` (M4.BX1,
+`crates/schema/defs/README.md`): the decoder matches each subrecord from its current
+member on and, when none accepts it there, from the first member again; a group still
+matches one consecutive run in its own order. Every subrecord the definitions name is
+typed wherever it stands (before the mode, 784 CELL, 1,814,375 REFR and 11,288 ACHR
+subrecords were kept raw in `extra`: REFR `XLYR` 364,914 of 3,352,032, `XLMS` 298,641 of
+1,464,237, the grouped pack-in block about 114,000 of 1,736,698; ACHR `XLCN` 3,212 of
+10,948 and `XLYR` 2,731 of 6,955), and the record records its on-disk member order
+(`disk_order`), so it still writes back byte for byte; values added by an edit are written
+after the recorded ones. The member list keeps the linear order that agrees with the most
+official records, which is also the order a new record is written in.
 
 ## What each record carries
 

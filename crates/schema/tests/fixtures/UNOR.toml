@@ -1,0 +1,50 @@
+# UNOR: a synthetic record for the `unordered` record mode (M4.BX1): members that may occur
+# in any order (upstream marks CELL, REFR and ACHR so), with an optional and a repeated
+# subrecord, a repeated group, a FormID and an lstring.
+signature = "UNOR"
+name = "Unordered"
+source = "corpus: synthetic test fixture, not game data"
+confidence = "corpus"
+unordered = true
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Value", type = "u32" },
+]
+
+[[member]]
+group = "Pair"
+card = "repeated"
+
+[[member.member]]
+sig = "PKEY"
+name = "Key"
+type = "u8"
+
+[[member.member]]
+sig = "PVAL"
+name = "Value"
+type = "u16"
+card = "optional"
+
+[[member]]
+sig = "NAME"
+name = "Refs"
+type = "formid"
+card = "repeated"
+
+[[member]]
+sig = "FULL"
+name = "Name"
+type = "lstring"
+card = "optional"
