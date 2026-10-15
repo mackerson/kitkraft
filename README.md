@@ -1,3 +1,14 @@
+<!--
+  1 SOFTWARE. DO NOT EAT.
+  ABSOLUTELY NO RELATION TO ANYTHING EDIBLE, REAL OR FICTIONAL.
+  Manufactured in a facility that also processes bugs.
+  May contain traces of Papyrus.
+-->
+<p align="center">
+  <img alt="KitKraft" title="1 SOFTWARE. DO NOT EAT.&#10;ABSOLUTELY NO RELATION TO ANYTHING EDIBLE, REAL OR FICTIONAL." src="resources/kitkraft.png" width="260"><br>
+  <sub><sub><sub>Manufactured in a facility that also processes bugs. May contain traces of Papyrus.</sub></sub></sub>
+</p>
+
 <h1 align="center">KitKraft</h1>
 
 <p align="center">
