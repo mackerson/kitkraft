@@ -18,7 +18,8 @@
 //! the directory first refers to them, and there are no gaps or trailing bytes.
 //! [`Table::to_bytes`] writes exactly that layout, so every official table rewrites
 //! byte-identically. Text is UTF-8 in the official files except a few entries of the
-//! English tables, so strings are kept as bytes and decoded lossily for display.
+//! English tables (Windows-1252), so strings are kept as bytes; [`Entry::text`] shows a
+//! non-UTF-8 entry as Windows-1252.
 //!
 //! [`Table::parse`] is strict: the header's data size must match the bytes after the
 //! directory. [`ParseMode::Tolerant`] (M3.G2) also reads a table padded past its declared
@@ -254,9 +255,17 @@ impl Entry {
         }
     }
 
-    /// The text, decoded as UTF-8 (invalid sequences replaced).
+    /// The text: the bytes as UTF-8 when they are valid UTF-8, otherwise the whole entry
+    /// decoded as Windows-1252, one char per byte. A few official entries are Windows-1252
+    /// (`Starfield - Localization.ba2` dlstrings `0x000301B6` holds `0x92` for an
+    /// apostrophe; SF1Edit oracle row X8, `docs/oracles.md`), and SF1Edit shows them that
+    /// way. Display only: compare and copy by [`Entry::bytes`] ([`Entry::is_utf8`] says
+    /// which reading applied).
     pub fn text(&self) -> Cow<'_, str> {
-        String::from_utf8_lossy(&self.bytes)
+        match std::str::from_utf8(&self.bytes) {
+            Ok(text) => Cow::Borrowed(text),
+            Err(_) => Cow::Owned(decode_cp1252(&self.bytes)),
+        }
     }
 
     /// Whether the bytes are valid UTF-8.
@@ -613,6 +622,29 @@ pub fn merge(tables: &[Table]) -> Result<Merged, Error> {
         duplicates,
         identical_repeats,
     })
+}
+
+/// Windows-1252 code points of bytes 0x80..=0x9F; the five bytes the code page leaves
+/// undefined (0x81, 0x8D, 0x8F, 0x90, 0x9D) map to the C1 control of the same value, so
+/// the mapping stays one-to-one (as `kitkraft-ba2` reads archive names). Every other byte
+/// is its own code point (as in Latin-1).
+const CP1252_HIGH: [u16; 32] = [
+    0x20AC, 0x0081, 0x201A, 0x0192, 0x201E, 0x2026, 0x2020, 0x2021, 0x02C6, 0x2030, 0x0160, 0x2039,
+    0x0152, 0x008D, 0x017D, 0x008F, 0x0090, 0x2018, 0x2019, 0x201C, 0x201D, 0x2022, 0x2013, 0x2014,
+    0x02DC, 0x2122, 0x0161, 0x203A, 0x0153, 0x009D, 0x017E, 0x0178,
+];
+
+/// `bytes` decoded as Windows-1252, one char per byte.
+fn decode_cp1252(bytes: &[u8]) -> String {
+    bytes
+        .iter()
+        .map(|&b| {
+            b.checked_sub(0x80)
+                .and_then(|i| CP1252_HIGH.get(usize::from(i)))
+                .and_then(|&u| char::from_u32(u32::from(u)))
+                .unwrap_or(char::from(b))
+        })
+        .collect()
 }
 
 #[cfg(test)]

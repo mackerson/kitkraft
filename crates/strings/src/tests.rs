@@ -363,3 +363,23 @@ fn names_and_kinds() {
     assert_eq!(dup.duplicate_ids(), [1]);
     assert_eq!(dup.get(1).unwrap().text(), "a");
 }
+
+/// SF1Edit oracle row X8: an entry that is not UTF-8 is shown as Windows-1252 (as xEdit
+/// shows it), the bytes untouched; valid UTF-8 is never reinterpreted.
+#[test]
+fn non_utf8_entries_read_as_windows_1252() {
+    let apostrophe = Entry::new(0x0003_01B6, b"It\x92s".to_vec());
+    assert!(!apostrophe.is_utf8());
+    assert_eq!(apostrophe.text(), "It\u{2019}s");
+    assert_eq!(apostrophe.bytes, b"It\x92s");
+    // Latin-1 range, the euro sign, and an undefined byte kept as its C1 control.
+    let mixed = Entry::new(1, b"\x80\x81\xE9".to_vec());
+    assert_eq!(mixed.text(), "\u{20ac}\u{81}\u{e9}");
+    // Bytes that happen to be valid UTF-8 stay UTF-8 (E9 80 81 is one CJK character).
+    assert_eq!(Entry::new(3, b"\xE9\x80\x81".to_vec()).text(), "\u{9001}");
+    let utf8 = Entry::new(2, "Caf\u{e9}");
+    assert!(matches!(
+        utf8.text(),
+        std::borrow::Cow::Borrowed("Caf\u{e9}")
+    ));
+}

@@ -116,7 +116,8 @@ pub struct LoadedTable {
 /// A resolved string.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Resolved {
-    /// The text (lossy UTF-8: bytes that are not UTF-8 show as U+FFFD; see `bytes`).
+    /// The text for display: UTF-8, or Windows-1252 when the bytes are not valid UTF-8
+    /// (`utf8` says which; compare and copy by `bytes`).
     pub text: String,
     /// The string exactly as the table stores it (without the NUL terminator), for copying
     /// and comparing: a few official entries are not UTF-8 (cp1252-style bytes), and `text`
@@ -349,7 +350,8 @@ mod tests {
         let r = st.lookup("Mod.esm", 7).unwrap();
         assert_eq!(r.bytes, cp1252);
         assert!(!r.utf8);
-        assert!(r.text.contains('\u{FFFD}'));
+        // Shown as Windows-1252 (SF1Edit oracle row X8); the bytes stay as stored.
+        assert_eq!(r.text, "Caf\u{e9} \u{201c}quoted\u{201d}");
         assert_eq!(r.length, cp1252.len() as u64 + 5);
         let plain = st.lookup("Mod.esm", 8).unwrap();
         assert_eq!((plain.bytes.as_slice(), plain.utf8), (&b"plain"[..], true));

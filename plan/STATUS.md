@@ -1576,7 +1576,11 @@ Agents append here when they need a change in a crate they do not own.
   enum and flag fields (number vs name or flag list), Wwise GUIDs (raw vs `{...}`), structs
   holding opaque or union fields, signature-valued fields. Converting those by kind (the
   schema has the names) would make the counts evidence (`docs/oracles.md`).
-- **Lane H -> lane D (strings), from the SF1Edit run (X8).** Some official string entries
+- ~~**Lane H -> lane D (strings), from the SF1Edit run (X8).**~~ Done (lane B round 5, at
+  the director's request): `kitkraft_strings::Entry::text` shows an entry that is not
+  valid UTF-8 as Windows-1252, one char per byte (the table `kitkraft-ba2` uses for
+  archive names); bytes, `is_utf8` and `Resolved.bytes` are unchanged, and `strings`
+  says the shown text is Windows-1252. Not rerun against SF1Edit. Was: some official string entries
   are Windows-1252, not UTF-8 (`Starfield - Localization.ba2` dlstrings `0x000301B6` holds
   byte `0x92` for an apostrophe); our `text` shows U+FFFD there while xEdit shows `’`.
   A Windows-1252 fallback for non-UTF-8 entries (bytes stay in `Resolved.bytes`) would

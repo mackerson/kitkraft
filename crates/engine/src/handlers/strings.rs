@@ -227,8 +227,8 @@ pub(super) fn dump(args: &Value) -> Result<Outcome, EngineError> {
     let invalid = shown.iter().filter(|e| !e.is_utf8()).count();
     if invalid > 0 {
         limitations.push(format!(
-            "{invalid} shown strings are not valid UTF-8: `text` is decoded lossily and \
-             `bytes_hex` has the raw bytes"
+            "{invalid} shown strings are not valid UTF-8: `text` shows them decoded as \
+             Windows-1252 and `bytes_hex` has the raw bytes"
         ));
     }
     let summary = match (id, shown.first()) {
