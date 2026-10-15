@@ -2,12 +2,15 @@
 //! requests the panels build, through the same gate and worker, into the same
 //! view-models, printed as text (`docs/workbench.md` was written from this output).
 //!
-//! Read-only. Runs only when `KITKRAFT_WORKBENCH_PROFILE` names a profile directory
-//! (use `KitKraft Dev`, never a profile you are playing on); otherwise it skips:
+//! Read-only, and `#[ignore]`d: an owner's check (plan/STATUS.md, "Owner next actions"),
+//! not part of `cargo xtask ci`. Run it on request with `KITKRAFT_WORKBENCH_PROFILE`
+//! naming a profile directory (use `KitKraft Dev`, never a profile you are playing on);
+//! without it the test skips. Release build: a debug one loads a profile in about a
+//! minute. PowerShell:
 //!
 //! ```text
-//! $env:KITKRAFT_WORKBENCH_PROFILE = "C:\Modding\MO2-Starfield\profiles\KitKraft Dev"
-//! cargo test -p kitkraft-ui-egui --test dev_profile -- --nocapture
+//! $env:KITKRAFT_WORKBENCH_PROFILE = 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'
+//! cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocapture
 //! ```
 #![allow(clippy::arithmetic_side_effects)]
 // The helper outside `#[test]` may fail the test as the test body does.
@@ -51,6 +54,7 @@ fn run(worker: &mut Worker, req: Request) -> Value {
 }
 
 #[test]
+#[ignore = "owner's check against a real MO2 profile; see the module docs"]
 fn every_panel_against_a_profile() {
     let Some(profile) = std::env::var_os("KITKRAFT_WORKBENCH_PROFILE") else {
         eprintln!("skipped: KITKRAFT_WORKBENCH_PROFILE is not set");

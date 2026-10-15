@@ -21,6 +21,9 @@ fn main() -> ExitCode {
             };
         }
     };
+    if let Some(warning) = debug_warning() {
+        eprintln!("{warning}");
+    }
     let opts = kitkraft_ui_egui::LaunchOptions {
         profile: matches.get_one::<String>("profile").cloned(),
         plugins: matches
@@ -38,6 +41,14 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
     }
+}
+
+/// One line for a debug build, which is far slower and bigger than a release one
+/// (docs/workbench.md, "Launch").
+fn debug_warning() -> Option<&'static str> {
+    cfg!(debug_assertions).then_some(
+        "kit-ui: debug build: a profile load takes about a minute and 2 GB; build with --release (cargo build --release -p kit -p kit-cli)",
+    )
 }
 
 fn cli() -> Command {
@@ -67,7 +78,16 @@ fn cli() -> Command {
 
 #[cfg(test)]
 mod tests {
-    use super::cli;
+    use super::{cli, debug_warning};
+
+    #[test]
+    fn a_debug_build_says_so_in_one_line() {
+        let w = debug_warning();
+        assert_eq!(w.is_some(), cfg!(debug_assertions));
+        if let Some(w) = w {
+            assert!(w.contains("--release") && !w.contains('\n'), "{w}");
+        }
+    }
 
     #[test]
     fn arguments_match_kit_mcp_plus_plugins_and_data_dir() {

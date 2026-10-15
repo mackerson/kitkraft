@@ -7,16 +7,36 @@ envelope. The full authoring UI is M5.
 
 ## Launch
 
+PowerShell:
+
 ```text
-cargo build -p kit -p kit-cli
-kit ui --profile "C:\Modding\MO2-Starfield\profiles\KitKraft Dev"
+cargo build --release -p kit -p kit-cli
+kit ui --profile 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'
 kit ui --plugins Starfield.esm --plugins MyPatch.esp [--data-dir <Data>]
 ```
 
+Build with `--release`. A debug build works but is slow and large: loading the KitKraft
+Dev profile took 53 s and about 2 GB of memory in a debug build (the 10 to 12 s under
+"Panels" below were warm-cache loads). A debug `kit-ui` prints a one-line warning saying
+so when it starts.
+
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
-also run `kit-ui` directly, or use `cargo run -p kit -- --profile <dir>`. The arguments are
-the same as for `kit mcp`. When they are given, the window opens with a `load`. The engine
-runs on its own thread and handles one command at a time; the top bar shows what is running.
+also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The
+arguments are the same as for `kit mcp`. When they are given, the window opens with a
+`load`.
+
+`kit-ui.exe` is a console program, so started from Explorer or a shortcut it opens a
+console window next to the workbench. That window shows the debug-build warning and any
+startup error (for example a missing font); closing it closes the workbench. Started from
+a terminal, it uses that terminal.
+
+The engine runs on its own thread and handles one command at a time. The top bar shows the
+command running and how many are queued behind it. Buttons and links that run a command
+are disabled while one runs. **Drop pending** restarts the engine thread: queued requests
+are dropped, the running command's reply is discarded (a command cannot be interrupted;
+the old thread finishes it in the background), and the session is emptied, so load again.
+If the window is closed during a `load`, the index-cache file it was writing is left as a
+temp file; the next start removes it.
 
 ## What it can run (and what it cannot)
 
@@ -24,19 +44,25 @@ runs on its own thread and handles one command at a time; the top bar shows what
 checked against its allowlist by canonical id, so an alias cannot get around it:
 
 - **Allowed:** `load`, `inspect`, `query`, `diff`, `conflicts`, `validate`, `coverage` and
-  `schema`. `roundtrip` is allowed only with `verify: true`, and never with `out` or
-  `overwrite`.
+  `schema`, none of which the catalog marks `writes`.
+- **Guarded:** `roundtrip`, which writes with `out`, runs only with `verify: true`, and never
+  with `out` or `overwrite`.
 - **Refused before the engine sees the request:** every other catalog command and alias.
   That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
   `package`, `deploy*`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*` and
   `papyrus.*`.
 
-Tests enforce this in three ways:
+Tests enforce this in four ways:
 
 - Each catalog command must be classified as allowed, writing, or unused read-only.
+- The allowlist must hold no command the catalog marks `writes`, the gate's writing list
+  must equal the catalog's `writes` set, and a guarded command must refuse its writing
+  arguments.
 - Every refused id and alias is tried, and each must be refused.
-- A scan checks that no other module in the crate names `Engine` or the engine's execution
-  API.
+- A scan of every source file and integration test except `gate.rs` denies the engine
+  crate's name (`kitkraft_engine`), so a renamed import (`use ... {execute as go}`) or a
+  glob import cannot reach the engine around the gate, as well as `Engine` and the
+  execution API's names. `gate.rs` re-exports the few helpers the rest of the crate needs.
 
 On top of that, `cargo xtask layers` checks that `kitkraft-ui-egui` depends on no workspace
 crate except `kitkraft-engine` (`INTERNAL_ONLY`).
@@ -51,7 +77,9 @@ Each panel shows the following under its result:
 
 - The `kit` command line that gives the same envelope, with a copy button.
   - For `inspect`, `query`, `conflicts` and `validate`, the load-order arguments are added,
-    because each `kit` process starts with an empty session.
+    because each `kit` process starts with an empty session. They are the arguments of the
+    `load` that had succeeded when the command ran, not what the Load form says now. When
+    no load had succeeded, there is no `kit` line, only the MCP call.
   - Plugins picked from the loaded list go in as full paths. That way the line also works
     in a fresh process for a plugin that lives in an MO2 mod folder.
 - The MCP `execute` call, with a copy button.
@@ -61,7 +89,9 @@ Each panel shows the following under its result:
   hover to see all of it.
 - The panel's own rows.
 - The evidence table: the first 300 ranges, collapsed by default.
-- The raw `data` JSON, collapsed by default.
+- The raw `data` JSON, collapsed by default. It is formatted once when the result arrives
+  and drawn only where it is scrolled into view, so a big result does not slow the window;
+  it is cut after 500,000 lines and lines after 2,000 characters (the MCP call has all).
 
 If the engine returns an error, the panel shows its `kind`, its message and the
 `{"error": ...}` JSON, which includes the violations or the places it searched.
@@ -70,9 +100,15 @@ If the engine returns an error, the panel shows its `kind`, its message and the
 
 These were checked read-only against `KitKraft Dev` (84 plugins, warm index cache). Two runs
 were used: the window's screenshot tour (images kept outside the repo) and
-`cargo test -p kitkraft-ui-egui --test dev_profile -- --nocapture` with
-`KITKRAFT_WORKBENCH_PROFILE` set. That test runs the same requests through the same gate,
-worker and view-models, with no window.
+the walkthrough test with `KITKRAFT_WORKBENCH_PROFILE` set. That test runs the same
+requests through the same gate, worker and view-models, with no window. It is `#[ignore]`d
+(it needs a real profile and is not part of `cargo xtask ci`) and is on the owner's list
+in `plan/STATUS.md`. PowerShell:
+
+```text
+$env:KITKRAFT_WORKBENCH_PROFILE = 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'
+cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocapture
+```
 
 - **Load** (`load`)
   - Takes a profile or a plugin list.
@@ -106,9 +142,11 @@ worker and view-models, with no window.
   - Each differing record is collapsible, with a row per field: subrecord and occurrence,
     change, field path, before and after.
   - FormIDs are shown as formrefs or `NULL`. Opaque members are shown as `opaque bytes @off
-    len n`.
+    len n`. A FormID is recognized by the shape of the value, because the envelope has no
+    explicit marker for one yet (`docs/gaps.md`).
   - A subrecord compared only as bytes shows its byte spans for `diff`. For `conflicts` it
-    shows "range not reported", because that command returns no spans.
+    shows "range not reported", because that command returns no spans. Identical byte-only
+    rows of one signature are folded into one row such as `NVMI x12 (#0..#11)`.
   - The result can be paged.
   - On the biggest plugin the profile activates: 379 overrides of `Starfield.esm`. The
     first page had 67 records that differ and 26 identical to the previous version.
@@ -153,6 +191,9 @@ runs these read-only requests:
 4. `schema --deep WEAP`.
 
 It then saves `<dir>/<tab>.bmp` for each tab and closes. Keep the images outside the repo.
+The tour refuses a `<dir>` that is, or is inside, the game's Data folder, the user Data
+folder (`Documents\My Games\Starfield\Data`), an MO2 instance or profile, or that passes
+through a link (the engine's own output guard); the window then says why and runs no tour.
 
 ## Not offered yet
 

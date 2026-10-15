@@ -17,6 +17,9 @@ pub const MAX_CELL: usize = 240;
 /// A decoded value as one line. FormIDs (`{raw, form}` from `inspect`, `{form}` from
 /// `diff`) show the resolved formref with the raw ID beside it; the null FormID shows as
 /// `NULL`; an opaque member shows its byte range; structs and arrays are compact.
+///
+/// A FormID is recognized by shape (an object with `form` and at most four members):
+/// the envelope has no explicit FormID marker yet (docs/gaps.md, the workbench row).
 pub fn fmt_value(v: &Value) -> String {
     let mut s = String::new();
     write_value(&mut s, v, 0);

@@ -278,13 +278,22 @@ impl App {
             roundtrip_view: None,
             schema_form: SchemaForm::default(),
             schema_view: None,
-            tour: std::env::var_os(crate::shots::SHOTS_ENV).map(|dir| Tour {
-                dir: PathBuf::from(dir),
-                step: TourStep::WaitLoad,
-                tab: 0,
-                frames: 0,
-            }),
+            tour: None,
         };
+        let mut shots_refused = None;
+        if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
+            match crate::shots::shots_dir(&value) {
+                Ok(dir) => {
+                    app.tour = Some(Tour {
+                        dir,
+                        step: TourStep::WaitLoad,
+                        tab: 0,
+                        frames: 0,
+                    });
+                }
+                Err(why) => shots_refused = Some(why),
+            }
+        }
         app.submit(
             Slot::Types,
             Request::new("schema", Value::Object(Map::new())),
@@ -293,6 +302,9 @@ impl App {
             if let Ok(req) = app.load_form.request() {
                 app.submit(Slot::Load, req);
             }
+        }
+        if shots_refused.is_some() {
+            app.notice = shots_refused;
         }
         app
     }

@@ -48,8 +48,9 @@ regex = "1"
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
 # The developer workbench (crates/ui-egui, apps/kit; L5 and APP only, ADR 0007 Amendment 1;
 # dependency list and licenses in that ADR). The OpenGL (`glow`) backend instead of the
-# default `wgpu` one; no bundled fonts, AccessKit, web or Linux display features (ui-egui
-# adds x11/wayland on Linux only): the smallest native tree that builds on Windows.
+# default `wgpu` one; no bundled fonts, AccessKit platform adapter (egui's own `accesskit`
+# crate is not optional), web or Linux display features (ui-egui adds x11/wayland on Linux
+# only): the smallest native tree that builds on Windows.
 eframe = { version = "0.36", default-features = false, features = ["glow"] }
 
 [workspace.lints.rust]

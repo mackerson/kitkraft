@@ -213,8 +213,12 @@ confidence upgrades now wait for M4.W2..W5.
 ## Dependency list (lane W, 2026-10-15; Amendment 1 "before the first UI merge")
 
 `crates/ui-egui` depends on `eframe` 0.36 with `default-features = false, features =
-["glow"]` (OpenGL through `glutin`; no `wgpu`, no bundled fonts, no AccessKit, no web
-features; Linux adds `x11`/`wayland` in a target table). `apps/kit` adds only `clap`, which
+["glow"]` (OpenGL through `glutin`; no `wgpu`, no bundled fonts, no AccessKit platform
+adapter, no web features; Linux adds `x11`/`wayland` in a target table). Correction
+(Fable review, 2026-10-15): this first said "no AccessKit", which is wrong. `egui` itself
+depends on `accesskit` 0.24.1 (MIT OR Apache-2.0) unconditionally; what eframe's
+`accesskit` feature (off here) adds is the platform adapter (`accesskit_winit` and the
+OS crates), which is not built. `accesskit` is counted in the first row below. `apps/kit` adds only `clap`, which
 the workspace already has. `cargo tree -p kitkraft-ui-egui -e normal` on Windows lists 117
 distinct external packages, the engine's existing ones included. `Cargo.lock` grows from 67
 to 344 packages because it records the macOS, Linux and Android crates eframe could use;
@@ -224,7 +228,7 @@ Licenses of the 117, by expression:
 
 | License expression | Packages | Status |
 | ------------------ | -------- | ------ |
-| MIT OR Apache-2.0 (in any spelling) | 81 | allowed |
+| MIT OR Apache-2.0 (in any spelling; incl. `accesskit` 0.24.1, a non-optional `egui` dependency) | 81 | allowed |
 | MIT | 9 | allowed |
 | Apache-2.0 (incl. `winit`, `glutin`); Apache-2.0 AND MIT (`dpi`) | 6 | allowed |
 | Zlib, or Zlib with MIT and Apache options | 9 | allowed |

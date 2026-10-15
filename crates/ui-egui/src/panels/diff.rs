@@ -206,24 +206,57 @@ impl DiffView {
     }
 }
 
+/// Identical byte-only rows of one signature folded into the first: its row index, the
+/// occurrences seen, and the signature.
+struct Folded {
+    row: usize,
+    occurrences: Vec<u64>,
+    sig: String,
+}
+
 /// The rows of one record's `subrecords[]`: one per `fields[]` entry, or one byte-span
-/// row when the subrecord is compared as bytes.
+/// row when the subrecord is compared as bytes. Byte-only rows of one signature that
+/// say exactly the same thing (same change, same spans: `conflicts` reports none, so a
+/// navmesh's dozens of `NVMI` occurrences all read "range not reported") become one row
+/// naming how many occurrences it stands for.
 fn field_rows(record: &Value) -> Vec<FieldRow> {
     let mut rows = Vec::new();
+    let mut folded: Vec<Folded> = Vec::new();
     for s in list(record, "subrecords") {
         let sig = text_or_empty(s, "signature");
-        let subrecord = format!("{sig}#{}", num(s, "occurrence").unwrap_or(0));
+        let occurrence = num(s, "occurrence").unwrap_or(0);
+        let subrecord = format!("{sig}#{occurrence}");
         let change = text_or_empty(s, "change");
         let fields = list(s, "fields");
         if fields.is_empty() {
             let reason = text(s, "as_bytes").map_or_else(String::new, |r| format!(" ({r})"));
-            rows.push(FieldRow {
+            let row = FieldRow {
                 subrecord,
                 change,
                 path: format!("{sig} as bytes{reason}"),
                 before: span(s.get("a")),
                 after: span(s.get("b")),
+            };
+            let same = folded.iter_mut().find(|f| {
+                f.sig == sig
+                    && rows.get(f.row).is_some_and(|r: &FieldRow| {
+                        r.change == row.change
+                            && r.path == row.path
+                            && r.before == row.before
+                            && r.after == row.after
+                    })
             });
+            match same {
+                Some(f) => f.occurrences.push(occurrence),
+                None => {
+                    folded.push(Folded {
+                        row: rows.len(),
+                        occurrences: vec![occurrence],
+                        sig,
+                    });
+                    rows.push(row);
+                }
+            }
             continue;
         }
         for f in fields {
@@ -234,6 +267,13 @@ fn field_rows(record: &Value) -> Vec<FieldRow> {
                 before: fmt_value(f.get("before").unwrap_or(&Value::Null)),
                 after: fmt_value(f.get("after").unwrap_or(&Value::Null)),
             });
+        }
+    }
+    for f in folded.iter().filter(|f| f.occurrences.len() > 1) {
+        if let Some(row) = rows.get_mut(f.row) {
+            let first = f.occurrences.iter().min().copied().unwrap_or(0);
+            let last = f.occurrences.iter().max().copied().unwrap_or(0);
+            row.subrecord = format!("{} x{} (#{first}..#{last})", f.sig, f.occurrences.len());
         }
     }
     rows
@@ -339,5 +379,38 @@ mod tests {
         // `conflicts` carries no byte spans: unknown, not absent.
         assert_eq!(view.records[0].rows[1].before, "bytes (range not reported)");
         assert_eq!(view.next_cursor.as_deref(), Some("c2"));
+    }
+
+    #[test]
+    fn identical_byte_only_rows_collapse_per_signature() {
+        let byte_row = |sig: &str, n: u64, change: &str| json!({"signature": sig, "occurrence": n, "change": change});
+        let mut subs: Vec<Value> = (0..12).map(|n| byte_row("NVMI", n, "changed")).collect();
+        subs.push(byte_row("NVMI", 12, "added"));
+        subs.push(byte_row("ONAM", 0, "changed"));
+        subs.push(
+            json!({"signature": "FLTV", "occurrence": 0, "change": "changed",
+            "fields": [{"path": "FLTV", "before": 1.0, "after": 2.0}]}),
+        );
+        let env = json!({"command": "conflicts", "data": {"counts": [], "items": [
+            {"form": "Base.esm:000800", "signature": "NAVM",
+             "overrides": [{"plugin": "Mod.esp", "previous": "Base.esm", "class": "differs", "subrecords": subs}]}]}});
+        let rows = &DiffView::from_envelope(&env).records[0].rows;
+        let names: Vec<&str> = rows.iter().map(|r| r.subrecord.as_str()).collect();
+        assert_eq!(
+            names,
+            vec!["NVMI x12 (#0..#11)", "NVMI#12", "ONAM#0", "FLTV#0"]
+        );
+        assert_eq!(rows[0].before, "bytes (range not reported)");
+
+        // `diff` spans differ per occurrence: nothing is folded.
+        let env = json!({"command": "diff", "data": {"a": "A.esm", "b": "B.esm", "changed": [
+            {"form": "A.esm:000800", "signature": "NAVM", "class": "differs", "subrecords": [
+                {"signature": "NVMI", "occurrence": 0, "change": "changed",
+                 "a": {"file_offset": 10, "length": 4}, "b": {"file_offset": 90, "length": 4}},
+                {"signature": "NVMI", "occurrence": 1, "change": "changed",
+                 "a": {"file_offset": 20, "length": 4}, "b": {"file_offset": 99, "length": 4}}]}]}});
+        let rows = &DiffView::from_envelope(&env).records[0].rows;
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1].subrecord, "NVMI#1");
     }
 }
