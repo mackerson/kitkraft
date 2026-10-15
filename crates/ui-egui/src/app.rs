@@ -19,6 +19,7 @@ use crate::md::{Block, Inline};
 use crate::panels::diag::{self, DiagView};
 use crate::panels::diff::{DiffForm, DiffMode, DiffView};
 use crate::panels::help::{self, HelpDoc};
+use crate::panels::ledger::{ledger_path, template_row, LedgerForm, LedgerView, RESULTS, ROWS};
 use crate::panels::links::{LinksForm, LinksView, MAX_DEPTH};
 use crate::panels::load::{list_profiles, LoadForm, LoadView, ProfileEntry};
 use crate::panels::planet::{PlanetForm, PlanetView, PLANET_TYPES};
@@ -54,6 +55,7 @@ enum Tab {
     Diagnostics,
     Validate,
     Schema,
+    Ledger,
     Help,
 }
 
@@ -67,6 +69,7 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Diagnostics, "Diagnostics"),
     (Tab::Validate, "Validate"),
     (Tab::Schema, "Schema"),
+    (Tab::Ledger, "Ledger"),
     (Tab::Help, "Help"),
 ];
 
@@ -87,6 +90,7 @@ enum Slot {
     Validate,
     Roundtrip,
     Schema,
+    Ledger,
 }
 
 /// One finished request, with everything the frame draws built once on arrival.
@@ -118,6 +122,8 @@ enum Action {
     UseProfile(PathBuf),
     /// A start-screen button: load this profile and remember the choice.
     LoadProfile(StartProfile),
+    /// The Ledger panel's confirm click: append this row (the workbench's one write).
+    LedgerAppend(LedgerForm),
 }
 
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
@@ -160,6 +166,13 @@ struct App {
     checkout: Option<(PathBuf, &'static str)>,
     checkout_field: String,
     help_docs: Vec<HelpDoc>,
+
+    /// The ledger's text as last read (its template rows), the form, the last result,
+    /// and the row waiting for its confirm click.
+    observations: Option<String>,
+    ledger_form: LedgerForm,
+    ledger_view: Option<LedgerView>,
+    ledger_pending: Option<LedgerForm>,
 
     load_form: LoadForm,
     profiles_dir: String,
@@ -314,6 +327,10 @@ impl App {
             checkout: None,
             checkout_field: String::new(),
             help_docs: Vec::new(),
+            observations: None,
+            ledger_form: LedgerForm::default(),
+            ledger_view: None,
+            ledger_pending: None,
             profiles: if profiles_dir.is_empty() {
                 Vec::new()
             } else {
@@ -451,6 +468,15 @@ impl App {
                 Slot::Validate => self.validate_view = Some(ValidateView::from_envelope(env)),
                 Slot::Roundtrip => self.roundtrip_view = Some(RoundtripView::from_envelope(env)),
                 Slot::Schema => self.schema_view = Some(SchemaView::from_envelope(env)),
+                Slot::Ledger => {
+                    let view = LedgerView::from_envelope(env);
+                    if view.appended {
+                        // One row per confirmed click: the note does not carry over.
+                        self.ledger_form.note.clear();
+                        self.reload_help();
+                    }
+                    self.ledger_view = Some(view);
+                }
             }
         }
         // Replies arrive in submission order, so the session now is the one this
@@ -576,6 +602,10 @@ impl App {
                     }
                     Err(e) => self.notice = Some(e),
                 },
+                Action::LedgerAppend(form) => match form.append_request() {
+                    Ok(req) => self.submit(Slot::Ledger, req),
+                    Err(e) => self.notice = Some(e),
+                },
             }
         }
     }
@@ -599,6 +629,11 @@ impl App {
             Some((root, _)) => {
                 self.checkout_field = root.display().to_string();
                 self.help_docs = help::load(root);
+                let ledger = ledger_path(root);
+                self.observations = std::fs::read_to_string(&ledger).ok();
+                if self.ledger_form.file.trim().is_empty() {
+                    self.ledger_form.file = ledger.display().to_string();
+                }
             }
             None => self.help_docs.clear(),
         }
@@ -691,6 +726,7 @@ impl eframe::App for App {
                     Tab::Diagnostics => self.tab_diag(ui, busy, &mut actions),
                     Tab::Validate => self.tab_validate(ui, busy, &mut actions),
                     Tab::Schema => self.tab_schema(ui, busy, &mut actions),
+                    Tab::Ledger => self.tab_ledger(ui, busy, &mut actions),
                     Tab::Help => self.tab_help(ui),
                 });
         });
@@ -1872,6 +1908,169 @@ impl App {
             if let Some(m) = &view.mismatch {
                 ui.colored_label(BAD, format!("first mismatch {m}"));
             }
+        });
+    }
+
+    fn tab_ledger(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
+        ui.heading("Ledger");
+        ui.label("Records one in-game result as a row of docs/game-observations.md through the engine's `ledger` command: the workbench's only write (ADR 0007 Amendment 2). Preview writes nothing; Append asks once more, and each confirm click appends one row. Checks run on KitKraft Dev with a disposable save; the engine refuses Default and any other file.");
+        let template = self
+            .observations
+            .as_deref()
+            .and_then(|t| template_row(t, &self.ledger_form.row));
+        let form = &mut self.ledger_form;
+        Grid::new("ledger-form").num_columns(2).show(ui, |ui| {
+            ui.label("Ledger file");
+            ui.add(TextEdit::singleline(&mut form.file).desired_width(560.0));
+            ui.end_row();
+            ui.label("Row");
+            ui.horizontal(|ui| {
+                ComboBox::from_id_salt("ledger-row")
+                    .selected_text(form.row.clone())
+                    .show_ui(ui, |ui| {
+                        for r in ROWS {
+                            ui.selectable_value(&mut form.row, (*r).to_string(), *r);
+                        }
+                    });
+                for r in RESULTS {
+                    ui.radio_value(&mut form.result, (*r).to_string(), *r);
+                }
+            });
+            ui.end_row();
+            ui.label(if form.row == "custom" {
+                "What was checked"
+            } else {
+                "Label (optional)"
+            });
+            ui.add(TextEdit::singleline(&mut form.label).desired_width(560.0));
+            ui.end_row();
+            ui.label("FormIDs");
+            ui.horizontal(|ui| {
+                ui.add(
+                    TextEdit::singleline(&mut form.forms)
+                        .desired_width(460.0)
+                        .hint_text("Starfield.esm:2984DF, ... (commas)"),
+                );
+                if let Some(t) = &template {
+                    if ui
+                        .add_enabled(!t.forms.is_empty(), egui::Button::new("from template"))
+                        .on_hover_text(format!("the Forms of template row {}", t.id))
+                        .clicked()
+                    {
+                        form.forms = t.forms.join(", ");
+                    }
+                }
+            });
+            ui.end_row();
+            ui.label("Seen (note)");
+            ui.add(
+                TextEdit::multiline(&mut form.note)
+                    .desired_rows(3)
+                    .desired_width(560.0),
+            );
+            ui.end_row();
+            ui.label("Profile");
+            ui.add(TextEdit::singleline(&mut form.profile).desired_width(200.0));
+            ui.end_row();
+            ui.label("Date");
+            ui.add(
+                TextEdit::singleline(&mut form.date)
+                    .desired_width(120.0)
+                    .hint_text("yyyy-mm-dd (empty: today, UTC)"),
+            );
+            ui.end_row();
+        });
+        match &template {
+            Some(t) => {
+                ui.label(format!("Template row {}: {}", t.id, t.check));
+                ui.weak(format!("expected: {}", t.expected));
+            }
+            None if self.observations.is_none() => {
+                ui.colored_label(
+                    WARN,
+                    "the ledger was not read: no checkout found (see the Help tab)",
+                );
+            }
+            None => {
+                ui.weak("no template row for this check");
+            }
+        }
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(!busy, egui::Button::new("Preview"))
+                .on_hover_text("`ledger` without confirm: shows the text, writes nothing")
+                .clicked()
+            {
+                match self.ledger_form.preview_request() {
+                    Ok(req) => actions.push(Action::Submit(Slot::Ledger, req)),
+                    Err(e) => self.notice = Some(e),
+                }
+            }
+            if ui
+                .add_enabled(
+                    !busy && self.ledger_pending.is_none(),
+                    egui::Button::new("Append to the ledger..."),
+                )
+                .clicked()
+            {
+                self.ledger_pending = Some(self.ledger_form.clone());
+            }
+        });
+        let mut cancel = false;
+        if let Some(p) = &self.ledger_pending {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                ui.colored_label(
+                    WARN,
+                    format!("Append this row to {}? This is the workbench's only write; one row per click.", p.file),
+                );
+                ui.monospace(format!(
+                    "{} {}  forms: {}  profile: {}  date: {}",
+                    p.row,
+                    p.result,
+                    if p.forms.trim().is_empty() { "-" } else { p.forms.trim() },
+                    p.profile.trim(),
+                    if p.date.trim().is_empty() { "today (UTC)" } else { p.date.trim() }
+                ));
+                if !p.label.trim().is_empty() {
+                    ui.label(format!("label: {}", p.label.trim()));
+                }
+                ui.label(format!("seen: {}", if p.note.trim().is_empty() { "-" } else { p.note.trim() }));
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new(RichText::new("Confirm: append").strong()))
+                        .clicked()
+                    {
+                        actions.push(Action::LedgerAppend(p.clone()));
+                        cancel = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        }
+        if cancel {
+            self.ledger_pending = None;
+        }
+        envelope_block(ui, self.results.get(&Slot::Ledger.into()), |ui| {
+            let Some(v) = &self.ledger_view else { return };
+            if v.appended {
+                ui.colored_label(GOOD, format!("appended to {} in {}", v.entry, v.file));
+            } else {
+                ui.colored_label(
+                    WARN,
+                    format!(
+                        "preview only (nothing written): it would go into {}{}",
+                        v.entry,
+                        if v.new_entry { " (a new entry)" } else { "" }
+                    ),
+                );
+            }
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                for l in v.text.lines() {
+                    ui.monospace(l);
+                }
+            });
         });
     }
 

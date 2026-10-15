@@ -15,6 +15,7 @@ mod coverage;
 mod deploy;
 mod diff;
 mod inspect;
+mod ledger;
 mod load;
 mod newform;
 #[cfg(test)]
@@ -96,6 +97,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("deploy.status", Box::new(deploy::status)),
         ("papyrus.events", Box::new(papyrus::events::run)),
         ("profiles", Box::new(profiles::run)),
+        ("ledger", Box::new(ledger::run)),
     ]
 }
 

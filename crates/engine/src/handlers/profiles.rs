@@ -27,7 +27,11 @@ pub(crate) const MO2_DIR_ENV: &str = "KITKRAFT_MO2_DIR";
 const LIVE_PROFILE: &str = "Default";
 
 /// The dev box's portable instance (AGENTS.md, "Windows specifics").
-const DEV_BOX_INSTANCE: &str = "C:/Modding/MO2-Starfield";
+fn dev_box_instance() -> PathBuf {
+    PathBuf::from(format!("C:{}", std::path::MAIN_SEPARATOR))
+        .join("Modding")
+        .join("MO2-Starfield")
+}
 
 /// One place an instance was looked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -75,7 +79,7 @@ fn candidates(
         }
     }
     out.push(Candidate {
-        path: PathBuf::from(DEV_BOX_INSTANCE),
+        path: dev_box_instance(),
         source: "dev box default",
     });
     out

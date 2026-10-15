@@ -994,6 +994,24 @@ live game, `dev` for `KitKraft Dev`, `selected`, `plugins_txt`), `data_dir` (`pa
 `source`: `argument`, `instance gamePath` or `KITKRAFT_DATA_DIR`; `exists`,
 `starfield_esm`), `summary`. Nothing is written, created or followed.
 
+### `ledger` (lane W; CLI `kit ledger <row> <result> [--forms ...] [--note ...] [--confirm]`)
+
+`ledger {row, result, forms?, note?, label?, date?, profile?, file?, confirm?}`. `row` is
+`C1`..`C14` (overhaul build 2), `POI`, `persistence` or `custom` (needs `label`);
+`result` is `pass`, `fail` or `note` (needs `note`). Appends one row `| Row | Step |
+Forms | Expected | Seen | Result |` to `docs/game-observations.md` (`file`, default
+`docs/game-observations.md` under the working directory), under the entry
+`### game-<yyyymmdd>-<nn>: workbench ledger, <date>, <profile>`: the row joins that entry's
+table when the file ends with it, else a new entry is appended (next free `nn` for the
+date). It only appends. Refused: any file but `<checkout>/docs/game-observations.md` (named
+so, in `docs`, next to `AGENTS.md`, starting with `# Game observations`, holding
+`## Ledger`, through no link, outside the game, user Data and MO2), and `profile`
+`Default`. `date` defaults to today in UTC (a limitation says so). Without `confirm: true`
+nothing is written (a limitation says so) and the text is returned. `data`: `file`,
+`entry`, `new_entry`, `row`, `text`, `appended`, `offset`, `length`, `date`, `profile`,
+`summary`; evidence: the appended range when written. The workbench's Ledger panel is the
+one writing view (ADR 0007 Amendment 2).
+
 ### `refs` (M4.D1; CLI `kit refs <form>`, alias `useinfo`)
 
 Arguments `{form, incoming = false, depth = 1 (max 6), scope = "winner" | "all", types?,

@@ -6,6 +6,13 @@
 //! [`ALLOWLIST`] (by canonical id, so an alias cannot slip past) and each entry's argument
 //! guard before the engine sees it.
 //!
+//! ADR 0007 Amendment 2: one write is permitted, [`PERMITTED_WRITE`], the engine's
+//! `ledger` command appending a row to the repo doc `docs/game-observations.md`. Its
+//! writing form (`confirm: true`) passes only in a request built by
+//! [`Request::confirmed`], which the Ledger panel makes once per click on its confirm
+//! button; its preview (`confirm` false or absent) writes nothing and needs no
+//! confirmation. No other request may be confirmed.
+//!
 //! This is also the only file of the crate that names the engine crate at all: a test
 //! scans every other source file (and the integration tests) for the token, so neither a
 //! renamed import (`use <engine>::{execute as go}`) nor a glob import can reach the
@@ -148,7 +155,28 @@ pub const WRITING: &[&str] = &[
     "deploy",
     "deploy.rollback",
     "roundtrip",
+    "ledger",
 ];
+
+/// The one write the workbench may make (ADR 0007 Amendment 2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PermittedWrite {
+    /// Canonical catalog id.
+    pub id: &'static str,
+    /// The boolean argument that makes it write; `true` needs a confirmed request.
+    pub write_arg: &'static str,
+    /// What it writes, and why it is allowed.
+    pub why: &'static str,
+}
+
+/// The single permitted write: `ledger` appends one row to the repo doc
+/// `docs/game-observations.md` (the engine refuses every other path), confirmed per click.
+/// Also in [`WRITING`]; never on [`ALLOWLIST`] or [`GUARDED`] (a test holds this).
+pub const PERMITTED_WRITE: PermittedWrite = PermittedWrite {
+    id: "ledger",
+    write_arg: "confirm",
+    why: "appends one dated row to docs/game-observations.md, a repo doc (not game data); the engine refuses any other path; one confirm click per row",
+};
 
 /// Refuses `dir` as a place the workbench writes into (its screenshot tour) when it is,
 /// or is inside, the game's Data folder, the user Data folder, an MO2 instance or
@@ -166,6 +194,9 @@ pub struct Request {
     pub id: String,
     /// The arguments object.
     pub args: Value,
+    /// Made by a confirm click ([`Request::confirmed`]): the only way the
+    /// [`PERMITTED_WRITE`] runs in its writing form.
+    pub confirmed: bool,
 }
 
 impl Request {
@@ -174,6 +205,16 @@ impl Request {
         Self {
             id: id.to_string(),
             args,
+            confirmed: false,
+        }
+    }
+
+    /// A request the user confirmed with a click on the Ledger panel's confirm button,
+    /// one per click. The gate takes it for [`PERMITTED_WRITE`] only.
+    pub fn confirmed(id: &str, args: Value) -> Self {
+        Self {
+            confirmed: true,
+            ..Self::new(id, args)
         }
     }
 }
@@ -223,11 +264,37 @@ impl RunError {
     }
 }
 
-/// Checks `request` against [`ALLOWLIST`] and [`GUARDED`] without running it. Returns
-/// the entry.
-pub fn check(request: &Request) -> Result<&'static Allowed, RunError> {
+/// Checks `request` against [`ALLOWLIST`], [`GUARDED`] and [`PERMITTED_WRITE`] without
+/// running it.
+pub fn check(request: &Request) -> Result<(), RunError> {
     let spec = find_command(&request.id)
         .ok_or_else(|| RunError::Refused(format!("`{}` is not a catalog command", request.id)))?;
+    if spec.id == PERMITTED_WRITE.id {
+        let writes = match &request.args {
+            Value::Null => false,
+            Value::Object(m) => m
+                .get(PERMITTED_WRITE.write_arg)
+                .is_some_and(|v| !v.is_null() && v != &Value::Bool(false)),
+            _ => {
+                return Err(RunError::Refused(
+                    "arguments must be a JSON object".to_string(),
+                ))
+            }
+        };
+        if writes && !request.confirmed {
+            return Err(RunError::Refused(format!(
+                "`{}` with `{}` writes docs/game-observations.md; the workbench sends it only from the Ledger panel's confirm button (ADR 0007 Amendment 2)",
+                spec.id, PERMITTED_WRITE.write_arg
+            )));
+        }
+        return Ok(());
+    }
+    if request.confirmed {
+        return Err(RunError::Refused(format!(
+            "`{}`: only `{}` takes a confirmed write; nothing else in the workbench writes",
+            spec.id, PERMITTED_WRITE.id
+        )));
+    }
     let entry = ALLOWLIST
         .iter()
         .chain(GUARDED)
@@ -253,7 +320,7 @@ pub fn check(request: &Request) -> Result<&'static Allowed, RunError> {
             .is_some_and(|v| !v.is_null() && v != &Value::Bool(false));
         if given {
             return Err(RunError::Refused(format!(
-                "`{}` with `{name}` would write a file; the workbench never writes",
+                "`{}` with `{name}` would write a file; the workbench writes nothing but the ledger row",
                 spec.id
             )));
         }
@@ -267,7 +334,7 @@ pub fn check(request: &Request) -> Result<&'static Allowed, RunError> {
             )));
         }
     }
-    Ok(entry)
+    Ok(())
 }
 
 /// The engine behind the gate. Construct one per worker; it keeps one session (the
@@ -343,6 +410,85 @@ mod tests {
             );
             assert!(!ALLOWLIST.iter().any(|a| a.id == g.id), "{}", g.id);
         }
+        // Amendment 2: exactly one writing command may run in its writing form, the
+        // ledger, and it is neither allowed outright nor guarded.
+        let p = PERMITTED_WRITE.id;
+        assert_eq!(p, "ledger");
+        assert!(
+            writes.contains(p),
+            "{p}: permitted write the catalog does not mark"
+        );
+        assert!(!ALLOWLIST.iter().chain(GUARDED).any(|a| a.id == p), "{p}");
+        let unguarded_writes: BTreeSet<&str> = writes
+            .iter()
+            .copied()
+            .filter(|w| ALLOWLIST.iter().any(|a| a.id == *w) || *w == p)
+            .collect();
+        assert_eq!(unguarded_writes, BTreeSet::from(["ledger"]));
+    }
+
+    /// Only the Ledger panel builds a confirmed request (its confirm button calls
+    /// `LedgerForm::append_request`); a scan of the crate's sources holds it.
+    #[test]
+    fn only_the_ledger_panel_builds_a_confirmed_request() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let allowed = [
+            root.join("src").join("gate.rs"),
+            root.join("src").join("panels").join("ledger.rs"),
+        ];
+        let mut stack = vec![root.join("src"), root.join("tests")];
+        let mut found = Vec::new();
+        while let Some(dir) = stack.pop() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    stack.push(path);
+                } else if path.extension().and_then(|e| e.to_str()) == Some("rs")
+                    && !allowed.contains(&path)
+                {
+                    let text = std::fs::read_to_string(&path).unwrap();
+                    if text.contains("Request::confirmed") || text.contains("confirmed: true") {
+                        found.push(path.display().to_string());
+                    }
+                }
+            }
+        }
+        assert!(found.is_empty(), "{found:?}");
+    }
+
+    /// The ledger previews without a confirmation and writes only from a confirmed
+    /// request; no other command takes a confirmed request.
+    #[test]
+    fn the_ledger_is_the_one_write_and_needs_a_confirmed_request() {
+        let args = json!({"row": "C3", "result": "pass", "confirm": true});
+        let refused = check(&Request::new("ledger", args.clone()));
+        assert!(
+            matches!(&refused, Err(RunError::Refused(m)) if m.contains("confirm button")),
+            "{refused:?}"
+        );
+        assert!(check(&Request::new(
+            "ledger",
+            json!({"row": "C3", "confirm": "yes"})
+        ))
+        .is_err());
+        assert!(check(&Request::confirmed("ledger", args)).is_ok());
+        for preview in [
+            json!({"row": "C3", "result": "pass"}),
+            json!({"row": "C3", "result": "pass", "confirm": false}),
+        ] {
+            assert!(check(&Request::new("ledger", preview)).is_ok());
+        }
+        for (id, a) in [
+            ("schema", json!({})),
+            ("set", json!({"form": "x", "fields": {}, "into": "y.esp"})),
+            ("roundtrip", json!({"plugin": "x.esm", "verify": true})),
+        ] {
+            let e = check(&Request::confirmed(id, a));
+            assert!(matches!(e, Err(RunError::Refused(_))), "{id}: {e:?}");
+        }
     }
 
     #[test]
@@ -378,8 +524,14 @@ mod tests {
             .iter()
             .filter(|s| !ALLOWLIST.iter().any(|a| a.id == s.id))
         {
+            // The ledger's writing form is what is refused (its preview runs).
+            let args = if spec.id == PERMITTED_WRITE.id {
+                json!({"row": "C1", "result": "pass", "confirm": true})
+            } else {
+                json!({})
+            };
             for name in std::iter::once(&spec.id).chain(spec.aliases.iter()) {
-                let err = engine.run(&Request::new(name, json!({}))).unwrap_err();
+                let err = engine.run(&Request::new(name, args.clone())).unwrap_err();
                 assert!(matches!(err, RunError::Refused(_)), "{name}: {err:?}");
             }
         }
