@@ -27,6 +27,7 @@ mod exec;
 mod handlers;
 mod params;
 mod session;
+pub mod shapes;
 pub mod validate;
 
 pub use args::Violation;
@@ -721,7 +722,7 @@ mod execute_tests {
         assert_eq!(result["limitations"], json!([]));
         assert_eq!(
             result["evidence"],
-            json!([{"file": "X.esm", "offset": 24, "length": 6,
+            json!([{"kind": "evidence", "file": "X.esm", "offset": 24, "length": 6,
                     "record": "WEAP:0001A2B3", "subrecord": "FULL"}])
         );
     }

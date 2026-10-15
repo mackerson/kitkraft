@@ -46,6 +46,7 @@ use super::{failed, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
+use crate::shapes::{self, kind};
 
 const ID: &str = "planet";
 
@@ -67,6 +68,8 @@ type Field = ([u8; 4], String, Decoded, Vec<u8>);
 /// One record read once: its winning version, links and decoded values.
 struct Rec {
     sig: [u8; 4],
+    /// Load-order index of the plugin holding the winning version.
+    plugin: u16,
     edid: Option<String>,
     file: String,
     label: String,
@@ -87,6 +90,11 @@ impl Rec {
         self.links_in(sig)
             .find(|l| l.status == LinkStatus::Resolved)
             .and_then(|l| l.form)
+    }
+
+    /// A decoded value of this record as JSON (`value_json`).
+    fn json(&self, lo: &LoadOrder, d: &Decoded, payload: &[u8]) -> Value {
+        value_json(lo, self.plugin, d, payload)
     }
 
     /// Decoded values of subrecord `sig`.
@@ -112,33 +120,40 @@ fn text<'v>(v: &'v Value, key: &str) -> &'v str {
     v.get(key).and_then(Value::as_str).unwrap_or_default()
 }
 
-/// A decoded value as JSON: FormIDs as their raw value (the links carry the resolution),
-/// opaque bytes as hex.
-fn value_json(d: &Decoded, payload: &[u8]) -> Value {
+/// A decoded value of a record of `plugin` as JSON, with the `kind` markers of
+/// `crate::shapes`: FormIDs as `formref`s resolved through the plugin's masters, string IDs
+/// as `lstring`, opaque bytes as `{kind: "opaque", opaque: <hex>}`.
+fn value_json(lo: &LoadOrder, plugin: u16, d: &Decoded, payload: &[u8]) -> Value {
     match d {
         Decoded::Int(i) => i64::try_from(*i).map_or_else(|_| json!(i.to_string()), |x| json!(x)),
         Decoded::Float(f) => {
             serde_json::Number::from_f64(*f).map_or_else(|| json!(f.to_string()), Value::Number)
         }
-        Decoded::Form(raw) => json!(format!("{raw:08X}")),
+        Decoded::Form(raw) => shapes::formref(lo, plugin, *raw),
         Decoded::Sig(s) => json!(String::from_utf8_lossy(s)),
         Decoded::Text(t) => json!(t),
-        Decoded::LStringId(id) => json!({"string_id": format!("0x{id:08X}")}),
+        Decoded::LStringId(id) => {
+            json!({"kind": kind::LSTRING, "string_id": format!("0x{id:08X}")})
+        }
         Decoded::Struct(fields) => Value::Object(
             fields
                 .iter()
-                .map(|(k, v)| (k.clone(), value_json(v, payload)))
+                .map(|(k, v)| (k.clone(), value_json(lo, plugin, v, payload)))
                 .collect(),
         ),
-        Decoded::Array(items) => {
-            Value::Array(items.iter().map(|i| value_json(i, payload)).collect())
-        }
+        Decoded::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|i| value_json(lo, plugin, i, payload))
+                .collect(),
+        ),
         Decoded::Opaque { at, len } => {
             let bytes = at
                 .checked_add(*len)
                 .and_then(|end| payload.get(*at..end))
                 .unwrap_or_default();
-            json!({"opaque": bytes.iter().map(|b| format!("{b:02X}")).collect::<String>()})
+            let hex: String = bytes.iter().map(|b| format!("{b:02X}")).collect();
+            json!({"kind": kind::OPAQUE, "opaque": hex})
         }
     }
 }
@@ -221,6 +236,7 @@ impl<'a> Graph<'a> {
         };
         Some(Rec {
             sig,
+            plugin: v.plugin,
             edid,
             file: lo
                 .plugin(v.plugin)
@@ -426,10 +442,10 @@ fn ancestors(g: &mut Graph<'_>, form: GlobalForm) -> Vec<GlobalForm> {
 }
 
 /// The conditions of a record as stored (`CTDA` with its strings).
-fn conditions_json(rec: &Rec) -> Vec<Value> {
+fn conditions_json(lo: &LoadOrder, rec: &Rec) -> Vec<Value> {
     rec.values(b"CTDA")
         .map(|(_, path, d, payload)| {
-            let mut v = value_json(d, payload);
+            let mut v = rec.json(lo, d, payload);
             if let Some(obj) = v.as_object_mut() {
                 obj.insert("member".into(), json!(path));
             }
@@ -460,7 +476,7 @@ fn node_json(g: &mut Graph<'_>, n: &Flat, evidence: &mut Vec<Evidence>) -> Value
     let field = |sig: &[u8; 4]| -> Value {
         rec.values(sig)
             .next()
-            .map_or(Value::Null, |(_, _, d, p)| value_json(d, p))
+            .map_or(Value::Null, |(_, _, d, p)| rec.json(lo, d, p))
     };
     for l in rec
         .links
@@ -490,7 +506,7 @@ fn node_json(g: &mut Graph<'_>, n: &Flat, evidence: &mut Vec<Evidence>) -> Value
         "content": link(b"PCCC"),
         "override_content_properties": rec.has(b"IOVR"),
         "keywords": keywords,
-        "conditions": conditions_json(rec),
+        "conditions": conditions_json(lo, rec),
     })
 }
 
@@ -571,8 +587,8 @@ fn placements(
                         Some(r) => (
                             Some(sig_text(r.sig)),
                             r.edid.clone(),
-                            conditions_json(r),
-                            r.values(b"NAM2").next().map(|(_, _, d, p)| value_json(d, p)),
+                            conditions_json(lo, r),
+                            r.values(b"NAM2").next().map(|(_, _, d, p)| r.json(lo, d, p)),
                         ),
                         None => (None, None, Vec::new(), None),
                     };
@@ -632,7 +648,7 @@ fn keyword_candidates(g: &mut Graph<'_>, keywords: &[GlobalForm]) -> Vec<Value> 
                             Decoded::Struct(fs) => fs
                                 .iter()
                                 .find(|(n, _)| n == "Function")
-                                .map(|(_, v)| value_json(v, payload)),
+                                .map(|(_, v)| rec.json(lo, v, payload)),
                             _ => None,
                         };
                         out.push(json!({
@@ -933,7 +949,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             data.insert("kind".into(), json!("star"));
             let star = g.get(form).map(|r| {
                 (
-                    r.value_at("SystemId").map(|(_, _, d, p)| value_json(d, p)),
+                    r.value_at("SystemId").map(|(_, _, d, p)| r.json(lo, d, p)),
                     r.links.iter().map(|l| link_json(lo, l)).collect::<Vec<_>>(),
                 )
             });
@@ -1222,7 +1238,7 @@ fn planet_json(
     }
     let galaxy = rec
         .value_at("GalaxyData")
-        .map(|(_, _, d, p)| value_json(d, p));
+        .map(|(_, _, d, p)| rec.json(lo, d, p));
     let system = galaxy.as_ref().and_then(|v| v.get("StarSystemId")).cloned();
     for b in &biomes {
         lines.push(format!(
@@ -1309,7 +1325,7 @@ fn target_text_form(lo: &LoadOrder, f: GlobalForm) -> String {
     clippy::arithmetic_side_effects,
     clippy::indexing_slicing
 )]
-mod tests {
+pub(crate) mod tests {
     use crate::handlers::load::tests::plugin;
     use crate::handlers::testdata::sub;
     use crate::Engine;
@@ -1337,7 +1353,7 @@ mod tests {
     /// ContentBad -> an unresolvable FormID), chained by PRVN; WorldA names LocA (keyword
     /// KwLoc), PlanetA lists WorldA and BiomeA and sits in StarA's system 7; BranchA tests
     /// KwLoc's FormID in a condition parameter; a default object names the tree.
-    fn fixture(tag: &str) -> PathBuf {
+    pub(crate) fn fixture(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
             "kitkraft-engine-planet-{tag}-{}",
             std::process::id()

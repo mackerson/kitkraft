@@ -434,6 +434,11 @@ pub(crate) fn flatten(v: &Value, text: Option<&str>, out: &mut Vec<Ours>, ordere
 
 /// An lstring (`string_id`) or FormID (`raw`, `form`) object as one scalar.
 fn scalar_object(map: &Map<String, Value>, text: Option<&str>) -> Option<Ours> {
+    // M4.W0: `inspect` marks undecoded bytes `{"kind": "opaque", "opaque": {range}}` (it
+    // was the string "opaque", which the callers still accept).
+    if map.get("kind").and_then(Value::as_str) == Some("opaque") {
+        return Some(Ours::Any);
+    }
     if let Some(id) = map.get("string_id").and_then(Value::as_str) {
         return Some(Ours::LString(
             hex_u32(id).unwrap_or(u32::MAX),
@@ -2790,6 +2795,22 @@ GRUP Top \"WEAP\"\r
         );
         assert!(!ordered);
         assert_eq!(flat.len(), 3);
+        // The M4.W0 opaque marker holds a place like the old "opaque" string.
+        let mut marked = Vec::new();
+        flatten(
+            &json!([{"kind": "opaque", "opaque": {"payload_offset": 0, "length": 4, "file_offset": 9}},
+                {"kind": "formref", "raw": "00000000", "form": null, "null": true}]),
+            None,
+            &mut marked,
+            &mut ordered,
+        );
+        assert!(
+            matches!(
+                marked.as_slice(),
+                [Ours::Any, Ours::Form(Some(FormKey::Null))]
+            ),
+            "{marked:?}"
+        );
     }
 
     #[test]

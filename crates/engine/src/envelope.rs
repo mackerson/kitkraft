@@ -43,8 +43,10 @@ impl Coverage {
     }
 }
 
-/// Where a value came from: one byte range in one plugin.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+/// Where a value came from: one byte range in one plugin. Serialized with the
+/// [`crate::shapes::kind::EVIDENCE`] marker first: `{kind, file, offset, length, record,
+/// subrecord}`.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Evidence {
     /// File name as loaded (not a full path).
     pub file: String,
@@ -56,6 +58,20 @@ pub struct Evidence {
     pub record: Option<String>,
     /// Subrecord signature, when the range is one subrecord.
     pub subrecord: Option<String>,
+}
+
+impl Serialize for Evidence {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        let mut s = serializer.serialize_struct("Evidence", 6)?;
+        s.serialize_field(crate::shapes::KIND, crate::shapes::kind::EVIDENCE)?;
+        s.serialize_field("file", &self.file)?;
+        s.serialize_field("offset", &self.offset)?;
+        s.serialize_field("length", &self.length)?;
+        s.serialize_field("record", &self.record)?;
+        s.serialize_field("subrecord", &self.subrecord)?;
+        s.end()
+    }
 }
 
 /// What a command handler returns; [`crate::Engine::execute`] adds the command id and

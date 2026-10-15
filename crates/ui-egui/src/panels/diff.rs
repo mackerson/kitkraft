@@ -332,10 +332,10 @@ mod tests {
                 {"signature": "DNAM", "occurrence": 0, "change": "changed", "member": "Data",
                  "fields": [
                     {"path": "DNAM.Speed", "before": 1.0, "after": 1.5},
-                    {"path": "DNAM.Rest", "before": {"opaque": {"payload_offset": 8, "length": 4, "file_offset": 300}}, "after": null}
+                    {"path": "DNAM.Rest", "before": {"kind": "opaque", "opaque": {"payload_offset": 8, "length": 4, "file_offset": 300}}, "after": null}
                  ]},
                 {"signature": "KWDA", "occurrence": 0, "change": "changed",
-                 "fields": [{"path": "KWDA.Forms[1]", "before": {"form": "A.esm:000801"}, "after": {"form": null, "null": true}}]},
+                 "fields": [{"path": "KWDA.Forms[1]", "before": {"kind": "formref", "form": "A.esm:000801"}, "after": {"kind": "formref", "form": null, "null": true}}]},
                 {"signature": "XXXX", "occurrence": 1, "change": "added", "as_bytes": "no layout",
                  "a": null, "b": {"file_offset": 500, "body_offset": 20, "length": 6}}
             ]}]}});

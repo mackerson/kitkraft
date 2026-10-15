@@ -13,7 +13,14 @@ use serde_json::{json, Map, Value};
 
 /// Commands whose `kit` line needs the session's load order repeated: each `kit` process
 /// starts with an empty session, while the workbench (like `kit mcp`) keeps one.
-pub const SESSION_COMMANDS: &[&str] = &["inspect", "query", "conflicts", "validate"];
+pub const SESSION_COMMANDS: &[&str] = &[
+    "inspect",
+    "query",
+    "conflicts",
+    "validate",
+    "refs",
+    "planet",
+];
 
 /// The load-order arguments of an executed `load` request, as a session command's line
 /// repeats them (`profile`, `plugins`, `data_dir`).
@@ -189,6 +196,12 @@ mod tests {
             "conflicts",
             json!({"plugin": "Mod.esp", "only_conflicts": true, "count_classes": false}),
         );
+        parses_back(
+            "refs",
+            json!({"form": "Starfield.esm:21BBCD", "incoming": true, "scope": "all", "depth": 2,
+                   "types": ["WEAP", "REFR"], "limit": 100, "cursor": "r1.x"}),
+        );
+        parses_back("planet", json!({"form": "PCM_QuestRequest", "limit": 200}));
     }
 
     #[test]

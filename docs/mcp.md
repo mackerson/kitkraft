@@ -175,7 +175,7 @@ Every successful tool result is one JSON object:
     "Starfield.esm is localized; FULL shown as string ID 0x0001F3A2 (strings not loaded)"
   ],
   "evidence": [
-    { "file": "Starfield.esm", "offset": 123456789, "length": 38,
+    { "kind": "evidence", "file": "Starfield.esm", "offset": 123456789, "length": 38,
       "record": "WEAP:0001A2B3", "subrecord": "FULL" }
   ]
 }
@@ -203,6 +203,36 @@ Rules:
   exits 1. `null` or absent means no pass/fail claim was made.
 - `data.summary` (string, optional) is a one-line human summary; `kit` prints it instead
   of the `data` JSON in text mode.
+
+### Data shapes and markers (M4.W0)
+
+The `data` of the inspection commands (`load`, `inspect`, `query`, `diff`, `conflicts`,
+`refs`, `planet`, `coverage`, `schema`, `validate`) has a fixed shape, so a front end (the
+workbench, an MCP client) can format a value by what it is said to be, never by what it
+looks like. `kitkraft_engine::shapes` holds the shapes; `docs/shapes.md` prints them (one line
+per member path, generated from the code), and the engine's shape tests run every command
+in each of its modes on synthetic plugins and check every envelope against them, including
+members a shape does not document.
+
+**Markers.** An object that stands for something other than a struct of named members
+carries `kind` with one of these names, and an object is a marker exactly when its `kind`
+is one of them:
+
+| `kind` | Where | Members |
+| ------ | ----- | ------- |
+| `formref` | a stored FormID value: `inspect` values, `diff`/`conflicts`/`vs_previous` fields, `planet` values, `refs` `placed.cell`/`placed.world` | `form` (the formref, or `null`), `raw` (as stored, where the command reads it), `null: true` for `00000000`, `error` when it does not resolve, `editor_id` (`refs` only) |
+| `lstring` | a string ID inside a decoded value | `string_id` |
+| `opaque` | bytes the schema keeps undecoded | `opaque`: `{payload_offset, length, file_offset}` (`inspect`, `diff`, `conflicts`), or the bytes as hex (`planet`) |
+| `link` | a typed FormID link: `refs` outgoing edges, `planet` content and node links | `path`, `raw`, `status`, `to`, `to_signature`, `to_editor_id`, `targets`, `target_allowed`, `resolved_by`, `error`, `offset`, `body_offset` (an edge adds its own members) |
+| `referrer` | a `refs --incoming` edge | as listed under `refs` |
+| `evidence` | each envelope `evidence` entry | `file`, `offset`, `length`, `record`, `subrecord` |
+
+A decoded value (`value` in `docs/shapes.md`) is otherwise numbers, strings, arrays and
+structs, and a struct never has a member named `kind`. Other `kind` members name a view or
+a definition at a documented position (`planet`'s `data.kind`, `schema`'s member and
+definition kinds, `coverage`'s `typed_failures[].kind`) and never take a marker's name.
+`limitations` entries stay strings: they are prose for a reader, not values to format, and
+every front end already reads them as such.
 
 ## Command results
 
@@ -353,8 +383,8 @@ order: `plugin`, `load_index`, `winner`, `deleted` (record flag 0x20), `resolved
 (as stored in that plugin),
 `record` (header fields), `subrecord_offsets`, `subrecords[]` (as below, plus `text` for
 EDID; for FULL/DESC the lstring members above; `member` (the schema's member name) and
-`value` (decoded through the schema: structs as objects, FormIDs as `{raw, form}`, the null
-FormID as `{raw: "00000000", form: null, null: true}`) where
+`value` (decoded through the schema: structs as objects, FormIDs as `{kind: "formref", raw, form}`, the null
+FormID as `{kind: "formref", raw: "00000000", form: null, null: true}`, one that does not resolve as `{kind: "formref", raw, form: null, error}`, string IDs as `{kind: "lstring", string_id}`, opaque members as `{kind: "opaque", opaque: {payload_offset, length, file_offset}}`; M4.W0) where
 lane B's definitions give a layout), `vs_previous` (null
 for the first version, else `{class: identical-to-previous | deleted | differs,
 flags_differ, order_differs, subrecords[] {signature, occurrence, change, member?,
@@ -467,8 +497,8 @@ unchanged}`, `added[]` / `removed[]` (`form`, `signature`, `raw_form_id`, `offse
 length}`, `first_difference` (null when the bytes are equal and only what they mean
 differs), and for a subrecord the schema gives a layout (M3.D2): `member` (the schema's
 member name) and `fields[]` `{path, before, after}` (paths like `KWDA.Forms[1]`, `DATA.Value`,
-`DNAM[1].Speed`; FormIDs as `{form}` formrefs, `{form: null, null: true}` or `{form: null,
-raw, error}`; an opaque member as `{opaque: {payload_offset, length, file_offset}}`; null on
+`DNAM[1].Speed`; FormIDs as `{kind: "formref", form}`, `{kind: "formref", form: null, null: true}` or `{kind: "formref", form: null,
+raw, error}`; an opaque member as `{kind: "opaque", opaque: {payload_offset, length, file_offset}}`; null on
 the side where the member is absent), or `as_bytes` with the reason it is compared as
 bytes). `counts.equal_by_value`: records whose bytes differ only in how typed FormIDs are
 encoded (another master order), counted as unchanged. Lists stop at `limit` (counts are
@@ -972,13 +1002,13 @@ or hex with `plugin`). A link is one value of a member the schema types as `form
 (one line per edge on the page), `elapsed_ms`; outgoing also `forms_read`; incoming also
 `scope`, `placed_by_cell[]` (`world`, `cell`, `count`, the 50 largest), `index` (`plugins`,
 `cache_hits`, `built`, `uncached`, `elapsed_ms`) and `not_searched` (`no_definition[]` by
-type, `records_with_raw_subrecords`). An outgoing edge: `depth`, `from`, `from_signature`,
+type, `records_with_raw_subrecords`). An outgoing edge (`kind: "link"`): `depth`, `from`, `from_signature`,
 `from_editor_id`, `plugin`, `path`, `raw` (as stored), `status`, `to`, `to_signature`,
 `to_editor_id`, `targets` (the definition's target types), `target_allowed`,
 `resolved_by`, `error`, `offset` (absolute, `null` inside a compressed record),
-`body_offset`. An incoming edge: `depth`, `group`, `from`, `from_raw`, `from_signature`,
+`body_offset`. An incoming edge (`kind: "referrer"`): `depth`, `group`, `from`, `from_raw`, `from_signature`,
 `from_editor_id`, `plugin`, `winner`, `to`, `path`, `raw`, `status`, `resolved_by`,
-`offset`, `body_offset`, and `placed` (`cell` and `world` as `{form, raw, editor_id}`,
+`offset`, `body_offset`, and `placed` (`cell` and `world` as `{kind: "formref", form, raw, editor_id}`,
 `persistent`, `group_type`) or `null`.
 
 `status` keeps every case apart: `resolved`; `null` (`00000000`); `none` (`FFFFFFFF`);
@@ -1009,9 +1039,9 @@ links of the planet and world families (`refs`' links) and the structure
   `signature`, `editor_id`, `depth`, `parent`, `order` (`root`, `first`, `chained`,
   `shared-previous`, `unchained`: how the `PRVN` chain placed it among its siblings),
   `node_type`, `child_selection`, `consume_request_on_failure`, `count_curve`,
-  `distribution_curve`, `parent_link`, `previous`, `content` (links as in `refs`),
+  `distribution_curve`, `parent_link`, `previous`, `content` (links as in `refs`, `kind: "link"`),
   `override_content_properties`, `keywords[]`, `conditions[]` (each `CTDA` as stored: typed
-  fields as numbers, the union fields as `{opaque: hex}`), `content_detail` (a pack-in's
+  fields as numbers, the union fields as `{kind: "opaque", opaque: hex}`), `content_detail` (a pack-in's
   `cell`, a leveled pack-in's `entries[]`, a worldspace's `location` and `planets[]`)),
   `counts` (`nodes`, `branches`, `content_nodes`, `max_depth`, `by_content`), `total`,
   `unresolved[]` and `target_mismatches[]` over the whole tree (not paged).

@@ -20,6 +20,13 @@ use serde_json::{json, Value};
 
 pub use kitkraft_engine::cmdline::command_words;
 pub use kitkraft_engine::find_command;
+/// The engine's documented data shapes, so the view-models' canned envelopes are checked
+/// against what the engine really returns.
+#[cfg(test)]
+pub(crate) use kitkraft_engine::shapes::{check_shape, data_shape};
+/// The envelope's value markers (M4.W0, `docs/mcp.md` "Data shapes and markers"): the
+/// view-models format a value by its `kind`, never by its shape.
+pub use kitkraft_engine::shapes::{kind as marker, KIND};
 #[cfg(test)]
 pub(crate) use kitkraft_engine::{catalog, parse_line, Invocation};
 
@@ -91,6 +98,18 @@ pub const ALLOWLIST: &[Allowed] = &[
         refuse_args: &[],
         require_true: &[],
         why: "reads the builtin schema; no plugin",
+    },
+    Allowed {
+        id: "refs",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads a form's typed FormID links, or its referrers (the reverse index is the engine's own cache)",
+    },
+    Allowed {
+        id: "planet",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads the Planet Content Manager chain of one record",
     },
 ];
 
@@ -329,10 +348,6 @@ mod tests {
             "papyrus.events",
             "strings.dump",
             "deploy.status",
-            // Lane D (M4.D1): no panel yet; a Request to lane W in plan/STATUS.md.
-            "refs",
-            // Lane D (M4.D3): as `refs`.
-            "planet",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);
@@ -406,6 +421,22 @@ mod tests {
         assert_eq!(env["command"], "schema");
         for key in ["data", "coverage", "limitations", "evidence"] {
             assert!(env.get(key).is_some(), "{key}");
+        }
+    }
+
+    /// `refs` and `planet` (and their aliases) pass the gate and reach the engine, which
+    /// fails them here only because nothing is loaded.
+    #[test]
+    fn refs_and_planet_reach_the_engine() {
+        let engine = ReadOnlyEngine::new();
+        for id in ["refs", "useinfo", "planet", "pcm"] {
+            let err = engine
+                .run(&Request::new(id, json!({"form": "Base.esm:000800"})))
+                .unwrap_err();
+            assert!(
+                matches!(&err, RunError::Failed { message, .. } if message.contains("no load order")),
+                "{id}: {err:?}"
+            );
         }
     }
 

@@ -49,9 +49,9 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 1: 8 implemented, 4 partial, 2 open. Build 2 (2026-10-15, `docs/overhaul/build-2.md`): the OMOD values lane B round 4 typed and the owner's answers; 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
 | Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Row 3 above (build 2) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 reruns as members get typed. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, A5 (structure-aware mutation, 2026-10-15), D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 rerun 2026-10-15 on every record of the 12 typed types (lane H): 149,454 agree, 2,825 agree with fewer xEdit fields, 190 disagree (X9, version skew), 0 ours. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, A5 (structure-aware mutation, 2026-10-15), D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). M3.F5 is not built, by that decision |
 | `cargo xtask ci` green; corpus roundtrip identical; parity regenerated; STATUS says M4 | **done** at `01c77d8` | Gates as recorded at the lane B round 4 merge (`39ca2a2` regenerated parity). STATUS: this section |
 
@@ -80,7 +80,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | M4.O4 in-game results recorded | **pending-owner** | After E7/E9 land; the M4.E8 recipes are ready |
 | `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **done** (M4.H3, research skeleton: 39 graded claims, every Papyrus name verified with `kit papyrus events`, open questions as ledger rows). Planet content **carried** (M4.D3) |
 | M4.O3 and M4.O5 recorded | **done** | ADR 0008, ADR 0009 (2026-10-14) |
-| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Carried: M4.W0 shape tests (lane F), `build --plan` (M4.W6), `refs`/placement context (M4.D1 done in the engine; panels: Request to lane W; M4.D2). Licence ruling: row 7 |
+| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Links and Planet panels and the M4.W0 shapes and markers done (2026-10-15, "Lanes F and W follow-ups"). Carried: `build --plan` (M4.W6), placement context (M4.D2). Licence ruling: row 7 |
 | CK fixtures F20..F28 (M4.O1, M4.H2) | **carried** | Deferred by the owner with M3.O1 until the workbench exists. The first POI does not need them |
 | `cargo xtask ci` green, corpus roundtrip identical, parity regenerated, STATUS says M5 | **carried** | To M4 close |
 
@@ -1213,6 +1213,20 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   byte-identical); X8, non-UTF-8 strings shown as Windows-1252. Gates: `cargo xtask ci`,
   `codegen --check`, `parity --check`, and the ignored release corpus tests of esm, doc and
   engine (roundtrip identical, typed corpus, `validate_corpus_official_files`) all pass.
+- **M3.A5 structure-aware mutation (lane A, 2026-10-15).** `crates/esm/tests/common/mutate.rs`
+  walks the parsed tree and mutates record/group/subrecord sizes, `XXXX` fields,
+  decompressed-size prefixes, flags (compressed, deleted), form versions, group labels and
+  types and the `HEDR` count, plus size-consistent splices (duplicated or dropped subrecords
+  and entries, 1-70 extra group levels, recompressed bodies, a subrecord bomb), seeded
+  xorshift64*. Every input goes through parse, decode, plain, strict-decode and typed
+  roundtrips and the index; errors must be typed, in the input, not before the mutated
+  entry, never `Internal`; parseable input must roundtrip byte-identically. `cargo test`
+  runs 400 per fixture and 100 per small file; the `#[ignore]`d full run does 2,000 per
+  input (the five `SMALL` files and two fixtures, as the lane brief set; the plan row's
+  100,000 per file ran once with `KITKRAFT_MUTATIONS=100000`: 700,000 inputs, 24.7 min,
+  clean, recorded in `docs/corpus.md`). No panic or
+  allocation blow-up found, so no parser change; results in `docs/corpus.md`, "Hostile
+  input"; `docs/gaps.md` fuzzing row restated (cargo-fuzz still needs nightly).
 - **Lane W, M4.W1..W6 (read-only workbench, 2026-10-15; the owner started it the same
   day).**
   - What exists:
@@ -1237,6 +1251,36 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     - `refs` and placement context (M4.D1, M4.D2).
     - The M4.W0 shape tests (lane F).
     - The owner's licence ruling (row 7).
+- **Lanes F and W follow-ups, 2026-10-15.**
+  - **M4.W0 data shapes (lane F).** `kitkraft_engine::shapes`: a documented shape for the
+    `data` of `load`, `inspect`, `query`, `diff`, `conflicts`, `refs`, `planet`,
+    `coverage`, `schema` and `validate` (every mode; strict: an undocumented member fails),
+    printed to `docs/shapes.md` by `write_shape_docs` (a test fails when the file and the
+    code differ). Explicit markers (`kind`): `formref` on every stored FormID value
+    (`inspect` values, `diff`/`conflicts`/`vs_previous` fields, `planet` values, `refs`
+    `placed.cell`/`world`), `lstring`, `opaque` (`inspect`'s opaque members were the
+    string `"opaque"`, now a byte range with the file offset), `link` (`refs` outgoing
+    edges, `planet` links), `referrer` (incoming edges), `evidence` (every envelope
+    evidence entry). Limitations stay strings (prose, not values; every front end reads
+    them so). `handlers/shapes_tests.rs` runs all ten commands in 31 modes on the refs and
+    planet fixtures through `execute`, checks every envelope, the markers at their
+    positions, and that the checker catches an unmarked formref and an undocumented
+    member. Rules: `docs/mcp.md`, "Data shapes and markers". xtask's SF1Edit comparator
+    reads the new opaque marker (`sf1edit::scalar_object`). Not covered: `build --plan`
+    (M4.W6 adds its shape with the guard).
+  - **Links and Planet panels (lane W; lane D's Request).** `refs` and `planet` are on
+    `gate::ALLOWLIST` (read only) and in `cmdline::SESSION_COMMANDS`; `gate` re-exports
+    the engine's marker names, which the view-models key on (`panels::fmt_value`,
+    `formids`; the shape heuristic and its `docs/gaps.md` row are gone). Links tab:
+    outgoing links to a depth or "use info" (incoming, winner or every version, type
+    filter), rows from `link`/`referrer` markers (an unknown marker is counted, not
+    guessed), placed referrers with cell and world, `next_cursor` paging. Planet tab: a
+    tree's nodes indented by depth with their content links, the placements (with the
+    branch chain) of a planet, star, biome, location, worldspace or pack-in, and every
+    `link` marker in the result. "links" and "use info" on every record row (query rows,
+    the record view, diff records, diagnostics, links and planet rows); "planet chain"
+    on a record of a planet-family type. View-model tests on canned envelopes, which are
+    checked against the engine's documented shapes; `dev_profile` walks both panels.
 - Lane E, M3.E9 round 2 (overhaul build 2), 2026-10-15: `has_opaque` (engine
   `edit/patch.rs`) now flags only unknown layout (whole opaque payload, rest-of-payload run,
   edid-prefix union); fixed-size untyped struct fields and sibling-decided unions are known
@@ -1607,7 +1651,7 @@ wins") but still the owner's to confirm:
 
 ## Requests (cross-lane)
 
-- **Lane D (M4.D1, M4.D3) -> lane W.** `refs` and `planet` are in the catalog (`writes:
+- ~~**Lane D (M4.D1, M4.D3) -> lane W.**~~ Done 2026-10-15 (lanes F and W follow-ups: Links and Planet panels, `refs`/`planet` on the gate's allowlist and in `cmdline::SESSION_COMMANDS`, "links"/"use info" on every record row). Was: `refs` and `planet` are in the catalog (`writes:
   false`, read only); `planet` needs the same treatment (a Planet view over `data.nodes`
   with `depth` indentation, or `data.placements`). `refs` in detail: it is in the catalog (`writes: false`, read only). The
   workbench has no generic envelope view a new command can use without code, so lane D

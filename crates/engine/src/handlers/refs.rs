@@ -28,6 +28,7 @@ use super::{failed, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
+use crate::shapes::kind;
 
 const ID: &str = "refs";
 
@@ -67,6 +68,7 @@ pub(super) fn sig_text(sig: [u8; 4]) -> String {
 pub(super) fn link_json(lo: &LoadOrder, l: &Link) -> Value {
     let (to_sig, to_edid) = l.form.map_or((None, None), |g| identity(lo, g));
     json!({
+        "kind": kind::LINK,
         "path": l.path,
         "raw": format!("{:08X}", l.raw),
         "status": l.status.as_str(),
@@ -527,9 +529,9 @@ fn place_json(lo: &LoadOrder, plugin: u16, raw: u32) -> Value {
     match lo.resolve(plugin, raw) {
         Ok(g) => {
             let (_, edid) = identity(lo, g);
-            json!({"form": lo.form_label(g), "raw": format!("{raw:08X}"), "editor_id": edid})
+            json!({"kind": kind::FORMREF, "form": lo.form_label(g), "raw": format!("{raw:08X}"), "editor_id": edid})
         }
-        Err(e) => json!({"form": null, "raw": format!("{raw:08X}"), "error": e.to_string()}),
+        Err(_) => crate::shapes::formref(lo, plugin, raw),
     }
 }
 
@@ -671,6 +673,7 @@ fn incoming_page(
             .as_ref()
             .map(|p| placement_json(lo, h.plugin, p));
         let base = json!({
+            "kind": kind::REFERRER,
             "depth": h.depth,
             "group": if h.placement.is_some() { "placed" } else { "referrer" },
             "from": g.map(|g| lo.form_label(g)),
@@ -873,7 +876,7 @@ fn incoming_page(
     clippy::arithmetic_side_effects,
     clippy::indexing_slicing
 )]
-mod tests {
+pub(crate) mod tests {
     use crate::handlers::load::tests::plugin;
     use crate::handlers::testdata::sub;
     use crate::Engine;
@@ -893,7 +896,7 @@ mod tests {
     /// Base.esm: keyword 800, rifle 801 (keyword 800 twice, a missing 999, null, an index
     /// past the masters); Patch.esm (master Base.esm): a pistol naming the keyword and the
     /// rifle's keyword list overridden.
-    fn fixture(tag: &str) -> PathBuf {
+    pub(crate) fn fixture(tag: &str) -> PathBuf {
         let dir =
             std::env::temp_dir().join(format!("kitkraft-engine-refs-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
