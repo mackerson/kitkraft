@@ -12,8 +12,8 @@ use super::{io_error, refused, sha256, DeployError, MANIFEST, MO2_META, PACKAGE_
 
 /// Deepest folder nesting read from a package.
 const MAX_DEPTH: usize = 32;
-/// Most files read from a package.
-const MAX_FILES: usize = 20_000;
+/// Most files read from a package (the limit `package` writes with).
+const MAX_FILES: usize = super::MAX_PACKAGE_FILES;
 /// Largest package manifest read.
 const MAX_PACKAGE_MANIFEST: u64 = 16_777_216;
 

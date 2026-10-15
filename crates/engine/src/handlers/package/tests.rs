@@ -238,7 +238,13 @@ fn ba2_package_names_archives_after_the_plugin() {
         .map(|f| f["name"].as_str().unwrap())
         .collect();
     assert_eq!(inner, ["meshes/kc/thing.nif", "scripts/tiny.pex"]);
-    assert_eq!(archives[0]["files"][1]["sha256"], sha256::hex(&tiny_pex()));
+    // Fable review (deploy round), finding 11: the hash is the packed file's source, not
+    // the archive entry's (compressed) bytes, and the field says so.
+    assert_eq!(
+        archives[0]["files"][1]["source_sha256"],
+        sha256::hex(&tiny_pex())
+    );
+    assert!(archives[0]["files"][1].get("sha256").is_none());
     assert_eq!(archives[1]["format"], "dx10");
     // The archives read back through ba2.list.
     let listed = execute(
@@ -405,6 +411,77 @@ fn out_through_a_junction_is_refused() {
     assert!(err.contains("junction"), "{err}");
     assert!(fs::read_dir(&mods).unwrap().next().is_none());
     fs::remove_dir(&link).unwrap();
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Fable review (deploy round), finding 11: `package` allowed 100,000 files and
+/// `deploy --dev` reads 20,000, so a package could be undeployable. One limit, 20,000.
+#[test]
+fn file_limit_matches_deploy() {
+    assert_eq!(super::MAX_FILES, 20_000);
+    assert_eq!(super::MAX_FILES, crate::deploy::MAX_PACKAGE_FILES);
+    let dir = temp("limit");
+    fs::write(dir.join("one.nif"), b"x").unwrap();
+    let mut out: Vec<(Vec<String>, PathBuf)> = (0..super::MAX_FILES)
+        .map(|i| (vec![format!("f{i}")], dir.join(format!("f{i}"))))
+        .collect();
+    let err = super::walk(&dir, &dir, 0, &mut out).unwrap_err();
+    assert!(err.contains("more than 20000 files"), "{err}");
+    fs::remove_dir_all(&dir).unwrap();
+}
+
+/// Fable review (deploy round), finding 11: `overwrite` removed the old folder before
+/// renaming the new one in, so a file it could not delete left it half removed. The old
+/// folder is now renamed aside first: when that fails, nothing has changed.
+#[cfg(windows)]
+#[test]
+fn overwrite_never_leaves_a_half_removed_folder() {
+    use std::os::windows::fs::OpenOptionsExt;
+    let dir = temp("atomic");
+    let (plugin, loose, _) = inputs(&dir);
+    let out = dir.join("out");
+    execute(
+        "package",
+        json!({"plugin": s(&plugin), "out": s(&out), "loose": s(&loose)}),
+    )
+    .unwrap();
+    let folder = out.join("KC_Test");
+    let before = tree(&folder);
+    // Another program holds one file open without sharing (the CK, an archive tool).
+    let held = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(0)
+        .open(folder.join("Meshes").join("KC").join("Thing.nif"))
+        .unwrap();
+    let err = execute(
+        "package",
+        json!({"plugin": s(&plugin), "out": s(&out), "overwrite": true}),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("nothing was changed"), "{err}");
+    drop(held);
+    assert_eq!(tree(&folder), before, "the old folder is intact");
+    let mut left: Vec<String> = fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    left.sort();
+    assert_eq!(left, ["KC_Test", "KC_Test.zip"]);
+    // Released, the overwrite replaces it and leaves no aside copy behind.
+    let r = execute(
+        "package",
+        json!({"plugin": s(&plugin), "out": s(&out), "overwrite": true}),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["files"], 2);
+    verify(&folder);
+    let mut left: Vec<String> = fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    left.sort();
+    assert_eq!(left, ["KC_Test", "KC_Test.zip"]);
     fs::remove_dir_all(&dir).unwrap();
 }
 

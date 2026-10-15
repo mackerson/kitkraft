@@ -29,13 +29,23 @@ Installing is your step, in MO2 (owner decision M4.O5, default).
 3. Writes `kitcraft-manifest.json` at the root of the folder: every file with its size and
    SHA-256, the plugin's masters and record counts per type, the KitCraft version, the
    SHA-256 of the build spec (`--spec <file.toml>`), the `validate` result, and the files
-   inside each archive with their SHA-256. No dates and no absolute paths: the same inputs
-   always give the same bytes.
+   inside each archive with `source_sha256`, the SHA-256 of the file that was packed (an
+   archive entry's own bytes may be compressed, and a texture's header is rewritten, so
+   they are not hashed). No dates and no absolute paths: the same inputs always give the
+   same bytes.
 4. Writes `<out>\<name>.zip` (or `<name>-<version>.zip` with `--version`), the folder's
    contents at the zip's root; `--no-zip` skips it.
 
 An existing `<out>\<name>` is replaced only with `--overwrite`, and only if it holds a
-`kitcraft-manifest.json` (a folder `package` made).
+`kitcraft-manifest.json` (a folder `package` made). The replacement is renames only: the
+new folder is built as `.<name>.partial-<pid>`, the old one is renamed aside to
+`.<name>.old-<pid>`, the new one renamed in, then the old one removed; if the old folder
+cannot be moved (a program holds a file in it), nothing changes. The zip is replaced by
+one rename over the old file.
+
+A package holds at most 20,000 files (loose files and scripts; with `--ba2` they are
+packed into two archives), the same limit `kit deploy --dev` reads a package and a dev
+mod with, so every package can be deployed.
 
 Example (the rename smoke test, M2.O6):
 

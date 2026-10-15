@@ -46,8 +46,9 @@ pub(crate) const MANIFEST: &str = "kitcraft-manifest.json";
 const MANIFEST_FORMAT: u32 = 1;
 /// Deepest folder walked under `loose` or a scripts folder.
 const MAX_DEPTH: usize = 32;
-/// Most files in one package.
-const MAX_FILES: usize = 100_000;
+/// Most files in one package: the limit `deploy --dev` reads a package with, so every
+/// package `package` writes can be deployed (`docs/packaging.md`).
+const MAX_FILES: usize = crate::deploy::MAX_PACKAGE_FILES;
 /// Largest `.pex` read to find its object name.
 const MAX_PEX_BYTES: u64 = 64 << 20;
 
@@ -248,7 +249,9 @@ fn pack(
             Some(s) => Some(hash_file(s)?.0),
             None => None,
         };
-        files.push(json!({"name": p.name, "size": p.size, "sha256": sha}));
+        // The hash of the source file packed (the archive's entry bytes may be
+        // compressed, and a texture's header is rewritten), hence `source_sha256`.
+        files.push(json!({"name": p.name, "size": p.size, "source_sha256": sha}));
     }
     Ok(json!({
         "file": file_name(path),
@@ -441,6 +444,13 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .map(|e| e.src.display().to_string())
         .collect();
     entries.extend(scripts);
+    // The folder holds every entry (or, with `ba2`, the plugin and at most two archives).
+    if !use_ba2 && entries.len() > MAX_FILES {
+        return Err(fail(format!(
+            "{} files to package: more than {MAX_FILES}, the most `deploy --dev` reads; pack them with ba2",
+            entries.len()
+        )));
+    }
     let mut seen = BTreeSet::new();
     for e in &entries {
         if !seen.insert(e.rel.to_ascii_lowercase()) {
@@ -544,11 +554,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         let mut names: Vec<String> = files.iter().map(|(rel, _, _)| rel.clone()).collect();
         names.push(MANIFEST.to_string());
         names.sort();
+        // A file rename replaces an existing zip in one step (MoveFileEx with
+        // REPLACE_EXISTING on Windows, rename(2) elsewhere): never a moment without one.
         let result = write_zip(&mod_dir, &names, &partial).and_then(|()| {
-            if zip_path.exists() {
-                fs::remove_file(&zip_path)
-                    .map_err(|e| format!("replacing `{}`: {e}", zip_path.display()))?;
-            }
             fs::rename(&partial, &zip_path)
                 .map_err(|e| format!("renaming to `{}`: {e}", zip_path.display()))
         });
@@ -710,17 +718,48 @@ fn finish_folder(
     let mut text = serde_json::to_string_pretty(&manifest).map_err(|e| e.to_string())?;
     text.push('\n');
     fs::write(tmp.join(MANIFEST), text).map_err(|e| format!("writing the manifest: {e}"))?;
-    if mod_dir.exists() {
+    // `overwrite` replaces the old folder by renames only: old aside, new in, then the old
+    // one removed. A failure before the new folder is in puts the old one back, so the
+    // folder is never half deleted (removing it first could stop midway on a locked file).
+    let aside = if mod_dir.exists() {
         if !mod_dir.join(MANIFEST).is_file() {
             return Err(format!(
                 "`{}` appeared and was not made by package",
                 mod_dir.display()
             ));
         }
-        fs::remove_dir_all(mod_dir)
-            .map_err(|e| format!("replacing `{}`: {e}", mod_dir.display()))?;
+        let name = mod_dir
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        let aside = mod_dir.with_file_name(format!(".{name}.old-{}", std::process::id()));
+        fs::rename(mod_dir, &aside).map_err(|e| {
+            format!(
+                "replacing `{}` (moving it aside; nothing was changed): {e}",
+                mod_dir.display()
+            )
+        })?;
+        Some(aside)
+    } else {
+        None
+    };
+    if let Err(e) = fs::rename(tmp, mod_dir) {
+        let restored = aside.as_ref().map_or(Ok(()), |a| {
+            fs::rename(a, mod_dir).map_err(|r| r.to_string())
+        });
+        return Err(match (aside, restored) {
+            (Some(a), Err(r)) => format!(
+                "renaming to `{}`: {e}; putting the old folder back failed too ({r}): it is at `{}`",
+                mod_dir.display(),
+                a.display()
+            ),
+            _ => format!("renaming to `{}`: {e}", mod_dir.display()),
+        });
     }
-    fs::rename(tmp, mod_dir).map_err(|e| format!("renaming to `{}`: {e}", mod_dir.display()))?;
+    if let Some(a) = aside {
+        // The new folder is in place; a leftover old copy stays a hidden `.<name>.old-<pid>`.
+        let _ = fs::remove_dir_all(&a);
+    }
     Ok((manifest, files))
 }
 

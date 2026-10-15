@@ -18,7 +18,7 @@ const MAX_JSON: u64 = 16_777_216;
 /// Deepest folder nesting checked in a deployed folder.
 const MAX_DEPTH: usize = 32;
 /// Most files checked in a deployed folder.
-const MAX_FILES: usize = 20_000;
+const MAX_FILES: usize = super::MAX_PACKAGE_FILES;
 /// `kind` of the journal.
 pub(crate) const JOURNAL_KIND: &str = "kitkraft-dev-journal";
 
