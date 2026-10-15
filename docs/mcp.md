@@ -863,11 +863,15 @@ named cell, or in the exterior cell of `world` holding the position (a persisten
 reference of a world goes into its persistent cell). The winning `CELL` (and `WRLD`) is
 carried as an unchanged copy first; a cell the target already has is kept. Written as
 `set` writes (staged, validated, then moved). Refusals are `failed` with
-`place.<code>: ...` (`base-not-placeable`, `no-base`, `no-cell`, `not-a-cell`,
-`cell-and-world`, `not-a-world`, `no-exterior-cell`, `persistence`, `edid-invalid`,
-`edid-clash`, `scaled-master`, `parent-not-carried`, `formid-exists`, `fails-validate`,
-`bad-vector`); a member below `corpus` confidence (`flag.initially_disabled`) is refused
-unless named in `allow_reference`. `data` is `set`'s plus `placed[]` (`entry`, `form`,
+`place.<code>: ...` (`base-not-placeable`, `no-base`, `no-cell` (a cell that does not
+resolve), `not-a-cell`, `not-a-world`, `no-exterior-cell`, `persistence`, `edid-clash`,
+`scaled-master`, `parent-not-carried`, `formid-exists`, `fails-validate`); the
+argument-shaped ones are `invalid_args` with a JSON pointer and the code as the rule
+(`place.bad-vector` at `/position/<i>` or `/rotation/<i>`, `place.edid-invalid` at
+`/edid`, `place.cell-and-world` at `/world`, `place.no-cell` at the arguments object when
+neither `cell` nor `world` is given); in a spec's `[[place]]` they stay `failed`
+(`build` names the key). A member below `corpus` confidence (`flag.initially_disabled`) is
+refused unless named in `allow_reference`. `data` is `set`'s plus `placed[]` (`entry`, `form`,
 `form_id`, `signature`, `editor_id`, `base`/`cell`/`world` with `form`, `signature`,
 `editor_id`, `winner` (cell: `kind`, `grid`), `stored_base`/`stored_cell`/`stored_world`,
 `position`, `rotation`, `persistent`, `initially_disabled`, `group_path[]` (`type`,

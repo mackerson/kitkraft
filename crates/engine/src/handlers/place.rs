@@ -25,7 +25,11 @@
 //!
 //! As `set`: the write goes to a staged copy of `into`, `validate` runs on it, and `into`
 //! is replaced only when the records written pass. Refusals are `failed` errors whose
-//! message starts with a stable code, `place.<reason>:`.
+//! message starts with a stable code, `place.<reason>:`; the argument-shaped ones
+//! (`bad-vector`, `edid-invalid`, `cell-and-world`, `no-cell` when neither is given) are
+//! `invalid_args` with a JSON pointer (`/position/1`, `/edid`) and the code as the rule,
+//! as `set` reports a bad field. In a spec's `[[place]]` they stay `failed` (`build`
+//! names the TOML key).
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -43,6 +47,7 @@ use super::set::{
     validate_json, winning_copy, write_with, Origin,
 };
 use super::{failed, str_arg};
+use crate::args::Violation;
 use crate::edit::patch::{Copy, FormName, NewRef, PatchReport, RefPlace};
 use crate::envelope::{Evidence, Outcome};
 use crate::exec::EngineError;
@@ -59,6 +64,34 @@ const NOT_PLACEABLE: [&[u8; 4]; 9] = [
 /// A refusal: `place.<code>: <message>`.
 pub(crate) fn refuse(command: &str, code: &str, message: impl std::fmt::Display) -> EngineError {
     failed(command, format!("place.{code}: {message}"))
+}
+
+/// An argument-shaped refusal (`rule` is the stable `place.<code>`): for the `place` command
+/// `invalid_args` at `/<field>` (`""`: the arguments object), as `set` reports a bad field;
+/// for a spec entry (`build`) the `failed` `place.<code>: <at>: <message>` it always was.
+fn refuse_arg(
+    command: &str,
+    at: &str,
+    field: &str,
+    rule: &'static str,
+    message: String,
+) -> EngineError {
+    if command == ID {
+        EngineError::InvalidArgs {
+            command: ID.to_string(),
+            violations: vec![Violation {
+                pointer: if field.is_empty() {
+                    String::new()
+                } else {
+                    format!("/{field}")
+                },
+                rule,
+                message: format!("{rule}: {message}"),
+            }],
+        }
+    } else {
+        failed(command, format!("{rule}: {at}: {message}"))
+    }
 }
 
 /// One placement, as `place` takes it or a spec's `[[place]]` entry.
@@ -129,22 +162,21 @@ pub(crate) fn vec3(
     let Some(value) = value else {
         return Ok(None);
     };
-    let items = value.as_array().filter(|a| a.len() == 3).ok_or_else(|| {
-        refuse(
-            command,
-            "bad-vector",
-            format!("{what} must be three numbers"),
-        )
-    })?;
+    let bad = |field: String, message: String| {
+        refuse_arg(command, what, &field, "place.bad-vector", message)
+    };
+    let items = value
+        .as_array()
+        .filter(|a| a.len() == 3)
+        .ok_or_else(|| bad(what.to_string(), format!("{what} must be three numbers")))?;
     let mut out = [0f32; 3];
-    for (slot, item) in out.iter_mut().zip(items) {
+    for (i, (slot, item)) in out.iter_mut().zip(items).enumerate() {
         let v = item
             .as_f64()
-            .ok_or_else(|| refuse(command, "bad-vector", format!("{what} must be numbers")))?;
+            .ok_or_else(|| bad(format!("{what}/{i}"), format!("{what} must be numbers")))?;
         if !v.is_finite() || v.abs() > f64::from(f32::MAX) {
-            return Err(refuse(
-                command,
-                "bad-vector",
+            return Err(bad(
+                format!("{what}/{i}"),
                 format!("{what} value {v} is not a finite 32-bit float"),
             ));
         }
@@ -454,6 +486,40 @@ pub(crate) fn plan(
 ) -> Result<Planned, EngineError> {
     let at = &req.label;
     let mut limitations = Vec::new();
+    // The arguments' shape first: nothing below is resolved for a request that is wrong.
+    if let Some(edid) = &req.edid {
+        if !valid_edid(edid) {
+            return Err(refuse_arg(
+                command,
+                at,
+                "edid",
+                "place.edid-invalid",
+                format!("EditorID `{edid}` must be 1 to 200 ASCII letters, digits or `_`"),
+            ));
+        }
+    }
+    match (&req.cell, &req.world) {
+        (Some(_), Some(_)) => {
+            return Err(refuse_arg(
+                command,
+                at,
+                "world",
+                "place.cell-and-world",
+                "name the cell, or the world with a position, not both".to_string(),
+            ))
+        }
+        (None, None) => {
+            return Err(refuse_arg(
+                command,
+                at,
+                "",
+                "place.no-cell",
+                "name the cell (`cell`) or the world (`world`, the position picks the cell)"
+                    .to_string(),
+            ))
+        }
+        _ => {}
+    }
     // The base: a form of the load order, or one written in the same call.
     let base = match &req.base_local {
         Some(_) => None,
@@ -510,21 +576,8 @@ pub(crate) fn plan(
 
     // The cell.
     let cell = match (&req.cell, &req.world) {
-        (Some(_), Some(_)) => {
-            return Err(refuse(
-                command,
-                "cell-and-world",
-                format!("{at}: name the cell, or the world with a position, not both"),
-            ))
-        }
-        (None, None) => {
-            return Err(refuse(
-                command,
-                "no-cell",
-                format!(
-                "{at}: name the cell (`cell`) or the world (`world`, the position picks the cell)"
-            ),
-            ))
+        (Some(_), Some(_)) | (None, None) => {
+            return Err(refuse(command, "no-cell", format!("{at}: checked above")))
         }
         (Some(c), None) => find_form(command, loaded, c, req.plugin.as_deref())
             .map_err(|e| refuse(command, "no-cell", format!("{at}: {e}")))?,
@@ -689,15 +742,8 @@ pub(crate) fn plan(
     };
     copy.carried = true;
 
-    // The EditorID.
+    // The EditorID (its shape was checked first).
     if let Some(edid) = &req.edid {
-        if !valid_edid(edid) {
-            return Err(refuse(
-                command,
-                "edid-invalid",
-                format!("{at}: EditorID `{edid}` must be 1 to 200 ASCII letters, digits or `_`"),
-            ));
-        }
         if let Some(owner) = edid_owner(loaded, edid) {
             return Err(refuse(
                 command,

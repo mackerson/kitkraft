@@ -414,10 +414,10 @@ fn refusals_are_typed_and_write_nothing() {
         (json!({"base": "Nope", "cell": "TestInterior"}), "no-base"),
         (json!({"cell": "KC_Crate"}), "not-a-cell"),
         (json!({"cell": "Nope"}), "no-cell"),
-        (json!({}), "no-cell"),
+        (json!({}), "invalid_args"),
         (
             json!({"cell": "TestInterior", "world": "TestWorld"}),
-            "cell-and-world",
+            "invalid_args",
         ),
         (json!({"world": "KC_Crate"}), "not-a-world"),
         (
@@ -431,11 +431,11 @@ fn refusals_are_typed_and_write_nothing() {
         ),
         (
             json!({"cell": "TestInterior", "edid": "bad id"}),
-            "edid-invalid",
+            "invalid_args",
         ),
         (
             json!({"cell": "TestInterior", "edid": "bad\u{0}id"}),
-            "edid-invalid",
+            "invalid_args",
         ),
         (
             json!({"cell": "TestInterior", "position": [1.0, 2.0]}),
@@ -634,5 +634,54 @@ fn header_stamps_are_not_claimed_as_corpus_defaults() {
         .unwrap()
         .iter()
         .any(|l| l.as_str().unwrap().contains("corpus default")));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, finding 6): argument-shaped refusals are `invalid_args`
+/// with a JSON pointer, as `set` reports a bad field, and keep their `place.<code>` as the
+/// rule; in a spec they stay `failed` errors naming the key.
+#[test]
+fn argument_refusals_are_invalid_args_with_a_pointer() {
+    let d = dir("place-arg-refusals");
+    let data = world_master(&d);
+    let into = d.join("R.esm");
+    let cases = [
+        (json!({}), "", "place.no-cell"),
+        (
+            json!({"cell": "TestInterior", "world": "TestWorld"}),
+            "/world",
+            "place.cell-and-world",
+        ),
+        (
+            json!({"cell": "TestInterior", "edid": "bad id"}),
+            "/edid",
+            "place.edid-invalid",
+        ),
+        (
+            json!({"cell": "TestInterior", "position": [1.0, 1e39, 0.0]}),
+            "/position/1",
+            "place.bad-vector",
+        ),
+        (
+            json!({"cell": "TestInterior", "rotation": [0.0, 0.0, -1e39]}),
+            "/rotation/2",
+            "place.bad-vector",
+        ),
+    ];
+    for (extra, pointer, rule) in cases {
+        let err = place(&data, &into, extra.clone()).unwrap_err();
+        let crate::EngineError::InvalidArgs { violations, .. } = &err else {
+            panic!("{extra}: {err}")
+        };
+        assert_eq!(violations.len(), 1, "{extra}");
+        assert_eq!(violations[0].pointer, pointer, "{extra}");
+        assert_eq!(violations[0].rule, rule, "{extra}");
+        assert!(violations[0].message.starts_with(rule), "{extra}");
+        assert!(!into.exists());
+    }
+    // A resolution failure stays `failed` with its code.
+    let err = place(&data, &into, json!({"cell": "Nope"})).unwrap_err();
+    assert_eq!(err.kind(), "failed");
+    assert_eq!(code(err), "no-cell");
     let _ = std::fs::remove_dir_all(&d);
 }
