@@ -477,6 +477,17 @@ is under "Next".
     `cells::onam_forms(&plugin, overrides_master_record) -> Vec<u32>` (file order, a
     stated choice until F23) and `Tes4::set_overridden_forms(&mut tes4, &forms)` (after
     the master list, as in every file). Request to lane E below.
+  - Fix round after the Fable review of the placement core (2026-10-14): (1) blocker:
+    the own FormID prefix counts only full masters (`NewForms` takes the masters'
+    scales, refuses unknown ones); (2) a children group without its record is refused,
+    `cells::carry_parents` carries the `WRLD`/`CELL` overrides, `upsert_before_owner` is
+    the rebuild-only opt-in; (3) existing interior cells keep their observed blocks;
+    (4) a persistence toggle moves the record (`Upsert::Moved`); (5) off-cell positions
+    are named, bad reference specs refused; (6) `onam_forms_in`, `NavmeshImport`
+    master overrides; (7) `PlacementStyle::detect`, flag-0x400 path checks, one
+    persistent cell per world, iterative walks, `DecodeLimits` through the navmesh
+    import, the blueprint `HEDR` count limitation. Rebuild gate and full roundtrip
+    unchanged (see the lane's report). Lane E: new signatures in Requests below.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
@@ -1345,13 +1356,25 @@ Agents append here when they need a change in a crate they do not own.
   members now come first) and `tests/diff_corpus.rs` (picks a record type whose definition
   places KWDA, since lstring-only definitions keep it raw).
 - **Lane A -> lane E (M4.A1..A6 landed; for M4.E1, E2, E3, E4).** `kitcraft_esm`:
-  - `forms::NewForms::for_index(&index)` / `for_plugin(&plugin)` -> `allocate() ->
-    Result<u32>`, `write_hedr(&mut tes4)`; `Error::Refused` for small/medium targets;
-    name `forms::LIMITATIONS` in results.
+  - `forms::NewForms::for_index(&index, &master_scales)` / `for_plugin(&plugin,
+    &master_scales)` / `new(&tes4, &master_scales, own_max)` -> `allocate() ->
+    Result<u32>`, `write_hedr(&mut tes4)`; `master_scales: &[Option<tes4::Scale>]` is
+    each master's scale in master-list order (`Scale::of_flags(master_tes4.flags())`, or
+    from lane D's load order); the own prefix is the **full**-master count, and an
+    unknown (`None`) scale, a wrong-length list or a small/medium target is
+    `Error::Refused` (fix round, review blocker: masters [Starfield full, Constellation
+    small, SFBGS003 medium] give 01xxxxxx). One allocator per plugin per edit session
+    (not `Copy`). Name `forms.limitations()` in results (`LIMITATIONS` plus a low `HEDR`
+    next object ID and the blueprint flag's `HEDR` count meaning).
+    `forms::names_master(form_id, &master_scales) -> Option<bool>` classifies a stored
+    FormID.
   - `refs::compose_reference(&RefSpec, allow_reference: &[&str]) -> Result<ComposedRef>`
     (`RefSpec::new(sig, form_id, base, position, rotation)`, then `persistent`,
-    `initially_disabled`, `editor_id`, `extra`...); `ComposedRef { record, members,
-    limitations }`; `composed.placed(place, cell, &style) -> Result<Placed>`. Until BW's
+    `initially_disabled`, `editor_id`, `extra`...); `ComposedRef { record, position,
+    members, limitations }`; `composed.placed(place, cell, &style) -> Result<Placed>`
+    (`&mut self` since the fix round: a position outside its exterior cell adds a
+    limitation; non-finite numbers, a NUL in the EditorID and `EDID`/`NAME`/`DATA`/`XXXX`
+    in `leading`/`extra`/`trailing` are refused). Until BW's
     `REFR`/`ACHR` definitions reach `main` through BX, `DATA.Position.Z` and
     `DATA.Rotation` are below `corpus` and must be in `allow_reference` (nothing to change
     when they land). They have landed (M4.BX1): both come from the REFR/ACHR `DATA`
@@ -1369,13 +1392,22 @@ Agents append here when they need a change in a crate they do not own.
     &master_index, &place, cell, &style, &limits, read)` gives the lossless `WRLD`/`CELL`
     overrides to upsert first (skip those the target has). Before the fix the group was
     created without its record, a shape no official file has.
-  - `navmesh::import_navmeshes(&ck_plugin, &mut target, &style)` and
-    `navmesh::navmesh_placements(&ck_plugin, &target_index, read_cell, &style)` for
-    `[[import]]`; refused unless both plugins have the same masters.
+  - `navmesh::import_navmeshes(&ck_plugin, &mut target, &NavmeshOptions { style, limits,
+    master_scales })` and `navmesh::navmesh_placements(&ck_plugin, &target_index,
+    read_cell, &options)` for `[[import]]`; refused unless both plugins have the same
+    masters. `NavmeshImport::master_forms` lists imported NAVMs that override a master's
+    (ONAM candidates), `unknown_forms` those a missing scale leaves undecided.
+  - `CellPlace::Interior { labels }` (fix round): an existing interior cell keeps the
+    block/sub-block it was read in (`cell_place_in`); `CellPlace::INTERIOR` computes them
+    for a new cell. `PlacementStyle::detect(&index)` reads a target's style back.
+    `Upsert::Moved`: a reference whose flag 0x400 changed leaves its cell's other
+    children group (engine's patch report says "moved"). Paths are checked against flag
+    0x400 and a second persistent `CELL` per world is refused.
   - ONAM (M4.A6): when a patch overrides records in groups 7, 9 or 10, set
     `Tes4::set_overridden_forms(&mut tes4, &cells::onam_forms(&plugin, |id| <id is a
-    master's and the master has it>))`; patches that only override top-level records or
-    persistent references still need none. INCC stays yours (as M2.E3).
+    master's and the master has it>))` (`cells::onam_forms_in(&index, pick)` for a
+    streamed patch); patches that only override top-level records or persistent
+    references still need none. INCC stays yours (as M2.E3).
 - **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
   `overhaul.scaffold` (alias `overhaul`, session handler registered in
   `handlers::session_defaults`), `build` gained `plan`, `validate` gained

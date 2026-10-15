@@ -325,12 +325,17 @@ fn rebuild_entry(
     (Some(diff), changes)
 }
 
+/// The style of each file, by name (the two `BlueprintShips` files and the 12 others),
+/// which `PlacementStyle::detect` must find from the index alone.
 fn style_for(name: &str, path: &Path) -> PlacementStyle {
-    if !is_blueprint(name) {
-        return PlacementStyle::OFFICIAL;
-    }
     let index = index_file(path, &IndexOptions::default()).unwrap();
-    PlacementStyle::blueprint(index.groups[0].header.timestamp)
+    let expected = if is_blueprint(name) {
+        PlacementStyle::blueprint(index.groups[0].header.timestamp)
+    } else {
+        PlacementStyle::OFFICIAL
+    };
+    assert_eq!(PlacementStyle::detect(&index), expected, "{name}");
+    expected
 }
 
 /// Rebuild every top-level group of `path`; returns the differences that remain and the
@@ -379,6 +384,8 @@ fn corpus_rebuild_small() {
     for file in &files {
         let bytes = std::fs::read(&file.path).unwrap();
         let original = Plugin::parse(&bytes).unwrap();
+        let index = kitcraft_esm::index::index_bytes(&bytes, &IndexOptions::default()).unwrap();
+        assert_eq!(PlacementStyle::detect(&index), PlacementStyle::OFFICIAL);
         for shuffle in [None, Some(1), Some(2)] {
             let mut plugin = Plugin::new(original.header().clone());
             for entry in original.entries() {

@@ -6,7 +6,7 @@
 //! (a compressed body is never recompressed, an unchanged record is re-emitted as read),
 //! placed in the temporary children of the same cell in the target, where
 //! [`crate::cells`] puts it (official style: `NAVM` first in the group). A target record
-//! with the same FormID is replaced.
+//! with the same FormID is replaced. An existing interior cell keeps the blocks it is in.
 //!
 //! Refused (`Error::Refused`), never repaired:
 //!
@@ -18,18 +18,49 @@
 //!   anywhere but a cell's temporary children (the only place the corpus has them), or
 //!   under a world's persistent cell (which has no temporary children in the corpus).
 //!
+//! The report lists the imported navmeshes whose FormID names a master
+//! ([`NavmeshImport::master_forms`]: overrides, which a temporary children group puts in
+//! `ONAM`, [`crate::cells::onam_forms`]) from the masters' scales the caller gives
+//! ([`NavmeshOptions::master_scales`]; never guessed: [`NavmeshImport::unknown_forms`]).
+//!
 //! Not imported: the `NAVI` navmesh info map and any other record the CK changed while
 //! generating; F22 shows which records that is.
 
-use crate::build::Placed;
+use crate::build::{Placed, Upsert};
 use crate::cells::{self, group_type, CellPlace, Children, PlacementStyle};
+use crate::forms::names_master;
 use crate::index::PluginIndex;
-use crate::model::{Entry, GroupHeader, Plugin, Record};
-use crate::tes4::Tes4;
+use crate::model::{GroupHeader, Plugin, Record};
+use crate::tes4::{Scale, Tes4};
 use crate::{DecodeLimits, Error, Result, Signature};
 
 const NAVM: Signature = Signature::new(b"NAVM");
 const CELL: Signature = Signature::new(b"CELL");
+
+/// How [`import_navmeshes`] and [`navmesh_placements`] place and read.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct NavmeshOptions<'s> {
+    /// Where new groups and records go ([`PlacementStyle::detect`] keeps the target's).
+    pub style: PlacementStyle,
+    /// Bounds on decoding a compressed `CELL` for its `XCLC` grid.
+    pub limits: DecodeLimits,
+    /// The scale of each master the two plugins share, in master-list order, for
+    /// [`NavmeshImport::master_forms`] (`None` where unknown; a list of another length
+    /// counts as unknown).
+    pub master_scales: &'s [Option<Scale>],
+}
+
+impl Default for NavmeshOptions<'_> {
+    /// The official style, default limits, no master scales (every imported FormID that
+    /// is not plainly the plugin's own lands in [`NavmeshImport::unknown_forms`]).
+    fn default() -> Self {
+        NavmeshOptions {
+            style: PlacementStyle::OFFICIAL,
+            limits: DecodeLimits::default(),
+            master_scales: &[],
+        }
+    }
+}
 
 /// What [`import_navmeshes`] did.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -40,6 +71,12 @@ pub struct NavmeshImport {
     pub replaced: usize,
     /// The cells (stored FormIDs) that received navmesh, in first-seen order.
     pub cells: Vec<u32>,
+    /// Imported FormIDs whose prefix names a master: overrides of a master's navmesh,
+    /// which the plugin's `ONAM` lists when the master has the record.
+    pub master_forms: Vec<u32>,
+    /// Imported FormIDs whose class index depends on a master whose scale was not given:
+    /// whether they are a master's is unknown, not guessed.
+    pub unknown_forms: Vec<u32>,
 }
 
 fn refused(reason: impl Into<String>) -> Error {
@@ -76,21 +113,12 @@ pub fn check_masters(source: &Record<'_>, target: &Record<'_>) -> Result<()> {
 
 /// Every `NAVM` of `source` with the cell whose temporary children hold it, in file order.
 fn source_navmeshes<'p, 'a>(source: &'p Plugin<'a>) -> Result<Vec<(u32, &'p Record<'a>)>> {
-    fn walk<'p, 'a>(
-        entries: &'p [Entry<'a>],
-        parent: Option<&GroupHeader>,
-        out: &mut Vec<(Option<GroupHeader>, &'p Record<'a>)>,
-    ) {
-        for e in entries {
-            match e {
-                Entry::Group(g) => walk(g.children(), Some(&g.header), out),
-                Entry::Record(r) if r.header.signature == NAVM => out.push((parent.copied(), r)),
-                Entry::Record(_) => {}
-            }
-        }
-    }
     let mut found = Vec::new();
-    walk(source.entries(), None, &mut found);
+    cells::walk_records(source.entries(), |path, r| {
+        if r.header.signature == NAVM {
+            found.push((path.last().copied(), r));
+        }
+    });
     found
         .into_iter()
         .map(|(parent, r)| match parent {
@@ -105,8 +133,12 @@ fn source_navmeshes<'p, 'a>(source: &'p Plugin<'a>) -> Result<Vec<(u32, &'p Reco
 }
 
 /// Where cell `cell` sits in a plugin, from the group path that holds its `CELL` record
-/// and, for an exterior cell, its `XCLC`.
-fn place_from_path(path: &[GroupHeader], cell: &Record<'_>) -> Result<CellPlace> {
+/// and, for an exterior cell, its `XCLC` (a compressed cell decoded under `limits`).
+fn place_from_path(
+    path: &[GroupHeader],
+    cell: &Record<'_>,
+    limits: &DecodeLimits,
+) -> Result<CellPlace> {
     let world = path
         .iter()
         .find(|g| g.group_type == group_type::WORLD_CHILDREN)
@@ -127,7 +159,7 @@ fn place_from_path(path: &[GroupHeader], cell: &Record<'_>) -> Result<CellPlace>
     let subs = match cell.subrecords() {
         Some(subs) => subs,
         None => {
-            decoded = cell.decode(&DecodeLimits::default())?.unwrap_or_default();
+            decoded = cell.decode(limits)?.unwrap_or_default();
             &decoded
         }
     };
@@ -139,29 +171,16 @@ fn place_from_path(path: &[GroupHeader], cell: &Record<'_>) -> Result<CellPlace>
 }
 
 /// The place of every `CELL` in `plugin`, by stored FormID.
-fn cell_places(plugin: &Plugin<'_>) -> Result<Vec<(u32, CellPlace)>> {
-    fn walk<'p, 'a>(
-        entries: &'p [Entry<'a>],
-        path: &mut Vec<GroupHeader>,
-        out: &mut Vec<(Vec<GroupHeader>, &'p Record<'a>)>,
-    ) {
-        for e in entries {
-            match e {
-                Entry::Group(g) => {
-                    path.push(g.header);
-                    walk(g.children(), path, out);
-                    path.pop();
-                }
-                Entry::Record(r) if r.header.signature == CELL => out.push((path.clone(), r)),
-                Entry::Record(_) => {}
-            }
-        }
-    }
+fn cell_places(plugin: &Plugin<'_>, limits: &DecodeLimits) -> Result<Vec<(u32, CellPlace)>> {
     let mut found = Vec::new();
-    walk(plugin.entries(), &mut Vec::new(), &mut found);
+    cells::walk_records(plugin.entries(), |path, r| {
+        if r.header.signature == CELL {
+            found.push((path.to_vec(), r));
+        }
+    });
     found
         .into_iter()
-        .map(|(path, r)| Ok((r.header.form_id, place_from_path(&path, r)?)))
+        .map(|(path, r)| Ok((r.header.form_id, place_from_path(&path, r, limits)?)))
         .collect()
 }
 
@@ -201,16 +220,36 @@ fn placements<'a>(
 pub fn import_navmeshes(
     source: &Plugin<'_>,
     target: &mut Plugin<'_>,
-    style: &PlacementStyle,
+    options: &NavmeshOptions<'_>,
 ) -> Result<NavmeshImport> {
     check_masters(source.header(), target.header())?;
-    let places = cell_places(target)?;
+    let masters = Tes4::new(target.header()).masters().len();
+    let scales: &[Option<Scale>] = if options.master_scales.len() == masters {
+        options.master_scales
+    } else {
+        &[]
+    };
+    let places = cell_places(target, &options.limits)?;
     let mut report = NavmeshImport::default();
-    for (cell, p) in placements(source, &places, style)? {
-        match target.upsert_styled(&p.path, p.record, style)? {
-            crate::build::Upsert::Inserted => report.inserted = report.inserted.saturating_add(1),
-            crate::build::Upsert::Replaced | crate::build::Upsert::Moved => {
-                report.replaced = report.replaced.saturating_add(1)
+    for (cell, p) in placements(source, &places, &options.style)? {
+        let form_id = p.record.header.form_id;
+        // Without the scales, only a FormID no master could own is known to be the
+        // plugin's: a full-class index of at least the master count.
+        let master = if scales.is_empty() && masters > 0 {
+            let full_index = usize::try_from(form_id >> 24).unwrap_or(usize::MAX);
+            (full_index < 0xFD && full_index >= masters).then_some(false)
+        } else {
+            names_master(form_id, scales)
+        };
+        match master {
+            Some(true) => report.master_forms.push(form_id),
+            Some(false) => {}
+            None => report.unknown_forms.push(form_id),
+        }
+        match target.upsert_styled(&p.path, p.record, &options.style)? {
+            Upsert::Inserted => report.inserted = report.inserted.saturating_add(1),
+            Upsert::Replaced | Upsert::Moved => {
+                report.replaced = report.replaced.saturating_add(1);
             }
         }
         if !report.cells.contains(&cell) {
@@ -223,12 +262,13 @@ pub fn import_navmeshes(
 /// The same import for a target streamed from disk ([`crate::build::upsert_file_to_path`]):
 /// the [`Placed`] records, with each cell's place read from `target`'s index and, for an
 /// exterior cell, from its record (`cell_record` reads one back, for example through
-/// [`crate::index::read_indexed`]).
+/// [`crate::index::read_indexed`]). Which of them name a master:
+/// [`crate::forms::names_master`].
 pub fn navmesh_placements(
     source: &Plugin<'_>,
     target: &PluginIndex,
     mut cell_record: impl FnMut(&crate::index::RecordLoc) -> Result<Record<'static>>,
-    style: &PlacementStyle,
+    options: &NavmeshOptions<'_>,
 ) -> Result<Vec<Placed>> {
     check_masters(source.header(), &target.header)?;
     let wanted: Vec<u32> = source_navmeshes(source)?.iter().map(|(c, _)| *c).collect();
@@ -241,10 +281,10 @@ pub fn navmesh_placements(
         let record = cell_record(loc)?;
         places.push((
             loc.form_id,
-            cells::cell_place_in(target, loc, &record, &DecodeLimits::default())?,
+            cells::cell_place_in(target, loc, &record, &options.limits)?,
         ));
     }
-    Ok(placements(source, &places, style)?
+    Ok(placements(source, &places, &options.style)?
         .into_iter()
         .map(|(_, p)| p)
         .collect())
@@ -253,12 +293,13 @@ pub fn navmesh_placements(
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{import_navmeshes, navmesh_placements, NavmeshImport};
+    use super::{import_navmeshes, navmesh_placements, NavmeshImport, NavmeshOptions};
     use crate::build::{set_masters, upsert_reader, HeaderSpec};
     use crate::cells::{self, CellPlace, Grid, Parent, PlacementStyle};
     use crate::driver::{roundtrip_bytes, RewriteOptions, RoundtripOptions};
     use crate::fixture::{self, compressed_record_stored, group, record, sub};
     use crate::index::{index_bytes, read_indexed, IndexOptions};
+    use crate::tes4::Scale;
     use crate::{Entry, Error, Plugin, Record};
     use std::io::Cursor;
 
@@ -362,13 +403,16 @@ mod tests {
         let ck = ck_plugin();
         let source = Plugin::parse(&ck).unwrap();
         let mut target = without_navmeshes(&ck);
-        let report = import_navmeshes(&source, &mut target, &PlacementStyle::OFFICIAL).unwrap();
+        let report = import_navmeshes(&source, &mut target, &NavmeshOptions::default()).unwrap();
         assert_eq!(
             report,
             NavmeshImport {
                 inserted: 3,
                 replaced: 0,
                 cells: vec![CELL_ID, EXT_CELL],
+                // 01xxxxxx with one master: the plugin's own, scales or not.
+                master_forms: Vec::new(),
+                unknown_forms: Vec::new(),
             }
         );
         // The rebuilt plugin is the CK's, byte for byte: NAVMs first in their groups,
@@ -378,7 +422,7 @@ mod tests {
             .unwrap()
             .identical());
         // Importing again replaces in place.
-        let again = import_navmeshes(&source, &mut target, &PlacementStyle::OFFICIAL).unwrap();
+        let again = import_navmeshes(&source, &mut target, &NavmeshOptions::default()).unwrap();
         assert_eq!((again.inserted, again.replaced), (0, 3));
         assert_eq!(target.to_bytes().unwrap(), ck);
 
@@ -390,7 +434,7 @@ mod tests {
             &source,
             &index,
             |loc| read_indexed(&mut file, loc, None),
-            &PlacementStyle::OFFICIAL,
+            &NavmeshOptions::default(),
         )
         .unwrap();
         assert_eq!(placed.len(), 3);
@@ -414,7 +458,7 @@ mod tests {
     fn mismatched_masters_and_missing_cells_are_refused() {
         let ck = ck_plugin();
         let source = Plugin::parse(&ck).unwrap();
-        let style = PlacementStyle::OFFICIAL;
+        let style = NavmeshOptions::default();
         for masters in [
             vec![b"Other.esm".to_vec()],
             vec![b"Starfield.esm".to_vec(), b"Extra.esm".to_vec()],
@@ -448,5 +492,70 @@ mod tests {
         ]));
         let err = import_navmeshes(&odd, &mut target, &style).unwrap_err();
         assert!(err.to_string().contains("temporary children"), "{err}");
+    }
+
+    /// Review findings: the report names imported navmeshes that override a master's (by
+    /// the masters' scales, never guessed), and an existing interior cell is found in the
+    /// blocks it is in, not in recomputed ones.
+    #[test]
+    fn master_overrides_are_listed_and_existing_blocks_kept() {
+        let ck = ck_plugin();
+        let mut source = Plugin::parse(&ck).unwrap().into_owned();
+        let style = PlacementStyle::OFFICIAL;
+        let interior = Parent::Cell {
+            place: CellPlace::INTERIOR,
+            cell: CELL_ID,
+        };
+        let fields = sub(b"NVNM", &[3; 8]);
+        let navm = parse_record(&compressed_record_stored(b"NAVM", 0x0000_0ABC, &fields));
+        let path = cells::placement(&navm.header, &interior, &style).unwrap();
+        source.upsert_styled(&path, navm, &style).unwrap();
+        // The target has the interior cell in block 3 / sub-block 4, not the computed 0 / 6.
+        let mut target = without_navmeshes(&ck);
+        for e in target.entries_mut() {
+            let Entry::Group(top) = e else { continue };
+            if top.header.label != *b"CELL" {
+                continue;
+            }
+            for b in top.children_mut() {
+                let Entry::Group(block) = b else { continue };
+                block.header.label = 3u32.to_le_bytes();
+                for s in block.children_mut() {
+                    if let Entry::Group(sub_block) = s {
+                        sub_block.header.label = 4u32.to_le_bytes();
+                    }
+                }
+            }
+        }
+        let mut unscaled = target.clone();
+        let report = import_navmeshes(&source, &mut unscaled, &NavmeshOptions::default()).unwrap();
+        assert_eq!(report.master_forms, Vec::<u32>::new());
+        assert_eq!(report.unknown_forms, [0x0000_0ABC]);
+        let scales = [Some(Scale::Full)];
+        let options = NavmeshOptions {
+            master_scales: &scales,
+            ..NavmeshOptions::default()
+        };
+        let report = import_navmeshes(&source, &mut target, &options).unwrap();
+        assert_eq!(report.master_forms, [0x0000_0ABC]);
+        assert!(report.unknown_forms.is_empty());
+        assert_eq!(report.inserted, 4);
+        // One block, one sub-block: the observed ones, holding the cell and its navmesh.
+        let bytes = target.to_bytes().unwrap();
+        let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+        let blocks: Vec<(i32, u32)> = index
+            .groups
+            .iter()
+            .filter(|g| matches!(g.header.group_type, 2 | 3))
+            .map(|g| (g.header.group_type, g.header.label_u32()))
+            .collect();
+        assert_eq!(blocks, [(2, 3), (3, 4)]);
+        let navm = index.records.iter().find(|r| r.form_id == 0xABC).unwrap();
+        let labels: Vec<u32> = index
+            .group_path(navm.group)
+            .iter()
+            .map(|g| g.header.label_u32())
+            .collect();
+        assert_eq!(labels[1..], [3, 4, CELL_ID, CELL_ID]);
     }
 }

@@ -8,8 +8,8 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::cells::PlacementStyle;
 use kitcraft_esm::navmesh::import_navmeshes;
+use kitcraft_esm::navmesh::NavmeshOptions;
 use kitcraft_esm::{Entry, Plugin, Record, WriteOptions};
 
 /// The F22 fixture folder, if one exists.
@@ -79,7 +79,7 @@ fn ck_navmesh_imports_unchanged() {
         }
         let mut target = Plugin::parse(&bytes).unwrap().into_owned();
         strip(target.entries_mut());
-        let report = import_navmeshes(&source, &mut target, &PlacementStyle::OFFICIAL).unwrap();
+        let report = import_navmeshes(&source, &mut target, &NavmeshOptions::default()).unwrap();
         assert_eq!(report.inserted, expected.len(), "{}", path.display());
         let written = target.to_bytes().unwrap();
         let reparsed = Plugin::parse(&written).unwrap();

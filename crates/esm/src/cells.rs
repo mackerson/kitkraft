@@ -383,6 +383,47 @@ impl PlacementStyle {
             .unwrap_or_default()
     }
 
+    /// The style the writer of `index`'s plugin used, so an edit keeps it: from the first
+    /// cell children group that holds both a persistent and a temporary group (temporary
+    /// first: [`PlacementStyle::OFFICIAL`]; persistent first:
+    /// [`PlacementStyle::blueprint`] with the first top-level group's timestamp). Without
+    /// such a cell, a first top-level group with a timestamp other than 0 means
+    /// `blueprint` (the official pipeline stamps every group 0), anything else `OFFICIAL`
+    /// (which is also what a new plugin gets until F20 is observed).
+    pub fn detect(index: &PluginIndex) -> PlacementStyle {
+        let stamp = index
+            .groups
+            .iter()
+            .find(|g| g.header.group_type == group_type::TOP)
+            .map_or(0, |g| g.header.timestamp);
+        let mut first: std::collections::HashMap<u32, i32> = std::collections::HashMap::new();
+        for g in &index.groups {
+            let t = g.header.group_type;
+            if t != group_type::CELL_PERSISTENT && t != group_type::CELL_TEMPORARY {
+                continue;
+            }
+            let Some(parent) = g.parent else { continue };
+            match first.get(&parent) {
+                None => {
+                    first.insert(parent, t);
+                }
+                Some(seen) if *seen != t => {
+                    return if *seen == group_type::CELL_TEMPORARY {
+                        PlacementStyle::OFFICIAL
+                    } else {
+                        PlacementStyle::blueprint(stamp)
+                    };
+                }
+                Some(_) => {}
+            }
+        }
+        if stamp != 0 {
+            PlacementStyle::blueprint(stamp)
+        } else {
+            PlacementStyle::OFFICIAL
+        }
+    }
+
     /// A group header of `group_type` with `label` and this style's stamps.
     pub fn header(&self, label: [u8; 4], group_type: i32) -> GroupHeader {
         let s = self.stamps_for(group_type);
@@ -578,35 +619,58 @@ pub fn onam_forms(
     plugin: &crate::Plugin<'_>,
     mut overrides_master_record: impl FnMut(u32) -> bool,
 ) -> Vec<u32> {
-    fn walk(
-        entries: &[crate::Entry<'_>],
-        listed: bool,
-        out: &mut Vec<u32>,
-        pick: &mut dyn FnMut(u32) -> bool,
-    ) {
-        for e in entries {
-            match e {
-                crate::Entry::Group(g) => walk(
-                    g.children(),
-                    ONAM_GROUP_TYPES.contains(&g.header.group_type),
-                    out,
-                    pick,
-                ),
-                crate::Entry::Record(r) if listed && pick(r.header.form_id) => {
-                    out.push(r.header.form_id);
-                }
-                crate::Entry::Record(_) => {}
+    let mut out = Vec::new();
+    walk_records(plugin.entries(), |path, r| {
+        let listed = path
+            .last()
+            .is_some_and(|g| ONAM_GROUP_TYPES.contains(&g.group_type));
+        if listed && overrides_master_record(r.header.form_id) {
+            out.push(r.header.form_id);
+        }
+    });
+    out
+}
+
+/// [`onam_forms`] for a plugin known by its index (a patch streamed from disk): the same
+/// records, from the group each record of `index` sits in, in file order.
+pub fn onam_forms_in(
+    index: &PluginIndex,
+    mut overrides_master_record: impl FnMut(u32) -> bool,
+) -> Vec<u32> {
+    index
+        .records
+        .iter()
+        .filter(|r| {
+            r.group
+                .and_then(|g| index.groups.get(usize::try_from(g).ok()?))
+                .is_some_and(|g| ONAM_GROUP_TYPES.contains(&g.header.group_type))
+        })
+        .map(|r| r.form_id)
+        .filter(|id| overrides_master_record(*id))
+        .collect()
+}
+
+/// Call `f` with every record of `entries` and the headers of the groups around it,
+/// outermost first, in file order. Iterative: the depth is the tree's, with no recursion.
+pub(crate) fn walk_records<'p, 'a>(
+    entries: &'p [crate::Entry<'a>],
+    mut f: impl FnMut(&[GroupHeader], &'p Record<'a>),
+) {
+    let mut path: Vec<GroupHeader> = Vec::new();
+    let mut stack: Vec<std::slice::Iter<'p, crate::Entry<'a>>> = vec![entries.iter()];
+    while let Some(level) = stack.last_mut() {
+        match level.next() {
+            Some(crate::Entry::Group(g)) => {
+                path.push(g.header);
+                stack.push(g.children().iter());
+            }
+            Some(crate::Entry::Record(r)) => f(&path, r),
+            None => {
+                stack.pop();
+                path.pop();
             }
         }
     }
-    let mut out = Vec::new();
-    walk(
-        plugin.entries(),
-        false,
-        &mut out,
-        &mut overrides_master_record,
-    );
-    out
 }
 
 /// The persistent cell of world `world` (stored FormID) in `index`: the `CELL` directly in
@@ -918,5 +982,56 @@ mod tests {
             interior_labels(index.group_path(loc.group).iter().map(|g| &g.header)),
             Some((3, 4))
         );
+    }
+
+    /// Review nits: the style is read back from a plugin, and ONAM is found from an index
+    /// as from the tree.
+    #[test]
+    fn style_detection_and_onam_from_an_index() {
+        // The sample has a cell with type 8 before type 9: the BlueprintShips order.
+        let sample = fixture::sample_plugin();
+        let index = index_bytes(&sample, &IndexOptions::default()).unwrap();
+        let stamp = index.groups[0].header.timestamp;
+        assert_eq!(
+            PlacementStyle::detect(&index),
+            PlacementStyle::blueprint(stamp)
+        );
+        // Type 9 first: official. No cell with both and a stamp-free first group: official;
+        // a stamped one: blueprint with that timestamp.
+        let refr = |id: u32, flags: u32| record(b"REFR", flags, id, &sub(b"NAME", &[0; 4]));
+        let label = 0x200u32.to_le_bytes();
+        let both = group(
+            &label,
+            6,
+            &[
+                group(&label, 9, &refr(0x202, 0)),
+                group(&label, 8, &refr(0x201, 0x400)),
+            ]
+            .concat(),
+        );
+        let cell = record(b"CELL", 0, 0x200, &sub(b"EDID", b"c\0"));
+        let official = fixture::plugin(&[group(b"CELL", 0, &[cell.clone(), both].concat())]);
+        let index = index_bytes(&official, &IndexOptions::default()).unwrap();
+        assert_eq!(PlacementStyle::detect(&index), PlacementStyle::OFFICIAL);
+        // (The fixture stamps groups 0x2A39; the timestamp is set by hand here.)
+        let mut plain = fixture::plugin(&[group(b"CELL", 0, &cell)]);
+        let top = plain.len() - (24 + cell.len());
+        plain[top + 16..top + 18].copy_from_slice(&0u16.to_le_bytes());
+        let index = index_bytes(&plain, &IndexOptions::default()).unwrap();
+        assert_eq!(PlacementStyle::detect(&index), PlacementStyle::OFFICIAL);
+        let mut stamped = plain.clone();
+        stamped[top + 16..top + 18].copy_from_slice(&13505u16.to_le_bytes());
+        let index = index_bytes(&stamped, &IndexOptions::default()).unwrap();
+        assert_eq!(
+            PlacementStyle::detect(&index),
+            PlacementStyle::blueprint(13505)
+        );
+        // ONAM: records in types 7, 9 and 10 that the caller says override a master's.
+        let index = index_bytes(&official, &IndexOptions::default()).unwrap();
+        let plugin = crate::Plugin::parse(&official).unwrap();
+        let pick = |id: u32| id != 0x999;
+        assert_eq!(onam_forms_in(&index, pick), [0x202]);
+        assert_eq!(onam_forms(&plugin, pick), [0x202]);
+        assert!(onam_forms_in(&index, |_| false).is_empty());
     }
 }
