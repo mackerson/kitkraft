@@ -7,8 +7,10 @@
 //! fresh session, so `kit` users pass `--profile` to each; an MCP session loads once.
 
 use std::path::{Path, PathBuf};
+use std::sync::OnceLock;
 use std::time::Instant;
 
+use kitkraft_doc::index::RecordLoc;
 use kitkraft_doc::strings::{DirSource, StringSource, StringTables};
 use kitkraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, Scale};
 use kitkraft_io::{plan_profile, Active, ProfileOptions};
@@ -41,6 +43,40 @@ pub(crate) struct Loaded {
     pub missing_active_plugins: Vec<String>,
     /// String tables of the load order's plugins, read on first use.
     pub strings: StringTables,
+    /// Every EditorID of the load order, built on the first EditorID lookup and kept with
+    /// the load order (one scan of the indexes per session, not one per lookup).
+    pub edids: OnceLock<EdidIndex>,
+}
+
+/// The EditorIDs of a load order's indexes: `(hash of the ASCII-lowercased EditorID, plugin,
+/// record)`, sorted, so a lookup is a binary search plus a check of the few entries with
+/// that hash. Hits come in load order, then index order (what a scan would find first).
+#[derive(Debug, Default)]
+pub(crate) struct EdidIndex(Vec<(u64, u16, u32)>);
+
+/// FNV-1a over the ASCII-lowercased bytes: EditorIDs compare ASCII case-insensitively.
+fn edid_hash(edid: &str) -> u64 {
+    edid.bytes().fold(0xcbf2_9ce4_8422_2325u64, |h, b| {
+        (h ^ u64::from(b.to_ascii_lowercase())).wrapping_mul(0x0100_0000_01b3)
+    })
+}
+
+impl EdidIndex {
+    fn build(lo: &LoadOrder) -> EdidIndex {
+        let mut entries = Vec::new();
+        for (i, p) in lo.plugins.iter().enumerate() {
+            let (Ok(plugin), Some(idx)) = (u16::try_from(i), p.index.as_deref()) else {
+                continue;
+            };
+            for (r, loc) in idx.records.iter().enumerate() {
+                if let (Some(e), Ok(r)) = (idx.edid(loc), u32::try_from(r)) {
+                    entries.push((edid_hash(e), plugin, r));
+                }
+            }
+        }
+        entries.sort_unstable();
+        EdidIndex(entries)
+    }
 }
 
 impl Loaded {
@@ -48,6 +84,28 @@ impl Loaded {
     /// (`kitkraft_doc::source`): problems that cannot touch that form are `unrelated`.
     pub fn source_check(&self, form: kitkraft_doc::GlobalForm) -> kitkraft_doc::SourceCheck {
         self.lo.source_check(form, &self.missing_active_plugins)
+    }
+
+    /// The records whose EditorID is `edid` (ASCII case-insensitive): `(plugin, record)` in
+    /// load order, then index order.
+    pub fn edid_hits(&self, edid: &str) -> Vec<(u16, &RecordLoc)> {
+        let index = self.edids.get_or_init(|| EdidIndex::build(&self.lo));
+        let h = edid_hash(edid);
+        let start = index.0.partition_point(|(k, _, _)| *k < h);
+        index
+            .0
+            .get(start..)
+            .unwrap_or_default()
+            .iter()
+            .take_while(|(k, _, _)| *k == h)
+            .filter_map(|(_, p, r)| {
+                let loc = self.lo.record(*p, *r)?;
+                self.lo
+                    .edid(*p, loc)
+                    .is_some_and(|e| e.eq_ignore_ascii_case(edid))
+                    .then_some((*p, loc))
+            })
+            .collect()
     }
 }
 
@@ -67,7 +125,7 @@ pub(crate) fn schema_of(session: &Session) -> Option<&'static kitkraft_schema::S
     kitkraft_schema::builtin().ok()
 }
 
-fn has_load_args(args: &Value) -> bool {
+pub(crate) fn has_load_args(args: &Value) -> bool {
     args.get("profile").is_some() || args.get("plugins").is_some()
 }
 
@@ -167,7 +225,7 @@ fn assumed_examples(lo: &LoadOrder, index: u16) -> Vec<Value> {
 /// its JSON listing, and evidence. A bare name in `plugins` resolves through
 /// [`super::resolve`] (the current load order in `session`, the working directory, the
 /// Data dir).
-fn load(
+pub(crate) fn load(
     args: &Value,
     session: Option<&Session>,
     command: &str,
@@ -526,6 +584,7 @@ fn load(
             language,
             limitations: shared,
             missing_active_plugins: missing_active,
+            edids: OnceLock::new(),
         },
         listing,
         evidence,
@@ -688,6 +747,33 @@ pub(crate) mod tests {
             "data_dir": dir.display().to_string(),
             "no_cache": true,
         })
+    }
+
+    /// Fable review (lane E fix round, finding 7): EditorID lookups use one map per load
+    /// order, built on the first lookup and kept with it in the session; hits come in
+    /// load order, case-insensitively, and match what a scan finds.
+    #[test]
+    fn editor_ids_are_mapped_once_per_session() {
+        let dir = fixture("edids");
+        let mut session = Session::new();
+        acquire(&mut session, &plugins_args(&dir), "load").unwrap();
+        let loaded = session.get::<Loaded>().unwrap();
+        assert!(loaded.edids.get().is_none(), "built lazily");
+        let hits: Vec<(u16, u32)> = loaded
+            .edid_hits("oldearthhuntingrifle")
+            .into_iter()
+            .map(|(p, loc)| (p, loc.form_id))
+            .collect();
+        assert_eq!(hits, [(0, 0x800), (1, 0x0000_0800)]);
+        let built = loaded.edids.get().map(|i| i.0.len());
+        assert_eq!(built, Some(5), "every record with an EditorID, once");
+        assert_eq!(loaded.edid_hits("KW").len(), 1);
+        assert!(loaded.edid_hits("Nope").is_empty());
+        assert_eq!(loaded.edids.get().map(|i| i.0.len()), built, "not rebuilt");
+        // The commands that look EditorIDs up use it.
+        let found = super::super::set::find_form("set", loaded, "pistol", None).unwrap();
+        assert_eq!(loaded.lo.form_label(found), "Base.esm:000801");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

@@ -226,23 +226,15 @@ pub(crate) fn valid_edid(edid: &str) -> bool {
 
 /// The form of the load order that already has EditorID `edid` (case-insensitive).
 pub(crate) fn edid_owner(loaded: &Loaded, edid: &str) -> Option<String> {
-    for (i, p) in loaded.lo.plugins.iter().enumerate() {
-        let Some(idx) = p.index.as_deref() else {
-            continue;
-        };
-        if let Some(loc) = idx
-            .records
-            .iter()
-            .find(|loc| idx.edid(loc).is_some_and(|e| e.eq_ignore_ascii_case(edid)))
-        {
-            let index = u16::try_from(i).unwrap_or(u16::MAX);
-            return Some(match loaded.lo.resolve(index, loc.form_id) {
-                Ok(g) => loaded.lo.form_label(g),
-                Err(_) => format!("{}:{:08X}", p.name, loc.form_id),
-            });
-        }
-    }
-    None
+    let (index, loc) = loaded.edid_hits(edid).into_iter().next()?;
+    Some(match loaded.lo.resolve(index, loc.form_id) {
+        Ok(g) => loaded.lo.form_label(g),
+        Err(_) => format!(
+            "{}:{:08X}",
+            loaded.lo.plugin(index).map_or("?", |p| p.name.as_str()),
+            loc.form_id
+        ),
+    })
 }
 
 /// The EditorID's owner in the plugin at `path`, if it exists.

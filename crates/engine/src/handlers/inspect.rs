@@ -431,17 +431,9 @@ fn find_form(
             return Ok((g, "form_id"));
         }
     }
-    for (i, p) in lo.plugins.iter().enumerate() {
-        let index = u16::try_from(i).unwrap_or(u16::MAX);
-        let Some(idx) = p.index.as_deref() else {
-            continue;
-        };
-        for loc in &idx.records {
-            if idx.edid(loc).is_some_and(|e| e.eq_ignore_ascii_case(form)) {
-                if let Ok(g) = lo.resolve(index, loc.form_id) {
-                    return Ok((g, "editor_id"));
-                }
-            }
+    for (index, loc) in loaded.edid_hits(form) {
+        if let Ok(g) = lo.resolve(index, loc.form_id) {
+            return Ok((g, "editor_id"));
         }
     }
     if bare_hex.is_some() && plugin.is_none() {
