@@ -29,6 +29,8 @@ use crate::{LaunchOptions, UiError};
 
 /// Rows of evidence shown per result; the raw JSON has the rest.
 const EVIDENCE_ROWS: usize = 300;
+/// Characters of a limitation shown on its line (the full text is on hover).
+const LIMITATION_CHARS: usize = 200;
 /// Characters of raw `data` JSON shown per result.
 const RAW_CHARS: usize = 200_000;
 /// Commands whose `kit` line needs the load order repeated (each `kit` process starts
@@ -91,7 +93,25 @@ enum Action {
     UseProfile(PathBuf),
 }
 
+/// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
+/// save one image per tab and close.
+struct Tour {
+    dir: PathBuf,
+    step: TourStep,
+    tab: usize,
+    frames: u8,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TourStep {
+    WaitLoad,
+    Seeded(u8),
+    Shooting,
+    Done,
+}
+
 struct App {
+    tour: Option<Tour>,
     worker: Worker,
     tab: Tab,
     slots: BTreeMap<u64, Slot>,
@@ -251,6 +271,12 @@ impl App {
             roundtrip_view: None,
             schema_form: SchemaForm::default(),
             schema_view: None,
+            tour: std::env::var_os(crate::shots::SHOTS_ENV).map(|dir| Tour {
+                dir: PathBuf::from(dir),
+                step: TourStep::WaitLoad,
+                tab: 0,
+                frames: 0,
+            }),
         };
         app.submit(
             Slot::Types,
@@ -306,7 +332,10 @@ impl App {
                 Slot::DiagInspect => {
                     let view = DiagView::from_inspect(env, self.load_view.as_ref());
                     if self.diag_validate_plugin.trim().is_empty() {
-                        self.diag_validate_plugin.clone_from(&view.winner);
+                        self.diag_validate_plugin = self
+                            .load_view
+                            .as_ref()
+                            .map_or_else(|| view.winner.clone(), |l| l.path_of(&view.winner));
                     }
                     self.diag_view = Some(view);
                 }
@@ -369,10 +398,10 @@ impl App {
         }
     }
 
-    fn loaded_plugins(&self) -> Vec<String> {
+    fn loaded_plugins(&self) -> Vec<(String, String)> {
         self.load_view
             .as_ref()
-            .map(LoadView::names)
+            .map(LoadView::files)
             .unwrap_or_default()
     }
 }
@@ -429,6 +458,118 @@ impl eframe::App for App {
                 });
         });
         self.apply(actions);
+        if self.tour.is_some() {
+            self.drive_tour(ui.ctx());
+        }
+    }
+}
+
+impl App {
+    /// One step of the screenshot tour (only with `KITKRAFT_WORKBENCH_SHOTS` set).
+    fn drive_tour(&mut self, ctx: &egui::Context) {
+        ctx.request_repaint_after(Duration::from_millis(100));
+        let busy = self.worker.is_busy();
+        let Some(step) = self.tour.as_ref().map(|t| t.step) else {
+            return;
+        };
+        match step {
+            TourStep::WaitLoad if !busy && self.load_view.is_some() => {
+                self.query_form.record_type = "WEAP".into();
+                self.query_form.where_text = "FULL ~ 'Rifle'".into();
+                self.query_form.limit = 20;
+                self.apply(vec![Action::QueryPage(None)]);
+                self.set_step(TourStep::Seeded(1));
+            }
+            TourStep::Seeded(1) if !busy => {
+                let form = self
+                    .query_view
+                    .as_ref()
+                    .and_then(|q| q.rows.first())
+                    .map(|r| r.form.clone());
+                // The biggest plugin the profile itself activates.
+                let plugin = self.load_view.as_ref().and_then(|l| {
+                    l.plugins
+                        .iter()
+                        .filter(|p| p.active == "plugins.txt")
+                        .max_by_key(|p| p.records.unwrap_or(0))
+                        .map(|p| (p.name.clone(), l.path_of(&p.name)))
+                });
+                let mut actions = Vec::new();
+                if let Some(form) = form {
+                    actions.push(Action::Inspect(form.clone()));
+                    actions.push(Action::Diagnose(form));
+                }
+                if let Some((name, path)) = plugin {
+                    self.coverage_plugin.clone_from(&path);
+                    actions.push(Action::Submit(Slot::Types, coverage_request(&path)));
+                    self.diff_form.mode = DiffMode::VsMasters;
+                    self.diff_form.a = name;
+                    if let Ok(req) = self.diff_form.request(None) {
+                        actions.push(Action::Submit(Slot::Diff, req));
+                    }
+                    self.validate_form.plugin = path;
+                    if let Ok(req) = self.validate_form.request() {
+                        actions.push(Action::Submit(Slot::Validate, req));
+                    }
+                    if let Ok(req) = self.validate_form.roundtrip_request() {
+                        actions.push(Action::Submit(Slot::Roundtrip, req));
+                    }
+                }
+                self.schema_form.record_type = "WEAP".into();
+                actions.push(Action::Submit(Slot::Schema, self.schema_form.request()));
+                self.apply(actions);
+                self.set_step(TourStep::Seeded(2));
+            }
+            TourStep::Seeded(2) if !busy => {
+                if let Ok(req) = diag::validate_request(&self.diag_validate_plugin) {
+                    self.submit(Slot::DiagValidate, req);
+                }
+                self.set_step(TourStep::Seeded(3));
+            }
+            TourStep::Seeded(3) if !busy => self.set_step(TourStep::Shooting),
+            TourStep::Shooting => self.shoot(ctx),
+            _ => {}
+        }
+    }
+
+    fn set_step(&mut self, step: TourStep) {
+        if let Some(t) = &mut self.tour {
+            t.step = step;
+            t.frames = 0;
+        }
+    }
+
+    fn shoot(&mut self, ctx: &egui::Context) {
+        let Some(tour) = &mut self.tour else { return };
+        let Some((tab, label)) = TABS.get(tour.tab) else {
+            tour.step = TourStep::Done;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            return;
+        };
+        self.tab = *tab;
+        let image = ctx.input(|i| {
+            i.raw.events.iter().find_map(|e| match e {
+                egui::Event::Screenshot { image, .. } => Some(image.clone()),
+                _ => None,
+            })
+        });
+        if let Some(image) = image {
+            let [w, h] = image.size;
+            let rgba: Vec<[u8; 4]> = image.pixels.iter().map(|c| c.to_array()).collect();
+            let path = tour.dir.join(format!("{}.bmp", label.to_ascii_lowercase()));
+            match crate::shots::bmp(w, h, &rgba).map(|b| std::fs::write(&path, b)) {
+                Some(Ok(())) => {}
+                other => self.notice = Some(format!("screenshot {}: {other:?}", path.display())),
+            }
+            tour.tab = tour.tab.saturating_add(1);
+            tour.frames = 0;
+            return;
+        }
+        tour.frames = tour.frames.saturating_add(1);
+        // A few frames for the tab to lay out, then one request (frame 5 only).
+        if tour.frames == 5 {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+        }
     }
 }
 
@@ -562,7 +703,7 @@ impl App {
                         ));
                     }
                     ui.label("or types in");
-                    plugin_combo(ui, "cov-plugin", &mut self.coverage_plugin, &plugins);
+                    plugin_combo(ui, "cov-plugin", &mut self.coverage_plugin, &plugins, false);
                     if ui
                         .add_enabled(
                             !busy && !self.coverage_plugin.is_empty(),
@@ -776,16 +917,16 @@ impl App {
                 DiffMode::TwoPlugins => {
                     ui.label("a");
                     ui.add(TextEdit::singleline(&mut self.diff_form.a).desired_width(300.0));
-                    plugin_combo(ui, "diff-a", &mut self.diff_form.a, &plugins);
+                    plugin_combo(ui, "diff-a", &mut self.diff_form.a, &plugins, false);
                     ui.label("b");
                     ui.add(TextEdit::singleline(&mut self.diff_form.b).desired_width(300.0));
-                    plugin_combo(ui, "diff-b", &mut self.diff_form.b, &plugins);
+                    plugin_combo(ui, "diff-b", &mut self.diff_form.b, &plugins, false);
                     ui.label("form");
                 }
                 DiffMode::VsMasters => {
                     ui.label("plugin");
                     ui.add(TextEdit::singleline(&mut self.diff_form.a).desired_width(300.0));
-                    plugin_combo(ui, "diff-p", &mut self.diff_form.a, &plugins);
+                    plugin_combo(ui, "diff-p", &mut self.diff_form.a, &plugins, true);
                     ui.checkbox(
                         &mut self.diff_form.only_conflicts,
                         "only forms 2+ plugins override",
@@ -994,7 +1135,13 @@ impl App {
         ui.horizontal(|ui| {
             ui.label("plugin");
             ui.add(TextEdit::singleline(&mut self.validate_form.plugin).desired_width(380.0));
-            plugin_combo(ui, "val-plugin", &mut self.validate_form.plugin, &plugins);
+            plugin_combo(
+                ui,
+                "val-plugin",
+                &mut self.validate_form.plugin,
+                &plugins,
+                false,
+            );
             ui.label("rules (empty: all)");
             ui.add(TextEdit::singleline(&mut self.validate_form.rules).desired_width(260.0));
         });
@@ -1170,7 +1317,15 @@ fn conf_label(ui: &mut egui::Ui, confidence: &str) {
     }
 }
 
-fn plugin_combo(ui: &mut egui::Ui, id: &str, value: &mut String, plugins: &[String]) {
+/// A picker over the loaded plugins: sets `value` to the plugin's path, or its name when
+/// `by_name` (arguments that filter by plugin name, such as `conflicts --plugin`).
+fn plugin_combo(
+    ui: &mut egui::Ui,
+    id: &str,
+    value: &mut String,
+    plugins: &[(String, String)],
+    by_name: bool,
+) {
     if plugins.is_empty() {
         return;
     }
@@ -1178,8 +1333,9 @@ fn plugin_combo(ui: &mut egui::Ui, id: &str, value: &mut String, plugins: &[Stri
         .selected_text("loaded...")
         .width(110.0)
         .show_ui(ui, |ui| {
-            for p in plugins {
-                ui.selectable_value(value, p.clone(), p);
+            for (name, path) in plugins {
+                let pick = if by_name { name } else { path };
+                ui.selectable_value(value, pick.clone(), name);
             }
         });
 }
@@ -1372,7 +1528,12 @@ fn envelope_block(
             None => {}
         }
         if let Some(s) = &view.summary {
-            ui.label(s);
+            // A multi-line summary is a text table (`schema`): keep its columns.
+            if s.contains('\n') {
+                ui.monospace(s);
+            } else {
+                ui.label(s);
+            }
         }
     });
     ui.label(format!("coverage {}", view.coverage_line()));
@@ -1380,8 +1541,16 @@ fn envelope_block(
         ui.weak("limitations: none claimed");
     } else {
         ui.colored_label(WARN, format!("limitations ({})", view.limitations.len()));
+        // Every limitation stays on screen; a long one shows its first line's worth and
+        // the rest on hover.
         for l in &view.limitations {
-            ui.colored_label(WARN, format!("  - {l}"));
+            if l.chars().count() > LIMITATION_CHARS {
+                let head: String = l.chars().take(LIMITATION_CHARS).collect();
+                ui.colored_label(WARN, format!("  - {head}... (hover for all)"))
+                    .on_hover_text(l);
+            } else {
+                ui.colored_label(WARN, format!("  - {l}"));
+            }
         }
     }
     content(ui);

@@ -239,7 +239,9 @@ fn field_rows(record: &Value) -> Vec<FieldRow> {
     rows
 }
 
-/// `@file_offset len n` for a diff span; `(absent)` for none.
+/// `bytes @file_offset len n` for a diff span; `(absent)` when the side has no such
+/// subrecord (`null`); `bytes (range not reported)` when the result carries no spans
+/// (`conflicts` does not): unknown is never shown as absent.
 fn span(v: Option<&Value>) -> String {
     match v {
         Some(s) if s.is_object() => format!(
@@ -247,7 +249,8 @@ fn span(v: Option<&Value>) -> String {
             num(s, "file_offset").map_or_else(|| "?".to_string(), |n| n.to_string()),
             num(s, "length").map_or_else(|| "?".to_string(), |n| n.to_string())
         ),
-        _ => "(absent)".to_string(),
+        Some(_) => "(absent)".to_string(),
+        None => "bytes (range not reported)".to_string(),
     }
 }
 
@@ -327,11 +330,14 @@ mod tests {
             "items": [{"form": "Base.esm:000800", "signature": "GLOB", "editor_id": "TestGlobal",
                 "overrides": [{"plugin": "Mod.esp", "previous": "Base.esm", "class": "differs", "flags_differ": false,
                     "subrecords": [{"signature": "FLTV", "occurrence": 0, "change": "changed",
-                        "fields": [{"path": "FLTV", "before": 1.0, "after": 2.0}]}]}]}]}});
+                        "fields": [{"path": "FLTV", "before": 1.0, "after": 2.0}]},
+                        {"signature": "NVMI", "occurrence": 0, "change": "changed"}]}]}]}});
         let view = DiffView::from_envelope(&env);
         assert_eq!(view.counts, vec!["Mod.esp overrides Base.esm: 2"]);
         assert_eq!(view.records[0].sides, "Base.esm -> Mod.esp");
         assert_eq!(view.records[0].rows[0].after, "2.0");
+        // `conflicts` carries no byte spans: unknown, not absent.
+        assert_eq!(view.records[0].rows[1].before, "bytes (range not reported)");
         assert_eq!(view.next_cursor.as_deref(), Some("c2"));
     }
 }

@@ -20,6 +20,7 @@ pub mod cmdline;
 pub mod envelope;
 pub mod gate;
 pub mod panels;
+pub mod shots;
 pub mod worker;
 
 /// What the launcher (`kit-ui`, `kit ui`) passes in: the same load-order arguments as

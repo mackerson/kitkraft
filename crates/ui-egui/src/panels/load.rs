@@ -81,6 +81,8 @@ pub struct PluginRow {
     pub index: u64,
     /// File name.
     pub name: String,
+    /// Full path the load order read it from (empty when not reported).
+    pub path: String,
     /// `full`, `medium`, `small`, or `unknown` (the engine could not tell).
     pub scale: String,
     /// `master, localized`.
@@ -125,6 +127,7 @@ impl LoadView {
             .map(|p| PluginRow {
                 index: num(p, "index").unwrap_or(0),
                 name: text_or_empty(p, "name"),
+                path: text_or_empty(p, "path"),
                 scale: text(p, "scale").unwrap_or_else(|| "unknown".to_string()),
                 flags: strings(p, "flag_names").join(", "),
                 active: text_or_empty(p, "active"),
@@ -157,6 +160,25 @@ impl LoadView {
     /// Plugin names in load order.
     pub fn names(&self) -> Vec<String> {
         self.plugins.iter().map(|p| p.name.clone()).collect()
+    }
+
+    /// `(name, path)` in load order. File arguments (`coverage`, `diff`, `validate`,
+    /// `roundtrip`) get the path, so the `kit` line shown under a result also works in a
+    /// fresh process: a bare name of a plugin in an MO2 mod folder resolves only in a
+    /// session's load order. The name stands in when no path was reported.
+    pub fn files(&self) -> Vec<(String, String)> {
+        self.plugins
+            .iter()
+            .map(|p| (p.name.clone(), self.path_of(&p.name)))
+            .collect()
+    }
+
+    /// The path of `plugin` (by name, ASCII case-insensitive), else the name as given.
+    pub fn path_of(&self, plugin: &str) -> String {
+        self.plugins
+            .iter()
+            .find(|p| p.name.eq_ignore_ascii_case(plugin) && !p.path.is_empty())
+            .map_or_else(|| plugin.to_string(), |p| p.path.clone())
     }
 }
 
@@ -251,7 +273,7 @@ mod tests {
             {"index": 0, "name": "Base.esm", "scale": "full", "flag_names": ["master"], "active": "listed",
              "provider": "path", "records": 10, "runtime_slot": "00", "cache": "built",
              "missing_masters": [], "late_masters": [], "error": null},
-            {"index": 1, "name": "Patch.esp", "scale": null, "flag_names": [], "active": "listed",
+            {"index": 1, "name": "Patch.esp", "path": r"C:\Data\Patch.esp", "scale": null, "flag_names": [], "active": "listed",
              "provider": "path", "records": 2, "runtime_slot": "01", "cache": "hit",
              "missing_masters": ["Lost.esm"], "late_masters": [], "error": null}
         ]}});
@@ -263,6 +285,9 @@ mod tests {
         assert_eq!(view.missing_active, vec!["Gone.esp"]);
         assert_eq!(view.scale_of("base.ESM"), "full");
         assert_eq!(view.scale_of("Lost.esm"), "unknown");
+        assert_eq!(view.path_of("patch.ESP"), r"C:\Data\Patch.esp");
+        assert_eq!(view.path_of("Base.esm"), "Base.esm");
+        assert_eq!(view.files()[1].1, r"C:\Data\Patch.esp");
     }
 
     #[test]
