@@ -685,3 +685,76 @@ fn argument_refusals_are_invalid_args_with_a_pointer() {
     assert_eq!(code(err), "no-cell");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Fable review (lane E fix round, finding 5): `carried_from` and `carried[]` say how many
+/// versions the load order has, and a place resolved against another list than the
+/// session's says that its carried cell reverts the override the session's order has.
+#[test]
+fn the_result_counts_versions_and_names_a_reverted_override() {
+    let d = dir("place-order");
+    let data = world_master(&d);
+    // Mod.esm overrides the interior cell.
+    let m = data.join("Mod.esm");
+    execute(
+        "set",
+        json!({"form": "TestInterior", "into": m.display().to_string(),
+               "fields": {"FULL": "Modded Room"}, "plugins": ["World.esm"],
+               "data_dir": data.display().to_string(), "no_cache": true}),
+    )
+    .unwrap();
+    let engine = crate::Engine::with_default_handlers();
+    engine
+        .execute(
+            "load",
+            json!({"plugins": ["World.esm", "Mod.esm"], "data_dir": data.display().to_string(),
+                   "no_cache": true}),
+        )
+        .unwrap();
+    // The session's order (World.esm, Mod.esm): two versions, no note.
+    let mut a = args(&data, &d.join("A.esm"), json!({"cell": "TestInterior"}));
+    a.as_object_mut().unwrap().remove("plugins");
+    a.as_object_mut().unwrap().remove("data_dir");
+    let r = engine.execute("place", a).unwrap();
+    assert_eq!(
+        r["data"]["carried_from"]["versions_in_load_order"],
+        json!(2)
+    );
+    assert_eq!(r["data"]["carried_from"]["plugin"], json!("Mod.esm"));
+    assert_eq!(r["data"]["carried"][0]["versions_in_load_order"], json!(2));
+    assert_eq!(r["data"]["carried"][0]["winner"], json!("Mod.esm"));
+    let notes = |r: &Value| -> Vec<String> {
+        r["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| l.as_str().unwrap().to_string())
+            .filter(|l| l.contains("this call resolved against") || l.contains("reverts"))
+            .collect()
+    };
+    assert_eq!(notes(&r), Vec::<String>::new());
+    // A call naming World.esm alone: one version, and the note that the copy reverts
+    // Mod.esm's override in the session's order.
+    let r = engine
+        .execute(
+            "place",
+            args(&data, &d.join("B.esm"), json!({"cell": "TestInterior"})),
+        )
+        .unwrap();
+    assert_eq!(
+        r["data"]["carried_from"]["versions_in_load_order"],
+        json!(1)
+    );
+    let n = notes(&r);
+    assert_eq!(n.len(), 2, "{n:?}");
+    assert!(
+        n[0].contains("against plugins [World.esm], not plugins [World.esm, Mod.esm];"),
+        "{n:?}"
+    );
+    assert!(
+        n[1].starts_with("CELL World.esm:00000900: carried from World.esm (1 version(s) here)")
+            && n[1].contains("Mod.esm wins")
+            && n[1].contains("reverts that override"),
+        "{n:?}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

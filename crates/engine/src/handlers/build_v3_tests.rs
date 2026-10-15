@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use kitkraft_esm::build::HeaderSpec;
 use kitkraft_esm::cells::{self, CellPlace, Parent, PlacementStyle};
 use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitkraft_esm::index::{index_bytes, IndexOptions};
 use kitkraft_esm::tes4::FLAG_MASTER;
 use kitkraft_esm::{Body, Plugin, Record, RecordHeader, Signature, Subrecord};
 use serde_json::{json, Value};
@@ -332,5 +333,96 @@ fn new_and_clone_entries_feed_places() {
         "[[new]]\ntype = \"STAT\"\nedid = \"KC_Same\"\n[[clone]]\nform = \"KC_Crate\"\nedid = \"KC_Same\"\n"
     )
     .contains("edid-clash"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, findings 1 and 8): a `[[set]]` on a reference of a cell
+/// plus a `[[place]]` into that cell write the cell once (the set's parent copy stands),
+/// and a `[[set]]` on the holder cell itself is reported in `carried[]` with
+/// `identical_to_winner` (false: it is edited).
+#[test]
+fn a_set_in_a_cell_and_a_place_into_it_carry_the_cell_once() {
+    let d = dir("build-v3-set-place");
+    let data = world_master(&d);
+    let place = "[[place]]\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [1, 2, 3]\n";
+    // The reviewer's case on the synthetic master: a set on the cell's REFR.
+    let body = format!(
+        "[[set]]\nform = \"World.esm:000901\"\nfields = {{ \"DATA.Position.Z\" = 9.5 }}\n\n{place}"
+    );
+    let spec = spec_v3(&d, "child.toml", &data, &body);
+    let out = d.join("Child.esm");
+    let r = build(&spec, &out, json!({})).unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let bytes = std::fs::read(&out).unwrap();
+    let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+    let cells = index
+        .records
+        .iter()
+        .filter(|x| x.signature == Signature(*b"CELL"))
+        .count();
+    assert_eq!(cells, 1, "the cell is written once");
+    let carried = r["data"]["carried"].as_array().unwrap();
+    assert_eq!(carried.len(), 1, "{carried:?}");
+    assert_eq!(carried[0]["form"], json!("World.esm:00000900"));
+    assert_eq!(carried[0]["edited"], json!(false));
+    assert_eq!(carried[0]["identical_to_winner"], json!(true));
+    assert!(r["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|l| l.as_str().unwrap().contains("is carried once")));
+    // A set on the holder cell: written once, edited, not identical to its winner.
+    let body =
+        format!("[[set]]\nform = \"TestInterior\"\nfields = {{ FULL = \"Renamed\" }}\n\n{place}");
+    let spec = spec_v3(&d, "holder.toml", &data, &body);
+    let out = d.join("Holder.esm");
+    let r = build(&spec, &out, json!({})).unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let carried = r["data"]["carried"].as_array().unwrap();
+    assert_eq!(carried.len(), 1, "{carried:?}");
+    assert_eq!(carried[0]["signature"], json!("CELL"));
+    assert_eq!(carried[0]["edited"], json!(true));
+    assert_eq!(carried[0]["identical_to_winner"], json!(false));
+    assert_eq!(carried[0]["versions_in_load_order"], json!(1));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, finding 2): a version 3 plan's text lists the placed
+/// references, new forms, imports and carried records, and counts them in its head line.
+#[test]
+fn the_plan_text_of_a_v3_spec_lists_places_new_forms_imports_and_carried() {
+    let d = dir("build-v3-plan-text");
+    let data = world_master(&d);
+    let body = format!(
+        "{POI}\n[[new]]\ntype = \"GLOB\"\nedid = \"KC_PlanGlobal\"\nmasters = [\"World.esm\"]\n"
+    );
+    let spec = spec_v3(&d, "plan.toml", &data, &body);
+    let out = d.join("Plan.esm");
+    let p = build(&spec, &out, json!({"plan": true})).unwrap();
+    let text = p["data"]["summary"].as_str().unwrap();
+    let head = text.lines().next().unwrap();
+    assert!(
+        head.contains(
+            ", 2 placed reference(s), 1 new form(s), 0 import(s), 3 carried record(s) for"
+        ),
+        "{text}"
+    );
+    assert!(
+        text.contains("\nplaced (2):\n  POI  place[0] REFR "),
+        "{text}"
+    );
+    assert!(
+        text.contains("KC_PoiMarker: base World.esm:000800 KC_Crate in interior World.esm:000900 TestInterior at (10, 20.5, 30), persistent"),
+        "{text}"
+    );
+    assert!(text.contains("\nnew forms (1):\n  GLOB "), "{text}");
+    assert!(text.contains("KC_PlanGlobal: new (new GLOB)"), "{text}");
+    assert!(text.contains("\nimports (0):\n"), "{text}");
+    assert!(
+        text.contains("\ncarried: CELL World.esm:00000900 TestInterior, WRLD World.esm:00000700 TestWorld, CELL World.esm:00000702 TestExterior"),
+        "{text}"
+    );
+    assert_eq!(p["data"]["carried"].as_array().unwrap().len(), 3);
+    assert!(!out.exists());
     let _ = std::fs::remove_dir_all(&d);
 }

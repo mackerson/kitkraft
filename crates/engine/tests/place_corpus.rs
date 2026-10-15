@@ -195,3 +195,93 @@ fn placing_a_copy_of_a_corpus_reference_reproduces_its_body() {
     );
     let _ = std::fs::remove_dir_all(&out);
 }
+
+/// The Fable review's cases (lane E fix round) on the official files: (1) a `[[set]]` on
+/// the apartment's reference `001B21E0` plus a `[[place]]` into its cell `0021966F` build
+/// (the cell is written once, not refused as written twice); (3) an actor (`NPC_`
+/// `00271133`) placed persistent in New Atlantis (`0001251B`) at (150, 350, 0) goes into
+/// the world's persistent cell, and `cell.actor-without-navmesh` checks the exterior cell
+/// its position names (`00012531`, which has a navmesh): no warning.
+#[test]
+#[ignore = "release: indexes Starfield.esm (cached after the first run)"]
+fn the_reviewers_cases_on_the_official_files() {
+    let Some(dir) = data_dir() else {
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
+        return;
+    };
+    let out = std::env::temp_dir().join(format!("kitkraft-place-review-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out);
+    std::fs::create_dir_all(&out).unwrap();
+    let engine = Engine::with_default_handlers();
+    // (1) set on a cell child + place into the cell.
+    let spec = out.join("set-place.toml");
+    std::fs::write(
+        &spec,
+        format!(
+            "version = 3\n[load_order]\nplugins = [\"Starfield.esm\"]\ndata_dir = '{}'\n\n\
+             [[set]]\nform = \"Starfield.esm:1B21E0\"\nfields = {{ \"DATA.Position.Z\" = 5.0 }}\n\n\
+             [[place]]\nbase = \"Starfield.esm:1E4FBD\"\ncell = \"Starfield.esm:21966F\"\n\
+             position = [-17.0, -4.0, 4.63]\npersistent = true\n",
+            dir.display()
+        ),
+    )
+    .unwrap();
+    let built = out.join("SetPlace.esm");
+    let r = engine
+        .execute(
+            "build",
+            json!({"spec": spec.display().to_string(), "out": built.display().to_string()}),
+        )
+        .unwrap_or_else(|e| panic!("build: {e}"));
+    assert_eq!(
+        r["data"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let index = index_file(&built, &IndexOptions::default()).unwrap();
+    let cells: Vec<u32> = index
+        .records
+        .iter()
+        .filter(|x| x.signature.0 == *b"CELL")
+        .map(|x| x.form_id)
+        .collect();
+    assert_eq!(cells, [0x0021_966F]);
+    let carried = r["data"]["carried"].as_array().unwrap();
+    assert_eq!(carried.len(), 1, "{carried:?}");
+    // (3) a persistent actor in a world.
+    let into = out.join("Actor.esm");
+    let r = engine
+        .execute(
+            "place",
+            json!({"base": "Starfield.esm:271133", "world": "Starfield.esm:01251B",
+                   "position": [150.0, 350.0, 0.0], "persistent": true,
+                   "into": into.display().to_string()}),
+        )
+        .unwrap_or_else(|e| panic!("place: {e}"));
+    assert_eq!(r["data"]["placed"][0]["signature"], json!("ACHR"));
+    assert_eq!(r["data"]["placed"][0]["cell"]["kind"], json!("persistent"));
+    let rules = r["data"]["validate"]["findings"].as_array().unwrap();
+    assert!(
+        !rules
+            .iter()
+            .any(|f| f["rule"] == json!("cell.actor-without-navmesh")),
+        "{rules:?}"
+    );
+    let v = engine
+        .execute(
+            "validate",
+            json!({"plugin": into.display().to_string(), "rules": ["cell.actor-without-navmesh"]}),
+        )
+        .unwrap();
+    assert_eq!(v["data"]["findings"], json!([]), "{:#}", v["data"]);
+    assert!(
+        !v["limitations"].as_array().unwrap().iter().any(|l| l
+            .as_str()
+            .unwrap()
+            .starts_with("cell.actor-without-navmesh")),
+        "{:#}",
+        v["limitations"]
+    );
+    let _ = std::fs::remove_dir_all(&out);
+}

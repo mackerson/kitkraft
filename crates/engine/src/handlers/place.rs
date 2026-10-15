@@ -828,8 +828,29 @@ pub(crate) fn placed_json(report: &PatchReport, infos: &[(Value, &PlaceRequest)]
         .collect()
 }
 
-/// For each carried record: whether its bytes in `target` equal its winner's in the load
-/// order (lstrings inlined from a localized plugin change them).
+/// The load-order form of a record the patch wrote (`report.masters` names its owner).
+fn global_of(loaded: &Loaded, report: &PatchReport, form_id: u32) -> Option<GlobalForm> {
+    let owner = usize::try_from(form_id >> 24)
+        .ok()
+        .and_then(|i| report.masters.get(i))?;
+    Some(GlobalForm {
+        plugin: loaded.lo.find(owner)?,
+        object_id: form_id & 0x00FF_FFFF,
+    })
+}
+
+/// Whether a written record holds a new reference: the cell (or world) of a placed one.
+fn holds_new_ref(report: &PatchReport, r: &crate::edit::patch::RecordReport) -> bool {
+    report.new_forms.iter().any(|n| {
+        (r.signature == "CELL" && n.cell == r.form_id)
+            || (r.signature == "WRLD" && n.world == Some(r.form_id))
+    })
+}
+
+/// For each carried record (a parent, or the cell or world of a new reference that a rule
+/// or `[[set]]` edits): whether its bytes in `target` equal its winner's in the load order
+/// (lstrings inlined from a localized plugin, or an edit, change them), how many versions
+/// the load order has and which plugin wins.
 pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path) -> Vec<Value> {
     let read = |path: &Path, offset: u64, length: u64| -> Option<Vec<u8>> {
         let mut file = File::open(path).ok()?;
@@ -841,18 +862,16 @@ pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path)
     report
         .records
         .iter()
-        .filter(|r| r.parent)
+        .filter(|r| r.parent || holds_new_ref(report, r))
         .map(|r| {
-            let owner = usize::try_from(r.form_id >> 24)
-                .ok()
-                .and_then(|i| report.masters.get(i));
-            let winner = owner.and_then(|o| {
-                let p = loaded.lo.find(o)?;
-                let g = GlobalForm {
-                    plugin: p,
-                    object_id: r.form_id & 0x00FF_FFFF,
-                };
-                let (_, _, plugin, offset, length) = winner_facts(loaded, g)?;
+            let global = global_of(loaded, report, r.form_id);
+            let facts = global.and_then(|g| winner_facts(loaded, g));
+            let winner_name = facts
+                .as_ref()
+                .and_then(|f| loaded.lo.plugin(f.2))
+                .map(|p| p.name.clone());
+            let versions = global.map(|g| loaded.lo.forms.versions(g).len());
+            let winner = facts.and_then(|(_, _, plugin, offset, length)| {
                 Some((loaded.lo.plugin(plugin)?.path.clone(), offset, length))
             });
             let identical = match (winner, r.offset, r.length) {
@@ -866,11 +885,104 @@ pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path)
             json!({
                 "form": r.formref, "signature": r.signature, "editor_id": r.editor_id,
                 "source": r.source, "outcome": r.outcome,
+                "edited": !r.parent,
                 "identical_to_winner": identical,
+                "winner": winner_name, "versions_in_load_order": versions,
                 "inlined_lstrings": r.inlined.len(),
             })
         })
         .collect()
+}
+
+/// What the load order a write resolved against (`loaded`) means for its carried records
+/// when the session's load order before the call, or the one the call also named (`other`),
+/// is a different list: one note saying so, and per carried record whose winner there is
+/// another plugin, that the patch's copy (loaded after it) reverts that plugin's override.
+pub(crate) fn order_notes(
+    loaded: &Loaded,
+    other: Option<&Loaded>,
+    carried: &[Value],
+) -> Vec<String> {
+    let Some(other) = other else {
+        return Vec::new();
+    };
+    let names = |l: &Loaded| -> Vec<String> {
+        l.lo.plugins
+            .iter()
+            .map(|p| p.name.to_ascii_lowercase())
+            .collect()
+    };
+    if names(loaded) == names(other) {
+        return Vec::new();
+    }
+    // `profile:<dir>`, or the plugin list (the first few names).
+    let label = |l: &Loaded| -> String {
+        if l.source.starts_with("profile:") {
+            return l.source.clone();
+        }
+        let mut names: Vec<&str> =
+            l.lo.plugins
+                .iter()
+                .take(6)
+                .map(|p| p.name.as_str())
+                .collect();
+        if l.lo.plugins.len() > 6 {
+            names.push("...");
+        }
+        format!("plugins [{}]", names.join(", "))
+    };
+    let (here_label, there_label) = (label(loaded), label(other));
+    let mut notes = vec![format!(
+        "this call resolved against {here_label}, not {there_label}; every carried CELL and WRLD is a copy of its winner in the first"
+    )];
+    for c in carried {
+        let (Some(form), Some(sig)) = (c["form"].as_str(), c["signature"].as_str()) else {
+            continue;
+        };
+        let Some(f) = kitkraft_doc::FormRef::parse(form) else {
+            continue;
+        };
+        let here = c["winner"].as_str().unwrap_or("?");
+        let there = other.lo.find(&f.plugin).and_then(|p| {
+            let g = GlobalForm {
+                plugin: p,
+                object_id: f.object_id,
+            };
+            let versions = other.lo.forms.versions(g);
+            let w = versions.last()?;
+            Some((other.lo.plugin(w.plugin)?.name.clone(), versions.len()))
+        });
+        match there {
+            Some((w, n)) if !w.eq_ignore_ascii_case(here) => notes.push(format!(
+                "{sig} {form}: carried from {here} ({} version(s) here); in {there_label} it has {n} version(s) and {w} wins: loaded after {w}, this patch's copy reverts that override",
+                c["versions_in_load_order"],
+            )),
+            Some(_) => {}
+            None => notes.push(format!(
+                "{sig} {form}: not in {there_label} (its owner is not loaded there)"
+            )),
+        }
+    }
+    notes
+}
+
+/// The session's load order, taken out when `args` name another (`acquire` replaces it),
+/// to compare against ([`order_notes`]).
+pub(crate) fn take_prior(session: &mut Session, args: &Value) -> Option<Loaded> {
+    if super::load::has_load_args(args) {
+        session.remove::<Loaded>()
+    } else {
+        None
+    }
+}
+
+/// Puts `prior` back when the call failed before replacing it.
+pub(crate) fn restore_prior(session: &mut Session, prior: Option<Loaded>) {
+    if let Some(p) = prior {
+        if session.get::<Loaded>().is_none() {
+            session.insert(p);
+        }
+    }
 }
 
 /// Refuses an EditorID the target already has.
@@ -925,7 +1037,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .get("allow_untyped_lstrings")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let loaded = acquire(session, args, ID)?;
+    let prior = take_prior(session, args);
+    if let Err(e) = acquire(session, args, ID) {
+        restore_prior(session, prior);
+        return Err(e);
+    }
+    let loaded = acquire(session, &json!({}), ID)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
     let planned = plan(ID, loaded, &req, &limits)?;
@@ -978,6 +1095,10 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     result.evidence.extend(planned.evidence);
     let placed = placed_json(&report, &[(planned.info, &req)]);
     let carried = carried_json(loaded, &report, &into);
+    extend_once(
+        &mut result.limitations,
+        order_notes(loaded, prior.as_ref(), &carried),
+    );
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("placed".into(), Value::Array(placed));
         obj.insert("carried".into(), Value::Array(carried));
@@ -986,6 +1107,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             json!({
                 "plugin": planned.carried_origin.plugin, "offset": planned.carried_origin.offset,
                 "record": planned.carried_origin.label,
+                "versions_in_load_order": planned.carried_origin.versions,
             }),
         );
         obj.insert(
