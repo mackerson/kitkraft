@@ -14,7 +14,7 @@ validated and planned by agents (lane E, M4.E2/E3/E4/E6); the in-game check is t
 | Cell | `Starfield.esm:21966F` `CityNewAtlantisApartmentTEMPLATE` ("Player House Apartment"), interior; one version on the Default profile (no mod overrides it) |
 | Position, rotation | (-17.0, -4.0, 4.63), (0, 0, 3.14): on the floor two units from the cell's reference `001B21E0` |
 | Carried | the cell, as an unchanged copy of its winner except its `FULL`, written inline ("Player House Apartment"; patches are non-localized) |
-| Runtime ID | `28001000` on the Default profile's order with the plugin appended (assumed: `runtime-slots-by-scale`, `masters-load-first`) |
+| Runtime ID | **`04001000` on Kitkraft Dev**, read from that profile's saves (2026-10-15, `first-poi-investigation.md`). The `28001000` in the steps below was assumed (`runtime-slots-by-scale`, `masters-load-first`) and is wrong: the saves' rules give `27` on Default |
 
 Reproduce (KITKRAFT_DATA_DIR = the game's Data folder):
 
