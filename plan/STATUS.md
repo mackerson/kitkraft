@@ -1198,6 +1198,13 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   `since = 152`, REFR XLOC 9-byte form, INFO TRDA Emotion as a FormID with 0xFFFFFFFF as none;
   reserved object IDs pinned per member, with a warning outside the named set (one: SFBGS00D
   OMOD 0x3B7). Open: TES4 DATA/INTV (docs/gaps.md), GBFM STOP Marker2 is live (not dropped).
+- Lane B round 5 (2026-10-15): ADR 0005 Amendment 5 (`container-reference` on TES4 DATA and
+  INTV, no parity exemption list); M3.B6 (KYWD and GMST XALG typed from the pinned xEdit
+  file, KYWD FNAM and VMAD opaque); a per-family table at the top of
+  `docs/record-parity.md`; codegen leaves line layout to rustfmt (goldens and generated code
+  byte-identical); X8, non-UTF-8 strings shown as Windows-1252. Gates: `cargo xtask ci`,
+  `codegen --check`, `parity --check`, and the ignored release corpus tests of esm, doc and
+  engine (roundtrip identical, typed corpus, `validate_corpus_official_files`) all pass.
 - **Lane W, M4.W1..W6 (read-only workbench, 2026-10-15; the owner started it the same
   day).**
   - What exists:
