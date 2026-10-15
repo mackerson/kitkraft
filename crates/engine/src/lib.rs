@@ -190,6 +190,16 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "testplan",
+        label: "In-Game Test Plan...",
+        menu_path: "File/In-Game Test Plan...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Write an in-game test plan for a plugin into `out`: kitkraft-test.txt (console batch: coc, player.moveto, prid, player.additem with runtime IDs for the plugin appended to the load order) and checklist.md (setup on the KitKraft Dev profile with a disposable save, expected observations, persistence steps, ledger entry); writes nothing else",
+        args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"The plugin to test (path)"},"out":{"type":"string","description":"Folder for kitkraft-test.txt and checklist.md (never the game or user Data dir or MO2)"},"spec":{"type":"string","description":"The build spec the plugin came from; its SHA-256 goes into the checklist"},"profile":{"type":"string","description":"MO2 profile whose load order gives the runtime IDs (read only; the plan runs on KitKraft Dev)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files of the load order, in order (the plugin is appended)"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITCRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["plugin","out"],"additionalProperties":false}"#,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "overhaul.scaffold",
         label: "New Overhaul Spec...",
         menu_path: "File/New Overhaul Spec...",

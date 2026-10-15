@@ -870,6 +870,21 @@ unless named in `allow_reference`. `data` is `set`'s plus `placed[]` (`entry`, `
 `carried_from`, `next_object_id` and `validate`. Evidence: the base's and the cell's
 winning records, and every written record.
 
+### `testplan` (M4.E6)
+
+`testplan {plugin, out, spec?}` plus the load-order arguments; CLI `kit testplan <plugin>
+<out> --profile <dir>`. Writes `out/kitkraft-test.txt` (console commands, CRLF: `coc
+<cell EditorID>`, `player.moveto <runtime ID>`, `prid <runtime ID>` per new reference,
+`player.additem <runtime ID> 1` per new item) and `out/checklist.md` (setup on the MO2
+profile `KitKraft Dev` from a disposable save, a step per form with its expected
+observation, persistence steps, the game-ledger entry) and nothing else. Runtime IDs are
+lane D's, for the plugin appended to the load order (after the last master-flagged plugin
+when it is one): both are assumptions named in `limitations`, as is the batch file's
+folder (grade D until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `profile`
+(always `KitKraft Dev`), `load_order_source`, `load_index`, `appended`, `batch`,
+`checklist`, `commands[]` (`command`, `why`), `forms[]` (`signature`, `form_id`, `new`,
+`editor_id`, `runtime_id`, `base`, `cell`, `position`, `persistent`), `summary`.
+
 ### Coming in M3: `refs` (M3.D4)
 
 Not in the catalog yet: it lands as one `CommandSpec` with M3.D4, and lane D documents its

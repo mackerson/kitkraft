@@ -821,6 +821,18 @@ is under "Next".
     links, `XTEL`, to temporary references). Corpus finding that shaped `ref.persistence`:
     official files name temporary references from `WRLD` `RNAM` and `LCTN` `LCSR`/`LCPR`
     (48,538 in Starfield.esm), so those referrers are not reported.
+  - M4.E6 `testplan` (`Implemented`; `handlers/testplan.rs`; CLI `kit testplan <plugin>
+    <out> --profile <dir>`): writes only `out/kitkraft-test.txt` (CRLF console commands:
+    `coc <cell EditorID>`, `player.moveto`/`prid <runtime ID>` per new reference,
+    `player.additem <runtime ID> 1` per new item, `coc`+`prid` per reference override) and
+    `out/checklist.md` (setup on the MO2 profile `KitKraft Dev` from a disposable save, the
+    plugin's SHA-256, a step per form with the expected observation, persistence steps,
+    the `docs/game-observations.md` ledger entry, the removal rule for plugins that own
+    forms). Runtime IDs from lane D's `LoadOrder::runtime_id` with the plugin appended (a
+    master-flagged plugin after the last master-flagged one): assumptions
+    `runtime-slots-by-scale` and `masters-load-first` and the batch folder (grade D) are
+    limitations. Deterministic; `out` guarded (never game/user Data or MO2). Tests through
+    `execute` (`handlers/testplan_tests.rs`).
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box

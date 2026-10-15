@@ -36,6 +36,9 @@ mod set_tests;
 mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
+mod testplan;
+#[cfg(test)]
+mod testplan_tests;
 mod validate;
 
 use std::ffi::OsString;
@@ -114,6 +117,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("overhaul.scaffold", Box::new(overhaul::run)),
         ("package", Box::new(package::run)),
         ("place", Box::new(place::run)),
+        ("testplan", Box::new(testplan::run)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));
