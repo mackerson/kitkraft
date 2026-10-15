@@ -729,6 +729,19 @@ is under "Next".
   for byte, profiles and `ModOrganizer.ini` untouched; one mismatch fixed (`package`
   writes `plugins` as `{file, ...}` objects, which `deploy` now reads). ADR 0009
   Amendment 1 accepts the five departures `docs/deploy.md` lists.
+- `deploy --dev` / `package` fix round after a Fable review (2026-10-14): the `Default`
+  gate fails closed (UTF-8 BOM stripped in `Ini::parse`; no `selected_profile` refuses
+  `live-profile-unknown` unless `--profile` names an existing non-Default profile;
+  diagnostics read only an accepted `profile`); `patch::absolute` resolves through the
+  deepest existing ancestor and `guard_location` refuses any link or junction (`set`,
+  `build`, `package`); `.previous`/`.retired` are dropped only when they match their
+  manifest (`previous-modified`); `mods\` is checked against the user Data folder and may
+  not be overwrite, downloads or profiles; `deploy.status` reports one odd folder as
+  `state: "error"`; a `<target>.kitkraft-lock` (`create_new`) serializes writers and
+  guards recovery; path length is measured under `.previous` and the longest temp name;
+  rollback copies `meta.ini` after the swap and recovery removes our `.tmp` names;
+  `package` writes archive entries' `source_sha256`, replaces by renames only, and shares
+  the 20,000-file limit with `deploy`. `docs/deploy.md` gains operating notes.
 - **M4.E11 `deploy --dev` (lane E, ADR 0009, 2026-10-14).** Commands `deploy` (CLI
   `kit deploy --dev <source> <mo2>`), `deploy.rollback`, `deploy.status` in
   `crates/engine/src/deploy/` and `handlers/deploy.rs`; `docs/deploy.md` has the shapes,

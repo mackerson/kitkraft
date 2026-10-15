@@ -6,6 +6,22 @@ one isolated, KitKraft-managed MO2 mod folder. It is the only place KitKraft wri
 a Mod Organizer instance. Code: `crates/engine/src/deploy/`, handler
 `crates/engine/src/handlers/deploy.rs`.
 
+## Operating notes
+
+- **Run it with the game and the Creation Kit closed.** Both hold plugin and archive files
+  open; a held file makes a folder rename fail, and the call then rolls back (nothing is
+  lost, but nothing is deployed). Refresh MO2 (F5) after each deployment.
+- **The `Default` gate is policy, not confinement.** `deploy` reads MO2's active profile
+  from `ModOrganizer.ini` (`selected_profile`), which MO2 writes only when it exits or
+  switches profiles; while MO2 runs, the file can name a profile other than the one on
+  screen. The gate refuses what it can see (`Default`, or no profile at all); it cannot
+  stop MO2 from showing the dev mod to `Default`. The writes themselves are confined to the
+  dev mod's own folders whatever the profile.
+- **MO2 lists the dev mod and its `.previous` in every profile, `Default` included**, as
+  disabled entries at the bottom of the left pane (MO2 adds every new folder under `mods\`
+  to each profile's list, disabled). This is harmless (a disabled mod contributes no
+  files) but visible; leave them disabled outside `KitKraft Dev`.
+
 ## Commands
 
 | Command           | CLI                                                    | Writes |
