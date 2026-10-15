@@ -94,8 +94,13 @@ dialog, prompts, or blocks on input.** Interactive front ends collect arguments 
 call the same command. If an action cannot be expressed as a command with JSON arguments, it
 is not designed yet.
 
-Exception: front-end launchers (`kit mcp`, a future `kit ui`) start another front end over the
+Exception: front-end launchers (`kit mcp`, `kit ui`) start another front end over the
 catalog instead of acting on data, so they are plain CLI subcommands and need no `CommandSpec`.
+So is front-end setup (`kit install` / `kit uninstall`: the user PATH and the MCP
+registration, `kitkraft_engine::install`); keeping it off the catalog keeps it off MCP, so
+a connected agent cannot rewrite the PATH or its own registration. `kit doctor` is a
+catalog command (read-only), and what it detects is every command's default
+(argument > environment > detected; docs/QUICKSTART.md).
 
 ## CLI / MCP / UI parity
 
