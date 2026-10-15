@@ -13,6 +13,10 @@
 - Amended: 2026-10-14 by Amendment 3 below (owner-supplied prior-art dossier adopted as an
   evidence backlog; `docs/source-registry.md`; evidence grades A-D; general source rule;
   `wbDefinitionsCommon.pas` now at level 2 per ADR 0004's owner approval).
+- Amended: 2026-10-14 by Amendment 4 below (engine-reserved object IDs below 0x800, a
+  corpus-derived fact).
+- Amended: 2026-10-15 by Amendment 5 below (confidence `container-reference` for
+  container-layer members cited from UESP's Skyrim pages that occur in no Starfield file).
 
 ## Context
 
@@ -412,3 +416,74 @@ a known error hid a single fact behind hundreds of lines.
   its evidence.
 - A CK observation that the CK rejects or rewrites these IDs reverts the exception (they
   become errors again) and is recorded here as Amendment 5.
+
+## Amendment 5 (2026-10-15): container facts with no Starfield occurrence
+
+Numbering: Amendment 4's last line kept "Amendment 5" for a CK observation that reverts
+the reserved-ID exception. That revert, if it comes, takes the next free number.
+
+### Why
+
+Two `TES4` members come from UESP's Skyrim page only: `Master.FileSize` (`DATA`, after
+each `MAST`) and `TagifyCount` (`INTV`). No official Starfield file has either one, so
+the corpus cannot confirm them. Amendment 2 left them with no honest level:
+
+- `corpus` (inherited from `TES4`) needs an occurrence. Lane B round 4's parity check
+  (`cargo xtask parity`) fails on a `corpus` member that never occurs, so it exempts these
+  two by name (`UNOBSERVED_ALLOWED` in `xtask/src/parity.rs`).
+- `reference` means "from xEdit only". It needs an `xedit:` citation, and the loader
+  rejects it next to a `uesp-skyrim:` citation.
+
+The exemption list is the gap (`docs/gaps.md`). Two options were weighed:
+
+1. A new level, `container-reference`, for a container fact cited from UESP's Skyrim pages
+   that no Starfield file shows.
+2. Keep `reference`, and allow it next to `uesp-skyrim:` when the member is on an
+   allowlist in the definition, with a note.
+
+Option 1 is the simpler rule. It has one loader clause and one parity clause, and no list
+anywhere. Option 2 needs two loader exceptions: the `xedit:` requirement and the Skyrim
+ban. It also needs a new definition key, and it stretches `reference` to mean two
+different things. Its exemption is still a list of names, only kept in the definition
+instead of in xtask.
+
+### Decision
+
+- **New level `container-reference`.** It means: a container-layer fact (level 1),
+  cited from UESP's Skyrim pages, with no occurrence in the 14 official files to check it
+  against. It ranks with `reference`, below `corpus`, wherever levels are compared.
+- **Loader.** `container-reference` needs a `uesp-skyrim:` citation (own or inherited).
+  It is accepted only in the container definitions: `TES4` and its members, the group
+  header and the record header. The loader rejects it on any other record type, because
+  a Skyrim fact never describes a Starfield record body (Amendment 2). The other rules
+  stay as they are: `reference` still needs `xedit:` and is still rejected next to
+  `uesp-skyrim:`.
+- **Parity, both directions.** A `container-reference` member is not a corpus claim. The
+  occurrence check skips it, just as it skips `reference`, and `UNOBSERVED_ALLOWED` goes
+  away. If a `container-reference` member does occur in the corpus, the check fails, and
+  the member must be validated and raised to `corpus`. So the level stays true as the
+  corpus changes.
+- **Reads and writes.** A plugin that has such a member is decoded through its layout and
+  written back as stored. No KitKraft writer creates one: not new plugins, not patch
+  `TES4`, not `new`. An edit to one goes through the same gate as a `reference` member
+  (`allow_reference` in `build`; named in `limitations` by `inspect` and `query`).
+- **Applies now to** `TES4.Master.FileSize` and `TES4.TagifyCount`. If the corpus or a CK
+  observation shows either member, it is validated and raised to `corpus` or `ck-diff`
+  (§2). Amendment 2's rule that a Skyrim fact must carry `corpus` or better has only this
+  exception.
+
+### Consequences
+
+- Lane B implements this next round (round 5; `plan/STATUS.md` Requests), in one change:
+  - the `Confidence` variant and its text form, and the loader rule;
+  - `defs/TES4.toml` sets the two members to `container-reference`;
+  - `crates/schema/defs/README.md`;
+  - `xtask/src/parity.rs` drops `UNOBSERVED_ALLOWED` and adds the reverse check;
+  - the coverage bucket in the engine's per-confidence counts;
+  - `cargo xtask codegen` and a regenerated `docs/record-parity.md`.
+
+  The `docs/gaps.md` row closes with that commit.
+- Wherever levels are compared, `container-reference` goes with `reference`:
+  `kitkraft_doc::confidence::reference_members` and the `build` gate. The variant makes
+  every exhaustive `match` on `Confidence` fail to compile until it is handled, so no
+  place can miss it.

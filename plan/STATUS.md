@@ -1,15 +1,77 @@
 # Status
 
-Updated: 2026-10-14
+Updated: 2026-10-15 (reconciled against `main` at `01c77d8`)
 
-## Current milestone: M2 (agent surface)
+## Owner next actions
 
-M0 (scaffold) and M1 (data parity) are done. Every "M1 is done when" criterion in
-`plan/execution-plan.md` holds: M1.6 roundtrips all 14 corpus files in `--release` and M1.7
-passes (lane A); `kit roundtrip --verify` reports identical on all 14 (M1.13, rechecked by
-`cargo xtask parity`); `docs/record-parity.md` is generated (M1.14); `cargo xtask ci` is
-green. M2 is broken down into lanes and tasks in `plan/execution-plan.md`; the lane summary
-is under "Next".
+In-game checks use only the MO2 profile **KitKraft Dev**, each on a disposable save. Never
+use `Default` (AGENTS.md, "Owner's live game is off limits").
+
+| # | Action | Unblocks | State |
+| - | ------ | -------- | ----- |
+| 1 | In-game check of the rename plugin `OldSovietMarksmanRifle.esm` (M2.O6) | M2 exit | **done 2026-10-14: PASS** |
+| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, then `player.moveto KitKraftFirstPOICrate` (or `player.moveto 28001000`) and `prid` it. Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
+| 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | pending (owner); build 2 landed 2026-10-15 |
+| 4 | ~~Answer the brief rows B8, B11 and B12~~ | overhaul build 2 (M3.E9 rerun) | **answered 2026-10-15**: B8 dropped, B11 base 18 (drum untouched, 48), B12 as built; applied in build 2 |
+| 5 | Close every Claude Code session that has the repo open. Then run `C:\Modding\scripts\finish_kitkraft_move.ps1`. It renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
+| 6 | Decide when to start the workbench (lane W, M4.W0..W6, ADR 0007 Amendment 1). Planned only so far. The M4.W0 gate needs M4.D1 (`refs`) and M4.D2 (placement context), and neither is on `main`. The deferred CK sessions (M3.O1, M4.O1) wait for M4.W2..W5 | M3.O1 and M4.O1 (CK), with them every `ck-diff` upgrade | open (owner decision) |
+
+## Current milestone: M3 closing, M4 in progress
+
+M0, M1 and M2 are done. M2 closed on 2026-10-14: M2.F7 and M2.O6 both passed. M3 cannot
+close yet. Its overhaul check waits on the owner (M3.O5, row 3 above). Its CK
+criteria are carried until the CK session, which the owner deferred until the workbench
+exists. M4 runs on the critical path for the first POI. "M3 and M4 exit criteria" below
+checks every "done when" bullet of `plan/execution-plan.md` against `main` at `01c77d8`.
+
+## M3 and M4 exit criteria (reconciled 2026-10-15 at `01c77d8`)
+
+States: **done** (on `main`), **pending-owner** (needs an owner action above),
+**carried** (open, with the task that carries it and the reason). Not rerun for this
+reconciliation. Each "done" cites the evidence that lane recorded.
+
+### M3 is done when
+
+| Criterion (`plan/execution-plan.md`) | State | Tasks and evidence |
+| ------------------------------------ | ----- | ------------------ |
+| Round 3 types (WEAP AMMO PROJ AMDL OMOD COBJ ZOOM LVLI FLST INNR) typed, sourced, with a confidence; 0 conflicts on all 14 files; 105 lstring signatures typed | **done** | M3.B1..B5, B7, B8; merged in M4.BX1. Parity: failed 0, 0 typed conflicts. Round 4 typed the OMOD property values (sibling-field unions) |
+| KYWD and GMST remainders typed | **carried** | M3.B6, lane B. KYWD/GMST have no `xedit:` citation yet (`docs/gaps.md` KYWD row) |
+| Staged xEdit files deleted and recorded | **carried** | To the end of M4. The schema family lanes still transcribe from `C:\Modding\tools\xedit-ref\` (lane B round 5 too) |
+| `docs/ck-observations.md` entries for every M3.O1 fixture; M3.H3 targets answered; TES4 `SNAM`/`BNAM`/`CHGL` settled; CK fixtures roundtrip (M3.A4) | **carried** | M3.O1, H3, A4. The owner deferred the CK session until the workbench exists (M4.W2..W5). Lane H's side is ready (M3.H1, M3.H2) |
+| The 160 recompression misses settled or restated with evidence | **done** (restated) | M3.A1: classified E/N/U with the study in `docs/gaps.md`. F07 still checks it in the CK (carried with M3.O1) |
+| `style: "ck"` in `set`/`build`, matching the CK's bytes or explained (M3.E5) | **carried** | M3.A3, M3.E5, with M3.O1 |
+| `docs/ck-parity.md` ranks the CK features (M3.H5) | **carried** | M3.H5, with M3.O1 |
+| Spec v2 and `kit overhaul` `Implemented` | **done** | M3.E6, M3.E7 |
+| First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 1: 8 implemented, 4 partial, 2 open. Build 2 (2026-10-15, `docs/overhaul/build-2.md`): the OMOD values lane B round 4 typed and the owner's answers; 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
+| Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Row 3 above (build 2) |
+| `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 reruns as members get typed. A build at the pin is the owner's (`docs/gaps.md`) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). M3.F5 is not built, by that decision |
+| `cargo xtask ci` green; corpus roundtrip identical; parity regenerated; STATUS says M4 | **done** at `01c77d8` | Gates as recorded at the lane B round 4 merge (`39ca2a2` regenerated parity). STATUS: this section |
+
+### M4 is done when
+
+| Criterion | State | Tasks and evidence |
+| --------- | ----- | ------------------ |
+| QUEST, ACTOR, ITEMS/WORKSHOP typed, with WORLD, PLANET and round 3 merged; M4.BX1 after every merge with 0 typed conflicts | **done** | Six families: round 3, BW, BP, BQ1, BC1, BI1, each merged by M4.BX1. `unordered` record mode for CELL/REFR/ACHR (parity failed 1,712,200 -> 0). Lane B round 4 added the OMOD/OBTS property unions (8,669 entries) |
+| `docs/record-parity.md` shows the per-family counts | **carried** (partly) | Regenerated at each merge and at round 4, with counts per record type. There is no per-family total yet (lane F, `cargo xtask parity`) |
+| M4.BX2 inventories (`LAYR RFGP WKMF IRES MESG`) | **carried** | M4.BX2, lane B. Not on `main` |
+| Builder: computed cell/world paths, rebuild gate (M4.A2); allocator and reference composition tested | **done** | M4.A1, A2, A3, A5, with the Fable review fix round |
+| NAVM passthrough on a synthetic plugin, and on F22 if it exists | **done** (synthetic) | M4.A4. The F22 half is carried with M4.O1 (deferred) |
+| `new`, `clone`, `place`, `package`, `testplan`, `papyrus.events` `Implemented` and on MCP | **done** | M4.E1, E2, E6, G2, and `package` (lane G). `deploy --dev` is live and reviewed too (M4.E11, ADR 0009 Amendment 1) |
+| `planet` `Implemented` | **carried** | M4.D3, lane D. Not on `main` (it also gates M4.E10) |
+| Spec v3 builds deterministically | **done** | M4.E3 (two builds identical), Fable review E fixes |
+| Cell rules run with 0 errors on the official files | **done** | M4.E4. 0 unexplained errors; one known error (`ref.orphan` on 0x1FB) |
+| First POI built, validated and packaged | **done** | `out\poi\KitKraftFirstPOI.esm` (`docs/poi/first-poi.md`), reviewed |
+| First POI visited in game, persistence steps recorded in `docs/game-observations.md` | **pending-owner**, **carried** | M4.O2 (row 2 above). The ledger file is M4.H4 (lane H), not on `main` yet. Until it lands, record the result in STATUS |
+| P0 first deliverables W1..W6, W12 | partly | W1 **done** (M4.E1, `KitKraftW1.esm`). W2 and W12 **pending-owner** (M4.O2). W3 **carried** (M4.E7 not started). W4 recipe built (M4.E8), **pending-owner** (M4.O4). W5 **carried** (M4.H3 `docs/design/persistence.md` not on `main`; then M4.O2). W6 **carried** (M4.G2 done; M4.E9 waits for a typed script-attachment block, VMAD opaque) |
+| P1 deliverables W7..W10 done or carried; W11 scoping document | partly | W7 **carried** (M4.D3). W8 **carried** (M4.E7). W9 recipe built (M4.E8), **pending-owner** (M4.O4). W10 **carried** (M4.D1 `refs`). W11 **done** (M4.G3, `docs/research/asset-formats.md`) |
+| M4.O4 in-game results recorded | **pending-owner** | After E7/E9 land; the M4.E8 recipes are ready |
+| `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **carried** (M4.H3), planet content **carried** (M4.D3) |
+| M4.O3 and M4.O5 recorded | **done** | ADR 0008, ADR 0009 (2026-10-14) |
+| Lane W | planning only | M4.W0..W6 planned. Start is the owner's call (row 6 above) |
+| CK fixtures F20..F28 (M4.O1, M4.H2) | **carried** | Deferred by the owner with M3.O1 until the workbench exists. The first POI does not need them |
+| `cargo xtask ci` green, corpus roundtrip identical, parity regenerated, STATUS says M5 | **carried** | To M4 close |
 
 ## Toolchain (verified on the dev box)
 
@@ -1384,7 +1446,7 @@ last, or an OMOD/INNR string supplies the name (record which); garbage such as `
 string ID was read as text (a `lstring.copied-id` miss). Disable the mod afterwards; it adds
 no forms and no scripts.
 
-Result: _pending (owner)_.
+Result: **PASS 2026-10-14** (recorded under "Done", "M2.O6 result").
 
 ### Divergence from the brief (for the owner)
 
@@ -1423,6 +1485,24 @@ Agents append here when they need a change in a crate they do not own.
   "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
   after this build) or the Extra Large magazine.
 
+- **Plan maintainer -> lane B (round 5): implement ADR 0005 Amendment 5.** New confidence
+  `container-reference`. It needs a `uesp-skyrim:` citation and is accepted only in the
+  container definitions (`TES4`, group header, record header). Steps:
+  - Set it on `TES4.Master.FileSize` (`DATA`) and `TES4.TagifyCount` (`INTV`).
+  - Drop `UNOBSERVED_ALLOWED` from `xtask/src/parity.rs`. The occurrence check skips
+    `container-reference` as it skips `reference`, and fails when a `container-reference`
+    member occurs in the corpus.
+  - Rank it with `reference` in the engine's coverage counts, in
+    `kitkraft_doc::confidence::reference_members` and in `build`'s `allow_reference` gate.
+  - Update `crates/schema/defs/README.md`, rerun `cargo xtask codegen` and regenerate
+    `docs/record-parity.md`.
+  - Close the `docs/gaps.md` TES4 DATA/INTV row in the same commit.
+- ~~**Plan maintainer -> lane E (overhaul build 2, M3.E9 rerun).**~~ Done 2026-10-15
+  (`docs/overhaul/build-2.md`; owner row 3 now waits on the in-game check). Lane B round 4 typed
+  `ObjectModProperty.Value1` (paths `DATA.Properties[n].Value1.Float` etc.). Rebuild
+  `docs/overhaul/overhaul.toml` with the `WSPS`/`ACPT` rules named in "Lane E (M3.E9) ->
+  lane B (M3.B9)" above, and fold in the owner's B8/B11/B12 answers when they come. Then hand the
+  owner build 2 for M3.O5 (STATUS "Owner next actions", row 3).
 - **Owner -> lanes H and B (M3.O3 done 2026-10-14).** SF1Edit is installed:
   `C:\Modding\tools\xEdit\xSFEdit64.exe` (file version 4.1.5.0). Lane H: run M3.H4's
   SF1Edit part with `KITKRAFT_SF1EDIT` pointing there, and update the SF1EDIT row of
