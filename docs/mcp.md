@@ -126,9 +126,11 @@ command's `args_schema` verbatim and its description is the command's `summary` 
 `planned: ...` or `deferred to M3: ...` when not implemented); `execute`'s `command` enum
 and its description (one line per command with its argument names) list the catalog as
 it is. Adding or changing a command needs no edit in `crates/mcp`; tests enforce both.
-Shortcuts that never write carry `readOnlyHint: true` and `destructiveHint: false`; `execute`,
-`command_line` (which reach every writing command) and `roundtrip` (whose `out` replaces an
-existing file with `overwrite: true`) carry `readOnlyHint: false`, `destructiveHint: true`.
+The hints come from the catalog's `writes` flag (set on every command that can write a file
+or into MO2): a shortcut whose command does not write carries `readOnlyHint: true` and
+`destructiveHint: false`; `execute`, `command_line` (which reach every writing command) and
+`roundtrip` (whose `out` replaces an existing file with `overwrite: true`) carry
+`readOnlyHint: false`, `destructiveHint: true`.
 
 Every successful call returns the envelope as `structuredContent` and as JSON text in
 one `text` content block (the same JSON). The text is ordered `command`, `data` with

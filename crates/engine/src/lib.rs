@@ -91,6 +91,11 @@ pub struct CommandSpec {
     pub summary: &'static str,
     /// JSON Schema (draft 2020-12) for the arguments object.
     pub args_schema: &'static str,
+    /// Whether it can write a file or into MO2, with some arguments: an output it names
+    /// (`into`, `out`, `out_dir`, an extraction target) or an MO2 mod folder. The engine's
+    /// own index caches do not count. MCP derives `readOnlyHint`/`destructiveHint` from
+    /// it; the workbench's read-only gate checks its lists against it.
+    pub writes: bool,
     /// Whether it is callable yet.
     pub status: Status,
 }
@@ -117,6 +122,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["open"],
         summary: "Load plugins from an MO2 profile or an explicit plugin list; lists plugins with index, flags, scale, masters, missing masters and cache hits",
         args_schema: r#"{"type":"object","properties":{"profile":{"type":"string","description":"MO2 profile directory (read-only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files in load order; bare names resolve against data_dir"},"data_dir":{"type":"string","description":"Game Data dir for plugin names (default KITKRAFT_DATA_DIR; for a profile: the MO2 instance's gamePath + Data, then KITKRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for localized lstrings (FULL, DESC), default en"},"no_cache":{"type":"boolean","description":"Index every plugin from its file instead of the index cache (default false)"}},"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -127,6 +133,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["show"],
         summary: "One record across the load order (every override, the winner, lstrings) or in one plugin: header fields and subrecords with offsets",
         args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, hex FormID (as stored in `plugin`; bare hex needs `plugin`), runtime:<hex> (a runtime ID), or EditorID"},"plugin":{"type":"string","description":"Single-plugin mode: the plugin file to search. With a load order: the plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -137,6 +144,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["find"],
         summary: "Records of one type matching a where predicate across the load order (winner or all versions), paged",
         args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4},"where":{"type":"string","description":"Predicate, e.g. FULL ~ \"Rifle\" and not has KWDA (docs/mcp.md, query)"},"scope":{"type":"string","enum":["winner","all"],"default":"winner","description":"winner: the winning version of each form; all: every version"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -147,6 +155,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Write field values on the winning version of a record into a patch plugin (non-localized; FULL=\"...\" shorthand)",
         args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"fields":{"type":"object","description":"Field path -> value: FULL, DNAM.Member, FULL[1]; numbers or text; {\"mul\": x} / {\"add\": x}; hex:0A0B for opaque payloads"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp; never a load-order plugin, the game Data dir or MO2)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"}},"required":["form","fields","into"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -157,6 +166,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Record-level diff of two plugins: FormIDs matched through each file's masters by name; added, removed, changed records with per-subrecord byte ranges",
         args_schema: r#"{"type":"object","properties":{"a":{"type":"string"},"b":{"type":"string"},"form":{"type":"string","description":"Only this form (Plugin.esm:XXXXXX)"},"data_dir":{"type":"string","description":"Where to look for masters besides each file's own directory (default KITKRAFT_DATA_DIR); a bare a or b name resolves in the session's load order, then the working directory, then here"},"limit":{"type":"integer","minimum":1,"description":"Entries listed per category (default 200; counts are always complete)"}},"required":["a","b"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -167,6 +177,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["esmscan"],
         summary: "Records plugins override from a master (port of esmscan.py): per-plugin counts by type, and each override classed against the version before it",
         args_schema: r#"{"type":"object","properties":{"master":{"type":"string","description":"Only forms this plugin defines"},"plugin":{"type":"string","description":"Only overrides by this plugin"},"type":{"type":"string","minLength":4,"maxLength":4,"description":"Only this record type"},"only_conflicts":{"type":"boolean","default":false,"description":"Only forms two or more plugins override"},"count_classes":{"type":"boolean","default":false,"description":"Class every matching form, not just this page"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":50},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -177,6 +188,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Compile a data-driven patch spec (TOML v3: [[place]] new references and [[import]] of a CK navmesh; v2 classes, [[rule]] with operators and via, [[set]]; v1 and v2 still accepted) into one fresh plugin, validated; --plan lists the changes and new forms without writing",
         args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The TOML spec (version = 3, 2 or 1)"},"out":{"type":"string","description":"Plugin to write (.esm or .esp; never a load-order plugin, the game or user Data dir, or MO2); written only when the new one validates"},"plan":{"type":"boolean","default":false,"description":"Dry run: list every change (before and after), the classes and rules with their counts and the validation result; write nothing"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing; they may be string IDs"},"profile":{"type":"string","description":"MO2 profile to load first (when the spec has no [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["spec","out"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -187,6 +199,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Create a new base form of a typed record type in a full-scale patch plugin: a new FormID, its EditorID, the schema's required members as zeros, fields applied as `set` writes them; validated",
         args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (GLOB, STAT, ...); typed by the schema, living in its own top-level group"},"edid":{"type":"string","description":"EditorID (letters, digits, _; unique in the load order and the target)"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp, full scale; never a load-order plugin, the game Data dir or MO2)"},"fields":{"type":"object","description":"Field path -> value, as `set` takes them; each subrecord is created first (zeros or an empty string)"},"masters":{"type":"array","items":{"type":"string"},"description":"Plugins the new form's FormID fields point into (added as masters, in load order)"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type","edid","into"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -197,6 +210,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Copy the winning version of a base form into a full-scale patch plugin as a new form (new FormID and EditorID), fields applied; lstrings inlined, FormIDs copied as stored; validated",
         args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`: a record of its own top-level group"},"edid":{"type":"string","description":"EditorID of the clone (letters, digits, _; unique in the load order and the target)"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp, full scale; never a load-order plugin, the game Data dir or MO2)"},"fields":{"type":"object","description":"Field path -> value, as `set` takes them"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout from a localized source as stored (named in limitations) instead of refusing"}},"required":["form","edid","into"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -207,6 +221,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Place a new reference (REFR, or ACHR for an NPC_) of a base form at a position and rotation in a cell, or at a world coordinate, into a full-scale patch plugin: the cell (and world) carried unchanged, a new FormID, validated",
         args_schema: r#"{"type":"object","properties":{"base":{"type":"string","description":"The base form: Plugin.esm:XXXXXX, EditorID, or a hex FormID as stored in `plugin`"},"position":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"Position X, Y, Z (game units; an exterior cell is 100 units wide)"},"into":{"type":"string","description":"Patch plugin to create or update (.esm or .esp, full scale; never a load-order plugin, the game Data dir or MO2)"},"cell":{"type":"string","description":"The CELL (formref or EditorID); or give `world`"},"world":{"type":"string","description":"The WRLD (formref or EditorID): the exterior cell holding the position is used (persistent: the world's persistent cell)"},"rotation":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"Rotation X, Y, Z as stored (default 0 0 0)"},"persistent":{"type":"boolean","default":false,"description":"Persistent reference (record flag 0x400, persistent children; in a world, the world's persistent cell)"},"initially_disabled":{"type":"boolean","default":false,"description":"Record flag 0x800 (below corpus confidence: needs allow_reference flag.initially_disabled)"},"edid":{"type":"string","description":"EditorID for the new reference (letters, digits, _; unique in the load order)"},"allow_reference":{"type":"array","items":{"type":"string"},"description":"Members below corpus confidence to write anyway (DATA.Rotation, flag.initially_disabled, ...)"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for inlining lstrings of the carried cell, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"allow_untyped_lstrings":{"type":"boolean","default":false,"description":"Copy 4-byte subrecords of unknown layout of the carried cell from a localized source as stored (named in limitations) instead of refusing"}},"required":["base","position","into"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -217,6 +232,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Write an in-game test plan for a plugin into `out`: kitkraft-test.txt (console batch: coc, player.moveto, prid, player.additem with runtime IDs for the plugin appended to the load order) and checklist.md (setup on the KitKraft Dev profile with a disposable save, expected observations, persistence steps, ledger entry); writes nothing else",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"The plugin to test (path)"},"out":{"type":"string","description":"Folder for kitkraft-test.txt and checklist.md (never the game or user Data dir or MO2)"},"spec":{"type":"string","description":"The build spec the plugin came from; its SHA-256 goes into the checklist"},"profile":{"type":"string","description":"MO2 profile whose load order gives the runtime IDs (read only; the plan runs on KitKraft Dev)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files of the load order, in order (the plugin is appended)"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["plugin","out"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -227,6 +243,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["overhaul"],
         summary: "Starter build spec v2 for one record type: a class per group of winning records, with match counts and min/median/max of each typed numeric member as comments; every rule commented out",
         args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (WEAP)"},"where":{"type":"string","description":"Only winning records matching this predicate (query's where language)"},"group_by":{"type":"string","description":"A where path (KWDA, @plugin, SIG.Member): one class per value; a record with several values joins one class per value"},"out":{"type":"string","description":"The .toml spec to write (never in the game or user Data dir or MO2); omitted: the text is returned in data.spec_text"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"max_groups":{"type":"integer","minimum":1,"maximum":1000,"default":40,"description":"Most classes; the smaller groups are listed in a comment"},"profile":{"type":"string","description":"MO2 profile to load first (repeated in the spec's [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order (repeated in the spec's [load_order])"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"language":{"type":"string","description":"String-table language for lstrings, default en"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["type"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -237,6 +254,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Validate a plugin, then write an MO2-ready mod folder (plugin, loose files, scripts at their Data paths, or packed into '<plugin> - Main.ba2' / '- Textures.ba2'), kitkraft-manifest.json (SHA-256 of every file, masters, record counts, KitKraft version, spec hash) and a .zip; never installs",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"The plugin to package (.esm, .esp or .esl); validate must pass"},"out":{"type":"string","description":"Folder that receives <name>/ and <name>[-<version>].zip; nothing is written outside it. Never in the game or user Data dir or MO2"},"name":{"type":"string","description":"Mod folder name (default: the plugin's file name without extension)"},"version":{"type":"string","description":"Version for the manifest and the zip name (ASCII letters, digits, . - _)"},"loose":{"type":"string","description":"A folder laid out as Data (Meshes/..., Textures/...): copied, or packed with ba2"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files or folders of them; placed at Scripts/<namespace>/<name>.pex from the script name inside"},"ba2":{"type":"boolean","default":false,"description":"Pack loose files and scripts into '<plugin stem> - Main.ba2' (GNRL) and textures into '<plugin stem> - Textures.ba2' (DX10)"},"ba2_version":{"type":"integer","minimum":2,"maximum":3,"default":2,"description":"Archive version: 2 (zlib, as the official plugins' archives) or 3 (LZ4)"},"ba2_compress":{"type":"boolean","default":true},"zip":{"type":"boolean","default":true,"description":"Also write the zip of the folder's contents"},"spec":{"type":"string","description":"The build spec the plugin came from; its SHA-256 goes into the manifest"},"overwrite":{"type":"boolean","default":false,"description":"Replace a folder (and zip) an earlier package wrote; a folder without kitkraft-manifest.json is never replaced"},"profile":{"type":"string","description":"MO2 profile whose load order validate searches for masters (read only)"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files validate searches first for masters, in load order"},"data_dir":{"type":"string","description":"Game Data dir for masters (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["plugin","out"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -247,6 +265,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["check"],
         summary: "Missing masters, bad links, localized FULL copies, stripped FULL/NTRM, god-mode script calls",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string","description":"Plugin to check (give plugin, scripts, or both)"},"scripts":{"type":"array","items":{"type":"string"},"description":".pex files, directories of them, or .ba2 archives (their .pex entries) to scan"},"plugin_archives":{"type":"boolean","default":false,"description":"Also scan the scripts in the plugin's own archives (<plugin stem> - *.ba2 next to it)"},"rules":{"type":"array","items":{"type":"string"},"description":"Rule ids to run (default: every rule for the inputs given)"},"profile":{"type":"string","description":"MO2 profile to load first; its plugins are searched first for masters"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order; searched first for masters"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare plugin or script name resolves in the session's load order, then the working directory, then here, and masters are searched here after the load order and the plugin's own dir"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -257,6 +276,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Parse and rewrite a plugin; --verify demands byte-identical output (M1 gate)",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"verify":{"type":"boolean","default":false,"description":"Compare the rewritten bytes with the input and report the first mismatch"},"out":{"type":"string","description":"Write the rewritten plugin here; an existing file is refused unless overwrite is true. A relative path resolves against the kit process's working directory"},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"},"decode":{"type":"boolean","default":false,"description":"Also inflate every compressed record strictly (declared size, end marker and checksum, nothing after the stream) and re-encode its subrecords; a body that fails is a mismatch (passed: false)"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare plugin name resolves in the session's load order, then the working directory, then here"}},"required":["plugin"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -267,6 +287,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Record types and subrecords in a plugin vs what the schema defines (typed, opaque, unknown)",
         args_schema: r#"{"type":"object","properties":{"plugin":{"type":"string"},"decode":{"type":"boolean","default":true,"description":"Decompress compressed records (default limits) and count their subrecords; --no-decode skips them"},"signatures":{"type":"boolean","description":"List each record type's subrecord signatures (record_types[].signatures; null when false). Omitted: true from kit, false over MCP"},"top":{"type":"integer","minimum":0,"description":"List only the N record types with the most records; the totals still cover every type. Omitted: all from kit, 20 over MCP"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare plugin name resolves in the session's load order, then the working directory, then here"}},"required":["plugin"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -277,6 +298,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["defs"],
         summary: "What the record schema defines for a type: members with type, source citation and confidence (top level; --deep for nested); without --type, every definition with per-confidence counts",
         args_schema: r#"{"type":"object","properties":{"type":{"type":"string","minLength":4,"maxLength":4,"description":"Record type (WEAP) or header (GRUP); omit to list every definition"},"member":{"type":"string","description":"Only this member (name or signature; also one inside a group), shown deep"},"deep":{"type":"boolean","default":false,"description":"Expand group members, struct fields, enum and flag names and union variants, and list evidence citations"}},"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -287,6 +309,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "List files in a .ba2 archive (GNRL or DX10): sizes, compression, texture formats",
         args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"filter":{"type":"string","description":"Case-insensitive regex over archive paths"},"limit":{"type":"integer","minimum":1,"default":1000,"description":"Most entries to return"},"start":{"type":"integer","minimum":0,"default":0,"description":"Skip this many matching entries"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare archive name resolves in the working directory, then here"}},"required":["archive"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -297,6 +320,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Extract files from a .ba2 archive (all, or those matching --pattern)",
         args_schema: r#"{"type":"object","properties":{"archive":{"type":"string"},"pattern":{"type":"string","description":"Case-insensitive regex over archive paths; omit to extract everything"},"out_dir":{"type":"string","description":"Never under the game Data directory"},"overwrite":{"type":"boolean","default":false,"description":"Replace files that already exist"},"max_entry_bytes":{"type":"integer","minimum":0,"default":1073741824,"description":"Refuse, before writing anything, an entry that extracts to more bytes than this (default 1 GiB)"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare archive name resolves in the working directory, then here (out_dir never does)"}},"required":["archive","out_dir"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -307,6 +331,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Pack a directory (as the Data root) into a .ba2 archive; deterministic",
         args_schema: r#"{"type":"object","properties":{"dir":{"type":"string"},"out":{"type":"string","description":"Never under the game Data directory"},"format":{"type":"string","enum":["gnrl","dx10"],"default":"gnrl","description":"dx10 packs .dds textures"},"version":{"type":"integer","minimum":2,"maximum":3,"default":2,"description":"2: zlib, 3: LZ4 blocks"},"compress":{"type":"boolean","default":true},"overwrite":{"type":"boolean","default":false,"description":"Let out replace an existing file"}},"required":["dir","out"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -317,6 +342,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &["pexdis"],
         summary: "Disassemble a compiled Papyrus .pex (loose or inside a .ba2) as pexdis.py does, or as JSON",
         args_schema: r#"{"type":"object","properties":{"pex":{"type":"string","description":"Script file, or its path inside archive"},"archive":{"type":"string","description":"Read the script from this .ba2"},"format":{"type":"string","enum":["text","json","both"],"default":"text","description":"text: pexdis.py format; json: the structured model with offsets"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare archive (or loose script) name resolves in the working directory, then here"}},"required":["pex"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -327,6 +353,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Compile one script with Bethesda's PapyrusCompiler.exe by name with import dirs or Tools/ContentResources.zip (never -release)",
         args_schema: r#"{"type":"object","properties":{"source":{"type":"string","description":"Script name (MyScript, Ns:MyScript) or a .psc path (its folder is imported first); .ppj projects are refused"},"out_dir":{"type":"string","description":"Where the .pex goes; never under the game Data directory"},"imports":{"type":"array","items":{"type":"string"},"description":"Import directories, in order"},"sources_zip":{"type":"string","description":"Tools/ContentResources.zip: its Scripts/Source files are extracted once into the KitKraft cache and imported after the import directories"},"flags":{"type":"string","description":"Flags file; default: Starfield_Papyrus_Flags.flg from the first import directory that has it"},"compiler":{"type":"string","description":"PapyrusCompiler.exe; default: KITKRAFT_PAPYRUS_COMPILER, then the game's Tools folder"},"optimize":{"type":"boolean","default":false}},"required":["source","out_dir"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -337,6 +364,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Events, functions, properties, structs and custom events the base game's Papyrus sources declare (Tools/ContentResources.zip, read in place, index cached), by script with its parents, by name or by search, with file:line evidence",
         args_schema: r#"{"type":"object","properties":{"script":{"type":"string","description":"Script name (ObjectReference, Ns:Script): its members, and with inherited its parents' too"},"event":{"type":"string","description":"Only events with this name (sets kind to event)"},"function":{"type":"string","description":"Only functions with this name (sets kind to function)"},"name":{"type":"string","description":"Only members with this name"},"kind":{"type":"string","enum":["all","event","function","property","struct","custom_event"],"default":"all"},"search":{"type":"string","description":"Case-insensitive text in the script or member name"},"inherited":{"type":"boolean","default":true,"description":"With script: also list the members its parent chain declares"},"declarations_only":{"type":"boolean","default":false,"description":"Drop members that override an ancestor's (event handlers) and remote event handlers"},"with_comments":{"type":"boolean","default":false,"description":"Add each match's doc and comment, read now from the zip (Bethesda's text: never cached)"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":100},"start":{"type":"integer","minimum":0,"default":0},"sources_zip":{"type":"string","description":"Tools/ContentResources.zip; default: next to the game Data dir (data_dir, KITKRAFT_DATA_DIR), then the Steam install"},"data_dir":{"type":"string","description":"Game Data dir whose ../Tools holds the zip (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","default":false,"description":"Parse the sources again instead of reading (or writing) the cached index"}},"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -347,6 +375,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Dump a .STRINGS/.DLSTRINGS/.ILSTRINGS table (loose or inside a .ba2), by ID or text",
         args_schema: r#"{"type":"object","properties":{"table":{"type":"string","description":"Table file, or its path inside archive"},"archive":{"type":"string","description":"Read the table from this .ba2"},"id":{"type":"string","description":"String ID, 0x-prefixed hex or decimal"},"contains":{"type":"string","description":"Case-insensitive text filter"},"limit":{"type":"integer","minimum":1,"default":100},"start":{"type":"integer","minimum":0,"default":0},"tolerant":{"type":"boolean","default":false,"description":"Also read a table padded past its header's data size; the padding is named in limitations"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare archive (or loose table) name resolves in the working directory, then here"}},"required":["table"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -357,6 +386,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Merge string tables of one kind into one (later table wins; conflicts reported; deterministic)",
         args_schema: r#"{"type":"object","properties":{"tables":{"type":"array","items":{"type":"string"},"minItems":2},"out":{"type":"string","description":"Same extension as the inputs; never under the game Data directory"},"tolerant":{"type":"boolean","default":false,"description":"Also read tables padded past their header's data size; the padding is named in limitations and not written"},"data_dir":{"type":"string","description":"Game Data dir (default KITKRAFT_DATA_DIR): a bare table name resolves in the working directory, then here (out never does)"}},"required":["tables","out"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -367,6 +397,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Development deployment (kit deploy --dev, ADR 0009): copy a plugin or package folder into the isolated MO2 mod `KitKraft Dev - <plugin>` (hashed manifest, staged folder swap, journal, previous kept for rollback); refuses the Default profile; never edits a profile or another mod",
         args_schema: r#"{"type":"object","properties":{"source":{"type":"string","description":"A plugin (.esm/.esp/.esl) or a package folder (plugin at the root, loose files and .ba2 at their Data paths; kitkraft-manifest.json verified when present)"},"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); required on every call"},"dev":{"type":"boolean","enum":[true],"description":"Required, always true: development deployment is opt-in on every call"},"profile":{"type":"string","description":"The MO2 profile to check (never Default; KitKraft Dev): read-only diagnostics of whether the mod and plugin are enabled"},"dry_run":{"type":"boolean","default":false,"description":"Report the plan, refusals and every path that would be touched; write nothing"}},"required":["source","mo2","dev"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -377,6 +408,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Swap a dev mod's previous deployment (`KitKraft Dev - <plugin>.previous`) back in, keeping the replaced one as the new previous (ADR 0009); refuses the Default profile",
         args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini)"},"mod":{"type":"string","description":"The dev mod: `KitKraft Dev - <plugin stem>` or the plugin stem"},"dev":{"type":"boolean","enum":[true],"description":"Required, always true"},"to":{"type":"string","description":"The deployment id expected in .previous; refused if it holds another"},"profile":{"type":"string","description":"The MO2 profile to check (never Default): read-only diagnostics"},"dry_run":{"type":"boolean","default":false,"description":"Report the plan and every path that would be touched; write nothing"}},"required":["mo2","mod","dev"],"additionalProperties":false}"#,
+        writes: true,
         status: Status::Implemented,
     },
     CommandSpec {
@@ -387,6 +419,7 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Read-only: the KitKraft dev mods in an MO2 instance, their manifests, hand edits, previous deployments, interrupted operations, and whether each is enabled in a profile",
         args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini)"},"mod":{"type":"string","description":"Only this dev mod (`KitKraft Dev - <plugin stem>` or the stem)"},"profile":{"type":"string","description":"Profile whose enabled state is read (default: MO2's active profile)"}},"required":["mo2"],"additionalProperties":false}"#,
+        writes: false,
         status: Status::Implemented,
     },
 ];
@@ -446,6 +479,52 @@ mod tests {
                 ),
             }
         }
+    }
+
+    /// `writes` is what MCP's `destructiveHint` and the workbench's gate rely on: every
+    /// command that takes an output argument is marked, and so is every command that
+    /// writes without one (archive extraction, MO2 deployment).
+    #[test]
+    fn writes_marks_every_command_that_can_write() {
+        for spec in catalog() {
+            let schema: serde_json::Value = serde_json::from_str(spec.args_schema).unwrap();
+            let props = schema["properties"].as_object().unwrap();
+            let output = ["into", "out", "out_dir"]
+                .iter()
+                .find(|k| props.contains_key(**k));
+            if let Some(arg) = output {
+                assert!(
+                    spec.writes,
+                    "{} takes `{arg}` but is not marked writes",
+                    spec.id
+                );
+            }
+        }
+        let marked: BTreeSet<&str> = catalog()
+            .iter()
+            .filter(|s| s.writes)
+            .map(|s| s.id)
+            .collect();
+        let expected: BTreeSet<&str> = [
+            "set",
+            "build",
+            "new",
+            "clone",
+            "place",
+            "testplan",
+            "overhaul.scaffold",
+            "package",
+            "roundtrip",
+            "ba2.extract",
+            "ba2.pack",
+            "papyrus.compile",
+            "strings.merge",
+            "deploy",
+            "deploy.rollback",
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(marked, expected);
     }
 
     #[test]
@@ -753,6 +832,7 @@ mod execute_tests {
             aliases: &[],
             summary: "Render a cell",
             args_schema: r#"{"type":"object"}"#,
+            writes: false,
             status: Status::Deferred {
                 reason: "needs crates/render",
                 milestone: "M4",

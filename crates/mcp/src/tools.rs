@@ -29,13 +29,20 @@ pub struct Tool {
     pub title: &'static str,
     /// What it runs.
     pub target: Target,
-    /// Never writes a file (`readOnlyHint`). `execute`, `command_line` and `roundtrip`
-    /// (which writes with `out`) can.
-    pub read_only: bool,
-    /// May replace or change an existing file (`destructiveHint`): `execute` and
-    /// `command_line` reach `set`, `build` and the archive writers, `roundtrip` replaces
-    /// its `out` file when `overwrite` is `true`. `false` only for read-only tools.
-    pub destructive: bool,
+}
+
+impl Tool {
+    /// Whether a call can write a file or into MO2, from the catalog's `writes`:
+    /// `execute` and `command_line` reach every command, so they write when any command
+    /// does; a shortcut writes when its command does (`roundtrip` with `out`). An unknown
+    /// shortcut target counts as writing. `readOnlyHint` is its negation and
+    /// `destructiveHint` equals it (a writing command may replace a file it names).
+    pub fn writes(&self) -> bool {
+        match self.target {
+            Target::Execute | Target::CommandLine => catalog().iter().any(|s| s.writes),
+            Target::Command(id) => find_command(id).is_none_or(|s| s.writes),
+        }
+    }
 }
 
 /// Tools exposed by `kit mcp`, in the order `tools/list` returns them. `render` comes later.
@@ -44,57 +51,41 @@ pub const TOOLS: &[Tool] = &[
         name: "execute",
         title: "Run a KitKraft command",
         target: Target::Execute,
-        read_only: false,
-        destructive: true,
     },
     Tool {
         name: "command_line",
         title: "Run a kit command line",
         target: Target::CommandLine,
-        read_only: false,
-        destructive: true,
     },
     Tool {
         name: "inspect_record",
         title: "Inspect a record",
         target: Target::Command("inspect"),
-        read_only: true,
-        destructive: false,
     },
     Tool {
         name: "query_records",
         title: "Query records",
         target: Target::Command("query"),
-        read_only: true,
-        destructive: false,
     },
     Tool {
         name: "diff_plugins",
         title: "Diff two plugins",
         target: Target::Command("diff"),
-        read_only: true,
-        destructive: false,
     },
     Tool {
         name: "coverage",
         title: "Schema coverage of a plugin",
         target: Target::Command("coverage"),
-        read_only: true,
-        destructive: false,
     },
     Tool {
         name: "record_schema",
         title: "Record schema",
         target: Target::Command("schema"),
-        read_only: true,
-        destructive: false,
     },
     Tool {
         name: "roundtrip",
         title: "Roundtrip a plugin",
         target: Target::Command("roundtrip"),
-        read_only: false,
-        destructive: true,
     },
 ];
 
@@ -221,8 +212,8 @@ pub fn definition(tool: &Tool) -> Result<Value, EngineError> {
         "annotations".into(),
         json!({
             "title": tool.title,
-            "readOnlyHint": tool.read_only,
-            "destructiveHint": tool.destructive,
+            "readOnlyHint": !tool.writes(),
+            "destructiveHint": tool.writes(),
             "openWorldHint": false
         }),
     );
@@ -311,11 +302,28 @@ mod tests {
         let defs = definitions().unwrap();
         for (tool, def) in TOOLS.iter().zip(&defs) {
             let a = &def["annotations"];
-            assert_eq!(a["readOnlyHint"], tool.read_only, "{}", tool.name);
-            assert_eq!(a["destructiveHint"], !tool.read_only, "{}", tool.name);
+            assert_eq!(a["readOnlyHint"], !tool.writes(), "{}", tool.name);
+            assert_eq!(a["destructiveHint"], tool.writes(), "{}", tool.name);
+            if let Target::Command(id) = tool.target {
+                assert_eq!(
+                    tool.writes(),
+                    find_command(id).unwrap().writes,
+                    "{}: hint and catalog `writes` disagree",
+                    tool.name
+                );
+            }
         }
         for name in ["execute", "command_line", "roundtrip"] {
-            assert!(find_tool(name).unwrap().destructive, "{name}");
+            assert!(find_tool(name).unwrap().writes(), "{name}");
+        }
+        for name in [
+            "inspect_record",
+            "query_records",
+            "diff_plugins",
+            "coverage",
+            "record_schema",
+        ] {
+            assert!(!find_tool(name).unwrap().writes(), "{name}");
         }
     }
 

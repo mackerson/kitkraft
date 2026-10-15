@@ -86,6 +86,7 @@ Every user-visible action is exactly one `CommandSpec` in `kitkraft_engine::cata
 | `aliases`     | Other names accepted by the CLI, `command_line`, and the palette            |
 | `summary`     | One line for `kit help` and MCP tool listings                               |
 | `args_schema` | JSON Schema for the arguments object                                        |
+| `writes`      | Can write a file or into MO2 with some arguments (MCP hints, workbench gate) |
 | `status`      | `Implemented`, `Deferred { reason, milestone }`, or `Planned` (none at M2)  |
 
 Execution takes the JSON arguments and returns a JSON result. **`execute` never opens a
