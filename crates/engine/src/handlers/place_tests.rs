@@ -20,18 +20,24 @@ pub(crate) const WORLD: u32 = 0x0000_0700;
 pub(crate) const PERSISTENT_CELL: u32 = 0x0000_0701;
 pub(crate) const EXTERIOR_CELL: u32 = 0x0000_0702;
 pub(crate) const INTERIOR_CELL: u32 = 0x0000_0900;
+pub(crate) const NAVMESH: u32 = 0x0000_0710;
 
-fn sub(sig: &[u8; 4], data: &[u8]) -> Subrecord<'static> {
+pub(crate) fn sub(sig: &[u8; 4], data: &[u8]) -> Subrecord<'static> {
     Subrecord::new(Signature(*sig), data.to_vec())
 }
 
-fn zstr(text: &str) -> Vec<u8> {
+pub(crate) fn zstr(text: &str) -> Vec<u8> {
     let mut v = text.as_bytes().to_vec();
     v.push(0);
     v
 }
 
-fn rec(sig: &[u8; 4], flags: u32, form_id: u32, subs: Vec<Subrecord<'static>>) -> Record<'static> {
+pub(crate) fn rec(
+    sig: &[u8; 4],
+    flags: u32,
+    form_id: u32,
+    subs: Vec<Subrecord<'static>>,
+) -> Record<'static> {
     Record::new(
         RecordHeader {
             signature: Signature(*sig),
@@ -46,7 +52,7 @@ fn rec(sig: &[u8; 4], flags: u32, form_id: u32, subs: Vec<Subrecord<'static>>) -
     )
 }
 
-fn data24(pos: [f32; 3]) -> Vec<u8> {
+pub(crate) fn data24(pos: [f32; 3]) -> Vec<u8> {
     let mut d = Vec::new();
     for v in pos.iter().chain(&[0.0f32, 0.0, 0.0]) {
         d.extend_from_slice(&v.to_le_bytes());
@@ -64,6 +70,12 @@ pub(crate) fn world_master(dir: &Path) -> PathBuf {
     let mut spec = HeaderSpec::new(Vec::new());
     spec.flags = FLAG_MASTER;
     let mut plugin = Plugin::create(&spec);
+    // INCC: one interior cell, as every official file counts them.
+    plugin
+        .header_mut()
+        .subrecords_mut()
+        .unwrap()
+        .push(sub(b"INCC", &1u32.to_le_bytes()));
     let style = PlacementStyle::OFFICIAL;
     let mut put = |record: Record<'static>, parent: Parent| {
         let path = cells::placement(&record.header, &parent, &style).unwrap();
@@ -147,6 +159,14 @@ pub(crate) fn world_master(dir: &Path) -> PathBuf {
             vec![sub(b"EDID", &zstr("TestExterior")), sub(b"XCLC", &xclc)],
         ),
         Parent::CellAt(CellPlace::Exterior { world: WORLD, grid }),
+    );
+    // A navmesh in the exterior cell.
+    put(
+        rec(b"NAVM", 0, NAVMESH, vec![sub(b"NVNM", &[5u8; 12])]),
+        Parent::Cell {
+            place: CellPlace::Exterior { world: WORLD, grid },
+            cell: EXTERIOR_CELL,
+        },
     );
     let bytes = plugin.to_bytes().unwrap();
     std::fs::write(data.join("World.esm"), bytes).unwrap();

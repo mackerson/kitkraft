@@ -798,6 +798,29 @@ is under "Next".
     name, a cycle, a placed reference as a base, duplicate names and EditorIDs, positions,
     a `reference`-only member without `allow_reference`, two writes to one field,
     `[[new]]`, version 2 keys).
+  - M4.E4 validate cell rules (`validate/cells.rs`; rows in `docs/validate.md`):
+    `cell.missing-parent` (a cell child outside cell children, or a WRLD/CELL children
+    group whose record nobody has: error; a master's record not carried: warning),
+    `ref.orphan` (a REFR/ACHR base that resolves nowhere, or no NAME: error),
+    `ref.outside-block` (a cell in the wrong block/sub-block for its object ID or XCLC grid:
+    error, warning in small/medium plugins; an exterior reference outside its cell's
+    square: warning), `ref.persistent-flag` (flag 0x400 against group type 8/9, on a NAVM,
+    on a CELL that is not a world's persistent cell: error), `ref.persistence` (a temporary
+    reference a quest, scene, package, dialogue or story-manager record or a door link
+    names: warning, grade D), `cell.actor-without-navmesh` (warning; masters scanned by
+    group headers only), `cell.incc` (error; missing INCC with interior cells: warning),
+    `navmesh.unchanged` (a NAVM override equal to its master's: warning). Positive and
+    negative synthetic fixtures per rule (`validate/cells_tests.rs`).
+    `validate_corpus_official_files` (release, 279 s): 0 unexplained errors; one new known
+    error (`ref.orphan` on `Starfield.esm` `REFR:00014893`, base 0x1FB, the same record
+    `formid.dangling` lists). New warnings by kind, with their reasons:
+    `ref.outside-block` REFR (Starfield.esm 4, SFBGS00D 57, SFBGS050 217, ShatteredSpace
+    76: exterior references outside their cell's square, the corpus's 0.02 %);
+    `navmesh.unchanged` NAVM (SFBGS003 301: navmesh overrides byte-equal to Starfield.esm's,
+    an official-pipeline habit, so a warning); `ref.persistence` REFR (SFBGS00D 5: door
+    links, `XTEL`, to temporary references). Corpus finding that shaped `ref.persistence`:
+    official files name temporary references from `WRLD` `RNAM` and `LCTN` `LCSR`/`LCPR`
+    (48,538 in Starfield.esm), so those referrers are not reported.
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box

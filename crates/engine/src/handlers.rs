@@ -23,7 +23,7 @@ mod package;
 mod papyrus;
 mod place;
 #[cfg(test)]
-mod place_tests;
+pub(crate) mod place_tests;
 mod query;
 mod resolve;
 #[cfg(test)]

@@ -7,6 +7,9 @@
 //! next to the plugin, then in `data_dir`; their headers are read for flags and their
 //! records indexed when a rule needs them. Rules and their sources: `docs/validate.md`.
 
+pub mod cells;
+#[cfg(test)]
+mod cells_tests;
 pub mod forms;
 pub mod scripts;
 #[cfg(test)]
@@ -106,6 +109,54 @@ pub const RULES: &[RuleInfo] = &[
         severity: Severity::Error,
         input: Input::Plugin,
         summary: "An override lacks the FULL or NTRM the previous version in load order has (the Resupply door: no name, no prompt); a warning on the types the official DLCs do it to",
+    },
+    RuleInfo {
+        id: "cell.missing-parent",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A cell child outside a cell's children, or a WRLD/CELL children group whose record neither the plugin nor its masters have (error); a master's record not carried before its children group (warning)",
+    },
+    RuleInfo {
+        id: "ref.orphan",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A REFR or ACHR whose NAME (base) resolves to no record of the plugin or its masters, or that has no NAME",
+    },
+    RuleInfo {
+        id: "ref.outside-block",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A CELL in the wrong block or sub-block for its object ID (interior) or XCLC grid (exterior) (error); an exterior reference whose position is outside its cell's grid (warning)",
+    },
+    RuleInfo {
+        id: "ref.persistent-flag",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "Record flag 0x400 that disagrees with the group: set outside persistent children (type 8) or clear inside, on a NAVM, or on a CELL that is not a world's persistent cell",
+    },
+    RuleInfo {
+        id: "ref.persistence",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A reference in temporary children that another record of the plugin names (a quest alias, a location, a script property, a door link): expected persistent (grade D)",
+    },
+    RuleInfo {
+        id: "cell.actor-without-navmesh",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "An ACHR in a cell that has no NAVM in the plugin or its masters",
+    },
+    RuleInfo {
+        id: "cell.incc",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "TES4 INCC differs from the number of interior cells in the plugin (error); interior cells and no INCC (warning)",
+    },
+    RuleInfo {
+        id: "navmesh.unchanged",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A NAVM override whose subrecords equal its master's version",
     },
     RuleInfo {
         id: "record.flags-body",
@@ -349,6 +400,8 @@ struct Pass<'a> {
     /// Layouts by (record, subrecord, member path at its position; `None` for no member).
     layouts: HashMap<LayoutKey, Option<Arc<Layout>>>,
     limits: DecodeLimits,
+    /// What the cell rules collect.
+    cells: cells::Facts,
 }
 
 impl Pass<'_> {
@@ -422,9 +475,16 @@ fn validate_plugin(
 ) -> Result<(), String> {
     let name = file_name(path);
     let (flags, masters) = header_of(path)?;
-    let needs_index = rules
-        .iter()
-        .any(|r| matches!(*r, "formid.dangling" | "override.stripped-name"));
+    let needs_index = rules.iter().any(|r| {
+        matches!(
+            *r,
+            "formid.dangling"
+                | "override.stripped-name"
+                | "cell.missing-parent"
+                | "ref.orphan"
+                | "navmesh.unchanged"
+        )
+    });
 
     // Masters, and their masters, by name.
     let mut files: BTreeMap<String, MasterFile> = BTreeMap::new();
@@ -557,6 +617,7 @@ fn validate_plugin(
         rules,
         layouts: HashMap::new(),
         limits: options.limits,
+        cells: cells::Facts::default(),
     };
 
     let mut hedr: Option<u32> = None;
@@ -564,8 +625,10 @@ fn validate_plugin(
     let mut stats = (0u64, 0u64);
     let parse = ParseOptions::default();
     visit_file(path, &parse, |entry| {
+        let mut groups = Vec::new();
         walk(
             entry,
+            &mut groups,
             &mut pass,
             &mut findings,
             report,
@@ -575,6 +638,9 @@ fn validate_plugin(
         Ok(())
     })
     .map_err(|e| format!("{name}: {e}"))?;
+    if cells::Facts::any(&pass) {
+        cells::finish(&pass, path, &mut findings);
+    }
     report.records = stats.0;
     report.groups = stats.1;
     report.findings.extend(findings);
@@ -614,6 +680,7 @@ fn validate_plugin(
 
 fn walk(
     entry: &Entry<'_>,
+    groups: &mut Vec<kitcraft_esm::GroupHeader>,
     pass: &mut Pass<'_>,
     findings: &mut Vec<Finding>,
     report: &mut Report,
@@ -623,26 +690,34 @@ fn walk(
     match entry {
         Entry::Group(g) => {
             stats.1 = stats.1.saturating_add(1);
+            cells::on_group(pass, &g.header, g.offset(), findings);
+            // Bounded: the parser caps nesting (kitcraft_esm::MAX_DEPTH_CAP).
+            groups.push(g.header);
             for child in g.children() {
-                walk(child, pass, findings, report, hedr, stats);
+                walk(child, groups, pass, findings, report, hedr, stats);
             }
+            groups.pop();
         }
         Entry::Record(r) => {
             stats.0 = stats.0.saturating_add(1);
             if r.header.signature == Signature::TES4 {
-                *hedr = Tes4::new(r)
-                    .hedr()
-                    .and_then(Result::ok)
-                    .map(|h| h.record_count);
+                let tes4 = Tes4::new(r);
+                *hedr = tes4.hedr().and_then(Result::ok).map(|h| h.record_count);
+                pass.cells.incc = r
+                    .subrecords()
+                    .and_then(|subs| subs.iter().find(|s| s.signature() == Signature(*b"INCC")))
+                    .and_then(|s| <[u8; 4]>::try_from(s.data()).ok())
+                    .map(u32::from_le_bytes);
                 return;
             }
-            check_record(r, pass, findings, report);
+            check_record(r, groups, pass, findings, report);
         }
     }
 }
 
 fn check_record(
     r: &Record<'_>,
+    groups: &[kitcraft_esm::GroupHeader],
     pass: &mut Pass<'_>,
     findings: &mut Vec<Finding>,
     report: &mut Report,
@@ -720,8 +795,13 @@ fn check_record(
         Vec::new()
     };
 
-    // formid.dangling: typed members (M2.B3 visitors), opaque subrecords counted.
-    if pass.on("formid.dangling") {
+    if cells::Facts::any(pass) {
+        cells::on_record(pass, groups, r, subs, &id, findings);
+    }
+
+    // formid.dangling: typed members (M2.B3 visitors), opaque subrecords counted; the
+    // FormIDs records name, for ref.persistence.
+    if pass.on("formid.dangling") || pass.on("ref.persistence") {
         let typed = if has_definition(r.header.signature) {
             let ctx = Ctx {
                 form_version: r.header.form_version,
@@ -738,6 +818,10 @@ fn check_record(
         match &typed {
             Some(typed) => {
                 for (path, form) in typed.form_ids() {
+                    cells::named_by(pass, &id, r.header.signature, path, form.0);
+                    if !pass.on("formid.dangling") {
+                        continue;
+                    }
                     let target = pass.space.resolve(form.0);
                     check_form_id(
                         pass,
