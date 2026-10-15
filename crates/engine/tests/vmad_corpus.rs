@@ -168,3 +168,86 @@ fn every_official_vmad_roundtrips() {
     );
     assert!(total > 0);
 }
+
+/// The VMAD of the record at `offset` in `path`.
+fn vmad_at(path: &std::path::Path, offset: u64) -> Vec<u8> {
+    let mut file = std::fs::File::open(path).unwrap();
+    let record =
+        kitkraft_esm::index::read_record_at(&mut file, offset, Some(&DecodeLimits::default()))
+            .unwrap();
+    let subs = record.subrecords().unwrap();
+    subs.iter()
+        .find(|s| s.signature() == Signature(*b"VMAD"))
+        .unwrap()
+        .data()
+        .to_vec()
+}
+
+/// M4.E9: `set` attaches a base game script to a copy of a vanilla reference that already
+/// has scripts: reading the block back gives the vanilla scripts byte for byte, then the
+/// new one, then the vanilla fragment bytes; nothing else in the payload moves.
+#[test]
+#[ignore = "loads Starfield.esm; run in release"]
+fn attaching_to_a_corpus_copy_keeps_the_block() {
+    let Some(dir) = std::env::var_os("KITKRAFT_DATA_DIR")
+        .map(PathBuf::from)
+        .filter(|d| d.is_dir())
+    else {
+        println!("skipped: KITKRAFT_DATA_DIR is unset or not a directory");
+        return;
+    };
+    let load =
+        serde_json::json!({"plugins": ["Starfield.esm"], "data_dir": dir.display().to_string()});
+    let mut q = load.clone();
+    q["type"] = "REFR".into();
+    q["where"] = "has VMAD".into();
+    q["limit"] = 1.into();
+    let found = kitkraft_engine::execute("query", q).unwrap();
+    let hit = &found["data"]["results"][0];
+    let form = hit["form"].as_str().unwrap().to_string();
+    let offset = hit["offset"].as_u64().unwrap();
+    let original = vmad_at(&dir.join("Starfield.esm"), offset);
+    let before = vmad::decode(&original).unwrap();
+    assert_eq!(vmad::encode(&before).unwrap(), original);
+
+    let out_dir = std::env::temp_dir().join(format!("kitkraft-vmad-corpus-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&out_dir);
+    std::fs::create_dir_all(&out_dir).unwrap();
+    let into = out_dir.join("Attach.esp");
+    let mut set = load.clone();
+    set["form"] = form.clone().into();
+    set["into"] = into.display().to_string().into();
+    set["fields"] = serde_json::json!({});
+    set["scripts"] = serde_json::json!([{"name": "DefaultDisableHavokOnLoad"}]);
+    let r = kitkraft_engine::execute("set", set).unwrap();
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        serde_json::json!(true),
+        "{:#}",
+        r["data"]
+    );
+    let written = r["data"]["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["form"] == serde_json::json!(form))
+        .unwrap()["offset"]
+        .as_u64()
+        .unwrap();
+    let after = vmad::decode(&vmad_at(&into, written)).unwrap();
+    let n = before.scripts.len();
+    assert_eq!(after.scripts.get(..n).unwrap(), before.scripts.as_slice());
+    assert_eq!(after.scripts.len(), n + 1);
+    assert_eq!(after.scripts[n].name_text(), "DefaultDisableHavokOnLoad");
+    assert_eq!(after.rest, before.rest);
+    // The new block is the vanilla one with the script appended, re-encoded.
+    let mut expected = before.clone();
+    expected.scripts.push(after.scripts[n].clone());
+    assert_eq!(vmad_at(&into, written), vmad::encode(&expected).unwrap());
+    println!(
+        "{form}: {} vanilla script(s) kept, {} fragment byte(s) kept, 1 attached",
+        n,
+        before.rest.len()
+    );
+    let _ = std::fs::remove_dir_all(&out_dir);
+}

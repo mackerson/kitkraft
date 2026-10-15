@@ -1,0 +1,23 @@
+# W6 recipe (M4.E9): a script compiled by kit, attached to a new reference, runs on an
+# event chosen from `kit papyrus events` output.
+# Compile first (docs/recipes/scripts.md), so that out/recipes/Scripts/KitKraft/
+# HelloOnLoad.pex sits next to the plugin; then:
+# kit build docs/recipes/scripts.toml out/recipes/KitKraftScripts.esm
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[place]]
+# ActivatorSwitch01 ("Switch"), an ACTI with a model and no script of its own.
+base = "Starfield.esm:03CCF4"
+# CityNewAtlantisFreestarEmbassy, the interior the actors recipe also uses.
+cell = "Starfield.esm:017307"
+position = [4.0, 4.0, 0.0]
+edid = "KitKraftHelloSwitch"
+brief = "W6"
+# KitKraft:HelloOnLoad (docs/recipes/scripts/KitKraft/HelloOnLoad.psc): OnLoad shows Text
+# Times times. Property names and types are checked against the compiled script.
+scripts = [
+  { name = "KitKraft:HelloOnLoad", properties = { Text = "KitKraft: hello from a script attached by kit", Times = 2 } },
+]

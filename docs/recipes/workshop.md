@@ -74,5 +74,8 @@ so the steps below are the plan.
 
 - Whether the menu reads the category from `BNAM`, `FNAM` or both (the clone keeps both
   equal, as the vanilla recipe has them): CK question 1 in the family doc.
-- What record flag `0x04000000` on a recipe means (it tracks a form-list `CNAM` in the
-  sample; upstream's name for it is not checked here).
+- What record flag `0x04000000` on a recipe means. Over the 548 outpost recipes of
+  `Starfield.esm` (winners): all 138 whose `CNAM` is a form list carry it, and 11 of the
+  410 others (7 `STAT`, 2 `PKIN`, a `TERM`, a `CONT`) do too (`kit inspect` of every
+  recipe the 17 `OutpostCategory*` keywords file, and of its `CNAM`). The clone keeps the
+  vanilla recipe's flags (0); upstream's name for the bit is not checked here.

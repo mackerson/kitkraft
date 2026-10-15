@@ -7,6 +7,7 @@
 //! next to the plugin, then in `data_dir`; their headers are read for flags and their
 //! records indexed when a rule needs them. Rules and their sources: `docs/validate.md`.
 
+pub mod attached;
 pub mod cells;
 #[cfg(test)]
 mod cells_tests;
@@ -164,6 +165,18 @@ pub const RULES: &[RuleInfo] = &[
         summary: "A compressed body that does not decompress, lstring payloads that do not fit the localized flag, a HEDR count that fits neither corpus meaning (warning)",
     },
     RuleInfo {
+        id: "papyrus.missing-script",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A script attached through VMAD has no .pex in loose Scripts next to the plugin or in Data, the plugin's archives, or the archives of its masters (M4.E9)",
+    },
+    RuleInfo {
+        id: "papyrus.property-unresolved",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A VMAD property the attached script and its parents do not declare, or whose stored type differs from the declaration (M4.E9); object values are FormIDs, checked by formid.dangling",
+    },
+    RuleInfo {
         id: "papyrus.denylisted-call",
         severity: Severity::Warning,
         input: Input::Scripts,
@@ -215,6 +228,10 @@ pub struct Options {
     /// Record indexes already built (lane D's load order): lower-case file name ->
     /// every stored FormID with its record offset. Plugins not listed are indexed here.
     pub indexed: HashMap<String, Arc<HashMap<u32, u64>>>,
+    /// Where the plugin will live, when `plugin` is a staged copy: loose `Scripts` next to
+    /// it and its `<stem> - *.ba2` archives are where the papyrus rules look for attached
+    /// scripts (default: `plugin` itself).
+    pub scripts_home: Option<PathBuf>,
 }
 
 /// A master as found.
@@ -412,6 +429,8 @@ struct Pass<'a> {
     limits: DecodeLimits,
     /// What the cell rules collect.
     cells: cells::Facts,
+    /// Scripts attached through VMAD, for the papyrus rules (checked after the walk).
+    attached: Vec<attached::Attached>,
 }
 
 impl Pass<'_> {
@@ -493,6 +512,8 @@ fn validate_plugin(
                 | "cell.missing-parent"
                 | "ref.orphan"
                 | "navmesh.unchanged"
+                | "papyrus.missing-script"
+                | "papyrus.property-unresolved"
         )
     });
 
@@ -628,6 +649,7 @@ fn validate_plugin(
         layouts: HashMap::new(),
         limits: options.limits,
         cells: cells::Facts::default(),
+        attached: Vec::new(),
     };
 
     let mut hedr: Option<u32> = None;
@@ -650,6 +672,20 @@ fn validate_plugin(
     .map_err(|e| format!("{name}: {e}"))?;
     if cells::Facts::any(&pass) {
         cells::finish(&pass, path, &mut findings, &mut report.limitations);
+    }
+    if !pass.attached.is_empty() {
+        let masters: Vec<PathBuf> = pass.files.values().filter_map(|f| f.path.clone()).collect();
+        let home = options.scripts_home.as_deref().unwrap_or(path);
+        let mut sources = attached::Sources::new(Some(home), &masters, options.data_dir.as_deref());
+        attached::check(
+            &pass.attached,
+            &mut sources,
+            &pass.name,
+            pass.on("papyrus.missing-script"),
+            pass.on("papyrus.property-unresolved"),
+            &mut findings,
+            &mut report.limitations,
+        );
     }
     report.records = stats.0;
     report.groups = stats.1;
@@ -880,6 +916,53 @@ fn check_record(
         }
     }
 
+    // Scripts attached through VMAD (M4.E9): names and properties go to the papyrus rules
+    // after the walk, with what the previous version in load order already attaches (an
+    // override carries those as they were: a warning, not an error).
+    let papyrus = pass.on("papyrus.missing-script") || pass.on("papyrus.property-unresolved");
+    if papyrus {
+        for s in subs.iter().filter(|s| s.signature() == Signature(*b"VMAD")) {
+            match crate::edit::vmad::decode(s.data()) {
+                Ok(v) => {
+                    let mut a = attached::Attached::from_vmad(&id, sub_offset(s), &v);
+                    if let Target::Form {
+                        owner,
+                        object_id,
+                        master_index,
+                    } = &header
+                    {
+                        if *master_index < pass.space.masters.len() {
+                            if let Some((plugin, prev)) =
+                                previous_record(pass, owner, *object_id, *master_index)
+                            {
+                                let earlier = prev
+                                    .subrecords()
+                                    .and_then(|subs| {
+                                        subs.iter()
+                                            .find(|x| x.signature() == Signature(*b"VMAD"))
+                                            .map(|x| x.data().to_vec())
+                                    })
+                                    .and_then(|d| crate::edit::vmad::decode(&d).ok());
+                                if let Some(e) = earlier {
+                                    a.inherit(&plugin, &e);
+                                }
+                            }
+                        }
+                    }
+                    pass.attached.push(a);
+                }
+                Err(e) => push(
+                    findings,
+                    "papyrus.property-unresolved",
+                    Severity::Warning,
+                    Some("VMAD".into()),
+                    sub_offset(s),
+                    format!("the VMAD script list does not decode ({e}); its scripts and properties are not checked"),
+                ),
+            }
+        }
+    }
+
     // lstrings: shapes (record.flags-body) and copied IDs (lstring.copied-id).
     let master_localized = match &header {
         Target::Form { owner, .. } if !owner.eq_ignore_ascii_case(&pass.name) => pass
@@ -1021,6 +1104,21 @@ fn previous_has(
     owner_index: usize,
     wanted: [u8; 4],
 ) -> Option<(String, bool)> {
+    let (name, record) = previous_record(pass, owner, object_id, owner_index)?;
+    let has = record
+        .subrecords()
+        .is_some_and(|subs| subs.iter().any(|s| s.signature().0 == wanted));
+    Some((name, has))
+}
+
+/// The last of the plugin's masters, from the owner on, holding the form: its name and
+/// that version of the record (decompressed). `None` when no master's version can be read.
+fn previous_record(
+    pass: &Pass<'_>,
+    owner: &str,
+    object_id: u32,
+    owner_index: usize,
+) -> Option<(String, Record<'static>)> {
     let mut last: Option<(&MasterFile, u64)> = None;
     for (name, _) in pass.space.masters.iter().skip(owner_index) {
         let Some(file) = pass.files.get(&name.to_ascii_lowercase()) else {
@@ -1039,10 +1137,7 @@ fn previous_has(
     let (file, offset) = last?;
     let mut input = File::open(file.path.as_ref()?).ok()?;
     let record = read_record_at(&mut input, offset, Some(&pass.limits)).ok()?;
-    let has = record
-        .subrecords()
-        .is_some_and(|subs| subs.iter().any(|s| s.signature().0 == wanted));
-    Some((file.name.clone(), has))
+    Some((file.name.clone(), record))
 }
 
 /// The "no form" value and the engine-reserved rule `formid.dangling` applies, defined once

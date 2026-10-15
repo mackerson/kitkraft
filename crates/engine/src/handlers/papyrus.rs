@@ -4,7 +4,7 @@
 //! final newline) so `kit papyrus disasm x.pex` prints exactly what `pexdis.py x.pex` does.
 
 pub(super) mod compile;
-pub(super) mod events;
+pub(crate) mod events;
 mod sources;
 
 use std::fs;

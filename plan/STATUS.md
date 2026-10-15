@@ -1329,6 +1329,28 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     the patch writer once FormIDs are allocated; test
     `field_values_name_new_forms_of_the_build`). **Owner (M4.O4):** the in-game steps of
     both docs on `KitKraft Dev`, disposable save (both plugins own forms).
+  - **M4.E9 script attachment.** `edit::vmad`: the `VMAD` script list (lane BQ's
+    `ScriptAttachment` header plus scripts, properties of every type, fragment bytes kept),
+    from `wbDefinitionsSF1.pas@9fb01688#L3232-L3411`; all 12,857 official `VMAD`s
+    re-encode identically (`tests/vmad_corpus.rs`), and attaching to a corpus copy keeps
+    the vanilla scripts and fragments byte for byte. `place`, `set` and `new` take
+    `scripts = [{name, properties}]` (spec v3 `[[place]]`, `[[set]]`, `[[new]]`,
+    `[[clone]]` too; values typed by the declaration, objects as formrefs, EditorIDs, null
+    or `new:<name>`); the patch writer attaches them in its late phase (VMAD created in the
+    schema's position or updated). `validate::attached`: a script is found as loose
+    `Scripts\NS\Name.pex` (next to the target or in Data) or in the archives of the plugin
+    and the load order; declarations are the `.pex` property tables up the `extends`
+    chain, with `kit papyrus events`'s source index as fallback. Rules
+    `papyrus.missing-script` and `papyrus.property-unresolved` (**error**; **warning** when
+    an override carries the master's attachment unchanged); the same cases refuse a write.
+    The official files carry stale attachments in their own records, pinned as known
+    errors in `validate_corpus_official_files` (Starfield.esm 14 + 16, ShatteredSpace 3 +
+    13, SFBGS00D 2 + 25, SFBGS050 2 + 7, BlueprintShips-Starfield 1). Recipe
+    `docs/recipes/scripts.{md,toml}` with `KitKraft:HelloOnLoad` (ours, compiled by
+    `papyrus.compile`, OnLoad from `papyrus.events`) on a placed switch in the embassy:
+    15,297 bytes, validate 0/0, roundtrip identical. Tests through `execute`:
+    `handlers/scripts_tests.rs` (a fixture per rule, refusals, inherited warning).
+    **Owner (M4.O4):** the in-game steps in `docs/recipes/scripts.md`.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1607,6 +1629,22 @@ wins") but still the owner's to confirm:
   input name; `not_found` names the places searched.
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Lane E (M4.E9) -> lane G (`papyrus.compile`).** (1) A relative `imports` path is
+  handed to the compiler as given, and the compiler resolves it against `out_dir` (its
+  working directory): `--imports docs\recipes\scripts` failed with "Cannot use import
+  folder ...\out\recipes\Scripts\docs\recipes\scripts"; make imports (and `out_dir`)
+  absolute before the call. (2) A `.psc` path of a namespaced script
+  (`ScriptName KitKraft:HelloOnLoad` in `KitKraft\HelloOnLoad.psc`) compiles as
+  `HelloOnLoad` and the compiler refuses the name mismatch; deriving the namespace from
+  the folders below an import (or reading the `ScriptName` line) would let the path form
+  work. Workaround used in `docs/recipes/scripts.md`: the name plus an absolute import.
+- **Lane E (M4.E9) -> lane B / lane D (FYI).** Object values inside `VMAD` (43,246 in the
+  official files) are now readable through `kitkraft_engine::edit::vmad::objects`;
+  `refs` and `formid.dangling` still skip them (the schema keeps `ScriptAttachment.Data`
+  opaque). Feeding them to `formid.dangling` names reserved actor values below 0x2D0 from
+  VMAD properties (Aggression 0x2BC, Confidence 0x2BD, Assistance 0x2C1, Suspicious 0x2EC)
+  and changes the pinned reserved counts, so it was left out of M4.E9.
 
 - ~~**Lane E (M3.E9) -> lane B (M3.B9).**~~ Done (lane B round 4; used in overhaul build 2,
   `docs/overhaul/build-2.md`). The overhaul's open parts were OMOD property

@@ -746,6 +746,18 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
 - `allow_untyped_lstrings` (default `false`, CLI `--allow-untyped-lstrings`): copy
   non-zero 4-byte subrecords of unknown layout from a localized source as stored (each
   named in a limitation) instead of refusing; they may be string IDs.
+- `scripts` (M4.E9; also on `place` and `new`, and as a `scripts` key of a spec v3
+  `[[set]]`, `[[place]]`, `[[new]]` or `[[clone]]`): `[{name, properties: {Name:
+  value}}]`, attached through the record's `VMAD` (created in the schema's position, or a
+  script of the same name updated, its other properties kept). Each script must exist as
+  a `.pex` (loose `Scripts\<Namespace>\<Name>.pex` next to `into` or in Data, or an
+  archive of the load order), else `failed` with `papyrus.missing-script`; each property
+  must be declared by the script or a parent, and each value fit the declared type (a
+  number, boolean or string; a formref, EditorID or `null` for an object; in a spec,
+  `new:<name>`; arrays of these), else `papyrus.property-unresolved`. With `scripts`,
+  `fields` may be `{}`. `data.scripts[]`: `script`, `found` (where the `.pex` was read),
+  `properties[]` (`name`, `type`, `declared_in`), plus `entry` in a build; the record's
+  `fields[]` gains a `VMAD` change listing the scripts before and after.
 
 `data`: `target`, `file`, `created`, `masters`, `flags`, `bytes`, `summary`, and
 `records[]` (parents copied to hold a cell/world/topic child come first, `parent: true`)
@@ -866,7 +878,8 @@ a limitation says so and names each carried record whose winner there is another
 ### `place` (M4.E2)
 
 `place {base, position, into, cell? | world?, rotation?, persistent = false,
-initially_disabled = false, edid?, allow_reference?, plugin?, allow_untyped_lstrings}` plus
+initially_disabled = false, edid?, allow_reference?, plugin?, allow_untyped_lstrings,
+scripts?}` (`scripts` as `set`'s, attached to the new reference) plus
 the load-order arguments; CLI `kit place <base> --position "[x,y,z]" <into> --cell <CELL>`
 (or `--world <WRLD>`). A new `REFR` (`ACHR` for an `NPC_` base) with a new FormID (the
 `HEDR` next object ID advanced; full-scale plugins with full-scale masters only), in the
@@ -896,8 +909,8 @@ winning records, and every written record.
 
 ### `new`, `clone` (M4.E1)
 
-`new {type, edid, into, fields?, masters?}` and `clone {form, edid, into, fields?, plugin?,
-allow_untyped_lstrings}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
+`new {type, edid, into, fields?, masters?, scripts?}` (`scripts` as `set`'s) and `clone
+{form, edid, into, fields?, plugin?, allow_untyped_lstrings}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
 <into> --fields '{"FLTV": 1.0}' --masters Starfield.esm`, `kit clone <form> KC_Copy
 <into>`. A new base form (a type the schema defines that lives in its own top-level
 group; the schema's required members written as zeros or an empty string, each field's

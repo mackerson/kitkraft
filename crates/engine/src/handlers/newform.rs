@@ -436,11 +436,21 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
     };
     let loaded = acquire(session, args, ID)?;
     guard(ID, loaded, &into)?;
-    let (copy, notes) = plan_new(ID, loaded, &req)?;
+    let (mut copy, notes) = plan_new(ID, loaded, &req)?;
     target_edid(ID, &into, ID, &req.edid)?;
+    // Scripts to attach (M4.E9): refused here when a script or property is unknown.
+    let scripts = super::scripts::from_args(ID, args, loaded, &into)?;
+    copy.scripts = scripts.scripts;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, notes);
-    commit(ID, loaded, &into, vec![copy], false, limitations, &[])
+    extend_once(&mut limitations, scripts.limitations);
+    let mut result = commit(ID, loaded, &into, vec![copy], false, limitations, &[])?;
+    if let Some(obj) = result.data.as_object_mut() {
+        if !scripts.reports.is_empty() {
+            obj.insert("scripts".into(), Value::Array(scripts.reports));
+        }
+    }
+    Ok(result)
 }
 
 /// `clone`.

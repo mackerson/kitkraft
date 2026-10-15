@@ -1046,10 +1046,14 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let loaded = acquire(session, &json!({}), ID)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
-    let planned = plan(ID, loaded, &req, &limits)?;
+    let mut planned = plan(ID, loaded, &req, &limits)?;
     check_target_edids(ID, Some(&into), &[&req])?;
+    // Scripts to attach to the new reference (M4.E9).
+    let scripts = super::scripts::from_args(ID, args, loaded, &into)?;
+    planned.new_ref.scripts = scripts.scripts;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, planned.limitations.clone());
+    extend_once(&mut limitations, scripts.limitations);
 
     let staged = stage(ID, &into, true)?;
     let mut report = write_with(
@@ -1116,6 +1120,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             json!(report.next_object_id.map(|n| format!("{n:08X}"))),
         );
         obj.insert("validate".into(), validate_json(&checked));
+        if !scripts.reports.is_empty() {
+            obj.insert("scripts".into(), Value::Array(scripts.reports));
+        }
     }
     Ok(result)
 }

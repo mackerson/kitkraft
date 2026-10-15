@@ -77,7 +77,46 @@ const RDSA_STALE: &str = "NPC_:0018B5F4's RDSA entry (xedit wbDefinitionsSF1.pas
     entry's flags do not enable the specific reference, so it is a stale value the game \
     ignores, not a layout error (actor lane request to lane H: does the CK clear it?)";
 
+const STALE_SCRIPTS: &str = "VMAD (M4.E9, crates/engine/src/edit/vmad.rs; every official \
+    VMAD re-encodes identically) of the file's own records attaches scripts that no archive \
+    of the file or its masters holds as .pex (test and removed scripts: \
+    JS_TestScript_DeleteThis, TestElectrifiedWaterTriggerScript, PlayAnimationOnLoadScript, \
+    DestroyRefOnUnload, ...); the game logs and skips them. An override that carries such an \
+    attachment unchanged gets a warning, not an error";
+
+const STALE_PROPERTIES: &str = "VMAD (M4.E9) of the file's own records sets properties the \
+    compiled script (its .pex in the file's or a master's archive) and its parents no \
+    longer declare, e.g. RevertToOpenStateOnCellLoad.ShouldBeOpenOnReset, \
+    companioncrimeresponsescript.COM_CombatResponseCivilianList, \
+    SFBGS00D:SFBGS00DRandomEnableOnLoadScript.KeywordArray; the game logs and skips them. \
+    An override that carries such a property unchanged gets a warning, not an error";
+
+/// A papyrus rule's known errors in one official file (member `VMAD`, any value).
+const fn papyrus(plugin: &'static str, rule: &'static str, count: u64) -> Known {
+    Known {
+        plugin,
+        rule,
+        member: "VMAD",
+        value: None,
+        count,
+        evidence: if matches!(rule.as_bytes(), b"papyrus.missing-script") {
+            STALE_SCRIPTS
+        } else {
+            STALE_PROPERTIES
+        },
+    }
+}
+
 const KNOWN_ERRORS: &[Known] = &[
+    papyrus("Starfield.esm", "papyrus.missing-script", 14),
+    papyrus("Starfield.esm", "papyrus.property-unresolved", 16),
+    papyrus("BlueprintShips-Starfield.esm", "papyrus.missing-script", 1),
+    papyrus("SFBGS00D.esm", "papyrus.missing-script", 2),
+    papyrus("SFBGS00D.esm", "papyrus.property-unresolved", 25),
+    papyrus("SFBGS050.esm", "papyrus.missing-script", 2),
+    papyrus("SFBGS050.esm", "papyrus.property-unresolved", 7),
+    papyrus("ShatteredSpace.esm", "papyrus.missing-script", 3),
+    papyrus("ShatteredSpace.esm", "papyrus.property-unresolved", 13),
     dangling(
         "SFBGS050.esm",
         "PNDT.EOVR.Worldspace",

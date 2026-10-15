@@ -104,6 +104,7 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
         data_dir,
         limits: kitkraft_esm::DecodeLimits::default(),
         indexed: std::collections::HashMap::new(),
+        scripts_home: None,
     })
 }
 
