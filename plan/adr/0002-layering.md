@@ -53,6 +53,12 @@ None.
 | ---- | ------ | ----------------------------------------------------------------------------------- |
 | esm  | schema | The container decodes subrecords using definitions; schema stays container-agnostic |
 
+### Packages restricted to listed workspace dependencies (`INTERNAL_ONLY`)
+
+| Package | May depend on (workspace) | Why |
+| ------- | ------------------------- | --- |
+| ui-egui | engine | ADR 0007 Amendment 1: the workbench is a view over `Engine::execute` with no logic of its own. Reaching `doc`, `esm` or `io` directly would let it parse or resolve on its own, and would tie the swappable toolkit crate to the format crates. Checked on the resolved graph, normal and dev edges (added 2026-10-15, lane W) |
+
 ## Consequences
 
 - `io` (L3) sits above `doc` (L1): it builds a load order from an MO2 profile and hands it to

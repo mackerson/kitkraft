@@ -26,6 +26,12 @@ use crate::{banned_prefix, edge_violation, Layer, LIBRARY_BANNED, UI_TOOLKIT};
 /// illegal as a normal dependency. Every entry needs a reason in `plan/adr/0002-layering.md`.
 pub const DEV_ALLOWED: &[(&str, &str)] = &[];
 
+/// Workspace packages restricted to a fixed set of workspace dependencies (normal or dev),
+/// whatever their layers would allow. The workbench UI depends on the engine alone, so the
+/// toolkit stays swappable and every action goes through `Engine::execute` (ADR 0007
+/// Amendment 1; reason in `plan/adr/0002-layering.md`).
+pub const INTERNAL_ONLY: &[(&str, &[&str])] = &[("kitkraft-ui-egui", &["kitkraft-engine"])];
+
 /// Packages allowed to have a build script. Every entry needs an ADR: build scripts run
 /// arbitrary code at build time and can generate or pull in source the layer check never sees.
 pub const BUILD_RS_ALLOWED: &[&str] = &[];
@@ -184,6 +190,17 @@ pub fn check(
     dev_allowed: &[(&str, &str)],
     build_allowed: &[&str],
 ) -> Vec<String> {
+    check_with(graph, layers, dev_allowed, build_allowed, INTERNAL_ONLY)
+}
+
+/// [`check`] with the [`INTERNAL_ONLY`] table passed in (tests use their own).
+pub fn check_with(
+    graph: &Graph,
+    layers: &BTreeMap<String, Layer>,
+    dev_allowed: &[(&str, &str)],
+    build_allowed: &[&str],
+    internal_only: &[(&str, &[&str])],
+) -> Vec<String> {
     let mut errors = Vec::new();
 
     let member_names: BTreeSet<&str> = graph.members.iter().map(|id| graph.name(id)).collect();
@@ -234,6 +251,21 @@ pub fn check(
                             graph.chain(&parents, reached)
                         ));
                     }
+                }
+            }
+        }
+
+        if let Some((_, allowed)) = internal_only.iter().find(|(n, _)| *n == name) {
+            let direct = graph.normal.get(id).into_iter().flatten();
+            let dev = graph.dev.get(id).into_iter().flatten();
+            let mut seen = BTreeSet::new();
+            for dep_id in direct.chain(dev) {
+                let dep = graph.name(dep_id);
+                if layers.contains_key(dep) && !allowed.contains(&dep) && seen.insert(dep) {
+                    errors.push(format!(
+                        "`{name}` may depend only on {} among workspace crates (INTERNAL_ONLY), not `{dep}`",
+                        allowed.join(", ")
+                    ));
                 }
             }
         }
@@ -289,7 +321,7 @@ mod tests {
 
     use serde_json::{json, Value};
 
-    use super::{check, Graph};
+    use super::{check, check_with, Graph};
     use crate::Layer;
 
     /// Edge kinds in fixtures.
@@ -502,5 +534,35 @@ mod tests {
             &[],
         );
         assert_eq!(errors.len(), 2, "{errors:?}");
+    }
+
+    #[test]
+    fn internal_only_packages_reach_only_their_listed_workspace_crates() {
+        let graph = fixture(
+            &[("ui", LIB), ("engine", LIB), ("doc", LIB)],
+            &["eframe"],
+            &[
+                ("ui", "engine", N),
+                ("ui", "eframe", N),
+                ("ui", "doc", DEV),
+                ("engine", "doc", N),
+            ],
+        );
+        let l = layers(&[
+            ("ui", Layer::L(5)),
+            ("engine", Layer::L(4)),
+            ("doc", Layer::L(1)),
+        ]);
+        let table: &[(&str, &[&str])] = &[("ui", &["engine"])];
+        let errors = check_with(&graph, &l, &[], &[], table);
+        assert_eq!(errors.len(), 1, "{errors:?}");
+        assert!(errors[0].contains("`doc`"), "{errors:?}");
+        // Without the table the same graph is legal (L5 -> L1 is downward).
+        assert!(check_with(&graph, &l, &[], &[], &[]).is_empty());
+        // The real table names the workbench and only the engine.
+        assert_eq!(
+            super::INTERNAL_ONLY,
+            &[("kitkraft-ui-egui", &["kitkraft-engine"][..])]
+        );
     }
 }
