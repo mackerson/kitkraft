@@ -4,11 +4,14 @@
 
 pub mod diag;
 pub mod diff;
+pub mod help;
+pub mod ledger;
 pub mod links;
 pub mod load;
 pub mod planet;
 pub mod records;
 pub mod schema;
+pub mod start;
 pub mod validate;
 
 use serde_json::{Map, Value};

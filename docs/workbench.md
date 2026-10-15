@@ -3,7 +3,9 @@
 The workbench is a read-only egui window over `Engine::execute` (ADR 0007 Amendment 1,
 plan M4 lane W). It is a way to look at the data, not a second implementation of anything.
 Each view runs one engine command, or a fixed sequence of commands, and shows the result
-envelope. The full authoring UI is M5.
+envelope. The full authoring UI is M5. One write is permitted (Amendment 2): the Ledger
+tab appends the owner's in-game result as a row of `docs/game-observations.md`, a repo
+doc, one confirm click per row.
 
 ## Launch
 
@@ -28,7 +30,9 @@ so when it starts.
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
 also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The
 arguments are the same as for `kit mcp`. When they are given, the window opens with a
-`load`.
+`load`. With none (`kit ui` alone, or a double click on `kit-ui.exe`), it opens on the
+**Start** tab: the MO2 instance, a Data-dir line, and one load button per profile (see
+"Panels").
 
 `kit-ui.exe` is a console program, so started from Explorer or a shortcut it opens a
 console window next to the workbench. That window shows the debug-build warning and any
@@ -49,22 +53,32 @@ temp file; the next start removes it.
 checked against its allowlist by canonical id, so an alias cannot get around it:
 
 - **Allowed:** `load`, `inspect`, `query`, `diff`, `conflicts`, `validate`, `coverage`,
-  `schema`, `refs` and `planet`, none of which the catalog marks `writes`. (`refs
-  --incoming` fills the engine's reverse-link cache, as `load` fills the index cache.)
+  `schema`, `refs`, `planet` and `profiles`, none of which the catalog marks `writes`.
+  (`refs --incoming` fills the engine's reverse-link cache, as `load` fills the index
+  cache.)
 - **Guarded:** `roundtrip`, which writes with `out`, runs only with `verify: true`, and never
   with `out` or `overwrite`.
+- **The one permitted write** (`gate::PERMITTED_WRITE`, ADR 0007 Amendment 2): `ledger`.
+  Without `confirm` it is a preview and passes like a read. With `confirm: true` it passes
+  only as a request built by `Request::confirmed`, which only the Ledger tab's confirm
+  button makes, one per click. The engine itself refuses any file but
+  `<checkout>\docs\game-observations.md` and the `Default` profile.
 - **Refused before the engine sees the request:** every other catalog command and alias.
   That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
   `package`, `deploy*`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*` and
   `papyrus.*`.
 
-Tests enforce this in four ways:
+Tests enforce this in five ways:
 
 - Each catalog command must be classified as allowed, writing, or unused read-only.
 - The allowlist must hold no command the catalog marks `writes`, the gate's writing list
   must equal the catalog's `writes` set, and a guarded command must refuse its writing
-  arguments.
-- Every refused id and alias is tried, and each must be refused.
+  arguments. The writing commands the workbench can run unguarded must be exactly
+  `{ledger}`.
+- Every refused id and alias is tried, and each must be refused (`ledger` in its writing
+  form, unconfirmed). A confirmed request for any other command is refused.
+- A scan of the crate's sources allows `Request::confirmed` only in `gate.rs` and the
+  Ledger panel (`panels/ledger.rs`).
 - A scan of every source file and integration test except `gate.rs` denies the engine
   crate's name (`kitkraft_engine`), so a renamed import (`use ... {execute as go}`) or a
   glob import cannot reach the engine around the gate, as well as `Engine` and the
@@ -73,9 +87,17 @@ Tests enforce this in four ways:
 On top of that, `cargo xtask layers` checks that `kitkraft-ui-egui` depends on no workspace
 crate except `kitkraft-engine` (`INTERNAL_ONLY`).
 
-The workbench writes nothing itself. The one exception is the screenshot tour below, which
-writes image files only when you set its environment variable. `load` still fills the
-engine's own index cache, as it does for the CLI and MCP.
+What the workbench writes, all of it:
+
+- **The UI prefs file**, `%LOCALAPPDATA%\kitkraft\ui.json`: the MO2 instance and profile
+  last loaded from the Start tab, and the checkout set on the Help tab. It is the only file
+  the window writes on its own, only when one of those buttons is clicked, and it is UI
+  state, not game data: no plugin, profile file or game folder is named or touched. Delete
+  it to forget the choices.
+- **The ledger row**, written by the engine's `ledger` command on a confirm click (above).
+- **Screenshots**, only when you set the tour's environment variable (below).
+
+`load` still fills the engine's own index cache, as it does for the CLI and MCP.
 
 ## Every result looks the same
 
@@ -117,6 +139,25 @@ $env:KITKRAFT_WORKBENCH_PROFILE = 'C:\Modding\MO2-Starfield\profiles\KitKraft De
 cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocapture
 ```
 
+- **Start** (`profiles`; the first tab, and the one shown when `kit-ui` starts without
+  arguments)
+  - The MO2 instance, as the engine's read-only `profiles` command finds it: the launcher's
+    profile names its instance, else the one last used (UI prefs), else the engine looks at
+    `KITKRAFT_MO2_DIR`, `%LOCALAPPDATA%\ModOrganizer` and `C:\Modding\MO2-Starfield`
+    ("places searched" lists each). A different instance can be typed in; "Look again"
+    reruns the command. Lane F's `kit doctor` will take over detection.
+  - A Data-dir line: the instance's `gamePath` + `Data` (else `KITKRAFT_DATA_DIR`), and
+    whether `Starfield.esm` is there.
+  - One button per profile, each a read-only `load`. `Default` is marked "owner's live
+    game, read-only"; `KitKraft Dev` "in-game checks run here"; MO2's selected profile and
+    the last one used are noted. A click loads the profile, opens the Load tab and writes
+    the choice to the UI prefs file.
+  - On the dev box (screenshot tour, 2026-10-15): `C:\Modding\MO2-Starfield`, 3 profiles
+    (`Default` marked live, `KitKraft Stack`, `Kitkraft Dev` marked as the dev profile and
+    MO2's selected one; the dev match ignores case), Data
+    `C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data` from the instance's
+    `gamePath`, `Starfield.esm` found. The Ledger tour preview of `C3` named entry
+    `game-20261015-01` (new) and wrote nothing; the Help tab rendered all four sections.
 - **Load** (`load`)
   - Takes a profile or a plugin list.
   - The profile picker only lists the folders under an MO2 `profiles` directory. `Default`
@@ -210,6 +251,32 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     unconfirmed) and source. Evidence citations and notes appear on hover.
   - With no type, it lists every definition, and clicking one opens it.
   - WEAP: 64 subrecord definitions (62 typed, 2 opaque; 9 `reference`), 322 rows deep.
+- **Ledger** (`ledger`; the one write, ADR 0007 Amendment 2)
+  - Records one in-game result in `docs/game-observations.md` of the checkout the Help tab
+    found: the row (`C1`..`C14`, `POI`, `persistence`, `custom` with a label), `pass`,
+    `fail` or `note`, the FormIDs (commas), what was seen, the profile (default `KitKraft
+    Dev`; the engine refuses `Default`) and the date (empty: today in UTC).
+  - For `C<n>` and `POI` it shows the ledger's own template row (`O5-<nn>`, `O2-06`): the
+    check and what it expects. "from template" fills in that row's FormIDs.
+  - **Preview** runs `ledger` without `confirm` and shows the text it would append, and
+    which entry it goes into (`game-<yyyymmdd>-<nn>: workbench ledger, <date>, <profile>`,
+    new or continued). Nothing is written.
+  - **Append to the ledger...** opens a confirm box with the row as it will be written.
+    **Confirm: append** sends the one confirmed request; each row needs its own click, and
+    the note is cleared after a successful append. The kit line under the result is the
+    CLI form (`kit ledger C3 pass --forms ... --confirm`).
+- **Help** (no command)
+  - The owner's QA material, read from the checkout's docs when the window opens or on
+    Reload: "Owner next actions" (`plan/STATUS.md`), overhaul build 2 "In game"
+    (`docs/overhaul/build-2.md`: install steps, the `player.additem` table, checklist
+    C1..C14), the first POI's "In-game test plan" (`docs/poi/first-poi.md`) and the
+    "Persistence protocol" (`docs/game-observations.md`).
+  - Plain rendering: headings, paragraphs, lists, tables, code blocks. A click on any code
+    (a `player.additem` line, a FormID, a batch line) copies it.
+  - The checkout is, in order: the one set here ("Use this checkout", kept in the UI prefs),
+    `KITKRAFT_REPO_DIR`, the folders above `kit-ui.exe` (a build under the checkout's
+    `target`), the folders above the working directory. A test fails when a doc loses one
+    of these sections.
 
 ## Screenshot tour (development aid)
 
@@ -222,8 +289,14 @@ runs these read-only requests:
 4. `coverage`, `conflicts`, `validate` and `roundtrip --verify` on the biggest plugin the
    profile activates.
 5. `schema --deep WEAP`.
+6. `profiles` for the profile's instance (the Start tab, as at every start).
+7. A `ledger` preview of `C3` with the template's FormIDs, and the confirm box open. The
+   tour never clicks it: nothing is written.
 
-It then saves `<dir>/<tab>.bmp` for each tab and closes. Keep the images outside the repo.
+A minimized window does not repaint, so the tour waits until it is restored (seen
+2026-10-15: started from a background shell, the window opened minimized). The Help tab
+shows the docs as read at start. It then saves `<dir>/<tab>.bmp` for each
+tab (`start`, `load`, ..., `ledger`, `help`) and closes. Keep the images outside the repo.
 The tour refuses a `<dir>` that is, or is inside, the game's Data folder, the user Data
 folder (`Documents\My Games\Starfield\Data`), an MO2 instance or profile, or that passes
 through a link (the engine's own output guard); the window then says why and runs no tour.

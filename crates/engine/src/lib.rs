@@ -458,6 +458,27 @@ static CATALOG: &[CommandSpec] = &[
         writes: false,
         status: Status::Implemented,
     },
+        id: "profiles",
+        label: "MO2 Profiles",
+        menu_path: "File/MO2 Profiles",
+        shortcut: None,
+        aliases: &[],
+        summary: "Read-only: the MO2 instance (given, or found through KITKRAFT_MO2_DIR, %LOCALAPPDATA%\\ModOrganizer or the dev box's C:\\Modding\\MO2-Starfield), its profiles with the owner's live game `Default` marked, and the Data folder a profile load would use",
+        args_schema: r#"{"type":"object","properties":{"instance":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); omitted: the first instance found"},"data_dir":{"type":"string","description":"Game Data dir to report instead of the instance's (default: gamePath + Data, then KITKRAFT_DATA_DIR)"}},"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "ledger",
+        label: "Record In-Game Result...",
+        menu_path: "File/Record In-Game Result...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Append one dated pass/fail/note row (with FormIDs) to the in-game ledger docs/game-observations.md, under a workbench entry for the day and profile; refuses every other path and the Default profile; without confirm it only returns the row",
+        args_schema: r#"{"type":"object","properties":{"row":{"type":"string","enum":["C1","C2","C3","C4","C5","C6","C7","C8","C9","C10","C11","C12","C13","C14","POI","persistence","custom"],"description":"Which check: overhaul build 2 C1..C14, the first POI, the persistence protocol, or custom (with label)"},"result":{"type":"string","enum":["pass","fail","note"]},"forms":{"type":"array","items":{"type":"string","minLength":1,"maxLength":120},"maxItems":32,"description":"FormIDs (Plugin.esm:XXXXXX), runtime IDs or EditorIDs the check looked at"},"note":{"type":"string","maxLength":2000,"description":"What was seen (required for result note)"},"label":{"type":"string","maxLength":200,"description":"What was checked (required for row custom)"},"date":{"type":"string","minLength":10,"maxLength":10,"description":"yyyy-mm-dd (default: today in UTC)"},"profile":{"type":"string","default":"KitKraft Dev","description":"The MO2 profile the check ran on; Default (the owner's live game) is refused"},"file":{"type":"string","description":"The ledger, <checkout>/docs/game-observations.md (default docs/game-observations.md under the working directory); any other path is refused"},"confirm":{"type":"boolean","default":false,"description":"Append the row; without it nothing is written and the text is returned"}},"required":["row","result"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
 ];
 
 #[cfg(test)]
@@ -557,6 +578,7 @@ mod tests {
             "strings.merge",
             "deploy",
             "deploy.rollback",
+            "ledger",
         ]
         .into_iter()
         .collect();

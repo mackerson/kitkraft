@@ -2,7 +2,9 @@
 
 - Status: **ACCEPTED-WITH-SCOPE** (owner ruling 2026-10-14, M3.O6; see "Amendment 1"
   at the end: a minimal read-only developer workbench after M4's inspection APIs
-  stabilize, the full authoring UI in M5). Was: Proposed.
+  stabilize, the full authoring UI in M5). Was: Proposed. "Amendment 2" (2026-10-15):
+  one permitted write, the `ledger` row in `docs/game-observations.md`, confirmed per
+  click.
 - Date: 2026-10-14
 - Scope: `crates/ui-egui` (L5, not created), `apps/kit` (APP, not created), a `kit ui`
   launcher in `apps/kit-cli`
@@ -248,3 +250,39 @@ Build and test cost on the dev box: a clean debug build of the eframe tree takes
 36 s (in parallel with the rest of the workspace); `cargo xtask ci` with a warm target dir
 and the corpus available took 271 s, of which the `kitkraft-ui-egui` and `kit` tests are
 under 1 s (view-models against canned envelopes, the gate, the worker; no window is opened).
+
+## Amendment 2: the ledger is the single permitted write, to a repo doc, confirmed per click (lane W, 2026-10-15)
+
+Amendment 1 made the workbench read-only. The owner's in-game QA (lane W's "human QA"
+wave) needs one exception, so the results seen in game land where the plan reads them
+without a hand edit: a row of the in-game ledger, `docs/game-observations.md`.
+
+- **What may be written.** Exactly one catalog command runs in a writing form from the
+  workbench: `ledger` (`writes: true`). It appends one dated row (check `C1`..`C14`,
+  `POI`, `persistence` or `custom`; `pass`, `fail` or `note`; FormIDs; what was seen) to
+  `docs/game-observations.md`, under an entry `game-<yyyymmdd>-<nn>: workbench ledger,
+  <date>, <profile>` at the end of the file. It never rewrites what is there. The engine
+  refuses every other path (the file must be named so, in `docs`, next to the checkout's
+  `AGENTS.md`, start with the ledger's title and have its `## Ledger` section, be reached
+  through no link, and lie outside the game, the user Data folder and MO2) and the
+  `Default` profile as the profile a check ran on. It is a repo doc, never game data.
+- **Confirmed per click.** Without `confirm: true`, `ledger` writes nothing and returns
+  the text it would append (the panel's Preview); the gate lets that through like any
+  read. The writing form passes the gate (`gate::PERMITTED_WRITE`) only in a request
+  built by `Request::confirmed`, which only the Ledger panel's confirm button makes, once
+  per click; a test scans the crate's sources for it. A confirmed request for any other
+  command is refused.
+- **Still through `Engine::execute`.** The panel builds `(id, args)` and the engine does
+  the work, as for every other view; the CLI (`kit ledger ... --confirm`) and MCP reach the
+  same command.
+- **The gate's disjointness test** now holds: the allowlist has no writing command,
+  `WRITING` equals the catalog's `writes` set, guarded commands refuse their writing
+  arguments, and the set of writing commands the workbench can run unguarded is exactly
+  `{ledger}`.
+- **UI state is not a write of this kind.** The window remembers the start screen's last
+  profile and the docs checkout in `%LOCALAPPDATA%\kitkraft\ui.json` (the "UI-only
+  setting" of "Rules any option keeps"). The Help tab reads the repo's docs (text, not
+  game data) to show the owner's QA material; it runs no command and writes nothing.
+
+Everything else in Amendment 1 stands: no `set`, `build` output, `package`, `deploy` or
+other writing command, and no form for one, until the M5 authoring UI.

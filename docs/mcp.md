@@ -991,6 +991,37 @@ Dev`), `load_order_source`, `load_index`, `appended`, `runtime_id_basis`
 (`command`, `why`), `forms[]` (`signature`, `form_id`, `new`, `editor_id`, `runtime_id`,
 `runtime_id_basis`, `base`, `cell`, `position`, `persistent`), `summary`.
 
+### `profiles` (lane W; CLI `kit profiles [--instance <dir>]`)
+
+Read-only. `profiles {instance?, data_dir?}`: the MO2 instance and its profiles, for the
+workbench's start screen. Without `instance` it looks, in order, at `KITKRAFT_MO2_DIR`,
+every instance under `%LOCALAPPDATA%\ModOrganizer` whose `gameName` is Starfield, and
+`C:\Modding\MO2-Starfield` (the dev box's portable instance); the first that holds a
+`ModOrganizer.ini` wins. `data`: `instance` (`root`, `found_by`, `game_name`, `game_dir`,
+`profiles_dir`, `mods_dir`, `selected_profile`; `null` when none was found), `searched[]`
+(`path`, `source`, `found`), `profiles[]` (`name`, `path`, `live` for `Default`, the owner's
+live game, `dev` for `KitKraft Dev`, `selected`, `plugins_txt`), `data_dir` (`path`,
+`source`: `argument`, `instance gamePath` or `KITKRAFT_DATA_DIR`; `exists`,
+`starfield_esm`), `summary`. Nothing is written, created or followed.
+
+### `ledger` (lane W; CLI `kit ledger <row> <result> [--forms ...] [--note ...] [--confirm]`)
+
+`ledger {row, result, forms?, note?, label?, date?, profile?, file?, confirm?}`. `row` is
+`C1`..`C14` (overhaul build 2), `POI`, `persistence` or `custom` (needs `label`);
+`result` is `pass`, `fail` or `note` (needs `note`). Appends one row `| Row | Step |
+Forms | Expected | Seen | Result |` to `docs/game-observations.md` (`file`, default
+`docs/game-observations.md` under the working directory), under the entry
+`### game-<yyyymmdd>-<nn>: workbench ledger, <date>, <profile>`: the row joins that entry's
+table when the file ends with it, else a new entry is appended (next free `nn` for the
+date). It only appends. Refused: any file but `<checkout>/docs/game-observations.md` (named
+so, in `docs`, next to `AGENTS.md`, starting with `# Game observations`, holding
+`## Ledger`, through no link, outside the game, user Data and MO2), and `profile`
+`Default`. `date` defaults to today in UTC (a limitation says so). Without `confirm: true`
+nothing is written (a limitation says so) and the text is returned. `data`: `file`,
+`entry`, `new_entry`, `row`, `text`, `appended`, `offset`, `length`, `date`, `profile`,
+`summary`; evidence: the appended range when written. The workbench's Ledger panel is the
+one writing view (ADR 0007 Amendment 2).
+
 ### `refs` (M4.D1; CLI `kit refs <form>`, alias `useinfo`)
 
 Arguments `{form, incoming = false, depth = 1 (max 6), scope = "winner" | "all", types?,

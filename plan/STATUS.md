@@ -1288,6 +1288,20 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   clean, recorded in `docs/corpus.md`). No panic or
   allocation blow-up found, so no parser change; results in `docs/corpus.md`, "Hostile
   input"; `docs/gaps.md` fuzzing row restated (cargo-fuzz still needs nightly).
+- **Lane W, human QA wave (2026-10-15).** The workbench now carries the owner's in-game
+  QA: a **Start** tab (shown when `kit ui` has no arguments) lists the MO2 instance, its
+  profiles (`Default` marked "owner's live game, read-only") and the Data dir, from a new
+  read-only engine command `profiles` (stopgap detection until lane F's `doctor`), with one
+  load button per profile and the last choice kept in `%LOCALAPPDATA%\kitkraft\ui.json`
+  (UI prefs, the only file the window writes on its own); a **Help** tab renders the
+  owner next actions, overhaul build 2's in-game steps and checklist C1..C14 (copyable
+  `player.additem` lines), the first POI's steps and the persistence protocol from the
+  repo docs at runtime; a **Ledger** tab records a result through the new engine command
+  `ledger` (`writes: true`; appends a dated row to `docs/game-observations.md` only,
+  refuses any other path and `Default`), the one permitted write, confirmed per click
+  (ADR 0007 Amendment 2; `gate::PERMITTED_WRITE`, `Request::confirmed`). Screenshot tour
+  re-run on `KitKraft Dev` with the new tabs (images outside the repo);
+  `docs/workbench.md` and `docs/mcp.md` updated.
 - **Lane W, M4.W1..W6 (read-only workbench, 2026-10-15; the owner started it the same
   day).**
   - What exists:
