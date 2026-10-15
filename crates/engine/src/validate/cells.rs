@@ -46,6 +46,12 @@ pub(super) struct Facts {
     pub interior_cells: u32,
     /// Exterior cells seen: stored FormID -> grid.
     exterior: HashMap<u32, Grid>,
+    /// Exterior cells seen by (world, grid), stored FormIDs.
+    exterior_at: HashMap<(u32, Grid), u32>,
+    /// `ACHR`s in a world's persistent cell: (world, grid of the `DATA` position, `SIG:FORMID`).
+    /// The persistent cell holds no navmesh; the actor stands in the exterior cell its
+    /// position names.
+    world_actors: Vec<(u32, Option<Grid>, String)>,
     /// References (`REFR`, `ACHR`) in temporary children: stored FormID -> `SIG:FORMID`.
     temporary: HashMap<u32, String>,
     /// FormIDs named by quests, scenes, packages and dialogue ([`NAMING_TYPES`]), or by a
@@ -170,6 +176,27 @@ fn children_of(path: &[GroupHeader]) -> Option<(u32, i32)> {
     .then(|| (last.label_u32(), last.group_type))
 }
 
+/// The world whose persistent cell holds the children group at the end of `path` (world
+/// children > cell children > persistent or temporary children), if it is one.
+fn world_persistent_cell(path: &[GroupHeader]) -> Option<u32> {
+    let n = path.len();
+    let world = path.get(n.checked_sub(3)?)?;
+    let cell = path.get(n.checked_sub(2)?)?;
+    (world.group_type == group_type::WORLD_CHILDREN && cell.group_type == group_type::CELL_CHILDREN)
+        .then(|| world.label_u32())
+}
+
+/// The x and y of a reference's `DATA` position.
+fn position_xy(subs: &[Subrecord<'_>]) -> Option<(f32, f32)> {
+    let data = sub(subs, b"DATA")?.data();
+    let f = |i: usize| {
+        data.get(i..i.saturating_add(4))
+            .and_then(|b| <[u8; 4]>::try_from(b).ok())
+            .map(f32::from_le_bytes)
+    };
+    Some((f(0)?, f(4)?))
+}
+
 /// The record rules for one record (see the module docs). `subs` are its subrecords
 /// (decompressed); `id` is `SIG:FORMID`.
 pub(super) fn on_record(
@@ -239,10 +266,18 @@ pub(super) fn on_record(
             .insert(r.header.form_id, id.to_string());
     }
     if sig == Signature(*b"ACHR") && !deleted {
-        pass.cells
-            .actors
-            .entry(cell)
-            .or_insert_with(|| id.to_string());
+        match world_persistent_cell(path) {
+            Some(world) => {
+                let grid = position_xy(subs).and_then(|(x, y)| Grid::of_position(x, y));
+                pass.cells.world_actors.push((world, grid, id.to_string()));
+            }
+            None => {
+                pass.cells
+                    .actors
+                    .entry(cell)
+                    .or_insert_with(|| id.to_string());
+            }
+        }
     }
     if sig == Signature(*b"REFR") || sig == Signature(*b"ACHR") {
         if let Some(xtel) = sub(subs, b"XTEL").and_then(|s| s.data().get(0..4)) {
@@ -362,12 +397,23 @@ fn cell_record(
             ),
         ));
     }
-    if !pass.on("ref.outside-block") {
-        if parent == Some(group_type::EXTERIOR_SUB_BLOCK) {
-            if let Some(grid) = sub(subs, b"XCLC").and_then(|s| Grid::from_xclc(s.data())) {
+    if parent == Some(group_type::EXTERIOR_SUB_BLOCK) {
+        if let Some(grid) = sub(subs, b"XCLC").and_then(|s| Grid::from_xclc(s.data())) {
+            if let Some(world) = path
+                .iter()
+                .find(|g| g.group_type == group_type::WORLD_CHILDREN)
+            {
+                pass.cells
+                    .exterior_at
+                    .entry((world.label_u32(), grid))
+                    .or_insert(form_id);
+            }
+            if !pass.on("ref.outside-block") {
                 pass.cells.exterior.insert(form_id, grid);
             }
         }
+    }
+    if !pass.on("ref.outside-block") {
         return;
     }
     let mut wrong: Option<String> = None;
@@ -523,7 +569,12 @@ pub(super) fn named_by(pass: &mut Pass<'_>, id: &str, sig: Signature, path: &str
 
 /// The rules that need the whole plugin: `ref.persistence`, `cell.actor-without-navmesh`,
 /// `cell.incc`.
-pub(super) fn finish(pass: &Pass<'_>, plugin: &Path, findings: &mut Vec<Finding>) {
+pub(super) fn finish(
+    pass: &Pass<'_>,
+    plugin: &Path,
+    findings: &mut Vec<Finding>,
+    limitations: &mut Vec<String>,
+) {
     if pass.on("ref.persistence") {
         let mut hits: Vec<(&u32, &String, &(String, String))> = pass
             .cells
@@ -573,6 +624,7 @@ pub(super) fn finish(pass: &Pass<'_>, plugin: &Path, findings: &mut Vec<Finding>
                 }
             }
         }
+        world_actors(pass, findings, limitations);
     }
     if pass.on("cell.incc") {
         match pass.cells.incc {
@@ -604,6 +656,140 @@ pub(super) fn finish(pass: &Pass<'_>, plugin: &Path, findings: &mut Vec<Finding>
             _ => {}
         }
     }
+}
+
+/// `cell.actor-without-navmesh` for actors in a world's persistent cell: the exterior cell
+/// of that world at the grid of the actor's position (the plugin's own, else a master's)
+/// must have a navmesh. An actor whose cell cannot be found is a limitation, not a warning.
+fn world_actors(pass: &Pass<'_>, findings: &mut Vec<Finding>, limitations: &mut Vec<String>) {
+    let mut unchecked: Vec<String> = Vec::new();
+    for (world, grid, actor) in &pass.cells.world_actors {
+        let Some(grid) = grid else {
+            unchecked.push(format!("{actor} (no usable DATA position)"));
+            continue;
+        };
+        let cell = match pass.cells.exterior_at.get(&(*world, *grid)) {
+            Some(c) => Some(*c),
+            None => exterior_in_masters(pass, *world, *grid),
+        };
+        let Some(cell) = cell else {
+            unchecked.push(format!(
+                "{actor} (world {world:08X} has no exterior cell at grid ({}, {}) in this plugin or its masters)",
+                grid.x, grid.y
+            ));
+            continue;
+        };
+        if pass.cells.navmeshed.contains(&cell) {
+            continue;
+        }
+        // A cell of the plugin's own is not checked against masters, as for the rule's other
+        // actors (an official file's own cells are never findings): named, not warned.
+        let own = matches!(
+            pass.space.resolve(cell),
+            Target::Form { ref owner, .. } if owner.eq_ignore_ascii_case(&pass.name)
+        );
+        if own {
+            unchecked.push(format!(
+                "{actor} (its exterior cell {cell:08X} is this plugin's own, without a NAVM here)"
+            ));
+            continue;
+        }
+        match master_navmeshes(pass, &[cell]).get(&cell) {
+            Some(true) => {}
+            Some(false) => findings.push(finding(
+                pass,
+                "cell.actor-without-navmesh",
+                Severity::Warning,
+                Some(actor.clone()),
+                None,
+                None,
+                format!(
+                    "the actor is in world {world:08X}'s persistent cell and stands in its exterior cell {cell:08X} (grid ({}, {}), from its position), which has no NAVM in this plugin or its masters: it cannot move (KitKraft cannot generate navmesh; generate it in the Creation Kit, fixture F22, and import it with [[import]])",
+                    grid.x, grid.y
+                ),
+            )),
+            None => unchecked.push(format!(
+                "{actor} (no master holding exterior cell {cell:08X} could be read)"
+            )),
+        }
+    }
+    if !unchecked.is_empty() {
+        let more = unchecked.len().saturating_sub(5);
+        limitations.push(format!(
+            "cell.actor-without-navmesh: {} actor(s) in a world's persistent cell not checked: {}{}",
+            unchecked.len(),
+            unchecked
+                .iter()
+                .take(5)
+                .cloned()
+                .collect::<Vec<_>>()
+                .join("; "),
+            if more > 0 {
+                format!("; and {more} more")
+            } else {
+                String::new()
+            }
+        ));
+    }
+}
+
+/// The exterior cell of `world` (stored FormID in the plugin) at `grid` in any master,
+/// as a stored FormID of the plugin: group and record headers only, then the `XCLC` of
+/// each cell in the grid's sub-block.
+fn exterior_in_masters(pass: &Pass<'_>, world: u32, grid: Grid) -> Option<u32> {
+    let Target::Form {
+        owner, object_id, ..
+    } = pass.space.resolve(world)
+    else {
+        return None;
+    };
+    let (block, sub_block) = (
+        grid_label(grid.block()).ok()?,
+        grid_label(grid.sub_block()).ok()?,
+    );
+    for (name, _) in &pass.space.masters {
+        let Some(file) = pass.files.get(&name.to_ascii_lowercase()) else {
+            continue;
+        };
+        let (Some(path), Some(raw_world)) = (
+            file.path.as_ref(),
+            pass.space_of(file).raw_for(&owner, object_id),
+        ) else {
+            continue;
+        };
+        let steps = [
+            (group_type::TOP, *b"WRLD"),
+            (group_type::WORLD_CHILDREN, raw_world.to_le_bytes()),
+            (group_type::EXTERIOR_BLOCK, block),
+            (group_type::EXTERIOR_SUB_BLOCK, sub_block),
+        ];
+        let Ok(offsets) = crate::edit::source::records_under(path, &steps, *b"CELL") else {
+            continue;
+        };
+        let Ok(mut input) = File::open(path) else {
+            continue;
+        };
+        for offset in offsets {
+            let Ok(record) = read_record_at(&mut input, offset, Some(&pass.limits)) else {
+                continue;
+            };
+            let at = record
+                .subrecords()
+                .and_then(|subs| sub(subs, b"XCLC").and_then(|s| Grid::from_xclc(s.data())));
+            if at != Some(grid) {
+                continue;
+            }
+            if let Target::Form {
+                owner, object_id, ..
+            } = pass.space_of(file).resolve(record.header.form_id)
+            {
+                if let Some(raw) = pass.space.raw_for(&owner, object_id) {
+                    return Some(raw);
+                }
+            }
+        }
+    }
+    None
 }
 
 /// For each cell (stored FormID in the plugin), whether a master holds a `NAVM` in its

@@ -327,57 +327,6 @@ fn place_from_path(
     Some(Placed::Exterior { world, grid })
 }
 
-/// Offsets of the records of type `want` directly inside the group the `steps` (group
-/// type, label) lead to, from the top level of the plugin at `path`: group and record
-/// headers only, siblings skipped by size (as `edit::source::placement_at`).
-fn records_under(path: &Path, steps: &[(i32, [u8; 4])], want: [u8; 4]) -> Result<Vec<u64>, String> {
-    let err = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
-    let mut file = File::open(path).map_err(|e| err(&e))?;
-    let len = file.metadata().map_err(|e| err(&e))?.len();
-    let mut head = |at: u64| -> Result<[u8; 24], String> {
-        let mut buf = [0u8; 24];
-        file.seek(SeekFrom::Start(at)).map_err(|e| err(&e))?;
-        file.read_exact(&mut buf).map_err(|e| err(&e))?;
-        Ok(buf)
-    };
-    let field = |buf: &[u8; 24], at: usize| -> [u8; 4] {
-        buf.get(at..at.saturating_add(4))
-            .and_then(|b| <[u8; 4]>::try_from(b).ok())
-            .unwrap_or_default()
-    };
-    let tes4 = head(0)?;
-    let mut at = u64::from(u32::from_le_bytes(field(&tes4, 4))).saturating_add(24);
-    let mut end = len;
-    let mut depth = 0usize;
-    let mut out = Vec::new();
-    while at < end {
-        let buf = head(at)?;
-        let sig = field(&buf, 0);
-        let size = u64::from(u32::from_le_bytes(field(&buf, 4)));
-        if &sig == b"GRUP" {
-            let group_end = at.saturating_add(size);
-            if size < 24 || group_end > end {
-                return Err(err(&format!("group at {at} has a bad size {size}")));
-            }
-            let label = field(&buf, 8);
-            let kind = i32::from_le_bytes(field(&buf, 12));
-            if steps.get(depth) == Some(&(kind, label)) {
-                at = at.saturating_add(24);
-                end = group_end;
-                depth = depth.saturating_add(1);
-                continue;
-            }
-            at = group_end;
-            continue;
-        }
-        if depth == steps.len() && sig == want {
-            out.push(at);
-        }
-        at = at.saturating_add(size).saturating_add(24);
-    }
-    Ok(out)
-}
-
 /// The exterior cell of `world` whose grid is `grid`, from any plugin of the load order
 /// (every version of a form names the same cell).
 fn exterior_cell_at(
@@ -399,7 +348,8 @@ fn exterior_cell_at(
             (group_type::EXTERIOR_BLOCK, block),
             (group_type::EXTERIOR_SUB_BLOCK, sub),
         ];
-        let offsets = records_under(&p.path, &steps, *b"CELL").map_err(|m| failed(ID, m))?;
+        let offsets = crate::edit::source::records_under(&p.path, &steps, *b"CELL")
+            .map_err(|m| failed(ID, m))?;
         let mut file =
             File::open(&p.path).map_err(|e| failed(ID, format!("{}: {e}", p.path.display())))?;
         for offset in offsets {
@@ -435,7 +385,8 @@ fn persistent_cell_of(
             (group_type::TOP, *b"WRLD"),
             (group_type::WORLD_CHILDREN, raw.to_le_bytes()),
         ];
-        let offsets = records_under(&p.path, &steps, *b"CELL").map_err(|m| failed(ID, m))?;
+        let offsets = crate::edit::source::records_under(&p.path, &steps, *b"CELL")
+            .map_err(|m| failed(ID, m))?;
         if let Some(offset) = offsets.first() {
             let mut file = File::open(&p.path)
                 .map_err(|e| failed(ID, format!("{}: {e}", p.path.display())))?;

@@ -10,13 +10,15 @@ use kitkraft_esm::build::HeaderSpec;
 use kitkraft_esm::cells::{
     self, grid_label, CellPlace, Grid, Parent, PlacementStyle, FLAG_PERSISTENT,
 };
+use kitkraft_esm::tes4::FLAG_MASTER;
 use kitkraft_esm::{GroupHeader, Plugin, Record, Signature, Subrecord};
 use serde_json::{json, Value};
 
 use crate::edit::patch_tests::dir;
 use crate::execute;
 use crate::handlers::place_tests::{
-    data24, rec, sub, world_master, zstr, EXTERIOR_CELL, INTERIOR_CELL, NAVMESH, WORLD,
+    data24, rec, sub, world_master, zstr, EXTERIOR_CELL, INTERIOR_CELL, NAVMESH, PERSISTENT_CELL,
+    WORLD,
 };
 
 const RULES: [&str; 8] = super::cells::RULES;
@@ -486,5 +488,169 @@ fn persistence_navmesh_and_incc() {
         found(&check(&p)),
         one("cell.incc", "warning", "TES4:00000000")
     );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, finding 3): an actor in a world's persistent cell is
+/// checked against the exterior cell its position names: a master's with a navmesh, no
+/// finding; a master's without one, a warning; a position no exterior cell holds, or a
+/// cell of the plugin's own (not checked, as for the rule's other actors), a limitation.
+#[test]
+fn a_persistent_world_actor_is_checked_in_the_exterior_cell_it_stands_in() {
+    let d = dir("validate-cells-world-actor");
+    let data = world_master(&d);
+    let pplace = CellPlace::Persistent { world: WORLD };
+    let actor = |pos: [f32; 3], base: u32| {
+        rec(
+            b"ACHR",
+            FLAG_PERSISTENT,
+            0x0100_0830,
+            vec![
+                sub(b"NAME", &base.to_le_bytes()),
+                sub(b"DATA", &data24(pos)),
+            ],
+        )
+    };
+    let world_parents = |world: u32, pcell: u32, place: CellPlace| {
+        let wrld = rec(b"WRLD", 0, world, vec![]);
+        let cell = rec(b"CELL", FLAG_PERSISTENT, pcell, vec![sub(b"DATA", &[0, 0])]);
+        let path = at(&cell, Parent::CellAt(place));
+        vec![
+            (wrld, vec![GroupHeader::top(Signature(*b"WRLD"))]),
+            (cell, path),
+        ]
+    };
+    let in_pcell = Parent::Cell {
+        place: pplace,
+        cell: PERSISTENT_CELL,
+    };
+    let validate = |p: &Path| {
+        execute(
+            "validate",
+            json!({"plugin": p.display().to_string(), "rules": RULES}),
+        )
+        .unwrap()
+    };
+    let run = |name: &str, extra: Vec<(Record<'static>, Vec<GroupHeader>)>| {
+        let mut records = world_parents(WORLD, PERSISTENT_CELL, pplace);
+        records.extend(extra);
+        validate(&patch(&data, name, records, Some(0)))
+    };
+    let limited = |r: &Value, what: &str| {
+        r["limitations"].as_array().unwrap().iter().any(|l| {
+            let l = l.as_str().unwrap();
+            l.starts_with("cell.actor-without-navmesh: 1 actor(s)") && l.contains(what)
+        })
+    };
+    // At grid (1, -1): the master's exterior cell 702, which holds a navmesh. Before the
+    // fix this was a warning on the persistent cell (the reviewer's false positive).
+    let a = actor([150.0, -50.0, 0.0], 0x801);
+    let r = run("WorldActor.esm", vec![(a.clone(), at(&a, in_pcell))]);
+    assert_eq!(found(&r["data"]), [], "{:#}", r["data"]);
+    assert!(!limited(&r, ""));
+    // At grid (2, 2): the plugin's own exterior cell, without a navmesh: a limitation.
+    let grid = Grid::new(2, 2);
+    let own = rec(
+        b"CELL",
+        0,
+        0x0100_0820,
+        vec![sub(
+            b"XCLC",
+            &[2i32.to_le_bytes(), 2i32.to_le_bytes(), [0u8; 4]].concat(),
+        )],
+    );
+    let a = actor([250.0, 250.0, 0.0], 0x801);
+    let r = run(
+        "WorldActorOwn.esm",
+        vec![
+            (
+                own.clone(),
+                at(
+                    &own,
+                    Parent::CellAt(CellPlace::Exterior { world: WORLD, grid }),
+                ),
+            ),
+            (a.clone(), at(&a, in_pcell)),
+        ],
+    );
+    assert_eq!(found(&r["data"]), []);
+    assert!(
+        limited(&r, "01000820 is this plugin's own"),
+        "{:#}",
+        r["limitations"]
+    );
+    // At grid (9, 9): no exterior cell anywhere: a limitation, no warning.
+    let a = actor([950.0, 950.0, 0.0], 0x801);
+    let r = run("WorldActorNowhere.esm", vec![(a.clone(), at(&a, in_pcell))]);
+    assert_eq!(found(&r["data"]), []);
+    assert!(
+        limited(&r, "no exterior cell at grid (9, 9)"),
+        "{:#}",
+        r["limitations"]
+    );
+    // A master whose exterior cell at grid (3, 3) has no navmesh: a warning naming it.
+    let mut spec = HeaderSpec::new(Vec::new());
+    spec.flags = FLAG_MASTER;
+    let mut land = Plugin::create(&spec);
+    let style = PlacementStyle::OFFICIAL;
+    let lworld = 0x0000_0900;
+    let lplace = CellPlace::Persistent { world: lworld };
+    let lgrid = Grid::new(3, 3);
+    for (record, parent) in [
+        (rec(b"NPC_", 0, 0x800, vec![]), Parent::None),
+        (rec(b"WRLD", 0, lworld, vec![]), Parent::None),
+        (
+            rec(b"CELL", FLAG_PERSISTENT, 0x901, vec![sub(b"DATA", &[0, 0])]),
+            Parent::CellAt(lplace),
+        ),
+        (
+            rec(
+                b"CELL",
+                0,
+                0x902,
+                vec![sub(
+                    b"XCLC",
+                    &[3i32.to_le_bytes(), 3i32.to_le_bytes(), [0u8; 4]].concat(),
+                )],
+            ),
+            Parent::CellAt(CellPlace::Exterior {
+                world: lworld,
+                grid: lgrid,
+            }),
+        ),
+    ] {
+        let path = cells::placement(&record.header, &parent, &style).unwrap();
+        land.upsert_styled(&path, record, &style).unwrap();
+    }
+    std::fs::write(data.join("Land.esm"), land.to_bytes().unwrap()).unwrap();
+    let mut plugin = Plugin::new(HeaderSpec::new(vec![b"Land.esm".to_vec()]).to_record());
+    let a = actor([350.0, 350.0, 0.0], 0x800);
+    let mut records = world_parents(lworld, 0x901, lplace);
+    records.push((
+        a.clone(),
+        at(
+            &a,
+            Parent::Cell {
+                place: lplace,
+                cell: 0x901,
+            },
+        ),
+    ));
+    for (record, path) in records {
+        plugin.upsert(&path, record).unwrap();
+    }
+    let p = data.join("LandActor.esm");
+    std::fs::write(&p, plugin.to_bytes().unwrap()).unwrap();
+    let r = validate(&p);
+    assert_eq!(
+        found(&r["data"]),
+        one("cell.actor-without-navmesh", "warning", "ACHR:01000830"),
+        "{:#}",
+        r["data"]
+    );
+    assert!(r["data"]["findings"][0]["message"]
+        .as_str()
+        .unwrap()
+        .contains("exterior cell 00000902 (grid (3, 3)"));
     let _ = std::fs::remove_dir_all(&d);
 }
