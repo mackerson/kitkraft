@@ -1,41 +1,101 @@
-# KitKraft
+<h1 align="center">KitKraft</h1>
 
-An open-source, clean-room Creation Kit for Starfield, in Rust.
+<p align="center">
+  <b>An open-source, clean-room Creation Kit for Starfield, written in Rust.</b><br>
+  Read, inspect, patch and validate Starfield plugins, archives, Papyrus and string tables<br>
+  from one command catalog you can drive from a terminal, a window, or an AI agent.
+</p>
+
+<p align="center">
+  <img alt="100% Rust" src="https://img.shields.io/badge/100%25-Rust-b7410e?style=flat-square&logo=rust">
+  <img alt="Starfield" src="https://img.shields.io/badge/for-Starfield-1f2a44?style=flat-square">
+  <img alt="Windows" src="https://img.shields.io/badge/Windows-native-2f7bf5?style=flat-square">
+  <img alt="License: MIT OR Apache-2.0" src="https://img.shields.io/badge/license-MIT%20%2F%20Apache--2.0-3a3a3a?style=flat-square">
+  <img alt="Status: pre-alpha" src="https://img.shields.io/badge/status-pre--alpha-d69e2e?style=flat-square">
+</p>
+
+<p align="center">
+  <a href="#why-kitkraft">Why KitKraft</a> ·
+  <a href="#what-it-has-done-so-far">So far</a> ·
+  <a href="#get-started">Get started</a> ·
+  <a href="#the-command-catalog">Commands</a> ·
+  <a href="#built-for-agents">Agents</a> ·
+  <a href="#build-from-source">Build</a> ·
+  <a href="#clean-room">Clean room</a> ·
+  <a href="#license">License</a>
+</p>
+
+<br>
+
+<table>
+  <tr>
+    <td width="25%" valign="top">
+      <h3>🔁 Byte-for-byte honest</h3>
+      Every official Starfield ESM (all 14) loads and writes back byte-identical. If KitKraft opens your file, it can hand it back untouched.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🔎 Shows its work</h3>
+      Every result carries its evidence: byte offsets, coverage and stated limitations. Unknown is reported as unknown, so you (or your agent) can check.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🧩 One catalog, three doors</h3>
+      Each action is one command, the same from the <code>kit</code> CLI, the MCP server, and the workbench window. Learn it once.
+    </td>
+    <td width="25%" valign="top">
+      <h3>🛡️ Plays nice with MO2</h3>
+      Reads your Mod Organizer 2 profiles read-only, finds the game by itself, and only ever writes where you tell it to.
+    </td>
+  </tr>
+</table>
+
+<br>
+
+## Why KitKraft
+
+The Creation Kit is a big, Windows-only editor that does a lot and explains little. KitKraft
+takes the parts modders reach for every day (looking things up, seeing who overrides what,
+making a small patch, checking it before it breaks a save) and makes each one a single,
+scriptable command that tells you exactly what it did and what it couldn't.
+
+It reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
+Papyrus (`.pex`) and string tables.
 
 *Naming (owner, 2026-10-14): the name is KitKraft; identifiers are `kitkraft-*`,
 `KITKRAFT_*`, `kitkraft://` (the binary stays `kit`). The pre-rename `KITCRAFT_*`
 environment variables and `kitcraft-manifest.json` are still read for one release
 (deprecated; [docs/corpus.md](docs/corpus.md), "Environment").*
 
-KitKraft reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
-Papyrus (`.pex`) and string tables. Every action is one command, reachable the same way from
-the `kit` CLI, from an MCP server for agents, and later from a desktop UI. Results carry their
-evidence (byte offsets, coverage, limitations) so a person or an agent can check them.
+## What it has done so far
 
-## Status: pre-alpha
+Real mods, built by KitKraft, checked in the real game:
 
-- **M1 done:** every official Starfield ESM (14 files) loads and writes back
-  byte-identical (`kit roundtrip --verify`).
-- **M2 commands live:** every catalog command is implemented: load orders from MO2
-  profiles, inspect, query, diff, conflicts, set, build, validate, schema, archives
-  (`.ba2`), Papyrus (`.pex`) and string tables. What a command does not do yet is stated
-  in each result's `limitations`, and in [docs/gaps.md](docs/gaps.md).
-- **MCP registered:** `kit mcp` serves the same catalog to Claude Code and any other MCP
-  client ([docs/mcp.md](docs/mcp.md), "Use from Claude Code").
+- ✅ **A rename patch.** The Old Earth Hunting Rifle became the Old Soviet Marksman Rifle in a
+  plugin KitKraft wrote, and it showed up that way in game (M2.O6, PASS).
+- ✅ **A gun overhaul.** A data-driven overhaul compiled from a TOML brief, every row checked
+  with `player.additem` on a clean profile (M3.O5, PASS).
+- ✅ **A first point of interest.** A placed crate in New Atlantis, reached and clicked in game
+  (M4.O2, PASS).
+- 🧰 **Every catalog command is live:** load orders from MO2 profiles, inspect, query, diff,
+  conflicts, set, build, validate, schema, archives, Papyrus and string tables. What a command
+  doesn't do yet is written in each result's `limitations` and in [docs/gaps.md](docs/gaps.md).
+- 🪟 **A read-only workbench** (`kit ui`) with Start, Ledger and Help tabs over the same
+  commands ([docs/workbench.md](docs/workbench.md)).
 
-Next: the owner's in-game check of the rename patch (M2.O6), typed record layouts (lane B
-round 3), then M3. See [ROADMAP.md](ROADMAP.md) and [plan/STATUS.md](plan/STATUS.md).
+Where it's headed: [ROADMAP.md](ROADMAP.md). What's happening right now:
+[plan/STATUS.md](plan/STATUS.md).
 
-## Quick start
+## Get started
 
-**Owner on the dev box: read [docs/QUICKSTART.md](docs/QUICKSTART.md).** `cargo xtask dist`
-builds a folder of double-click files (workbench, shell, validate, deploy to the dev
-profile, install/uninstall), and `Install.cmd` puts `kit` on your PATH and registers the
-MCP server. No environment variables are needed.
+**The easy way (the dev box):** read [docs/QUICKSTART.md](docs/QUICKSTART.md).
+`cargo xtask dist` builds a folder of double-click files (workbench, shell, validate, deploy
+to the dev profile, install/uninstall), and `Install.cmd` puts `kit` on your PATH and
+registers the MCP server. No environment variables needed.
 
 KitKraft finds the game (Steam's registry and libraries) and MO2
-(`C:\Modding\MO2-Starfield`) by itself; `kit doctor` shows what it found and how.
-Precedence for every command: argument > environment variable > detected.
+(`C:\Modding\MO2-Starfield`) on its own; `kit doctor` tells you what it found and how. For
+every command: argument > environment variable > detected.
+
+**Your first ten minutes:**
 
 ```powershell
 cargo xtask dist                          # dist\KitKraft\kit.exe, kit-ui.exe and the .cmd files
@@ -50,16 +110,21 @@ kit schema --type WEAP                    # what the schema knows about a record
 kit set Starfield.esm:0021BBCD FULL="Old Soviet Marksman Rifle" --into out\OldSovietMarksmanRifle.esm --plugins Starfield.esm
 kit validate --plugin out\OldSovietMarksmanRifle.esm
 
-# Serve the same commands to an agent over MCP (stdio)
-kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
+# Or just look at it
+kit ui --dev
 ```
 
 Each `kit` run is its own session, so commands that need a load order take `--profile` or
-`--plugins` each time; an MCP session loads once and keeps it. `kit help` lists every
+`--plugins` each time; an MCP session loads once and keeps it. Lost? `kit help` lists every
 command, `kit help <command>` its arguments, and `--json` prints the full result envelope
 (data, coverage, limitations, byte-offset evidence).
 
-## Command catalog
+> [!TIP]
+> Test in-game changes on a dedicated MO2 profile (ours is **KitKraft Dev**) and a
+> disposable save. KitKraft never writes into your profiles; `kit deploy --dev` writes only
+> into one isolated, KitKraft-managed mod.
+
+## The command catalog
 
 Each line is a CLI subcommand, an MCP-reachable command, and a future menu item.
 
@@ -85,12 +150,24 @@ kit ui [--dev]                                # the read-only workbench
 kit install | uninstall [--apply]             # PATH + MCP registration (CLI only; dry run by default)
 ```
 
-MCP tools: `execute` (any command), `command_line`, and the shortcuts `inspect_record`,
-`query_records`, `diff_plugins`, `coverage`, `record_schema`, `roundtrip`; resources
-`kitkraft://commands`, `kitkraft://load-order`, `kitkraft://validate-rules`. See
-[docs/mcp.md](docs/mcp.md).
+## Built for agents
 
-## Build
+Point an agent at KitKraft and it gets the same catalog you do, with the same evidence
+attached. `kit mcp` serves it over stdio to Claude Code or any other MCP client
+([docs/mcp.md](docs/mcp.md), "Use from Claude Code").
+
+```powershell
+kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
+```
+
+- **Tools:** `execute` (any command), `command_line`, and the shortcuts `inspect_record`,
+  `query_records`, `diff_plugins`, `coverage`, `record_schema`, `roundtrip`.
+- **Resources:** `kitkraft://commands`, `kitkraft://load-order`, `kitkraft://validate-rules`.
+
+The goal is that someone can point an agent at this project, say "I want a mod that does X",
+and the tooling carries it end to end, checking its own work along the way.
+
+## Build from source
 
 Requires a stable Rust toolchain (`rustup`; `rust-toolchain.toml` selects stable with
 rustfmt and clippy).
@@ -105,8 +182,6 @@ git config core.hooksPath .githooks   # once per clone: pre-commit runs layers +
 Corpus tests read your own game install through `KITKRAFT_DATA_DIR` (set it for them; they
 do not use detection) and are skipped without it; see [docs/corpus.md](docs/corpus.md).
 
-## Layout
-
 ```
 crates/   schema esm ba2 pex strings nif (L0)  doc (L1)  io (L3)  engine (L4)  mcp (L5)
 apps/     kit-cli (kit), kit (kit-ui, the workbench)
@@ -116,7 +191,7 @@ docs/     architecture, mcp, parity checklists, gaps, corpus
 corpus/   README only; the corpus lives in your game install
 ```
 
-Contributors and agents: read [AGENTS.md](AGENTS.md) first.
+New contributors and AI agents: start with [AGENTS.md](AGENTS.md).
 
 ## Clean room
 
@@ -142,6 +217,12 @@ in this repository.
   Amendment 1): a read-only egui workbench over the same commands as the CLI comes once
   the inspection APIs are stable; the full authoring UI is M5.
 
+> [!IMPORTANT]
+> **Status: pre-alpha.** KitKraft has built real, working mods and checked them in game, but
+> it is not a Creation Kit replacement yet: authoring is command-line first, the workbench
+> is read-only, and record layouts are still being filled in. Back up your saves, use a
+> separate profile, and read each result's `limitations`.
+
 ## License
 
 Licensed under either of
@@ -155,3 +236,18 @@ licensed as above, without any additional terms or conditions.
 
 Not affiliated with or endorsed by Bethesda Softworks, ZeniMax Media, or Microsoft. See
 [NOTICE](NOTICE).
+
+<br>
+
+<p align="center">
+  <img alt="NOW! That's what I call SLOP!" src="resources/slop.png" width="160">
+</p>
+
+<p align="center">
+  <sub>
+    <b>Full disclosure:</b> no human has reviewed the code in this repository. A human directed
+    it, set the goals, made the calls and checked the results in the actual game; AI agents
+    wrote it. The tests, the byte-identical round trips and the evidence on every result are
+    how we keep each other honest. Read accordingly, and have fun.
+  </sub>
+</p>
