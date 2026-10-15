@@ -73,7 +73,8 @@ fn type_provenance<'a>(path: &str, ty: &'a FieldType, out: &mut Vec<(String, &'a
 }
 
 /// Every definition, member and field has a confidence level, and a Skyrim container fact
-/// is never below `corpus` (ADR 0005 Amendment 2, M2.B1).
+/// is never below `corpus` (ADR 0005 Amendment 2, M2.B1), except the TES4 members no
+/// official file shows, which are `container-reference` (Amendment 5).
 #[test]
 fn every_node_has_a_confidence_level() {
     let schema = builtin().unwrap();
@@ -86,11 +87,15 @@ fn every_node_has_a_confidence_level() {
         provs.push((h.name.clone(), &h.provenance));
         field_provenance(&h.name, &h.fields, &mut provs);
     }
+    let mut container = Vec::new();
     for (path, p) in &provs {
-        if p.citations().any(|c| c.starts_with("uesp-skyrim: ")) {
+        if p.confidence == Confidence::ContainerReference {
+            container.push(path.as_str());
+        } else if p.citations().any(|c| c.starts_with("uesp-skyrim: ")) {
             assert!(p.confidence >= Confidence::Corpus, "{path}");
         }
     }
+    assert_eq!(container, ["TES4.Master.FileSize", "TES4.TagifyCount"]);
     assert_eq!(
         schema.record(sig("TES4")).unwrap().provenance.confidence,
         Confidence::Corpus

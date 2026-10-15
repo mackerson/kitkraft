@@ -897,6 +897,79 @@ fn confidence_is_required_and_backed_by_citations() {
     .unwrap();
 }
 
+/// ADR 0005 Amendment 5: `container-reference` needs a `uesp-skyrim:` citation (own or
+/// inherited) and is accepted only in the container definitions (TES4, the headers); it
+/// ranks with `reference`, below `corpus`.
+#[test]
+fn container_reference_is_for_unobserved_container_facts() {
+    let skyrim = "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/TES4";
+    let member = "[[member]]\nsig = \"INTV\"\nname = \"TagifyCount\"\ntype = \"u32\"\n\
+                  card = \"optional\"\nconfidence = \"container-reference\"\n"
+        .to_string();
+    let tes4 = |source: &str, member: &str| {
+        format!(
+            "signature = \"TES4\"\nname = \"PluginHeader\"\nsource = \"{source}\"\n\
+             evidence = [\"corpus: c\"]\nconfidence = \"corpus\"\n{member}"
+        )
+    };
+    // Inherited `uesp-skyrim:` citation, in TES4.
+    let Definition::Record(rec) = parse_definition("TES4.toml", &tes4(skyrim, &member)).unwrap()
+    else {
+        panic!("record");
+    };
+    let Member::Subrecord(intv) = &rec.members[0] else {
+        panic!("INTV");
+    };
+    assert_eq!(intv.provenance.confidence, Confidence::ContainerReference);
+    assert!(intv.provenance.confidence.below_corpus());
+    assert!(Confidence::Reference.below_corpus());
+    assert!(!Confidence::Corpus.below_corpus());
+    assert_eq!(
+        Confidence::parse("container-reference"),
+        Some(Confidence::ContainerReference)
+    );
+
+    let needs = |kind: ErrorKind| match kind {
+        ErrorKind::UnsupportedConfidence { confidence, needs } => {
+            assert_eq!(confidence, "container-reference");
+            needs
+        }
+        other => panic!("expected UnsupportedConfidence, got {other:?}"),
+    };
+    // Without a `uesp-skyrim:` citation.
+    assert_eq!(
+        needs(kind_of(parse_definition(
+            "TES4.toml",
+            &tes4("corpus: c", &member)
+        ))),
+        "a `uesp-skyrim:` citation"
+    );
+    // Outside the container definitions: a record body, even with the citation.
+    let body = format!(
+        "signature = \"TEST\"\nname = \"Test\"\nsource = \"{skyrim}\"\n\
+         evidence = [\"corpus: c\"]\nconfidence = \"corpus\"\n{member}"
+    );
+    assert!(needs(kind_of(parse_definition("TEST.toml", &body))).contains("container"));
+    // A shared definition is not a container definition either.
+    let shared = format!(
+        "name = \"Shared\"\nkind = \"type\"\nsource = \"{skyrim}\"\n\
+         confidence = \"container-reference\"\ntype = \"u32\"\n"
+    );
+    assert!(needs(kind_of(parse_definition("Shared.toml", &shared))).contains("container"));
+    // The headers are container definitions.
+    let header = format!(
+        "name = \"GroupHeader\"\nkind = \"header\"\nsignature = \"GRUP\"\nsource = \"{skyrim}\"\n\
+         confidence = \"container-reference\"\nsize = 4\nfield = [{{ name = \"Size\", type = \"u32\" }}]\n"
+    );
+    parse_definition("GRUP.toml", &header).unwrap();
+    // `reference` is still rejected next to `uesp-skyrim:`.
+    let reference = member.replace("container-reference", "reference");
+    assert!(matches!(
+        kind_of(parse_definition("TES4.toml", &tes4(skyrim, &reference))),
+        ErrorKind::UnsupportedConfidence { .. }
+    ));
+}
+
 /// M2.B1: members and fields carry their own provenance, or inherit their parent's; the
 /// model stores the effective value on every node.
 #[test]

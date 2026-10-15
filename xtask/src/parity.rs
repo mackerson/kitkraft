@@ -254,13 +254,21 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     let builtin = kitkraft_schema::builtin()
         .map_err(|e| anyhow::anyhow!("loading the builtin schema definitions: {e}"))?;
     let defined = builtin.records.len();
-    let unobserved = unobserved_corpus_members(builtin, &types);
-    if !unobserved.is_empty() {
+    let found = occurrence_check(builtin, &types);
+    if !found.unobserved.is_empty() {
         bail!(
             "{} member(s) claim `corpus` (or better) confidence, but their subrecord signature \
              occurs in no record of their type in the corpus (lower them to `reference`):\n  {}",
-            unobserved.len(),
-            unobserved.join("\n  ")
+            found.unobserved.len(),
+            found.unobserved.join("\n  ")
+        );
+    }
+    if !found.observed_container.is_empty() {
+        bail!(
+            "{} `container-reference` member(s) occur in the corpus: validate each against \
+             every occurrence and raise it to `corpus` (ADR 0005 Amendment 5):\n  {}",
+            found.observed_container.len(),
+            found.observed_container.join("\n  ")
         );
     }
     // Per-confidence counts of the definitions (M2.F9), from the same command agents use.
@@ -281,26 +289,36 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     Ok(())
 }
 
-/// Members the check below accepts without an occurrence: UESP Skyrim container facts on
-/// TES4 that no Starfield file has. The loader rejects `reference` next to a
-/// `uesp-skyrim:` citation (ADR 0005 Amendment 2), so they cannot be lowered; they are
-/// listed in `docs/gaps.md` instead.
-const UNOBSERVED_ALLOWED: &[&str] = &["TES4.Master.FileSize", "TES4.TagifyCount"];
+/// What [`occurrence_check`] found; both lists fail `cargo xtask parity`.
+#[derive(Debug, Default)]
+struct OccurrenceCheck {
+    /// Members claiming `corpus` or better whose signature the corpus never shows.
+    unobserved: Vec<String>,
+    /// `container-reference` members whose signature the corpus shows.
+    observed_container: Vec<String>,
+}
 
-/// Members whose confidence says the corpus confirmed them (`corpus` or better) while no
-/// record of their type in the corpus has their signature ("Seen" in the record types
-/// table): a `corpus` claim needs an occurrence (ADR 0005 Amendment 2), so such a member
-/// must be `reference`. Signature-level: a signature seen anywhere in the record type
-/// counts for every member that uses it. A shared group (`group_ref`) is checked at its
-/// place in the record (its own confidence, and one of the signatures that can start it):
-/// its inner members' confidence is about the shared layout, which the record types that
-/// have it confirm. Record types the corpus does not have are skipped.
-fn unobserved_corpus_members(
+/// The occurrence check, both directions (ADR 0005 Amendments 2 and 5).
+///
+/// - Members whose confidence says the corpus confirmed them (`corpus` or better) while no
+///   record of their type in the corpus has their signature ("Seen" in the record types
+///   table): a `corpus` claim needs an occurrence, so such a member must be `reference`.
+///   `reference` and `container-reference` members make no corpus claim and are skipped.
+/// - `container-reference` members (a UESP Skyrim container fact no Starfield file shows)
+///   whose signature the corpus does show: the level is no longer true, and the member
+///   must be validated and raised to `corpus`.
+///
+/// Signature-level: a signature seen anywhere in the record type counts for every member
+/// that uses it. A shared group (`group_ref`) is checked at its place in the record (its
+/// own confidence, and one of the signatures that can start it): its inner members'
+/// confidence is about the shared layout, which the record types that have it confirm.
+/// Record types the corpus does not have are skipped.
+fn occurrence_check(
     schema: &kitkraft_schema::Schema,
     types: &BTreeMap<String, TypeAgg>,
-) -> Vec<String> {
+) -> OccurrenceCheck {
     use kitkraft_schema::{Cardinality, Confidence, Member};
-    fn walk(members: &[Member], prefix: &str, sig: &str, agg: &TypeAgg, out: &mut Vec<String>) {
+    fn walk(members: &[Member], prefix: &str, sig: &str, agg: &TypeAgg, out: &mut OccurrenceCheck) {
         let seen = |s: &str| agg.subs.get(s).is_some_and(|(n, _)| *n > 0);
         for member in members {
             let path = if prefix.is_empty() {
@@ -310,16 +328,13 @@ fn unobserved_corpus_members(
             };
             match member {
                 Member::Subrecord(sub) => {
-                    let claimed = sub.provenance.confidence >= Confidence::Corpus;
-                    let full = format!("{sig}.{path}");
-                    if claimed
-                        && !seen(sub.signature.as_str())
-                        && !UNOBSERVED_ALLOWED.contains(&full.as_str())
-                    {
-                        out.push(format!(
-                            "{full} ({}, {})",
-                            sub.signature, sub.provenance.confidence
-                        ));
+                    let level = sub.provenance.confidence;
+                    let line = format!("{sig}.{path} ({}, {level})", sub.signature);
+                    let occurs = seen(sub.signature.as_str());
+                    if level >= Confidence::Corpus && !occurs {
+                        out.unobserved.push(line);
+                    } else if level == Confidence::ContainerReference && occurs {
+                        out.observed_container.push(line);
                     }
                 }
                 Member::Group(g) if g.shared.is_some() => {
@@ -333,13 +348,16 @@ fn unobserved_corpus_members(
                             break;
                         }
                     }
-                    let claimed = g.provenance.confidence >= Confidence::Corpus;
-                    if claimed && !starts.iter().any(|s| seen(s)) {
-                        out.push(format!(
-                            "{sig}.{path} (group starting {}, {})",
-                            starts.join("/"),
-                            g.provenance.confidence
-                        ));
+                    let level = g.provenance.confidence;
+                    let line = format!(
+                        "{sig}.{path} (group starting {}, {level})",
+                        starts.join("/")
+                    );
+                    let occurs = starts.iter().any(|s| seen(s));
+                    if level >= Confidence::Corpus && !occurs {
+                        out.unobserved.push(line);
+                    } else if level == Confidence::ContainerReference && occurs {
+                        out.observed_container.push(line);
                     }
                 }
                 Member::Group(g) => walk(&g.members, &path, sig, agg, out),
@@ -347,7 +365,7 @@ fn unobserved_corpus_members(
             }
         }
     }
-    let mut out = Vec::new();
+    let mut out = OccurrenceCheck::default();
     for record in schema.records() {
         let sig = record.signature.as_str();
         if let Some(agg) = types.get(sig) {
@@ -411,8 +429,15 @@ fn n(value: u64) -> String {
     out
 }
 
-/// Confidence levels, weakest first (ADR 0004), as `kit schema` names them.
-const CONFIDENCE: [&str; 4] = ["reference", "corpus", "ck-diff", "verified"];
+/// Confidence levels, weakest first (ADR 0004, ADR 0005 Amendment 5), as `kit schema`
+/// names them (`kitkraft_schema::Confidence::ALL`; a test keeps the two in step).
+const CONFIDENCE: [&str; 5] = [
+    "reference",
+    "container-reference",
+    "corpus",
+    "ck-diff",
+    "verified",
+];
 
 /// The "Definitions by confidence" table from `kit schema --json`'s `data`.
 fn confidence_table(schema: &Value) -> String {
@@ -439,7 +464,7 @@ fn confidence_table(schema: &Value) -> String {
     let mut head = vec!["Record", "Schema", "Subrecord defs", "Typed", "Opaque"];
     head.extend(CONFIDENCE);
     let mut right = vec![false, false];
-    right.extend([true; 7]);
+    right.resize(head.len(), true);
     table(&head, &rows, &right)
 }
 
@@ -494,7 +519,7 @@ fn decoded_table(sorted: &[(&String, &TypeAgg)]) -> String {
     ];
     head.extend(CONFIDENCE);
     let mut right = vec![false, false];
-    right.extend([true; 8]);
+    right.resize(head.len(), true);
     table(&head, &rows, &right)
 }
 
@@ -669,9 +694,12 @@ fn render(
     out.push_str(
         "Subrecord definitions per record type (groups expanded) from `kit schema --json`\n\
          (M2.F9), by `confidence` (ADR 0004: `reference` documented in an allowed source,\n\
-         `corpus` observed in the official files, `ck-diff` checked against Creation Kit\n\
-         output, `verified` both). **Typed** definitions give a layout; **Opaque** ones keep\n\
-         the payload as raw bytes.\n\n",
+         `container-reference` a container fact from UESP's Skyrim pages that no official\n\
+         file shows (ADR 0005 Amendment 5), `corpus` observed in the official files,\n\
+         `ck-diff` checked against Creation Kit output, `verified` both). **Typed**\n\
+         definitions give a layout; **Opaque** ones keep the payload as raw bytes. The\n\
+         occurrence check fails when a `corpus` (or better) member never occurs, and when a\n\
+         `container-reference` member does.\n\n",
     );
     out.push_str(&confidence_table(schema));
 
@@ -726,7 +754,7 @@ fn render(
 
 #[cfg(test)]
 mod tests {
-    use super::{confidence_table, decoded_table, n, table, unobserved_corpus_members, TypeAgg};
+    use super::{confidence_table, decoded_table, n, occurrence_check, table, TypeAgg, CONFIDENCE};
     use serde_json::json;
 
     /// Lane B round 4: a member that claims `corpus` must have its signature among the
@@ -748,11 +776,13 @@ mod tests {
         agg.subs.insert("EDID".into(), (3, "typed".into()));
         let types = [("TEST".to_string(), agg)].into_iter().collect();
         assert_eq!(
-            unobserved_corpus_members(&schema, &types),
+            occurrence_check(&schema, &types).unobserved,
             ["TEST.Name (FULL, corpus)"]
         );
         // A type the corpus does not have is not checked.
-        assert!(unobserved_corpus_members(&schema, &Default::default()).is_empty());
+        assert!(occurrence_check(&schema, &Default::default())
+            .unobserved
+            .is_empty());
 
         // A shared group is checked at its place: one of its start signatures must occur;
         // its inner members' levels are about the shared layout.
@@ -772,11 +802,58 @@ mod tests {
             }
             [("TEST".to_string(), agg)].into_iter().collect()
         };
-        assert!(unobserved_corpus_members(&schema, &with(&["BFCB"])).is_empty());
+        assert!(occurrence_check(&schema, &with(&["BFCB"]))
+            .unobserved
+            .is_empty());
         assert_eq!(
-            unobserved_corpus_members(&schema, &with(&["EDID"])),
+            occurrence_check(&schema, &with(&["EDID"])).unobserved,
             ["TEST.Block (group starting BFCB, corpus)"]
         );
+    }
+
+    /// ADR 0005 Amendment 5: the builtin TES4's `container-reference` members (`DATA`
+    /// after `MAST`, `INTV`) pass while the corpus lacks them, with no list of names, and
+    /// fail the check once a corpus file has one.
+    #[test]
+    fn container_reference_members_must_not_occur() {
+        let schema = kitkraft_schema::builtin().unwrap();
+        let tes4 = |sigs: &[&str]| {
+            let mut agg = TypeAgg::default();
+            for s in sigs {
+                agg.subs.insert((*s).to_string(), (14, "typed".into()));
+            }
+            [("TES4".to_string(), agg)].into_iter().collect()
+        };
+        // Every signature the 14 official TES4 records show.
+        let seen = [
+            "HEDR", "CNAM", "SNAM", "MAST", "ONAM", "TNAM", "BNAM", "INCC", "CHGL",
+        ];
+        let found = occurrence_check(schema, &tes4(&seen));
+        assert!(found.unobserved.is_empty(), "{:?}", found.unobserved);
+        assert!(found.observed_container.is_empty());
+
+        let mut with_intv = seen.to_vec();
+        with_intv.push("INTV");
+        let found = occurrence_check(schema, &tes4(&with_intv));
+        assert_eq!(
+            found.observed_container,
+            ["TES4.TagifyCount (INTV, container-reference)"]
+        );
+        let mut with_data = seen.to_vec();
+        with_data.push("DATA");
+        assert_eq!(
+            occurrence_check(schema, &tes4(&with_data)).observed_container,
+            ["TES4.Master.FileSize (DATA, container-reference)"]
+        );
+    }
+
+    #[test]
+    fn confidence_columns_follow_the_schema_levels() {
+        let names: Vec<&str> = kitkraft_schema::Confidence::ALL
+            .iter()
+            .map(|c| c.as_str())
+            .collect();
+        assert_eq!(names, CONFIDENCE);
     }
 
     #[test]
@@ -814,7 +891,10 @@ mod tests {
 
     #[test]
     fn confidence_rows_and_total() {
-        let counts = |r, c| json!({"reference": r, "corpus": c, "ck-diff": 0, "verified": 0});
+        let counts = |r, c| {
+            json!({"reference": r, "container-reference": 0, "corpus": c, "ck-diff": 0,
+                   "verified": 0})
+        };
         let schema = json!({
             "records": [{"type": "WEAP", "name": "Weapon", "subrecords": 3, "typed": 1,
                          "opaque": 2, "confidence_counts": counts(1, 2)}],
@@ -827,7 +907,7 @@ mod tests {
         );
         assert!(
             t.contains(
-                "| `WEAP`    | Weapon |              3 |     1 |      2 |         1 |      2 |"
+                "| `WEAP`    | Weapon |              3 |     1 |      2 |         1 |                   0 |      2 |"
             ),
             "{t}"
         );

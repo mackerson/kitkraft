@@ -6,7 +6,7 @@
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 86 record definitions, defs hash `fnv1a64:e784c7a1b925b4dd` (the hash named in
+- Schema: 86 record definitions, defs hash `fnv1a64:041c5b9d74256fe2` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -231,193 +231,196 @@ subrecord positions where encoding the decoded record did not reproduce the inpu
 The confidence columns split **Decoded** by the confidence of the member each
 occurrence is placed in (by position, as the decoder places it; lane B round 4).
 
-| Record    | Schema                  | Typed records |    Decoded | Failed | Re-encode | reference |     corpus | ck-diff | verified |
-| --------- | ----------------------- | ------------: | ---------: | -----: | --------: | --------: | ---------: | ------: | -------: |
-| `REFR`    | PlacedObject            |     6,719,725 | 39,772,484 |      0 |         0 |         0 | 39,772,484 |       0 |        0 |
-| `INFO`    | DialogResponse          |       162,028 |  1,730,802 |      0 |         0 |         0 |  1,730,802 |       0 |        0 |
-| `NAVM`    | Navmesh                 |        92,893 |          4 |      0 |         0 |         0 |          4 |       0 |        0 |
-| `DIAL`    | DialogTopic             |        87,031 |    527,545 |      0 |         0 |         0 |    527,545 |       0 |        0 |
-| `CELL`    | Cell                    |        40,251 |    265,596 |      0 |         0 |         1 |    265,595 |       0 |        0 |
-| `STAT`    | Static                  |        22,296 |    193,189 |      0 |         0 |         0 |    193,189 |       0 |        0 |
-| `PKIN`    | PackIn                  |        15,128 |    135,850 |      0 |         0 |         0 |    135,850 |       0 |        0 |
-| `ACHR`    | PlacedNpc               |        14,731 |     85,331 |      0 |         0 |         0 |     85,331 |       0 |        0 |
-| `SCEN`    | Scene                   |         9,673 |    872,488 |      0 |         0 |         0 |    872,488 |       0 |        0 |
-| `NPC_`    | Npc                     |         8,447 |  1,112,656 |      0 |         0 |         0 |  1,112,656 |       0 |        0 |
-| `LCTN`    | Location                |         7,316 |     78,402 |      0 |         0 |         0 |     78,402 |       0 |        0 |
-| `KYWD`    | Keyword                 |         6,965 |      8,284 |      0 |         0 |         0 |      8,284 |       0 |        0 |
-| `LVLI`    | LeveledItem             |         6,543 |     80,308 |      0 |         0 |         0 |     80,308 |       0 |        0 |
-| `LCRT`    | LocationRefType         |         4,779 |     14,349 |      0 |         0 |         0 |     14,349 |       0 |        0 |
-| `PACK`    | Package                 |         4,578 |    225,093 |      0 |         0 |         3 |    225,090 |       0 |        0 |
-| `GBFM`    | GenericBaseForm         |         3,903 |    145,436 |      0 |         0 |         0 |    145,436 |       0 |        0 |
-| `COBJ`    | ConstructibleObject     |         3,518 |     45,206 |      0 |         0 |         0 |     45,206 |       0 |        0 |
-| `OMOD`    | ObjectModification      |         3,330 |     20,261 |      0 |         0 |         0 |     20,261 |       0 |        0 |
-| `GLOB`    | Global                  |         3,319 |      6,637 |      0 |         0 |         0 |      6,637 |       0 |        0 |
-| `MESG`    | Message                 |         2,671 |      7,723 |      0 |         0 |         0 |      7,723 |       0 |        0 |
-| `QUST`    | Quest                   |         2,610 |    365,844 |      0 |         0 |         0 |    365,844 |       0 |        0 |
-| `GMST`    | GameSetting             |         2,418 |      4,836 |      0 |         0 |         0 |      4,836 |       0 |        0 |
-| `PCCN`    | PlanetContentNode       |         2,148 |      8,636 |      0 |         0 |         0 |      8,636 |       0 |        0 |
-| `MSTT`    | MoveableStatic          |         2,134 |     20,037 |      0 |         0 |       290 |     19,747 |       0 |        0 |
-| `ACTI`    | Activator               |         1,940 |     22,681 |      0 |         0 |       384 |     22,297 |       0 |        0 |
-| `SFBK`    | SurfaceBlock            |         1,877 |     32,400 |      0 |         0 |         0 |     32,400 |       0 |        0 |
-| `PNDT`    | Planet                  |         1,786 |     55,229 |      0 |         0 |         0 |     55,229 |       0 |        0 |
-| `AFFE`    | AffinityEvent           |         1,593 |     24,261 |      0 |         0 |         0 |     24,261 |       0 |        0 |
-| `MISC`    | MiscItem                |         1,495 |     19,432 |      0 |         0 |         3 |     19,429 |       0 |        0 |
-| `FLST`    | FormIdList              |         1,415 |     14,840 |      0 |         0 |         0 |     14,840 |       0 |        0 |
-| `BOOK`    | Book                    |         1,368 |      4,858 |      0 |         0 |         0 |      4,858 |       0 |        0 |
-| `IDLE`    | IdleAnimation           |         1,302 |      7,626 |      0 |         0 |         0 |      7,626 |       0 |        0 |
-| `AVIF`    | ActorValueInformation   |         1,267 |      1,509 |      0 |         0 |         0 |      1,509 |       0 |        0 |
-| `ARMO`    | Armor                   |         1,168 |     30,203 |      0 |         0 |         0 |     30,203 |       0 |        0 |
-| `FURN`    | Furniture               |         1,045 |     22,825 |      0 |         0 |         4 |     22,821 |       0 |        0 |
-| `MGEF`    | MagicEffect             |           989 |      5,196 |      0 |         0 |         0 |      5,196 |       0 |        0 |
-| `TMLM`    | TerminalMenu            |           974 |     27,043 |      0 |         0 |         0 |     27,043 |       0 |        0 |
-| `FACT`    | Faction                 |           953 |      6,130 |      0 |         0 |         0 |      6,130 |       0 |        0 |
-| `CONT`    | Container               |           866 |     16,024 |      0 |         0 |         0 |     16,024 |       0 |        0 |
-| `OTFT`    | Outfit                  |           698 |      1,396 |      0 |         0 |         0 |      1,396 |       0 |        0 |
-| `SPEL`    | Spell                   |           662 |     13,305 |      0 |         0 |         0 |     13,305 |       0 |        0 |
-| `PERK`    | Perk                    |           608 |     27,868 |      0 |         0 |         0 |     27,868 |       0 |        0 |
-| `WRLD`    | Worldspace              |           583 |     22,135 |      0 |         0 |       842 |     21,293 |       0 |        0 |
-| `TERM`    | Terminal                |           501 |     11,612 |      0 |         0 |         0 |     11,612 |       0 |        0 |
-| `SMQN`    | StoryManagerQuestNode   |           471 |      6,754 |      0 |         0 |         0 |      6,754 |       0 |        0 |
-| `WEAP`    | Weapon                  |           452 |     18,219 |      0 |         0 |         0 |     18,219 |       0 |        0 |
-| `BIOM`    | Biome                   |           434 |     81,085 |      0 |         0 |         0 |     81,085 |       0 |        0 |
-| `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |        786 |       0 |        0 |
-| `PCBN`    | PlanetContentBranchNode |           379 |      5,308 |      0 |         0 |         0 |      5,308 |       0 |        0 |
-| `DOOR`    | Door                    |           376 |        685 |      0 |         0 |         0 |        685 |       0 |        0 |
-| `ALCH`    | Ingestible              |           365 |      1,459 |      0 |         0 |         0 |      1,459 |       0 |        0 |
-| `EXPL`    | Explosion               |           359 |        406 |      0 |         0 |         0 |        406 |       0 |        0 |
-| `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |        682 |       0 |        0 |
-| `IRES`    | Resource                |           333 |        715 |      0 |         0 |         0 |        715 |       0 |        0 |
-| `FLOR`    | Flora                   |           302 |        902 |      0 |         0 |         0 |        902 |       0 |        0 |
-| `PROJ`    | Projectile              |           299 |      4,409 |      0 |         0 |         0 |      4,409 |       0 |        0 |
-| `LVLN`    | LeveledNpc              |           298 |      5,323 |      0 |         0 |         0 |      5,323 |       0 |        0 |
-| `SFPT`    | SurfacePattern          |           264 |      1,753 |      0 |         0 |         0 |      1,753 |       0 |        0 |
-| `HDPT`    | HeadPart                |           236 |        472 |      0 |         0 |         0 |        472 |       0 |        0 |
-| `SMBN`    | StoryManagerBranchNode  |           173 |      1,243 |      0 |         0 |         0 |      1,243 |       0 |        0 |
-| `AMMO`    | Ammunition              |           154 |      2,298 |      0 |         0 |         0 |      2,298 |       0 |        0 |
-| `CPTH`    | CameraPath              |           152 |        793 |      0 |         0 |         0 |        793 |       0 |        0 |
-| `ZOOM`    | Zoom                    |           141 |        282 |      0 |         0 |         0 |        282 |       0 |        0 |
-| `ENCH`    | Enchantment             |           135 |        264 |      0 |         0 |         0 |        264 |       0 |        0 |
-| `AMDL`    | AimModel                |           126 |        252 |      0 |         0 |         0 |        252 |       0 |        0 |
-| `STDT`    | Star                    |           124 |      2,455 |      0 |         0 |         0 |      2,455 |       0 |        0 |
-| `HAZD`    | Hazard                  |            87 |        170 |      0 |         0 |         0 |        170 |       0 |        0 |
-| `RSPJ`    | ResearchProject         |            82 |        945 |      0 |         0 |         0 |        945 |       0 |        0 |
-| `PMFT`    | PhotoModeFeature        |            75 |        150 |      0 |         0 |         0 |        150 |       0 |        0 |
-| `ANIO`    | AnimatedObject          |            66 |        225 |      0 |         0 |         0 |        225 |       0 |        0 |
-| `SUNP`    | SunPreset               |            53 |         99 |      0 |         0 |         0 |         99 |       0 |        0 |
-| `LVLP`    | LeveledPackIn           |            52 |        922 |      0 |         0 |         0 |        922 |       0 |        0 |
-| `RACE`    | Race                    |            47 |     12,976 |      0 |         0 |         0 |     12,976 |       0 |        0 |
-| `RSGD`    | ResourceGenerationData  |            32 |        168 |      0 |         0 |         0 |        168 |       0 |        0 |
-| `FXPD`    | FacialExpression        |            31 |         62 |      0 |         0 |         0 |         62 |       0 |        0 |
-| `GPOF`    | GameplayOption          |            31 |        381 |      0 |         0 |         0 |        381 |       0 |        0 |
-| `BPTD`    | BodyPartData            |            27 |        260 |      0 |         0 |         0 |        260 |       0 |        0 |
-| `TRAV`    | Traversal               |            23 |         46 |      0 |         0 |         0 |         46 |       0 |        0 |
-| `SMEN`    | StoryManagerEventNode   |            22 |        142 |      0 |         0 |         0 |        142 |       0 |        0 |
-| `WATR`    | Water                   |            19 |         38 |      0 |         0 |         0 |         38 |       0 |        0 |
-| `TES4`    | PluginHeader            |            14 |         77 |      0 |         0 |         0 |         77 |       0 |        0 |
-| `DMGT`    | DamageType              |            11 |         21 |      0 |         0 |         0 |         21 |       0 |        0 |
-| `CHAL`    | Challenge               |            10 |         30 |      0 |         0 |         0 |         30 |       0 |        0 |
-| `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |         32 |       0 |        0 |
-| `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |      2,628 |       0 |        0 |
-| `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |         27 |       0 |        0 |
-| **Total** |                         |     7,258,537 | 46,249,514 |      0 |         0 |     1,527 | 46,247,987 |       0 |        0 |
+| Record    | Schema                  | Typed records |    Decoded | Failed | Re-encode | reference | container-reference |     corpus | ck-diff | verified |
+| --------- | ----------------------- | ------------: | ---------: | -----: | --------: | --------: | ------------------: | ---------: | ------: | -------: |
+| `REFR`    | PlacedObject            |     6,719,725 | 39,772,484 |      0 |         0 |         0 |                   0 | 39,772,484 |       0 |        0 |
+| `INFO`    | DialogResponse          |       162,028 |  1,730,802 |      0 |         0 |         0 |                   0 |  1,730,802 |       0 |        0 |
+| `NAVM`    | Navmesh                 |        92,893 |          4 |      0 |         0 |         0 |                   0 |          4 |       0 |        0 |
+| `DIAL`    | DialogTopic             |        87,031 |    527,545 |      0 |         0 |         0 |                   0 |    527,545 |       0 |        0 |
+| `CELL`    | Cell                    |        40,251 |    265,596 |      0 |         0 |         1 |                   0 |    265,595 |       0 |        0 |
+| `STAT`    | Static                  |        22,296 |    193,189 |      0 |         0 |         0 |                   0 |    193,189 |       0 |        0 |
+| `PKIN`    | PackIn                  |        15,128 |    135,850 |      0 |         0 |         0 |                   0 |    135,850 |       0 |        0 |
+| `ACHR`    | PlacedNpc               |        14,731 |     85,331 |      0 |         0 |         0 |                   0 |     85,331 |       0 |        0 |
+| `SCEN`    | Scene                   |         9,673 |    872,488 |      0 |         0 |         0 |                   0 |    872,488 |       0 |        0 |
+| `NPC_`    | Npc                     |         8,447 |  1,112,656 |      0 |         0 |         0 |                   0 |  1,112,656 |       0 |        0 |
+| `LCTN`    | Location                |         7,316 |     78,402 |      0 |         0 |         0 |                   0 |     78,402 |       0 |        0 |
+| `KYWD`    | Keyword                 |         6,965 |      8,284 |      0 |         0 |         0 |                   0 |      8,284 |       0 |        0 |
+| `LVLI`    | LeveledItem             |         6,543 |     80,308 |      0 |         0 |         0 |                   0 |     80,308 |       0 |        0 |
+| `LCRT`    | LocationRefType         |         4,779 |     14,349 |      0 |         0 |         0 |                   0 |     14,349 |       0 |        0 |
+| `PACK`    | Package                 |         4,578 |    225,093 |      0 |         0 |         3 |                   0 |    225,090 |       0 |        0 |
+| `GBFM`    | GenericBaseForm         |         3,903 |    145,436 |      0 |         0 |         0 |                   0 |    145,436 |       0 |        0 |
+| `COBJ`    | ConstructibleObject     |         3,518 |     45,206 |      0 |         0 |         0 |                   0 |     45,206 |       0 |        0 |
+| `OMOD`    | ObjectModification      |         3,330 |     20,261 |      0 |         0 |         0 |                   0 |     20,261 |       0 |        0 |
+| `GLOB`    | Global                  |         3,319 |      6,637 |      0 |         0 |         0 |                   0 |      6,637 |       0 |        0 |
+| `MESG`    | Message                 |         2,671 |      7,723 |      0 |         0 |         0 |                   0 |      7,723 |       0 |        0 |
+| `QUST`    | Quest                   |         2,610 |    365,844 |      0 |         0 |         0 |                   0 |    365,844 |       0 |        0 |
+| `GMST`    | GameSetting             |         2,418 |      4,836 |      0 |         0 |         0 |                   0 |      4,836 |       0 |        0 |
+| `PCCN`    | PlanetContentNode       |         2,148 |      8,636 |      0 |         0 |         0 |                   0 |      8,636 |       0 |        0 |
+| `MSTT`    | MoveableStatic          |         2,134 |     20,037 |      0 |         0 |       290 |                   0 |     19,747 |       0 |        0 |
+| `ACTI`    | Activator               |         1,940 |     22,681 |      0 |         0 |       384 |                   0 |     22,297 |       0 |        0 |
+| `SFBK`    | SurfaceBlock            |         1,877 |     32,400 |      0 |         0 |         0 |                   0 |     32,400 |       0 |        0 |
+| `PNDT`    | Planet                  |         1,786 |     55,229 |      0 |         0 |         0 |                   0 |     55,229 |       0 |        0 |
+| `AFFE`    | AffinityEvent           |         1,593 |     24,261 |      0 |         0 |         0 |                   0 |     24,261 |       0 |        0 |
+| `MISC`    | MiscItem                |         1,495 |     19,432 |      0 |         0 |         3 |                   0 |     19,429 |       0 |        0 |
+| `FLST`    | FormIdList              |         1,415 |     14,840 |      0 |         0 |         0 |                   0 |     14,840 |       0 |        0 |
+| `BOOK`    | Book                    |         1,368 |      4,858 |      0 |         0 |         0 |                   0 |      4,858 |       0 |        0 |
+| `IDLE`    | IdleAnimation           |         1,302 |      7,626 |      0 |         0 |         0 |                   0 |      7,626 |       0 |        0 |
+| `AVIF`    | ActorValueInformation   |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
+| `ARMO`    | Armor                   |         1,168 |     30,203 |      0 |         0 |         0 |                   0 |     30,203 |       0 |        0 |
+| `FURN`    | Furniture               |         1,045 |     22,825 |      0 |         0 |         4 |                   0 |     22,821 |       0 |        0 |
+| `MGEF`    | MagicEffect             |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
+| `TMLM`    | TerminalMenu            |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
+| `FACT`    | Faction                 |           953 |      6,130 |      0 |         0 |         0 |                   0 |      6,130 |       0 |        0 |
+| `CONT`    | Container               |           866 |     16,024 |      0 |         0 |         0 |                   0 |     16,024 |       0 |        0 |
+| `OTFT`    | Outfit                  |           698 |      1,396 |      0 |         0 |         0 |                   0 |      1,396 |       0 |        0 |
+| `SPEL`    | Spell                   |           662 |     13,305 |      0 |         0 |         0 |                   0 |     13,305 |       0 |        0 |
+| `PERK`    | Perk                    |           608 |     27,868 |      0 |         0 |         0 |                   0 |     27,868 |       0 |        0 |
+| `WRLD`    | Worldspace              |           583 |     22,135 |      0 |         0 |       842 |                   0 |     21,293 |       0 |        0 |
+| `TERM`    | Terminal                |           501 |     11,612 |      0 |         0 |         0 |                   0 |     11,612 |       0 |        0 |
+| `SMQN`    | StoryManagerQuestNode   |           471 |      6,754 |      0 |         0 |         0 |                   0 |      6,754 |       0 |        0 |
+| `WEAP`    | Weapon                  |           452 |     18,219 |      0 |         0 |         0 |                   0 |     18,219 |       0 |        0 |
+| `BIOM`    | Biome                   |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
+| `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
+| `PCBN`    | PlanetContentBranchNode |           379 |      5,308 |      0 |         0 |         0 |                   0 |      5,308 |       0 |        0 |
+| `DOOR`    | Door                    |           376 |        685 |      0 |         0 |         0 |                   0 |        685 |       0 |        0 |
+| `ALCH`    | Ingestible              |           365 |      1,459 |      0 |         0 |         0 |                   0 |      1,459 |       0 |        0 |
+| `EXPL`    | Explosion               |           359 |        406 |      0 |         0 |         0 |                   0 |        406 |       0 |        0 |
+| `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
+| `IRES`    | Resource                |           333 |        715 |      0 |         0 |         0 |                   0 |        715 |       0 |        0 |
+| `FLOR`    | Flora                   |           302 |        902 |      0 |         0 |         0 |                   0 |        902 |       0 |        0 |
+| `PROJ`    | Projectile              |           299 |      4,409 |      0 |         0 |         0 |                   0 |      4,409 |       0 |        0 |
+| `LVLN`    | LeveledNpc              |           298 |      5,323 |      0 |         0 |         0 |                   0 |      5,323 |       0 |        0 |
+| `SFPT`    | SurfacePattern          |           264 |      1,753 |      0 |         0 |         0 |                   0 |      1,753 |       0 |        0 |
+| `HDPT`    | HeadPart                |           236 |        472 |      0 |         0 |         0 |                   0 |        472 |       0 |        0 |
+| `SMBN`    | StoryManagerBranchNode  |           173 |      1,243 |      0 |         0 |         0 |                   0 |      1,243 |       0 |        0 |
+| `AMMO`    | Ammunition              |           154 |      2,298 |      0 |         0 |         0 |                   0 |      2,298 |       0 |        0 |
+| `CPTH`    | CameraPath              |           152 |        793 |      0 |         0 |         0 |                   0 |        793 |       0 |        0 |
+| `ZOOM`    | Zoom                    |           141 |        282 |      0 |         0 |         0 |                   0 |        282 |       0 |        0 |
+| `ENCH`    | Enchantment             |           135 |        264 |      0 |         0 |         0 |                   0 |        264 |       0 |        0 |
+| `AMDL`    | AimModel                |           126 |        252 |      0 |         0 |         0 |                   0 |        252 |       0 |        0 |
+| `STDT`    | Star                    |           124 |      2,455 |      0 |         0 |         0 |                   0 |      2,455 |       0 |        0 |
+| `HAZD`    | Hazard                  |            87 |        170 |      0 |         0 |         0 |                   0 |        170 |       0 |        0 |
+| `RSPJ`    | ResearchProject         |            82 |        945 |      0 |         0 |         0 |                   0 |        945 |       0 |        0 |
+| `PMFT`    | PhotoModeFeature        |            75 |        150 |      0 |         0 |         0 |                   0 |        150 |       0 |        0 |
+| `ANIO`    | AnimatedObject          |            66 |        225 |      0 |         0 |         0 |                   0 |        225 |       0 |        0 |
+| `SUNP`    | SunPreset               |            53 |         99 |      0 |         0 |         0 |                   0 |         99 |       0 |        0 |
+| `LVLP`    | LeveledPackIn           |            52 |        922 |      0 |         0 |         0 |                   0 |        922 |       0 |        0 |
+| `RACE`    | Race                    |            47 |     12,976 |      0 |         0 |         0 |                   0 |     12,976 |       0 |        0 |
+| `RSGD`    | ResourceGenerationData  |            32 |        168 |      0 |         0 |         0 |                   0 |        168 |       0 |        0 |
+| `FXPD`    | FacialExpression        |            31 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
+| `GPOF`    | GameplayOption          |            31 |        381 |      0 |         0 |         0 |                   0 |        381 |       0 |        0 |
+| `BPTD`    | BodyPartData            |            27 |        260 |      0 |         0 |         0 |                   0 |        260 |       0 |        0 |
+| `TRAV`    | Traversal               |            23 |         46 |      0 |         0 |         0 |                   0 |         46 |       0 |        0 |
+| `SMEN`    | StoryManagerEventNode   |            22 |        142 |      0 |         0 |         0 |                   0 |        142 |       0 |        0 |
+| `WATR`    | Water                   |            19 |         38 |      0 |         0 |         0 |                   0 |         38 |       0 |        0 |
+| `TES4`    | PluginHeader            |            14 |         77 |      0 |         0 |         0 |                   0 |         77 |       0 |        0 |
+| `DMGT`    | DamageType              |            11 |         21 |      0 |         0 |         0 |                   0 |         21 |       0 |        0 |
+| `CHAL`    | Challenge               |            10 |         30 |      0 |         0 |         0 |                   0 |         30 |       0 |        0 |
+| `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
+| `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
+| `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
+| **Total** |                         |     7,258,537 | 46,249,514 |      0 |         0 |     1,527 |                   0 | 46,247,987 |       0 |        0 |
 
 ## Definitions by confidence
 
 Subrecord definitions per record type (groups expanded) from `kit schema --json`
 (M2.F9), by `confidence` (ADR 0004: `reference` documented in an allowed source,
-`corpus` observed in the official files, `ck-diff` checked against Creation Kit
-output, `verified` both). **Typed** definitions give a layout; **Opaque** ones keep
-the payload as raw bytes.
+`container-reference` a container fact from UESP's Skyrim pages that no official
+file shows (ADR 0005 Amendment 5), `corpus` observed in the official files,
+`ck-diff` checked against Creation Kit output, `verified` both). **Typed**
+definitions give a layout; **Opaque** ones keep the payload as raw bytes. The
+occurrence check fails when a `corpus` (or better) member never occurs, and when a
+`container-reference` member does.
 
-| Record    | Schema                  | Subrecord defs | Typed | Opaque | reference | corpus | ck-diff | verified |
-| --------- | ----------------------- | -------------: | ----: | -----: | --------: | -----: | ------: | -------: |
-| `ACHR`    | PlacedNpc               |             45 |    42 |      3 |        11 |     34 |       0 |        0 |
-| `ACTI`    | Activator               |             47 |    45 |      2 |         9 |     38 |       0 |        0 |
-| `AFFE`    | AffinityEvent           |             11 |    11 |      0 |         0 |     11 |       0 |        0 |
-| `ALCH`    | Ingestible              |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
-| `AMDL`    | AimModel                |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
-| `AMMO`    | Ammunition              |             36 |    35 |      1 |        12 |     24 |       0 |        0 |
-| `ANIO`    | AnimatedObject          |             10 |     9 |      1 |         2 |      8 |       0 |        0 |
-| `ARMO`    | Armor                   |             54 |    53 |      1 |        11 |     43 |       0 |        0 |
-| `AVIF`    | ActorValueInformation   |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
-| `BIOM`    | Biome                   |             48 |    47 |      1 |         1 |     47 |       0 |        0 |
-| `BOOK`    | Book                    |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
-| `BPTD`    | BodyPartData            |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `CELL`    | Cell                    |             35 |    33 |      2 |         4 |     31 |       0 |        0 |
-| `CHAL`    | Challenge               |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
-| `CLAS`    | Class                   |              9 |     7 |      2 |         2 |      7 |       0 |        0 |
-| `COBJ`    | ConstructibleObject     |             30 |    29 |      1 |         7 |     23 |       0 |        0 |
-| `CONT`    | Container               |             44 |    43 |      1 |         8 |     36 |       0 |        0 |
-| `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |      7 |       0 |        0 |
-| `DIAL`    | DialogTopic             |             13 |    13 |      0 |         0 |     13 |       0 |        0 |
-| `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `DOOR`    | Door                    |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `FACT`    | Faction                 |             28 |    28 |      0 |         6 |     22 |       0 |        0 |
-| `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
-| `FLST`    | FormIdList              |             11 |    11 |      0 |         0 |     11 |       0 |        0 |
-| `FURN`    | Furniture               |             51 |    49 |      2 |        11 |     40 |       0 |        0 |
-| `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `GBFM`    | GenericBaseForm         |             17 |    15 |      2 |         0 |     17 |       0 |        0 |
-| `GLOB`    | Global                  |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
-| `GMST`    | GameSetting             |              3 |     2 |      1 |         0 |      3 |       0 |        0 |
-| `GPOF`    | GameplayOption          |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
-| `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `IDLE`    | IdleAnimation           |             10 |    10 |      0 |         0 |     10 |       0 |        0 |
-| `INFO`    | DialogResponse          |             59 |    56 |      3 |         7 |     52 |       0 |        0 |
-| `INNR`    | InstanceNamingRules     |             11 |    10 |      1 |         1 |     10 |       0 |        0 |
-| `IRES`    | Resource                |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
-| `KEYM`    | Key                     |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `KYWD`    | Keyword                 |             10 |     4 |      6 |         0 |     10 |       0 |        0 |
-| `LCRT`    | LocationRefType         |             11 |     9 |      2 |         5 |      6 |       0 |        0 |
-| `LCTN`    | Location                |             40 |    38 |      2 |         8 |     32 |       0 |        0 |
-| `LSCR`    | LoadScreen              |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `LVLI`    | LeveledItem             |             37 |    36 |      1 |         9 |     28 |       0 |        0 |
-| `LVLN`    | LeveledNpc              |             29 |    27 |      2 |         7 |     22 |       0 |        0 |
-| `LVLP`    | LeveledPackIn           |             27 |    26 |      1 |         4 |     23 |       0 |        0 |
-| `MESG`    | Message                 |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
-| `MGEF`    | MagicEffect             |             15 |    14 |      1 |         2 |     13 |       0 |        0 |
-| `MISC`    | MiscItem                |             37 |    36 |      1 |        10 |     27 |       0 |        0 |
-| `MSTT`    | MoveableStatic          |             34 |    33 |      1 |         8 |     26 |       0 |        0 |
-| `NAVM`    | Navmesh                 |              6 |     3 |      3 |         1 |      5 |       0 |        0 |
-| `NPC_`    | Npc                     |            116 |   114 |      2 |        16 |    100 |       0 |        0 |
-| `OMOD`    | ObjectModification      |             20 |    18 |      2 |         6 |     14 |       0 |        0 |
-| `OTFT`    | Outfit                  |              5 |     4 |      1 |         1 |      4 |       0 |        0 |
-| `PACK`    | Package                 |             53 |    52 |      1 |         1 |     52 |       0 |        0 |
-| `PCBN`    | PlanetContentBranchNode |             16 |    16 |      0 |         1 |     15 |       0 |        0 |
-| `PCCN`    | PlanetContentNode       |              8 |     8 |      0 |         0 |      8 |       0 |        0 |
-| `PCMT`    | PlanetContentTree       |             12 |    12 |      0 |         2 |     10 |       0 |        0 |
-| `PERK`    | Perk                    |             40 |    36 |      4 |         0 |     40 |       0 |        0 |
-| `PKIN`    | PackIn                  |             23 |    22 |      1 |         0 |     23 |       0 |        0 |
-| `PMFT`    | PhotoModeFeature        |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `PNDT`    | Planet                  |             25 |    25 |      0 |         1 |     24 |       0 |        0 |
-| `PROJ`    | Projectile              |             36 |    35 |      1 |        13 |     23 |       0 |        0 |
-| `QUST`    | Quest                   |            184 |   178 |      6 |         3 |    181 |       0 |        0 |
-| `RACE`    | Race                    |            125 |   119 |      6 |         7 |    118 |       0 |        0 |
-| `REFR`    | PlacedObject            |            100 |    93 |      7 |         5 |     95 |       0 |        0 |
-| `RSGD`    | ResourceGenerationData  |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
-| `RSPJ`    | ResearchProject         |             17 |    17 |      0 |         0 |     17 |       0 |        0 |
-| `SCEN`    | Scene                   |             56 |    55 |      1 |         0 |     56 |       0 |        0 |
-| `SFBK`    | SurfaceBlock            |             19 |    19 |      0 |         0 |     19 |       0 |        0 |
-| `SFPT`    | SurfacePattern          |             10 |    10 |      0 |         3 |      7 |       0 |        0 |
-| `SMBN`    | StoryManagerBranchNode  |              9 |     9 |      0 |         0 |      9 |       0 |        0 |
-| `SMEN`    | StoryManagerEventNode   |             10 |    10 |      0 |         0 |     10 |       0 |        0 |
-| `SMQN`    | StoryManagerQuestNode   |             14 |    14 |      0 |         0 |     14 |       0 |        0 |
-| `SPEL`    | Spell                   |             25 |    24 |      1 |         2 |     23 |       0 |        0 |
-| `STAT`    | Static                  |             23 |    21 |      2 |         2 |     21 |       0 |        0 |
-| `STDT`    | Star                    |             14 |    12 |      2 |         4 |     10 |       0 |        0 |
-| `SUNP`    | SunPreset               |              4 |     2 |      2 |         0 |      4 |       0 |        0 |
-| `TERM`    | Terminal                |             59 |    57 |      2 |        19 |     40 |       0 |        0 |
-| `TES4`    | PluginHeader            |             11 |     8 |      3 |         0 |     11 |       0 |        0 |
-| `TMLM`    | TerminalMenu            |             25 |    24 |      1 |         0 |     25 |       0 |        0 |
-| `TRAV`    | Traversal               |              5 |     4 |      1 |         1 |      4 |       0 |        0 |
-| `WATR`    | Water                   |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `WEAP`    | Weapon                  |             64 |    62 |      2 |         9 |     55 |       0 |        0 |
-| `WRLD`    | Worldspace              |             40 |    38 |      2 |         7 |     33 |       0 |        0 |
-| `ZOOM`    | Zoom                    |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
-| **Total** |                         |          2,065 | 1,971 |     94 |       249 |  1,816 |       0 |        0 |
+| Record    | Schema                  | Subrecord defs | Typed | Opaque | reference | container-reference | corpus | ck-diff | verified |
+| --------- | ----------------------- | -------------: | ----: | -----: | --------: | ------------------: | -----: | ------: | -------: |
+| `ACHR`    | PlacedNpc               |             45 |    42 |      3 |        11 |                   0 |     34 |       0 |        0 |
+| `ACTI`    | Activator               |             47 |    45 |      2 |         9 |                   0 |     38 |       0 |        0 |
+| `AFFE`    | AffinityEvent           |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
+| `ALCH`    | Ingestible              |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
+| `AMDL`    | AimModel                |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
+| `AMMO`    | Ammunition              |             36 |    35 |      1 |        12 |                   0 |     24 |       0 |        0 |
+| `ANIO`    | AnimatedObject          |             10 |     9 |      1 |         2 |                   0 |      8 |       0 |        0 |
+| `ARMO`    | Armor                   |             54 |    53 |      1 |        11 |                   0 |     43 |       0 |        0 |
+| `AVIF`    | ActorValueInformation   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `BIOM`    | Biome                   |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
+| `BOOK`    | Book                    |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
+| `BPTD`    | BodyPartData            |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `CELL`    | Cell                    |             35 |    33 |      2 |         4 |                   0 |     31 |       0 |        0 |
+| `CHAL`    | Challenge               |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `CLAS`    | Class                   |              9 |     7 |      2 |         2 |                   0 |      7 |       0 |        0 |
+| `COBJ`    | ConstructibleObject     |             30 |    29 |      1 |         7 |                   0 |     23 |       0 |        0 |
+| `CONT`    | Container               |             44 |    43 |      1 |         8 |                   0 |     36 |       0 |        0 |
+| `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
+| `DIAL`    | DialogTopic             |             13 |    13 |      0 |         0 |                   0 |     13 |       0 |        0 |
+| `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `DOOR`    | Door                    |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `FACT`    | Faction                 |             28 |    28 |      0 |         6 |                   0 |     22 |       0 |        0 |
+| `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `FLST`    | FormIdList              |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
+| `FURN`    | Furniture               |             51 |    49 |      2 |        11 |                   0 |     40 |       0 |        0 |
+| `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `GBFM`    | GenericBaseForm         |             17 |    15 |      2 |         0 |                   0 |     17 |       0 |        0 |
+| `GLOB`    | Global                  |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
+| `GMST`    | GameSetting             |              3 |     2 |      1 |         0 |                   0 |      3 |       0 |        0 |
+| `GPOF`    | GameplayOption          |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
+| `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `IDLE`    | IdleAnimation           |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
+| `INFO`    | DialogResponse          |             59 |    56 |      3 |         7 |                   0 |     52 |       0 |        0 |
+| `INNR`    | InstanceNamingRules     |             11 |    10 |      1 |         1 |                   0 |     10 |       0 |        0 |
+| `IRES`    | Resource                |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
+| `KEYM`    | Key                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `KYWD`    | Keyword                 |             10 |     4 |      6 |         0 |                   0 |     10 |       0 |        0 |
+| `LCRT`    | LocationRefType         |             11 |     9 |      2 |         5 |                   0 |      6 |       0 |        0 |
+| `LCTN`    | Location                |             40 |    38 |      2 |         8 |                   0 |     32 |       0 |        0 |
+| `LSCR`    | LoadScreen              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `LVLI`    | LeveledItem             |             37 |    36 |      1 |         9 |                   0 |     28 |       0 |        0 |
+| `LVLN`    | LeveledNpc              |             29 |    27 |      2 |         7 |                   0 |     22 |       0 |        0 |
+| `LVLP`    | LeveledPackIn           |             27 |    26 |      1 |         4 |                   0 |     23 |       0 |        0 |
+| `MESG`    | Message                 |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
+| `MGEF`    | MagicEffect             |             15 |    14 |      1 |         2 |                   0 |     13 |       0 |        0 |
+| `MISC`    | MiscItem                |             37 |    36 |      1 |        10 |                   0 |     27 |       0 |        0 |
+| `MSTT`    | MoveableStatic          |             34 |    33 |      1 |         8 |                   0 |     26 |       0 |        0 |
+| `NAVM`    | Navmesh                 |              6 |     3 |      3 |         1 |                   0 |      5 |       0 |        0 |
+| `NPC_`    | Npc                     |            116 |   114 |      2 |        16 |                   0 |    100 |       0 |        0 |
+| `OMOD`    | ObjectModification      |             20 |    18 |      2 |         6 |                   0 |     14 |       0 |        0 |
+| `OTFT`    | Outfit                  |              5 |     4 |      1 |         1 |                   0 |      4 |       0 |        0 |
+| `PACK`    | Package                 |             53 |    52 |      1 |         1 |                   0 |     52 |       0 |        0 |
+| `PCBN`    | PlanetContentBranchNode |             16 |    16 |      0 |         1 |                   0 |     15 |       0 |        0 |
+| `PCCN`    | PlanetContentNode       |              8 |     8 |      0 |         0 |                   0 |      8 |       0 |        0 |
+| `PCMT`    | PlanetContentTree       |             12 |    12 |      0 |         2 |                   0 |     10 |       0 |        0 |
+| `PERK`    | Perk                    |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
+| `PKIN`    | PackIn                  |             23 |    22 |      1 |         0 |                   0 |     23 |       0 |        0 |
+| `PMFT`    | PhotoModeFeature        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `PNDT`    | Planet                  |             25 |    25 |      0 |         1 |                   0 |     24 |       0 |        0 |
+| `PROJ`    | Projectile              |             36 |    35 |      1 |        13 |                   0 |     23 |       0 |        0 |
+| `QUST`    | Quest                   |            184 |   178 |      6 |         3 |                   0 |    181 |       0 |        0 |
+| `RACE`    | Race                    |            125 |   119 |      6 |         7 |                   0 |    118 |       0 |        0 |
+| `REFR`    | PlacedObject            |            100 |    93 |      7 |         5 |                   0 |     95 |       0 |        0 |
+| `RSGD`    | ResourceGenerationData  |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
+| `RSPJ`    | ResearchProject         |             17 |    17 |      0 |         0 |                   0 |     17 |       0 |        0 |
+| `SCEN`    | Scene                   |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
+| `SFBK`    | SurfaceBlock            |             19 |    19 |      0 |         0 |                   0 |     19 |       0 |        0 |
+| `SFPT`    | SurfacePattern          |             10 |    10 |      0 |         3 |                   0 |      7 |       0 |        0 |
+| `SMBN`    | StoryManagerBranchNode  |              9 |     9 |      0 |         0 |                   0 |      9 |       0 |        0 |
+| `SMEN`    | StoryManagerEventNode   |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
+| `SMQN`    | StoryManagerQuestNode   |             14 |    14 |      0 |         0 |                   0 |     14 |       0 |        0 |
+| `SPEL`    | Spell                   |             25 |    24 |      1 |         2 |                   0 |     23 |       0 |        0 |
+| `STAT`    | Static                  |             23 |    21 |      2 |         2 |                   0 |     21 |       0 |        0 |
+| `STDT`    | Star                    |             14 |    12 |      2 |         4 |                   0 |     10 |       0 |        0 |
+| `SUNP`    | SunPreset               |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
+| `TERM`    | Terminal                |             59 |    57 |      2 |        19 |                   0 |     40 |       0 |        0 |
+| `TES4`    | PluginHeader            |             11 |     8 |      3 |         0 |                   2 |      9 |       0 |        0 |
+| `TMLM`    | TerminalMenu            |             25 |    24 |      1 |         0 |                   0 |     25 |       0 |        0 |
+| `TRAV`    | Traversal               |              5 |     4 |      1 |         1 |                   0 |      4 |       0 |        0 |
+| `WATR`    | Water                   |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
+| `WEAP`    | Weapon                  |             64 |    62 |      2 |         9 |                   0 |     55 |       0 |        0 |
+| `WRLD`    | Worldspace              |             40 |    38 |      2 |         7 |                   0 |     33 |       0 |        0 |
+| `ZOOM`    | Zoom                    |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
+| **Total** |                         |          2,065 | 1,971 |     94 |       249 |                   2 |  1,814 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

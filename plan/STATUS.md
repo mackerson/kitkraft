@@ -1512,7 +1512,13 @@ Agents append here when they need a change in a crate they do not own.
   "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
   after this build) or the Extra Large magazine.
 
-- **Plan maintainer -> lane B (round 5): implement ADR 0005 Amendment 5.** New confidence
+- ~~**Plan maintainer -> lane B (round 5): implement ADR 0005 Amendment 5.**~~ Done (lane B
+  round 5): `Confidence::ContainerReference` (`container-reference`, after `reference` in
+  `Confidence::ALL`; `Confidence::below_corpus` ranks the two together), the loader rule
+  (`uesp-skyrim:` citation, TES4/header files only), TES4 DATA/INTV set to it, parity's
+  occurrence check both ways with no name list, `reference_members`, `build`'s gate, the
+  `schema` limitations and the UI's unconfirmed marker; coverage and `kit schema` counts
+  gain a `container-reference` bucket (a column in `docs/record-parity.md`). Was: new confidence
   `container-reference`. It needs a `uesp-skyrim:` citation and is accepted only in the
   container definitions (`TES4`, group header, record header). Steps:
   - Set it on `TES4.Master.FileSize` (`DATA`) and `TES4.TagifyCount` (`INTV`).
