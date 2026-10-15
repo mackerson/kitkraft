@@ -458,6 +458,7 @@ static CATALOG: &[CommandSpec] = &[
         writes: false,
         status: Status::Implemented,
     },
+    CommandSpec {
         id: "profiles",
         label: "MO2 Profiles",
         menu_path: "File/MO2 Profiles",
