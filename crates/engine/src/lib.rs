@@ -445,6 +445,17 @@ static CATALOG: &[CommandSpec] = &[
         writes: false,
         status: Status::Implemented,
     },
+    CommandSpec {
+        id: "profiles",
+        label: "MO2 Profiles",
+        menu_path: "File/MO2 Profiles",
+        shortcut: None,
+        aliases: &[],
+        summary: "Read-only: the MO2 instance (given, or found through KITKRAFT_MO2_DIR, %LOCALAPPDATA%\\ModOrganizer or the dev box's C:\\Modding\\MO2-Starfield), its profiles with the owner's live game `Default` marked, and the Data folder a profile load would use",
+        args_schema: r#"{"type":"object","properties":{"instance":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); omitted: the first instance found"},"data_dir":{"type":"string","description":"Game Data dir to report instead of the instance's (default: gamePath + Data, then KITKRAFT_DATA_DIR)"}},"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
 ];
 
 #[cfg(test)]

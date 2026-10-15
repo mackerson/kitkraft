@@ -9,6 +9,7 @@ pub mod load;
 pub mod planet;
 pub mod records;
 pub mod schema;
+pub mod start;
 pub mod validate;
 
 use serde_json::{Map, Value};

@@ -111,6 +111,12 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads the Planet Content Manager chain of one record",
     },
+    Allowed {
+        id: "profiles",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads an MO2 instance's ModOrganizer.ini and lists its profile folders (the start screen)",
+    },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that

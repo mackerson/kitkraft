@@ -981,6 +981,19 @@ Dev`), `load_order_source`, `load_index`, `appended`, `runtime_id_basis`
 (`command`, `why`), `forms[]` (`signature`, `form_id`, `new`, `editor_id`, `runtime_id`,
 `runtime_id_basis`, `base`, `cell`, `position`, `persistent`), `summary`.
 
+### `profiles` (lane W; CLI `kit profiles [--instance <dir>]`)
+
+Read-only. `profiles {instance?, data_dir?}`: the MO2 instance and its profiles, for the
+workbench's start screen. Without `instance` it looks, in order, at `KITKRAFT_MO2_DIR`,
+every instance under `%LOCALAPPDATA%\ModOrganizer` whose `gameName` is Starfield, and
+`C:\Modding\MO2-Starfield` (the dev box's portable instance); the first that holds a
+`ModOrganizer.ini` wins. `data`: `instance` (`root`, `found_by`, `game_name`, `game_dir`,
+`profiles_dir`, `mods_dir`, `selected_profile`; `null` when none was found), `searched[]`
+(`path`, `source`, `found`), `profiles[]` (`name`, `path`, `live` for `Default`, the owner's
+live game, `dev` for `KitKraft Dev`, `selected`, `plugins_txt`), `data_dir` (`path`,
+`source`: `argument`, `instance gamePath` or `KITKRAFT_DATA_DIR`; `exists`,
+`starfield_esm`), `summary`. Nothing is written, created or followed.
+
 ### `refs` (M4.D1; CLI `kit refs <form>`, alias `useinfo`)
 
 Arguments `{form, incoming = false, depth = 1 (max 6), scope = "winner" | "all", types?,

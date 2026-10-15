@@ -25,7 +25,9 @@ use crate::panels::records::{
     QueryForm, QueryView, RecordView, TypeRow,
 };
 use crate::panels::schema::{SchemaForm, SchemaView};
+use crate::panels::start::{instance_of_profile, profiles_request, StartProfile, StartView};
 use crate::panels::validate::{RoundtripView, ValidateForm, ValidateView};
+use crate::prefs::{self, Prefs};
 use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
 
@@ -40,6 +42,7 @@ const GOOD: Color32 = Color32::from_rgb(110, 190, 110);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Tab {
+    Start,
     Load,
     Records,
     Links,
@@ -51,6 +54,7 @@ enum Tab {
 }
 
 const TABS: &[(Tab, &str)] = &[
+    (Tab::Start, "Start"),
     (Tab::Load, "Load"),
     (Tab::Records, "Records"),
     (Tab::Links, "Links"),
@@ -64,6 +68,7 @@ const TABS: &[(Tab, &str)] = &[
 /// Where a reply goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Slot {
+    Profiles,
     Load,
     Types,
     Query,
@@ -106,6 +111,8 @@ enum Action {
     PickType(String),
     QueryPage(Option<String>),
     UseProfile(PathBuf),
+    /// A start-screen button: load this profile and remember the choice.
+    LoadProfile(StartProfile),
 }
 
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
@@ -136,6 +143,13 @@ struct App {
     /// holds (a failed `load` keeps the previous one). `None` until one succeeds, and
     /// again after the worker restarts.
     session: Option<Map<String, Value>>,
+
+    /// The per-user prefs (`crate::prefs`) and where they live (`None`: no
+    /// `%LOCALAPPDATA%`, nothing is remembered).
+    prefs: Prefs,
+    prefs_path: Option<PathBuf>,
+    start_instance: String,
+    start_view: Option<StartView>,
 
     load_form: LoadForm,
     profiles_dir: String,
@@ -264,13 +278,29 @@ impl App {
             .and_then(|p| Path::new(p).parent())
             .map(|p| p.display().to_string())
             .unwrap_or_default();
+        // First run: no load-order arguments, so the start screen opens.
+        let first_run = opts.profile.is_none() && opts.plugins.is_empty();
+        let prefs_path = prefs::default_path();
+        let prefs = prefs_path.as_deref().map(Prefs::load).unwrap_or_default();
+        // The launcher's profile names its instance; else the last one used, else the
+        // engine looks.
+        let start_instance = opts
+            .profile
+            .as_deref()
+            .and_then(instance_of_profile)
+            .or_else(|| prefs.instance.clone())
+            .unwrap_or_default();
         let mut app = Self {
             worker,
-            tab: Tab::Load,
+            tab: if first_run { Tab::Start } else { Tab::Load },
             slots: BTreeMap::new(),
             notice: None,
             results: BTreeMap::new(),
             session: None,
+            prefs,
+            prefs_path,
+            start_instance,
+            start_view: None,
             profiles: if profiles_dir.is_empty() {
                 Vec::new()
             } else {
@@ -325,6 +355,8 @@ impl App {
             Slot::Types,
             Request::new("schema", Value::Object(Map::new())),
         );
+        let req = profiles_request(Some(&app.start_instance));
+        app.submit(Slot::Profiles, req);
         if opts.profile.is_some() || !opts.plugins.is_empty() {
             if let Ok(req) = app.load_form.request() {
                 app.submit(Slot::Load, req);
@@ -352,6 +384,13 @@ impl App {
         };
         if let Ok(env) = &reply.result {
             match slot {
+                Slot::Profiles => {
+                    let view = StartView::from_envelope(env);
+                    if self.start_instance.trim().is_empty() {
+                        self.start_instance = view.instance.clone().unwrap_or_default();
+                    }
+                    self.start_view = Some(view);
+                }
                 Slot::Load => {
                     self.load_view = Some(LoadView::from_envelope(env));
                     self.session = Some(session_args(&reply.request.args));
@@ -511,6 +550,38 @@ impl App {
                 Action::UseProfile(path) => {
                     self.load_form.profile = path.display().to_string();
                 }
+                Action::LoadProfile(profile) => match profile.load_request() {
+                    Ok(req) => {
+                        self.load_form = LoadForm {
+                            profile: profile.path.clone(),
+                            ..LoadForm::default()
+                        };
+                        self.submit(Slot::Load, req);
+                        self.remember(&profile);
+                        self.tab = Tab::Load;
+                    }
+                    Err(e) => self.notice = Some(e),
+                },
+            }
+        }
+    }
+
+    /// Writes the start screen's choice to the prefs file (the one file the workbench
+    /// writes on its own; `crate::prefs`).
+    fn remember(&mut self, profile: &StartProfile) {
+        self.prefs.profile = Some(profile.path.clone());
+        self.prefs.instance = self
+            .start_view
+            .as_ref()
+            .and_then(|v| v.instance.clone())
+            .or_else(|| instance_of_profile(&profile.path));
+        self.save_prefs();
+    }
+
+    fn save_prefs(&mut self) {
+        if let Some(path) = &self.prefs_path {
+            if let Err(e) = self.prefs.save(path) {
+                self.notice = Some(format!("UI prefs not saved: {e}"));
             }
         }
     }
@@ -585,6 +656,7 @@ impl eframe::App for App {
                 .id_salt("tab-scroll")
                 .auto_shrink([false, false])
                 .show(ui, |ui| match self.tab {
+                    Tab::Start => self.tab_start(ui, busy, &mut actions),
                     Tab::Load => self.tab_load(ui, busy, &mut actions),
                     Tab::Records => self.tab_records(ui, busy, &mut actions),
                     Tab::Links => self.tab_links(ui, busy, &mut actions),
@@ -718,6 +790,122 @@ impl App {
 // ---- tabs -----------------------------------------------------------------------------
 
 impl App {
+    fn tab_start(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
+        ui.heading("Start");
+        ui.label("The MO2 instance, its profiles and the Data folder, as the engine's `profiles` command reads them. Each button loads a profile read-only; `Default` is the owner's live game and is only ever read. In-game checks run on `KitKraft Dev`.");
+        ui.horizontal(|ui| {
+            ui.label("MO2 instance");
+            ui.add(TextEdit::singleline(&mut self.start_instance).desired_width(420.0))
+                .on_hover_text(
+                    "the folder holding ModOrganizer.ini; empty: the engine looks for one",
+                );
+            if ui
+                .add_enabled(!busy, egui::Button::new("Look again"))
+                .clicked()
+            {
+                actions.push(Action::Submit(
+                    Slot::Profiles,
+                    profiles_request(Some(&self.start_instance)),
+                ));
+            }
+        });
+        let last = self.prefs.profile.clone();
+        envelope_block(ui, self.results.get(&Slot::Profiles.into()), |ui| {
+            let Some(view) = &self.start_view else { return };
+            Grid::new("start-instance").num_columns(2).show(ui, |ui| {
+                ui.strong("MO2 instance");
+                match &view.instance {
+                    Some(root) => ui.label(format!(
+                        "{root}  (found by {}; game {}; MO2's selected profile {})",
+                        view.found_by,
+                        if view.game_name.is_empty() {
+                            "not set"
+                        } else {
+                            &view.game_name
+                        },
+                        if view.selected_profile.is_empty() {
+                            "not set"
+                        } else {
+                            &view.selected_profile
+                        }
+                    )),
+                    None => ui.colored_label(
+                        BAD,
+                        "none found: type the folder holding ModOrganizer.ini above",
+                    ),
+                };
+                ui.end_row();
+                ui.strong("Data dir");
+                if view.data_ok {
+                    ui.label(&view.data_dir);
+                } else {
+                    ui.colored_label(WARN, &view.data_dir);
+                }
+                ui.end_row();
+            });
+            CollapsingHeader::new(format!("places searched ({})", view.searched.len()))
+                .id_salt("start-searched")
+                .show(ui, |ui| {
+                    for (path, source, found) in &view.searched {
+                        ui.label(format!(
+                            "{} {path} ({source})",
+                            if *found { "found:" } else { "no instance:" }
+                        ));
+                    }
+                });
+            ui.add_space(6.0);
+            if view.profiles.is_empty() && view.instance.is_some() {
+                ui.colored_label(
+                    WARN,
+                    "the instance has no profiles (folders with a modlist.txt)",
+                );
+            }
+            Grid::new("start-profiles").striped(true).show(ui, |ui| {
+                for p in &view.profiles {
+                    let label = if p.live {
+                        format!("Load {} (read-only)", p.name)
+                    } else {
+                        format!("Load {}", p.name)
+                    };
+                    if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
+                        actions.push(Action::LoadProfile(p.clone()));
+                    }
+                    match p.badge() {
+                        Some(b) if p.live => {
+                            ui.colored_label(WARN, b);
+                        }
+                        Some(b) => {
+                            ui.colored_label(GOOD, b);
+                        }
+                        None => {
+                            ui.label("");
+                        }
+                    }
+                    let mut notes = Vec::new();
+                    if p.selected {
+                        notes.push("MO2's selected profile");
+                    }
+                    if StartView::is_last(p, last.as_deref()) {
+                        notes.push("last used");
+                    }
+                    if !p.plugins_txt {
+                        notes.push("no plugins.txt");
+                    }
+                    ui.weak(notes.join("; "));
+                    ui.monospace(&p.path);
+                    ui.end_row();
+                }
+            });
+            match &self.prefs_path {
+                Some(path) => ui.weak(format!(
+                    "the choice is remembered in {} (UI prefs, not game data; the only file the workbench writes on its own)",
+                    path.display()
+                )),
+                None => ui.weak("no %LOCALAPPDATA%: the choice is not remembered"),
+            };
+        });
+    }
+
     fn tab_load(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
         ui.heading("Load");
         ui.label("Loads a profile or plugin list into the session (`load`). Profiles are read, never changed; `Default` is the owner's live game and is only ever read.");

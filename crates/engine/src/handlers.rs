@@ -28,6 +28,7 @@ mod place;
 #[cfg(test)]
 pub(crate) mod place_tests;
 mod planet;
+mod profiles;
 mod query;
 mod refs;
 mod resolve;
@@ -94,6 +95,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("deploy.rollback", Box::new(deploy::rollback)),
         ("deploy.status", Box::new(deploy::status)),
         ("papyrus.events", Box::new(papyrus::events::run)),
+        ("profiles", Box::new(profiles::run)),
     ]
 }
 
