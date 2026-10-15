@@ -1296,6 +1296,24 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     `docs/design/planet-content.md`: link statistics by member, tree depths and sibling
     chains, condition function counts, the two typed paths to placed content (tree and
     biome), every claim graded, open questions for M4.O1/M4.O4.
+- Lane E round 5 (engine `edit/`, `validate/`, `build/`, `handlers/`; `crates/io`
+  instance; `docs/recipes/`), 2026-10-15:
+  - **M3.E4 lstrings from the schema.** `set`, `build` and `validate` find every schema
+    `lstring` wherever the layout puts it (whole subrecord, any struct member, array
+    element, union variant) through `kitkraft_doc::typed::lstring_spans` (the decoder's
+    walk, with member paths), replacing the "whole subrecord or last struct field" rule in
+    `edit::patch` and `validate`. `edit::lstrings` is a cross-check and fallback:
+    `compare` finds 100 of the table's 105 lstrings typed as whole-subrecord schema
+    members, 0 conflicts, and 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT/STDT `FULL`) inside
+    component blocks the schema keeps raw, where the table is used with a limitation
+    (unit test `the_schema_types_every_table_lstring`; the corpus test
+    `lstring_table_matches_the_corpus` now also checks the schema against the fresh scan).
+    No current definition has an lstring inside a struct (all are whole subrecords). The
+    `docs/gaps.md` lstring row is closed; `docs/validate.md` "lstring signature table"
+    updated.
+  - Engine-reserved constants defined once (`kitkraft_doc::links`, re-exported by
+    `validate`); `kitkraft_io::Instance` (read-only MO2 instance) used by `deploy` and the
+    profile reader (Requests, struck).
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64

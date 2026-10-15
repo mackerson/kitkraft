@@ -84,17 +84,32 @@ and outside the schema e.g. ACTI/FLOR/FURN/NPC_ `ATTX`, NPC_ `SHRT`/`LNAM`, INFO
 TMLM `ITXT`/`BTXT`/`UNAM`, WEAP `WABB`, GBFM `HULL`, AMMO/LVLI `ONAM`), and 121 pairs
 unclassified (113 of them 4 bytes and always zero in the corpus).
 
-**Use.** The patch writer inlines table lstrings of a localized source like schema ones
-(with a limitation naming the pair), and refuses a copy that holds a non-zero 4-byte
+**Schema first (M3.E4).** Lane B typed all 105 lstring signatures (M3.B8). `set`, `build`
+and `validate` now take lstrings from the schema: every member of type `lstring`
+wherever the layout puts it (the whole subrecord, any struct member, an array element, a
+union variant; `kitkraft_doc::typed::lstring_spans`), not only the whole subrecord or a
+struct's last field. The table is a cross-check and a fallback:
+`edit::lstrings::compare` finds 100 of its lstrings typed as whole-subrecord schema
+members and no conflict (a pair the table measured as "not an lstring" that the schema
+types as one, or the reverse); the other 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT and
+STDT `FULL`) sit inside the base form component blocks the schema keeps raw, and there
+the table is used with a limitation naming the pair ("treated as an lstring by the
+corpus lstring table ... the schema has no member for it here"). The unit test
+`the_schema_types_every_table_lstring` checks this against the table, and
+`lstring_table_matches_the_corpus` against a fresh corpus scan.
+
+**Use.** The patch writer inlines lstrings of a localized source (schema ones, and table
+ones with a limitation naming the pair), and refuses a copy that holds a non-zero 4-byte
 subrecord of unknown layout the table leaves unclassified, naming each (`ATTX[0]`);
 `allow_untyped_lstrings` (`--allow-untyped-lstrings`) copies them as stored and names them
-in a limitation. `validate` uses the table for `lstring.copied-id` (above).
+in a limitation. `validate` uses the same layouts for `lstring.copied-id` (above).
 
-**Limits.** The method cannot see an lstring inside a larger struct (such a subrecord is
-never 4 bytes in a localized file); the schema's struct-tail lstrings cover the typed
-ones. Pairs only third-party plugins use are unclassified, so copying them from a
-localized source needs the escape. The table is replaced by schema typing as lane B
-transcribes the pinned definitions.
+**Limits.** The corpus method cannot see an lstring inside a larger struct (such a
+subrecord is never 4 bytes in a localized file); only the schema covers those (none of the
+current definitions has one: every typed lstring is a whole subrecord). Pairs only
+third-party plugins use are unclassified, so copying them from a localized source needs
+the escape. The 5 fallback pairs leave the table when lane B types the component blocks
+(a component-name decider, `docs/gaps.md`).
 
 ## Denylist (`papyrus.denylisted-call`)
 

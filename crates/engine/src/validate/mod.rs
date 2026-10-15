@@ -25,7 +25,6 @@ use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
 use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
 use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
-use kitkraft_schema::FieldType;
 use serde::Serialize;
 
 use crate::edit::fields::{self, Layout};
@@ -918,7 +917,15 @@ fn check_record(
             let Some(layout) = layout else {
                 continue;
             };
-            for (member, start, len) in spans(&layout, s.data(), r.header.form_version) {
+            let lctx = kitkraft_doc::typed::Ctx {
+                form_version: r.header.form_version,
+                localized: pass.localized,
+                edid_first: subs
+                    .iter()
+                    .find(|s| s.signature() == Signature(*b"EDID"))
+                    .and_then(|s| s.data().first().copied()),
+            };
+            for (member, start, len) in fields::lstring_spans(&layout.ty, s.data(), &lctx) {
                 let label = format!("{}[{occurrence}]{member}", s.signature());
                 let bytes = s
                     .data()
@@ -1002,26 +1009,6 @@ fn check_record(
                 }
             }
         }
-    }
-}
-
-/// The lstring spans of a subrecord laid out as `layout`.
-fn spans(layout: &Layout, payload: &[u8], form_version: u16) -> Vec<(String, usize, usize)> {
-    match &layout.ty {
-        FieldType::LString => vec![(String::new(), 0, payload.len())],
-        FieldType::Struct { fields: list } => {
-            let last = list.iter().rev().find(|f| f.present_in(Some(form_version)));
-            match last {
-                Some(f) if matches!(f.ty, FieldType::LString) => {
-                    let steps = [fields::Step::Member(f.name.clone())];
-                    fields::locate("", &layout.ty, payload, &steps, form_version)
-                        .map(|at| vec![(format!(".{}", f.name), at.start, at.len)])
-                        .unwrap_or_default()
-                }
-                _ => Vec::new(),
-            }
-        }
-        _ => Vec::new(),
     }
 }
 

@@ -1393,38 +1393,15 @@ pub fn untyped_id_runs(
     Ok(merged)
 }
 
-/// The lstring spans of one subrecord laid out as `layout` (its layout at its position,
-/// `fields::layout_at`): `(member label, start, len)`.
+/// The lstring spans of one subrecord of a localized source laid out as `layout` (its
+/// layout at its position, `fields::layout_at`): `(member label, start, len)`, wherever
+/// they sit in the payload ([`fields::lstring_spans`], M3.E4).
 pub fn lstring_spans(
     layout: Option<&fields::Layout>,
-    sub_sig: [u8; 4],
     payload: &[u8],
-    form_version: u16,
-) -> Result<Vec<(String, usize, usize)>, FieldError> {
-    let text = String::from_utf8_lossy(&sub_sig).into_owned();
-    let Some(layout) = layout else {
-        return Ok(Vec::new());
-    };
-    Ok(match &layout.ty {
-        FieldType::LString => vec![(String::new(), 0, payload.len())],
-        FieldType::Struct { fields } => {
-            let last = fields
-                .iter()
-                .rev()
-                .find(|f| f.present_in(Some(form_version)));
-            match last {
-                Some(f) if matches!(f.ty, FieldType::LString) => {
-                    let steps = [fields::Step::Member(f.name.clone())];
-                    match fields::locate(&text, &layout.ty, payload, &steps, form_version) {
-                        Ok(at) => vec![(format!(".{}", f.name), at.start, at.len)],
-                        Err(_) => Vec::new(),
-                    }
-                }
-                _ => Vec::new(),
-            }
-        }
-        _ => Vec::new(),
-    })
+    ctx: &kitkraft_doc::typed::Ctx,
+) -> Vec<(String, usize, usize)> {
+    layout.map_or_else(Vec::new, |l| fields::lstring_spans(&l.ty, payload, ctx))
 }
 
 /// Writes every lstring of a localized source's record as inline text (module docs).
@@ -1465,6 +1442,15 @@ fn inline_lstrings(
     let mut updates: Vec<(usize, Vec<u8>)> = Vec::new();
     let sigs: Vec<[u8; 4]> = subs.iter().map(|(s, _)| s.0).collect();
     let all = fields::layouts(sig, &sigs);
+    // The source is localized: each lstring is a 4-byte ID wherever it sits.
+    let dctx = kitkraft_doc::typed::Ctx {
+        form_version,
+        localized: true,
+        edid_first: subs
+            .iter()
+            .find(|(s, _)| s.0 == *b"EDID")
+            .and_then(|(_, d)| d.first().copied()),
+    };
     for (i, (s, payload)) in subs.iter().enumerate() {
         let n = nth.entry(s.0).or_insert(0);
         let occurrence = *n;
@@ -1480,7 +1466,7 @@ fn inline_lstrings(
             }
             continue;
         }
-        let spans = lstring_spans(layout.as_ref(), s.0, payload, form_version)?;
+        let spans = lstring_spans(layout.as_ref(), payload, &dctx);
         if !spans.is_empty() {
             if let Some(note) = layout.and_then(|l| l.fallback) {
                 notes.push(note);
