@@ -745,7 +745,7 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     ];
     let rec = GmstRecord::decode(&seed_raw(&gmst), localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
-    assert!(rec.xalg.is_some());
+    assert_eq!(**rec.xalg_flags.as_ref().unwrap(), 0);
     assert_eq!(**rec.value.as_ref().unwrap(), seed::GmstValue::Float(1.0));
     assert_eq!(rec.encode(), gmst);
     for (edid, data, value) in [
@@ -770,16 +770,17 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     assert!(rec.value.is_none() && rec.extra.len() == 1);
     assert_eq!(rec.encode(), odd);
 
-    // KYWD with a BFCB block, DNAM and FULL; a stray subrecord goes to extra.
+    // KYWD with a BFCB block, notes and FULL (M3.B6 layouts); a stray subrecord goes to
+    // extra, and so does a DNAM that is not NUL-terminated text.
     let kywd = vec![
         s(b"EDID", b"Kw\0"),
         s(b"BFCB", b"T\0"),
         s(b"BFCE", &[]),
-        s(b"CNAM", &[0; 4]),
-        s(b"DNAM", &[1, 2, 3]),
-        s(b"TNAM", &[0; 4]),
+        s(b"CNAM", &[10, 20, 30, 255]),
+        s(b"DNAM", b"note\0"),
+        s(b"TNAM", &[29, 0, 0, 0]),
         s(b"FNAM", &[0; 4]),
-        s(b"ENAM", &[9]),
+        s(b"ENAM", b"Link\0"),
         s(b"FULL", &[1, 0, 0, 0]),
         s(b"QQQQ", &[]),
     ];
@@ -787,8 +788,17 @@ fn seed_glob_gmst_kywd_inventory_shapes() {
     assert_eq!(rec.extra.len(), 1);
     assert_eq!(rec.extra[0].0, 9);
     assert!(rec.bfcb_block[0].component_data.is_empty());
-    assert!(rec.dnam.is_some() && rec.enam.is_some() && rec.data.is_none());
+    assert_eq!(rec.color.as_ref().unwrap().alpha, 255);
+    assert_eq!(rec.notes.as_ref().unwrap().0, b"note");
+    assert_eq!(**rec.keyword_type.as_ref().unwrap(), 29);
+    assert_eq!(rec.flash_linkage_name.as_ref().unwrap().0, b"Link");
+    assert!(rec.attraction_rule.is_none());
     assert_eq!(rec.encode(), kywd);
+    let mut raw_notes = kywd.clone();
+    raw_notes[4] = s(b"DNAM", &[1, 2, 3]);
+    let rec = KywdRecord::decode(&seed_raw(&raw_notes), Ctx::default());
+    assert!(rec.notes.is_none() && rec.extra.len() == 2);
+    assert_eq!(rec.encode(), raw_notes);
 }
 
 /// M2.B3: `form_ids()` and `lstrings()` yield every typed FormID and lstring in definition

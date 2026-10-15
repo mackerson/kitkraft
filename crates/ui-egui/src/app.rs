@@ -1361,6 +1361,9 @@ fn conf_label(ui: &mut egui::Ui, confidence: &str) {
             .on_hover_text(
                 "documented in the pinned xEdit file; not yet confirmed by the corpus or the CK",
             );
+    } else if confidence == "container-reference" {
+        ui.colored_label(WARN, "container-reference (unconfirmed)")
+            .on_hover_text("a container fact from UESP's Skyrim pages that no official file shows");
     } else {
         ui.label(confidence);
     }

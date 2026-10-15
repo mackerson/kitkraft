@@ -8,8 +8,6 @@
 //! fresh scaffold reports 0 changes. The output is deterministic: no timestamps, groups in
 //! a fixed order.
 
-use kitkraft_schema::Confidence;
-
 use super::members::Numeric;
 
 /// Statistics of one typed numeric member over a group's records.
@@ -117,7 +115,7 @@ fn comment(out: &mut String, text: &str) {
 
 fn member_line(m: &Numeric) -> String {
     let mut s = format!("{} ({}, {}", m.path, m.kind, m.confidence);
-    if m.confidence == Confidence::Reference {
+    if m.confidence.below_corpus() {
         s.push_str(": writing it needs allow_reference = true");
     }
     if m.in_array {

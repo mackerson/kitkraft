@@ -3,11 +3,14 @@
 //! `reference` means documented in an allowed source (xEdit at the pin), not yet confirmed
 //! by our own evidence (ADR 0004, owner approval, clarification 3). A value decoded through
 //! such a member is shown, but results name the member in `limitations` so nobody takes it
-//! for a checked fact.
+//! for a checked fact. `container-reference` (a TES4 container fact from UESP's Skyrim
+//! pages that no official file shows, ADR 0005 Amendment 5) ranks with `reference` here
+//! ([`kitkraft_schema::Confidence::below_corpus`]).
 
-use kitkraft_schema::{Confidence, FieldType, Schema, Signature};
+use kitkraft_schema::{FieldType, Schema, Signature};
 
-/// Member paths (`FLTV.Value`, `DNAM.Data.Speed`) with `reference` confidence that values
+/// Member paths (`FLTV.Value`, `DNAM.Data.Speed`) with `reference` (or
+/// `container-reference`) confidence that values
 /// read from subrecord `sub` of a record of type `record` pass through: the subrecord's own
 /// member, then every field inside it when `members` is `None` (a whole decoded payload),
 /// else the fields along `members` (a `where` path, lower-case; a leading subrecord member
@@ -30,7 +33,7 @@ pub fn reference_members(
             continue;
         }
         let base = format!("{}.{}", ss.as_str(), s.name);
-        if s.provenance.confidence == Confidence::Reference {
+        if s.provenance.confidence.below_corpus() {
             out.push(base.clone());
         }
         match members {
@@ -61,7 +64,7 @@ fn all_fields(ty: &FieldType, path: &str, out: &mut Vec<String>, depth: usize) {
         FieldType::Struct { fields } => {
             for f in fields {
                 let p = format!("{path}.{}", f.name);
-                if f.provenance.confidence == Confidence::Reference {
+                if f.provenance.confidence.below_corpus() {
                     out.push(p.clone());
                 }
                 all_fields(&f.ty, &p, out, next);
@@ -97,7 +100,7 @@ fn along(ty: &FieldType, members: &[String], path: &str, out: &mut Vec<String>, 
             };
             if let Some(f) = fields.iter().find(|f| f.name.eq_ignore_ascii_case(first)) {
                 let p = format!("{path}.{}", f.name);
-                if f.provenance.confidence == Confidence::Reference {
+                if f.provenance.confidence.below_corpus() {
                     out.push(p.clone());
                 }
                 along(&f.ty, rest, &p, out, next);
@@ -117,7 +120,9 @@ pub fn reference_limitation(members: &[(String, Vec<String>)]) -> Option<String>
     (!listed.is_empty()).then(|| {
         format!(
             "values decoded through members with `reference` confidence (documented in the \
-             pinned xEdit definitions, not yet confirmed by the corpus or the CK; ADR 0004): {}",
+             pinned xEdit definitions, or `container-reference`: a container fact from UESP's \
+             Skyrim pages; not yet confirmed by the corpus or the CK; ADR 0004, ADR 0005 \
+             Amendment 5): {}",
             listed.join("; ")
         )
     })
@@ -162,6 +167,16 @@ pub(crate) mod tests {
         assert!(reference_members(&schema, *b"QQQQ", *b"FLTV", None).is_empty());
         let builtin = kitkraft_schema::builtin().unwrap();
         assert!(reference_members(builtin, *b"GLOB", *b"FLTV", None).is_empty());
+        // `container-reference` ranks with `reference` (ADR 0005 Amendment 5).
+        assert_eq!(
+            reference_members(builtin, *b"TES4", *b"INTV", None),
+            ["INTV.TagifyCount"]
+        );
+        assert_eq!(
+            reference_members(builtin, *b"TES4", *b"DATA", None),
+            ["DATA.FileSize"]
+        );
+        assert!(reference_members(builtin, *b"TES4", *b"HEDR", None).is_empty());
         let text = reference_limitation(&[("GLOB".into(), vec!["FLTV.Value".into()])]).unwrap();
         assert!(text.contains("GLOB FLTV.Value"), "{text}");
         assert_eq!(reference_limitation(&[("GLOB".into(), vec![])]), None);

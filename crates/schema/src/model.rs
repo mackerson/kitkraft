@@ -78,6 +78,11 @@ pub enum Confidence {
     /// Documented in an allowed source (today: xEdit at the pinned revision), not yet
     /// observed in a fixture.
     Reference,
+    /// A container fact (TES4, the group header, the record header) cited from UESP's
+    /// Skyrim pages that no official Starfield file shows, so the corpus cannot confirm it
+    /// (ADR 0005 Amendment 5). Ranks with [`Confidence::Reference`]; see
+    /// [`Confidence::below_corpus`].
+    ContainerReference,
     /// Observed in a local fixture: sizes, counts and order agree with every occurrence
     /// in the 14 official ESMs (or in our synthetic plugins).
     Corpus,
@@ -89,12 +94,27 @@ pub enum Confidence {
 
 impl Confidence {
     /// Every level, weakest first.
-    pub const ALL: [Confidence; 4] = [Self::Reference, Self::Corpus, Self::CkDiff, Self::Verified];
+    pub const ALL: [Confidence; 5] = [
+        Self::Reference,
+        Self::ContainerReference,
+        Self::Corpus,
+        Self::CkDiff,
+        Self::Verified,
+    ];
+
+    /// `reference` or `container-reference`: documented in a source, not confirmed by our
+    /// own evidence. The two rank together wherever levels are compared (ADR 0005
+    /// Amendment 5): the parity occurrence check skips them, `build` writes them only with
+    /// `allow_reference`, and `inspect` / `query` name them in `limitations`.
+    pub fn below_corpus(self) -> bool {
+        self < Self::Corpus
+    }
 
     /// The TOML spelling.
     pub fn as_str(self) -> &'static str {
         match self {
             Self::Reference => "reference",
+            Self::ContainerReference => "container-reference",
             Self::Corpus => "corpus",
             Self::CkDiff => "ck-diff",
             Self::Verified => "verified",

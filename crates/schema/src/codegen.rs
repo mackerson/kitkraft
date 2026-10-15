@@ -4,10 +4,11 @@
 //! (reader, `Field` trait, subrecord matcher) followed by each shared definition once,
 //! one struct per header, and one typed struct per record, group, struct payload, enum and
 //! flags field, in signature order, then the `Record` dispatch enum. The output depends
-//! only on `std`, contains no indexing, `unwrap` or `panic`, and is rustfmt-clean, so it
-//! can be checked in under the workspace lints (`examples/generated.rs` proves it on the
-//! goldens). Writing it into `crates/esm` is the job of `cargo xtask codegen` (M1.15), not
-//! of this crate.
+//! only on `std` and contains no indexing, `unwrap` or `panic`, so it can be checked in
+//! under the workspace lints (`examples/generated.rs` proves it on the goldens). It is
+//! valid Rust but not laid out: the generator does not mirror rustfmt's width rules.
+//! `cargo xtask codegen` formats it with rustfmt (workspace `rustfmt.toml`) before writing
+//! it into `crates/esm` (M1.15), and the golden tests format it the same way.
 //!
 //! Generated records decode a record body leniently: every subrecord ends up either in a
 //! typed member (as `Sub<T>`, which keeps the subrecord's `XXXX` flag) or in `extra` with
@@ -135,9 +136,6 @@ struct Gen {
     /// Shared definitions already emitted: name -> Rust type.
     shared: BTreeMap<String, String>,
 }
-
-/// rustfmt's `struct_lit_width` under the default heuristics for `max_width = 100`.
-const STRUCT_LIT_WIDTH: usize = 18;
 
 /// A field-name string literal for error messages (`"TES4.HEDR.Version"`).
 fn lit(text: &str) -> String {
@@ -752,19 +750,8 @@ impl Visit for {name} {{}}
             }
             inits.push(format!("{ident}: f{i}"));
         }
-        // rustfmt keeps a struct literal on one line while its body fits
-        // `struct_lit_width` (18 with the default heuristics).
-        let body = inits.join(", ");
-        let construct = if body.len() <= STRUCT_LIT_WIDTH {
-            format!("        Ok(Self {{ {body} }})\n")
-        } else {
-            let mut lines = String::from("        Ok(Self {\n");
-            for init in &inits {
-                let _ = writeln!(lines, "            {init},");
-            }
-            lines.push_str("        })\n");
-            lines
-        };
+        // One line; rustfmt decides whether the literal fits.
+        let construct = format!("        Ok(Self {{ {} }})\n", inits.join(", "));
         let _ = write!(
             self.out,
             "
@@ -1342,18 +1329,8 @@ impl {name} {{
         } else {
             format!("    fn emit(&self, out: &mut Vec<OwnedSub>) {{\n{emits}    }}\n")
         };
-        let single_literal = members.len() == 1 && descs.lines().count() > 1;
         let members_list = if descs.is_empty() {
             "&[]".to_owned()
-        } else if single_literal {
-            // rustfmt lets a lone struct literal overflow the brackets: `&[X {` ... `}]`.
-            let body: Vec<&str> = descs
-                .trim_end()
-                .trim_end_matches(',')
-                .lines()
-                .map(|l| l.strip_prefix("    ").unwrap_or(l))
-                .collect();
-            format!("&[{}]", body.join("\n").trim_start())
         } else {
             format!(
                 "&[
@@ -1408,83 +1385,34 @@ impl Unordered for {name} {{
     }
 }
 
-/// Width limits of rustfmt's default heuristics for `max_width = 100` (`fn_call_width`
-/// bounds the argument list).
-const MAX_WIDTH: usize = 100;
-const FN_CALL_WIDTH: usize = 60;
 /// Indentation of match arms inside `fill`.
 const ARM_INDENT: usize = 16;
 
-/// A `{lead}{func}(args)?;` statement at `indent`, laid out the way rustfmt lays it out:
-/// on one line when it fits, otherwise one argument per line.
+// The helpers below emit each statement on one line; line breaking is rustfmt's job
+// (`cargo xtask codegen` and the golden tests format the output), so the generator does
+// not mirror rustfmt's width heuristics.
+
+/// A `{lead}{func}(args)?;` statement at `indent`.
 fn let_call(indent: usize, lead: &str, func: &str, args: &[String]) -> String {
-    let joined = args.join(", ");
     let pad = " ".repeat(indent);
-    let line = format!("{pad}{lead}{func}({joined})?;");
-    if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
-        return format!("{line}\n");
-    }
-    // rustfmt moves a call that fits its argument width but not the line to the next
-    // line, after the `=` of a `let`.
-    let call = format!("{pad}    {func}({joined})?;");
-    if let Some(head) = lead.strip_suffix(' ') {
-        if head.ends_with('=') && joined.len() <= FN_CALL_WIDTH && call.len() <= MAX_WIDTH {
-            return format!("{pad}{head}\n{call}\n");
-        }
-    }
-    let mut out = format!("{pad}{lead}{func}(\n");
-    for arg in args {
-        let _ = writeln!(out, "{pad}    {arg},");
-    }
-    let _ = writeln!(out, "{pad})?;");
-    out
+    format!("{pad}{lead}{func}({})?;\n", args.join(", "))
 }
 
-/// A `func(args);` statement at `indent`, laid out like [`let_call`].
+/// A `func(args);` statement at `indent`.
 fn call_stmt(indent: usize, func: &str, args: &[String]) -> String {
-    let joined = args.join(", ");
     let pad = " ".repeat(indent);
-    let line = format!("{pad}{func}({joined});");
-    if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
-        return format!("{line}\n");
-    }
-    let mut out = format!("{pad}{func}(\n");
-    for arg in args {
-        let _ = writeln!(out, "{pad}    {arg},");
-    }
-    let _ = writeln!(out, "{pad});");
-    out
+    format!("{pad}{func}({});\n", args.join(", "))
 }
 
-/// One `pattern => func(args),` match arm, laid out the way rustfmt lays it out: on one
-/// line when it fits, one argument per line when the call itself is too wide, otherwise
-/// the call in a block on its own line.
+/// One `pattern => func(args),` match arm inside `fill`.
 fn call_arm(pattern: &str, func: &str, args: &[&str]) -> String {
     call_arm_at(ARM_INDENT, pattern, func, args)
 }
 
 /// [`call_arm`] for arms at `indent`.
 fn call_arm_at(indent: usize, pattern: &str, func: &str, args: &[&str]) -> String {
-    let joined = args.join(", ");
-    let call = format!("{func}({joined})");
     let pad = " ".repeat(indent);
-    let one_line = indent
-        .saturating_add(pattern.len())
-        .saturating_add(" => ".len())
-        .saturating_add(call.len())
-        .saturating_add(",".len());
-    if joined.len() <= FN_CALL_WIDTH && one_line <= MAX_WIDTH {
-        return format!("{pad}{pattern} => {call},\n");
-    }
-    if joined.len() > FN_CALL_WIDTH {
-        let mut out = format!("{pad}{pattern} => {func}(\n");
-        for arg in args {
-            let _ = writeln!(out, "{pad}    {arg},");
-        }
-        let _ = writeln!(out, "{pad}),");
-        return out;
-    }
-    format!("{pad}{pattern} => {{\n{pad}    {call}\n{pad}}}\n")
+    format!("{pad}{pattern} => {func}({}),\n", args.join(", "))
 }
 
 /// What a visitor collects.
@@ -1602,22 +1530,10 @@ fn visit_impl(name: &str, calls: &VisitCalls) -> String {
     format!("\nimpl Visit for {name} {{\n{}}}\n", bodies.join("\n"))
 }
 
-/// One `func(receiver, path, out);` statement inside a visitor body, laid out the way
-/// rustfmt lays out a call: on one line when the arguments fit `fn_call_width` and the
-/// line fits, otherwise one argument per line.
+/// One `func(receiver, path, out);` statement inside a visitor body (one line; rustfmt
+/// breaks it).
 fn visit_call(func: &str, receiver: &str, path: &str) -> String {
-    let args = [receiver, path, "out"];
-    let joined = args.join(", ");
-    let line = format!("        {func}({joined});");
-    if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
-        return format!("{line}\n");
-    }
-    let mut out = format!("        {func}(\n");
-    for arg in args {
-        let _ = writeln!(out, "            {arg},");
-    }
-    out.push_str("        );\n");
-    out
+    format!("        {func}({receiver}, {path}, out);\n")
 }
 
 /// Whether field `name` decides (or refines) a field union of the same struct.

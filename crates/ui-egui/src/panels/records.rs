@@ -241,9 +241,13 @@ pub struct SubRow {
 }
 
 impl SubRow {
-    /// A `reference`-confidence member: documented upstream, not yet confirmed.
+    /// A `reference`-confidence member (or `container-reference`, which ranks with it):
+    /// documented upstream, not yet confirmed.
     pub fn unconfirmed(&self) -> bool {
-        self.confidence.as_deref() == Some("reference")
+        matches!(
+            self.confidence.as_deref(),
+            Some("reference" | "container-reference")
+        )
     }
 }
 

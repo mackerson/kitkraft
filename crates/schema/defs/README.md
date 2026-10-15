@@ -18,7 +18,8 @@ file names its source in one of these forms, and the loader rejects any other pr
 - `uesp-skyrim: <page URL>`: shared container facts from the UESP Skyrim pages
   (`https://en.uesp.net/wiki/Skyrim_Mod:...`), confirmed against the corpus (TES4, GRUP,
   the record header, string types). Never for Starfield record bodies. Should carry
-  `confidence = "corpus"` or better; `reference` is rejected (see Confidence).
+  `confidence = "corpus"` or better; `reference` is rejected, and a container fact no
+  official file shows is `container-reference` (see Confidence).
 - `xedit: <file>@<sha>#L<start>-L<end>`: a Starfield record definition read from upstream
   xEdit's `Core/wbDefinitionsSF1.pas`, or a shared helper the Starfield definitions invoke
   from `Core/wbDefinitionsCommon.pas` (ADR 0004, owner approval 2026-10-14). `<sha>` must
@@ -50,6 +51,7 @@ names) for anything. Never substitute a Skyrim definition for a Starfield record
 | Value       | Meaning                                                      | Needs a citation of        |
 | ----------- | ------------------------------------------------------------ | -------------------------- |
 | `reference` | Documented in an allowed source (xEdit), not yet observed    | `xedit:`                   |
+| `container-reference` | A container fact from UESP's Skyrim pages that no official file shows (ADR 0005 Amendment 5); only in `TES4.toml`, `GRUP.toml` and `RECORD.toml` | `uesp-skyrim:` |
 | `corpus`    | Observed in a local fixture: sizes, counts and order agree with every occurrence in the 14 official ESMs | `corpus:` |
 | `ck-diff`   | Checked against Creation Kit output                          | `ck-diff:`                 |
 | `verified`  | Independently validated: both of the above                   | `corpus:` and `ck-diff:`   |
@@ -59,6 +61,16 @@ value, and a level its citations do not back. `reference` is rejected next to a
 `uesp-skyrim:` citation: Skyrim facts describe the shared container only and need the
 corpus. Upstream coverage is not understanding: a member xEdit describes stays `reference`
 until our own evidence raises it.
+
+`container-reference` is the one exception (ADR 0005 Amendment 5): a container fact cited
+from UESP's Skyrim pages with no occurrence in the 14 official files to check it against
+(today `TES4.Master.FileSize` and `TES4.TagifyCount`). The loader accepts it only with a
+`uesp-skyrim:` citation (own or inherited) and only in the container definitions (`TES4`,
+the group header, the record header), never in a record body or a shared definition. It
+ranks with `reference` (`Confidence::below_corpus`): `inspect` and `query` name it in
+`limitations`, `build` writes it only with `allow_reference`, and `cargo xtask parity`'s
+occurrence check skips it as a corpus claim but fails as soon as the corpus shows it (the
+member must then be validated and raised to `corpus`).
 
 ### Per-member provenance
 
@@ -102,7 +114,7 @@ exact lines to add or remove when that list and this directory differ.
 | `source`    | yes             | Primary source, in an ADR 0005 form (see above)                 |
 | `kind`      | no              | `record` (default), `header`, `group` or `type`                 |
 | `evidence`  | no              | Further sources, same forms                                     |
-| `confidence`| yes             | `reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
+| `confidence`| yes             | `reference`, `container-reference`, `corpus`, `ck-diff` or `verified` (see Confidence) |
 | `note`      | no              | Free text (our own words)                                       |
 | `flags`     | no (records)    | Record-header flag bits for this type: `[["Master", 0x1], ...]` |
 | `unordered` | no (records)    | `true`: members may occur in any order (see Unordered records)  |
@@ -209,7 +221,7 @@ Fields take `name`, `type`, the type keys, and:
   reached (a trailing field that some occurrences omit). A partial value is a decode error,
   so the whole subrecord stays raw. It must be the last field; nest a struct for a trailing
   group of fields. Use it only when the field split is a sourced fact, not just because a
-  subrecord occurs with two sizes (WEAP `DAMA` and KYWD `DNAM`/`ENAM` stay opaque for
+  subrecord occurs with two sizes (WEAP `DAMA` stays opaque for
   that reason).
 - `note`.
 
@@ -399,12 +411,12 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 
 | File        | Kind      | Source                                   | Layouts                                   |
 | ----------- | --------- | ---------------------------------------- | ----------------------------------------- |
-| `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed; TNAM/BNAM/CHGL opaque |
+| `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed (DATA and INTV `container-reference`: no Starfield occurrence); TNAM/BNAM/CHGL opaque |
 | `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
-| `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
+| `GMST.toml` | record | corpus scan + xEdit at the pin + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG as `u64` (M3.B6) |
 | `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB blocks |
-| `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
+| `KYWD.toml` | record | xEdit at the pin + corpus (M3.B6) | Every member typed except VMAD (script unions) and FNAM (no upstream layout); TNAM a plain `u32` as in LCRT |
 | `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union the format cannot express (VMAD, BFCB component data, CTDA, LVLI COED owner data; OMOD property values are field unions since lane B round 4) or does not describe it (WEAP MO4C, OMOD XFLG) |
 | 39 more `<SIG>.toml` (ACTI ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
 | `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
@@ -443,7 +455,7 @@ xEdit folds into its string and array types (a u32 before OMOD's name, PROJ's pa
 defines and OMOD's attach parent slots; a u8 before a template item's keywords) are written
 as explicit count fields with a `count_from` array.
 
-Opaque inventory members are named after their signature (`Dnam`, `Xalg`). These are
+Opaque inventory members are named after their signature (`Fnam`, `Bnam`). These are
 placeholders: giving a member a real name later is a breaking change for queries.
 
 ## Example

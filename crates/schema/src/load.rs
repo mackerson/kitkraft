@@ -127,11 +127,13 @@ pub enum ErrorKind {
         citation: String,
         reason: &'static str,
     },
-    #[error("unknown confidence {0:?}: expected reference, corpus, ck-diff or verified")]
+    #[error(
+        "unknown confidence {0:?}: expected reference, container-reference, corpus, ck-diff or verified"
+    )]
     UnknownConfidence(String),
     #[error("`confidence` is required {0} (ADR 0005 Amendment 2, M2.B1)")]
     MissingConfidence(&'static str),
-    #[error("confidence {confidence:?} needs {needs} (ADR 0005 Amendment 2)")]
+    #[error("confidence {confidence:?} needs {needs} (ADR 0005 Amendments 2 and 5)")]
     UnsupportedConfidence {
         confidence: String,
         needs: &'static str,
@@ -390,6 +392,7 @@ pub fn parse_definition(file: &str, text: &str) -> Result<Definition, SchemaErro
         file,
         path: Vec::new(),
         res: &mut resolver,
+        container: false,
     };
     convert_file(&mut cx, raw)
 }
@@ -428,6 +431,7 @@ where
             file: "(shared definitions)",
             path: Vec::new(),
             res: &mut resolver,
+            container: false,
         };
         resolve(&mut cx, &name)?;
     }
@@ -448,6 +452,7 @@ where
             file,
             path: Vec::new(),
             res: &mut resolver,
+            container: false,
         };
         match convert_file(&mut cx, raw)? {
             Definition::Record(r) => {
@@ -565,6 +570,7 @@ fn resolve(cx: &mut Cx<'_, '_>, name: &str) -> Result<CommonDef, SchemaError> {
             file: &file,
             path: Vec::new(),
             res: &mut *cx.res,
+            container: false,
         };
         convert_file(&mut inner, raw)
     };
@@ -585,6 +591,10 @@ struct Cx<'f, 'r> {
     file: &'f str,
     path: Vec<String>,
     res: &'r mut Resolver,
+    /// The file being converted is a container definition (`TES4`, or a header: the group
+    /// header and the record header), the only place `container-reference` is accepted
+    /// (ADR 0005 Amendment 5). Set by [`convert_file`].
+    container: bool,
 }
 
 impl Cx<'_, '_> {
@@ -634,6 +644,11 @@ impl Cx<'_, '_> {
 
 fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaError> {
     check_name(cx, &raw.name)?;
+    cx.container = match raw.kind.as_deref().unwrap_or("record") {
+        "header" => true,
+        "record" => raw.signature.as_deref() == Some("TES4"),
+        _ => false,
+    };
     let prov = file_provenance(cx, &raw)?;
     let kind = raw.kind.as_deref().unwrap_or("record");
     if kind != "type" {
@@ -992,7 +1007,8 @@ fn provenance(
 
 /// The claimed level must be backed by matching citations (the mechanical minimum of ADR
 /// 0004 "Constraints", kept by the owner approval of 2026-10-14), and a `uesp-skyrim:`
-/// fact is never `reference` (ADR 0005 Amendment 2).
+/// fact is never `reference` (ADR 0005 Amendment 2). `container-reference` needs a
+/// `uesp-skyrim:` citation and a container definition (ADR 0005 Amendment 5).
 fn check_level(cx: &Cx<'_, '_>, prov: &Provenance) -> Result<(), SchemaError> {
     let cites = |prefix: &str| prov.citations().any(|c| c.starts_with(prefix));
     let unsupported = |needs| {
@@ -1004,7 +1020,15 @@ fn check_level(cx: &Cx<'_, '_>, prov: &Provenance) -> Result<(), SchemaError> {
     match prov.confidence {
         Confidence::Reference if !cites(XEDIT_PREFIX) => Err(unsupported("an `xedit:` citation")),
         Confidence::Reference if cites("uesp-skyrim: ") => Err(unsupported(
-            "no `uesp-skyrim:` citation (Skyrim facts need `corpus` or better)",
+            "no `uesp-skyrim:` citation (Skyrim facts need `corpus` or better, or \
+             `container-reference` in a container definition)",
+        )),
+        Confidence::ContainerReference if !cites("uesp-skyrim: ") => {
+            Err(unsupported("a `uesp-skyrim:` citation"))
+        }
+        Confidence::ContainerReference if !cx.container => Err(unsupported(
+            "a container definition (TES4, the group header or the record header); a Skyrim \
+             fact never describes a Starfield record body",
         )),
         Confidence::Corpus if !cites("corpus: ") => Err(unsupported("a `corpus:` citation")),
         Confidence::CkDiff if !cites("ck-diff: ") => Err(unsupported("a `ck-diff:` citation")),

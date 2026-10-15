@@ -39,7 +39,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | Criterion (`plan/execution-plan.md`) | State | Tasks and evidence |
 | ------------------------------------ | ----- | ------------------ |
 | Round 3 types (WEAP AMMO PROJ AMDL OMOD COBJ ZOOM LVLI FLST INNR) typed, sourced, with a confidence; 0 conflicts on all 14 files; 105 lstring signatures typed | **done** | M3.B1..B5, B7, B8; merged in M4.BX1. Parity: failed 0, 0 typed conflicts. Round 4 typed the OMOD property values (sibling-field unions) |
-| KYWD and GMST remainders typed | **carried** | M3.B6, lane B. KYWD/GMST have no `xedit:` citation yet (`docs/gaps.md` KYWD row) |
+| KYWD and GMST remainders typed | **done** | M3.B6, lane B round 5: KYWD from the pinned xEdit file (L13297-L13312): CNAM `ColorRgba`, DNAM/ENAM zstrings, TNAM `u32` (as LCRT), DATA FormID (AORU), VMAD at `reference`, FNAM opaque (upstream gives no layout); GMST XALG `u64` (L12357) and the DATA decider cited (Common L5887-L5911). Parity: KYWD 22,948 and GMST 4,858 decoded occurrences, 0 failed, 0 re-encode differences; `docs/gaps.md` row closed |
 | Staged xEdit files deleted and recorded | **carried** | To the end of M4. The schema family lanes still transcribe from `C:\Modding\tools\xedit-ref\` (lane B round 5 too) |
 | `docs/ck-observations.md` entries for every M3.O1 fixture; M3.H3 targets answered; TES4 `SNAM`/`BNAM`/`CHGL` settled; CK fixtures roundtrip (M3.A4) | **carried** | M3.O1, H3, A4. The owner deferred the CK session until the workbench exists (M4.W2..W5). Lane H's side is ready (M3.H1, M3.H2) |
 | The 160 recompression misses settled or restated with evidence | **done** (restated) | M3.A1: classified E/N/U with the study in `docs/gaps.md`. F07 still checks it in the CK (carried with M3.O1) |
@@ -58,7 +58,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | Criterion | State | Tasks and evidence |
 | --------- | ----- | ------------------ |
 | QUEST, ACTOR, ITEMS/WORKSHOP typed, with WORLD, PLANET and round 3 merged; M4.BX1 after every merge with 0 typed conflicts | **done** | Six families: round 3, BW, BP, BQ1, BC1, BI1, each merged by M4.BX1. `unordered` record mode for CELL/REFR/ACHR (parity failed 1,712,200 -> 0). Lane B round 4 added the OMOD/OBTS property unions (8,669 entries) |
-| `docs/record-parity.md` shows the per-family counts | **carried** (partly) | Regenerated at each merge and at round 4, with counts per record type. There is no per-family total yet (lane F, `cargo xtask parity`) |
+| `docs/record-parity.md` shows the per-family counts | **done** | Lane B round 5: `cargo xtask parity` opens the document with a "Families" table (weapons, world, planet, quest, actor, items, container/other: record types, definitions, records, typed/opaque/unknown occurrences, total); the family lists live in `xtask/src/parity.rs` (`FAMILIES`, a test checks each type has a definition and sits in one family) |
 | M4.BX2 inventories (`LAYR RFGP WKMF IRES MESG`) | **carried** | M4.BX2, lane B. Not on `main` |
 | Builder: computed cell/world paths, rebuild gate (M4.A2); allocator and reference composition tested | **done** | M4.A1, A2, A3, A5, with the Fable review fix round |
 | NAVM passthrough on a synthetic plugin, and on F22 if it exists | **done** (synthetic) | M4.A4. The F22 half is carried with M4.O1 (deferred) |
@@ -1199,6 +1199,13 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   `since = 152`, REFR XLOC 9-byte form, INFO TRDA Emotion as a FormID with 0xFFFFFFFF as none;
   reserved object IDs pinned per member, with a warning outside the named set (one: SFBGS00D
   OMOD 0x3B7). Open: TES4 DATA/INTV (docs/gaps.md), GBFM STOP Marker2 is live (not dropped).
+- Lane B round 5 (2026-10-15): ADR 0005 Amendment 5 (`container-reference` on TES4 DATA and
+  INTV, no parity exemption list); M3.B6 (KYWD and GMST XALG typed from the pinned xEdit
+  file, KYWD FNAM and VMAD opaque); a per-family table at the top of
+  `docs/record-parity.md`; codegen leaves line layout to rustfmt (goldens and generated code
+  byte-identical); X8, non-UTF-8 strings shown as Windows-1252. Gates: `cargo xtask ci`,
+  `codegen --check`, `parity --check`, and the ignored release corpus tests of esm, doc and
+  engine (roundtrip identical, typed corpus, `validate_corpus_official_files`) all pass.
 - **Lane W, M4.W1..W6 (read-only workbench, 2026-10-15; the owner started it the same
   day).**
   - What exists:
@@ -1513,7 +1520,13 @@ Agents append here when they need a change in a crate they do not own.
   "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
   after this build) or the Extra Large magazine.
 
-- **Plan maintainer -> lane B (round 5): implement ADR 0005 Amendment 5.** New confidence
+- ~~**Plan maintainer -> lane B (round 5): implement ADR 0005 Amendment 5.**~~ Done (lane B
+  round 5): `Confidence::ContainerReference` (`container-reference`, after `reference` in
+  `Confidence::ALL`; `Confidence::below_corpus` ranks the two together), the loader rule
+  (`uesp-skyrim:` citation, TES4/header files only), TES4 DATA/INTV set to it, parity's
+  occurrence check both ways with no name list, `reference_members`, `build`'s gate, the
+  `schema` limitations and the UI's unconfirmed marker; coverage and `kit schema` counts
+  gain a `container-reference` bucket (a column in `docs/record-parity.md`). Was: new confidence
   `container-reference`. It needs a `uesp-skyrim:` citation and is accepted only in the
   container definitions (`TES4`, group header, record header). Steps:
   - Set it on `TES4.Master.FileSize` (`DATA`) and `TES4.TagifyCount` (`INTV`).
@@ -1571,7 +1584,11 @@ Agents append here when they need a change in a crate they do not own.
   enum and flag fields (number vs name or flag list), Wwise GUIDs (raw vs `{...}`), structs
   holding opaque or union fields, signature-valued fields. Converting those by kind (the
   schema has the names) would make the counts evidence (`docs/oracles.md`).
-- **Lane H -> lane D (strings), from the SF1Edit run (X8).** Some official string entries
+- ~~**Lane H -> lane D (strings), from the SF1Edit run (X8).**~~ Done (lane B round 5, at
+  the director's request): `kitkraft_strings::Entry::text` shows an entry that is not
+  valid UTF-8 as Windows-1252, one char per byte (the table `kitkraft-ba2` uses for
+  archive names); bytes, `is_utf8` and `Resolved.bytes` are unchanged, and `strings`
+  says the shown text is Windows-1252. Not rerun against SF1Edit. Was: some official string entries
   are Windows-1252, not UTF-8 (`Starfield - Localization.ba2` dlstrings `0x000301B6` holds
   byte `0x92` for an apostrophe); our `text` shows U+FFFD there while xEdit shows `’`.
   A Windows-1252 fallback for non-UTF-8 entries (bytes stay in `Resolved.bytes`) would
@@ -2069,7 +2086,12 @@ Agents append here when they need a change in a crate they do not own.
   expected from this lane; BC/BI may
   define their own script-attachment block: this lane's is a `type` (VMAD payload), not a
   group.
-- **Quest schema lane -> lane B (codegen library, `crates/schema/src/codegen.rs`).** The
+- ~~**Quest schema lane -> lane B (codegen library, `crates/schema/src/codegen.rs`).**~~
+  Done (lane B round 5): the generator no longer mimics rustfmt's widths (one-line
+  calls, arms and struct literals, no single-literal special case); `cargo xtask codegen`
+  formats every file it writes and the golden tests format `generate()` the same way
+  before comparing, so long names and one-member shared groups cannot break the gate.
+  Regenerated output and goldens were byte-identical. Was: the
   generator's rustfmt mimicry has two gaps the golden test (`golden_files_are_rustfmt_clean`)
   hits: (1) a shared group with exactly one member emits a one-element `MEMBERS` array
   rustfmt would join onto one line; (2) a call whose arguments exceed rustfmt's call width
@@ -2104,7 +2126,7 @@ Agents append here when they need a change in a crate they do not own.
   RACE, CLAS, as in PKIN), the model group (LVLN, as in LVLP) and the destructible block
   (NPC_, kept opaque) may meet other families' blocks. (5) Codegen note: the generated
   code follows rustfmt only up to its call-width heuristic; long member paths make the
-  golden `seed.rs` not rustfmt-clean (worked around with shorter NPC_/RACE names).
+  golden `seed.rs` not rustfmt-clean (worked around with shorter NPC_/RACE names). (5) done in lane B round 5: codegen output and goldens are formatted by rustfmt, no width mimicry.
 - **Actor schema lane (BC) -> lane H (CK observation).** Questions only the CK can answer
   (details in `docs/schema/actor-family.md`, "Open questions"): (1) actor values below
   0x800 in `PRPS` (NPC_, RACE, PKIN): does the CK name them and keep them on save? (2) does

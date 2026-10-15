@@ -96,14 +96,11 @@ impl Tally {
         }
     }
 
-    fn reference(&self) -> u64 {
-        self.by_confidence
-            .get(&Confidence::Reference)
-            .copied()
-            .unwrap_or(0)
+    fn count(&self, level: Confidence) -> u64 {
+        self.by_confidence.get(&level).copied().unwrap_or(0)
     }
 
-    /// `{reference, corpus, ck-diff, verified}`, every level present.
+    /// `{reference, container-reference, corpus, ck-diff, verified}`, every level present.
     fn confidence_json(&self) -> Value {
         let mut out = Map::new();
         for c in Confidence::ALL {
@@ -401,11 +398,19 @@ fn outcome(data: Value, limitations: Vec<String>) -> Outcome {
 /// Limitations that follow from what a result lists.
 fn limitations_for(tally: &Tally, deep: bool) -> Vec<String> {
     let mut out = vec![DEFINITIONS_ONLY.to_string()];
-    if tally.reference() > 0 {
+    let reference = tally.count(Confidence::Reference);
+    if reference > 0 {
         out.push(format!(
-            "{} subrecord definition(s) have confidence `reference`: documented in an allowed \
-             source, not yet checked against the corpus",
-            tally.reference()
+            "{reference} subrecord definition(s) have confidence `reference`: documented in an \
+             allowed source, not yet checked against the corpus"
+        ));
+    }
+    let container = tally.count(Confidence::ContainerReference);
+    if container > 0 {
+        out.push(format!(
+            "{container} subrecord definition(s) have confidence `container-reference`: a \
+             container fact from UESP's Skyrim pages that no official file shows (ADR 0005 \
+             Amendment 5); it ranks with `reference`"
         ));
     }
     if tally.opaque > 0 {
@@ -522,10 +527,11 @@ fn one_header(header: &HeaderDef, deep: bool) -> Outcome {
         .collect();
     insert(&mut data, "fields", Value::Array(fields));
     let mut limitations = vec![DEFINITIONS_ONLY.to_string()];
-    if header.provenance.confidence == Confidence::Reference {
-        limitations.push(
-            "this header has confidence `reference`: not yet checked against the corpus".into(),
-        );
+    if header.provenance.confidence.below_corpus() {
+        limitations.push(format!(
+            "this header has confidence `{}`: not yet checked against the corpus",
+            header.provenance.confidence
+        ));
     }
     outcome(Value::Object(data), limitations)
 }
@@ -678,10 +684,16 @@ mod tests {
             "{types:?}"
         );
         let counts = &d["confidence_counts"];
-        let sum: u64 = ["reference", "corpus", "ck-diff", "verified"]
-            .iter()
-            .map(|c| counts[*c].as_u64().unwrap())
-            .sum();
+        let sum: u64 = [
+            "reference",
+            "container-reference",
+            "corpus",
+            "ck-diff",
+            "verified",
+        ]
+        .iter()
+        .map(|c| counts[*c].as_u64().unwrap())
+        .sum();
         assert_eq!(sum, d["subrecords"].as_u64().unwrap());
         assert_eq!(
             d["typed"].as_u64().unwrap() + d["opaque"].as_u64().unwrap(),

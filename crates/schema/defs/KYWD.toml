@@ -1,85 +1,147 @@
-# KYWD: subrecord inventory. The universal subrecords (EDID, FULL) are typed (M2.B2,
-# sources on each member). M2.B9 found no permitted source for CNAM, DNAM, TNAM, FNAM, DATA
-# or ENAM that this round could read (the UESP Skyrim KYWD page and the pinned xEdit file
-# were not available to it), so they stay opaque (docs/gaps.md). Corpus facts for the next
-# round: CNAM is 4 bytes in every record with a last byte of 0 (6,824) or 0xFF (141); DNAM
-# and ENAM are NUL-terminated text in every observed sample; TNAM and FNAM are 4 bytes.
+# KYWD: a keyword, a typed tag other records point at (KWDA lists, conditions, recipes).
 #
-# Source (ADR 0005 "inventory" row): corpus scan of the KYWD top group in Starfield.esm, ShatteredSpace.esm,
-# Constellation.esm, OldMars.esm and SFBGS003/004/006/007/008/00D/047/050.esm (2026-10-14):
-# 6965 records, form versions 552/581/582, 14 distinct subrecord sequences, all consistent
-# with the order below. DATA and ENAM never occur in the same record, so their relative
-# order is unknown.
+# Sources (ADR 0004, ADR 0005; every member cites its own lines):
+#   xedit: the KYWD definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L13297-L13312) and the helpers it uses there and in wbDefinitionsCommon.pas: member
+#     order, field layouts, the FormID target type and the record flag (lane B round 5,
+#     M3.B6).
+#   corpus: `cargo xtask parity` over the 14 official ESMs, 2026-10-15 (lane B round 5):
+#     all 6,965 KYWD records (form versions 552/581/582) decode through this definition with
+#     0 failed occurrences and 0 re-encode differences; members marked `corpus` occur.
+#     Earlier scan (M2.B9, 2026-10-14): 14 distinct subrecord sequences, all in the order
+#     below; DATA and ENAM never occur in the same record.
 #
-# DNAM and ENAM vary in size, but no source splits them into fields, so they stay opaque
-# (an `if_remaining` tail needs the field split as a sourced fact, not just two sizes).
-#
-# Opaque member names are placeholders derived from the signature.
+# Names are ours (PascalCase); no xEdit code, comments or labels are copied. The keyword
+# type enumeration of TNAM is not transcribed (as in LCRT, which shares it): the value is a
+# plain u32. FNAM stays opaque: xEdit gives it no layout, only that it is always present.
+# The component data inside BFCB..BFCE blocks (WAIM and WFIR in 19 records) stays raw.
 signature = "KYWD"
 name = "Keyword"
-source = "corpus: KYWD records of the official ESMs (12 files with a KYWD group)"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13297-L13312"
 confidence = "corpus"
+flags = [["Restricted", 0x8000]]
+evidence = [
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-note = "absent in 3 of 6965 records"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13301-L13301"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
+confidence = "corpus"
+note = "absent in 3 of 6,965 records"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13302-L13302"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
+]
+confidence = "reference"
+note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; not in any official KYWD"
 
 [[member]]
 group_ref = "BfcbBlock"
 card = "repeated"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13303-L13303"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
+confidence = "corpus"
+note = "base form components; payloads kept raw"
 
 [[member]]
 sig = "CNAM"
-name = "Cnam"
-type = "opaque"
-note = "observed 4 bytes"
+name = "Color"
+type = "ref:ColorRgba"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13304-L13304"
+evidence = [
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
+  "corpus: KYWD scan 2026-10-14 (M2.B9): CNAM is 4 bytes in every one of the 6,965 records, last byte 0 (6,824) or 0xFF (141)",
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
+confidence = "corpus"
 
 [[member]]
 sig = "DNAM"
-name = "Dnam"
-type = "opaque"
+name = "Notes"
+type = "zstring"
 card = "optional"
-note = "observed variable size"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13305-L13305"
+evidence = [
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
+confidence = "corpus"
+note = "a NUL-terminated note of variable size"
 
 [[member]]
 sig = "TNAM"
-name = "Tnam"
-type = "opaque"
-note = "observed 4 bytes"
+name = "KeywordType"
+type = "u32"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13306-L13306"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4162-L4250",
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
+confidence = "corpus"
+note = "keyword type enumeration (shared with LCRT); values kept as stored"
 
 [[member]]
 sig = "FNAM"
 name = "Fnam"
 type = "opaque"
-note = "observed 4 bytes"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13307-L13307"
+evidence = [
+  "corpus: KYWD scan 2026-10-14 (M2.B9): FNAM is 4 bytes in every record",
+]
+confidence = "corpus"
+note = "xEdit names no layout or meaning, only that it is always present; 4 bytes; stays opaque"
 
 [[member]]
 sig = "DATA"
-name = "Data"
-type = "opaque"
+name = "AttractionRule"
+type = "formid"
 card = "optional"
-note = "observed 4 bytes, in 14 records"
+targets = ["AORU"]
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13308-L13308"
+evidence = [
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
+confidence = "corpus"
+note = "4 bytes, in 14 records"
 
 [[member]]
 sig = "ENAM"
-name = "Enam"
-type = "opaque"
+name = "FlashLinkageName"
+type = "zstring"
 card = "optional"
-note = "observed variable size"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13309-L13309"
+evidence = [
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 6,965 KYWD records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
+confidence = "corpus"
+note = "a NUL-terminated name of variable size; never in the same record as DATA"
 
 [[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13310-L13310"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
+confidence = "corpus"

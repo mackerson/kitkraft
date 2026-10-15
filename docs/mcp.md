@@ -363,7 +363,8 @@ fields?, as_bytes?}}`, typed members compared by value as in `diff`) and
 difference may be encoding only). Evidence: every version's header and every payload. A
 `value` decoded through a member whose definition has `reference` confidence (documented in
 the pinned xEdit file, not yet confirmed by our corpus or the CK) is named in
-`limitations` (`... reference confidence ...: WEAP DNAM.Data.Speed`; M3.D3).
+`limitations` (`... reference confidence ...: WEAP DNAM.Data.Speed`; M3.D3), and so is one
+with `container-reference` confidence (TES4 `DATA`/`INTV`, ADR 0005 Amendment 5).
 
 **Single-plugin mode** (only `plugin` given): CLI `kit inspect <form> --plugin <file>`.
 `form` is a FormID (1-8 hex digits, optional `0x`, matched against the record header as
@@ -522,7 +523,7 @@ none) and adds a limitation naming how many of how many are listed. Omitted, `ki
 `data`: `plugin`, `file`, `bytes`, `decode`, `records`, `groups`, `compressed_records`,
 `compressed_examined`, `record_types_seen`, `record_types_defined`, `typed_records`
 (records decoded through a definition), `subrecords` (occurrences), `occurrences {typed,
-failed, opaque, unknown}`, `decoded_by_confidence {reference, corpus, ck-diff, verified}`
+failed, opaque, unknown}`, `decoded_by_confidence {reference, container-reference, corpus, ck-diff, verified}`
 (typed occurrences by the confidence of the member that decoded them; the weakest when
 several members share a signature), `reencode_conflicts`, `typed_failures[]` (the first
 20 failed or re-encoded subrecords: `record` = `SIG:FORMID`, `signature`, `index` in the
@@ -556,7 +557,7 @@ has, their types, and how far each is checked before it writes a `query` predica
 `set` field path. `type` is case-insensitive.
 
 - Without `type`: `records[]` (`type`, `name`, `confidence`, `subrecords`, `typed`,
-  `opaque`, `confidence_counts {reference, corpus, ck-diff, verified}`), `headers[]`,
+  `opaque`, `confidence_counts {reference, container-reference, corpus, ck-diff, verified}`), `headers[]`,
   `common[]` (shared groups and types), the same totals over every definition, `summary`
   (one line per record type in text mode).
 - With `type` (a record definition): `defined: true`, `kind: "record"`, `name`,

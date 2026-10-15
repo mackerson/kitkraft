@@ -840,10 +840,16 @@ mod tests {
         assert_eq!(find(&weap["signatures"], "EDID")["failed"], 0);
         assert_eq!(dnam["confidence"], Value::Null);
         let by_confidence = &data["decoded_by_confidence"];
-        let sum: u64 = ["reference", "corpus", "ck-diff", "verified"]
-            .iter()
-            .map(|c| by_confidence[c].as_u64().unwrap())
-            .sum();
+        let sum: u64 = [
+            "reference",
+            "container-reference",
+            "corpus",
+            "ck-diff",
+            "verified",
+        ]
+        .iter()
+        .map(|c| by_confidence[c].as_u64().unwrap())
+        .sum();
         // MODL is typed since lane B round 3 (M3.B1).
         assert_eq!(sum, 8, "{by_confidence}");
         assert_eq!(
@@ -894,7 +900,7 @@ mod tests {
         // ...but the decoded occurrence counts at its own member's.
         assert_eq!(
             omod["decoded_by_confidence"],
-            json!({"reference": 0, "corpus": 4, "ck-diff": 0, "verified": 0})
+            json!({"reference": 0, "container-reference": 0, "corpus": 4, "ck-diff": 0, "verified": 0})
         );
         std::fs::remove_file(&path).unwrap();
     }

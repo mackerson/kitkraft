@@ -258,12 +258,18 @@ pub(super) fn gate(
                 ))
             }
             Err(_) => {}
-            Ok(r) if r.confidence == Some(Confidence::Reference) => {
+            // `container-reference` ranks with `reference` (ADR 0005 Amendment 5).
+            Ok(r) if r.confidence.is_some_and(Confidence::below_corpus) => {
                 if !allow_reference {
+                    let source = if r.confidence == Some(Confidence::ContainerReference) {
+                        "a container fact from UESP's Skyrim pages that no official file shows"
+                    } else {
+                        "documented in the pinned xEdit definitions"
+                    };
                     return Err(spec_error(
                         &key,
                         format!(
-                            "{} is a reference-only member (documented in the pinned xEdit definitions, not validated by the corpus or against the CK), so writing it is refused by default (ADR 0004 owner approval, clause 3; ADR 0005 Amendment 3 §4); set allow_reference = true on this entry to write it anyway",
+                            "{} is a reference-only member ({source}, not validated by the corpus or against the CK), so writing it is refused by default (ADR 0004 owner approval, clause 3; ADR 0005 Amendments 3 §4 and 5); set allow_reference = true on this entry to write it anyway",
                             r.label
                         ),
                     ));

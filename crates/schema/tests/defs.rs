@@ -73,7 +73,8 @@ fn type_provenance<'a>(path: &str, ty: &'a FieldType, out: &mut Vec<(String, &'a
 }
 
 /// Every definition, member and field has a confidence level, and a Skyrim container fact
-/// is never below `corpus` (ADR 0005 Amendment 2, M2.B1).
+/// is never below `corpus` (ADR 0005 Amendment 2, M2.B1), except the TES4 members no
+/// official file shows, which are `container-reference` (Amendment 5).
 #[test]
 fn every_node_has_a_confidence_level() {
     let schema = builtin().unwrap();
@@ -86,11 +87,15 @@ fn every_node_has_a_confidence_level() {
         provs.push((h.name.clone(), &h.provenance));
         field_provenance(&h.name, &h.fields, &mut provs);
     }
+    let mut container = Vec::new();
     for (path, p) in &provs {
-        if p.citations().any(|c| c.starts_with("uesp-skyrim: ")) {
+        if p.confidence == Confidence::ContainerReference {
+            container.push(path.as_str());
+        } else if p.citations().any(|c| c.starts_with("uesp-skyrim: ")) {
             assert!(p.confidence >= Confidence::Corpus, "{path}");
         }
     }
+    assert_eq!(container, ["TES4.Master.FileSize", "TES4.TagifyCount"]);
     assert_eq!(
         schema.record(sig("TES4")).unwrap().provenance.confidence,
         Confidence::Corpus
@@ -296,37 +301,51 @@ fn typed_leaves(rec: &kitkraft_schema::RecordDef) -> Vec<String> {
         .collect()
 }
 
-/// The record types still described by a corpus inventory (M2.B2) type only sourced
-/// members: the universal subrecords, the layouts M2.B9 sourced, and the base form
-/// component frame from the shared `BfcbBlock`; everything else stays opaque until lane B
-/// round 3 transcribes the type.
+/// The record type still described by a corpus inventory (M2.B2), GLOB, types only sourced
+/// members: the universal subrecords, the layout M2.B9 sourced, and the base form
+/// component frame from the shared `BfcbBlock`. KYWD and GMST were inventories until M3.B6
+/// (lane B round 5) transcribed them from the pinned xEdit file: every member upstream
+/// gives a layout is typed; KYWD VMAD (script unions) and FNAM (no upstream layout) stay
+/// opaque.
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 3] = [
-        ("GMST", &["EditorId", "Value"]),
-        (
-            "GLOB",
-            &[
-                "EditorId",
-                "BfcbBlock.ComponentType",
-                "BfcbBlock.EndMarker",
-                "Value",
-            ],
-        ),
+    let glob = schema.record(sig("GLOB")).unwrap();
+    assert!(glob.provenance.source.starts_with("corpus: "));
+    assert_eq!(
+        typed_leaves(glob),
+        [
+            "EditorId",
+            "BfcbBlock.ComponentType",
+            "BfcbBlock.EndMarker",
+            "Value",
+        ]
+    );
+    let expected: [(&str, &[&str]); 2] = [
+        ("GMST", &["EditorId", "XalgFlags", "Value"]),
         (
             "KYWD",
             &[
                 "EditorId",
                 "BfcbBlock.ComponentType",
                 "BfcbBlock.EndMarker",
+                "Color",
+                "Notes",
+                "KeywordType",
+                "AttractionRule",
+                "FlashLinkageName",
                 "Name",
             ],
         ),
     ];
     for (s, typed) in expected {
         let rec = schema.record(sig(s)).unwrap();
-        assert!(rec.provenance.source.starts_with("corpus: "), "{s}");
+        assert!(
+            rec.provenance
+                .citations()
+                .any(|c| c.starts_with("xedit: wbDefinitionsSF1.pas@")),
+            "{s}"
+        );
         assert_eq!(typed_leaves(rec), typed, "{s}");
     }
     // The component data inside a BFCB block is a union decided by the component type

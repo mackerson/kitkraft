@@ -75,9 +75,13 @@ pub struct MemberRow {
 }
 
 impl MemberRow {
-    /// Documented upstream, not yet confirmed by the corpus or the CK.
+    /// Documented upstream (`reference`, or `container-reference` for a container fact),
+    /// not yet confirmed by the corpus or the CK.
     pub fn unconfirmed(&self) -> bool {
-        self.confidence == "reference"
+        matches!(
+            self.confidence.as_str(),
+            "reference" | "container-reference"
+        )
     }
 }
 
@@ -105,11 +109,17 @@ impl SchemaView {
     pub fn from_envelope(env: &Value) -> Self {
         let data = env.get("data").unwrap_or(&Value::Null);
         let counts = data.get("confidence_counts").map_or_else(String::new, |c| {
-            ["reference", "corpus", "ck-diff", "verified"]
-                .iter()
-                .map(|k| format!("{k} {}", c.get(*k).map_or_else(|| "?".to_string(), short)))
-                .collect::<Vec<_>>()
-                .join(", ")
+            [
+                "reference",
+                "container-reference",
+                "corpus",
+                "ck-diff",
+                "verified",
+            ]
+            .iter()
+            .map(|k| format!("{k} {}", c.get(*k).map_or_else(|| "?".to_string(), short)))
+            .collect::<Vec<_>>()
+            .join(", ")
         });
         let mut members = Vec::new();
         let top = if data.get("members").is_some() {
@@ -229,7 +239,8 @@ mod tests {
     fn member_tree_inherits_confidence_and_marks_reference() {
         let env = json!({"command": "schema", "data": {
         "defined": true, "kind": "record", "name": "Test", "confidence": "corpus", "source": "corpus: test",
-        "confidence_counts": {"reference": 1, "corpus": 2, "ck-diff": 0, "verified": 0},
+        "confidence_counts": {"reference": 1, "container-reference": 0, "corpus": 2,
+                              "ck-diff": 0, "verified": 0},
         "members": [
             {"kind": "subrecord", "signature": "EDID", "name": "EditorId", "card": "optional", "type": "zstring",
              "confidence": "corpus", "source": "corpus: edid", "evidence": ["corpus: scan"]},
@@ -241,7 +252,7 @@ mod tests {
         assert_eq!(view.defined, Some(true));
         assert_eq!(
             view.confidence_counts,
-            "reference 1, corpus 2, ck-diff 0, verified 0"
+            "reference 1, container-reference 0, corpus 2, ck-diff 0, verified 0"
         );
         assert_eq!(view.members.len(), 3);
         assert!(!view.members[0].unconfirmed());
