@@ -122,9 +122,11 @@ if "%~1"=="" goto usage
 set "SRC=%~f1"
 set "MO2=%~2"
 if not "%MO2%"=="" goto havemo2
-rem Ask kit doctor for the MO2 folder; run from this folder so no quoted path is needed.
+rem Ask kit doctor for the MO2 folder. Run from this folder, as .\kit.exe, so no quoted
+rem path is needed (a quoted path with parentheses breaks for /f) and the current folder
+rem is used even where NoDefaultCurrentDirectoryInExePath is set.
 pushd "%~dp0"
-for /f "delims=" %%M in ('kit.exe doctor --get mo2') do set "MO2=%%M"
+for /f "delims=" %%M in ('.\kit.exe doctor --get mo2') do set "MO2=%%M"
 popd
 :havemo2
 if "%MO2%"=="" goto nomo2
@@ -532,6 +534,9 @@ mod tests {
         let ask = deploy.find("set /p").unwrap();
         let real = deploy.find("--dev --profile").unwrap();
         assert!(dry < ask && ask < real, "dry run, then ask, then deploy");
+        // for /f cannot take a quoted path with parentheses, and the bare name is not
+        // found where NoDefaultCurrentDirectoryInExePath is set (seen under Claude Code).
+        assert!(deploy.contains("('.\\kit.exe doctor --get mo2')"));
         assert!(get("KitKraft Workbench.cmd").contains("\"%KIT%\" ui --dev"));
         assert!(get("Install.cmd").contains("\"%KIT%\" install --dry-run"));
         assert!(get("Uninstall.cmd").contains("\"%KIT%\" uninstall --apply"));
