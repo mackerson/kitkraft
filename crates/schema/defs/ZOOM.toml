@@ -17,7 +17,7 @@ signature = "ZOOM"
 name = "Zoom"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19109-L19128"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 141 ZOOM records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 141 ZOOM records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -51,7 +51,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8215-L8243",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 141 ZOOM records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 141 ZOOM records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [

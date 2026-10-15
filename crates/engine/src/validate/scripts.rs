@@ -1,6 +1,6 @@
 //! `papyrus.denylisted-call` (M2.E8): calls in compiled scripts to natives on a denylist.
 //!
-//! The denylist is seeded from our own disassembly (`pexdis.py`, `kitcraft-pex`) of
+//! The denylist is seeded from our own disassembly (`pexdis.py`, `kitkraft-pex`) of
 //! `C:\Modding\scripts\noc_godmode_patch` (our god-mode patch for NPC Outfit Changer),
 //! recorded in `docs/validate.md`: `Debug.SetGodMode` is the call that leaves the player
 //! invulnerable when a script stops between turning it on and off. Calls are matched as
@@ -11,7 +11,7 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_pex::{format_value, opcode_name, Function, Pex, Value};
+use kitkraft_pex::{format_value, opcode_name, Function, Pex, Value};
 
 use super::{Finding, Report, Severity};
 
@@ -64,7 +64,7 @@ pub fn plugin_archives(plugin: &Path) -> Vec<PathBuf> {
 
 /// Scans the `.pex` files at `paths`: loose files, directories searched recursively (at
 /// most 16 levels and 100,000 files), and `.ba2` archives, whose `.pex` entries are read
-/// in memory (lane G's `kitcraft-ba2`); a script in an archive is named
+/// in memory (lane G's `kitkraft-ba2`); a script in an archive is named
 /// `<archive>/<path in archive>`. An archived script that does not parse is listed in
 /// `report.limitations` rather than failing the run.
 pub fn denylisted_calls(paths: &[PathBuf], report: &mut Report) -> Result<(), String> {
@@ -96,7 +96,7 @@ pub fn denylisted_calls(paths: &[PathBuf], report: &mut Report) -> Result<(), St
 /// The `.pex` entries of one archive.
 fn scan_archive(path: &Path, report: &mut Report) -> Result<(), String> {
     let (archive, mut file) =
-        kitcraft_ba2::Archive::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
+        kitkraft_ba2::Archive::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
     let archive_name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -172,7 +172,7 @@ fn collect(path: &Path, depth: usize, out: &mut Vec<PathBuf>) -> Result<(), Stri
 /// a local, or an object variable. Empty when it is none of them (never guessed).
 fn receiver_type(
     pex: &Pex,
-    object: &kitcraft_pex::Object,
+    object: &kitkraft_pex::Object,
     function: &Function,
     receiver: &str,
 ) -> String {

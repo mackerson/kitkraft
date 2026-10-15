@@ -1,6 +1,6 @@
 //! Spawns the real `kit mcp` and speaks MCP to it over its stdin/stdout (M2.F6).
 //!
-//! The synthetic-plugin test runs everywhere. With `KITCRAFT_DATA_DIR` set (see
+//! The synthetic-plugin test runs everywhere. With `KITKRAFT_DATA_DIR` set (see
 //! `docs/corpus.md`) a variant also calls `inspect_record` and `query_records` on an
 //! official file; without it that variant prints a skip line and passes.
 
@@ -30,7 +30,7 @@ struct Kit {
 }
 
 /// A directory of this test binary's own under the target dir, for the index cache: the
-/// spawned servers never share `%LOCALAPPDATA%\kitcraft\cache` with other processes
+/// spawned servers never share `%LOCALAPPDATA%\kitkraft\cache` with other processes
 /// (other worktrees' gates, the owner's `kit`), and it stays warm between runs.
 fn private_cache_dir() -> PathBuf {
     Path::new(env!("CARGO_TARGET_TMPDIR")).join("kit-cli-mcp-index-cache")
@@ -41,7 +41,7 @@ impl Kit {
         let mut child = Command::new(env!("CARGO_BIN_EXE_kit"))
             .arg("mcp")
             .args(extra)
-            .env("KITCRAFT_CACHE_DIR", private_cache_dir())
+            .env("KITKRAFT_CACHE_DIR", private_cache_dir())
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -179,7 +179,7 @@ fn kit_mcp_serves_tools_on_a_synthetic_plugin() {
 
     let init = kit.initialize();
     assert_eq!(init["result"]["protocolVersion"], "2025-11-25");
-    assert_eq!(init["result"]["serverInfo"]["name"], "kitcraft");
+    assert_eq!(init["result"]["serverInfo"]["name"], "kitkraft");
 
     let list = kit.request("tools/list", json!({}));
     let names: Vec<&str> = list["result"]["tools"]
@@ -245,9 +245,11 @@ fn kit_mcp_profile_preload_failure_is_reported_not_fatal() {
 /// and `query_records` answers once a load order is given.
 #[test]
 fn kit_mcp_on_an_official_file() {
-    let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR") else {
+    let Some(dir) =
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
+    else {
         println!(
-            "skip kit_mcp_on_an_official_file: KITCRAFT_DATA_DIR is not set (see docs/corpus.md)"
+            "skip kit_mcp_on_an_official_file: KITKRAFT_DATA_DIR is not set (see docs/corpus.md)"
         );
         return;
     };

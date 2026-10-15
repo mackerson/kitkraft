@@ -1,5 +1,5 @@
 //! A small synthetic plugin for handler tests, built byte by byte from the container
-//! layout `kitcraft-esm` documents (24-byte record and group headers, 6-byte subrecord
+//! layout `kitkraft-esm` documents (24-byte record and group headers, 6-byte subrecord
 //! headers, `XXXX` size prefix, `u32` size + zlib body for compressed records).
 
 #![allow(
@@ -94,7 +94,7 @@ pub(crate) fn plugin() -> Vec<u8> {
     rifle.extend(xxxx_sub(b"MODL", b"a\\b.nif\0"));
     rifle.extend(sub(b"DNAM", &long_payload()));
     let mut weapons = record(b"WEAP", 0, RIFLE, &rifle);
-    let packed = kitcraft_esm::compress::deflate(&packed_fields(), 9, 0).unwrap();
+    let packed = kitkraft_esm::compress::deflate(&packed_fields(), 9, 0).unwrap();
     weapons.extend(record(b"WEAP", 0x0004_0000, PACKED, &packed));
     out.extend(group(b"WEAP", 0, &weapons));
     out
@@ -103,14 +103,14 @@ pub(crate) fn plugin() -> Vec<u8> {
 /// Writes `bytes` to a per-process temp file and returns its path.
 pub(crate) fn write_temp(name: &str, bytes: &[u8]) -> PathBuf {
     let path =
-        std::env::temp_dir().join(format!("kitcraft-engine-{name}-{}.esm", std::process::id()));
+        std::env::temp_dir().join(format!("kitkraft-engine-{name}-{}.esm", std::process::id()));
     std::fs::write(&path, bytes).expect("write temp plugin");
     path
 }
 
 /// An empty per-process temp directory (removed first if a previous run left it).
 pub(crate) fn temp_dir(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kitcraft-engine-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("kitkraft-engine-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).expect("create temp dir");
     dir

@@ -290,7 +290,7 @@ fn first_deploy_redeploy_rollback_and_profiles_untouched() {
     assert!(r["limitations"][0]
         .as_str()
         .unwrap()
-        .contains("kitcraft-manifest.json"));
+        .contains("kitkraft-manifest.json"));
     let id2 = mo2.id(&mo2.target());
     assert_eq!(
         fs::read(mo2.target().join("MyMod.esm")).unwrap(),
@@ -1044,6 +1044,32 @@ fn package_manifest_is_verified() {
         entry("MyMod - Main.ba2", b"BTDX archive"),
         entry("Scripts/MyScript.pex", b"v1"),
     ]});
+    fs::write(pkg.join("kitkraft-manifest.json"), good.to_string()).unwrap();
+    let r = mo2.deploy(&pkg).unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+    assert_eq!(r["limitations"], json!([]));
+    assert!(!mo2.target().join("kitkraft-manifest.json").exists());
+    let m = mo2.manifest(&mo2.target());
+    assert!(m["source"]["package_manifest_sha256"].is_string());
+
+    // A file that differs from the package manifest stops the deploy before any write.
+    fs::write(pkg.join("Scripts").join("MyScript.pex"), b"tampered").unwrap();
+    assert!(err_text(mo2.deploy(&pkg)).contains("package-manifest"));
+}
+
+/// A package made before the KitKraft rename carries `kitcraft-manifest.json`; it is still
+/// verified (deprecated name, read for one release) and not deployed.
+#[test]
+fn pre_rename_package_manifest_is_still_verified() {
+    let mo2 = Mo2::new("pkgoldmanifest");
+    let pkg = mo2.package("v1", b"TES4");
+    let entry =
+        |p: &str, b: &[u8]| json!({"path": p, "size": b.len(), "sha256": super::sha256::hex(b)});
+    let good = json!({"plugins": ["MyMod.esm"], "files": [
+        entry("MyMod.esm", b"TES4"),
+        entry("MyMod - Main.ba2", b"BTDX archive"),
+        entry("Scripts/MyScript.pex", b"v1"),
+    ]});
     fs::write(pkg.join("kitcraft-manifest.json"), good.to_string()).unwrap();
     let r = mo2.deploy(&pkg).unwrap();
     assert_eq!(r["data"]["outcome"], "deployed", "{r}");
@@ -1051,10 +1077,6 @@ fn package_manifest_is_verified() {
     assert!(!mo2.target().join("kitcraft-manifest.json").exists());
     let m = mo2.manifest(&mo2.target());
     assert!(m["source"]["package_manifest_sha256"].is_string());
-
-    // A file that differs from the package manifest stops the deploy before any write.
-    fs::write(pkg.join("Scripts").join("MyScript.pex"), b"tampered").unwrap();
-    assert!(err_text(mo2.deploy(&pkg)).contains("package-manifest"));
 }
 
 /// The manifest shape `package` (M4.E5) writes: `plugins` is a list of objects naming the
@@ -1077,7 +1099,7 @@ fn package_command_manifest_names_the_plugin() {
             entry("Scripts/MyScript.pex", b"v1"),
         ],
     });
-    fs::write(pkg.join("kitcraft-manifest.json"), manifest.to_string()).unwrap();
+    fs::write(pkg.join("kitkraft-manifest.json"), manifest.to_string()).unwrap();
     let r = mo2.deploy(&pkg).unwrap();
     assert_eq!(r["data"]["outcome"], "deployed", "{r}");
     assert_eq!(r["limitations"], json!([]));

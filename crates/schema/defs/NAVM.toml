@@ -17,7 +17,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 confidence = "corpus"
 flags = [["InitiallyDisabled", 0x800], ["AutoGen", 0x4000000], ["NavmeshGenCell", 0x80000000]]
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 
 [[member]]
@@ -41,7 +41,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14903-L14903"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "script data; xEdit builds it from unions chosen by deciders, so it stays raw; 3 VMAD placed in the corpus"
@@ -52,7 +52,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14904-L14904"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "base form components; payloads kept raw"
@@ -65,7 +65,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14905-L14905"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3995-L4128",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "navmesh geometry; nested counted arrays and version-gated parts, kept raw; payloads up to 750,400 bytes use XXXX; 92,764 NVNM placed in the corpus"
@@ -77,7 +77,7 @@ type = "opaque"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14906-L14916"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 92,893 NAVM records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "list of (reference FormID, u16 triangle count, u16 triangles); kept raw because an array element cannot hold a counted array; 92,764 MNAM placed in the corpus"

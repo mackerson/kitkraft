@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-ba2"
+name = "kitkraft-ba2"
 description = "L0: BA2 archive read/write (GNRL v2/v3, DX10)"
 version.workspace = true
 edition.workspace = true

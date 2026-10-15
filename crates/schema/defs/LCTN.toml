@@ -23,7 +23,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 confidence = "corpus"
 flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["InteriorCellsUseRefLocationForWorldMapPlayerMarker", 0x800], ["PartialForm", 0x4000], ["OffLimits", 0x20000], ["CantWait", 0x80000], ["PublicArea", 0x100000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 
 [[member]]
@@ -35,7 +35,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "7,316 EDID placed in the corpus"
@@ -73,7 +73,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "first PRPS position; 52 PRPS placed in the corpus"
@@ -94,7 +94,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13401-L13409"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 4 ACPR placed in the corpus"
@@ -115,7 +115,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13410-L13418"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 702 LCPR placed in the corpus"
@@ -146,7 +146,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13422-L13428"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "4 ACUR placed in the corpus"
@@ -165,7 +165,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13429-L13435"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "209 LCUR placed in the corpus"
@@ -196,7 +196,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13439-L13445"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "40 ACUN placed in the corpus"
@@ -215,7 +215,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13446-L13452"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "209 LCUN placed in the corpus"
@@ -249,7 +249,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13456-L13465"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 52 ACSR placed in the corpus"
@@ -271,7 +271,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13466-L13475"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "entries to the end of the payload; Ref is raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; the grid is shown for exterior cells; 1,806 LCSR placed in the corpus"
@@ -312,7 +312,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13490-L13500"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "one subrecord per worldspace; 81 LCEC placed in the corpus"
@@ -340,7 +340,7 @@ count = "rest"
 element = "formid"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13512-L13514"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 41 ACID placed in the corpus"
@@ -355,7 +355,7 @@ count = "rest"
 element = "formid"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13515-L13517"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "raw FormID; xEdit allows any placed reference (PLYR ACHR REFR and the placed projectile types) or none; 1,577 LCID placed in the corpus"
@@ -375,7 +375,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13518-L13530"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "20 ACEP placed in the corpus"
@@ -395,7 +395,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13531-L13543"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "271 LCEP placed in the corpus"
@@ -410,7 +410,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "7,005 FULL placed in the corpus"
@@ -421,7 +421,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13545-L13545"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 
@@ -436,7 +436,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "second PRPS position; 52 PRPS placed in the corpus"
@@ -456,7 +456,7 @@ field = [
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13547-L13561"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "ownership and encounter levels; 7,268 DATA placed in the corpus"
@@ -469,7 +469,7 @@ card = "optional"
 targets = ["LCTN"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13562-L13562"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "5,634 PNAM placed in the corpus"
@@ -482,7 +482,7 @@ card = "optional"
 targets = ["MUSC"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13563-L13563"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "2 NAM1 placed in the corpus"
@@ -495,7 +495,7 @@ card = "optional"
 targets = ["FACT"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13564-L13564"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "1 FNAM placed in the corpus"
@@ -508,7 +508,7 @@ card = "optional"
 targets = ["REFR", "ACHR"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13565-L13565"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "1 MNAM placed in the corpus"
@@ -520,7 +520,7 @@ type = "f32"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13566-L13566"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "7,268 RNAM placed in the corpus"
@@ -532,7 +532,7 @@ type = "f32"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13567-L13567"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "7,268 ANAM placed in the corpus"
@@ -544,7 +544,7 @@ type = "f32"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13568-L13568"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "7,268 TNAM placed in the corpus"
@@ -568,7 +568,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "1 CNAM placed in the corpus"
@@ -580,7 +580,7 @@ type = "i32"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13571-L13585"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "star system identifier; 5,310 XNAM placed in the corpus"
@@ -592,7 +592,7 @@ type = "i32"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13586-L13586"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 7,316 LCTN records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "5,310 YNAM placed in the corpus"

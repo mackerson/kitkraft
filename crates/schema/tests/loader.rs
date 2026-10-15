@@ -5,7 +5,7 @@
 
 use std::path::Path;
 
-use kitcraft_schema::{
+use kitkraft_schema::{
     load_dir, load_sources, parse_definition, ArrayCount, Cardinality, CommonBody, Confidence,
     Decider, Definition, ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature,
     XEDIT_FILES, XEDIT_REVISION,
@@ -398,7 +398,7 @@ fn nesting_is_bounded() {
 
 #[test]
 fn load_dir_reads_toml_files_in_order() {
-    let dir = std::env::temp_dir().join(format!("kitcraft-schema-test-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("kitkraft-schema-test-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     std::fs::write(dir.join("ZZZZ.toml"), FIXTURE).unwrap();
     std::fs::write(dir.join("TEST.toml"), record("")).unwrap();

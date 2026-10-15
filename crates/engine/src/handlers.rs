@@ -51,11 +51,21 @@ use crate::exec::{CommandHandler, EngineError, SessionHandler};
 use resolve::{Input, Resolving};
 
 /// Names the game Data dir when a command is not given `data_dir` (`docs/corpus.md`).
-pub(crate) const DATA_DIR_ENV: &str = "KITCRAFT_DATA_DIR";
+pub(crate) const DATA_DIR_ENV: &str = "KITKRAFT_DATA_DIR";
 
-/// The `data_dir` argument, else `KITCRAFT_DATA_DIR` when it is set and not empty.
+/// `name` (a `KITKRAFT_*` variable) from the environment, else its pre-rename `KITCRAFT_*`
+/// spelling. Deprecated fallback kept for one release after the KitKraft rename
+/// (`docs/corpus.md`, "Environment"); remove it in the release after.
+pub(crate) fn env_var_os(name: &str) -> Option<OsString> {
+    std::env::var_os(name).or_else(|| {
+        let rest = name.strip_prefix("KITKRAFT_")?;
+        std::env::var_os(format!("KITCRAFT_{rest}"))
+    })
+}
+
+/// The `data_dir` argument, else `KITKRAFT_DATA_DIR` when it is set and not empty.
 fn data_dir(args: &serde_json::Value) -> Option<PathBuf> {
-    data_dir_or(args, std::env::var_os(DATA_DIR_ENV))
+    data_dir_or(args, env_var_os(DATA_DIR_ENV))
 }
 
 /// [`data_dir`] with the environment value passed in (testable without the process

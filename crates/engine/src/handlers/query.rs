@@ -1,12 +1,12 @@
 //! `query` (M2.D11): records of one type matching a `where` predicate, over the load order,
-//! a page at a time. Grammar and semantics: `kitcraft_doc::query`, `docs/mcp.md`.
+//! a page at a time. Grammar and semantics: `kitkraft_doc::query`, `docs/mcp.md`.
 
-use kitcraft_doc::confidence::{reference_limitation, reference_members};
-use kitcraft_doc::flags::RECORD_FLAG_DELETED;
-use kitcraft_doc::query::Query;
-use kitcraft_doc::search::{run_page_with, PageRequest, Scope, DEFAULT_LIMIT};
-use kitcraft_doc::{RecordReader, Version};
-use kitcraft_esm::HEADER_LEN;
+use kitkraft_doc::confidence::{reference_limitation, reference_members};
+use kitkraft_doc::flags::RECORD_FLAG_DELETED;
+use kitkraft_doc::query::Query;
+use kitkraft_doc::search::{run_page_with, PageRequest, Scope, DEFAULT_LIMIT};
+use kitkraft_doc::{RecordReader, Version};
+use kitkraft_esm::HEADER_LEN;
 use serde_json::{json, Value};
 
 use super::failed;
@@ -27,7 +27,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
 fn run_on(
     loaded: &mut Loaded,
     args: &Value,
-    schema: Option<&kitcraft_schema::Schema>,
+    schema: Option<&kitkraft_schema::Schema>,
 ) -> Result<Outcome, EngineError> {
     let Loaded {
         lo,
@@ -157,7 +157,7 @@ fn run_on(
         "type": type_upper,
         "where": where_text,
         "scope": scope.as_str(),
-        "limit": limit.clamp(1, kitcraft_doc::search::MAX_LIMIT),
+        "limit": limit.clamp(1, kitkraft_doc::search::MAX_LIMIT),
         "matched": page.matched.len(),
         "unknown": page.unknown_count,
         "scanned": page.scanned,
@@ -183,8 +183,8 @@ fn run_on(
 
 /// One matched version: identity, EditorID, FULL (decoded when possible), evidence.
 fn result_json(
-    lo: &kitcraft_doc::LoadOrder,
-    strings: &mut kitcraft_doc::strings::StringTables,
+    lo: &kitkraft_doc::LoadOrder,
+    strings: &mut kitkraft_doc::strings::StringTables,
     reader: &mut RecordReader,
     v: &Version,
     evidence: &mut Vec<Evidence>,
@@ -211,7 +211,7 @@ fn result_json(
     let mut full = Value::Null;
     if let Some(l) = &loc {
         if let Ok(rec) = reader.read(lo, v.plugin, l) {
-            let spans = kitcraft_doc::compare::spans(&rec);
+            let spans = kitkraft_doc::compare::spans(&rec);
             if let Some((s, span)) = rec
                 .subs
                 .iter()
@@ -324,8 +324,8 @@ mod tests {
 
     /// The builtin definitions with GLOB's `FLTV.Value` from the pinned xEdit file at
     /// `reference` confidence (no builtin member is `reference` yet).
-    fn schema_with_reference_member() -> &'static kitcraft_schema::Schema {
-        let owned: Vec<(String, String)> = kitcraft_schema::BUILTIN_DEFINITIONS
+    fn schema_with_reference_member() -> &'static kitkraft_schema::Schema {
+        let owned: Vec<(String, String)> = kitkraft_schema::BUILTIN_DEFINITIONS
             .iter()
             .map(|(file, text)| {
                 if *file != "GLOB.toml" {
@@ -336,13 +336,13 @@ mod tests {
                     "{}[[member]]\nsig = \"FLTV\"\nname = \"Value\"\ntype = \"f32\"\n\
                      source = \"xedit: wbDefinitionsSF1.pas@{}#L1-L2\"\nconfidence = \"reference\"\n",
                     &text[..cut],
-                    kitcraft_schema::XEDIT_REVISION
+                    kitkraft_schema::XEDIT_REVISION
                 );
                 (file.to_string(), glob)
             })
             .collect();
         let schema =
-            kitcraft_schema::load_sources(owned.iter().map(|(f, t)| (f.as_str(), t.as_str())))
+            kitkraft_schema::load_sources(owned.iter().map(|(f, t)| (f.as_str(), t.as_str())))
                 .unwrap();
         Box::leak(Box::new(schema))
     }
@@ -355,7 +355,7 @@ mod tests {
         use crate::handlers::load::SchemaOverride;
         use crate::handlers::testdata::sub;
         let dir =
-            std::env::temp_dir().join(format!("kitcraft-engine-reference-{}", std::process::id()));
+            std::env::temp_dir().join(format!("kitkraft-engine-reference-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let glob = [

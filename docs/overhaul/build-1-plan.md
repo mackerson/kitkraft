@@ -12,8 +12,8 @@ smoke test's (`OldSovietMarksmanRifle.esm` wins the record in that profile).
 Per-row status, reasons and the in-game checklist: `docs/overhaul/build-1.md`.
 
 ```
-kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm --plan
-plan: 42 field change(s) on 17 record(s) for C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm (nothing written); validate passed
+kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm --plan
+plan: 42 field change(s) on 17 record(s) for C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm (nothing written); validate passed
 masters: Starfield.esm,OldSovietMarksmanRifle.esm
 classes (16):
   B10  b10_hard_target_large_mag OMOD matched 1
@@ -98,5 +98,5 @@ limitation: records whose FormID does not resolve are left out of overrides and 
 limitation: active by assumption (docs/load-order.md, "Active plugins"): ShatteredSpace.esm (mo2-unmanaged:Unmanaged: ShatteredSpace), SFBGS004.esm (mo2-unmanaged:Unmanaged: SFBGS004), SFBGS00D.esm (hardcoded-official), SFBGS050.esm (hardcoded-official), BlueprintShips-SFBGS050.esm (mo2-unmanaged:Unmanaged: BlueprintShips-SFBGS050), SFBGS047.esm (hardcoded-official)
 limitation: load order by the assumption `hardcoded-official-slots` (docs/load-order.md, "Order"): official plugins without a plugins.txt entry load right after the Starfield.ccc plugins: ShatteredSpace.esm, SFBGS004.esm, SFBGS00D.esm, SFBGS050.esm, BlueprintShips-SFBGS050.esm, SFBGS047.esm; loadorder.txt lists ShatteredSpace.esm, SFBGS004.esm, SFBGS00D.esm, SFBGS050.esm, BlueprintShips-SFBGS050.esm, SFBGS047.esm later
 limitation: header of a new plugin follows the corpus rules in docs/corpus.md (Writing rules): CNAM "DEFAULT" and INCC (interior cell count) as in the two BlueprintShips files; SNAM, BNAM (branch name) and CHGL (changelist), which the official build pipeline writes, are deliberately not written. What the Creation Kit writes for a new non-localized plugin (flags, HEDR next object ID, these subrecords, inline text encoding) is not observed yet (M2.E3 ck-diff part, M2.O4)
-limitation: plan: nothing was written to C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm
+limitation: plan: nothing was written to C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm
 ```

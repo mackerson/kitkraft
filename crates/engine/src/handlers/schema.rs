@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use kitcraft_schema::{
+use kitkraft_schema::{
     ArrayCount, Confidence, FieldDef, FieldType, HeaderDef, Member, NamedValue, Provenance,
     RecordDef, Schema, Signature,
 };
@@ -31,7 +31,7 @@ pub(crate) const TOP_LEVEL_ONLY: &str = "top-level members only: pass `deep` (or
 
 /// The handler.
 pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
-    let schema = kitcraft_schema::builtin()
+    let schema = kitkraft_schema::builtin()
         .map_err(|e| failed(ID, format!("the builtin schema does not load: {e}")))?;
     let deep = args.get("deep").and_then(Value::as_bool) == Some(true);
     let member = args.get("member").and_then(Value::as_str);
@@ -599,8 +599,8 @@ fn listing(schema: &Schema) -> Outcome {
             json!({
                 "name": c.name,
                 "kind": match c.body {
-                    kitcraft_schema::CommonBody::Group(_) => "group",
-                    kitcraft_schema::CommonBody::Type(_) => "type",
+                    kitkraft_schema::CommonBody::Group(_) => "group",
+                    kitkraft_schema::CommonBody::Type(_) => "type",
                 },
                 "confidence": c.provenance.confidence.as_str(),
             })

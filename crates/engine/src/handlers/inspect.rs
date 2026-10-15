@@ -22,19 +22,19 @@ use std::fmt::Write as _;
 use std::io;
 use std::path::Path;
 
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::{
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::{
     DecodeLimits, Entry, Error, ParseOptions, Record, Signature, Subrecord, HEADER_LEN,
 };
 use serde_json::{json, Value};
 
-use kitcraft_doc::compare::{spans, OverrideClass};
-use kitcraft_doc::confidence::{reference_limitation, reference_members};
-use kitcraft_doc::flags::RECORD_FLAG_DELETED;
-use kitcraft_doc::lstring::is_lstring;
-use kitcraft_doc::strings::StringTables;
-use kitcraft_doc::typed::{self, Decoded};
-use kitcraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
+use kitkraft_doc::compare::{spans, OverrideClass};
+use kitkraft_doc::confidence::{reference_limitation, reference_members};
+use kitkraft_doc::flags::RECORD_FLAG_DELETED;
+use kitkraft_doc::lstring::is_lstring;
+use kitkraft_doc::strings::StringTables;
+use kitkraft_doc::typed::{self, Decoded};
+use kitkraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
 
 use super::load::{acquire, lstring_json, schema_of, Loaded, RUNTIME_ASSUMED};
 use super::{failed, file_name, str_arg};
@@ -467,8 +467,8 @@ const RUNTIME_PREFIX: &str = "runtime:";
 
 /// Where a version comes from.
 struct VersionCtx<'a> {
-    lo: &'a kitcraft_doc::LoadOrder,
-    schema: Option<&'a kitcraft_schema::Schema>,
+    lo: &'a kitkraft_doc::LoadOrder,
+    schema: Option<&'a kitkraft_schema::Schema>,
     plugin: u16,
     file: &'a str,
     localized: bool,
@@ -526,7 +526,7 @@ fn version_subrecords(
     let mut cut = false;
     let mut list = Vec::with_capacity(rec.subs.len());
     // Each subrecord's layout comes from its position in the record, not its signature
-    // alone (`kitcraft_doc::typed::placements`).
+    // alone (`kitkraft_doc::typed::placements`).
     let record_sig = rec.record.header.signature.0;
     let all_sigs: Vec<[u8; 4]> = rec.subs.iter().map(|s| s.signature().0).collect();
     let placed = schema.and_then(|sc| typed::placements(sc, record_sig, &all_sigs));
@@ -567,7 +567,7 @@ fn version_subrecords(
             }
         } else if sig == "EDID" {
             if let Some(obj) = entry.as_object_mut() {
-                obj.insert("text".into(), json!(kitcraft_doc::index::zstring(data)));
+                obj.insert("text".into(), json!(kitkraft_doc::index::zstring(data)));
             }
         }
         let def = schema.and_then(|sc| {
@@ -653,7 +653,7 @@ fn class_json(class: &OverrideClass) -> Value {
 fn run_load_order(
     loaded: &mut Loaded,
     args: &Value,
-    schema: Option<&kitcraft_schema::Schema>,
+    schema: Option<&kitkraft_schema::Schema>,
 ) -> Result<Outcome, EngineError> {
     let form_arg = str_arg(ID, args, "form")?;
     let plugin = args.get("plugin").and_then(Value::as_str);
@@ -727,7 +727,7 @@ fn run_load_order(
             .checked_sub(1)
             .and_then(|j| Some((versions.get(j)?, records.get(j)?)));
         let class = previous.map(|prev| {
-            class_json(&kitcraft_doc::conflicts::classify_versions(
+            class_json(&kitkraft_doc::conflicts::classify_versions(
                 lo,
                 schema,
                 prev,
@@ -1164,7 +1164,7 @@ mod tests {
         use crate::handlers::load::tests::plugin_flagged;
         use crate::handlers::testdata::sub;
         let dir = std::env::temp_dir().join(format!(
-            "kitcraft-engine-lo-null-deleted-{}",
+            "kitkraft-engine-lo-null-deleted-{}",
             std::process::id()
         ));
         let _ = std::fs::remove_dir_all(&dir);

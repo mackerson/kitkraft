@@ -2,7 +2,7 @@
 //!
 //! Lossless first: a copy is every byte of the source record (header, flags, form
 //! version, every subrecord in order, unknown ones included); edits change only the
-//! subrecords they name (`kitcraft-esm`'s edit API), and a compressed record is
+//! subrecords they name (`kitkraft-esm`'s edit API), and a compressed record is
 //! recompressed only when it changed. FormIDs are copied as stored.
 //!
 //! Rules (`plan/execution-plan.md` M2.E4, `docs/corpus.md` "Writing rules"):
@@ -44,16 +44,16 @@ use std::collections::BTreeSet;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::bridge::Ctx;
-use kitcraft_esm::build::{set_masters, upsert_file_to_path, HeaderSpec, Placed, Upsert};
-use kitcraft_esm::cells::{CellPlace, PlacementStyle};
-use kitcraft_esm::driver::RewriteOptions;
-use kitcraft_esm::forms::NewForms;
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
-use kitcraft_esm::refs::{compose_reference, RefSpec};
-use kitcraft_esm::tes4::{Scale, Tes4, FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
-use kitcraft_esm::{DecodeLimits, GroupHeader, Plugin, Record, Signature, Subrecord};
-use kitcraft_schema::FieldType;
+use kitkraft_esm::bridge::Ctx;
+use kitkraft_esm::build::{set_masters, upsert_file_to_path, HeaderSpec, Placed, Upsert};
+use kitkraft_esm::cells::{CellPlace, PlacementStyle};
+use kitkraft_esm::driver::RewriteOptions;
+use kitkraft_esm::forms::NewForms;
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
+use kitkraft_esm::refs::{compose_reference, RefSpec};
+use kitkraft_esm::tes4::{Scale, Tes4, FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
+use kitkraft_esm::{DecodeLimits, GroupHeader, Plugin, Record, Signature, Subrecord};
+use kitkraft_schema::FieldType;
 use serde_json::{json, Value};
 
 use super::fields::{self, FieldError, FieldPath, Op, ValueCtx};
@@ -132,7 +132,7 @@ impl FormName {
     }
 }
 
-/// The cell a new reference goes into ([`kitcraft_esm::cells::CellPlace`] in names).
+/// The cell a new reference goes into ([`kitkraft_esm::cells::CellPlace`] in names).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RefPlace {
     /// An interior cell.
@@ -141,7 +141,7 @@ pub enum RefPlace {
     Exterior {
         world: FormName,
         cell: FormName,
-        grid: kitcraft_esm::cells::Grid,
+        grid: kitkraft_esm::cells::Grid,
     },
     /// The persistent cell of `world` (where a world's persistent references live).
     Persistent { world: FormName, cell: FormName },
@@ -166,9 +166,9 @@ impl RefPlace {
     }
 }
 
-/// A new placed reference (`place`, M4.E2): composed by `kitcraft_esm::refs` with a FormID
-/// from `kitcraft_esm::forms::NewForms` once the target's master list is final, and placed
-/// by `kitcraft_esm::cells::placement`.
+/// A new placed reference (`place`, M4.E2): composed by `kitkraft_esm::refs` with a FormID
+/// from `kitkraft_esm::forms::NewForms` once the target's master list is final, and placed
+/// by `kitkraft_esm::cells::placement`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct NewRef {
     /// `REFR`, or `ACHR` for an NPC base.
@@ -212,7 +212,7 @@ pub struct NewFormReport {
     /// The group path it was placed at: `(group type, label as u32)`, outermost first.
     pub path: Vec<(i32, u32)>,
     /// Every member written, with its confidence and source.
-    pub members: Vec<kitcraft_esm::refs::MemberUse>,
+    pub members: Vec<kitkraft_esm::refs::MemberUse>,
 }
 
 /// What the writer needs besides the records.
@@ -390,11 +390,11 @@ pub fn write_patch(
 
 /// [`write_patch`] that also adds new placed references (`place`, M4.E2): after the
 /// copies (a reference's cell, and its world, are carried as copies), each [`NewRef`] gets
-/// a new own FormID (`kitcraft_esm::forms::NewForms`: full-scale targets only), its base
+/// a new own FormID (`kitkraft_esm::forms::NewForms`: full-scale targets only), its base
 /// and cell mapped into the final master list (the plugins they name are added as masters
 /// when missing, which a target with records of its own refuses), is composed by
-/// `kitcraft_esm::refs::compose_reference` (members below `corpus` refused unless allowed)
-/// and placed by `kitcraft_esm::cells::placement`; the `HEDR` next object ID is advanced.
+/// `kitkraft_esm::refs::compose_reference` (members below `corpus` refused unless allowed)
+/// and placed by `kitkraft_esm::cells::placement`; the `HEDR` next object ID is advanced.
 pub fn write_patch_with(
     target: &Path,
     copies: Vec<Copy>,
@@ -896,7 +896,7 @@ pub fn write_patch_with(
     let overrides_children = placed.iter().any(|p| {
         p.path
             .iter()
-            .any(|g| kitcraft_esm::cells::ONAM_GROUP_TYPES.contains(&g.group_type))
+            .any(|g| kitkraft_esm::cells::ONAM_GROUP_TYPES.contains(&g.group_type))
             && usize::try_from(p.record.header.form_id >> 24).is_ok_and(|i| i < master_count)
     });
     let temp = temp_path(target);
@@ -1488,7 +1488,7 @@ pub(crate) fn locate_written(
     reports: &mut [RecordReport],
     limits: &DecodeLimits,
 ) -> Result<u64, PatchError> {
-    let io = |e: kitcraft_esm::Error| PatchError::Io(format!("{}: {e}", target.display()));
+    let io = |e: kitkraft_esm::Error| PatchError::Io(format!("{}: {e}", target.display()));
     let index: PluginIndex = index_file(target, &IndexOptions::default()).map_err(io)?;
     let mut file = File::open(target).map_err(|e| PatchError::Io(e.to_string()))?;
     for report in reports {
@@ -1526,7 +1526,7 @@ pub(crate) fn locate_written(
 
 fn temp_path(target: &Path) -> PathBuf {
     let name = file_name(target);
-    target.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()))
+    target.with_file_name(format!(".{name}.kitkraft-{}.tmp", std::process::id()))
 }
 
 /// Whether an edit leaves its subrecord for the lstring inliner to skip: it wrote the whole
@@ -1564,7 +1564,7 @@ pub(crate) fn onam_note(listed: usize) -> String {
 }
 
 /// Rewrites the `TES4` `ONAM` of the plugin at `path` by lane A's corpus rule (M4.A6,
-/// `kitcraft_esm::cells::onam_forms`): every record in a group of type 7, 9 or 10 whose
+/// `kitkraft_esm::cells::onam_forms`): every record in a group of type 7, 9 or 10 whose
 /// FormID names one of the plugin's masters, in file order. Returns how many are listed.
 /// Reads the whole plugin into memory (patches are small).
 pub(crate) fn apply_onam(path: &Path) -> Result<usize, PatchError> {
@@ -1572,7 +1572,7 @@ pub(crate) fn apply_onam(path: &Path) -> Result<usize, PatchError> {
     let bytes = std::fs::read(path).map_err(|e| io(&e))?;
     let mut plugin = Plugin::parse(&bytes).map_err(|e| io(&e))?;
     let masters = plugin.tes4().masters().len();
-    let forms = kitcraft_esm::cells::onam_forms(&plugin, |id| {
+    let forms = kitkraft_esm::cells::onam_forms(&plugin, |id| {
         usize::try_from(id >> 24).is_ok_and(|i| i < masters)
     });
     if forms != plugin.tes4().overridden_forms() {
@@ -1617,7 +1617,7 @@ pub fn is_localized(flags: u32) -> bool {
 /// The masters of the plugin at `path` and its flags (for callers checking a target).
 pub fn header_facts(path: &Path) -> Result<(Vec<String>, u32), String> {
     let mut file = File::open(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let header = kitcraft_esm::index::read_record_at(&mut file, 0, None)
+    let header = kitkraft_esm::index::read_record_at(&mut file, 0, None)
         .map_err(|e| format!("{}: {e}", path.display()))?;
     let tes4 = Tes4::new(&header);
     Ok((

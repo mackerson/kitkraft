@@ -1,4 +1,4 @@
-//! Corpus tests: the official archives under `KITCRAFT_DATA_DIR`, read in place (ADR 0006).
+//! Corpus tests: the official archives under `KITKRAFT_DATA_DIR`, read in place (ADR 0006).
 //! Without the variable they print one skip line and pass.
 //!
 //! - `corpus_small` (fast): the localization and small texture archives list, every hash
@@ -8,7 +8,7 @@
 //!   chain; prints the inventory recorded in `docs/corpus.md` ("Archives").
 //!
 //! ```powershell
-//! cargo test -p kitcraft-ba2 --release --test corpus -- --ignored --nocapture
+//! cargo test -p kitkraft-ba2 --release --test corpus -- --ignored --nocapture
 //! ```
 
 #![allow(
@@ -23,16 +23,18 @@ use std::collections::BTreeMap;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use kitcraft_ba2::{chunk_mips, dds, Archive, Body, Kind};
+use kitkraft_ba2::{chunk_mips, dds, Archive, Body, Kind};
 
 fn data_dir() -> Option<PathBuf> {
-    let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR") else {
-        println!("skipped: KITCRAFT_DATA_DIR is not set");
+    let Some(dir) =
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
+    else {
+        println!("skipped: KITKRAFT_DATA_DIR is not set");
         return None;
     };
     let dir = PathBuf::from(dir);
     if !dir.is_dir() {
-        println!("skipped: KITCRAFT_DATA_DIR {} is missing", dir.display());
+        println!("skipped: KITKRAFT_DATA_DIR {} is missing", dir.display());
         return None;
     }
     Some(dir)
@@ -171,16 +173,16 @@ fn corpus_small() {
 }
 
 /// Differential check against `Archive2.exe` run as a black box (ADR 0006): set
-/// `KITCRAFT_A2_ARCHIVE` to an archive and `KITCRAFT_A2_DIR` to the folder
+/// `KITKRAFT_A2_ARCHIVE` to an archive and `KITKRAFT_A2_DIR` to the folder
 /// `Archive2.exe "<archive>" -extract="<dir>"` wrote; every entry must be byte-identical.
 #[test]
 #[ignore = "needs an Archive2.exe extraction; see the doc comment"]
 fn archive2_differential() {
     let (Some(archive), Some(out)) = (
-        std::env::var_os("KITCRAFT_A2_ARCHIVE"),
-        std::env::var_os("KITCRAFT_A2_DIR"),
+        std::env::var_os("KITKRAFT_A2_ARCHIVE").or_else(|| std::env::var_os("KITCRAFT_A2_ARCHIVE")),
+        std::env::var_os("KITKRAFT_A2_DIR").or_else(|| std::env::var_os("KITCRAFT_A2_DIR")),
     ) else {
-        println!("skipped: KITCRAFT_A2_ARCHIVE / KITCRAFT_A2_DIR not set");
+        println!("skipped: KITKRAFT_A2_ARCHIVE / KITKRAFT_A2_DIR not set");
         return;
     };
     let (archive, mut file) = Archive::open(Path::new(&archive)).unwrap();
@@ -188,7 +190,7 @@ fn archive2_differential() {
     let (mut same, mut header_only, mut data) = (0usize, Vec::new(), Vec::new());
     for (i, entry) in archive.entries.iter().enumerate() {
         let ours = archive.extract_vec(&mut file, i, u64::MAX).unwrap();
-        let path = out.join(kitcraft_ba2::relative_path(&entry.name).unwrap());
+        let path = out.join(kitkraft_ba2::relative_path(&entry.name).unwrap());
         let theirs = std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
         if ours == theirs {
             same += 1;
@@ -262,7 +264,7 @@ fn corpus_full() {
             if !entry.name.is_ascii() {
                 non_ascii += 1;
             }
-            if let Err(e) = kitcraft_ba2::relative_path(&entry.name) {
+            if let Err(e) = kitkraft_ba2::relative_path(&entry.name) {
                 unsafe_names.push(format!("{name}: {e}"));
             }
             max_extracted = max_extracted.max(entry.extracted_len());
@@ -294,16 +296,16 @@ fn corpus_full() {
             if let Body::General(g) = &entry.body {
                 assert_eq!(
                     g.flags,
-                    kitcraft_ba2::GENERAL_FLAGS,
+                    kitkraft_ba2::GENERAL_FLAGS,
                     "{name}: {}",
                     entry.name
                 );
-                assert_eq!(g.filler, kitcraft_ba2::FILLER, "{name}: {}", entry.name);
+                assert_eq!(g.filler, kitkraft_ba2::FILLER, "{name}: {}", entry.name);
             }
             if let Body::Texture(t) = &entry.body {
                 assert_eq!(
                     t.tile_mode,
-                    kitcraft_ba2::TILE_MODE,
+                    kitkraft_ba2::TILE_MODE,
                     "{name}: {}",
                     entry.name
                 );
@@ -350,7 +352,7 @@ fn corpus_full() {
 }
 
 /// The rejected reading of the chunk rule (both edges at least 512), for the inventory.
-fn edge_rule(t: &kitcraft_ba2::Texture) -> Vec<(u32, u32)> {
+fn edge_rule(t: &kitkraft_ba2::Texture) -> Vec<(u32, u32)> {
     let last = u32::from(t.mip_count.max(1)) - 1;
     if t.cubemap != 0 {
         return vec![(0, last)];

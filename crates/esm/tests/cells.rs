@@ -1,5 +1,5 @@
 //! M4.A1 cell and world group structure on the official ESMs (`docs/corpus.md`, "Cell and
-//! world groups"). Every rule `kitcraft_esm::cells` states is checked on every group and
+//! world groups"). Every rule `kitkraft_esm::cells` states is checked on every group and
 //! record; a rule that fails fails the test, and the few facts the corpus does not hold
 //! everywhere are listed as exceptions with file and FormID.
 //!
@@ -7,7 +7,7 @@
 //! - `corpus_group_rules_full` (ignored): all 14, printing the counts `docs/corpus.md`
 //!   quotes.
 //!
-//! `cargo test -p kitcraft-esm --release --test cells -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test cells -- --ignored --nocapture`
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -25,11 +25,11 @@ use std::io::BufReader;
 use std::path::Path;
 use std::time::Instant;
 
-use kitcraft_esm::cells::{
+use kitkraft_esm::cells::{
     self, group_type as gt, Grid, CELL_UNITS, FLAG_PERSISTENT, PLACEHOLDER_TYPES,
 };
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
-use kitcraft_esm::{DecodeLimits, Signature};
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
+use kitkraft_esm::{DecodeLimits, Signature};
 
 fn sig(s: &[u8; 4]) -> Signature {
     Signature::new(s)

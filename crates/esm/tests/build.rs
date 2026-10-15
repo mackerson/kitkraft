@@ -19,11 +19,11 @@ mod common;
 
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
-use kitcraft_esm::build::{upsert_reader, HeaderSpec, Placed, Upsert, TOP_GROUP_ORDER};
-use kitcraft_esm::cells::{self, group_type as gt, PlacementStyle};
-use kitcraft_esm::driver::{roundtrip_bytes, RewriteOptions, RoundtripOptions};
-use kitcraft_esm::index::{index_bytes, read_indexed, IndexOptions, PluginIndex, RecordLoc};
-use kitcraft_esm::{DecodeLimits, Plugin, Record, Signature};
+use kitkraft_esm::build::{upsert_reader, HeaderSpec, Placed, Upsert, TOP_GROUP_ORDER};
+use kitkraft_esm::cells::{self, group_type as gt, PlacementStyle};
+use kitkraft_esm::driver::{roundtrip_bytes, RewriteOptions, RoundtripOptions};
+use kitkraft_esm::index::{index_bytes, read_indexed, IndexOptions, PluginIndex, RecordLoc};
+use kitkraft_esm::{DecodeLimits, Plugin, Record, Signature};
 
 /// Top-level group labels of the file at `path`, from their headers alone.
 fn top_labels(path: &std::path::Path) -> Vec<[u8; 4]> {
@@ -185,7 +185,7 @@ fn corpus_small_records_into_a_new_plugin() {
     for file in files {
         let bytes = std::fs::read(&file.path).unwrap();
         let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
-        let tes4 = kitcraft_esm::tes4::Tes4::new(&index.header);
+        let tes4 = kitkraft_esm::tes4::Tes4::new(&index.header);
         // The source's masters, then the source itself, as a patch would list them.
         let mut masters: Vec<Vec<u8>> = tes4.masters().into_iter().map(|m| m.name).collect();
         masters.push(file.name.as_bytes().to_vec());
@@ -199,7 +199,7 @@ fn corpus_small_records_into_a_new_plugin() {
             // WRLD and CELL by `cells::carry_parents` (computed paths, which must be the
             // source's), a quest's QUST and DIAL from their source paths.
             let path = index.group_path(loc.group);
-            let mut owners: Vec<(&RecordLoc, Vec<kitcraft_esm::GroupHeader>)> = Vec::new();
+            let mut owners: Vec<(&RecordLoc, Vec<kitkraft_esm::GroupHeader>)> = Vec::new();
             if let Some(g6) = path
                 .iter()
                 .find(|g| g.header.group_type == gt::CELL_CHILDREN)

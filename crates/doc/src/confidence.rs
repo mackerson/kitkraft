@@ -5,7 +5,7 @@
 //! such a member is shown, but results name the member in `limitations` so nobody takes it
 //! for a checked fact.
 
-use kitcraft_schema::{Confidence, FieldType, Schema, Signature};
+use kitkraft_schema::{Confidence, FieldType, Schema, Signature};
 
 /// Member paths (`FLTV.Value`, `DNAM.Data.Speed`) with `reference` confidence that values
 /// read from subrecord `sub` of a record of type `record` pass through: the subrecord's own
@@ -131,7 +131,7 @@ pub(crate) mod tests {
     /// The builtin definitions with GLOB's `FLTV.Value` sourced from the pinned xEdit file
     /// at `reference` confidence (no builtin member is `reference` yet).
     pub(crate) fn schema_with_reference_member() -> Schema {
-        let sources = kitcraft_schema::BUILTIN_DEFINITIONS.iter().map(|(file, text)| {
+        let sources = kitkraft_schema::BUILTIN_DEFINITIONS.iter().map(|(file, text)| {
             if *file != "GLOB.toml" {
                 return (file.to_string(), text.to_string());
             }
@@ -139,12 +139,12 @@ pub(crate) mod tests {
             let glob = format!(
                 "{}[[member]]\nsig = \"FLTV\"\nname = \"Value\"\ntype = \"f32\"\nsource = \"xedit: wbDefinitionsSF1.pas@{}#L1-L2\"\nconfidence = \"reference\"\n",
                 &text[..cut],
-                kitcraft_schema::XEDIT_REVISION
+                kitkraft_schema::XEDIT_REVISION
             );
             (file.to_string(), glob)
         });
         let owned: Vec<(String, String)> = sources.collect();
-        kitcraft_schema::load_sources(owned.iter().map(|(f, t)| (f.as_str(), t.as_str()))).unwrap()
+        kitkraft_schema::load_sources(owned.iter().map(|(f, t)| (f.as_str(), t.as_str()))).unwrap()
     }
 
     #[test]
@@ -160,7 +160,7 @@ pub(crate) mod tests {
         );
         assert!(reference_members(&schema, *b"GLOB", *b"EDID", None).is_empty());
         assert!(reference_members(&schema, *b"QQQQ", *b"FLTV", None).is_empty());
-        let builtin = kitcraft_schema::builtin().unwrap();
+        let builtin = kitkraft_schema::builtin().unwrap();
         assert!(reference_members(builtin, *b"GLOB", *b"FLTV", None).is_empty());
         let text = reference_limitation(&[("GLOB".into(), vec!["FLTV.Value".into()])]).unwrap();
         assert!(text.contains("GLOB FLTV.Value"), "{text}");

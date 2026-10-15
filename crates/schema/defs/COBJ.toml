@@ -20,7 +20,7 @@ signature = "COBJ"
 name = "ConstructibleObject"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10886-L10950"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
@@ -55,7 +55,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10905-L10905"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -92,7 +92,7 @@ type = "formid"
 targets = ["KYWD"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10908-L10908"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -103,7 +103,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10909-L10909"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -118,7 +118,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7819-L7819",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7805-L7817",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -131,7 +131,7 @@ element = "struct"
 count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10911-L10920"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -148,7 +148,7 @@ targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10921-L10921"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -158,7 +158,7 @@ name = "AmountProduced"
 type = "u16"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10922-L10922"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -168,7 +168,7 @@ name = "MenuPriorityOrder"
 type = "f32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10923-L10923"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -180,7 +180,7 @@ base = "u8"
 values = [["Tier0", 0], ["Tier1", 1], ["Tier2", 2], ["Tier3", 3], ["Tier4", 4], ["Tier5", 5]]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10924-L10931"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -192,7 +192,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10932-L10932"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2333-L2333",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -204,7 +204,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10933-L10933"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -216,7 +216,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10934-L10934"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -244,7 +244,7 @@ values = [["PickedUpOrScript", 0], ["Scrapping", 1], ["Ingested", 2], ["DefaultO
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10936-L10936"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2963-L2969",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -254,7 +254,7 @@ name = "Value"
 type = "u32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10937-L10937"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -266,7 +266,7 @@ card = "optional"
 targets = ["ARTO"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10938-L10938"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -311,7 +311,7 @@ card = "optional"
 targets = ["GLOB"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10942-L10942"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -325,7 +325,7 @@ targets = ["KYWD"]
 count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10943-L10943"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -347,6 +347,6 @@ base = "u64"
 bits = [["FilterNotRequiredToLearn", 0x1], ["ExcludeFromWorkshopLod", 0x4]]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10945-L10949"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3518 COBJ records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"

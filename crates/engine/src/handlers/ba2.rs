@@ -1,8 +1,8 @@
-//! `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4) over `kitcraft-ba2`.
+//! `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4) over `kitkraft-ba2`.
 //!
 //! Patterns are regular expressions matched case-insensitively against archive paths (as
 //! `ba2x.py` matches them). Output is never written under a game `Data` directory: a
-//! directory holding `Starfield.esm`, any directory above one, or `KITCRAFT_DATA_DIR`
+//! directory holding `Starfield.esm`, any directory above one, or `KITKRAFT_DATA_DIR`
 //! ([`refuse_game_data`], shared with the other lane G commands).
 
 use std::collections::BTreeMap;
@@ -10,7 +10,7 @@ use std::fs::{self, File};
 use std::io::{BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-use kitcraft_ba2::{Archive, Body, Entry, Kind, PackOptions};
+use kitkraft_ba2::{Archive, Body, Entry, Kind, PackOptions};
 use regex::{Regex, RegexBuilder};
 use serde_json::{json, Value};
 
@@ -157,7 +157,7 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
             .and_then(|n| {
                 writer
                     .flush()
-                    .map_err(|source| kitcraft_ba2::Error::Io { offset: n, source })?;
+                    .map_err(|source| kitkraft_ba2::Error::Io { offset: n, source })?;
                 Ok(n)
             });
         let n = match result {
@@ -220,7 +220,7 @@ pub(super) fn extract(args: &Value) -> Result<Outcome, EngineError> {
 }
 
 /// Validates every target before the first write, so a refused extraction writes nothing:
-/// sizes against `max_entry`, names through [`kitcraft_ba2::relative_path`] (which also
+/// sizes against `max_entry`, names through [`kitkraft_ba2::relative_path`] (which also
 /// refuses names Windows would alter), two entries that land on one file of a
 /// case-insensitive file system (Windows, the game's), an entry that is both a file and
 /// another entry's directory, an existing directory or file in the way, and existing
@@ -243,7 +243,7 @@ fn plan_extraction<'a>(
                 entry.name
             ));
         }
-        let rel = kitcraft_ba2::relative_path(&entry.name).map_err(|e| e.to_string())?;
+        let rel = kitkraft_ba2::relative_path(&entry.name).map_err(|e| e.to_string())?;
         let parts: Vec<String> = rel
             .components()
             .map(|c| c.as_os_str().to_string_lossy().to_lowercase())
@@ -365,7 +365,7 @@ pub(super) fn pack(args: &Value) -> Result<Outcome, EngineError> {
     let file =
         File::create(&tmp).map_err(|e| failed(ID, format!("creating `{}`: {e}", tmp.display())))?;
     let mut writer = BufWriter::new(file);
-    let report = kitcraft_ba2::pack(&files, |p| fs::read(p), &options, &mut writer);
+    let report = kitkraft_ba2::pack(&files, |p| fs::read(p), &options, &mut writer);
     let flushed = writer.flush();
     drop(writer);
     let report = match (report, flushed) {
@@ -556,13 +556,13 @@ fn archive_evidence(archive: &Archive, file: &str) -> Vec<Evidence> {
         .map_or(header_len, |e| match &e.body {
             Body::General(_) => e
                 .record_offset
-                .saturating_add(kitcraft_ba2::GENERAL_RECORD_LEN),
+                .saturating_add(kitkraft_ba2::GENERAL_RECORD_LEN),
             Body::Texture(t) => t.chunks.last().map_or(
                 e.record_offset
-                    .saturating_add(kitcraft_ba2::TEXTURE_RECORD_LEN),
+                    .saturating_add(kitkraft_ba2::TEXTURE_RECORD_LEN),
                 |c| {
                     c.record_offset
-                        .saturating_add(kitcraft_ba2::CHUNK_RECORD_LEN)
+                        .saturating_add(kitkraft_ba2::CHUNK_RECORD_LEN)
                 },
             ),
         });
@@ -616,16 +616,17 @@ fn pattern(command: &str, args: &Value, name: &str) -> Result<Option<Regex>, Eng
         })
 }
 
-/// Refuses a write target inside a game `Data` directory: `KITCRAFT_DATA_DIR`, or any
+/// Refuses a write target inside a game `Data` directory: `KITKRAFT_DATA_DIR`, or any
 /// directory at or above the target that holds `Starfield.esm`.
 pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), EngineError> {
     let abs = absolute(target);
-    let data_dir = std::env::var_os("KITCRAFT_DATA_DIR").map(|d| absolute(Path::new(&d)));
+    let data_dir =
+        crate::handlers::env_var_os("KITKRAFT_DATA_DIR").map(|d| absolute(Path::new(&d)));
     let refuse = |why: String| {
         failed(
             command,
             format!(
-                "refusing to write `{}`: {why}; the game Data directory is read-only to KitCraft",
+                "refusing to write `{}`: {why}; the game Data directory is read-only to KitKraft",
                 target.display()
             ),
         )
@@ -633,7 +634,7 @@ pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), Engin
     if let Some(data) = data_dir.filter(|d| !d.as_os_str().is_empty()) {
         if abs.starts_with(&data) {
             return Err(refuse(format!(
-                "it is under KITCRAFT_DATA_DIR `{}`",
+                "it is under KITKRAFT_DATA_DIR `{}`",
                 data.display()
             )));
         }
@@ -718,7 +719,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("kitcraft-ba2-{name}-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-ba2-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         dir
@@ -919,11 +920,11 @@ mod tests {
             .map(|n| (n.to_string(), n.to_string()))
             .collect();
         let mut out = std::io::Cursor::new(Vec::new());
-        let options = kitcraft_ba2::PackOptions {
+        let options = kitkraft_ba2::PackOptions {
             compress: false,
             ..Default::default()
         };
-        kitcraft_ba2::pack(&inputs, |_| Ok(b"x".to_vec()), &options, &mut out).unwrap();
+        kitkraft_ba2::pack(&inputs, |_| Ok(b"x".to_vec()), &options, &mut out).unwrap();
         let mut bytes = out.into_inner();
         for (from, to) in renames {
             assert_eq!(from.len(), to.len());

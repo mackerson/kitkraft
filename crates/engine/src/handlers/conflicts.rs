@@ -4,12 +4,12 @@
 
 use std::collections::BTreeMap;
 
-use kitcraft_doc::compare::OverrideClass;
-use kitcraft_doc::conflicts::{classify_run, overridden, signature_of, Filter};
-use kitcraft_doc::hash::Fnv;
-use kitcraft_doc::query::{decode_cursor, encode_cursor};
-use kitcraft_doc::{RecordReader, Version};
-use kitcraft_esm::HEADER_LEN;
+use kitkraft_doc::compare::OverrideClass;
+use kitkraft_doc::conflicts::{classify_run, overridden, signature_of, Filter};
+use kitkraft_doc::hash::Fnv;
+use kitkraft_doc::query::{decode_cursor, encode_cursor};
+use kitkraft_doc::{RecordReader, Version};
+use kitkraft_esm::HEADER_LEN;
 use serde_json::{json, Value};
 
 use super::failed;
@@ -109,7 +109,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
         })
         .collect();
 
-    let schema = kitcraft_schema::builtin().ok();
+    let schema = kitkraft_schema::builtin().ok();
     let forms = overridden(lo, &filter);
     let mut fp = Fnv::new();
     fp.write_u64(lo.fingerprint());

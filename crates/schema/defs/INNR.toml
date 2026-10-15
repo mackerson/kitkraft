@@ -18,7 +18,7 @@ signature = "INNR"
 name = "InstanceNamingRules"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12887-L13144"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -63,7 +63,7 @@ base = "u32"
 values = [["None", 0], ["Armor", 0x22], ["Container", 0x24], ["Flora", 0x2e], ["Furniture", 0x2f], ["Weapon", 0x30], ["Actor", 0x32]]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12891-L12899"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -73,7 +73,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12900-L12903"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13140-L13143",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "xEdit declares this list with 10 entries"
@@ -90,7 +90,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12904-L12907"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13139-L13141",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "names keep their stored order"
@@ -106,7 +106,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12907-L12907"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -118,7 +118,7 @@ card = "optional"
 size = 6
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12908-L13138"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "Target names an instance property; which list it indexes depends on the record's UNAM (an xEdit union of one-byte enums), so it is kept as a plain integer"
@@ -134,6 +134,6 @@ name = "Index"
 type = "u16"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13139-L13139"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 8 INNR records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"

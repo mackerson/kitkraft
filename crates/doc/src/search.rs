@@ -119,7 +119,7 @@ pub fn run_page(
         reader,
         request,
         strings,
-        kitcraft_schema::builtin().ok(),
+        kitkraft_schema::builtin().ok(),
     )
 }
 
@@ -130,7 +130,7 @@ pub fn run_page_with(
     reader: &mut RecordReader,
     request: &PageRequest<'_>,
     mut strings: Option<&mut StringTables>,
-    schema: Option<&kitcraft_schema::Schema>,
+    schema: Option<&kitkraft_schema::Schema>,
 ) -> Result<Page, String> {
     let PageRequest {
         signature,
@@ -334,7 +334,7 @@ mod tests {
     #[test]
     fn localized_strings_resolve_through_tables() {
         use crate::strings::{DirSource, StringTables};
-        use kitcraft_strings::{Entry, Kind, Table};
+        use kitkraft_strings::{Entry, Kind, Table};
         let lo = lo();
         let dir = lo.plugins[2].path.parent().unwrap().to_path_buf();
         std::fs::create_dir_all(dir.join("Strings")).unwrap();

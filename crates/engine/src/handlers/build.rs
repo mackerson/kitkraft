@@ -26,12 +26,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
-use kitcraft_doc::query::{FieldValue, Lookup, Path, Query, Subject};
-use kitcraft_doc::search::{run_page, PageRequest, Scope, MAX_LIMIT};
-use kitcraft_doc::subject::VersionSubject;
-use kitcraft_doc::{GlobalForm, RecordReader};
-use kitcraft_esm::DecodeLimits;
-use kitcraft_schema::{Confidence, Schema};
+use kitkraft_doc::query::{FieldValue, Lookup, Path, Query, Subject};
+use kitkraft_doc::search::{run_page, PageRequest, Scope, MAX_LIMIT};
+use kitkraft_doc::subject::VersionSubject;
+use kitkraft_doc::{GlobalForm, RecordReader};
+use kitkraft_esm::DecodeLimits;
+use kitkraft_schema::{Confidence, Schema};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
@@ -162,7 +162,7 @@ fn matches(
         let page = run_page(&loaded.lo, &mut reader, &request, Some(&mut loaded.strings))
             .map_err(|e| spec_error(&format!("{at}.where"), e))?;
         unknown = unknown.saturating_add(page.unknown_count);
-        out.extend(page.matched.iter().map(kitcraft_doc::Version::form));
+        out.extend(page.matched.iter().map(kitkraft_doc::Version::form));
         match page.next_cursor {
             Some(next) => cursor = Some(next),
             None => break,
@@ -330,7 +330,7 @@ fn place_request(p: &spec::PlaceEntry) -> Result<PlaceRequest, EngineError> {
 /// are the same; the cells must be in the plugin). `ONAM` is redone and every written
 /// record is located again, since records moved.
 fn import_navmeshes(
-    master_scale: &dyn Fn(&str) -> Option<kitcraft_esm::tes4::Scale>,
+    master_scale: &dyn Fn(&str) -> Option<kitkraft_esm::tes4::Scale>,
     spec_dir: &std::path::Path,
     imports: &[spec::ImportEntry],
     staged: &std::path::Path,
@@ -348,24 +348,24 @@ fn import_navmeshes(
         let key = format!("{}.from", import.key);
         let source_bytes = std::fs::read(&from)
             .map_err(|e| spec_error(&key, format!("{}: {e}", from.display())))?;
-        let source = kitcraft_esm::Plugin::parse(&source_bytes)
+        let source = kitkraft_esm::Plugin::parse(&source_bytes)
             .map_err(|e| spec_error(&key, format!("{}: {e}", from.display())))?;
         let target_bytes =
             std::fs::read(staged).map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
-        let mut target = kitcraft_esm::Plugin::parse(&target_bytes)
+        let mut target = kitkraft_esm::Plugin::parse(&target_bytes)
             .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
         // The scales of the masters the two plugins share (they must be the same list).
-        let scales: Vec<Option<kitcraft_esm::tes4::Scale>> = source
+        let scales: Vec<Option<kitkraft_esm::tes4::Scale>> = source
             .tes4()
             .masters()
             .iter()
             .map(|m| master_scale(&m.name_lossy()))
             .collect();
-        let done = kitcraft_esm::navmesh::import_navmeshes(
+        let done = kitkraft_esm::navmesh::import_navmeshes(
             &source,
             &mut target,
-            &kitcraft_esm::navmesh::NavmeshOptions {
-                style: kitcraft_esm::cells::PlacementStyle::OFFICIAL,
+            &kitkraft_esm::navmesh::NavmeshOptions {
+                style: kitkraft_esm::cells::PlacementStyle::OFFICIAL,
                 limits: *limits,
                 master_scales: &scales,
             },
@@ -431,7 +431,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             format!("`{}` exists; pass overwrite to replace it", out.display()),
         ));
     }
-    let schema = kitcraft_schema::builtin()
+    let schema = kitkraft_schema::builtin()
         .map_err(|e| failed(ID, format!("the builtin schema does not load: {e}")))?;
     let v2 = spec.version >= 2;
     let mut limitations = loaded.limitations.clone();
@@ -757,7 +757,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .find(name)
             .and_then(|i| loaded.lo.plugin(i))
             .and_then(|p| p.header())
-            .and_then(|h| kitcraft_esm::tes4::Scale::of_flags(h.flags.0))
+            .and_then(|h| kitkraft_esm::tes4::Scale::of_flags(h.flags.0))
     };
     let imported = import_navmeshes(
         &scale_of,

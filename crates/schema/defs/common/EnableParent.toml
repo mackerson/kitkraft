@@ -7,7 +7,7 @@ name = "EnableParent"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3892-L3899"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every XESP payload the REFR and ACHR definitions place in the 14 official ESMs (all 8 bytes) decodes with this layout",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every XESP payload the REFR and ACHR definitions place in the 14 official ESMs (all 8 bytes) decodes with this layout",
 ]
 confidence = "corpus"
 type = "struct"

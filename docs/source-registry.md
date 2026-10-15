@@ -1,6 +1,6 @@
 # Source registry
 
-Every outside source KitCraft may consult, run, or must avoid, with our status for each.
+Every outside source KitKraft may consult, run, or must avoid, with our status for each.
 Derived from section 1 of the owner-supplied dossier
 (`docs/research/starfield-dossier-2026-10-14.md`), plus the pinned xEdit files and the
 sources ADR 0005 already used. Normative rules: ADR 0001, ADR 0004 (with its owner
@@ -65,7 +65,7 @@ G archives, scripts, strings (`plan/execution-plan.md`).
 | Key | Source URL | License | Our status | Lanes it serves | Notes |
 | --- | ---------- | ------- | ---------- | --------------- | ----- |
 | OURS-SCRIPTS | `C:\Modding\scripts` (`ba2x.py`, `pexdis.py`, `pexgrep.py`) | Ours (ADR 0001 provenance note) | permitted-reference | G | The reference implementation for GNRL reading and the `.pex` layout and text format. Cite `ours: <script>`. Corrected where the corpus disagrees (`pexdis.py` struct layout, `crates/pex`) |
-| CORPUS-ARCHIVES | The 90 official `.ba2` archives under `KITCRAFT_DATA_DIR`, the string tables and `.pex` scripts inside them, `Tools\ContentResources.zip` (`Scripts\Source`) | Bethesda data, read in place, never committed | permitted-reference | G | Level 1 for lane G: every BA2, `.pex` and string-table fact, and (ADR 0006 Amendment 1) every `.psc` declaration fact, read in place from the zip; source comments are never cached, committed or quoted. Cite `corpus:`; inventories in `docs/corpus.md` ("Archives") |
+| CORPUS-ARCHIVES | The 90 official `.ba2` archives under `KITKRAFT_DATA_DIR`, the string tables and `.pex` scripts inside them, `Tools\ContentResources.zip` (`Scripts\Source`) | Bethesda data, read in place, never committed | permitted-reference | G | Level 1 for lane G: every BA2, `.pex` and string-table fact, and (ADR 0006 Amendment 1) every `.psc` declaration fact, read in place from the zip; source comments are never cached, committed or quoted. Cite `corpus:`; inventories in `docs/corpus.md` ("Archives") |
 | ARCHIVE2 | `Tools\Archive2\Archive2.exe` (1.2.0.1) | Bethesda proprietary | external-oracle-only (run, never read) | G | Differential extraction and opening our archives; also the source of the DDS header choices `crates/ba2/src/dds.rs` copies. Never disassembled; output in temp dirs only |
 | PAPYRUS-COMPILER | `Tools\Papyrus Compiler\PapyrusCompiler.exe` (4.7.0.5), `PapyrusAssembler.exe` | Bethesda proprietary | external-oracle-only (run, never read) | G | Wrapped by `papyrus.compile`; never passed `-release`/`-final`. Never disassembled |
 | MS-DDS | <https://learn.microsoft.com/en-us/windows/win32/direct3ddds/dx-graphics-dds-pguide> (`DDS_HEADER`, `DDS_PIXELFORMAT`, `DDS_HEADER_DXT10`, `DXGI_FORMAT`) | Microsoft documentation | permitted-reference | G | DDS header structure and DXGI format sizes. Cite `ms-docs: <page>` |

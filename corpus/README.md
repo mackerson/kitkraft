@@ -1,7 +1,7 @@
 # corpus/
 
 The roundtrip corpus is **external**. The official Starfield ESMs live in the game install
-and are read in place through `KITCRAFT_DATA_DIR`; they are never copied here or committed.
+and are read in place through `KITKRAFT_DATA_DIR`; they are never copied here or committed.
 
 This directory holds only:
 

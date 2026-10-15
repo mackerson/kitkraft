@@ -1,7 +1,7 @@
 //! Editing records into patch plugins (lane E: M2.E2, M2.E4).
 //!
 //! - [`fields`]: field paths (`FULL`, `DNAM.Speed`, `FULL[2]`) and typed values.
-//! - [`apply_field`]: one edit on one record, through the `kitcraft-esm` edit API (only the
+//! - [`apply_field`]: one edit on one record, through the `kitkraft-esm` edit API (only the
 //!   edited subrecord changes; a compressed record is recompressed only if it changed).
 
 pub mod fields;
@@ -12,7 +12,7 @@ pub(crate) mod patch_tests;
 pub mod source;
 pub mod strings;
 
-use kitcraft_esm::{DecodeLimits, Record, Signature};
+use kitkraft_esm::{DecodeLimits, Record, Signature};
 use serde_json::{json, Value};
 
 pub use fields::{parse_op, parse_path, FieldError, FieldPath, Op, Step, ValueCtx};
@@ -59,7 +59,7 @@ pub fn apply_field(
     limits: &DecodeLimits,
 ) -> Result<FieldChange, FieldError> {
     let text = path.text.as_str();
-    let payload_err = |e: kitcraft_esm::Error| FieldError::new(text, "payload", e.to_string());
+    let payload_err = |e: kitkraft_esm::Error| FieldError::new(text, "payload", e.to_string());
     record.decompress(limits).map_err(payload_err)?;
     let sig = Signature(path.signature);
     let Some(index) = record.find_subrecord(sig, path.occurrence) else {
@@ -85,7 +85,7 @@ pub fn apply_field(
         .map(|subs| subs.iter().map(|s| s.signature().0).collect())
         .unwrap_or_default();
     let layout = fields::layout_at(record.header.signature.0, &sigs, index);
-    let raw = kitcraft_schema::FieldType::Opaque { size: None };
+    let raw = kitkraft_schema::FieldType::Opaque { size: None };
     let (ty, mut notes) = match &layout {
         Some(layout) => (&layout.ty, layout.fallback.clone().into_iter().collect()),
         None if path.steps.is_empty() => (&raw, Vec::new()),
@@ -149,7 +149,7 @@ pub fn high_bytes_note(at: &str, text: &[u8]) -> Option<String> {
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
-    use kitcraft_esm::{Body, RecordHeader, Subrecord};
+    use kitkraft_esm::{Body, RecordHeader, Subrecord};
 
     fn weapon() -> Record<'static> {
         Record::new(

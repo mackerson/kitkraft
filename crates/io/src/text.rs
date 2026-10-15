@@ -36,7 +36,7 @@ mod tests {
 
     #[test]
     fn bom_crlf_and_comments() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-io-text-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-io-text-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("x.txt");
         std::fs::write(&path, b"\xEF\xBB\xBF# c\r\n*A.esm  \r\n\r\nB.esm\xFF\n").unwrap();

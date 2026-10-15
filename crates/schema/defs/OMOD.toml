@@ -21,7 +21,7 @@ signature = "OMOD"
 name = "ObjectModification"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15429-L15476"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 flags = [["LegendaryMod", 0x10], ["ModCollection", 0x80], ["PropertyCollection", 0x100]]
@@ -56,7 +56,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15437-L15437"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -90,7 +90,7 @@ group_ref = "Model"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15440-L15440"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "xEdit marks the block required; its file name is optional"
@@ -111,7 +111,7 @@ type = "struct"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15442-L15468"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6894-L6938",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "the two counts are stored, not derived: an edit that changes Includes or Properties must update them; Name and AttachParentSlots carry u32 prefixes (xEdit's length-prefixed string and negative array count), written as explicit fields"
@@ -199,7 +199,7 @@ targets = ["KYWD"]
 count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15469-L15469"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -213,7 +213,7 @@ targets = ["KYWD"]
 count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15470-L15470"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -226,7 +226,7 @@ targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15471-L15471"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -237,7 +237,7 @@ type = "u8"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15472-L15472"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 3330 OMOD records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 

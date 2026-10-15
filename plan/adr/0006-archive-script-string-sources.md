@@ -21,7 +21,7 @@ source for them. M2 needs a written rule before code relies on any fact about th
 
 | Level | Source | Used for | Cite as |
 | ----- | ------ | -------- | ------- |
-| 1 | **Corpus**: the official archives, scripts and string tables under `KITCRAFT_DATA_DIR`, read in place by our own code or scripts (hex dumps, statistics, decode-and-compare). Never copied into the repo | The tiebreaker for every fact: header fields as they occur, codecs, hash function, layouts, ordering and deduplication rules | `corpus: <evidence note>` (in code comments and `docs/corpus.md`) |
+| 1 | **Corpus**: the official archives, scripts and string tables under `KITKRAFT_DATA_DIR`, read in place by our own code or scripts (hex dumps, statistics, decode-and-compare). Never copied into the repo | The tiebreaker for every fact: header fields as they occur, codecs, hash function, layouts, ordering and deduplication rules | `corpus: <evidence note>` (in code comments and `docs/corpus.md`) |
 | 2 | **Our own tools** in `C:\Modding\scripts` (`ba2x.py`, `pexdis.py`, `pexgrep.py`; provenance in ADR 0001) | The reference implementation: GNRL reading, the `.pex` layout and the disassembly text format | `ours: <script>` |
 | 2 | **Black-box runs** of `Archive2.exe` and `PapyrusCompiler.exe` (and `PapyrusAssembler.exe`) from the game's `Tools` folder: give them inputs, compare their outputs with ours | Differential checks: Archive2 extraction vs ours, Archive2 opening our archives, compiler output disassembled by us | `black-box: <tool> <version> <observation>` |
 | 3 | **Microsoft's DDS documentation** (`DDS_HEADER`, `DDS_PIXELFORMAT`, `DDS_HEADER_DXT10`, DXGI format sizes) on learn.microsoft.com | The DDS header we synthesize for DX10 extraction; bytes-per-block and bits-per-pixel per DXGI format | `ms-docs: <page title>` |
@@ -40,7 +40,7 @@ Rules:
   ("Archives") with the inventory that established it.
 - Black-box tools are run, never disassembled, decompiled, debugged or memory-dumped. Their
   outputs stay in temp directories and are never committed. `PapyrusCompiler.exe` is never
-  passed `-release` (or `-final`); KitCraft's argument builder cannot emit them.
+  passed `-release` (or `-final`); KitKraft's argument builder cannot emit them.
 - Facts are written in our own words and structure; no prose from any page is copied.
 
 ### 2. Forbidden sources
@@ -67,7 +67,7 @@ Rules:
 - `crates/ba2`, `crates/pex` and `crates/strings` cite `ours:`, `corpus:`, `ms-docs:` or
   `uesp-skyrim:` in module docs for each fact they rely on; the inventories behind the
   `corpus:` facts are in `docs/corpus.md`.
-- Corpus tests skip without `KITCRAFT_DATA_DIR`, like the plugin corpus tests.
+- Corpus tests skip without `KITKRAFT_DATA_DIR`, like the plugin corpus tests.
 - Differential checks against Archive2 and the Papyrus compiler are recorded in
   `plan/STATUS.md` with the tool version and what differed.
 - A source not listed here needs an amendment; one that ADR 0005 forbids goes to the owner.
@@ -98,7 +98,7 @@ Rules:
   decompiler, grammar file or language server is read** (Caprica, open-papyrus projects,
   Champollion, editor grammars and the like), whatever its license; OPEN-PAPYRUS stays
   `future`.
-- Comments in the official sources are Bethesda text: KitCraft shows them only when asked
+- Comments in the official sources are Bethesda text: KitKraft shows them only when asked
   (`with_comments: true`), read at that moment from the user's own zip, and never caches,
   commits or quotes them. Declarations (names, types, flags) are facts and may appear in
   results, tests and docs.

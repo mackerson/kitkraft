@@ -1,6 +1,6 @@
 # Creation Kit parity
 
-What the real Creation Kit does, observed as a black box, and where KitCraft stands. Work on
+What the real Creation Kit does, observed as a black box, and where KitKraft stands. Work on
 this list is M3; the viewport and world editing are deferred to M4+.
 
 ## Observation protocol

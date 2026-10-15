@@ -2,7 +2,7 @@
 //!
 //! `golden/seed.rs` is the output for the checked-in definitions and `golden/fixture.rs`
 //! the output for the synthetic fixtures in `tests/fixtures/` (every format feature). To
-//! accept a deliberate change, run with `KITCRAFT_UPDATE_GOLDEN=1` and review the diff.
+//! accept a deliberate change, run with `KITKRAFT_UPDATE_GOLDEN=1` and review the diff.
 //! `tests/generated.rs` exercises both files; `examples/generated.rs` compiles them as a
 //! non-test target, where the workspace lints apply without the test allowances.
 
@@ -12,7 +12,7 @@
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use kitcraft_schema::{builtin, generate, load_dir, load_sources, CodegenError};
+use kitkraft_schema::{builtin, generate, load_dir, load_sources, CodegenError};
 
 fn golden_path(name: &str) -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -23,16 +23,19 @@ fn golden_path(name: &str) -> PathBuf {
 
 fn check_golden(name: &str, generated: &str) {
     let path = golden_path(name);
-    if std::env::var_os("KITCRAFT_UPDATE_GOLDEN").is_some() {
+    if std::env::var_os("KITKRAFT_UPDATE_GOLDEN")
+        .or_else(|| std::env::var_os("KITCRAFT_UPDATE_GOLDEN"))
+        .is_some()
+    {
         std::fs::write(&path, generated).unwrap();
         return;
     }
     let expected = std::fs::read_to_string(&path)
-        .unwrap_or_else(|e| panic!("{}: {e}; run with KITCRAFT_UPDATE_GOLDEN=1", path.display()));
+        .unwrap_or_else(|e| panic!("{}: {e}; run with KITKRAFT_UPDATE_GOLDEN=1", path.display()));
     let expected = expected.replace("\r\n", "\n");
     assert!(
         expected == generated,
-        "{name} is stale; rerun with KITCRAFT_UPDATE_GOLDEN=1 and review the diff"
+        "{name} is stale; rerun with KITKRAFT_UPDATE_GOLDEN=1 and review the diff"
     );
 }
 

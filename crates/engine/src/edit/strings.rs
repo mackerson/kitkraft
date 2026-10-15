@@ -59,7 +59,7 @@ impl StringLookup for MemoryStrings {
 
 /// The load order's string tables (lane D's M2.D7: the MO2 overlay, then the plugin's
 /// archives), as a [`StringLookup`].
-pub struct TableStrings<'t>(pub std::cell::RefCell<&'t mut kitcraft_doc::strings::StringTables>);
+pub struct TableStrings<'t>(pub std::cell::RefCell<&'t mut kitkraft_doc::strings::StringTables>);
 
 impl std::fmt::Debug for TableStrings<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

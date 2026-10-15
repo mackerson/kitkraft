@@ -2,8 +2,8 @@
 //!
 //! `PapyrusCompiler.exe` reads sources from folders, so the zip's `Scripts/Source` files
 //! (`.psc` and the `.flg` flags file; corpus 2026-10-14: 5,034 files, 12.3 MB, folders up to
-//! five deep for namespaces such as `Fragments`) are extracted once into the KitCraft cache
-//! (`KITCRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitcraft\cache`, else the OS temp dir) under
+//! five deep for namespaces such as `Fragments`) are extracted once into the KitKraft cache
+//! (`KITKRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitkraft\cache`, else the OS temp dir) under
 //! `papyrus-sources\<key>`, where `<key>` is a hash of every extracted entry's name, size
 //! and CRC-32 from the zip's central directory: a changed zip gets a new folder, an
 //! unchanged one is reused without reading any file data. The folder is written under a
@@ -40,7 +40,7 @@ pub(crate) const MAX_DEPTH: usize = 16;
 /// Part of the cache key; bump when the extracted layout changes.
 const LAYOUT_VERSION: u8 = 1;
 /// Written last into a complete extraction.
-const COMPLETE: &str = ".kitcraft-complete";
+const COMPLETE: &str = ".kitkraft-complete";
 /// The cache subfolder.
 const CACHE_SUBDIR: &str = "papyrus-sources";
 
@@ -69,10 +69,10 @@ struct Planned {
     size: u64,
 }
 
-/// The cache root: `KITCRAFT_CACHE_DIR`, `%LOCALAPPDATA%\kitcraft\cache`, or the OS temp dir.
+/// The cache root: `KITKRAFT_CACHE_DIR`, `%LOCALAPPDATA%\kitkraft\cache`, or the OS temp dir.
 pub(crate) fn default_cache_root() -> PathBuf {
-    kitcraft_doc::IndexCache::default_location().map_or_else(
-        || std::env::temp_dir().join("kitcraft-cache"),
+    kitkraft_doc::IndexCache::default_location().map_or_else(
+        || std::env::temp_dir().join("kitkraft-cache"),
         |c| c.dir().to_path_buf(),
     )
 }
@@ -395,7 +395,7 @@ pub(super) mod tests {
 
     fn temp(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "kitcraft-papyrus-sources-{name}-{}",
+            "kitkraft-papyrus-sources-{name}-{}",
             std::process::id()
         ));
         let _ = fs::remove_dir_all(&dir);
@@ -578,12 +578,12 @@ pub(super) mod tests {
         }
     }
 
-    /// With `KITCRAFT_DATA_DIR` set, the official zip's sources extract (or are reused)
+    /// With `KITKRAFT_DATA_DIR` set, the official zip's sources extract (or are reused)
     /// with the counts recorded in the module docs.
     #[test]
     fn official_content_resources_zip() {
-        let Some(data) = std::env::var_os("KITCRAFT_DATA_DIR") else {
-            println!("skipped: KITCRAFT_DATA_DIR is not set");
+        let Some(data) = crate::handlers::env_var_os("KITKRAFT_DATA_DIR") else {
+            println!("skipped: KITKRAFT_DATA_DIR is not set");
             return;
         };
         let Some(zip) = Path::new(&data)
@@ -594,7 +594,7 @@ pub(super) mod tests {
             println!("skipped: Tools\\ContentResources.zip not found");
             return;
         };
-        let cache = std::env::temp_dir().join("kitcraft-papyrus-sources-official");
+        let cache = std::env::temp_dir().join("kitkraft-papyrus-sources-official");
         let got = extract_sources(&zip, &cache).unwrap();
         assert_eq!(got.files, 5_034);
         assert_eq!(got.bytes, 12_261_886);
@@ -602,7 +602,7 @@ pub(super) mod tests {
         assert!(got.dir.join("ObjectReference.psc").is_file());
     }
 
-    /// M4.G1 acceptance: with `KITCRAFT_DATA_DIR` set, every official `.psc` in
+    /// M4.G1 acceptance: with `KITKRAFT_DATA_DIR` set, every official `.psc` in
     /// `Tools\ContentResources.zip` is read in memory (nothing extracted) and its
     /// declarations parse with no error and no statement left unread; failures are listed
     /// with file and line. The counts printed are the ones in `plan/STATUS.md`.
@@ -619,7 +619,7 @@ pub(super) mod tests {
         let (mut functions, mut events, mut properties, mut structs) = (0, 0, 0, 0);
         let (mut custom, mut natives, mut remote) = (0, 0, 0);
         for (path, bytes) in &files {
-            match kitcraft_pex::psc::parse(bytes) {
+            match kitkraft_pex::psc::parse(bytes) {
                 Ok(s) => {
                     functions += s.functions.len();
                     events += s.events.len();
@@ -629,7 +629,7 @@ pub(super) mod tests {
                     natives += s
                         .functions
                         .iter()
-                        .filter(|f| kitcraft_pex::psc::has_flag(&f.flags, "native"))
+                        .filter(|f| kitkraft_pex::psc::has_flag(&f.flags, "native"))
                         .count();
                     remote += s.events.iter().filter(|e| e.remote.is_some()).count();
                     unread.extend(
@@ -650,10 +650,10 @@ pub(super) mod tests {
         assert!(unread.is_empty(), "{unread:#?}");
     }
 
-    /// `Tools\ContentResources.zip` next to `KITCRAFT_DATA_DIR`, or `None` with a message.
+    /// `Tools\ContentResources.zip` next to `KITKRAFT_DATA_DIR`, or `None` with a message.
     pub(crate) fn official_zip() -> Option<PathBuf> {
-        let Some(data) = std::env::var_os("KITCRAFT_DATA_DIR") else {
-            println!("skipped: KITCRAFT_DATA_DIR is not set");
+        let Some(data) = crate::handlers::env_var_os("KITKRAFT_DATA_DIR") else {
+            println!("skipped: KITKRAFT_DATA_DIR is not set");
             return None;
         };
         let zip = Path::new(&data)

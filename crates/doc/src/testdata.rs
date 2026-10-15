@@ -1,4 +1,4 @@
-//! Synthetic plugins for tests, built from the container layout `kitcraft-esm` documents.
+//! Synthetic plugins for tests, built from the container layout `kitkraft-esm` documents.
 
 #![allow(
     clippy::unwrap_used,
@@ -43,7 +43,7 @@ pub fn rec_flags(sig: &[u8; 4], flags: u32, form_id: u32, fields: &[(&str, Vec<u
 
 /// A compressed record.
 pub fn compressed(sig: &[u8; 4], form_id: u32, fields: &[(&str, Vec<u8>)]) -> Vec<u8> {
-    let body = kitcraft_esm::compress::deflate(&subs(fields), 9, 0).unwrap();
+    let body = kitkraft_esm::compress::deflate(&subs(fields), 9, 0).unwrap();
     raw_record(sig, 0x0004_0000, form_id, &body)
 }
 
@@ -95,7 +95,7 @@ static COUNTER: AtomicU32 = AtomicU32::new(0);
 /// A fresh temp directory for this test process.
 pub fn temp_dir(tag: &str) -> PathBuf {
     let n = COUNTER.fetch_add(1, Ordering::SeqCst);
-    let dir = std::env::temp_dir().join(format!("kitcraft-doc-{tag}-{}-{n}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("kitkraft-doc-{tag}-{}-{n}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     dir

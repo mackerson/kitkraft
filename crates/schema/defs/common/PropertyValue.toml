@@ -14,7 +14,7 @@ kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5684"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every LCTN PRPS and REFR XPPS payload the definitions place in the 14 official ESMs is a whole number of 12-byte entries and decodes with this layout",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every LCTN PRPS and REFR XPPS payload the definitions place in the 14 official ESMs is a whole number of 12-byte entries and decodes with this layout",
   "corpus: PRPS in the STAT, ACTI, CONT, FURN, MSTT and TERM records (ITEMS/WORKSHOP family, M4.BI1), the PKIN records (planet family) and the NPC_, RACE and CLAS records (actor family, M4.BC1) of the 14 official ESMs, 2026-10-14 typed checks: every payload a whole number of 12-byte entries, every record decodes and re-encodes identically",
 ]
 confidence = "corpus"

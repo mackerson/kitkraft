@@ -115,7 +115,7 @@ pub fn tes4() -> Vec<u8> {
     onam.extend_from_slice(&0x0000_0A01u32.to_le_bytes());
     onam.extend_from_slice(&0x0100_0B02u32.to_le_bytes());
     let mut body = sub(b"HEDR", &hedr);
-    body.extend(sub(b"CNAM", b"kitcraft\0"));
+    body.extend(sub(b"CNAM", b"kitkraft\0"));
     body.extend(sub(b"MAST", b"Starfield.esm\0"));
     body.extend(sub(b"DATA", &0u64.to_le_bytes()));
     body.extend(sub(b"MAST", b"Other.esm\0"));

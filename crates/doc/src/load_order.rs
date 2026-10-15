@@ -2,7 +2,7 @@
 //! resolution and the override table.
 //!
 //! Every plugin handed to [`LoadOrder::load`] is treated as active (choosing which plugins
-//! are active is the profile reader's job, `kitcraft-io`). A plugin that fails to parse
+//! are active is the profile reader's job, `kitkraft-io`). A plugin that fails to parse
 //! stays in the list with its error and no records, so one broken file does not hide the
 //! rest; FormIDs of plugins that name it as a master cannot be resolved.
 

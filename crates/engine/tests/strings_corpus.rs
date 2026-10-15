@@ -1,6 +1,6 @@
-//! String tables in the official archives, read through `kitcraft-ba2` and rewritten by
-//! `kitcraft-strings` (M2.G8). Lives here because the engine is the lowest crate that
-//! depends on both. Skips without `KITCRAFT_DATA_DIR`.
+//! String tables in the official archives, read through `kitkraft-ba2` and rewritten by
+//! `kitkraft-strings` (M2.G8). Lives here because the engine is the lowest crate that
+//! depends on both. Skips without `KITKRAFT_DATA_DIR`.
 //!
 //! - `strings_en_rewrite_identical` (fast): the three `starfield_en` tables.
 //! - `strings_all_rewrite_identical` (`#[ignore]`): every table in every official archive.
@@ -15,11 +15,13 @@
 
 use std::path::PathBuf;
 
-use kitcraft_ba2::Archive;
-use kitcraft_strings::{Kind, Table};
+use kitkraft_ba2::Archive;
+use kitkraft_strings::{Kind, Table};
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.is_dir().then_some(dir)
 }
 
@@ -67,7 +69,7 @@ fn check_archive(path: &std::path::Path, keep: impl Fn(&str) -> bool) -> usize {
 #[test]
 fn strings_en_rewrite_identical() {
     let Some(dir) = data_dir() else {
-        println!("skipped: KITCRAFT_DATA_DIR is not set or missing");
+        println!("skipped: KITKRAFT_DATA_DIR is not set or missing");
         return;
     };
     let path = dir.join("Starfield - Localization.ba2");
@@ -83,7 +85,7 @@ fn strings_en_rewrite_identical() {
 #[ignore = "reads every string table in every official archive; run in release"]
 fn strings_all_rewrite_identical() {
     let Some(dir) = data_dir() else {
-        println!("skipped: KITCRAFT_DATA_DIR is not set or missing");
+        println!("skipped: KITKRAFT_DATA_DIR is not set or missing");
         return;
     };
     let mut total = 0;
@@ -96,7 +98,7 @@ fn strings_all_rewrite_identical() {
             continue;
         }
         let (archive, _) = Archive::open(&path).unwrap();
-        if archive.header.kind != kitcraft_ba2::Kind::General {
+        if archive.header.kind != kitkraft_ba2::Kind::General {
             continue;
         }
         let n = check_archive(&path, |_| true);

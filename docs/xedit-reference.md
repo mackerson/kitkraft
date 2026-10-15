@@ -64,7 +64,7 @@ What MPL-2.0 means for us (our reading, not legal advice):
 2. Facts about a file format (signatures, field order, widths, types, flag bits, enum
    values, FormID target types) are not code; using them to write our own TOML does not
    put MPL code into our files, so those files stay MIT OR Apache-2.0.
-3. Copying code, comments or other expression (verbatim or lightly edited) into a KitCraft
+3. Copying code, comments or other expression (verbatim or lightly edited) into a KitKraft
    file would make that file Covered Software; that is forbidden (ADR 0004).
 4. Running SF1Edit as an external program for differential comparison creates no
    obligation; bundling or redistributing it would, so we do not.

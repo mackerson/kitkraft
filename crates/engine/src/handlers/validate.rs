@@ -101,14 +101,14 @@ pub(crate) fn options(args: &Value) -> Result<Options, EngineError> {
             .map(PathBuf::from)
             .collect(),
         data_dir,
-        limits: kitcraft_esm::DecodeLimits::default(),
+        limits: kitkraft_esm::DecodeLimits::default(),
         indexed: std::collections::HashMap::new(),
     })
 }
 
 /// The load order's (cached) record indexes, for [`Options::indexed`].
 pub(crate) fn indexes(
-    lo: &kitcraft_doc::LoadOrder,
+    lo: &kitkraft_doc::LoadOrder,
 ) -> std::collections::HashMap<String, std::sync::Arc<std::collections::HashMap<u32, u64>>> {
     lo.plugins
         .iter()

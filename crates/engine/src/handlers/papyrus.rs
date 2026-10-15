@@ -1,4 +1,4 @@
-//! `papyrus.disasm` (M2.G6) over `kitcraft-pex`.
+//! `papyrus.disasm` (M2.G6) over `kitkraft-pex`.
 //!
 //! The text is `pexdis.py`'s format line for line; `data.summary` carries it (without the
 //! final newline) so `kit papyrus disasm x.pex` prints exactly what `pexdis.py x.pex` does.
@@ -10,8 +10,8 @@ mod sources;
 use std::fs;
 use std::path::Path;
 
-use kitcraft_ba2::Archive;
-use kitcraft_pex::{disassemble, format_value, opcode_name, Function, Pex, Value};
+use kitkraft_ba2::Archive;
+use kitkraft_pex::{disassemble, format_value, opcode_name, Function, Pex, Value};
 use serde_json::{json, Value as Json};
 
 use super::{failed, file_name, str_arg};
@@ -127,7 +127,7 @@ pub(super) fn read_capped(path: &Path, cap: u64) -> std::io::Result<Vec<u8>> {
     Ok(out)
 }
 
-fn all_functions(o: &kitcraft_pex::Object) -> Vec<&Function> {
+fn all_functions(o: &kitkraft_pex::Object) -> Vec<&Function> {
     let mut out: Vec<&Function> = Vec::new();
     for p in &o.properties {
         out.extend(p.getter.iter());
@@ -139,7 +139,7 @@ fn all_functions(o: &kitcraft_pex::Object) -> Vec<&Function> {
     out
 }
 
-fn count_functions(o: &kitcraft_pex::Object) -> usize {
+fn count_functions(o: &kitkraft_pex::Object) -> usize {
     all_functions(o).len()
 }
 
@@ -341,7 +341,7 @@ pub(super) mod tests {
 
     #[test]
     fn disasm_through_execute_loose_and_in_archive() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-pex-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-pex-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("src").join("scripts")).unwrap();
         let pex = dir.join("src").join("scripts").join("tiny.pex");
@@ -402,7 +402,7 @@ pub(super) mod tests {
     /// archive's string table is refused by the 256 MiB cap.
     #[test]
     fn oversized_entries_are_refused_before_decoding() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-pexcap-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-pexcap-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("src").join("scripts")).unwrap();
         fs::write(

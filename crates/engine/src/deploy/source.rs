@@ -8,7 +8,10 @@ use std::path::{Path, PathBuf};
 use serde_json::Value;
 
 use super::instance::{absolute, check_name, is_link};
-use super::{io_error, refused, sha256, DeployError, MANIFEST, MO2_META, PACKAGE_MANIFEST};
+use super::{
+    io_error, refused, sha256, DeployError, MANIFEST, MO2_META, OLD_PACKAGE_MANIFEST,
+    PACKAGE_MANIFEST,
+};
 
 /// Deepest folder nesting read from a package.
 const MAX_DEPTH: usize = 32;
@@ -102,10 +105,16 @@ pub(crate) fn read(path: &Path) -> Result<Source, DeployError> {
     rels.sort();
     let mut files = Vec::with_capacity(rels.len());
     let mut package_manifest = None;
+    let mut old_package_manifest = None;
     for (rel, abs) in rels {
         if rel.eq_ignore_ascii_case(PACKAGE_MANIFEST) {
             let (_, sha) = sha256::file(&abs).map_err(|e| io_error(&abs, "hashing", &e))?;
             package_manifest = Some((abs, sha));
+            continue;
+        }
+        if rel.eq_ignore_ascii_case(OLD_PACKAGE_MANIFEST) {
+            let (_, sha) = sha256::file(&abs).map_err(|e| io_error(&abs, "hashing", &e))?;
+            old_package_manifest = Some((abs, sha));
             continue;
         }
         if rel.eq_ignore_ascii_case(MANIFEST) || rel.eq_ignore_ascii_case(MO2_META) {
@@ -123,6 +132,9 @@ pub(crate) fn read(path: &Path) -> Result<Source, DeployError> {
             sha256,
         });
     }
+    // A package made before the KitKraft rename carries the old name (deprecated, read for
+    // one release); the current name wins when both are present.
+    let package_manifest = package_manifest.or(old_package_manifest);
     let mut limitations = Vec::new();
     let listed_plugins = match &package_manifest {
         Some((path, _)) => verify_package(path, &files, &mut limitations)?,

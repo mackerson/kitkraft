@@ -15,7 +15,7 @@ use anyhow::{Context, Result};
 use serde_json::{json, Value};
 
 /// Environment variable naming a prebuilt `kit` binary (otherwise `cargo run --release`).
-pub(crate) const KIT_VAR: &str = "KITCRAFT_KIT";
+pub(crate) const KIT_VAR: &str = "KITKRAFT_KIT";
 
 // ---------------------------------------------------------------------------------------
 // SHA-256 (FIPS 180-4), no dependency.
@@ -480,7 +480,7 @@ impl KitOut {
 
 /// Something that runs `kit` with arguments and returns its JSON envelope. Tests use a fake.
 pub(crate) trait Runner {
-    /// Runs `kit <args> --json` with `KITCRAFT_CACHE_DIR` set to `cache`.
+    /// Runs `kit <args> --json` with `KITKRAFT_CACHE_DIR` set to `cache`.
     fn kit(&self, args: &[String], cache: &Path) -> Result<KitOut>;
 }
 
@@ -506,7 +506,7 @@ impl KitBinary {
 
     /// [`KIT_VAR`] if set, else `cargo run --quiet --release -p kit-cli --` in `root`.
     pub(crate) fn from_env(root: &Path) -> Self {
-        if let Some(path) = std::env::var_os(KIT_VAR) {
+        if let Some(path) = crate::env_var_os(KIT_VAR) {
             return Self::at(PathBuf::from(path));
         }
         let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
@@ -526,7 +526,7 @@ impl Runner for KitBinary {
             .args(&self.prefix)
             .args(args)
             .arg("--json")
-            .env("KITCRAFT_CACHE_DIR", cache)
+            .env("KITKRAFT_CACHE_DIR", cache)
             .current_dir(&self.dir)
             .output()
             .with_context(|| format!("could not start `{}`", self.program.display()))?;

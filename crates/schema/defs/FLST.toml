@@ -17,7 +17,7 @@ signature = "FLST"
 name = "FormIdList"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12024-L12053"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
@@ -40,7 +40,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12042-L12042"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -64,7 +64,7 @@ type = "formid"
 card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12044-L12046"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "one FormID per LNAM; any record type"
@@ -76,7 +76,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -104,7 +104,7 @@ card = "optional"
 targets = ["FLST"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12052-L12052"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 1415 FLST records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "present in every official FLST; 0 for none"

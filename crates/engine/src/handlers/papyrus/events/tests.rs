@@ -1,5 +1,5 @@
 //! `papyrus.events` through `execute`, on a synthetic zip (our own scripts) and, with
-//! `KITCRAFT_DATA_DIR`, on the official `Tools\ContentResources.zip`.
+//! `KITKRAFT_DATA_DIR`, on the official `Tools\ContentResources.zip`.
 
 use std::fs;
 use std::path::PathBuf;
@@ -46,7 +46,7 @@ const BROKEN: &[u8] = b"ScriptName Broken\nFunction F()\n";
 
 fn synthetic(name: &str) -> (PathBuf, PathBuf) {
     let dir = std::env::temp_dir().join(format!(
-        "kitcraft-papyrus-events-{name}-{}",
+        "kitkraft-papyrus-events-{name}-{}",
         std::process::id()
     ));
     let _ = fs::remove_dir_all(&dir);
@@ -318,7 +318,7 @@ fn index_cache_hits_and_misses() {
     fs::remove_dir_all(&dir).unwrap();
 }
 
-/// M4.G2 on the official zip (skips without `KITCRAFT_DATA_DIR`): `ObjectReference`
+/// M4.G2 on the official zip (skips without `KITKRAFT_DATA_DIR`): `ObjectReference`
 /// declares `OnLoad`, its parents are found, a search finds outpost scripts, and the
 /// counts per kind are printed for `plan/STATUS.md`.
 #[test]

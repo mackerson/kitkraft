@@ -1,6 +1,6 @@
 # The first POI placed by KitKraft (M4 critical path, rung 0: a vanilla interior cell).
 # Build: kit build docs/poi/first-poi.toml out/poi/KitKraftFirstPOI.esm
-# (Data dir from KITCRAFT_DATA_DIR; Starfield.esm is the only master.)
+# (Data dir from KITKRAFT_DATA_DIR; Starfield.esm is the only master.)
 version = 3
 
 [load_order]

@@ -46,8 +46,8 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
             println!("cargo xtask observe <fixture-dir>...");
             println!("cargo xtask observe new <F00..F14> [--root <dir>] [--date <yyyy-mm-dd>]");
             println!();
-            println!("  The kit binary is KITCRAFT_KIT, else `cargo run --release -p kit-cli`.");
-            println!("  Masters are found through KITCRAFT_DATA_DIR (read only).");
+            println!("  The kit binary is KITKRAFT_KIT, else `cargo run --release -p kit-cli`.");
+            println!("  Masters are found through KITKRAFT_DATA_DIR (read only).");
             Ok(())
         }
         Some("new") => {
@@ -472,7 +472,7 @@ const MATRIX: &[FixtureSpec] = &[
         masters: &["Starfield.esm", "OldSovietMarksmanRifle.esm"],
         plugins: &[],
         compare: &[],
-        notes: "Our plugin: C:\\Modding\\kitcraft\\out\\OldSovietMarksmanRifle.esm (2,221 bytes, \
+        notes: "Our plugin: C:\\Modding\\kitkraft\\out\\OldSovietMarksmanRifle.esm (2,221 bytes, \
                 SHA-256 9C0B28A6...4078EA27). Record every warning the CK shows on load; \
                 nothing needs saving. Copy the CK's log or warning text here if it offers one.",
     },
@@ -1454,7 +1454,7 @@ pub(crate) mod tests {
     impl Temp {
         pub(crate) fn new(tag: &str) -> Self {
             let p = std::env::temp_dir().join(format!(
-                "kitcraft-xtask-{tag}-{}-{:?}",
+                "kitkraft-xtask-{tag}-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));

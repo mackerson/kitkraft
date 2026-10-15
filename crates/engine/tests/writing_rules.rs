@@ -1,8 +1,8 @@
 //! M2.E3 writing rules, asserted on the official ESMs (`docs/corpus.md`, "Writing rules").
 //!
-//! Corpus tests read `KITCRAFT_DATA_DIR` in place and skip with a message when it is unset
+//! Corpus tests read `KITKRAFT_DATA_DIR` in place and skip with a message when it is unset
 //! or missing (`docs/corpus.md`). The fast ones run in every `cargo test`; the full ONAM
-//! inventory is `#[ignore]` (release: `cargo test -p kitcraft-engine --release --test
+//! inventory is `#[ignore]` (release: `cargo test -p kitkraft-engine --release --test
 //! writing_rules -- --ignored --nocapture`).
 
 #![allow(clippy::arithmetic_side_effects, clippy::unwrap_used)]
@@ -11,8 +11,8 @@ use std::collections::BTreeMap;
 use std::fs::File;
 use std::path::PathBuf;
 
-use kitcraft_esm::index::{index_file, read_record_at, IndexOptions, PluginIndex};
-use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER};
+use kitkraft_esm::index::{index_file, read_record_at, IndexOptions, PluginIndex};
+use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER};
 
 /// The 14 official ESMs (`corpus/manifest.toml`).
 const CORPUS: [&str; 14] = [
@@ -47,11 +47,11 @@ const WITH_ONAM: [&str; 5] = [
 fn corpus_string_id_zero_has_no_text() {
     let Some(dir) = data_dir() else { return };
     let archive = dir.join("Starfield - Localization.ba2");
-    let (ba2, mut file) = kitcraft_ba2::Archive::open(&archive).unwrap();
-    for kind in kitcraft_strings::Kind::ALL {
-        let name = kitcraft_strings::table_name("Starfield.esm", "en", kind);
+    let (ba2, mut file) = kitkraft_ba2::Archive::open(&archive).unwrap();
+    for kind in kitkraft_strings::Kind::ALL {
+        let name = kitkraft_strings::table_name("Starfield.esm", "en", kind);
         let i = ba2.find(&format!("strings/{name}")).unwrap();
-        let table = kitcraft_strings::Table::parse(
+        let table = kitkraft_strings::Table::parse(
             kind,
             &ba2.extract_vec(&mut file, i, 256 << 20).unwrap(),
         )
@@ -62,11 +62,13 @@ fn corpus_string_id_zero_has_no_text() {
 }
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = std::env::var_os("KITCRAFT_DATA_DIR").map(PathBuf::from);
+    let dir = std::env::var_os("KITKRAFT_DATA_DIR")
+        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
+        .map(PathBuf::from);
     match dir {
         Some(dir) if dir.is_dir() => Some(dir),
         _ => {
-            println!("skipped: KITCRAFT_DATA_DIR is unset or not a directory (docs/corpus.md)");
+            println!("skipped: KITKRAFT_DATA_DIR is unset or not a directory (docs/corpus.md)");
             None
         }
     }

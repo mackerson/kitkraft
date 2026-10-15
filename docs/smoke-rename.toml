@@ -3,7 +3,7 @@
 # "Old Soviet Marksman Rifle" in a new non-localized plugin whose only master is
 # Starfield.esm.
 #
-#   kit build docs\smoke-rename.toml C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm [--overwrite]
+#   kit build docs\smoke-rename.toml C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm [--overwrite]
 #
 # writes the same bytes as
 #

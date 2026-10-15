@@ -272,7 +272,7 @@ fn bare_name_not_found_exits_2_naming_the_places() {
 fn json_output_equals_the_execute_result() {
     let path = temp_plugin("json", &synthetic_plugin());
     let p = path.to_str().expect("utf-8 temp path");
-    let expected = kitcraft_engine::execute("roundtrip", json!({"plugin": p, "verify": true}))
+    let expected = kitkraft_engine::execute("roundtrip", json!({"plugin": p, "verify": true}))
         .expect("execute");
     for args in [
         &["roundtrip", p, "--verify", "--json"][..],
@@ -288,7 +288,7 @@ fn json_output_equals_the_execute_result() {
         );
     }
 
-    let expected = kitcraft_engine::execute("inspect", json!({"form": "fTestValue", "plugin": p}))
+    let expected = kitkraft_engine::execute("inspect", json!({"form": "fTestValue", "plugin": p}))
         .expect("execute");
     let out = kit(&["inspect", "fTestValue", "--plugin", p, "--json"]);
     assert_eq!(out.status.code(), Some(0), "{}", stderr(&out));
@@ -350,10 +350,10 @@ fn header_plugin(flags: u32, masters: &[&str]) -> Vec<u8> {
     out
 }
 
-/// `validate` finds a standalone plugin's masters in `KITCRAFT_DATA_DIR` when no
+/// `validate` finds a standalone plugin's masters in `KITKRAFT_DATA_DIR` when no
 /// `--data-dir` is given, and a bare plugin name resolves there too.
 #[test]
-fn validate_defaults_data_dir_to_kitcraft_data_dir() {
+fn validate_defaults_data_dir_to_kitkraft_data_dir() {
     let root = std::env::temp_dir().join(format!("kit-cli-data-dir-{}", std::process::id()));
     let (data, out) = (root.join("Data"), root.join("out"));
     std::fs::create_dir_all(&data).expect("data dir");
@@ -366,8 +366,10 @@ fn validate_defaults_data_dir_to_kitcraft_data_dir() {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_kit"));
         cmd.args(args).arg("--json");
         match env {
-            Some(dir) => cmd.env("KITCRAFT_DATA_DIR", dir),
-            None => cmd.env_remove("KITCRAFT_DATA_DIR"),
+            Some(dir) => cmd.env("KITKRAFT_DATA_DIR", dir),
+            None => cmd
+                .env_remove("KITKRAFT_DATA_DIR")
+                .env_remove("KITCRAFT_DATA_DIR"),
         };
         let out = cmd.output().expect("run kit");
         let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
@@ -386,7 +388,7 @@ fn validate_defaults_data_dir_to_kitcraft_data_dir() {
     let message = got["data"]["findings"][0]["message"]
         .as_str()
         .expect("text");
-    assert!(message.contains("KITCRAFT_DATA_DIR"), "{message}");
+    assert!(message.contains("KITKRAFT_DATA_DIR"), "{message}");
 
     // An explicit --data-dir still wins over the environment.
     let elsewhere = root.join("elsewhere");
@@ -405,13 +407,25 @@ fn validate_defaults_data_dir_to_kitcraft_data_dir() {
     // A bare name resolves in the Data dir.
     let (status, got) = run(&["validate", "--plugin", "KitMaster.esm"], Some(&data));
     assert_eq!(status, Some(0), "{got:#}");
+
+    // The pre-rename `KITCRAFT_DATA_DIR` is still read when the new name is unset
+    // (deprecated, kept for one release).
+    let out = Command::new(env!("CARGO_BIN_EXE_kit"))
+        .args(["validate", "--plugin", p, "--json"])
+        .env_remove("KITKRAFT_DATA_DIR")
+        .env("KITCRAFT_DATA_DIR", &data)
+        .output()
+        .expect("run kit");
+    let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+    assert_eq!(out.status.code(), Some(0), "{got:#}");
+    assert_eq!(got["data"]["errors"], 0, "{got:#}");
     std::fs::remove_dir_all(&root).expect("cleanup");
 }
 
-/// A profile whose MO2 instance names no gamePath loads from `KITCRAFT_DATA_DIR`, and
+/// A profile whose MO2 instance names no gamePath loads from `KITKRAFT_DATA_DIR`, and
 /// says so; without the variable it fails naming the missing gamePath.
 #[test]
-fn load_profile_without_game_path_falls_back_to_kitcraft_data_dir() {
+fn load_profile_without_game_path_falls_back_to_kitkraft_data_dir() {
     let root = std::env::temp_dir().join(format!("kit-cli-mo2-{}", std::process::id()));
     let (data, profile) = (root.join("Data"), root.join("profiles").join("P"));
     std::fs::create_dir_all(&data).expect("data dir");
@@ -426,8 +440,10 @@ fn load_profile_without_game_path_falls_back_to_kitcraft_data_dir() {
         let mut cmd = Command::new(env!("CARGO_BIN_EXE_kit"));
         cmd.args(["load", "--profile", p, "--no-cache", "--json"]);
         match env {
-            Some(dir) => cmd.env("KITCRAFT_DATA_DIR", dir),
-            None => cmd.env_remove("KITCRAFT_DATA_DIR"),
+            Some(dir) => cmd.env("KITKRAFT_DATA_DIR", dir),
+            None => cmd
+                .env_remove("KITKRAFT_DATA_DIR")
+                .env_remove("KITCRAFT_DATA_DIR"),
         };
         let out = cmd.output().expect("run kit");
         let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
@@ -441,7 +457,7 @@ fn load_profile_without_game_path_falls_back_to_kitcraft_data_dir() {
     );
     let limitations = got["limitations"].to_string();
     assert!(
-        limitations.contains("used KITCRAFT_DATA_DIR"),
+        limitations.contains("used KITKRAFT_DATA_DIR"),
         "{limitations}"
     );
 

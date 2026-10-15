@@ -20,12 +20,12 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use kitcraft_esm::bridge::{has_definition, Ctx};
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::index::{index_file, read_record_at, IndexOptions};
-use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
-use kitcraft_schema::FieldType;
+use kitkraft_esm::bridge::{has_definition, Ctx};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
+use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
+use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
+use kitkraft_schema::FieldType;
 use serde::Serialize;
 
 use crate::edit::fields::{self, Layout};
@@ -84,7 +84,7 @@ pub const RULES: &[RuleInfo] = &[
         id: "masters.missing",
         severity: Severity::Error,
         input: Input::Plugin,
-        summary: "A master the plugin lists is not in the load order, next to the plugin, or in data_dir (default KITCRAFT_DATA_DIR)",
+        summary: "A master the plugin lists is not in the load order, next to the plugin, or in data_dir (default KITKRAFT_DATA_DIR)",
     },
     RuleInfo {
         id: "masters.order",
@@ -438,13 +438,13 @@ impl Pass<'_> {
     /// The layout of every subrecord of a record, each by its position
     /// (`fields::layout_at`), cached by the member it is placed in.
     fn layouts(&mut self, record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Arc<Layout>>> {
-        let schema = kitcraft_schema::builtin().ok();
-        let placed = schema.and_then(|s| kitcraft_doc::typed::placements(s, record, subs));
+        let schema = kitkraft_schema::builtin().ok();
+        let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, record, subs));
         let mut out = Vec::with_capacity(subs.len());
         for (index, sub) in subs.iter().enumerate() {
             let path = schema.and_then(|s| {
                 let p = placed.as_ref().and_then(|p| p.get(index));
-                kitcraft_doc::typed::layout_of(s, record, *sub, index, p)
+                kitkraft_doc::typed::layout_of(s, record, *sub, index, p)
                     .ok()
                     .flatten()
                     .map(|l| l.path)
@@ -574,7 +574,7 @@ fn validate_plugin(
                     None,
                     Some("MAST".into()),
                     None,
-                    format!("master {m} was not found (load order, next to the plugin, data_dir or KITCRAFT_DATA_DIR)"),
+                    format!("master {m} was not found (load order, next to the plugin, data_dir or KITKRAFT_DATA_DIR)"),
                 ));
             }
         }
@@ -688,7 +688,7 @@ fn validate_plugin(
 
 fn walk(
     entry: &Entry<'_>,
-    groups: &mut Vec<kitcraft_esm::GroupHeader>,
+    groups: &mut Vec<kitkraft_esm::GroupHeader>,
     pass: &mut Pass<'_>,
     findings: &mut Vec<Finding>,
     report: &mut Report,
@@ -699,7 +699,7 @@ fn walk(
         Entry::Group(g) => {
             stats.1 = stats.1.saturating_add(1);
             cells::on_group(pass, &g.header, g.offset(), findings);
-            // Bounded: the parser caps nesting (kitcraft_esm::MAX_DEPTH_CAP).
+            // Bounded: the parser caps nesting (kitkraft_esm::MAX_DEPTH_CAP).
             groups.push(g.header);
             for child in g.children() {
                 walk(child, groups, pass, findings, report, hedr, stats);
@@ -725,7 +725,7 @@ fn walk(
 
 fn check_record(
     r: &Record<'_>,
-    groups: &[kitcraft_esm::GroupHeader],
+    groups: &[kitkraft_esm::GroupHeader],
     pass: &mut Pass<'_>,
     findings: &mut Vec<Finding>,
     report: &mut Report,
@@ -791,7 +791,7 @@ fn check_record(
     report.subrecords = report.subrecords.saturating_add(subs.len() as u64);
     let compressed = r.header.is_compressed();
     let sub_offset =
-        |s: &kitcraft_esm::Subrecord<'_>| if compressed { at } else { s.data_offset() };
+        |s: &kitkraft_esm::Subrecord<'_>| if compressed { at } else { s.data_offset() };
     let sig = r.header.signature.0;
     let layouts = if pass.on("formid.dangling")
         || pass.on("record.flags-body")
@@ -815,11 +815,11 @@ fn check_record(
                 form_version: r.header.form_version,
                 localized: pass.localized,
             };
-            let raw: Vec<kitcraft_esm::bridge::RawSub<'_>> = subs
+            let raw: Vec<kitkraft_esm::bridge::RawSub<'_>> = subs
                 .iter()
-                .map(kitcraft_esm::bridge::RawSub::from)
+                .map(kitkraft_esm::bridge::RawSub::from)
                 .collect();
-            kitcraft_esm::generated::records::Record::decode(sig, &raw, ctx)
+            kitkraft_esm::generated::records::Record::decode(sig, &raw, ctx)
         } else {
             None
         };

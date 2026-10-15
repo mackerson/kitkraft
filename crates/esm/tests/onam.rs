@@ -11,7 +11,7 @@
 //! same set from the parsed tree, and `Tes4::set_overridden_forms` puts the list back where
 //! every file has it.
 //!
-//! `cargo test -p kitcraft-esm --release --test onam -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test onam -- --ignored --nocapture`
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -24,10 +24,10 @@ mod common;
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use kitcraft_esm::cells;
-use kitcraft_esm::index::{index_file, IndexOptions, PluginIndex};
-use kitcraft_esm::tes4::Tes4;
-use kitcraft_esm::{Entry, Plugin, WriteOptions};
+use kitkraft_esm::cells;
+use kitkraft_esm::index::{index_file, IndexOptions, PluginIndex};
+use kitkraft_esm::tes4::Tes4;
+use kitkraft_esm::{Entry, Plugin, WriteOptions};
 
 /// Own stored FormIDs of a full-scale master, by object ID.
 fn own_objects(index: &PluginIndex) -> HashSet<u32> {

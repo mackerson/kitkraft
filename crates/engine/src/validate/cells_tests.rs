@@ -6,11 +6,11 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::build::HeaderSpec;
-use kitcraft_esm::cells::{
+use kitkraft_esm::build::HeaderSpec;
+use kitkraft_esm::cells::{
     self, grid_label, CellPlace, Grid, Parent, PlacementStyle, FLAG_PERSISTENT,
 };
-use kitcraft_esm::{GroupHeader, Plugin, Record, Signature, Subrecord};
+use kitkraft_esm::{GroupHeader, Plugin, Record, Signature, Subrecord};
 use serde_json::{json, Value};
 
 use crate::edit::patch_tests::dir;
@@ -24,11 +24,11 @@ const RULES: [&str; 8] = super::cells::RULES;
 /// A patch of `World.esm` in `data`, each record at its path; `INCC` as given.
 /// Puts `record` under the groups `path`, creating them, with no placement rules.
 fn force(
-    entries: &mut Vec<kitcraft_esm::Entry<'static>>,
+    entries: &mut Vec<kitkraft_esm::Entry<'static>>,
     path: &[GroupHeader],
     record: Record<'static>,
 ) {
-    use kitcraft_esm::{Entry, Group};
+    use kitkraft_esm::{Entry, Group};
     let Some((g, rest)) = path.split_first() else {
         entries.push(Entry::Record(record));
         return;
@@ -66,7 +66,7 @@ fn patch(
         // The builder refuses the shapes the negative fixtures need (a children group
         // without its record, a flag against its group): those are put in by hand.
         if let Err(e) = plugin.upsert(&path, record.clone()) {
-            assert!(matches!(e, kitcraft_esm::Error::Placement { .. }), "{e}");
+            assert!(matches!(e, kitkraft_esm::Error::Placement { .. }), "{e}");
             force(plugin.entries_mut(), &path, record);
         }
     }

@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-mcp"
+name = "kitkraft-mcp"
 description = "L5: MCP stdio server over the engine command catalog"
 version.workspace = true
 edition.workspace = true
@@ -10,5 +10,5 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-kitcraft-engine.workspace = true
+kitkraft-engine.workspace = true
 serde_json.workspace = true

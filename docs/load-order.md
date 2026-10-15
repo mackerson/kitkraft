@@ -1,6 +1,6 @@
 # Load order
 
-How KitCraft turns an MO2 profile into an ordered list of plugins, and how it resolves
+How KitKraft turns an MO2 profile into an ordered list of plugins, and how it resolves
 FormIDs across that list. Every rule names its evidence: a file and line we observed, a
 corpus test, or a public document (cited by URL). Rules marked **assumption** carry a name
 that results and code use; they hold until the named observation confirms or replaces them.
@@ -44,7 +44,7 @@ case clashes, BOM and CRLF.
 
 ## Active plugins
 
-A plugin is active when the first of these rules applies (`kitcraft_io::Active`):
+A plugin is active when the first of these rules applies (`kitkraft_io::Active`):
 
 | Rule (label) | Evidence |
 | ------------ | -------- |
@@ -70,7 +70,7 @@ file lists `ShatteredSpace`, `SFBGS004`, `SFBGS00D`, `SFBGS050`,
 and a master always loads before its dependents. LOOT 0.29.0 (2026-04-11, changelog above)
 says `SFBGS00D`, `SFBGS047` and `SFBGS050` have hardcoded positions, and the owner's
 `loadorder.staged.txt` (2026-09-30) puts all six right after `SFBGS003.esm`, the last ccc
-plugin. Their exact order among themselves is **not observed**: KitCraft keeps
+plugin. Their exact order among themselves is **not observed**: KitKraft keeps
 `loadorder.txt`'s relative order (the staged file differs only in where
 `BlueprintShips-SFBGS050.esm` sits). **Still open (M2.O4):** the game's or the CK's own
 view of this order. Results over a profile name the assumption and the plugins it moved.
@@ -108,7 +108,7 @@ Blueprint 0x800. (libloadorder issue #97 once said 0x10000 for medium; xEdit and
 later article say 0x400, and so does the corpus: SFBGS003/006 carry 0x400.)
 
 **Scale** (full, medium, small) comes from the 0x100 and 0x400 bits; master, update and
-blueprint are separate flags, not scales (`kitcraft_doc::flags`). Both scale bits at once has
+blueprint are separate flags, not scales (`kitkraft_doc::flags`). Both scale bits at once has
 no known meaning: resolution through such a plugin is refused. Corpus (`docs/corpus.md`):
 0x100 on 6 files, 0x400 on 2, 0x800 on both BlueprintShips files, 0x200 on none.
 
@@ -155,7 +155,7 @@ The index counts **only the file's masters of that class**, in master-list order
 index equal to that count, in the file's own class, is the file itself. The file does not
 say what scale its masters are, so resolution loads every master's header first; a
 master that is unavailable makes every FormID of the file unresolvable, never a guess
-(ADR 0004, owner approval rule 5). The errors are typed (`kitcraft_doc::ResolveError`):
+(ADR 0004, owner approval rule 5). The errors are typed (`kitkraft_doc::ResolveError`):
 `MissingMaster` (not in the load order), `MasterNotLoaded` (in the load order, but its file
 failed to load), `PluginNotLoaded` (the file itself failed to load), `BadScale` (both scale
 bits set), `IndexOutOfRange`, and `Null`.
@@ -188,7 +188,7 @@ this (`crates/doc/tests/corpus.rs` asserts zero), but on the owner's Default pro
 third-party small or medium plugins do (for example `Resupply.esm` stores `01000CA6` with
 one full master; `Hatch-22.esm`, masters `Starfield.esm` (full) and `SFBGS006.esm`
 (medium), stores its own records `01xxxxxx`, so the index counts full masters only).
-KitCraft resolves these to the file itself, with the stored 24-bit object ID **masked to
+KitKraft resolves these to the file itself, with the stored 24-bit object ID **masked to
 the file's own scale** (`0xFFFF` medium, `0xFFF` small), as in Ortham's example, where
 `02051808` appears as `FD011808`: object `1808`, the `05` dropped. So `01012345` in a medium
 file with one full master is that file's object `2345` (`crates/doc/src/form.rs` and
@@ -217,7 +217,7 @@ payload bytes as stored and say so.
 slots in load order per scale: full plugins `00`..`FC` (runtime ID `SSxxxxxx`), medium
 plugins `FD00`..`FDFF` (`FDSSxxxx`), small plugins `FE000`..`FEFFF` (`FESSSxxx`). The slot
 class comes from the **scale bits only** (0x100 small, 0x400 medium, else full;
-`kitcraft_doc::form::runtime_slots`): the update flag (0x200) and the blueprint flag (0x800)
+`kitkraft_doc::form::runtime_slots`): the update flag (0x200) and the blueprint flag (0x800)
 do not change it, so an update or blueprint plugin without a scale bit takes a full slot.
 This is part of the assumption. An earlier version of this page said update plugins take
 full slots (citing Ortham for game version 1.12.30.0); the two readings differ only for an
@@ -262,7 +262,7 @@ records of `HG_ShipCargoHoldAtHome.esm`.
 
 ## Index cache (M2.D5)
 
-`%LOCALAPPDATA%\kitcraft\cache\<fnv64(path)>.kcidx`, or `KITCRAFT_CACHE_DIR`; never in the
+`%LOCALAPPDATA%\kitkraft\cache\<fnv64(path)>.kcidx`, or `KITKRAFT_CACHE_DIR`; never in the
 game Data dir or a profile. Format: `crates/doc/src/cache.rs` (format version 3).
 
 **Staleness rule** (exactly what is compared; anything else rebuilds the entry, never
@@ -307,7 +307,7 @@ override records: 8,206 deleted, 6,029 differs, 1,644 identical, 15 first versio
 ## String tables (M2.D7)
 
 A localized plugin's lstrings resolve through `strings/<stem>_<language>.{strings,
-dlstrings,ilstrings}` (`kitcraft_doc::strings`): a loose file under `Strings\` wins (through
+dlstrings,ilstrings}` (`kitkraft_doc::strings`): a loose file under `Strings\` wins (through
 the MO2 overlay: overwrite, mods by priority, then Data), else the plugin's `<stem> - *.ba2`
 archives in the overlay or Data, Localization archives first, then Main (placement per
 lane G's corpus survey in `plan/STATUS.md`; archive names from the official files). The ID

@@ -11,7 +11,7 @@
 //!   flags, EditorID, the other subrecords as given, header stamps) and composed again,
 //!   equals the record's bytes in the file.
 //!
-//! `cargo test -p kitcraft-esm --release --test refs -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test refs -- --ignored --nocapture`
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -27,9 +27,9 @@ use std::fs::File;
 use std::io::{BufReader, Read, Seek, SeekFrom};
 
 use common::hostile::Rng;
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, RecordLoc};
-use kitcraft_esm::refs::{compose_reference, RecordStamps, RefSpec, FLAG_INITIALLY_DISABLED};
-use kitcraft_esm::{DecodeLimits, Entry, Record, Signature, WriteOptions};
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, RecordLoc};
+use kitkraft_esm::refs::{compose_reference, RecordStamps, RefSpec, FLAG_INITIALLY_DISABLED};
+use kitkraft_esm::{DecodeLimits, Entry, Record, Signature, WriteOptions};
 
 const ALLOW: &[&str] = &[
     "DATA.Position.Z",

@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-nif"
+name = "kitkraft-nif"
 description = "L0: read-only NIF mesh and material metadata"
 version.workspace = true
 edition.workspace = true

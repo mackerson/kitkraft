@@ -32,28 +32,33 @@ messages; logs go to stderr.
 Client config (any MCP client that launches stdio servers):
 
 ```json
-{ "mcpServers": { "kitcraft": { "command": "C:\\path\\to\\kit.exe", "args": ["mcp"] } } }
+{ "mcpServers": { "kitkraft": { "command": "C:\\path\\to\\kit.exe", "args": ["mcp"] } } }
 ```
+
+Renamed 2026-10-14: the server reports itself as `kitkraft` (it was `kitcraft`) and its
+resources are `kitkraft://...`; rename the key in an existing `.mcp.json` or re-run
+`claude mcp add` so tool names read `mcp__kitkraft__*`. The `KITCRAFT_*` environment
+variables are still read for one release (`docs/corpus.md`, "Environment").
 
 ## Use from Claude Code
 
 1. Build the release binary: `cargo build --release -p kit-cli` (gives
-   `C:\Modding\kitcraft\target\release\kit.exe` with the default target dir).
+   `C:\Modding\kitkraft\target\release\kit.exe` with the default target dir).
 2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the
    file is gitignored, never committed; adjust the paths) and approve the server when
    Claude Code asks, or register it for yourself only:
 
    ```powershell
-   claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
+   claude mcp add --scope local kitkraft -- C:\Modding\kitkraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
    ```
 
-3. Restart Claude Code (or start a new session). `/mcp` should list `kitcraft` as connected
-   with 8 tools; Claude Code names them `mcp__kitcraft__execute`, `mcp__kitcraft__coverage`
+3. Restart Claude Code (or start a new session). `/mcp` should list `kitkraft` as connected
+   with 8 tools; Claude Code names them `mcp__kitkraft__execute`, `mcp__kitkraft__coverage`
    and so on.
 4. Headless check without the UI:
 
    ```powershell
-   claude -p "Use the kitcraft tools: run coverage on <Data>\Constellation.esm, then roundtrip it with verify, and show the envelopes" --mcp-config .mcp.json --allowedTools "mcp__kitcraft__*"
+   claude -p "Use the kitkraft tools: run coverage on <Data>\Constellation.esm, then roundtrip it with verify, and show the envelopes" --mcp-config .mcp.json --allowedTools "mcp__kitkraft__*"
    ```
 
 Rebuild `kit.exe` and restart the session after a change to the catalog or the server;
@@ -142,9 +147,9 @@ Resources:
 
 | URI                     | Contents                                                      |
 | ----------------------- | ------------------------------------------------------------- |
-| `kitcraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to, `cli` (`kit ba2 extract`), `tools` (the MCP tools that run it: `execute`, `command_line`, and its shortcut if any) |
-| `kitcraft://load-order` | The session's load-order listing as `load` reported it (`Session::load_order`); `{"loaded": false, "plugins": [], ...}` before any load |
-| `kitcraft://validate-rules` | `validate`'s rule registry in run order: `rules[]` (`id`, `severity` of the main finding, `input` = `plugin` or `scripts`, `summary`, `run_only_this`), the script `denylist` (`class`, `function`, `why`), `docs` (`docs/validate.md`) and a note on which rules also warn |
+| `kitkraft://commands`   | The catalog: id, label, menu_path, shortcut, aliases, summary, args_schema (parsed), status (`implemented`/`planned`/`deferred`), deferred_reason, deferred_to, `cli` (`kit ba2 extract`), `tools` (the MCP tools that run it: `execute`, `command_line`, and its shortcut if any) |
+| `kitkraft://load-order` | The session's load-order listing as `load` reported it (`Session::load_order`); `{"loaded": false, "plugins": [], ...}` before any load |
+| `kitkraft://validate-rules` | `validate`'s rule registry in run order: `rules[]` (`id`, `severity` of the main finding, `input` = `plugin` or `scripts`, `summary`, `run_only_this`), the script `denylist` (`class`, `function`, `why`), `docs` (`docs/validate.md`) and a note on which rules also warn |
 
 The catalog and the rules change only with the binary: over 2026-07-28 they are served
 with `cacheScope: "public"` and a one-hour `ttlMs`; the load order with `0`/`private`.
@@ -201,7 +206,7 @@ Rules:
 
 ### `roundtrip` (M1.12)
 
-Arguments `{plugin, verify = false, decode = false, out?, overwrite = false, data_dir?}`. Streams the plugin through the `kitcraft-esm`
+Arguments `{plugin, verify = false, decode = false, out?, overwrite = false, data_dir?}`. Streams the plugin through the `kitkraft-esm`
 driver one top-level group at a time, rewrites it, and compares the output with the input.
 
 ```json
@@ -244,7 +249,7 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   failed roundtrip removes its partial output; after a mismatch the file stops at the
   top-level entry that differs (stated as a limitation).
 - Paths (`plugin`, `out`, and every other path argument of every command) are not
-  confined to `KITCRAFT_DATA_DIR` or any other root: the server reads and writes wherever
+  confined to `KITKRAFT_DATA_DIR` or any other root: the server reads and writes wherever
   the `kit` process may, with the user's permissions. A relative path resolves against
   the `kit` process's working directory, which for `kit mcp` is whatever directory the
   MCP client launched it in (for Claude Code, normally the project directory). Pass
@@ -257,7 +262,7 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   `query`, `conflicts`, `set`, `build` and `overhaul.scaffold`, `ba2.list`,
   `ba2.extract`, `strings.dump`, `strings.merge`, `papyrus.disasm`): (1) the plugin of
   that name (ASCII case-insensitive) in the session's load order, (2) the working
-  directory, (3) the Data dir (`data_dir`, else `KITCRAFT_DATA_DIR`). A path with a
+  directory, (3) the Data dir (`data_dir`, else `KITKRAFT_DATA_DIR`). A path with a
   directory is used as given. A bare name found nowhere is a `not_found` error whose
   message names each place searched (also listed in `error.searched`). A `table` or `pex`
   given with `archive` is a path inside the archive and does not resolve. Output
@@ -271,18 +276,18 @@ driver one top-level group at a time, rewrites it, and compares the output with 
 resolve in the current load order, the working directory, then `data_dir`: "Bare input
 names" above), plus `data_dir` and `no_cache`.
 
-**`data_dir` defaults to `KITCRAFT_DATA_DIR`** (every command that takes it: `load`,
+**`data_dir` defaults to `KITKRAFT_DATA_DIR`** (every command that takes it: `load`,
 `inspect`, `query`, `conflicts`, `set`, `build`, `validate`, `diff`, `roundtrip`,
 `coverage`, `ba2.list`, `ba2.extract`, `strings.dump`, `strings.merge`,
 `papyrus.disasm`) when the argument is
 absent and the variable is set and not empty; an explicit `data_dir` always wins. For a
-`profile` the MO2 instance's `gamePath` + `Data` comes first, and `KITCRAFT_DATA_DIR` is
+`profile` the MO2 instance's `gamePath` + `Data` comes first, and `KITKRAFT_DATA_DIR` is
 used only when the instance names no `gamePath` (a limitation says so). String tables for a
 `plugins` list are read next to the first plugin unless `data_dir` is given. Given, the command loads first and the load order replaces the
 session's; absent, the command uses the session's load order (an MCP server keeps one;
 each `kit` process starts empty, so CLI users pass `--profile` to each command). No load
-order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitcraft\cache`
-(`KITCRAFT_CACHE_DIR`): a warm load of the owner's 84-plugin profile takes about 0.7 s.
+order at all is a `failed` error. Indexes are cached under `%LOCALAPPDATA%\kitkraft\cache`
+(`KITKRAFT_CACHE_DIR`): a warm load of the owner's 84-plugin profile takes about 0.7 s.
 Rules, evidence and assumptions: `docs/load-order.md`.
 
 Every result over a load order (`load`, `inspect`, `query`, `conflicts`) repeats the
@@ -306,7 +311,7 @@ limitation saying where it looked.
 ### `load` (M2.D8)
 
 Arguments `{profile | plugins, data_dir?, language?, no_cache?}`; CLI `kit load --profile
-<dir>`. Fills the session; the MCP `kitcraft://load-order` resource serves the same JSON.
+<dir>`. Fills the session; the MCP `kitkraft://load-order` resource serves the same JSON.
 
 `data`: `loaded`, `source` (`profile:<dir>` or `plugins`), `language`, `plugins[]`
 (`index`, `name`, `path`, `active` (the rule that made it active: `Starfield.ccc`,
@@ -444,7 +449,7 @@ formref = plugin-file-name ":" hex ;          (Starfield.esm:0001A2B3; object ID
 Arguments `{a, b, form?, data_dir?, limit = 200}`; CLI `kit diff <a> <b>`. Stateless (no
 load order needed). Each file's FormIDs are resolved through its own masters by name;
 masters' scales are read from their headers next to each file or in `data_dir` (default
-`KITCRAFT_DATA_DIR`). A file's
+`KITKRAFT_DATA_DIR`). A file's
 own records match the other file's records of it when the other lists it as a master, and
 match each other otherwise (an edited copy). If a master cannot be found but both files
 list the same masters in the same order and have the same own scale, records are matched by
@@ -575,10 +580,10 @@ corpus-checked) and the opaque ones, and note when only the top level is listed.
 
 ### `ba2.list`, `ba2.extract`, `ba2.pack` (M2.G4)
 
-Archives are read through `kitcraft-ba2` (GNRL v2/v3, DX10 v2/v3; `docs/corpus.md`
+Archives are read through `kitkraft-ba2` (GNRL v2/v3, DX10 v2/v3; `docs/corpus.md`
 "Archives"). Patterns are regular expressions matched case-insensitively against archive
 paths (`scripts/form.pex`). No command writes under a game `Data` directory (a directory
-holding `Starfield.esm`, or `KITCRAFT_DATA_DIR`): such an `out_dir` / `out` is a `failed`
+holding `Starfield.esm`, or `KITKRAFT_DATA_DIR`): such an `out_dir` / `out` is a `failed`
 error before anything is written. A bad pattern is `invalid_args` (`rule: "pattern"`).
 
 - `ba2.list {archive, filter?, limit = 1000, start = 0}`; CLI `kit ba2 list <archive>`.
@@ -628,8 +633,8 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   (any extra argument such as `release` is `invalid_args`). The flags file defaults to
   `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
   the `Scripts\Source` folder of `Tools\ContentResources.zip`: with `sources_zip` (M3.G1)
-  its `.psc` and `.flg` files are extracted once into the KitCraft cache
-  (`KITCRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitcraft\cache`, folder
+  its `.psc` and `.flg` files are extracted once into the KitKraft cache
+  (`KITKRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitkraft\cache`, folder
   `papyrus-sources\<key>`, keyed by every entry's name, size and CRC-32, written under a
   temporary name and renamed when complete) and imported after `imports`; the zip is
   read in place, its entry names are checked (ASCII letters, digits, `_`, `-`, `.`,
@@ -640,9 +645,9 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   `dir`, `files`, `bytes`, `skipped`, `cached`, or `null`; the zip is the first
   `evidence` entry), `args`, `exit_code`, `passed` (the
   compiler's success; `kit` exits 1 when false), `stdout`, `stderr`, `pex` (`path`,
-  `bytes`, `parsed`, `text`: the output disassembled through `kitcraft-pex`) and
+  `bytes`, `parsed`, `text`: the output disassembled through `kitkraft-pex`) and
   `summary`. A missing compiler is a `failed` error naming every path looked at
-  (`compiler`, `KITCRAFT_PAPYRUS_COMPILER`, `KITCRAFT_DATA_DIR`'s game folder, the Steam
+  (`compiler`, `KITKRAFT_PAPYRUS_COMPILER`, `KITKRAFT_DATA_DIR`'s game folder, the Steam
   default).
 
 ### `papyrus.events` (M4.G2)
@@ -655,12 +660,12 @@ events --search outpost`. Read-only.
 
 - What the base game's script sources declare: every `.psc` under `Scripts/Source` in
   `Tools\ContentResources.zip` is read in place (in memory, nothing extracted) and parsed
-  by `kitcraft_pex::psc` (M4.G1). The index (scripts, parents, flags; every event,
+  by `kitkraft_pex::psc` (M4.G1). The index (scripts, parents, flags; every event,
   function, property, struct and custom event with its signature and position) is cached
-  as `papyrus-index\<key>-v<format>.json` in the KitCraft cache, keyed by the zip's
+  as `papyrus-index\<key>-v<format>.json` in the KitKraft cache, keyed by the zip's
   central directory; it holds no comments. `data.cached` says whether the cache answered.
   First call on the official zip about 1.5 s (debug build), later calls read the cache.
-- The zip: `sources_zip`, else `<data_dir or KITCRAFT_DATA_DIR>\..\Tools\`, else the Steam
+- The zip: `sources_zip`, else `<data_dir or KITKRAFT_DATA_DIR>\..\Tools\`, else the Steam
   install.
 - Filters combine: `script` (its members; with `inherited` its parent chain's too, nearest
   first; an unknown name is `failed` and lists names containing it), `name` (exact,
@@ -763,7 +768,7 @@ of them, and `.ba2` archives (each `.pex` entry is read in memory; a finding nam
 `plugin_archives: true` (CLI `--plugin-archives`, needs `plugin`) adds the plugin's own
 `<stem> - *.ba2` archives (M3.E3). **Masters of a standalone plugin are searched in
 order:** the named (`profile`/`plugins`) or session load order, the plugin's own
-directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable set,
+directory, then `data_dir` (default `KITKRAFT_DATA_DIR`). So with the variable set,
 `kit validate --plugin out\X.esm` finds `Starfield.esm` with no other argument. A bare
 `plugin` name that is not in the working directory resolves in `data_dir`. CLI
 `kit validate --plugin X.esp [--data-dir D]`, `kit validate --scripts dir\with\pex`;
@@ -907,7 +912,7 @@ folder (grade D until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `pr
 Not in the catalog yet: it lands as one `CommandSpec` with M3.D4, and lane D documents its
 result shape here when it does; until then `execute` answers `unknown_command`. It gets no
 MCP shortcut tool (the tool list stays at eight): `execute` and `command_line` reach it,
-and `kitcraft://commands` lists it with its `cli` words, like every other command.
+and `kitkraft://commands` lists it with its `cli` words, like every other command.
 
 - `refs {form, profile?, plugins?, ...}` (lane D); CLI `kit refs <form>`. The CK's "Use
   Info": every record whose header or typed FormID members name `form` across the load
@@ -945,14 +950,14 @@ ba2_compress = true, zip = true, spec?, overwrite = false}` plus `profile`, `plu
 [--loose <dir>] [--scripts <pex|dir> ...] [--ba2] [--version 1.0.0] [--spec poi.toml]`.
 Writes (only under `out`): `<out>/<name>/` with the plugin, the loose files and scripts at
 their Data paths (or, with `ba2`, packed into `<plugin stem> - Main.ba2` and `<plugin
-stem> - Textures.ba2`, `docs/corpus.md` "Archive names"), `kitcraft-manifest.json`, and
+stem> - Textures.ba2`, `docs/corpus.md` "Archive names"), `kitkraft-manifest.json`, and
 `<out>/<name>[-<version>].zip` of the folder's contents. `validate` runs first; a failing
 plugin is a `failed` error naming its first errors and nothing is written. Refused: an
 `out` in the game or user Data dir or an MO2 instance or profile, an existing folder
 without `overwrite` or without a manifest, two inputs for one Data path, a second plugin
 in `loose`, a `.pex` that does not parse. Deterministic (no times, no absolute paths).
 `data`: `plugin`, `name`, `version`, `folder`, `zip` (`path`, `size`, `sha256`, or
-`null`), `manifest` (`format`, `kitcraft_version`, `name`, `version`, `plugins[]` with
+`null`), `manifest` (`format`, `kitkraft_version`, `name`, `version`, `plugins[]` with
 `file`, `sha256`, `masters`, `records`, `record_types`; `spec` (`file`, `size`, `sha256`);
 `validate` (`passed`, `errors`, `warnings`, `rules`); `archives[]` (`file`, `format`,
 `version`, `files[] {name, size, sha256}`); `files[] {path, size, sha256}`), `files`,
@@ -1002,7 +1007,7 @@ Top-level `default`s are filled in before the handler runs; `null` arguments mea
 
 ## `command_line` grammar (shared with `kit`)
 
-`kitcraft_engine::parse_line` / `parse_words` turn words into a command id and JSON
+`kitkraft_engine::parse_line` / `parse_words` turn words into a command id and JSON
 arguments, generated from each `args_schema`; `kit` calls the same parser.
 
 - Command words: `roundtrip`, `ba2 list` (or `ba2.list`), or an alias.
@@ -1043,6 +1048,6 @@ human messages go to stderr.
 1. `execute {command: "load", args: {profile: "C:\\Modding\\MO2-Starfield\\profiles\\Default"}}`
 2. `query_records {type: "WEAP", where: "WDMG.Damage > 100", limit: 20}`
 3. `inspect_record {form: "0001A2B3"}`: see the winning override and which plugin set it.
-4. `execute {command: "set", args: {form: "Starfield.esm:0021BBCD", fields: {"FULL": "Old Soviet Marksman Rifle"}, into: "C:\\Modding\\kitcraft\\out\\MyPatch.esm"}}`
-5. `execute {command: "validate", args: {plugin: "C:\\Modding\\kitcraft\\out\\MyPatch.esm"}}`:
+4. `execute {command: "set", args: {form: "Starfield.esm:0021BBCD", fields: {"FULL": "Old Soviet Marksman Rifle"}, into: "C:\\Modding\\kitkraft\\out\\MyPatch.esm"}}`
+5. `execute {command: "validate", args: {plugin: "C:\\Modding\\kitkraft\\out\\MyPatch.esm"}}`:
    catches a localized FULL copied as a string ID before the game does.

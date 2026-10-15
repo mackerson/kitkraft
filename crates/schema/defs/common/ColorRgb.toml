@@ -10,7 +10,7 @@ name = "ColorRgb"
 kind = "type"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6970-L6983"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every CELL XCLL payload the definition places in the 14 official ESMs (all 108 bytes) decodes with this layout",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every CELL XCLL payload the definition places in the 14 official ESMs (all 108 bytes) decodes with this layout",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968",
   "corpus: PNAM in the ACTI, FURN and TERM records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family, M4.BI1): all 4 bytes, every record decodes and re-encodes identically",
 ]

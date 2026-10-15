@@ -36,7 +36,7 @@ kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"
 evidence = [
   "corpus: the 504 top-level CTDA in the PCMT, PCBN and LVLP records of the 14 official ESMs (2026-10-14): all 32 bytes, every record decodes and re-encodes identically through this group",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14 (lane B round 3): the 2,833 CTDA of the COBJ records of the 14 official ESMs are all 32 bytes and decode and re-encode identically through this group",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14 (lane B round 3): the 2,833 CTDA of the COBJ records of the 14 official ESMs are all 32 bytes and decode and re-encode identically through this group",
   "corpus: quest family typed check (M4.BQ1, 2026-10-14): the 102,280 CTDA of the official FACT, QUST, PACK, INFO, SCEN, SMBN, SMQN and SMEN records all decode and re-encode identically through this group",
 ]
 confidence = "corpus"

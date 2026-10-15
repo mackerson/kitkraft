@@ -36,7 +36,7 @@
 //!
 //! Comments are kept on the declarations they document (`doc`: the `{ }` comment that
 //! follows a declaration; `comment`: the `;` or `;/ /;` comments right above it) so a caller can show
-//! them on request; KitCraft never stores or commits them (ADR 0006 Amendment 1).
+//! them on request; KitKraft never stores or commits them (ADR 0006 Amendment 1).
 
 mod lex;
 

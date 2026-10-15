@@ -48,7 +48,10 @@ pub(crate) const MARKER: &str = "kitkraft-dev-mod";
 /// The file MO2 writes into every mod folder it lists; carried over, never listed.
 pub(crate) const MO2_META: &str = "meta.ini";
 /// The package manifest `package` writes (M4.E5); verified, not deployed.
-pub(crate) const PACKAGE_MANIFEST: &str = "kitcraft-manifest.json";
+pub(crate) const PACKAGE_MANIFEST: &str = "kitkraft-manifest.json";
+/// [`PACKAGE_MANIFEST`]'s pre-rename name, still read when the new one is absent (deprecated,
+/// kept for one release after the KitKraft rename).
+pub(crate) const OLD_PACKAGE_MANIFEST: &str = "kitcraft-manifest.json";
 /// The owner's live-game profile: never a target (AGENTS.md).
 pub(crate) const LIVE_PROFILE: &str = "Default";
 /// The profile in-game checks run on.

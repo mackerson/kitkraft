@@ -5,8 +5,8 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::tes4::FLAG_MASTER;
-use kitcraft_esm::{Body, Record, RecordHeader, Signature, Subrecord};
+use kitkraft_esm::tes4::FLAG_MASTER;
+use kitkraft_esm::{Body, Record, RecordHeader, Signature, Subrecord};
 use serde_json::{json, Value};
 
 use super::set_tests::data;
@@ -72,7 +72,7 @@ fn the_rename_spec_builds_the_bytes_set_writes() {
         .unwrap()
         .file_name()
         .to_string_lossy()
-        .starts_with(".kitcraft-build")));
+        .starts_with(".kitkraft-build")));
     let _ = std::fs::remove_dir_all(&d);
 }
 
@@ -289,20 +289,20 @@ fn non_finite_values_are_range_errors() {
 }
 
 /// Fable review round 2, finding 11: builds stage in the OS temp dir (nothing is created
-/// next to `out`), and stale staging directories, including the old `.kitcraft-build-<pid>`
+/// next to `out`), and stale staging directories, including the old `.kitkraft-build-<pid>`
 /// layout next to `out`, are removed.
 #[test]
 fn stale_staging_directories_are_removed() {
     let d = dir("build-stale");
-    let old = d.join(".kitcraft-build-4242");
+    let old = d.join(".kitkraft-build-4242");
     let other = d.join("keep-me");
     std::fs::create_dir_all(old.join("x")).unwrap();
     std::fs::create_dir_all(&other).unwrap();
-    super::set::remove_stale(&d, ".kitcraft-build-", std::time::Duration::ZERO);
+    super::set::remove_stale(&d, ".kitkraft-build-", std::time::Duration::ZERO);
     assert!(!old.exists() && other.exists());
     // A fresh one (younger than the age) is kept.
     std::fs::create_dir_all(&old).unwrap();
-    super::set::remove_stale(&d, ".kitcraft-build-", std::time::Duration::from_secs(3600));
+    super::set::remove_stale(&d, ".kitkraft-build-", std::time::Duration::from_secs(3600));
     assert!(old.exists());
     let _ = std::fs::remove_dir_all(&d);
 }

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-/// Everything `kitcraft-io` can fail with.
+/// Everything `kitkraft-io` can fail with.
 #[derive(Debug, thiserror::Error)]
 pub enum IoError {
     /// A file or directory could not be read.
@@ -22,7 +22,7 @@ pub enum IoError {
     Instance(String),
     /// The load-order model refused the plugin list.
     #[error(transparent)]
-    Doc(#[from] kitcraft_doc::DocError),
+    Doc(#[from] kitkraft_doc::DocError),
 }
 
 /// Shorthand.

@@ -6,7 +6,7 @@
 //! description list the catalog as it is, and a shortcut's `inputSchema` is its command's
 //! `args_schema` verbatim, so a new or changed catalog command needs no edit in this crate.
 
-use kitcraft_engine::{catalog, find_command, params, CommandSpec, EngineError, Param, Status};
+use kitkraft_engine::{catalog, find_command, params, CommandSpec, EngineError, Param, Status};
 use serde_json::{json, Map, Value};
 
 /// What a tool call runs.
@@ -14,7 +14,7 @@ use serde_json::{json, Map, Value};
 pub enum Target {
     /// Any catalog command by id: `{command, args}`.
     Execute,
-    /// A `kit`-style command line: `{text}`, parsed by `kitcraft_engine::parse_line`.
+    /// A `kit`-style command line: `{text}`, parsed by `kitkraft_engine::parse_line`.
     CommandLine,
     /// One catalog command; the tool's arguments are the command's arguments.
     Command(&'static str),
@@ -42,7 +42,7 @@ pub struct Tool {
 pub const TOOLS: &[Tool] = &[
     Tool {
         name: "execute",
-        title: "Run a KitCraft command",
+        title: "Run a KitKraft command",
         target: Target::Execute,
         read_only: false,
         destructive: true,
@@ -128,7 +128,7 @@ pub fn input_schema(tool: &Tool) -> Result<Value, EngineError> {
                     },
                     "args": {
                         "type": "object",
-                        "description": "Arguments matching the command's args_schema (resource kitcraft://commands); omit for none"
+                        "description": "Arguments matching the command's args_schema (resource kitkraft://commands); omit for none"
                     }
                 },
                 "required": ["command"],
@@ -163,7 +163,7 @@ pub fn description(tool: &Tool) -> Result<String, EngineError> {
     match tool.target {
         Target::Execute => {
             let mut text = String::from(
-                "Run any KitCraft catalog command by id with JSON args; returns the evidence envelope {command, data, coverage, limitations, evidence}. Commands (`?` = optional):",
+                "Run any KitKraft catalog command by id with JSON args; returns the evidence envelope {command, data, coverage, limitations, evidence}. Commands (`?` = optional):",
             );
             for spec in catalog() {
                 text.push_str(&format!("\n- {} {}: {}", spec.id, signature(spec)?, summary(spec)));
@@ -247,7 +247,7 @@ pub fn tools_for(id: &str) -> Vec<&'static str> {
         .collect()
 }
 
-/// The `kitcraft://commands` resource: the catalog with parsed argument schemas, the CLI
+/// The `kitkraft://commands` resource: the catalog with parsed argument schemas, the CLI
 /// words and the MCP tools of each command.
 pub fn catalog_json() -> Result<Value, EngineError> {
     let mut out = Vec::new();
@@ -272,7 +272,7 @@ pub fn catalog_json() -> Result<Value, EngineError> {
             "status": spec.status.label(),
             "deferred_reason": reason,
             "deferred_to": milestone,
-            "cli": format!("kit {}", kitcraft_engine::cmdline::command_words(spec)),
+            "cli": format!("kit {}", kitkraft_engine::cmdline::command_words(spec)),
             "tools": tools_for(spec.id),
         }));
     }
@@ -282,7 +282,7 @@ pub fn catalog_json() -> Result<Value, EngineError> {
 #[cfg(test)]
 mod tests {
     use super::{catalog_json, definitions, description, find_tool, input_schema, Target, TOOLS};
-    use kitcraft_engine::{catalog, find_command, Status};
+    use kitkraft_engine::{catalog, find_command, Status};
     use serde_json::Value;
 
     #[test]
@@ -374,7 +374,7 @@ mod tests {
             assert_eq!(def["name"], tool.name);
             assert_eq!(def["inputSchema"]["type"], "object", "{}", tool.name);
             assert!(def["description"].as_str().is_some_and(|d| !d.is_empty()));
-            kitcraft_engine::args::check_schema(tool.name, &def["inputSchema"])
+            kitkraft_engine::args::check_schema(tool.name, &def["inputSchema"])
                 .unwrap_or_else(|e| panic!("{}: {e}", tool.name));
         }
     }

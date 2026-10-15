@@ -19,7 +19,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18621-L18621",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every OBTE..STOP block of the 452 WEAP records in the 14 official ESMs decodes and re-encodes identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every OBTE..STOP block of the 452 WEAP records in the 14 official ESMs decodes and re-encodes identically",
 ]
 confidence = "corpus"
 

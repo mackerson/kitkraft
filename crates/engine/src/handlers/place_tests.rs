@@ -5,12 +5,12 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::build::HeaderSpec;
-use kitcraft_esm::cells::{self, CellPlace, Grid, Parent, PlacementStyle, FLAG_PERSISTENT};
-use kitcraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
-use kitcraft_esm::index::{index_bytes, IndexOptions};
-use kitcraft_esm::tes4::FLAG_MASTER;
-use kitcraft_esm::{Body, Plugin, Record, RecordHeader, Signature, Subrecord};
+use kitkraft_esm::build::HeaderSpec;
+use kitkraft_esm::cells::{self, CellPlace, Grid, Parent, PlacementStyle, FLAG_PERSISTENT};
+use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitkraft_esm::index::{index_bytes, IndexOptions};
+use kitkraft_esm::tes4::FLAG_MASTER;
+use kitkraft_esm::{Body, Plugin, Record, RecordHeader, Signature, Subrecord};
 use serde_json::{json, Value};
 
 use crate::edit::patch_tests::dir;
@@ -507,7 +507,7 @@ fn a_small_master_refuses_new_forms() {
     let mut small = Plugin::create(&spec);
     small
         .upsert(
-            &[kitcraft_esm::GroupHeader::top(Signature(*b"STAT"))],
+            &[kitkraft_esm::GroupHeader::top(Signature(*b"STAT"))],
             rec(
                 b"STAT",
                 0,

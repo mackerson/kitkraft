@@ -12,14 +12,14 @@
 //! in our own words.
 //!
 //! Fixture sets: `--official` the five smallest official files (read from
-//! `KITCRAFT_DATA_DIR` and copied; the originals are never written), `--synthetic` the
+//! `KITKRAFT_DATA_DIR` and copied; the originals are never written), `--synthetic` the
 //! plugins built here byte by byte plus overrides written by our own `kit set`, and any
 //! plugin paths given.
 //!
-//! Tools: `KITCRAFT_SPRIGGIT` names `Spriggit.CLI.exe` or a PowerShell wrapper (`.ps1`, run
+//! Tools: `KITKRAFT_SPRIGGIT` names `Spriggit.CLI.exe` or a PowerShell wrapper (`.ps1`, run
 //! with `powershell -NoProfile -File`); the Starfield translation package version is
-//! `KITCRAFT_SPRIGGIT_PACKAGE_VERSION`, else the CLI's own version. `cargo xtask oracle
-//! sf1edit` is in [`crate::sf1edit`] (xEdit's console dumper; `KITCRAFT_SF1EDIT`).
+//! `KITKRAFT_SPRIGGIT_PACKAGE_VERSION`, else the CLI's own version. `cargo xtask oracle
+//! sf1edit` is in [`crate::sf1edit`] (xEdit's console dumper; `KITKRAFT_SF1EDIT`).
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -34,9 +34,9 @@ use crate::evidence::{
     arg, byte_diff, sha256_hex, strip_volatile, table, tes4, tes4_diff, KitBinary, KitOut, Runner,
 };
 
-const SPRIGGIT_VAR: &str = "KITCRAFT_SPRIGGIT";
-const SPRIGGIT_PACKAGE_VAR: &str = "KITCRAFT_SPRIGGIT_PACKAGE_VERSION";
-const DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
+const SPRIGGIT_VAR: &str = "KITKRAFT_SPRIGGIT";
+const SPRIGGIT_PACKAGE_VAR: &str = "KITKRAFT_SPRIGGIT_PACKAGE_VERSION";
+const DATA_DIR_VAR: &str = "KITKRAFT_DATA_DIR";
 /// Spriggit's Starfield translation package.
 const PACKAGE: &str = "Spriggit.Yaml.Starfield";
 /// The five smallest official files (corpus/manifest.toml sizes).
@@ -93,15 +93,15 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     if !official && !synthetic && given.is_empty() {
         bail!("oracle spriggit: name plugins, or pass --official and/or --synthetic");
     }
-    let tool_path = std::env::var_os(SPRIGGIT_VAR)
+    let tool_path = crate::env_var_os(SPRIGGIT_VAR)
         .map(PathBuf::from)
         .with_context(|| format!("set {SPRIGGIT_VAR} to Spriggit.CLI.exe or its .ps1 wrapper"))?;
-    let data_dir = std::env::var_os(DATA_DIR_VAR)
+    let data_dir = crate::env_var_os(DATA_DIR_VAR)
         .map(PathBuf::from)
         .with_context(|| format!("set {DATA_DIR_VAR} (Spriggit looks masters up there)"))?;
     let tool = SpriggitCli { path: tool_path };
     let kit = KitBinary::from_env(root);
-    let work = std::env::temp_dir().join(format!("kitcraft-oracle-{}", std::process::id()));
+    let work = std::env::temp_dir().join(format!("kitkraft-oracle-{}", std::process::id()));
     let mut inputs: Vec<Input> = Vec::new();
     if official {
         for name in OFFICIAL_SMALL {
@@ -210,7 +210,9 @@ fn versions(tool: &dyn Tool) -> Result<(String, String)> {
         .find(|w| w.split('.').count() == 3 && w.split('.').all(|p| !p.is_empty()))
         .unwrap_or_default()
         .to_string();
-    let package = std::env::var(SPRIGGIT_PACKAGE_VAR).unwrap_or(semver);
+    let package = crate::env_var_os(SPRIGGIT_PACKAGE_VAR)
+        .and_then(|v| v.into_string().ok())
+        .unwrap_or(semver);
     if package.is_empty() {
         bail!("could not read Spriggit's version from `--version`; set {SPRIGGIT_PACKAGE_VAR}");
     }
@@ -863,7 +865,7 @@ mod tests {
     impl Temp {
         fn new(tag: &str) -> Self {
             let p = std::env::temp_dir().join(format!(
-                "kitcraft-xtask-{tag}-{}-{:?}",
+                "kitkraft-xtask-{tag}-{}-{:?}",
                 std::process::id(),
                 std::thread::current().id()
             ));
@@ -1031,7 +1033,7 @@ mod tests {
                 })
             }
         }
-        if std::env::var_os(SPRIGGIT_PACKAGE_VAR).is_none() {
+        if crate::env_var_os(SPRIGGIT_PACKAGE_VAR).is_none() {
             assert!(versions(&NoVersion).is_err());
         }
     }

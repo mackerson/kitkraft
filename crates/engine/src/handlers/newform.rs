@@ -13,19 +13,19 @@
 //!   masters differ from the target's is remapped through the typed visitors or refused
 //!   when a subrecord is opaque (the patch writer's rule).
 //!
-//! Both take their FormID from lane A's allocator (`kitcraft_esm::forms::NewForms`) once
+//! Both take their FormID from lane A's allocator (`kitkraft_esm::forms::NewForms`) once
 //! the target's master list is final: full-scale targets with full-scale masters only. An
 //! EditorID clash (load order, target) is refused. Written as `set` writes: staged,
 //! validated, then moved. Refusals are `failed` with `new.<code>:` / `clone.<code>:`.
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_doc::GlobalForm;
-use kitcraft_esm::bridge::has_definition;
-use kitcraft_esm::cells::{CELL_CHILD_TYPES, QUEST_CHILD_TYPES};
-use kitcraft_esm::refs::RecordStamps;
-use kitcraft_esm::{Body, DecodeLimits, GroupHeader, Record, RecordHeader, Signature, Subrecord};
-use kitcraft_schema::{Cardinality, FieldType, Member};
+use kitkraft_doc::GlobalForm;
+use kitkraft_esm::bridge::has_definition;
+use kitkraft_esm::cells::{CELL_CHILD_TYPES, QUEST_CHILD_TYPES};
+use kitkraft_esm::refs::RecordStamps;
+use kitkraft_esm::{Body, DecodeLimits, GroupHeader, Record, RecordHeader, Signature, Subrecord};
+use kitkraft_schema::{Cardinality, FieldType, Member};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
@@ -119,9 +119,9 @@ fn member_order(sig: [u8; 4]) -> Vec<([u8; 4], Cardinality, FieldType)> {
         }
     }
     let mut out = Vec::new();
-    if let Some(def) = kitcraft_schema::builtin()
+    if let Some(def) = kitkraft_schema::builtin()
         .ok()
-        .and_then(|s| s.record(kitcraft_schema::Signature::from_bytes(sig)?))
+        .and_then(|s| s.record(kitkraft_schema::Signature::from_bytes(sig)?))
     {
         walk(&def.members, &mut out);
     }

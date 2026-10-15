@@ -16,7 +16,7 @@ validated and planned by agents (lane E, M4.E2/E3/E4/E6); the in-game check is t
 | Carried | the cell, as an unchanged copy of its winner except its `FULL`, written inline ("Player House Apartment"; patches are non-localized) |
 | Runtime ID | `28001000` on the Default profile's order with the plugin appended (assumed: `runtime-slots-by-scale`, `masters-load-first`) |
 
-Reproduce (KITCRAFT_DATA_DIR = the game's Data folder):
+Reproduce (KITKRAFT_DATA_DIR = the game's Data folder):
 
 ```text
 kit build docs/poi/first-poi.toml out/poi/KitKraftFirstPOI.esm

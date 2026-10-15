@@ -411,7 +411,7 @@ pub(crate) fn to_path(
     let file = File::open(path).map_err(io0)?;
     let len = file.metadata().map_err(io0)?.len();
     let mut tmp_name = out.as_os_str().to_owned();
-    tmp_name.push(".kitcraft-tmp");
+    tmp_name.push(".kitkraft-tmp");
     let tmp = PathBuf::from(tmp_name);
     let result = (|| {
         let mut sink = BufWriter::with_capacity(1 << 20, File::create(&tmp).map_err(io0)?);
@@ -986,7 +986,7 @@ mod tests {
     /// Review round 3, finding 3: the caller had to apply `hedr_fix` by hand.
     #[test]
     fn rewrite_to_path_patches_hedr_and_refuses_its_input() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-esm-rewrite-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-esm-rewrite-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let input = dir.join("in.esm");
         let output = dir.join("out.esm");
@@ -1003,7 +1003,7 @@ mod tests {
         let mut plugin = Plugin::parse(&bytes).unwrap();
         plugin.entries_mut().iter_mut().for_each(drop_gmst);
         assert_eq!(out, plugin.to_bytes().unwrap());
-        assert!(!dir.join("out.esm.kitcraft-tmp").exists());
+        assert!(!dir.join("out.esm.kitkraft-tmp").exists());
 
         // The input is never its own output.
         let same =
@@ -1019,7 +1019,7 @@ mod tests {
             });
         assert!(failed.is_err());
         assert_eq!(std::fs::read(&output).unwrap(), out);
-        assert!(!dir.join("out.esm.kitcraft-tmp").exists());
+        assert!(!dir.join("out.esm.kitkraft-tmp").exists());
         std::fs::remove_dir_all(&dir).unwrap();
     }
 

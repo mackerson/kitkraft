@@ -11,7 +11,7 @@
 //!   the given load order (lane D's `LoadOrder::runtime_id`, assumption
 //!   `runtime-slots-by-scale`; a master-flagged plugin goes after the last master-flagged
 //!   plugin, assumption `masters-load-first`). That the game runs such a file with
-//!   `bat <name>` from its own folder is grade D until M4.O2 confirms it; KitCraft never
+//!   `bat <name>` from its own folder is grade D until M4.O2 confirms it; KitKraft never
 //!   writes into the game folder: the owner copies the file there.
 //! - `checklist.md`: setup on `KitKraft Dev` from a disposable save, one step per form with
 //!   the expected observation, the persistence steps (leave, save, reload, return), what to
@@ -24,11 +24,11 @@ use std::fmt::Write as _;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use kitcraft_doc::{GlobalForm, IndexCache, LoadOptions, LoadOrder, PluginSpec};
-use kitcraft_esm::cells::group_type;
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions};
-use kitcraft_esm::tes4::{Tes4, FLAG_MASTER};
-use kitcraft_esm::{DecodeLimits, Signature};
+use kitkraft_doc::{GlobalForm, IndexCache, LoadOptions, LoadOrder, PluginSpec};
+use kitkraft_esm::cells::group_type;
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions};
+use kitkraft_esm::tes4::{Tes4, FLAG_MASTER};
+use kitkraft_esm::{DecodeLimits, Signature};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded, RUNTIME_ASSUMED};
@@ -53,7 +53,7 @@ const ITEMS: [&[u8; 4]; 10] = [
 
 const ASSUMED_ORDER: &str = "the plugin is appended to the given load order; a master-flagged plugin goes after the last master-flagged plugin (assumption `masters-load-first`, grade D until the KitKraft Dev load order is read back in game)";
 
-const BATCH_GRADE_D: &str = "console batch file: that the game runs a text file of console commands with `bat <name>` from the folder holding Starfield.exe is grade D until M4.O2 confirms it; KitCraft does not write into the game folder, the owner copies the file there";
+const BATCH_GRADE_D: &str = "console batch file: that the game runs a text file of console commands with `bat <name>` from the folder holding Starfield.exe is grade D until M4.O2 confirms it; KitKraft does not write into the game folder, the owner copies the file there";
 
 /// One form of the plugin the plan covers.
 #[derive(Debug, Clone)]

@@ -2,7 +2,7 @@
 
 use std::path::PathBuf;
 
-/// Everything `kitcraft-doc` can fail with.
+/// Everything `kitkraft-doc` can fail with.
 #[derive(Debug, thiserror::Error)]
 pub enum DocError {
     /// The plugin could not be parsed (the message carries the byte offset).
@@ -12,7 +12,7 @@ pub enum DocError {
         file: String,
         /// Container error, with its absolute offset.
         #[source]
-        source: kitcraft_esm::Error,
+        source: kitkraft_esm::Error,
     },
     /// A file could not be read or written.
     #[error("{}: {source}", path.display())]
@@ -54,7 +54,7 @@ impl DocError {
         }
     }
 
-    pub(crate) fn esm(file: impl Into<String>, source: kitcraft_esm::Error) -> DocError {
+    pub(crate) fn esm(file: impl Into<String>, source: kitkraft_esm::Error) -> DocError {
         DocError::Esm {
             file: file.into(),
             source,

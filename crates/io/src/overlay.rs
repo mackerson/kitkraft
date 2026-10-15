@@ -183,7 +183,7 @@ impl Overlay {
             .iter()
             .filter_map(|n| self.resolve(n).map(|r| r.path))
             .collect();
-        kitcraft_doc::strings::sort_archives(&mut paths);
+        kitkraft_doc::strings::sort_archives(&mut paths);
         paths
     }
 
@@ -224,7 +224,7 @@ fn find_ci(root: &Path, key: &str) -> Option<PathBuf> {
     None
 }
 
-impl kitcraft_doc::strings::StringSource for Overlay {
+impl kitkraft_doc::strings::StringSource for Overlay {
     fn loose(&self, rel: &str) -> Option<PathBuf> {
         self.resolve(rel).map(|r| r.path)
     }

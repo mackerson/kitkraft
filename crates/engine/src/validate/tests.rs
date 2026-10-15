@@ -5,8 +5,8 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
-use kitcraft_esm::{Body, Record, RecordHeader, Signature, Subrecord};
+use kitkraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
+use kitkraft_esm::{Body, Record, RecordHeader, Signature, Subrecord};
 use serde_json::{json, Value};
 
 use crate::edit::patch_tests::{dir, weapon, write_plugin};
@@ -320,7 +320,7 @@ fn record_flags_body() {
     master(&d);
     // A compressed record whose body is not zlib; a non-localized FULL with no NUL.
     let mut broken = record(b"WEAP", 0x0100_0001, vec![]);
-    broken.header.flags = kitcraft_esm::FLAG_COMPRESSED;
+    broken.header.flags = kitkraft_esm::FLAG_COMPRESSED;
     *broken.body_mut() = Body::Compressed {
         original: std::borrow::Cow::Owned(vec![8, 0, 0, 0, 1, 2, 3, 4]),
         decoded: None,
@@ -361,7 +361,7 @@ fn record_flags_body() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
-/// Little-endian `.pex` bytes (layout: `kitcraft-pex`, `pexdis.py`): one object, one
+/// Little-endian `.pex` bytes (layout: `kitkraft-pex`, `pexdis.py`): one object, one
 /// function, one `callstatic <class> <function> ::nonevar <bool>`.
 fn pex(class: &str, function: &str) -> Vec<u8> {
     pex_call(25, class, function, None)

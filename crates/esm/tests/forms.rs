@@ -3,7 +3,7 @@
 //! is above every own object ID it has and above its `HEDR` next object ID. The masters'
 //! scales come from their own `TES4` headers in the data directory.
 //!
-//! `cargo test -p kitcraft-esm --release --test forms -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test forms -- --ignored --nocapture`
 
 #![allow(clippy::unwrap_used, clippy::panic, clippy::arithmetic_side_effects)]
 
@@ -11,14 +11,14 @@ mod common;
 
 use std::path::Path;
 
-use kitcraft_esm::forms::{names_master, NewForms, MAX_FULL_OBJECT_ID};
-use kitcraft_esm::index::{index_file, read_record_at, IndexOptions};
-use kitcraft_esm::tes4::{Scale, Tes4, FLAG_MEDIUM, FLAG_SMALL};
-use kitcraft_esm::Error;
+use kitkraft_esm::forms::{names_master, NewForms, MAX_FULL_OBJECT_ID};
+use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
+use kitkraft_esm::tes4::{Scale, Tes4, FLAG_MEDIUM, FLAG_SMALL};
+use kitkraft_esm::Error;
 
 /// The scale of each master of `header`, read from the master's own `TES4` in `dir`
 /// (`None` when the file is missing: never guessed).
-fn master_scales(dir: &Path, header: &kitcraft_esm::Record<'_>) -> Vec<Option<Scale>> {
+fn master_scales(dir: &Path, header: &kitkraft_esm::Record<'_>) -> Vec<Option<Scale>> {
     Tes4::new(header)
         .masters()
         .iter()

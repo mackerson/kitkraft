@@ -12,7 +12,7 @@
 //!   listed normalizations (empty cell children groups dropped, group stamps set to the
 //!   style's), which the test prints.
 //!
-//! `cargo test -p kitcraft-esm --release --test rebuild -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test rebuild -- --ignored --nocapture`
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -29,12 +29,12 @@ use std::path::Path;
 use std::time::Instant;
 
 use common::hostile::Rng;
-use kitcraft_esm::cells::{
+use kitkraft_esm::cells::{
     self, group_type as gt, CellPlace, Grid, Parent, PlacementStyle, FLAG_PERSISTENT,
 };
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::index::{index_file, IndexOptions};
-use kitcraft_esm::{
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::index::{index_file, IndexOptions};
+use kitkraft_esm::{
     DecodeLimits, Entry, Group, GroupHeader, ParseOptions, Plugin, Record, Signature, WriteOptions,
 };
 
@@ -384,7 +384,7 @@ fn corpus_rebuild_small() {
     for file in &files {
         let bytes = std::fs::read(&file.path).unwrap();
         let original = Plugin::parse(&bytes).unwrap();
-        let index = kitcraft_esm::index::index_bytes(&bytes, &IndexOptions::default()).unwrap();
+        let index = kitkraft_esm::index::index_bytes(&bytes, &IndexOptions::default()).unwrap();
         assert_eq!(PlacementStyle::detect(&index), PlacementStyle::OFFICIAL);
         for shuffle in [None, Some(1), Some(2)] {
             let mut plugin = Plugin::new(original.header().clone());

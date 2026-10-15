@@ -49,18 +49,18 @@ use anyhow::{anyhow, bail, Context, Result};
 /// Canonical layer of every workspace package, including planned ones. Changing an entry
 /// is an architecture change: it needs an ADR and the same edit to the table in AGENTS.md.
 const LAYER_TABLE: &[(&str, Layer)] = &[
-    ("kitcraft-schema", Layer::L(0)),
-    ("kitcraft-esm", Layer::L(0)),
-    ("kitcraft-ba2", Layer::L(0)),
-    ("kitcraft-pex", Layer::L(0)),
-    ("kitcraft-strings", Layer::L(0)),
-    ("kitcraft-nif", Layer::L(0)),
-    ("kitcraft-doc", Layer::L(1)),
-    ("kitcraft-render", Layer::L(2)),
-    ("kitcraft-io", Layer::L(3)),
-    ("kitcraft-engine", Layer::L(4)),
-    ("kitcraft-mcp", Layer::L(5)),
-    ("kitcraft-ui-egui", Layer::L(5)),
+    ("kitkraft-schema", Layer::L(0)),
+    ("kitkraft-esm", Layer::L(0)),
+    ("kitkraft-ba2", Layer::L(0)),
+    ("kitkraft-pex", Layer::L(0)),
+    ("kitkraft-strings", Layer::L(0)),
+    ("kitkraft-nif", Layer::L(0)),
+    ("kitkraft-doc", Layer::L(1)),
+    ("kitkraft-render", Layer::L(2)),
+    ("kitkraft-io", Layer::L(3)),
+    ("kitkraft-engine", Layer::L(4)),
+    ("kitkraft-mcp", Layer::L(5)),
+    ("kitkraft-ui-egui", Layer::L(5)),
     ("kit-cli", Layer::App),
     ("kit", Layer::App),
     ("xtask", Layer::Tool),
@@ -68,7 +68,7 @@ const LAYER_TABLE: &[(&str, Layer)] = &[
 
 /// Same-layer edges that are allowed (`from`, `to`). Every entry is justified in
 /// `plan/adr/0002-layering.md`.
-const SAME_LAYER_ALLOWED: &[(&str, &str)] = &[("kitcraft-esm", "kitcraft-schema")];
+const SAME_LAYER_ALLOWED: &[(&str, &str)] = &[("kitkraft-esm", "kitkraft-schema")];
 
 /// Name prefixes of external crates no library crate (L0..L5) may depend on, directly or
 /// transitively. Libraries use `thiserror`.
@@ -107,6 +107,16 @@ struct Package {
     layer: Layer,
     deps: Vec<String>,
     workspace_lints: bool,
+}
+
+/// `name` (a `KITKRAFT_*` variable) from the environment, else its pre-rename `KITCRAFT_*`
+/// spelling. Deprecated fallback kept for one release after the KitKraft rename
+/// (`docs/corpus.md`, "Environment"); remove it in the release after.
+pub(crate) fn env_var_os(name: &str) -> Option<std::ffi::OsString> {
+    std::env::var_os(name).or_else(|| {
+        let rest = name.strip_prefix("KITKRAFT_")?;
+        std::env::var_os(format!("KITCRAFT_{rest}"))
+    })
 }
 
 fn main() -> ExitCode {
@@ -150,7 +160,7 @@ fn print_help() {
     println!(
         "  codegen  write crates/esm/src/generated/ from the schema; --check fails when stale"
     );
-    println!("  parity   run `kit coverage` over the corpus (KITCRAFT_DATA_DIR) and write");
+    println!("  parity   run `kit coverage` over the corpus (KITKRAFT_DATA_DIR) and write");
     println!("           docs/record-parity.md; --check fails when it is stale");
     println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
     println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
@@ -511,13 +521,13 @@ mod tests {
     #[test]
     fn edge_rules() {
         let l = Layer::L;
-        assert!(edge_violation("kitcraft-doc", l(1), "kitcraft-esm", l(0)).is_none());
-        assert!(edge_violation("kitcraft-esm", l(0), "kitcraft-doc", l(1)).is_some());
-        assert!(edge_violation("kitcraft-esm", l(0), "kitcraft-schema", l(0)).is_none());
-        assert!(edge_violation("kitcraft-schema", l(0), "kitcraft-esm", l(0)).is_some());
-        assert!(edge_violation("kitcraft-ba2", l(0), "kitcraft-pex", l(0)).is_some());
-        assert!(edge_violation("kit-cli", Layer::App, "kitcraft-mcp", l(5)).is_none());
-        assert!(edge_violation("kitcraft-mcp", l(5), "kit-cli", Layer::App).is_some());
+        assert!(edge_violation("kitkraft-doc", l(1), "kitkraft-esm", l(0)).is_none());
+        assert!(edge_violation("kitkraft-esm", l(0), "kitkraft-doc", l(1)).is_some());
+        assert!(edge_violation("kitkraft-esm", l(0), "kitkraft-schema", l(0)).is_none());
+        assert!(edge_violation("kitkraft-schema", l(0), "kitkraft-esm", l(0)).is_some());
+        assert!(edge_violation("kitkraft-ba2", l(0), "kitkraft-pex", l(0)).is_some());
+        assert!(edge_violation("kit-cli", Layer::App, "kitkraft-mcp", l(5)).is_none());
+        assert!(edge_violation("kitkraft-mcp", l(5), "kit-cli", Layer::App).is_some());
         assert!(edge_violation("kit-cli", Layer::App, "xtask", Layer::Tool).is_some());
     }
 

@@ -1,7 +1,7 @@
 # Items and workshop family: what the schema says, and what it does not
 
 For mod authors who want to read or patch Starfield's placeable objects and items with
-KitCraft, and above all who want to add something to the outpost build menu: statics
+KitKraft, and above all who want to add something to the outpost build menu: statics
 (STAT), moveable statics (MSTT), activators (ACTI), furniture (FURN), containers (CONT),
 terminals and terminal menus (TERM, TMLM), misc items (MISC), armor (ARMO), idle
 animations (IDLE), animated objects (ANIO) and camera paths (CPTH). The definitions are in

@@ -17,7 +17,7 @@
 //! - `world_family_sample` runs in `cargo test`: every record of the seven types in
 //!   SFBGS003.esm (REFR sampled one in 20, NAVM one in 10).
 //! - `world_family_full` (ignored) runs all 14 files, every record; run it in release:
-//!   `cargo test -p kitcraft-esm --release --test world_family -- --ignored --nocapture`
+//!   `cargo test -p kitkraft-esm --release --test world_family -- --ignored --nocapture`
 
 // Test-only code: a panic fails the test.
 #![allow(
@@ -35,11 +35,11 @@ use std::fs::File;
 use std::io::BufReader;
 use std::path::Path;
 
-use kitcraft_esm::bridge::{Ctx, RawSub};
-use kitcraft_esm::generated::records::{match_body, Hit, MemberDesc, Record as Typed, RECORDS};
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
-use kitcraft_esm::tes4::FLAG_LOCALIZED;
-use kitcraft_esm::DecodeLimits;
+use kitkraft_esm::bridge::{Ctx, RawSub};
+use kitkraft_esm::generated::records::{match_body, Hit, MemberDesc, Record as Typed, RECORDS};
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
+use kitkraft_esm::tes4::FLAG_LOCALIZED;
+use kitkraft_esm::DecodeLimits;
 
 const TYPES: [&[u8; 4]; 7] = [
     b"WRLD", b"CELL", b"REFR", b"ACHR", b"NAVM", b"LCTN", b"LCRT",
@@ -408,17 +408,17 @@ fn report(stats: &Stats, full: bool) {
 }
 
 fn assert_clean(stats: &Stats) {
-    let schema = kitcraft_schema::builtin().unwrap();
+    let schema = kitkraft_schema::builtin().unwrap();
     let mut problems = Vec::new();
     for (ty, t) in &stats.types {
         // CELL, REFR and ACHR are `unordered` (M4.BX1): a subrecord their definition names
         // is placed wherever it stands; only signatures it does not name stay unplaced.
-        let sig = kitcraft_schema::Signature::parse(ty).unwrap();
+        let sig = kitkraft_schema::Signature::parse(ty).unwrap();
         let known = schema.known_signatures(sig).unwrap();
         let out_of_place: Vec<&String> = t
             .unplaced
             .keys()
-            .filter(|s| kitcraft_schema::Signature::parse(s).is_some_and(|s| known.contains(&s)))
+            .filter(|s| kitkraft_schema::Signature::parse(s).is_some_and(|s| known.contains(&s)))
             .collect();
         if schema.record(sig).is_some_and(|r| r.unordered) {
             assert!(

@@ -17,10 +17,10 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::PathBuf;
 
-use kitcraft_doc::query::{Expr, FieldValue, Lookup, Path, Query, Subject};
-use kitcraft_doc::search::{run_page, PageRequest, Scope, MAX_LIMIT};
-use kitcraft_doc::subject::VersionSubject;
-use kitcraft_doc::{GlobalForm, RecordReader, Version};
+use kitkraft_doc::query::{Expr, FieldValue, Lookup, Path, Query, Subject};
+use kitkraft_doc::search::{run_page, PageRequest, Scope, MAX_LIMIT};
+use kitkraft_doc::subject::VersionSubject;
+use kitkraft_doc::{GlobalForm, RecordReader, Version};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
@@ -202,7 +202,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             ));
         }
     }
-    let schema = kitcraft_schema::builtin()
+    let schema = kitkraft_schema::builtin()
         .map_err(|e| failed(ID, format!("the builtin schema does not load: {e}")))?;
     let numeric = members::numeric_members(schema, sig);
     let numeric_paths: Vec<Path> = numeric
@@ -416,7 +416,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
-        let temp = out.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()));
+        let temp = out.with_file_name(format!(".{name}.kitkraft-{}.tmp", std::process::id()));
         std::fs::write(&temp, &text)
             .and_then(|()| std::fs::rename(&temp, out))
             .map_err(|e| {

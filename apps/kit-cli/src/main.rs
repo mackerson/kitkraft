@@ -3,8 +3,8 @@
 //! clap owns the shell: `--json`, `--version`, `--help`, the `mcp` launcher, and one
 //! subcommand per catalog word (generated from the engine catalog, so typos get clap's
 //! suggestions). The words after the command go to the engine's own command-line parser
-//! (`kitcraft_engine::parse_words`, shared with the MCP `command_line` tool), and the
-//! result to `kitcraft_engine::execute`. No format or editing logic lives here.
+//! (`kitkraft_engine::parse_words`, shared with the MCP `command_line` tool), and the
+//! result to `kitkraft_engine::execute`. No format or editing logic lives here.
 //!
 //! Exit codes: 0 success or help; 1 the command ran and its check failed (`data.passed`
 //! is `false`: a `roundtrip --verify` mismatch, later validation findings); 2 usage error,
@@ -23,7 +23,7 @@ use std::collections::BTreeSet;
 use std::process::ExitCode;
 
 use clap::{Arg, ArgAction, Command};
-use kitcraft_engine::{
+use kitkraft_engine::{
     catalog, cmdline, find_command, CommandSpec, EngineError, Invocation, Status,
 };
 use serde_json::{json, Value};
@@ -72,7 +72,7 @@ fn main() -> ExitCode {
 /// `kit mcp`: one engine (one session) for the life of the process, served on stdio.
 /// stdout carries only MCP messages; everything human goes to stderr.
 fn run_mcp(profile: Option<&str>) -> ExitCode {
-    let mut server = kitcraft_mcp::Server::new(kitcraft_engine::Engine::with_default_handlers());
+    let mut server = kitkraft_mcp::Server::new(kitkraft_engine::Engine::with_default_handlers());
     if let Some(profile) = profile {
         match server
             .backend()
@@ -82,7 +82,7 @@ fn run_mcp(profile: Option<&str>) -> ExitCode {
             Ok(_) => {
                 eprintln!("kit mcp: loaded profile {profile}");
                 server.add_note(format!(
-                    "The profile {profile} was loaded at startup (see kitcraft://load-order)."
+                    "The profile {profile} was loaded at startup (see kitkraft://load-order)."
                 ));
             }
             Err(err) => {
@@ -95,7 +95,7 @@ fn run_mcp(profile: Option<&str>) -> ExitCode {
             }
         }
     }
-    match kitcraft_mcp::serve_stdio(&mut server) {
+    match kitkraft_mcp::serve_stdio(&mut server) {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("kit mcp: stdio error: {err}");
@@ -208,7 +208,7 @@ fn strip_json_flag(words: Vec<String>) -> (Vec<String>, bool) {
 }
 
 fn run(words: &[String], json: bool) -> ExitCode {
-    let invocation = match kitcraft_engine::parse_words(words) {
+    let invocation = match kitkraft_engine::parse_words(words) {
         Ok(invocation) => invocation,
         Err(err) => return fail(&err, json),
     };
@@ -230,7 +230,7 @@ fn run(words: &[String], json: bool) -> ExitCode {
         }
         Invocation::Run { command, args } => (command, args),
     };
-    match kitcraft_engine::execute(spec.id, args) {
+    match kitkraft_engine::execute(spec.id, args) {
         Ok(result) => {
             print_result(&result, json);
             let code = result_code(spec, &result);
@@ -354,7 +354,7 @@ fn print_catalog_help() {
     println!("ENVIRONMENT:");
     println!(
         "  {:<18} Game Data dir; the default for --data-dir: plugin names (--plugins,",
-        "KITCRAFT_DATA_DIR"
+        "KITKRAFT_DATA_DIR"
     );
     println!(
         "  {:<18} validate --plugin) resolve there, and masters are searched in the load",
@@ -365,8 +365,12 @@ fn print_catalog_help() {
         ""
     );
     println!(
-        "  {:<18} Index cache (default %LOCALAPPDATA%\\kitcraft\\cache)",
-        "KITCRAFT_CACHE_DIR"
+        "  {:<18} Index cache (default %LOCALAPPDATA%\\kitkraft\\cache)",
+        "KITKRAFT_CACHE_DIR"
+    );
+    println!(
+        "  {:<18} The pre-rename KITCRAFT_* names are still read when unset (deprecated).",
+        ""
     );
     println!();
     println!("Every command is also an MCP tool call and a future menu item.");
@@ -376,15 +380,15 @@ fn print_catalog_help() {
 #[cfg(test)]
 mod tests {
     use super::{result_code, EXIT_ERROR, EXIT_NEGATIVE};
-    use kitcraft_engine::find_command;
+    use kitkraft_engine::find_command;
     use serde_json::json;
 
     #[test]
     fn exit_code_follows_status_and_passed() {
         let roundtrip = find_command("roundtrip").unwrap();
         // No catalog command is Planned any more; a spec built here stands in for one.
-        let planned = &kitcraft_engine::CommandSpec {
-            status: kitcraft_engine::Status::Planned,
+        let planned = &kitkraft_engine::CommandSpec {
+            status: kitkraft_engine::Status::Planned,
             ..*find_command("build").unwrap()
         };
         let with = |passed| json!({"data": {"passed": passed}});

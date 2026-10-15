@@ -5,8 +5,8 @@
 
 use std::path::Path;
 
-use kitcraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
-use kitcraft_esm::index::{index_bytes, IndexOptions};
+use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitkraft_esm::index::{index_bytes, IndexOptions};
 use serde_json::{json, Value};
 
 use super::set_tests::data;

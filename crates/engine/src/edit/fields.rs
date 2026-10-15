@@ -10,7 +10,7 @@
 //! `SIG` alone is `SIG[0]`), `.Member` a field of the subrecord's struct layout (schema
 //! member names, ASCII case-insensitive) and `[n]` an element of an array field.
 //!
-//! Layouts come from the schema (`kitcraft-schema`, the builtin definitions). Values are
+//! Layouts come from the schema (`kitkraft-schema`, the builtin definitions). Values are
 //! JSON: a number, or a string parsed by the field's type:
 //!
 //! | Type            | Accepted                                                        |
@@ -43,7 +43,7 @@
 //! signatures the schema leaves untyped or opaque are lstrings when the corpus lstring
 //! table says so ([`super::lstrings`]), again with a [`Layout::fallback`] note.
 
-use kitcraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, Scalar};
+use kitkraft_schema::{ArrayCount, FieldDef, FieldType, NamedValue, Scalar};
 use serde_json::{json, Value};
 
 /// A field path or value error: names the path and the rule it broke.
@@ -263,7 +263,7 @@ pub fn fallback_note(signature: &str) -> String {
 
 /// The layout of subrecord `index` of a record of type `record` whose subrecord
 /// signatures are `subs`: the schema's for the member that subrecord is placed in, found by
-/// its position (`kitcraft_doc::typed`, the generated decoder's matching rules), not by its
+/// its position (`kitkraft_doc::typed`, the generated decoder's matching rules), not by its
 /// signature alone, since a signature can mean different members at different positions
 /// (PNDT CNAM/FNAM/GNAM; NAM1..NAM5, VNAM, CNAM, ANAM inside the PCBN/PKIN/GBFM component
 /// blocks). `None` when the schema knows nothing about it (no record definition, a
@@ -272,8 +272,8 @@ pub fn fallback_note(signature: &str) -> String {
 /// not an lstring by the fallback.
 pub fn layout_at(record: [u8; 4], subs: &[[u8; 4]], index: usize) -> Option<Layout> {
     let sub = subs.get(index).copied()?;
-    let schema_ty = kitcraft_schema::builtin().ok().and_then(|schema| {
-        kitcraft_doc::typed::layout_at(schema, record, subs, index)
+    let schema_ty = kitkraft_schema::builtin().ok().and_then(|schema| {
+        kitkraft_doc::typed::layout_at(schema, record, subs, index)
             .ok()
             .flatten()
             .map(|l| l.ty.clone())
@@ -283,14 +283,14 @@ pub fn layout_at(record: [u8; 4], subs: &[[u8; 4]], index: usize) -> Option<Layo
 
 /// [`layout_at`] for every subrecord of a record, in order, with one placement pass.
 pub fn layouts(record: [u8; 4], subs: &[[u8; 4]]) -> Vec<Option<Layout>> {
-    let schema = kitcraft_schema::builtin().ok();
-    let placed = schema.and_then(|s| kitcraft_doc::typed::placements(s, record, subs));
+    let schema = kitkraft_schema::builtin().ok();
+    let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, record, subs));
     subs.iter()
         .enumerate()
         .map(|(index, sub)| {
             let schema_ty = schema.and_then(|schema| {
                 let p = placed.as_ref().and_then(|p| p.get(index));
-                kitcraft_doc::typed::layout_of(schema, record, *sub, index, p)
+                kitkraft_doc::typed::layout_of(schema, record, *sub, index, p)
                     .ok()
                     .flatten()
                     .map(|l| l.ty.clone())
@@ -442,7 +442,7 @@ pub fn locate<'t>(
 pub fn select_variant(ty: &FieldType, edid_first: Option<u8>) -> &FieldType {
     match deref(ty) {
         FieldType::Union {
-            decider: kitcraft_schema::Decider::EditorIdPrefix,
+            decider: kitkraft_schema::Decider::EditorIdPrefix,
             variants,
         } => variants
             .iter()
@@ -1195,7 +1195,7 @@ pub fn to_hex(bytes: &[u8]) -> String {
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
-    use kitcraft_schema::{Confidence, FieldDef, Provenance};
+    use kitkraft_schema::{Confidence, FieldDef, Provenance};
 
     fn ctx(localized_target: bool) -> ValueCtx<'static> {
         static MAP: fn(&str, u32) -> Result<u32, String> = |plugin, id| {

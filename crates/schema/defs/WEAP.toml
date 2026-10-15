@@ -19,7 +19,7 @@ signature = "WEAP"
 name = "Weapon"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18594-L18833"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 flags = [["NonPlayable", 0x4], ["HighResFirstPersonOnly", 0x40000000]]
@@ -56,7 +56,7 @@ size = 24
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18601-L18601"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -71,7 +71,7 @@ type = "f32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18602-L18602"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -84,7 +84,7 @@ size = 80
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18603-L18603"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "angles are stored as f32; xEdit shows them in degrees"
@@ -121,7 +121,7 @@ size = 32
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18604-L18604"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -143,7 +143,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18605-L18605"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer"
@@ -154,7 +154,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18606-L18606"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -176,7 +176,7 @@ group_ref = "Model"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18608-L18608"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "xEdit marks the block required in WEAP; its file name is optional"
@@ -187,7 +187,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18609-L18609"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8760-L8774",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -223,7 +223,7 @@ targets = ["EQUP"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18611-L18611"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4252-L4252",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -235,7 +235,7 @@ card = "optional"
 targets = ["IPDS"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18612-L18612"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -247,7 +247,7 @@ card = "optional"
 targets = ["MATT"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18613-L18613"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -259,7 +259,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18614-L18614"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -271,7 +271,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18615-L18615"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -281,7 +281,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18616-L18616"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -305,7 +305,7 @@ card = "optional"
 targets = ["INNR"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18618-L18618"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -320,7 +320,7 @@ count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18619-L18619"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -329,7 +329,7 @@ group_ref = "ObteBlock"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18620-L18621"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "the object template and the STOP marker that follows it; STOP is present in every record"
@@ -341,7 +341,7 @@ type = "formid"
 targets = ["OMOD"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18622-L18622"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "0 for none"
@@ -353,7 +353,7 @@ type = "empty"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18623-L18623"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "present means true"
@@ -365,7 +365,7 @@ type = "struct"
 size = 35
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18624-L18648"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -392,7 +392,7 @@ type = "struct"
 size = 23
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18649-L18658"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -415,7 +415,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2211",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -437,7 +437,7 @@ type = "struct"
 size = 29
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18670-L18683"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -456,7 +456,7 @@ type = "struct"
 size = 14
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18684-L18690"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -475,7 +475,7 @@ size = 62
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18691-L18717"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2949-L2954",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -504,7 +504,7 @@ count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18718-L18718"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8728-L8738",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "one 12-byte entry per damage type"
@@ -521,7 +521,7 @@ type = "struct"
 size = 45
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18719-L18743"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -552,7 +552,7 @@ type = "struct"
 size = 12
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18744-L18759"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -578,7 +578,7 @@ size = 24
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18760-L18767"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8314-L8328",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -597,7 +597,7 @@ type = "lstring"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18768-L18768"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -609,7 +609,7 @@ size = 13
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18769-L18774"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4647-L4661",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -626,7 +626,7 @@ type = "struct"
 size = 36
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18775-L18788"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -651,7 +651,7 @@ type = "struct"
 size = 10
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18789-L18794"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -668,7 +668,7 @@ type = "struct"
 size = 49
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18795-L18813"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -682,7 +682,7 @@ group = "FirstPersonModel"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18814-L18819"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "xEdit lets these members appear in any order; listed in xEdit's order, which every official record follows"
@@ -722,7 +722,7 @@ size = 24
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18820-L18825"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -739,7 +739,7 @@ type = "struct"
 size = 17
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18826-L18832"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 452 WEAP records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [

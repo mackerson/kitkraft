@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-engine"
+name = "kitkraft-engine"
 description = "L4: CommandSpec catalog, sessions, undo, validation"
 version.workspace = true
 edition.workspace = true
@@ -10,14 +10,14 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-kitcraft-schema.workspace = true
-kitcraft-esm.workspace = true
-kitcraft-ba2.workspace = true
-kitcraft-pex.workspace = true
-kitcraft-strings.workspace = true
-kitcraft-nif.workspace = true
-kitcraft-doc.workspace = true
-kitcraft-io.workspace = true
+kitkraft-schema.workspace = true
+kitkraft-esm.workspace = true
+kitkraft-ba2.workspace = true
+kitkraft-pex.workspace = true
+kitkraft-strings.workspace = true
+kitkraft-nif.workspace = true
+kitkraft-doc.workspace = true
+kitkraft-io.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

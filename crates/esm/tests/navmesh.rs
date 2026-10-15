@@ -8,9 +8,9 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::navmesh::import_navmeshes;
-use kitcraft_esm::navmesh::NavmeshOptions;
-use kitcraft_esm::{Entry, Plugin, Record, WriteOptions};
+use kitkraft_esm::navmesh::import_navmeshes;
+use kitkraft_esm::navmesh::NavmeshOptions;
+use kitkraft_esm::{Entry, Plugin, Record, WriteOptions};
 
 /// The F22 fixture folder, if one exists.
 fn fixture_dir() -> Option<PathBuf> {

@@ -21,7 +21,7 @@ signature = "PROJ"
 name = "Projectile"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16228-L16325"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 flags = [["ApplyChargeMultiplier", 0x8000]]
@@ -58,7 +58,7 @@ size = 24
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16234-L16234"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -73,7 +73,7 @@ type = "f32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16235-L16235"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -86,7 +86,7 @@ size = 80
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16236-L16236"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "angles are stored as f32; xEdit shows them in degrees"
@@ -181,7 +181,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16241-L16241"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer"
@@ -192,7 +192,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16242-L16242"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -214,7 +214,7 @@ group_ref = "Model"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16244-L16244"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "xEdit marks the block required; its file name is optional"
@@ -225,7 +225,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16245-L16245"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -235,7 +235,7 @@ name = "UnusedData"
 type = "empty"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16246-L16246"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "unused in xEdit; 0 bytes in every official PROJ, so typed as an empty marker"
@@ -247,7 +247,7 @@ type = "struct"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16247-L16313"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "the two particle define strings carry a u32 length prefix (xEdit's length-prefixed string, its default prefix width; 114-byte payloads with both empty confirm it on the corpus); their bytes are kept as read"
@@ -404,7 +404,7 @@ group = "MuzzleFlashModel"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16315-L16319"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -428,7 +428,7 @@ type = "ref:SoundReference"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16320-L16320"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -439,7 +439,7 @@ type = "ref:SoundReference"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16321-L16321"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -461,7 +461,7 @@ values = [["None", 0], ["Silent", 1], ["Quiet", 2], ["Normal", 3], ["Loud", 4], 
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16323-L16323"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2574-L2581",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -473,6 +473,6 @@ card = "optional"
 targets = ["CURV"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16324-L16324"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 299 PROJ records of the 14 official ESMs (form versions 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"

@@ -1,10 +1,10 @@
-//! Every `.pex` in the official archives, read through `kitcraft-ba2` and disassembled by
-//! `kitcraft-pex` (M2.G5). Lives here because the engine is the lowest crate that depends
-//! on both. Skips without `KITCRAFT_DATA_DIR`.
+//! Every `.pex` in the official archives, read through `kitkraft-ba2` and disassembled by
+//! `kitkraft-pex` (M2.G5). Lives here because the engine is the lowest crate that depends
+//! on both. Skips without `KITKRAFT_DATA_DIR`.
 //!
 //! - `pex_misc_parse` (fast): every script in `Starfield - Misc.ba2` parses to its end.
 //! - `pex_all_against_pexdis` (`#[ignore]`): every script in every archive parses; with
-//!   `KITCRAFT_PEXDIS_OUT` naming a folder of `pexdis.py` outputs (`<archive with spaces as
+//!   `KITKRAFT_PEXDIS_OUT` naming a folder of `pexdis.py` outputs (`<archive with spaces as
 //!   _>\<path>.txt`, as written by running `pexdis.py` on an extraction of the same
 //!   archives), the text must equal `pexdis.py`'s for every script it has output for.
 
@@ -17,11 +17,13 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_ba2::Archive;
-use kitcraft_pex::{disassemble, Pex};
+use kitkraft_ba2::Archive;
+use kitkraft_pex::{disassemble, Pex};
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.is_dir().then_some(dir)
 }
 
@@ -51,7 +53,7 @@ fn check_archive(path: &Path, pexdis: Option<&Path>, counts: &mut Counts) {
         }
         let text = disassemble(&pex);
         if let Some(dir) = pexdis {
-            let rel = kitcraft_ba2::relative_path(&entry.name).unwrap();
+            let rel = kitkraft_ba2::relative_path(&entry.name).unwrap();
             let mut expected = dir.join(&label).join(rel).into_os_string();
             expected.push(".txt");
             if let Ok(want) = std::fs::read_to_string(&expected) {
@@ -67,7 +69,7 @@ fn check_archive(path: &Path, pexdis: Option<&Path>, counts: &mut Counts) {
 #[test]
 fn pex_misc_parse() {
     let Some(dir) = data_dir() else {
-        println!("skipped: KITCRAFT_DATA_DIR is not set or missing");
+        println!("skipped: KITKRAFT_DATA_DIR is not set or missing");
         return;
     };
     let path = dir.join("Starfield - Misc.ba2");
@@ -89,10 +91,12 @@ fn pex_misc_parse() {
 #[ignore = "every script in every official archive; run in release"]
 fn pex_all_against_pexdis() {
     let Some(dir) = data_dir() else {
-        println!("skipped: KITCRAFT_DATA_DIR is not set or missing");
+        println!("skipped: KITKRAFT_DATA_DIR is not set or missing");
         return;
     };
-    let pexdis = std::env::var_os("KITCRAFT_PEXDIS_OUT").map(PathBuf::from);
+    let pexdis = std::env::var_os("KITKRAFT_PEXDIS_OUT")
+        .or_else(|| std::env::var_os("KITCRAFT_PEXDIS_OUT"))
+        .map(PathBuf::from);
     let mut counts = Counts {
         parsed: 0,
         with_structs: 0,
@@ -107,7 +111,7 @@ fn pex_all_against_pexdis() {
     paths.sort();
     for path in paths {
         let (archive, _) = Archive::open(&path).unwrap();
-        if archive.header.kind != kitcraft_ba2::Kind::General {
+        if archive.header.kind != kitkraft_ba2::Kind::General {
             continue;
         }
         check_archive(&path, pexdis.as_deref(), &mut counts);

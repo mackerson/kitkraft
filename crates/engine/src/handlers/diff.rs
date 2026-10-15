@@ -1,13 +1,13 @@
 //! `diff` (M2.D12): record-level diff of two plugins, FormIDs matched through each file's
-//! own masters by name (`kitcraft_doc::diff`).
+//! own masters by name (`kitkraft_doc::diff`).
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_doc::compare::{OverrideClass, Span, SubDiff};
-use kitcraft_doc::diff::{diff_plugins, Key};
-use kitcraft_doc::fields::{FieldValue, FormValue};
-use kitcraft_doc::FormRef;
-use kitcraft_esm::HEADER_LEN;
+use kitkraft_doc::compare::{OverrideClass, Span, SubDiff};
+use kitkraft_doc::diff::{diff_plugins, Key};
+use kitkraft_doc::fields::{FieldValue, FormValue};
+use kitkraft_doc::FormRef;
+use kitkraft_esm::HEADER_LEN;
 use serde_json::{json, Value};
 
 use super::{failed, file_name, str_arg};
@@ -156,7 +156,7 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
             d.unresolved.2.clone().unwrap_or_default()
         ));
     }
-    let listed = |v: &[(Key, kitcraft_doc::RecordLoc)],
+    let listed = |v: &[(Key, kitkraft_doc::RecordLoc)],
                   file: &str,
                   ev: &mut Vec<Evidence>|
      -> Vec<Value> {

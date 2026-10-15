@@ -1,4 +1,4 @@
-//! M2.D2 on the owner's real profile (read-only). Uses `KITCRAFT_MO2_PROFILE`, else
+//! M2.D2 on the owner's real profile (read-only). Uses `KITKRAFT_MO2_PROFILE`, else
 //! `C:\Modding\MO2-Starfield\profiles\Default`; skips when neither exists. Counts are computed
 //! from the profile files here, never hard-coded.
 
@@ -12,10 +12,11 @@
 use std::path::PathBuf;
 use std::time::SystemTime;
 
-use kitcraft_io::{plan_profile, Active, ProfileOptions, Provider};
+use kitkraft_io::{plan_profile, Active, ProfileOptions, Provider};
 
 fn profile_dir() -> Option<PathBuf> {
-    let dir = std::env::var_os("KITCRAFT_MO2_PROFILE")
+    let dir = std::env::var_os("KITKRAFT_MO2_PROFILE")
+        .or_else(|| std::env::var_os("KITCRAFT_MO2_PROFILE"))
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(r"C:\Modding\MO2-Starfield\profiles\Default"));
     dir.join("modlist.txt").is_file().then_some(dir)
@@ -119,7 +120,7 @@ fn default_profile_resolves_every_enabled_plugin() {
         .collect();
     let slotted = |name: &str| {
         let stem = name.rsplit_once('.').map_or(name, |(s, _)| s);
-        kitcraft_io::plan::HARDCODED_OFFICIAL
+        kitkraft_io::plan::HARDCODED_OFFICIAL
             .iter()
             .any(|h| h.eq_ignore_ascii_case(name))
             || unmanaged_stems.iter().any(|u| u == stem)
@@ -152,14 +153,14 @@ fn default_profile_resolves_every_enabled_plugin() {
 /// Review round 2, item 1: what `hardcoded-official-slots` changes on the owner's profile.
 /// Loads the plan's order and the raw `loadorder.txt` order (same files) and counts forms
 /// whose winning plugin differs, and masters loading after their dependents in each.
-/// Release: `cargo test -p kitcraft-io --release --test default_profile -- --ignored
+/// Release: `cargo test -p kitkraft-io --release --test default_profile -- --ignored
 /// --nocapture` (uses the index cache).
 #[test]
 #[ignore = "release: indexes the whole profile twice (cached)"]
 fn hardcoded_slots_effect_on_the_default_profile() {
     use std::collections::HashMap;
 
-    use kitcraft_doc::{IndexCache, LoadOptions, LoadOrder, PluginSpec};
+    use kitkraft_doc::{IndexCache, LoadOptions, LoadOrder, PluginSpec};
 
     let Some(dir) = profile_dir() else {
         eprintln!("skip: no MO2 profile");

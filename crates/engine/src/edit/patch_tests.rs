@@ -4,10 +4,10 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::build::HeaderSpec;
-use kitcraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
-use kitcraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
-use kitcraft_esm::{
+use kitkraft_esm::build::HeaderSpec;
+use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitkraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
+use kitkraft_esm::{
     Body, DecodeLimits, Entry, GroupHeader, Plugin, Record, RecordHeader, Signature, Subrecord,
 };
 use serde_json::json;
@@ -20,7 +20,7 @@ use super::source::{find_winner, index_plugins, read_copy, Indexed};
 use super::strings::{MemoryStrings, NoStrings, StringLookup};
 
 pub(crate) fn dir(name: &str) -> PathBuf {
-    let d = std::env::temp_dir().join(format!("kitcraft-e4-{name}-{}", std::process::id()));
+    let d = std::env::temp_dir().join(format!("kitkraft-e4-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
     d
@@ -581,7 +581,7 @@ fn scaled_sources_are_refused() {
         &d,
         "Small.esm",
         &[],
-        FLAG_MASTER | kitcraft_esm::tes4::FLAG_SMALL,
+        FLAG_MASTER | kitkraft_esm::tes4::FLAG_SMALL,
         vec![],
     );
     let child = write_plugin(&d, "Child.esm", &["Small.esm"], FLAG_MASTER, vec![]);

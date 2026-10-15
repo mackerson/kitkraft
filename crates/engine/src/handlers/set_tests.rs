@@ -5,10 +5,10 @@
 
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
-use kitcraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
-use kitcraft_esm::Plugin;
-use kitcraft_strings::{Entry, Kind, Table};
+use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitkraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
+use kitkraft_esm::Plugin;
+use kitkraft_strings::{Entry, Kind, Table};
 use serde_json::{json, Value};
 
 use crate::edit::patch_tests::{dir, weapon, write_plugin};
@@ -177,10 +177,10 @@ fn the_winning_override_is_copied_and_other_records_stay() {
     let after = std::fs::read(&target).unwrap();
     let first = |bytes: &[u8]| {
         let p = Plugin::parse(bytes).unwrap();
-        let kitcraft_esm::Entry::Group(g) = &p.entries()[0] else {
+        let kitkraft_esm::Entry::Group(g) = &p.entries()[0] else {
             panic!()
         };
-        let kitcraft_esm::Entry::Record(r) = &g.children()[0] else {
+        let kitkraft_esm::Entry::Record(r) = &g.children()[0] else {
             panic!()
         };
         let start = r.offset().unwrap() as usize;

@@ -3,7 +3,7 @@
 //! - `corpus_small_roundtrip` and `corpus_small_compressed_and_xxxx` run in `cargo test`
 //!   on the five small files (SHA-256 checked).
 //! - `corpus_full_roundtrip` (ignored) runs all 14 files (SHA-256 checked); run it in
-//!   release: `cargo test -p kitcraft-esm --release -- --ignored corpus_full`
+//!   release: `cargo test -p kitkraft-esm --release -- --ignored corpus_full`
 //! - `corpus_rewrite_edit_in_largest_group` (ignored) measures the streaming edit path.
 //! - `corpus_tes4_table` (ignored) prints the TES4 header facts recorded in docs/corpus.md.
 
@@ -19,11 +19,11 @@ mod common;
 
 use std::time::Instant;
 
-use kitcraft_esm::driver::{
+use kitkraft_esm::driver::{
     rewrite_file, roundtrip_file, RewriteOptions, RoundtripOptions, RoundtripReport,
 };
-use kitcraft_esm::tes4::Tes4;
-use kitcraft_esm::{DecodeLimits, Entry, Plugin, Record};
+use kitkraft_esm::tes4::Tes4;
+use kitkraft_esm::{DecodeLimits, Entry, Plugin, Record};
 
 /// Roundtrip each file with every compressed record decoded and every record with a schema
 /// definition checked through it (M2.A3). Returns byte-level failures and typed-decode
@@ -187,7 +187,7 @@ fn corpus_small_compressed_and_xxxx() {
     let reparsed = Plugin::parse(&out).unwrap();
     let found = find_record(reparsed.entries(), target).unwrap();
     let decoded = found.decode(&DecodeLimits::default()).unwrap().unwrap();
-    assert_eq!(decoded[0].data(), b"kitcraft edit\0");
+    assert_eq!(decoded[0].data(), b"kitkraft edit\0");
 }
 
 fn edit_first_compressed(entries: &mut [Entry<'_>]) -> Option<u32> {
@@ -200,7 +200,7 @@ fn edit_first_compressed(entries: &mut [Entry<'_>]) -> Option<u32> {
             }
             Entry::Record(r) if r.header.is_compressed() => {
                 r.decompress(&DecodeLimits::default()).unwrap();
-                r.subrecords_mut().unwrap()[0].set_data(&b"kitcraft edit\0"[..]);
+                r.subrecords_mut().unwrap()[0].set_data(&b"kitkraft edit\0"[..]);
                 return Some(r.header.form_id);
             }
             Entry::Record(_) => {}
@@ -279,7 +279,7 @@ fn edit_deep(entry: &mut Entry<'_>, depth: usize) -> Option<usize> {
 /// M1.5 follow-up: edit one subrecord deep inside `Starfield.esm`'s largest top-level
 /// group (`WRLD`, 823.6 MiB) through the streaming edit path, writing to a byte counter.
 /// Prints wall time and the process's peak working set for docs/corpus.md.
-/// `cargo test -p kitcraft-esm --release --test corpus -- --ignored corpus_rewrite --nocapture`
+/// `cargo test -p kitkraft-esm --release --test corpus -- --ignored corpus_rewrite --nocapture`
 #[test]
 #[ignore = "streams Starfield.esm (1.46 GB); run with --release -- --ignored"]
 fn corpus_rewrite_edit_in_largest_group() {

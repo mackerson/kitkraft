@@ -2,9 +2,9 @@
 //! `file:line` evidence.
 //!
 //! The `Scripts/Source` files of `Tools\ContentResources.zip` are read in place, in memory
-//! (nothing extracted), and parsed by [`kitcraft_pex::psc`]. The resulting index (script
+//! (nothing extracted), and parsed by [`kitkraft_pex::psc`]. The resulting index (script
 //! names, parents, flags, and every function, event, property, struct and custom event
-//! with its signature and position) is cached as JSON in the KitCraft cache under
+//! with its signature and position) is cached as JSON in the KitKraft cache under
 //! `papyrus-index\<key>-v<format>.json`, where `<key>` hashes every entry's name, size and
 //! CRC-32 from the zip's central directory: an unchanged zip is answered from the cache
 //! without reading any file data. The cache holds declarations only, never comments
@@ -22,7 +22,7 @@ use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kitcraft_pex::psc::{self, Callable, Flag, Script};
+use kitkraft_pex::psc::{self, Callable, Flag, Script};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 
@@ -310,7 +310,7 @@ fn write_atomic(path: &Path, index: &Index) -> Result<(), String> {
     })
 }
 
-/// The zip to read: the argument, else next to `KITCRAFT_DATA_DIR`, else the Steam
+/// The zip to read: the argument, else next to `KITKRAFT_DATA_DIR`, else the Steam
 /// install's `Tools` folder.
 fn default_zip(args: &Value) -> Result<PathBuf, EngineError> {
     if let Some(z) = args.get("sources_zip").and_then(Value::as_str) {

@@ -30,7 +30,7 @@ field = [
   { name = "Unused", type = "opaque", size = 2 },
 ]
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DEST in the PROJ records of the 14 official ESMs (53) is 8 bytes and re-encodes identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DEST in the PROJ records of the 14 official ESMs (53) is 8 bytes and re-encodes identically",
 ]
 confidence = "corpus"
 
@@ -75,7 +75,7 @@ field = [
   { name = "ReplacementModelDelay", type = "f32" },
 ]
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DSTD in the PROJ records of the 14 official ESMs (53) is 24 bytes and re-encodes identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DSTD in the PROJ records of the 14 official ESMs (53) is 24 bytes and re-encodes identically",
 ]
 confidence = "corpus"
 
@@ -115,6 +115,6 @@ sig = "DSTF"
 name = "EndMarker"
 type = "empty"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DSTF in the PROJ records of the 14 official ESMs (53) is 0 bytes",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every DSTF in the PROJ records of the 14 official ESMs (53) is 0 bytes",
 ]
 confidence = "corpus"

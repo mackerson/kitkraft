@@ -244,7 +244,7 @@ impl Engine {
     }
 
     /// Runs `f` on the engine's session (for front ends that show session state, such as
-    /// the MCP `kitcraft://load-order` resource).
+    /// the MCP `kitkraft://load-order` resource).
     pub fn with_session<R>(&self, f: impl FnOnce(&mut Session) -> R) -> R {
         // Panics are denied workspace-wide, so a poisoned lock can only come from a bug
         // outside our code; the session it holds is still usable.

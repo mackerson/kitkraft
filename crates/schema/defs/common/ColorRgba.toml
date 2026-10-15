@@ -6,7 +6,7 @@ name = "ColorRgba"
 kind = "type"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7049"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every LCRT and LCTN CNAM and REFR XDTF and XLCD payload the definitions place in the 14 official ESMs decodes with this layout",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every LCRT and LCTN CNAM and REFR XDTF and XLCD payload the definitions place in the 14 official ESMs decodes with this layout",
 ]
 confidence = "corpus"
 type = "struct"

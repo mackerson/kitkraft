@@ -5,7 +5,7 @@
 //!
 //! 1. in the session's load order: the plugin of that name (ASCII case-insensitive);
 //! 2. as given, against the working directory (a file next to the `kit` process);
-//! 3. in the Data dir: `data_dir`, else `KITCRAFT_DATA_DIR`.
+//! 3. in the Data dir: `data_dir`, else `KITKRAFT_DATA_DIR`.
 //!
 //! Anything else (an absolute path, or a relative one with a directory) is used as given.
 //! A bare name found nowhere is [`EngineError::NotFound`] naming each place searched.
@@ -107,7 +107,7 @@ pub(crate) fn resolve(
 }
 
 /// `args` with every input in `inputs` resolved to a path (see the module docs); the Data
-/// dir is `args.data_dir`, else `KITCRAFT_DATA_DIR`.
+/// dir is `args.data_dir`, else `KITKRAFT_DATA_DIR`.
 pub(crate) fn inputs(
     session: Option<&Session>,
     command: &str,
@@ -195,6 +195,6 @@ mod tests {
         assert!(text.contains("working directory"), "{text}");
         assert!(text.contains(&dir.display().to_string()), "{text}");
         let err = resolve(None, None, "coverage", "/plugin", "Missing.esm").unwrap_err();
-        assert!(err.to_string().contains("KITCRAFT_DATA_DIR"), "{err}");
+        assert!(err.to_string().contains("KITKRAFT_DATA_DIR"), "{err}");
     }
 }

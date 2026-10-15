@@ -1,7 +1,7 @@
 //! `coverage` (M1.14, M3.F2): which record types and subrecords a plugin holds, against
-//! what the schema (`kitcraft_schema::builtin()`) defines.
+//! what the schema (`kitkraft_schema::builtin()`) defines.
 //!
-//! The plugin is streamed one top-level entry at a time (`kitcraft_esm::driver::visit_file`).
+//! The plugin is streamed one top-level entry at a time (`kitkraft_esm::driver::visit_file`).
 //! Every subrecord occurrence is classified by its record type and signature:
 //!
 //! - `typed`: the record type's definition names the signature with a layout (any type
@@ -16,7 +16,7 @@
 //!
 //! Every record of a defined type is decoded through its generated definition with the
 //! plugin's context (the record's form version and the TES4 localized flag, as
-//! `kitcraft_esm::Plugin::typed` does) and encoded again; a subrecord position the
+//! `kitkraft_esm::Plugin::typed` does) and encoded again; a subrecord position the
 //! encoding does not reproduce is a re-encode conflict (`reencode_conflicts`). The first
 //! failures and conflicts are listed in `typed_failures` with their offsets. Decoded
 //! occurrences are also counted by the `confidence` of the member that decoded them
@@ -35,11 +35,11 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use kitcraft_esm::bridge::{Ctx, RawSub};
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::generated::records::{match_body, Record as TypedRecord, RECORDS};
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord, HEADER_LEN};
-use kitcraft_schema::{Confidence, FieldType, Schema};
+use kitkraft_esm::bridge::{Ctx, RawSub};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::generated::records::{match_body, Record as TypedRecord, RECORDS};
+use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord, HEADER_LEN};
+use kitkraft_schema::{Confidence, FieldType, Schema};
 use serde_json::{json, Value};
 
 use super::{failed, file_name, str_arg};
@@ -118,7 +118,7 @@ impl TypeSchema {
         let Some(schema) = schema else {
             return TypeSchema::default();
         };
-        let Some(sig) = kitcraft_schema::Signature::from_bytes(signature.bytes()) else {
+        let Some(sig) = kitkraft_schema::Signature::from_bytes(signature.bytes()) else {
             return TypeSchema::default();
         };
         let Some(record) = schema.record(sig) else {
@@ -289,7 +289,7 @@ impl Walk {
     fn record(&mut self, r: &Record<'_>, schema: Option<&Schema>, decode: Option<&DecodeLimits>) {
         let h = &r.header;
         if self.records == 0 && h.signature.bytes() == *b"TES4" {
-            self.localized = kitcraft_esm::tes4::Tes4::new(r).is_localized();
+            self.localized = kitkraft_esm::tes4::Tes4::new(r).is_localized();
         }
         self.records = self.records.saturating_add(1);
         let offset = r.offset().unwrap_or(0);
@@ -487,7 +487,7 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
             .map(|n| usize::try_from(n).unwrap_or(usize::MAX)),
     };
     let path = Path::new(plugin);
-    let schema = kitcraft_schema::builtin()
+    let schema = kitkraft_schema::builtin()
         .map_err(|e| failed(ID, format!("the builtin schema does not load: {e}")))?;
     let bytes = std::fs::metadata(path)
         .map_err(|e| failed(ID, format!("{plugin}: {e}")))?
@@ -1010,7 +1010,7 @@ mod tests {
 
     #[test]
     fn unreadable_and_malformed_plugins_fail() {
-        let missing = std::env::temp_dir().join("kitcraft-engine-coverage-missing.esm");
+        let missing = std::env::temp_dir().join("kitkraft-engine-coverage-missing.esm");
         let err = execute("coverage", json!({"plugin": missing.to_str().unwrap()})).unwrap_err();
         assert_eq!(err.kind(), "failed");
 

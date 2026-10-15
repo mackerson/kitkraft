@@ -22,7 +22,7 @@ signature = "LVLI"
 name = "LeveledItem"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14013-L14074"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["UseAll", 0x8000], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000]]
@@ -59,7 +59,7 @@ size = 24
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14033-L14033"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -74,7 +74,7 @@ type = "f32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14034-L14034"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -87,7 +87,7 @@ size = 80
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14035-L14035"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "angles are stored as f32; xEdit shows them in degrees"
@@ -170,7 +170,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14039-L14039"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "a flag set in xEdit, whose bit names it marks as unverified; kept as a plain integer"
@@ -181,7 +181,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14040-L14040"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -192,7 +192,7 @@ type = "f32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14041-L14041"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2252-L2252",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -202,7 +202,7 @@ name = "MaxCount"
 type = "u8"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14042-L14042"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -214,7 +214,7 @@ base = "u16"
 bits = [["CalculateFromAllLevels", 0x1], ["CalculateForEachItem", 0x2], ["UseAll", 0x4], ["ShowAsMarker1", 0x8], ["ShowAsMarker2", 0x10], ["EvalAsStack", 0x20], ["GetChanceFromRequiredBiome", 0x80], ["DoAllBeforeRepeating", 0x100]]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14043-L14053"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -237,7 +237,7 @@ card = "optional"
 targets = ["GLOB"]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14055-L14055"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -269,7 +269,7 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14058-L14058"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2250-L2250",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "number of Entries; stored, not derived: an edit that adds or removes an entry must update it"
@@ -280,7 +280,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14059-L14066"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9062-L9084",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -329,7 +329,7 @@ count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14067-L14067"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7791-L7803",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -357,7 +357,7 @@ size = 4
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14069-L14069"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 field = [
@@ -374,7 +374,7 @@ type = "lstring"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14070-L14070"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -385,7 +385,7 @@ type = "u8"
 card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14071-L14071"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 
@@ -394,7 +394,7 @@ group_ref = "Model"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14072-L14072"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"
 note = "xEdit marks the block required; its file name is optional"
@@ -410,6 +410,6 @@ count = "rest"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L14073-L14073"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: all 6543 LVLI records of the 14 official ESMs (form versions 552, 581, 582) decode with nothing left in extra and re-encode identically",
 ]
 confidence = "corpus"

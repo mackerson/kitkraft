@@ -1,8 +1,8 @@
 # KitKraft gun overhaul, build 1 (M3.E9): the owner's brief (docs/overhaul/brief.md, rows
 # B1..B14) as a `build` spec v2. Every class and every rule names its brief row.
 #
-#   kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm --plan
-#   kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm [--overwrite]
+#   kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm --plan
+#   kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm [--overwrite]
 #
 # Report, per row status and the reasons: docs/overhaul/build-1.md. Plan: build-1-plan.md.
 #

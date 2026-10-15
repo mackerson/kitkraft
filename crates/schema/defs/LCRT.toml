@@ -18,7 +18,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 confidence = "corpus"
 flags = [["NonPlayable", 0x4], ["GroundPiece", 0x10], ["HiddenFromLocalMap", 0x200], ["UsedAsPlatform", 0x800], ["Restricted", 0x8000], ["HasCurrents", 0x80000], ["NavmeshFilter", 0x4000000], ["NavmeshBoundingBox", 0x8000000], ["NavmeshOnlyCut", 0x10000000], ["NavmeshIgnoreErosion", 0x20000000], ["NavmeshGround", 0x40000000], ["MustBeUnique", 0x80000000]]
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 
 [[member]]
@@ -30,7 +30,7 @@ evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "4,779 EDID placed in the corpus"
@@ -53,7 +53,7 @@ card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13365-L13365"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "base form components; payloads kept raw"
@@ -66,7 +66,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7018-L7033",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7035-L7049",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "4,779 CNAM placed in the corpus"
@@ -87,7 +87,7 @@ type = "u32"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13368-L13368"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4162-L4200",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "keyword type enumeration (shared with KYWD); values kept as stored; 4,779 TNAM placed in the corpus"
@@ -98,7 +98,7 @@ name = "Fnam"
 type = "opaque"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13369-L13369"
 evidence = [
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 4,779 LCRT records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
 note = "meaning unknown in xEdit; 4 bytes; 4,779 FNAM placed in the corpus"

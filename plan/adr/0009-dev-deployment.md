@@ -30,7 +30,7 @@ M4.O5's default is **approved with an exception**.
 ### Command shape
 
 - `deploy` (CLI `kit deploy --dev`): `{source, mo2, dev, plan?}`. `source` is a folder
-  written by `package` (it carries `kitcraft-manifest.json`); `mo2` is the MO2 instance
+  written by `package` (it carries `kitkraft-manifest.json`); `mo2` is the MO2 instance
   root; `dev` must be `true` on every call, and `deploy` without it is refused (no other
   deployment mode is designed). `plan: true` reports what would change and writes
   nothing.
@@ -72,13 +72,13 @@ Before any write:
 - The target is not, and is not inside, the game Data dir, a profile folder, `overwrite\`,
   `downloads\`, or the `source` folder.
 - The package is verified first: every file's size and SHA-256 equal its
-  `kitcraft-manifest.json` entry, or nothing is deployed.
+  `kitkraft-manifest.json` entry, or nothing is deployed.
 
 ### Manifest
 
-`kitcraft-deploy.json` in the target records: the marker (`kitkraft-dev-mod`, mod name),
-the deployment id, time, KitKraft version (file and marker names follow the pending
-identifier rename: `kitcraft-` today, `kitkraft-` after it), the source package's manifest hash, every file
+`kitkraft-deploy.json` in the target records: the marker (`kitkraft-dev-mod`, mod name),
+the deployment id, time, KitKraft version (file and marker names use
+the `kitkraft-` prefix; the identifier rename is done), the source package's manifest hash, every file
 (relative path, size, SHA-256), and the previous deployment id. It is written last and is
 the commit point.
 
@@ -157,7 +157,7 @@ M4.BX1). Where this amendment and the sections above disagree, this amendment wi
 4. **`kitkraft-deploy.json`.** The ownership marker and deployment manifest written into
    the dev mod is `kitkraft-deploy.json` (with the `kitkraft-dev-mod` kind), using the final
    product name; the package manifest it reads is still `package`'s
-   `kitcraft-manifest.json`.
+   `kitkraft-manifest.json`.
 5. **Unmanaged files refuse a deploy.** A file in the live folder that its manifest does
    not list (other than MO2's `meta.ini`) refuses the deploy (`target-modified`) instead
    of being left in place, because the folder swap would move it into `.previous` and a

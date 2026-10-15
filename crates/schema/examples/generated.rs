@@ -6,7 +6,7 @@
 //! checks this example under exactly those rules. Only `dead_code` is allowed, because a
 //! binary does not use every generated item the way a library exports them.
 //!
-//! Run it to decode a small synthetic TES4 body: `cargo run -p kitcraft-schema --example
+//! Run it to decode a small synthetic TES4 body: `cargo run -p kitkraft-schema --example
 //! generated`.
 
 #[allow(dead_code)]

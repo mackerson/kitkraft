@@ -4,11 +4,11 @@
 //! - The base is a formref, an EditorID or a hex FormID in `plugin`'s numbering. Its
 //!   winning version decides the record: `ACHR` for an `NPC_`, `REFR` for anything else a
 //!   reference can name. References, cells, worlds and navmeshes are refused as bases (no
-//!   reference of the corpus names one: `kitcraft_esm::refs`), and so is `LVLN` until the
+//!   reference of the corpus names one: `kitkraft_esm::refs`), and so is `LVLN` until the
 //!   corpus shows how a leveled actor is placed.
 //! - The cell is `cell` (a `CELL` formref or EditorID), or `world` plus the position: the
 //!   exterior cell of that world whose `XCLC` grid holds the position (lane A's grid rule,
-//!   100 units a cell, `kitcraft_esm::cells`). A persistent reference in a world goes into
+//!   100 units a cell, `kitkraft_esm::cells`). A persistent reference in a world goes into
 //!   the world's persistent cell, as every official file does. A new exterior cell is not
 //!   created: a position with no cell is refused.
 //! - The winning version of the cell (and of its world, for an exterior or persistent cell)
@@ -16,10 +16,10 @@
 //!   has its parent (lane A's rule; `docs/corpus.md` "Cell and world groups"). Lstrings of a
 //!   carried record from a localized plugin are written inline, as every patch does; the
 //!   result says per carried record whether its bytes equal the winner's.
-//! - The record is composed by `kitcraft_esm::refs::compose_reference` (members below
+//! - The record is composed by `kitkraft_esm::refs::compose_reference` (members below
 //!   `corpus` confidence refused unless named in `allow_reference`), gets a FormID from
-//!   `kitcraft_esm::forms::NewForms` (full-scale targets only; the `HEDR` next object ID is
-//!   advanced) and is placed by `kitcraft_esm::cells::placement`.
+//!   `kitkraft_esm::forms::NewForms` (full-scale targets only; the `HEDR` next object ID is
+//!   advanced) and is placed by `kitkraft_esm::cells::placement`.
 //! - An EditorID must be letters, digits and `_`, and must not exist in the load order or
 //!   the target.
 //!
@@ -31,10 +31,10 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use kitcraft_doc::GlobalForm;
-use kitcraft_esm::cells::{grid_label, group_type, Grid};
-use kitcraft_esm::index::{index_file, read_record_at, IndexOptions};
-use kitcraft_esm::{DecodeLimits, GroupHeader, Record, Signature};
+use kitkraft_doc::GlobalForm;
+use kitkraft_esm::cells::{grid_label, group_type, Grid};
+use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
+use kitkraft_esm::{DecodeLimits, GroupHeader, Record, Signature};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
@@ -51,7 +51,7 @@ use crate::validate::{self, Severity};
 
 const ID: &str = "place";
 
-/// Record types a placed reference never names (the corpus: `kitcraft_esm::refs`).
+/// Record types a placed reference never names (the corpus: `kitkraft_esm::refs`).
 const NOT_PLACEABLE: [&[u8; 4]; 9] = [
     b"REFR", b"ACHR", b"PGRE", b"PHZD", b"CELL", b"WRLD", b"NAVM", b"LAND", b"TES4",
 ];

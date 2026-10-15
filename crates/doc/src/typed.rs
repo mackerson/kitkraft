@@ -1,12 +1,12 @@
 //! Typed field values for `where` paths, read through the schema definitions
-//! (`kitcraft_schema::builtin()`, lane B), by interpreting a subrecord's [`FieldType`]
+//! (`kitkraft_schema::builtin()`, lane B), by interpreting a subrecord's [`FieldType`]
 //! over its payload.
 //!
-//! This is a read-only decoder for queries: the generated records in `kitcraft-esm` stay the
+//! This is a read-only decoder for queries: the generated records in `kitkraft-esm` stay the
 //! write path. A payload whose layout does not account for every byte, a value under an
 //! opaque member, or a union variant no definition claims is unknown, never a guess.
 
-use kitcraft_schema::{
+use kitkraft_schema::{
     ArrayCount, Cardinality, Decider, FieldType, Member, Scalar, Schema, Signature, SubrecordDef,
 };
 
@@ -616,7 +616,7 @@ mod tests {
 
     #[test]
     fn builtin_gmst_union_and_keywords() {
-        let schema = kitcraft_schema::builtin().unwrap();
+        let schema = kitkraft_schema::builtin().unwrap();
         // GMST DATA is a union chosen by the EditorID's first letter: `f` is an f32.
         let layout = layout_at(schema, *b"GMST", &[*b"EDID", *b"DATA"], 1)
             .unwrap()
@@ -651,7 +651,7 @@ mod tests {
     /// (the 1-byte VNAM of `Starfield.esm PKIN:0000B065`) is not the top-level `Version`.
     #[test]
     fn pkin_vnam_inside_a_component_is_raw() {
-        let schema = kitcraft_schema::builtin().unwrap();
+        let schema = kitkraft_schema::builtin().unwrap();
         let subs = [
             *b"EDID", *b"BFCB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM", *b"FNAM",
         ];
@@ -683,7 +683,7 @@ mod tests {
     fn unordered_records_place_members_anywhere() {
         // REFR is `unordered` (M4.BX1): XSCL and XLYR after DATA are still their members,
         // as the generated `match_unordered` places them.
-        let schema = kitcraft_schema::builtin().unwrap();
+        let schema = kitkraft_schema::builtin().unwrap();
         let subs = [*b"NAME", *b"DATA", *b"XSCL", *b"XLYR"];
         let placed = placements(schema, *b"REFR", &subs).unwrap();
         let paths: Vec<String> = placed
@@ -700,7 +700,7 @@ mod tests {
 
     #[test]
     fn pndt_duplicated_signatures_resolve_by_position() {
-        let schema = kitcraft_schema::builtin().unwrap();
+        let schema = kitkraft_schema::builtin().unwrap();
         let subs = [
             *b"EDID", *b"BFCB", *b"FULL", *b"BFCE", *b"CNAM", *b"FNAM", *b"GNAM", *b"BDST",
             *b"ANAM", *b"CNAM", *b"ENAM", *b"FNAM", *b"GNAM", *b"KNAM", *b"BDED", *b"TEMP",
@@ -740,8 +740,8 @@ mod tests {
 
     #[test]
     fn structs_arrays_and_errors() {
-        use kitcraft_schema::FieldDef;
-        let prov = kitcraft_schema::builtin()
+        use kitkraft_schema::FieldDef;
+        let prov = kitkraft_schema::builtin()
             .unwrap()
             .records
             .values()

@@ -71,7 +71,7 @@
 //! Every key is checked; errors name the TOML key (`rule[0].fields.FULL`), and TOML
 //! `inf`/`nan` values are range errors.
 
-use kitcraft_doc::query::{Expr, Path, Query};
+use kitkraft_doc::query::{Expr, Path, Query};
 use serde_json::{json, Map, Value};
 
 use crate::edit::fields::{parse_op, parse_path};

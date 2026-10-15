@@ -9,7 +9,7 @@
 
 ## Context
 
-KitCraft re-implements a proprietary tool (Bethesda's Creation Kit) and proprietary formats.
+KitKraft re-implements a proprietary tool (Bethesda's Creation Kit) and proprietary formats.
 The craft-suite projects it is modelled on stay credible, and legally safe to contribute to, by
 being permissively licensed and strictly clean-room. The Bethesda modding ecosystem's most
 complete format code (Mutagen, Spriggit) is GPL-3.0; xEdit is MPL-2.0. Reading copyleft code

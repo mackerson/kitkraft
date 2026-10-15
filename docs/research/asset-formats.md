@@ -1,10 +1,10 @@
 # Asset formats in the official archives (M4.G3, scoping)
 
 Research, not implementation (W11's first deliverable). What the 90 official `.ba2`
-archives hold, by file extension; what KitCraft does with each today; whether a source
+archives hold, by file extension; what KitKraft does with each today; whether a source
 permitted by ADR 0006 describes it; and which workstream would need to author it. No
 format beyond the archive container was read for this: every number comes from `ba2.list`
-(`kit --json ba2 list <archive> --limit 100000000`) over `KITCRAFT_DATA_DIR`, 2026-10-14,
+(`kit --json ba2 list <archive> --limit 100000000`) over `KITKRAFT_DATA_DIR`, 2026-10-14,
 aggregated by a throwaway script outside the repository (`corpus:`).
 
 ## Totals
@@ -19,7 +19,7 @@ aggregated by a throwaway script outside the repository (`corpus:`).
 
 ## By extension
 
-| Ext | Entries | Extracted bytes | Stored bytes | Archives | What KitCraft does today | Permitted source for the format (ADR 0006) | Workstream that would author it |
+| Ext | Entries | Extracted bytes | Stored bytes | Archives | What KitKraft does today | Permitted source for the format (ADR 0006) | Workstream that would author it |
 | --- | ------: | --------------: | -----------: | -------: | ------------------------ | ------------------------------------------- | ------------------------------- |
 | `.dds` | 144,283 | 103,775,549,416 | 63,443,882,224 | 29 | list, extract (DX10 records get a synthesized DDS header), pack (`ba2.pack --format dx10`) | header: `ms-docs:` (level 3); pixel data is not interpreted | W11: textures only as DDS the user supplies, packed |
 | `.wem` | 382,013 | 31,480,817,725 | 31,480,817,725 | 31 | list, extract, pack (opaque bytes) | none | W10/W11 (voice, sound): out of M4 scope |
@@ -61,7 +61,7 @@ aggregated by a throwaway script outside the repository (`corpus:`).
 | `.bat` | 1 | 40 | 40 | 1 | list, extract, pack | none | none |
 
 "list, extract, pack" means the bytes move through `ba2.list`, `ba2.extract` and
-`ba2.pack` unchanged; KitCraft does not read inside them. A row with "none" has no
+`ba2.pack` unchanged; KitKraft does not read inside them. A row with "none" has no
 permitted description: reading such a format would need an ADR 0006 amendment naming a
 source (level 1 corpus statistics alone do not describe semantics) before any reader is
 written.
@@ -94,12 +94,12 @@ Naming of the archives against their plugins is M4.G4 (`docs/corpus.md`, "Archiv
 
 ## What this means for the owner's workstreams
 
-- **W6 (scripts)**: `.pex` is the only executable content a data mod ships; KitCraft
+- **W6 (scripts)**: `.pex` is the only executable content a data mod ships; KitKraft
   compiles through Bethesda's compiler and packs or copies the result. Nothing else is
   needed from this inventory.
 - **W11 (UI, maps, visual assets, audio)**: no format a W11 deliverable would author has a
   permitted description today (`.nif`/`.mesh`, the `.cdb` material database, `.swf`/`.gfx`
-  interface files, `.wem`/`.bnk` audio, `.psfx` particles). KitCraft's role stays: pack
+  interface files, `.wem`/`.bnk` audio, `.psfx` particles). KitKraft's role stays: pack
   what the user supplies (DDS textures through DX10 packing, other files through GNRL),
   and name the archives as the game loads them (M4.G4). `crates/nif` keeps its read-only
   metadata scope and has no M4 work (execution plan W11).

@@ -38,14 +38,14 @@ is under "Next".
   `schema -> engine`, is rejected by cargo itself before xtask runs.)
 - Corpus manifest re-verified 2026-10-14: size and SHA-256 of all 14 ESMs match.
 - M0.4 first commit on `main`.
-- M1.8 (lane B) definition format: TOML loader + validator in `kitcraft-schema`, format in
+- M1.8 (lane B) definition format: TOML loader + validator in `kitkraft-schema`, format in
   `crates/schema/defs/README.md`; `source`/`evidence` must use the ADR 0005 forms.
 - M1.9 (lane B, rescoped) seed definitions: TES4 and the GRUP header typed from
   `uesp-skyrim` pages and confirmed on the corpus; GMST, GLOB, KYWD, WEAP as corpus
   inventories (order, cardinality, BFCB..BFCE and OBTE..STOP blocks), every payload opaque;
   WEAP layout pending ADR 0005 (ck-diff). Corpus findings: TES4 MAST has no DATA in any
   official ESM; GRUP type 10 occurs (unnamed, preserved).
-- M1.10 (lane B) codegen: `kitcraft_schema::generate(&Schema) -> String`; golden tests for the
+- M1.10 (lane B) codegen: `kitkraft_schema::generate(&Schema) -> String`; golden tests for the
   seed set and an all-features fixture; the goldens are rustfmt-clean and compile under the
   workspace lints in `crates/schema/tests/generated.rs`, with `encode(decode(x)) == x` on
   well-formed, malformed and random record bodies.
@@ -142,10 +142,10 @@ is under "Next".
   negotiate to 2025-11-25; every served version is in `server/discover` and `-32022`;
   `ping`/`initialize` are legacy-only); tools `execute`, `command_line`,
   `inspect_record`, `query_records`, `diff_plugins`, `coverage`, `roundtrip` generated from
-  the catalog; resources `kitcraft://commands`, `kitcraft://load-order`; argument and
+  the catalog; resources `kitkraft://commands`, `kitkraft://load-order`; argument and
   command errors as `isError` results, engine bugs `-32603` (`docs/mcp.md`); `kit mcp
   [--profile DIR]`; in-process pipe client test and a spawned-binary test (with
-  `KITCRAFT_DATA_DIR`: `inspect_record` on `Constellation.esm` passes, `query_records`
+  `KITKRAFT_DATA_DIR`: `inspect_record` on `Constellation.esm` passes, `query_records`
   answers `not_implemented` until M2.D11); `Status::Deferred { reason, milestone }` and
   the `catalog_closure` test (every `Planned` command must be listed in `PLANNED_IN_M2`
   with its owning M2 task; nothing is deferred yet because every command has an M2 owner).
@@ -155,20 +155,20 @@ is under "Next".
   (`backend::MCP_DEFAULTS`; `Starfield.esm`: 18 KB instead of 695 KB, text leads with
   `data.summary`); `execute` reports `unknown_command` before other violations and takes
   `args: null` as `{}`; a `not_implemented` `--profile` preload stays out of the
-  instructions; `docs/mcp.md` states that paths are not confined to `KITCRAFT_DATA_DIR`.
+  instructions; `docs/mcp.md` states that paths are not confined to `KITKRAFT_DATA_DIR`.
   **Round 3 (2026-10-14):** M2.F8 closed: every catalog command is `Implemented`,
   `PLANNED_IN_M2` is gone and `catalog_closure` fails on any `Planned` command; partial
   commands say so in `limitations` (inspect single-plugin mode, diff/conflicts compare
-  stored bytes). `data_dir` defaults to `KITCRAFT_DATA_DIR` on every command that takes it
+  stored bytes). `data_dir` defaults to `KITKRAFT_DATA_DIR` on every command that takes it
   (a profile prefers MO2's `gamePath`); `validate` searches a standalone plugin's masters in
   the load order, next to the plugin, then the Data dir, and resolves a bare plugin name
   there (`kit validate --plugin out\X.esm` now passes with only the variable set). M2.F9:
   `schema` command (`kit schema --type WEAP [--member KWDA] [--deep]`, alias `defs`, MCP
   tool `record_schema`): members with type, source citation and confidence, top level by
   default; `cargo xtask parity` adds a per-confidence table from it. Resources:
-  `kitcraft://validate-rules` (rules, severities, denylist, docs); `kitcraft://commands`
+  `kitkraft://validate-rules` (rules, severities, denylist, docs); `kitkraft://commands`
   gains `cli` and `tools`. The flaky `kit_mcp_on_an_official_file`: spawned servers use a
-  private `KITCRAFT_CACHE_DIR` under the test target dir (no more sharing the user's index
+  private `KITKRAFT_CACHE_DIR` under the test target dir (no more sharing the user's index
   cache with other worktrees' gates), stderr is drained on a thread, and an EOF reports the
   child's exit status and stderr; 20 consecutive runs pass (the original crash did not
   reproduce under 4-way parallel cold-cache stress either). AGENTS.md, ADR 0001 Amendment
@@ -282,7 +282,7 @@ is under "Next".
     dossier; runtime slots are the assumption `runtime-slots-by-scale` (stated in every
     result that shows a runtime ID).
   - D4 `doc::LoadOrder` (raw vs `GlobalForm`, master maps, missing masters are typed
-    errors, late masters reported); D5 index cache (`%LOCALAPPDATA%\kitcraft\cache`, path +
+    errors, late masters reported); D5 index cache (`%LOCALAPPDATA%\kitkraft\cache`, path +
     size + mtime + both format versions + checksum) and override table; index and random
     access now through lane A's `esm::index` (M2.A1/A2). Default profile: 7,739,193
     records, cold 6.0 s, warm 0.68 s (`kit load`, release). 27 third-party small/medium
@@ -303,7 +303,7 @@ is under "Next".
     83 plugins) and `kit conflicts --master Starfield.esm` agree on all 59 plugins and
     every per-type count (8,234 override records).** All `Implemented`, tested through
     `execute`, reachable over MCP (`execute`, `inspect_record`, `query_records`,
-    `diff_plugins`; `load` fills `kitcraft://load-order`).
+    `diff_plugins`; `load` fills `kitkraft://load-order`).
   - **Review round 2 (2026-10-14), all 13 findings fixed with regression tests:**
     (1) order by the named assumption `hardcoded-official-slots`: `Starfield.ccc` plugins,
     then official plugins without a `plugins.txt` entry (`ShatteredSpace`, `SFBGS004`,
@@ -366,7 +366,7 @@ is under "Next".
     lane D found).
   - E9 `build` from TOML (`[[rule]]` over `query` matches, `[[set]]`, conflicts named by
     key, fresh plugin validated before it replaces `out`).
-  - E10 rename: `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` (2,197 bytes; `TES4`
+  - E10 rename: `C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm` (2,197 bytes; `TES4`
     master flag, `HEDR` 2 records, master `Starfield.esm`; one `WEAP 0021BBCD`
     `RussianHuntingRifle` with FULL "Old Soviet Marksman Rifle" and its 8 other lstrings
     inline), identical from `kit set` and `kit build docs\smoke-rename.toml`; `validate`
@@ -413,7 +413,7 @@ is under "Next".
     (Request to lane F).
 - M4 lane A (container), 2026-10-14:
   - M4.A1 cell and world group structure (`docs/corpus.md` "Cell and world groups";
-    `kitcraft_esm::cells`; `crates/esm/tests/cells.rs`, every rule asserted on every group
+    `kitkraft_esm::cells`; `crates/esm/tests/cells.rs`, every rule asserted on every group
     and record of the 14 files, 27 s release): group types 1..10 with parents, labels and
     contents; type 10 = quest children (`DLBR`, `DIAL` + type 7, `SCEN`); persistence =
     flag 0x400 and type 8 together (115,985 / 6,714,413, no exception); a world's
@@ -438,7 +438,7 @@ is under "Next".
     off-majority group stamps). 116 s release; the five small files whole in every gate.
     `Plugin::upsert` keeps its signature (official style); INCC stays the caller's (lane E
     already adds inserted interior cells).
-  - M4.A3 new-form allocator `kitcraft_esm::forms::NewForms` (`for_index`, `for_plugin`,
+  - M4.A3 new-form allocator `kitkraft_esm::forms::NewForms` (`for_index`, `for_plugin`,
     `allocate`, `peek`, `write_hedr`): own FormIDs `<master count><object ID>` above both
     the `HEDR` next object ID and the highest own object ID, `HEDR` advanced keeping its
     high byte; small/medium plugins, both scale bits, 253+ masters and object IDs past
@@ -446,7 +446,7 @@ is under "Next".
     (and F11/F26). `tests/forms.rs`: every small/medium official file refused; the 6 full
     ones start one past their largest own object ID (Starfield.esm `003FFD5A`).
     `Tes4::set_next_object_id` added.
-  - M4.A4 NAVM passthrough `kitcraft_esm::navmesh`: `import_navmeshes(&source, &mut
+  - M4.A4 NAVM passthrough `kitkraft_esm::navmesh`: `import_navmeshes(&source, &mut
     target, &style)` (in memory) and `navmesh_placements(&source, &target_index,
     read_cell, &style) -> Vec<Placed>` (for the streaming upsert) copy every `NAVM` of a
     CK-saved plugin unchanged (compressed bodies as written) into the temporary children
@@ -457,7 +457,7 @@ is under "Next".
     and streamed. `tests/navmesh.rs` runs on `observe\<date>-F22\` and skips with one line
     without it (F22 not observed yet). `NAVI` is not imported (F22 will show whether the
     CK changes it).
-  - M4.A5 reference composition `kitcraft_esm::refs`: `compose_reference(&RefSpec,
+  - M4.A5 reference composition `kitkraft_esm::refs`: `compose_reference(&RefSpec,
     allow_reference) -> ComposedRef { record, members, limitations }` and
     `ComposedRef::placed(CellPlace, cell, &style) -> Placed` (persistent -> the cell's
     type 8, which for a world is its persistent cell). Raw subrecords in corpus order
@@ -505,13 +505,13 @@ is under "Next".
     the recommendation B. Awaiting the owner's M3.O6; M3.F5 is gated on it. No UI code.
   - M3.G1 `papyrus.compile` takes `sources_zip` (`kit papyrus compile ... --sources-zip
     <Tools\ContentResources.zip>`): the zip's 5,034 `Scripts/Source` `.psc`/`.flg` files
-    (12.3 MB) are extracted once into the KitCraft cache, keyed by name, size and CRC-32,
+    (12.3 MB) are extracted once into the KitKraft cache, keyed by name, size and CRC-32,
     hostile names refused before any write, and imported after `imports` (zip crate 9,
     deflate only). PapyrusCompiler 4.7.0.5 with only the zip: DefaultAliasOnActivate,
     DefaultCounterQuestA and the noc patch's nocOutfitChangerQuest,
     nocOutfitChangerContainer, SQ_Airlock_QuestScript, CS7_SpaceshipLandingQuestScript all
     compile (first call 14.5 s with the extraction, then 1-2 s each). Gaps row closed.
-  - M3.G2 tolerant string-table parse: `kitcraft_strings::ParseMode::{Strict, Tolerant}`,
+  - M3.G2 tolerant string-table parse: `kitkraft_strings::ParseMode::{Strict, Tolerant}`,
     `Table::parse_with` -> `Parsed { table, padding }` (`Padding { kind: DataTail |
     AfterData, offset, len, zeros }`); `Table::parse` stays strict and unchanged.
     `strings.dump` / `strings.merge` take `tolerant` and name each padding run in
@@ -531,7 +531,7 @@ is under "Next".
   - M4.F1 bare input names (the F7 Request): `handlers/resolve.rs` resolves an input
     plugin, archive or table given as a bare file name the same way in every command:
     the session's load order (by plugin name), then the working directory, then the Data
-    dir (`data_dir`, else `KITCRAFT_DATA_DIR`); a path with a directory is used as given.
+    dir (`data_dir`, else `KITKRAFT_DATA_DIR`); a path with a directory is used as given.
     Used by `roundtrip`, `coverage`, `diff`, `ba2.list`/`extract`, `strings.dump`/`merge`,
     `papyrus.disasm` (now session handlers through `resolve::Resolving`, with a
     `data_dir` argument each), `validate` (`plugin`, `scripts`), `inspect`'s single-plugin
@@ -542,7 +542,7 @@ is under "Next".
     Outputs (`out`, `out_dir`, `into`) never resolve, so the write guards are unchanged.
     Tests through `execute` per command (`handlers/resolve_tests.rs`): `Constellation.esm`
     (or its archives, `Starfield - Misc.ba2` for `papyrus.disasm`) resolves from
-    `KITCRAFT_DATA_DIR`, and an empty `data_dir` gives `not_found` naming it.
+    `KITKRAFT_DATA_DIR`, and an empty `data_dir` gives `not_found` naming it.
   - M3.F1 `roundtrip --decode` (lane A's M3.A2 Request): `decode` in the catalog, CLI
     (`--decode`) and MCP passes `RoundtripOptions::with_decode()`; with it `data.passed`
     is `identical` (a check, like `verify`), `data.decode` is reported, the first
@@ -554,7 +554,7 @@ is under "Next".
 - Lane E, M3 (engine `src/edit/`, `src/validate/`, `src/build/`,
   `handlers/{set,validate,build,overhaul}.rs`, `docs/overhaul/`):
   - M3.E3 `validate` hardening: `FE`/`FD` FormIDs resolve through lane D's class encoding
-    (`kitcraft_doc::RawRef`; a master of unknown scale before the index and
+    (`kitkraft_doc::RawRef`; a master of unknown scale before the index and
     `full-style-self` stay unresolved, never guessed); `scripts` takes `.ba2` archives and
     `plugin_archives` adds the plugin's own `<stem> - *.ba2`. `validate_corpus_official_files`
     (release, 83 s): 0 errors, unresolved FormIDs 0 on all 14 files, warnings unchanged
@@ -589,7 +589,7 @@ is under "Next".
 - Lane D, M3 (`crates/doc`, `crates/io`, `docs/load-order.md`; engine
   `handlers/{load,inspect,query,diff,conflicts}.rs`), 2026-10-14:
   - M3.D1 lane E's round 2 requests: `Loaded::missing_active_plugins` (a field; also
-    `missing_active_plugins` in `load`'s listing) and `kitcraft_doc::source`:
+    `missing_active_plugins` in `load`'s listing) and `kitkraft_doc::source`:
     `LoadOrder::source_check(form, missing_active)` / `Loaded::source_check(form)` returns
     the winner with `blocking` and `unrelated` problems (`is_safe()`); `inspect` shows it as
     `winner_source`. Blocking: no or deleted winner, a version's plugin loading before its
@@ -599,7 +599,7 @@ is under "Next".
     `HG_ShipCargoHoldAtHome.esm`, none can be it). `strings::Resolved` has `bytes` (the
     table's exact bytes) and `utf8`; every non-UTF-8 `starfield_en` entry resolves with its
     bytes (`crates/doc/tests/strings_corpus.rs`).
-  - M3.D2 (generic part; proven on today's typed members): `kitcraft_doc::fields` compares
+  - M3.D2 (generic part; proven on today's typed members): `kitkraft_doc::fields` compares
     a subrecord with a schema layout member by member (`typed::decode`), FormIDs resolved
     by plugin name on each side, opaque members as payload byte ranges
     (`Decoded::Opaque { at, len }`); `compare::classify_with` / `diff_subrecords_with`,
@@ -611,7 +611,7 @@ is under "Next".
     WEAP/AMMO/... fields beyond the universal subrecords follow automatically once lane B
     types them (M3.B1+). Default profile `conflicts --count-classes`: 6,029 differs, 1,644
     identical (unchanged by the typed comparison), 2.7 s warm.
-  - M3.D3: `kitcraft_doc::confidence::reference_members` finds the `reference`-confidence
+  - M3.D3: `kitkraft_doc::confidence::reference_members` finds the `reference`-confidence
     members behind a value (a whole decoded subrecord, or a `where` path); `inspect` and
     `query` name them in `limitations` (`... reference confidence ...: GLOB FLTV.Value`).
     No builtin member is `reference` yet, so the test (`reference_members_surface_as_
@@ -642,10 +642,10 @@ is under "Next".
   histogram, opaque members, open questions). ~~Derived files are left to the integrator
   (M4 family lane rule, BX): `crates/esm/src/generated/`, the `BUILTIN_DEFINITIONS` region
   of `crates/schema/src/lib.rs` (23 new entries), `crates/schema/tests/golden/seed.rs`
-  (`KITCRAFT_UPDATE_GOLDEN=1`) and the builtin-set lists in `crates/schema/tests/defs.rs`
+  (`KITKRAFT_UPDATE_GOLDEN=1`) and the builtin-set lists in `crates/schema/tests/defs.rs`
   (`builtin_set_loads_and_matches_the_directory`).~~ Done in M4.BX1 (PLANET merge,
   2026-10-14): all four regenerated on main (`codegen --check` clean); `cargo xtask ci`
-  passed with `KITCRAFT_DATA_DIR`; ignored release corpus tests for esm, doc and engine
+  passed with `KITKRAFT_DATA_DIR`; ignored release corpus tests for esm, doc and engine
   pass (M2.A3 typed check 0 conflicts; doc `typed_corpus` 46,713 typed records, 181
   pinned unresolved lstrings as before); `docs/record-parity.md` regenerated: 25 record
   definitions, 50,419,561 subrecord occurrences, 379,633 typed (0 failed), 218,127
@@ -669,11 +669,11 @@ is under "Next".
   type, `any_until` the end marker), PACK input values/targets, INFO ENAM flag sets, QUST
   ALFG/ALAM/create-matching ALCA, unnamed slots (gaps rows). Mod-author guide:
   `docs/schema/quest-family.md`. `cargo xtask ci` passed locally with
-  `KITCRAFT_DATA_DIR` and the derived files regenerated (the ignored official-files
+  `KITKRAFT_DATA_DIR` and the derived files regenerated (the ignored official-files
   validate test needs BX's known-error update, see Requests). Derived files are left to the
   integrator (M4 family lane rule, BX): `crates/esm/src/generated/`, the
   `BUILTIN_DEFINITIONS` region of `crates/schema/src/lib.rs` (14 new entries: 10 records,
-  4 common), `crates/schema/tests/golden/seed.rs` (`KITCRAFT_UPDATE_GOLDEN=1`) and the
+  4 common), `crates/schema/tests/golden/seed.rs` (`KITKRAFT_UPDATE_GOLDEN=1`) and the
   builtin-set lists in `crates/schema/tests/defs.rs`.
 - M4.BX1 QUEST merge (integrator, BX3, 2026-10-14): the quest family's full CHAL, DIAL,
   FACT, INFO and QUST win over round 3's lstring-only stubs; every lstring the corpus
@@ -686,7 +686,7 @@ is under "Next".
   `tests/defs.rs` lists: 80 record definitions, 30 shared). `validate_corpus_official_files`:
   the 22 new Starfield.esm errors are `KNOWN_ERRORS` (SMEN `PNAM` = 0x5B x20, a reserved
   story manager root; `QuestReferenceAlias.ALFR` = 0x14 x2, the player reference class).
-  Gates: `cargo xtask ci` with `KITCRAFT_DATA_DIR`; ignored release tests for esm, doc and
+  Gates: `cargo xtask ci` with `KITKRAFT_DATA_DIR`; ignored release tests for esm, doc and
   engine all pass (17 min: 14/14 identical, typed check 0 conflicts, `world_family_full`,
   `corpus_rebuild_full`, doc `typed_corpus` 7,254,548 typed records and the 181 pinned
   unresolved lstrings). Parity: 80 record definitions,
@@ -695,7 +695,7 @@ is under "Next".
   `papyrus.compile`'s source extraction now retries its folder rename briefly (a fresh
   private cache under `.targets\` failed with "Access is denied" while a scanner held the
   new files).
-- M4.BX1 position-dependent layouts (integrator, 2026-10-14): `kitcraft_doc::typed` now
+- M4.BX1 position-dependent layouts (integrator, 2026-10-14): `kitkraft_doc::typed` now
   resolves a subrecord's layout by its position in the definition (`placements`,
   `layout_of`, `layout_at`, `path_layout`: the generated matcher's rules over the schema
   model, member paths from the definition), never by signature alone; inside an
@@ -725,7 +725,7 @@ is under "Next".
   IDs 0x2D8..0x359 in five actor-value form lists (ENV_imGui_* and
   SpaceshipPartSummedValues), the PKIN PRPS class (engine-reserved actor values, grade D),
   listed as `KNOWN_ERRORS` with exact counts. Gates: `cargo xtask ci` with
-  `KITCRAFT_DATA_DIR`, the ignored release corpus tests for esm, doc and engine (14/14
+  `KITKRAFT_DATA_DIR`, the ignored release corpus tests for esm, doc and engine (14/14
   identical, M2.A3 typed check 0 conflicts, doc `typed_corpus` 7,127,228 typed records and
   181 pinned unresolved lstrings); parity: 72 record definitions, 1,028,119 typed (0
   failed), 26,866 opaque, 49,364,576 unknown subrecord occurrences.
@@ -742,7 +742,7 @@ is under "Next".
   counts. Other lanes' tests touched to stay green (each a few lines): `esm` bridge and
   driver unit tests (CELL/REFR/NAVM now defined), engine `schema` test (REFR -> LAND as the
   undefined type), schema `defs.rs` lists, the golden `seed.rs` (regenerate with
-  `KITCRAFT_UPDATE_GOLDEN=1` after merging), and `doc` `typed_corpus.rs` now resolves a
+  `KITKRAFT_UPDATE_GOLDEN=1` after merging), and `doc` `typed_corpus.rs` now resolves a
   subrecord's layout by the generated matcher's placement (REFR has two `INAM` layouts,
   and BFCB bodies hold `PNAM`/`NAM*` of other sizes). `crates/esm/src/generated/` is not
   committed: run `cargo xtask codegen` after merging.
@@ -954,7 +954,7 @@ is under "Next".
     no other Papyrus parser, compiler or grammar is read; source comments are shown only on
     request and never cached or quoted. Registry rows PAPYRUS, CORPUS-ARCHIVES and
     OPEN-PAPYRUS updated.
-  - M4.G1: `kitcraft_pex::psc::parse` reads a `.psc`'s declarations (header with parent
+  - M4.G1: `kitkraft_pex::psc::parse` reads a `.psc`'s declarations (header with parent
     and flags; functions and events with typed parameters, defaults, return types, flags
     and state; remote event handlers; properties with groups, `RequiresGuard(...)` and
     full Get/Set forms; structs and members; variables; imports, custom events, guards,
@@ -980,7 +980,7 @@ is under "Next".
     on main): `kit papyrus events --event <name> --declarations-only` is the check.
   - M4.G3 (scoping): `docs/research/asset-formats.md`: `ba2.list` over all 90 official
     archives (1,763,906 entries, 138.5 GiB; 65 GNRL v2, 10 DX10 v2, 15 DX10 v3 LZ4) by
-    extension (38 extensions) and by archive group, with what KitCraft does per format,
+    extension (38 extensions) and by archive group, with what KitKraft does per format,
     the permitted source if any (only DDS headers, string tables and `.pex` have one) and
     the workstream that would author it. Finding: no `.mat` file exists in any official
     archive; materials ship as a `.cdb` component database. No implementation.
@@ -994,8 +994,8 @@ is under "Next".
     package <plugin> <out>`; MCP via `execute`/`command_line`): `validate` first (a failing
     plugin is refused, nothing written); `<out>\<name>\` with the plugin, loose files and
     scripts (`Scripts\<namespace>\<name>.pex` from the name inside each `.pex`) at their
-    Data paths or packed per M4.G4; `kitcraft-manifest.json` (SHA-256 and size of every
-    file, masters, record counts per type, KitCraft version, spec SHA-256, validate
+    Data paths or packed per M4.G4; `kitkraft-manifest.json` (SHA-256 and size of every
+    file, masters, record counts per type, KitKraft version, spec SHA-256, validate
     result, archive contents); a deterministic zip; only `out` is written, and an `out` in
     Data, the user Data dir or MO2 (its `mods\` included) is refused. Deviation from the
     plan's arguments: one `plugin` (not `plugins`), since `plugins` names the load order
@@ -1069,7 +1069,7 @@ is under "Next".
   to the integrator (family lane rule): `crates/esm/src/generated/`, the
   `BUILTIN_DEFINITIONS` region (12 records, 11 shared files), `crates/schema/tests/golden/
   seed.rs` and the builtin lists in `crates/schema/tests/defs.rs`; with them regenerated
-  locally `cargo xtask ci` passed (with `KITCRAFT_DATA_DIR`).
+  locally `cargo xtask ci` passed (with `KITKRAFT_DATA_DIR`).
 - M4.BX1 ITEMS merge (integrator, BX3, 2026-10-14): the items/workshop family's full ACTI,
   CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM win over round 3's lstring-only stubs
   (every corpus-table lstring is a member); lane E's two tests keep main's ACTI ATTX example
@@ -1109,9 +1109,21 @@ is under "Next".
   `ACPT` on magazines), opaque until lane B types `ObjectModProperty.Value1` (Requests).
   `crates/engine/tests/overhaul_build.rs` builds the spec on a fixture of the 33 real
   records (copied from `Starfield.esm` into a temp localized master with the English
-  tables; skipped without `KITCRAFT_DATA_DIR`) and checks all 42 changes. Report, owner
+  tables; skipped without `KITKRAFT_DATA_DIR`) and checks all 42 changes. Report, owner
   steps and checklist: `docs/overhaul/build-1.md`. **Owner (M3.O5):** the in-game check
   there, on `KitKraft Dev` with a disposable save.
+- **KitKraft identifier rename done** (M4.BX1 integration, 2026-10-14; owner decision 1):
+  packages `kitkraft-*`, crate paths `kitkraft_*` (every `use`, Cargo dependency, xtask
+  `LAYER_TABLE` and layer rule), env vars `KITKRAFT_*`, MCP server name `kitkraft` and
+  resource URIs `kitkraft://`, the index cache `%LOCALAPPDATA%\kitkraft\cache` (not
+  migrated: rebuilt on first use), the package manifest `kitkraft-manifest.json`,
+  `.mcp.json.example`, `.githooks`, docs and plan prose, path mentions
+  `C:\Modding\kitkraft` (the director moves the folder after merge), generated code and
+  goldens regenerated. Deprecated for one release: the old `KITCRAFT_*` env vars are still
+  read when the new one is unset (engine and xtask `env_var_os`, the doc cache, the corpus
+  tests), and `deploy` still reads a package's `kitcraft-manifest.json` (`package`
+  `overwrite` still recognizes a folder holding one); see `docs/corpus.md`, "Environment".
+  The binary stays `kit`; commit history and the remote are unchanged.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1134,7 +1146,7 @@ is under "Next".
   added ones follow member by member; a fresh record is written in definition order), so
   decoding stays lossless and every member keeps its path. Generated `UNORDERED` and
   `match_body` pick the matcher for `bridge`, `coverage` and the world family test;
-  `kitcraft_doc::typed::placements` mirrors the rule. Applied to CELL, REFR and ACHR.
+  `kitkraft_doc::typed::placements` mirrors the rule. Applied to CELL, REFR and ACHR.
   Tests: fixture `UNOR` (any order, `XXXX` kept, edits, a second optional value raw in
   place, random bodies), loader rules, doc placement. Corpus: `world_family_full` (release,
   all 6,719,725 REFR, 40,251 CELL, 14,731 ACHR) places every subrecord the definitions name
@@ -1148,20 +1160,20 @@ is under "Next".
   keeps its REFR NAME 0x1FB known error; all gates green on the merged head.
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
   `docs/mcp.md` are in; an agent cannot restart Claude Code, so the owner runs:
-**M2.F7 result (2026-10-14):** PASS. Owner opened a fresh Claude Code session: `kitcraft` connected with exactly 8 tools (execute, command_line, coverage, diff_plugins, inspect_record, query_records, record_schema, roundtrip), the Default profile preloaded, `record_schema WEAP` returned 50 subrecord definitions (6 typed, 44 opaque), `coverage Constellation.esm` returned 57 records / 8 types. Caveat filed as a lane F request below.
+**M2.F7 result (2026-10-14):** PASS. Owner opened a fresh Claude Code session: `kitkraft` connected with exactly 8 tools (execute, command_line, coverage, diff_plugins, inspect_record, query_records, record_schema, roundtrip), the Default profile preloaded, `record_schema WEAP` returned 50 subrecord definitions (6 typed, 44 opaque), `coverage Constellation.esm` returned 57 records / 8 types. Caveat filed as a lane F request below.
 
   1. `cargo build --release -p kit-cli`
-  2. `claude mcp add --scope local kitcraft -- C:\Modding\kitcraft\target\release\kit.exe mcp`
+  2. `claude mcp add --scope local kitkraft -- C:\Modding\kitkraft\target\release\kit.exe mcp`
      (or copy `.mcp.json.example` to `.mcp.json`, which is gitignored, and approve it).
-  3. New Claude Code session: `/mcp` lists `kitcraft` connected, 8 tools.
-  4. Ask it to call `mcp__kitcraft__coverage` on `<Data>\Constellation.esm`, then
-     `mcp__kitcraft__execute` with `{command: "roundtrip", args: {plugin, verify: true}}`,
-     then `mcp__kitcraft__inspect_record` on a form `coverage` names (`first_record`), then
-     `mcp__kitcraft__query_records {type: "WEAP"}` and `mcp__kitcraft__record_schema
+  3. New Claude Code session: `/mcp` lists `kitkraft` connected, 8 tools.
+  4. Ask it to call `mcp__kitkraft__coverage` on `<Data>\Constellation.esm`, then
+     `mcp__kitkraft__execute` with `{command: "roundtrip", args: {plugin, verify: true}}`,
+     then `mcp__kitkraft__inspect_record` on a form `coverage` names (`first_record`), then
+     `mcp__kitkraft__query_records {type: "WEAP"}` and `mcp__kitkraft__record_schema
      {type: "WEAP"}`; each returns an envelope (`query_records` needs a load order: pass
      `--profile` to `kit mcp`, which now preloads it).
   5. Paste a transcript excerpt here. Headless alternative: `claude -p "..." --mcp-config
-     .mcp.json --allowedTools "mcp__kitcraft__*"`.
+     .mcp.json --allowedTools "mcp__kitkraft__*"`.
 - **Lane B round 3 (M3, `crates/schema`).** M3.O0 done: the owner staged the pinned files
   outside the repo at `C:\Modding\tools\xedit-ref\` (`wbDefinitionsSF1.pas`,
   `wbDefinitionsCommon.pas`, `PIN.txt`). M3.B0 done 2026-10-14: sizes 789,023 and 338,167
@@ -1218,9 +1230,9 @@ is under "Next".
 
 | Task | State |
 | ---- | ----- |
-| M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitCraft's assumed runtime IDs, and the `fixture.toml` template |
+| M3.H1 fixture matrix and session scripts | **done** except F07's recompression candidates (wait for M3.A1's Request): `docs/ck-observations.md` has the ledger format, the matrix F00..F14 with every form resolved (FormID, EditorID, why, the command that found it), the M3.O1 script per fixture, the M3.O2 lists with KitKraft's assumed runtime IDs, and the `fixture.toml` template |
 | M3.H2 `cargo xtask observe` | **done**: `cargo xtask observe <fixture-dir>` writes `report.md`/`report.json` in the fixture folder only (SHA-256 of every file; per plugin TES4, `roundtrip --verify`, `coverage`, `validate`; base, `[[compare]]` and `kit_equivalent` comparisons as byte runs, TES4 diff and `kit diff`, our equivalent in both styles with `ck` reported unavailable until M3.E5); `cargo xtask observe new <F-id>` writes the fixture's `fixture.toml`. Tests: synthetic fixture dirs with a fake `kit` (nothing written outside, rerun byte-identical) and the real `kit` when built |
-| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part done** (2026-10-14, after M3.O3): `cargo xtask oracle sf1edit [--official] [--synthetic] [<plugin>...] [--types ..] [--sample N]` runs xEdit 4.1.5f's console dumper (`xDump64.exe`; `KITCRAFT_SF1EDIT` = `xSFEdit64.exe` or the dumper) on a scratch Data copy and compares with `kit query`/`inspect`; the editor's script mode is **blocked** headless (Module Selection window; without `-script`, the developer message), documented in `docs/oracles.md`. Results: all records, FormIDs, signatures and EditorIDs agree where xEdit can read the file; 711 decoded members agree on `Starfield.esm` WEAP/AMMO/PROJ/COBJ/OMOD (50 each) and 191 on the four readable small official files (every record), 1 disagreement (X8, ours: lossy cp1252 lstring text); version skew: GPOG/GPOF unknown, SFBGS047 (light master) not loadable, 51 WEAPs with an undecodable component; the coverage-gap list per round 3 type is in `docs/oracles.md` for M3.B11 |
+| M3.H4 oracle harness | **Spriggit part done**: `cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...]` (YAML deleted unread; compared with `kit diff`, `coverage`, `roundtrip`, byte and TES4 diffs); run 2026-10-14 on the 5 smallest official files, 3 hand-built synthetic plugins, 3 `kit set` overrides and the rename plugin; `docs/oracles.md` has the build, fixture set and 11 disagreements (S1: 885 lstring-sized values zeroed in localized files; S3: our TES4 `DATA` after `MAST`, see Requests). M3.O1 fixtures and the overhaul build: rerun when they exist. **SF1Edit part done** (2026-10-14, after M3.O3): `cargo xtask oracle sf1edit [--official] [--synthetic] [<plugin>...] [--types ..] [--sample N]` runs xEdit 4.1.5f's console dumper (`xDump64.exe`; `KITKRAFT_SF1EDIT` = `xSFEdit64.exe` or the dumper) on a scratch Data copy and compares with `kit query`/`inspect`; the editor's script mode is **blocked** headless (Module Selection window; without `-script`, the developer message), documented in `docs/oracles.md`. Results: all records, FormIDs, signatures and EditorIDs agree where xEdit can read the file; 711 decoded members agree on `Starfield.esm` WEAP/AMMO/PROJ/COBJ/OMOD (50 each) and 191 on the four readable small official files (every record), 1 disagreement (X8, ours: lossy cp1252 lstring text); version skew: GPOG/GPOF unknown, SFBGS047 (light master) not loadable, 51 WEAPs with an undecodable component; the coverage-gap list per round 3 type is in `docs/oracles.md` for M3.B11 |
 | M3.H3 findings, M3.H5 CK feature ranking | **blocked on M3.O1** (the owner's CK session; `docs/ck-observations.md` has the resolved script, `cargo xtask observe new <id>` the templates) |
 
 ## Next
@@ -1257,13 +1269,13 @@ definition is checked against every corpus occurrence before it moves to
 - **M3.O3 done** (was M2.O3): xEdit is installed at `C:\Modding\tools\xEdit\`; Starfield
   mode is `xSFEdit64.exe` (file version 4.1.5.0, older than the `dev-4.1.6` pin
   `9fb01688...`, so M3.B11 records the skew). Unblocks M3.H4's SF1Edit part
-  (`KITCRAFT_SF1EDIT`) and M3.B11 (see Requests).
+  (`KITKRAFT_SF1EDIT`) and M3.B11 (see Requests).
 - **Owner decision 1 closed: the name is KitKraft.** Identifiers are renamed too:
   crates `kitkraft-*`, env vars `KITKRAFT_*` (`DATA_DIR`, `CACHE_DIR`, `SF1EDIT`), MCP
   server name `kitkraft`, resource URIs `kitkraft://`, the cache dir, and the repo folder
-  `C:\Modding\kitkraft`; the binary stays `kit`. **Rename pending**: scheduled as the last
-  integration step after the in-flight lanes land; nobody renames identifiers before
-  then. Prose uses KitKraft now.
+  `C:\Modding\kitkraft`; the binary stays `kit`. **Rename done** in the M4.BX1
+  integration (see "Done"); the old `KITCRAFT_*` env vars and `kitcraft-manifest.json` are
+  read as a deprecated fallback for one release. Prose uses KitKraft.
 - **M4.O3 decided, default overturned** (ADR 0008): SFSE, native runtime extensions and
   analogous frameworks are supported where technically justified; core crates never
   depend on them (`runtime/` or an `RT` crate); CommonLibSF not read or linked until its
@@ -1293,7 +1305,7 @@ definition is checked against every corpus occurrence before it moves to
 
 | #   | Decision                                | Default until decided             |
 | --- | --------------------------------------- | --------------------------------- |
-| 1   | Project name                            | **decided 2026-10-14**: KitKraft; identifier rename to `kitkraft-*` / `KITKRAFT_*` / `kitkraft://` pending (last integration step); binary `kit` |
+| 1   | Project name                            | **decided 2026-10-14**: KitKraft; identifiers renamed to `kitkraft-*` / `KITKRAFT_*` / `kitkraft://` (**done**, M4.BX1 integration; old env names read for one release); binary `kit` |
 | 2   | xEdit MPL source policy (ADR 0004)      | **decided 2026-10-14** (pinned xEdit SF1 definitions as reference) |
 | 2a  | Review `docs/xedit-reference.md` and ADRs 0004/0005/0001 before lane B round 3 | **approved 2026-10-14** (M2.O1; lane B unpaused) |
 | 2b  | Whether `wbDefinitionsCommon.pas` (helpers the SF1 file uses) may be cited too | **approved 2026-10-14**: yes, same SHA, same rules (ADR 0004 owner approval) |
@@ -1318,7 +1330,7 @@ definition is checked against every corpus occurrence before it moves to
 
 #### M2.O6: in-game check of the rename plugin (owner)
 
-The plugin is `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` (2,221 bytes,
+The plugin is `C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm` (2,221 bytes,
 SHA-256 `9C0B28A6...4078EA27`, regenerated 2026-10-14 after lane E round 2 added `CNAM`
 and `INCC` to its `TES4`; full hash and details in `docs/smoke-rename.md`). It
 renames `Starfield.esm:0021BBCD` (WEAP `RussianHuntingRifle`, "Old Earth Hunting Rifle")
@@ -1327,9 +1339,9 @@ to "Old Soviet Marksman Rifle". In the Default profile the rifle's winner is
 the patch's only master is `Starfield.esm`. Use a disposable save.
 
 1. MO2: right-click the mod list > *Create empty mod* > `Old Soviet Marksman Rifle
-   (kitcraft smoke test)`.
+   (kitkraft smoke test)`.
 2. Copy the plugin into `C:\Modding\MO2-Starfield\mods\Old Soviet Marksman Rifle
-   (kitcraft smoke test)\`.
+   (kitkraft smoke test)\`.
 3. Enable the mod and its plugin; put the plugin last in the load order (it must load
    after the rifle's winner; if a mod that overrides `0021BBCD` is added later, rebuild
    the patch from that load order and keep the patch after it).
@@ -1360,7 +1372,7 @@ wins") but still the owner's to confirm:
 
 ## Requests (cross-lane)
 
-- ~~**To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITCRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).~~
+- ~~**To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITKRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).~~
   Done in M4.F1 (Done, "Lane F, M4"): one resolver (`handlers/resolve.rs`) for every
   input name; `not_found` names the places searched.
 
@@ -1370,7 +1382,7 @@ Agents append here when they need a change in a crate they do not own.
   values: `ObjectModProperty.Value1` is opaque because xEdit decides it by the sibling
   `ValueType` (`wbDefinitionsSF1.pas@9fb0168...#L1981-L2031`, list `#L6894-L6938`), and
   the format only has `edid-prefix` unions, so this is format work (loader, codegen,
-  `kitcraft_doc::typed`, `edit::fields`), not a TOML-only definition. Narrowest useful
+  `kitkraft_doc::typed`, `edit::fields`), not a TOML-only definition. Narrowest useful
   step: Value1 as `i32` when `ValueType` = Int (0) and `f32` when Float (1), every other
   variant raw (FormIDs stay opaque as now); corpus re-encode identical. It closes, with
   rules only: `WSPS` on receivers `077F13` (7.5 -> 5.625), `057555` (1.0 -> 1.5625),
@@ -1385,7 +1397,7 @@ Agents append here when they need a change in a crate they do not own.
 
 - **Owner -> lanes H and B (M3.O3 done 2026-10-14).** SF1Edit is installed:
   `C:\Modding\tools\xEdit\xSFEdit64.exe` (file version 4.1.5.0). Lane H: run M3.H4's
-  SF1Edit part with `KITCRAFT_SF1EDIT` pointing there, and update the SF1EDIT row of
+  SF1Edit part with `KITKRAFT_SF1EDIT` pointing there, and update the SF1EDIT row of
   `docs/source-registry.md` ("not installed yet"). Lane B: M3.B11 is unblocked on the
   SF1Edit side; record the build's skew from the pin.
 - **Policy -> lane D (later, for M4.E11, ADR 0009).** A read-only MO2 instance check in
@@ -1393,12 +1405,12 @@ Agents append here when they need a change in a crate they do not own.
   `kit deploy --dev`.
 - **Policy -> lane F (later, M4.W0, ADR 0007 Amendment 1).** `data` shape tests for the
   inspection commands and a catalog marking of writing commands, as the gate for lane W.
-- **Policy -> all lanes (naming).** Write KitKraft in prose; do not rename `kitcraft`
-  identifiers: the rename is the last integration step (Decision records).
+- **Policy -> all lanes (naming).** Write KitKraft in prose and use only the `kitkraft`
+  identifiers: the rename is done (M4.BX1 integration, "Done" and Decision records).
 - **Lane E (M4.E11) -> lane D.** `deploy` resolves the MO2 instance itself
   (`crates/engine/src/deploy/instance.rs`: `ModOrganizer.ini` `mod_directory`,
   `profiles_directory`, `overwrite_directory`, `download_directory`, `base_directory`,
-  `selected_profile`; links and junctions refused) with `kitcraft_io::ini::Ini` and
+  `selected_profile`; links and junctions refused) with `kitkraft_io::ini::Ini` and
   `Profile`. ADR 0009 wants a read-only instance type in `crates/io`; when it exists,
   `Instance::resolve` should call it (the settings logic duplicates part of
   `Profile::read_with`).
@@ -1407,12 +1419,12 @@ Agents append here when they need a change in a crate they do not own.
   backups (one kept), journal beside the folders, `dry_run` instead of `plan`,
   `kitkraft-deploy.json` (`docs/deploy.md`, "Where this differs"). `docs/mcp.md` could
   link `docs/deploy.md` under "Command results". When M4.E5 `package` lands, check its
-  `kitcraft-manifest.json` against what `deploy` verifies (`files[]` of
+  `kitkraft-manifest.json` against what `deploy` verifies (`files[]` of
   `{path, sha256, size}`, optional `plugins[]`).
 - **Lane G -> lanes E, F, H (M4 lane G).** (1) Lane E: `package` (M4.E5's shape) landed in
   lane G (`handlers/package.rs`, `docs/packaging.md`), validating with `validate::run`
   and guarding `out` with `edit::patch::guard_location`; `testplan` (M4.E6) can read the
-  folder's `kitcraft-manifest.json` for plugin hashes. (2) Lane F (M4.F1): `package`
+  folder's `kitkraft-manifest.json` for plugin hashes. (2) Lane F (M4.F1): `package`
   writes files (`destructiveHint`), `papyrus.events` is read-only; both are in the
   `docs/mcp.md` command sections. (3) Lane H (M4.H3): take event names for
   `docs/design/persistence.md` from `kit papyrus events --event <name>
@@ -1513,22 +1525,22 @@ Agents append here when they need a change in a crate they do not own.
   ...` prints the runtime ID it assumes; `inspect` now needs `runtime:<hex>` for a runtime
   ID); (c) whether `HG_ShipCargoHoldAtHome.esm`'s records (stored `02xxxxxx` with one
   master) exist in game; (d) where the game loads `ShatteredSpace`, `SFBGS004`, `SFBGS00D`,
-  `SFBGS050`, `BlueprintShips-SFBGS050` and `SFBGS047` (KitCraft now assumes right after
+  `SFBGS050`, `BlueprintShips-SFBGS050` and `SFBGS047` (KitKraft now assumes right after
   the `Starfield.ccc` plugins, `hardcoded-official-slots`): the runtime IDs of their objects
   in game would show their slots. Lead: the CK's own `EditorDataFilesLoaded.txt` in the game
   dir lists each loaded file with its index and ID form (`001 - (FE000XXX) -
   'KZ_Mantis.esm'`); a CK session with the full profile would record the CK's order.
 - **Lane D -> lane H / owner (M3.O2 script, from M3.D6).** BlueprintShips-SFBGS050.esm is
   localized but ships no string tables; its 66 LCTN and 30 GBFM names (FULL) resolve
-  nowhere in KitCraft. In game, a location from it (for example the first unresolved LCTN
+  nowhere in KitKraft. In game, a location from it (for example the first unresolved LCTN
   `kit inspect` lists) would show whether the game reads its names from SFBGS050's tables
   (30 of the 96 IDs exist there) or shows none. **Lane H:** in the M3.O2 script
   (`docs/ck-observations.md`, step 3) with `BlueprintInteriorSFTER_TerranShip_Generic_TESTLocation`
   (`FULL` 0x0002E9C4; none of the 66 LCTN name IDs is in `sfbgs050_en.strings`).
 - **Lane D -> lanes E, F (review round 2 API changes).** A deleted version is
-  `RecordLoc.flags & kitcraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
+  `RecordLoc.flags & kitkraft_doc::flags::RECORD_FLAG_DELETED != 0` (`inspect` and `query`
   show `deleted`), for lane E's refusal of deleted sources. `Version` has `basis`
-  (`kitcraft_doc::Basis`: `Direct`, `FullStyleSelf`, `FullStyleSelfMasked`);
+  (`kitkraft_doc::Basis`: `Direct`, `FullStyleSelf`, `FullStyleSelfMasked`);
   `MasterMap::resolve_detailed` returns it instead of a bool. `ResolveError` gained
   `MasterNotLoaded`, `PluginNotLoaded` and `Null` (raw `00000000` never resolves);
   `FormRef::parse` refuses object ID 0. `inspect` reads bare hex only with `plugin`; a
@@ -1564,7 +1576,7 @@ Agents append here when they need a change in a crate they do not own.
   text) rather than change it; a `bytes` field would let it copy them exactly.
   **Done (lane D, M3.D1):** (1) `Loaded::missing_active_plugins` (the limitation text stays
   for readers, but nothing needs to match it) and `Loaded::source_check(form)`
-  (`kitcraft_doc::SourceCheck { winner, blocking, unrelated }`, `is_safe()`): refuse on
+  (`kitkraft_doc::SourceCheck { winner, blocking, unrelated }`, `is_safe()`): refuse on
   `blocking`, report `unrelated` as limitations (M3.E1). (2) `Resolved::bytes` and
   `Resolved::utf8` (M3.E2).
 - **Lane E -> owner (M2.O4).** The `ck-diff` half of M2.E3 is open: what the CK writes for
@@ -1574,11 +1586,11 @@ Agents append here when they need a change in a crate they do not own.
   load order is a `fn(&mut Session, &Value) -> Result<Outcome, EngineError>` added to
   `handlers::session_defaults()` (stateless handlers stay in `defaults()`). Keep your
   typed state in a slot (`Session::insert` / `get` / `get_mut`); `load` also sets
-  `Session::set_load_order(Some(listing))`, which `kitcraft://load-order` serves as is.
+  `Session::set_load_order(Some(listing))`, which `kitkraft://load-order` serves as is.
   When you flip a command to `Implemented`, removing its `PLANNED_IN_M2` line in
   `crates/engine/src/lib.rs` is optional (a stale entry only prints); a command you will
   not finish in M2 becomes `Status::Deferred { reason, milestone: "M3" }`.
-- **Lane G -> lane D (M2.G8 landed; for M2.D7).** `kitcraft-strings` API:
+- **Lane G -> lane D (M2.G8 landed; for M2.D7).** `kitkraft-strings` API:
   - `Kind::{Strings, DlStrings, IlStrings}`, `Kind::from_path(&Path)`,
     `Kind::from_extension(&str)`, `kind.extension()`;
     `table_name("Starfield.esm", "en", Kind::Strings) == "starfield_en.strings"`.
@@ -1587,7 +1599,7 @@ Agents append here when they need a change in a crate they do not own.
     with `entry.text() -> Cow<str>` (lossy UTF-8), `entry.is_utf8()`,
     `entry.stored_len(kind)`; `offset` is the absolute offset in the table file (evidence).
     `Error` variants carry byte offsets.
-  - Tables in archives: `kitcraft_ba2::Archive::open(&path) -> (Archive, File)`,
+  - Tables in archives: `kitkraft_ba2::Archive::open(&path) -> (Archive, File)`,
     `archive.find("strings/starfield_en.strings") -> Option<usize>` (case-insensitive,
     either separator), `archive.extract_vec(&mut file, index, cap)` (round 2: `cap` in
     bytes, e.g. `256 << 20`; above it `Error::TooLarge`). Corpus: base-game tables are
@@ -1614,11 +1626,11 @@ Agents append here when they need a change in a crate they do not own.
   EOF fails with the child's exit status and stderr.
 - **Lane G -> lane D (FYI, done in the lane G merge).** `Archive::extract_vec` takes a
   byte cap now; `crates/doc/src/strings.rs` passes 256 MiB (the `strings.dump` cap). An
-  entry above it is `kitcraft_ba2::Error::TooLarge`, reported like any other table error.
-- **Lane G -> lane E (for M2.E8).** `kitcraft_pex::Pex::parse(&bytes)`; calls are
+  entry above it is `kitkraft_ba2::Error::TooLarge`, reported like any other table error.
+- **Lane G -> lane E (for M2.E8).** `kitkraft_pex::Pex::parse(&bytes)`; calls are
   `Instruction`s with `opcode_name(op)` `callmethod` / `callstatic` / `callparent`, the
   function name in `args[0]` (`Value::Identifier`, resolve with `pex.string(i)`), the base
-  object in `args[1]`; `.pex` inside archives via `kitcraft_ba2` as above, or
+  object in `args[1]`; `.pex` inside archives via `kitkraft_ba2` as above, or
   `execute("papyrus.disasm", {pex, archive?, format: "json"})`.
 - ~~**Lane G -> lane F.**~~ Answered in lane F round 3 (end of this entry; (1) is moot: no
   catalog command is `Planned`, and those tests build their own spec). (1) Tests that used `ba2.list` as their example of a `Planned`
@@ -1637,7 +1649,7 @@ Agents append here when they need a change in a crate they do not own.
   `crates/schema/src/lib.rs`, one rustfmt-formatted entry per file in file-name order
   (top level, then `common/`). xtask (lane F) may rewrite exactly those lines;
   `tests/defs.rs` checks the markers and stays the guard until it does.
-- **Lane A -> lane D (M2.A1, M2.A2 landed).** `kitcraft_esm::index`:
+- **Lane A -> lane D (M2.A1, M2.A2 landed).** `kitkraft_esm::index`:
   `index_file(&Path, &IndexOptions) -> Result<PluginIndex>` (also `index_bytes`,
   `index_reader`). `PluginIndex { file_len, header: Record<'static> /* TES4, parsed */,
   records: Vec<RecordLoc> /* file order, TES4 first */, groups: Vec<GroupLoc> }`;
@@ -1652,7 +1664,7 @@ Agents append here when they need a change in a crate they do not own.
   index is not serializable yet (no serde in esm); say if D5 wants a byte format from
   esm instead of its own.
 - **Lane A -> lane E (M2.A5 landed; review follow-ups 1, 3, 8, 9 in).**
-  `kitcraft_esm::build`: `Plugin::create(&HeaderSpec)`; `HeaderSpec::new(masters)` fills
+  `kitkraft_esm::build`: `Plugin::create(&HeaderSpec)`; `HeaderSpec::new(masters)` fills
   corpus-observed defaults (flags 0, form version 582, `HEDR` 0.96, next object ID
   0xFF001000) that M2.E3 should confirm or change; masters are written exactly as given
   (`MAST` + 8-byte zero `DATA`), nothing inferred. `Plugin::upsert(&[GroupHeader],
@@ -1709,7 +1721,7 @@ Agents append here when they need a change in a crate they do not own.
   confidence), `handlers::overhaul_tests` (KSIZ is looked up by name: WEAP's numeric
   members now come first) and `tests/diff_corpus.rs` (picks a record type whose definition
   places KWDA, since lstring-only definitions keep it raw).
-- **Lane A -> lane E (M4.A1..A6 landed; for M4.E1, E2, E3, E4).** `kitcraft_esm`:
+- **Lane A -> lane E (M4.A1..A6 landed; for M4.E1, E2, E3, E4).** `kitkraft_esm`:
   - `forms::NewForms::for_index(&index, &master_scales)` / `for_plugin(&plugin,
     &master_scales)` / `new(&tes4, &master_scales, own_max)` -> `allocate() ->
     Result<u32>`, `write_hedr(&mut tes4)`; `master_scales: &[Option<tes4::Scale>]` is
@@ -1771,7 +1783,7 @@ Agents append here when they need a change in a crate they do not own.
   `plugin_archives` and `.ba2` inputs in `scripts`; `docs/mcp.md` has their sections, the
   command list (M3.F3) may want them. **Lane F:** (1) answered: the sections are the
   command list; no shortcut tool (`execute` and `command_line` reach it, and the tool
-  descriptions and `kitcraft://commands` list it from the catalog). (2) Lane D: `build`'s `via` follows typed FormID
+  descriptions and `kitkraft://commands` list it from the catalog). (2) Lane D: `build`'s `via` follows typed FormID
   members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
   `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
 - ~~**Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
@@ -1810,7 +1822,7 @@ Agents append here when they need a change in a crate they do not own.
   merge): PositionRotation's position and rotation and ObjectBounds' corners are `Vec3`,
   OwnerData's NoCrime is `Bool8`. The unordered mode is done too (M4.BX1, integrator,
   2026-10-14; see Done).
-- **World schema lane -> lane D.** `kitcraft_doc::typed::field_type` picks a layout by
+- **World schema lane -> lane D.** `kitkraft_doc::typed::field_type` picks a layout by
   signature, which is ambiguous for REFR `INAM` (patrol idle FormID vs pack-in u16) and
   wrong for subrecords inside BFCB bodies that share a member's signature (WRLD `PNAM`,
   `NAM2`..`NAM9`). `crates/doc/tests/typed_corpus.rs` now maps each subrecord to the member
@@ -1871,7 +1883,7 @@ Agents append here when they need a change in a crate they do not own.
   (`Mismatch` and `RoundtripReport` have the same fields), so the engine compiles as is;
   for an end-to-end exit-1 fixture, a compressed record whose last stream byte is flipped
   (Adler-32) is the simplest (`driver::tests::decode_reports_a_corrupt_well_sized_stream`).
-- ~~**Planet schema lane -> lane D.** `kitcraft_doc::typed::field_type` looks a layout up by
+- ~~**Planet schema lane -> lane D.** `kitkraft_doc::typed::field_type` looks a layout up by
   signature, so it cannot tell a top-level member from the same signature at another
   position: PNDT has CNAM, FNAM and GNAM twice with different layouts (it returns the
   "ambiguous" error), and the component blocks of PCBN, PKIN and GBFM contain NAM1..NAM5,
@@ -1882,7 +1894,7 @@ Agents append here when they need a change in a crate they do not own.
   `generated::records::match_members` (the decoder's own placement) and skip `any_until`
   bodies. Until then the GBFM object-template FULL is left out of the schema (it made the
   small-file test fail on SFBGS004 GBFM FE000046).~~ Done in M4.BX1 (positional layouts in
-  `kitcraft_doc::typed`, see Done); the GBFM object-template FULL can be typed again
+  `kitkraft_doc::typed`, see Done); the GBFM object-template FULL can be typed again
   (family lane BP).
 - ~~**Planet schema lane -> lane E.** (1) `edit::fields::layout_for` has the same
   signature-only limit (PNDT CNAM/FNAM/GNAM return the "different layouts" error, so
@@ -1971,7 +1983,7 @@ Agents append here when they need a change in a crate they do not own.
 - **Items/workshop schema lane (M4.BI1) -> BX (integrator).** Done in M4.BX1 (ITEMS merge, see Done; (2) by the engine-reserved ID rule of ADR 0005 Amendment 4). (1) Derived files to
   regenerate at merge: `crates/esm/src/generated/` (`cargo xtask codegen`), the
   `BUILTIN_DEFINITIONS` region (12 records, 11 `common/` files), `crates/schema/tests/
-  golden/seed.rs` (`KITCRAFT_UPDATE_GOLDEN=1`) and the record and common lists in
+  golden/seed.rs` (`KITKRAFT_UPDATE_GOLDEN=1`) and the record and common lists in
   `crates/schema/tests/defs.rs`. (2) `validate_corpus_official_files` (`#[ignore]`) then
   reports 646 new `formid.dangling` errors in Starfield.esm, all `ObjectProperty.ActorValue`
   (the PRPS element) naming object IDs below 0x800 that no official file defines, the same

@@ -13,8 +13,8 @@ use std::io::{BufRead, BufReader, Write};
 use std::path::PathBuf;
 use std::thread::JoinHandle;
 
-use kitcraft_engine::{Engine, EngineError, Outcome, Session};
-use kitcraft_mcp::Server;
+use kitkraft_engine::{Engine, EngineError, Outcome, Session};
+use kitkraft_mcp::Server;
 use serde_json::{json, Value};
 
 /// A minimal valid plugin: `TES4` (HEDR), then `GRUP GMST` holding one `GMST` record.
@@ -50,7 +50,7 @@ fn synthetic_plugin() -> Vec<u8> {
 }
 
 fn temp_plugin(name: &str) -> PathBuf {
-    let path = std::env::temp_dir().join(format!("kitcraft-mcp-{name}-{}.esm", std::process::id()));
+    let path = std::env::temp_dir().join(format!("kitkraft-mcp-{name}-{}.esm", std::process::id()));
     std::fs::write(&path, synthetic_plugin()).unwrap();
     path
 }
@@ -117,7 +117,7 @@ impl Client {
 
 fn modern_meta() -> Value {
     json!({
-        "io.modelcontextprotocol/protocolVersion": kitcraft_mcp::PROTOCOL_VERSION,
+        "io.modelcontextprotocol/protocolVersion": kitkraft_mcp::PROTOCOL_VERSION,
         "io.modelcontextprotocol/clientCapabilities": {},
         "io.modelcontextprotocol/clientInfo": {"name": "stdio-test", "version": "0"}
     })
@@ -181,7 +181,7 @@ fn legacy_handshake_then_tools() {
     assert_eq!(got["data"]["identical"], true);
     assert_eq!(got["data"]["passed"], true);
     let expected =
-        kitcraft_engine::execute("roundtrip", json!({"plugin": plugin, "verify": true})).unwrap();
+        kitkraft_engine::execute("roundtrip", json!({"plugin": plugin, "verify": true})).unwrap();
     assert_eq!(without_timing(got), without_timing(expected));
 
     // coverage through `execute`.
@@ -225,7 +225,7 @@ fn modern_requests_without_handshake() {
     let discover = client.request("server/discover", json!({"_meta": modern_meta()}));
     assert_eq!(
         discover["result"]["supportedVersions"][0],
-        kitcraft_mcp::PROTOCOL_VERSION
+        kitkraft_mcp::PROTOCOL_VERSION
     );
     assert_eq!(discover["result"]["resultType"], "complete");
 
@@ -297,7 +297,7 @@ fn one_session_across_tool_calls() {
     );
     assert_eq!(envelope(&after)["data"]["searched"], plugins);
 
-    let read = client.request("resources/read", json!({"uri": "kitcraft://load-order"}));
+    let read = client.request("resources/read", json!({"uri": "kitkraft://load-order"}));
     let text = read["result"]["contents"][0]["text"].as_str().unwrap();
     assert_eq!(
         serde_json::from_str::<Value>(text).unwrap()["plugins"],
@@ -426,7 +426,7 @@ fn coverage_is_a_summary_by_default_over_mcp() {
     assert!(lists_signatures(&envelope(&reply)));
 
     // The CLI-side default (the engine with no MCP layer) keeps the lists.
-    let direct = kitcraft_engine::execute("coverage", json!({"plugin": plugin})).unwrap();
+    let direct = kitkraft_engine::execute("coverage", json!({"plugin": plugin})).unwrap();
     assert!(lists_signatures(&direct));
     client.finish();
     std::fs::remove_file(&path).unwrap();

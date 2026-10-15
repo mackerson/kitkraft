@@ -4,9 +4,9 @@
 `crates/schema/defs/`, to the `coverage` command, or to the corpus.
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
-  `fnv1a64:bf2cf69aac7a97a9`), read in place from `KITCRAFT_DATA_DIR`; each file's
+  `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 86 record definitions, defs hash `fnv1a64:c9cd94004b070352` (the hash named in
+- Schema: 86 record definitions, defs hash `fnv1a64:88e583eb01f44f52` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords

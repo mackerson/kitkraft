@@ -194,13 +194,13 @@ name = "kit-cli"
 version = "0.0.0"
 dependencies = [
  "clap",
- "kitcraft-engine",
- "kitcraft-mcp",
+ "kitkraft-engine",
+ "kitkraft-mcp",
  "serde_json",
 ]
 
 [[package]]
-name = "kitcraft-ba2"
+name = "kitkraft-ba2"
 version = "0.0.0"
 dependencies = [
  "flate2",
@@ -209,28 +209,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "kitcraft-doc"
+name = "kitkraft-doc"
 version = "0.0.0"
 dependencies = [
- "kitcraft-ba2",
- "kitcraft-esm",
- "kitcraft-schema",
- "kitcraft-strings",
+ "kitkraft-ba2",
+ "kitkraft-esm",
+ "kitkraft-schema",
+ "kitkraft-strings",
  "thiserror",
 ]
 
 [[package]]
-name = "kitcraft-engine"
+name = "kitkraft-engine"
 version = "0.0.0"
 dependencies = [
- "kitcraft-ba2",
- "kitcraft-doc",
- "kitcraft-esm",
- "kitcraft-io",
- "kitcraft-nif",
- "kitcraft-pex",
- "kitcraft-schema",
- "kitcraft-strings",
+ "kitkraft-ba2",
+ "kitkraft-doc",
+ "kitkraft-esm",
+ "kitkraft-io",
+ "kitkraft-nif",
+ "kitkraft-pex",
+ "kitkraft-schema",
+ "kitkraft-strings",
  "regex",
  "serde",
  "serde_json",
@@ -240,44 +240,44 @@ dependencies = [
 ]
 
 [[package]]
-name = "kitcraft-esm"
+name = "kitkraft-esm"
 version = "0.0.0"
 dependencies = [
  "flate2",
- "kitcraft-schema",
+ "kitkraft-schema",
  "thiserror",
  "toml",
 ]
 
 [[package]]
-name = "kitcraft-io"
+name = "kitkraft-io"
 version = "0.0.0"
 dependencies = [
- "kitcraft-doc",
+ "kitkraft-doc",
  "thiserror",
 ]
 
 [[package]]
-name = "kitcraft-mcp"
+name = "kitkraft-mcp"
 version = "0.0.0"
 dependencies = [
- "kitcraft-engine",
+ "kitkraft-engine",
  "serde_json",
 ]
 
 [[package]]
-name = "kitcraft-nif"
+name = "kitkraft-nif"
 version = "0.0.0"
 
 [[package]]
-name = "kitcraft-pex"
+name = "kitkraft-pex"
 version = "0.0.0"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
-name = "kitcraft-schema"
+name = "kitkraft-schema"
 version = "0.0.0"
 dependencies = [
  "serde",
@@ -286,7 +286,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "kitcraft-strings"
+name = "kitkraft-strings"
 version = "0.0.0"
 dependencies = [
  "thiserror",
@@ -552,7 +552,7 @@ name = "xtask"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "kitcraft-schema",
+ "kitkraft-schema",
  "serde_json",
  "toml",
 ]

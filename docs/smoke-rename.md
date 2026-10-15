@@ -3,7 +3,7 @@
 Rename the **Old Earth Hunting Rifle** to **Old Soviet Marksman Rifle** in a new plugin,
 check it, and load it in the game. Everything up to the in-game check is automated
 (`crates/engine/tests/smoke_rename.rs`, through `execute`, skipped without
-`KITCRAFT_DATA_DIR`); the in-game check is the owner's (M2.O6).
+`KITKRAFT_DATA_DIR`); the in-game check is the owner's (M2.O6).
 
 ## The record
 
@@ -22,7 +22,7 @@ Only one WEAP carries the name, so there is no base-vs-variant choice to make.
 
 ```powershell
 $data = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
-$out  = 'C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm'
+$out  = 'C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm'
 
 # 1-2. The load order and the form (Starfield.esm alone: the rifle's only version).
 kit query WEAP --where "FULL ~ 'Old Earth Hunting Rifle'" --plugins Starfield.esm --data-dir $data
@@ -31,7 +31,7 @@ kit query WEAP --where "FULL ~ 'Old Earth Hunting Rifle'" --plugins Starfield.es
 #    patch in place (its header is kept), so delete $out first to write it fresh; `build`
 #    always writes fresh and replaces an existing file only with --overwrite.
 kit set Starfield.esm:0021BBCD 'FULL=Old Soviet Marksman Rifle' --into $out --plugins Starfield.esm --data-dir $data
-kit build docs\smoke-rename.toml C:\Modding\kitcraft\out\built\OldSovietMarksmanRifle.esm --overwrite
+kit build docs\smoke-rename.toml C:\Modding\kitkraft\out\built\OldSovietMarksmanRifle.esm --overwrite
 
 # 4. Check it.
 kit validate --plugin $out --plugins Starfield.esm --data-dir $data
@@ -55,7 +55,7 @@ any such load order ("load order unverified"). The rifle's winner in that profil
 
 `OldSovietMarksmanRifle.esm`, 2,221 bytes, SHA-256
 `9C0B28A6E9C4CDF4C7878CF7DD745A022CF6E0AE943D2AD3DA6C8F044078EA27`, identical from `set`
-and `build` (regenerated in `C:\Modding\kitcraft\out\` and `out\built\`). The first
+and `build` (regenerated in `C:\Modding\kitkraft\out\` and `out\built\`). The first
 build (2,197 bytes, `73F3F92F27EC1285...194A3C24`) differs only in `TES4`: review finding 5
 added `CNAM` "DEFAULT" and `INCC` 0; every byte after `TES4` is the same.
 
@@ -85,9 +85,9 @@ table (`docs/validate.md`) adds: its 8 inlined lstrings are the schema's.
 The agent cannot launch the game; these steps are the owner's. Use a disposable save.
 
 1. In MO2 (`C:\Modding\MO2-Starfield`), create an empty mod (right-click the mod list >
-   *Create empty mod*), name it `Old Soviet Marksman Rifle (kitcraft smoke test)`.
-2. Copy `C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` into that mod's folder
-   (`mods\Old Soviet Marksman Rifle (kitcraft smoke test)\`).
+   *Create empty mod*), name it `Old Soviet Marksman Rifle (kitkraft smoke test)`.
+2. Copy `C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm` into that mod's folder
+   (`mods\Old Soviet Marksman Rifle (kitkraft smoke test)\`).
 3. Enable the mod; in the plugin list enable `OldSovietMarksmanRifle.esm` and put it at the
    end of the load order. It must load **after** the rifle's current winner
    (`Starfield.esm` in the Default profile today; if another mod is added that overrides

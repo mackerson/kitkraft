@@ -1,7 +1,7 @@
 # Planet content family: what the schema says, and what it does not
 
 For mod authors who want to read or patch Starfield's procedural planet content with
-KitCraft: the Planet Content Manager trees (PCMT, PCBN, PCCN), pack-ins (PKIN, LVLP),
+KitKraft: the Planet Content Manager trees (PCMT, PCBN, PCCN), pack-ins (PKIN, LVLP),
 generic base forms (GBFM), biomes (BIOM), planets and stars (PNDT, STDT, SUNP), terrain
 blocks and patterns (SFBK, SFPT), resources (RSGD), research projects (RSPJ) and
 traversals (TRAV). The definitions are in `crates/schema/defs/<SIG>.toml`; `kit schema
@@ -36,7 +36,7 @@ stay at `reference` confidence (documented upstream, not yet seen).
 
 All 26,290 records decode and re-encode byte-identically (PNDT records are all compressed
 and are checked after decompression). Two checks, both on all 14 files with the generated
-decoder regenerated from these definitions: `kitcraft-esm`'s `corpus_full_roundtrip`
+decoder regenerated from these definitions: `kitkraft-esm`'s `corpus_full_roundtrip`
 typed check (M2.A3, release: 0 conflicts, 0 unchecked records), and a stricter
 out-of-tree pass that also requires every subrecord to be placed in a member and
 `Record::extra()` to be empty for every record (the driver's own `extra` check covers only

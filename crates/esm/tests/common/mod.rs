@@ -1,6 +1,6 @@
 //! Shared helpers for corpus tests.
 //!
-//! The official ESMs are read in place from `KITCRAFT_DATA_DIR` and never copied into the
+//! The official ESMs are read in place from `KITKRAFT_DATA_DIR` and never copied into the
 //! repository (see `docs/corpus.md`). `corpus/manifest.toml` pins each file by size and
 //! SHA-256; [`files`] checks the size, [`verify_hashes`] the hash, and a mismatch in either
 //! is reported as "corpus changed", not as a roundtrip failure. When the variable is unset
@@ -17,7 +17,10 @@ pub mod sha256;
 use std::path::{Path, PathBuf};
 
 /// Environment variable naming the Starfield `Data` directory.
-pub const DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
+pub const DATA_DIR_VAR: &str = "KITKRAFT_DATA_DIR";
+
+/// The pre-rename spelling of [`DATA_DIR_VAR`], still read (deprecated, one release).
+pub const OLD_DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
 
 /// The files used by the fast tests (under 512 KiB each). `SFBGS047.esm` has 2 compressed
 /// records and one `XXXX` subrecord; `SFBGS004.esm` has 2 compressed records.
@@ -118,7 +121,7 @@ pub fn manifest() -> Vec<ManifestEntry> {
 
 /// The data directory, or `None` (after printing one skip line) when it is unavailable.
 pub fn data_dir(test: &str) -> Option<PathBuf> {
-    match std::env::var_os(DATA_DIR_VAR) {
+    match std::env::var_os(DATA_DIR_VAR).or_else(|| std::env::var_os(OLD_DATA_DIR_VAR)) {
         None => {
             println!("skip {test}: {DATA_DIR_VAR} is not set (see docs/corpus.md)");
             None

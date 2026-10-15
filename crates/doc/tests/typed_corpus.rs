@@ -1,6 +1,6 @@
-//! M3.D6 on the official files (`KITCRAFT_DATA_DIR`; skips when unset).
+//! M3.D6 on the official files (`KITKRAFT_DATA_DIR`; skips when unset).
 //!
-//! - The reader `inspect`, `where` and `diff` decode with (`kitcraft_doc::typed`, an
+//! - The reader `inspect`, `where` and `diff` decode with (`kitkraft_doc::typed`, an
 //!   interpreter over lane B's schema) agrees with the generated decoder
 //!   (`Plugin::typed` / `generated::records::Record::decode`): on every record of a defined
 //!   type, the FormIDs and string IDs it reads from the subrecords the generated decoder
@@ -8,10 +8,10 @@
 //!   decodes.
 //! - Every lstring ID (FULL and DESC on every record type, and every schema `lstring`
 //!   member: the GMST `s` settings) is in its plugin's string tables, looked up through
-//!   `kitcraft_doc::strings` exactly as `inspect` does; ID 0 is counted apart.
+//!   `kitkraft_doc::strings` exactly as `inspect` does; ID 0 is counted apart.
 //!
 //! Fast: the five small files. `#[ignore]` (release): all 14.
-//! `cargo test -p kitcraft-doc --release --test typed_corpus -- --ignored --nocapture`
+//! `cargo test -p kitkraft-doc --release --test typed_corpus -- --ignored --nocapture`
 
 #![allow(
     clippy::unwrap_used,
@@ -25,13 +25,13 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use kitcraft_doc::lstring::{decode_lstring, is_lstring, LString};
-use kitcraft_doc::strings::{DirSource, StringTables};
-use kitcraft_doc::typed::{self, Decoded};
-use kitcraft_esm::bridge::{Ctx, RawSub};
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::generated::records::{LString as GenLString, Record as Generated};
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord};
+use kitkraft_doc::lstring::{decode_lstring, is_lstring, LString};
+use kitkraft_doc::strings::{DirSource, StringTables};
+use kitkraft_doc::typed::{self, Decoded};
+use kitkraft_esm::bridge::{Ctx, RawSub};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::generated::records::{LString as GenLString, Record as Generated};
+use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord};
 
 const SMALL: [&str; 5] = [
     "Constellation.esm",
@@ -59,7 +59,9 @@ const ALL: [&str; 14] = [
 ];
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.join("Starfield.esm").is_file().then_some(dir)
 }
 
@@ -104,7 +106,7 @@ fn check_record(
     strings: &mut StringTables,
     t: &mut Tally,
 ) {
-    let schema = kitcraft_schema::builtin().unwrap();
+    let schema = kitkraft_schema::builtin().unwrap();
     let sig = record.header.signature.0;
     let label = format!("{}:{:08X}", record.header.signature, record.header.form_id);
     let edid_first = subs
@@ -239,7 +241,7 @@ fn walk(
     entry: &Entry<'_>,
     strings: &mut StringTables,
     t: &mut Tally,
-) -> kitcraft_esm::Result<()> {
+) -> kitkraft_esm::Result<()> {
     match entry {
         Entry::Group(g) => {
             for child in g.children() {
@@ -264,7 +266,7 @@ fn walk(
 
 fn scan(dir: &Path, name: &str) -> Tally {
     let path = dir.join(name);
-    let header = kitcraft_doc::index::read_header(&path).unwrap();
+    let header = kitkraft_doc::index::read_header(&path).unwrap();
     let localized = header.flags.localized();
     let mut strings = StringTables::new(
         "en",
@@ -312,7 +314,7 @@ fn header() {
 #[test]
 fn typed_reader_agrees_with_generated_and_lstrings_resolve_small_files() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     header();
@@ -333,7 +335,7 @@ fn typed_reader_agrees_with_generated_and_lstrings_resolve_small_files() {
 #[ignore = "release: reads all 14 official files (about 2.5 GB) and their string tables"]
 fn typed_reader_agrees_with_generated_and_lstrings_resolve_all_files() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     header();

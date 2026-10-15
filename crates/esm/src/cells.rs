@@ -310,7 +310,7 @@ pub struct GroupStamps {
 /// How groups are created and ordered where the corpus shows two writers doing it
 /// differently: the 12 files of the official pipeline ([`PlacementStyle::OFFICIAL`]) and
 /// the two `BlueprintShips` files ([`PlacementStyle::blueprint`]). What the Creation Kit
-/// does for a new plugin is F20's question (M4.O1); until then KitCraft writes the
+/// does for a new plugin is F20's question (M4.O1); until then KitKraft writes the
 /// official style.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlacementStyle {

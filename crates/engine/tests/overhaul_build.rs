@@ -1,7 +1,7 @@
 //! M3.E9: the gun overhaul spec (`docs/overhaul/overhaul.toml`) built against a fixture of
 //! the real records. The test copies the records the spec reads (14 WEAP, 4 AMDL, 10 OMOD,
 //! 3 AMMO, 2 LVLI) byte for byte out of the official `Starfield.esm` (read in place through
-//! `KITCRAFT_DATA_DIR`; skipped when unset) into a small localized `Starfield.esm` in a temp
+//! `KITKRAFT_DATA_DIR`; skipped when unset) into a small localized `Starfield.esm` in a temp
 //! Data directory, with the English string tables extracted next to it, swaps the spec's
 //! `[load_order]` (the owner's `KitKraft Dev` profile) for that directory, and checks the
 //! plan line by line: every change with its brief row, rule, before and after. Then it
@@ -18,18 +18,21 @@
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use kitcraft_engine::execute;
-use kitcraft_esm::build::HeaderSpec;
-use kitcraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
-use kitcraft_esm::{Entry, GroupHeader, ParseOptions, Plugin, Record, Signature};
+use kitkraft_engine::execute;
+use kitkraft_esm::build::HeaderSpec;
+use kitkraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
+use kitkraft_esm::{Entry, GroupHeader, ParseOptions, Plugin, Record, Signature};
 use serde_json::{json, Value};
 
 fn data_dir() -> Option<PathBuf> {
-    match std::env::var_os("KITCRAFT_DATA_DIR").map(PathBuf::from) {
+    match std::env::var_os("KITKRAFT_DATA_DIR")
+        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
+        .map(PathBuf::from)
+    {
         Some(dir) if dir.join("Starfield.esm").is_file() => Some(dir),
         _ => {
             println!(
-                "skipped: KITCRAFT_DATA_DIR is unset or has no Starfield.esm (docs/corpus.md)"
+                "skipped: KITKRAFT_DATA_DIR is unset or has no Starfield.esm (docs/corpus.md)"
             );
             None
         }
@@ -175,7 +178,7 @@ fn copy_records(real: &Path, sig: &str, edids: &[&str]) -> Vec<Record<'static>> 
 #[test]
 fn the_overhaul_spec_plans_and_builds_on_the_real_records() {
     let Some(real) = data_dir() else { return };
-    let tmp = std::env::temp_dir().join(format!("kitcraft-overhaul-build-{}", std::process::id()));
+    let tmp = std::env::temp_dir().join(format!("kitkraft-overhaul-build-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&tmp);
     let data = tmp.join("Data");
     std::fs::create_dir_all(&data).unwrap();

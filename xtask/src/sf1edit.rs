@@ -36,8 +36,8 @@ use serde_json::{json, Map, Value};
 use crate::evidence::{arg, sha256_hex, table, tes4, KitBinary, Runner};
 use crate::oracle::{write_synthetic, Input, OFFICIAL_SMALL};
 
-pub(crate) const SF1EDIT_VAR: &str = "KITCRAFT_SF1EDIT";
-const DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
+pub(crate) const SF1EDIT_VAR: &str = "KITKRAFT_SF1EDIT";
+const DATA_DIR_VAR: &str = "KITKRAFT_DATA_DIR";
 /// The console dumper xEdit ships next to its editor executables.
 const DUMPER: &str = "xDump64.exe";
 /// Default records compared in depth per record type (evenly spaced by FormID).
@@ -638,7 +638,7 @@ struct DumpRun {
 
 impl Dumper {
     fn from_env() -> Result<Self> {
-        let given = std::env::var_os(SF1EDIT_VAR).map(PathBuf::from).with_context(|| {
+        let given = crate::env_var_os(SF1EDIT_VAR).map(PathBuf::from).with_context(|| {
             format!(
                 "set {SF1EDIT_VAR} to xSFEdit64.exe (xEdit 4.1.5+; its {DUMPER} is used) or to {DUMPER}"
             )
@@ -1221,11 +1221,11 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     }
     let mut dumper = Dumper::from_env()?;
     dumper.timeout = Duration::from_secs(timeout_mins.saturating_mul(60));
-    let data_dir = std::env::var_os(DATA_DIR_VAR)
+    let data_dir = crate::env_var_os(DATA_DIR_VAR)
         .map(PathBuf::from)
         .with_context(|| format!("set {DATA_DIR_VAR} (masters are copied from there)"))?;
     let kit = KitBinary::from_env(root);
-    let work = std::env::temp_dir().join(format!("kitcraft-oracle-sf1edit-{}", std::process::id()));
+    let work = std::env::temp_dir().join(format!("kitkraft-oracle-sf1edit-{}", std::process::id()));
     fs::create_dir_all(work.join("Data"))?;
     if let Some(ini) = data_dir.parent().map(|p| p.join("Starfield.ini")) {
         if ini.is_file() {

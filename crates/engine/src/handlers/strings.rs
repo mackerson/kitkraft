@@ -1,7 +1,7 @@
-//! `strings.dump`, `strings.merge` (M2.G9) over `kitcraft-strings`.
+//! `strings.dump`, `strings.merge` (M2.G9) over `kitkraft-strings`.
 //!
 //! A table is a loose `.strings`/`.dlstrings`/`.ilstrings` file, or, with `archive`, a path
-//! inside a `.ba2` (read through `kitcraft-ba2`, e.g. `strings/starfield_en.strings` in
+//! inside a `.ba2` (read through `kitkraft-ba2`, e.g. `strings/starfield_en.strings` in
 //! `Starfield - Localization.ba2`).
 //!
 //! Tables are parsed strictly unless `tolerant` is set (M3.G2): then a table padded past
@@ -11,8 +11,8 @@
 use std::fs;
 use std::path::Path;
 
-use kitcraft_ba2::Archive;
-use kitcraft_strings::{merge as merge_tables, Entry, Kind, Padding, ParseMode, Table};
+use kitkraft_ba2::Archive;
+use kitkraft_strings::{merge as merge_tables, Entry, Kind, Padding, ParseMode, Table};
 use serde_json::{json, Value};
 
 use super::ba2::refuse_game_data;
@@ -54,8 +54,8 @@ impl Loaded {
                 json!({
                     "table": self.file,
                     "where": match p.kind {
-                        kitcraft_strings::PaddingKind::DataTail => "data_tail",
-                        kitcraft_strings::PaddingKind::AfterData => "after_data",
+                        kitkraft_strings::PaddingKind::DataTail => "data_tail",
+                        kitkraft_strings::PaddingKind::AfterData => "after_data",
                     },
                     "offset": p.offset,
                     "length": p.len,
@@ -107,7 +107,7 @@ fn load(
     };
     let parsed = Table::parse_with(kind, &bytes, mode).map_err(|e| {
         let hint =
-            if mode == ParseMode::Strict && matches!(e, kitcraft_strings::Error::DataSize { .. }) {
+            if mode == ParseMode::Strict && matches!(e, kitkraft_strings::Error::DataSize { .. }) {
                 " (`tolerant: true` reads a table padded past its data size)"
             } else {
                 ""
@@ -421,7 +421,7 @@ pub(super) fn merge(args: &Value) -> Result<Outcome, EngineError> {
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use crate::execute;
-    use kitcraft_strings::{Entry, Kind, Table};
+    use kitkraft_strings::{Entry, Kind, Table};
     use serde_json::json;
     use std::fs;
 
@@ -429,7 +429,7 @@ mod tests {
     /// named in `limitations` and `data.padding`; merge writes it unpadded (M3.G2).
     #[test]
     fn padded_tables_need_tolerant_and_name_the_padding() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-strings-pad-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-strings-pad-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let good = Table::new(Kind::Strings, vec![Entry::new(7, "Rifle")])
@@ -478,7 +478,7 @@ mod tests {
 
     #[test]
     fn dump_and_merge_through_execute() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-strings-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-strings-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let a = dir.join("mod_en.strings");
@@ -611,11 +611,13 @@ mod tests {
     }
 
     /// The known string from the official English table, through `execute` (skips without
-    /// `KITCRAFT_DATA_DIR`): `Starfield.esm` WEAP 0021BBCD stores FULL = 0x0002E469.
+    /// `KITKRAFT_DATA_DIR`): `Starfield.esm` WEAP 0021BBCD stores FULL = 0x0002E469.
     #[test]
     fn official_known_string() {
-        let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR").map(std::path::PathBuf::from) else {
-            println!("skipped: KITCRAFT_DATA_DIR is not set");
+        let Some(dir) =
+            crate::handlers::env_var_os("KITKRAFT_DATA_DIR").map(std::path::PathBuf::from)
+        else {
+            println!("skipped: KITKRAFT_DATA_DIR is not set");
             return;
         };
         let archive = dir.join("Starfield - Localization.ba2");

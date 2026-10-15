@@ -10,7 +10,7 @@
 //! with [`Session::insert`] and read it back with [`Session::get`], so adding state never
 //! edits this file. The one thing every front end reads without knowing those types is
 //! [`Session::load_order`]: the JSON listing of the current load order that the `load`
-//! command produces and the MCP `kitcraft://load-order` resource serves.
+//! command produces and the MCP `kitkraft://load-order` resource serves.
 
 use std::any::{Any, TypeId};
 use std::collections::BTreeMap;

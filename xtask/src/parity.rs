@@ -1,6 +1,6 @@
 //! `cargo xtask parity` (M1.14): writes `docs/record-parity.md` from the corpus.
 //!
-//! For every file in `corpus/manifest.toml` (read in place from `KITCRAFT_DATA_DIR`, size
+//! For every file in `corpus/manifest.toml` (read in place from `KITKRAFT_DATA_DIR`, size
 //! checked against the manifest), runs `kit coverage <file> --json` and
 //! `kit roundtrip <file> --verify --json` through `cargo run --release -p kit-cli`, so the
 //! numbers come from the same command path users and agents call. The per-file results are
@@ -22,7 +22,7 @@ use crate::codegen::{defs_hash, fnv1a64, lf};
 /// The generated document, relative to the workspace root.
 const OUT: &str = "docs/record-parity.md";
 const MANIFEST: &str = "corpus/manifest.toml";
-const DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
+const DATA_DIR_VAR: &str = "KITKRAFT_DATA_DIR";
 
 /// One corpus file as the manifest lists it.
 struct CorpusFile {
@@ -134,7 +134,7 @@ fn s<'v>(value: &'v Value, key: &str) -> &'v str {
 /// `cargo xtask parity [--check]`: with `check`, regenerate in memory and fail when the
 /// committed document differs (line endings normalized) instead of writing it.
 pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
-    let data_dir = std::env::var_os(DATA_DIR_VAR)
+    let data_dir = crate::env_var_os(DATA_DIR_VAR)
         .map(PathBuf::from)
         .with_context(|| format!("set {DATA_DIR_VAR} to the Starfield Data directory"))?;
     if !data_dir.is_dir() {
@@ -251,7 +251,7 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
         });
     }
 
-    let defined = kitcraft_schema::builtin()
+    let defined = kitkraft_schema::builtin()
         .map(|s| s.records.len())
         .unwrap_or(0);
     // Per-confidence counts of the definitions (M2.F9), from the same command agents use.

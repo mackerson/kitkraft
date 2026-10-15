@@ -93,7 +93,7 @@ the specification exists, as upstream xEdit's Starfield definitions.
 ### Constraints
 
 - **Source material only.** The Pascal file is read to learn facts (signatures, member
-  order, widths, types, flag bits, enum values, FormID targets). Nothing in KitCraft
+  order, widths, types, flag bits, enum values, FormID targets). Nothing in KitKraft
   depends on it at build or run time: the runtime parser is never coupled to Pascal, never
   generated from it, and never loads it.
 - **No reproduction of xEdit's internal architecture.** Our model stays the TOML format in

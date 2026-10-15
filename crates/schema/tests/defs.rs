@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-use kitcraft_schema::{
+use kitkraft_schema::{
     builtin, load_dir, Cardinality, CommonBody, Confidence, FieldDef, FieldType, Member,
     Provenance, Signature, BUILTIN_DEFINITIONS, COMMON_DIR, FORBIDDEN_UESP_STARFIELD_PAGES,
 };
@@ -288,7 +288,7 @@ fn every_file_names_its_source() {
 }
 
 /// Member paths of the typed (non-opaque) leaf subrecords of a record.
-fn typed_leaves(rec: &kitcraft_schema::RecordDef) -> Vec<String> {
+fn typed_leaves(rec: &kitkraft_schema::RecordDef) -> Vec<String> {
     rec.leaf_subrecords()
         .into_iter()
         .filter(|(_, s)| !s.ty.is_opaque())
@@ -354,7 +354,7 @@ fn inventory_definitions_type_only_sourced_members() {
 }
 
 /// Every citation of a node, its own and inherited.
-fn all_provenance(rec: &kitcraft_schema::RecordDef) -> Vec<(String, &Provenance)> {
+fn all_provenance(rec: &kitkraft_schema::RecordDef) -> Vec<(String, &Provenance)> {
     let mut provs = vec![(rec.signature.to_string(), &rec.provenance)];
     member_provenance(&rec.signature.to_string(), &rec.members, &mut provs);
     provs
@@ -574,7 +574,7 @@ const COMPONENT_LSTRINGS: &[(&str, &str)] = &[
 ];
 
 /// Signatures of the whole-subrecord lstring members of a record, at any depth.
-fn lstring_signatures(rec: &kitcraft_schema::RecordDef) -> BTreeSet<String> {
+fn lstring_signatures(rec: &kitkraft_schema::RecordDef) -> BTreeSet<String> {
     rec.leaf_subrecords()
         .into_iter()
         .filter(|(_, s)| s.ty == FieldType::LString)

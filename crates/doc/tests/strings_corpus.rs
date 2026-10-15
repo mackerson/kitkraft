@@ -1,5 +1,5 @@
-//! String tables of the official files through `kitcraft_doc::strings` (M3.D1). Reads
-//! `KITCRAFT_DATA_DIR` in place; skips when it is unset.
+//! String tables of the official files through `kitkraft_doc::strings` (M3.D1). Reads
+//! `KITKRAFT_DATA_DIR` in place; skips when it is unset.
 //!
 //! - Fast: every non-UTF-8 entry of the `starfield_en` tables resolves with its exact table
 //!   bytes (`Resolved::bytes`), not only the lossy text.
@@ -14,19 +14,21 @@
 
 use std::path::PathBuf;
 
-use kitcraft_ba2::Archive;
-use kitcraft_doc::strings::{DirSource, StringTables};
-use kitcraft_strings::{table_name, Kind, Table};
+use kitkraft_ba2::Archive;
+use kitkraft_doc::strings::{DirSource, StringTables};
+use kitkraft_strings::{table_name, Kind, Table};
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.is_dir().then_some(dir)
 }
 
 #[test]
 fn non_utf8_official_strings_expose_their_bytes() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset or missing");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset or missing");
         return;
     };
     let archive_path = dir.join("Starfield - Localization.ba2");

@@ -1,17 +1,17 @@
 //! `package` (M4: the plan's M4.E5 shape, owned by lane G): an MO2-ready mod folder for one
-//! plugin, an optional `.zip` of it, and `kitcraft-manifest.json`.
+//! plugin, an optional `.zip` of it, and `kitkraft-manifest.json`.
 //!
 //! - `validate` runs first, on the plugin (and the scripts given), with the same load-order
 //!   arguments as `validate`; a plugin that fails it is refused and nothing is written.
 //! - The folder is `<out>\<name>`: the plugin at the root, loose files (`loose`, a folder laid
 //!   out as `Data`) and scripts (`scripts`: `.pex` files or folders of them, placed at
 //!   `Scripts\<namespace>\<name>.pex` from the object name inside each `.pex`) at their Data
-//!   paths, or, with `ba2`, packed through `kitcraft-ba2` into `<plugin stem> - Main.ba2`
+//!   paths, or, with `ba2`, packed through `kitkraft-ba2` into `<plugin stem> - Main.ba2`
 //!   (GNRL) and `<plugin stem> - Textures.ba2` (DX10, the `.dds` files): the names the
 //!   official plugins' archives use (`docs/corpus.md` "Archive names", M4.G4; grade C until
 //!   the M4.O2 in-game session).
 //! - The manifest lists every file of the folder with its size and SHA-256, the plugin's
-//!   masters and record counts per type, the KitCraft version, the SHA-256 of the build spec
+//!   masters and record counts per type, the KitKraft version, the SHA-256 of the build spec
 //!   (`spec`, when given), the `validate` result, and what each archive holds. No time, no
 //!   absolute path: two runs on the same inputs give the same bytes, folder and zip.
 //! - The zip holds the folder's contents at its root (what MO2's "install a mod from an
@@ -21,7 +21,7 @@
 //!   game's Data folder, the user Data folder, or a Mod Organizer instance or profile
 //!   (`edit::patch::guard_location`): packaging is target-independent and never installs
 //!   (M4.O5 default: the owner installs through MO2). An existing folder is replaced only
-//!   with `overwrite` and only when it holds a `kitcraft-manifest.json`.
+//!   with `overwrite` and only when it holds a `kitkraft-manifest.json`.
 
 mod sha256;
 
@@ -30,7 +30,7 @@ use std::fs::{self, File};
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 
-use kitcraft_ba2::{Kind, PackOptions};
+use kitkraft_ba2::{Kind, PackOptions};
 use serde_json::{json, Value};
 
 use super::{failed, file_name, str_arg};
@@ -41,9 +41,18 @@ use crate::session::Session;
 
 const ID: &str = "package";
 /// The manifest's file name, at the root of the folder.
-pub(crate) const MANIFEST: &str = "kitcraft-manifest.json";
+pub(crate) const MANIFEST: &str = "kitkraft-manifest.json";
+/// [`MANIFEST`]'s pre-rename name: a folder holding it was made by `package` before the
+/// KitKraft rename and may be replaced (deprecated, kept for one release).
+const OLD_MANIFEST: &str = "kitcraft-manifest.json";
 /// Bump when the manifest's shape changes.
 const MANIFEST_FORMAT: u32 = 1;
+
+/// Whether `dir` holds a package manifest (under its current or pre-rename name), so
+/// `overwrite` may replace it.
+fn made_by_package(dir: &Path) -> bool {
+    dir.join(MANIFEST).is_file() || dir.join(OLD_MANIFEST).is_file()
+}
 /// Deepest folder walked under `loose` or a scripts folder.
 const MAX_DEPTH: usize = 32;
 /// Most files in one package: the limit `deploy --dev` reads a package with, so every
@@ -167,7 +176,7 @@ fn script_entries(scripts: &[String]) -> Result<Vec<Entry>, String> {
     for f in files {
         let bytes = super::papyrus::read_capped(&f, MAX_PEX_BYTES)
             .map_err(|e| format!("reading `{}`: {e}", f.display()))?;
-        let pex = kitcraft_pex::Pex::parse(&bytes)
+        let pex = kitkraft_pex::Pex::parse(&bytes)
             .map_err(|e| format!("`{}` is not a readable .pex: {e}", f.display()))?;
         let name = pex
             .objects
@@ -225,7 +234,7 @@ fn pack(
         .collect();
     let file = File::create(path).map_err(|e| format!("creating `{}`: {e}", path.display()))?;
     let mut writer = BufWriter::new(file);
-    let report = kitcraft_ba2::pack(
+    let report = kitkraft_ba2::pack(
         &inputs,
         |p| fs::read(p),
         &PackOptions {
@@ -292,12 +301,12 @@ type RecordCounts = BTreeMap<String, u64>;
 /// The plugin's masters and record counts per type, from its index.
 fn plugin_facts(plugin: &Path) -> Result<(Vec<String>, RecordCounts), String> {
     let index =
-        kitcraft_esm::index::index_file(plugin, &kitcraft_esm::index::IndexOptions::default())
+        kitkraft_esm::index::index_file(plugin, &kitkraft_esm::index::IndexOptions::default())
             .map_err(|e| format!("{}: {e}", plugin.display()))?;
-    let masters = kitcraft_esm::tes4::Tes4::new(&index.header)
+    let masters = kitkraft_esm::tes4::Tes4::new(&index.header)
         .masters()
         .iter()
-        .map(kitcraft_esm::tes4::Master::name_lossy)
+        .map(kitkraft_esm::tes4::Master::name_lossy)
         .collect();
     let mut counts = RecordCounts::new();
     for r in index.records.iter().skip(1) {
@@ -378,7 +387,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 mod_dir.display()
             )));
         }
-        if !mod_dir.join(MANIFEST).is_file() {
+        if !made_by_package(&mod_dir) {
             return Err(fail(format!(
                 "`{}` exists and has no {MANIFEST}: package only replaces folders it made",
                 mod_dir.display()
@@ -422,8 +431,10 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     "the loose folder holds the plugin `{rel}`: package takes one plugin, as `plugin`"
                 )));
             }
-            if rel.eq_ignore_ascii_case(MANIFEST) {
-                return Err(fail(format!("the loose folder holds a `{MANIFEST}`")));
+            if rel.eq_ignore_ascii_case(MANIFEST) || rel.eq_ignore_ascii_case(OLD_MANIFEST) {
+                return Err(fail(format!(
+                    "the loose folder holds a `{rel}` (a package manifest)"
+                )));
             }
             entries.push(Entry { rel, src });
         }
@@ -700,7 +711,7 @@ fn finish_folder(
         .map(|(_, _, sha)| sha.clone());
     let manifest = json!({
         "format": MANIFEST_FORMAT,
-        "kitcraft_version": env!("CARGO_PKG_VERSION"),
+        "kitkraft_version": env!("CARGO_PKG_VERSION"),
         "name": m.name,
         "version": m.version,
         "plugins": [{
@@ -722,7 +733,7 @@ fn finish_folder(
     // one removed. A failure before the new folder is in puts the old one back, so the
     // folder is never half deleted (removing it first could stop midway on a locked file).
     let aside = if mod_dir.exists() {
-        if !mod_dir.join(MANIFEST).is_file() {
+        if !made_by_package(mod_dir) {
             return Err(format!(
                 "`{}` appeared and was not made by package",
                 mod_dir.display()

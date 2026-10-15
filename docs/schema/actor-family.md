@@ -1,6 +1,6 @@
 # Actor family: what the schema says, and what it does not
 
-For mod authors who want to read or patch Starfield's actors with KitCraft: actors (NPC_),
+For mod authors who want to read or patch Starfield's actors with KitKraft: actors (NPC_),
 leveled actors (LVLN), races (RACE), outfits (OTFT), classes (CLAS), companion affinity
 events (AFFE), perks (PERK), spells (SPEL) and magic effects (MGEF). The definitions are in
 `crates/schema/defs/<SIG>.toml`; `kit schema --type NPC_` prints any of them with sources
@@ -33,7 +33,7 @@ kept as raw bytes (opaque members and component-block bodies).
 
 Every NPC_ record in the official files is compressed; the check decodes each one with the
 container's default decode limits. The out-of-tree pass over all 8,447 takes 5.4 s in
-release (all 14 files, decompression included); `kitcraft-esm`'s `corpus_full_roundtrip`
+release (all 14 files, decompression included); `kitkraft-esm`'s `corpus_full_roundtrip`
 typed check (M2.A3) with this family in place reports 60,077 typed records, 2,155,517
 placed subrecords and 0 conflicts on the 14 files.
 
@@ -64,7 +64,7 @@ An NPC_ can take whole sections from another actor instead of storing them:
   which is why `Level` is kept raw (see below).
 
 When you patch an actor that inherits a section, the values stored in that section of
-its own record are ignored by the game; edit the template, or clear the flag. KitCraft
+its own record are ignored by the game; edit the template, or clear the flag. KitKraft
 does not resolve templates for you: `inspect` shows the stored values.
 
 ## Leveled actors
@@ -131,7 +131,7 @@ How the types link, by member path:
   faction and rank), keywords, scripts (VMAD, opaque) and the quests that recruit it.
 - **Appearance.** Face and body data are typed on NPC_ (`HeadParts`, `Tint` groups,
   `BodyMorphRegionValues`, `FaceDialPosition`, `FaceMorph`, `MorphBlend`, the colour
-  strings, `SkinToneIndex`, `Pronoun`). KitCraft cannot generate face data; copy it from an
+  strings, `SkinToneIndex`, `Pronoun`). KitKraft cannot generate face data; copy it from an
   existing actor.
 
 ## Opaque members, and why

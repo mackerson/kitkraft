@@ -13,16 +13,16 @@ publish = false
 
 [workspace.dependencies]
 # Internal crates. Layer rules are enforced by `cargo xtask layers`.
-kitcraft-schema = { path = "crates/schema" }
-kitcraft-esm = { path = "crates/esm" }
-kitcraft-ba2 = { path = "crates/ba2" }
-kitcraft-pex = { path = "crates/pex" }
-kitcraft-strings = { path = "crates/strings" }
-kitcraft-nif = { path = "crates/nif" }
-kitcraft-doc = { path = "crates/doc" }
-kitcraft-io = { path = "crates/io" }
-kitcraft-engine = { path = "crates/engine" }
-kitcraft-mcp = { path = "crates/mcp" }
+kitkraft-schema = { path = "crates/schema" }
+kitkraft-esm = { path = "crates/esm" }
+kitkraft-ba2 = { path = "crates/ba2" }
+kitkraft-pex = { path = "crates/pex" }
+kitkraft-strings = { path = "crates/strings" }
+kitkraft-nif = { path = "crates/nif" }
+kitkraft-doc = { path = "crates/doc" }
+kitkraft-io = { path = "crates/io" }
+kitkraft-engine = { path = "crates/engine" }
+kitkraft-mcp = { path = "crates/mcp" }
 
 # External. Keep this list short; every addition is reviewed.
 # anyhow is for apps/ and xtask/ only; library crates use thiserror.

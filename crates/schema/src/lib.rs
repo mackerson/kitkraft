@@ -12,7 +12,7 @@
 //! or [`load_dir`] to load a set; both validate everything before returning a [`Schema`].
 //! [`generate`] turns a schema into Rust source.
 //!
-//! This crate has no knowledge of the plugin container. `kitcraft-esm` depends on it, not
+//! This crate has no knowledge of the plugin container. `kitkraft-esm` depends on it, not
 //! the other way round.
 //!
 //! LAYER: L0

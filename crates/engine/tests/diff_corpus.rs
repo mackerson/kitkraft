@@ -1,4 +1,4 @@
-//! M3.D2 on an official file (`KITCRAFT_DATA_DIR`; skips when unset): `diff` of a corpus
+//! M3.D2 on an official file (`KITKRAFT_DATA_DIR`; skips when unset): `diff` of a corpus
 //! plugin against a copy with one typed member changed (a keyword FormID in a `KWDA`)
 //! reports that member's path with both forms, through `execute`.
 
@@ -12,19 +12,21 @@
 
 use std::path::PathBuf;
 
-use kitcraft_doc::index::PluginIndex;
-use kitcraft_doc::record::read_record_file;
+use kitkraft_doc::index::PluginIndex;
+use kitkraft_doc::record::read_record_file;
 use serde_json::json;
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.join("SFBGS004.esm").is_file().then_some(dir)
 }
 
 #[test]
 fn corpus_diff_names_the_changed_keyword() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     let original = dir.join("SFBGS004.esm");
@@ -35,10 +37,10 @@ fn corpus_diff_names_the_changed_keyword() {
     let mut seen: Vec<u32> = Vec::new();
     // Records of a type whose definition gives KWDA a layout, uncompressed (an lstring-only
     // definition, lane B round 3 M3.B8, keeps KWDA raw).
-    let schema = kitcraft_schema::builtin().unwrap();
-    let kwda = kitcraft_schema::Signature::from_bytes(*b"KWDA").unwrap();
+    let schema = kitkraft_schema::builtin().unwrap();
+    let kwda = kitkraft_schema::Signature::from_bytes(*b"KWDA").unwrap();
     let defined = |sig: [u8; 4]| {
-        kitcraft_schema::Signature::from_bytes(sig)
+        kitkraft_schema::Signature::from_bytes(sig)
             .and_then(|s| schema.known_signatures(s))
             .is_some_and(|known| known.contains(&kwda))
     };
@@ -69,12 +71,12 @@ fn corpus_diff_names_the_changed_keyword() {
         .expect("a second keyword");
     let mut bytes = std::fs::read(&original).unwrap();
     bytes[at as usize..at as usize + 4].copy_from_slice(&after_raw.to_le_bytes());
-    let tmp = std::env::temp_dir().join(format!("kitcraft-engine-diff-{}", std::process::id()));
+    let tmp = std::env::temp_dir().join(format!("kitkraft-engine-diff-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).unwrap();
     let copy = tmp.join("SFBGS004 - edited.esm");
     std::fs::write(&copy, &bytes).unwrap();
 
-    let r = kitcraft_engine::execute(
+    let r = kitkraft_engine::execute(
         "diff",
         json!({
             "a": original.display().to_string(),

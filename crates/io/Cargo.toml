@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-io"
+name = "kitkraft-io"
 description = "L3: MO2 profiles, plugins.txt, Creations manifests"
 version.workspace = true
 edition.workspace = true
@@ -10,5 +10,5 @@ publish.workspace = true
 workspace = true
 
 [dependencies]
-kitcraft-doc.workspace = true
+kitkraft-doc.workspace = true
 thiserror.workspace = true

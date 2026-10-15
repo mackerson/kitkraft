@@ -1,4 +1,4 @@
-//! FormID facts on the official files (M2.D3 a/b, M2.D4). Reads `KITCRAFT_DATA_DIR` in
+//! FormID facts on the official files (M2.D3 a/b, M2.D4). Reads `KITKRAFT_DATA_DIR` in
 //! place; skips when it is unset.
 //!
 //! - Fast: the small official files resolve every record header FormID through masters
@@ -17,8 +17,8 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use kitcraft_doc::index::read_header;
-use kitcraft_doc::{
+use kitkraft_doc::index::read_header;
+use kitkraft_doc::{
     GlobalForm, IndexCache, LoadOptions, LoadOrder, MasterMap, PluginIndex, PluginSpec, RawRef,
     Scale,
 };
@@ -42,12 +42,14 @@ const OFFICIAL: [&str; 14] = [
 ];
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     if dir.is_dir() {
         Some(dir)
     } else {
         eprintln!(
-            "skip: KITCRAFT_DATA_DIR {} is not a directory",
+            "skip: KITKRAFT_DATA_DIR {} is not a directory",
             dir.display()
         );
         None
@@ -57,7 +59,7 @@ fn data_dir() -> Option<PathBuf> {
 #[test]
 fn small_official_files_resolve_every_header_formid() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     for name in [
@@ -105,10 +107,10 @@ fn small_official_files_resolve_every_header_formid() {
 /// change, with offsets on both sides; the file against itself is empty.
 #[test]
 fn corpus_diff_reports_exactly_one_edit() {
-    use kitcraft_doc::compare::{Change, OverrideClass};
-    use kitcraft_doc::diff::diff_plugins;
+    use kitkraft_doc::compare::{Change, OverrideClass};
+    use kitkraft_doc::diff::diff_plugins;
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     let original = dir.join("SFBGS004.esm");
@@ -120,7 +122,7 @@ fn corpus_diff_reports_exactly_one_edit() {
         .iter()
         .filter(|r| r.flags & 0x0004_0000 == 0)
         .find_map(|r| {
-            let rec = kitcraft_doc::record::read_record_file(&original, r).unwrap();
+            let rec = kitkraft_doc::record::read_record_file(&original, r).unwrap();
             rec.subs
                 .iter()
                 .find(|s| s.data().len() >= 4 && s.signature().0 != *b"EDID")
@@ -130,7 +132,7 @@ fn corpus_diff_reports_exactly_one_edit() {
         .unwrap();
     let mut edited = bytes.clone();
     edited[at] ^= 0xFF;
-    let tmp = std::env::temp_dir().join(format!("kitcraft-doc-diff-{}", std::process::id()));
+    let tmp = std::env::temp_dir().join(format!("kitkraft-doc-diff-{}", std::process::id()));
     std::fs::create_dir_all(&tmp).unwrap();
     let copy = tmp.join("SFBGS004 - edited.esm");
     std::fs::write(&copy, &edited).unwrap();
@@ -165,7 +167,7 @@ fn corpus_diff_reports_exactly_one_edit() {
 #[ignore = "release: indexes all 14 official files (about 2.5 GB)"]
 fn corpus_official_load_order_resolves_and_overrides_exist() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     let specs: Vec<PluginSpec> = OFFICIAL

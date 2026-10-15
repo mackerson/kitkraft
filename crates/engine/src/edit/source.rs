@@ -3,7 +3,7 @@
 //!
 //! This is the explicit-list form `set` and `build` use until lane D's load order is in the
 //! session: the caller names the plugins in load order (`plugins`), each is indexed
-//! (`kitcraft_esm::index`), and a form is found by:
+//! (`kitkraft_esm::index`), and a form is found by:
 //!
 //! - `Plugin.esm:00ABCDEF`: the object ID of a form owned by `Plugin.esm`; in every plugin
 //!   that has `Plugin.esm` as itself or as a master, the stored FormID is that plugin's
@@ -19,9 +19,9 @@
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex, RecordLoc};
-use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MEDIUM, FLAG_SMALL};
-use kitcraft_esm::{DecodeLimits, GroupHeader, Record};
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex, RecordLoc};
+use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MEDIUM, FLAG_SMALL};
+use kitkraft_esm::{DecodeLimits, GroupHeader, Record};
 
 use super::fields::split_formref;
 
@@ -245,7 +245,7 @@ pub fn read_copy(
 pub const PARENT_LABELLED: [i32; 4] = [1, 6, 7, 10];
 
 /// The records that own the groups on `loc`'s path (outermost first), each with its own
-/// group path: what [`kitcraft_esm::Plugin::upsert`] needs placed first (lane A's
+/// group path: what [`kitkraft_esm::Plugin::upsert`] needs placed first (lane A's
 /// CELL/WRLD parent rule).
 pub fn parents_of<'i>(
     index: &'i PluginIndex,

@@ -11,7 +11,7 @@ kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7805-L7817"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L54",
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every FVPA payload of the 3,518 COBJ records in the 14 official ESMs decodes as 12-byte entries and re-encodes identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: every FVPA payload of the 3,518 COBJ records in the 14 official ESMs decodes as 12-byte entries and re-encodes identically",
 ]
 confidence = "corpus"
 type = "struct"

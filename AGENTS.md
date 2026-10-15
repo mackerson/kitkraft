@@ -7,10 +7,12 @@ first edit. `CLAUDE.md` points here.
 
 KitKraft is an open-source, clean-room Creation Kit for Starfield, written in Rust.
 
-Naming note (owner, 2026-10-14): the name is **KitKraft**; write it so in prose. Rename
-pending: identifiers keep `kitcraft-*`, `KITCRAFT_*`, `kitcraft://` until the scheduled
-rename to `kitkraft-*`, `KITKRAFT_*`, `kitkraft://` (last integration step; do not rename
-them yourself); the binary stays `kit`. It reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
+Naming note (owner, 2026-10-14): the name is **KitKraft**; write it so in prose.
+Identifiers were renamed (M4.BX1 integration): packages `kitkraft-*`, crate paths
+`kitkraft_*`, env vars `KITKRAFT_*`, MCP server `kitkraft`, resource URIs `kitkraft://`;
+the binary stays `kit`. The old `KITCRAFT_*` env vars and `kitcraft-manifest.json` are
+read as a deprecated fallback for one release (`docs/corpus.md`, "Environment"); write
+only the new names. It reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
 Papyrus (`.pex`) and string tables, and exposes every action as one command reachable from a
 CLI, an MCP server, and later a UI. The first provable goal (M1) is data parity: load every
 official ESM and write it back byte-identical.
@@ -34,18 +36,18 @@ marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from 
 
 | Layer | Crate            | Package            | Purpose                                                            |
 | ----- | ---------------- | ------------------ | ------------------------------------------------------------------ |
-| L0    | `crates/schema`  | `kitcraft-schema`  | Record definitions as data (TOML), codegen to typed records        |
-| L0    | `crates/esm`     | `kitcraft-esm`     | TES4 container: groups, records, subrecords, compression, ONAM     |
-| L0    | `crates/ba2`     | `kitcraft-ba2`     | GNRL v2/v3 + DX10 read/write (port of `ba2x.py`)                   |
-| L0    | `crates/pex`     | `kitcraft-pex`     | Papyrus `.pex` read/disasm (port of `pexdis.py`), assemble later   |
-| L0    | `crates/strings` | `kitcraft-strings` | `.STRINGS` / `.DLSTRINGS` / `.ILSTRINGS`                           |
-| L0    | `crates/nif`     | `kitcraft-nif`     | Read-only mesh/material metadata, no renderer                      |
-| L1    | `crates/doc`     | `kitcraft-doc`     | Load order, FormID resolution across masters, overrides, conflicts |
-| L2    | `crates/render`  | `kitcraft-render`  | Viewport (later, not created yet)                                  |
-| L3    | `crates/io`      | `kitcraft-io`      | MO2 profile reader, `plugins.txt`, Creations manifests             |
-| L4    | `crates/engine`  | `kitcraft-engine`  | `CommandSpec` catalog, sessions, undo, validation rules            |
-| L5    | `crates/mcp`     | `kitcraft-mcp`     | MCP server: `server.rs`, `tools.rs`, `backend.rs`                  |
-| L5    | `crates/ui-egui` | `kitcraft-ui-egui` | UI (later, swappable, not created yet)                             |
+| L0    | `crates/schema`  | `kitkraft-schema`  | Record definitions as data (TOML), codegen to typed records        |
+| L0    | `crates/esm`     | `kitkraft-esm`     | TES4 container: groups, records, subrecords, compression, ONAM     |
+| L0    | `crates/ba2`     | `kitkraft-ba2`     | GNRL v2/v3 + DX10 read/write (port of `ba2x.py`)                   |
+| L0    | `crates/pex`     | `kitkraft-pex`     | Papyrus `.pex` read/disasm (port of `pexdis.py`), assemble later   |
+| L0    | `crates/strings` | `kitkraft-strings` | `.STRINGS` / `.DLSTRINGS` / `.ILSTRINGS`                           |
+| L0    | `crates/nif`     | `kitkraft-nif`     | Read-only mesh/material metadata, no renderer                      |
+| L1    | `crates/doc`     | `kitkraft-doc`     | Load order, FormID resolution across masters, overrides, conflicts |
+| L2    | `crates/render`  | `kitkraft-render`  | Viewport (later, not created yet)                                  |
+| L3    | `crates/io`      | `kitkraft-io`      | MO2 profile reader, `plugins.txt`, Creations manifests             |
+| L4    | `crates/engine`  | `kitkraft-engine`  | `CommandSpec` catalog, sessions, undo, validation rules            |
+| L5    | `crates/mcp`     | `kitkraft-mcp`     | MCP server: `server.rs`, `tools.rs`, `backend.rs`                  |
+| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | UI (later, swappable, not created yet)                             |
 | APP   | `apps/kit-cli`   | `kit-cli`          | `kit` binary, one `main.rs`                                        |
 | APP   | `apps/kit`       | `kit`              | Desktop app (later, not created yet)                               |
 | TOOL  | `xtask`          | `xtask`            | `cargo xtask ci`, `cargo xtask layers`                             |
@@ -70,7 +72,7 @@ Rules:
 
 ## Everything is a command
 
-Every user-visible action is exactly one `CommandSpec` in `kitcraft_engine::catalog()`:
+Every user-visible action is exactly one `CommandSpec` in `kitkraft_engine::catalog()`:
 
 | Field         | Meaning                                                                     |
 | ------------- | --------------------------------------------------------------------------- |
@@ -174,7 +176,7 @@ Plugins come from the internet. Treat every input byte as hostile.
 Nothing is committed unless the gate passes. A pre-commit hook in `.githooks/` runs the two
 fast steps (`cargo xtask layers`, `cargo fmt --all -- --check`); enable it once per clone with
 `git config core.hooksPath .githooks`. Corpus tests read the official ESMs in place via
-`KITCRAFT_DATA_DIR` (see `docs/corpus.md`) and skip with a message when it is unset or
+`KITKRAFT_DATA_DIR` (see `docs/corpus.md`) and skip with a message when it is unset or
 missing, so the gate runs on machines without the game. There is no remote CI yet; the local
 gate is the CI.
 
@@ -187,8 +189,8 @@ gate is the CI.
 
 ## Parallel agents
 
-- Each agent builds into its own target dir: `CARGO_TARGET_DIR=C:\Modding\kitcraft\.targets\<agent>`
-  (PowerShell: `$env:CARGO_TARGET_DIR = "C:\Modding\kitcraft\.targets\<agent>"`). Delete it
+- Each agent builds into its own target dir: `CARGO_TARGET_DIR=C:\Modding\kitkraft\.targets\<agent>`
+  (PowerShell: `$env:CARGO_TARGET_DIR = "C:\Modding\kitkraft\.targets\<agent>"`). Delete it
   when you finish. `.targets/` is gitignored.
 - Only edit crates you own per `plan/execution-plan.md`. Need a change elsewhere? Note it in
   `plan/STATUS.md` under "Requests" and keep going on your own lane.
@@ -201,8 +203,8 @@ gate is the CI.
 
 Don't stop to ask unless the decision is one of these. Everything else: decide and record it.
 
-1. Project name: **decided 2026-10-14**, KitKraft (naming note at the top; identifier
-   rename pending).
+1. Project name: **decided 2026-10-14**, KitKraft (naming note at the top; identifiers
+   renamed in the M4.BX1 integration).
 2. xEdit MPL source policy: **decided 2026-10-14** (`plan/adr/0004-xedit-source-policy.md`).
    Still the owner's: changing the pinned revision, or a source file with a materially
    different license or source category (`wbDefinitionsSF1.pas` and

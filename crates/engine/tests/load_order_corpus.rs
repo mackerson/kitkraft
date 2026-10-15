@@ -1,8 +1,8 @@
-//! M2.D7, M2.D9, M2.D11 on the official files (`KITCRAFT_DATA_DIR`, release, ignored):
+//! M2.D7, M2.D9, M2.D11 on the official files (`KITKRAFT_DATA_DIR`, release, ignored):
 //! the Old Earth Hunting Rifle's FULL resolves through `Starfield - Localization.ba2`, and
 //! `query` finds the weapon by that name.
 //!
-//! `cargo test -p kitcraft-engine --release --test load_order_corpus -- --ignored`
+//! `cargo test -p kitkraft-engine --release --test load_order_corpus -- --ignored`
 
 #![allow(
     clippy::unwrap_used,
@@ -13,11 +13,13 @@
 
 use std::path::PathBuf;
 
-use kitcraft_engine::Engine;
+use kitkraft_engine::Engine;
 use serde_json::{json, Value};
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.join("Starfield.esm").is_file().then_some(dir)
 }
 
@@ -25,7 +27,7 @@ fn data_dir() -> Option<PathBuf> {
 #[ignore = "release: indexes Starfield.esm and ShatteredSpace.esm (cached after the first run)"]
 fn official_lstrings_resolve_and_query_finds_the_rifle() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     let engine = Engine::with_default_handlers();

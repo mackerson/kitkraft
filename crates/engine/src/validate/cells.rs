@@ -1,6 +1,6 @@
 //! Cell rules (M4.E4): where cells and their children sit, what references name, and what
 //! the `TES4` counters say about them. Every structural fact is lane A's corpus rule
-//! (`kitcraft_esm::cells`, `docs/corpus.md` "Cell and world groups"), asserted on every
+//! (`kitkraft_esm::cells`, `docs/corpus.md` "Cell and world groups"), asserted on every
 //! group and record of the 14 official files; the persistence warning is a grade D
 //! hypothesis until the game is observed. Rules and sources: `docs/validate.md`.
 //!
@@ -13,11 +13,11 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 
-use kitcraft_esm::cells::{
+use kitkraft_esm::cells::{
     grid_label, group_type, interior_block, Grid, CELL_CHILD_TYPES, FLAG_PERSISTENT,
 };
-use kitcraft_esm::index::read_record_at;
-use kitcraft_esm::{GroupHeader, Record, Signature, Subrecord};
+use kitkraft_esm::index::read_record_at;
+use kitkraft_esm::{GroupHeader, Record, Signature, Subrecord};
 
 use super::forms::Target;
 use super::{Finding, Pass, Severity};
@@ -567,7 +567,7 @@ pub(super) fn finish(pass: &Pass<'_>, plugin: &Path, findings: &mut Vec<Finding>
                         Some(actor.clone()),
                         None,
                         None,
-                        format!("cell {cell:08X} has no NAVM in this plugin or its masters: an actor there cannot move (KitCraft cannot generate navmesh; generate it in the Creation Kit, fixture F22, and import it with [[import]])"),
+                        format!("cell {cell:08X} has no NAVM in this plugin or its masters: an actor there cannot move (KitKraft cannot generate navmesh; generate it in the Creation Kit, fixture F22, and import it with [[import]])"),
                     )),
                     None => {}
                 }

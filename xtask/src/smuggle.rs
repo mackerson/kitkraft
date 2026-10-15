@@ -378,7 +378,7 @@ mod tests {
 
     fn pkg() -> PathBuf {
         std::env::temp_dir()
-            .join("kitcraft-xtask-fixture")
+            .join("kitkraft-xtask-fixture")
             .join("crates")
             .join("esm")
     }
@@ -497,7 +497,7 @@ mod tests {
 
     #[test]
     fn scans_a_package_directory() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-xtask-scan-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-xtask-scan-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("src/nested")).unwrap();
         fs::create_dir_all(dir.join("tests")).unwrap();

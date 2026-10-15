@@ -1,6 +1,6 @@
 # Architecture
 
-KitCraft is a Rust workspace arranged as a strict layer stack (ADR 0002). Bytes enter at L0,
+KitKraft is a Rust workspace arranged as a strict layer stack (ADR 0002). Bytes enter at L0,
 become a resolved document at L1, are acted on by commands at L4, and reach people and agents
 through thin front ends at L5 and in `apps/`.
 

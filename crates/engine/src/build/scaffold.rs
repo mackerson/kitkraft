@@ -8,7 +8,7 @@
 //! fresh scaffold reports 0 changes. The output is deterministic: no timestamps, groups in
 //! a fixed order.
 
-use kitcraft_schema::Confidence;
+use kitkraft_schema::Confidence;
 
 use super::members::Numeric;
 

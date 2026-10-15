@@ -1,13 +1,13 @@
-//! The lstring signature table (`kitcraft_engine::edit::lstrings`), rebuilt from the
+//! The lstring signature table (`kitkraft_engine::edit::lstrings`), rebuilt from the
 //! corpus and compared with the table in the source (Fable review round 2, finding 2b).
 //!
 //! The pinned xEdit file is not available locally (`plan/STATUS.md`, Blockers), so the
 //! table is built from the official ESMs (all localized) by the method in
-//! `kitcraft_engine::edit::lstrings` and `docs/validate.md` ("lstring signature table").
+//! `kitkraft_engine::edit::lstrings` and `docs/validate.md` ("lstring signature table").
 //!
 //! `#[ignore]`: reads 2.5 GB. Run
-//! `cargo test -p kitcraft-engine --release --test lstring_table -- --ignored --nocapture`
-//! with `KITCRAFT_DATA_DIR` set; on a mismatch it prints the table to paste.
+//! `cargo test -p kitkraft-engine --release --test lstring_table -- --ignored --nocapture`
+//! with `KITKRAFT_DATA_DIR` set; on a mismatch it prints the table to paste.
 
 #![allow(
     clippy::panic,
@@ -21,12 +21,12 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::{Path, PathBuf};
 
-use kitcraft_ba2::Archive;
-use kitcraft_engine::edit::lstrings::{classify, is_anchor, Class, Counts, TABLE};
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::index::{index_file, IndexOptions};
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
-use kitcraft_strings::{table_name, Kind, Table};
+use kitkraft_ba2::Archive;
+use kitkraft_engine::edit::lstrings::{classify, is_anchor, Class, Counts, TABLE};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::index::{index_file, IndexOptions};
+use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
+use kitkraft_strings::{table_name, Kind, Table};
 
 const CORPUS: [&str; 14] = [
     "Starfield.esm",
@@ -58,7 +58,7 @@ fn string_ids(dir: &Path, plugin: &str) -> Option<HashMap<u32, usize>> {
         .enumerate()
     {
         let want = table_name(plugin, "en", kind);
-        for path in kitcraft_doc::strings::plugin_archives(dir, stem) {
+        for path in kitkraft_doc::strings::plugin_archives(dir, stem) {
             let (archive, mut file) = Archive::open(&path).unwrap();
             let Some(i) = archive.entries.iter().position(|e| {
                 e.name
@@ -187,11 +187,12 @@ fn text(sig: [u8; 4]) -> String {
 #[test]
 #[ignore = "reads 2.5 GB of plugins and their string tables; run in release"]
 fn lstring_table_matches_the_corpus() {
-    let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR")
+    let Some(dir) = std::env::var_os("KITKRAFT_DATA_DIR")
+        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
         .map(PathBuf::from)
         .filter(|d| d.is_dir())
     else {
-        println!("skipped: KITCRAFT_DATA_DIR is unset or not a directory");
+        println!("skipped: KITKRAFT_DATA_DIR is unset or not a directory");
         return;
     };
     let mut files: Vec<Scanned> = Vec::new();

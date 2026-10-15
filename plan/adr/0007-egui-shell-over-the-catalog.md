@@ -19,7 +19,7 @@ says the UI is an ADR only unless the owner opts in.
 
 What a UI would sit on already exists and is exercised by two front ends:
 
-- **The catalog.** `kitcraft_engine::catalog()` has 19 `CommandSpec`s, each with `id`,
+- **The catalog.** `kitkraft_engine::catalog()` has 19 `CommandSpec`s, each with `id`,
   `label`, `menu_path` (`Record/Inspect`, `File/Build Patch...`, `Archive/Extract...`;
   eight top-level menus today), `shortcut` (5 set: `Ctrl+O`, `Enter`, `Ctrl+F`, `Ctrl+B`,
   `F7`), `aliases`, `summary`, `args_schema` and `status`. Labels ending in `...` follow the
@@ -36,7 +36,7 @@ What a UI would sit on already exists and is exercised by two front ends:
 - **Results.** Every result is the envelope `{command, data, coverage, limitations,
   evidence}` with `data.summary` as the one-line text, `data.passed` on checks, and
   evidence as `(file, offset, length, record, subrecord)`. Errors have a stable `kind`.
-- **Layers.** `kitcraft-ui-egui` (L5) and `kit` (APP) are already in xtask's
+- **Layers.** `kitkraft-ui-egui` (L5) and `kit` (APP) are already in xtask's
   `LAYER_TABLE`; `UI_TOOLKIT` bans `egui`, `eframe`, `winit`, `wgpu`, `rfd`, `iced`,
   `slint` below L5, directly, transitively and as dev-dependencies.
 
@@ -44,7 +44,7 @@ What a UI would sit on already exists and is exercised by two front ends:
 
 ### A. A minimal egui shell in M3 (M3.F5)
 
-`crates/ui-egui` (L5, depends on `kitcraft-engine` only) holds a toolkit-free shell model
+`crates/ui-egui` (L5, depends on `kitkraft-engine` only) holds a toolkit-free shell model
 plus its egui views; `apps/kit` is the desktop binary; `kit ui` in `apps/kit-cli` is a
 front-end launcher (no `CommandSpec`, like `kit mcp`). Scope, and nothing more:
 
@@ -154,7 +154,7 @@ Recorded in the owner's meaning: the M5 deferral of egui is **partially overturn
 
 ### Scope of the workbench
 
-- **Where.** `crates/ui-egui` (L5, depends on `kitcraft-engine` only) and `apps/kit` (APP),
+- **Where.** `crates/ui-egui` (L5, depends on `kitkraft-engine` only) and `apps/kit` (APP),
   both already in xtask's `LAYER_TABLE`; a `kit ui` launcher in `apps/kit-cli` (a
   front-end launcher, no `CommandSpec`, like `kit mcp`). egui/eframe as in option A; the
   dependency list (`cargo tree`, licenses) goes into this ADR before the first UI merge,

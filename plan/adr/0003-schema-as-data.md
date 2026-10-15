@@ -15,7 +15,7 @@ messages, and the MCP `inspect_record` output.
 
 1. Record definitions live as TOML under `crates/schema/defs/`, one file per record type
    (`WEAP.toml`), written by us from the sources ADR 0005 permits for each fact.
-2. `kitcraft-schema` loads and validates definitions and provides a codegen library that turns
+2. `kitkraft-schema` loads and validates definitions and provides a codegen library that turns
    them into Rust source. It does not depend on the container crate.
 3. Generated typed records are written into `crates/esm/src/generated/` by
    `cargo xtask codegen` and checked in. `cargo xtask ci` runs `codegen --check` and fails on

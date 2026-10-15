@@ -28,7 +28,7 @@ use fixture::{group, record, sub};
 /// A small fixture with every node kind, including two compressed records and XXXX.
 fn small_fixture() -> Vec<u8> {
     let compressed = fixture::compressed_record_stored(b"LAND", 0x500, &sub(b"VHGT", &[7u8; 40]));
-    let mut deflated = kitcraft_esm::compress::deflate(&sub(b"DATA", &[1u8; 64]), 6, 0).unwrap();
+    let mut deflated = kitkraft_esm::compress::deflate(&sub(b"DATA", &[1u8; 64]), 6, 0).unwrap();
     let decl = u32::from_le_bytes(deflated[..4].try_into().unwrap());
     let stream = deflated.split_off(4);
     let compressed2 = fixture::compressed_record_from_stream(b"LAND", 0x501, decl, &stream);
@@ -121,7 +121,7 @@ fn corpus_small_files_survive_truncation_and_bit_flips() {
         for i in 0..1000 {
             let bit = rng.next() % bits;
             let mutated = flip(&bytes, bit);
-            if kitcraft_esm::Plugin::parse(&mutated).is_ok() {
+            if kitkraft_esm::Plugin::parse(&mutated).is_ok() {
                 parsed += 1;
             }
             check(&mutated, &format!("{} flip {i} at bit {bit}", file.name));
@@ -136,7 +136,7 @@ fn corpus_small_files_survive_truncation_and_bit_flips() {
 
 /// A longer run for occasional use: every byte-offset truncation, 50,000 single-bit flips
 /// and 20,000 random 1-8 byte overwrites per tiny file.
-/// `cargo test -p kitcraft-esm --release --test hostile -- --ignored`
+/// `cargo test -p kitkraft-esm --release --test hostile -- --ignored`
 #[test]
 #[ignore = "extended mutation run; minutes in release"]
 fn corpus_hostile_extended() {

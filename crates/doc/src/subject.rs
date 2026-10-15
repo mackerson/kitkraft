@@ -17,10 +17,10 @@ use crate::strings::StringTables;
 use crate::typed::{self, Decoded};
 
 /// Whether a schema type is a union (its variant differs per record).
-fn is_union(ty: &kitcraft_schema::FieldType) -> bool {
+fn is_union(ty: &kitkraft_schema::FieldType) -> bool {
     match ty {
-        kitcraft_schema::FieldType::Union { .. } => true,
-        kitcraft_schema::FieldType::Ref { ty, .. } => is_union(ty),
+        kitkraft_schema::FieldType::Union { .. } => true,
+        kitkraft_schema::FieldType::Ref { ty, .. } => is_union(ty),
         _ => false,
     }
 }
@@ -32,7 +32,7 @@ pub struct VersionSubject<'a> {
     version: Version,
     loaded: Option<Result<LoadedRecord, String>>,
     strings: Option<&'a mut StringTables>,
-    schema: Option<&'a kitcraft_schema::Schema>,
+    schema: Option<&'a kitkraft_schema::Schema>,
 }
 
 impl<'a> VersionSubject<'a> {
@@ -44,12 +44,12 @@ impl<'a> VersionSubject<'a> {
             version,
             loaded: None,
             strings: None,
-            schema: kitcraft_schema::builtin().ok(),
+            schema: kitkraft_schema::builtin().ok(),
         }
     }
 
     /// Decode field paths through `schema` instead of the builtin definitions.
-    pub fn with_schema(mut self, schema: Option<&'a kitcraft_schema::Schema>) -> Self {
+    pub fn with_schema(mut self, schema: Option<&'a kitkraft_schema::Schema>) -> Self {
         self.schema = schema;
         self
     }
@@ -111,7 +111,7 @@ impl VersionSubject<'_> {
     /// Values of a typed path over every occurrence, or why they are unknown.
     fn typed_values(
         &mut self,
-        ty: &kitcraft_schema::FieldType,
+        ty: &kitkraft_schema::FieldType,
         occurrences: &[Vec<u8>],
         ctx: &typed::Ctx,
         members: &[String],

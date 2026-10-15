@@ -11,8 +11,8 @@
 
 mod common;
 
-use kitcraft_esm::index::{index_bytes, IndexOptions};
-use kitcraft_esm::{DecodeLimits, Entry, Plugin, Record, Signature, Subrecord};
+use kitkraft_esm::index::{index_bytes, IndexOptions};
+use kitkraft_esm::{DecodeLimits, Entry, Plugin, Record, Signature, Subrecord};
 
 fn first_compressed<'p, 'a>(entries: &'p mut [Entry<'a>]) -> Option<&'p mut Record<'a>> {
     for entry in entries {
@@ -48,7 +48,7 @@ fn corpus_edit_compressed_records() {
         let n = record.edit_subrecords(&limits).unwrap().len();
         assert!(n >= 2, "{}", file.name);
         assert!(record
-            .set_subrecord(0, &b"kitcraft edit\0"[..], &limits)
+            .set_subrecord(0, &b"kitkraft edit\0"[..], &limits)
             .unwrap());
         record
             .insert_subrecord(
@@ -81,7 +81,7 @@ fn corpus_edit_compressed_records() {
             if is_edited {
                 edited += 1;
                 assert!(b.is_compressed());
-                let back = kitcraft_esm::index::read_indexed(
+                let back = kitkraft_esm::index::read_indexed(
                     &mut std::io::Cursor::new(&out),
                     b,
                     Some(&limits),

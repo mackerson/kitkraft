@@ -2,7 +2,7 @@
 //! backend, zlib-rs) recompresses to the exact original bytes, per zlib level. Results go in
 //! docs/gaps.md.
 //!
-//! `cargo test -p kitcraft-esm --release -- --ignored corpus_recompression --nocapture`
+//! `cargo test -p kitkraft-esm --release -- --ignored corpus_recompression --nocapture`
 
 // Test-only code: panics fail the measurement, they are not shipped.
 #![allow(
@@ -17,9 +17,9 @@ mod common;
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
-use kitcraft_esm::compress::{deflate, inflate};
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::{Body, DecodeLimits, Entry, ParseOptions};
+use kitkraft_esm::compress::{deflate, inflate};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::{Body, DecodeLimits, Entry, ParseOptions};
 
 #[derive(Default)]
 struct Tally {
@@ -149,7 +149,7 @@ struct Miss {
 
 fn collect_records<'e, 'a>(
     entry: &'e Entry<'a>,
-    out: &mut Vec<(&'e kitcraft_esm::Record<'a>, &'e [u8])>,
+    out: &mut Vec<(&'e kitkraft_esm::Record<'a>, &'e [u8])>,
 ) {
     match entry {
         Entry::Group(g) => g.children().iter().for_each(|c| collect_records(c, out)),
@@ -208,7 +208,7 @@ fn find_misses(entry: &Entry<'_>) -> Vec<Miss> {
 /// M3.A1: list every compressed record that zlib-rs level 9 does not reproduce, in file
 /// order, with the other levels that do (docs/corpus.md "Recompression misses").
 ///
-/// `cargo test -p kitcraft-esm --release --test recompress -- --ignored corpus_recompression_misses --nocapture`
+/// `cargo test -p kitkraft-esm --release --test recompress -- --ignored corpus_recompression_misses --nocapture`
 #[test]
 #[ignore = "measurement over 2.5 GB of game data; run with --release -- --ignored"]
 fn corpus_recompression_misses() {

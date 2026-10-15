@@ -992,7 +992,7 @@ mod tests {
     #[test]
     fn a_built_plugin_parses_and_roundtrips() {
         let mut spec = HeaderSpec::new(vec![b"Starfield.esm".to_vec(), b"Other.esm".to_vec()]);
-        spec.author = Some(b"kitcraft".to_vec());
+        spec.author = Some(b"kitkraft".to_vec());
         let mut plugin = Plugin::create(&spec);
         // Inserted out of order; the groups come out in table order, unknown types last.
         for (sig, id) in [
@@ -1270,7 +1270,7 @@ mod tests {
 
     #[test]
     fn upsert_to_a_file_applies_the_hedr_count_and_new_masters() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-esm-upsert-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-esm-upsert-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
         let input = dir.join("in.esp");
         let output = dir.join("out.esp");

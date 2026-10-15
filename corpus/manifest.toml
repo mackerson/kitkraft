@@ -1,4 +1,4 @@
-# Official Starfield ESMs used as the roundtrip corpus. Read in place via KITCRAFT_DATA_DIR.
+# Official Starfield ESMs used as the roundtrip corpus. Read in place via KITKRAFT_DATA_DIR.
 # Recorded 2026-10-14 from the Steam install on the dev box. A game update changes these;
 # update this file in its own commit. See docs/corpus.md.
 

@@ -4,8 +4,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kitcraft_io::ini::Ini;
-use kitcraft_io::{ModState, Profile, ProfileOptions};
+use kitkraft_io::ini::Ini;
+use kitkraft_io::{ModState, Profile, ProfileOptions};
 use serde_json::{json, Value};
 
 use super::{io_error, refused, DeployError, DEV_PROFILE, LIVE_PROFILE, PREFIX};
@@ -379,7 +379,7 @@ impl Instance {
     }
 
     /// Read-only: whether `mod_name` is enabled in `profile` and where `plugin` sits in
-    /// its `plugins.txt` (through `kitcraft-io`'s profile reader), with warnings.
+    /// its `plugins.txt` (through `kitkraft-io`'s profile reader), with warnings.
     pub(crate) fn profile_state(
         &self,
         profile: &str,

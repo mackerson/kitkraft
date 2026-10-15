@@ -13,9 +13,9 @@ use std::cell::RefCell;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use kitcraft_doc::GlobalForm;
-use kitcraft_esm::index::read_record_at;
-use kitcraft_esm::DecodeLimits;
+use kitkraft_doc::GlobalForm;
+use kitkraft_esm::index::read_record_at;
+use kitkraft_esm::DecodeLimits;
 use serde_json::{json, Map, Value};
 
 use super::load::{acquire, Loaded};
@@ -73,7 +73,7 @@ pub(crate) fn find_form(
     plugin: Option<&str>,
 ) -> Result<GlobalForm, EngineError> {
     let lo = &loaded.lo;
-    if let Some(f) = kitcraft_doc::FormRef::parse(form) {
+    if let Some(f) = kitkraft_doc::FormRef::parse(form) {
         let p = lo
             .find(&f.plugin)
             .ok_or_else(|| failed(command, format!("`{}` is not in the load order", f.plugin)))?;
@@ -124,7 +124,7 @@ pub(crate) fn find_form(
 }
 
 /// Refuses to copy the winning version of `form` when lane D's source check (M3.D1,
-/// `kitcraft_doc::source`) finds a problem that can change which version wins or what its
+/// `kitkraft_doc::source`) finds a problem that can change which version wins or what its
 /// FormIDs mean: a plugin holding a version loads before its master, or a plugin after the
 /// winner failed to load or has unresolved records that could be this form, or the winner
 /// is missing or deleted. Problems elsewhere in the load order (an active plugin with no
@@ -320,7 +320,7 @@ pub(crate) fn write_with(
 /// A private directory under the OS temp dir where `set` and `build` write and validate a
 /// plugin before it replaces its destination; removed on drop. Directories a crashed run
 /// left behind (older than a day) are removed when a new one is made, and so are `build`'s
-/// old `.kitcraft-build-<pid>` directories next to the destination (the layout before
+/// old `.kitkraft-build-<pid>` directories next to the destination (the layout before
 /// 2026-10-14, older than an hour).
 pub(crate) struct Staged {
     dir: PathBuf,
@@ -335,7 +335,7 @@ impl Drop for Staged {
 }
 
 /// Prefix of staging directories in the OS temp dir.
-const STAGE_PREFIX: &str = "kitcraft-stage-";
+const STAGE_PREFIX: &str = "kitkraft-stage-";
 
 static STAGE_COUNTER: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
 
@@ -375,7 +375,7 @@ pub(crate) fn stage(command: &str, out: &Path, copy_existing: bool) -> Result<St
         .unwrap_or_else(|| Path::new("."));
     remove_stale(
         parent,
-        ".kitcraft-build-",
+        ".kitkraft-build-",
         std::time::Duration::from_secs(3600),
     );
     let name = out
@@ -404,7 +404,7 @@ pub(crate) fn install(command: &str, staged: &Staged, out: &Path) -> Result<(), 
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
-    let temp = out.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()));
+    let temp = out.with_file_name(format!(".{name}.kitkraft-{}.tmp", std::process::id()));
     // A missing destination folder is created (`out` was guarded before staging).
     if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
         std::fs::create_dir_all(parent)

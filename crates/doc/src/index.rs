@@ -1,6 +1,6 @@
 //! Per-plugin record index: where every record is, without keeping the tree.
 //!
-//! Built from lane A's `kitcraft_esm::index` (M2.A1), reduced to what the load order needs
+//! Built from lane A's `kitkraft_esm::index` (M2.A1), reduced to what the load order needs
 //! and stored compactly (EditorIDs in one arena) so the cache (`cache.rs`) can hold it.
 //!
 //! EditorIDs: the first `EDID` subrecord of a record without its trailing NUL, decoded as
@@ -12,9 +12,9 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
 
-use kitcraft_esm::index::{index_file, IndexOptions};
-use kitcraft_esm::tes4::Tes4;
-use kitcraft_esm::{Entry, ParseOptions, Reader, Record, Signature};
+use kitkraft_esm::index::{index_file, IndexOptions};
+use kitkraft_esm::tes4::Tes4;
+use kitkraft_esm::{Entry, ParseOptions, Reader, Record, Signature};
 
 use crate::error::{DocError, Result};
 use crate::flags::PluginFlags;
@@ -112,7 +112,7 @@ pub fn file_name_of(path: &Path) -> String {
 }
 
 impl PluginIndex {
-    /// Index every record of `path` through `kitcraft_esm::index` (lane A's M2.A1 index)
+    /// Index every record of `path` through `kitkraft_esm::index` (lane A's M2.A1 index)
     /// and keep what the load order needs.
     pub fn build(path: &Path) -> Result<PluginIndex> {
         let (size, mtime_ns) = file_stamp(path)?;
@@ -226,7 +226,7 @@ pub fn read_header(path: &Path) -> Result<HeaderInfo> {
     if sig != Signature::TES4 {
         return Err(DocError::esm(
             &file_name,
-            kitcraft_esm::Error::NotAPlugin {
+            kitkraft_esm::Error::NotAPlugin {
                 offset: 0,
                 found: sig,
             },
@@ -237,7 +237,7 @@ pub fn read_header(path: &Path) -> Result<HeaderInfo> {
     if total > file_len {
         return Err(DocError::esm(
             &file_name,
-            kitcraft_esm::Error::UnexpectedEof {
+            kitkraft_esm::Error::UnexpectedEof {
                 offset: 0,
                 what: "record",
                 needed: total,

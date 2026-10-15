@@ -1,7 +1,7 @@
 # Quest family: what the schema says, and what it does not
 
 For mod authors who want to read or patch Starfield's quests, dialogue and AI with
-KitCraft: quests (QUST) with their stages, objectives and aliases; dialogue topics (DIAL),
+KitKraft: quests (QUST) with their stages, objectives and aliases; dialogue topics (DIAL),
 their responses (INFO) and scenes (SCEN); AI packages (PACK); factions (FACT); the story
 manager tree (SMEN, SMBN, SMQN); and challenges (CHAL). The definitions are in
 `crates/schema/defs/<SIG>.toml`; `kit schema --type QUST` prints any of them with sources

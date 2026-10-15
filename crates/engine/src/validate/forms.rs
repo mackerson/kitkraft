@@ -4,15 +4,15 @@
 //! to the class's master count, in the plugin's own class, is the plugin itself
 //! (`plan/execution-plan.md`, "Format facts"). Full-scale FormIDs index the full-scale
 //! masters; `FE` (small) and `FD` (medium) FormIDs index the small and the medium masters
-//! (lane D's encoding, [`kitcraft_doc::RawRef`], confirmed on the corpus:
+//! (lane D's encoding, [`kitkraft_doc::RawRef`], confirmed on the corpus:
 //! `docs/load-order.md`, "FormIDs"). A class index can be counted only when the scale of
 //! every master before it is known, so a missing master before the index leaves the FormID
 //! unresolved: an unknown scale is never guessed. A small or medium plugin's own record
 //! stored in the full class (lane D's assumption `full-style-self`) is an assumption, so it
 //! stays unresolved here too.
 
-use kitcraft_doc::{RawRef, Scale};
-use kitcraft_esm::tes4::{FLAG_MEDIUM, FLAG_SMALL};
+use kitkraft_doc::{RawRef, Scale};
+use kitkraft_esm::tes4::{FLAG_MEDIUM, FLAG_SMALL};
 
 /// Whether TES4 flags mark a small or medium plugin.
 pub fn scaled(flags: u32) -> bool {

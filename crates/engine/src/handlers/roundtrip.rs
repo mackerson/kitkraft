@@ -1,4 +1,4 @@
-//! `roundtrip` (M1.12): parse a plugin and write it back through the `kitcraft-esm`
+//! `roundtrip` (M1.12): parse a plugin and write it back through the `kitkraft-esm`
 //! streaming driver, comparing the output with the input byte for byte.
 //!
 //! The driver always compares. `verify` decides whether a difference is a failed check:
@@ -16,7 +16,7 @@ use std::io::{BufWriter, Write};
 use std::path::Path;
 use std::time::Instant;
 
-use kitcraft_esm::driver::{roundtrip_file_to, RoundtripOptions, RoundtripReport};
+use kitkraft_esm::driver::{roundtrip_file_to, RoundtripOptions, RoundtripReport};
 use serde_json::{json, Value};
 
 use super::{failed, file_name, str_arg};
@@ -289,7 +289,7 @@ mod tests {
     };
     use crate::handlers::testdata;
     use crate::{execute, EngineError};
-    use kitcraft_esm::driver::{Mismatch, RoundtripReport, Stats};
+    use kitkraft_esm::driver::{Mismatch, RoundtripReport, Stats};
     use serde_json::{json, Value};
 
     /// `elapsed_ms` varies run to run; everything else must match exactly.
@@ -419,7 +419,7 @@ mod tests {
 
     #[test]
     fn unreadable_and_malformed_plugins_fail_with_offsets() {
-        let missing = std::env::temp_dir().join("kitcraft-engine-no-such-plugin.esm");
+        let missing = std::env::temp_dir().join("kitkraft-engine-no-such-plugin.esm");
         let err = execute("roundtrip", json!({"plugin": missing.to_str().unwrap()})).unwrap_err();
         assert!(matches!(err, EngineError::Failed { .. }), "{err:?}");
 
@@ -507,7 +507,7 @@ mod tests {
     /// (the Adler-32 checksum) flipped: same size, so only `decode` sees it.
     fn corrupt_plugin() -> Vec<u8> {
         let mut bytes = testdata::plugin();
-        let packed = kitcraft_esm::compress::deflate(&testdata::packed_fields(), 9, 0).unwrap();
+        let packed = kitkraft_esm::compress::deflate(&testdata::packed_fields(), 9, 0).unwrap();
         let at = bytes
             .windows(packed.len())
             .position(|w| w == packed.as_slice())

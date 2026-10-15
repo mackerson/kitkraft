@@ -34,7 +34,7 @@ Arguments (JSON, same over MCP `execute` / `command_line`, which carry `destruct
 
 - `source`: a plugin (`.esm`, `.esp`, `.esl`) or a package folder (the plugin at the root,
   loose files and `.ba2` archives at their Data paths). A folder's
-  `kitcraft-manifest.json` (written by `package`, M4.E5) is verified and not deployed.
+  `kitkraft-manifest.json` (written by `package`, M4.E5) is verified and not deployed.
 - `mo2`: the MO2 instance root (the folder holding `ModOrganizer.ini`). Required on every
   call; no configuration file, environment variable or session supplies it.
 - `dev`: required and must be `true` (`--dev`). The schema admits only `true`, and the
@@ -91,7 +91,7 @@ it is complete):
   "source": {
     "path": "C:\\Modding\\out\\MyMod",
     "kind": "folder",
-    "package_manifest": "C:\\Modding\\out\\MyMod\\kitcraft-manifest.json",
+    "package_manifest": "C:\\Modding\\out\\MyMod\\kitkraft-manifest.json",
     "package_manifest_sha256": "..."
   },
   "files": [
@@ -119,7 +119,7 @@ reports as `previous.manifest.deployment_id`.
    `profile` is `Default`, and when the INI names no active profile unless `profile`
    names an existing profile other than `Default` (the gate fails closed).
 2. Read and hash the source (SHA-256 of every file); verify it against
-   `kitcraft-manifest.json` when there is one.
+   `kitkraft-manifest.json` when there is one.
 3. Recover a journal left by an interrupted call (below).
 4. Check the slots: the live folder and `.previous` must be absent or KitKraft's; the live
    folder must match its manifest (a file edited by hand, missing, or not listed is
@@ -174,7 +174,7 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `source`              | Not a plugin or a folder with one plugin at its root                 |
 | `source-path`         | A name Windows forbids, `meta.ini` or `kitkraft-deploy.json` at the package root, a deployed path longer than 259 characters (measured under the longest slot, `<target>.previous\`, where every file lives after the next deploy, and for the longest internal temp names, `<target>.previous\kitkraft-deploy.json.tmp` and the journal's `.tmp`), too deep or more than 20,000 files |
 | `plugin-name`         | The plugin stem is a name Windows forbids                            |
-| `package-manifest`    | A file differs from `kitcraft-manifest.json`, is not listed, or a listed file is missing |
+| `package-manifest`    | A file differs from `kitkraft-manifest.json`, is not listed, or a listed file is missing |
 | `target-collision`    | The target, `.previous`, `.staging` or `.retired` exists and is not this dev mod's |
 | `target-modified`     | The live folder differs from its manifest (modified, missing or unmanaged files) |
 | `previous-modified`   | `.previous` (or `.retired`) differs from its manifest (MO2's `meta.ini` allowed) and the call would restore or drop it: `rollback`, a redeploy that replaces the rollback copy, or a journal recovery that removes `.retired` |
@@ -253,9 +253,10 @@ accepts these departures:
 - **Journal beside the folders** (`<target>.kitkraft-journal.json` in `mods\`, a file, so
   MO2 never lists it as a mod), not in a state folder, so recovery needs nothing but `mo2`.
 - **`dry_run`** (`--dry-run`, the brief's word) instead of ADR 0009's `plan`.
-- **Names.** `kitkraft-deploy.json` and the `kitkraft-dev-mod` marker use the final
-  product name now (new identifiers, nothing to rename later); the package manifest it
-  reads is still `kitcraft-manifest.json`.
+- **Names.** `kitkraft-deploy.json` and the `kitkraft-dev-mod` marker used the final
+  product name from the start; the package manifest it reads is `kitkraft-manifest.json`
+  (renamed with the identifiers; a package made earlier with `kitcraft-manifest.json` is
+  still verified when the new name is absent, deprecated for one release).
 - **Unmanaged files** in the live folder (other than MO2's `meta.ini`) refuse the deploy
   instead of being left in place, because the folder swap would otherwise move them into
   `.previous` and later drop them.
@@ -264,7 +265,7 @@ accepts these departures:
 
 ## Limits and open points
 
-- The MO2 instance check lives in the engine (`deploy/instance.rs`, using `kitcraft-io`'s
+- The MO2 instance check lives in the engine (`deploy/instance.rs`, using `kitkraft-io`'s
   INI and profile readers). ADR 0009 puts it in `crates/io` (lane D); a request is in
   `plan/STATUS.md`.
 - The package manifest is read tolerantly: a `files` array of `{path, sha256, size?}` is

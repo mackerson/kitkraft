@@ -2,17 +2,17 @@
 //! except the errors [`KNOWN_ERRORS`] lists as corpus facts, each with its evidence and
 //! exact count (M4.BX1: a new official-file error is a layout error in the merged family
 //! until it is explained there). FormIDs naming engine-reserved forms (object IDs below
-//! 0x800 in Starfield.esm's index space, `kitcraft_engine::validate::is_reserved`) are not
+//! 0x800 in Starfield.esm's index space, `kitkraft_engine::validate::is_reserved`) are not
 //! findings; their count per plugin and member path is pinned in [`RESERVED`] as the
 //! regression expectation. Warnings are printed by kind for `plan/STATUS.md`. `#[ignore]`:
 //! it reads 2.5 GB; run
-//! `cargo test -p kitcraft-engine --release --test validate_corpus -- --ignored --nocapture`
-//! with `KITCRAFT_DATA_DIR` set.
+//! `cargo test -p kitkraft-engine --release --test validate_corpus -- --ignored --nocapture`
+//! with `KITKRAFT_DATA_DIR` set.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 
-use kitcraft_engine::execute;
+use kitkraft_engine::execute;
 use serde_json::{json, Value};
 
 /// Errors the official files really have: real dangling FormIDs that more typed members
@@ -200,11 +200,12 @@ const CORPUS: [&str; 14] = [
 #[test]
 #[ignore = "validates 2.5 GB of plugins; run in release"]
 fn validate_corpus_official_files() {
-    let Some(dir) = std::env::var_os("KITCRAFT_DATA_DIR")
+    let Some(dir) = std::env::var_os("KITKRAFT_DATA_DIR")
+        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
         .map(PathBuf::from)
         .filter(|d| d.is_dir())
     else {
-        println!("skipped: KITCRAFT_DATA_DIR is unset or not a directory");
+        println!("skipped: KITKRAFT_DATA_DIR is unset or not a directory");
         return;
     };
     let mut failures = Vec::new();

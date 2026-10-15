@@ -12,7 +12,7 @@
 
 use std::path::PathBuf;
 
-use kitcraft_doc::PluginSpec;
+use kitkraft_doc::PluginSpec;
 
 use crate::mo2::Profile;
 use crate::overlay::{Overlay, Resolved};
@@ -303,7 +303,7 @@ pub fn explicit(
             }
         };
         if path.is_file() {
-            let name = kitcraft_doc::index::file_name_of(&path);
+            let name = kitkraft_doc::index::file_name_of(&path);
             specs.push(PluginSpec { name, path });
         } else {
             missing.push(path.display().to_string());

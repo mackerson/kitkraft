@@ -15,7 +15,7 @@ evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6810-L6824",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6725-L6740",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6775-L6790",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every REFR and ACHR DATA payload (6,728,604, all 24 bytes) and every REFR XTEL and XRGD bone in the 14 official ESMs decodes with this layout",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every REFR and ACHR DATA payload (6,728,604, all 24 bytes) and every REFR XTEL and XRGD bone in the 14 official ESMs decodes with this layout",
 ]
 confidence = "corpus"
 type = "struct"

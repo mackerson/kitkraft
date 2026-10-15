@@ -1,7 +1,7 @@
 //! `cargo xtask codegen [--check]` (M1.15, ADR 0003): typed records from the schema.
 //!
-//! Loads the embedded definition set (`kitcraft_schema::builtin()`), runs
-//! `kitcraft_schema::generate`, pipes the result through `rustfmt` with the workspace
+//! Loads the embedded definition set (`kitkraft_schema::builtin()`), runs
+//! `kitkraft_schema::generate`, pipes the result through `rustfmt` with the workspace
 //! `rustfmt.toml` (the generator only mirrors rustfmt's width rules for the constructs it
 //! emits today), and writes [`OUT_DIR`]`/records.rs` plus a fixed `mod.rs`. Both start with
 //! a DO NOT EDIT header; `records.rs` also names the hash of the definition set it came
@@ -52,7 +52,7 @@ pub(crate) fn lf(text: &str) -> String {
 /// order.
 pub(crate) fn defs_hash() -> String {
     let mut owned: Vec<Vec<u8>> = Vec::new();
-    for (name, text) in kitcraft_schema::BUILTIN_DEFINITIONS {
+    for (name, text) in kitkraft_schema::BUILTIN_DEFINITIONS {
         owned.push(name.as_bytes().to_vec());
         owned.push(vec![0]);
         owned.push(lf(text).into_bytes());
@@ -64,13 +64,13 @@ pub(crate) fn defs_hash() -> String {
 
 /// The files `codegen` writes: (file name in [`OUT_DIR`], contents).
 fn render(root: &Path) -> Result<Vec<(&'static str, String)>> {
-    let schema = kitcraft_schema::builtin()
+    let schema = kitkraft_schema::builtin()
         .map_err(|e| anyhow!("loading the builtin schema definitions: {e}"))?;
-    let code = kitcraft_schema::generate(schema).context("generating typed records")?;
-    let defs = kitcraft_schema::BUILTIN_DEFINITIONS.len();
+    let code = kitkraft_schema::generate(schema).context("generating typed records")?;
+    let defs = kitkraft_schema::BUILTIN_DEFINITIONS.len();
     let header = format!(
         "// DO NOT EDIT. Written by `cargo xtask codegen` from crates/schema/defs/ ({defs} files,\n\
-         // kitcraft_schema::BUILTIN_DEFINITIONS); rerun it after changing a definition.\n\
+         // kitkraft_schema::BUILTIN_DEFINITIONS); rerun it after changing a definition.\n\
          // Schema defs hash: {}\n\n",
         defs_hash()
     );

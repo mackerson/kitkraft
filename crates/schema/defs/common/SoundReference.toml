@@ -21,7 +21,7 @@ name = "SoundReference"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: WEAP WAUD 288 bytes and PUSH/PDSH 40 bytes in all 452 WEAP records of the 14 official ESMs",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: WEAP WAUD 288 bytes and PUSH/PDSH 40 bytes in all 452 WEAP records of the 14 official ESMs",
   "corpus: the 2,098 WED0 and 232 RVSH of the INFO records of the 14 official ESMs, 2026-10-14 scan (quest family, M4.BQ1): all 40 bytes, every record decodes and re-encodes identically",
   "corpus: CS3S (NPC_ 614), WED0/WED1 (RACE 92), PUSH/PDSH (SPEL 2) and the ESSH tail (MGEF 224) in the 14 official ESMs, 2026-10-14 scan (actor family, M4.BC1): all 40 bytes; every one decodes and re-encodes identically",
   "corpus: sound reference subrecords of the ITEMS/WORKSHOP family records in the 14 official ESMs, 2026-10-14 scan (M4.BI1): all 40 bytes; the condition slot is a CNDF or null; every record decodes and re-encodes identically",

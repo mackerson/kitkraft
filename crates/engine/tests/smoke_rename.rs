@@ -1,21 +1,24 @@
 //! M2.E10 rename smoke test (`docs/smoke-rename.md`): the Old Earth Hunting Rifle becomes
 //! the "Old Soviet Marksman Rifle" in a new plugin, through `execute` exactly as `kit` and
-//! MCP call it. Reads the official `Starfield.esm` in place through `KITCRAFT_DATA_DIR`
+//! MCP call it. Reads the official `Starfield.esm` in place through `KITKRAFT_DATA_DIR`
 //! (skipped when unset); writes only to a temp directory (and lane D's index cache).
 
 #![allow(clippy::arithmetic_side_effects)]
 
 use std::path::PathBuf;
 
-use kitcraft_engine::execute;
+use kitkraft_engine::execute;
 use serde_json::{json, Value};
 
 fn data_dir() -> Option<PathBuf> {
-    match std::env::var_os("KITCRAFT_DATA_DIR").map(PathBuf::from) {
+    match std::env::var_os("KITKRAFT_DATA_DIR")
+        .or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))
+        .map(PathBuf::from)
+    {
         Some(dir) if dir.join("Starfield.esm").is_file() => Some(dir),
         _ => {
             println!(
-                "skipped: KITCRAFT_DATA_DIR is unset or has no Starfield.esm (docs/corpus.md)"
+                "skipped: KITKRAFT_DATA_DIR is unset or has no Starfield.esm (docs/corpus.md)"
             );
             None
         }
@@ -28,7 +31,7 @@ const NAME: &str = "Old Soviet Marksman Rifle";
 fn rename_the_old_earth_hunting_rifle() {
     let Some(data) = data_dir() else { return };
     let data_text = data.display().to_string();
-    let out = std::env::temp_dir().join(format!("kitcraft-smoke-rename-{}", std::process::id()));
+    let out = std::env::temp_dir().join(format!("kitkraft-smoke-rename-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
     std::fs::create_dir_all(&out).unwrap();
     let lo = json!({"plugins": ["Starfield.esm"], "data_dir": data_text});

@@ -17,7 +17,7 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::{DecodeLimits, HEADER_LEN};
+use kitkraft_esm::{DecodeLimits, HEADER_LEN};
 
 use crate::compare::{classify_with, edid_first, FieldCompare, OverrideClass};
 use crate::error::{DocError, Result};
@@ -337,7 +337,7 @@ pub fn diff_plugins(
     let mut fb = File::open(b).map_err(|e| DocError::io(b, e))?;
     let (na, nb) = (file_name_of(a), file_name_of(b));
     let limits = DecodeLimits::default();
-    let schema = kitcraft_schema::builtin().ok();
+    let schema = kitkraft_schema::builtin().ok();
     let mut diff = PluginDiff {
         keyed_by,
         added: Vec::new(),

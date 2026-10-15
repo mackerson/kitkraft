@@ -115,7 +115,7 @@ new crate, no layer change).
   parity after each merge.
 - Builder: cell and world child groups (block and sub-block structure from the corpus),
   reference creation with position and rotation, a new-form allocator, `NAVM` passthrough
-  from CK-saved plugins (KitCraft does not generate navmesh).
+  from CK-saved plugins (KitKraft does not generate navmesh).
 - Commands: `new`, `clone`, `place`, build spec v3, `refs` across families, `planet`,
   `package` (MO2-ready folder, optional BA2, hashed manifest), `testplan` (console batch
   files, disposable-save checklist), `papyrus.events` (signatures from the 5,034 base
@@ -141,7 +141,7 @@ new crate, no layer change).
     APIs are stable (lane W), off the critical path.
 
 Exit criteria:
-- The first POI placed by KitCraft is visited in game on a disposable save, with its
+- The first POI placed by KitKraft is visited in game on a disposable save, with its
   persistence steps recorded.
 - Every P0 workstream's first deliverable is done; every P1 one is done or carried with the
   reason; UI, assets and audio have their scoping document.

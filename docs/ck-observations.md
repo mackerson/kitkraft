@@ -13,7 +13,7 @@ Rules that bind every entry:
   no debugger, disassembler or memory tool. Its Creations, upload and Bethesda.net login
   features are never used.
 - **Nothing from `observe/` is committed.** CK-saved plugins, string tables, screenshots
-  and the generated reports stay in `C:\Modding\kitcraft\observe\` (gitignored). The ledger
+  and the generated reports stay in `C:\Modding\kitkraft\observe\` (gitignored). The ledger
   records offsets, widths, our own sentinel values, the bytes around them and SHA-256
   hashes, in our own words.
 - **Our sentinels, not Bethesda data.** A ledger entry may quote bytes the CK wrote for our
@@ -45,7 +45,7 @@ Id `ck-<yyyymmdd>-<nn>` (session date, two-digit sequence). One entry per findin
 
 ## Fixture matrix (M3.H1)
 
-Each fixture is a folder `C:\Modding\kitcraft\observe\<yyyy-mm-dd>-<id>\` holding the
+Each fixture is a folder `C:\Modding\kitkraft\observe\<yyyy-mm-dd>-<id>\` holding the
 CK-saved files, screenshots and a `fixture.toml`. `cargo xtask observe new <id>` creates the
 folder with a `fixture.toml` already filled with the forms and sentinels below. Plugin names
 start with `KC_`. Gates (dossier section 4): G0 parse, G1 lossless passthrough, G2 narrow
@@ -77,7 +77,7 @@ Sentinel bytes (little-endian, so the byte diff can find them): `1234.5` = `00 5
 
 ### Resolved forms and why each was chosen
 
-Every form was found with our own tools on the official files (KITCRAFT_DATA_DIR, read
+Every form was found with our own tools on the official files (KITKRAFT_DATA_DIR, read
 only) on 2026-10-14; the commands are listed so the choice can be rechecked after a game
 update.
 
@@ -100,7 +100,7 @@ The script in `plan/execution-plan.md` ("M3.O1: CK session script") with every p
 filled. Two sittings are fine: F00..F06 and F13, then F07..F12 and F14.
 
 Before starting: note what is in `C:\Modding\MO2-Starfield\overwrite\` (ideally nothing).
-For each fixture, `cargo xtask observe new <id>` (from `C:\Modding\kitcraft`) creates
+For each fixture, `cargo xtask observe new <id>` (from `C:\Modding\kitkraft`) creates
 `observe\<today>-<id>\fixture.toml`; fill it as you go. Screenshots go into the same folder.
 
 | Step | F00 | F01 | F02 | F03 | F04 | F05 | F06 |
@@ -116,8 +116,8 @@ For each fixture, `cargo xtask observe new <id>` (from `C:\Modding\kitcraft`) cr
 | Save as | `KC_F07.esp` | `KC_F08.esp` | `KC_F09.esp` | `KC_F10.esp` | `KC_F11_full.esm`, `KC_F11_medium.esm`, `KC_F11_small.esm` | `KC_F12.esp` | `KC_F13.esp` | - |
 
 For F14, our plugin has to be visible to the CK: copy
-`C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm` into a disposable MO2 mod (for example
-`KitCraft observation (F14)`), enable it only for this fixture, and disable it afterwards.
+`C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm` into a disposable MO2 mod (for example
+`KitKraft observation (F14)`), enable it only for this fixture, and disable it afterwards.
 
 After each save: find where the file landed (expected `overwrite\`), move it (with any
 string tables) into the fixture folder, leave `overwrite\` as you found it, and fill
@@ -127,11 +127,11 @@ in `fixture.toml`. A refused action is a finding: record the message and go on.
 Then hand lane H the folder names. Each is processed with:
 
 ```powershell
-$env:KITCRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+$env:KITKRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
 cargo xtask observe observe\2026-10-20-F02   # writes report.md and report.json in that folder only
 ```
 
-`KITCRAFT_KIT` may name a prebuilt `kit.exe`; otherwise the harness runs
+`KITKRAFT_KIT` may name a prebuilt `kit.exe`; otherwise the harness runs
 `cargo run --release -p kit-cli`.
 
 ## M3.O2: the MO2 and in-game session, resolved
@@ -144,14 +144,14 @@ screenshots to `observe\<yyyy-mm-dd>-O2\`; answers into `plan/STATUS.md`.
 2. Console. `Constellation.esm` places no objects (its records are AVMD, KYWD, COBJ, OMOD,
    GLOB, LMSW, LVLI), so there is nothing of it to click. Use
    `help ConstellationTestGlobal 4` instead: the line shows its runtime ID (expected
-   `FE000xxx`; KitCraft assumes `FE000041`). For a full plugin: `help RussianHuntingRifle 4`
-   (KitCraft assumes `0021BBCD`).
+   `FE000xxx`; KitKraft assumes `FE000041`). For a full plugin: `help RussianHuntingRifle 4`
+   (KitKraft assumes `0021BBCD`).
 3. `help <EditorID> 4` for each form below: does it exist, and which runtime ID does it show?
-   KitCraft's assumption is the runtime ID `kit inspect <form> --profile
+   KitKraft's assumption is the runtime ID `kit inspect <form> --profile
    C:\Modding\MO2-Starfield\profiles\Default` printed on 2026-10-14 (assumptions
    `runtime-slots-by-scale` and `hardcoded-official-slots`, `docs/load-order.md`).
 
-   | Plugin | Form | EditorID | Stored FormID | KitCraft assumes |
+   | Plugin | Form | EditorID | Stored FormID | KitKraft assumes |
    | ------ | ---- | -------- | ------------- | ---------------- |
    | `HG_ShipCargoHoldAtHome.esm` | TRNS | `HG_Outpost_ShipCargoHoldConsole` | `02000808` | unresolved (stored `02xxxxxx` with one master) |
    | `HG_ShipCargoHoldAtHome.esm` | ACTI | `HG_ShipCargoHoldConsole` | `02000807` | unresolved |
@@ -173,7 +173,7 @@ screenshots to `observe\<yyyy-mm-dd>-O2\`; answers into `plan/STATUS.md`.
    game looks (lane D's request from M3.D6).
 
    The `HG_ShipCargoHoldAtHome.esm` EditorIDs come from our own walk of that file (its
-   records are left out of KitCraft's load order as unresolved); the plugin is in the
+   records are left out of KitKraft's load order as unresolved); the plugin is in the
    owner's Default profile and is named here only for this check (M2.O5 stays **no** for
    third-party plugins as format evidence).
 4. If M2.O6 is still open, do it now; then enable F13's `KC_F13.esp` the way M2.O6 enables

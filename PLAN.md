@@ -1,4 +1,4 @@
-# KitCraft — open-source Creation Kit for Starfield, built the "craft suite" way
+# KitKraft — open-source Creation Kit for Starfield, built the "craft suite" way
 
 > Where this brief and AGENTS.md differ, AGENTS.md wins. Source policy (owner decision
 > 2026-10-14, ADR 0004 and ADR 0005 Amendment 2): xEdit's `wbDefinitionsSF1.pas`, pinned at
@@ -65,7 +65,7 @@ write it back byte-identical. That is milestone 1 and the thing agents actually 
 
 ## Workspace layout (mirrors cadcraft)
 ```
-kitcraft/
+kitkraft/
   AGENTS.md CLAUDE.md ROADMAP.md ATTRIBUTION.md
   plan/STATUS.md plan/execution-plan.md plan/adr/
   docs/architecture.md docs/record-parity.md docs/ck-parity.md docs/gaps.md docs/mcp.md
@@ -169,7 +169,7 @@ outposts, not workshops, and a different Papyrus API surface. Realistic shape:
   stress test that decides whether the agent surface is good enough.
 
 ## Open decisions (owner's call)
-1. Name. "KitCraft" is a placeholder.
+1. Name. "KitKraft" is a placeholder.
 2. ~~Whether xEdit's MPL source may be read~~ Decided 2026-10-14 (ADR 0004): the pinned
    `wbDefinitionsSF1.pas` is the record-definition reference, as source material only.
 3. Which YouTube critique to use as the design brief for the overhaul (link it in plan/).

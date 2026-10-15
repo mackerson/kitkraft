@@ -7,7 +7,7 @@
 //! - `corpus_index_starfield` (ignored): indexes `Starfield.esm`, prints wall time and the
 //!   peak working set, then checks 1,000 seeded entries against the streaming parse.
 //!
-//! `cargo test -p kitcraft-esm --release --test index -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test index -- --ignored --nocapture`
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -25,9 +25,9 @@ use std::path::Path;
 use std::time::Instant;
 
 use common::hostile::Rng;
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
+use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
 
 /// Record count per signature, from the streaming parse (`TES4` included).
 fn parsed_counts(path: &Path) -> BTreeMap<Signature, u64> {

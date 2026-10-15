@@ -11,7 +11,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8502-L8511",
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every block the REFR and ACHR definitions place in the 14 official ESMs decodes with these layouts (GNAM, HNAM, JNAM 4 bytes, INAM 2, LNAM 4, XWPK and XGOM 0)",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every block the REFR and ACHR definitions place in the 14 official ESMs decodes with these layouts (GNAM, HNAM, JNAM 4 bytes, INAM 2, LNAM 4, XWPK and XGOM 0)",
 ]
 confidence = "corpus"
 

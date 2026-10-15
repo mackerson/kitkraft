@@ -1,8 +1,8 @@
 //! Bare input names through `execute` (M4.F1): every command that reads a plugin or
-//! archive resolves `Constellation.esm` (or its archive) in `KITCRAFT_DATA_DIR`, and fails
+//! archive resolves `Constellation.esm` (or its archive) in `KITKRAFT_DATA_DIR`, and fails
 //! with `not_found` naming the places searched when the Data dir does not have it. The
 //! "resolves" half reads the official files in place (`docs/corpus.md`) and skips when
-//! `KITCRAFT_DATA_DIR` is unset; the "not found" half points `data_dir` at an empty dir,
+//! `KITKRAFT_DATA_DIR` is unset; the "not found" half points `data_dir` at an empty dir,
 //! which wins over the environment, so it always runs.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
@@ -19,15 +19,15 @@ const LOCALIZATION: &str = "Constellation - Localization.ba2";
 const TABLE: &str = "strings/constellation_en.strings";
 const SCRIPTS: &str = "Starfield - Misc.ba2";
 
-/// The Data dir when `KITCRAFT_DATA_DIR` names one holding `Constellation.esm`.
+/// The Data dir when `KITKRAFT_DATA_DIR` names one holding `Constellation.esm`.
 fn data() -> Option<PathBuf> {
-    let dir = std::env::var_os(super::DATA_DIR_ENV)
+    let dir = super::env_var_os(super::DATA_DIR_ENV)
         .filter(|d| !d.is_empty())
         .map(PathBuf::from)?;
     if dir.join(PLUGIN).is_file() {
         Some(dir)
     } else {
-        println!("skipped: {PLUGIN} is not in KITCRAFT_DATA_DIR");
+        println!("skipped: {PLUGIN} is not in KITKRAFT_DATA_DIR");
         None
     }
 }

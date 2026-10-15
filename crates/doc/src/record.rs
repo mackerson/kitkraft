@@ -4,8 +4,8 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::path::Path;
 
-use kitcraft_esm::index::read_record_at as esm_read_record_at;
-use kitcraft_esm::{DecodeLimits, Record, Signature, Subrecord};
+use kitkraft_esm::index::read_record_at as esm_read_record_at;
+use kitkraft_esm::{DecodeLimits, Record, Signature, Subrecord};
 
 use crate::error::{DocError, Result};
 use crate::index::{file_name_of, RecordLoc};
@@ -45,7 +45,7 @@ impl LoadedRecord {
     }
 }
 
-/// Read the record at `offset` of an open file (lane A's `kitcraft_esm::index::read_record_at`,
+/// Read the record at `offset` of an open file (lane A's `kitkraft_esm::index::read_record_at`,
 /// M2.A2), checking it is `expected` when given; a compressed record is decompressed under
 /// `limits`.
 pub fn read_record_at(
@@ -58,7 +58,7 @@ pub fn read_record_at(
     let expected_label = || expected.map_or_else(|| "a".into(), |(s, f)| format!("{s}:{f:08X}"));
     let record = match esm_read_record_at(file, offset, Some(limits)) {
         Ok(r) => r,
-        Err(kitcraft_esm::Error::NotARecord { offset, found }) => {
+        Err(kitkraft_esm::Error::NotARecord { offset, found }) => {
             return Err(DocError::RecordMismatch {
                 file: file_name.to_string(),
                 offset,

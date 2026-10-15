@@ -1,6 +1,6 @@
 //! Reading the outside world into a load order: MO2 profiles (`modlist.txt`,
 //! `plugins.txt`, `loadorder.txt`, `Starfield.ccc`), the overlay of mod folders over the
-//! game's Data dir, and the resulting plugin list for `kitcraft-doc`.
+//! game's Data dir, and the resulting plugin list for `kitkraft-doc`.
 //!
 //! Read-only by construction: nothing in this crate opens a file for writing. Rules and
 //! their evidence: `docs/load-order.md`.
@@ -67,7 +67,7 @@ mod tests {
     impl Instance {
         fn new(tag: &str) -> Instance {
             let root =
-                std::env::temp_dir().join(format!("kitcraft-io-{tag}-{}", std::process::id()));
+                std::env::temp_dir().join(format!("kitkraft-io-{tag}-{}", std::process::id()));
             let _ = std::fs::remove_dir_all(&root);
             for d in ["mods", "overwrite", "profiles/P", "Game/Data"] {
                 std::fs::create_dir_all(root.join(d)).unwrap();

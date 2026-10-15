@@ -1,10 +1,10 @@
-KitCraft (working name)
-Copyright 2026 The KitCraft contributors
+KitKraft
+Copyright 2026 The KitKraft contributors
 
 Licensed under either of the MIT license (LICENSE-MIT) or the Apache License,
 Version 2.0 (LICENSE-APACHE), at your option.
 
-KitCraft is an independent project. It is not affiliated with, endorsed by, or
+KitKraft is an independent project. It is not affiliated with, endorsed by, or
 supported by Bethesda Softworks, ZeniMax Media, or Microsoft. Starfield and
 Creation Kit are trademarks of their respective owners.
 
@@ -18,7 +18,7 @@ we own. No UESP prose is reproduced here.
 Starfield record definitions are informed by xEdit's Core/wbDefinitionsSF1.pas
 (https://github.com/TES5Edit/TES5Edit, MPL-2.0), revision
 9fb016884bec138ea6c7b872cec831537d464c3e, used as a reference for format facts
-only. No xEdit code or comments are copied into this repository, and KitCraft
+only. No xEdit code or comments are copied into this repository, and KitKraft
 does not include or link xEdit code. Each definition cites the file revision
 and line range it was informed by.
 

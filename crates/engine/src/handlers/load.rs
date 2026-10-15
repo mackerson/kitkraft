@@ -9,9 +9,9 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
-use kitcraft_doc::strings::{DirSource, StringSource, StringTables};
-use kitcraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, Scale};
-use kitcraft_io::{plan_profile, Active, ProfileOptions};
+use kitkraft_doc::strings::{DirSource, StringSource, StringTables};
+use kitkraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, Scale};
+use kitkraft_io::{plan_profile, Active, ProfileOptions};
 use serde_json::{json, Value};
 
 use super::{failed, str_arg};
@@ -45,8 +45,8 @@ pub(crate) struct Loaded {
 
 impl Loaded {
     /// Whether the winning version of `form` is a safe source to copy
-    /// (`kitcraft_doc::source`): problems that cannot touch that form are `unrelated`.
-    pub fn source_check(&self, form: kitcraft_doc::GlobalForm) -> kitcraft_doc::SourceCheck {
+    /// (`kitkraft_doc::source`): problems that cannot touch that form are `unrelated`.
+    pub fn source_check(&self, form: kitkraft_doc::GlobalForm) -> kitkraft_doc::SourceCheck {
         self.lo.source_check(form, &self.missing_active_plugins)
     }
 }
@@ -54,17 +54,17 @@ impl Loaded {
 /// Test-only: definitions to decode with instead of the builtin ones (a `reference`
 /// member, which no builtin definition has yet; M3.D3).
 #[cfg(test)]
-pub(crate) struct SchemaOverride(pub &'static kitcraft_schema::Schema);
+pub(crate) struct SchemaOverride(pub &'static kitkraft_schema::Schema);
 
 /// The schema `inspect` and `query` decode with: the builtin definitions (tests may
 /// install a [`SchemaOverride`] in the session).
-pub(crate) fn schema_of(session: &Session) -> Option<&'static kitcraft_schema::Schema> {
+pub(crate) fn schema_of(session: &Session) -> Option<&'static kitkraft_schema::Schema> {
     #[cfg(test)]
     if let Some(o) = session.get::<SchemaOverride>() {
         return Some(o.0);
     }
     let _ = session;
-    kitcraft_schema::builtin().ok()
+    kitkraft_schema::builtin().ok()
 }
 
 fn has_load_args(args: &Value) -> bool {
@@ -178,7 +178,7 @@ fn load(
         .and_then(Value::as_str)
         .unwrap_or("en")
         .to_string();
-    // An explicit `data_dir` wins; `KITCRAFT_DATA_DIR` is the default for a plugin list,
+    // An explicit `data_dir` wins; `KITKRAFT_DATA_DIR` is the default for a plugin list,
     // and for a profile only when its MO2 instance names no game (gamePath).
     let explicit_data_dir = args
         .get("data_dir")
@@ -306,7 +306,7 @@ fn load(
                         name,
                     )?;
                     if path.is_file() {
-                        let name = kitcraft_doc::index::file_name_of(&path);
+                        let name = kitkraft_doc::index::file_name_of(&path);
                         specs.push(PluginSpec { name, path });
                     } else {
                         missing.push(path.display().to_string());
@@ -544,7 +544,7 @@ pub(crate) fn lstring_json(
     evidence: &mut Vec<Evidence>,
     notes: &mut Vec<String>,
 ) -> Value {
-    use kitcraft_doc::lstring::{decode_lstring, LString};
+    use kitkraft_doc::lstring::{decode_lstring, LString};
     let (plugin, record, signature) = at;
     match decode_lstring(data, localized) {
         LString::Text(t) => json!({"text": t}),
@@ -635,7 +635,7 @@ pub(crate) mod tests {
     /// A temp dir with Base.esm (two weapons) and Patch.esm (overrides one, renames it).
     pub(crate) fn fixture(tag: &str) -> PathBuf {
         let dir =
-            std::env::temp_dir().join(format!("kitcraft-engine-lo-{tag}-{}", std::process::id()));
+            std::env::temp_dir().join(format!("kitkraft-engine-lo-{tag}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
         let weap = |edid: &str, full: &str| {

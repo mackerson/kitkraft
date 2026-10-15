@@ -33,7 +33,7 @@
 //! (ADR 0005 Amendment 3 §4; the M3.E6 rule). [`ComposedRef::members`] lists every member
 //! written with its confidence and source, for the caller's evidence.
 
-use kitcraft_schema::{Confidence, FieldType, Member};
+use kitkraft_schema::{Confidence, FieldType, Member};
 
 use crate::build::Placed;
 use crate::cells::{self, CellPlace, Grid, PlacementStyle, FLAG_PERSISTENT};
@@ -48,7 +48,7 @@ const EDID: Signature = Signature::new(b"EDID");
 const NAME: Signature = Signature::new(b"NAME");
 const DATA: Signature = Signature::new(b"DATA");
 
-/// Header fields of a new record that carry no meaning KitCraft knows.
+/// Header fields of a new record that carry no meaning KitKraft knows.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RecordStamps {
     pub form_version: u16,
@@ -196,7 +196,7 @@ impl ComposedRef {
     }
 }
 
-const CORPUS_TEST: &str = "corpus: kitcraft-esm tests/refs.rs and tests/cells.rs";
+const CORPUS_TEST: &str = "corpus: kitkraft-esm tests/refs.rs and tests/cells.rs";
 
 /// The weakest confidence of a field type's fields (a struct's fields, recursively).
 fn weakest(ty: &FieldType, own: Confidence) -> Confidence {
@@ -216,8 +216,8 @@ fn schema_member(
     member: Signature,
     size: u32,
 ) -> Option<(Confidence, String)> {
-    let schema = kitcraft_schema::builtin().ok()?;
-    let record = schema.record(kitcraft_schema::Signature::from_bytes(signature.0)?)?;
+    let schema = kitkraft_schema::builtin().ok()?;
+    let record = schema.record(kitkraft_schema::Signature::from_bytes(signature.0)?)?;
     record.members.iter().find_map(|m| match m {
         Member::Subrecord(s) if s.signature.as_bytes() == member.0 => {
             (s.ty.fixed_size(None) == Some(size)).then(|| {
@@ -423,7 +423,7 @@ mod tests {
     use crate::{
         Body, DecodeLimits, Entry, Error, Plugin, Record, RecordHeader, Signature, Subrecord,
     };
-    use kitcraft_schema::Confidence;
+    use kitkraft_schema::Confidence;
 
     fn spec() -> RefSpec {
         RefSpec::new(

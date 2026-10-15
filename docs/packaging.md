@@ -1,6 +1,6 @@
 # Packaging a mod (`kit package`)
 
-`package` turns a plugin KitCraft built (plus optional loose files and compiled scripts)
+`package` turns a plugin KitKraft built (plus optional loose files and compiled scripts)
 into a folder Mod Organizer 2 can install, a `.zip` of it, and a manifest that proves what
 is inside. It never installs anything: it writes only under the `out` folder you name, and
 refuses an `out` inside the game's `Data` folder, `Documents\My Games\Starfield`, or a Mod
@@ -14,7 +14,7 @@ Installing is your step, in MO2 (owner decision M4.O5, default).
 
 1. Runs `validate` on the plugin (and on the scripts given). A plugin with any error is
    refused and nothing is written. Pass the same `--profile`, `--plugins` or `--data-dir`
-   you would pass to `validate` so its masters are found (`KITCRAFT_DATA_DIR` is used by
+   you would pass to `validate` so its masters are found (`KITKRAFT_DATA_DIR` is used by
    default).
 2. Builds `<out>\<name>\` (default name: the plugin's file name without extension):
    - the plugin at the root;
@@ -26,8 +26,8 @@ Installing is your step, in MO2 (owner decision M4.O5, default).
      (everything but textures) and `<plugin> - Textures.ba2` (the `.dds` files), the names
      the official plugins' archives use (`docs/corpus.md`, "Archive names"). Version 2
      (zlib) by default, as the official plugins' archives; `--ba2-version 3` for LZ4.
-3. Writes `kitcraft-manifest.json` at the root of the folder: every file with its size and
-   SHA-256, the plugin's masters and record counts per type, the KitCraft version, the
+3. Writes `kitkraft-manifest.json` at the root of the folder: every file with its size and
+   SHA-256, the plugin's masters and record counts per type, the KitKraft version, the
    SHA-256 of the build spec (`--spec <file.toml>`), the `validate` result, and the files
    inside each archive with `source_sha256`, the SHA-256 of the file that was packed (an
    archive entry's own bytes may be compressed, and a texture's header is rewritten, so
@@ -37,7 +37,8 @@ Installing is your step, in MO2 (owner decision M4.O5, default).
    contents at the zip's root; `--no-zip` skips it.
 
 An existing `<out>\<name>` is replaced only with `--overwrite`, and only if it holds a
-`kitcraft-manifest.json` (a folder `package` made). The replacement is renames only: the
+`kitkraft-manifest.json` (a folder `package` made; the pre-rename `kitcraft-manifest.json`
+still counts, deprecated for one release). The replacement is renames only: the
 new folder is built as `.<name>.partial-<pid>`, the old one is renamed aside to
 `.<name>.old-<pid>`, the new one renamed in, then the old one removed; if the old folder
 cannot be moved (a program holds a file in it), nothing changes. The zip is replaced by
@@ -50,7 +51,7 @@ mod with, so every package can be deployed.
 Example (the rename smoke test, M2.O6):
 
 ```
-kit package C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm C:\Modding\kitcraft\out\packages --version 0.1.0
+kit package C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm C:\Modding\kitkraft\out\packages --version 0.1.0
 ```
 
 ## Install it in MO2 (owner)
@@ -77,7 +78,7 @@ In PowerShell, from the installed mod folder (`C:\Modding\MO2-Starfield\mods\<na
 only reads):
 
 ```
-$m = Get-Content .\kitcraft-manifest.json -Raw | ConvertFrom-Json
+$m = Get-Content .\kitkraft-manifest.json -Raw | ConvertFrom-Json
 foreach ($f in $m.files) {
   $h = (Get-FileHash -Algorithm SHA256 -LiteralPath $f.path).Hash.ToLower()
   "{0}  {1}" -f ($(if ($h -eq $f.sha256) { 'ok  ' } else { 'DIFF' })), $f.path

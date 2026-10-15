@@ -12,7 +12,7 @@ kind = "type"
 source = "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9367-L9391"
 evidence = [
   "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521",
-  "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every placed XOWN payload of the CELL, REFR and ACHR records of the 14 official ESMs (all 12 bytes) decodes with this layout",
+  "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every placed XOWN payload of the CELL, REFR and ACHR records of the 14 official ESMs (all 12 bytes) decodes with this layout",
 ]
 confidence = "corpus"
 type = "struct"

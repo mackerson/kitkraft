@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
-use kitcraft_strings::{table_name, Kind, Table};
+use kitkraft_strings::{table_name, Kind, Table};
 
 /// Where table files can come from.
 pub trait StringSource: Send {
@@ -172,7 +172,7 @@ impl StringTables {
         let archives = self.source.archives(&stem);
         let mut out = Vec::new();
         let mut errors = Vec::new();
-        let mut opened: Vec<(PathBuf, kitcraft_ba2::Archive, std::fs::File)> = Vec::new();
+        let mut opened: Vec<(PathBuf, kitkraft_ba2::Archive, std::fs::File)> = Vec::new();
         let mut archives_tried = false;
         for kind in Kind::ALL {
             let name = table_name(plugin, &self.language, kind);
@@ -193,7 +193,7 @@ impl StringTables {
             if !archives_tried {
                 archives_tried = true;
                 for a in &archives {
-                    match kitcraft_ba2::Archive::open(a) {
+                    match kitkraft_ba2::Archive::open(a) {
                         Ok((archive, file)) => opened.push((a.clone(), archive, file)),
                         Err(e) => errors.push(format!("{}: {e}", a.display())),
                     }
@@ -293,7 +293,7 @@ impl StringTables {
 mod tests {
     use super::*;
     use crate::testdata;
-    use kitcraft_strings::Entry;
+    use kitkraft_strings::Entry;
 
     #[test]
     fn loose_tables_resolve_and_missing_ones_say_where_they_looked() {

@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-schema"
+name = "kitkraft-schema"
 description = "L0: record definitions as data (TOML) and codegen inputs"
 version.workspace = true
 edition.workspace = true

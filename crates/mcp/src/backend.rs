@@ -20,7 +20,7 @@
 //! unless it asks for more. They are applied on every route (`execute`, `command_line`,
 //! shortcuts) and only when the caller left the argument out.
 
-use kitcraft_engine::{
+use kitkraft_engine::{
     args, catalog, cmdline, find_command, parse_line, Engine, EngineError, Invocation,
 };
 use serde_json::{json, Value};
@@ -28,19 +28,19 @@ use serde_json::{json, Value};
 use crate::tools::{self, Target, Tool};
 
 /// URI of the catalog resource.
-pub const COMMANDS_URI: &str = "kitcraft://commands";
+pub const COMMANDS_URI: &str = "kitkraft://commands";
 /// URI of the session's load-order resource.
-pub const LOAD_ORDER_URI: &str = "kitcraft://load-order";
+pub const LOAD_ORDER_URI: &str = "kitkraft://load-order";
 /// URI of the `validate` rule registry resource.
-pub const VALIDATE_RULES_URI: &str = "kitcraft://validate-rules";
+pub const VALIDATE_RULES_URI: &str = "kitkraft://validate-rules";
 
 /// Resources whose contents change only with the binary (cacheable).
 pub const STATIC_URIS: &[&str] = &[COMMANDS_URI, VALIDATE_RULES_URI];
 
-/// The `kitcraft://validate-rules` resource: every rule of the `validate` command in run
+/// The `kitkraft://validate-rules` resource: every rule of the `validate` command in run
 /// order, the script denylist, and where the rules are documented.
 pub fn validate_rules_json() -> Value {
-    use kitcraft_engine::validate::{scripts::DENYLIST, RULES};
+    use kitkraft_engine::validate::{scripts::DENYLIST, RULES};
     let rules: Vec<Value> = RULES
         .iter()
         .map(|r| {
@@ -237,7 +237,7 @@ impl Backend {
                 "uri": COMMANDS_URI,
                 "name": "commands",
                 "title": "Command catalog",
-                "description": "Every KitCraft command: id, label, aliases, summary, args_schema, status",
+                "description": "Every KitKraft command: id, label, aliases, summary, args_schema, status",
                 "mimeType": "application/json"
             }),
             json!({
@@ -366,7 +366,7 @@ fn error_json(err: &EngineError) -> Value {
 #[cfg(test)]
 mod tests {
     use super::{Backend, ToolOutput};
-    use kitcraft_engine::Engine;
+    use kitkraft_engine::Engine;
     use serde_json::json;
 
     fn backend() -> Backend {
@@ -383,13 +383,13 @@ mod tests {
     #[test]
     fn mcp_defaults_fit_their_schemas() {
         for (id, name, value) in super::MCP_DEFAULTS {
-            let spec = kitcraft_engine::find_command(id).unwrap();
+            let spec = kitkraft_engine::find_command(id).unwrap();
             assert_eq!(spec.id, *id, "canonical id");
             let schema: serde_json::Value = serde_json::from_str(spec.args_schema).unwrap();
             let property = &schema["properties"][*name];
             assert!(property.is_object(), "{id}.{name} is not an argument");
             assert!(property.get("default").is_none(), "{id}.{name}");
-            let violations = kitcraft_engine::args::validate(property, &value.json());
+            let violations = kitkraft_engine::args::validate(property, &value.json());
             assert!(violations.is_empty(), "{id}.{name}: {violations:?}");
         }
     }

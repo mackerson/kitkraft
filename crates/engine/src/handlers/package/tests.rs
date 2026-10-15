@@ -12,7 +12,7 @@ use crate::handlers::papyrus::tests::tiny_pex;
 use crate::handlers::testdata::{self, group, record, sub};
 
 fn temp(name: &str) -> PathBuf {
-    let dir = std::env::temp_dir().join(format!("kitcraft-package-{name}-{}", std::process::id()));
+    let dir = std::env::temp_dir().join(format!("kitkraft-package-{name}-{}", std::process::id()));
     let _ = fs::remove_dir_all(&dir);
     fs::create_dir_all(&dir).unwrap();
     dir
@@ -152,7 +152,7 @@ fn loose_package_with_scripts_manifest_and_zip_is_deterministic() {
     assert_eq!(p["records"], testdata::RECORDS - 1);
     assert_eq!(p["record_types"], json!({"GMST": 1, "WEAP": 2}));
     assert_eq!(p["sha256"], sha256::hex(&testdata::plugin()));
-    assert_eq!(manifest["kitcraft_version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(manifest["kitkraft_version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(manifest["spec"]["sha256"], sha256::hex(b"version = 3\n"));
     assert_eq!(manifest["spec"]["file"], "poi.toml");
     assert_eq!(manifest["validate"]["passed"], true);

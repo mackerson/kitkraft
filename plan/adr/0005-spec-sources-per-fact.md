@@ -246,7 +246,7 @@ citation to `evidence` (or to `source` when there is no xEdit definition).
    official ESMs, read only, or a synthetic plugin of ours. Never bundle or redistribute
    SF1Edit; running it creates no license obligation (MPL-2.0).
 2. Export or record its decoded view of the records under test (field values per record).
-3. Decode the same records with KitCraft and compare value by value. A difference is
+3. Decode the same records with KitKraft and compare value by value. A difference is
    either a transcription error on our side, a version skew (the SF1Edit build differs from
    the pinned revision; record both), or an upstream defect (record it; the bytes decide).
 4. Record the run as `corpus:` evidence naming the SF1Edit build, the fixture, and the

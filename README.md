@@ -2,11 +2,12 @@
 
 An open-source, clean-room Creation Kit for Starfield, in Rust.
 
-*Naming (owner, 2026-10-14): the name is KitKraft. Rename pending: identifiers still read
-`kitcraft-*`, `KITCRAFT_*`, `kitcraft://` until the scheduled rename to `kitkraft-*`,
-`KITKRAFT_*`, `kitkraft://` (the binary stays `kit`).*
+*Naming (owner, 2026-10-14): the name is KitKraft; identifiers are `kitkraft-*`,
+`KITKRAFT_*`, `kitkraft://` (the binary stays `kit`). The pre-rename `KITCRAFT_*`
+environment variables and `kitcraft-manifest.json` are still read for one release
+(deprecated; [docs/corpus.md](docs/corpus.md), "Environment").*
 
-KitCraft reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
+KitKraft reads and writes Starfield plugins (`.esm`/`.esp`/`.esl`), archives (`.ba2`), compiled
 Papyrus (`.pex`) and string tables. Every action is one command, reachable the same way from
 the `kit` CLI, from an MCP server for agents, and later from a desktop UI. Results carry their
 evidence (byte offsets, coverage, limitations) so a person or an agent can check them.
@@ -27,11 +28,11 @@ round 3), then M3. See [ROADMAP.md](ROADMAP.md) and [plan/STATUS.md](plan/STATUS
 
 ## Quick start
 
-Point KitCraft at your game's Data folder once; every command uses it as the default
+Point KitKraft at your game's Data folder once; every command uses it as the default
 `--data-dir` (plugin names, masters):
 
 ```powershell
-$env:KITCRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
+$env:KITKRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
 cargo build --release -p kit-cli          # target\release\kit.exe
 
 # Load an MO2 profile (read-only) and look around
@@ -77,7 +78,7 @@ kit mcp [--profile DIR]                       # stdio MCP server over the same c
 
 MCP tools: `execute` (any command), `command_line`, and the shortcuts `inspect_record`,
 `query_records`, `diff_plugins`, `coverage`, `record_schema`, `roundtrip`; resources
-`kitcraft://commands`, `kitcraft://load-order`, `kitcraft://validate-rules`. See
+`kitkraft://commands`, `kitkraft://load-order`, `kitkraft://validate-rules`. See
 [docs/mcp.md](docs/mcp.md).
 
 ## Build
@@ -92,7 +93,7 @@ cargo xtask ci        # the gate: layer check, fmt, clippy -D warnings, tests
 git config core.hooksPath .githooks   # once per clone: pre-commit runs layers + fmt check
 ```
 
-Corpus tests use your own game install (`KITCRAFT_DATA_DIR`, as above) and are skipped
+Corpus tests use your own game install (`KITKRAFT_DATA_DIR`, as above) and are skipped
 without it; see [docs/corpus.md](docs/corpus.md).
 
 ## Layout

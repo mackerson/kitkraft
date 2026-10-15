@@ -7,7 +7,7 @@ with ours (dossier gate G3, ADR 0005 Amendment 2 §2a and Amendment 3 §4). The 
   `external-oracle-only` in `docs/source-registry.md`: their source is never read, and
   Spriggit's YAML is never opened. Its field names and key structure are never used (ADR
   0001 §4, ADR 0005 §3). Neither tool is bundled; both are installed by the owner.
-- **Our tools judge.** Every comparison is made with KitCraft's own commands (`kit diff`,
+- **Our tools judge.** Every comparison is made with KitKraft's own commands (`kit diff`,
   `kit coverage`, `kit roundtrip --verify`) and the harness's byte and `TES4` diffs. What a
   tool reports is evidence about that tool.
 - **A disagreement is evidence, not a verdict.** Each one is classed as *ours* (our reading
@@ -34,9 +34,9 @@ are summarised here in our own words.
 | Method | Each fixture is copied to a temp folder; `serialize` (plugin to YAML), `deserialize` (YAML to plugin); the YAML folder is deleted unread; input and output are compared with `kit` only |
 
 ```powershell
-$env:KITCRAFT_SPRIGGIT = 'C:\Modding\tools\spriggit\spriggit.ps1'
-$env:KITCRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
-cargo xtask oracle spriggit --official --synthetic C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm
+$env:KITKRAFT_SPRIGGIT = 'C:\Modding\tools\spriggit\spriggit.ps1'
+$env:KITKRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+cargo xtask oracle spriggit --official --synthetic C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm
 ```
 
 ### Fixture set and results
@@ -106,9 +106,9 @@ subrecord our writer adds that no official file has.
 | Run | 2026-10-14; small official files and synthetic set with every record compared (`--sample 0`, 1,294 s in all); `Starfield.esm` WEAP/AMMO/PROJ/COBJ/OMOD with 50 records per type, evenly spaced by FormID (`--sample 50 --no-check`, 344 s in all) |
 
 ```powershell
-$env:KITCRAFT_SF1EDIT = 'C:\Modding\tools\xEdit\xSFEdit64.exe'   # its xDump64.exe is run
-$env:KITCRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
-cargo xtask oracle sf1edit --official --synthetic C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm --sample 0
+$env:KITKRAFT_SF1EDIT = 'C:\Modding\tools\xEdit\xSFEdit64.exe'   # its xDump64.exe is run
+$env:KITKRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+cargo xtask oracle sf1edit --official --synthetic C:\Modding\kitkraft\out\OldSovietMarksmanRifle.esm --sample 0
 cargo xtask oracle sf1edit Starfield.esm --types WEAP,AMMO,PROJ,COBJ,OMOD --sample 50 --no-check
 ```
 

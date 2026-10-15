@@ -2,7 +2,7 @@
 
 One TOML file per record type, named `<SIGNATURE>.toml` (`WEAP.toml`, `NPC_.toml`), plus
 fixed binary headers (`GRUP.toml`, `RECORD.toml`) and shared definitions in `common/`
-(`common/BfcbBlock.toml`). The loader (`kitcraft_schema::load_dir` / `load_sources`)
+(`common/BfcbBlock.toml`). The loader (`kitkraft_schema::load_dir` / `load_sources`)
 rejects anything that breaks the rules below, with the file name and a path such as
 `member[3].field[1]`. ADR 0003 explains why definitions are data.
 
@@ -23,7 +23,7 @@ file names its source in one of these forms, and the loader rejects any other pr
   xEdit's `Core/wbDefinitionsSF1.pas`, or a shared helper the Starfield definitions invoke
   from `Core/wbDefinitionsCommon.pas` (ADR 0004, owner approval 2026-10-14). `<sha>` must
   be the revision ADR 0004 pins, `9fb016884bec138ea6c7b872cec831537d464c3e` (full 40
-  lower-case hex), for both files (`kitcraft_schema::XEDIT_REVISION`, `XEDIT_FILES`); the
+  lower-case hex), for both files (`kitkraft_schema::XEDIT_REVISION`, `XEDIT_FILES`); the
   line range is 1-based and inclusive. Cite the record's own range in `source` and helper
   ranges in `evidence`. Facts only: no code, comments or labels copied wholesale; see
   `docs/xedit-reference.md` for the construct-to-TOML map.
@@ -64,7 +64,7 @@ until our own evidence raises it.
 
 A subrecord, group, `group_ref` or `any_until` member, and a struct field, may set its own
 `source`, `evidence` and `confidence`. The model stores the *effective* provenance on every
-node (`kitcraft_schema::Provenance`):
+node (`kitkraft_schema::Provenance`):
 
 - Nothing set: the parent's provenance (the file's, or the enclosing member's or field's).
 - `evidence` and/or `confidence` without `source`: the parent's source, the parent's
@@ -293,7 +293,7 @@ at load time, so the model never holds an unresolved one (`GroupDef::shared` and
 
 ## Generated code (summary)
 
-`kitcraft_schema::generate` emits, for the whole set: the prelude, each shared definition
+`kitkraft_schema::generate` emits, for the whole set: the prelude, each shared definition
 once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 `Record::decode(signature, subs, ctx)`, `encode()`, `signature()` and
 `RECORDS: &[(Sig, &[MemberDesc])]`.

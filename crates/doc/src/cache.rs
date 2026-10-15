@@ -1,6 +1,6 @@
 //! On-disk cache of [`PluginIndex`]es.
 //!
-//! Location: `%LOCALAPPDATA%\kitcraft\cache` (override with `KITCRAFT_CACHE_DIR`, or pass a
+//! Location: `%LOCALAPPDATA%\kitkraft\cache` (override with `KITKRAFT_CACHE_DIR`, or pass a
 //! directory). Never inside the game Data dir or an MO2 profile. One file per plugin path,
 //! named by a hash of the path.
 //!
@@ -28,7 +28,7 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use kitcraft_esm::Reader;
+use kitkraft_esm::Reader;
 
 use crate::error::{DocError, Result};
 use crate::flags::PluginFlags;
@@ -36,7 +36,7 @@ use crate::hash::Fnv;
 use crate::index::{file_stamp, HeaderInfo, HedrInfo, PluginIndex, RecordLoc};
 
 /// Bump when this layout changes. Entries also store the esm index format
-/// (`kitcraft_esm::index::INDEX_FORMAT_VERSION`); either changing rebuilds them.
+/// (`kitkraft_esm::index::INDEX_FORMAT_VERSION`); either changing rebuilds them.
 pub const FORMAT_VERSION: u32 = 3;
 
 /// Bytes sampled at each end of a plugin for the staleness check.
@@ -90,14 +90,19 @@ impl IndexCache {
         IndexCache { dir: dir.into() }
     }
 
-    /// `KITCRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitcraft\cache`, else none.
+    /// `KITKRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitkraft\cache`, else none.
+    /// `KITCRAFT_CACHE_DIR` (the pre-rename spelling) is still read after
+    /// `KITKRAFT_CACHE_DIR`; deprecated, kept for one release.
     pub fn default_location() -> Option<IndexCache> {
-        if let Some(dir) = std::env::var_os("KITCRAFT_CACHE_DIR").filter(|d| !d.is_empty()) {
+        let named = std::env::var_os("KITKRAFT_CACHE_DIR")
+            .filter(|d| !d.is_empty())
+            .or_else(|| std::env::var_os("KITCRAFT_CACHE_DIR").filter(|d| !d.is_empty()));
+        if let Some(dir) = named {
             return Some(IndexCache::new(PathBuf::from(dir)));
         }
         let local = std::env::var_os("LOCALAPPDATA").filter(|d| !d.is_empty())?;
         Some(IndexCache::new(
-            PathBuf::from(local).join("kitcraft").join("cache"),
+            PathBuf::from(local).join("kitkraft").join("cache"),
         ))
     }
 
@@ -197,7 +202,7 @@ fn encode(index: &PluginIndex, sample: u64) -> Vec<u8> {
     );
     out.extend_from_slice(MAGIC);
     put_u32(&mut out, FORMAT_VERSION);
-    put_u32(&mut out, kitcraft_esm::index::INDEX_FORMAT_VERSION);
+    put_u32(&mut out, kitkraft_esm::index::INDEX_FORMAT_VERSION);
     put_str(&mut out, &path_key(&index.path));
     put_u64(&mut out, index.size);
     put_u64(&mut out, index.mtime_ns);
@@ -265,7 +270,7 @@ fn decode(bytes: &[u8], plugin: &Path, stamp: (u64, u64), sample: u64) -> Result
     if r.u32().map_err(e)? != FORMAT_VERSION {
         return Err(bad("format version"));
     }
-    if r.u32().map_err(e)? != kitcraft_esm::index::INDEX_FORMAT_VERSION {
+    if r.u32().map_err(e)? != kitkraft_esm::index::INDEX_FORMAT_VERSION {
         return Err(bad("esm index format version"));
     }
     let path = take_str(&mut r)?;

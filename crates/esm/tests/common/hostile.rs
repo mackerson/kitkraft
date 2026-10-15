@@ -13,9 +13,9 @@
 
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use kitcraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
-use kitcraft_esm::index::{index_bytes, read_indexed, IndexOptions};
-use kitcraft_esm::{Body, DecodeLimits, Entry, Error, Plugin};
+use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
+use kitkraft_esm::index::{index_bytes, read_indexed, IndexOptions};
+use kitkraft_esm::{Body, DecodeLimits, Entry, Error, Plugin};
 
 /// Deterministic xorshift64* generator.
 pub struct Rng(u64);

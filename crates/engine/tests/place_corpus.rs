@@ -1,4 +1,4 @@
-//! M4.E2 on the official files (`KITCRAFT_DATA_DIR`, release, ignored): `place` of a
+//! M4.E2 on the official files (`KITKRAFT_DATA_DIR`, release, ignored): `place` of a
 //! reference identical to an existing one reproduces its bytes. Lane A's composition test
 //! (`crates/esm/tests/refs.rs`) extended through the command: references of
 //! `Starfield.esm` that carry only `NAME` and `DATA`, in interior cells and in exterior
@@ -8,7 +8,7 @@
 //! timestamp, version control, unknown) are the composition defaults (`RecordStamps`), so
 //! the header is compared field by field: signature, data size and flags equal.
 //!
-//! `cargo test -p kitcraft-engine --release --test place_corpus -- --ignored`
+//! `cargo test -p kitkraft-engine --release --test place_corpus -- --ignored`
 
 #![allow(
     clippy::unwrap_used,
@@ -22,12 +22,14 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use kitcraft_engine::Engine;
-use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex, RecordLoc};
+use kitkraft_engine::Engine;
+use kitkraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex, RecordLoc};
 use serde_json::json;
 
 fn data_dir() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("KITCRAFT_DATA_DIR")?);
+    let dir = PathBuf::from(
+        std::env::var_os("KITKRAFT_DATA_DIR").or_else(|| std::env::var_os("KITCRAFT_DATA_DIR"))?,
+    );
     dir.join("Starfield.esm").is_file().then_some(dir)
 }
 
@@ -127,7 +129,7 @@ fn candidates<'a>(
 #[ignore = "release: indexes Starfield.esm (cached after the first run)"]
 fn placing_a_copy_of_a_corpus_reference_reproduces_its_body() {
     let Some(dir) = data_dir() else {
-        eprintln!("skip: KITCRAFT_DATA_DIR unset");
+        eprintln!("skip: KITKRAFT_DATA_DIR unset");
         return;
     };
     let esm = dir.join("Starfield.esm");
@@ -139,7 +141,7 @@ fn placing_a_copy_of_a_corpus_reference_reproduces_its_body() {
             json!({"plugins": ["Starfield.esm"], "data_dir": dir.display().to_string()}),
         )
         .unwrap();
-    let out = std::env::temp_dir().join(format!("kitcraft-place-corpus-{}", std::process::id()));
+    let out = std::env::temp_dir().join(format!("kitkraft-place-corpus-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
     std::fs::create_dir_all(&out).unwrap();
     let mut checked = (0usize, 0usize);

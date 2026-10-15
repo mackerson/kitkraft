@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use kitcraft_schema::Schema;
+use kitkraft_schema::Schema;
 
 use crate::compare::{classify_with, edid_first, FieldCompare, OverrideClass};
 use crate::error::Result;
@@ -299,7 +299,7 @@ mod tests {
             .iter()
             .map(|run| {
                 let c =
-                    classify_run(&lo, &mut reader, run, kitcraft_schema::builtin().ok()).unwrap();
+                    classify_run(&lo, &mut reader, run, kitkraft_schema::builtin().ok()).unwrap();
                 assert!(c.base_present);
                 c.overrides
                     .iter()

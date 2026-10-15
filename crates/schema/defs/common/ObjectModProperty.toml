@@ -14,7 +14,7 @@ name = "ObjectModProperty"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6894-L6938"
 evidence = [
-  "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every property entry of the 3,330 OMOD DATA payloads and of the WEAP object template items in the 14 official ESMs decodes as 24 bytes and re-encodes identically",
+  "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every property entry of the 3,330 OMOD DATA payloads and of the WEAP object template items in the 14 official ESMs decodes as 24 bytes and re-encodes identically",
 ]
 confidence = "corpus"
 type = "struct"

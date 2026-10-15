@@ -5,10 +5,10 @@ Bethesda's, so the corpus is **referenced in place and never copied into the rep
 
 ## Location
 
-Tests and tools find the game data through `KITCRAFT_DATA_DIR`:
+Tests and tools find the game data through `KITKRAFT_DATA_DIR`:
 
 ```powershell
-$env:KITCRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
+$env:KITKRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
 ```
 
 The commands use it too: it is the default `data_dir` of every command that takes one
@@ -16,6 +16,21 @@ The commands use it too: it is the default `data_dir` of every command that take
 missing, corpus tests print one skip line and pass, so `cargo xtask ci` works on machines without the game. The data directory is read-only
 to us: nothing is ever written there. Roundtrip output, when written at all, goes to a temp
 directory or `corpus/out/` (gitignored).
+
+### Environment
+
+Every variable is spelled `KITKRAFT_*`: `KITKRAFT_DATA_DIR`, `KITKRAFT_CACHE_DIR` (index
+cache, default `%LOCALAPPDATA%\kitkraft\cache`), `KITKRAFT_SF1EDIT`, `KITKRAFT_SPRIGGIT`,
+`KITKRAFT_KIT`, `KITKRAFT_PAPYRUS_COMPILER`, `KITKRAFT_UPDATE_GOLDEN` and the test-only
+ones named next to their tests.
+
+**Deprecated (one release):** before the KitKraft rename (2026-10-14) these were spelled
+`KITCRAFT_*`. The old names are still read when the new one is unset, so existing shells
+keep working; the new name wins when both are set. Rename them in your profile; the
+fallback is removed in the release after this one. The index cache moved from
+`%LOCALAPPDATA%\kitcraft\cache` to `%LOCALAPPDATA%\kitkraft\cache` and is **not**
+migrated: it is rebuilt on first use (entries are only a speed-up), and the old folder can
+be deleted by hand.
 
 ## Files
 
@@ -50,10 +65,10 @@ edits one inside a compressed record). The mutation tests (M1.7) use the first t
 The full run is `#[ignore]` and runs in release:
 
 ```powershell
-cargo test -p kitcraft-esm --release -- --ignored corpus_full --nocapture
+cargo test -p kitkraft-esm --release -- --ignored corpus_full --nocapture
 ```
 
-`cargo test -p kitcraft-esm --release -- --ignored` runs every ignored test: the full
+`cargo test -p kitkraft-esm --release -- --ignored` runs every ignored test: the full
 roundtrip, the streaming-edit measurement, the TES4 table, the inventory, the recompression
 measurement (about 100 s), the list of its misses (M3.A1) and an extended hostile-input
 run.
@@ -104,7 +119,7 @@ offset, for absolute error offsets) and includes the 14 hashing threads' 1 MiB b
 
 ### Streaming edit (`driver::rewrite_file`)
 
-`corpus_rewrite_edit_in_largest_group` (`cargo test -p kitcraft-esm --release --test corpus
+`corpus_rewrite_edit_in_largest_group` (`cargo test -p kitkraft-esm --release --test corpus
 -- --ignored corpus_rewrite --nocapture`) streams `Starfield.esm` through `rewrite_file`,
 grows one subrecord by one byte in the first record of the deepest group chain of `WRLD`
 (depth 5), and writes to a byte counter.
@@ -121,9 +136,9 @@ whole modified group was assembled in a second buffer before its header could be
 
 ### Record index (M2.A1) and random access (M2.A2)
 
-`kitcraft_esm::index::index_file` walks group and record headers without building the
+`kitkraft_esm::index::index_file` walks group and record headers without building the
 tree, reading each record body once (to find its first `EDID`; compressed records are
-inflated only until that subrecord). `cargo test -p kitcraft-esm --release --test index --
+inflated only until that subrecord). `cargo test -p kitkraft-esm --release --test index --
 --ignored --nocapture` (2026-10-14, lane A, warm file cache):
 
 | File                         | Records   | Groups  | EditorIDs | Index time (s) |
@@ -192,14 +207,14 @@ decompression with the default `DecodeLimits` included). Per-type counts are in
 
 ### Typed reader against the generated decoder, and lstring IDs (M3.D6)
 
-`inspect`, `where` and `diff` decode payloads through `kitcraft_doc::typed` (an interpreter
+`inspect`, `where` and `diff` decode payloads through `kitkraft_doc::typed` (an interpreter
 over lane B's schema), not through the generated code behind `Plugin::typed`.
 `crates/doc/tests/typed_corpus.rs` checks that the two read the same values: on every
 record of a defined type, the FormIDs and string IDs the interpreter reads from the
 subrecords the generated decoder placed equal those the generated record's visitors list
 (`form_ids()`, `lstrings()`), and every such subrecord decodes. The same walk looks up every
 lstring ID (FULL and DESC on every record type, and the schema's `lstring` members, which
-adds the GMST `s` settings) through `kitcraft_doc::strings`, as `inspect` does (English,
+adds the GMST `s` settings) through `kitkraft_doc::strings`, as `inspect` does (English,
 2026-10-14, release, 24 s for all 14 files; the five small files run in the fast suite):
 
 | File | Typed records | FormIDs compared | String IDs compared | lstrings | Resolved | ID 0 | Unresolved |
@@ -260,7 +275,7 @@ holds at most about 590,000 six-byte subrecords).
 
 The 160 compressed records that zlib-rs level 9 does not recompress to their original bytes
 (`docs/gaps.md`, "Recompression parity", which defines the classes and lists the
-compressor settings tried). `cargo test -p kitcraft-esm --release --test recompress --
+compressor settings tried). `cargo test -p kitkraft-esm --release --test recompress --
 --ignored corpus_recompression_misses --nocapture` prints the first seven columns (43 s on
 the dev box, 2026-10-14); the class and the token comparison come from the out-of-tree
 study. Offsets are of the record header; "Stream" is the zlib stream after the `u32`
@@ -432,7 +447,7 @@ decompressed size; "First differing stream byte" counts from the start of that s
 
 ## TES4 header inventory (M1.2b)
 
-From `corpus_tes4_table` (`cargo test -p kitcraft-esm --release --test corpus -- --ignored
+From `corpus_tes4_table` (`cargo test -p kitkraft-esm --release --test corpus -- --ignored
 corpus_tes4 --nocapture`). Flags are the raw TES4 record flags.
 
 | File                         | Flags      | Flag bits             | Form version | HEDR version | HEDR count | HEDR next object ID | Masters                                     | Other TES4 subrecords (bytes)                                    |
@@ -508,7 +523,7 @@ Additional observations:
 Group types 1 to 10 and where the records of cells, worlds and quests live, from every
 group and record of the 14 files. Each rule below is asserted on every occurrence by
 `corpus_group_rules_full` (`crates/esm/tests/cells.rs`, release, 27 s; the five small files
-run in every gate as `corpus_group_rules_small`), and is what `kitcraft_esm::cells` computes
+run in every gate as `corpus_group_rules_small`), and is what `kitkraft_esm::cells` computes
 from. Type numbers and names: `uesp-skyrim: Skyrim_Mod:Mod_File_Format` ("Groups"), a
 container source, confirmed here; type 10 has no name on a permitted source and is called
 "quest children" after its contents. No record layout is used except two facts found by
@@ -580,7 +595,7 @@ Rules (all 14 files, no exception unless one is listed):
   `011BA314`; `BlueprintShips-SFBGS050.esm` `03022FE6`).
 
 What the Creation Kit writes for a new plugin (which style, and the stamps) is F20's
-question (M4.O1); until it is observed KitCraft writes the official pipeline's style.
+question (M4.O1); until it is observed KitKraft writes the official pipeline's style.
 
 **Cross-check with the WORLD family lane** (`docs/schema/world-family.md` on its branch,
 `crates/esm/tests/world_family.rs`, derived independently): every group count of the table
@@ -628,7 +643,7 @@ occurs once with 24 bytes, except in the 5,847 deleted `REFR` (flag 0x20), which
 other members sit between `NAME` and `DATA`. In `Starfield.esm` every `NAME` is a record of
 the file that is not a reference, cell, world or navmesh (2,323,009 `STAT`, 309,021 `PDCL`,
 165,362 `MSTT`, ...), except `REFR` `00014893`, whose `NAME` `000001FB` is no record.
-`kitcraft_esm::refs::compose_reference` writes this order; a seeded 1,000 references per
+`kitkraft_esm::refs::compose_reference` writes this order; a seeded 1,000 references per
 file (all of them in the files with fewer: 9,144 in all) decomposed into their base,
 position, rotation, flags, EditorID, other subrecords and header fields, and composed
 again, equal their bytes in the file.
@@ -636,7 +651,7 @@ again, equal their bytes in the file.
 ## Archives (M2.G1-G3)
 
 The 90 official `.ba2` archives (about 148.7 GB) are read in place, never copied (ADR 0006).
-`cargo test -p kitcraft-ba2 --release --test corpus -- --ignored corpus_full --nocapture`
+`cargo test -p kitkraft-ba2 --release --test corpus -- --ignored corpus_full --nocapture`
 lists every archive, checks every record, extracts 100 seeded entries per archive (7,360
 entries, 7.3 GB, 16 s on the dev box, 2026-10-14) to their declared sizes, and checks every
 texture's chunks against its mip chain and against the chunk plan the packer computes. The
@@ -691,7 +706,7 @@ Differential checks against `Archive2.exe` 1.2.0.1 (black box): see `plan/STATUS
 
 `black-box: Archive2.exe 1.2.0.1`, run as a program only (`Archive2 <folder> -c=<out.ba2>
 -r=<root> -f=General -compression=None`) on synthetic files in a temp folder, its archives
-read back with `kitcraft-ba2` and extracted again with `Archive2 <archive> -e=<folder>`.
+read back with `kitkraft-ba2` and extracted again with `Archive2 <archive> -e=<folder>`.
 Inputs: one name per non-ASCII character class (`ä`, `é`, `ß`, `ÿ`, `€`, `œ`, NBSP, `Ü`,
 `Ä`/`É`/`Œ`/`Ÿ`, `Ж`, `ж`, `日`, `İ`, `ı`), a non-ASCII directory (`dép`), a non-ASCII
 extension (`.tëx`), and then every byte 0x80..0xFF of Windows-1252 at the end of a name
@@ -757,7 +772,7 @@ load is runtime behaviour: everything below that goes beyond the names is a hypo
   `Textures` (9; always DX10), `Localization` (3; string tables only), `Voices_<lang>`
   (`de`, `en`, `es`, `fr`, `ja`; `.wem` only). Archive files stay below 2^32 bytes: the
   26 largest are 4.0 to 4.29 GB, the largest 4,294,957,291.
-- **Rule for KitCraft (`package`).** A mod's general archive is `<plugin stem> - Main.ba2`
+- **Rule for KitKraft (`package`).** A mod's general archive is `<plugin stem> - Main.ba2`
   (GNRL) and its texture archive `<plugin stem> - Textures.ba2` (DX10): the two suffixes
   every official plugin with that content uses, the stem spelled exactly as the plugin's
   file name. Other suffixes (`Voices_<lang>`, `Localization`, numbered splits) are not

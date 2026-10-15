@@ -304,7 +304,7 @@ pub fn same(a: &FieldValue, b: &FieldValue) -> bool {
 #[allow(clippy::unwrap_used, clippy::arithmetic_side_effects, clippy::panic)]
 mod tests {
     use super::*;
-    use kitcraft_schema::Schema;
+    use kitkraft_schema::Schema;
 
     /// The layout of `sub` placed after an EditorID (and `KSIZ` before a `KWDA`).
     fn at(schema: &'static Schema, record: [u8; 4], sub: [u8; 4]) -> typed::LayoutResult<'static> {
@@ -344,7 +344,7 @@ mod tests {
 
     #[test]
     fn formids_compare_by_name_and_changes_have_paths() {
-        let schema = kitcraft_schema::builtin().unwrap();
+        let schema = kitkraft_schema::builtin().unwrap();
         let (ra, rb) = (resolver(["X.esm", "Y.esm"]), resolver(["Y.esm", "X.esm"]));
         let a = Side {
             ctx: ctx(),
@@ -420,7 +420,7 @@ mod tests {
 
     #[test]
     fn opaque_members_are_byte_ranges_and_bad_payloads_fall_back() {
-        let schema = kitcraft_schema::builtin().unwrap();
+        let schema = kitkraft_schema::builtin().unwrap();
         let r = resolver(["X.esm", "Y.esm"]);
         let side = Side {
             ctx: typed::Ctx {

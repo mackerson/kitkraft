@@ -1,5 +1,5 @@
 [package]
-name = "kitcraft-pex"
+name = "kitkraft-pex"
 description = "L0: Papyrus .pex reader and disassembler"
 version.workspace = true
 edition.workspace = true

@@ -15,9 +15,9 @@ type yet).
 
 | File | Size | SHA-256 |
 | :--- | ---: | :--- |
-| `C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm` | 43,955 | `a44d49bb0dc68941183185823231e0d887dfed30a9b0577504b4374a95342aae` |
-| `C:\Modding\kitcraft\out\overhaul\package\KitKraftGunOverhaul-0.1.0.zip` | 9,288 | `c66a142672769e2dd37c7b54100144b5ad59c53fed6d254a094d745c6658d86c` |
-| `...\package\KitKraftGunOverhaul\kitcraft-manifest.json` | | `6ca9ef01314fb21a0ca88f446c13a0393b140b474bb4033bd0e0af80747575e5` |
+| `C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm` | 43,955 | `a44d49bb0dc68941183185823231e0d887dfed30a9b0577504b4374a95342aae` |
+| `C:\Modding\kitkraft\out\overhaul\package\KitKraftGunOverhaul-0.1.0.zip` | 9,288 | `c66a142672769e2dd37c7b54100144b5ad59c53fed6d254a094d745c6658d86c` |
+| `...\package\KitKraftGunOverhaul\kitkraft-manifest.json` | | `6ca9ef01314fb21a0ca88f446c13a0393b140b474bb4033bd0e0af80747575e5` |
 | `docs/overhaul/overhaul.toml` (as packaged, commit `d75f646`) | 11,843 | `d29d48a34067d2f50269980950bc75aa4188bbcfda4869d32a64290c65723f8f` |
 
 The plugin: `TES4` flags `0x00000001` (`.esm`, not localized, no small/medium bit), masters
@@ -36,21 +36,21 @@ against a load order without the smoke test, the only master would be `Starfield
 ## Commands and results (release build of commit `0d0d255`)
 
 ```
-kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm --plan
+kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm --plan
   plan: 42 field change(s) on 17 record(s) ... (nothing written); validate passed
-kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm
+kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm
   KitKraftGunOverhaul.esm: created (43955 bytes, masters Starfield.esm, OldSovietMarksmanRifle.esm)
-kit validate --plugin C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm --profile "C:\Modding\MO2-Starfield\profiles\KitKraft Dev"
+kit validate --plugin C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm --profile "C:\Modding\MO2-Starfield\profiles\KitKraft Dev"
   KitKraftGunOverhaul.esm: passed (0 error(s), 0 warning(s); rules: masters.missing, masters.order,
   formid.dangling, lstring.copied-id, override.stripped-name, record.flags-body)
   limitation: formid.dangling checked 1725 FormIDs; 307 subrecords are opaque or undecoded
-kit roundtrip C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm --verify
+kit roundtrip C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm --verify
   KitKraftGunOverhaul.esm: identical (43955 bytes, 18 records, 2 groups, 0 compressed records)
-kit package C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm C:\Modding\kitcraft\out\overhaul\package
+kit package C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm C:\Modding\kitkraft\out\overhaul\package
     --profile "C:\Modding\MO2-Starfield\profiles\KitKraft Dev" --spec docs\overhaul\overhaul.toml --version 0.1.0
   KitKraftGunOverhaul: 2 file(s), 43955 bytes in `...\package\KitKraftGunOverhaul`,
   zip `...\package\KitKraftGunOverhaul-0.1.0.zip` (9288 bytes); validate passed (0 warning(s))
-kit deploy --dev --dry-run C:\Modding\kitcraft\out\overhaul\package\KitKraftGunOverhaul C:\Modding\MO2-Starfield --profile "KitKraft Dev"
+kit deploy --dev --dry-run C:\Modding\kitkraft\out\overhaul\package\KitKraftGunOverhaul C:\Modding\MO2-Starfield --profile "KitKraft Dev"
   deploy --dev --dry-run: REFUSED `KitKraft Dev - KitKraftGunOverhaul`
   target: C:\Modding\MO2-Starfield\mods\KitKraft Dev - KitKraftGunOverhaul
   files: 1 added, 0 replaced, 0 removed, 0 unchanged
@@ -116,7 +116,7 @@ and its WEAP property names `#L2995-L3179`):
   by the sibling `ValueType` (`#L1981-L2031`), and the schema format can only decide a
   union by the EditorID's first letter (`docs/gaps.md`, unions). A "narrow typed union" is
   therefore not a TOML-only addition to `OMOD.toml`: it needs a sibling-field decider in
-  the loader, codegen, `kitcraft_doc::typed` and `edit::fields` (lane B, M3.B9; filed in
+  the loader, codegen, `kitkraft_doc::typed` and `edit::fields` (lane B, M3.B9; filed in
   `plan/STATUS.md`, Requests). This build does not write OMOD values as raw `hex:`.
 
 No member needed `allow_reference`: every member written is `corpus` confidence.
@@ -190,10 +190,10 @@ Never on `Default` (AGENTS.md, "Owner's live game is off limits").
 1. In MO2 switch to the `KitKraft Dev` profile (the deploy dry run above was refused
    because MO2's active profile is `Default`; that guard is expected).
 2. Install the plugin, either way:
-   - `kit deploy --dev C:\Modding\kitcraft\out\overhaul\package\KitKraftGunOverhaul C:\Modding\MO2-Starfield --profile "KitKraft Dev"`
+   - `kit deploy --dev C:\Modding\kitkraft\out\overhaul\package\KitKraftGunOverhaul C:\Modding\MO2-Starfield --profile "KitKraft Dev"`
      (writes only `mods\KitKraft Dev - KitKraftGunOverhaul\`), then in MO2 press F5; or
    - *Install a new mod from an archive* with
-     `C:\Modding\kitcraft\out\overhaul\package\KitKraftGunOverhaul-0.1.0.zip`, named
+     `C:\Modding\kitkraft\out\overhaul\package\KitKraftGunOverhaul-0.1.0.zip`, named
      `KitKraft Dev - KitKraftGunOverhaul` (`docs/packaging.md`).
 3. Enable the mod `KitKraft Dev - KitKraftGunOverhaul`; in the plugin list enable
    `KitKraftGunOverhaul.esm` and place it **after `OldSovietMarksmanRifle.esm`** (last in

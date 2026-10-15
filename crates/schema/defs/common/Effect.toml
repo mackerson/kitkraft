@@ -15,7 +15,7 @@ name = "Effect"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6977-L6995"
 evidence = [
-  "corpus: the 1,563 effects in the SPEL records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every SPEL record and re-encode it identically",
+  "corpus: the 1,563 effects in the SPEL records of the 14 official ESMs, 2026-10-14 scan; typed check: kitkraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every SPEL record and re-encode it identically",
 ]
 confidence = "corpus"
 

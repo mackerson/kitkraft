@@ -7,8 +7,8 @@
 //! (M3.D2), a subrecord the schema gives a layout is compared member by member, FormIDs
 //! resolved by plugin name on each side ([`crate::fields`]); the rest stay byte comparisons.
 
-use kitcraft_esm::{Subrecord, FLAG_COMPRESSED, HEADER_LEN};
-use kitcraft_schema::Schema;
+use kitkraft_esm::{Subrecord, FLAG_COMPRESSED, HEADER_LEN};
+use kitkraft_schema::Schema;
 
 use crate::fields::{self, FieldChange, Side, Typed};
 use crate::flags::RECORD_FLAG_DELETED;
@@ -96,7 +96,7 @@ impl SubDiff {
 /// payloads, and whether their stored FormIDs mean the same forms.
 #[derive(Debug)]
 pub struct FieldCompare<'a> {
-    /// Layouts (`kitcraft_schema::builtin()` outside tests).
+    /// Layouts (`kitkraft_schema::builtin()` outside tests).
     pub schema: &'a Schema,
     /// The first version.
     pub a: Side<'a>,

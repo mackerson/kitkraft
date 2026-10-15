@@ -36,7 +36,7 @@ use serde_json::{json, Map, Value};
 
 use crate::backend::{Backend, CallError};
 use crate::tools;
-use kitcraft_engine::Engine;
+use kitkraft_engine::Engine;
 
 /// The protocol revision this server implements natively (per-request `_meta`).
 pub const PROTOCOL_VERSION: &str = "2026-07-28";
@@ -333,7 +333,7 @@ impl Server {
             .map(|t| t.name)
             .collect();
         let mut text = format!(
-            "KitCraft: clean-room Starfield plugin tooling ({} catalog commands). Call `execute` with {{command, args}} (each command and its arguments is listed in its description and in the kitcraft://commands resource) or `command_line` with a kit command line; {} are shortcuts. Every result is the evidence envelope {{command, data, coverage, limitations, evidence}}: report unknown as unknown and cite evidence offsets. A load order loaded with `execute` `load` stays loaded for this server process (resource kitcraft://load-order). record_schema shows which fields a record type has, with sources and confidence; kitcraft://validate-rules lists what `validate` checks.",
+            "KitKraft: clean-room Starfield plugin tooling ({} catalog commands). Call `execute` with {{command, args}} (each command and its arguments is listed in its description and in the kitkraft://commands resource) or `command_line` with a kit command line; {} are shortcuts. Every result is the evidence envelope {{command, data, coverage, limitations, evidence}}: report unknown as unknown and cite evidence offsets. A load order loaded with `execute` `load` stays loaded for this server process (resource kitkraft://load-order). record_schema shows which fields a record type has, with sources and confidence; kitkraft://validate-rules lists what `validate` checks.",
             self.backend.command_count(),
             shortcuts.join(", ")
         );
@@ -497,8 +497,8 @@ fn capabilities() -> Value {
 
 fn server_info() -> Value {
     json!({
-        "name": "kitcraft",
-        "title": "KitCraft",
+        "name": "kitkraft",
+        "title": "KitKraft",
         "version": env!("CARGO_PKG_VERSION"),
     })
 }
@@ -602,7 +602,7 @@ mod tests {
         read_frame, Frame, Server, LEGACY_VERSIONS, MODERN_VERSIONS, PROTOCOL_VERSION,
         SUPPORTED_VERSIONS,
     };
-    use kitcraft_engine::Engine;
+    use kitkraft_engine::Engine;
     use serde_json::{json, Value};
 
     fn server() -> Server {
@@ -645,7 +645,7 @@ mod tests {
         );
         assert_eq!(r["id"], 1);
         assert_eq!(r["result"]["protocolVersion"], "2025-06-18");
-        assert_eq!(r["result"]["serverInfo"]["name"], "kitcraft");
+        assert_eq!(r["result"]["serverInfo"]["name"], "kitkraft");
         assert!(r["result"]["capabilities"]["tools"].is_object());
         assert!(r["result"]["capabilities"]["resources"].is_object());
         assert!(r["result"]["instructions"]
@@ -764,7 +764,7 @@ mod tests {
         assert_eq!(result["cacheScope"], "public");
         assert_eq!(
             result["_meta"]["io.modelcontextprotocol/serverInfo"]["name"],
-            "kitcraft"
+            "kitkraft"
         );
 
         // Without _meta, discover is a missing-field error (the legacy-probe signal).
@@ -984,9 +984,9 @@ mod tests {
         assert_eq!(
             uris,
             [
-                "kitcraft://commands",
-                "kitcraft://load-order",
-                "kitcraft://validate-rules"
+                "kitkraft://commands",
+                "kitkraft://load-order",
+                "kitkraft://validate-rules"
             ]
         );
         let r = call(
@@ -994,7 +994,7 @@ mod tests {
             modern(
                 8,
                 "resources/read",
-                json!({"uri": "kitcraft://validate-rules"}),
+                json!({"uri": "kitkraft://validate-rules"}),
             ),
         );
         assert_eq!(r["result"]["cacheScope"], "public", "{r}");
@@ -1006,7 +1006,7 @@ mod tests {
             .iter()
             .map(|r| r["id"].as_str().unwrap())
             .collect();
-        let expected: Vec<&str> = kitcraft_engine::validate::RULES
+        let expected: Vec<&str> = kitkraft_engine::validate::RULES
             .iter()
             .map(|r| r.id)
             .collect();
@@ -1016,17 +1016,17 @@ mod tests {
         assert_eq!(rules["denylist"][0]["function"], "setgodmode");
         let r = call(
             &mut s,
-            legacy(2, "resources/read", json!({"uri": "kitcraft://commands"})),
+            legacy(2, "resources/read", json!({"uri": "kitkraft://commands"})),
         );
         let text = r["result"]["contents"][0]["text"].as_str().unwrap();
         let catalog: Value = serde_json::from_str(text).unwrap();
         assert_eq!(
             catalog.as_array().unwrap().len(),
-            kitcraft_engine::catalog().len()
+            kitkraft_engine::catalog().len()
         );
         let r = call(
             &mut s,
-            modern(3, "resources/read", json!({"uri": "kitcraft://load-order"})),
+            modern(3, "resources/read", json!({"uri": "kitkraft://load-order"})),
         );
         let text = r["result"]["contents"][0]["text"].as_str().unwrap();
         assert_eq!(
@@ -1038,12 +1038,12 @@ mod tests {
         // Not found: -32002 on legacy, -32602 on modern.
         let r = call(
             &mut s,
-            legacy(4, "resources/read", json!({"uri": "kitcraft://nope"})),
+            legacy(4, "resources/read", json!({"uri": "kitkraft://nope"})),
         );
         assert_eq!(r["error"]["code"], -32002);
         let r = call(
             &mut s,
-            modern(5, "resources/read", json!({"uri": "kitcraft://nope"})),
+            modern(5, "resources/read", json!({"uri": "kitkraft://nope"})),
         );
         assert_eq!(r["error"]["code"], -32602);
         let r = call(&mut s, legacy(6, "resources/read", json!({})));

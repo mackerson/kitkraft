@@ -8,7 +8,7 @@
 //! validated, so a write that depends on a `reference`-only member is refused unless the
 //! spec entry says `allow_reference = true`.
 
-use kitcraft_schema::{Confidence, FieldType, RecordDef, Schema, Signature};
+use kitkraft_schema::{Confidence, FieldType, RecordDef, Schema, Signature};
 
 use crate::edit::fields::{FieldPath, Step, LSTRING_FALLBACK};
 use crate::edit::lstrings;
@@ -56,7 +56,7 @@ pub fn resolve(schema: &Schema, record: [u8; 4], path: &FieldPath) -> Result<Res
             label: format!("{rtext}.{stext}"),
         });
     };
-    let leaves: Vec<(String, &kitcraft_schema::SubrecordDef)> = def
+    let leaves: Vec<(String, &kitkraft_schema::SubrecordDef)> = def
         .leaf_subrecords()
         .into_iter()
         .filter(|(_, s)| s.signature.as_bytes() == path.signature)
@@ -256,7 +256,7 @@ pub(crate) fn reference_schema() -> Schema {
              ]\n\
              [[member]]\nsig = \"KWDA\"\nname = \"Forms\"\ntype = \"array\"\nelement = \"formid\"\ncount = \"rest\"\n"
         );
-    kitcraft_schema::load_sources([("TEST.toml", text.as_str())]).unwrap()
+    kitkraft_schema::load_sources([("TEST.toml", text.as_str())]).unwrap()
 }
 
 #[cfg(test)]
@@ -327,7 +327,7 @@ mod tests {
                 ("DNAM.Count", "int", false)
             ]
         );
-        let builtin = kitcraft_schema::builtin().unwrap();
+        let builtin = kitkraft_schema::builtin().unwrap();
         let glob: Vec<String> = numeric_members(builtin, *b"GLOB")
             .into_iter()
             .map(|m| m.path)

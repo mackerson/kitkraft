@@ -6,10 +6,10 @@
 //! `-r`, `-final`), checks its own output for them, and the catalog schema rejects any
 //! extra argument. Project files (`.ppj`) are refused because they can turn release mode
 //! on themselves. Output is never written under the game Data directory, and the produced
-//! `.pex` is parsed and disassembled with `kitcraft-pex` as a check.
+//! `.pex` is parsed and disassembled with `kitkraft-pex` as a check.
 //!
 //! `sources_zip` (M3.G1) names `Tools\ContentResources.zip`: its `Scripts/Source` files are
-//! extracted once into the KitCraft cache ([`super::sources`]) and that folder is imported
+//! extracted once into the KitKraft cache ([`super::sources`]) and that folder is imported
 //! after every other import directory, so the base game's scripts need no manual
 //! extraction.
 
@@ -19,7 +19,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use kitcraft_pex::{disassemble, Pex};
+use kitkraft_pex::{disassemble, Pex};
 use serde_json::{json, Value};
 
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
@@ -99,7 +99,7 @@ pub(crate) fn refuse_release(args: &[String]) -> Result<(), String> {
         let is_switch = lower.starts_with('-') || lower.starts_with('/');
         if is_switch && matches!(switch, "r" | "release" | "final") {
             return Err(format!(
-                "refusing compiler argument `{arg}`: KitCraft never compiles in release or final mode"
+                "refusing compiler argument `{arg}`: KitKraft never compiles in release or final mode"
             ));
         }
     }
@@ -133,10 +133,10 @@ fn compiler_candidates(explicit: Option<&str>) -> Vec<PathBuf> {
         return vec![PathBuf::from(p)];
     }
     let mut out = Vec::new();
-    if let Some(p) = std::env::var_os("KITCRAFT_PAPYRUS_COMPILER") {
+    if let Some(p) = crate::handlers::env_var_os("KITKRAFT_PAPYRUS_COMPILER") {
         out.push(PathBuf::from(p));
     }
-    if let Some(data) = std::env::var_os("KITCRAFT_DATA_DIR") {
+    if let Some(data) = crate::handlers::env_var_os("KITKRAFT_DATA_DIR") {
         if let Some(game) = Path::new(&data).parent() {
             out.push(
                 COMPILER_REL
@@ -244,7 +244,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
             ID,
             format!(
                 "PapyrusCompiler.exe not found; looked at: {} (pass `compiler`, or set \
-                 KITCRAFT_PAPYRUS_COMPILER)",
+                 KITKRAFT_PAPYRUS_COMPILER)",
                 looked.join("; ")
             ),
         )
@@ -509,7 +509,7 @@ mod tests {
 
     #[test]
     fn execute_refuses_release_and_reports_missing_compiler() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-compile-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-compile-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let err = execute(
@@ -540,7 +540,7 @@ mod tests {
     /// name is refused before anything is extracted (M3.G1).
     #[test]
     fn sources_zip_errors_come_before_the_compiler() {
-        let dir = std::env::temp_dir().join(format!("kitcraft-compile-zip-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-compile-zip-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(&dir).unwrap();
         let missing_compiler = dir.join("nope").join("PapyrusCompiler.exe");
@@ -568,12 +568,12 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// With the compiler installed and `KITCRAFT_DATA_DIR` set, a base-game script compiles
+    /// With the compiler installed and `KITKRAFT_DATA_DIR` set, a base-game script compiles
     /// by name given only `Tools\ContentResources.zip` (M3.G1).
     #[test]
     fn base_game_script_compiles_from_the_zip_alone() {
-        let Some(data) = std::env::var_os("KITCRAFT_DATA_DIR") else {
-            println!("skipped: KITCRAFT_DATA_DIR is not set");
+        let Some(data) = crate::handlers::env_var_os("KITKRAFT_DATA_DIR") else {
+            println!("skipped: KITKRAFT_DATA_DIR is not set");
             return;
         };
         let Some(zip) = std::path::Path::new(&data)
@@ -592,7 +592,7 @@ mod tests {
             return;
         }
         let dir =
-            std::env::temp_dir().join(format!("kitcraft-compile-zip-ok-{}", std::process::id()));
+            std::env::temp_dir().join(format!("kitkraft-compile-zip-ok-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         let r = execute(
             "papyrus.compile",
@@ -610,13 +610,13 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
-    /// With the compiler installed and `KITCRAFT_PAPYRUS_IMPORTS` naming an extraction of
+    /// With the compiler installed and `KITKRAFT_PAPYRUS_IMPORTS` naming an extraction of
     /// `Tools\ContentResources.zip`'s `Scripts\Source`, a trivial script compiles in a temp
-    /// directory and disassembles through `kitcraft-pex`.
+    /// directory and disassembles through `kitkraft-pex`.
     #[test]
     fn trivial_script_compiles_and_disassembles() {
-        let Some(imports) = std::env::var_os("KITCRAFT_PAPYRUS_IMPORTS") else {
-            println!("skipped: KITCRAFT_PAPYRUS_IMPORTS is not set");
+        let Some(imports) = crate::handlers::env_var_os("KITKRAFT_PAPYRUS_IMPORTS") else {
+            println!("skipped: KITKRAFT_PAPYRUS_IMPORTS is not set");
             return;
         };
         if super::compiler_candidates(None)
@@ -626,13 +626,13 @@ mod tests {
             println!("skipped: PapyrusCompiler.exe not found");
             return;
         }
-        let dir = std::env::temp_dir().join(format!("kitcraft-compile-ok-{}", std::process::id()));
+        let dir = std::env::temp_dir().join(format!("kitkraft-compile-ok-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
         fs::create_dir_all(dir.join("src")).unwrap();
-        let psc = dir.join("src").join("KitcraftTrivial.psc");
+        let psc = dir.join("src").join("KitkraftTrivial.psc");
         fs::write(
             &psc,
-            "Scriptname KitcraftTrivial extends ScriptObject\n\nInt Function Twice(Int a)\n  Return a * 2\nEndFunction\n",
+            "Scriptname KitkraftTrivial extends ScriptObject\n\nInt Function Twice(Int a)\n  Return a * 2\nEndFunction\n",
         )
         .unwrap();
         let r = execute(
@@ -643,7 +643,7 @@ mod tests {
         .unwrap();
         assert_eq!(r["data"]["passed"], true, "{}", r["data"]);
         let text = r["data"]["pex"]["text"].as_str().unwrap();
-        assert!(text.starts_with("KitcraftTrivial.psc v3.12"), "{text}");
+        assert!(text.starts_with("KitkraftTrivial.psc v3.12"), "{text}");
         assert!(text.contains("FUNC Twice(a)"), "{text}");
         assert!(text.contains("imul"), "{text}");
         let args = r["data"]["args"].as_array().unwrap();

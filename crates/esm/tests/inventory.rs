@@ -1,7 +1,7 @@
 //! Corpus inventory facts recorded in docs/corpus.md (M1.2b and the container facts the
 //! parser relies on). Prints tables; asserts nothing beyond parsing.
 //!
-//! `cargo test -p kitcraft-esm --release --test inventory -- --ignored --nocapture`
+//! `cargo test -p kitkraft-esm --release --test inventory -- --ignored --nocapture`
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -14,8 +14,8 @@ mod common;
 
 use std::collections::BTreeMap;
 
-use kitcraft_esm::driver::visit_file;
-use kitcraft_esm::{DecodeLimits, Entry, ParseOptions};
+use kitkraft_esm::driver::visit_file;
+use kitkraft_esm::{DecodeLimits, Entry, ParseOptions};
 
 #[derive(Default)]
 struct Inventory {
