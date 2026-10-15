@@ -24,6 +24,16 @@ cache, default `%LOCALAPPDATA%\kitkraft\cache`), `KITKRAFT_SF1EDIT`, `KITKRAFT_S
 `KITKRAFT_KIT`, `KITKRAFT_PAPYRUS_COMPILER`, `KITKRAFT_UPDATE_GOLDEN` and the test-only
 ones named next to their tests.
 
+**Detected defaults (Lane F, 2026-10-15).** Commands no longer need `KITKRAFT_DATA_DIR`:
+with no `data_dir` argument and no variable, the Data dir is the one `kit doctor`
+detects (Steam's registry and libraries, the common install folders, then the MO2
+instance's `gamePath`; `crates/engine/src/host.rs`, `crates/io/src/host.rs`). Precedence:
+**argument > environment variable > detected**. A bare `profile` name (`KitKraft Dev`)
+is that profile of the detected MO2 instance. `KITKRAFT_DETECT=0` (or `off`) turns the
+detected defaults off; tests that need "no Data dir" set it. The **corpus tests** are
+unchanged: they still read the official files only through `KITKRAFT_DATA_DIR` and skip
+without it, so `cargo xtask ci` behaves the same on every machine.
+
 **Deprecated (one release):** before the KitKraft rename (2026-10-14) these were spelled
 `KITCRAFT_*`. The old names are still read when the new one is unset, so existing shells
 keep working; the new name wins when both are set. Rename them in your profile; the

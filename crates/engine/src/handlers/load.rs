@@ -272,7 +272,7 @@ fn from_save(
                 "`from_save: newest` needs `profile` (where its saves are); pass a save path with `plugins`",
             )
         })?;
-        let dir = saves_dir(Path::new(profile)).ok_or_else(|| {
+        let dir = saves_dir(&crate::host::profile_dir(profile)).ok_or_else(|| {
             failed(
                 command,
                 "no saves folder known for this profile (no USERPROFILE)",
@@ -354,13 +354,13 @@ pub(crate) fn load(
         .and_then(Value::as_str)
         .unwrap_or("en")
         .to_string();
-    // An explicit `data_dir` wins; `KITKRAFT_DATA_DIR` is the default for a plugin list,
-    // and for a profile only when its MO2 instance names no game (gamePath).
+    // An explicit `data_dir` wins; `KITKRAFT_DATA_DIR`, else the detected Data dir, is the
+    // default for a plugin list, and for a profile only when its MO2 instance names no game.
     let explicit_data_dir = args
         .get("data_dir")
         .and_then(Value::as_str)
         .map(PathBuf::from);
-    let data_dir = super::data_dir(args);
+    let data_dir = super::data_dir_source(args);
     let mut limitations = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     // name -> (why active, provider)
@@ -379,7 +379,12 @@ pub(crate) fn load(
                 return Err(failed(command, "pass `profile` or `plugins`, not both"));
             }
             (Some(_), None) => {
-                let dir = str_arg(command, args, "profile")?;
+                let given = str_arg(command, args, "profile")?;
+                // A bare name (`KitKraft Dev`) is that profile of the detected MO2
+                // instance (crate::host).
+                let resolved = crate::host::profile_dir(given);
+                let dir = resolved.to_string_lossy().into_owned();
+                let dir = dir.as_str();
                 let planned = plan_profile(
                     Path::new(dir),
                     &ProfileOptions {
@@ -388,7 +393,7 @@ pub(crate) fn load(
                 );
                 let pl = match (planned, &explicit_data_dir, &data_dir) {
                     (Ok(pl), _, _) => pl,
-                    (Err(first), None, Some(env_dir)) => plan_profile(
+                    (Err(first), None, Some((env_dir, from))) => plan_profile(
                         Path::new(dir),
                         &ProfileOptions {
                             data_dir: Some(env_dir.clone()),
@@ -396,8 +401,7 @@ pub(crate) fn load(
                     )
                     .inspect(|_| {
                         limitations.push(format!(
-                            "the MO2 instance names no game Data dir; used {} = {}",
-                            super::DATA_DIR_ENV,
+                            "the MO2 instance names no game Data dir; used {from} = {}",
                             env_dir.display()
                         ));
                     })
@@ -479,7 +483,7 @@ pub(crate) fn load(
                     let pointer = format!("/plugins/{i}");
                     let path = super::resolve::resolve(
                         session,
-                        data_dir.as_deref(),
+                        data_dir.as_ref().map(|(d, _)| d.as_path()),
                         command,
                         &pointer,
                         name,

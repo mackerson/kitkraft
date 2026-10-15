@@ -136,7 +136,7 @@ fn compiler_candidates(explicit: Option<&str>) -> Vec<PathBuf> {
     if let Some(p) = crate::handlers::env_var_os("KITKRAFT_PAPYRUS_COMPILER") {
         out.push(PathBuf::from(p));
     }
-    if let Some(data) = crate::handlers::env_var_os("KITKRAFT_DATA_DIR") {
+    if let Some(data) = crate::handlers::default_data_dir() {
         if let Some(game) = Path::new(&data).parent() {
             out.push(
                 COMPILER_REL

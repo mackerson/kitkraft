@@ -25,6 +25,8 @@ pub mod edit;
 mod envelope;
 mod exec;
 mod handlers;
+mod host;
+pub mod install;
 mod params;
 mod session;
 pub mod shapes;
@@ -442,6 +444,17 @@ static CATALOG: &[CommandSpec] = &[
         aliases: &[],
         summary: "Read-only: the KitKraft dev mods in an MO2 instance, their manifests, hand edits, previous deployments, interrupted operations, and whether each is enabled in a profile",
         args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini)"},"mod":{"type":"string","description":"Only this dev mod (`KitKraft Dev - <plugin stem>` or the stem)"},"profile":{"type":"string","description":"Profile whose enabled state is read (default: MO2's active profile)"}},"required":["mo2"],"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "doctor",
+        label: "Doctor (Check Setup)",
+        menu_path: "Help/Doctor",
+        shortcut: None,
+        aliases: &[],
+        summary: "Read-only: find the game install, Data dir, game version, MO2 instance and profiles (KitKraft Dev), xEdit, the Papyrus compiler, SFSE, the cache and the MCP registrations; one line each with the path, how it was found, and OK or a fix. What it detects is every command's default (argument > environment > detected)",
+        args_schema: r#"{"type":"object","properties":{"get":{"type":"string","enum":["game_dir","data_dir","mo2","active_profile","dev_profile","cache_dir","kit"],"description":"Print only this detected path (for scripts); fails when it is not detected"},"data_dir":{"type":"string","description":"Game Data dir to check instead of the default (argument > KITKRAFT_DATA_DIR > detected)"},"mo2":{"type":"string","description":"MO2 instance root to check instead of the detected one"},"home":{"type":"string","description":"Folder holding .claude.json (default %USERPROFILE%)"},"project":{"type":"string","description":"Project folder holding .mcp.json (default: the repository above kit.exe, else above the working directory)"}},"additionalProperties":false}"#,
         writes: false,
         status: Status::Implemented,
     },

@@ -47,6 +47,17 @@ impl Ini {
             .find(|(k, _)| k.eq_ignore_ascii_case(key))
             .map(|(_, v)| decode_value(v))
     }
+
+    /// Every key of `section` (its name compared ignoring ASCII case) with its decoded
+    /// value, in key order. MO2's `[customExecutables]` lists `1\binary=...`, `2\binary=...`.
+    pub fn entries(&self, section: &str) -> Vec<(String, String)> {
+        self.sections
+            .iter()
+            .filter(|(name, _)| name.eq_ignore_ascii_case(section))
+            .flat_map(|(_, keys)| keys.iter())
+            .map(|(k, v)| (k.clone(), decode_value(v)))
+            .collect()
+    }
 }
 
 /// `@ByteArray(x)` -> `x` with `\\` -> `\`; a value in double quotes loses them.
@@ -80,6 +91,24 @@ mod tests {
             Some("D:\\mods")
         );
         assert_eq!(ini.get("General", "missing"), None);
+    }
+
+    #[test]
+    fn entries_list_a_section_decoded() {
+        let ini = Ini::parse(
+            "[customExecutables]\r\n1\\binary=C:/Tools/xEdit/xSFEdit64.exe\r\n1\\title=xEdit\r\n2\\binary=@ByteArray(D:\\\\x\\\\y.exe)\r\n[General]\r\na=b\r\n",
+        );
+        let e = ini.entries("customexecutables");
+        let pair = |k: &str, v: &str| (k.to_string(), v.to_string());
+        assert_eq!(
+            e,
+            [
+                pair("1\\binary", "C:/Tools/xEdit/xSFEdit64.exe"),
+                pair("1\\title", "xEdit"),
+                pair("2\\binary", "D:\\x\\y.exe"),
+            ]
+        );
+        assert!(ini.entries("Missing").is_empty());
     }
 
     /// Fable review (deploy round): a UTF-8 BOM before `[General]` hid the section, so

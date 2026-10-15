@@ -369,7 +369,8 @@ fn validate_defaults_data_dir_to_kitkraft_data_dir() {
             Some(dir) => cmd.env("KITKRAFT_DATA_DIR", dir),
             None => cmd
                 .env_remove("KITKRAFT_DATA_DIR")
-                .env_remove("KITCRAFT_DATA_DIR"),
+                .env_remove("KITCRAFT_DATA_DIR")
+                .env("KITKRAFT_DETECT", "0"),
         };
         let out = cmd.output().expect("run kit");
         let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
@@ -423,7 +424,8 @@ fn validate_defaults_data_dir_to_kitkraft_data_dir() {
 }
 
 /// A profile whose MO2 instance names no gamePath loads from `KITKRAFT_DATA_DIR`, and
-/// says so; without the variable it fails naming the missing gamePath.
+/// says so; without the variable (and with detection off, `KITKRAFT_DETECT=0`, so the
+/// machine's own game install is not the fallback) it fails naming the missing gamePath.
 #[test]
 fn load_profile_without_game_path_falls_back_to_kitkraft_data_dir() {
     let root = std::env::temp_dir().join(format!("kit-cli-mo2-{}", std::process::id()));
@@ -443,7 +445,8 @@ fn load_profile_without_game_path_falls_back_to_kitkraft_data_dir() {
             Some(dir) => cmd.env("KITKRAFT_DATA_DIR", dir),
             None => cmd
                 .env_remove("KITKRAFT_DATA_DIR")
-                .env_remove("KITCRAFT_DATA_DIR"),
+                .env_remove("KITCRAFT_DATA_DIR")
+                .env("KITKRAFT_DETECT", "0"),
         };
         let out = cmd.output().expect("run kit");
         let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");

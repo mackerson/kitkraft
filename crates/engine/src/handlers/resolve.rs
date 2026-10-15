@@ -96,7 +96,10 @@ pub(crate) fn resolve(
     });
     searched.push(match data_dir {
         Some(dir) => format!("the Data dir {}", dir.display()),
-        None => format!("no Data dir (pass data_dir or set {})", super::DATA_DIR_ENV),
+        None => format!(
+            "no Data dir (pass data_dir or set {}; `kit doctor` shows why none was detected)",
+            super::DATA_DIR_ENV
+        ),
     });
     Err(EngineError::NotFound {
         command: command.to_string(),

@@ -10,6 +10,7 @@
 //! LAYER: L3
 
 mod error;
+pub mod host;
 pub mod ini;
 pub mod instance;
 pub mod mo2;

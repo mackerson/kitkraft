@@ -616,12 +616,12 @@ fn pattern(command: &str, args: &Value, name: &str) -> Result<Option<Regex>, Eng
         })
 }
 
-/// Refuses a write target inside a game `Data` directory: `KITKRAFT_DATA_DIR`, or any
-/// directory at or above the target that holds `Starfield.esm`.
+/// Refuses a write target inside a game `Data` directory: `KITKRAFT_DATA_DIR` (else the
+/// detected one), or any directory at or above the target that holds `Starfield.esm`.
 pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), EngineError> {
     let abs = absolute(target);
-    let data_dir =
-        crate::handlers::env_var_os("KITKRAFT_DATA_DIR").map(|d| absolute(Path::new(&d)));
+    // `KITKRAFT_DATA_DIR`, else the detected game Data dir (crate::host).
+    let data_dir = crate::handlers::default_data_dir().map(|d| absolute(&d));
     let refuse = |why: String| {
         failed(
             command,
@@ -634,7 +634,7 @@ pub(super) fn refuse_game_data(command: &str, target: &Path) -> Result<(), Engin
     if let Some(data) = data_dir.filter(|d| !d.as_os_str().is_empty()) {
         if abs.starts_with(&data) {
             return Err(refuse(format!(
-                "it is under KITKRAFT_DATA_DIR `{}`",
+                "it is under the game Data dir `{}` (KITKRAFT_DATA_DIR, else detected)",
                 data.display()
             )));
         }

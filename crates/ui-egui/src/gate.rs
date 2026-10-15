@@ -348,6 +348,7 @@ mod tests {
             "papyrus.events",
             "strings.dump",
             "deploy.status",
+            "doctor",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);
