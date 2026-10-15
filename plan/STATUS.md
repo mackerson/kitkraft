@@ -14,7 +14,8 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | 3 | In-game check of overhaul build 2 (M3.O5, steps in `docs/overhaul/build-1.md`, "In game"). Wait until build 2 lands: build 1 has no OMOD values, and lane B round 4 has now typed them | M3 exit (overhaul) | waits for lane E's build 2 |
 | 4 | Answer the brief rows **B8** (no automatic receiver OMOD carries a damage property: restate the row), **B11** (which magazine "18 rounds" means for the Drum Beat) and **B12** (is "14" the Large magazine, already 14, or the Extra Large?). Details in `docs/overhaul/build-1.md` | overhaul build 2 (M3.E9 rerun) | pending (owner) |
 | 5 | Close every Claude Code session that has the repo open. Then run `C:\Modding\scripts\finish_kitkraft_move.ps1`. It renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
-| 6 | Decide when to start the workbench (lane W, M4.W0..W6, ADR 0007 Amendment 1). Planned only so far. The M4.W0 gate needs M4.D1 (`refs`) and M4.D2 (placement context), and neither is on `main`. The deferred CK sessions (M3.O1, M4.O1) wait for M4.W2..W5 | M3.O1 and M4.O1 (CK), with them every `ck-diff` upgrade | open (owner decision) |
+| 6 | Decide when to start the workbench (lane W, M4.W0..W6, ADR 0007 Amendment 1). The M4.W0 gate needs M4.D1 (`refs`) and M4.D2 (placement context), and neither is on `main`. The deferred CK sessions (M3.O1, M4.O1) wait for M4.W2..W5 | M3.O1 and M4.O1 (CK), with them every `ck-diff` upgrade | **decided 2026-10-15: started**. Lane W built the read-only workbench (`kit ui`, `docs/workbench.md`) |
+| 7 | Rule on two licenses in the workbench's dependency tree (ADR 0007, "Dependency list"). First, **BSL-1.0** (`clipboard-win`, `error-code`): eframe always pulls these in for the copy buttons; the license is permissive but is not named in the MIT/Apache/Zlib/BSD rule. Second, whether the optional `default_fonts` feature may ever be enabled (OFL-1.1 and Ubuntu Font Licence). It is off: the window uses the Windows system fonts | the first workbench merge to `main` | open (owner decision) |
 
 ## Current milestone: M3 closing, M4 in progress
 
@@ -69,7 +70,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | M4.O4 in-game results recorded | **pending-owner** | After E7/E9 land; the M4.E8 recipes are ready |
 | `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **carried** (M4.H3), planet content **carried** (M4.D3) |
 | M4.O3 and M4.O5 recorded | **done** | ADR 0008, ADR 0009 (2026-10-14) |
-| Lane W | planning only | M4.W0..W6 planned. Start is the owner's call (row 6 above) |
+| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Carried: M4.W0 shape tests (lane F), `build --plan` (M4.W6), `refs`/placement context (M4.D1, M4.D2). Licence ruling: row 7 |
 | CK fixtures F20..F28 (M4.O1, M4.H2) | **carried** | Deferred by the owner with M3.O1 until the workbench exists. The first POI does not need them |
 | `cargo xtask ci` green, corpus roundtrip identical, parity regenerated, STATUS says M5 | **carried** | To M4 close |
 
@@ -1195,6 +1196,30 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   `since = 152`, REFR XLOC 9-byte form, INFO TRDA Emotion as a FormID with 0xFFFFFFFF as none;
   reserved object IDs pinned per member, with a warning outside the named set (one: SFBGS00D
   OMOD 0x3B7). Open: TES4 DATA/INTV (docs/gaps.md), GBFM STOP Marker2 is live (not dropped).
+- **Lane W, M4.W1..W6 (read-only workbench, 2026-10-15; the owner started it the same
+  day).**
+  - What exists:
+    - `crates/ui-egui` (L5). Its only workspace dependency is `kitkraft-engine`, which the
+      new xtask `INTERNAL_ONLY` rule enforces (ADR 0002).
+    - `apps/kit`, which builds the `kit-ui` binary.
+    - `kit ui` in kit-cli, a launcher like `kit mcp` with no `CommandSpec`.
+  - `gate.rs` is the only holder of the engine. Its allowlist is `load`, `inspect`,
+    `query`, `diff`, `conflicts`, `validate`, `coverage` and `schema`, plus `roundtrip`
+    with `verify` and without `out`. It refuses every other command and alias. Tests check
+    the catalog classification, try every refusal, and scan the crate's sources.
+  - The engine runs on a worker thread. The panel view-models have no egui types and are
+    tested against canned envelopes. Every result shows its `kit` line and MCP call, with
+    copy buttons; the line is checked by parsing it back with the engine's parser. Every
+    result also shows its limitations, coverage and evidence.
+  - Checked read-only on KitKraft Dev with the `dev_profile` test and the screenshot tour
+    (`docs/workbench.md`).
+  - The dependency list is in ADR 0007. eframe 0.36 is built with `glow` only. No fonts
+    are compiled in; the window uses the system fonts.
+  - Carried:
+    - `build --plan`.
+    - `refs` and placement context (M4.D1, M4.D2).
+    - The M4.W0 shape tests (lane F).
+    - The owner's licence ruling (row 7).
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
