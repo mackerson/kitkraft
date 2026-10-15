@@ -1441,7 +1441,10 @@ Agents append here when they need a change in a crate they do not own.
     (types 1, 6, 7, 10) whose record is not in its parent group; `cells::carry_parents(
     &master_index, &place, cell, &style, &limits, read)` gives the lossless `WRLD`/`CELL`
     overrides to upsert first (skip those the target has). Before the fix the group was
-    created without its record, a shape no official file has.
+    created without its record, a shape no official file has. **Lane E:** the engine's
+    `edit::source::PARENT_LABELLED` is `[1, 6, 7]`; a copied `DIAL`/`SCEN`/`DLBR` (or an
+    `INFO`, whose `DIAL` sits in type 10) also needs its `QUST`, so add 10 there, or such
+    a patch is now refused instead of getting an ownerless quest children group.
   - `navmesh::import_navmeshes(&ck_plugin, &mut target, &NavmeshOptions { style, limits,
     master_scales })` and `navmesh::navmesh_placements(&ck_plugin, &target_index,
     read_cell, &options)` for `[[import]]`; refused unless both plugins have the same
