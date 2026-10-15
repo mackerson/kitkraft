@@ -687,6 +687,11 @@ fn render(
             let _ = writeln!(out, "{line}");
         }
     }
+    out.push_str(
+        "\nBy design, REFR's FLCS, KSIZ, KWDA, VLMS and OPDS count as unknown: in REFR they\n\
+         occur only inside the BFCB..BFCE base form component blocks (the component bodies the\n\
+         definition keeps as raw subrecords, `common/BfcbBlock.toml`), not as REFR members.\n",
+    );
 
     out.push_str("\n## Roundtrip\n\n");
     out.push_str(

@@ -18,7 +18,7 @@
 #     FTYP (L5699), NTRM (L5676), container items (L2304-L2327), AIDT (L7144-L7153) with
 #     its enums (wbDefinitionsCommon.pas L7247-L7255, L7297-L7304, L7523-L7532,
 #     L7950-L7974), keywords (wbDefinitionsCommon.pas L8935-L8951), APPR (L5698), the
-#     object template (L6961-L6973, OBTS kept opaque), FULL (L3184), the AVM group type
+#     object template (L6961-L6974, OBTS typed since M4.BX1), FULL (L3184), the AVM group type
 #     (L7031-L7037), byte colours (wbDefinitionsCommon.pas L6954-L6968), ATTX (L5700), the
 #     sound reference (L2197-L2226, common/SoundReference.toml), the pronoun enum
 #     (L2956-L2961).
@@ -539,7 +539,7 @@ evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3
 [[member]]
 group_ref = "ObteBlock"
 card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6973"]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
 note = "the object template (the shared block, folded in M4.BX1); observed in 1,365 records, each with one combination; the STOP marker is in the block, and 3,551 official records without a template have none"
 
 [[member]]

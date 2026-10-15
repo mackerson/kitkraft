@@ -50,9 +50,12 @@ round 2, finding 2). `crates/engine/src/edit/lstrings.rs` holds a per-record-typ
 which subrecord signatures are lstrings, which are not, and which the corpus cannot tell.
 
 **Source.** ADR 0004 ("Owner approval", clause 3) puts the pinned xEdit
-`wbDefinitionsSF1.pas` first for record definitions, but it is not available locally
-(`plan/STATUS.md`, Blockers; not at `C:\Modding\tools\xedit-ref\`), so the table is built
-from the corpus: `corpus:` the 13 official ESMs that ship English string tables
+`wbDefinitionsSF1.pas` first for record definitions. When this table was built the pinned
+file was not yet available locally; it has been since lane B round 3
+(`C:\Modding\tools\xedit-ref\`, `docs/xedit-reference.md`), and the schema now types
+lstrings from it wherever a definition names them. The table stays a corpus measurement
+for the signatures the schema keeps opaque or leaves undefined: `corpus:` the 13 official
+ESMs that ship English string tables
 (`BlueprintShips-SFBGS050.esm` has none), confidence `corpus`. The test
 `crates/engine/tests/lstring_table.rs` (`lstring_table_matches_the_corpus`, `#[ignore]`,
 release, 21 s) rebuilds the table and fails on any difference; it is deterministic.

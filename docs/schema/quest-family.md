@@ -44,10 +44,10 @@ upstream member order, so no member falls back to `extra`.
 New shared definitions (`defs/common/`): `ScriptAttachment` (the VMAD payload; a type),
 `PackageLocation` (FACT PLVD, PACK PLDT), `QuestReferenceAlias` (a reference alias, used
 twice by QUST), `SoundReference` (INFO WED0 and RVSH). The condition block is PLANET's
-`Condition`, reused unchanged. Its optional string parameters CIS1 and CIS2 are
-`reference` in that file, but they occur here (CIS1 in QUST, PACK and SCEN; CIS2 in QUST,
-PACK, INFO and SCEN) and decode identically; raising them to `corpus` is a request to the
-integrator, who owns the shared file.
+`Condition`, reused unchanged. Its optional string parameters CIS1 and CIS2 occur here
+(CIS1 in QUST, PACK and SCEN: 17; CIS2 in QUST, PACK, INFO and SCEN: 210) and decode
+identically, so they are `corpus` in that file since the QUEST merge (M4.BX1), with this
+family's typed check as their evidence.
 
 ## Where the records live
 
