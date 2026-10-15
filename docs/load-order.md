@@ -246,9 +246,9 @@ Evidence (game 1.16.244.0, 2026-10-15; "Save headers" below): the saves' lists g
 plugins; `Default` (`Save56`, 84 plugins) 41 full, 33 small, 10 medium, the blueprint
 plugins at `27` and `28` after `EasyLockpick_by_Kor.esp` at `26`. With the order above
 and this rule, `kit load --profile` reproduces every slot of both profiles' newest saves
-(and of `Save56`): `differs_from_inferred` is empty. The owner's console check of
-2026-10-15 is consistent with it (`02001000` behaved as `SFBGS00D.esm`'s exterior
-reference, not the POI's); `prid 04001000` is still to be run (M4.O2). Before this
+(and of `Save56`): `differs_from_inferred` is empty. In game (M4.O2, 2026-10-15) the
+owner reached the POI's crate with `player.moveto 04001000` on `KitKraft Dev`: one full
+slot observed in the console, the one this rule and the save give. Before this
 fix `load` put `BlueprintShips-Starfield` at `01`, so every user full plugin came out two
 slots high (the POI at `06`; MO2 showed `02`).
 
@@ -315,10 +315,10 @@ file name), a u8 0 or 1, and after a 1 a u32 (0), a wstring
 (`18446744073709551615.undefined`) and a u8 (0); official plugins carry 0, every other
 plugin 1. That the order within each list is the runtime slot order is read from the
 layout (each list starts with the official plugins, `Starfield.esm` first) and is
-consistent with the owner's console check of 2026-10-15 (`02001000` behaved as the
-exterior reference `SFBGS00D.esm:001000`, the save's full slot `02`;
-`docs/poi/first-poi-investigation.md`); the direct check, `prid 04001000` on the POI's
-crate, is the owner's pending M4.O2 step. The reader refuses
+**verified in game** (M4.O2, 2026-10-15, `plan/STATUS.md`): on `KitKraft Dev`
+`player.moveto 04001000` reached the POI's crate, the fifth full entry of that profile's
+saves; `02001000` had behaved as the exterior reference `SFBGS00D.esm:001000`, the third
+(`docs/poi/first-poi-investigation.md`). The reader refuses
 anything else (another magic or tag, a flag other than 0 or 1, lists that end past the
 block, a chunk that runs past the file or inflates past the chunk size), with the offset.
 
