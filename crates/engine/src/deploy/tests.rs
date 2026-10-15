@@ -829,6 +829,52 @@ fn edited_rollback_copy_is_never_dropped() {
     assert!(!retired.exists());
 }
 
+/// Fable review (deploy round), finding 6: two writing calls on one dev mod are locked
+/// against each other by `<target>.kitkraft-lock` (`create_new`), and journal recovery
+/// runs only under the lock.
+#[test]
+fn a_held_lock_refuses_and_recovery_waits_for_it() {
+    let mo2 = Mo2::new("lock");
+    let (_, id2) = two_deployments(&mo2);
+    let lock = mo2.slot(".kitkraft-lock");
+    assert!(!lock.exists(), "released after each call");
+    // Leave a journal behind, then hold the lock as another process would.
+    deploy_with(
+        &mo2,
+        &mo2.plugin(b"TES4 v3"),
+        Hooks {
+            interrupt_after: Some(Step::Moved),
+        },
+    )
+    .unwrap_err();
+    let journal = mo2.slot(".kitkraft-journal.json");
+    assert!(journal.is_file() && !lock.exists());
+    fs::write(&lock, b"held").unwrap();
+    let listing = mo2.mods_listing();
+    let e = err_text(mo2.deploy(&mo2.plugin(b"TES4 v2")));
+    assert!(e.contains("[locked]"), "{e}");
+    assert!(err_text(mo2.rollback()).contains("[locked]"));
+    // Nothing recovered or written under someone else's lock.
+    assert!(journal.is_file());
+    assert_eq!(mo2.mods_listing(), listing);
+    assert_eq!(fs::read(&lock).unwrap(), b"held");
+    let s = execute("deploy.status", json!({"mo2": mo2.mo2().to_str().unwrap()})).unwrap();
+    assert!(
+        s["data"]["mods"][0]["lock"]
+            .as_str()
+            .unwrap()
+            .ends_with("KitKraft Dev - MyMod.kitkraft-lock"),
+        "{s}"
+    );
+    // Released, the next call recovers first and runs.
+    fs::remove_file(&lock).unwrap();
+    let r = mo2.deploy(&mo2.plugin(b"TES4 v2")).unwrap();
+    assert_eq!(r["data"]["recovered"]["outcome"], "rolled back", "{r}");
+    assert_eq!(r["data"]["outcome"], "unchanged");
+    assert_eq!(mo2.id(&mo2.target()), id2);
+    assert!(!lock.exists() && !journal.exists());
+}
+
 #[test]
 fn interrupted_rollback_is_recovered_and_failures_roll_back() {
     let mo2 = Mo2::new("interrupt-rollback");

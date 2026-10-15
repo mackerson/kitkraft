@@ -44,6 +44,7 @@ For a plugin `MyMod.esm`:
 | `KitKraft Dev - MyMod.staging\`               | Only while a deployment runs                  |
 | `KitKraft Dev - MyMod.retired\`               | Only while a deployment commits (the older copy being dropped) |
 | `KitKraft Dev - MyMod.kitkraft-journal.json`  | Only while an operation is in flight          |
+| `KitKraft Dev - MyMod.kitkraft-lock`          | Only while a `deploy` or `rollback` runs (the lock) |
 
 The folder name is `KitKraft Dev - ` plus the plugin's file stem. A stem Windows forbids
 (a reserved device name such as `CON`, a character in `<>:"/\|?*`, a trailing dot or
@@ -117,7 +118,8 @@ can be rolled back. One previous deployment is kept.
 ### Journal recovery
 
 The journal records the operation and the deployment ids live before and after. A journal
-found at the start of `deploy` or `rollback` is recovered before anything else:
+found at the start of `deploy` or `rollback` is recovered before anything else, and only
+after the call has taken the lock:
 
 - the new deployment is live (committed): finish the cleanup (`.retired`, `.staging`);
   `.retired` is removed only when it still matches its manifest (else `previous-modified`
@@ -154,6 +156,7 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `rollback-target`     | `to` is not the id `.previous` holds                                 |
 | `source-changed` / `copy-verify` | A file changed while being copied, or the copy's hash differs |
 | `journal`             | A journal that cannot be read or names another mod                   |
+| `locked`              | `<target>.kitkraft-lock` exists: another `deploy` or `rollback` is running on this dev mod, or a killed one left it (delete it once none runs) |
 | `io`                  | A file system error (the message names the action)                   |
 
 ## Never touched
@@ -249,5 +252,8 @@ accepts these departures:
 - Whether MO2 or the game holds files open is not detected up front; a rename that fails
   with a file in use stops the deployment and rolls it back. Refresh MO2 after each
   deployment.
-- One writer at a time: two `deploy` calls on the same dev mod at once are not locked
-  against each other beyond the journal.
+- One writer at a time: `deploy` and `rollback` create `<target>.kitkraft-lock` with
+  `create_new` before journal recovery and remove it when they return, so a second call
+  on the same dev mod is refused (`locked`). A process killed mid-run leaves the lock;
+  `deploy.status` reports it, and the owner deletes it once no `kit` runs (the journal is
+  then recovered by the next call). `--dry-run` and `deploy.status` take no lock.

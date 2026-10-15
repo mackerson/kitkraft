@@ -62,6 +62,8 @@ pub(crate) const STAGING: &str = ".staging";
 pub(crate) const RETIRED: &str = ".retired";
 /// Suffix of the journal file beside the folders.
 pub(crate) const JOURNAL: &str = ".kitkraft-journal.json";
+/// Suffix of the lock file a writing call holds for its whole run.
+pub(crate) const LOCK: &str = ".kitkraft-lock";
 
 /// Why a deployment command stopped. Every refusal names its rule and the path.
 #[derive(Debug, Clone, PartialEq, Eq)]

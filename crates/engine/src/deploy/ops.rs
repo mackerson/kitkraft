@@ -15,7 +15,7 @@ use super::manifest::{
 use super::source::{self, Source, SourceFile};
 use super::{
     io_error, now_unix, refused, rfc3339, sha256, DeployError, Hooks, Step, Touched, DEV_PROFILE,
-    JOURNAL, LIVE_PROFILE, MANIFEST, MARKER, MO2_META, PREFIX, PREVIOUS, RETIRED, STAGING,
+    JOURNAL, LIVE_PROFILE, LOCK, MANIFEST, MARKER, MO2_META, PREFIX, PREVIOUS, RETIRED, STAGING,
 };
 
 /// Arguments of `deploy`.
@@ -79,6 +79,47 @@ struct Slots {
     staging: PathBuf,
     retired: PathBuf,
     journal: PathBuf,
+    lock: PathBuf,
+}
+
+/// The lock a writing call (`deploy`, `deploy.rollback`) holds from before journal
+/// recovery to its end: `<target>.kitkraft-lock`, created with `create_new`, so a second
+/// call on the same dev mod is refused instead of racing the first. Removed on drop; a
+/// process killed mid-run leaves it, and the refusal says how to clear it.
+#[derive(Debug)]
+struct Lock {
+    path: PathBuf,
+}
+
+impl Lock {
+    fn take(path: &Path) -> Result<Lock, DeployError> {
+        match fs::File::create_new(path) {
+            Ok(mut f) => {
+                let note = format!(
+                    "{{\"pid\": {}, \"started_at\": \"{}\"}}\n",
+                    std::process::id(),
+                    rfc3339(now_unix())
+                );
+                // The content is a note for a human; the file's existence is the lock.
+                let _ = f.write_all(note.as_bytes());
+                Ok(Lock {
+                    path: path.to_path_buf(),
+                })
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(refused(
+                "locked",
+                path,
+                "another `kit deploy` or `kit deploy rollback` is running on this dev mod. If none is (a killed process leaves the lock behind), delete this file and run again; an interrupted operation's journal is recovered first",
+            )),
+            Err(e) => Err(io_error(path, "creating the lock", &e)),
+        }
+    }
+}
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 impl Slots {
@@ -95,6 +136,7 @@ impl Slots {
             staging: slot(STAGING)?,
             retired: slot(RETIRED)?,
             journal: slot(JOURNAL)?,
+            lock: slot(LOCK)?,
         })
     }
 
@@ -612,6 +654,12 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         return Err(combine(refusals));
     }
 
+    // Held to the end of the call (dropped on every return); recovery runs only under it.
+    let lock = if req.dry_run {
+        None
+    } else {
+        Some(Lock::take(&slots.lock)?)
+    };
     let mut touched = Vec::new();
     let pending = read_journal(&slots.journal)?;
     let recovered = if req.dry_run {
@@ -705,6 +753,7 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         "carried_over": if meta_ini { vec![MO2_META] } else { Vec::new() },
         "recovered": recovered,
         "pending_journal": if req.dry_run { pending.as_ref().map(|j| json!({"path": slots.journal.display().to_string(), "operation": j.operation, "started_at": j.started_at})) } else { None },
+        "lock": lock.as_ref().map(|l| l.path.display().to_string()),
         "refusals": refusals_json(&refusals),
         "never_touched": never_touched(&inst),
         "profile": profile,
@@ -993,6 +1042,12 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
     if !refusals.is_empty() && !req.dry_run {
         return Err(combine(refusals));
     }
+    // Held to the end of the call; recovery runs only under it.
+    let lock = if req.dry_run {
+        None
+    } else {
+        Some(Lock::take(&slots.lock)?)
+    };
     let mut touched = Vec::new();
     let pending = read_journal(&slots.journal)?;
     let recovered = if req.dry_run {
@@ -1092,6 +1147,7 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
         "replacing": live.summary(),
         "recovered": recovered,
         "pending_journal": if req.dry_run { pending.as_ref().map(|j| json!({"path": slots.journal.display().to_string(), "operation": j.operation})) } else { None },
+        "lock": lock.as_ref().map(|l| l.path.display().to_string()),
         "refusals": refusals_json(&refusals),
         "never_touched": never_touched(&inst),
         "profile": profile,
@@ -1211,6 +1267,7 @@ fn classify(entry: &str) -> Option<(String, &'static str)> {
     for (suffix, role) in [
         (format!("{JOURNAL}.tmp"), "journal-tmp"),
         (JOURNAL.to_string(), "journal"),
+        (LOCK.to_string(), "lock"),
         (PREVIOUS.to_string(), "previous"),
         (STAGING.to_string(), "staging"),
         (RETIRED.to_string(), "retired"),
@@ -1333,6 +1390,13 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
                 slots.journal.display()
             ));
         }
+        let locked = fs::symlink_metadata(&slots.lock).is_ok();
+        if locked {
+            lines.push(format!(
+                "  locked ({}): a deploy or rollback is running, or a killed one left the lock (delete it if none is running)",
+                slots.lock.display()
+            ));
+        }
         out.push(json!({
             "mod": name,
             "state": "ok",
@@ -1340,6 +1404,7 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
             "live": live,
             "previous": previous,
             "pending_journal": journal,
+            "lock": locked.then(|| slots.lock.display().to_string()),
             "leftovers": leftovers,
             "profile": profile,
         }));
