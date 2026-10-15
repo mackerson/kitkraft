@@ -1058,23 +1058,9 @@ fn previous_has(
     Some((file.name.clone(), has))
 }
 
-/// A FormID value that means "no form" in a typed member, like 0: `formid.dangling` does
-/// not check it (lane B round 4; upstream allows it for INFO TRDA's emotion keyword,
-/// which 53,844 response lines of `Starfield.esm` hold).
-pub const NONE_FORM_ID: u32 = 0xFFFF_FFFF;
-
-/// The game master whose low object IDs are engine-reserved.
-pub const RESERVED_MASTER: &str = "Starfield.esm";
-
-/// Object IDs below this in [`RESERVED_MASTER`]'s index space that the master does not
-/// define are engine-reserved default forms (the player reference 0x14, built-in actor
-/// values 0x2D0..0x3AC, a story manager root node 0x5B, ...): `formid.dangling` counts a
-/// typed member naming one as `reserved_form_ids` instead of reporting it. Corpus fact,
-/// grade D until a CK observation confirms it (ADR 0005 Amendment 4, `docs/validate.md`
-/// "Engine-reserved object IDs"): no official file defines these IDs, yet the 14 official
-/// files name them 1,410 times from 13 record types (M4.BX1). Low IDs that
-/// `Starfield.esm` does define are ordinary forms and are checked as usual.
-pub const RESERVED_OBJECT_IDS: u32 = 0x800;
+/// The "no form" value and the engine-reserved rule `formid.dangling` applies, defined once
+/// in `kitkraft_doc::links` (`refs` classifies links by the same rule).
+pub use kitkraft_doc::links::{NONE_FORM_ID, RESERVED_MASTER, RESERVED_OBJECT_IDS};
 
 /// Whether `owner:object_id` is in the engine-reserved range ([`RESERVED_OBJECT_IDS`]);
 /// `formid.dangling` asks only for forms the owner does not define.

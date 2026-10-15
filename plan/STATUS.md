@@ -1563,9 +1563,11 @@ wins") but still the owner's to confirm:
   `data.edges` (path, status, `to`/`from` as links that run `inspect`, `placed.cell`/
   `placed.world` for placed referrers) with `next_cursor` paging, and show
   `limitations`. Result shape: `docs/mcp.md`, "`refs`".
-- **Lane D (M4.D1) -> lane E (FYI).** `kitkraft_doc::links::{RESERVED_MASTER,
+- ~~**Lane D (M4.D1) -> lane E (FYI).** `kitkraft_doc::links::{RESERVED_MASTER,
   RESERVED_OBJECT_IDS, NONE_FORM_ID}` restate validate's rule (a test in
-  `handlers/refs.rs` keeps them equal); `validate` could use them, so the rule lives once.
+  `handlers/refs.rs` keeps them equal); `validate` could use them, so the rule lives once.~~
+  Done (lane E round 5): the constants are defined only in `kitkraft_doc::links`;
+  `kitkraft_engine::validate` re-exports them, and the equality test is gone.
 
 - ~~**To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITKRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).~~
   Done in M4.F1 (Done, "Lane F, M4"): one resolver (`handlers/resolve.rs`) for every

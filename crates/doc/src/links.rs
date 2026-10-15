@@ -34,15 +34,22 @@ use crate::typed::{self, Decoded};
 /// The game master whose low object IDs are engine-reserved.
 pub const RESERVED_MASTER: &str = "Starfield.esm";
 
-/// Object IDs below this in [`RESERVED_MASTER`] that no plugin defines are engine-reserved
-/// default forms (the player reference 0x14, built-in actor values 0x2D0..0x3AC, ...): a
-/// corpus fact, grade D until a CK observation (`docs/validate.md`, "Engine-reserved object
-/// IDs"). The same rule as `kitkraft_engine::validate::RESERVED_OBJECT_IDS` (a test there
-/// checks the two agree).
+/// Object IDs below this in [`RESERVED_MASTER`]'s index space that the master does not
+/// define are engine-reserved default forms (the player reference 0x14, built-in actor
+/// values 0x2D0..0x3AC, a story manager root node 0x5B, ...): `refs` reports a link to one
+/// as [`LinkStatus::EngineReserved`], and `validate`'s `formid.dangling` counts it as
+/// `reserved_form_ids` instead of reporting it. Corpus fact, grade D until a CK observation
+/// confirms it (ADR 0005 Amendment 4, `docs/validate.md` "Engine-reserved object IDs"): no
+/// official file defines these IDs, yet the 14 official files name them 1,410 times from 13
+/// record types (M4.BX1). Low IDs that `Starfield.esm` does define are ordinary forms.
+///
+/// This is the one definition of the rule; `kitkraft_engine::validate` re-exports it.
 pub const RESERVED_OBJECT_IDS: u32 = 0x800;
 
-/// `FFFFFFFF` in a typed member means "none", like `00000000` (upstream allows it where a
-/// member may be unset, e.g. INFO TRDA's emotion keyword).
+/// A FormID value that means "no form" in a typed member, like `00000000`: links and
+/// `formid.dangling` do not resolve it (lane B round 4; upstream allows it where a member
+/// may be unset, e.g. INFO TRDA's emotion keyword, which 53,844 response lines of
+/// `Starfield.esm` hold).
 pub const NONE_FORM_ID: u32 = 0xFFFF_FFFF;
 
 /// What a link's raw value is in the load order.

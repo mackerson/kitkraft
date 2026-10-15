@@ -1081,22 +1081,6 @@ mod tests {
     }
 
     #[test]
-    fn engine_reserved_rule_matches_validate() {
-        assert_eq!(
-            kitkraft_doc::links::RESERVED_OBJECT_IDS,
-            crate::validate::RESERVED_OBJECT_IDS
-        );
-        assert_eq!(
-            kitkraft_doc::links::RESERVED_MASTER,
-            crate::validate::RESERVED_MASTER
-        );
-        assert_eq!(
-            kitkraft_doc::links::NONE_FORM_ID,
-            crate::validate::NONE_FORM_ID
-        );
-    }
-
-    #[test]
     fn placed_references_are_grouped_with_their_cell() {
         use crate::handlers::testdata::{group, record};
         let dir = std::env::temp_dir().join(format!(
