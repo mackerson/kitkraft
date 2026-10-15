@@ -22,18 +22,19 @@
 //! Nothing of xEdit's source is read; its output is evidence about xEdit (docs/oracles.md).
 //! Reports go to `--out` (default `observe/oracle/sf1edit/`, gitignored).
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fmt::Write as _;
 use std::fs;
-use std::io::{BufRead, BufReader};
+use std::io::{BufRead, BufReader, Write as _};
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::time::{Duration, Instant};
 
 use anyhow::{bail, Context, Result};
+use kitkraft_schema::FieldType;
 use serde_json::{json, Map, Value};
 
-use crate::evidence::{arg, sha256_hex, table, tes4, KitBinary, Runner};
+use crate::evidence::{arg, sha256_hex, table, tes4, KitBinary, KitOut, Runner};
 use crate::oracle::{write_synthetic, Input, OFFICIAL_SMALL};
 
 pub(crate) const SF1EDIT_VAR: &str = "KITKRAFT_SF1EDIT";
@@ -372,6 +373,28 @@ pub(crate) enum Ours {
     Bool(bool),
     LString(u32, Option<String>),
     Form(Option<FormKey>),
+    /// An enum value (`key` names the field: `TYPE/SUB.Field...`), with our name for it.
+    Enum {
+        key: String,
+        n: i128,
+        name: Option<String>,
+    },
+    /// A flags value with our names of the bits it sets (unnamed bits are not listed).
+    Flags {
+        key: String,
+        n: i128,
+        names: Vec<String>,
+    },
+    /// A run of bytes (an array of `u8`): shown by xEdit as text, a GUID or hex bytes.
+    Bytes(Vec<u8>),
+    /// An integer of a typed field we give no names (`key` as for [`Ours::Enum`]): xEdit
+    /// may show it as a name (a condition function, an operator), compared like an enum.
+    Code {
+        key: String,
+        n: i128,
+    },
+    /// A field we keep opaque: it holds a place in the display order and matches anything.
+    Any,
 }
 
 fn hex_u32(s: &str) -> Option<u32> {
@@ -382,10 +405,11 @@ fn hex_u32(s: &str) -> Option<u32> {
     .ok()
 }
 
-/// Flattens a `value` from `kit inspect` into scalars; `ordered` is cleared when an object
-/// (whose key order is not the display order) was crossed.
+/// Flattens a `value` from `kit inspect` into scalars without its schema type; `ordered`
+/// is cleared when an object (whose key order is not the display order) was crossed.
 pub(crate) fn flatten(v: &Value, text: Option<&str>, out: &mut Vec<Ours>, ordered: &mut bool) {
     match v {
+        Value::String(s) if s == "opaque" => out.push(Ours::Any),
         Value::String(s) => out.push(Ours::Text(s.clone())),
         Value::Number(n) => out.extend(n.as_f64().map(Ours::Num)),
         Value::Bool(b) => out.push(Ours::Bool(*b)),
@@ -396,18 +420,8 @@ pub(crate) fn flatten(v: &Value, text: Option<&str>, out: &mut Vec<Ours>, ordere
             }
         }
         Value::Object(map) => {
-            if let Some(id) = map.get("string_id").and_then(Value::as_str) {
-                out.push(Ours::LString(
-                    hex_u32(id).unwrap_or(u32::MAX),
-                    text.map(str::to_string),
-                ));
-            } else if let Some(raw) = map.get("raw").and_then(Value::as_str) {
-                let key = if hex_u32(raw) == Some(0) {
-                    Some(FormKey::Null)
-                } else {
-                    map.get("form").and_then(Value::as_str).and_then(our_key)
-                };
-                out.push(Ours::Form(key));
+            if let Some(o) = scalar_object(map, text) {
+                out.push(o);
             } else {
                 *ordered = false;
                 for i in map.values() {
@@ -415,6 +429,189 @@ pub(crate) fn flatten(v: &Value, text: Option<&str>, out: &mut Vec<Ours>, ordere
                 }
             }
         }
+    }
+}
+
+/// An lstring (`string_id`) or FormID (`raw`, `form`) object as one scalar.
+fn scalar_object(map: &Map<String, Value>, text: Option<&str>) -> Option<Ours> {
+    if let Some(id) = map.get("string_id").and_then(Value::as_str) {
+        return Some(Ours::LString(
+            hex_u32(id).unwrap_or(u32::MAX),
+            text.map(str::to_string),
+        ));
+    }
+    let raw = map.get("raw").and_then(Value::as_str)?;
+    let key = if hex_u32(raw) == Some(0) {
+        Some(FormKey::Null)
+    } else {
+        map.get("form").and_then(Value::as_str).and_then(our_key)
+    };
+    Some(Ours::Form(key))
+}
+
+/// Flattens a `value` along its schema type, in definition order: enums and flags carry
+/// their names, `u8` arrays become bytes, opaque fields keep their place as [`Ours::Any`].
+/// Returns false (and pushes nothing) when the value's shape is not the type's; the caller
+/// then falls back to [`flatten`].
+pub(crate) fn typed_flatten(
+    v: &Value,
+    ty: &FieldType,
+    key: &str,
+    text: Option<&str>,
+    out: &mut Vec<Ours>,
+) -> bool {
+    let mut local = Vec::new();
+    let ok = typed_walk(v, ty, key, text, &mut local, 0);
+    if ok {
+        out.extend(local);
+    }
+    ok
+}
+
+fn typed_walk(
+    v: &Value,
+    ty: &FieldType,
+    key: &str,
+    text: Option<&str>,
+    out: &mut Vec<Ours>,
+    depth: usize,
+) -> bool {
+    if depth > 16 {
+        return false;
+    }
+    let deeper = depth.saturating_add(1);
+    match ty {
+        FieldType::Opaque { .. } => {
+            out.push(Ours::Any);
+            true
+        }
+        FieldType::Empty => true,
+        FieldType::Ref { ty, .. } => typed_walk(v, ty, key, text, out, deeper),
+        FieldType::Enum { values, .. } => match v.as_i64() {
+            Some(n) => {
+                let n = i128::from(n);
+                out.push(Ours::Enum {
+                    key: key.to_string(),
+                    n,
+                    name: values.iter().find(|x| x.value == n).map(|x| x.name.clone()),
+                });
+                true
+            }
+            None => false,
+        },
+        FieldType::Flags { bits, .. } => match v.as_u64() {
+            Some(n) => {
+                let n = i128::from(n);
+                out.push(Ours::Flags {
+                    key: key.to_string(),
+                    n,
+                    names: bits
+                        .iter()
+                        .filter(|b| b.value != 0 && n & b.value == b.value)
+                        .map(|b| b.name.clone())
+                        .collect(),
+                });
+                true
+            }
+            None => false,
+        },
+        FieldType::Array { element, .. } => {
+            let Some(items) = v.as_array() else {
+                return false;
+            };
+            let byte_elem = matches!(
+                element.as_ref(),
+                FieldType::Scalar(kitkraft_schema::Scalar::U8 | kitkraft_schema::Scalar::I8)
+            );
+            if byte_elem {
+                let bytes: Option<Vec<u8>> = items
+                    .iter()
+                    .map(|i| i.as_i64().and_then(|n| u8::try_from(n & 0xFF).ok()))
+                    .collect();
+                return match bytes {
+                    Some(b) => {
+                        // An empty run has nothing to compare (xEdit may not show it).
+                        if !b.is_empty() {
+                            out.push(Ours::Bytes(b));
+                        }
+                        true
+                    }
+                    None => false,
+                };
+            }
+            items
+                .iter()
+                .all(|i| typed_walk(i, element, key, None, out, deeper))
+        }
+        FieldType::Struct { fields } => {
+            let Some(map) = v.as_object() else {
+                return false;
+            };
+            for f in fields {
+                if let Some(fv) = map.get(&f.name) {
+                    let k = format!("{key}.{}", f.name);
+                    if !typed_walk(fv, &f.ty, &k, None, out, deeper) {
+                        return false;
+                    }
+                }
+            }
+            true
+        }
+        FieldType::Union { variants, .. } => {
+            // A decided union is shown as `{"<Variant>": value}`.
+            let Some((name, inner)) = v.as_object().and_then(|m| {
+                let mut it = m.iter();
+                let first = it.next();
+                it.next().is_none().then_some(first).flatten()
+            }) else {
+                return false;
+            };
+            match variants.iter().find(|x| x.name == *name) {
+                Some(var) => {
+                    typed_walk(inner, &var.ty, &format!("{key}.{name}"), text, out, deeper)
+                }
+                None => false,
+            }
+        }
+        FieldType::Scalar(_)
+        | FieldType::FormId { .. }
+        | FieldType::Sig
+        | FieldType::ZString
+        | FieldType::LString
+        | FieldType::WString
+        | FieldType::BString => match v {
+            Value::Object(map) => match scalar_object(map, text) {
+                Some(o) => {
+                    out.push(o);
+                    true
+                }
+                None => false,
+            },
+            Value::Array(_) => false,
+            Value::String(s) if s == "opaque" => {
+                out.push(Ours::Any);
+                true
+            }
+            Value::String(s) if matches!(ty, FieldType::Sig) => {
+                out.push(Ours::Text(s.trim_end_matches('\0').to_string()));
+                true
+            }
+            Value::Number(num) if matches!(ty, FieldType::Scalar(s) if s.is_integer()) => {
+                match num.as_i64() {
+                    Some(n) => out.push(Ours::Code {
+                        key: key.to_string(),
+                        n: i128::from(n),
+                    }),
+                    None => out.extend(num.as_f64().map(Ours::Num)),
+                }
+                true
+            }
+            other => {
+                let mut ordered = true;
+                flatten(other, text, out, &mut ordered);
+                true
+            }
+        },
     }
 }
 
@@ -427,36 +624,218 @@ fn parse_num(s: &str) -> Option<f64> {
     })
 }
 
-/// Whether xEdit's displayed `value` is the same as our scalar.
-pub(crate) fn same(ours: &Ours, value: Option<&str>, map: &LoadMap) -> bool {
-    let v = value.unwrap_or("");
-    match ours {
-        Ours::Text(t) => v == t || v.trim() == t.trim(),
-        Ours::Num(n) if parse_num(v).is_some() => parse_num(v).is_some_and(|x| {
-            let diff = (x - n).abs();
-            diff <= 1e-6 || diff <= n.abs() * 1e-6
-        }),
-        Ours::Bool(b) => v.eq_ignore_ascii_case(if *b { "true" } else { "false" }),
-        // A flag we read as the integer 0 or 1 that xEdit displays as a boolean.
-        Ours::Num(n) if v.eq_ignore_ascii_case("false") || v.eq_ignore_ascii_case("true") => {
-            (*n == 0.0) == v.eq_ignore_ascii_case("false") && (*n == 0.0 || *n == 1.0)
+/// xEdit's raw-bytes display (`0A 1B 2C`), as bytes.
+fn raw_bytes(v: &str) -> Option<Vec<u8>> {
+    let parts: Vec<&str> = v.split(' ').collect();
+    if parts.is_empty()
+        || !parts
+            .iter()
+            .all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
+    {
+        return None;
+    }
+    parts
+        .iter()
+        .map(|p| u8::from_str_radix(p, 16).ok())
+        .collect()
+}
+
+/// The text of a GUID the way xEdit shows it (`{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}`):
+/// the first three groups little-endian, the last two in byte order.
+pub(crate) fn guid_text(b: &[u8]) -> Option<String> {
+    let b: &[u8; 16] = b.try_into().ok()?;
+    let [a0, a1, a2, a3, b0, b1, c0, c1, d @ ..] = *b;
+    let mut s = format!("{{{a3:02X}{a2:02X}{a1:02X}{a0:02X}-{b1:02X}{b0:02X}-{c1:02X}{c0:02X}-");
+    for (i, x) in d.iter().enumerate() {
+        if i == 2 {
+            s.push('-');
         }
-        Ours::Num(_) => false,
-        Ours::LString(id, text) => {
-            if let Some(rest) = v.split("lstring ID ").nth(1) {
-                return hex_u32(rest.get(0..8).unwrap_or(rest)) == Some(*id);
+        let _ = write!(s, "{x:02X}");
+    }
+    s.push('}');
+    Some(s)
+}
+
+/// Letters and digits only, lower case: `Single or Binary` and `SingleOrBinary` meet.
+fn norm(s: &str) -> String {
+    s.chars()
+        .filter(char::is_ascii_alphanumeric)
+        .map(|c| c.to_ascii_lowercase())
+        .collect()
+}
+
+/// `<Unknown: X>` -> `X` (how xEdit shows a value it has no name for).
+fn unwrap_unknown(v: &str) -> Option<&str> {
+    v.trim()
+        .strip_prefix("<Unknown: ")
+        .and_then(|r| r.strip_suffix('>'))
+}
+
+/// An enum or flags value whose name we and xEdit spell differently: `(field, value,
+/// xEdit's text)`. Agreement then rests on the pairing being consistent over the run.
+pub(crate) type NamePair = (String, i128, String);
+
+/// How one of our scalars compares with one displayed value.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum Hit {
+    Yes,
+    No,
+    /// Same field, names spelled differently: agreement if consistent (see [`settle`]).
+    Pending(NamePair),
+}
+
+fn named_hit(key: &str, n: i128, ours: &[String], v: &str, flags: bool) -> Hit {
+    let t = v.trim();
+    if bracket_form(t).is_some() {
+        // A FormID is never the display of an enum, flags or code value.
+        return Hit::No;
+    }
+    let unknown_n = t.strip_prefix("Unknown ").and_then(parse_num);
+    if let Some(x) = parse_num(t)
+        .or_else(|| unwrap_unknown(t).and_then(parse_num))
+        .or(unknown_n)
+    {
+        #[allow(clippy::cast_precision_loss)]
+        let same = (x - n as f64).abs() < 0.5;
+        return if same { Hit::Yes } else { Hit::No };
+    }
+    if t.eq_ignore_ascii_case("true") || t.eq_ignore_ascii_case("false") {
+        return if (n == 0) == t.eq_ignore_ascii_case("false") && (n == 0 || n == 1) {
+            Hit::Yes
+        } else {
+            Hit::No
+        };
+    }
+    if t.is_empty() {
+        return if n == 0 { Hit::Yes } else { Hit::No };
+    }
+    let mut theirs: Vec<String> = if flags {
+        t.split(", ").map(norm).collect()
+    } else {
+        vec![norm(t)]
+    };
+    let mut mine: Vec<String> = ours.iter().map(|s| norm(s)).collect();
+    theirs.sort();
+    mine.sort();
+    if !mine.is_empty() && theirs == mine {
+        Hit::Yes
+    } else {
+        Hit::Pending((key.to_string(), n, t.to_string()))
+    }
+}
+
+/// Compares our scalar with xEdit's displayed `value`.
+pub(crate) fn judge(ours: &Ours, value: Option<&str>, map: &LoadMap) -> Hit {
+    // The dumper prints a fixed-size string with its terminating NUL.
+    let v = value.unwrap_or("").trim_end_matches('\0');
+    let yes = |b: bool| if b { Hit::Yes } else { Hit::No };
+    // Raw bytes that are all zero equal any zero, null or empty value of ours.
+    if let Some(bytes) = raw_bytes(v).filter(|_| v.contains(' ')) {
+        let zero = bytes.iter().all(|b| *b == 0);
+        match ours {
+            Ours::Num(n) => {
+                let mut le = [0u8; 8];
+                for (d, s) in le.iter_mut().zip(&bytes) {
+                    *d = *s;
+                }
+                #[allow(clippy::cast_precision_loss)]
+                let int = u64::from_le_bytes(le) as f64;
+                return yes(bytes.len() <= 8 && (int == *n || (zero && *n == 0.0)));
             }
-            if v.is_empty() {
-                return *id == 0 || text.as_deref() == Some("");
+            Ours::Form(k) => return yes(zero && *k == Some(FormKey::Null)),
+            Ours::Bool(b) => return yes(zero != *b),
+            Ours::LString(id, _) => return yes(zero && *id == 0),
+            Ours::Enum { n, .. } | Ours::Flags { n, .. } => return yes(zero && *n == 0),
+            Ours::Code { n, .. } => {
+                let mut le = [0u8; 8];
+                for (d, s) in le.iter_mut().zip(&bytes) {
+                    *d = *s;
+                }
+                return yes(bytes.len() <= 8 && i128::from(u64::from_le_bytes(le)) == *n);
             }
-            text.as_deref()
-                .is_some_and(|t| t == v || t.trim() == v.trim())
-        }
-        Ours::Form(key) => {
-            let Some(key) = key else { return false };
-            bracket_form(v).is_some_and(|id| map.xedit(id) == *key)
+            Ours::Bytes(b) => return yes(*b == bytes),
+            Ours::Text(t) => return yes(zero && t.is_empty()),
+            Ours::Any => return Hit::Yes,
         }
     }
+    match ours {
+        Ours::Any => Hit::Yes,
+        Ours::Text(t) => {
+            let shown = unwrap_unknown(v).unwrap_or(v);
+            yes(same_text(t, shown))
+        }
+        Ours::Num(n) if parse_num(v).is_some() => yes(parse_num(v).is_some_and(|x| {
+            let diff = (x - n).abs();
+            diff <= 1e-6 || diff <= n.abs() * 1e-6
+        })),
+        Ours::Bool(b) => yes(v.eq_ignore_ascii_case(if *b { "true" } else { "false" })),
+        // A flag we read as the integer 0 or 1 that xEdit displays as a boolean.
+        Ours::Num(n) if v.eq_ignore_ascii_case("false") || v.eq_ignore_ascii_case("true") => {
+            yes((*n == 0.0) == v.eq_ignore_ascii_case("false") && (*n == 0.0 || *n == 1.0))
+        }
+        // The float maximum is shown as "Default" (a sentinel value).
+        Ours::Num(n) if v.trim() == "Default" => yes(*n >= f64::from(f32::MAX)),
+        // A zero we read as a number where xEdit shows a null FormID: the same bytes.
+        Ours::Num(n) => yes(*n == 0.0 && bracket_form(v) == Some(0)),
+        Ours::LString(id, text) => {
+            if let Some(rest) = v.split("lstring ID ").nth(1) {
+                return yes(hex_u32(rest.get(0..8).unwrap_or(rest)) == Some(*id));
+            }
+            if v.is_empty() {
+                return yes(*id == 0 || text.as_deref() == Some(""));
+            }
+            yes(text.as_deref().is_some_and(|t| same_text(t, v)))
+        }
+        Ours::Form(key) => {
+            let Some(key) = key else { return Hit::No };
+            yes(bracket_form(v).is_some_and(|id| map.xedit(id) == *key))
+        }
+        Ours::Enum { key, n, name } => named_hit(key, *n, name.as_slice(), v, false),
+        Ours::Flags { key, n, names } => named_hit(key, *n, names, v, true),
+        Ours::Code { key, n } => {
+            #[allow(clippy::cast_precision_loss)]
+            let as_num = judge(&Ours::Num(*n as f64), value, map);
+            if as_num == Hit::Yes {
+                Hit::Yes
+            } else if bracket_form(v).is_some() {
+                // xEdit shows a FormID where we read a plain integer: a real difference.
+                Hit::No
+            } else {
+                named_hit(key, *n, &[], v, false)
+            }
+        }
+        Ours::Bytes(b) => {
+            if v.starts_with('{') {
+                return yes(guid_text(b).is_some_and(|g| g.eq_ignore_ascii_case(v.trim())));
+            }
+            let text: String = b
+                .iter()
+                .take_while(|c| **c != 0)
+                .map(|c| char::from(*c))
+                .collect();
+            yes(text == v || text.trim() == v.trim())
+        }
+    }
+}
+
+/// Text equality as the dump can show it: whitespace at the ends aside, and for a text of
+/// several lines its first line (the dumper prints a value's later lines as lines of their
+/// own, which the parser cannot tell from fields).
+fn same_text(ours: &str, shown: &str) -> bool {
+    ours == shown
+        || ours.trim() == shown.trim()
+        || (ours.contains('\n')
+            && ours
+                .lines()
+                .next()
+                .is_some_and(|first| first.trim() == shown.trim()))
+}
+
+/// Whether xEdit's displayed `value` is the same as our scalar (a differently spelled name
+/// counts as the same here; [`settle`] checks it over the run).
+#[cfg(test)]
+pub(crate) fn same(ours: &Ours, value: Option<&str>, map: &LoadMap) -> bool {
+    !matches!(judge(ours, value, map), Hit::No)
 }
 
 /// Whether xEdit shows this leaf as unknown: an `Unknown` name, an `Unknown N` enum value, or
@@ -467,57 +846,349 @@ pub(crate) fn leaf_unknown(node: &XNode, leaf: &XLeaf) -> bool {
     } else {
         leaf.path.rsplit('\\').next().unwrap_or("")
     };
-    let raw_bytes = leaf.value.as_deref().is_some_and(|v| {
-        let parts: Vec<&str> = v.split(' ').collect();
-        parts.len() > 1
-            && parts
-                .iter()
-                .all(|p| p.len() == 2 && p.chars().all(|c| c.is_ascii_hexdigit()))
-    });
+    let raw = leaf
+        .value
+        .as_deref()
+        .is_some_and(|v| v.contains(' ') && raw_bytes(v).is_some());
     name.starts_with("Unknown")
         || name.starts_with("Unused")
         || leaf
             .value
             .as_deref()
             .is_some_and(|v| v.starts_with("Unknown "))
-        || raw_bytes
+        || raw
 }
 
 fn node_unknown(node: &XNode) -> bool {
     !node.leaves.is_empty() && node.leaves.iter().all(|l| leaf_unknown(node, l))
 }
 
-/// Compares our scalars with the node's displayed leaves.
-pub(crate) fn compare(ours: &[Ours], ordered: bool, node: &XNode, map: &LoadMap) -> bool {
-    let values: Vec<Option<&str>> = node.leaves.iter().map(|l| l.value.as_deref()).collect();
-    if ours.is_empty() {
-        return true;
+/// The outcome of comparing one subrecord: agreement, with the name pairs it rests on.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Verdict {
+    pub agree: bool,
+    pub pairs: Vec<NamePair>,
+    /// Agreement on every value xEdit shows, with fields of ours xEdit does not show (its
+    /// older layout has fewer): counted apart from full agreement.
+    pub fewer: bool,
+    /// Our values with no counterpart, and xEdit's values left over (for the examples).
+    pub unmatched: Vec<String>,
+    pub left: Vec<String>,
+}
+
+/// Pairs `ours` with `values` position by position (equal lengths).
+fn zip_judge(ours: &[&Ours], values: &[Option<&str>], map: &LoadMap) -> Option<Vec<NamePair>> {
+    if ours.len() != values.len() {
+        return None;
     }
-    if ordered && ours.len() == values.len() {
-        return ours
-            .iter()
-            .zip(&values)
-            .all(|(o, v)| same(o, v.as_deref(), map));
+    let mut pairs = Vec::new();
+    for (o, v) in ours.iter().zip(values) {
+        match judge(o, *v, map) {
+            Hit::Yes => {}
+            Hit::No => return None,
+            Hit::Pending(p) => pairs.push(p),
+        }
+    }
+    Some(pairs)
+}
+
+/// The best order-preserving alignment of our values with xEdit's leaves.
+#[derive(Debug, Default)]
+struct Alignment {
+    pairs: Vec<NamePair>,
+    /// Our values left without a leaf.
+    skipped: Vec<usize>,
+    /// Leaves used by a match.
+    used: Vec<bool>,
+}
+
+/// Aligns `ours` in order with `values` (xEdit may show fields we keep opaque or do not
+/// have between them, and may lack fields we have): an exact match costs nothing, a name
+/// pair 1, a value of ours left without a leaf 1,000 (so a real mismatch is never hidden by
+/// pairing other values instead). `None` when the lists are too large to align.
+fn align(ours: &[&Ours], values: &[Option<&str>], map: &LoadMap) -> Option<Alignment> {
+    const INF: u32 = u32::MAX;
+    const SKIP: u32 = 1000;
+    let (n, m) = (ours.len(), values.len());
+    let w = m.checked_add(1)?;
+    let cells = n.checked_add(1)?.checked_mul(w)?;
+    if cells > 4_000_000 {
+        return None;
+    }
+    let at = |i: usize, j: usize| i.checked_mul(w).and_then(|x| x.checked_add(j));
+    let mut hits: Vec<Hit> = Vec::with_capacity(n.checked_mul(m)?);
+    for o in ours {
+        for v in values {
+            hits.push(judge(o, *v, map));
+        }
+    }
+    let hit = |i: usize, j: usize| {
+        i.checked_mul(m)
+            .and_then(|x| x.checked_add(j))
+            .and_then(|k| hits.get(k))
+    };
+    let get = |cost: &[u32], i: usize, j: usize| {
+        at(i, j).and_then(|k| cost.get(k)).copied().unwrap_or(INF)
+    };
+    // cost(i, j): the cheapest alignment of ours[i..] with values[j..].
+    let mut cost = vec![INF; cells];
+    for i in (0..=n).rev() {
+        for j in (0..=m).rev() {
+            let best = if i == n {
+                0
+            } else {
+                let skip_ours = get(&cost, i.saturating_add(1), j).saturating_add(SKIP);
+                if j == m {
+                    skip_ours
+                } else {
+                    let next = get(&cost, i.saturating_add(1), j.saturating_add(1));
+                    let take = match hit(i, j) {
+                        Some(Hit::Yes) => next,
+                        Some(Hit::Pending(_)) => next.saturating_add(1),
+                        _ => INF,
+                    };
+                    take.min(get(&cost, i, j.saturating_add(1))).min(skip_ours)
+                }
+            };
+            if let Some(c) = at(i, j).and_then(|k| cost.get_mut(k)) {
+                *c = best;
+            }
+        }
+    }
+    let mut out = Alignment {
+        used: vec![false; m],
+        ..Alignment::default()
+    };
+    let (mut i, mut j) = (0usize, 0usize);
+    while i < n {
+        let here = get(&cost, i, j);
+        if j < m {
+            let next = get(&cost, i.saturating_add(1), j.saturating_add(1));
+            let taken = match hit(i, j) {
+                Some(Hit::Yes) => next == here,
+                Some(Hit::Pending(_)) => next != INF && next.saturating_add(1) == here,
+                _ => false,
+            };
+            if taken {
+                if let Some(Hit::Pending(p)) = hit(i, j) {
+                    out.pairs.push(p.clone());
+                }
+                if let Some(u) = out.used.get_mut(j) {
+                    *u = true;
+                }
+                i = i.saturating_add(1);
+                j = j.saturating_add(1);
+                continue;
+            }
+            if get(&cost, i, j.saturating_add(1)) == here {
+                j = j.saturating_add(1);
+                continue;
+            }
+        }
+        out.skipped.push(i);
+        i = i.saturating_add(1);
+    }
+    Some(out)
+}
+
+/// Values of ours an aligned pass left over that xEdit shows in another order (its older
+/// layout moves some fields): first exact matches against the unused leaves, then, when as
+/// many enum, flags or code values of ours remain as unused named leaves, those in order as
+/// name pairs (checked for consistency by [`settle`]).
+fn out_of_order(ours: &[&Ours], values: &[Option<&str>], map: &LoadMap, a: &mut Alignment) {
+    let mut still = Vec::new();
+    for i in std::mem::take(&mut a.skipped) {
+        let Some(o) = ours.get(i) else { continue };
+        let hit = values.iter().enumerate().position(|(j, v)| {
+            !a.used.get(j).copied().unwrap_or(true) && judge(o, *v, map) == Hit::Yes
+        });
+        match hit.and_then(|j| a.used.get_mut(j)) {
+            Some(u) => *u = true,
+            None => still.push(i),
+        }
+    }
+    let named = |o: &Ours| {
+        matches!(
+            o,
+            Ours::Enum { .. } | Ours::Flags { .. } | Ours::Code { .. }
+        )
+    };
+    let free: Vec<usize> = values
+        .iter()
+        .enumerate()
+        .filter(|(j, v)| {
+            !a.used.get(*j).copied().unwrap_or(true)
+                && v.is_some_and(|t| !t.trim().is_empty() && parse_num(t).is_none())
+        })
+        .map(|(j, _)| j)
+        .collect();
+    let all_named = still.iter().all(|i| ours.get(*i).is_some_and(|o| named(o)));
+    if all_named && !still.is_empty() && still.len() == free.len() {
+        let mut pairs = Vec::new();
+        for (i, j) in still.iter().zip(&free) {
+            match ours
+                .get(*i)
+                .map(|o| judge(o, values.get(*j).copied().flatten(), map))
+            {
+                Some(Hit::Pending(p)) => pairs.push(p),
+                Some(Hit::Yes) => {}
+                _ => {
+                    a.skipped = still;
+                    return;
+                }
+            }
+        }
+        for j in &free {
+            if let Some(u) = a.used.get_mut(*j) {
+                *u = true;
+            }
+        }
+        a.pairs.extend(pairs);
+        return;
+    }
+    a.skipped = still;
+}
+
+/// The leaves no value of ours was matched with, that xEdit decodes and shows with a value
+/// (a leaf xEdit calls unknown, or an empty list header, is not a value we failed to match).
+fn known_left(node: &XNode, used: &[bool]) -> Vec<String> {
+    node.leaves
+        .iter()
+        .zip(used)
+        .filter(|(l, u)| {
+            !**u && !leaf_unknown(node, l)
+                && l.value.as_deref().is_some_and(|v| !v.trim().is_empty())
+        })
+        .map(|(l, _)| {
+            let p = if l.path.is_empty() {
+                &node.name
+            } else {
+                &l.path
+            };
+            format!("{p}={}", l.value.as_deref().unwrap_or(""))
+        })
+        .collect()
+}
+
+/// Compares our scalars with the node's displayed leaves: position by position when both
+/// have the same count, else in order against a subsequence of the leaves (typed values
+/// only), else as a multiset (exact matches first, then differently spelled enum and flags
+/// names).
+pub(crate) fn compare(ours: &[Ours], ordered: bool, node: &XNode, map: &LoadMap) -> Verdict {
+    let agree = |pairs| Verdict {
+        agree: true,
+        pairs,
+        fewer: false,
+        unmatched: Vec::new(),
+        left: Vec::new(),
+    };
+    let all: Vec<&Ours> = ours.iter().collect();
+    let decoded: Vec<&Ours> = ours.iter().filter(|o| **o != Ours::Any).collect();
+    if decoded.is_empty() {
+        return agree(Vec::new());
+    }
+    let values: Vec<Option<&str>> = node.leaves.iter().map(|l| l.value.as_deref()).collect();
+    if ordered {
+        if let Some(p) = zip_judge(&all, &values, map) {
+            return agree(p);
+        }
+        if let Some(mut a) = align(&decoded, &values, map) {
+            if a.skipped.is_empty() {
+                return agree(a.pairs);
+            }
+            out_of_order(&decoded, &values, map, &mut a);
+            if a.skipped.is_empty() {
+                return agree(a.pairs);
+            }
+            let left = known_left(node, &a.used);
+            let unmatched = a
+                .skipped
+                .iter()
+                .filter_map(|i| decoded.get(*i))
+                .map(|o| format!("{o:?}"))
+                .collect();
+            return Verdict {
+                agree: left.is_empty(),
+                fewer: left.is_empty(),
+                pairs: a.pairs,
+                unmatched,
+                left,
+            };
+        }
     }
     let mut used = vec![false; values.len()];
-    ours.iter().all(|o| {
-        let hit = values
-            .iter()
-            .enumerate()
-            .find(|(i, v)| !used.get(*i).copied().unwrap_or(true) && same(o, v.as_deref(), map));
+    let mut waiting = Vec::new();
+    for o in &decoded {
+        let hit = values.iter().enumerate().find(|(i, v)| {
+            !used.get(*i).copied().unwrap_or(true) && judge(o, **v, map) == Hit::Yes
+        });
         match hit.and_then(|(i, _)| used.get_mut(i)) {
-            Some(slot) => {
-                *slot = true;
-                true
-            }
-            None => false,
+            Some(slot) => *slot = true,
+            None => waiting.push(*o),
         }
-    })
+    }
+    let mut pairs = Vec::new();
+    let mut unmatched = Vec::new();
+    for o in waiting {
+        let hit = values.iter().enumerate().find_map(|(i, v)| {
+            if used.get(i).copied().unwrap_or(true) {
+                return None;
+            }
+            match judge(o, *v, map) {
+                // Out of display order only an enum's or flags' name may pair.
+                Hit::Pending(p) if matches!(o, Ours::Enum { .. } | Ours::Flags { .. }) => {
+                    Some((i, p))
+                }
+                _ => None,
+            }
+        });
+        match hit {
+            Some((i, p)) => {
+                if let Some(slot) = used.get_mut(i) {
+                    *slot = true;
+                }
+                pairs.push(p);
+            }
+            None => unmatched.push(format!("{o:?}")),
+        }
+    }
+    if unmatched.is_empty() {
+        return agree(pairs);
+    }
+    let left = known_left(node, &used);
+    Verdict {
+        agree: left.is_empty(),
+        fewer: left.is_empty(),
+        pairs,
+        unmatched,
+        left,
+    }
 }
 
 fn bump(map: &mut Map<String, Value>, key: &str) {
     let n = map.get(key).and_then(Value::as_u64).unwrap_or(0);
     map.insert(key.to_string(), json!(n.saturating_add(1)));
+}
+
+fn unbump(map: &mut Map<String, Value>, key: &str) {
+    let n = map.get(key).and_then(Value::as_u64).unwrap_or(0);
+    map.insert(key.to_string(), json!(n.saturating_sub(1)));
+}
+
+/// Every leaf of a node as `path=value` (the full view kept in disagreement examples).
+fn all_leaves(node: &XNode) -> Vec<String> {
+    node.leaves
+        .iter()
+        .take(200)
+        .map(|l| {
+            let p = if l.path.is_empty() {
+                &node.name
+            } else {
+                &l.path
+            };
+            format!("{p}={}", l.value.as_deref().unwrap_or(""))
+        })
+        .collect()
 }
 
 fn leaf_text(node: &XNode) -> String {
@@ -541,15 +1212,53 @@ fn leaf_text(node: &XNode) -> String {
     s.chars().take(300).collect()
 }
 
+/// The schema types of one record type's subrecords, by `(signature, member name)` as
+/// `kit inspect` names them.
+pub(crate) type Layouts<'s> = HashMap<(String, String), &'s FieldType>;
+
+/// [`Layouts`] for record type `sig` from the schema.
+pub(crate) fn layouts<'s>(schema: &'s kitkraft_schema::Schema, sig: &str) -> Layouts<'s> {
+    let mut out = HashMap::new();
+    let Some(rec) = kitkraft_schema::Signature::parse(sig).and_then(|s| schema.record(s)) else {
+        return out;
+    };
+    for (_, sub) in rec.leaf_subrecords() {
+        out.entry((sub.signature.as_str().to_string(), sub.name.clone()))
+            .or_insert(&sub.ty);
+    }
+    out
+}
+
+/// A compared occurrence whose agreement rests on name pairs (checked by [`settle`]).
+#[derive(Debug, Clone)]
+pub(crate) struct PendingAgree {
+    pub sig: String,
+    pub form: String,
+    pub pairs: Vec<NamePair>,
+    pub xedit: String,
+    /// The class it was counted in (`agree` or `agree_fewer_fields`).
+    pub class: &'static str,
+}
+
+/// What a comparison of one record type gathers.
+#[derive(Debug, Default)]
+pub(crate) struct Tally {
+    pub members: BTreeMap<String, Map<String, Value>>,
+    pub examples: BTreeMap<String, Vec<Value>>,
+    pub pending: Vec<PendingAgree>,
+}
+
 /// Compares one of our records (`kit inspect` subrecords of the plugin's version) with
-/// xEdit's. Adds counts into `members` (per `SUB`) and examples into `examples`.
+/// xEdit's. Adds counts per `SUB`, examples, and the agreements that rest on name pairs.
+/// `strings` resolves a string ID that `kit inspect` gave without text.
 pub(crate) fn compare_record(
     form: &str,
     subrecords: &[Value],
     x: &XRecord,
     map: &LoadMap,
-    members: &mut BTreeMap<String, Map<String, Value>>,
-    examples: &mut BTreeMap<String, Vec<Value>>,
+    layouts: &Layouts<'_>,
+    strings: &mut dyn FnMut(u32) -> Option<String>,
+    tally: &mut Tally,
 ) {
     let mut occ: HashMap<String, usize> = HashMap::new();
     let mut matched_nodes = vec![false; x.nodes.len()];
@@ -570,7 +1279,7 @@ pub(crate) fn compare_record(
             *slot = true;
         }
         let node = node_ix.and_then(|i| x.nodes.get(i));
-        let counts = members.entry(sig.clone()).or_default();
+        let counts = tally.members.entry(sig.clone()).or_default();
         let typed = sr.get("value");
         let class = match (typed, node) {
             (Some(_), None) => "typed_not_shown",
@@ -578,20 +1287,49 @@ pub(crate) fn compare_record(
                 if node_unknown(n) {
                     "typed_xedit_unknown"
                 } else {
+                    let text = sr.get("text").and_then(Value::as_str);
+                    let member = sr.get("member").and_then(Value::as_str).unwrap_or("");
                     let mut flat = Vec::new();
                     let mut ordered = true;
-                    flatten(
-                        v,
-                        sr.get("text").and_then(Value::as_str),
-                        &mut flat,
-                        &mut ordered,
-                    );
-                    if compare(&flat, ordered, n, map) {
-                        "agree"
+                    let key = format!("{}/{sig}", x.sig);
+                    let ty = layouts.get(&(sig.clone(), member.to_string()));
+                    if !ty.is_some_and(|t| typed_flatten(v, t, &key, text, &mut flat)) {
+                        flatten(v, text, &mut flat, &mut ordered);
+                    }
+                    for o in &mut flat {
+                        if let Ours::LString(id, t @ None) = o {
+                            if *id != 0 {
+                                *t = strings(*id);
+                            }
+                        }
+                    }
+                    let verdict = compare(&flat, ordered, n, map);
+                    let class = if verdict.fewer {
+                        "agree_fewer_fields"
                     } else {
-                        let ex = examples.entry(format!("disagree {sig}")).or_default();
+                        "agree"
+                    };
+                    if verdict.agree {
+                        if verdict.fewer {
+                            let ex = tally.examples.entry(format!("fewer {sig}")).or_default();
+                            if ex.len() < EXAMPLES {
+                                ex.push(json!({"form": form, "unmatched": verdict.unmatched, "xedit": leaf_text(n)}));
+                            }
+                        }
+                        if !verdict.pairs.is_empty() {
+                            tally.pending.push(PendingAgree {
+                                sig: sig.clone(),
+                                form: form.to_string(),
+                                pairs: verdict.pairs,
+                                xedit: leaf_text(n),
+                                class,
+                            });
+                        }
+                        class
+                    } else {
+                        let ex = tally.examples.entry(format!("disagree {sig}")).or_default();
                         if ex.len() < EXAMPLES {
-                            ex.push(json!({"form": form, "ours": v, "text": sr.get("text"), "xedit": leaf_text(n)}));
+                            ex.push(json!({"form": form, "ours": v, "text": sr.get("text"), "xedit": leaf_text(n), "xedit_leaves": all_leaves(n), "unmatched": verdict.unmatched, "xedit_left": verdict.left}));
                         }
                         "disagree"
                     }
@@ -602,7 +1340,7 @@ pub(crate) fn compare_record(
                 if node_unknown(n) {
                     "both_unknown"
                 } else {
-                    let ex = examples.entry(format!("gap {sig}")).or_default();
+                    let ex = tally.examples.entry(format!("gap {sig}")).or_default();
                     if ex.len() < EXAMPLES {
                         ex.push(json!({"form": form, "xedit_name": n.name, "xedit": leaf_text(n)}));
                     }
@@ -614,9 +1352,70 @@ pub(crate) fn compare_record(
     }
     for (n, seen) in x.nodes.iter().zip(&matched_nodes) {
         if !seen {
-            bump(members.entry(n.sig.clone()).or_default(), "xedit_only");
+            bump(
+                tally.members.entry(n.sig.clone()).or_default(),
+                "xedit_only",
+            );
         }
     }
+}
+
+/// Checks the agreements that rest on differently spelled names: over the run, each of our
+/// values of a field must always show as the same xEdit text, and that text must come from
+/// that value only. An occurrence with a pair that breaks this becomes a disagreement.
+/// Returns, per field, our value -> xEdit's text (the spelling differences, for the report).
+pub(crate) fn settle(tally: &mut Tally) -> BTreeMap<String, BTreeMap<String, String>> {
+    let mut by_value: BTreeMap<(String, i128), BTreeSet<String>> = BTreeMap::new();
+    let mut by_text: BTreeMap<(String, String), BTreeSet<i128>> = BTreeMap::new();
+    for p in &tally.pending {
+        for (k, n, t) in &p.pairs {
+            by_value
+                .entry((k.clone(), *n))
+                .or_default()
+                .insert(t.clone());
+            by_text
+                .entry((k.clone(), t.clone()))
+                .or_default()
+                .insert(*n);
+        }
+    }
+    let broken = |(k, n, t): &NamePair| {
+        by_value.get(&(k.clone(), *n)).is_some_and(|s| s.len() > 1)
+            || by_text
+                .get(&(k.clone(), t.clone()))
+                .is_some_and(|s| s.len() > 1)
+    };
+    for p in &tally.pending {
+        if p.pairs.iter().any(broken) {
+            let counts = tally.members.entry(p.sig.clone()).or_default();
+            unbump(counts, p.class);
+            bump(counts, "disagree");
+            let ex = tally
+                .examples
+                .entry(format!("disagree {}", p.sig))
+                .or_default();
+            if ex.len() < EXAMPLES {
+                let bad: Vec<String> = p
+                    .pairs
+                    .iter()
+                    .filter(|x| broken(x))
+                    .map(|(k, n, t)| format!("{k} = {n} shown as `{t}`"))
+                    .collect();
+                ex.push(
+                    json!({"form": p.form, "ours": bad.join("; "), "text": null, "xedit": p.xedit}),
+                );
+            }
+        }
+    }
+    let mut names: BTreeMap<String, BTreeMap<String, String>> = BTreeMap::new();
+    for ((k, n), texts) in &by_value {
+        let joined: Vec<&str> = texts.iter().map(String::as_str).collect();
+        names
+            .entry(k.clone())
+            .or_default()
+            .insert(n.to_string(), joined.join(" | "));
+    }
+    names
 }
 
 // ---------------------------------------------------------------------------------------
@@ -752,6 +1551,247 @@ fn banner(path: &Path) -> Option<String> {
         .map_while(Result::ok)
         .map(|l| l.trim().to_string())
         .find(|l| l.contains("Dump") && l.chars().any(|c| c.is_ascii_digit()))
+}
+
+// ---------------------------------------------------------------------------------------
+// Asking kit: one `kit mcp` session for the many `inspect` calls of a run.
+
+/// A `kit mcp` process: one engine whose session keeps the load order loaded, so each
+/// `inspect` after the first costs milliseconds instead of a process start and an index
+/// read. Spoken to over stdio, one JSON-RPC message per line (`docs/mcp.md`).
+struct McpSession {
+    child: Child,
+    stdin: ChildStdin,
+    stdout: BufReader<ChildStdout>,
+    next_id: u64,
+}
+
+impl McpSession {
+    fn start(kit: &KitBinary, cache: &Path) -> Result<Self> {
+        let mut child = kit
+            .command(&["mcp"])
+            .env("KITKRAFT_CACHE_DIR", cache)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .context("could not start `kit mcp`")?;
+        let stdin = child.stdin.take().context("kit mcp: no stdin")?;
+        let stdout = BufReader::new(child.stdout.take().context("kit mcp: no stdout")?);
+        let mut s = Self {
+            child,
+            stdin,
+            stdout,
+            next_id: 0,
+        };
+        s.request(
+            "initialize",
+            json!({"protocolVersion": "2025-06-18", "capabilities": {},
+                   "clientInfo": {"name": "xtask-oracle", "version": "0"}}),
+        )?;
+        s.send(&json!({"jsonrpc": "2.0", "method": "notifications/initialized"}))?;
+        Ok(s)
+    }
+
+    fn send(&mut self, msg: &Value) -> Result<()> {
+        let mut line = serde_json::to_string(msg)?;
+        line.push('\n');
+        self.stdin.write_all(line.as_bytes())?;
+        self.stdin.flush()?;
+        Ok(())
+    }
+
+    fn request(&mut self, method: &str, params: Value) -> Result<Value> {
+        self.next_id = self.next_id.saturating_add(1);
+        let id = self.next_id;
+        self.send(&json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params}))?;
+        let mut line = String::new();
+        loop {
+            line.clear();
+            if self.stdout.read_line(&mut line)? == 0 {
+                bail!("kit mcp closed its output");
+            }
+            let Ok(msg) = serde_json::from_str::<Value>(line.trim()) else {
+                continue;
+            };
+            if msg.get("id").and_then(Value::as_u64) != Some(id) {
+                continue;
+            }
+            if let Some(e) = msg.get("error") {
+                bail!("kit mcp {method}: {e}");
+            }
+            return Ok(msg.get("result").cloned().unwrap_or(Value::Null));
+        }
+    }
+
+    /// Runs catalog command `command` with `args` through the `execute` tool.
+    fn execute(&mut self, command: &str, args: Value) -> Result<KitOut> {
+        let r = self.request(
+            "tools/call",
+            json!({"name": "execute", "arguments": {"command": command, "args": args}}),
+        )?;
+        let structured = r.get("structuredContent").cloned().unwrap_or(Value::Null);
+        let json = if r.get("isError").and_then(Value::as_bool) == Some(true) {
+            match structured.get("error") {
+                Some(_) => structured,
+                None => json!({"error": {"message": structured.to_string()}}),
+            }
+        } else {
+            structured
+        };
+        Ok(KitOut {
+            code: Some(0),
+            json,
+        })
+    }
+}
+
+impl Drop for McpSession {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// How the harness asks `kit inspect`: through one `kit mcp` session when it starts and the
+/// load order loads, else one `kit inspect` process per record.
+enum Inspector<'a> {
+    Session(McpSession),
+    Cli {
+        kit: &'a dyn Runner,
+        chain: Vec<String>,
+        data_dir: String,
+        cache: PathBuf,
+    },
+}
+
+impl<'a> Inspector<'a> {
+    fn start(
+        kit: &'a dyn Runner,
+        session_kit: Option<&KitBinary>,
+        chain: &[String],
+        data_dir: &str,
+        cache: &Path,
+    ) -> Self {
+        let session = session_kit.and_then(|k| {
+            let mut s = McpSession::start(k, cache).ok()?;
+            let r = s
+                .execute("load", json!({"plugins": chain, "data_dir": data_dir}))
+                .ok()?;
+            r.error().is_none().then_some(s)
+        });
+        match session {
+            Some(s) => Self::Session(s),
+            None => Self::Cli {
+                kit,
+                chain: chain.to_vec(),
+                data_dir: data_dir.to_string(),
+                cache: cache.to_path_buf(),
+            },
+        }
+    }
+
+    fn via(&self) -> &'static str {
+        match self {
+            Self::Session(_) => "kit mcp session",
+            Self::Cli { .. } => "kit inspect per record",
+        }
+    }
+
+    fn inspect(&mut self, form: &str) -> Result<KitOut> {
+        match self {
+            Self::Session(s) => s.execute("inspect", json!({"form": form})),
+            Self::Cli {
+                kit,
+                chain,
+                data_dir,
+                cache,
+            } => {
+                let mut a = vec![
+                    "inspect".to_string(),
+                    form.to_string(),
+                    "--data-dir".into(),
+                    data_dir.clone(),
+                ];
+                for p in chain.iter() {
+                    a.push("--plugins".into());
+                    a.push(p.clone());
+                }
+                kit.kit(&a, cache)
+            }
+        }
+    }
+
+    /// Every entry of one string table (`strings.dump`), or none.
+    fn table(&mut self, archive: &Path, table: &str) -> Vec<(u32, String)> {
+        let Ok(archive) = arg(archive) else {
+            return Vec::new();
+        };
+        let r = match self {
+            Self::Session(s) => s.execute(
+                "strings.dump",
+                json!({"table": table, "archive": archive, "limit": 10_000_000}),
+            ),
+            Self::Cli { kit, cache, .. } => kit.kit(
+                &[
+                    "strings".into(),
+                    "dump".into(),
+                    table.to_string(),
+                    "--archive".into(),
+                    archive,
+                    "--limit".into(),
+                    "10000000".into(),
+                ],
+                cache,
+            ),
+        };
+        let Ok(r) = r else { return Vec::new() };
+        r.data()
+            .get("entries")
+            .and_then(Value::as_array)
+            .into_iter()
+            .flatten()
+            .filter_map(|e| {
+                let id = e.get("id").and_then(Value::as_str).and_then(hex_u32)?;
+                let text = e.get("text").and_then(Value::as_str)?;
+                Some((id, text.to_string()))
+            })
+            .collect()
+    }
+}
+
+/// The plugin's string tables (`<stem>_en` in its localization or main archive), read on
+/// the first string ID `kit inspect` left without text (an lstring inside a struct).
+struct StringLookup {
+    archive: Option<PathBuf>,
+    stem: String,
+    map: Option<HashMap<u32, String>>,
+}
+
+impl StringLookup {
+    fn new(archive: Option<PathBuf>, stem: &str) -> Self {
+        Self {
+            archive,
+            stem: stem.to_ascii_lowercase(),
+            map: None,
+        }
+    }
+
+    fn get(&mut self, inspector: &mut Inspector<'_>, id: u32) -> Option<String> {
+        if self.map.is_none() {
+            let mut map = HashMap::new();
+            if let Some(archive) = &self.archive {
+                for kind in ["strings", "dlstrings", "ilstrings"] {
+                    let table = format!("strings/{}_en.{kind}", self.stem);
+                    for (k, v) in inspector.table(archive, &table) {
+                        map.entry(k).or_insert(v);
+                    }
+                }
+            }
+            self.map = Some(map);
+        }
+        self.map.as_ref().and_then(|m| m.get(&id).cloned())
+    }
 }
 
 // ---------------------------------------------------------------------------------------
@@ -933,7 +1973,13 @@ fn our_types(kit: &dyn Runner, path: &Path, opts: &Opts) -> Result<Vec<String>> 
 }
 
 /// One fixture: stage, dump, check, compare.
-fn one(dumper: &Dumper, kit: &dyn Runner, input: &Input, opts: &Opts) -> Result<Value> {
+fn one(
+    dumper: &Dumper,
+    kit: &dyn Runner,
+    session_kit: Option<&KitBinary>,
+    input: &Input,
+    opts: &Opts,
+) -> Result<Value> {
     let name = input
         .path
         .file_name()
@@ -1072,13 +2118,24 @@ fn one(dumper: &Dumper, kit: &dyn Runner, input: &Input, opts: &Opts) -> Result<
     let mut type_rows = Map::new();
     let cache = opts.work.join("cache");
     let scratch_arg = arg(&scratch)?;
+    let schema = kitkraft_schema::builtin().ok();
+    let mut inspector = Inspector::start(kit, session_kit, &chain, &scratch_arg, &cache);
+    let stem = Path::new(&name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let strings_archive = ["Localization", "Main"]
+        .iter()
+        .map(|s| scratch.join(format!("{stem} - {s}.ba2")))
+        .find(|p| p.is_file());
+    let mut strings = StringLookup::new(strings_archive, &stem);
     for ty in &types {
         let xcount = records.iter().filter(|r| r.sig == *ty).count();
         let ocount = omap.values().filter(|(_, s, _)| s == ty).count();
         let matched = per_type.get(ty).cloned().unwrap_or_default();
         let picks = sample_indices(matched.len(), opts.sample);
-        let mut members: BTreeMap<String, Map<String, Value>> = BTreeMap::new();
-        let mut examples: BTreeMap<String, Vec<Value>> = BTreeMap::new();
+        let layouts = schema.map(|s| layouts(s, ty)).unwrap_or_default();
+        let mut tally = Tally::default();
         let mut failures = Vec::new();
         println!(
             "oracle: sf1edit {name} {ty}: {} matched, comparing {}",
@@ -1090,17 +2147,7 @@ fn one(dumper: &Dumper, kit: &dyn Runner, input: &Input, opts: &Opts) -> Result<
                 continue;
             };
             let Some(x) = xmap.get(k) else { continue };
-            let mut a = vec![
-                "inspect".to_string(),
-                form.clone(),
-                "--data-dir".into(),
-                scratch_arg.clone(),
-            ];
-            for p in &chain {
-                a.push("--plugins".into());
-                a.push(p.clone());
-            }
-            let r = kit.kit(&a, &cache)?;
+            let r = inspector.inspect(form)?;
             if let Some(e) = r.error() {
                 failures.push(format!("{form}: {e}"));
                 continue;
@@ -1121,8 +2168,10 @@ fn one(dumper: &Dumper, kit: &dyn Runner, input: &Input, opts: &Opts) -> Result<
                 .and_then(Value::as_array)
                 .cloned()
                 .unwrap_or_default();
-            compare_record(form, &subs, x, &map, &mut members, &mut examples);
+            let mut lookup = |id: u32| strings.get(&mut inspector, id);
+            compare_record(form, &subs, x, &map, &layouts, &mut lookup, &mut tally);
         }
+        let names = settle(&mut tally);
         // What xEdit shows as unknown, over every record of the type.
         let mut unknown: BTreeMap<String, (u64, u64)> = BTreeMap::new();
         for r in records.iter().filter(|r| r.sig == *ty) {
@@ -1140,7 +2189,7 @@ fn one(dumper: &Dumper, kit: &dyn Runner, input: &Input, opts: &Opts) -> Result<
             .map(|(k, (u, t))| (k, json!({"unknown_nodes": u, "nodes": t})))
             .collect();
         let mut totals = Map::new();
-        for m in members.values() {
+        for m in tally.members.values() {
             for (k, v) in m {
                 let n = totals.get(k).and_then(Value::as_u64).unwrap_or(0);
                 totals.insert(k.clone(), json!(n.saturating_add(v.as_u64().unwrap_or(0))));
@@ -1154,13 +2203,15 @@ fn one(dumper: &Dumper, kit: &dyn Runner, input: &Input, opts: &Opts) -> Result<
                 "matched": matched.len(),
                 "compared": picks.len(),
                 "totals": totals,
-                "members": members,
-                "examples": examples,
+                "members": tally.members,
+                "examples": tally.examples,
+                "name_pairs": names,
                 "xedit_unknown": unknown,
                 "inspect_failures": failures,
             }),
         );
     }
+    set(&mut row, "inspect_via", json!(inspector.via()));
     set(&mut row, "xedit_records", json!(records.len()));
     set(&mut row, "our_records", json!(omap.len()));
     set(&mut row, "only_xedit", json!(only_xedit));
@@ -1265,7 +2316,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     }
     let mut rows = Vec::new();
     for input in &inputs {
-        match one(&dumper, &kit, input, &opts) {
+        match one(&dumper, &kit, Some(&kit), input, &opts) {
             Ok(r) => rows.push(r),
             Err(e) => rows.push(json!({
                 "plugin": input.path.file_name().map(|n| n.to_string_lossy().into_owned()),
@@ -1302,8 +2353,9 @@ fn num(v: &Value, k: &str) -> u64 {
     v.get(k).and_then(Value::as_u64).unwrap_or(0)
 }
 
-const CLASSES: [&str; 8] = [
+const CLASSES: [&str; 9] = [
     "agree",
+    "agree_fewer_fields",
     "disagree",
     "typed_not_shown",
     "typed_xedit_unknown",
@@ -1383,6 +2435,7 @@ pub(crate) fn render(r: &Value) -> String {
                 .and_then(Value::as_array)
                 .map_or("-".into(), |a| a.len().to_string()),
             g("agree"),
+            g("agree_fewer_fields"),
             g("disagree"),
             g("gap"),
             g("both_unknown"),
@@ -1408,6 +2461,7 @@ pub(crate) fn render(r: &Value) -> String {
             "Only xEdit / only ours",
             "Sig/EDID differ",
             "Agree",
+            "Agree, xEdit shows fewer fields",
             "Disagree",
             "Gap",
             "Both unknown",
@@ -1662,16 +2716,19 @@ GRUP Top \"WEAP\"\r
             json!({"signature": "XXXX", "value": 1.5}),
             json!({"signature": "QUPA", "value": 7}),
         ];
-        let mut members = BTreeMap::new();
-        let mut examples = BTreeMap::new();
+        let mut tally = Tally::default();
         compare_record(
             "Starfield.esm:21BBCD",
             &subs,
             weap,
             &map(),
-            &mut members,
-            &mut examples,
+            &Layouts::new(),
+            &mut |_| None,
+            &mut tally,
         );
+        let Tally {
+            members, examples, ..
+        } = tally;
         let c = |sig: &str, k: &str| members[sig].get(k).and_then(Value::as_u64).unwrap_or(0);
         assert_eq!(c("EDID", "agree"), 1);
         assert_eq!(c("FULL", "agree"), 1, "lstring compared by resolved text");
@@ -1763,5 +2820,296 @@ GRUP Top \"WEAP\"\r
         assert_eq!(sample_indices(100, 4), vec![0, 25, 50, 75]);
         assert_eq!(bracket_form("x [v581] [0021BBCD] y"), Some(0x21BBCD));
         assert_eq!(mask_hex("ID 00000208 at 12"), "ID # at #");
+    }
+
+    /// Two records in xEdit's shape for the display-conversion tests (M3.B11): a WEAP with
+    /// an enum (`WGEN Type`), a GUID sound pair and an lstring inside a struct; an AMMO with
+    /// flags and an opaque field xEdit shows as `Unused`.
+    const DISPLAY_DUMP: &str = "GRUP Top \"WEAP\"
+  Record Header [S]: [v581] WEAP - Weapon [000001F4] <Unarmed>
+    Signature: WEAP
+  WGEN - General [S]:
+    Type: Unarmed
+    Base weight: 0.000000
+    Base value: 0
+    Base Speed: 1.000000
+    Attack Oxygen Cost: 40.000000
+    Weapon Barrel: NULL - Null Reference [00000000]
+  WMEL - Melee [S]:
+    Unknown: 2
+    Bash Damage: 14.000000
+    Reach: 0.600000
+    Stagger: Small
+  PUSH - Pickup Sound [S]:
+    Start: {69D5B163-1B78-4DC3-AB0E-AA1366F7E1D9}
+    Stop: {00000000-0000-0000-0000-000000000000}
+    Condition: NULL - Null Reference [00000000]
+    Event Mapping: NULL - Null Reference [00000000]
+  Record Header [S]: [v581] AMMO - Ammo [00003BD3] <AmmoX>
+    Signature: AMMO
+  DNAM - Data [S]:
+    Projectile: PROJ - Projectile [00128A0B] <P>
+    Flags: Non-Playable
+    Unused: 00 00 00
+    Damage: 0.000000
+    Health: 0
+  ONAM - Short Name: Missile
+";
+
+    fn schema() -> &'static kitkraft_schema::Schema {
+        kitkraft_schema::builtin().unwrap()
+    }
+
+    fn run_one(
+        rec: &XRecord,
+        subs: &[Value],
+        strings: &mut dyn FnMut(u32) -> Option<String>,
+    ) -> Tally {
+        let layouts = layouts(schema(), &rec.sig);
+        let mut tally = Tally::default();
+        compare_record(
+            "Starfield.esm:0001F4",
+            subs,
+            rec,
+            &map(),
+            &layouts,
+            strings,
+            &mut tally,
+        );
+        tally
+    }
+
+    fn count(t: &Tally, sig: &str, k: &str) -> u64 {
+        t.members[sig].get(k).and_then(Value::as_u64).unwrap_or(0)
+    }
+
+    #[test]
+    fn enums_flags_guids_and_nested_lstrings_are_converted() {
+        let recs = parse_dump(DISPLAY_DUMP);
+        let weap = vec![
+            json!({"signature": "WGEN", "member": "General", "value": {
+                "AttackOxygenCost": 40.0, "BaseSpeed": 1.0, "BaseValue": 0, "BaseWeight": 0.0,
+                "Type": 0, "WeaponBarrel": {"form": null, "null": true, "raw": "00000000"}}}),
+            // Our names differ from xEdit's here (AttackSpeed vs Unknown, Stagger by value).
+            json!({"signature": "WMEL", "member": "Melee", "value": {
+                "AttackSpeed": 2, "BashDamage": 14.0, "Reach": 0.6000000238418579, "Stagger": 1}}),
+            // The Wwise events are opaque to us: they hold their place and match anything.
+            json!({"signature": "PUSH", "member": "PickupSound", "value": {
+                "Condition": {"raw": "00000000"}, "StartEvent": "opaque", "StartForm": {"raw": "00000000"}, "StopEvent": "opaque"}}),
+        ];
+        let t = run_one(&recs[0], &weap, &mut |_| None);
+        assert_eq!(
+            count(&t, "WGEN", "agree"),
+            1,
+            "{:?} {:?}",
+            t.examples,
+            t.members
+        );
+        assert_eq!(count(&t, "WMEL", "agree"), 1, "{:?}", t.examples);
+        assert_eq!(count(&t, "PUSH", "agree"), 1, "{:?}", t.examples);
+        // Stagger 1 is "Small" upstream and in our schema alike, so no name pair is needed.
+        assert!(t.pending.is_empty(), "{:?}", t.pending);
+
+        let ammo = vec![
+            json!({"signature": "DNAM", "member": "AmmoData", "value": {
+                "Damage": 0.0, "Flags": 2, "Health": 0,
+                "Projectile": {"form": "Starfield.esm:128A0B", "raw": "00128A0B"}, "Unused": "opaque"}}),
+            json!({"signature": "ONAM", "member": "ShortName", "value": {"string_id": "0x0003136F"}}),
+        ];
+        let t = run_one(&recs[1], &ammo, &mut |id| {
+            (id == 0x0003_136F).then(|| "Missile".to_string())
+        });
+        assert_eq!(count(&t, "DNAM", "agree"), 1, "{:?}", t.examples);
+        assert_eq!(
+            count(&t, "ONAM", "agree"),
+            1,
+            "nested lstring resolved through the tables"
+        );
+        // Without the table the lstring cannot be compared by text.
+        let t = run_one(&recs[1], &ammo, &mut |_| None);
+        assert_eq!(count(&t, "ONAM", "disagree"), 1);
+    }
+
+    #[test]
+    fn display_conversions() {
+        let m = map();
+        let e = |n: i128, name: &str| Ours::Enum {
+            key: "COBJ/LRNM".into(),
+            n,
+            name: Some(name.into()),
+        };
+        assert_eq!(judge(&e(0, "Unarmed"), Some("Unarmed"), &m), Hit::Yes);
+        assert_eq!(
+            judge(&e(3, "SingleOrBinary"), Some("Single or Binary"), &m),
+            Hit::Yes
+        );
+        assert_eq!(judge(&e(5, "X"), Some("<Unknown: 5>"), &m), Hit::Yes);
+        assert_eq!(judge(&e(5, "X"), Some("6"), &m), Hit::No);
+        assert_eq!(
+            judge(
+                &e(3, "DefaultOrConditions"),
+                Some("Known by default or when conditions are met"),
+                &m
+            ),
+            Hit::Pending((
+                "COBJ/LRNM".into(),
+                3,
+                "Known by default or when conditions are met".into()
+            ))
+        );
+        let f = Ours::Flags {
+            key: "PROJ/PROD.Flags".into(),
+            n: 0x6,
+            names: vec!["MuzzleFlash".into(), "Explosion".into()],
+        };
+        assert_eq!(judge(&f, Some("Explosion, Muzzle Flash"), &m), Hit::Yes);
+        let empty = Ours::Flags {
+            key: "k".into(),
+            n: 0,
+            names: vec![],
+        };
+        assert_eq!(judge(&empty, Some(""), &m), Hit::Yes);
+        let bytes = vec![
+            0x63, 0xB1, 0xD5, 0x69, 0x63, 0x1B, 0xC3, 0x4D, 0xAB, 0x0E, 0xAA, 0x13, 0x66, 0xF7,
+            0xE1, 0xD9,
+        ];
+        assert_eq!(
+            guid_text(&bytes).unwrap(),
+            "{69D5B163-1B63-4DC3-AB0E-AA1366F7E1D9}"
+        );
+        assert_eq!(guid_text(&bytes[..15]), None);
+        let guid = Ours::Bytes(bytes);
+        assert_eq!(
+            judge(&guid, Some("{69d5b163-1b63-4dc3-ab0e-aa1366f7e1d9}"), &m),
+            Hit::Yes
+        );
+        let name = Ours::Bytes(b"TESObjectARMOR_InstanceData\0".to_vec());
+        assert_eq!(
+            judge(&name, Some("TESObjectARMOR_InstanceData"), &m),
+            Hit::Yes
+        );
+        assert_eq!(
+            judge(&Ours::Form(Some(FormKey::Null)), Some("00 00 00 00"), &m),
+            Hit::Yes
+        );
+        assert_eq!(
+            judge(
+                &Ours::Num(0.0),
+                Some("NULL - Null Reference [00000000]"),
+                &m
+            ),
+            Hit::Yes
+        );
+        assert_eq!(
+            judge(&Ours::Num(12.0), Some("12"), &m),
+            Hit::Yes,
+            "not read as a raw byte"
+        );
+        assert_eq!(
+            judge(
+                &Ours::Text("BGSQualityUpgrade_Component".into()),
+                Some("<Unknown: BGSQualityUpgrade_Component>"),
+                &m
+            ),
+            Hit::Yes
+        );
+        assert_eq!(judge(&Ours::Any, Some("whatever"), &m), Hit::Yes);
+    }
+
+    #[test]
+    fn name_pairs_must_be_consistent_over_the_run() {
+        let pend = |form: &str, n: i128, t: &str| PendingAgree {
+            sig: "LRNM".into(),
+            form: form.into(),
+            pairs: vec![("COBJ/LRNM".into(), n, t.into())],
+            xedit: String::new(),
+            class: "agree",
+        };
+        let mut tally = Tally::default();
+        tally
+            .members
+            .entry("LRNM".into())
+            .or_default()
+            .insert("agree".into(), json!(4));
+        tally.pending = vec![
+            pend("a", 3, "Known by default"),
+            pend("b", 3, "Known by default"),
+            pend("c", 1, "Scrapping it"),
+            // Value 1 shown two ways: both occurrences of value 1 become disagreements.
+            pend("d", 1, "Picked up"),
+        ];
+        let names = settle(&mut tally);
+        assert_eq!(count(&tally, "LRNM", "agree"), 2);
+        assert_eq!(count(&tally, "LRNM", "disagree"), 2);
+        assert_eq!(names["COBJ/LRNM"]["3"], "Known by default");
+        assert_eq!(names["COBJ/LRNM"]["1"], "Picked up | Scrapping it");
+    }
+
+    fn node(leaves: &[(&str, &str)]) -> XNode {
+        XNode {
+            sig: "TEST".into(),
+            occurrence: 0,
+            name: "Test".into(),
+            leaves: leaves
+                .iter()
+                .map(|(p, v)| XLeaf {
+                    path: (*p).into(),
+                    value: Some((*v).into()),
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn alignment_tolerates_older_layouts_but_not_value_differences() {
+        let m = map();
+        let code = |k: &str, n: i128| Ours::Code { key: k.into(), n };
+        let form = Ours::Form(Some(FormKey::Key("starfield.esm".into(), 0x329ABD)));
+        // A count xEdit does not show, and a FormID it shows in another place.
+        let ours = vec![
+            code("T/A.Count", 3),
+            form.clone(),
+            Ours::Any,
+            Ours::Bytes(b"Name\0".to_vec()),
+            Ours::Num(0.5),
+        ];
+        let n = node(&[
+            ("Name", "Name"),
+            ("Unknown", "00 00"),
+            ("Attach Point", "KYWD - Keyword [00329ABD] <ap>"),
+            ("Value", "0.500000"),
+        ]);
+        let v = compare(&ours, true, &n, &m);
+        assert!(v.agree && v.fewer, "{v:?}");
+        assert_eq!(v.unmatched.len(), 1, "only the count is ours alone");
+        // A value that differs is never hidden by the alignment.
+        let ours = vec![form, Ours::Num(0.75)];
+        let v = compare(&ours, true, &n, &m);
+        assert!(!v.agree, "{v:?}");
+        assert!(
+            v.left.contains(&"Value=0.500000".to_string()),
+            "{:?}",
+            v.left
+        );
+        // A field order that differs: both values still pair, the enum by name.
+        let e = Ours::Enum {
+            key: "T/B.Type".into(),
+            n: 0,
+            name: Some("Ball".into()),
+        };
+        let n2 = node(&[("Type", "Bullet"), ("Speed", "45.000000")]);
+        let v = compare(&[Ours::Num(45.0), e], true, &n2, &m);
+        assert!(v.agree && !v.fewer, "{v:?}");
+        assert_eq!(v.pairs, vec![("T/B.Type".into(), 0, "Bullet".into())]);
+        // xEdit's other spellings of numbers.
+        assert_eq!(judge(&code("k", 13), Some("Unknown 13"), &m), Hit::Yes);
+        assert_eq!(
+            judge(&Ours::Num(f64::from(f32::MAX)), Some("Default"), &m),
+            Hit::Yes
+        );
+        assert_eq!(
+            judge(&code("k", 13), Some("KYWD - Keyword [000546E1] <K>"), &m),
+            Hit::No
+        );
     }
 }

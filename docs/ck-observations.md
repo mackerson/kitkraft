@@ -22,6 +22,17 @@ Rules that bind every entry:
 - **One finding per entry**, filed to its lane as a `plan/STATUS.md` Request naming the
   entry id (M3.H3).
 
+## In-game sessions (O2, O4, O5)
+
+What the owner sees in the running game is not a CK observation and has its own ledger,
+`docs/game-observations.md` (M4.H4): the entry format `kit testplan` reports into, a
+persistence protocol (leave, wait, save, reload, return, long absence), and session
+templates with every FormID and expected result: O2 (the rename, done 2026-10-14; the
+rename and POI packages; the POI by `coc CityNewAtlantisApartmentTEMPLATE` then
+`player.moveto KitKraftFirstPOICrate`), O4 (the ownership and actors recipes, and the
+questions of `docs/design/persistence.md`), O5 (the overhaul's C1..C14). A CK fixture that
+an in-game row needs (F25 for the alias questions) is named in that row.
+
 ## Ledger entry format
 
 Id `ck-<yyyymmdd>-<nn>` (session date, two-digit sequence). One entry per finding:

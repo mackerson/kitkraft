@@ -518,6 +518,14 @@ impl KitBinary {
             dir: root.to_path_buf(),
         }
     }
+
+    /// The command that starts this `kit` with `args` (no `--json`), for a long-lived
+    /// process such as `kit mcp`.
+    pub(crate) fn command(&self, args: &[&str]) -> Command {
+        let mut c = Command::new(&self.program);
+        c.args(&self.prefix).args(args).current_dir(&self.dir);
+        c
+    }
 }
 
 impl Runner for KitBinary {
