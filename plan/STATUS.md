@@ -1133,6 +1133,23 @@ is under "Next".
   `since = 152`, REFR XLOC 9-byte form, INFO TRDA Emotion as a FormID with 0xFFFFFFFF as none;
   reserved object IDs pinned per member, with a warning outside the named set (one: SFBGS00D
   OMOD 0x3B7). Open: TES4 DATA/INTV (docs/gaps.md), GBFM STOP Marker2 is live (not dropped).
+- Lane E, M3.E9 round 2 (overhaul build 2), 2026-10-15: `has_opaque` (engine
+  `edit/patch.rs`) now flags only unknown layout (whole opaque payload, rest-of-payload run,
+  edid-prefix union); fixed-size untyped struct fields and sibling-decided unions are known
+  layout, and `untyped_id_runs` refuses a FormID remap (and validate counts a subrecord as
+  unchecked) only when such bytes are 4+ non-zero (every official OMOD's are zero), so OMOD
+  overrides copy from localized sources and remap (test
+  `omod_overrides_of_localized_sources_copy_and_remap`). Spec: the default receivers'
+  `WSPS` scaled with the WEAP rate (B3 `077F13` 7.5 -> 5.625, B6 `057555` 1.0 -> 1.5625,
+  B11 `04A750` 16 -> 12), B10 `12D03F` ACPT ADD 5 -> 2 (total 7); owner answers applied
+  (B8 dropped in brief.md, C8; B11 base 18 with the drum's +30 untouched, 48; B12 as built,
+  Large 14, Extended 10, XL 22). `docs/overhaul/build-2-plan.md`: 46 changes on 21
+  overrides (13 WEAP, 4 AMDL, 4 OMOD), master `Starfield.esm` only (the smoke test's mod
+  folder is gone from `mods\`). `out\overhaul\KitKraftGunOverhaul.esm` 45,271 bytes,
+  SHA-256 `5e2f84e7...148f982d1`; validate 0/0, roundtrip identical, package 0.2.0, deploy
+  dry run refused by the live-profile guard (MO2 on `Default`). Rows: 13 implemented, B8
+  dropped. Report, owner steps, checklist: `docs/overhaul/build-2.md`. **Owner (M3.O5):**
+  the in-game check there, on `KitKraft Dev` with a disposable save.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1387,7 +1404,8 @@ wins") but still the owner's to confirm:
 
 Agents append here when they need a change in a crate they do not own.
 
-- **Lane E (M3.E9) -> lane B (M3.B9).** The overhaul's open parts are OMOD property
+- ~~**Lane E (M3.E9) -> lane B (M3.B9).**~~ Done (lane B round 4; used in overhaul build 2,
+  `docs/overhaul/build-2.md`). The overhaul's open parts were OMOD property
   values: `ObjectModProperty.Value1` is opaque because xEdit decides it by the sibling
   `ValueType` (`wbDefinitionsSF1.pas@9fb0168...#L1981-L2031`, list `#L6894-L6938`), and
   the format only has `edid-prefix` unions, so this is format work (loader, codegen,
@@ -1398,7 +1416,8 @@ Agents append here when they need a change in a crate they do not own.
   `04A750` (16 -> 12); `ACPT` on magazines `12D03F` (+5 -> +2), `087D4B` (+30, owner to
   confirm), `132C4A`/`132C49`/`132C48` (+8/+4/+16 -> +4/+2/+8). Details:
   `docs/overhaul/build-1.md`, "Why partial or open".
-- **Lane E (M3.E9) -> owner.** Brief row B8 has no counterpart in the records (no
+- ~~**Lane E (M3.E9) -> owner.**~~ Answered 2026-10-15 (B8 dropped; B11 base 18; B12 as
+  built; `docs/overhaul/build-2.md`). Brief row B8 has no counterpart in the records (no
   automatic receiver OMOD carries a damage property); please restate it
   (`docs/overhaul/build-1.md`, B8). B11 and B12 also need a reading: which magazine
   "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
