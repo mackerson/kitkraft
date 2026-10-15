@@ -55,12 +55,21 @@ fn a_placed_reference_gets_coc_moveto_and_prid() {
     let out = d.join("plan");
     let r = testplan(&data, &plugin, &out, json!(["World.esm"])).unwrap();
     let batch = std::fs::read_to_string(out.join("kitkraft-test.txt")).unwrap();
-    // World.esm takes slot 00; the plugin, master-flagged, goes after it: slot 01.
+    // The marker has an EditorID: named by it, no slot involved. The NPC has none: World.esm
+    // takes slot 00; the plugin, master-flagged, goes after it: slot 01 (predicted).
     assert_eq!(
         batch,
-        "coc TestInterior\r\nplayer.moveto 01001000\r\nprid 01001000\r\n\
+        "coc TestInterior\r\nplayer.moveto KC_TestMarker\r\nprid KC_TestMarker\r\n\
          player.moveto 01001001\r\nprid 01001001\r\n"
     );
+    assert_eq!(
+        r["data"]["runtime_id_basis"],
+        json!("inferred:runtime-slots-by-scale+masters-load-first")
+    );
+    assert!(r["data"]["commands"][3]["why"]
+        .as_str()
+        .unwrap()
+        .contains("by its runtime ID (inferred:runtime-slots-by-scale+masters-load-first)"));
     let data_json = &r["data"];
     assert_eq!(data_json["profile"], json!("KitKraft Dev"));
     assert_eq!(data_json["appended"], json!(true));
@@ -89,7 +98,11 @@ fn a_placed_reference_gets_coc_moveto_and_prid() {
         sha,
         "Owns forms | yes",
         "`coc TestInterior`",
-        "`prid 01001000`",
+        "`player.moveto KC_TestMarker`",
+        "click the object: KC_Crate",
+        "reference ID `01001000` (inferred:runtime-slots-by-scale+masters-load-first)",
+        "Also `prid 01001000`",
+        "predicted by the assumptions `runtime-slots-by-scale` and `masters-load-first`",
         "KC_Crate (STAT, World.esm:000800)",
         "(10.0, 20.0, 30.0)",
         "docs/game-observations.md",
@@ -127,6 +140,71 @@ fn a_placed_reference_gets_coc_moveto_and_prid() {
     )
     .unwrap();
     assert_eq!(r["data"]["appended"], json!(false));
+    assert_eq!(
+        r["data"]["runtime_id_basis"],
+        json!("inferred:runtime-slots-by-scale")
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// POI investigation follow-up: with a save whose lists name the load order (the plugin in
+/// it), the numeric IDs are the save's and say so; the EditorID still leads.
+#[test]
+fn a_save_confirmed_order_gives_confirmed_ids() {
+    let d = dir("testplan-save");
+    let data = world_master(&d);
+    let plugin = d.join("KC_Test.esm");
+    place(
+        &data,
+        &plugin,
+        json!({"cell": "TestInterior", "edid": "KC_TestMarker", "persistent": true}),
+    );
+    // The save puts the plugin first: slot 00, World.esm 01 (only a save can say so).
+    let save = d.join("Exitsave0.sfs");
+    std::fs::write(
+        &save,
+        super::testdata::save(&["KC_Test.esm", "World.esm"], &[], &[]),
+    )
+    .unwrap();
+    let out = d.join("plan");
+    let r = execute(
+        "testplan",
+        json!({
+            "plugin": plugin.display().to_string(), "out": out.display().to_string(),
+            "plugins": ["World.esm", plugin.display().to_string()],
+            "data_dir": data.display().to_string(), "no_cache": true,
+            "from_save": save.display().to_string(),
+        }),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["runtime_id_basis"], json!("confirmed-by-save"));
+    assert_eq!(r["data"]["forms"][0]["runtime_id"], json!("00001000"));
+    assert_eq!(
+        r["data"]["forms"][0]["runtime_id_basis"],
+        json!("confirmed-by-save")
+    );
+    let batch = std::fs::read_to_string(out.join("kitkraft-test.txt")).unwrap();
+    assert_eq!(
+        batch,
+        "coc TestInterior\r\nplayer.moveto KC_TestMarker\r\nprid KC_TestMarker\r\n"
+    );
+    let checklist = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    for needle in [
+        "| Load-order slot | 00: confirmed by the save Exitsave0.sfs (game 1.16.244.0)",
+        "reference ID `00001000` (confirmed-by-save)",
+    ] {
+        assert!(
+            checklist.contains(needle),
+            "missing `{needle}` in:\n{checklist}"
+        );
+    }
+    let limitations = r["limitations"].as_array().unwrap();
+    assert!(limitations
+        .iter()
+        .any(|l| l.as_str().unwrap().contains("confirmed by the save")));
+    assert!(!limitations
+        .iter()
+        .any(|l| l.as_str().unwrap().contains("are inferred")));
     let _ = std::fs::remove_dir_all(&d);
 }
 

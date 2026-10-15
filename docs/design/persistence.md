@@ -186,10 +186,13 @@ from the claims above. Each is as strong as its weakest claim.
   `ref.persistent-flag` refuses it.
 - **Encounter zones are gone from the data** (PS-25): reset behaviour in Starfield hangs on
   locations and cells, so a mod cannot borrow an encounter zone's settings.
-- **Runtime IDs are load-order dependent** (`docs/load-order.md`): the crate's `28001000`
-  is right only for the owner's order; batch files from `kit testplan` say so.
+- **Runtime IDs are load-order dependent** (`docs/load-order.md`): the crate is `04001000`
+  on Kitkraft Dev only; `kit testplan` names references by EditorID first and says whether
+  each numeric ID is confirmed by a save or predicted.
 - **What the save holds is invisible to KitKraft.** Changes made in game (moves, disables,
-  owners, alias fills) live in the save, which KitKraft does not read (W5 "Cannot").
+  owners, alias fills) live in the save, which KitKraft does not read (W5 "Cannot"); it
+  reads only a save's plugin lists (`load --from-save`, `docs/load-order.md`, "Save
+  headers").
 - **The 168/480-hour timers count game time away from the cell** (PS-22, C): `wait` in the
   same cell may not count; O2-09 tests it from another cell.
 - **Removing a plugin from a save** leaves its persistent references orphaned there; only

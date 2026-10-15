@@ -963,18 +963,23 @@ the member holds the FormID that form gets in the built plugin, M4.E7; a name no
 
 ### `testplan` (M4.E6)
 
-`testplan {plugin, out, spec?}` plus the load-order arguments; CLI `kit testplan <plugin>
-<out> --profile <dir>`. Writes `out/kitkraft-test.txt` (console commands, CRLF: `coc
-<cell EditorID>`, `player.moveto <runtime ID>`, `prid <runtime ID>` per new reference,
-`player.additem <runtime ID> 1` per new item) and `out/checklist.md` (setup on the MO2
-profile `KitKraft Dev` from a disposable save, a step per form with its expected
-observation, persistence steps, the game-ledger entry) and nothing else. Runtime IDs are
-lane D's, for the plugin appended to the load order (after the last master-flagged plugin
-when it is one): both are assumptions named in `limitations`, as is the batch file's
-folder (grade D until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `profile`
-(always `KitKraft Dev`), `load_order_source`, `load_index`, `appended`, `batch`,
-`checklist`, `commands[]` (`command`, `why`), `forms[]` (`signature`, `form_id`, `new`,
-`editor_id`, `runtime_id`, `base`, `cell`, `position`, `persistent`), `summary`.
+`testplan {plugin, out, spec?, from_save?}` plus the load-order arguments; CLI `kit
+testplan <plugin> <out> --profile <dir> [--from-save <path|newest>]`. Writes
+`out/kitkraft-test.txt` (console commands, CRLF: `coc <cell EditorID>`, then
+`player.moveto` and `prid` per new reference, on its EditorID when it has one, else on its
+runtime ID; `player.additem <runtime ID> 1` per new item) and `out/checklist.md` (setup on
+the MO2 profile `KitKraft Dev` from a disposable save; a step per form that names it by
+EditorID first, then has the owner click the object in the console and compare the
+reference ID shown with the expected one; persistence steps; the game-ledger entry) and
+nothing else. Runtime IDs are lane D's: **confirmed** when `from_save` confirmed the load
+order and the plugin is in it, else **predicted** by `runtime-slots-by-scale` (and, for a
+plugin appended after the last master-flagged plugin, `masters-load-first`); the checklist,
+`limitations` and `runtime_id_basis` say which, as is the batch file's folder (grade D
+until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `profile` (always `KitKraft
+Dev`), `load_order_source`, `load_index`, `appended`, `runtime_id_basis`
+(`confirmed-by-save` or `inferred:<assumptions>`), `batch`, `checklist`, `commands[]`
+(`command`, `why`), `forms[]` (`signature`, `form_id`, `new`, `editor_id`, `runtime_id`,
+`runtime_id_basis`, `base`, `cell`, `position`, `persistent`), `summary`.
 
 ### `refs` (M4.D1; CLI `kit refs <form>`, alias `useinfo`)
 

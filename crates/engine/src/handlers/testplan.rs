@@ -6,17 +6,21 @@
 //!
 //! - `kitkraft-test.txt`, a console batch file: for each new placed reference, `coc` to its
 //!   interior cell (by the cell's EditorID), `player.moveto` and `prid` on the reference's
-//!   runtime ID; for each new item, `player.additem`; for each override of a placed
-//!   reference, `coc` and `prid`. The runtime IDs are computed for the plugin appended to
-//!   the given load order (lane D's `LoadOrder::runtime_id`, assumption
-//!   `runtime-slots-by-scale`; a master-flagged plugin goes after the last master-flagged
-//!   plugin, assumption `masters-load-first`). That the game runs such a file with
-//!   `bat <name>` from its own folder is grade D until M4.O2 confirms it; KitKraft never
-//!   writes into the game folder: the owner copies the file there.
+//!   EditorID when it has one (no load-order slot involved; the POI investigation of
+//!   2026-10-15), else on its runtime ID; for each new item, `player.additem`; for each
+//!   override of a placed reference, `coc` and `prid`. Runtime IDs come from the load order
+//!   (lane D's `LoadOrder::runtime_id`): confirmed when `load --from-save` adopted a save's
+//!   slots and the plugin is in that load order, else predicted by `runtime-slots-by-scale`
+//!   (and, for a plugin appended to the given load order after the last master-flagged
+//!   plugin, `masters-load-first`); every numeric ID says which. That the game runs such a
+//!   file with `bat <name>` from its own folder is grade D until M4.O2 confirms it;
+//!   KitKraft never writes into the game folder: the owner copies the file there.
 //! - `checklist.md`: setup on `KitKraft Dev` from a disposable save, one step per form with
-//!   the expected observation, the persistence steps (leave, save, reload, return), what to
-//!   record in the game ledger (`docs/game-observations.md`, `game-<yyyymmdd>-<nn>`), and
-//!   the removal rule for a plugin that owns forms.
+//!   the expected observation (by EditorID first, then clicking the object in the console
+//!   to read its reference ID against the confirmed or predicted one), the persistence steps
+//!   (leave, save, reload, return), what to record in the game ledger
+//!   (`docs/game-observations.md`, `game-<yyyymmdd>-<nn>`), and the removal rule for a plugin
+//!   that owns forms.
 //!
 //! Both are deterministic: no clock, sorted by FormID.
 
@@ -24,14 +28,14 @@ use std::fmt::Write as _;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
-use kitkraft_doc::{GlobalForm, IndexCache, LoadOptions, LoadOrder, PluginSpec};
+use kitkraft_doc::{GlobalForm, IndexCache, LoadOptions, LoadOrder, PluginSpec, RuntimeBasis};
 use kitkraft_esm::cells::group_type;
 use kitkraft_esm::index::{index_file, read_indexed, IndexOptions};
 use kitkraft_esm::tes4::{Tes4, FLAG_MASTER};
 use kitkraft_esm::{DecodeLimits, Signature};
 use serde_json::{json, Value};
 
-use super::load::{acquire, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, runtime_note, Loaded, RUNTIME_NOTE};
 use super::{failed, str_arg};
 use crate::edit::patch::guard_location;
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
@@ -77,6 +81,15 @@ struct CellInfo {
     label: String,
     editor_id: Option<String>,
     interior: bool,
+}
+
+/// Where the plan's numeric runtime IDs come from.
+#[derive(Debug, Clone)]
+struct IdBasis {
+    /// `confirmed-by-save` or `inferred:<assumptions>`.
+    short: String,
+    /// For the checklist: "confirmed by the save ..." or "predicted by ...".
+    text: String,
 }
 
 fn hex(id: u32) -> String {
@@ -204,14 +217,39 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
 
     let loaded = acquire(session, args, ID)?;
     let mut limitations = loaded.limitations.clone();
-    let (lo, at, appended) = with_plugin(loaded, &plugin, &name, master_flag, no_cache)?;
+    let (mut lo, at, appended) = with_plugin(loaded, &plugin, &name, master_flag, no_cache)?;
+    // A plugin already in a save-confirmed load order keeps the save's slots; appended, the
+    // save says nothing about it (and it may shift others): inferred.
+    if let (false, RuntimeBasis::ConfirmedBySave(save)) = (appended, &loaded.lo.runtime_basis) {
+        let slots = loaded.lo.plugins.iter().map(|p| p.runtime_slot).collect();
+        lo.adopt_runtime_slots(slots, save.clone())
+            .map_err(|e| failed(ID, e))?;
+    }
     if appended {
         limitations.push(ASSUMED_ORDER.to_string());
     }
-    if !limitations.iter().any(|l| l == RUNTIME_ASSUMED) {
-        limitations.push(RUNTIME_ASSUMED.to_string());
-    }
+    limitations.retain(|l| !l.starts_with(RUNTIME_NOTE));
+    limitations.push(runtime_note(&lo));
     limitations.push(BATCH_GRADE_D.to_string());
+    let id_basis = match (&lo.runtime_basis, appended) {
+        (RuntimeBasis::ConfirmedBySave(save), _) => IdBasis {
+            short: "confirmed-by-save".into(),
+            text: format!("confirmed by the save {save}"),
+        },
+        (RuntimeBasis::Inferred, false) => IdBasis {
+            short: "inferred:runtime-slots-by-scale".into(),
+            text: "predicted by the assumption `runtime-slots-by-scale` (docs/load-order.md); \
+                   not confirmed by a save (`--from-save`)"
+                .into(),
+        },
+        (RuntimeBasis::Inferred, true) => IdBasis {
+            short: "inferred:runtime-slots-by-scale+masters-load-first".into(),
+            text: "predicted by the assumptions `runtime-slots-by-scale` and \
+                   `masters-load-first` (the plugin is not in the given load order, so it was \
+                   appended); not confirmed by a save"
+                .into(),
+        },
+    };
     let profile = args
         .get("profile")
         .and_then(Value::as_str)
@@ -343,23 +381,32 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     }
                 }
             }
+            // A reference with an EditorID is named by it: no load-order slot involved.
+            // Otherwise its runtime ID, confirmed by a save or predicted.
+            let (target, by) = match &f.editor_id {
+                Some(e) => (e.clone(), "by its EditorID".to_string()),
+                None => (
+                    hex(runtime),
+                    format!("by its runtime ID ({})", id_basis.short),
+                ),
+            };
             if f.new {
                 push(
                     &mut batch,
-                    format!("player.moveto {}", hex(runtime)),
-                    format!("stand at {what}"),
+                    format!("player.moveto {target}"),
+                    format!("stand at {what}, {by}"),
                 );
             }
             push(
                 &mut batch,
-                format!("prid {}", hex(runtime)),
-                format!("select {what}"),
+                format!("prid {target}"),
+                format!("select {what}, {by}"),
             );
         } else if f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
             push(
                 &mut batch,
                 format!("player.additem {} 1", hex(runtime)),
-                format!("add {what}"),
+                format!("add {what}, by its runtime ID ({})", id_basis.short),
             );
         }
     }
@@ -374,6 +421,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         &forms,
         &lo,
         at,
+        &id_basis,
     );
     std::fs::create_dir_all(&out).map_err(|e| failed(ID, format!("{}: {e}", out.display())))?;
     let batch_path = out.join(BATCH);
@@ -399,6 +447,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             json!({
                 "signature": f.signature, "form_id": hex(f.stored), "new": f.new,
                 "editor_id": f.editor_id, "runtime_id": f.runtime.map(hex),
+                "runtime_id_basis": f.runtime.map(|_| id_basis.short.clone()),
                 "base": f.base, "cell": f.cell.as_ref().map(|c| json!({"form": c.label, "editor_id": c.editor_id, "interior": c.interior})),
                 "position": f.position, "persistent": f.persistent,
             })
@@ -417,7 +466,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             "plugin": plugin.display().to_string(), "sha256": sha, "size": size,
             "masters": masters, "profile": DEV_PROFILE,
             "load_order_source": profile.unwrap_or_else(|| "plugins".into()),
-            "load_index": at, "appended": appended,
+            "load_index": at, "appended": appended, "runtime_id_basis": id_basis.short,
             "batch": batch_path.display().to_string(),
             "checklist": checklist_path.display().to_string(),
             "commands": commands, "forms": forms_json, "summary": summary,
@@ -443,6 +492,7 @@ fn checklist(
     forms: &[Form],
     lo: &LoadOrder,
     at: u16,
+    id_basis: &IdBasis,
 ) -> String {
     let mut s = String::new();
     let _ = writeln!(s, "# In-game test plan: {name}\n");
@@ -464,7 +514,8 @@ fn checklist(
         .map_or_else(|| "unknown".to_string(), |r| r.label());
     let _ = writeln!(
         s,
-        "| Load-order slot | {slot} (assumed: `runtime-slots-by-scale`; the runtime IDs below change if it loads elsewhere) |"
+        "| Load-order slot | {slot}: {}; the numeric IDs below change if it loads elsewhere |",
+        id_basis.text
     );
     let owns = forms.iter().any(|f| f.new);
     let _ = writeln!(
@@ -486,6 +537,11 @@ fn checklist(
     let _ = writeln!(s, "4. Start Starfield through MO2 with the **{DEV_PROFILE}** profile and load a disposable save\n   (or start a new game and save it as one).\n");
     let _ = writeln!(s, "## Steps\n");
     let _ = writeln!(s, "Run all at once with `bat kitkraft-test` in the console, or type the commands one by one.\n");
+    let _ = writeln!(
+        s,
+        "How to name an object: a reference with an EditorID is named by it (`player.moveto <EditorID>`,\n`prid <EditorID>`; that the console takes a persistent reference's EditorID is grade D until\nM4.O2). To read any object's ID, open the console and click the object: the console shows its\nreference ID, whose high byte is the plugin's runtime slot. The numeric IDs below are\n{}.\n",
+        id_basis.text
+    );
     let mut n = 1u32;
     for f in forms {
         let runtime = f.runtime.map_or_else(|| "(no runtime ID)".to_string(), hex);
@@ -502,34 +558,48 @@ fn checklist(
                         let _ = writeln!(s, "{n}. `coc {c}` (cell {}).", cell.label);
                     }
                     _ => {
-                        let _ = writeln!(s, "{n}. Go to cell {} (exterior; `player.moveto {runtime}` below takes you there).", cell.label);
+                        let _ = writeln!(
+                            s,
+                            "{n}. Go to cell {} (exterior; `player.moveto` below takes you there).",
+                            cell.label
+                        );
                     }
                 }
                 n = n.saturating_add(1);
             }
+            // By EditorID first; the numeric ID is what clicking it should show.
+            let target = f.editor_id.as_deref().unwrap_or(&runtime);
             if f.new {
                 let _ = writeln!(
                     s,
-                    "{n}. `player.moveto {runtime}`: you stand at the new {} `{edid}`.",
+                    "{n}. `player.moveto {target}`: you stand at the new {} `{edid}`.",
                     f.signature
                 );
-                if f.persistent && f.editor_id.is_some() {
-                    let _ = writeln!(
-                        s,
-                        "   If the console says the ID is unknown (the plugin took another slot), try\n   `player.moveto {edid}` and `prid {edid}`: a persistent reference with an EditorID\n   may be named directly (grade D); note the ID it shows."
-                    );
-                }
                 n = n.saturating_add(1);
             }
             let _ = writeln!(
                 s,
-                "{n}. `prid {runtime}`, then `getpos x`, `getpos y`, `getpos z`.\n   **Expect:** {base} is visible at {pos}; `prid` selects it and the console shows its\n   reference ID `{runtime}`; the positions match. Screenshot it (into `observe\\`).",
+                "{n}. Open the console and click the object: {base} at {pos}.\n   **Expect:** the console shows the reference ID `{runtime}` ({}). Another ID means\n   another slot, not a missing object: write down the ID shown.",
+                id_basis.short
             );
+            n = n.saturating_add(1);
+            let _ = writeln!(
+                s,
+                "{n}. `prid {target}`, then `getpos x`, `getpos y`, `getpos z`.\n   **Expect:** `prid` selects the same object; the positions match {pos}. Screenshot it\n   (into `observe\\`).",
+            );
+            if f.editor_id.is_some() {
+                let _ = writeln!(
+                    s,
+                    "   Also `prid {runtime}` (the numeric ID, {}): it selects the same object.",
+                    id_basis.short
+                );
+            }
             n = n.saturating_add(1);
         } else if f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
             let _ = writeln!(
                 s,
-                "{n}. `player.additem {runtime} 1`. **Expect:** `{edid}` in the inventory."
+                "{n}. `player.additem {runtime} 1` ({}). **Expect:** `{edid}` in the inventory.",
+                id_basis.short
             );
             n = n.saturating_add(1);
         } else {

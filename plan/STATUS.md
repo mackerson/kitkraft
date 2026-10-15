@@ -10,7 +10,7 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | # | Action | Unblocks | State |
 | - | ------ | -------- | ----- |
 | 1 | In-game check of the rename plugin `OldSovietMarksmanRifle.esm` (M2.O6) | M2 exit | **done 2026-10-14: PASS** |
-| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, then `prid 04001000` and `player.moveto 04001000` (Kitkraft Dev's slot by its saves; `02001000` and `28001000` were wrong IDs, `docs/poi/first-poi-investigation.md`). Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
+| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, `player.moveto KitKraftFirstPOICrate`, click the crate (the console should show `04001000`), then `prid 04001000` (Kitkraft Dev's slot, confirmed by its newest save: `kit testplan ... --from-save newest`, `docs/poi/first-poi.md`; `02001000` and `28001000` were wrong IDs, `docs/poi/first-poi-investigation.md`). Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
 | 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | pending (owner); build 2 landed 2026-10-15 |
 | 4 | ~~Answer the brief rows B8, B11 and B12~~ | overhaul build 2 (M3.E9 rerun) | **answered 2026-10-15**: B8 dropped, B11 base 18 (drum untouched, 48), B12 as built; applied in build 2 |
 | 5 | Close every Claude Code session that has the repo open. Then run `C:\Modding\scripts\finish_kitkraft_move.ps1`. It renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
@@ -2431,3 +2431,17 @@ Agents append here when they need a change in a crate they do not own.
   lead with `player.moveto <EditorID>` and with clicking the object in the console, and
   should label numeric IDs as predicted. The writer needs no change: the new ref has the
   same shape as `TIG_Shipyards.esm`'s working persistent ref in a vanilla interior cell.
+  **Answered (lanes D and E fix round, 2026-10-15).** (1) `hardcoded-official-slots`: the
+  official plugins first in `kitkraft_io::plan::OFFICIAL_ORDER` (each scale's order as the
+  saves record it; `ShatteredSpace` and `SFBGS004` join `hardcoded-official`), then
+  `loadorder.txt`; `runtime-slots-by-scale`: blueprint full plugins take the last full
+  slots (`kitkraft_doc::form::runtime_slots`), but stay with the official plugins in the
+  load order (ten Default plugins name `BlueprintShips-Starfield` as a master). Regression
+  fixture with the saves' lists: `crates/io/src/lib.rs` `kitkraft_dev_order_matches_its_saves`.
+  `kit load --profile` reproduces every slot of both profiles' newest saves and of `Save56`.
+  (2) `kitkraft_io::save` reads a save's plugin lists (read-only; format in
+  `docs/load-order.md`, "Save headers"); `load`/`testplan --from-save <path|newest>` adopt
+  them as `confirmed-by-save` when they name exactly the load order's plugins. (3)
+  `testplan` names references by EditorID, has the owner click the object to read its ID,
+  and labels every numeric ID `confirmed-by-save` or predicted with its assumptions;
+  `docs/poi/first-poi.md` regenerated (`04001000`, confirmed by `Exitsave0` `000052`).
