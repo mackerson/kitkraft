@@ -61,7 +61,8 @@ Total about 2.54 GB. Fast tests (`cargo test`) roundtrip the five smallest: `Old
 `SFBGS007.esm`, `Constellation.esm`, `SFBGS004.esm` and `SFBGS047.esm` (the last two bring 4
 compressed records and one `XXXX` subrecord, so decompression and `XXXX` run on real data
 in every gate; `corpus_small_compressed_and_xxxx` also decodes and touches every record and
-edits one inside a compressed record). The mutation tests (M1.7) use the first three only.
+edits one inside a compressed record). The bit-flip tests (M1.7) use the first three only;
+the structure-aware mutation tests (M3.A5) use all five ("Hostile input" below).
 The full run is `#[ignore]` and runs in release:
 
 ```powershell
@@ -85,14 +86,98 @@ every layout inferred from CK observation.
    reported as file, absolute offset, and group/record path.
 2. **Coverage (M1.14):** count record types and subrecord signatures across the corpus and
    compare with schema definitions; output is `docs/record-parity.md`.
-3. **Hostile input (M1.7):** truncations and seeded bit flips of the three tiny files must
-   yield errors, never panics.
+3. **Hostile input (M1.7, M3.A5):** truncations and seeded bit flips of the three tiny files,
+   and structure-aware mutations of the five small ones, must yield typed errors, never
+   panics ("Hostile input" below).
 4. **Third-party tool output (restricted):** Spriggit, run as an external binary, can turn a
    file into YAML. Per ADR 0001 §4 that output may be used only for byte-level inventory
    facts: record counts, FormIDs, EditorIDs, subrecord signatures and sizes. Its field names
    and struct layouts are never used to author or check `crates/schema/defs/`, and it is not
    a roundtrip oracle (it lost data on 2 of 5 real mods; see `docs/gaps.md`). Its source is
    never read.
+
+## Hostile input
+
+All of it is in `crates/esm/tests/hostile.rs`, through one harness
+(`tests/common/hostile.rs`). For every input: nothing panics; `Plugin::parse`,
+`Record::decode` on every compressed record, the plain, strict-decode (`roundtrip
+--decode`) and typed roundtrips, the index and every indexed read either succeed or return
+a typed error whose offset lies in the input and is not `Internal`; anything that parses
+writes back byte-identically through `to_bytes` and through the plain driver roundtrip
+(lossless even for weird-but-parseable input); a strict-decode mismatch may only name a
+compressed body; anything the index accepts parses with the same record count.
+
+**Bit flips and truncations (M1.7):** every truncation and every bit of the first 400
+bytes of a synthetic fixture, 1,000 seeded flips per fixture, and for the three tiny
+files every record-boundary truncation plus 1,000 seeded flips (seed `0xC0FFEE`). The
+`#[ignore]`d `corpus_hostile_extended` adds every byte truncation, 50,000 flips and 20,000
+1-8 byte overwrites per tiny file.
+
+**Structure-aware mutation (M3.A5, stable Rust; cargo-fuzz needs nightly).**
+`tests/common/mutate.rs` walks the parsed tree of a valid file and records every
+structural field: record data size, flags, form version; group size, label, type;
+subrecord size; the three fields of an `XXXX` prefix (its own size, the `u32` it carries,
+the next subrecord's size field); the decompressed-size prefix of each compressed body;
+the `HEDR` record count. Each input gets 0 to 3 field overwrites (kind first, then site,
+so rare kinds get equal weight; values around the original: 0, small and header-sized
+values, off by one, halved, doubled, the type's maximum, its sign bit, the 64 MiB decode
+cap, random; flags toggle compressed `0x40000` and deleted `0x20`) and, with probability
+2/5 (always, when there is no overwrite), one splice that keeps every enclosing size
+consistent so the input gets past framing: a subrecord or an entry duplicated or dropped,
+an entry wrapped in 1 to 70 extra groups (past the depth limits of 16 and 64), or a
+compressed body inflated, changed (an inner size or `XXXX` value, a subrecord duplicated or
+dropped, junk appended), deflated again (levels 0, 1, 6, 9) with a right or wrong declared
+size, a cut stream or trailing bytes, or replaced by a subrecord bomb (1,000,001 empty
+subrecords, one over `DecodeLimits::max_subrecords`, in a few KiB of stream). The RNG is
+the harness's xorshift64*, seeded per input with `0xA5A5_0000 ^ len`. A further check
+catches offsets counted from the wrong base: no error may point before the first
+top-level entry the mutation touched.
+
+`cargo test` runs 400 mutations per synthetic fixture and 100 per small file (10 to 20 s
+in debug). The full run, 2,000 per input (`KITKRAFT_MUTATIONS` overrides the count):
+
+```powershell
+cargo test -p kitkraft-esm --release --test hostile -- --ignored mutation --nocapture
+```
+
+| Input (2026-10-15, release, one thread) | Field sites | Parse | Strict-decode faults | Parse errors | Strict-decode errors after a parse | Time |
+| --- | --: | --: | --: | --- | --- | --: |
+| synthetic `small_fixture` (2 compressed, `XXXX`) | - | 993 | 240 | `UnexpectedEof` 756, `BadOversize` 167, `TooDeep` 60, `GroupTooSmall` 24 | `DecompressedTooLarge` 103, `TooManySubrecords` 6 | 0.9 s |
+| synthetic `sample_plugin` (70,000-byte `XXXX`) | - | 926 | 0 | `UnexpectedEof` 768, `BadOversize` 179, `TooDeep` 92, `GroupTooSmall` 35 | `DecompressedTooLarge` 98 | 0.2 s |
+| `OldMars.esm` | 841 | 1,052 | 0 | `UnexpectedEof` 817, `TooDeep` 91, `GroupTooSmall` 40 | `DecompressedTooLarge` 127 | 0.4 s |
+| `SFBGS007.esm` | 1,044 | 1,089 | 0 | `UnexpectedEof` 772, `TooDeep` 91, `GroupTooSmall` 48 | `DecompressedTooLarge` 143 | 0.8 s |
+| `Constellation.esm` | 1,082 | 1,078 | 0 | `UnexpectedEof` 790, `TooDeep` 89, `GroupTooSmall` 43 | `DecompressedTooLarge` 125 | 0.5 s |
+| `SFBGS004.esm` (2 compressed) | 11,744 | 1,167 | 356 | `UnexpectedEof` 708, `TooDeep` 76, `GroupTooSmall` 49 | `DecompressedTooLarge` 173, `TooManySubrecords` 11 | 10.4 s |
+| `SFBGS047.esm` (2 compressed) | 1,265 | 1,174 | 271 | `UnexpectedEof` 740, `TooDeep` 55, `GroupTooSmall` 31 | `DecompressedTooLarge` 183, `TooManySubrecords` 9 | 12.4 s |
+
+Result: 14,000 mutated inputs, no panic, no `Internal` error, no error offset outside
+the input or before the mutated entry, no lossy rewrite. Peak working set of the test
+process 21 MiB (the subrecord bomb's 6 MiB inflation is the largest allocation); slowest
+single input 125 ms (a bomb, inflated by each decode path). Whole run 25.8 s. No crash was
+found, so no regression test was added; the M1.7 hardening (checked sizes, allocations
+capped by remaining bytes, depth cap, `DecodeLimits`) held. `DecompressedTooLarge` after
+a parse is mostly a raw record whose flags gained the compressed bit: its first subrecord
+signature read as a size is far over the 64 MiB cap. The five corpus files have no `XXXX`
+outside a compressed body (the mutator found no such field), so top-level `XXXX` fields
+are covered by the synthetic fixtures and inner ones by the recompress splice.
+
+The plan row's long run, `KITKRAFT_MUTATIONS=100000` (same seeds, 2026-10-15, release; its
+first minutes shared the machine with a `cargo xtask ci`), was clean too: 700,000 inputs in
+24.7 min, peak working set 23 MiB, slowest single input 353 ms (a bomb).
+
+| Input | Parse | Strict-decode faults | Parse errors | Strict-decode errors after a parse | Time |
+| --- | --: | --: | --- | --- | --: |
+| synthetic `small_fixture` | 49,998 | 11,878 | `UnexpectedEof` 37,036, `BadOversize` 8,239, `TooDeep` 3,211, `GroupTooSmall` 1,507, `DanglingOversize` 9 | `DecompressedTooLarge` 5,305, `TooManySubrecords` 489 | 109 s |
+| synthetic `sample_plugin` | 46,975 | 6 | `UnexpectedEof` 37,707, `BadOversize` 8,701, `TooDeep` 5,039, `GroupTooSmall` 1,568, `DanglingOversize` 10 | `DecompressedTooLarge` 4,434 | 8 s |
+| `OldMars.esm` | 53,459 | 0 | `UnexpectedEof` 39,896, `TooDeep` 4,416, `GroupTooSmall` 2,229 | `DecompressedTooLarge` 6,390 | 25 s |
+| `SFBGS007.esm` | 53,939 | 0 | `UnexpectedEof` 39,513, `TooDeep` 4,344, `GroupTooSmall` 2,204 | `DecompressedTooLarge` 6,471 | 55 s |
+| `Constellation.esm` | 53,551 | 0 | `UnexpectedEof` 39,936, `TooDeep` 4,264, `GroupTooSmall` 2,249 | `DecompressedTooLarge` 6,386 | 29 s |
+| `SFBGS004.esm` | 58,599 | 17,485 | `UnexpectedEof` 36,017, `TooDeep` 3,334, `GroupTooSmall` 2,050 | `DecompressedTooLarge` 8,129, `TooManySubrecords` 525 | 507 s |
+| `SFBGS047.esm` | 58,694 | 14,318 | `UnexpectedEof` 36,492, `TooDeep` 2,906, `GroupTooSmall` 1,908 | `DecompressedTooLarge` 8,166, `TooManySubrecords` 554 | 748 s |
+
+The 6 strict-decode faults of `sample_plugin`, which has no compressed record, are raw
+records whose flags gained the compressed bit and whose first four bytes happen to read as
+a size under the cap.
 
 ## Run log
 

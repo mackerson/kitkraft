@@ -4,22 +4,52 @@
 
 pub mod diag;
 pub mod diff;
+pub mod links;
 pub mod load;
+pub mod planet;
 pub mod records;
 pub mod schema;
 pub mod validate;
 
-use serde_json::Value;
+use serde_json::{Map, Value};
+
+use crate::gate::{marker, KIND};
 
 /// Longest value text a cell shows; the raw JSON below each result has the rest.
 pub const MAX_CELL: usize = 240;
 
-/// A decoded value as one line. FormIDs (`{raw, form}` from `inspect`, `{form}` from
-/// `diff`) show the resolved formref with the raw ID beside it; the null FormID shows as
-/// `NULL`; an opaque member shows its byte range; structs and arrays are compact.
-///
-/// A FormID is recognized by shape (an object with `form` and at most four members):
-/// the envelope has no explicit FormID marker yet (docs/gaps.md, the workbench row).
+/// The marker of an object (`docs/mcp.md`, "Data shapes and markers"): its `kind` when
+/// that is one of the engine's marker names, else `None` (a struct).
+pub fn marker_of(map: &Map<String, Value>) -> Option<&'static str> {
+    let k = map.get(KIND).and_then(Value::as_str)?;
+    marker::ALL.iter().copied().find(|m| *m == k)
+}
+
+/// A `formref` marker as text: the formref, `NULL`, or `unresolved (why)`, with the
+/// stored FormID beside it when the command read it.
+fn formref_text(map: &Map<String, Value>) -> String {
+    let mut out = if map.get("null") == Some(&Value::Bool(true)) {
+        "NULL".to_string()
+    } else {
+        match map.get("form").and_then(Value::as_str) {
+            Some(f) => f.to_string(),
+            None => match map.get("error").and_then(Value::as_str) {
+                Some(e) => format!("unresolved ({e})"),
+                None => "unresolved".to_string(),
+            },
+        }
+    };
+    if let Some(raw) = map.get("raw").and_then(Value::as_str) {
+        out.push_str(&format!(" [raw {raw}]"));
+    }
+    out
+}
+
+/// A decoded value as one line, formatted by marker: a `formref` shows the resolved
+/// formref with the raw ID beside it (`NULL` for the null FormID, `unresolved` with the
+/// reason), an `lstring` its string ID, an `opaque` member its byte range (or its bytes),
+/// a `link` its path and target; structs and arrays are compact. An object without a
+/// marker is a struct, whatever members it has.
 pub fn fmt_value(v: &Value) -> String {
     let mut s = String::new();
     write_value(&mut s, v, 0);
@@ -50,54 +80,48 @@ fn write_value(out: &mut String, v: &Value, depth: u8) {
             }
             out.push(']');
         }
-        Value::Object(map) => {
-            if let Some(opaque) = map.get("opaque") {
-                let at = opaque
-                    .get("file_offset")
-                    .and_then(Value::as_u64)
-                    .map_or_else(|| "?".to_string(), |o| o.to_string());
-                let len = opaque
-                    .get("length")
-                    .and_then(Value::as_u64)
-                    .map_or_else(|| "?".to_string(), |o| o.to_string());
-                out.push_str(&format!("opaque bytes @{at} len {len}"));
-                return;
+        Value::Object(map) => match marker_of(map) {
+            Some(marker::FORMREF) => out.push_str(&formref_text(map)),
+            Some(marker::LSTRING) => {
+                let id = map.get("string_id").and_then(Value::as_str).unwrap_or("?");
+                out.push_str(&format!("(string {id})"));
             }
-            if map.contains_key("form") && map.len() <= 4 {
-                let raw = map.get("raw").and_then(Value::as_str);
-                let form = map.get("form").and_then(Value::as_str);
-                let is_null = map.get("null") == Some(&Value::Bool(true));
-                match (form, is_null) {
-                    (_, true) => out.push_str("NULL"),
-                    (Some(f), false) => out.push_str(f),
-                    (None, false) => {
-                        out.push_str("unresolved");
-                        if let Some(e) = map.get("error").and_then(Value::as_str) {
-                            out.push_str(&format!(" ({e})"));
-                        }
+            Some(marker::OPAQUE) => match map.get("opaque") {
+                Some(Value::String(hex)) => out.push_str(&format!("opaque bytes {hex}")),
+                Some(range) => {
+                    let n = |k: &str| {
+                        range
+                            .get(k)
+                            .and_then(Value::as_u64)
+                            .map_or_else(|| "?".to_string(), |o| o.to_string())
+                    };
+                    out.push_str(&format!(
+                        "opaque bytes @{} len {}",
+                        n("file_offset"),
+                        n("length")
+                    ));
+                }
+                None => out.push_str("opaque bytes"),
+            },
+            Some(marker::LINK) => out.push_str(&planet::link_text(v)),
+            _ => {
+                out.push('{');
+                for (i, (k, item)) in map.iter().enumerate() {
+                    if i > 0 {
+                        out.push_str(", ");
                     }
+                    out.push_str(k);
+                    out.push_str(": ");
+                    write_value(out, item, next);
                 }
-                if let Some(raw) = raw {
-                    out.push_str(&format!(" [raw {raw}]"));
-                }
-                return;
+                out.push('}');
             }
-            out.push('{');
-            for (i, (k, item)) in map.iter().enumerate() {
-                if i > 0 {
-                    out.push_str(", ");
-                }
-                out.push_str(k);
-                out.push_str(": ");
-                write_value(out, item, next);
-            }
-            out.push('}');
-        }
+        },
     }
 }
 
-/// Every FormID inside a decoded value, as `(path, raw, resolved)`; `resolved` is the
-/// formref, `NULL`, or `unresolved`. Paths are `Member.Field[2]`.
+/// Every `formref` marker inside a decoded value, as `(path, raw, resolved)`; `resolved`
+/// is the formref, `NULL`, or `unresolved`. Paths are `Member.Field[2]`.
 pub fn formids(v: &Value, path: &str, out: &mut Vec<(String, String, String)>) {
     walk_formids(v, path, out, 0);
 }
@@ -109,19 +133,25 @@ fn walk_formids(v: &Value, path: &str, out: &mut Vec<(String, String, String)>, 
     let next = depth.saturating_add(1);
     match v {
         Value::Object(map) => {
-            if let (Some(raw), true) = (
-                map.get("raw").and_then(Value::as_str),
-                map.contains_key("form"),
-            ) {
-                let resolved = if map.get("null") == Some(&Value::Bool(true)) {
-                    "NULL".to_string()
-                } else {
-                    map.get("form")
+            match marker_of(map) {
+                Some(marker::FORMREF) => {
+                    let resolved = if map.get("null") == Some(&Value::Bool(true)) {
+                        "NULL".to_string()
+                    } else {
+                        map.get("form")
+                            .and_then(Value::as_str)
+                            .map_or_else(|| "unresolved".to_string(), str::to_string)
+                    };
+                    let raw = map
+                        .get("raw")
                         .and_then(Value::as_str)
-                        .map_or_else(|| "unresolved".to_string(), str::to_string)
-                };
-                out.push((path.to_string(), raw.to_string(), resolved));
-                return;
+                        .unwrap_or_default()
+                        .to_string();
+                    out.push((path.to_string(), raw, resolved));
+                    return;
+                }
+                Some(_) => return,
+                None => {}
             }
             for (k, item) in map {
                 let p = if path.is_empty() {
@@ -147,23 +177,38 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn formids_show_resolved_and_raw_side_by_side() {
+    fn formrefs_show_resolved_and_raw_side_by_side() {
         assert_eq!(
-            fmt_value(&json!({"raw": "01000801", "form": "Base.esm:000801"})),
+            fmt_value(&json!({"kind": "formref", "raw": "01000801", "form": "Base.esm:000801"})),
             "Base.esm:000801 [raw 01000801]"
         );
         assert_eq!(
-            fmt_value(&json!({"raw": "00000000", "form": null, "null": true})),
+            fmt_value(&json!({"kind": "formref", "raw": "00000000", "form": null, "null": true})),
             "NULL [raw 00000000]"
         );
-        assert_eq!(fmt_value(&json!({"form": null, "null": true})), "NULL");
         assert_eq!(
-            fmt_value(&json!({"form": null, "raw": "05000800", "error": "no master slot 05"})),
+            fmt_value(&json!({"kind": "formref", "form": null, "null": true})),
+            "NULL"
+        );
+        assert_eq!(
+            fmt_value(
+                &json!({"kind": "formref", "form": null, "raw": "05000800", "error": "no master slot 05"})
+            ),
             "unresolved (no master slot 05) [raw 05000800]"
         );
         assert_eq!(
-            fmt_value(&json!({"opaque": {"payload_offset": 4, "length": 8, "file_offset": 120}})),
+            fmt_value(
+                &json!({"kind": "opaque", "opaque": {"payload_offset": 4, "length": 8, "file_offset": 120}})
+            ),
             "opaque bytes @120 len 8"
+        );
+        assert_eq!(
+            fmt_value(&json!({"kind": "opaque", "opaque": "0108"})),
+            "opaque bytes 0108"
+        );
+        assert_eq!(
+            fmt_value(&json!({"kind": "lstring", "string_id": "0x00000010"})),
+            "(string 0x00000010)"
         );
         assert_eq!(
             fmt_value(&json!({"Speed": 1.5, "Flags": [1, 2]})),
@@ -173,11 +218,32 @@ mod tests {
         assert!(fmt_value(&json!("x".repeat(1000))).ends_with("..."));
     }
 
+    /// The workbench keys on the marker, not the shape (the docs/gaps.md row this closes):
+    /// a struct that happens to have a `form` member stays a struct, and an object whose
+    /// `kind` is no marker name is a struct too.
+    #[test]
+    fn an_unmarked_object_is_a_struct_whatever_its_members() {
+        assert_eq!(
+            fmt_value(&json!({"form": "Base.esm:000801", "raw": "00000801"})),
+            "{form: Base.esm:000801, raw: 00000801}"
+        );
+        assert_eq!(fmt_value(&json!({"kind": "Rifle"})), "{kind: Rifle}");
+        let mut out = Vec::new();
+        formids(
+            &json!({"Pair": {"form": "Base.esm:000801", "raw": "00000801"}}),
+            "X",
+            &mut out,
+        );
+        assert!(out.is_empty(), "{out:?}");
+    }
+
     #[test]
     fn formids_are_found_at_any_depth() {
         let mut out = Vec::new();
         formids(
-            &json!({"Forms": [{"raw": "00000800", "form": "Test.esm:000800"}, {"raw": "00000000", "form": null, "null": true}], "Count": 2}),
+            &json!({"Forms": [{"kind": "formref", "raw": "00000800", "form": "Test.esm:000800"},
+                              {"kind": "formref", "raw": "00000000", "form": null, "null": true}],
+                    "Count": 2, "Rest": {"kind": "opaque", "opaque": {"payload_offset": 0, "length": 4, "file_offset": null}}}),
             "KWDA",
             &mut out,
         );

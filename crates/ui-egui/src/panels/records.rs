@@ -456,7 +456,7 @@ mod tests {
              "record": {"flags": "0x00000000"},
              "vs_previous": {"class": "differs", "subrecords": [{"signature": "TNAM", "occurrence": 0, "change": "added"}]},
              "subrecords": [
-                {"signature": "TNAM", "value": {"raw": "00000801", "form": "Base.esm:000801"}, "offset": 40, "size": 4}
+                {"signature": "TNAM", "value": {"kind": "formref", "raw": "00000801", "form": "Base.esm:000801"}, "offset": 40, "size": 4}
              ]}
         ]}})
     }

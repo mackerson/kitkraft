@@ -38,6 +38,8 @@ mod schema;
 mod set;
 #[cfg(test)]
 mod set_tests;
+#[cfg(test)]
+mod shapes_tests;
 mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
