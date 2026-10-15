@@ -12,6 +12,7 @@
 #![allow(dead_code, clippy::panic, clippy::unwrap_used, clippy::expect_used)]
 
 pub mod hostile;
+pub mod mutate;
 pub mod sha256;
 
 use std::path::{Path, PathBuf};

@@ -7,6 +7,15 @@
 //!
 //! Nothing may panic; every failure is a typed error whose offset lies inside the input;
 //! anything that parses writes back byte-identically.
+//!
+//! M3.A5 adds structure-aware mutation (`common::mutate`): seeded changes to size fields,
+//! `XXXX` values, decompressed-size prefixes, flags, form versions, group labels and types,
+//! plus size-consistent splices (duplicated or dropped subrecords and entries, extra group
+//! nesting, recompressed bodies), over both synthetic fixtures and the five small corpus
+//! files (`common::SMALL`). `cargo test` runs a reduced count; the full run (2,000 per
+//! input) is `cargo test -p kitkraft-esm --release --test hostile -- --ignored mutation`.
+//! Every mutated input also goes through the typed roundtrip, and no error may point
+//! before the first top-level entry the mutation touched.
 
 #![allow(
     clippy::arithmetic_side_effects,
@@ -22,8 +31,168 @@ mod common;
 #[path = "../src/fixture.rs"]
 mod fixture;
 
-use common::hostile::{boundaries, check, flip, Rng};
+use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
+
+use common::hostile::{boundaries, check, check_with, flip, CheckOptions, Rng};
+use common::mutate::{field_name, Mutator};
 use fixture::{group, record, sub};
+
+/// Mutations per input in `cargo test` (debug) and in the `--ignored --release` run.
+const QUICK_SYNTHETIC: usize = 400;
+const QUICK_CORPUS: usize = 100;
+const FULL: usize = 2_000;
+
+/// What one mutation run saw.
+#[derive(Default)]
+struct RunStats {
+    inputs: usize,
+    parsed: usize,
+    decode_faults: usize,
+    errors: BTreeMap<String, usize>,
+    decode_errors: BTreeMap<String, usize>,
+    kinds: BTreeMap<&'static str, usize>,
+    slowest: (Duration, String),
+    elapsed: Duration,
+}
+
+impl std::fmt::Display for RunStats {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{} mutations in {:.2} s: {} parse, {} strict-decode faults; parse errors {:?}; \
+             strict-decode errors after a parse {:?}; kinds {:?}; slowest {:.1} ms ({})",
+            self.inputs,
+            self.elapsed.as_secs_f64(),
+            self.parsed,
+            self.decode_faults,
+            self.errors,
+            self.decode_errors,
+            self.kinds,
+            self.slowest.0.as_secs_f64() * 1000.0,
+            self.slowest.1
+        )
+    }
+}
+
+/// `count` seeded structure-aware mutations of `bytes`, each through the full harness.
+fn mutation_run(name: &str, bytes: &[u8], count: usize, seed: u64) -> RunStats {
+    let mutator = Mutator::new(bytes);
+    let mut rng = Rng::new(seed);
+    let mut stats = RunStats::default();
+    let start = Instant::now();
+    for i in 0..count {
+        let m = mutator.mutate(&mut rng);
+        let what = format!("{name} mutation {i} (seed {seed:#x}): {}", m.description);
+        let one = Instant::now();
+        let outcome = check_with(
+            &m.bytes,
+            &what,
+            &CheckOptions {
+                lower: m.lower,
+                typed: true,
+            },
+        );
+        let took = one.elapsed();
+        if took > stats.slowest.0 {
+            stats.slowest = (took, format!("{i}: {}", m.description));
+        }
+        stats.inputs += 1;
+        stats.parsed += usize::from(outcome.parsed);
+        stats.decode_faults += usize::from(outcome.decode_fault);
+        if let Some(e) = outcome.error {
+            *stats.errors.entry(e).or_default() += 1;
+        }
+        if let (true, Some(e)) = (outcome.parsed, outcome.decode_error) {
+            *stats.decode_errors.entry(e).or_default() += 1;
+        }
+        for k in m.kinds {
+            *stats.kinds.entry(k).or_default() += 1;
+        }
+    }
+    stats.elapsed = start.elapsed();
+    println!("{name}: {stats}");
+    stats
+}
+
+fn synthetic_mutations(count: usize) {
+    for (name, bytes) in [
+        ("small fixture", small_fixture()),
+        ("sample", fixture::sample_plugin()),
+    ] {
+        let stats = mutation_run(name, &bytes, count, 0xA5A5_0000 ^ bytes.len() as u64);
+        // Every field kind the fixture has, and every splice, was exercised.
+        let mut expected: Vec<&str> = Mutator::new(&bytes)
+            .field_counts()
+            .into_iter()
+            .map(|(f, _)| field_name(f))
+            .collect();
+        expected.extend(["dup-subrecord", "drop-subrecord", "dup-entry", "drop-entry"]);
+        expected.push("wrap-groups");
+        for kind in expected {
+            assert!(
+                stats.kinds.contains_key(kind),
+                "{name}: no {kind} in {:?}",
+                stats.kinds
+            );
+        }
+    }
+}
+
+/// Mutations per input in the full run: `KITKRAFT_MUTATIONS`, else [`FULL`].
+fn full_count() -> usize {
+    std::env::var("KITKRAFT_MUTATIONS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(FULL)
+}
+
+fn corpus_mutations(test: &str, count: usize) {
+    let Some(files) = common::files(test, &common::SMALL) else {
+        return;
+    };
+    let start = Instant::now();
+    for file in files {
+        let bytes = std::fs::read(&file.path).unwrap();
+        let sites: usize = Mutator::new(&bytes)
+            .field_counts()
+            .iter()
+            .map(|(_, n)| n)
+            .sum();
+        println!("{}: {sites} field sites", file.name);
+        mutation_run(&file.name, &bytes, count, 0xA5A5_0000 ^ bytes.len() as u64);
+    }
+    println!(
+        "{test}: {} files in {:.1} s; peak working set {:?} bytes",
+        common::SMALL.len(),
+        start.elapsed().as_secs_f64(),
+        common::peak_working_set()
+    );
+}
+
+#[test]
+fn structure_aware_mutations_of_synthetic_fixtures() {
+    synthetic_mutations(QUICK_SYNTHETIC);
+}
+
+#[test]
+fn structure_aware_mutations_of_small_corpus_files() {
+    corpus_mutations(
+        "structure_aware_mutations_of_small_corpus_files",
+        QUICK_CORPUS,
+    );
+}
+
+/// The full M3.A5 run: 2,000 mutations (or `KITKRAFT_MUTATIONS`) per synthetic fixture and
+/// per small corpus file.
+/// `cargo test -p kitkraft-esm --release --test hostile -- --ignored mutation --nocapture`
+#[test]
+#[ignore = "full structure-aware mutation run; seconds to minutes in release"]
+fn structure_aware_mutation_full_run() {
+    let count = full_count();
+    synthetic_mutations(count);
+    corpus_mutations("structure_aware_mutation_full_run", count);
+}
 
 /// A small fixture with every node kind, including two compressed records and XXXX.
 fn small_fixture() -> Vec<u8> {
