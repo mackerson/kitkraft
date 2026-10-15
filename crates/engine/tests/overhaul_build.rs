@@ -1,5 +1,5 @@
 //! M3.E9: the gun overhaul spec (`docs/overhaul/overhaul.toml`) built against a fixture of
-//! the real records. The test copies the records the spec reads (14 WEAP, 4 AMDL, 10 OMOD,
+//! the real records. The test copies the records the spec reads (14 WEAP, 4 AMDL, 7 OMOD,
 //! 3 AMMO, 2 LVLI) byte for byte out of the official `Starfield.esm` (read in place through
 //! `KITKRAFT_DATA_DIR`; skipped when unset) into a small localized `Starfield.esm` in a temp
 //! Data directory, with the English string tables extracted next to it, swaps the spec's
@@ -72,12 +72,9 @@ const RECORDS: &[(&str, &[&str])] = &[
     (
         "OMOD",
         &[
-            "mod_Grendel_Receiver_FullAuto_Standard",
-            "mod_Beowulf_Receiver_FullAuto",
             "mod_Maelstrom_Receiver_FullAuto_Standard",
+            "mod_Lawgiver_Receiver_SemiAuto_Standard",
             "mod_Drumbeat_Receiver_FullAuto_Standard",
-            "mod_AA99_Receiver_FullAuto_Standard",
-            "mod_Kodama_Receiver_FullAuto_Standard",
             "mod_HardTarget_Mag_L",
             "mod_Shotty_Mag_L",
             "mod_Shotty_Mag_Extended",
@@ -103,36 +100,40 @@ const CHANGES: &[&str] = &[
     "  B3   rule[2] WEAP Starfield.esm:2984DF Maelstrom WFIR.ShotsPerSecond: 7.5949364 -> 5.6962023",
     "  B3   rule[3] AMDL Starfield.esm:1B01CA Maelstrom_FA_AM ANAM.RecoilDegreesPerShotX: 0.1 -> 0.15",
     "  B3   rule[3] AMDL Starfield.esm:1B01CA Maelstrom_FA_AM ANAM.RecoilDegreesPerShotY: 0.3 -> 0.45000002",
-    "  B4   rule[4] WEAP Starfield.esm:21FEB4 Kraken WAM2.AmmoList: \"0012F0CE\" -> \"0000E841\"",
-    "  B4   rule[4] WEAP Starfield.esm:21FEB4 Kraken WAM2.AmmoType: \"002B5590\" -> \"0004AD3E\"",
-    "  B4   rule[4] WEAP Starfield.esm:21FEB4 Kraken WDMG.BaseDamage: 3 -> 3.6",
-    "  B5   rule[5] WEAP Starfield.esm:26D96D UrbanEagle WFIR.AttackAnimationDuration: 0.4 -> 0.22857143",
-    "  B5   rule[5] WEAP Starfield.esm:26D96D UrbanEagle WFIR.AttackDelaySeconds: 0.4 -> 0.22857143",
-    "  B5   rule[5] WEAP Starfield.esm:26D96D UrbanEagle WFIR.ShotsPerSecond: 2.5 -> 4.375",
-    "  B6   rule[6] WEAP Starfield.esm:02D7F4 Lawgiver WFIR.AttackAnimationDuration: 1 -> 0.64",
-    "  B6   rule[6] WEAP Starfield.esm:02D7F4 Lawgiver WFIR.AttackDelaySeconds: 1 -> 0.64",
-    "  B6   rule[6] WEAP Starfield.esm:02D7F4 Lawgiver WFIR.ShotsPerSecond: 1 -> 1.5625",
-    "  B7   rule[7] WEAP Starfield.esm:02EB36 Tombstone WDMG.BaseDamage: 19 -> 23.75",
-    "  B7   rule[8] AMDL Starfield.esm:11287A Tombstone_FA_AM ANAM.RecoilDegreesPerShotX: 0.175 -> 0.2625",
-    "  B7   rule[8] AMDL Starfield.esm:11287A Tombstone_FA_AM ANAM.RecoilDegreesPerShotY: 0.375 -> 0.5625",
-    "  B9   rule[9] WEAP Starfield.esm:04716C Beowulf WAM2.AmmoCapacity: 30 -> 20",
-    "  B9   rule[9] WEAP Starfield.esm:04716C Beowulf WAM2.AmmoList: \"0000E841\" -> \"0012F0CE\"",
-    "  B9   rule[9] WEAP Starfield.esm:04716C Beowulf WAM2.AmmoType: \"0004AD3E\" -> \"002B5590\"",
-    "  B11  rule[10] WEAP Starfield.esm:18DE2C DrumBeat WAM2.AmmoCapacity: 30 -> 18",
-    "  B11  rule[10] WEAP Starfield.esm:18DE2C DrumBeat WDMG.BaseDamage: 8 -> 12",
-    "  B11  rule[10] WEAP Starfield.esm:18DE2C DrumBeat WFIR.AttackAnimationDuration: 1.25 -> 1.6666666",
-    "  B11  rule[10] WEAP Starfield.esm:18DE2C DrumBeat WFIR.AttackDelaySeconds: 0.0625 -> 0.083333336",
-    "  B11  rule[10] WEAP Starfield.esm:18DE2C DrumBeat WFIR.ShotsPerSecond: 16 -> 12",
-    "  B11  rule[11] AMDL Starfield.esm:179DBD Drumbeat_SA_AM ANAM.RecoilDegreesPerShotX: 0.185 -> 0.296",
-    "  B11  rule[11] AMDL Starfield.esm:179DBD Drumbeat_SA_AM ANAM.RecoilDegreesPerShotY: 0.32 -> 0.51199996",
-    "  B11  rule[12] AMDL Starfield.esm:2BF29F Drumbeat_FA_AM ANAM.RecoilDegreesPerShotX: 0.15 -> 0.24000001",
-    "  B11  rule[12] AMDL Starfield.esm:2BF29F Drumbeat_FA_AM ANAM.RecoilDegreesPerShotY: 0.4 -> 0.64",
-    "  B12  rule[13] WEAP Starfield.esm:26D960 Shotty WAM2.AmmoCapacity: 12 -> 6",
-    "  B13  rule[14] WEAP Starfield.esm:0547A3 Breach WFIR.AttackAnimationDuration: 1 -> 0.6666667",
-    "  B13  rule[14] WEAP Starfield.esm:0547A3 Breach WFIR.AttackDelaySeconds: 1 -> 0.6666667",
-    "  B13  rule[14] WEAP Starfield.esm:0547A3 Breach WFIR.ShotsPerSecond: 1 -> 1.5",
-    "  B14  rule[15] WEAP Starfield.esm:0546CD Microgun WDMG.BaseDamage: 9 -> 13.5",
-    "  B14  rule[15] WEAP Starfield.esm:0546CD Microgun WFIR.FireSeconds: 1 -> 0.1",
+    "  B3   rule[4] OMOD Starfield.esm:077F13 mod_Maelstrom_Receiver_FullAuto_Standard DATA.Properties[1].Value1.Float: 7.5 -> 5.625",
+    "  B4   rule[5] WEAP Starfield.esm:21FEB4 Kraken WAM2.AmmoList: \"0012F0CE\" -> \"0000E841\"",
+    "  B4   rule[5] WEAP Starfield.esm:21FEB4 Kraken WAM2.AmmoType: \"002B5590\" -> \"0004AD3E\"",
+    "  B4   rule[5] WEAP Starfield.esm:21FEB4 Kraken WDMG.BaseDamage: 3 -> 3.6",
+    "  B5   rule[6] WEAP Starfield.esm:26D96D UrbanEagle WFIR.AttackAnimationDuration: 0.4 -> 0.22857143",
+    "  B5   rule[6] WEAP Starfield.esm:26D96D UrbanEagle WFIR.AttackDelaySeconds: 0.4 -> 0.22857143",
+    "  B5   rule[6] WEAP Starfield.esm:26D96D UrbanEagle WFIR.ShotsPerSecond: 2.5 -> 4.375",
+    "  B6   rule[7] WEAP Starfield.esm:02D7F4 Lawgiver WFIR.AttackAnimationDuration: 1 -> 0.64",
+    "  B6   rule[7] WEAP Starfield.esm:02D7F4 Lawgiver WFIR.AttackDelaySeconds: 1 -> 0.64",
+    "  B6   rule[7] WEAP Starfield.esm:02D7F4 Lawgiver WFIR.ShotsPerSecond: 1 -> 1.5625",
+    "  B6   rule[8] OMOD Starfield.esm:057555 mod_Lawgiver_Receiver_SemiAuto_Standard DATA.Properties[1].Value1.Float: 1 -> 1.5625",
+    "  B7   rule[9] WEAP Starfield.esm:02EB36 Tombstone WDMG.BaseDamage: 19 -> 23.75",
+    "  B7   rule[10] AMDL Starfield.esm:11287A Tombstone_FA_AM ANAM.RecoilDegreesPerShotX: 0.175 -> 0.2625",
+    "  B7   rule[10] AMDL Starfield.esm:11287A Tombstone_FA_AM ANAM.RecoilDegreesPerShotY: 0.375 -> 0.5625",
+    "  B9   rule[11] WEAP Starfield.esm:04716C Beowulf WAM2.AmmoCapacity: 30 -> 20",
+    "  B9   rule[11] WEAP Starfield.esm:04716C Beowulf WAM2.AmmoList: \"0000E841\" -> \"0012F0CE\"",
+    "  B9   rule[11] WEAP Starfield.esm:04716C Beowulf WAM2.AmmoType: \"0004AD3E\" -> \"002B5590\"",
+    "  B10  rule[12] OMOD Starfield.esm:12D03F mod_HardTarget_Mag_L DATA.Properties[0].Value1.Int: 5 -> 2",
+    "  B11  rule[13] WEAP Starfield.esm:18DE2C DrumBeat WAM2.AmmoCapacity: 30 -> 18",
+    "  B11  rule[13] WEAP Starfield.esm:18DE2C DrumBeat WDMG.BaseDamage: 8 -> 12",
+    "  B11  rule[13] WEAP Starfield.esm:18DE2C DrumBeat WFIR.AttackAnimationDuration: 1.25 -> 1.6666666",
+    "  B11  rule[13] WEAP Starfield.esm:18DE2C DrumBeat WFIR.AttackDelaySeconds: 0.0625 -> 0.083333336",
+    "  B11  rule[13] WEAP Starfield.esm:18DE2C DrumBeat WFIR.ShotsPerSecond: 16 -> 12",
+    "  B11  rule[14] AMDL Starfield.esm:179DBD Drumbeat_SA_AM ANAM.RecoilDegreesPerShotX: 0.185 -> 0.296",
+    "  B11  rule[14] AMDL Starfield.esm:179DBD Drumbeat_SA_AM ANAM.RecoilDegreesPerShotY: 0.32 -> 0.51199996",
+    "  B11  rule[15] AMDL Starfield.esm:2BF29F Drumbeat_FA_AM ANAM.RecoilDegreesPerShotX: 0.15 -> 0.24000001",
+    "  B11  rule[15] AMDL Starfield.esm:2BF29F Drumbeat_FA_AM ANAM.RecoilDegreesPerShotY: 0.4 -> 0.64",
+    "  B11  rule[16] OMOD Starfield.esm:04A750 mod_Drumbeat_Receiver_FullAuto_Standard DATA.Properties[1].Value1.Float: 16 -> 12",
+    "  B12  rule[17] WEAP Starfield.esm:26D960 Shotty WAM2.AmmoCapacity: 12 -> 6",
+    "  B13  rule[18] WEAP Starfield.esm:0547A3 Breach WFIR.AttackAnimationDuration: 1 -> 0.6666667",
+    "  B13  rule[18] WEAP Starfield.esm:0547A3 Breach WFIR.AttackDelaySeconds: 1 -> 0.6666667",
+    "  B13  rule[18] WEAP Starfield.esm:0547A3 Breach WFIR.ShotsPerSecond: 1 -> 1.5",
+    "  B14  rule[19] WEAP Starfield.esm:0546CD Microgun WDMG.BaseDamage: 9 -> 13.5",
+    "  B14  rule[19] WEAP Starfield.esm:0546CD Microgun WFIR.FireSeconds: 1 -> 0.1",
 ];
 
 /// Every record of `sig` in `Starfield.esm` whose EditorID is one of `edids`, as owned
@@ -175,6 +176,23 @@ fn copy_records(real: &Path, sig: &str, edids: &[&str]) -> Vec<Record<'static>> 
         .collect()
 }
 
+/// The record `form_id` in the top-level group `sig` of `plugin`.
+fn record_of<'p>(plugin: &'p Plugin<'_>, sig: &str, form_id: u32) -> &'p Record<'p> {
+    plugin
+        .entries()
+        .iter()
+        .filter_map(|e| match e {
+            Entry::Group(g) if g.header.label.as_slice() == sig.as_bytes() => Some(g),
+            _ => None,
+        })
+        .flat_map(|g| g.children())
+        .find_map(|e| match e {
+            Entry::Record(r) if r.header.form_id == form_id => Some(r),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("{sig} {form_id:08X} not in the plugin"))
+}
+
 #[test]
 fn the_overhaul_spec_plans_and_builds_on_the_real_records() {
     let Some(real) = data_dir() else { return };
@@ -206,8 +224,10 @@ fn the_overhaul_spec_plans_and_builds_on_the_real_records() {
             count += 1;
         }
     }
-    assert_eq!(count, 33);
-    std::fs::write(data.join("Starfield.esm"), plugin.to_bytes().unwrap()).unwrap();
+    assert_eq!(count, 30);
+    let fixture_bytes = plugin.to_bytes().unwrap();
+    std::fs::write(data.join("Starfield.esm"), &fixture_bytes).unwrap();
+    let fixture = Plugin::parse(&fixture_bytes).unwrap();
 
     // The committed spec, with its load order pointed at the fixture.
     let text = std::fs::read_to_string(concat!(
@@ -245,7 +265,7 @@ fn the_overhaul_spec_plans_and_builds_on_the_real_records() {
     assert!(!out.exists(), "a plan writes nothing");
     assert_eq!(d["passed"], json!(true), "{d:#}");
     assert_eq!(d["masters"], json!(["Starfield.esm"]));
-    assert_eq!(d["changed_fields"], json!(42));
+    assert_eq!(d["changed_fields"], json!(46));
     let summary = d["summary"].as_str().unwrap();
     let lines: Vec<&str> = summary
         .lines()
@@ -258,7 +278,7 @@ fn the_overhaul_spec_plans_and_builds_on_the_real_records() {
         assert_eq!(c["brief"].as_array().unwrap().len(), 1, "{c:#}");
         assert_eq!(c["changed"], json!(true), "{c:#}");
     }
-    // The classes that only list the open rows' targets match them all.
+    // Every class matches its records (B12's magazines are listed, not changed).
     let matched = |name: &str| {
         d["classes"]
             .as_array()
@@ -268,17 +288,58 @@ fn the_overhaul_spec_plans_and_builds_on_the_real_records() {
             .map(|c| c["matched"].clone())
             .unwrap()
     };
-    assert_eq!(matched("b8_automatic_receivers"), json!(6));
-    assert_eq!(matched("b10_hard_target_large_mag"), json!(1));
+    assert_eq!(d["classes"].as_array().unwrap().len(), 18);
+    for class in [
+        "b3_maelstrom_receiver",
+        "b6_lawgiver_receiver",
+        "b10_hard_target_large_mag",
+        "b11_drum_beat_receiver",
+    ] {
+        assert_eq!(matched(class), json!(1), "{class}");
+    }
     assert_eq!(matched("b12_shotty_magazines"), json!(3));
     assert!(d["warnings"].as_array().unwrap().is_empty(), "{d:#}");
 
-    // The build: 17 overrides, validated, identical twice, and round-trips.
+    // The build: 21 overrides (13 WEAP, 4 AMDL, 4 OMOD), validated, identical twice, and
+    // round-trips.
     let built = run(json!({})).unwrap();
     assert_eq!(built["data"]["passed"], json!(true), "{:#}", built["data"]);
-    assert_eq!(built["data"]["changed_fields"], json!(42));
-    assert_eq!(built["data"]["records"].as_array().unwrap().len(), 17);
+    assert_eq!(built["data"]["changed_fields"], json!(46));
+    assert_eq!(built["data"]["records"].as_array().unwrap().len(), 21);
     let first = std::fs::read(&out).unwrap();
+    // Lossless OMOD overrides: each DATA equals the source's but for the one 4-byte
+    // property value the rule wrote; FULL and DESC are inlined as text (the source is
+    // localized); every other subrecord is the source's.
+    let built_plugin = Plugin::parse(&first).unwrap();
+    for (form_id, value) in [
+        (0x0007_7F13u32, 5.625f32.to_le_bytes()),
+        (0x0005_7555, 1.5625f32.to_le_bytes()),
+        (0x0004_A750, 12f32.to_le_bytes()),
+        (0x0012_D03F, 2i32.to_le_bytes()),
+    ] {
+        let ours = record_of(&built_plugin, "OMOD", form_id)
+            .subrecords()
+            .unwrap();
+        let theirs = record_of(&fixture, "OMOD", form_id).subrecords().unwrap();
+        assert_eq!(ours.len(), theirs.len(), "{form_id:08X}");
+        for (a, b) in ours.iter().zip(theirs) {
+            assert_eq!(a.signature(), b.signature(), "{form_id:08X}");
+            match &a.signature().0 {
+                b"FULL" | b"DESC" => assert!(a.data().ends_with(&[0]), "{form_id:08X}"),
+                b"DATA" => {
+                    let (a, b) = (a.data(), b.data());
+                    assert_eq!(a.len(), b.len(), "{form_id:08X}");
+                    let at = (0..a.len()).find(|&i| a[i] != b[i]).unwrap();
+                    let at = (at.saturating_sub(3)..=at)
+                        .find(|&s| a[s..s + 4] == value)
+                        .unwrap_or_else(|| panic!("{form_id:08X}: no {value:?} at {at}"));
+                    assert_eq!(a[..at], b[..at], "{form_id:08X}");
+                    assert_eq!(a[at + 4..], b[at + 4..], "{form_id:08X}");
+                }
+                _ => assert_eq!(a.data(), b.data(), "{form_id:08X} {}", a.signature()),
+            }
+        }
+    }
     run(json!({"overwrite": true})).unwrap();
     assert_eq!(first, std::fs::read(&out).unwrap(), "two builds differ");
     let rt = execute(

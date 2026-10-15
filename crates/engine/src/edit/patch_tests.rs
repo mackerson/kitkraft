@@ -362,6 +362,174 @@ fn remap_through_typed_form_ids() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// An OMOD `DATA` payload in the official shape: one include, one attach parent slot, a
+/// Float `WSPS` property and a FormId `WAIM` property (FormIDs in the source's numbering);
+/// `unknown2` is the 4 bytes xEdit does not name.
+fn omod_data(unknown2: [u8; 4]) -> Vec<u8> {
+    let name = b"TESObjectWEAP_InstanceData\0";
+    let mut d = Vec::new();
+    d.extend(1u32.to_le_bytes()); // IncludeCount
+    d.extend(2u32.to_le_bytes()); // PropertyCount
+    d.extend([0, 0]); // Unknown1
+    d.extend((name.len() as u32).to_le_bytes());
+    d.extend(name);
+    d.extend([0, 0]); // MaxRank, LevelTierScaledOffset
+    d.extend(0x0000_0010u32.to_le_bytes()); // AttachPoint: Other.esm:000010
+    d.extend(1u32.to_le_bytes()); // AttachParentSlotCount
+    d.extend(0x0100_0020u32.to_le_bytes()); // Base.esm:000020
+    d.extend(unknown2);
+    d.extend(0x0100_0030u32.to_le_bytes()); // Includes[0].Mod: Base.esm:000030
+    d.extend([0, 0, 1]);
+    // Properties[0]: Float (1), Set, WSPS, 7.5, 0.0, step 0.
+    d.extend([1, 0, 0, 0, 0, 0, 0, 0]);
+    d.extend(b"WSPS");
+    d.extend(7.5f32.to_le_bytes());
+    d.extend(0f32.to_le_bytes());
+    d.extend(0f32.to_le_bytes());
+    // Properties[1]: FormIdInt (4), Set, WAIM, Other.esm:000040, 0, step 0.
+    d.extend([4, 0, 0, 0, 0, 0, 0, 0]);
+    d.extend(b"WAIM");
+    d.extend(0x0000_0040u32.to_le_bytes());
+    d.extend(0u32.to_le_bytes());
+    d.extend(0f32.to_le_bytes());
+    d
+}
+
+fn omod(form_id: u32, unknown2: [u8; 4], extra: Vec<Subrecord<'static>>) -> Record<'static> {
+    let mut subs = vec![sub(b"EDID", b"mod_Receiver\0")];
+    subs.extend(extra);
+    subs.push(sub(b"FULL", &0x0002_E469u32.to_le_bytes()));
+    subs.push(sub(b"DESC", &[0; 4]));
+    subs.push(sub(b"DATA", &omod_data(unknown2)));
+    rec(b"OMOD", form_id, subs)
+}
+
+/// M3.E9 round 2: OMOD `DATA` has known layout (its only untyped bytes are fixed-size
+/// fields such as `Unknown2` and struct-field unions), so an OMOD override from a localized
+/// source copies losslessly, gets a property edit and has its FormIDs remapped; a non-zero
+/// `Unknown2` still refuses the remap (it could be a FormID), and an untyped 4-byte
+/// subrecord of a localized source is still refused as a possible string ID.
+#[test]
+fn omod_overrides_of_localized_sources_copy_and_remap() {
+    use super::patch::{has_opaque, untyped_id_runs};
+    let layouts = super::fields::layouts(*b"OMOD", &[*b"EDID", *b"VMAD", *b"DATA"]);
+    let data = layouts[2].as_ref().unwrap();
+    assert!(!has_opaque(&data.ty), "OMOD DATA is known layout");
+    assert!(has_opaque(&layouts[1].as_ref().unwrap().ty), "VMAD is not");
+    let ctx = kitkraft_doc::typed::Ctx {
+        form_version: 582,
+        localized: true,
+        edid_first: Some(b'm'),
+    };
+    assert_eq!(
+        untyped_id_runs(&data.ty, &omod_data([0; 4]), &ctx),
+        Ok(vec![])
+    );
+    let at = 4 + 4 + 2 + 4 + 27 + 2 + 4 + 4 + 4;
+    assert_eq!(
+        untyped_id_runs(&data.ty, &omod_data([0, 0, 0, 1]), &ctx),
+        Ok(vec![(at, 4)])
+    );
+
+    let d = dir("omod");
+    let base = write_plugin(&d, "Base.esm", &[], FLAG_MASTER, vec![]);
+    let other = write_plugin(&d, "Other.esm", &[], FLAG_MASTER, vec![]);
+    let src = write_plugin(
+        &d,
+        "Source.esm",
+        &["Other.esm", "Base.esm"],
+        FLAG_MASTER | FLAG_LOCALIZED,
+        vec![
+            omod(0x0100_0900, [0; 4], vec![]),
+            omod(0x0100_0901, [0, 0, 0, 1], vec![]),
+            omod(0x0100_0902, [0; 4], vec![sub(b"VMAD", &[1, 0, 0, 0])]),
+        ],
+    );
+    let plugins = index_plugins(&[base, other, src]).unwrap();
+    let lookup = strings();
+    let opts = options(&lookup, &plugins);
+    let wsps = || {
+        vec![Edit {
+            path: parse_path("DATA.Properties[0].Value1.Float").unwrap(),
+            op: Op::Set(json!(5.625)),
+        }]
+    };
+
+    // The target's masters are in the other order: every FormID is remapped.
+    let target = write_plugin(&d, "Patch.esp", &["Base.esm", "Other.esm"], 0, vec![]);
+    let report = write_patch(
+        &target,
+        vec![copy_of(&plugins, "Base.esm:000900", wsps())],
+        &opts,
+    )
+    .unwrap();
+    assert_eq!(report.masters, ["Base.esm", "Other.esm", "Source.esm"]);
+    assert_eq!(report.records[0].form_id, 0x0000_0900);
+    let bytes = std::fs::read(&target).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let subs = first_record(&plugin, 0).subrecords().unwrap();
+    assert_eq!(subs[1].data(), b"Old Earth Hunting Rifle\0", "FULL inlined");
+    // DATA: the same bytes but the four FormIDs (Other.esm 000010/000040 now at index 1,
+    // Base.esm 000020/000030 at index 0) and the edited value.
+    let mut want = omod_data([0; 4]);
+    let mut put = |at: usize, v: &[u8]| want[at..at + v.len()].copy_from_slice(v);
+    put(4 + 4 + 2 + 4 + 27 + 2, &0x0100_0010u32.to_le_bytes());
+    put(at - 4, &0x0000_0020u32.to_le_bytes());
+    put(at + 4, &0x0000_0030u32.to_le_bytes());
+    put(at + 4 + 7 + 12, &5.625f32.to_le_bytes());
+    put(at + 4 + 7 + 24 + 12, &0x0100_0040u32.to_le_bytes());
+    assert_eq!(subs[3].data(), want.as_slice());
+
+    // A non-zero Unknown2 could be a FormID: the remap is refused, the target left alone.
+    let before = std::fs::read(&target).unwrap();
+    let err = write_patch(
+        &target,
+        vec![copy_of(&plugins, "Base.esm:000901", wsps())],
+        &opts,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        err.contains("DATA subrecord has 4 non-zero bytes the schema does not type"),
+        "{err}"
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), before);
+    // Without a remap (a new patch takes the source's masters) the same record copies.
+    let fresh = d.join("Fresh.esp");
+    write_patch(
+        &fresh,
+        vec![copy_of(&plugins, "Base.esm:000901", wsps())],
+        &opts,
+    )
+    .unwrap();
+    let bytes = std::fs::read(&fresh).unwrap();
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let mut want = omod_data([0, 0, 0, 1]);
+    want[at + 4 + 7 + 12..at + 4 + 7 + 16].copy_from_slice(&5.625f32.to_le_bytes());
+    assert_eq!(
+        first_record(&plugin, 0).subrecords().unwrap()[3].data(),
+        want.as_slice()
+    );
+
+    // An untyped 4-byte subrecord (VMAD, opaque) of a localized source may be a string ID.
+    let err = write_patch(
+        &d.join("V.esp"),
+        vec![copy_of(&plugins, "Base.esm:000902", wsps())],
+        &opts,
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(
+        err.contains("VMAD[0]") && err.contains("allow_untyped_lstrings"),
+        "{err}"
+    );
+    assert!(!d.join("V.esp").exists());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 #[test]
 fn refusals() {
     let d = dir("refuse");

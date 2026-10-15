@@ -11,8 +11,8 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | - | ------ | -------- | ----- |
 | 1 | In-game check of the rename plugin `OldSovietMarksmanRifle.esm` (M2.O6) | M2 exit | **done 2026-10-14: PASS** |
 | 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, then `player.moveto KitKraftFirstPOICrate` (or `player.moveto 28001000`) and `prid` it. Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
-| 3 | In-game check of overhaul build 2 (M3.O5, steps in `docs/overhaul/build-1.md`, "In game"). Wait until build 2 lands: build 1 has no OMOD values, and lane B round 4 has now typed them | M3 exit (overhaul) | waits for lane E's build 2 |
-| 4 | Answer the brief rows **B8** (no automatic receiver OMOD carries a damage property: restate the row), **B11** (which magazine "18 rounds" means for the Drum Beat) and **B12** (is "14" the Large magazine, already 14, or the Extra Large?). Details in `docs/overhaul/build-1.md` | overhaul build 2 (M3.E9 rerun) | pending (owner) |
+| 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | pending (owner); build 2 landed 2026-10-15 |
+| 4 | ~~Answer the brief rows B8, B11 and B12~~ | overhaul build 2 (M3.E9 rerun) | **answered 2026-10-15**: B8 dropped, B11 base 18 (drum untouched, 48), B12 as built; applied in build 2 |
 | 5 | Close every Claude Code session that has the repo open. Then run `C:\Modding\scripts\finish_kitkraft_move.ps1`. It renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
 | 6 | Decide when to start the workbench (lane W, M4.W0..W6, ADR 0007 Amendment 1). The M4.W0 gate needs M4.D1 (`refs`) and M4.D2 (placement context), and neither is on `main`. The deferred CK sessions (M3.O1, M4.O1) wait for M4.W2..W5 | M3.O1 and M4.O1 (CK), with them every `ck-diff` upgrade | **decided 2026-10-15: started**. Lane W built the read-only workbench (`kit ui`, `docs/workbench.md`) |
 | 7 | Rule on two licenses in the workbench's dependency tree (ADR 0007, "Dependency list"). First, **BSL-1.0** (`clipboard-win`, `error-code`): eframe always pulls these in for the copy buttons; the license is permissive but is not named in the MIT/Apache/Zlib/BSD rule. Second, whether the optional `default_fonts` feature may ever be enabled (OFL-1.1 and Ubuntu Font Licence). It is off: the window uses the Windows system fonts | the first workbench merge to `main` | open (owner decision) |
@@ -20,7 +20,7 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 ## Current milestone: M3 closing, M4 in progress
 
 M0, M1 and M2 are done. M2 closed on 2026-10-14: M2.F7 and M2.O6 both passed. M3 cannot
-close yet. Its overhaul check waits on the owner (M3.O5, rows 3 and 4 above). Its CK
+close yet. Its overhaul check waits on the owner (M3.O5, row 3 above). Its CK
 criteria are carried until the CK session, which the owner deferred until the workbench
 exists. M4 runs on the critical path for the first POI. "M3 and M4 exit criteria" below
 checks every "done when" bullet of `plan/execution-plan.md` against `main` at `01c77d8`.
@@ -43,8 +43,8 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | `style: "ck"` in `set`/`build`, matching the CK's bytes or explained (M3.E5) | **carried** | M3.A3, M3.E5, with M3.O1 |
 | `docs/ck-parity.md` ranks the CK features (M3.H5) | **carried** | M3.H5, with M3.O1 |
 | Spec v2 and `kit overhaul` `Implemented` | **done** | M3.E6, M3.E7 |
-| First overhaul build from the owner's brief validated (M3.E9) | **done** (build 1) | `out\overhaul\KitKraftGunOverhaul.esm`: validate 0/0, roundtrip identical, packaged, reviewed. Rows: 8 implemented, 4 partial (B3 B6 B11 B12), 2 open (B8 B10). Build 2 (lane E) reruns with the OMOD values lane B round 4 typed, plus the owner's B8/B11/B12 answers |
-| Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Rows 3 and 4 above |
+| First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 1: 8 implemented, 4 partial, 2 open. Build 2 (2026-10-15, `docs/overhaul/build-2.md`): the OMOD values lane B round 4 typed and the owner's answers; 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
+| Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Row 3 above (build 2) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 reruns as members get typed. A build at the pin is the owner's (`docs/gaps.md`) |
 | Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). M3.F5 is not built, by that decision |
@@ -1220,6 +1220,23 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     - `refs` and placement context (M4.D1, M4.D2).
     - The M4.W0 shape tests (lane F).
     - The owner's licence ruling (row 7).
+- Lane E, M3.E9 round 2 (overhaul build 2), 2026-10-15: `has_opaque` (engine
+  `edit/patch.rs`) now flags only unknown layout (whole opaque payload, rest-of-payload run,
+  edid-prefix union); fixed-size untyped struct fields and sibling-decided unions are known
+  layout, and `untyped_id_runs` refuses a FormID remap (and validate counts a subrecord as
+  unchecked) only when such bytes are 4+ non-zero (every official OMOD's are zero), so OMOD
+  overrides copy from localized sources and remap (test
+  `omod_overrides_of_localized_sources_copy_and_remap`). Spec: the default receivers'
+  `WSPS` scaled with the WEAP rate (B3 `077F13` 7.5 -> 5.625, B6 `057555` 1.0 -> 1.5625,
+  B11 `04A750` 16 -> 12), B10 `12D03F` ACPT ADD 5 -> 2 (total 7); owner answers applied
+  (B8 dropped in brief.md, C8; B11 base 18 with the drum's +30 untouched, 48; B12 as built,
+  Large 14, Extended 10, XL 22). `docs/overhaul/build-2-plan.md`: 46 changes on 21
+  overrides (13 WEAP, 4 AMDL, 4 OMOD), master `Starfield.esm` only (the smoke test's mod
+  folder is gone from `mods\`). `out\overhaul\KitKraftGunOverhaul.esm` 45,271 bytes,
+  SHA-256 `5e2f84e7...148f982d1`; validate 0/0, roundtrip identical, package 0.2.0, deploy
+  dry run refused by the live-profile guard (MO2 on `Default`). Rows: 13 implemented, B8
+  dropped. Report, owner steps, checklist: `docs/overhaul/build-2.md`. **Owner (M3.O5):**
+  the in-game check there, on `KitKraft Dev` with a disposable save.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1474,7 +1491,8 @@ wins") but still the owner's to confirm:
 
 Agents append here when they need a change in a crate they do not own.
 
-- **Lane E (M3.E9) -> lane B (M3.B9).** The overhaul's open parts are OMOD property
+- ~~**Lane E (M3.E9) -> lane B (M3.B9).**~~ Done (lane B round 4; used in overhaul build 2,
+  `docs/overhaul/build-2.md`). The overhaul's open parts were OMOD property
   values: `ObjectModProperty.Value1` is opaque because xEdit decides it by the sibling
   `ValueType` (`wbDefinitionsSF1.pas@9fb0168...#L1981-L2031`, list `#L6894-L6938`), and
   the format only has `edid-prefix` unions, so this is format work (loader, codegen,
@@ -1485,7 +1503,8 @@ Agents append here when they need a change in a crate they do not own.
   `04A750` (16 -> 12); `ACPT` on magazines `12D03F` (+5 -> +2), `087D4B` (+30, owner to
   confirm), `132C4A`/`132C49`/`132C48` (+8/+4/+16 -> +4/+2/+8). Details:
   `docs/overhaul/build-1.md`, "Why partial or open".
-- **Lane E (M3.E9) -> owner.** Brief row B8 has no counterpart in the records (no
+- ~~**Lane E (M3.E9) -> owner.**~~ Answered 2026-10-15 (B8 dropped; B11 base 18; B12 as
+  built; `docs/overhaul/build-2.md`). Brief row B8 has no counterpart in the records (no
   automatic receiver OMOD carries a damage property); please restate it
   (`docs/overhaul/build-1.md`, B8). B11 and B12 also need a reading: which magazine
   "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
@@ -1503,7 +1522,8 @@ Agents append here when they need a change in a crate they do not own.
   - Update `crates/schema/defs/README.md`, rerun `cargo xtask codegen` and regenerate
     `docs/record-parity.md`.
   - Close the `docs/gaps.md` TES4 DATA/INTV row in the same commit.
-- **Plan maintainer -> lane E (overhaul build 2, M3.E9 rerun).** Lane B round 4 typed
+- ~~**Plan maintainer -> lane E (overhaul build 2, M3.E9 rerun).**~~ Done 2026-10-15
+  (`docs/overhaul/build-2.md`; owner row 3 now waits on the in-game check). Lane B round 4 typed
   `ObjectModProperty.Value1` (paths `DATA.Properties[n].Value1.Float` etc.). Rebuild
   `docs/overhaul/overhaul.toml` with the `WSPS`/`ACPT` rules named in "Lane E (M3.E9) ->
   lane B (M3.B9)" above, and fold in the owner's B8/B11/B12 answers when they come. Then hand the

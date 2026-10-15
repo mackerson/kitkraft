@@ -1,10 +1,15 @@
-# KitKraft gun overhaul, build 1 (M3.E9): the owner's brief (docs/overhaul/brief.md, rows
-# B1..B14) as a `build` spec v2. Every class and every rule names its brief row.
+# KitKraft gun overhaul (M3.E9): the owner's brief (docs/overhaul/brief.md, rows B1..B14)
+# as a `build` spec v2. Every class and every rule names its brief row.
 #
 #   kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm --plan
 #   kit build docs\overhaul\overhaul.toml C:\Modding\kitkraft\out\overhaul\KitKraftGunOverhaul.esm [--overwrite]
 #
-# Report, per row status and the reasons: docs/overhaul/build-1.md. Plan: build-1-plan.md.
+# Report, per row status and the reasons: docs/overhaul/build-2.md (plan: build-2-plan.md;
+# build 1: build-1.md). Build 2 adds the OMOD property values lane B round 4 typed
+# (`DATA.Properties[n].Value1.Float` / `.Int`; a path is refused unless the entry's
+# ValueType selects that variant): the default receivers' fire rate (B3, B6, B11) and the
+# Hard Target's large magazine (B10). The property index n of each was read from the
+# record with `kit inspect` (2026-10-15) and the fixture test pins every before value.
 #
 # How the targets were found (2026-10-14, `kit query` / `kit inspect` on the `KitKraft Dev`
 # profile; every one wins in Starfield.esm except the hunting rifle, whose winner there is
@@ -33,6 +38,15 @@
 #   AMDL  Starfield.esm:2BF29F  Drumbeat_FA_AM       (set by the default full-auto receiver OMOD only)
 #   LVLI  Starfield.esm:00E841  LLW_Ammo_Beowulf     (one entry: LL_Ammo_777mm)
 #   LVLI  Starfield.esm:12F0CE  LLW_Ammo_Kraken      (one entry: LL_Ammo_65mm)
+#   OMOD  Starfield.esm:077F13  mod_Maelstrom_Receiver_FullAuto_Standard  (Properties[1] WSPS Float SET 7.5)
+#   OMOD  Starfield.esm:057555  mod_Lawgiver_Receiver_SemiAuto_Standard   (Properties[1] WSPS Float SET 1.0)
+#   OMOD  Starfield.esm:04A750  mod_Drumbeat_Receiver_FullAuto_Standard   (Properties[1] WSPS Float SET 16)
+#   OMOD  Starfield.esm:12D03F  mod_HardTarget_Mag_L                      (Properties[0] ACPT Int ADD 5)
+#   OMOD  Starfield.esm:132C4A, 132C49, 132C48  mod_Shotty_Mag_L, _Extended, _XL  (ACPT Int ADD 8, 4, 16)
+#   OMOD  Starfield.esm:087D4B  mod_Drumbeat_Mag_Drum_Standard            (Properties[0] ACPT Int ADD 30; untouched)
+#
+# Those receivers are the weapons' defaults and set FORF (override rate of fire) = true, so
+# their WSPS replaces the WEAP rate on a stock gun: both are scaled by the same factor.
 #
 # Base weapons only: the NPC-only variants (Crew_Elite_*, Companion_Lawgiver) and the
 # research-menu dummies (NOCLUTTER_*) keep vanilla values; Crew_Elite_Tombstone shares
@@ -87,7 +101,7 @@ note = "Maelstrom (2984DF): capacity 40, BaseDamage 4, 7.59 shots/s"
 [[rule]]
 class = "b3_maelstrom"
 brief = "B3"
-note = "24-round base magazine; damage x1.35; fire rate x0.75 (the default receiver's WSPS is opaque: see build-1.md)"
+note = "24-round base magazine; damage x1.35; fire rate x0.75 (the default receiver's rate: next class)"
 fields = { "WAM2.AmmoCapacity" = 24, "WDMG.BaseDamage" = { mul = 1.35 }, "WFIR.ShotsPerSecond" = { mul = 0.75 }, "WFIR.AttackDelaySeconds" = { mul = 1.3333333333333333 }, "WFIR.AttackAnimationDuration" = { mul = 1.3333333333333333 } }
 
 [[rule]]
@@ -96,6 +110,18 @@ brief = "B3"
 via = ["WAIM.AimModel"]
 note = "recoil kick x1.5 on Maelstrom_FA_AM (1B01CA), used only by the Maelstrom and its full-auto receiver"
 fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.5 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.5 } }
+
+[class.b3_maelstrom_receiver]
+type = "OMOD"
+where = 'EDID == "mod_Maelstrom_Receiver_FullAuto_Standard"'
+brief = "B3"
+note = "077F13, the Maelstrom's default (full-auto) receiver: FORF true, Properties[1] WSPS SET 7.5"
+
+[[rule]]
+class = "b3_maelstrom_receiver"
+brief = "B3"
+note = "the receiver's override rate of fire x0.75 like the WEAP's: 7.5 -> 5.625 shots/s"
+fields = { "DATA.Properties[1].Value1.Float" = { mul = 0.75 } }
 
 # B4 ---------------------------------------------------------------------------------------
 [class.b4_kraken]
@@ -136,6 +162,18 @@ brief = "B6"
 note = "x1.5625 rather than x1.5: x1.5 gives a 0.667 s delay, above the row's 0.65 s; 0.64 s meets both"
 fields = { "WFIR.ShotsPerSecond" = { mul = 1.5625 }, "WFIR.AttackDelaySeconds" = { mul = 0.64 }, "WFIR.AttackAnimationDuration" = { mul = 0.64 } }
 
+[class.b6_lawgiver_receiver]
+type = "OMOD"
+where = 'EDID == "mod_Lawgiver_Receiver_SemiAuto_Standard"'
+brief = "B6"
+note = "057555, the Lawgiver's default receiver: FORF true, Properties[1] WSPS SET 1.0"
+
+[[rule]]
+class = "b6_lawgiver_receiver"
+brief = "B6"
+note = "the receiver's override rate of fire x1.5625 like the WEAP's: 1.0 -> 1.5625 shots/s (0.64 s between shots)"
+fields = { "DATA.Properties[1].Value1.Float" = { mul = 1.5625 } }
+
 # B7 ---------------------------------------------------------------------------------------
 [class.b7_tombstone]
 type = "WEAP"
@@ -156,14 +194,9 @@ note = "recoil kick x1.5 on Tombstone_FA_AM (11287A), shared only with Crew_Elit
 fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.5 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.5 } }
 
 # B8 ---------------------------------------------------------------------------------------
-# Open: the six automatic receivers carry no damage property (they set FORF, WSPS, WAIM,
-# WTMC and keywords; their shared template 1341F4 sets FTYP, GVAL, keywords and an actor
-# value), so there is no per-shot penalty to reduce. The class lists them; no rule.
-[class.b8_automatic_receivers]
-type = "OMOD"
-where = 'EDID == "mod_Grendel_Receiver_FullAuto_Standard" or EDID == "mod_Beowulf_Receiver_FullAuto" or EDID == "mod_Maelstrom_Receiver_FullAuto_Standard" or EDID == "mod_Drumbeat_Receiver_FullAuto_Standard" or EDID == "mod_AA99_Receiver_FullAuto_Standard" or EDID == "mod_Kodama_Receiver_FullAuto_Standard"'
-brief = "B8"
-note = "0191EF, 13136D, 077F13, 04A750, 08E0FD, 04A7AC: no damage property to change (open)"
+# Dropped by the owner (2026-10-15; brief.md row B8): the six automatic receivers
+# (0191EF, 13136D, 077F13, 04A750, 08E0FD, 04A7AC) carry no damage property, so there was
+# no per-shot penalty to reduce. No class and no rule; build-2.md lists what they carry.
 
 # B9 ---------------------------------------------------------------------------------------
 [class.b9_beowulf]
@@ -179,13 +212,17 @@ note = "re-chambered to 6.5mm CT; NPC ammo list swapped to the 6.5mm one; 20-rou
 fields = { "WAM2.AmmoType" = "Starfield.esm:2B5590", "WAM2.AmmoList" = "Starfield.esm:12F0CE", "WAM2.AmmoCapacity" = 20 }
 
 # B10 --------------------------------------------------------------------------------------
-# Open: the large magazine adds its capacity through an OMOD property whose value is opaque
-# in the schema (ACPT, Int, ADD +5 on a base of 5). The class lists it; no rule.
 [class.b10_hard_target_large_mag]
 type = "OMOD"
 where = 'EDID == "mod_HardTarget_Mag_L"'
 brief = "B10"
-note = "12D03F: ACPT ADD 5 (total 10); the target (total 7) needs ADD 2 (open)"
+note = "12D03F (Large Magazine): Properties[0] ACPT Int ADD 5 on the Hard Target's base 5 (total 10)"
+
+[[rule]]
+class = "b10_hard_target_large_mag"
+brief = "B10"
+note = "ADD 5 -> 2: total 7"
+fields = { "DATA.Properties[0].Value1.Int" = 2 }
 
 # B11 --------------------------------------------------------------------------------------
 [class.b11_drum_beat]
@@ -197,7 +234,7 @@ note = "Drum Beat (18DE2C): capacity 30 (+30 from the default drum OMOD), BaseDa
 [[rule]]
 class = "b11_drum_beat"
 brief = "B11"
-note = "18-round base magazine; damage x1.5; fire rate x0.75 (the default receiver's WSPS and the drum's ACPT are opaque: see build-1.md)"
+note = "18-round base magazine (owner, 2026-10-15: the base; the default drum's ADD 30 is untouched, so 48 with it); damage x1.5; fire rate x0.75 (the default receiver's rate: below)"
 fields = { "WAM2.AmmoCapacity" = 18, "WDMG.BaseDamage" = { mul = 1.5 }, "WFIR.ShotsPerSecond" = { mul = 0.75 }, "WFIR.AttackDelaySeconds" = { mul = 1.3333333333333333 }, "WFIR.AttackAnimationDuration" = { mul = 1.3333333333333333 } }
 
 [[rule]]
@@ -219,6 +256,18 @@ brief = "B11"
 note = "recoil kick x1.6"
 fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.6 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.6 } }
 
+[class.b11_drum_beat_receiver]
+type = "OMOD"
+where = 'EDID == "mod_Drumbeat_Receiver_FullAuto_Standard"'
+brief = "B11"
+note = "04A750, the Drum Beat's default (full-auto) receiver: FORF true, Properties[1] WSPS SET 16"
+
+[[rule]]
+class = "b11_drum_beat_receiver"
+brief = "B11"
+note = "the receiver's override rate of fire x0.75 like the WEAP's: 16 -> 12 shots/s"
+fields = { "DATA.Properties[1].Value1.Float" = { mul = 0.75 } }
+
 # B12 --------------------------------------------------------------------------------------
 [class.b12_shotty]
 type = "WEAP"
@@ -231,13 +280,16 @@ class = "b12_shotty"
 brief = "B12"
 fields = { "WAM2.AmmoCapacity" = 6 }
 
-# Open: the larger magazines add capacity through opaque OMOD property values (ACPT, Int,
-# ADD: L +8, Extended +4, XL +16 on a base of 12). The class lists them; no rule.
+# The larger magazines add capacity (ACPT, Int, ADD): Large 132C4A +8, Extended 132C49 +4,
+# Extra Large 132C48 +16. With the base at 6 the Large Magazine holds 6 + 8 = 14, the
+# row's number, at its vanilla value, so no rule writes it (an override equal to its
+# master would change nothing); the Extended holds 10 and the Extra Large 22, left as
+# they are (owner, 2026-10-15: keep as built). The class lists the three; no rule.
 [class.b12_shotty_magazines]
 type = "OMOD"
 where = 'EDID == "mod_Shotty_Mag_L" or EDID == "mod_Shotty_Mag_Extended" or EDID == "mod_Shotty_Mag_XL"'
 brief = "B12"
-note = "132C4A, 132C49, 132C48: halving needs ADD +4, +2, +8 (XL total 14) (open)"
+note = "132C4A, 132C49, 132C48: ADD 8, 4, 16 on base 6 = 14 (Large, the row's 14), 10, 22 (no change)"
 
 # B13 --------------------------------------------------------------------------------------
 [class.b13_breach]
