@@ -49,9 +49,9 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 1: 8 implemented, 4 partial, 2 open. Build 2 (2026-10-15, `docs/overhaul/build-2.md`): the OMOD values lane B round 4 typed and the owner's answers; 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
 | Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Row 3 above (build 2) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 reruns as members get typed. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, A5 (structure-aware mutation, 2026-10-15), D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 rerun 2026-10-15 on every record of the 12 typed types (lane H): 149,454 agree, 2,825 agree with fewer xEdit fields, 190 disagree (X9, version skew), 0 ours. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, A5 (structure-aware mutation, 2026-10-15), D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). M3.F5 is not built, by that decision |
 | `cargo xtask ci` green; corpus roundtrip identical; parity regenerated; STATUS says M4 | **done** at `01c77d8` | Gates as recorded at the lane B round 4 merge (`39ca2a2` regenerated parity). STATUS: this section |
 
@@ -1213,6 +1213,20 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   byte-identical); X8, non-UTF-8 strings shown as Windows-1252. Gates: `cargo xtask ci`,
   `codegen --check`, `parity --check`, and the ignored release corpus tests of esm, doc and
   engine (roundtrip identical, typed corpus, `validate_corpus_official_files`) all pass.
+- **M3.A5 structure-aware mutation (lane A, 2026-10-15).** `crates/esm/tests/common/mutate.rs`
+  walks the parsed tree and mutates record/group/subrecord sizes, `XXXX` fields,
+  decompressed-size prefixes, flags (compressed, deleted), form versions, group labels and
+  types and the `HEDR` count, plus size-consistent splices (duplicated or dropped subrecords
+  and entries, 1-70 extra group levels, recompressed bodies, a subrecord bomb), seeded
+  xorshift64*. Every input goes through parse, decode, plain, strict-decode and typed
+  roundtrips and the index; errors must be typed, in the input, not before the mutated
+  entry, never `Internal`; parseable input must roundtrip byte-identically. `cargo test`
+  runs 400 per fixture and 100 per small file; the `#[ignore]`d full run does 2,000 per
+  input (the five `SMALL` files and two fixtures, as the lane brief set; the plan row's
+  100,000 per file ran once with `KITKRAFT_MUTATIONS=100000`: 700,000 inputs, 24.7 min,
+  clean, recorded in `docs/corpus.md`). No panic or
+  allocation blow-up found, so no parser change; results in `docs/corpus.md`, "Hostile
+  input"; `docs/gaps.md` fuzzing row restated (cargo-fuzz still needs nightly).
 - **Lane W, M4.W1..W6 (read-only workbench, 2026-10-15; the owner started it the same
   day).**
   - What exists:
