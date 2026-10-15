@@ -179,11 +179,82 @@ fn check_flag(task: &str) -> Result<bool> {
     }
 }
 
+/// The checkout this run checks, resolved at run time and printed.
+///
+/// A target dir shared between worktrees can hold an xtask binary built from another
+/// checkout; its compile-time `CARGO_MANIFEST_DIR` would then point the checks at the
+/// wrong tree. The root comes from the runtime `CARGO_MANIFEST_DIR` (`cargo run`, so
+/// `cargo xtask`, sets it to the xtask package being run), else from
+/// `cargo locate-project --workspace` in the working directory; a binary whose embedded
+/// root differs is refused as stale.
 fn workspace_root() -> Result<PathBuf> {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
+    let embedded = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let runtime = std::env::var_os("CARGO_MANIFEST_DIR")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from);
+    let cwd = std::env::current_dir().context("no working directory")?;
+    let root = resolve_root(embedded, runtime.as_deref(), &cwd)?;
+    println!("xtask: workspace root {}", root.display());
+    Ok(root)
+}
+
+/// The workspace root for an xtask built from `embedded_xtask`, run as `runtime_xtask`
+/// (the runtime `CARGO_MANIFEST_DIR`) or, without one, from `cwd`. Fails when the two
+/// roots differ (a stale binary from another checkout).
+fn resolve_root(
+    embedded_xtask: &Path,
+    runtime_xtask: Option<&Path>,
+    cwd: &Path,
+) -> Result<PathBuf> {
+    let embedded_root = embedded_xtask
+        .parent()
+        .context("xtask has no parent directory")?;
+    let runtime_root = match runtime_xtask {
+        Some(dir) => dir
+            .parent()
+            .map(Path::to_path_buf)
+            .context("CARGO_MANIFEST_DIR has no parent directory")?,
+        None => locate_workspace(cwd)?,
+    };
+    if !same_dir(embedded_root, &runtime_root) {
+        bail!(
+            "stale xtask binary: built from {} but run for {}; rebuild it from this checkout \
+             (`cargo xtask` does) or use a target dir of your own",
+            embedded_root.display(),
+            runtime_root.display()
+        );
+    }
+    Ok(runtime_root)
+}
+
+/// The directory of the workspace manifest above `cwd` (`cargo locate-project`).
+fn locate_workspace(cwd: &Path) -> Result<PathBuf> {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let output = Command::new(&cargo)
+        .args(["locate-project", "--workspace", "--message-format", "plain"])
+        .current_dir(cwd)
+        .output()
+        .with_context(|| format!("could not start `{cargo} locate-project`"))?;
+    if !output.status.success() {
+        bail!(
+            "`cargo locate-project --workspace` failed in {}: {}",
+            cwd.display(),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    let manifest = PathBuf::from(String::from_utf8_lossy(&output.stdout).trim());
+    manifest
         .parent()
         .map(Path::to_path_buf)
-        .context("xtask has no parent directory")
+        .context("workspace manifest has no parent directory")
+}
+
+/// Whether `a` and `b` name the same directory (canonical when both exist).
+fn same_dir(a: &Path, b: &Path) -> bool {
+    match (fs::canonicalize(a), fs::canonicalize(b)) {
+        (Ok(a), Ok(b)) => a == b,
+        _ => a == b,
+    }
 }
 
 fn ci(root: &Path) -> Result<()> {
@@ -561,5 +632,66 @@ ignored = "1"
         let mut names = dependency_names(&manifest, &ws);
         names.sort();
         assert_eq!(names, ["other", "plain", "real-name", "winonly"]);
+    }
+
+    /// A minimal workspace (root manifest, `xtask` package) in a scratch directory: a
+    /// second checkout, as a worktree sharing the target dir would be.
+    fn scratch_checkout(tag: &str) -> std::path::PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("kitkraft-xtask-root-{tag}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(dir.join("xtask").join("src")).unwrap();
+        std::fs::write(
+            dir.join("Cargo.toml"),
+            "[workspace]\nmembers = [\"xtask\"]\nresolver = \"2\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("xtask").join("Cargo.toml"),
+            "[package]\nname = \"xtask\"\nversion = \"0.0.0\"\nedition = \"2021\"\n",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("xtask").join("src").join("main.rs"),
+            "fn main() {}\n",
+        )
+        .unwrap();
+        dir
+    }
+
+    #[test]
+    fn the_root_comes_from_the_runtime_manifest_dir_not_the_binary() {
+        let this = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = super::resolve_root(this, Some(this), this).unwrap();
+        assert!(
+            root.join("xtask").join("Cargo.toml").is_file(),
+            "{}",
+            root.display()
+        );
+
+        // A binary built here, run for another checkout: refused, naming both roots.
+        let other = scratch_checkout("runtime");
+        let err = super::resolve_root(this, Some(&other.join("xtask")), this)
+            .unwrap_err()
+            .to_string();
+        let _ = std::fs::remove_dir_all(&other);
+        assert!(err.contains("stale xtask binary"), "{err}");
+        assert!(err.contains(&other.display().to_string()), "{err}");
+    }
+
+    #[test]
+    fn without_a_manifest_dir_the_working_directory_locates_the_workspace() {
+        let this = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let here = super::resolve_root(this, None, this).unwrap();
+        assert!(super::same_dir(&here, this.parent().unwrap()));
+
+        let other = scratch_checkout("cwd");
+        let located = super::locate_workspace(&other.join("xtask").join("src"))
+            .map(|root| super::same_dir(&root, &other));
+        let refused = super::resolve_root(this, None, &other.join("xtask"));
+        let _ = std::fs::remove_dir_all(&other);
+        assert!(located.unwrap(), "locate-project found another root");
+        let err = refused.unwrap_err().to_string();
+        assert!(err.contains("stale xtask binary"), "{err}");
     }
 }
