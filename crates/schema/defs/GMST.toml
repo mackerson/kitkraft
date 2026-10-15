@@ -1,25 +1,35 @@
-# GMST: a game setting. EDID (universal, M2.B2) and the DATA value (M2.B9) are typed; XALG
-# stays opaque.
+# GMST: a game setting. EDID (universal, M2.B2), the DATA value (M2.B9) and XALG (lane B
+# round 5, M3.B6) are typed.
 #
 # Sources (ADR 0005):
+#   xedit: the GMST definition of wbDefinitionsSF1.pas at the pinned revision
+#     (L12355-L12366): member order EDID, XALG, DATA; XALG a 64-bit flag set (its bit names
+#     are marked unverified upstream, so it is kept as a plain integer, as in the other
+#     records that have XALG); DATA a union chosen by the EditorID's first letter (the
+#     decider in wbDefinitionsCommon.pas L5887-L5911: s string, i signed, f float,
+#     b boolean, u unsigned). Upstream reads any other letter as a signed integer; this
+#     definition keeps such a DATA raw instead (no corpus record has one).
 #   corpus: scan of the GMST top groups of the 14 official ESMs (2026-10-14): 2,418 records
 #     (Starfield.esm 2,312, SFBGS004.esm 52, ShatteredSpace.esm 28, SFBGS00D.esm 26), form
 #     versions 581/582, shapes "EDID DATA" (2,396) and "EDID XALG DATA" (22). Every record
 #     has an EDID; its first byte is one of b (7 records), f (1,227), i (94), s (1,054),
-#     u (36); every DATA is 4 bytes; every b value is 0 or 1. All 14 files are localized.
+#     u (36); every DATA is 4 bytes; every b value is 0 or 1; every XALG is 8 bytes. All 14
+#     files are localized. `cargo xtask parity` 2026-10-15 (lane B round 5): all 2,418
+#     records decode through this definition with 0 failed occurrences and 0 re-encode
+#     differences.
 #   uesp-skyrim: the Skyrim GMST page says the DATA type follows the first character of
 #     the EditorID (the shared convention, here only a hypothesis for Starfield).
 #   uesp-starfield: the Starfield GMST page names the letters: b boolean (0 or 1 in an
 #     integer), f float, i signed integer, s string (an lstring ID), u unsigned integer, and
-#     DATA as always 4 bytes; it names no forbidden source. Level 4: it supplies the
-#     letter-to-type names; the corpus confirms sizes and letters on every record.
-#
-# The pinned xEdit definition (level 2) is not cited yet: it has not been read in this
-# round. XALG (8 bytes, 22 records) has no sourced field names and stays opaque.
+#     DATA as always 4 bytes. Level 4: it agrees with the xEdit decider.
 signature = "GMST"
 name = "GameSetting"
 source = "corpus: GMST records of the 14 official ESMs (4 files have a GMST group), scan 2026-10-14"
 confidence = "corpus"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12355-L12366",
+  "corpus: cargo xtask parity 2026-10-15 (lane B round 5): all 2,418 GMST records of the 14 official ESMs decode through this definition with 0 failed occurrences and 0 re-encode differences",
+]
 
 [[member]]
 sig = "EDID"
@@ -27,24 +37,31 @@ name = "EditorId"
 type = "zstring"
 note = "observed 4..71 bytes; its first byte selects the DATA layout"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12356-L12356",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
 
 [[member]]
 sig = "XALG"
-name = "Xalg"
-type = "opaque"
+name = "XalgFlags"
+type = "u64"
 card = "optional"
-note = "observed 8 bytes, in 22 records"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; 8 bytes, in 22 records"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12357-L12357",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3195-L3230",
+]
 
 [[member]]
 sig = "DATA"
 name = "Value"
 type = "union"
 decider = "edid-prefix"
-note = "4 bytes in every corpus record; a prefix no variant names keeps DATA raw"
+note = "4 bytes in every corpus record; a prefix no variant names keeps DATA raw (upstream would read it as a signed integer)"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12358-L12364",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5887-L5911",
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:Mod_File_Format/GMST",
   "uesp-starfield: https://starfieldwiki.net/wiki/Starfield_Mod:Mod_File_Format/GMST",
   "corpus: GMST scan 2026-10-14: EDID prefixes b/f/i/s/u only, every DATA 4 bytes, every b value 0 or 1",

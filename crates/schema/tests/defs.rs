@@ -301,37 +301,51 @@ fn typed_leaves(rec: &kitkraft_schema::RecordDef) -> Vec<String> {
         .collect()
 }
 
-/// The record types still described by a corpus inventory (M2.B2) type only sourced
-/// members: the universal subrecords, the layouts M2.B9 sourced, and the base form
-/// component frame from the shared `BfcbBlock`; everything else stays opaque until lane B
-/// round 3 transcribes the type.
+/// The record type still described by a corpus inventory (M2.B2), GLOB, types only sourced
+/// members: the universal subrecords, the layout M2.B9 sourced, and the base form
+/// component frame from the shared `BfcbBlock`. KYWD and GMST were inventories until M3.B6
+/// (lane B round 5) transcribed them from the pinned xEdit file: every member upstream
+/// gives a layout is typed; KYWD VMAD (script unions) and FNAM (no upstream layout) stay
+/// opaque.
 #[test]
 fn inventory_definitions_type_only_sourced_members() {
     let schema = builtin().unwrap();
-    let expected: [(&str, &[&str]); 3] = [
-        ("GMST", &["EditorId", "Value"]),
-        (
-            "GLOB",
-            &[
-                "EditorId",
-                "BfcbBlock.ComponentType",
-                "BfcbBlock.EndMarker",
-                "Value",
-            ],
-        ),
+    let glob = schema.record(sig("GLOB")).unwrap();
+    assert!(glob.provenance.source.starts_with("corpus: "));
+    assert_eq!(
+        typed_leaves(glob),
+        [
+            "EditorId",
+            "BfcbBlock.ComponentType",
+            "BfcbBlock.EndMarker",
+            "Value",
+        ]
+    );
+    let expected: [(&str, &[&str]); 2] = [
+        ("GMST", &["EditorId", "XalgFlags", "Value"]),
         (
             "KYWD",
             &[
                 "EditorId",
                 "BfcbBlock.ComponentType",
                 "BfcbBlock.EndMarker",
+                "Color",
+                "Notes",
+                "KeywordType",
+                "AttractionRule",
+                "FlashLinkageName",
                 "Name",
             ],
         ),
     ];
     for (s, typed) in expected {
         let rec = schema.record(sig(s)).unwrap();
-        assert!(rec.provenance.source.starts_with("corpus: "), "{s}");
+        assert!(
+            rec.provenance
+                .citations()
+                .any(|c| c.starts_with("xedit: wbDefinitionsSF1.pas@")),
+            "{s}"
+        );
         assert_eq!(typed_leaves(rec), typed, "{s}");
     }
     // The component data inside a BFCB block is a union decided by the component type

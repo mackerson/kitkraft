@@ -398,9 +398,15 @@ mod tests {
             .map(|m| m.path)
             .collect();
         assert_eq!(glob, ["FLTV"]);
-        let gmst = numeric_members(builtin, *b"GMST");
-        assert_eq!(gmst.len(), 1);
-        assert_eq!((gmst[0].path.as_str(), gmst[0].kind), ("DATA", "union"));
+        // GMST XALG is a plain u64 since M3.B6 (lane B round 5).
+        let gmst: Vec<(String, &str)> = numeric_members(builtin, *b"GMST")
+            .into_iter()
+            .map(|m| (m.path, m.kind))
+            .collect();
+        assert_eq!(
+            gmst,
+            [("XALG".to_string(), "int"), ("DATA".to_string(), "union")]
+        );
         let weap: Vec<String> = numeric_members(builtin, *b"WEAP")
             .into_iter()
             .map(|m| m.path)

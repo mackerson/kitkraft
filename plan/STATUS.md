@@ -38,7 +38,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | Criterion (`plan/execution-plan.md`) | State | Tasks and evidence |
 | ------------------------------------ | ----- | ------------------ |
 | Round 3 types (WEAP AMMO PROJ AMDL OMOD COBJ ZOOM LVLI FLST INNR) typed, sourced, with a confidence; 0 conflicts on all 14 files; 105 lstring signatures typed | **done** | M3.B1..B5, B7, B8; merged in M4.BX1. Parity: failed 0, 0 typed conflicts. Round 4 typed the OMOD property values (sibling-field unions) |
-| KYWD and GMST remainders typed | **carried** | M3.B6, lane B. KYWD/GMST have no `xedit:` citation yet (`docs/gaps.md` KYWD row) |
+| KYWD and GMST remainders typed | **done** | M3.B6, lane B round 5: KYWD from the pinned xEdit file (L13297-L13312): CNAM `ColorRgba`, DNAM/ENAM zstrings, TNAM `u32` (as LCRT), DATA FormID (AORU), VMAD at `reference`, FNAM opaque (upstream gives no layout); GMST XALG `u64` (L12357) and the DATA decider cited (Common L5887-L5911). Parity: KYWD 22,948 and GMST 4,858 decoded occurrences, 0 failed, 0 re-encode differences; `docs/gaps.md` row closed |
 | Staged xEdit files deleted and recorded | **carried** | To the end of M4. The schema family lanes still transcribe from `C:\Modding\tools\xedit-ref\` (lane B round 5 too) |
 | `docs/ck-observations.md` entries for every M3.O1 fixture; M3.H3 targets answered; TES4 `SNAM`/`BNAM`/`CHGL` settled; CK fixtures roundtrip (M3.A4) | **carried** | M3.O1, H3, A4. The owner deferred the CK session until the workbench exists (M4.W2..W5). Lane H's side is ready (M3.H1, M3.H2) |
 | The 160 recompression misses settled or restated with evidence | **done** (restated) | M3.A1: classified E/N/U with the study in `docs/gaps.md`. F07 still checks it in the CK (carried with M3.O1) |

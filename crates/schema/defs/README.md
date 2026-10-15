@@ -221,7 +221,7 @@ Fields take `name`, `type`, the type keys, and:
   reached (a trailing field that some occurrences omit). A partial value is a decode error,
   so the whole subrecord stays raw. It must be the last field; nest a struct for a trailing
   group of fields. Use it only when the field split is a sourced fact, not just because a
-  subrecord occurs with two sizes (WEAP `DAMA` and KYWD `DNAM`/`ENAM` stay opaque for
+  subrecord occurs with two sizes (WEAP `DAMA` stays opaque for
   that reason).
 - `note`.
 
@@ -414,9 +414,9 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `TES4.toml` | record    | uesp-skyrim TES4 page + corpus           | HEDR/CNAM/SNAM/MAST/DATA/ONAM/INTV/INCC typed (DATA and INTV `container-reference`: no Starfield occurrence); TNAM/BNAM/CHGL opaque |
 | `GRUP.toml` | header    | uesp-skyrim Mod File Format page + corpus | Fully typed (label kept as 4 raw bytes)  |
 | `RECORD.toml` | header (no signature) | uesp-skyrim Mod File Format page + corpus | Fully typed; only the Compressed flag is named |
-| `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
+| `GMST.toml` | record | corpus scan + xEdit at the pin + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG as `u64` (M3.B6) |
 | `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB blocks |
-| `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
+| `KYWD.toml` | record | xEdit at the pin + corpus (M3.B6) | Every member typed except VMAD (script unions) and FNAM (no upstream layout); TNAM a plain `u32` as in LCRT |
 | `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union the format cannot express (VMAD, BFCB component data, CTDA, LVLI COED owner data; OMOD property values are field unions since lane B round 4) or does not describe it (WEAP MO4C, OMOD XFLG) |
 | 39 more `<SIG>.toml` (ACTI ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
 | `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
@@ -455,7 +455,7 @@ xEdit folds into its string and array types (a u32 before OMOD's name, PROJ's pa
 defines and OMOD's attach parent slots; a u8 before a template item's keywords) are written
 as explicit count fields with a `count_from` array.
 
-Opaque inventory members are named after their signature (`Dnam`, `Xalg`). These are
+Opaque inventory members are named after their signature (`Fnam`, `Bnam`). These are
 placeholders: giving a member a real name later is a breaking change for queries.
 
 ## Example

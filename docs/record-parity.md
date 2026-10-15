@@ -6,7 +6,7 @@
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 86 record definitions, defs hash `fnv1a64:041c5b9d74256fe2` (the hash named in
+- Schema: 86 record definitions, defs hash `fnv1a64:0897f5cb4d97650a` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -45,7 +45,7 @@ Columns:
 | `SCEN`        | Scene                   |     9,673 |          0 |    89 |    40 |      1 |      48 |
 | `NPC_`        | Npc                     |     8,447 |      8,447 |    92 |    88 |      2 |       2 |
 | `LCTN`        | Location                |     7,316 |          0 |    29 |    29 |      0 |       0 |
-| `KYWD`        | Keyword                 |     6,965 |          0 |    12 |     4 |      6 |       2 |
+| `KYWD`        | Keyword                 |     6,965 |          0 |    12 |     9 |      1 |       2 |
 | `LVLI`        | LeveledItem             |     6,543 |          0 |    22 |    21 |      1 |       0 |
 | `AVMD`        | -                       |     6,530 |          0 |    15 |     0 |      0 |      15 |
 | `LCRT`        | LocationRefType         |     4,779 |          0 |     8 |     5 |      1 |       2 |
@@ -57,7 +57,7 @@ Columns:
 | `MESG`        | Message                 |     2,671 |          0 |    13 |     5 |      0 |       8 |
 | `QUST`        | Quest                   |     2,610 |          0 |    93 |    90 |      2 |       1 |
 | `PGRE`        | -                       |     2,599 |          0 |    10 |     0 |      0 |      10 |
-| `GMST`        | GameSetting             |     2,418 |          0 |     3 |     2 |      1 |       0 |
+| `GMST`        | GameSetting             |     2,418 |          0 |     3 |     3 |      0 |       0 |
 | `PCCN`        | PlanetContentNode       |     2,148 |          0 |    25 |     8 |      0 |      17 |
 | `MSTT`        | MoveableStatic          |     2,134 |          0 |    40 |    31 |      1 |       8 |
 | `ACTI`        | Activator               |     1,940 |          0 |    48 |    38 |      2 |       8 |
@@ -217,9 +217,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 86 defined              | 7,490,102 |    136,741 | 2,797 | 1,451 |     58 |   1,288 |
+| **186 types** | 86 defined              | 7,490,102 |    136,741 | 2,797 | 1,457 |     52 |   1,288 |
 
-Subrecord occurrences: 50,419,561 in total; 46,249,514 typed (0 of them failed to decode), 2,261,438 opaque, 1,908,609 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,264,200 typed (0 of them failed to decode), 2,246,752 opaque, 1,908,609 unknown.
 
 ## Decoded through the definitions
 
@@ -244,7 +244,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `SCEN`    | Scene                   |         9,673 |    872,488 |      0 |         0 |         0 |                   0 |    872,488 |       0 |        0 |
 | `NPC_`    | Npc                     |         8,447 |  1,112,656 |      0 |         0 |         0 |                   0 |  1,112,656 |       0 |        0 |
 | `LCTN`    | Location                |         7,316 |     78,402 |      0 |         0 |         0 |                   0 |     78,402 |       0 |        0 |
-| `KYWD`    | Keyword                 |         6,965 |      8,284 |      0 |         0 |         0 |                   0 |      8,284 |       0 |        0 |
+| `KYWD`    | Keyword                 |         6,965 |     22,948 |      0 |         0 |         0 |                   0 |     22,948 |       0 |        0 |
 | `LVLI`    | LeveledItem             |         6,543 |     80,308 |      0 |         0 |         0 |                   0 |     80,308 |       0 |        0 |
 | `LCRT`    | LocationRefType         |         4,779 |     14,349 |      0 |         0 |         0 |                   0 |     14,349 |       0 |        0 |
 | `PACK`    | Package                 |         4,578 |    225,093 |      0 |         0 |         3 |                   0 |    225,090 |       0 |        0 |
@@ -254,7 +254,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `GLOB`    | Global                  |         3,319 |      6,637 |      0 |         0 |         0 |                   0 |      6,637 |       0 |        0 |
 | `MESG`    | Message                 |         2,671 |      7,723 |      0 |         0 |         0 |                   0 |      7,723 |       0 |        0 |
 | `QUST`    | Quest                   |         2,610 |    365,844 |      0 |         0 |         0 |                   0 |    365,844 |       0 |        0 |
-| `GMST`    | GameSetting             |         2,418 |      4,836 |      0 |         0 |         0 |                   0 |      4,836 |       0 |        0 |
+| `GMST`    | GameSetting             |         2,418 |      4,858 |      0 |         0 |         0 |                   0 |      4,858 |       0 |        0 |
 | `PCCN`    | PlanetContentNode       |         2,148 |      8,636 |      0 |         0 |         0 |                   0 |      8,636 |       0 |        0 |
 | `MSTT`    | MoveableStatic          |         2,134 |     20,037 |      0 |         0 |       290 |                   0 |     19,747 |       0 |        0 |
 | `ACTI`    | Activator               |         1,940 |     22,681 |      0 |         0 |       384 |                   0 |     22,297 |       0 |        0 |
@@ -319,7 +319,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,258,537 | 46,249,514 |      0 |         0 |     1,527 |                   0 | 46,247,987 |       0 |        0 |
+| **Total** |                         |     7,258,537 | 46,264,200 |      0 |         0 |     1,527 |                   0 | 46,262,673 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -364,7 +364,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `GBFM`    | GenericBaseForm         |             17 |    15 |      2 |         0 |                   0 |     17 |       0 |        0 |
 | `GLOB`    | Global                  |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
-| `GMST`    | GameSetting             |              3 |     2 |      1 |         0 |                   0 |      3 |       0 |        0 |
+| `GMST`    | GameSetting             |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption          |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -373,7 +373,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `INNR`    | InstanceNamingRules     |             11 |    10 |      1 |         1 |                   0 |     10 |       0 |        0 |
 | `IRES`    | Resource                |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `KEYM`    | Key                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `KYWD`    | Keyword                 |             10 |     4 |      6 |         0 |                   0 |     10 |       0 |        0 |
+| `KYWD`    | Keyword                 |             11 |     9 |      2 |         1 |                   0 |     10 |       0 |        0 |
 | `LCRT`    | LocationRefType         |             11 |     9 |      2 |         5 |                   0 |      6 |       0 |        0 |
 | `LCTN`    | Location                |             40 |    38 |      2 |         8 |                   0 |     32 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
@@ -420,7 +420,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WEAP`    | Weapon                  |             64 |    62 |      2 |         9 |                   0 |     55 |       0 |        0 |
 | `WRLD`    | Worldspace              |             40 |    38 |      2 |         7 |                   0 |     33 |       0 |        0 |
 | `ZOOM`    | Zoom                    |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
-| **Total** |                         |          2,065 | 1,971 |     94 |       249 |                   2 |  1,814 |       0 |        0 |
+| **Total** |                         |          2,066 | 1,977 |     89 |       250 |                   2 |  1,814 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
