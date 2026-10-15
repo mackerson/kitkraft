@@ -1,0 +1,108 @@
+# WKMF: WwiseKeywordMapping, inventory definition (M4.BX2, lane B).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the M4.BX2 scan of every official WKMF record (81 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the WKMF definition of wbDefinitionsSF1.pas at the pinned revision (L19046-L19107),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared Keywords
+#     and BfcbBlock groups keep their own provenance.
+#   lane E's corpus lstring table: which subrecords are lstrings (M3.B8).
+#
+# An inventory: EDID, the lstrings, the keyword list and the component block frame are
+# typed; every other payload is opaque (named after its signature, a placeholder) until a
+# family lane transcribes the record from the pinned xEdit file (docs/gaps.md). Members
+# xEdit lists that no official record has are left out; a plugin that has one keeps it raw.
+signature = "WKMF"
+name = "WwiseKeywordMapping"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: every official WKMF record (81) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19046-L19107",
+]
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID, lstrings, keywords and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 16..51 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19047-L19047",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "WMTI"
+name = "Wmti"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 2 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19048-L19048",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "WMKA"
+name = "Wmka"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 4..8 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19057-L19057",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "WMSS"
+name = "Wmss"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (81 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19061-L19061",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+group = "SoundMapping"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (183 occurrences, up to 5 per record), 2 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19064-L19064",
+]
+confidence = "corpus"
+note = "one sound mapping: WMSI then WMSD; WMSS stores their number (kept as read)"
+
+[[member.member]]
+sig = "WMSI"
+name = "Wmsi"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (183 occurrences, up to 5 per record), 2 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19064-L19064",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.member]]
+sig = "WMSD"
+name = "Wmsd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 81 of 81 official WKMF records (183 occurrences, up to 5 per record), 44..108 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L19092-L19092",
+]
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"

@@ -581,6 +581,15 @@ const FAMILIES: &[(&str, &[&str])] = &[
 /// The family of record types no family lane owns.
 const OTHER_FAMILY: &str = "container/other";
 
+/// The M4.BX2 inventory definitions (corpus order and cardinality, EDID and lstrings typed,
+/// every other payload opaque): record types no family lane owns yet, so they count under
+/// [`OTHER_FAMILY`] until a lane takes one (a test checks each has a definition and sits in
+/// no family).
+const INVENTORY: &[&str] = &[
+    "DOOR", "LIGH", "IRES", "MESG", "LAYR", "RFGP", "PGRE", "PHZD", "WKMF", "LSCR", "SOUN", "WWED",
+    "ARTO", "TXST",
+];
+
 /// The family a record type belongs to.
 fn family_of(signature: &str) -> &'static str {
     FAMILIES
@@ -755,7 +764,13 @@ fn render(
          **Definitions** in the schema (with or without corpus records), **Records**, and\n\
          subrecord occurrences the definitions type, keep **Opaque**, or do not name\n\
          (**Unknown**). *container/other* holds every other type: TES4, GMST, GLOB, KYWD, the\n\
-         lstring-only definitions and the types without a definition.\n\n",
+         lstring-only definitions, the M4.BX2 inventory definitions and the types without a\n\
+         definition.\n\n",
+    );
+    let _ = writeln!(
+        out,
+        "M4.BX2 inventory definitions (in *container/other*): {}.\n",
+        INVENTORY.join(", ")
     );
     out.push_str(families);
     out.push_str("\n## Corpus and method\n\n");
@@ -913,7 +928,7 @@ fn render(
 mod tests {
     use super::{
         confidence_table, decoded_table, family_of, family_table, n, occurrence_check, table,
-        TypeAgg, CONFIDENCE, FAMILIES,
+        TypeAgg, CONFIDENCE, FAMILIES, INVENTORY,
     };
     use serde_json::json;
     use std::collections::BTreeMap;
@@ -1026,7 +1041,12 @@ mod tests {
         }
         assert_eq!(family_of("WEAP"), "weapons");
         assert_eq!(family_of("TES4"), "container/other");
-        assert_eq!(family_of("RFGP"), "container/other");
+        // The M4.BX2 inventories have definitions and no family lane yet.
+        for sig in INVENTORY {
+            assert_eq!(family_of(sig), "container/other", "{sig}");
+            let parsed = kitkraft_schema::Signature::parse(sig).unwrap();
+            assert!(schema.record(parsed).is_some(), "{sig} has no definition");
+        }
     }
 
     #[test]

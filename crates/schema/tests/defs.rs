@@ -147,14 +147,15 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "ANIO", "ARMO", "AVIF", "BIOM", "BOOK",
-            "BPTD", "CELL", "CHAL", "CLAS", "COBJ", "CONT", "CPTH", "DIAL", "DMGT", "DOOR", "ENCH",
-            "EXPL", "FACT", "FLOR", "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD",
-            "HDPT", "IDLE", "INFO", "INNR", "IRES", "KEYM", "KYWD", "LCRT", "LCTN", "LSCR", "LVLI",
-            "LVLN", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NAVM", "NPC_", "OMOD", "OTFT", "PACK",
-            "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT", "PNDT", "PROJ", "QUST", "RACE", "REFR",
-            "RSGD", "RSPJ", "SCEN", "SFBK", "SFPT", "SMBN", "SMEN", "SMQN", "SPEL", "STAT", "STDT",
-            "SUNP", "TERM", "TES4", "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
+            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "ANIO", "ARMO", "ARTO", "AVIF", "BIOM",
+            "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "COBJ", "CONT", "CPTH", "DIAL", "DMGT", "DOOR",
+            "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF",
+            "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES", "KEYM", "KYWD", "LAYR", "LCRT", "LCTN",
+            "LIGH", "LSCR", "LVLI", "LVLN", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NAVM", "NPC_",
+            "OMOD", "OTFT", "PACK", "PCBN", "PCCN", "PCMT", "PERK", "PGRE", "PHZD", "PKIN", "PMFT",
+            "PNDT", "PROJ", "QUST", "RACE", "REFR", "RFGP", "RSGD", "RSPJ", "SCEN", "SFBK", "SFPT",
+            "SMBN", "SMEN", "SMQN", "SOUN", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4", "TMLM",
+            "TRAV", "TXST", "WATR", "WEAP", "WKMF", "WRLD", "WWED", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -569,11 +570,70 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// the planet family; CELL, LCTN, REFR and WRLD from the world family; CHAL, DIAL, FACT,
 /// INFO and QUST from the quest family; CLAS, MGEF, NPC_, PERK, RACE and SPEL from the
 /// actor family; ACTI, CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
-/// items/workshop family).
+/// items/workshop family). DOOR, IRES, LSCR and MESG became M4.BX2 inventories
+/// ([`BX2_INVENTORY`]).
 const LSTRING_ONLY: &[&str] = &[
-    "ALCH", "AVIF", "BOOK", "BPTD", "DMGT", "DOOR", "ENCH", "EXPL", "FLOR", "FXPD", "GPOF", "HAZD",
-    "HDPT", "IRES", "KEYM", "LSCR", "MESG", "PMFT", "WATR",
+    "ALCH", "AVIF", "BOOK", "BPTD", "DMGT", "ENCH", "EXPL", "FLOR", "FXPD", "GPOF", "HAZD", "HDPT",
+    "KEYM", "PMFT", "WATR",
 ];
+
+/// The M4.BX2 inventory definitions: corpus order and cardinality for record types no
+/// family lane owns.
+const BX2_INVENTORY: &[&str] = &[
+    "ARTO", "DOOR", "IRES", "LAYR", "LIGH", "LSCR", "MESG", "PGRE", "PHZD", "RFGP", "SOUN", "TXST",
+    "WKMF", "WWED",
+];
+
+/// M4.BX2: an inventory types only EDID, the corpus table's lstrings, the shared keyword
+/// list and the base form component frame; every other member is opaque, cited to the
+/// corpus scan at `corpus` confidence (with the pinned xEdit line where upstream lists it).
+#[test]
+fn bx2_inventories_type_only_edid_lstrings_and_shared_blocks() {
+    let schema = builtin().unwrap();
+    for record in BX2_INVENTORY {
+        let rec = schema.record(sig(record)).unwrap();
+        assert!(
+            rec.provenance
+                .source
+                .starts_with("corpus: inventory_types_full"),
+            "{record}"
+        );
+        assert!(
+            rec.provenance
+                .citations()
+                .any(|c| c.starts_with("xedit: wbDefinitionsSF1.pas@")),
+            "{record} cites its xEdit definition"
+        );
+        let lstrings: BTreeSet<String> = CORPUS_LSTRINGS
+            .iter()
+            .filter(|(r, _)| r == record)
+            .map(|(_, s)| (*s).to_owned())
+            .collect();
+        assert_eq!(lstring_signatures(rec), lstrings, "{record}");
+        for (path, sub) in rec.leaf_subrecords() {
+            let shared = path.starts_with("Keywords.") || path.starts_with("BfcbBlock.");
+            let edid = sub.signature == sig("EDID");
+            let lstring = sub.ty == FieldType::LString;
+            assert!(
+                shared || edid || lstring || sub.ty.is_opaque(),
+                "{record}.{path} is typed"
+            );
+            if !shared {
+                assert_eq!(
+                    sub.provenance.confidence,
+                    kitkraft_schema::Confidence::Corpus,
+                    "{record}.{path}"
+                );
+                assert!(
+                    sub.provenance
+                        .source
+                        .starts_with("corpus: inventory_types_full"),
+                    "{record}.{path}"
+                );
+            }
+        }
+    }
+}
 
 /// Corpus-table lstrings that official records carry only inside a base form component
 /// (BFCB..BFCE): the component data is a union by component type and stays raw in a full

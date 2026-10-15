@@ -1307,6 +1307,22 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   `Record::set_typed`). Corpus re-encode unchanged (decode reads exactly the stored count).
   `docs/gaps.md` row restated to the residual: the engine's byte-level `kit set` on a
   `count_from` array or its count (lane E).
+- M4.BX2 inventory definitions (lane B, 2026-10-15) for the 14 record types no family
+  owns, from a scan of every official record (`crates/esm/tests/inventory_types.rs`;
+  `inventory_types_full` is ignored, release): corpus order and cardinality, EDID, the
+  corpus table's lstrings, `Keywords` and `BfcbBlock` typed, every other member opaque and
+  named after its signature, each citing the scan at `corpus` and the pinned xEdit line
+  (`crates/schema/defs/README.md`, "Inventory definitions"). PGRE and PHZD are `unordered`
+  (two orders in the corpus; xEdit L7113). DOOR, IRES, LSCR and MESG replace their M3.B8
+  lstring-only stubs (same lstrings; paths are now top-level, `MESG.MenuButton.ITXT`).
+  Records per type, every one placed, decoded and re-encoded identically: RFGP 169,006,
+  LAYR 10,424, MESG 2,671, PGRE 2,599, LIGH 1,723, SOUN 1,133, WWED 681, PHZD 450, LSCR
+  393, DOOR 376, IRES 333, ARTO 212, WKMF 81, TXST 23. Parity: 96 definitions;
+  container/other 77,174 typed, 467,889 opaque, 534,776 unknown (was 56,063 / 6,998 /
+  1,016,778); `INVENTORY` in `xtask/src/parity.rs` lists them. **Owners**: none assigned
+  yet; the matrix names the consumers (W2: LAYR, RFGP; W3: WKMF; W7/W8: IRES; W10: MESG).
+  Record an owner here when a family lane takes a type. Gaps row: `docs/gaps.md` (M4.BX2
+  inventories).
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64

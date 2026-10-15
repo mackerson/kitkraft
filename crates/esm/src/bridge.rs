@@ -574,12 +574,17 @@ mod tests {
     /// did not decode in any other type (AMMO here) went unreported.
     #[test]
     fn check_typed_reports_undecoded_payloads_of_every_defined_type() {
-        use crate::generated::records::RECORDS;
+        use crate::generated::records::{MemberDesc, RECORDS};
         let body = [sub(b"EDID", b"unterminated"), sub(b"DATA", &[0u8; 4])].concat();
-        for (sig, _) in RECORDS {
+        for (sig, members) in RECORDS {
             if *sig == *b"TES4" {
                 continue;
             }
+            // PGRE and RFGP (M4.BX2 inventories) have no EDID in any official record, so
+            // their definitions have no EDID member: the bad EDID stays unplaced, not failed.
+            let has_edid = members
+                .iter()
+                .any(|m| matches!(m, MemberDesc::Sub { sig, .. } if sig == b"EDID"));
             let bytes = fixture::plugin(&[group(sig, 0, &record(sig, 0, 0x800, &body))]);
             let plugin = Plugin::parse(&bytes).unwrap();
             let Entry::Group(g) = &plugin.entries()[0] else {
@@ -589,6 +594,10 @@ mod tests {
                 panic!()
             };
             let check = r.check_typed(plugin.ctx(r)).unwrap();
+            if !has_edid {
+                assert!(check.placed < check.subrecords, "{check:?}");
+                continue;
+            }
             assert!(
                 check
                     .conflicts
@@ -598,6 +607,16 @@ mod tests {
                 String::from_utf8_lossy(sig)
             );
         }
+        // The exceptions are deliberate (TES4 is the file header); any other is new.
+        let without: Vec<&[u8; 4]> = RECORDS
+            .iter()
+            .filter(|(_, m)| {
+                !m.iter()
+                    .any(|d| matches!(d, MemberDesc::Sub { sig, .. } if sig == b"EDID"))
+            })
+            .map(|(s, _)| s)
+            .collect();
+        assert_eq!(without, [b"PGRE", b"RFGP", b"TES4"]);
     }
 
     #[test]

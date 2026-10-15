@@ -423,7 +423,8 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB blocks |
 | `KYWD.toml` | record | xEdit at the pin + corpus (M3.B6) | Every member typed except VMAD (script unions) and FNAM (no upstream layout); TNAM a plain `u32` as in LCRT |
 | `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union the format cannot express (VMAD, BFCB component data, CTDA, LVLI COED owner data; OMOD property values are field unions since lane B round 4) or does not describe it (WEAP MO4C, OMOD XFLG) |
-| 39 more `<SIG>.toml` (ACTI ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
+| 15 more `<SIG>.toml` (ALCH ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
+| `ARTO` `DOOR` `IRES` `LAYR` `LIGH` `LSCR` `MESG` `PGRE` `PHZD` `RFGP` `SOUN` `TXST` `WKMF` `WWED` (`.toml`) | record | corpus scan (`tests/inventory_types.rs`) + xEdit lines | M4.BX2 inventories (see "Inventory definitions"): EDID, the corpus table's lstrings, `Keywords` and `BfcbBlock` typed; every other member opaque, in corpus order and cardinality |
 | `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
 | `common/ObteBlock.toml` | group | xEdit object template + corpus | OBTE count, combinations (OBTF, FULL, OBTS template item), STOP |
 | `WRLD.toml` `CELL.toml` `REFR.toml` `ACHR.toml` `NAVM.toml` `LCTN.toml` `LCRT.toml` | record | xedit (pinned) + corpus (`tests/world_family.rs`) | World family: typed from xEdit, checked on every official record; VMAD, NVNM, NAVM MNAM, XSL1, XTV2, XNSE and unknowns opaque; CELL/REFR/ACHR are `unordered = true` (xEdit marks them so; member list in the most common order, M4.BX1). `docs/schema/world-family.md` |
@@ -464,6 +465,23 @@ as explicit count fields with a `count_from` array.
 
 Opaque inventory members are named after their signature (`Fnam`, `Bnam`). These are
 placeholders: giving a member a real name later is a breaking change for queries.
+
+### Inventory definitions (M4.BX2)
+
+A record type no family lane owns gets an inventory: every top-level signature the 14
+official ESMs show for it, in corpus order, with corpus cardinality (`required` when every
+official record has it, `repeated` when one record has a consecutive run). EDID, the
+lstrings of lane E's corpus table, the shared `Keywords` list and the `BfcbBlock` component
+frame are typed; every other member is `opaque` (no size, so any payload decodes) and named
+after its signature. Each member cites the scan (`inventory_types_full` in
+`crates/esm/tests/inventory_types.rs`: records with it, occurrences, sizes) as `source` at
+`corpus` confidence, and the pinned xEdit line where upstream lists it. Where two members
+never occur together, their order follows the pinned file and the file says so; where the
+corpus shows two orders and xEdit marks the record unordered (PGRE, PHZD), the definition is
+`unordered = true`. Members xEdit lists that no official record has are left out: a plugin
+that has one keeps it raw in `extra`. The scan fails when an official record has a
+subrecord the inventory does not place, one that does not decode, or a re-encode
+difference. A type leaves the inventory when a family lane transcribes it.
 
 ## Example
 
