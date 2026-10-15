@@ -916,6 +916,7 @@ One agent per lane, each in its own worktree and `CARGO_TARGET_DIR`.
 | E    | set + validate + build         | as M3, plus engine `handlers/{new,clone,place,package,testplan}.rs`, `docs/recipes/`, `docs/packaging.md` |
 | F    | mcp + surface                  | as M3, plus the BX role |
 | G    | archives + scripts + strings   | as M3, plus `crates/pex/src/psc/`, `docs/research/asset-formats.md`, the ADR 0006 amendment |
+| T    | in-game verification (proposed) | `crates/game` (new, L3), engine `handlers/game/`, the `probes.toml` half of `handlers/testplan.rs`, `docs/game-sessions.md`, `observe/` layout, `crates/game/profiles/` (added 2026-10-15, ADR 0010; starts after M4.O6 and M4.O7) |
 | H    | evidence                       | as M3, plus `docs/design/persistence.md`, `docs/game-observations.md` |
 | W    | developer workbench (planned)  | `crates/ui-egui`, `apps/kit`, the `kit ui` launcher lines in `apps/kit-cli`, the dependency list in ADR 0007 (added 2026-10-14; starts after M4.W0) |
 | O    | owner                          | decisions, installs, CK, MO2 and game sessions, reviews |
@@ -1111,6 +1112,31 @@ Folders and names as in M3 (`observe\<yyyy-mm-dd>-<id>\`, plugins named `KC_`).
 | F27 | The owner of one vanilla interior cell changed | F01 | The ownership members M4.E8 writes |
 | F28 | A vanilla outpost object duplicated in the CK | F01 | The CK's clone choices (FormID, EditorID, what is copied) against `clone` |
 
+### Lane T: in-game verification (planning only; added 2026-10-15, ADR 0010 proposed)
+
+An agent-driven session controller that launches Starfield on `KitKraft Dev`, drives it
+over the Console API plugin's loopback HTTP endpoint, checks machine-readable probes that
+`testplan` derives from the plugin under test, and fills `docs/game-observations.md`
+itself. Research and sources: `docs/research/in-game-agent-testing-2026-10-15.md`. Rules:
+ADR 0010 (target confinement, text channel only, writes limited to `observe\` and the
+ledger). It starts only after the owner rules (M4.O6) and installs the tools (M4.O7), is
+on no critical path, changes no M4 exit criterion, and may close M4.O2 and M4.O4 rows the
+owner has not run, the owner's sessions keeping the last word. The ladder V0..V4 is the
+acceptance column.
+
+| ID    | Task | Depends on | Acceptance |
+| ----- | ---- | ---------- | ---------- |
+| M4.T1 | *(research)* Session facts, each graded (ADR 0005 Am. 3) and recorded in `docs/game-observations.md` (entry `game-<date>-T1`) and `docs/load-order.md`: (a) the MO2 command line that launches a named executable on a named profile (`ModOrganizer.exe --help`, MO2 2.5.2, black box); (b) **V0**: Console API 2.17.0 answers `GetSFSEVersion` over HTTP on `Starfield.exe` 1.16.244 with SFSE 0.2.21; (c) `bAlwaysActive=1` keeps the game running unfocused; (d) the console `load <save>` command from the main menu and from the world; (e) where `bat <name>` looks for its file (closes the O2-04 question without the owner); (f) the runtime IDs the game prints for the dev load order against `runtime-slots-by-scale` and `masters-load-first` (closes M3.D5's in-game half); (g) Console Command Runner's `{Form:…}` replacement as a cross-check of (f); (h) the Papyrus log path and whether the profile INI, not `My Games`, controls it under MO2 | M4.O7 | Every fact has an observation with its grade; (b) is V0: pass or the lane stops and reports which plugin failed |
+| M4.T2 | `testplan` emits `probes.toml` beside `checklist.md`: one probe per checklist row (same row ids), each a console command or short batch, a matcher (`contains`, `regex`, `number within tolerance`, `papyrus-log contains`), and the expected value derived from the plugin's own records (`FULL` text for `help <name> 4`; `getpos` against the `REFR` position; `GetStage`; `IsDisabled`), plus the persistence protocol as `save`/`load`/`coc` steps; rows with no console or Papyrus getter are emitted with `matcher = "manual"` and the reason | M4.E6 (done) | Deterministic; tests on the rename, first POI, ownership, actors and overhaul plugins; every row of `docs/game-observations.md`'s templates O2 and O4 maps to a probe or a `manual` row |
+| M4.T3 | Session controller: new L3 crate `crates/game` (ADR 0002 row in the same commit) and engine commands `game.session`, `game.probe`, `game.status` (catalog: writing): preflight refusals of ADR 0010 §1, launch through MO2, wait for the endpoint and the loaded save, run `probes.toml`, capture HTTP responses, the console output log, `Papyrus.0.log` and screenshots into `observe\<date>-T<nn>\`, append the ledger entry with every row filled (`pass`, `fail`, `not run (reason)`), terminate the game, verify profile hashes; `--dry-run` prints the plan and writes nothing; a per-game profile file (`crates/game/profiles/starfield.toml`) holds the executable name, port, log paths and commands | M4.T1, M4.T2, M4.O6 | Each refusal has a test on a fixture MO2 instance; the probe runner is tested against a local fake of the `/console` endpoint; the ledger writer is tested for the format; `cargo xtask layers` passes; no write outside `observe\`, the ledger and `KitKraftSession-*` saves (test asserts the profile hashes) |
+| M4.T4 | **V1**: the rename plugin unattended: deploy (ADR 0009), session, `help "Old Soviet Marksman Rifle" 4` and `player.additem` + inventory screenshot; compare with the owner's `game-20261014-01` | M4.T3 | Ledger entry with `pass` on the `help` probe; the first agent-closed row in `docs/game-observations.md` |
+| M4.T5 | **V2**: the first POI, template O2 rows O2-04..O2-11 and the persistence protocol steps 1-4 by console `save`/`load`; the `help KitKraftFirstPOICrate 4` and `getpos` probes; screenshots for O2-07 | M4.T3, M4.E6, the POI package | Every O2 row filled by the controller, `fail`s filed as Requests; `PS-02`, `PS-09`, `PS-26` graded from the entry |
+| M4.T6 | **V3**: overhaul build 2 and the recipes (templates O4, O5): every row with a console or Papyrus getter (`getav`, `GetWeaponDamage`-class getters where they exist, `CGF` on Cassiopeia functions, the scripts recipe's `Debug.Trace` line in the Papyrus log); rows without one listed as runtime-need candidates (ADR 0008 §5), not silently skipped | M4.T3, M3.E9, M4.E7..E9 | Ledger entries; a list of unprobeable rows with the getter that is missing |
+| M4.T7 | **V4**: regression replay: `observe\replays\<plugin>.toml` (probes plus the session plan) rerun by `cargo xtask game-regress` (opt-in, skipped by `cargo xtask ci` unless `KITKRAFT_GAME_PROFILE` is set) after any merge that changes a recipe or the builder | M4.T5 | A replay of the rename and the POI passes twice in a row on the same base save; a deliberate break (wrong `FULL`) fails |
+| M4.T8 | *(research)* Runtime-need record for a KitKraft probe plugin, written only if M4.T4..T6 leave rows that no console or Papyrus route answers; design per `skytest` (passive plugin, `commands.jsonl` / `trace.jsonl`); CommonLibSF stays unread until the ADR 0008 §3 review | M4.T6 | `docs/design/runtime-extensions.md` record, or a one-line "not needed" in `docs/gaps.md` |
+| M4.T9 | Game profiles for other titles: stub `skyrimse.toml` and `fallout4.toml` naming the script extender, the console channel candidates (ConsoleUtil-class plugins, AutoTest) and the log paths, unverified and marked so; `docs/game-sessions.md` documents the profile format | M4.T3 | The controller refuses an unverified profile with a message naming what is missing; the doc exists |
+| M4.T10 | **End to end from a brief** (owner, 2026-10-15: make it "maximally easy for someone to point an agent at this project and say 'I want a mod that does X'"): (a) `kit mod run <spec>` (engine `mod.run`, catalog: writing) chains `build` -> `validate` -> `roundtrip --verify` -> `package` -> `deploy --dev` -> `testplan` -> `game.session` -> one report (`out\<name>\report.md`: every stage's envelope, the ledger entry id, pass/fail per probe), stopping at the first failing stage with the stage's evidence; (b) `docs/playbooks/mod-from-brief.md`, the agent playbook: brief template (as `docs/overhaul/brief.md` does for the overhaul) -> which recipe or spec kind fits (`overhaul.toml`, `place`, the `docs/recipes/*.toml`) -> `kit mod run` -> read the report -> fix and rerun; a "fix loop" section says what a failing probe means for each recipe kind; (c) AGENTS.md "Start every session" points a mod-building session at the playbook; (d) MO2 convenience scripts under `scripts\` in the repo (PowerShell: launch the dev profile, tail the console log, open `observe\`), each a thin wrapper over `kit` commands so the CLI stays the one implementation | M4.T4 (V1 proves the chain), M4.T3 | A fresh agent session given only the playbook and the rename brief produces the rename plugin, installs it on the dev profile, runs the session and reports `pass` without an owner step (recorded as a transcript check like M2.F7); the same for the first POI brief once V2 passes |
+
 ### Lane W: developer workbench (planning only; added 2026-10-14, ADR 0007 Amendment 1)
 
 A minimal, read-only egui workbench over `Engine::execute`: an observability and
@@ -1136,6 +1162,8 @@ on no critical path, and interrupts no running lane. The full authoring UI is M5
 | M4.O3 | **owner decision**: whether SFSE-dependent features may be planned. Default **no**: KitKraft's output is plugins, archives and Papyrus; nothing it builds requires SFSE; CommonLibSF stays unread (GPL). A yes needs an ADR (distribution terms, Steam-only runtime) and lands in M5 at the earliest. **Decided 2026-10-14: default overturned** (ADR 0008): SFSE, native runtime extensions and analogous frameworks are supported where technically justified; core crates never depend on them; runtime components live behind `runtime/` (or an `RT` crate); CommonLibSF is not read or linked until its license exceptions are quoted and reviewed; SFSE binaries are never bundled; PC-first; first component M5 at the earliest | any task that finds a needed hook missing (M4.E7, M4.E9): it writes a runtime-need record (ADR 0008 §5) |
 | M4.O4 | **owner**: in-game session 2 on a disposable save: the M4.E7, M4.E8 and M4.E9 recipes (outpost object, fabricator recipe, cell ownership, placed NPC, script event) and the M4.E10 experiment | M4 exit (P0 and P1 deliverables) |
 | M4.O5 | **owner decision**: whether `package` may install into MO2's `mods\` directly. Default **no**: it writes a folder (and an optional zip) elsewhere and the owner installs it. **Decided 2026-10-14: default approved with an exception** (ADR 0009): `package` stays target-independent; a separate, explicitly invoked `kit deploy --dev` (M4.E11) writes one isolated `KitKraft Dev - <plugin>` mod with path validation, a hashed manifest, safe replacement, diagnostics and rollback, and never touches profiles, load orders or other mods | M4.E5, M4.E11 |
+| M4.O6 | **owner decision** (added 2026-10-15): rule on ADR 0010, agent-driven game sessions on `KitKraft Dev`. Default until decided: **no** (the agent cannot launch the game; every in-game row stays the owner's). A yes accepts the preflight refusals, the text-only channel, and the write limits of ADR 0010 §1-3, and answers: screenshots and desktop input injection in scope for M4.T5 or deferred; whether `crates/game` may add an HTTP client and a process crate (MIT/Apache-2.0) before the list is reviewed | lane T (M4.T1..T9); AGENTS.md "Agent-driven sessions" paragraph |
+| M4.O7 | **owner** (after a yes on M4.O6): install into the `KitKraft Dev` profile only, through MO2, the run-only tools Console API and Web Application (Nexus 4280, v2.17.0), Console Command Runner Updated (Nexus 7318, v1.11.0) and, optionally, Console Output To File (Nexus 3142, v1.21); add to the profile's `StarfieldCustom.ini` `[General] bAlwaysActive=1` and `[Papyrus] bEnableLogging=1 bEnableTrace=1 bLoadDebugInformation=1`; set the profile's `StarfieldPrefs.ini` to windowed; create and name a disposable base save (`KitKraftBase`) on the dev profile in a quiet interior cell; record the versions in `docs/source-registry.md` rows CONSOLE-API, CCR-UPDATED, CONSOLE-OUTPUT-FILE. Agents do not download these (Nexus requires the owner's login) | M4.T1 (V0) |
 
 Unchanged and still open: owner decision 5 (Sim Settlements 2: **later**; rung 3 needs
 kinggath's consent before any of its assets or scripts are touched), decisions 1, 4 and 6,
@@ -1170,6 +1198,7 @@ E:  A3 + family -> E1 -> E3      E5 (now; archive name after G4)      E7, E8, E9
 F:  F1 as commands land      F2 = BX      M3.O6 -> F3
 G:  G0 -> G1 -> G2      G3, G4 (now)
 H:  H1, H3, H4 (now)      O1 -> H2
+T:  O6 -> O7 -> T1 (V0)      E6 -> T2      T1 + T2 -> T3 -> T4 (V1) -> T5 (V2) -> T7 (V4)      T3 + E7..E9 -> T6 (V3) -> T8      T3 -> T9      T4 -> T10 (brief to mod)
 ```
 
 The long pole is lane BW: typing `CELL` and `REFR` (6.7 M references) at `corpus`
@@ -1223,7 +1252,8 @@ NPC uses a vanilla cell that has one); the `ONAM` rule for edited vanilla refere
 - Reading or writing save files.
 - Papyrus assembling, editing or decompiling; any compiler but Bethesda's.
 - SFSE or CommonLibSF plugins, and features that need them (M4.O3; CommonLibSF is never
-  read).
+  read). Lane T **runs** third-party SFSE plugins as installed tools (ADR 0010); it builds
+  none, and a KitKraft probe plugin needs a runtime-need record first (M4.T8).
 - Procedural placement beyond the M4.E10 experiment.
 - Small- or medium-scale output plugins with new forms before F11/F26 evidence; localized
   output plugins (no M4 deliverable needs them).
@@ -1233,6 +1263,9 @@ NPC uses a vanilla cell that has one); the `ONAM` rule for edited vanilla refere
 - UI implementation, unless the owner's M3.O6 decision moves M3.F5 into M4 (M4.F3).
 - Sim Settlements 2 (owner decision 5: later); publishing, Creations uploads, a git remote;
   writing into the game folder, the Data dir, the MO2 profile or MO2's `mods\` (M4.O5
-  default).
+  default; the ADR 0010 exception, once accepted, is the game's own session saves and
+  logs while `kit game session` runs it on the dev profile).
+- Launching the game at all, until M4.O6 is decided (ADR 0010 proposed); reading or
+  writing save files stays out even then (sessions use the game's `save` and `load`).
 - Oracles beyond SF1Edit and Spriggit; changing the xEdit pin; revisiting decided
   licensing.

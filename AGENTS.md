@@ -245,7 +245,26 @@ for every lane and every command:
   overhaul stay override-only (no new forms, no leveled-list injection, no scripts) so they
   can be removed safely; anything that owns forms says so in its build report.
 - Nothing writes under the game `Data` folder, `Documents\My Games\Starfield`, or
-  `C:\Modding\MO2-Starfield` except `deploy --dev` into its own isolated mod folder.
+  `C:\Modding\MO2-Starfield` except `deploy --dev` into its own isolated mod folder, and
+  (once ADR 0010 is accepted) the game itself while a `kit game session` runs it on the
+  dev profile: session saves named `KitKraftSession-*` and the logs the game writes.
+
+**Agent-driven sessions (ADR 0010, proposed 2026-10-15; binding when the owner rules on
+M4.O6).** The sentence "the agent cannot launch the game" no longer holds for the dev
+profile. An agent may launch Starfield **only** through the lane T session controller
+(`kit game session`), which: refuses to start when MO2's selected profile is `Default` or
+is not the dev profile, when `Starfield.exe`, `CreationKit.exe` or `ModOrganizer.exe` is
+already running (the owner may be playing), when the dev profile lacks the owner-set INI
+switches or the Console API plugin, or when the plugin under test was not installed with
+`deploy --dev`; talks to the game only over the Console API plugin's loopback HTTP
+endpoint, the files the game and its plugins write, and screenshots (never a debugger,
+memory read or code injection: ADR 0001); loads the owner's named base save and saves
+only to `KitKraftSession-*` names; writes only `observe\` and one entry in
+`docs/game-observations.md`; terminates the game at the end and verifies the profile's
+list files and INIs are unchanged. Probes with machine-checkable matchers are the verdict;
+screenshots are evidence. The third-party plugins it relies on are run-only tools
+(`docs/source-registry.md`), never read into `crates/*`. Owner sessions keep the last word
+where the two disagree.
 
 ## Windows specifics
 

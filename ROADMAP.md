@@ -158,6 +158,13 @@ new crate, no layer change).
     explicitly invoked `kit deploy --dev` writes one isolated KitKraft-managed MO2 mod
     (path validation, hashed manifest, safe replace, rollback) and never touches profiles
     or other mods.
+  - Agent-driven game sessions (ADR 0010, **proposed 2026-10-15**, lane T): if the owner
+    accepts, a session controller launches Starfield on `KitKraft Dev` only, drives it over
+    a third-party console plugin's loopback HTTP endpoint, checks probes `testplan`
+    derives from the plugin under test, and fills `docs/game-observations.md` itself.
+    Ladder: V0 endpoint answers on 1.16.244; V1 the rename; V2 the first POI with
+    persistence; V3 the overhaul and recipes; V4 regression replay. Builds no SFSE plugin;
+    other titles get stub game profiles only.
   - Developer workbench (ADR 0007 Amendment 1): a minimal read-only egui workbench over
     the same commands as the CLI (record browser, structural diff, schema and provenance,
     FormID and reference diagnostics, build validation), started once the inspection
@@ -191,5 +198,9 @@ Exit criteria:
   growing from M4's read-only workbench (ADR 0007 Amendment 1).
 - NIF and material metadata.
 - Procedural placement, if M4's research calls for it.
-- Runtime extensions (SFSE first) where a runtime-need record justifies them (ADR 0008).
+- Runtime extensions (SFSE first) where a runtime-need record justifies them (ADR 0008);
+  a KitKraft probe plugin for in-game verification (M4.T8, `skytest` pattern) if the
+  console and Papyrus channels prove insufficient.
+- In-game verification for other titles (Skyrim SE, Fallout 4): fill the lane T game
+  profiles and verify their console channels, once a title is in scope.
 - Render viewport (`crates/render`), last.
