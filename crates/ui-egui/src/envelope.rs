@@ -125,10 +125,92 @@ impl EnvelopeView {
     }
 }
 
+/// Lines of raw JSON kept per result; the MCP call or `kit --json` has the rest.
+pub const RAW_LINES: usize = 500_000;
+/// Characters kept per raw JSON line (a long string value is cut).
+pub const RAW_LINE_CHARS: usize = 2_000;
+
+/// What the window shows for one finished request, built once when the reply arrives so
+/// a big envelope (a 1000-row `query`, a `load` of a whole profile) costs nothing per
+/// frame: the [`EnvelopeView`] and the pretty-printed raw JSON as lines, which the window
+/// lays out only where they are scrolled into view.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Prepared {
+    /// The envelope's common members; `None` when the request failed.
+    pub view: Option<EnvelopeView>,
+    /// `data` (or, for a failure, the `{"error": ...}` JSON), pretty-printed, by line.
+    pub raw: Vec<String>,
+    /// Lines left out after [`RAW_LINES`], or lines cut at [`RAW_LINE_CHARS`].
+    pub raw_truncated: bool,
+}
+
+impl Prepared {
+    /// Builds the view and the raw lines of `env` (an envelope) or of `error_json`.
+    pub fn new(env: Option<&Value>, error_json: Option<&Value>) -> Self {
+        let view = env.map(EnvelopeView::from_value);
+        let raw_value = match env {
+            Some(env) => env.get("data"),
+            None => error_json,
+        };
+        let text = raw_value
+            .and_then(|v| serde_json::to_string_pretty(v).ok())
+            .unwrap_or_default();
+        let mut raw_truncated = false;
+        let mut raw = Vec::new();
+        for (i, line) in text.lines().enumerate() {
+            if i >= RAW_LINES {
+                raw_truncated = true;
+                break;
+            }
+            if line.len() > RAW_LINE_CHARS && line.chars().count() > RAW_LINE_CHARS {
+                raw_truncated = true;
+                let cut: String = line.chars().take(RAW_LINE_CHARS).collect();
+                raw.push(format!("{cut}..."));
+            } else {
+                raw.push(line.to_string());
+            }
+        }
+        Self {
+            view,
+            raw,
+            raw_truncated,
+        }
+    }
+}
+
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn a_big_envelope_is_prepared_once_as_view_and_lines() {
+        let rows: Vec<Value> = (0..20_000)
+            .map(|i| json!({"form": format!("A.esm:{i:06X}"), "edid": "x".repeat(10)}))
+            .collect();
+        let evidence: Vec<Value> = (0..20_000)
+            .map(|i| json!({"file": "A.esm", "offset": i, "length": 4}))
+            .collect();
+        let env = json!({"command": "query", "data": {"summary": "20000 matched", "rows": rows, "long": "y".repeat(5000)},
+            "coverage": {"status": "complete"}, "limitations": [], "evidence": evidence});
+        let p = Prepared::new(Some(&env), None);
+        let view = p.view.as_ref().unwrap();
+        assert_eq!(view.evidence.len(), 20_000);
+        assert_eq!(view.summary.as_deref(), Some("20000 matched"));
+        // `{`, `"long"`, `"rows": [`, 4 lines per row, `]`, `"summary"`, `}`.
+        assert_eq!(p.raw.len(), 6 + 4 * 20_000);
+        assert!(p.raw_truncated, "the 5000-character line is cut");
+        assert!(p
+            .raw
+            .iter()
+            .all(|l| l.chars().count() <= RAW_LINE_CHARS + 3));
+
+        let failed = Prepared::new(None, Some(&json!({"error": {"kind": "not_found"}})));
+        assert!(failed.view.is_none());
+        assert!(failed.raw.iter().any(|l| l.contains("not_found")));
+        assert!(!failed.raw_truncated);
+    }
 
     #[test]
     fn reads_every_member_and_reports_unknown_counts_as_not_counted() {

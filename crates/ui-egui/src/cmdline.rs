@@ -9,7 +9,62 @@
 //! line back with the engine's parser.
 
 use crate::gate::{command_words, find_command};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
+
+/// Commands whose `kit` line needs the session's load order repeated: each `kit` process
+/// starts with an empty session, while the workbench (like `kit mcp`) keeps one.
+pub const SESSION_COMMANDS: &[&str] = &["inspect", "query", "conflicts", "validate"];
+
+/// The load-order arguments of an executed `load` request, as a session command's line
+/// repeats them (`profile`, `plugins`, `data_dir`).
+pub fn session_args(load_args: &Value) -> Map<String, Value> {
+    let mut args = Map::new();
+    for key in ["profile", "plugins", "data_dir"] {
+        if let Some(v) = load_args.get(key).filter(|v| !v.is_null()) {
+            args.insert(key.into(), v.clone());
+        }
+    }
+    args
+}
+
+/// The line shown under one result.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ResultLine {
+    /// The `kit` line, or `None` when no line would reproduce the result: a session
+    /// command run while no `load` had succeeded.
+    pub line: Option<CommandLine>,
+    /// Load-order arguments were added from the session's `load`.
+    pub session_added: bool,
+}
+
+/// The `kit` line for an executed request. `session` holds the arguments of the `load`
+/// that had succeeded last when the request ran (the session it ran against), never the
+/// load form's current text, which may have been edited since.
+pub fn result_line(id: &str, args: &Value, session: Option<&Map<String, Value>>) -> ResultLine {
+    let canonical = find_command(id).map_or(id, |spec| spec.id);
+    if !SESSION_COMMANDS.contains(&canonical) {
+        return ResultLine {
+            line: Some(command_line(id, args)),
+            session_added: false,
+        };
+    }
+    let Some(session) = session else {
+        return ResultLine {
+            line: None,
+            session_added: false,
+        };
+    };
+    let mut merged = args.clone();
+    if let Some(map) = merged.as_object_mut() {
+        for (k, v) in session {
+            map.entry(k.clone()).or_insert_with(|| v.clone());
+        }
+    }
+    ResultLine {
+        line: Some(command_line(id, &merged)),
+        session_added: !session.is_empty(),
+    }
+}
 
 /// A command line for one request.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -140,6 +195,47 @@ mod tests {
     fn a_value_with_both_quotes_is_marked_inexact() {
         let line = command_line("query", &json!({"type": "WEAP", "where": "a ~ \"x'y\""}));
         assert!(!line.exact);
+    }
+
+    /// The line repeats the load that ran, not the load form as edited since, and a
+    /// session command gets no line at all when no load succeeded.
+    #[test]
+    fn session_lines_use_the_executed_load_or_none() {
+        let executed =
+            json!({"profile": r"C:\MO2\profiles\KitKraft Dev", "no_cache": true, "data_dir": null});
+        let session = session_args(&executed);
+        assert_eq!(
+            Value::Object(session.clone()),
+            json!({"profile": r"C:\MO2\profiles\KitKraft Dev"})
+        );
+        let shown = result_line("find", &json!({"type": "WEAP"}), Some(&session));
+        let line = shown.line.unwrap();
+        assert!(shown.session_added);
+        assert!(line.text.starts_with("kit query "), "{}", line.text);
+        assert!(line.text.contains("--type WEAP"), "{}", line.text);
+        assert!(
+            line.text
+                .contains(r#"--profile "C:\MO2\profiles\KitKraft Dev""#),
+            "{}",
+            line.text
+        );
+        assert!(!line.text.contains("no-cache"), "{}", line.text);
+        // An argument the request itself gives wins over the session's.
+        let own = result_line(
+            "inspect",
+            &json!({"form": "A.esm:000800", "profile": "P"}),
+            Some(&session),
+        );
+        assert!(own.line.unwrap().text.ends_with("--profile P"));
+
+        let none = result_line("query", &json!({"type": "WEAP"}), None);
+        assert_eq!(none.line, None);
+        assert!(!none.session_added);
+        // Commands that take no session keep their line.
+        let schema = result_line("schema", &json!({"type": "WEAP"}), None);
+        assert_eq!(schema.line.unwrap().text, "kit schema --type WEAP");
+        let load = result_line("load", &executed, None);
+        assert!(load.line.unwrap().text.starts_with("kit load"));
     }
 
     #[test]

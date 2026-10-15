@@ -56,22 +56,6 @@ impl LoadForm {
         }
         Ok(Request::new("load", Value::Object(args)))
     }
-
-    /// The load-order arguments other panels repeat in their command lines, so each
-    /// line also works in a fresh `kit` process (which starts with an empty session).
-    pub fn load_order_args(&self) -> Map<String, Value> {
-        let mut args = Map::new();
-        if let Ok(req) = self.request() {
-            if let Some(map) = req.args.as_object() {
-                for key in ["profile", "plugins", "data_dir"] {
-                    if let Some(v) = map.get(key) {
-                        args.insert(key.into(), v.clone());
-                    }
-                }
-            }
-        }
-        args
-    }
 }
 
 /// One plugin of the loaded order.
@@ -260,7 +244,6 @@ mod tests {
             json!({"plugins": ["A.esm", "B.esp"], "data_dir": r"D:\Data", "no_cache": true})
         );
         assert!(LoadForm::default().request().is_err());
-        assert!(!form.load_order_args().contains_key("no_cache"));
     }
 
     #[test]

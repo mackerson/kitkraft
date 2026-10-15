@@ -45,6 +45,10 @@ pub const SAMPLE_BYTES: u64 = 64 * 1024;
 const MAGIC: &[u8; 8] = b"KCIDX\0\r\n";
 const RECORD_BYTES: usize = 32;
 
+/// A temp file of another process unchanged this long is a leftover, not a write in
+/// progress (a store writes and renames one entry in well under a second).
+const STALE_TEMP_AGE: std::time::Duration = std::time::Duration::from_secs(120);
+
 /// FNV-1a over the file's size, its first [`SAMPLE_BYTES`] and its last [`SAMPLE_BYTES`].
 pub fn content_sample(path: &Path) -> Result<u64> {
     use std::io::{Read, Seek, SeekFrom};
@@ -93,17 +97,65 @@ impl IndexCache {
     /// `KITKRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitkraft\cache`, else none.
     /// `KITCRAFT_CACHE_DIR` (the pre-rename spelling) is still read after
     /// `KITKRAFT_CACHE_DIR`; deprecated, kept for one release.
+    ///
+    /// The first call in a process also removes stale temp files a killed process left
+    /// there ([`IndexCache::sweep_stale_temps`]).
     pub fn default_location() -> Option<IndexCache> {
+        static SWEPT: std::sync::Once = std::sync::Once::new();
         let named = std::env::var_os("KITKRAFT_CACHE_DIR")
             .filter(|d| !d.is_empty())
             .or_else(|| std::env::var_os("KITCRAFT_CACHE_DIR").filter(|d| !d.is_empty()));
-        if let Some(dir) = named {
-            return Some(IndexCache::new(PathBuf::from(dir)));
+        let cache = match named {
+            Some(dir) => IndexCache::new(PathBuf::from(dir)),
+            None => {
+                let local = std::env::var_os("LOCALAPPDATA").filter(|d| !d.is_empty())?;
+                IndexCache::new(PathBuf::from(local).join("kitkraft").join("cache"))
+            }
+        };
+        SWEPT.call_once(|| {
+            let _ = cache.sweep_stale_temps(STALE_TEMP_AGE);
+        });
+        Some(cache)
+    }
+
+    /// Removes `<entry hash>.tmp<pid>` files ([`IndexCache::store`] writes one, then renames
+    /// it) that another process left and that have not changed for `min_age`: a process
+    /// killed mid-store (a window closed during a long `load`) never renames or removes
+    /// its temp file. This process's own temp files and recent ones (another process may
+    /// be writing them right now) are kept. Returns how many were removed.
+    pub fn sweep_stale_temps(&self, min_age: std::time::Duration) -> usize {
+        let Ok(entries) = std::fs::read_dir(&self.dir) else {
+            return 0;
+        };
+        let own = format!("tmp{}", std::process::id());
+        let now = std::time::SystemTime::now();
+        let mut removed = 0usize;
+        for path in entries.filter_map(|e| e.ok().map(|e| e.path())) {
+            let ext = path
+                .extension()
+                .and_then(|e| e.to_str())
+                .unwrap_or_default();
+            let is_temp = ext
+                .strip_prefix("tmp")
+                .is_some_and(|pid| !pid.is_empty() && pid.bytes().all(|b| b.is_ascii_digit()));
+            // `<16 hex digits>.tmp<pid>`: an entry's name with its extension replaced.
+            let is_entry = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .is_some_and(|s| s.len() == 16 && s.bytes().all(|b| b.is_ascii_hexdigit()));
+            if !is_temp || !is_entry || ext == own {
+                continue;
+            }
+            let old = std::fs::metadata(&path)
+                .and_then(|m| m.modified())
+                .ok()
+                .and_then(|t| now.duration_since(t).ok())
+                .is_some_and(|age| age >= min_age);
+            if old && std::fs::remove_file(&path).is_ok() {
+                removed = removed.saturating_add(1);
+            }
         }
-        let local = std::env::var_os("LOCALAPPDATA").filter(|d| !d.is_empty())?;
-        Some(IndexCache::new(
-            PathBuf::from(local).join("kitkraft").join("cache"),
-        ))
+        removed
     }
 
     /// The directory.
@@ -489,5 +541,41 @@ mod tests {
         assert_eq!(cache.get_or_build(&path).unwrap().1, CacheUse::Uncached);
         let (index, _) = cache.get_or_build(&path).unwrap();
         assert!(cache.store(&index).is_err());
+    }
+
+    /// A process killed mid-store leaves `<entry hash>.tmp<pid>`; the next start removes it
+    /// once it is old, and keeps recent ones, this process's own, and other files.
+    #[test]
+    fn stale_temp_files_of_a_killed_store_are_swept() {
+        let (path, cache) = sample();
+        cache.get_or_build(&path).unwrap();
+        let entry = cache.entry_path(&path);
+        let temp = |ext: &str| {
+            let p = entry.with_extension(ext);
+            std::fs::write(&p, b"partial").unwrap();
+            p
+        };
+        let age = |p: &Path, secs: u64| {
+            let f = std::fs::OpenOptions::new().write(true).open(p).unwrap();
+            f.set_modified(std::time::SystemTime::now() - std::time::Duration::from_secs(secs))
+                .unwrap();
+        };
+        let killed = temp("tmp4242424");
+        age(&killed, 3600);
+        let busy = temp("tmp4242425");
+        let own = temp(&format!("tmp{}", std::process::id()));
+        age(&own, 3600);
+        let other = cache.dir().join("notes.tmp1");
+        std::fs::write(&other, b"x").unwrap();
+        age(&other, 3600);
+
+        assert_eq!(cache.sweep_stale_temps(STALE_TEMP_AGE), 1);
+        assert!(!killed.exists());
+        assert!(busy.exists() && own.exists() && other.exists() && entry.exists());
+        assert_eq!(cache.sweep_stale_temps(STALE_TEMP_AGE), 0);
+        assert_eq!(
+            IndexCache::new(cache.dir().join("none")).sweep_stale_temps(STALE_TEMP_AGE),
+            0
+        );
     }
 }

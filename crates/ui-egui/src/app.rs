@@ -12,8 +12,8 @@ use eframe::egui::{
 };
 use serde_json::{Map, Value};
 
-use crate::cmdline::{command_line, mcp_call};
-use crate::envelope::EnvelopeView;
+use crate::cmdline::{mcp_call, result_line, session_args, ResultLine};
+use crate::envelope::Prepared;
 use crate::gate::{Request, RunError};
 use crate::panels::diag::{self, DiagView};
 use crate::panels::diff::{DiffForm, DiffMode, DiffView};
@@ -24,18 +24,13 @@ use crate::panels::records::{
 };
 use crate::panels::schema::{SchemaForm, SchemaView};
 use crate::panels::validate::{RoundtripView, ValidateForm, ValidateView};
-use crate::worker::{Reply, Worker};
+use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
 
 /// Rows of evidence shown per result; the raw JSON has the rest.
 const EVIDENCE_ROWS: usize = 300;
 /// Characters of a limitation shown on its line (the full text is on hover).
 const LIMITATION_CHARS: usize = 200;
-/// Characters of raw `data` JSON shown per result.
-const RAW_CHARS: usize = 200_000;
-/// Commands whose `kit` line needs the load order repeated (each `kit` process starts
-/// with an empty session; the workbench, like `kit mcp`, keeps one).
-const SESSION_COMMANDS: &[&str] = &["inspect", "query", "conflicts", "validate"];
 
 const WARN: Color32 = Color32::from_rgb(230, 170, 60);
 const BAD: Color32 = Color32::from_rgb(230, 90, 80);
@@ -76,11 +71,18 @@ enum Slot {
     Schema,
 }
 
-/// One finished request.
+/// One finished request, with everything the frame draws built once on arrival.
 struct Shown {
     request: Request,
-    result: Result<Value, RunError>,
+    /// Why there is no envelope.
+    error: Option<RunError>,
     elapsed: Duration,
+    /// The envelope view and raw JSON lines.
+    prepared: Prepared,
+    /// The `kit` line, from the request as run and the session it ran against.
+    line: ResultLine,
+    /// The MCP `execute` call.
+    mcp: String,
 }
 
 /// What a click asks for, applied after the frame is drawn.
@@ -117,6 +119,10 @@ struct App {
     slots: BTreeMap<u64, Slot>,
     notice: Option<String>,
     results: BTreeMap<SlotKey, Shown>,
+    /// Load-order arguments of the `load` that succeeded last: what the engine's session
+    /// holds (a failed `load` keeps the previous one). `None` until one succeeds, and
+    /// again after the worker restarts.
+    session: Option<Map<String, Value>>,
 
     load_form: LoadForm,
     profiles_dir: String,
@@ -174,7 +180,7 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
         Box::new(move |cc| {
             cc.egui_ctx.set_fonts(fonts);
             let ctx = cc.egui_ctx.clone();
-            let wake: Box<dyn Fn() + Send> = Box::new(move || ctx.request_repaint());
+            let wake: Wake = std::sync::Arc::new(move || ctx.request_repaint());
             let worker = Worker::spawn(Some(wake))?;
             Ok(Box::new(App::new(worker, opts)))
         }),
@@ -243,6 +249,7 @@ impl App {
             slots: BTreeMap::new(),
             notice: None,
             results: BTreeMap::new(),
+            session: None,
             profiles: if profiles_dir.is_empty() {
                 Vec::new()
             } else {
@@ -306,7 +313,10 @@ impl App {
         };
         if let Ok(env) = &reply.result {
             match slot {
-                Slot::Load => self.load_view = Some(LoadView::from_envelope(env)),
+                Slot::Load => {
+                    self.load_view = Some(LoadView::from_envelope(env));
+                    self.session = Some(session_args(&reply.request.args));
+                }
                 Slot::Types => {
                     self.type_rows = if reply.request.id == "coverage" {
                         types_from_coverage(env)
@@ -349,14 +359,52 @@ impl App {
                 Slot::Schema => self.schema_view = Some(SchemaView::from_envelope(env)),
             }
         }
+        // Replies arrive in submission order, so the session now is the one this
+        // request ran against.
+        let line = result_line(
+            &reply.request.id,
+            &reply.request.args,
+            self.session.as_ref(),
+        );
+        let mcp = mcp_call(&reply.request.id, &reply.request.args);
+        let (prepared, error) = match reply.result {
+            Ok(env) => (Prepared::new(Some(&env), None), None),
+            Err(err) => {
+                let json = match &err {
+                    RunError::Failed { json, .. } => Some(json),
+                    RunError::Refused(_) => None,
+                };
+                (Prepared::new(None, json), Some(err))
+            }
+        };
         self.results.insert(
             slot.into(),
             Shown {
                 request: reply.request,
-                result: reply.result,
+                error,
                 elapsed: reply.elapsed,
+                prepared,
+                line,
+                mcp,
             },
         );
+    }
+
+    /// Drops every queued request by restarting the engine thread; the new one has an
+    /// empty session, so the load is forgotten too.
+    fn drop_pending(&mut self) {
+        match self.worker.restart() {
+            Ok(n) => {
+                self.slots.clear();
+                self.session = None;
+                self.load_view = None;
+                self.results.remove(&Slot::Load.into());
+                self.notice = Some(format!(
+                    "dropped {n} request(s); the engine restarted with an empty session: load again"
+                ));
+            }
+            Err(e) => self.notice = Some(format!("could not restart the engine: {e}")),
+        }
     }
 
     fn apply(&mut self, actions: Vec<Action>) {
@@ -424,11 +472,30 @@ impl eframe::App for App {
                     ui.selectable_value(&mut self.tab, *tab, *label);
                 }
                 ui.separator();
+                let mut drop_pending = false;
                 if busy {
                     ui.spinner();
-                    ui.label(format!("running: {}", self.worker.pending().join(", ")));
+                    let pending = self.worker.pending();
+                    ui.label(format!(
+                        "running: {}",
+                        pending.first().copied().unwrap_or_default()
+                    ));
+                    let queued = self.worker.queued();
+                    if queued > 0 {
+                        ui.label(format!("queued {queued}"));
+                    }
+                    drop_pending = ui
+                        .small_button("drop pending")
+                        .on_hover_text(
+                            "restart the engine: queued requests are dropped, the running one's \
+                             reply is discarded, and the session is emptied (load again)",
+                        )
+                        .clicked();
                 } else {
                     ui.weak("idle");
+                }
+                if drop_pending {
+                    self.drop_pending();
                 }
                 match &self.load_view {
                     Some(l) => ui.weak(format!(
@@ -621,8 +688,7 @@ impl App {
                 Err(e) => self.notice = Some(e),
             }
         }
-        let extra = Map::new();
-        envelope_block(ui, self.results.get(&Slot::Load.into()), &extra, |ui| {
+        envelope_block(ui, self.results.get(&Slot::Load.into()), |ui| {
             let Some(view) = &self.load_view else { return };
             for (label, list) in [
                 ("Inactive", &view.inactive),
@@ -687,7 +753,6 @@ impl App {
     fn tab_records(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
         ui.heading("Records");
         let plugins = self.loaded_plugins();
-        let extra = self.load_form.load_order_args();
         CollapsingHeader::new("Record types")
             .id_salt("types")
             .default_open(true)
@@ -719,58 +784,49 @@ impl App {
                     ui.label("filter");
                     ui.add(TextEdit::singleline(&mut self.type_filter).desired_width(80.0));
                 });
-                envelope_block(
-                    ui,
-                    self.results.get(&Slot::Types.into()),
-                    &Map::new(),
-                    |ui| {
-                        let filter = self.type_filter.trim().to_ascii_uppercase();
-                        ScrollArea::vertical()
-                            .id_salt("types-rows")
-                            .max_height(220.0)
-                            .show(ui, |ui| {
-                                Grid::new("types-grid").striped(true).show(ui, |ui| {
-                                    for h in [
-                                        "type",
-                                        "definition",
-                                        "records",
-                                        "confidence / occurrences",
-                                    ] {
-                                        ui.strong(h);
+                envelope_block(ui, self.results.get(&Slot::Types.into()), |ui| {
+                    let filter = self.type_filter.trim().to_ascii_uppercase();
+                    ScrollArea::vertical()
+                        .id_salt("types-rows")
+                        .max_height(220.0)
+                        .show(ui, |ui| {
+                            Grid::new("types-grid").striped(true).show(ui, |ui| {
+                                for h in
+                                    ["type", "definition", "records", "confidence / occurrences"]
+                                {
+                                    ui.strong(h);
+                                }
+                                ui.end_row();
+                                for t in self
+                                    .type_rows
+                                    .iter()
+                                    .filter(|t| filter.is_empty() || t.signature.contains(&filter))
+                                {
+                                    if link(ui, !busy, &t.signature)
+                                        .on_hover_text("query this type")
+                                        .clicked()
+                                    {
+                                        actions.push(Action::PickType(t.signature.clone()));
                                     }
+                                    match &t.definition {
+                                        Some(d) => ui.label(d),
+                                        None => ui.colored_label(
+                                            WARN,
+                                            "no definition (subrecords unknown)",
+                                        ),
+                                    };
+                                    ui.label(t.records.map_or_else(String::new, |n| n.to_string()));
+                                    ui.label(
+                                        t.occurrences
+                                            .clone()
+                                            .or_else(|| t.confidence.clone())
+                                            .unwrap_or_default(),
+                                    );
                                     ui.end_row();
-                                    for t in self.type_rows.iter().filter(|t| {
-                                        filter.is_empty() || t.signature.contains(&filter)
-                                    }) {
-                                        if ui
-                                            .link(&t.signature)
-                                            .on_hover_text("query this type")
-                                            .clicked()
-                                        {
-                                            actions.push(Action::PickType(t.signature.clone()));
-                                        }
-                                        match &t.definition {
-                                            Some(d) => ui.label(d),
-                                            None => ui.colored_label(
-                                                WARN,
-                                                "no definition (subrecords unknown)",
-                                            ),
-                                        };
-                                        ui.label(
-                                            t.records.map_or_else(String::new, |n| n.to_string()),
-                                        );
-                                        ui.label(
-                                            t.occurrences
-                                                .clone()
-                                                .or_else(|| t.confidence.clone())
-                                                .unwrap_or_default(),
-                                        );
-                                        ui.end_row();
-                                    }
-                                });
+                                }
                             });
-                    },
-                );
+                        });
+                });
             });
         CollapsingHeader::new("Query")
             .id_salt("query")
@@ -792,7 +848,7 @@ impl App {
                         actions.push(Action::QueryPage(None));
                     }
                 });
-                envelope_block(ui, self.results.get(&Slot::Query.into()), &extra, |ui| {
+                envelope_block(ui, self.results.get(&Slot::Query.into()), |ui| {
                     let Some(view) = &self.query_view else { return };
                     ui.horizontal(|ui| {
                         ui.label(format!(
@@ -836,7 +892,7 @@ impl App {
                                 }
                                 ui.end_row();
                                 for r in &view.rows {
-                                    if ui.link(&r.form).on_hover_text("inspect").clicked() {
+                                    if link(ui, !busy, &r.form).on_hover_text("inspect").clicked() {
                                         actions.push(Action::Inspect(r.form.clone()));
                                     }
                                     ui.label(&r.editor_id);
@@ -881,18 +937,16 @@ impl App {
                         }
                     }
                 });
-                envelope_block(ui, self.results.get(&Slot::Inspect.into()), &extra, |ui| {
+                envelope_block(ui, self.results.get(&Slot::Inspect.into()), |ui| {
                     let Some(view) = &self.record_view else {
                         return;
                     };
-                    record_view(ui, view, actions);
+                    record_view(ui, view, busy, actions);
                 });
                 if let Some(shown) = self.results.get(&Slot::InspectSchema.into()) {
                     CollapsingHeader::new("provenance source: schema --deep")
                         .id_salt("record-schema")
-                        .show(ui, |ui| {
-                            envelope_block(ui, Some(shown), &Map::new(), |_| {})
-                        });
+                        .show(ui, |ui| envelope_block(ui, Some(shown), |_| {}));
                 }
             });
     }
@@ -945,8 +999,7 @@ impl App {
                 }
             }
         });
-        let extra = self.load_form.load_order_args();
-        envelope_block(ui, self.results.get(&Slot::Diff.into()), &extra, |ui| {
+        envelope_block(ui, self.results.get(&Slot::Diff.into()), |ui| {
             let Some(view) = &self.diff_view else { return };
             ui.label(view.counts.join("; "));
             if !view.added.is_empty() {
@@ -978,7 +1031,7 @@ impl App {
                     .id_salt(("diff-rec", i))
                     .default_open(i < 5)
                     .show(ui, |ui| {
-                        if ui.link("inspect across the load order").clicked() {
+                        if link(ui, !busy, "inspect across the load order").clicked() {
                             actions.push(Action::Inspect(r.form.clone()));
                         }
                         Grid::new(("diff-grid", i)).striped(true).show(ui, |ui| {
@@ -1023,84 +1076,78 @@ impl App {
                 }
             }
         });
-        let extra = self.load_form.load_order_args();
-        envelope_block(
-            ui,
-            self.results.get(&Slot::DiagInspect.into()),
-            &extra,
-            |ui| {
-                let Some(view) = &self.diag_view else { return };
-                Grid::new("diag-id").num_columns(2).show(ui, |ui| {
-                    for (k, v) in [
-                        ("identity", &view.global),
-                        ("matched by", &view.matched_by),
-                        ("defining plugin", &view.defining_plugin),
-                        ("object ID", &view.object_id),
-                        ("runtime ID", &view.runtime_id),
-                        ("winner", &view.winner),
-                    ] {
-                        ui.strong(k);
-                        ui.monospace(v);
-                        ui.end_row();
-                    }
-                });
-                ui.label("Versions: the FormID each plugin stores, and how it resolved");
-                Grid::new("diag-versions").striped(true).show(ui, |ui| {
-                    for h in ["plugin", "scale", "raw FormID", "resolved by", ""] {
-                        ui.strong(h);
-                    }
+        envelope_block(ui, self.results.get(&Slot::DiagInspect.into()), |ui| {
+            let Some(view) = &self.diag_view else { return };
+            Grid::new("diag-id").num_columns(2).show(ui, |ui| {
+                for (k, v) in [
+                    ("identity", &view.global),
+                    ("matched by", &view.matched_by),
+                    ("defining plugin", &view.defining_plugin),
+                    ("object ID", &view.object_id),
+                    ("runtime ID", &view.runtime_id),
+                    ("winner", &view.winner),
+                ] {
+                    ui.strong(k);
+                    ui.monospace(v);
                     ui.end_row();
-                    for r in &view.identities {
-                        ui.label(&r.plugin);
-                        if r.scale == "unknown" {
-                            ui.colored_label(WARN, "unknown");
-                        } else {
-                            ui.label(&r.scale);
-                        }
-                        ui.monospace(&r.raw_form_id);
-                        if r.resolved_by == "direct" {
-                            ui.label(&r.resolved_by);
-                        } else {
-                            ui.colored_label(WARN, &r.resolved_by);
-                        }
-                        ui.label(match (r.winner, r.deleted) {
-                            (true, true) => "winner, deleted",
-                            (true, false) => "winner",
-                            (false, true) => "deleted",
-                            (false, false) => "",
-                        });
-                        ui.end_row();
+                }
+            });
+            ui.label("Versions: the FormID each plugin stores, and how it resolved");
+            Grid::new("diag-versions").striped(true).show(ui, |ui| {
+                for h in ["plugin", "scale", "raw FormID", "resolved by", ""] {
+                    ui.strong(h);
+                }
+                ui.end_row();
+                for r in &view.identities {
+                    ui.label(&r.plugin);
+                    if r.scale == "unknown" {
+                        ui.colored_label(WARN, "unknown");
+                    } else {
+                        ui.label(&r.scale);
                     }
-                });
-                ui.label(format!(
-                    "FormIDs the winner stores ({}; typed members only)",
-                    view.references.len()
-                ));
-                ScrollArea::vertical()
-                    .id_salt("diag-refs")
-                    .max_height(260.0)
-                    .show(ui, |ui| {
-                        Grid::new("diag-refs-grid").striped(true).show(ui, |ui| {
-                            for h in ["at", "raw", "resolved"] {
-                                ui.strong(h);
+                    ui.monospace(&r.raw_form_id);
+                    if r.resolved_by == "direct" {
+                        ui.label(&r.resolved_by);
+                    } else {
+                        ui.colored_label(WARN, &r.resolved_by);
+                    }
+                    ui.label(match (r.winner, r.deleted) {
+                        (true, true) => "winner, deleted",
+                        (true, false) => "winner",
+                        (false, true) => "deleted",
+                        (false, false) => "",
+                    });
+                    ui.end_row();
+                }
+            });
+            ui.label(format!(
+                "FormIDs the winner stores ({}; typed members only)",
+                view.references.len()
+            ));
+            ScrollArea::vertical()
+                .id_salt("diag-refs")
+                .max_height(260.0)
+                .show(ui, |ui| {
+                    Grid::new("diag-refs-grid").striped(true).show(ui, |ui| {
+                        for h in ["at", "raw", "resolved"] {
+                            ui.strong(h);
+                        }
+                        ui.end_row();
+                        for r in &view.references {
+                            ui.monospace(&r.at);
+                            ui.monospace(&r.raw);
+                            if r.resolved == "unresolved" {
+                                ui.colored_label(BAD, &r.resolved);
+                            } else if r.resolved == "NULL" {
+                                ui.label(&r.resolved);
+                            } else if link(ui, !busy, &r.resolved).clicked() {
+                                actions.push(Action::Diagnose(r.resolved.clone()));
                             }
                             ui.end_row();
-                            for r in &view.references {
-                                ui.monospace(&r.at);
-                                ui.monospace(&r.raw);
-                                if r.resolved == "unresolved" {
-                                    ui.colored_label(BAD, &r.resolved);
-                                } else if r.resolved == "NULL" {
-                                    ui.label(&r.resolved);
-                                } else if ui.link(&r.resolved).clicked() {
-                                    actions.push(Action::Diagnose(r.resolved.clone()));
-                                }
-                                ui.end_row();
-                            }
-                        });
+                        }
                     });
-            },
-        );
+                });
+        });
         ui.separator();
         ui.horizontal(|ui| {
             ui.label("check references of plugin");
@@ -1115,18 +1162,13 @@ impl App {
                 }
             }
         });
-        envelope_block(
-            ui,
-            self.results.get(&Slot::DiagValidate.into()),
-            &extra,
-            |ui| {
-                let Some(view) = &self.diag_view else { return };
-                if view.findings.is_empty() && view.validate_summary.is_some() {
-                    ui.colored_label(GOOD, "no master or FormID finding");
-                }
-                findings_grid(ui, "diag-findings", view.findings.iter());
-            },
-        );
+        envelope_block(ui, self.results.get(&Slot::DiagValidate.into()), |ui| {
+            let Some(view) = &self.diag_view else { return };
+            if view.findings.is_empty() && view.validate_summary.is_some() {
+                ui.colored_label(GOOD, "no master or FormID finding");
+            }
+            findings_grid(ui, "diag-findings", view.findings.iter());
+        });
     }
 
     fn tab_validate(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
@@ -1166,8 +1208,7 @@ impl App {
             }
             ui.weak("build --plan is not offered yet (the gate refuses build)");
         });
-        let extra = self.load_form.load_order_args();
-        envelope_block(ui, self.results.get(&Slot::Validate.into()), &extra, |ui| {
+        envelope_block(ui, self.results.get(&Slot::Validate.into()), |ui| {
             let Some(view) = &self.validate_view else {
                 return;
             };
@@ -1196,20 +1237,15 @@ impl App {
                     });
             }
         });
-        envelope_block(
-            ui,
-            self.results.get(&Slot::Roundtrip.into()),
-            &Map::new(),
-            |ui| {
-                let Some(view) = &self.roundtrip_view else {
-                    return;
-                };
-                ui.label(&view.counts);
-                if let Some(m) = &view.mismatch {
-                    ui.colored_label(BAD, format!("first mismatch {m}"));
-                }
-            },
-        );
+        envelope_block(ui, self.results.get(&Slot::Roundtrip.into()), |ui| {
+            let Some(view) = &self.roundtrip_view else {
+                return;
+            };
+            ui.label(&view.counts);
+            if let Some(m) = &view.mismatch {
+                ui.colored_label(BAD, format!("first mismatch {m}"));
+            }
+        });
     }
 
     fn tab_schema(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
@@ -1228,83 +1264,84 @@ impl App {
                 actions.push(Action::Submit(Slot::Schema, self.schema_form.request()));
             }
         });
-        envelope_block(
-            ui,
-            self.results.get(&Slot::Schema.into()),
-            &Map::new(),
-            |ui| {
-                let Some(view) = &self.schema_view else {
-                    return;
-                };
-                if view.defined == Some(false) {
-                    ui.colored_label(
-                        WARN,
-                        "no definition: its subrecords are unknown to the schema (not absent)",
-                    );
-                }
-                if !view.name.is_empty() {
-                    ui.label(format!(
-                        "{} [{}]  {}",
-                        view.name, view.confidence, view.confidence_counts
-                    ));
-                    ui.weak(&view.source);
-                }
-                if !view.definitions.is_empty() {
-                    Grid::new("schema-defs").striped(true).show(ui, |ui| {
-                        for (ty, name, conf) in &view.definitions {
-                            if ui.link(ty).clicked() {
-                                let mut form = self.schema_form.clone();
-                                form.record_type.clone_from(ty);
-                                form.member.clear();
-                                actions.push(Action::Submit(Slot::Schema, form.request()));
-                            }
-                            ui.label(name);
-                            conf_label(ui, conf);
-                            ui.end_row();
+        envelope_block(ui, self.results.get(&Slot::Schema.into()), |ui| {
+            let Some(view) = &self.schema_view else {
+                return;
+            };
+            if view.defined == Some(false) {
+                ui.colored_label(
+                    WARN,
+                    "no definition: its subrecords are unknown to the schema (not absent)",
+                );
+            }
+            if !view.name.is_empty() {
+                ui.label(format!(
+                    "{} [{}]  {}",
+                    view.name, view.confidence, view.confidence_counts
+                ));
+                ui.weak(&view.source);
+            }
+            if !view.definitions.is_empty() {
+                Grid::new("schema-defs").striped(true).show(ui, |ui| {
+                    for (ty, name, conf) in &view.definitions {
+                        if link(ui, !busy, ty).clicked() {
+                            let mut form = self.schema_form.clone();
+                            form.record_type.clone_from(ty);
+                            form.member.clear();
+                            actions.push(Action::Submit(Slot::Schema, form.request()));
                         }
-                    });
-                }
-                Grid::new("schema-members").striped(true).show(ui, |ui| {
-                    for h in [
-                        "member",
-                        "signature",
-                        "kind",
-                        "card",
-                        "type",
-                        "confidence",
-                        "source",
-                    ] {
-                        ui.strong(h);
-                    }
-                    ui.end_row();
-                    for m in &view.members {
-                        let indent = "    ".repeat(m.depth.min(8));
-                        let name = format!("{indent}{}", m.name);
-                        let resp = ui.label(name);
-                        let mut tip = String::new();
-                        for e in &m.evidence {
-                            tip.push_str(e);
-                            tip.push('\n');
-                        }
-                        tip.push_str(&m.note);
-                        if !tip.trim().is_empty() {
-                            resp.on_hover_text(tip);
-                        }
-                        ui.monospace(&m.signature);
-                        ui.label(&m.kind);
-                        ui.label(&m.card);
-                        ui.monospace(&m.ty);
-                        conf_label(ui, &m.confidence);
-                        ui.weak(&m.source);
+                        ui.label(name);
+                        conf_label(ui, conf);
                         ui.end_row();
                     }
                 });
-            },
-        );
+            }
+            Grid::new("schema-members").striped(true).show(ui, |ui| {
+                for h in [
+                    "member",
+                    "signature",
+                    "kind",
+                    "card",
+                    "type",
+                    "confidence",
+                    "source",
+                ] {
+                    ui.strong(h);
+                }
+                ui.end_row();
+                for m in &view.members {
+                    let indent = "    ".repeat(m.depth.min(8));
+                    let name = format!("{indent}{}", m.name);
+                    let resp = ui.label(name);
+                    let mut tip = String::new();
+                    for e in &m.evidence {
+                        tip.push_str(e);
+                        tip.push('\n');
+                    }
+                    tip.push_str(&m.note);
+                    if !tip.trim().is_empty() {
+                        resp.on_hover_text(tip);
+                    }
+                    ui.monospace(&m.signature);
+                    ui.label(&m.kind);
+                    ui.label(&m.card);
+                    ui.monospace(&m.ty);
+                    conf_label(ui, &m.confidence);
+                    ui.weak(&m.source);
+                    ui.end_row();
+                }
+            });
+        });
     }
 }
 
 // ---- shared pieces --------------------------------------------------------------------
+
+/// A link that submits a request: disabled while the engine is busy, so clicks do not
+/// pile up a queue behind a long command (the top bar can drop one).
+fn link(ui: &mut egui::Ui, enabled: bool, text: impl Into<egui::WidgetText>) -> egui::Response {
+    ui.add_enabled(enabled, egui::Link::new(text))
+}
 
 fn conf_label(ui: &mut egui::Ui, confidence: &str) {
     if confidence == "reference" {
@@ -1376,7 +1413,7 @@ fn findings_grid<'a>(
     });
 }
 
-fn record_view(ui: &mut egui::Ui, view: &RecordView, actions: &mut Vec<Action>) {
+fn record_view(ui: &mut egui::Ui, view: &RecordView, busy: bool, actions: &mut Vec<Action>) {
     ui.horizontal(|ui| {
         ui.strong(format!(
             "{} {} {}",
@@ -1386,7 +1423,10 @@ fn record_view(ui: &mut egui::Ui, view: &RecordView, actions: &mut Vec<Action>) 
             "matched by {}; winner {}; runtime ID {}",
             view.matched_by, view.winner, view.runtime_id
         ));
-        if !view.global.is_empty() && view.mode == "load_order" && ui.link("diagnose").clicked() {
+        if !view.global.is_empty()
+            && view.mode == "load_order"
+            && link(ui, !busy, "diagnose").clicked()
+        {
             actions.push(Action::Diagnose(view.global.clone()));
         }
     });
@@ -1460,63 +1500,56 @@ fn record_view(ui: &mut egui::Ui, view: &RecordView, actions: &mut Vec<Action>) 
 
 /// The common frame around one result: the command line and MCP call that produce it
 /// (copyable), errors, summary, pass/fail, coverage, limitations (always shown), the
-/// panel's own `content`, the evidence table and the raw `data`.
-fn envelope_block(
-    ui: &mut egui::Ui,
-    shown: Option<&Shown>,
-    extra: &Map<String, Value>,
-    content: impl FnOnce(&mut egui::Ui),
-) {
+/// panel's own `content`, the evidence table and the raw `data`. Everything it shows was
+/// built once when the reply arrived ([`Shown`]); per frame it only lays out what is on
+/// screen.
+fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce(&mut egui::Ui)) {
     let Some(shown) = shown else {
         return;
     };
     ui.separator();
     let id = shown.request.id.as_str();
-    let mut cli_args = shown.request.args.clone();
-    let session = SESSION_COMMANDS.contains(&id) && !extra.is_empty();
-    if session {
-        if let Some(map) = cli_args.as_object_mut() {
-            for (k, v) in extra {
-                map.entry(k.clone()).or_insert_with(|| v.clone());
+    match &shown.line.line {
+        Some(line) => {
+            ui.horizontal(|ui| {
+                ui.weak(format!("{} ms", shown.elapsed.as_millis()));
+                if ui.small_button("copy").clicked() {
+                    ui.ctx().copy_text(line.text.clone());
+                }
+                ui.monospace(&line.text);
+            });
+            if !line.exact {
+                ui.colored_label(
+                    WARN,
+                    "a value holds both quote characters: the line above is not exact; use the MCP form",
+                );
+            }
+            if shown.line.session_added {
+                ui.weak("load-order arguments added from the session's load: each `kit` process starts with an empty session (this window keeps one, like `kit mcp`)");
             }
         }
-    }
-    let line = command_line(id, &cli_args);
-    let mcp = mcp_call(id, &shown.request.args);
-    ui.horizontal(|ui| {
-        ui.weak(format!("{} ms", shown.elapsed.as_millis()));
-        if ui.small_button("copy").clicked() {
-            ui.ctx().copy_text(line.text.clone());
+        None => {
+            ui.horizontal(|ui| {
+                ui.weak(format!("{} ms", shown.elapsed.as_millis()));
+                ui.weak("no `kit` line: no load had succeeded in this session, so a fresh `kit` process would not see what this ran against; the MCP call below is exact");
+            });
         }
-        ui.monospace(&line.text);
-    });
-    if !line.exact {
-        ui.colored_label(
-            WARN,
-            "a value holds both quote characters: the line above is not exact; use the MCP form",
-        );
-    }
-    if session {
-        ui.weak("load-order arguments added: each `kit` process starts with an empty session (this window keeps one, like `kit mcp`)");
     }
     ui.horizontal(|ui| {
         if ui.small_button("copy").clicked() {
-            ui.ctx().copy_text(mcp.clone());
+            ui.ctx().copy_text(shown.mcp.clone());
         }
         ui.weak("MCP execute:");
-        ui.monospace(&mcp);
+        ui.monospace(&shown.mcp);
     });
-    let env = match &shown.result {
-        Ok(env) => env,
-        Err(err) => {
-            ui.colored_label(BAD, err.to_string());
-            if let RunError::Failed { json, .. } = err {
-                ui.monospace(serde_json::to_string_pretty(json).unwrap_or_default());
-            }
-            return;
-        }
+    if let Some(err) = &shown.error {
+        ui.colored_label(BAD, err.to_string());
+        raw_lines(ui, id, "error JSON", &shown.prepared, true);
+        return;
+    }
+    let Some(view) = &shown.prepared.view else {
+        return;
     };
-    let view = EnvelopeView::from_value(env);
     ui.horizontal_wrapped(|ui| {
         match view.passed {
             Some(true) => {
@@ -1577,19 +1610,34 @@ fn envelope_block(
                 }
             });
         });
-    CollapsingHeader::new("raw data (JSON)")
-        .id_salt(("raw", id))
+    raw_lines(ui, id, "raw data (JSON)", &shown.prepared, false);
+}
+
+/// The prepared raw JSON in a scroll area that lays out only the visible lines.
+fn raw_lines(ui: &mut egui::Ui, id: &str, title: &str, prepared: &Prepared, open: bool) {
+    CollapsingHeader::new(format!("{title} ({} lines)", prepared.raw.len()))
+        .id_salt(("raw", id, title))
+        .default_open(open)
         .show(ui, |ui| {
-            let text = env
-                .get("data")
-                .and_then(|d| serde_json::to_string_pretty(d).ok())
-                .unwrap_or_default();
-            let shown: String = text.chars().take(RAW_CHARS).collect();
-            ScrollArea::vertical()
-                .id_salt(("raw-rows", id))
+            if prepared.raw_truncated {
+                ui.weak(format!(
+                    "cut to {} lines of {} characters; the MCP call or `kit --json` has all",
+                    crate::envelope::RAW_LINES,
+                    crate::envelope::RAW_LINE_CHARS
+                ));
+            }
+            let row = ui.text_style_height(&egui::TextStyle::Monospace);
+            ScrollArea::both()
+                .id_salt(("raw-rows", id, title))
                 .max_height(400.0)
-                .show(ui, |ui| {
-                    ui.monospace(shown);
+                .auto_shrink([false, true])
+                .show_rows(ui, row, prepared.raw.len(), |ui, range| {
+                    for line in prepared.raw.get(range).unwrap_or_default() {
+                        ui.add(
+                            egui::Label::new(RichText::new(line).monospace())
+                                .wrap_mode(egui::TextWrapMode::Extend),
+                        );
+                    }
                 });
         });
 }
