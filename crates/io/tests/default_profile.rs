@@ -107,9 +107,9 @@ fn default_profile_resolves_every_enabled_plugin() {
         }
     }
     // The active set is exactly loadorder.txt (every entry is active in this profile), in
-    // the `hardcoded-official-slots` order: Starfield.ccc's plugins in its order, then the
-    // official plugins without a plugins.txt entry in loadorder.txt's relative order, then
-    // the rest in loadorder.txt's order.
+    // the `hardcoded-official-slots` order: the official plugins (Starfield.ccc's, the
+    // hardcoded and the unmanaged ones) in the game's official order, then the rest in
+    // loadorder.txt's order.
     let lower =
         |v: &[String]| -> Vec<String> { v.iter().map(|l| l.to_ascii_lowercase()).collect() };
     let ccc_lines = lower(&lines(&dir.join("Starfield.ccc")));
@@ -126,17 +126,23 @@ fn default_profile_resolves_every_enabled_plugin() {
             || unmanaged_stems.iter().any(|u| u == stem)
     };
     let all = lower(&loadorder);
-    let mut expected: Vec<String> = ccc_lines.clone();
-    expected.extend(
-        all.iter()
-            .filter(|n| !ccc_lines.contains(n) && slotted(n))
-            .cloned(),
-    );
-    expected.extend(
-        all.iter()
-            .filter(|n| !ccc_lines.contains(n) && !slotted(n))
-            .cloned(),
-    );
+    let official_pos = |n: &str| {
+        kitkraft_io::plan::OFFICIAL_ORDER
+            .iter()
+            .position(|o| o.eq_ignore_ascii_case(n))
+            .unwrap_or(usize::MAX)
+    };
+    let ccc_pos = |n: &str| ccc_lines.iter().position(|c| c == n).unwrap_or(usize::MAX);
+    let official = |n: &str| ccc_lines.iter().any(|c| c == n) || slotted(n);
+    let mut officials: Vec<(usize, usize, usize, String)> = all
+        .iter()
+        .enumerate()
+        .filter(|(_, n)| official(n))
+        .map(|(i, n)| (official_pos(n), ccc_pos(n), i, n.clone()))
+        .collect();
+    officials.sort();
+    let mut expected: Vec<String> = officials.into_iter().map(|k| k.3).collect();
+    expected.extend(all.iter().filter(|n| !official(n)).cloned());
     let order: Vec<String> = active.iter().map(|p| p.name.to_ascii_lowercase()).collect();
     assert_eq!(order, expected);
     assert!(plan.plugins.iter().all(|p| p.from_loadorder));

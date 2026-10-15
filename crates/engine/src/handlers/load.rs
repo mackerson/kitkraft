@@ -329,8 +329,11 @@ pub(crate) fn load(
                     };
                     limitations.push(format!(
                         "load order by the assumption `hardcoded-official-slots` \
-                         (docs/load-order.md, \"Order\"): official plugins without a plugins.txt \
-                         entry load right after the Starfield.ccc plugins: {}{moved}",
+                         (docs/load-order.md, \"Order\"; each scale's order as the owner's saves \
+                         of game 1.16.244.0 record it, how scales interleave not observed): the \
+                         official plugins first in the game's order, then the others in \
+                         loadorder.txt's order; official plugins without a plugins.txt entry: \
+                         {}{moved}",
                         pl.plan.hardcoded_slots.join(", ")
                     ));
                 }
@@ -415,6 +418,22 @@ pub(crate) fn load(
         .map_err(|e| failed(command, e.to_string()))?;
     for w in &warnings {
         limitations.push(format!("profile: {w}"));
+    }
+    let blueprint: Vec<&str> = lo
+        .plugins
+        .iter()
+        .filter(|p| {
+            p.header().is_some_and(|h| h.flags.blueprint()) && p.scale() == Some(Scale::Full)
+        })
+        .map(|p| p.name.as_str())
+        .collect();
+    if !blueprint.is_empty() {
+        limitations.push(format!(
+            "blueprint (0x800) full plugins take the full runtime slots after every other \
+             full plugin, whatever their place in the load order (`runtime-slots-by-scale`, \
+             as the owner's saves record): {}",
+            blueprint.join(", ")
+        ));
     }
 
     let mut evidence = Vec::new();

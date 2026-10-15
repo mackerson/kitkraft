@@ -376,15 +376,44 @@ impl RuntimeSlot {
     }
 }
 
-/// Assign runtime slots to active plugins in load order by scale. `None` for an inactive
-/// plugin, one without a known scale, or past the end of its index space.
-pub fn runtime_slots(plugins: &[(bool, Option<Scale>)]) -> Vec<Option<RuntimeSlot>> {
+/// One plugin as [`runtime_slots`] sees it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SlotInput {
+    /// Whether the game loads it.
+    pub active: bool,
+    /// Its scale (`None`: unknown, no slot).
+    pub scale: Option<Scale>,
+    /// TES4 blueprint flag (0x800).
+    pub blueprint: bool,
+}
+
+/// Assign runtime slots to active plugins by scale (assumption `runtime-slots-by-scale`,
+/// `docs/load-order.md` "Runtime IDs"): each scale counts its plugins in load order, except
+/// that full plugins with the blueprint flag take the full slots after every other full
+/// plugin (in load order among themselves), as the owner's saves record. `None` for an
+/// inactive plugin, one without a known scale, or past the end of its index space.
+pub fn runtime_slots(plugins: &[SlotInput]) -> Vec<Option<RuntimeSlot>> {
+    let late = |p: &SlotInput| p.active && p.blueprint && p.scale == Some(Scale::Full);
+    let early_full = plugins
+        .iter()
+        .filter(|p| p.active && p.scale == Some(Scale::Full) && !late(p))
+        .count();
+    let mut blueprint = u16::try_from(early_full).unwrap_or(u16::MAX);
     let (mut full, mut medium, mut small) = (0u16, 0u16, 0u16);
     plugins
         .iter()
-        .map(|&(active, scale)| {
+        .map(|p| {
+            let (active, scale) = (p.active, p.scale);
             if !active {
                 return None;
+            }
+            if late(p) {
+                let slot = u8::try_from(blueprint)
+                    .ok()
+                    .filter(|i| *i <= 0xFC)
+                    .map(RuntimeSlot::Full);
+                blueprint = blueprint.saturating_add(1);
+                return slot;
             }
             let slot = match scale? {
                 Scale::Full => u8::try_from(full)
@@ -624,16 +653,24 @@ mod tests {
         );
     }
 
+    fn slot_input(active: bool, scale: Option<Scale>) -> SlotInput {
+        SlotInput {
+            active,
+            scale,
+            blueprint: false,
+        }
+    }
+
     #[test]
     fn runtime_slots_count_per_scale() {
         let slots = runtime_slots(&[
-            (true, Some(Scale::Full)),
-            (true, Some(Scale::Small)),
-            (false, Some(Scale::Full)),
-            (true, Some(Scale::Medium)),
-            (true, Some(Scale::Full)),
-            (true, Some(Scale::Small)),
-            (true, None),
+            slot_input(true, Some(Scale::Full)),
+            slot_input(true, Some(Scale::Small)),
+            slot_input(false, Some(Scale::Full)),
+            slot_input(true, Some(Scale::Medium)),
+            slot_input(true, Some(Scale::Full)),
+            slot_input(true, Some(Scale::Small)),
+            slot_input(true, None),
         ]);
         assert_eq!(
             slots,
@@ -652,6 +689,50 @@ mod tests {
         assert_eq!(RuntimeSlot::Full(5).runtime_id(0x1A2B3), Some(0x0501_A2B3));
         assert_eq!(RuntimeSlot::Small(0).runtime_id(0x1000), None);
         assert_eq!(RuntimeSlot::Small(0x00A).label(), "FE:00A");
+    }
+
+    /// The owner's `KitKraft Dev` saves (game 1.16.244.0, 2026-10-15): a blueprint (0x800)
+    /// full plugin takes a full slot after every other full plugin, whatever its place in the
+    /// load order; small and medium plugins keep their own counts.
+    #[test]
+    fn blueprint_full_plugins_take_the_last_full_slots() {
+        let p = |scale, blueprint| SlotInput {
+            active: true,
+            scale: Some(scale),
+            blueprint,
+        };
+        // Starfield, Constellation (small), BlueprintShips-Starfield, SFBGS003 (medium),
+        // ShatteredSpace, KitKraftFirstPOI, BlueprintShips-SFBGS050, an inactive full plugin,
+        // a small blueprint plugin (stays in the small count: no save shows one).
+        let slots = runtime_slots(&[
+            p(Scale::Full, false),
+            p(Scale::Small, false),
+            p(Scale::Full, true),
+            p(Scale::Medium, false),
+            p(Scale::Full, false),
+            p(Scale::Full, false),
+            p(Scale::Full, true),
+            SlotInput {
+                active: false,
+                scale: Some(Scale::Full),
+                blueprint: true,
+            },
+            p(Scale::Small, true),
+        ]);
+        assert_eq!(
+            slots,
+            [
+                Some(RuntimeSlot::Full(0)),
+                Some(RuntimeSlot::Small(0)),
+                Some(RuntimeSlot::Full(3)),
+                Some(RuntimeSlot::Medium(0)),
+                Some(RuntimeSlot::Full(1)),
+                Some(RuntimeSlot::Full(2)),
+                Some(RuntimeSlot::Full(4)),
+                None,
+                Some(RuntimeSlot::Small(1)),
+            ]
+        );
     }
 
     #[test]

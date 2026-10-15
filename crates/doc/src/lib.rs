@@ -39,9 +39,11 @@ pub mod typed;
 pub use cache::{CacheUse, IndexCache};
 pub use error::{DocError, Result};
 pub use flags::{PluginFlags, Scale};
-pub use form::{Basis, FormRef, GlobalForm, MasterMap, RawRef, ResolveError, RuntimeSlot};
+pub use form::{
+    Basis, FormRef, GlobalForm, MasterMap, RawRef, ResolveError, RuntimeSlot, SlotInput,
+};
 pub use index::{HeaderInfo, PluginIndex, RecordLoc};
-pub use load_order::{LoadOptions, LoadOrder, LoadedPlugin, MasterLink, PluginSpec};
+pub use load_order::{LoadOptions, LoadOrder, LoadedPlugin, MasterLink, PluginSpec, RuntimeBasis};
 pub use overrides::{Duplicate, FormTable, Version};
 pub use record::{LoadedRecord, RecordReader};
 pub use source::SourceCheck;

@@ -49,35 +49,47 @@ A plugin is active when the first of these rules applies (`kitkraft_io::Active`)
 | Rule (label) | Evidence |
 | ------------ | -------- |
 | `Starfield.ccc` | Listed in the profile's `Starfield.ccc` (Ortham, below). |
-| `hardcoded-official` (**assumption**) | One of `Starfield.esm`, `Constellation.esm`, `OldMars.esm`, `BlueprintShips-Starfield.esm`, `SFBGS003.esm`, `SFBGS006.esm`, `SFBGS007.esm`, `SFBGS008.esm` (Ortham 2024: "hardcoded to always be active"), plus `SFBGS00D.esm`, `SFBGS047.esm`, `SFBGS050.esm` (LOOT 0.29.0, 2026-04-11: new hardcoded official masters, https://github.com/loot/loot/blob/master/docs/app/changelog.rst), when the file exists. The list changes with game builds. |
+| `hardcoded-official` (**assumption**) | One of `Starfield.esm`, `Constellation.esm`, `OldMars.esm`, `BlueprintShips-Starfield.esm`, `SFBGS003.esm`, `SFBGS006.esm`, `SFBGS007.esm`, `SFBGS008.esm` (Ortham 2024: "hardcoded to always be active"), plus `SFBGS00D.esm`, `SFBGS047.esm`, `SFBGS050.esm` (LOOT 0.29.0, 2026-04-11: new hardcoded official masters, https://github.com/loot/loot/blob/master/docs/app/changelog.rst), plus `ShatteredSpace.esm` and `SFBGS004.esm` (the owner's saves, `docs/poi/first-poi-investigation.md`: the `KitKraft Dev` profile's `plugins.txt` lists all five of `ShatteredSpace`, `SFBGS004`, `SFBGS00D`, `SFBGS047`, `SFBGS050` without `*`, and every save of that profile lists them as loaded, game 1.16.244.0), when the file exists. The list changes with game builds. |
 | `plugins.txt` | A `*` line. |
-| `mo2-unmanaged:<entry>` (**assumption**) | The plugin of a `*Unmanaged: X` modlist entry. Evidence it is loaded: `ShatteredSpace.esm` is in neither `plugins.txt` nor `Starfield.ccc` nor the LOOT list, yet it is a master of the active `SVF-ShatteredSpace-Patch.esm`, so the game must load it. How the game learns about it (its own Creations list) is **not observed**. |
+| `mo2-unmanaged:<entry>` (**assumption**) | The plugin of a `*Unmanaged: X` modlist entry. First evidence it is loaded: `ShatteredSpace.esm` is in neither `plugins.txt` (as `*`) nor `Starfield.ccc` nor the LOOT list, yet it is a master of the active `SVF-ShatteredSpace-Patch.esm`, so the game must load it; the saves confirm it, and it is now `hardcoded-official`. On both owner profiles only `BlueprintShips-SFBGS050.esm` is still active by this rule (it is also the companion of `SFBGS050`). How the game learns about such plugins (its own Creations list) is **not observed**. |
 | `blueprint-companion-of:<base>` | `BlueprintShips-<base>.esm` when `<base>` is active (LOOT 0.29.0: BlueprintShips plugins "displayed as active when there is an active plugin that matches the BlueprintShips plugin's suffix"; 0.29.1: they are no longer written to `plugins.txt`). In the Default profile both companions are already active by other rules (`BlueprintShips-Starfield.esm` through `Starfield.ccc`, `BlueprintShips-SFBGS050.esm` through its unmanaged entry), so the rule is fixture-tested only. |
 
 ### Order (assumption `hardcoded-official-slots`)
 
-1. The `Starfield.ccc` plugins, in the ccc's order.
-2. The other official plugins the game loads without a `plugins.txt` entry: the
-   `hardcoded-official` and `mo2-unmanaged` ones, and blueprint companions of either, in
-   `loadorder.txt`'s relative order (any it does not list last).
-3. Everything else in `loadorder.txt` order; an active plugin it does not list is appended
+1. The official plugins (`Starfield.ccc`, `hardcoded-official`, `mo2-unmanaged`, and
+   blueprint companions of these) in the game's official order
+   (`kitkraft_io::plan::OFFICIAL_ORDER`): `Starfield`, `Constellation`, `OldMars`,
+   `BlueprintShips-Starfield`, `SFBGS004`, `SFBGS007`, `SFBGS008`, `SFBGS003`, `SFBGS006`,
+   `ShatteredSpace`, `SFBGS00D`, `SFBGS050`, `BlueprintShips-SFBGS050`, `SFBGS047`.
+   Official plugins the list does not name follow, in the ccc's order, then
+   `loadorder.txt`'s.
+2. Everything else in `loadorder.txt` order; an active plugin it does not list is appended
    with a warning.
 
-Why: MO2's `loadorder.txt` does not reflect where the game puts these plugins. The owner's
-file lists `ShatteredSpace`, `SFBGS004`, `SFBGS00D`, `SFBGS050`,
-`BlueprintShips-SFBGS050` and `SFBGS047` at lines 68-84, after managed plugins; yet
-`stroudpremiumedition.esm` (line 73) names `sfbgs00d.esm` and `SFBGS047.esm` as masters,
-and a master always loads before its dependents. LOOT 0.29.0 (2026-04-11, changelog above)
-says `SFBGS00D`, `SFBGS047` and `SFBGS050` have hardcoded positions, and the owner's
-`loadorder.staged.txt` (2026-09-30) puts all six right after `SFBGS003.esm`, the last ccc
-plugin. Their exact order among themselves is **not observed**: KitKraft keeps
-`loadorder.txt`'s relative order (the staged file differs only in where
-`BlueprintShips-SFBGS050.esm` sits). **Still open (M2.O4):** the game's or the CK's own
-view of this order. Results over a profile name the assumption and the plugins it moved.
+Evidence (the game's own record, `docs/poi/first-poi-investigation.md`; game 1.16.244.0): every
+save of the owner's lists, per scale, the official plugins first, in this order: full
+`Starfield`, `ShatteredSpace`, `SFBGS00D`, `SFBGS050`; small `Constellation`, `OldMars`,
+`SFBGS004`, `SFBGS007`, `SFBGS008`, `SFBGS047`; medium `SFBGS003`, `SFBGS006`. Then the
+user plugins of each scale in `loadorder.txt`'s order, then (full only) the two blueprint
+plugins. So the game follows neither MO2's `loadorder.txt` (which lists `ShatteredSpace`,
+`SFBGS004`, `SFBGS00D`, `SFBGS047`, `SFBGS050` after the managed plugins; on `Default`,
+`stroudpremiumedition.esm` names `sfbgs00d.esm` and `SFBGS047.esm` as masters) nor the
+`Starfield.ccc` order (`SFBGS006` before `SFBGS003`, `BlueprintShips-Starfield` before
+`SFBGS007`). A save lists each scale apart, so **how the scales interleave is not
+observed**; it matters only for which of two official plugins of different scales wins a
+form both override, and runtime slots do not depend on it. The list therefore keeps the
+previous order wherever the saves allow it: the ccc's, with `SFBGS004` moved before
+`SFBGS007` and `SFBGS003` before `SFBGS006` (the two corrections the saves force), then the
+other official plugins in the order the `Default` `loadorder.txt` lists them. Results over
+a profile name the assumption and the plugins it moved from their `loadorder.txt`
+position.
 
-Where blueprint masters really load is **open**: LOOT 0.29.0 writes their timestamps "to
-match their load order" because the game drops them from `plugins.txt`, which suggests the
-game orders them by timestamp.
+**Blueprint plugins** (TES4 flag 0x800) take the full runtime slots after every user
+plugin ("Runtime IDs" below), but stay with the official plugins in this order: ten user
+plugins on `Default` name `BlueprintShips-Starfield.esm` as a master, and which version of
+a form the game uses when one of them overrides a blueprint record is **not observed**; a
+master before its dependents is the safe reading (and keeps those ten free of ordering
+errors).
 
 Any master that still loads after a plugin naming it (`late_masters` in `load`) is an
 **ordering error**, carried in the limitations of every result over that load order
@@ -85,16 +97,19 @@ Any master that still loads after a plugin naming it (`late_masters` in `load`) 
 wrong. `diff` takes no load order.
 
 Effect on the Default profile (`crates/io/tests/default_profile.rs`, ignored release test
-`hardcoded_slots_effect_on_the_default_profile`, 2026-10-14): in `loadorder.txt` order 2
-master links point later (`stroudpremiumedition.esm` before `sfbgs00d.esm` and
-`SFBGS047.esm`); in this order none. 15 overridden forms change winner, every one from a
-slotted official plugin (`SFBGS050` 11, `SFBGS00D` 3, `BlueprintShips-SFBGS050` 1) to a
-managed mod that loads after it (`stroudpremiumedition` 4, `TIG_Shipyards` 4, `MB_Scrappy`
-3, `TNClassM`, `Resupply`, `outfit_variety_paradiso`, `NPC Outfit Changer` 1 each).
+`hardcoded_slots_effect_on_the_default_profile`, rerun 2026-10-15 with the save-corrected
+order): in `loadorder.txt` order 1 master link points later (`stroudpremiumedition.esm`
+before `SFBGS047.esm`); in this order none. 14 overridden forms change winner, every one
+from a slotted official plugin (`SFBGS050` 11, `SFBGS00D` 2, `BlueprintShips-SFBGS050` 1)
+to a managed mod that loads after it (`TIG_Shipyards` 4, `stroudpremiumedition` 3,
+`MB_Scrappy` 3, `Resupply`, `outfit_variety_paradiso`, `NPC Outfit Changer`,
+`Better_Living` 1 each). The two save-forced corrections inside the official block change
+no winner on this profile. (2026-10-14, first version of the rule: 2 late links, 15
+forms.)
 
 On the Default profile (`crates/io/tests/default_profile.rs`, counts computed from the files):
-84 plugins, all active: 8 `Starfield.ccc`, 3 hardcoded, 70 `plugins.txt`, 3 unmanaged
-(`SFBGS004.esm`, `ShatteredSpace.esm`, `BlueprintShips-SFBGS050.esm`); every one resolves
+84 plugins, all active: 8 `Starfield.ccc`, 5 hardcoded, 70 `plugins.txt`, 1 unmanaged
+(`BlueprintShips-SFBGS050.esm`); every one resolves
 to an existing file (70 from mod folders, 14 from the game Data dir), and the active list is
 exactly `loadorder.txt`'s entries in the order above. The profile files' sizes and mtimes
 are unchanged by the run.
@@ -213,19 +228,32 @@ payload bytes as stored and say so.
 
 ### Runtime IDs (M2.D3 c)
 
-**Assumption** `runtime-slots-by-scale` (Ortham 2024; LOOT guide): active plugins take
-slots in load order per scale: full plugins `00`..`FC` (runtime ID `SSxxxxxx`), medium
-plugins `FD00`..`FDFF` (`FDSSxxxx`), small plugins `FE000`..`FEFFF` (`FESSSxxx`). The slot
-class comes from the **scale bits only** (0x100 small, 0x400 medium, else full;
-`kitkraft_doc::form::runtime_slots`): the update flag (0x200) and the blueprint flag (0x800)
-do not change it, so an update or blueprint plugin without a scale bit takes a full slot.
-This is part of the assumption. An earlier version of this page said update plugins take
-full slots (citing Ortham for game version 1.12.30.0); the two readings differ only for an
-update plugin that also sets a scale bit, which no corpus file and no Default-profile
-plugin does (no plugin there sets 0x200). **Not observed** in the game console or the CK
-on this machine (M2.O4); results that show a runtime ID say it is assumed. Our scripts
-README says the in-game high byte is "the plugin's load-order index", which matches the
-full-slot case.
+**Assumption** `runtime-slots-by-scale` (Ortham 2024; LOOT guide; the owner's saves):
+active plugins take slots in load order per scale: full plugins `00`..`FC` (runtime ID
+`SSxxxxxx`), medium plugins `FD00`..`FDFF` (`FDSSxxxx`), small plugins `FE000`..`FEFFF`
+(`FESSSxxx`), **except that full plugins with the blueprint flag (0x800) take the full
+slots after every other full plugin** (in load order among themselves). The slot class
+comes from the **scale bits only** (0x100 small, 0x400 medium, else full;
+`kitkraft_doc::form::runtime_slots`): the update flag (0x200) does not change it, and a
+blueprint plugin with a scale bit keeps its small or medium count (no save shows one).
+An earlier version of this page said update plugins take full slots (citing Ortham for
+game version 1.12.30.0); the two readings differ only for an update plugin that also sets
+a scale bit, which no corpus file and no Default-profile plugin does.
+
+Evidence (game 1.16.244.0, 2026-10-15; `docs/poi/first-poi-investigation.md`): the saves' lists give
+`KitKraft Dev` full `00` Starfield, `01` ShatteredSpace, `02` SFBGS00D, `03` SFBGS050,
+`04` KitKraftFirstPOI, `05` KitKraftGunOverhaul (once enabled), then the two blueprint
+plugins; `Default` (`Save56`, 84 plugins) 41 full, 33 small, 10 medium, the blueprint
+plugins at `27` and `28` after `EasyLockpick_by_Kor.esp` at `26`. With the order above
+and this rule, `kit load --profile` reproduces every slot of both profiles' newest saves
+(and of `Save56`; `crates/io/src/lib.rs`, `kitkraft_dev_order_matches_its_saves`). The owner's console check of
+2026-10-15 is consistent with it (`02001000` behaved as `SFBGS00D.esm`'s exterior
+reference, not the POI's); `prid 04001000` is still to be run (M4.O2). Before this
+fix `load` put `BlueprintShips-Starfield` at `01`, so every user full plugin came out two
+slots high (the POI at `06`; MO2 showed `02`).
+
+Runtime IDs in results are inferred, and say so. Our scripts README says the in-game high
+byte is "the plugin's load-order index", which matches the full-slot case.
 
 `inspect` reads a bare hex `form` only as stored in a named `plugin`; a runtime ID needs
 the explicit `runtime:` prefix (`runtime:FE00A801`), so a raw FormID is never taken for a

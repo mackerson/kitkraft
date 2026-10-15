@@ -3,12 +3,18 @@
 //! Each rule is named so results can say why a plugin is active; the evidence and what is
 //! still unverified is in `docs/load-order.md` ("Active plugins").
 //!
-//! Order (assumption `hardcoded-official-slots`, `docs/load-order.md` "Order"): the
-//! `Starfield.ccc` plugins in the ccc's order; then the other official plugins the game
-//! loads without a `plugins.txt` entry (hardcoded, MO2-unmanaged, and their blueprint
-//! companions); then everything else. Within a group, `loadorder.txt`'s order, and plugins
-//! it does not list last. MO2's `loadorder.txt` can list unmanaged DLC after managed
-//! plugins that name them as masters; the game cannot load them there.
+//! Order (assumption `hardcoded-official-slots`, `docs/load-order.md` "Order"; the order
+//! within each scale is the one the owner's saves record, game 1.16.244.0): the official
+//! plugins first, in [`OFFICIAL_ORDER`] (official ones it does not name after it, in the
+//! ccc's order, then `loadorder.txt`'s); then every other plugin in `loadorder.txt` order.
+//! MO2's `loadorder.txt` can list unmanaged DLC after managed plugins that name them as
+//! masters, and the ccc lists `SFBGS006` before `SFBGS003`; the game follows neither.
+//!
+//! The blueprint (TES4 flag 0x800) plugins take the last full *runtime slots*, after every
+//! user plugin (`kitkraft_doc::form::runtime_slots`). They stay with the official plugins
+//! here: ten user plugins on the owner's `Default` profile name `BlueprintShips-Starfield`
+//! as a master, and which version of a form the game uses when such a plugin overrides a
+//! blueprint record is not observed; a master before its dependents is the safe reading.
 
 use std::path::PathBuf;
 
@@ -19,19 +25,53 @@ use crate::overlay::{Overlay, Resolved};
 
 /// Official masters the game loads without a `plugins.txt` entry: the eight Ortham's 2024
 /// article lists, plus `SFBGS00D.esm`, `SFBGS047.esm` and `SFBGS050.esm` added by LOOT 0.29.0
-/// (2026-04-11). Active only when the file exists. Assumption `hardcoded-official`.
-pub const HARDCODED_OFFICIAL: [&str; 11] = [
+/// (2026-04-11), plus `ShatteredSpace.esm` and `SFBGS004.esm`: the owner's `KitKraft Dev`
+/// saves list both (and `SFBGS00D`, `SFBGS047`, `SFBGS050`) while that profile's
+/// `plugins.txt` lists them without `*`. Active only when the file exists. Assumption
+/// `hardcoded-official`.
+pub const HARDCODED_OFFICIAL: [&str; 13] = [
     "Starfield.esm",
     "Constellation.esm",
     "OldMars.esm",
+    "ShatteredSpace.esm",
     "BlueprintShips-Starfield.esm",
     "SFBGS003.esm",
+    "SFBGS004.esm",
     "SFBGS006.esm",
     "SFBGS007.esm",
     "SFBGS008.esm",
     "SFBGS00D.esm",
     "SFBGS047.esm",
     "SFBGS050.esm",
+];
+
+/// The game's order of the official plugins (assumption `hardcoded-official-slots`). Within
+/// each scale it is the order the owner's saves record (game 1.16.244.0, 2026-10-15): full
+/// `Starfield`, `ShatteredSpace`, `SFBGS00D`, `SFBGS050`; small `Constellation`, `OldMars`,
+/// `SFBGS004`, `SFBGS007`, `SFBGS008`, `SFBGS047`; medium `SFBGS003`, `SFBGS006`; the
+/// blueprint plugins `BlueprintShips-Starfield`, `BlueprintShips-SFBGS050` (whose runtime
+/// slots come after every other full plugin's, user plugins included). A save lists each
+/// scale apart, so how the scales interleave is **not observed**; it decides only which of
+/// two official plugins of different scales wins a form both override. So the list keeps
+/// the previous order wherever the saves do not contradict it: the `Starfield.ccc` order
+/// (with `SFBGS004` moved before `SFBGS007` and `SFBGS003` before `SFBGS006`, as the saves
+/// require), then the other official plugins in the order the owner's `Default`
+/// `loadorder.txt` lists them.
+pub const OFFICIAL_ORDER: [&str; 14] = [
+    "Starfield.esm",
+    "Constellation.esm",
+    "OldMars.esm",
+    "BlueprintShips-Starfield.esm",
+    "SFBGS004.esm",
+    "SFBGS007.esm",
+    "SFBGS008.esm",
+    "SFBGS003.esm",
+    "SFBGS006.esm",
+    "ShatteredSpace.esm",
+    "SFBGS00D.esm",
+    "SFBGS050.esm",
+    "BlueprintShips-SFBGS050.esm",
+    "SFBGS047.esm",
 ];
 
 /// Prefix of blueprint companion plugins (`BlueprintShips-<base>`).
@@ -85,26 +125,27 @@ pub struct LoadPlan {
     pub plugins: Vec<PlannedPlugin>,
     /// Problems found.
     pub warnings: Vec<String>,
-    /// Plugins placed by the assumption `hardcoded-official-slots`: active official plugins
-    /// without a `plugins.txt` entry (hardcoded, MO2-unmanaged, and blueprint companions of
-    /// those), right after the `Starfield.ccc` plugins, in `loadorder.txt`'s relative order.
+    /// Plugins placed by the assumption `hardcoded-official-slots` that have no
+    /// `Starfield.ccc` entry: active official plugins without a `plugins.txt` entry
+    /// (hardcoded, MO2-unmanaged, and blueprint companions of those), in the official block.
     pub hardcoded_slots: Vec<String>,
     /// Of those, the ones `loadorder.txt` lists after a plugin that now loads after them.
     pub moved: Vec<String>,
 }
 
-/// Where a plugin goes: `Starfield.ccc` first (in its order), then the hardcoded slots,
-/// then everything else in `loadorder.txt` order.
-fn slot_group(active: Option<&Active>, slotted: &[String]) -> u8 {
+/// Sort groups: official plugins, then the user's.
+const GROUP_OFFICIAL: u8 = 0;
+const GROUP_USER: u8 = 1;
+
+/// Whether an active plugin is official: in `Starfield.ccc`, hardcoded, MO2-unmanaged, or a
+/// blueprint companion of one of those.
+fn official(active: Option<&Active>, slotted: &[String]) -> bool {
     match active {
-        Some(Active::Ccc) => 0,
-        Some(Active::Hardcoded | Active::Unmanaged(_)) => 1,
-        Some(Active::BlueprintCompanion(base))
-            if slotted.iter().any(|s| s.eq_ignore_ascii_case(base)) =>
-        {
-            1
+        Some(Active::Ccc | Active::Hardcoded | Active::Unmanaged(_)) => true,
+        Some(Active::BlueprintCompanion(base)) => {
+            slotted.iter().any(|s| s.eq_ignore_ascii_case(base))
         }
-        _ => 2,
+        _ => false,
     }
 }
 
@@ -190,9 +231,10 @@ impl LoadPlan {
             }
         }
 
-        // Assumption `hardcoded-official-slots` (docs/load-order.md): Starfield.ccc plugins
-        // in the ccc's order, then the other official plugins that have no plugins.txt
-        // entry, then the rest; loadorder.txt's order within each group.
+        // Assumption `hardcoded-official-slots` (docs/load-order.md): the official plugins
+        // in OFFICIAL_ORDER (unknown official ones after them: ccc order, then
+        // loadorder.txt's), then the rest in loadorder.txt's order, then the blueprint full
+        // plugins (OFFICIAL_ORDER among themselves, then loadorder.txt's).
         let why_of = |name: &str| {
             active
                 .iter()
@@ -212,28 +254,46 @@ impl LoadPlan {
                 .position(|c| c.eq_ignore_ascii_case(name))
                 .unwrap_or(usize::MAX)
         };
-        let mut keyed: Vec<(u8, usize, usize, String, bool)> = names
+        let official_pos = |name: &str| {
+            OFFICIAL_ORDER
+                .iter()
+                .position(|c| c.eq_ignore_ascii_case(name))
+                .unwrap_or(usize::MAX)
+        };
+        // (group, official position, ccc position, loadorder.txt position, name, listed)
+        type Key = (u8, usize, usize, usize, String, bool);
+        let mut keyed: Vec<Key> = names
             .into_iter()
             .enumerate()
             .map(|(i, (name, from))| {
-                let group = slot_group(why_of(&name), &direct);
-                let within = if group == 0 { ccc_pos(&name) } else { i };
-                (group, within, i, name, from)
+                let group = if official(why_of(&name), &direct) {
+                    GROUP_OFFICIAL
+                } else {
+                    GROUP_USER
+                };
+                let (o, c) = if group == GROUP_USER {
+                    (usize::MAX, usize::MAX)
+                } else {
+                    (official_pos(&name), ccc_pos(&name))
+                };
+                (group, o, c, i, name, from)
             })
             .collect();
-        let first_rest = keyed
+        let first_user = keyed
             .iter()
-            .filter(|k| k.0 == 2 && k.4 && why_of(&k.3).is_some())
-            .map(|k| k.2)
+            .filter(|k| k.0 == GROUP_USER && k.5 && why_of(&k.4).is_some())
+            .map(|k| k.3)
             .min();
-        for k in keyed.iter().filter(|k| k.0 == 1) {
-            plan.hardcoded_slots.push(k.3.clone());
-            if k.4 && first_rest.is_some_and(|f| k.2 > f) {
-                plan.moved.push(k.3.clone());
+        keyed.sort_by_key(|k| (k.0, k.1, k.2, k.3));
+        for k in &keyed {
+            if k.0 == GROUP_OFFICIAL && why_of(&k.4) != Some(&Active::Ccc) {
+                plan.hardcoded_slots.push(k.4.clone());
+                if k.5 && first_user.is_some_and(|f| k.3 > f) {
+                    plan.moved.push(k.4.clone());
+                }
             }
         }
-        keyed.sort_by_key(|k| (k.0, k.1, k.2));
-        let names: Vec<(String, bool)> = keyed.into_iter().map(|k| (k.3, k.4)).collect();
+        let names: Vec<(String, bool)> = keyed.into_iter().map(|k| (k.4, k.5)).collect();
         for (name, from_loadorder) in names {
             let why = active
                 .iter()

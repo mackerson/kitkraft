@@ -14,7 +14,7 @@ use std::time::Instant;
 use crate::cache::{CacheUse, IndexCache};
 use crate::error::{DocError, Result};
 use crate::flags::Scale;
-use crate::form::{runtime_slots, GlobalForm, MasterMap, ResolveError, RuntimeSlot};
+use crate::form::{runtime_slots, GlobalForm, MasterMap, ResolveError, RuntimeSlot, SlotInput};
 use crate::hash::Fnv;
 use crate::index::{HeaderInfo, PluginIndex, RecordLoc};
 use crate::overrides::FormTable;
@@ -66,7 +66,8 @@ pub struct LoadedPlugin {
     pub masters: Vec<MasterLink>,
     /// FormID resolution for this file, or why it is impossible.
     pub map: std::result::Result<MasterMap, ResolveError>,
-    /// Runtime slot (an assumption; `docs/load-order.md`, "Runtime IDs").
+    /// Runtime slot (inferred by `runtime-slots-by-scale`, or a save's: see
+    /// [`LoadOrder::runtime_basis`]; `docs/load-order.md`, "Runtime IDs").
     pub runtime_slot: Option<RuntimeSlot>,
 }
 
@@ -116,6 +117,27 @@ pub struct LoadOrder {
     pub index_ms: u64,
     /// Time spent building the override table.
     pub table_ms: u64,
+    /// Where the runtime slots come from.
+    pub runtime_basis: RuntimeBasis,
+}
+
+/// Where a load order's runtime slots come from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RuntimeBasis {
+    /// Computed by the assumption `runtime-slots-by-scale` (`docs/load-order.md`).
+    Inferred,
+    /// Taken from a save's plugin lists (the label names the save).
+    ConfirmedBySave(String),
+}
+
+impl RuntimeBasis {
+    /// `inferred` or `confirmed-by-save`.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            RuntimeBasis::Inferred => "inferred",
+            RuntimeBasis::ConfirmedBySave(_) => "confirmed-by-save",
+        }
+    }
 }
 
 impl LoadOrder {
@@ -183,10 +205,15 @@ impl LoadOrder {
             p.map = master_map(p, own, &states);
         }
         let slots = runtime_slots(
-            &scales
+            &plugins
                 .iter()
-                .map(|s| (true, *s))
-                .collect::<Vec<(bool, Option<Scale>)>>(),
+                .zip(&scales)
+                .map(|(p, s)| SlotInput {
+                    active: true,
+                    scale: *s,
+                    blueprint: p.header().is_some_and(|h| h.flags.blueprint()),
+                })
+                .collect::<Vec<SlotInput>>(),
         );
         for (p, slot) in plugins.iter_mut().zip(slots) {
             p.runtime_slot = slot;
@@ -199,7 +226,41 @@ impl LoadOrder {
             forms,
             index_ms,
             table_ms: elapsed_ms(started),
+            runtime_basis: RuntimeBasis::Inferred,
         })
+    }
+
+    /// Replace the inferred runtime slots by observed ones (one per plugin, in load order;
+    /// a save's plugin lists, `kitkraft_io::save`), with where they came from. Refused when
+    /// the count differs or two plugins would share a slot.
+    pub fn adopt_runtime_slots(
+        &mut self,
+        slots: Vec<Option<RuntimeSlot>>,
+        source: String,
+    ) -> std::result::Result<(), String> {
+        if slots.len() != self.plugins.len() {
+            return Err(format!(
+                "{} slots for {} plugins",
+                slots.len(),
+                self.plugins.len()
+            ));
+        }
+        let mut seen: Vec<RuntimeSlot> = slots.iter().flatten().copied().collect();
+        let count = seen.len();
+        seen.sort_by_key(|s| match s {
+            RuntimeSlot::Full(i) => (0u8, u16::from(*i)),
+            RuntimeSlot::Medium(i) => (1, u16::from(*i)),
+            RuntimeSlot::Small(i) => (2, *i),
+        });
+        seen.dedup();
+        if seen.len() != count {
+            return Err("two plugins would share a runtime slot".into());
+        }
+        for (p, s) in self.plugins.iter_mut().zip(slots) {
+            p.runtime_slot = s;
+        }
+        self.runtime_basis = RuntimeBasis::ConfirmedBySave(source);
+        Ok(())
     }
 
     /// Load-order index of the plugin named `name` (ASCII case-insensitive).

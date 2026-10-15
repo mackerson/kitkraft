@@ -15,6 +15,8 @@ pub mod instance;
 pub mod mo2;
 pub mod overlay;
 pub mod plan;
+#[cfg(test)]
+mod testdata;
 pub mod text;
 
 pub use error::{IoError, Result};
@@ -217,18 +219,19 @@ mod tests {
         assert_eq!(
             rows,
             [
+                // `hardcoded-official-slots`: the official plugins first, those the game's
+                // order names in that order (SFBGS050 although loadorder.txt omits it),
+                // then the other ccc plugins, then other official plugins without a
+                // plugins.txt entry, although loadorder.txt lists them later.
                 row("Starfield.esm", Some("Starfield.ccc"), true),
+                row("SFBGS050.esm", Some("hardcoded-official"), true),
                 row("Core2.esm", Some("Starfield.ccc"), true),
-                // `hardcoded-official-slots`: official plugins without a plugins.txt entry
-                // load right after the ccc ones, although loadorder.txt lists them later.
                 row("DLC.esm", Some("mo2-unmanaged:Unmanaged: DLC"), true),
                 row(
                     "BlueprintShips-DLC.esm",
                     Some("blueprint-companion-of:DLC.esm"),
                     true
                 ),
-                // Hardcoded official master present in Data but not in loadorder.txt.
-                row("SFBGS050.esm", Some("hardcoded-official"), true),
                 row("A.esm", Some("plugins.txt"), true),
                 // Listed without `*`, and its mod is disabled: inactive, no file.
                 row("B.esm", None, false),
@@ -237,7 +240,7 @@ mod tests {
         );
         assert_eq!(
             load.plan.hardcoded_slots,
-            ["DLC.esm", "BlueprintShips-DLC.esm", "SFBGS050.esm"]
+            ["SFBGS050.esm", "DLC.esm", "BlueprintShips-DLC.esm"]
         );
         assert_eq!(load.plan.moved, ["DLC.esm", "BlueprintShips-DLC.esm"]);
         assert_eq!(load.plan.missing(), ["Missing.esm"]);
@@ -248,17 +251,160 @@ mod tests {
             .warnings
             .iter()
             .any(|w| w.contains("SFBGS050.esm is active but not in loadorder.txt")));
-        // The ccc's own order wins over loadorder.txt's for the ccc plugins.
+        // The game's official order wins over the ccc's for the plugins it names; the ccc
+        // orders the official plugins it does not name.
         inst.write(
             "profiles/P/Starfield.ccc",
-            b"Core2.esm\r\nStarfield.esm\r\n",
+            b"Core2.esm\r\nCore1.esm\r\nStarfield.esm\r\n",
         );
+        inst.write("Game/Data/Core1.esm", b"x");
         let load = plan(&inst);
-        assert_eq!(load.plan.plugins[0].name, "Core2.esm");
-        assert_eq!(load.plan.plugins[1].name, "Starfield.esm");
+        let names: Vec<&str> = load.plan.plugins.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(
+            names[..5],
+            [
+                "Starfield.esm",
+                "SFBGS050.esm",
+                "Core2.esm",
+                "Core1.esm",
+                "DLC.esm"
+            ]
+        );
         assert!(load.profile.warnings.is_empty());
         // core2.ESM on disk resolves for Core2.esm.
         assert!(load.plan.get("core2.esm").unwrap().file.is_some());
+    }
+
+    /// The `KitKraft Dev` profile as it was for the owner's saves of 2026-10-15 (Autosave1
+    /// `000039` with the POI; Exitsave0 `000052` with the gun overhaul too): its files, the
+    /// plan, the inferred runtime slots and the saves' lists agree slot for slot
+    /// (`docs/poi/first-poi-investigation.md`). Real plugin headers (flags as the official
+    /// files carry them), so the blueprint rule reads the flag.
+    #[test]
+    fn kitkraft_dev_order_matches_its_saves() {
+        use crate::testdata::{dev_flags, tiny_plugin, DEV_FULL, DEV_MEDIUM, DEV_SMALL};
+        use kitkraft_doc::{LoadOptions, LoadOrder, RuntimeSlot};
+
+        let inst = Instance::new("dev-saves");
+        inst.write(
+            "profiles/P/modlist.txt",
+            b"# gen\r\n+Kitkraft POI dev\r\n+KitKraft Gun Overhaul\r\n-Tower Hab 2\r\n*Unmanaged: BlueprintShips-SFBGS050\r\n*Unmanaged: SFBGS004\r\n*Unmanaged: SFBGS00D\r\n*Unmanaged: SFBGS047\r\n*Unmanaged: SFBGS050\r\n*Unmanaged: ShatteredSpace\r\n",
+        );
+        inst.write(
+            "profiles/P/Starfield.ccc",
+            b"Starfield.esm\r\nConstellation.esm\r\nOldMars.esm\r\nBlueprintShips-Starfield.esm\r\nSFBGS007.esm\r\nSFBGS008.esm\r\nSFBGS006.esm\r\nSFBGS003.esm\r\n",
+        );
+        inst.write(
+            "profiles/P/loadorder.txt",
+            b"# gen\r\nStarfield.esm\r\nConstellation.esm\r\nOldMars.esm\r\nBlueprintShips-Starfield.esm\r\nSFBGS007.esm\r\nSFBGS008.esm\r\nSFBGS006.esm\r\nSFBGS003.esm\r\nKitKraftFirstPOI.esm\r\nKitKraftGunOverhaul.esm\r\nSFBGS004.esm\r\nSFBGS00D.esm\r\nSFBGS047.esm\r\nSFBGS050.esm\r\nBlueprintShips-SFBGS050.esm\r\nShatteredSpace.esm\r\n",
+        );
+        let official: Vec<&str> = DEV_FULL
+            .iter()
+            .chain(&DEV_SMALL)
+            .chain(&DEV_MEDIUM)
+            .filter(|(_, o)| *o)
+            .map(|(n, _)| *n)
+            .collect();
+        for n in &official {
+            inst.write(&format!("Game/Data/{n}"), &tiny_plugin(dev_flags(n)));
+        }
+        inst.write(
+            "mods/Kitkraft POI dev/KitKraftFirstPOI.esm",
+            &tiny_plugin(0x1),
+        );
+        inst.write(
+            "mods/KitKraft Gun Overhaul/KitKraftGunOverhaul.esm",
+            &tiny_plugin(0x1),
+        );
+        // Every active plugin takes the slot of its place in the save's list of its scale.
+        let check = |plugins_txt: &[u8], full: &[(&str, bool)], save: &str| {
+            inst.write("profiles/P/plugins.txt", plugins_txt);
+            let load = plan(&inst);
+            let lo = LoadOrder::load(load.plan.specs(), &LoadOptions::default()).unwrap();
+            let mut expected: Vec<(String, RuntimeSlot)> = Vec::new();
+            for (i, (n, _)) in full.iter().enumerate() {
+                expected.push((n.to_string(), RuntimeSlot::Full(u8::try_from(i).unwrap())));
+            }
+            for (i, (n, _)) in DEV_SMALL.iter().enumerate() {
+                expected.push((n.to_string(), RuntimeSlot::Small(u16::try_from(i).unwrap())));
+            }
+            for (i, (n, _)) in DEV_MEDIUM.iter().enumerate() {
+                expected.push((n.to_string(), RuntimeSlot::Medium(u8::try_from(i).unwrap())));
+            }
+            let mut got: Vec<(String, RuntimeSlot)> = lo
+                .plugins
+                .iter()
+                .map(|p| (p.name.clone(), p.runtime_slot.unwrap()))
+                .collect();
+            expected.sort_by(|a, b| a.0.cmp(&b.0));
+            got.sort_by(|a, b| a.0.cmp(&b.0));
+            assert_eq!(got, expected, "{save}");
+            (load, lo)
+        };
+        // Autosave1 000039: only the POI enabled.
+        let (load, lo) = check(
+            b"# gen\r\n*KitKraftFirstPOI.esm\r\nKitKraftGunOverhaul.esm\r\nSFBGS004.esm\r\nSFBGS00D.esm\r\nSFBGS047.esm\r\nSFBGS050.esm\r\nBlueprintShips-SFBGS050.esm\r\nShatteredSpace.esm\r\n",
+            &DEV_FULL,
+            "Autosave1.sfs",
+        );
+        let poi = lo.find("KitKraftFirstPOI.esm").unwrap();
+        assert_eq!(
+            lo.plugin(poi).unwrap().runtime_slot,
+            Some(RuntimeSlot::Full(4))
+        );
+        assert_eq!(
+            lo.runtime_id(kitkraft_doc::GlobalForm {
+                plugin: poi,
+                object_id: 0x1000
+            }),
+            Some(0x0400_1000)
+        );
+        // The plan: official plugins in the game's order, blueprint plugins with them (their
+        // runtime slots come last), then the user's.
+        let names: Vec<&str> = load
+            .plan
+            .plugins
+            .iter()
+            .filter(|p| p.active.is_some())
+            .map(|p| p.name.as_str())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Starfield.esm",
+                "Constellation.esm",
+                "OldMars.esm",
+                "BlueprintShips-Starfield.esm",
+                "SFBGS004.esm",
+                "SFBGS007.esm",
+                "SFBGS008.esm",
+                "SFBGS003.esm",
+                "SFBGS006.esm",
+                "ShatteredSpace.esm",
+                "SFBGS00D.esm",
+                "SFBGS050.esm",
+                "BlueprintShips-SFBGS050.esm",
+                "SFBGS047.esm",
+                "KitKraftFirstPOI.esm",
+            ]
+        );
+        assert_eq!(
+            load.plan.get("ShatteredSpace.esm").unwrap().active,
+            Some(Active::Hardcoded)
+        );
+        // Exitsave0 000052: the gun overhaul too, at 05; the blueprint plugins move to 06, 07.
+        let mut full = DEV_FULL.to_vec();
+        full.insert(5, ("KitKraftGunOverhaul.esm", false));
+        let (_, lo) = check(
+            b"# gen\r\n*KitKraftFirstPOI.esm\r\n*KitKraftGunOverhaul.esm\r\nSFBGS004.esm\r\nSFBGS00D.esm\r\nSFBGS047.esm\r\nSFBGS050.esm\r\nBlueprintShips-SFBGS050.esm\r\nShatteredSpace.esm\r\n",
+            &full,
+            "Exitsave0.sfs",
+        );
+        let gun = lo.find("KitKraftGunOverhaul.esm").unwrap();
+        assert_eq!(
+            lo.plugin(gun).unwrap().runtime_slot,
+            Some(RuntimeSlot::Full(5))
+        );
     }
 
     #[test]
