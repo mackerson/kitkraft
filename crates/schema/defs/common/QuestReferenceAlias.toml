@@ -1,0 +1,437 @@
+# QuestReferenceAlias: one reference alias of a quest, from ALST (its ID) to the ALED end
+# marker. QUST uses it for a plain reference alias and, nested, for the reference template
+# of a reference-collection alias, so it is written once here.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L7996-L8163 - member order, the FNAM flag bits,
+#     the fill types (specific reference, unique actor or base form, location alias
+#     reference, external alias, create reference to object, create matching reference,
+#     find matching reference: in collection, closest to, from event, near alias), the
+#     override package lists, linked aliases and FormID targets. Helpers: the condition
+#     list (L4750-L4840, common/Condition.toml), the keyword list
+#     (wbDefinitionsCommon.pas L8935-L8951, common/Keywords.toml), the container items
+#     (L2294-L2327), the quest event codes (wbDefinitionsCommon.pas L8119-L8172) and the
+#     event member codes (L2918-L2937).
+#   corpus: the 25,882 reference aliases (ALST) in the QUST records of the 14 official
+#     ESMs, 2026-10-14 scan: order as below; ALST, ALFG, ALFI, ALFA, ALRT, ALEQ, ALEA, ALCO,
+#     ALCA, ALCL, ALCM, ALCS, ALCC, ALFE, ALFD, ALNA, ALNT, ALNR, ALDN, ALDI, ALFV, SPOR,
+#     OCOR, GWOR, ECOR, ALSP, ALFC, ALPC, ALTM, VTCK 4 bytes; ALLR 1; CNTO 8; ALLA a
+#     multiple of 8; ALED empty. Every QUST record decodes with nothing left over and
+#     re-encodes identically.
+#
+# The fill types are alternatives selected by which subrecords are present (the first
+# signature decides), so each is an optional member or group here; at most one is set.
+name = "QuestReferenceAlias"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7996-L8163"
+evidence = [
+  "corpus: the 25,882 reference aliases in the QUST records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "ALST"
+name = "AliasId"
+type = "u32"
+
+[[member]]
+sig = "ALID"
+name = "AliasName"
+type = "zstring"
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["ReservesReference", 0x1],
+  ["Optional", 0x2],
+  ["QuestObject", 0x4],
+  ["AllowReuseInQuest", 0x8],
+  ["AllowDead", 0x10],
+  ["MatchingRefInLoadedArea", 0x20],
+  ["Essential", 0x40],
+  ["AllowDisabled", 0x80],
+  ["StoresText", 0x100],
+  ["AllowReserved", 0x200],
+  ["Protected", 0x400],
+  ["ForcedByAliases", 0x800],
+  ["AllowDestroyed", 0x1000],
+  ["MatchingRefClosest", 0x2000],
+  ["UsesStoredText", 0x4000],
+  ["InitiallyDisabled", 0x8000],
+  ["ClearNamesWhenRemoved", 0x20000],
+  ["MatchingRefActorsOnly", 0x40000],
+  ["CreateRefTemp", 0x80000],
+  ["ExternalAliasLinked", 0x100000],
+  ["NoPickpocket", 0x200000],
+  ["CanApplyDataToNonAliasedRefs", 0x400000],
+  ["IsCompanion", 0x800000],
+  ["OptionalAllScenes", 0x1000000],
+  ["MatchingRefFromCrowd", 0x2000000],
+  ["QuestObjectCargo", 0x4000000],
+  ["Consumable", 0x80000000],
+]
+note = "bits 0x10000 and 0x8000000..0x40000000 are unnamed upstream and preserved"
+
+[[member]]
+sig = "ALFG"
+name = "OrbitAltitudeMult"
+type = "opaque"
+size = 4
+note = "a float upstream; the official values are 0 and the bit pattern 0x00000002, which reads as an integer, so it is kept raw until the CK settles it (STATUS request to lane H)"
+
+[[member]]
+sig = "ALLR"
+name = "LegendaryRank"
+type = "u8"
+card = "optional"
+note = "1 to 3 upstream and in the corpus"
+
+[[member]]
+sig = "ALFI"
+name = "ForceIntoAliasWhenFilled"
+type = "i32"
+card = "optional"
+note = "an alias ID of the same quest"
+
+[[member]]
+sig = "ALFR"
+name = "SpecificReference"
+type = "formid"
+targets = ["ACHR", "PARW", "PBAR", "PCON", "PFLA", "PGRE", "PHZD", "PLYR", "PMIS", "REFR"]
+card = "optional"
+note = "fill type: a specific placed reference"
+
+[[member]]
+sig = "ALUA"
+name = "UniqueActor"
+type = "formid"
+targets = ["NPC_"]
+card = "optional"
+note = "fill type: the unique actor of this base"
+
+[[member]]
+sig = "ALUB"
+name = "UniqueBaseForm"
+type = "formid"
+targets = ["GBFM"]
+card = "optional"
+note = "fill type: the unique reference of this generic base form"
+
+[[member]]
+group = "LocationAliasReference"
+card = "optional"
+note = "fill type: a reference of a location reference type in a location alias"
+
+[[member.member]]
+sig = "ALFA"
+name = "Alias"
+type = "i32"
+note = "a location alias ID of the same quest"
+
+[[member.member]]
+sig = "ALRT"
+name = "RefType"
+type = "formid"
+targets = ["LCRT"]
+
+[[member]]
+group = "ExternalAliasReference"
+card = "optional"
+note = "fill type: an alias of another quest"
+
+[[member.member]]
+sig = "ALEQ"
+name = "Quest"
+type = "formid"
+targets = ["QUST"]
+
+[[member.member]]
+sig = "ALEA"
+name = "Alias"
+type = "i32"
+note = "an alias ID of that quest"
+
+[[member]]
+group = "CreateReference"
+card = "optional"
+note = "fill type: create a reference to an object at or in another alias"
+
+[[member.member]]
+sig = "ALCO"
+name = "Object"
+type = "formid"
+targets = ["ACTI", "ALCH", "ARMO", "BOOK", "CELL", "CONT", "DOOR", "FLOR", "FURN", "GBFM", "IDLM", "KEYM", "LVLB", "LVLI", "LVLN", "LVSC", "MISC", "NPC_", "PKIN", "PROJ", "SOUN", "STAT", "WEAP"]
+
+[[member.member]]
+sig = "ALCA"
+name = "At"
+type = "struct"
+size = 4
+field = [
+  { name = "Alias", type = "i16", note = "an alias ID of the same quest" },
+  { name = "Create", type = "enum", base = "u16", values = [["At", 0x0], ["In", 0x8000]] },
+]
+
+[[member.member]]
+sig = "ALCL"
+name = "Level"
+type = "enum"
+base = "u32"
+values = [["Easy", 0], ["Medium", 1], ["Hard", 2], ["VeryHard", 3], ["None", 4]]
+
+[[member]]
+group = "CreateMatchingReference"
+card = "optional"
+note = "fill type: create a reference matching one created by another alias; observed 13 times"
+
+[[member.member]]
+sig = "ALCM"
+name = "SourceCreatedAlias"
+type = "i32"
+
+[[member.member]]
+sig = "ALCA"
+name = "TargetRefAlias"
+type = "opaque"
+note = "upstream gives a 32-bit alias and a 16-bit create mode (6 bytes); every official payload is 4 bytes, so it is kept raw"
+
+[[member]]
+sig = "ALCS"
+name = "InCollection"
+type = "i32"
+card = "optional"
+note = "fill type: find a matching reference in this reference-collection alias of the same quest"
+
+[[member]]
+sig = "ALCC"
+name = "ClosestTo"
+type = "i32"
+card = "optional"
+note = "fill type: find the matching reference closest to this alias"
+
+[[member]]
+group = "FromEvent"
+card = "optional"
+note = "fill type: the reference an event names"
+
+[[member.member]]
+sig = "ALFE"
+name = "Event"
+type = "sig"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8119-L8172"]
+note = "the story manager event, a four-character code (AOBJ, CLOC, SCPT, ...)"
+
+[[member.member]]
+sig = "ALFD"
+name = "Data"
+type = "enum"
+base = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2918-L2937"]
+note = "which member of the event; two-character codes stored as integers"
+values = [
+  ["None", 0x0],
+  ["CreatedObject", 0x314F],
+  ["Form", 0x3146],
+  ["Global", 0x3147],
+  ["Identifier", 0x3149],
+  ["Keyword1", 0x314B],
+  ["Keyword2", 0x324B],
+  ["Keyword3", 0x334B],
+  ["Location1", 0x314C],
+  ["Location2", 0x324C],
+  ["Player1", 0x3150],
+  ["Player2", 0x3250],
+  ["Quest", 0x3251],
+  ["Reference1", 0x3152],
+  ["Reference2", 0x3252],
+  ["Reference3", 0x3352],
+  ["Value1", 0x3156],
+  ["Value2", 0x3256],
+  ["All", 0x7FFFFFFF],
+]
+
+[[member]]
+group = "NearAlias"
+card = "optional"
+note = "fill type: a reference linked to another alias"
+
+[[member.member]]
+sig = "ALNA"
+name = "Alias"
+type = "i32"
+
+[[member.member]]
+sig = "ALNT"
+name = "Type"
+type = "enum"
+base = "u32"
+values = [
+  ["LinkedForm", 0],
+  ["LinkedRef", 1],
+  ["LinkedInteriorCell", 2],
+  ["LinkedExteriorCell", 3],
+  ["SameModule", 4],
+]
+
+[[member.member]]
+sig = "ALNR"
+name = "RefType"
+type = "formid"
+targets = ["LCRT"]
+card = "optional"
+note = "a null FormID is allowed"
+
+[[member]]
+group_ref = "Condition"
+name = "MatchConditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+group = "Inventory"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2294-L2327"]
+note = "items added to the alias reference"
+
+[[member.member]]
+sig = "COCT"
+name = "Count"
+type = "u32"
+note = "number of items that follow; stored, not derived"
+
+[[member.member]]
+group = "Item"
+card = "repeated"
+
+[[member.member.member]]
+sig = "CNTO"
+name = "Entry"
+type = "struct"
+size = 8
+field = [
+  { name = "Item", type = "formid", note = "any base object" },
+  { name = "Count", type = "i32" },
+]
+
+[[member.member.member]]
+sig = "COED"
+name = "ExtraData"
+type = "opaque"
+card = "optional"
+confidence = "reference"
+note = "owner and item condition; never present in an official quest alias"
+
+[[member]]
+sig = "SPOR"
+name = "SpectatorOverrideList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "OCOR"
+name = "ObserveDeadBodyOverrideList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "GWOR"
+name = "GuardWarnOverrideList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "ECOR"
+name = "CombatOverrideList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "ALLA"
+name = "LinkedAliases"
+type = "array"
+element = "struct"
+count = "rest"
+card = "optional"
+field = [
+  { name = "Keyword", type = "formid", targets = ["KYWD"], note = "a null FormID is allowed" },
+  { name = "Alias", type = "i32" },
+]
+
+[[member]]
+sig = "ALDN"
+name = "DisplayName"
+type = "formid"
+targets = ["MESG"]
+card = "optional"
+
+[[member]]
+sig = "ALDI"
+name = "DeathItem"
+type = "formid"
+targets = ["LVLI"]
+card = "optional"
+
+[[member]]
+sig = "ALFV"
+name = "ForcedVoice"
+type = "formid"
+targets = ["VTYP"]
+card = "optional"
+
+[[member]]
+sig = "ALSP"
+name = "Spells"
+type = "formid"
+targets = ["SPEL"]
+card = "repeated"
+
+[[member]]
+sig = "ALFC"
+name = "Factions"
+type = "formid"
+targets = ["FACT"]
+card = "repeated"
+
+[[member]]
+sig = "ALPC"
+name = "Packages"
+type = "formid"
+targets = ["PACK"]
+card = "repeated"
+
+[[member]]
+sig = "SCCM"
+name = "ScriptComment"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "VTCK"
+name = "VoiceTypes"
+type = "formid"
+targets = ["FACT", "FLST", "NPC_", "VTYP"]
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "ALTM"
+name = "Terminals"
+type = "formid"
+targets = ["TMLM"]
+card = "repeated"
+
+[[member]]
+sig = "ALED"
+name = "End"
+type = "empty"

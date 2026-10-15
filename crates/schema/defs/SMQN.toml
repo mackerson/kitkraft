@@ -1,0 +1,112 @@
+# SMQN: Story Manager Quest Node, a leaf of the story manager tree: when its event reaches
+# it and its conditions hold, it starts one or more of its quests (QNAM count, then NNAM
+# quest with an optional RNAM reset time each). Nodes link upwards: PNAM names the parent,
+# SNAM the previous sibling.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17705-L17730 - member order, the DNAM flag bits,
+#     XNAM, MNAM, HNAM, QNAM and the quest list, PNAM/SNAM targets. Helpers: the condition
+#     count (L2251) and list (L4750-L4840, common/Condition.toml).
+#   corpus: the 471 SMQN records (Starfield.esm 354, ShatteredSpace 56, SFBGS00D 24,
+#     SFBGS050 21, SFBGS003 16; form versions 581 and 582; none compressed), 2026-10-14:
+#     order EDID PNAM SNAM CITC CTDA* DNAM XNAM [MNAM] [HNAM] QNAM (NNAM [RNAM])*; every
+#     payload 4 bytes; up to 46 quests per node. Every record decodes with nothing left
+#     over and re-encodes identically.
+signature = "SMQN"
+name = "StoryManagerQuestNode"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17705-L17730"
+evidence = [
+  "corpus: the 471 SMQN records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+note = "every official quest node has one"
+
+[[member]]
+sig = "PNAM"
+name = "ParentNode"
+type = "formid"
+targets = ["SMQN", "SMBN", "SMEN"]
+note = "a null FormID is allowed"
+
+[[member]]
+sig = "SNAM"
+name = "PreviousNode"
+type = "formid"
+targets = ["SMQN", "SMBN", "SMEN"]
+note = "previous sibling; a null FormID is allowed"
+
+[[member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+note = "number of Conditions that follow; stored, not derived"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+sig = "DNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["Random", 0x1],
+  ["WarnIfNoChildQuestStarted", 0x2],
+  ["DoAllBeforeRepeating", 0x10000],
+  ["SharesEvent", 0x20000],
+  ["NumQuestsToRun", 0x40000],
+]
+
+[[member]]
+sig = "XNAM"
+name = "MaxConcurrentQuests"
+type = "u32"
+
+[[member]]
+sig = "MNAM"
+name = "NumQuestsToRun"
+type = "u32"
+card = "optional"
+
+[[member]]
+sig = "HNAM"
+name = "HoursUntilReset"
+type = "f32"
+card = "optional"
+
+[[member]]
+sig = "QNAM"
+name = "QuestCount"
+type = "u32"
+note = "number of Quest entries that follow; stored, not derived"
+
+[[member]]
+group = "Quest"
+card = "repeated"
+
+[[member.member]]
+sig = "NNAM"
+name = "Quest"
+type = "formid"
+targets = ["QUST"]
+
+[[member.member]]
+sig = "RNAM"
+name = "HoursUntilReset"
+type = "f32"
+card = "optional"
+note = "displayed upstream scaled by 1/24"

@@ -1,0 +1,464 @@
+# SCEN: Scene, a scripted sequence of a quest: flags, phases (with start and completion
+# conditions), the actors (alias IDs with flags), the actions (dialogue, packages, timers,
+# player dialogue, nested scenes, radio, moves, cameras, effects, animations, timelines),
+# the parent quest, conditions, and speech challenge data. Scenes are stored in the
+# children group of their quest (group type 10).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16981-L17401 - member order, the scene, phase,
+#     actor and action flags, the phase and action layouts, the scene-level members and
+#     the speech challenge block. Helpers: script data (L3533-L3583, the scene variant,
+#     common/ScriptAttachment.toml), the condition list (L4750-L4840,
+#     common/Condition.toml).
+#   corpus: the 9,673 SCEN records (Starfield.esm 7,613, ShatteredSpace 1,023, SFBGS00D
+#     535, SFBGS050 364, SFBGS003 137, SFBGS004 1; form versions 581 and 582; none
+#     compressed; every one in a group of type 10), 2026-10-14: order EDID [VMAD] FNAM
+#     phases (HNAM NAM0 CTDA* NEXT CTDA* NEXT WNAM [FNAM] [SCQS] [SPMV] HNAM)* actors
+#     (ALID LNAM DNAM)* actions (ANAM NAM0 [SNOT] ALID INAM FNAM SNAM ENAM ... ANAM)* PNAM
+#     INAM VNAM CTDA* [SCQS] [NNAM] [TNAM] [BOLV] XNAM [SCPI] [JNAM] [SCPP] [speech
+#     challenge] [DEVT]; an action's ANAM is 2 bytes at its start and empty at its end;
+#     the scene VNAM is 20 bytes; no CITC precedes the phase or scene conditions. Every
+#     record decodes with nothing left over and re-encodes identically.
+#
+# What stays opaque, and why: after its common header (type, name, notes, actor, index,
+# flags, start and end phase) an action holds type-specific subrecords whose layout the
+# action type selects (upstream a union decided by the ANAM value; the same signature means
+# different things in different action types: HNAM is a marker, a float or an alias,
+# SNAM a phase or a time, DATA a topic). They are kept as raw subrecords up to the
+# action's end marker (lossless); FormIDs among them (topics, packages, scenes, references,
+# keywords) are not visited. The scene VNAM is unnamed upstream and kept raw.
+signature = "SCEN"
+name = "Scene"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16981-L17401"
+evidence = [
+  "corpus: the 9,673 SCEN records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "ref:ScriptAttachment"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3533-L3583"]
+note = "scripts, then begin/end and phase fragments (kept raw); 585 records"
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["BeginOnQuestStart", 0x1],
+  ["StopOnQuestEnd", 0x2],
+  ["TopLevelTopicsOnEnd", 0x4],
+  ["Interruptable", 0x8],
+  ["PlayerDialogue", 0x10],
+  ["PreventPlayerExitDialogue", 0x20],
+  ["SpeechChallenge", 0x100],
+  ["AllowDisableDialogueCamera", 0x400],
+  ["NoFollowerIdleChatter", 0x800],
+  ["Greeting", 0x1000],
+  ["TopLevel", 0x2000],
+  ["ForcePrimaryActorAlias", 0x4000],
+  ["Hailing", 0x8000],
+  ["ShipDialogueOnly", 0x10000],
+]
+note = "bits 0x40, 0x80, 0x200 and 0x20000..0x200000 are unnamed upstream and preserved"
+
+[[member]]
+group = "Phase"
+card = "repeated"
+note = "42,162 phases"
+
+[[member.member]]
+sig = "HNAM"
+name = "Start"
+type = "empty"
+
+[[member.member]]
+sig = "NAM0"
+name = "Name"
+type = "zstring"
+
+[[member.member]]
+group_ref = "Condition"
+name = "StartConditions"
+card = "repeated"
+
+[[member.member]]
+sig = "NEXT"
+name = "StartConditionsEnd"
+type = "empty"
+
+[[member.member]]
+group_ref = "Condition"
+name = "CompletionConditions"
+card = "repeated"
+
+[[member.member]]
+sig = "NEXT"
+name = "CompletionConditionsEnd"
+type = "empty"
+
+[[member.member]]
+sig = "WNAM"
+name = "EditorWidth"
+type = "u32"
+note = "350 by default"
+
+[[member.member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u16"
+card = "optional"
+bits = [
+  ["StartWalkAwayPhase", 0x1],
+  ["DontRunEndScriptsOnSceneJump", 0x2],
+  ["StartInheritInTemplatedScenes", 0x4],
+  ["FxActionsRandom", 0x8],
+  ["FxActionsDoAllOnce", 0x10],
+]
+
+[[member.member]]
+sig = "SCQS"
+name = "SetParentQuestStage"
+type = "struct"
+size = 4
+card = "optional"
+field = [
+  { name = "OnStart", type = "i16" },
+  { name = "OnCompletion", type = "i16" },
+]
+
+[[member.member]]
+sig = "SPMV"
+name = "PhaseVisibility"
+type = "empty"
+card = "optional"
+
+[[member.member]]
+sig = "HNAM"
+name = "End"
+type = "empty"
+
+[[member]]
+group = "Actor"
+card = "repeated"
+note = "17,777 actors"
+
+[[member.member]]
+sig = "ALID"
+name = "AliasId"
+type = "i32"
+note = "a reference alias ID of the parent quest"
+
+[[member.member]]
+sig = "LNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["NoPlayerActivation", 0x1],
+  ["Optional", 0x2],
+  ["CanBeRemoved", 0x4],
+  ["RunOnlyScenePackages", 0x8],
+  ["NoCommandState", 0x10],
+  ["NoPlayerDialogue", 0x20],
+  ["TimelineHeadtracking", 0x40],
+  ["TimelineCameras", 0x80],
+]
+
+[[member.member]]
+sig = "DNAM"
+name = "BehaviourFlags"
+type = "flags"
+base = "u32"
+bits = [
+  ["DeathPause", 0x1],
+  ["DeathEnd", 0x2],
+  ["CombatPause", 0x4],
+  ["CombatEnd", 0x8],
+  ["DialoguePause", 0x10],
+  ["DialogueEnd", 0x20],
+  ["ObserveCombatPause", 0x40],
+  ["ObserveCombatEnd", 0x80],
+  ["ReactionRadiusPause", 0x100],
+  ["ReactionRadiusEnd", 0x200],
+]
+
+[[member]]
+group = "Action"
+card = "repeated"
+note = "46,885 actions"
+
+[[member.member]]
+sig = "ANAM"
+name = "Type"
+type = "enum"
+base = "u16"
+values = [
+  ["Dialogue", 0],
+  ["Package", 1],
+  ["Timer", 2],
+  ["PlayerDialogue", 3],
+  ["StartScene", 4],
+  ["Radio", 5],
+  ["Move", 6],
+  ["Camera", 7],
+  ["Fx", 8],
+  ["Animation", 9],
+  ["Timeline", 10],
+]
+
+[[member.member]]
+sig = "NAM0"
+name = "Name"
+type = "zstring"
+
+[[member.member]]
+sig = "SNOT"
+name = "SceneNotes"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "ALID"
+name = "ActorId"
+type = "i32"
+note = "an actor alias ID of the scene; -1 by default"
+
+[[member.member]]
+sig = "INAM"
+name = "Index"
+type = "u32"
+
+[[member.member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["PlayerPositiveUseDialogueSubtype", 0x80],
+  ["PlayerNegativeUseDialogueSubtype", 0x100],
+  ["PlayerNeutralUseDialogueSubtype", 0x200],
+  ["UseDialogueSubtype", 0x400],
+  ["PlayerQuestionUseDialogueSubtype", 0x800],
+  ["KeepClearTargetOnActionEnd", 0x1000],
+  ["RunOnEndOfPhase", 0x4000],
+  ["FaceTarget", 0x8000],
+  ["Looping", 0x10000],
+  ["HeadtrackPlayer", 0x20000],
+  ["IgnoreForCompletion", 0x80000],
+  ["DisableCameraSpeakerTarget", 0x200000],
+  ["CompleteFaceTarget", 0x400000],
+  ["AnimationOnlyMovement", 0x800000],
+  ["NpcPositiveUseDialogueSubtype", 0x8000000],
+  ["NpcNegativeUseDialogueSubtype", 0x10000000],
+  ["NpcNeutralUseDialogueSubtype", 0x20000000],
+  ["NpcQuestionUseDialogueSubtype", 0x40000000],
+]
+note = "0x80 also means hold into next scene upstream; the other bits are unnamed and preserved"
+
+[[member.member]]
+sig = "SNAM"
+name = "StartPhase"
+type = "u32"
+
+[[member.member]]
+sig = "ENAM"
+name = "EndPhase"
+type = "u32"
+
+[[member.member]]
+any_until = "ANAM"
+name = "TypeSpecific"
+note = "the subrecords of this action type (a union by Type upstream), kept raw"
+
+[[member.member]]
+sig = "ANAM"
+name = "End"
+type = "empty"
+
+[[member]]
+sig = "PNAM"
+name = "ParentQuest"
+type = "formid"
+targets = ["QUST"]
+
+[[member]]
+sig = "INAM"
+name = "LastActionIndex"
+type = "u32"
+
+[[member]]
+sig = "VNAM"
+name = "Vnam"
+type = "opaque"
+card = "optional"
+note = "unnamed upstream; 20 bytes in every official scene"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+sig = "SCQS"
+name = "SetParentQuestStage"
+type = "struct"
+size = 4
+card = "optional"
+field = [
+  { name = "OnBegin", type = "i16" },
+  { name = "OnEnd", type = "i16" },
+]
+
+[[member]]
+sig = "NNAM"
+name = "Notes"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "TNAM"
+name = "TemplateScene"
+type = "formid"
+targets = ["SCEN"]
+card = "optional"
+
+[[member]]
+sig = "BOLV"
+name = "Bolv"
+type = "empty"
+card = "optional"
+note = "unnamed upstream; present unless DEVT is"
+
+[[member]]
+sig = "XNAM"
+name = "Index"
+type = "u32"
+
+[[member]]
+sig = "SCPI"
+name = "Priority"
+type = "u16"
+card = "optional"
+
+[[member]]
+sig = "JNAM"
+name = "OverrideSubtitlePriority"
+type = "enum"
+base = "u32"
+card = "optional"
+values = [["Low", 0], ["Normal", 1], ["High", 2], ["Force", 3]]
+
+[[member]]
+sig = "SCPP"
+name = "Scpp"
+type = "formid"
+targets = ["SCEN"]
+card = "optional"
+note = "unnamed upstream; a scene"
+
+[[member]]
+group = "SpeechChallenge"
+card = "optional"
+note = "1,236 scenes"
+
+[[member.member]]
+sig = "SCSP"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "SPMA"
+name = "MandatoryNextChallenges"
+type = "array"
+element = "formid"
+targets = ["SCEN"]
+count = "rest"
+card = "optional"
+
+[[member.member]]
+sig = "SPEX"
+name = "ExcludedChallenges"
+type = "array"
+element = "formid"
+targets = ["SCEN"]
+count = "rest"
+card = "optional"
+
+[[member.member]]
+sig = "SPRK"
+name = "Risk"
+type = "enum"
+base = "u16"
+values = [["Easy", 0], ["Medium", 1], ["Hard", 2], ["Always", 3]]
+
+[[member.member]]
+sig = "SPRW"
+name = "Reward"
+type = "u32"
+
+[[member.member]]
+sig = "SPRP"
+name = "Repeatable"
+type = "empty"
+card = "optional"
+
+[[member.member]]
+sig = "SPDF"
+name = "Default"
+type = "empty"
+card = "optional"
+
+[[member.member]]
+sig = "SPPQ"
+name = "Sppq"
+type = "empty"
+note = "unnamed upstream"
+
+[[member.member]]
+sig = "SPKW"
+name = "AndKeywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+
+[[member.member]]
+sig = "SPKY"
+name = "OrKeywords"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+
+[[member.member]]
+sig = "SPPK"
+name = "Perks"
+type = "array"
+element = "formid"
+targets = ["PERK"]
+count = "rest"
+card = "optional"
+
+[[member]]
+sig = "DEVT"
+name = "ShowOneDialogueTrack"
+type = "empty"
+card = "optional"

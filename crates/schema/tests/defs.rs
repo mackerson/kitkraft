@@ -146,9 +146,10 @@ fn builtin_set_loads_and_matches_the_directory() {
             "CLAS", "COBJ", "CONT", "DIAL", "DMGT", "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST",
             "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR",
             "IRES", "KEYM", "KYWD", "LCRT", "LCTN", "LSCR", "LVLI", "LVLP", "MESG", "MGEF", "MISC",
-            "MSTT", "NAVM", "NPC_", "OMOD", "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT", "PNDT",
-            "PROJ", "QUST", "RACE", "REFR", "RSGD", "RSPJ", "SFBK", "SFPT", "SPEL", "STAT", "STDT",
-            "SUNP", "TERM", "TES4", "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
+            "MSTT", "NAVM", "NPC_", "OMOD", "PACK", "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT",
+            "PNDT", "PROJ", "QUST", "RACE", "REFR", "RSGD", "RSPJ", "SCEN", "SFBK", "SFPT", "SMBN",
+            "SMEN", "SMQN", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4", "TMLM", "TRAV", "WATR",
+            "WEAP", "WRLD", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -176,11 +177,14 @@ fn builtin_set_loads_and_matches_the_directory() {
             "ObjectPaletteDefaults",
             "ObteBlock",
             "OwnerData",
+            "PackageLocation",
             "PositionRotation",
             "PropertyValue",
+            "QuestReferenceAlias",
             "RagdollBone",
             "ResourceBiomeTier",
             "ResourceCellTier",
+            "ScriptAttachment",
             "SoundReference",
             "Transforms",
             "Vec3"
@@ -536,12 +540,12 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 
 /// Record types with an lstring-only definition (M3.B8): EDID and their lstrings. A family
 /// lane's full definition replaces one (M4.BX1: BIOM, GBFM, PKIN, PNDT, RSPJ and STDT from
-/// the planet family; CELL, LCTN, REFR and WRLD from the world family).
+/// the planet family; CELL, LCTN, REFR and WRLD from the world family; CHAL, DIAL, FACT,
+/// INFO and QUST from the quest family).
 const LSTRING_ONLY: &[&str] = &[
-    "ACTI", "ALCH", "AVIF", "BOOK", "BPTD", "CHAL", "CLAS", "CONT", "DIAL", "DMGT", "DOOR", "ENCH",
-    "EXPL", "FACT", "FLOR", "FURN", "FXPD", "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "IRES", "KEYM",
-    "LSCR", "MESG", "MGEF", "MISC", "MSTT", "NPC_", "PERK", "PMFT", "QUST", "RACE", "SPEL", "STAT",
-    "TERM", "TMLM", "WATR",
+    "ACTI", "ALCH", "AVIF", "BOOK", "BPTD", "CLAS", "CONT", "DMGT", "DOOR", "ENCH", "EXPL", "FLOR",
+    "FURN", "FXPD", "GPOF", "HAZD", "HDPT", "IDLE", "IRES", "KEYM", "LSCR", "MESG", "MGEF", "MISC",
+    "MSTT", "NPC_", "PERK", "PMFT", "RACE", "SPEL", "STAT", "TERM", "TMLM", "WATR",
 ];
 
 /// Corpus-table lstrings that official records carry only inside a base form component
@@ -550,8 +554,16 @@ const LSTRING_ONLY: &[&str] = &[
 /// as lstrings by the FULL/DESC fact or the corpus table (engine `edit::lstrings`). The
 /// lstring-only stubs of lane B round 3 typed them wherever they stood; the planet family's
 /// full definitions replaced those stubs (M4.BX1). xEdit: the full-name component
-/// (wbDefinitionsSF1.pas L6611-L6614) and the hull-code component (L6219-L6222).
-const COMPONENT_LSTRINGS: &[(&str, &str)] = &[("GBFM", "HULL"), ("PNDT", "FULL"), ("STDT", "FULL")];
+/// (wbDefinitionsSF1.pas L6611-L6614) and the hull-code component (L6219-L6222). CHAL
+/// keeps every activity's FULL and DESC inside its one component block (quest family,
+/// M4.BX1 QUEST merge; `docs/schema/quest-family.md`).
+const COMPONENT_LSTRINGS: &[(&str, &str)] = &[
+    ("CHAL", "DESC"),
+    ("CHAL", "FULL"),
+    ("GBFM", "HULL"),
+    ("PNDT", "FULL"),
+    ("STDT", "FULL"),
+];
 
 /// Signatures of the whole-subrecord lstring members of a record, at any depth.
 fn lstring_signatures(rec: &kitcraft_schema::RecordDef) -> BTreeSet<String> {

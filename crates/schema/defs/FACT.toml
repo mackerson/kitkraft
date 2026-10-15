@@ -1,58 +1,283 @@
-# FACT: Faction, lstring-only definition (lane B round 3, M3.B8).
+# FACT: Faction. Membership groups for actors: relations to other factions, crime and
+# jail settings, vendor settings (buy/sell list, merchant container, hours, location),
+# ranks, voice and herd/group behaviour.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official FACT record.
-#   xedit: the FACT definition of wbDefinitionsSF1.pas at the pinned revision (L11863-L11958)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L11863-L11958 - member order, the DATA flag bits,
+#     CRVA, PRIS, VEND/VENC/VENV, VTCK, the herd and create-group blocks, FormID targets.
+#     Helpers: script data (L3393-L3411, common/ScriptAttachment.toml), the base form
+#     component block (L5984-L6832, common/BfcbBlock.toml, kept raw), the relation list
+#     (wbDefinitionsCommon.pas L8814-L8833), the rank group (L7187-L7199), the vendor
+#     location (L3710-L3744, common/PackageLocation.toml), the condition count (L2251) and
+#     list (L4750-L4840, common/Condition.toml), the boolean enumeration
+#     (wbDefinitionsCommon.pas L7514-L7521).
+#   corpus: the 953 FACT records (Starfield.esm 812, ShatteredSpace 68, SFBGS00D 39,
+#     SFBGS050 26, SFBGS003 8; form versions 581 and 582; none compressed), 2026-10-14:
+#     order EDID [BFCB block] [FULL] XNAM* [DNAM] DATA [CRGR] CRVA [PRIS] [VEND] [VENC]
+#     VENV [PLVD] [VTCK] [CRHR HERD] [CRGP GRPH]; XNAM 12 bytes (up to 73 per record), DATA
+#     4, CRVA 24, PRIS a multiple of 20, VENV 12, PLVD 16, HERD 16, GRPH 4. No VMAD, rank
+#     (RNAM/MNAM/FNAM/INAM) or condition subrecords occur. Every record decodes with
+#     nothing left over and re-encodes identically.
 signature = "FACT"
 name = "Faction"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958",
+  "corpus: the 953 FACT records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official FACT records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+sig = "VMAD"
+name = "Scripts"
+type = "ref:ScriptAttachment"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "no official faction carries scripts"
 
-[[member.member]]
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed once (a form-folder component)"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11867-L11867"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official FACT records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+
+[[member]]
+sig = "XNAM"
+name = "Relations"
+type = "struct"
+size = 12
+card = "repeated"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8814-L8833"]
+note = "one subrecord per related faction or race"
+field = [
+  { name = "Faction", type = "formid", targets = ["FACT", "RACE"] },
+  { name = "Modifier", type = "i32" },
+  { name = "GroupCombatReaction", type = "enum", base = "u32", values = [
+    ["Neutral", 0],
+    ["Enemy", 1],
+    ["Ally", 2],
+    ["Friend", 3],
+  ] },
 ]
-confidence = "corpus"
+
+[[member]]
+sig = "DNAM"
+name = "FactionType"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+sig = "DATA"
+name = "Flags"
+type = "flags"
+base = "u32"
+size = 4
+bits = [
+  ["HiddenFromNpc", 0x1],
+  ["SpecialCombat", 0x2],
+  ["TrackCrime", 0x40],
+  ["IgnoreCrimesMurder", 0x80],
+  ["IgnoreCrimesAssault", 0x100],
+  ["IgnoreCrimesStealing", 0x200],
+  ["IgnoreCrimesTrespass", 0x400],
+  ["DoNotReportCrimesAgainstMembers", 0x800],
+  ["CrimeGoldUseDefaults", 0x1000],
+  ["IgnoreCrimesPickpocket", 0x2000],
+  ["Vendor", 0x4000],
+  ["CanBeOwner", 0x8000],
+  ["IgnoreCrimesPiracy", 0x10000],
+  ["IgnoreCrimesSmuggling", 0x20000],
+  ["ReportCrimesByMembersAgainstMembers", 0x40000],
+]
+note = "bits 0x4..0x20 are unnamed upstream and preserved"
+
+[[member]]
+sig = "CRGR"
+name = "SharedCrimeFactionList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "CRVA"
+name = "CrimeValues"
+type = "struct"
+size = 24
+note = "the trailing fields are optional upstream; every official CRVA has all of them"
+field = [
+  { name = "Arrest", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "AttackOnSight", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Murder", type = "u16" },
+  { name = "Assault", type = "u16" },
+  { name = "Trespass", type = "u16" },
+  { name = "Pickpocket", type = "u16" },
+  { name = "Unnamed", type = "opaque", size = 2, note = "an unnamed 16-bit value upstream" },
+  { name = "StealMultiplier", type = "f32" },
+  { name = "Escape", type = "u16" },
+  { name = "Piracy", type = "u16" },
+  { name = "SmuggleMultiplier", type = "f32" },
+]
+
+[[member]]
+sig = "PRIS"
+name = "Prisons"
+type = "array"
+element = "struct"
+count = "rest"
+card = "optional"
+note = "observed 1 to 4 entries"
+field = [
+  { name = "PrisonDoorMarker", type = "formid", targets = ["REFR"] },
+  { name = "ShipLandingMarker", type = "formid", targets = ["REFR"] },
+  { name = "CargoContraband", type = "formid", targets = ["REFR"] },
+  { name = "InventoryContraband", type = "formid", targets = ["REFR"] },
+  { name = "CompanionWaitMarker", type = "formid", targets = ["REFR"] },
+]
+
+[[member]]
+group = "Rank"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7187-L7199"]
+confidence = "reference"
+note = "no official faction has ranks"
+
+[[member.member]]
+sig = "RNAM"
+name = "RankNumber"
+type = "u32"
+
+[[member.member]]
+sig = "MNAM"
+name = "MaleTitle"
+type = "lstring"
+card = "optional"
+
+[[member.member]]
+sig = "FNAM"
+name = "FemaleTitle"
+type = "lstring"
+card = "optional"
+
+[[member.member]]
+sig = "INAM"
+name = "Insignia"
+type = "zstring"
+card = "optional"
+note = "unused upstream"
+
+[[member]]
+sig = "VEND"
+name = "VendorBuySellList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+
+[[member]]
+sig = "VENC"
+name = "MerchantContainer"
+type = "formid"
+targets = ["REFR"]
+card = "optional"
+
+[[member]]
+sig = "VENV"
+name = "VendorValues"
+type = "struct"
+size = 12
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7514-L7521"]
+field = [
+  { name = "StartHour", type = "u16" },
+  { name = "EndHour", type = "u16" },
+  { name = "Radius", type = "f32" },
+  { name = "BuysStolenItems", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "BuySellEverythingNotInList", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "BuysNonStolenItems", type = "enum", base = "u8", values = [["False", 0], ["True", 1]] },
+  { name = "Unused", type = "opaque", size = 1 },
+]
+
+[[member]]
+sig = "PLVD"
+name = "VendorLocation"
+type = "ref:PackageLocation"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3710-L3744"]
+
+[[member]]
+group = "Conditions"
+card = "optional"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840",
+]
+confidence = "reference"
+note = "no official faction has conditions"
+
+[[member.member]]
+sig = "CITC"
+name = "Count"
+type = "u32"
+note = "number of conditions that follow; stored, not derived"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member]]
+sig = "VTCK"
+name = "Voice"
+type = "formid"
+targets = ["FLST", "VTYP"]
+card = "optional"
+
+[[member]]
+group = "Herd"
+card = "optional"
+
+[[member.member]]
+sig = "CRHR"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "HERD"
+name = "Data"
+type = "struct"
+size = 16
+field = [
+  { name = "SearchRadius", type = "f32" },
+  { name = "MinHerdMembers", type = "u16" },
+  { name = "MaxHerdMembers", type = "u16" },
+  { name = "IdleChatterMinTime", type = "f32" },
+  { name = "IdleChatterMaxTime", type = "f32" },
+]
+
+[[member]]
+group = "CreateGroup"
+card = "optional"
+
+[[member.member]]
+sig = "CRGP"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "GRPH"
+name = "FormationRadius"
+type = "f32"

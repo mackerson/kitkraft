@@ -6,17 +6,23 @@
 # type is declared in an xEdit unit we do not read); 16 bytes each is our corpus fact: WEAP
 # WAUD (seven references plus two u32) is 288 bytes and WEAP PUSH/PDSH are 40 bytes in
 # every official record. The GUIDs stay opaque.
+#
+# Folded in M4.BX1 (QUEST merge): the quest family defined the same 40-byte layout from the
+# member form of the helper (L2213-L2227) for INFO WED0 and RVSH; its corpus evidence is
+# kept below. Observed there: a start GUID with a zero stop GUID, or zero GUIDs with a
+# start form.
 name = "SoundReference"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227"
 evidence = [
   "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: WEAP WAUD 288 bytes and PUSH/PDSH 40 bytes in all 452 WEAP records of the 14 official ESMs",
+  "corpus: the 2,098 WED0 and 232 RVSH of the INFO records of the 14 official ESMs, 2026-10-14 scan (quest family, M4.BQ1): all 40 bytes, every record decodes and re-encodes identically",
 ]
 confidence = "corpus"
 type = "struct"
 field = [
-  { name = "StartEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
-  { name = "StopEvent", type = "opaque", size = 16, note = "Wwise event GUID" },
+  { name = "StartEvent", type = "opaque", size = 16, note = "Wwise event GUID; all zero when unused" },
+  { name = "StopEvent", type = "opaque", size = 16, note = "Wwise event GUID; all zero when unused" },
   { name = "Condition", type = "formid", targets = ["CNDF"], note = "0 for none" },
   { name = "StartForm", type = "formid", targets = ["WWED"], note = "form-only reference; 0 for none" },
 ]

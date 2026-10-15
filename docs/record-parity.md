@@ -6,7 +6,7 @@
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:bf2cf69aac7a97a9`), read in place from `KITCRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 75 record definitions, defs hash `fnv1a64:0c140e3c19d9f99f` (the hash named in
+- Schema: 80 record definitions, defs hash `fnv1a64:9486fa593326b8c5` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -33,29 +33,29 @@ Columns:
 | ------------- | ----------------------- | --------: | ---------: | ----: | ----: | -----: | ------: |
 | `REFR`        | PlacedObject            | 6,719,725 |          0 |   119 |    87 |      6 |      26 |
 | `RFGP`        | -                       |   169,006 |          0 |    10 |     0 |      0 |      10 |
-| `INFO`        | DialogResponse          |   162,028 |          0 |    48 |     3 |      0 |      45 |
+| `INFO`        | DialogResponse          |   162,028 |          0 |    48 |    45 |      2 |       1 |
 | `NAVM`        | Navmesh                 |    92,893 |     92,764 |     6 |     2 |      3 |       1 |
-| `DIAL`        | DialogTopic             |    87,031 |          0 |    15 |     2 |      0 |      13 |
+| `DIAL`        | DialogTopic             |    87,031 |          0 |    15 |    13 |      0 |       2 |
 | `CELL`        | Cell                    |    40,251 |     32,230 |    34 |    31 |      1 |       2 |
 | `STAT`        | Static                  |    22,296 |          0 |    32 |     2 |      0 |      30 |
 | `LMSW`        | -                       |    17,410 |          0 |     9 |     0 |      0 |       9 |
 | `PKIN`        | PackIn                  |    15,128 |          0 |    41 |    21 |      1 |      19 |
 | `ACHR`        | PlacedNpc               |    14,731 |          0 |    29 |    24 |      2 |       3 |
 | `LAYR`        | -                       |    10,424 |          0 |     7 |     0 |      0 |       7 |
-| `SCEN`        | -                       |     9,673 |          0 |    89 |     0 |      0 |      89 |
+| `SCEN`        | Scene                   |     9,673 |          0 |    89 |    40 |      1 |      48 |
 | `NPC_`        | NonPlayerCharacter      |     8,447 |      8,447 |    92 |     5 |      0 |      87 |
 | `LCTN`        | Location                |     7,316 |          0 |    29 |    29 |      0 |       0 |
 | `KYWD`        | Keyword                 |     6,965 |          0 |    12 |     4 |      6 |       2 |
 | `LVLI`        | LeveledItem             |     6,543 |          0 |    22 |    21 |      1 |       0 |
 | `AVMD`        | -                       |     6,530 |          0 |    15 |     0 |      0 |      15 |
 | `LCRT`        | LocationRefType         |     4,779 |          0 |     8 |     5 |      1 |       2 |
-| `PACK`        | -                       |     4,578 |          0 |    34 |     0 |      0 |      34 |
+| `PACK`        | Package                 |     4,578 |          0 |    34 |    34 |      0 |       0 |
 | `GBFM`        | GenericBaseForm         |     3,903 |          0 |    64 |    13 |      3 |      48 |
 | `COBJ`        | ConstructibleObject     |     3,518 |          0 |    23 |    21 |      0 |       2 |
 | `OMOD`        | ObjectModification      |     3,330 |          0 |    15 |    13 |      0 |       2 |
 | `GLOB`        | Global                  |     3,319 |          0 |     5 |     4 |      0 |       1 |
 | `MESG`        | Message                 |     2,671 |          0 |    13 |     5 |      0 |       8 |
-| `QUST`        | Quest                   |     2,610 |          0 |    93 |     8 |      0 |      85 |
+| `QUST`        | Quest                   |     2,610 |          0 |    93 |    90 |      2 |       1 |
 | `PGRE`        | -                       |     2,599 |          0 |    10 |     0 |      0 |      10 |
 | `GMST`        | GameSetting             |     2,418 |          0 |     3 |     2 |      1 |       0 |
 | `PCCN`        | PlanetContentNode       |     2,148 |          0 |    25 |     8 |      0 |      17 |
@@ -81,7 +81,7 @@ Columns:
 | `FURN`        | Furniture               |     1,045 |          0 |    50 |     3 |      0 |      47 |
 | `MGEF`        | MagicEffect             |       989 |          0 |    12 |     3 |      0 |       9 |
 | `TMLM`        | TerminalMenu            |       974 |          0 |    22 |     7 |      0 |      15 |
-| `FACT`        | Faction                 |       953 |          0 |    20 |     2 |      0 |      18 |
+| `FACT`        | Faction                 |       953 |          0 |    20 |    19 |      0 |       1 |
 | `VTYP`        | -                       |       915 |          0 |     4 |     0 |      0 |       4 |
 | `MTPT`        | -                       |       906 |          0 |     2 |     0 |      0 |       2 |
 | `CONT`        | Container               |       866 |          0 |    39 |     2 |      0 |      37 |
@@ -100,7 +100,7 @@ Columns:
 | `BMOD`        | -                       |       529 |          0 |     8 |     0 |      0 |       8 |
 | `TERM`        | Terminal                |       501 |          0 |    34 |     2 |      0 |      32 |
 | `FFKW`        | -                       |       493 |          0 |     2 |     0 |      0 |       2 |
-| `SMQN`        | -                       |       471 |          0 |    12 |     0 |      0 |      12 |
+| `SMQN`        | StoryManagerQuestNode   |       471 |          0 |    12 |    12 |      0 |       0 |
 | `WEAP`        | Weapon                  |       452 |          0 |    54 |    48 |      0 |       6 |
 | `PHZD`        | -                       |       450 |          0 |    11 |     0 |      0 |      11 |
 | `BIOM`        | Biome                   |       434 |          0 |    45 |    44 |      1 |       0 |
@@ -132,7 +132,7 @@ Columns:
 | `WTHS`        | -                       |       187 |          0 |     4 |     0 |      0 |       4 |
 | `STND`        | -                       |       183 |          0 |    17 |     0 |      0 |      17 |
 | `CSTY`        | -                       |       177 |          0 |    18 |     0 |      0 |      18 |
-| `SMBN`        | -                       |       173 |          0 |     7 |     0 |      0 |       7 |
+| `SMBN`        | StoryManagerBranchNode  |       173 |          0 |     7 |     7 |      0 |       0 |
 | `AMMO`        | Ammunition              |       154 |          0 |    16 |    16 |      0 |       0 |
 | `CPTH`        | -                       |       152 |          0 |     5 |     0 |      0 |       5 |
 | `LGDI`        | -                       |       147 |          0 |    20 |     0 |      0 |      20 |
@@ -177,7 +177,7 @@ Columns:
 | `TRAV`        | Traversal               |        23 |          0 |     2 |     2 |      0 |       0 |
 | `TXST`        | -                       |        23 |          0 |    12 |     0 |      0 |      12 |
 | `AAPD`        | -                       |        22 |          0 |     7 |     0 |      0 |       7 |
-| `SMEN`        | -                       |        22 |          0 |     7 |     0 |      0 |       7 |
+| `SMEN`        | StoryManagerEventNode   |        22 |          0 |     7 |     7 |      0 |       0 |
 | `AOPS`        | -                       |        21 |          0 |     2 |     0 |      0 |       2 |
 | `CLDF`        | -                       |        21 |          0 |     2 |     0 |      0 |       2 |
 | `AOPF`        | -                       |        20 |          0 |     5 |     0 |      0 |       5 |
@@ -217,9 +217,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 75 defined              | 7,490,102 |    136,741 | 2,797 |   704 |     32 |   2,061 |
+| **186 types** | 80 defined              | 7,490,102 |    136,741 | 2,797 |   956 |     37 |   1,804 |
 
-Subrecord occurrences: 50,419,561 in total; 41,197,795 typed (1,712,200 of them failed to decode), 2,035,002 opaque, 7,186,764 unknown.
+Subrecord occurrences: 50,419,561 in total; 44,743,862 typed (1,712,200 of them failed to decode), 2,249,507 opaque, 3,426,192 unknown.
 
 ## Decoded through the definitions
 
@@ -234,24 +234,26 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | Record    | Schema                  | Typed records |    Decoded |    Failed | Re-encode | reference |     corpus | ck-diff | verified |
 | --------- | ----------------------- | ------------: | ---------: | --------: | --------: | --------: | ---------: | ------: | -------: |
 | `REFR`    | PlacedObject            |     6,719,725 | 38,072,356 | 1,700,128 |         0 |         0 | 38,072,356 |       0 |        0 |
-| `INFO`    | DialogResponse          |       162,028 |    176,539 |         0 |         0 |         0 |    176,539 |       0 |        0 |
+| `INFO`    | DialogResponse          |       162,028 |  1,730,802 |         0 |         0 |         0 |  1,730,802 |       0 |        0 |
 | `NAVM`    | Navmesh                 |        92,893 |          4 |         0 |         0 |         0 |          4 |       0 |        0 |
-| `DIAL`    | DialogTopic             |        87,031 |        566 |         0 |         0 |         0 |        566 |       0 |        0 |
+| `DIAL`    | DialogTopic             |        87,031 |    527,545 |         0 |         0 |         0 |    527,545 |       0 |        0 |
 | `CELL`    | Cell                    |        40,251 |    264,812 |       784 |         0 |         0 |    264,812 |       0 |        0 |
 | `STAT`    | Static                  |        22,296 |     22,894 |         0 |         0 |         0 |     22,894 |       0 |        0 |
 | `PKIN`    | PackIn                  |        15,128 |    135,850 |         0 |         0 |         0 |    135,850 |       0 |        0 |
 | `ACHR`    | PlacedNpc               |        14,731 |     74,043 |    11,288 |         0 |         0 |     74,043 |       0 |        0 |
+| `SCEN`    | Scene                   |         9,673 |    872,488 |         0 |         0 |         0 |    872,488 |       0 |        0 |
 | `NPC_`    | NonPlayerCharacter      |         8,447 |     13,097 |         0 |         0 |         0 |     13,097 |       0 |        0 |
 | `LCTN`    | Location                |         7,316 |     78,402 |         0 |         0 |         0 |     78,402 |       0 |        0 |
 | `KYWD`    | Keyword                 |         6,965 |      8,284 |         0 |         0 |         0 |      8,284 |       0 |        0 |
 | `LVLI`    | LeveledItem             |         6,543 |     80,308 |         0 |         0 |         0 |     80,308 |       0 |        0 |
 | `LCRT`    | LocationRefType         |         4,779 |     14,349 |         0 |         0 |         0 |     14,349 |       0 |        0 |
+| `PACK`    | Package                 |         4,578 |    225,093 |         0 |         0 |    31,639 |    193,454 |       0 |        0 |
 | `GBFM`    | GenericBaseForm         |         3,903 |    143,406 |         0 |         0 |     3,786 |    139,620 |       0 |        0 |
 | `COBJ`    | ConstructibleObject     |         3,518 |     45,206 |         0 |         0 |         0 |     45,206 |       0 |        0 |
 | `OMOD`    | ObjectModification      |         3,330 |     20,261 |         0 |         0 |         5 |     20,256 |       0 |        0 |
 | `GLOB`    | Global                  |         3,319 |      6,637 |         0 |         0 |         0 |      6,637 |       0 |        0 |
 | `MESG`    | Message                 |         2,671 |      7,723 |         0 |         0 |         0 |      7,723 |       0 |        0 |
-| `QUST`    | Quest                   |         2,610 |     11,580 |         0 |         0 |         0 |     11,580 |       0 |        0 |
+| `QUST`    | Quest                   |         2,610 |    365,844 |         0 |         0 |         0 |    365,844 |       0 |        0 |
 | `GMST`    | GameSetting             |         2,418 |      4,836 |         0 |         0 |         0 |      4,836 |       0 |        0 |
 | `PCCN`    | PlanetContentNode       |         2,148 |      8,636 |         0 |         0 |         0 |      8,636 |       0 |        0 |
 | `MSTT`    | MoveableStatic          |         2,134 |      2,258 |         0 |         0 |         0 |      2,258 |       0 |        0 |
@@ -266,12 +268,13 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | `FURN`    | Furniture               |         1,045 |      1,681 |         0 |         0 |         0 |      1,681 |       0 |        0 |
 | `MGEF`    | MagicEffect             |           989 |      2,960 |         0 |         0 |         0 |      2,960 |       0 |        0 |
 | `TMLM`    | TerminalMenu            |           974 |     11,967 |         0 |         0 |         0 |     11,967 |       0 |        0 |
-| `FACT`    | Faction                 |           953 |      1,273 |         0 |         0 |         0 |      1,273 |       0 |        0 |
+| `FACT`    | Faction                 |           953 |      6,130 |         0 |         0 |         0 |      6,130 |       0 |        0 |
 | `CONT`    | Container               |           866 |      1,717 |         0 |         0 |         0 |      1,717 |       0 |        0 |
 | `SPEL`    | Spell                   |           662 |      1,937 |         0 |         0 |         0 |      1,937 |       0 |        0 |
 | `PERK`    | Perk                    |           608 |      3,426 |         0 |         0 |         0 |      3,426 |       0 |        0 |
 | `WRLD`    | Worldspace              |           583 |     22,135 |         0 |         0 |       842 |     21,293 |       0 |        0 |
 | `TERM`    | Terminal                |           501 |      1,000 |         0 |         0 |         0 |      1,000 |       0 |        0 |
+| `SMQN`    | StoryManagerQuestNode   |           471 |      6,754 |         0 |         0 |         0 |      6,754 |       0 |        0 |
 | `WEAP`    | Weapon                  |           452 |     18,219 |         0 |         0 |       904 |     17,315 |       0 |        0 |
 | `BIOM`    | Biome                   |           434 |     81,085 |         0 |         0 |         0 |     81,085 |       0 |        0 |
 | `LSCR`    | LoadScreen              |           393 |        786 |         0 |         0 |         0 |        786 |       0 |        0 |
@@ -285,6 +288,7 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | `PROJ`    | Projectile              |           299 |      4,409 |         0 |         0 |       557 |      3,852 |       0 |        0 |
 | `SFPT`    | SurfacePattern          |           264 |      1,753 |         0 |         0 |         0 |      1,753 |       0 |        0 |
 | `HDPT`    | HeadPart                |           236 |        472 |         0 |         0 |         0 |        472 |       0 |        0 |
+| `SMBN`    | StoryManagerBranchNode  |           173 |      1,243 |         0 |         0 |         0 |      1,243 |       0 |        0 |
 | `AMMO`    | Ammunition              |           154 |      2,298 |         0 |         0 |       308 |      1,990 |       0 |        0 |
 | `ZOOM`    | Zoom                    |           141 |        282 |         0 |         0 |         0 |        282 |       0 |        0 |
 | `ENCH`    | Enchantment             |           135 |        264 |         0 |         0 |         0 |        264 |       0 |        0 |
@@ -301,14 +305,15 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | `GPOF`    | GameplayOption          |            31 |        381 |         0 |         0 |         0 |        381 |       0 |        0 |
 | `BPTD`    | BodyPartData            |            27 |        260 |         0 |         0 |         0 |        260 |       0 |        0 |
 | `TRAV`    | Traversal               |            23 |         46 |         0 |         0 |         0 |         46 |       0 |        0 |
+| `SMEN`    | StoryManagerEventNode   |            22 |        142 |         0 |         0 |         0 |        142 |       0 |        0 |
 | `WATR`    | Water                   |            19 |         38 |         0 |         0 |         0 |         38 |       0 |        0 |
 | `TES4`    | PluginHeader            |            14 |         77 |         0 |         0 |         0 |         77 |       0 |        0 |
 | `DMGT`    | DamageType              |            11 |         21 |         0 |         0 |         0 |         21 |       0 |        0 |
-| `CHAL`    | Challenge               |            10 |         46 |         0 |         0 |         0 |         46 |       0 |        0 |
+| `CHAL`    | Challenge               |            10 |         30 |         0 |         0 |         0 |         30 |       0 |        0 |
 | `CLAS`    | Class                   |             8 |         16 |         0 |         0 |         0 |         16 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |         0 |         0 |         0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |         0 |         0 |         0 |         27 |       0 |        0 |
-| **Total** |                         |     7,239,645 | 39,485,595 | 1,712,200 |         0 |     6,402 | 39,479,193 |       0 |        0 |
+| **Total** |                         |     7,254,562 | 43,031,662 | 1,712,200 |         0 |    38,041 | 42,993,621 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -332,16 +337,16 @@ the payload as raw bytes.
 | `CELL`    | Cell                    |             35 |    33 |      2 |         4 |     31 |       0 |        0 |
 | `CHAL`    | Challenge               |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
 | `CLAS`    | Class                   |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `COBJ`    | ConstructibleObject     |             30 |    29 |      1 |         8 |     22 |       0 |        0 |
+| `COBJ`    | ConstructibleObject     |             30 |    29 |      1 |         6 |     24 |       0 |        0 |
 | `CONT`    | Container               |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `DIAL`    | DialogTopic             |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
+| `DIAL`    | DialogTopic             |             13 |    13 |      0 |         0 |     13 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `DOOR`    | Door                    |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `FACT`    | Faction                 |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
+| `FACT`    | Faction                 |             28 |    28 |      0 |         6 |     22 |       0 |        0 |
 | `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
-| `FLST`    | FormIdList              |             11 |    11 |      0 |         2 |      9 |       0 |        0 |
+| `FLST`    | FormIdList              |             11 |    11 |      0 |         0 |     11 |       0 |        0 |
 | `FURN`    | Furniture               |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
 | `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `GBFM`    | GenericBaseForm         |             17 |    14 |      3 |         1 |     16 |       0 |        0 |
@@ -351,7 +356,7 @@ the payload as raw bytes.
 | `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `IDLE`    | Animation               |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `INFO`    | DialogResponse          |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
+| `INFO`    | DialogResponse          |             59 |    56 |      3 |         7 |     52 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             11 |    10 |      1 |         1 |     10 |       0 |        0 |
 | `IRES`    | Resource                |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
 | `KEYM`    | Key                     |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
@@ -359,8 +364,8 @@ the payload as raw bytes.
 | `LCRT`    | LocationRefType         |             11 |     9 |      2 |         5 |      6 |       0 |        0 |
 | `LCTN`    | Location                |             40 |    38 |      2 |         8 |     32 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
-| `LVLI`    | LeveledItem             |             37 |    36 |      1 |        14 |     23 |       0 |        0 |
-| `LVLP`    | LeveledPackIn           |             27 |    26 |      1 |        10 |     17 |       0 |        0 |
+| `LVLI`    | LeveledItem             |             37 |    36 |      1 |        10 |     27 |       0 |        0 |
+| `LVLP`    | LeveledPackIn           |             27 |    26 |      1 |         6 |     21 |       0 |        0 |
 | `MESG`    | Message                 |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
 | `MGEF`    | MagicEffect             |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
 | `MISC`    | MiscItem                |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
@@ -368,21 +373,26 @@ the payload as raw bytes.
 | `NAVM`    | Navmesh                 |              6 |     3 |      3 |         1 |      5 |       0 |        0 |
 | `NPC_`    | NonPlayerCharacter      |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
 | `OMOD`    | ObjectModification      |             20 |    18 |      2 |         7 |     13 |       0 |        0 |
-| `PCBN`    | PlanetContentBranchNode |             16 |    16 |      0 |         3 |     13 |       0 |        0 |
+| `PACK`    | Package                 |             53 |    52 |      1 |         1 |     52 |       0 |        0 |
+| `PCBN`    | PlanetContentBranchNode |             16 |    16 |      0 |         1 |     15 |       0 |        0 |
 | `PCCN`    | PlanetContentNode       |              8 |     8 |      0 |         0 |      8 |       0 |        0 |
-| `PCMT`    | PlanetContentTree       |             12 |    12 |      0 |         4 |      8 |       0 |        0 |
+| `PCMT`    | PlanetContentTree       |             12 |    12 |      0 |         2 |     10 |       0 |        0 |
 | `PERK`    | Perk                    |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
 | `PKIN`    | PackIn                  |             23 |    22 |      1 |         0 |     23 |       0 |        0 |
 | `PMFT`    | PhotoModeFeature        |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `PNDT`    | Planet                  |             25 |    25 |      0 |         1 |     24 |       0 |        0 |
 | `PROJ`    | Projectile              |             36 |    35 |      1 |        14 |     22 |       0 |        0 |
-| `QUST`    | Quest                   |              8 |     8 |      0 |         0 |      8 |       0 |        0 |
+| `QUST`    | Quest                   |            184 |   176 |      8 |         3 |    181 |       0 |        0 |
 | `RACE`    | Race                    |              6 |     6 |      0 |         0 |      6 |       0 |        0 |
 | `REFR`    | PlacedObject            |            100 |    93 |      7 |         5 |     95 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData  |              5 |     5 |      0 |         0 |      5 |       0 |        0 |
-| `RSPJ`    | ResearchProject         |             17 |    17 |      0 |         2 |     15 |       0 |        0 |
+| `RSPJ`    | ResearchProject         |             17 |    17 |      0 |         0 |     17 |       0 |        0 |
+| `SCEN`    | Scene                   |             56 |    55 |      1 |         0 |     56 |       0 |        0 |
 | `SFBK`    | SurfaceBlock            |             19 |    19 |      0 |         0 |     19 |       0 |        0 |
 | `SFPT`    | SurfacePattern          |             10 |    10 |      0 |         3 |      7 |       0 |        0 |
+| `SMBN`    | StoryManagerBranchNode  |              9 |     9 |      0 |         0 |      9 |       0 |        0 |
+| `SMEN`    | StoryManagerEventNode   |             10 |    10 |      0 |         0 |     10 |       0 |        0 |
+| `SMQN`    | StoryManagerQuestNode   |             14 |    14 |      0 |         0 |     14 |       0 |        0 |
 | `SPEL`    | Spell                   |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
 | `STAT`    | Static                  |              2 |     2 |      0 |         0 |      2 |       0 |        0 |
 | `STDT`    | Star                    |             14 |    12 |      2 |         4 |     10 |       0 |        0 |
@@ -395,7 +405,7 @@ the payload as raw bytes.
 | `WEAP`    | Weapon                  |             64 |    62 |      2 |        10 |     54 |       0 |        0 |
 | `WRLD`    | Worldspace              |             40 |    38 |      2 |         7 |     33 |       0 |        0 |
 | `ZOOM`    | Zoom                    |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
-| **Total** |                         |            927 |   876 |     51 |       140 |    787 |       0 |        0 |
+| **Total** |                         |          1,338 | 1,274 |     64 |       139 |  1,199 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -403,13 +413,14 @@ Signatures seen in records of a defined type that its definition does not name
 (occurrences in parentheses):
 
 - `REFR`: `BNAM` (2), `CITC` (1), `FLCS` (146,341), `FLTR` (60), `INTV` (60), `KSIZ` (66,461), `KWDA` (66,461), `NAM1` (1), `NAM2` (1), `NAM3` (1), `NAM4` (1), `NAM5` (1), `NAM6` (1), `NAM7` (1), `NAM8` (1), `NAM9` (1), `OPDS` (5,080), `PNAM` (2), `PTCL` (39), `REFL` (3), `SNAM` (2), `VLMS` (23,157), `WNAM` (1), `XNAM` (1), `YNAM` (1), `ZNAM` (1)
-- `INFO`: `ANAM` (3,402), `ATAC` (9,609), `BFCB` (6), `BFCE` (6), `BNAM` (9,609), `CIS2` (115), `COCT` (97), `CTDA` (57,098), `DNAM` (7,272), `DOFT` (20), `DPLT` (4), `ENAM` (162,028), `FLAV` (9,609), `FLCS` (6), `FLMV` (9,609), `FNAM` (318), `GNAM` (61,464), `HNAM` (1,950), `HTID` (967), `INAM` (162,028), `INTV` (8,354), `LVCR` (9,609), `MODQ` (330), `NAM0` (162,028), `NAM2` (164,632), `NAM3` (164,632), `NAM4` (164,632), `NAM8` (2,353), `NAM9` (164,398), `OCOR` (16), `PERK` (1,440), `PLRL` (45), `PNAM` (33), `QUAL` (9,589), `RVSH` (232), `SCSP` (394), `STRV` (9,356), `TIQS` (7,753), `TRDA` (164,632), `TROT` (164,942), `TSCE` (9,048), `VCLR` (9,609), `VMAD` (2,040), `WED0` (2,098), `XNAM` (9,609)
+- `INFO`: `FLCS` (6)
 - `NAVM`: `REFL` (2)
-- `DIAL`: `ANAM` (2,012), `BFCB` (4), `BFCE` (4), `BNAM` (2,425), `DATA` (87,031), `FLCS` (3), `KNAM` (348), `OPDS` (1), `PNAM` (87,031), `QNAM` (87,031), `SNAM` (87,031), `TIFC` (87,031), `TIFL` (87,031)
+- `DIAL`: `FLCS` (3), `OPDS` (1)
 - `CELL`: `MOD2` (4), `REFL` (388)
 - `STAT`: `ANAM` (85), `BFCB` (26,204), `BFCE` (26,204), `BNAM` (85), `CNAM` (65), `DEFL` (243), `DNAM` (22,296), `FLCS` (1), `FLLD` (22,296), `FLTR` (116), `FTYP` (131), `INTV` (116), `KSIZ` (10,587), `KWDA` (10,587), `MODL` (22,281), `MOLM` (933), `NVNM` (322), `OBND` (22,296), `ODTY` (22,296), `OPDS` (2,414), `PRPS` (89), `PTCL` (749), `PTT2` (380), `REFL` (3,498), `SNBH` (139), `SNTP` (357), `STLS` (1,196), `VLMS` (2), `XALG` (276), `XFLG` (264)
 - `PKIN`: `ANAM` (1), `BNAM` (2), `CITC` (448), `CTDA` (52), `NAM1` (448), `NAM2` (448), `NAM3` (448), `NAM4` (448), `NAM5` (448), `NAM6` (448), `NAM7` (448), `NAM8` (448), `NAM9` (448), `REFL` (941), `UNAM` (448), `WNAM` (448), `XNAM` (448), `YNAM` (448), `ZNAM` (448)
 - `ACHR`: `KSIZ` (262), `KWDA` (262), `OPDS` (1,024)
+- `SCEN`: `ACBS` (1,183), `AIDT` (13), `ALLA` (413), `ATAC` (804), `ATTR` (1,183), `ATXT` (20), `BIPL` (159), `BNAM` (804), `BTXT` (179), `CITC` (1,032), `CNAM` (30), `DATA` (33,478), `DMAX` (32,323), `DMIN` (32,323), `DOFT` (6), `DTGT` (6,689), `ESCE` (26,088), `ESCS` (26,088), `FLAV` (804), `FLMV` (1,347), `HTID` (28,171), `INTT` (1,032), `LCEP` (1,032), `LVCR` (833), `LVLO` (159), `MPCD` (3), `NVCI` (25), `OCOR` (52), `PAPI` (57), `PAPN` (60), `PASP` (57), `PLRL` (34), `PNST` (69), `PPST` (42), `QUAL` (744), `REPL` (572), `SHRT` (8), `SOFT` (9), `SPOR` (4), `SSPN` (479), `STRV` (411), `UNAM` (1), `VCLR` (1,376), `VENC` (238), `VNML` (384), `VTXT` (5), `WED0` (1,178), `WED1` (1)
 - `NPC_`: `ACBS` (8,447), `AIDT` (8,447), `APPR` (1,235), `ATKR` (446), `BCOL` (2,937), `BFCB` (158), `BFCE` (158), `BMPN` (101,247), `BMPV` (101,247), `BNAM` (5), `CNAM` (7,686), `CNTO` (2,760), `COCT` (2,291), `CRIF` (1,934), `CS3E` (614), `CS3F` (614), `CS3H` (614), `CS3S` (614), `CSCR` (1,030), `DATA` (8,447), `DNAM` (8,447), `DOFT` (2,946), `DPLT` (6,892), `ECOL` (3,454), `ECOR` (6,194), `EDCT` (8,447), `FHCL` (980), `FLEE` (31), `FLTR` (6), `FMRG` (96,859), `FMRI` (18,988), `FMRS` (201,796), `FMSI` (104,937), `FTYP` (245), `HCOL` (3,670), `HEFA` (58), `INAM` (3,193), `INTV` (34,425), `JCOL` (767), `KSIZ` (2,758), `KWDA` (2,758), `LTPC` (1,392), `LTPT` (46), `MNAM` (34,419), `MRSV` (949), `MWGT` (8,447), `NAM4` (8,447), `NAM5` (8,447), `NAM6` (8,447), `NNAM` (34,419), `NTRM` (381), `OBND` (8,447), `OBTE` (1,365), `OBTF` (257), `OBTS` (1,365), `ODTY` (8,447), `ONA2` (337), `OPDS` (194), `PKID` (3,213), `PNAM` (40,229), `PRKR` (489), `PRKZ` (229), `PRON` (8,447), `PRPS` (8,447), `PTT2` (50), `QNAM` (34,419), `QSTA` (5), `RDSA` (1,952), `RNAM` (8,447), `SNAM` (6,933), `SNTP` (4), `SOFT` (2,817), `SPLO` (289), `SPOR` (1), `STCP` (147), `STON` (8,447), `STOP` (4,896), `TETC` (990), `TNAM` (34,419), `TPLT` (4,749), `TPTA` (6,082), `VMAD` (255), `VNAM` (34,419), `VTCK` (6,427), `WNAM` (2,043), `XALG` (2), `ZNAM` (4,979)
 - `KYWD`: `WAIM` (19), `WFIR` (19)
 - `LCRT`: `FLTR` (3), `INTV` (3)
@@ -418,7 +429,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `OMOD`: `KSIZ` (3), `KWDA` (3)
 - `GLOB`: `FLCS` (1)
 - `MESG`: `BNAM` (2,671), `CTDA` (46), `DNAM` (2,671), `DODT` (16), `IBIN` (2), `INAM` (2,671), `QNAM` (201), `TNAM` (2,060)
-- `QUST`: `ALAM` (2,345), `ALCA` (1,917), `ALCC` (446), `ALCL` (1,904), `ALCM` (13), `ALCO` (1,904), `ALCS` (6,496), `ALDI` (24), `ALDN` (376), `ALEA` (1,546), `ALED` (29,734), `ALEQ` (1,546), `ALFA` (9,835), `ALFC` (1,149), `ALFD` (874), `ALFE` (874), `ALFG` (29,734), `ALFI` (251), `ALFL` (989), `ALFR` (1,520), `ALFV` (499), `ALID` (29,734), `ALKF` (1,211), `ALLA` (1,457), `ALLR` (21), `ALLS` (3,852), `ALMI` (3,995), `ALNA` (212), `ALNR` (212), `ALNT` (212), `ALPC` (5,590), `ALPN` (428), `ALPS` (98), `ALRT` (9,345), `ALSP` (123), `ALST` (25,882), `ALSY` (657), `ALTM` (54), `ALUA` (3,047), `ALUB` (71), `ANAM` (2,603), `BFCB` (3), `BFCE` (3), `CIS1` (14), `CIS2` (43), `CNTO` (389), `COCT` (297), `CTDA` (16,604), `DNAM` (2,603), `ECOR` (99), `ENAM` (1,597), `FLLD` (1), `FLTR` (644), `FNAM` (33,086), `FTYP` (211), `GNAM` (148), `GWOR` (14), `INDX` (19,406), `KNAM` (480), `KSIZ` (1,360), `KWDA` (1,360), `LNAM` (312), `NAM1` (60), `NAM2` (19,476), `NAM3` (408), `NEXT` (2,603), `OCOR` (13), `QDUP` (9), `QMTY` (151), `QOBJ` (3,352), `QRCR` (756), `QRRD` (457), `QRXP` (756), `QSDT` (20,157), `QSRC` (239), `QSRD` (40,314), `QSTA` (4,204), `QTGL` (718), `QTLM` (21), `QTYP` (621), `SCCM` (1,325), `SCFC` (1,636), `SPOR` (29), `VMAD` (1,703), `VTCK` (25,882)
+- `QUST`: `FLLD` (1)
 - `PCCN`: `CITC` (108), `CTDA` (21), `NAM1` (108), `NAM2` (108), `NAM3` (108), `NAM4` (108), `NAM5` (108), `NAM6` (108), `NAM7` (108), `NAM8` (108), `NAM9` (108), `UNAM` (108), `VNAM` (108), `WNAM` (108), `XNAM` (108), `YNAM` (108), `ZNAM` (108)
 - `MSTT`: `ANAM` (247), `BFCB` (906), `BFCE` (906), `BNAM` (247), `CNAM` (60), `DAMC` (3), `DATA` (2,134), `DEFL` (1), `DEST` (119), `DMDL` (135), `DMDS` (1), `DSDL` (1), `DSTA` (10), `DSTD` (222), `DSTF` (222), `FLCS` (1), `FLLD` (2,269), `INAM` (1), `KSIZ` (969), `KWDA` (969), `MODC` (5), `MODL` (2,133), `MOLM` (638), `MSLS` (135), `MSMO` (61), `OBND` (2,134), `ODTY` (2,134), `OPDS` (24), `PRPS` (19), `PTCL` (369), `PTT2` (11), `REFL` (217), `SNBH` (70), `SNTP` (847), `SODA` (71), `VMAD` (42), `XALG` (66), `XFLG` (635)
 - `ACTI`: `ACSH` (144), `ALSH` (126), `ANAM` (580), `BFCB` (1,142), `BFCE` (1,142), `BNAM` (567), `CITC` (117), `CNAM` (354), `CTDA` (158), `DEST` (109), `DMDL` (124), `DMDS` (73), `DSDL` (1), `DSTA` (62), `DSTD` (220), `DSTF` (220), `ENAM` (1), `FLCS` (1), `FLLD` (2,064), `FNAM` (1,940), `FTYP` (512), `INAM` (2), `JNAM` (1,940), `KSIZ` (532), `KWDA` (532), `MODL` (1,451), `MOLM` (66), `NTRM` (5), `NVNM` (7), `OBND` (1,940), `ODTY` (1,940), `OPDS` (2), `PNAM` (1,940), `PRPS` (364), `PTCL` (27), `PTT2` (73), `REFL` (499), `SNBH` (36), `SNTP` (119), `STCP` (2), `VMAD` (850), `WMAT` (48), `WTFM` (48), `XALG` (213), `XFLG` (68)
@@ -432,7 +443,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `FURN`: `ALSH` (28), `ANAM` (116), `BFCB` (1,924), `BFCE` (1,924), `BNAM` (116), `CNAM` (79), `DEST` (2), `DMDL` (2), `DSTD` (2), `DSTF` (2), `FLLD` (1,047), `FNAM` (1,045), `FNPR` (468), `FTMP` (274), `FTYP` (36), `GNAM` (1,045), `INAM` (357), `JNAM` (1,045), `KSIZ` (1,031), `KWDA` (1,031), `MNAM` (1,094), `MODL` (1,045), `MOLM` (24), `NNAM` (38), `OBND` (1,045), `ODTY` (1,045), `OPDS` (5), `PNAM` (1,045), `PRPS` (47), `PTCL` (2), `PTT2` (390), `REFL` (1,659), `SNAM` (976), `SNBH` (5), `SNTP` (4), `STOP` (1,045), `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMAD` (32), `VMRT` (2), `VWWD` (2), `WBDT` (1,045), `XALG` (39), `XFLG` (12), `XMRK` (1,015)
 - `MGEF`: `BFCB` (1), `BFCE` (1), `CTDA` (455), `DATA` (989), `ESSH` (224), `KSIZ` (283), `KWDA` (283), `REFL` (1), `VMAD` (192)
 - `TMLM`: `BNAM` (1), `BSIZ` (974), `CIS1` (68), `CIS2` (101), `CTDA` (2,363), `DNAM` (974), `ISET` (3,088), `ISIZ` (974), `ITID` (3,088), `SNAM` (974), `TMVT` (974), `TNAM` (712), `TPLT` (742), `VMAD` (256), `XLOC` (43)
-- `FACT`: `BFCB` (1), `BFCE` (1), `CRGP` (61), `CRGR` (53), `CRHR` (34), `CRVA` (953), `DATA` (953), `DNAM` (9), `FLCS` (1), `GRPH` (61), `HERD` (34), `PLVD` (80), `PRIS` (9), `VENC` (152), `VEND` (153), `VENV` (953), `VTCK` (8), `XNAM` (1,342)
+- `FACT`: `FLCS` (1)
 - `CONT`: `ANAM` (623), `APPR` (205), `BFCB` (1,021), `BFCE` (1,021), `BNAM` (623), `CNAM` (608), `CNTO` (1,038), `COCT` (677), `DATA` (866), `DCED` (156), `DCSD` (156), `DEST` (211), `DSTD` (211), `DSTF` (211), `FLLD` (866), `FTYP` (41), `KSIZ` (722), `KWDA` (722), `MODL` (866), `MOLM` (8), `NTRM` (784), `OBND` (866), `ODTY` (866), `ONAM` (228), `OPDS` (17), `PRPS` (369), `PTCL` (4), `PTT2` (285), `REFL` (238), `SNBH` (224), `SNTP` (391), `STOP` (866), `VMAD` (39), `WED0` (358), `WED1` (358), `XALG` (2), `XFLG` (7)
 - `SPEL`: `ANAM` (2), `CTDA` (1,608), `EFID` (1,563), `EFIF` (1,563), `EFIT` (1,563), `ETYP` (662), `KSIZ` (244), `KWDA` (244), `MNAM` (302), `MUID` (1,563), `OBND` (662), `ODTY` (662), `PDSH` (1), `PUSH` (1), `SPIT` (662), `ZNAM` (66)
 - `PERK`: `ANAM` (253), `ATAF` (253), `ATAN` (253), `ATAV` (253), `ATCP` (253), `CIS1` (1), `CITC` (628), `CTDA` (3,892), `DATA` (2,868), `DNAM` (628), `EPF3` (23), `EPFB` (2,097), `EPFD` (2,074), `EPFT` (2,097), `GNAM` (154), `PRKC` (2,422), `PRKE` (2,260), `PRKF` (2,260), `PRRF` (1,337), `PRRK` (1,337), `PRUC` (1,337), `RNAM` (63), `TNAM` (10), `UNAM` (16), `VMAD` (14)
@@ -461,7 +472,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `BPTD`: `BPD2` (233), `BPNN` (233), `BPNT` (233), `DNAM` (233), `ENAM` (233), `FLLD` (27), `FNAM` (233), `INAM` (7), `MODL` (27), `NAM4` (233)
 - `WATR`: `ANAM` (19), `DATA` (19), `DNAM` (19), `ENAM` (18), `FNAM` (19), `GNAM` (19), `HNAM` (18), `JNAM` (18), `LNAM` (18), `MNAM` (18), `NAM0` (19), `NAM1` (19), `QNAM` (18), `UNAM` (18), `WASH` (18), `XNAM` (3), `YNAM` (19)
 - `DMGT`: `DNAM` (11)
-- `CHAL`: `ANAM` (18), `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `BFCB` (10), `BFCE` (10), `CITC` (45), `CTDA` (17), `DNAM` (45)
+- `CHAL`: `ANAM` (18), `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `CITC` (45), `CTDA` (17), `DESC` (18), `DNAM` (45), `FULL` (18)
 - `CLAS`: `DATA` (8), `DESC` (8), `PRPS` (8)
 
 ## Roundtrip

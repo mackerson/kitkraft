@@ -95,6 +95,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("NAVM.toml", include_str!("../defs/NAVM.toml")),
     ("NPC_.toml", include_str!("../defs/NPC_.toml")),
     ("OMOD.toml", include_str!("../defs/OMOD.toml")),
+    ("PACK.toml", include_str!("../defs/PACK.toml")),
     ("PCBN.toml", include_str!("../defs/PCBN.toml")),
     ("PCCN.toml", include_str!("../defs/PCCN.toml")),
     ("PCMT.toml", include_str!("../defs/PCMT.toml")),
@@ -109,8 +110,12 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("REFR.toml", include_str!("../defs/REFR.toml")),
     ("RSGD.toml", include_str!("../defs/RSGD.toml")),
     ("RSPJ.toml", include_str!("../defs/RSPJ.toml")),
+    ("SCEN.toml", include_str!("../defs/SCEN.toml")),
     ("SFBK.toml", include_str!("../defs/SFBK.toml")),
     ("SFPT.toml", include_str!("../defs/SFPT.toml")),
+    ("SMBN.toml", include_str!("../defs/SMBN.toml")),
+    ("SMEN.toml", include_str!("../defs/SMEN.toml")),
+    ("SMQN.toml", include_str!("../defs/SMQN.toml")),
     ("SPEL.toml", include_str!("../defs/SPEL.toml")),
     ("STAT.toml", include_str!("../defs/STAT.toml")),
     ("STDT.toml", include_str!("../defs/STDT.toml")),
@@ -200,12 +205,20 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
         include_str!("../defs/common/OwnerData.toml"),
     ),
     (
+        "common/PackageLocation.toml",
+        include_str!("../defs/common/PackageLocation.toml"),
+    ),
+    (
         "common/PositionRotation.toml",
         include_str!("../defs/common/PositionRotation.toml"),
     ),
     (
         "common/PropertyValue.toml",
         include_str!("../defs/common/PropertyValue.toml"),
+    ),
+    (
+        "common/QuestReferenceAlias.toml",
+        include_str!("../defs/common/QuestReferenceAlias.toml"),
     ),
     (
         "common/RagdollBone.toml",
@@ -218,6 +231,10 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     (
         "common/ResourceCellTier.toml",
         include_str!("../defs/common/ResourceCellTier.toml"),
+    ),
+    (
+        "common/ScriptAttachment.toml",
+        include_str!("../defs/common/ScriptAttachment.toml"),
     ),
     (
         "common/SoundReference.toml",

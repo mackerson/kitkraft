@@ -12,11 +12,16 @@
 #   corpus (lane B round 3): the CTDA of the COBJ records of the 14 official ESMs (2,833,
 #     all 32 bytes; no CIS1 or CIS2 in COBJ), and the conditions of the FLST and LVLI
 #     records, through the M2.A3 typed check.
+#   corpus (quest family, M4.BQ1): the 102,280 CTDA of the FACT, QUST, PACK, INFO, SCEN,
+#     SMBN, SMQN and SMEN records (all decode), with CIS1 (QUST 14, PACK 2, SCEN 1) and
+#     CIS2 (QUST 43, PACK 18, INFO 115, SCEN 34), which decode and re-encode identically.
 #
 # Integrated (M4.BX1): the planet family and lane B round 3 each wrote this block from
 # the same xEdit range (L4750-L4840); the planet family's typed CTDA struct is kept and
 # round 3's COBJ evidence added. Every record type that references it (COBJ, FLST, LVLI,
-# LVLP, PCBN, PCMT, RSPJ) uses this one definition.
+# LVLP, PCBN, PCMT, RSPJ, and the quest family's FACT, QUST, PACK, INFO, SCEN, SMBN, SMQN,
+# SMEN) uses this one definition. CIS1 and CIS2 were raised to `corpus` at the QUEST
+# merge on the quest family's evidence.
 #
 # What stays opaque, and why: the comparison value, parameters 1 to 3 and the reference
 # are unions whose layout another field selects (the comparison value by a flag in the
@@ -32,6 +37,7 @@ source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L
 evidence = [
   "corpus: the 504 top-level CTDA in the PCMT, PCBN and LVLP records of the 14 official ESMs (2026-10-14): all 32 bytes, every record decodes and re-encodes identically through this group",
   "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14 (lane B round 3): the 2,833 CTDA of the COBJ records of the 14 official ESMs are all 32 bytes and decode and re-encode identically through this group",
+  "corpus: quest family typed check (M4.BQ1, 2026-10-14): the 102,280 CTDA of the official FACT, QUST, PACK, INFO, SCEN, SMBN, SMQN and SMEN records all decode and re-encode identically through this group",
 ]
 confidence = "corpus"
 
@@ -75,7 +81,10 @@ sig = "CIS1"
 name = "StringParameter1"
 type = "zstring"
 card = "optional"
-confidence = "reference"
+evidence = [
+  "corpus: quest family typed check (M4.BQ1, 2026-10-14): 17 CIS1 after a CTDA in the official QUST (14), PACK (2) and SCEN (1) records decode as one NUL-terminated string and re-encode identically",
+]
+confidence = "corpus"
 note = "not observed in the PCMT, PCBN and LVLP records"
 
 [[member]]
@@ -83,5 +92,8 @@ sig = "CIS2"
 name = "StringParameter2"
 type = "zstring"
 card = "optional"
-confidence = "reference"
+evidence = [
+  "corpus: quest family typed check (M4.BQ1, 2026-10-14): 210 CIS2 after a CTDA in the official QUST (43), PACK (18), INFO (115) and SCEN (34) records decode as one NUL-terminated string and re-encode identically",
+]
+confidence = "corpus"
 note = "not observed in the PCMT, PCBN and LVLP records"

@@ -1,67 +1,41 @@
-# CHAL: Challenge, lstring-only definition (lane B round 3, M3.B8).
+# CHAL: Challenge. Upstream defines the record as an EditorID plus base form components;
+# everything a challenge says (its type, name, description, activities with conditions,
+# rewards and value) lives inside its component block.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): DESC, FULL are lstrings in every official CHAL record.
-#   xedit: the CHAL definition of wbDefinitionsSF1.pas at the pinned revision (L10747-L10766)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L10747-L10766 - the member list (EDID and the base
+#     form components). Helper: the base form component block (L5984-L6832,
+#     common/BfcbBlock.toml).
+#   corpus: the 10 CHAL records (Starfield.esm 8, ShatteredSpace 2; form versions 581 and
+#     582; none compressed), 2026-10-14: every record is EDID BFCB ... BFCE with exactly one
+#     component (BFCB 19 bytes); inside it ATCP (the activity count), then per activity
+#     ATAN FULL DESC (DNAM CITC CTDA*)* ANAM ATAV ATAF. Every record decodes with nothing
+#     left over and re-encodes identically.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# What stays opaque, and why: the component body. Its layout is chosen by the component's
+# name in BFCB (a union by that string upstream), so the whole block is kept as raw
+# subrecords; this includes the FULL and DESC lstrings of each activity (listed for CHAL in
+# the corpus lstring table) and any FormIDs in the conditions and rewards, none of which
+# are visited.
 signature = "CHAL"
 name = "Challenge"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10747-L10766"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10747-L10766",
+  "corpus: the 10 CHAL records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
+group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: DESC, FULL in the official CHAL records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10747-L10766",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
-sig = "DESC"
-name = "Description"
-type = "lstring"
-card = "optional"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official CHAL records every DESC is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)"
-confidence = "corpus"
-note = "not in xEdit's CHAL definition at the pin (it lists only EDID and the base form components); the corpus wins"
-
-[[member.member]]
-sig = "FULL"
-name = "Name"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6611-L6614"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official CHAL records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
-note = "xEdit has it inside a full-name base form component (BFCB block)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; exactly one in every official challenge, holding the challenge data (kept raw)"

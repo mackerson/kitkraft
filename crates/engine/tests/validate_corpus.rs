@@ -63,7 +63,7 @@ const fn flst_av(value: u32, count: u64) -> Known {
 }
 
 const PLAYER_REF: &str = "object ID 0x14 in a placed-reference slot (world family, M4: enable \
-    parent, attach ref, linked ref, location enable parent) whose xEdit target list names \
+    parent, attach ref, linked ref, location enable parent; quest family, M4.BQ1: a quest alias's specific reference) whose xEdit target list names \
     PLYR, the player reference (xedit wbDefinitionsSF1.pas L3892-L3899 and the \
     placed-reference target lists); no official file defines 0x14. Grade D hypothesis: the \
     engine's player reference (validate could resolve it, request to lane E)";
@@ -87,7 +87,22 @@ const XBPS_SELF: &str = "CELL XBPS (ship snap links: parent ref, linked ref, two
     typed conflicts and Starfield.esm's resolve, so these are dangling links, not a layout \
     error";
 
+const SMEN_ROOT: &str = "SMEN PNAM (parent node: SMQN, SMBN or SMEN; xedit \
+    wbDefinitionsSF1.pas, quest family, M4.BQ1) is 0x5B on 20 story manager event nodes of \
+    Starfield.esm, an object ID below 0x800 that no official file defines (SFBGS003 and \
+    ShatteredSpace have one more each, as warnings). Grade D hypothesis: an engine-reserved \
+    root node of the story manager tree (a CK check, plan/STATUS.md, quest lane request to \
+    lane H)";
+
 const KNOWN_ERRORS: &[Known] = &[
+    dangling("Starfield.esm", "SMEN.PNAM", Some(0x5B), 20, SMEN_ROOT),
+    dangling(
+        "Starfield.esm",
+        "QuestReferenceAlias.ALFR",
+        Some(0x14),
+        2,
+        PLAYER_REF,
+    ),
     flst_av(0x0000_02D8, 2),
     flst_av(0x0000_02DB, 1),
     flst_av(0x0000_02E2, 3),

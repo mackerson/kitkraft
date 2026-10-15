@@ -1,124 +1,664 @@
-# QUST: Quest, lstring-only definition (lane B round 3, M3.B8).
+# QUST: Quest. The general data (flags, priority, type, event, location), the dialogue and
+# story manager conditions, the stages with their log entries and rewards, the objectives
+# with their targets, the aliases (reference, location and reference-collection aliases),
+# and the mission board entry. Dialogue topics and scenes of a quest are stored in its
+# children group (group type 10), not in the record.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): CNAM, FULL, NNAM, QMDP, QMDS, QMDT, QMSU are lstrings in every official QUST record.
-#   xedit: the QUST definition of wbDefinitionsSF1.pas at the pinned revision (L16339-L16514)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16339-L16514 - member order, DNAM, the stage
+#     (INDX, log entries, rewards), objective (QOBJ, FNAM, NNAM, QSTA targets), alias and
+#     mission board layouts, FormID targets. Helpers: script data (L3484-L3530, the quest
+#     variant, common/ScriptAttachment.toml), the base form component block (L5984-L6832,
+#     kept raw), the filter string (L5697), the condition list (L4750-L4840,
+#     common/Condition.toml), the reference alias (L7996-L8163,
+#     common/QuestReferenceAlias.toml), the location alias (L8165-L8236), the
+#     reference-collection alias (L8238-L8254), the keyword list
+#     (wbDefinitionsCommon.pas L8935-L8951), the quest event codes
+#     (wbDefinitionsCommon.pas L8119-L8172) and the event member codes (L2918-L2937).
+#   corpus: the 2,610 QUST records (Starfield.esm 2,077, ShatteredSpace 241, SFBGS050 134,
+#     SFBGS00D 116, SFBGS003 37, SFBGS007 3, SFBGS004 2; form versions 581 and 582; none
+#     compressed), 2026-10-14: order EDID [VMAD] [FULL] [BFCB block] DNAM [QTYP] [FTYP]
+#     [ENAM] [LNAM] [QTLM] [QSRC] [QDUP] QTGL* [FLTR] [NAM3] CTDA* NEXT CTDA* stages
+#     objectives ANAM aliases [GNAM] [mission board] [SCCM]; no CITC precedes either
+#     condition list; DNAM 12 bytes, INDX 4, QSDT 1, QSRD 4 (count) then 0 (end marker),
+#     QRRD 8, QOBJ 2, QSTA 12, ALAM 4, ALMI 1. No SNAM occurs. Every record decodes with
+#     nothing left over and re-encodes identically.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Aliases: reference (ALST..ALED), location (ALLS..ALED) and reference-collection (ALCS,
+# ALMI, ALAM, then a reference alias or a bare ALED) aliases interleave in the order they
+# were created. Each `Aliases` entry holds a run of reference aliases, then location
+# aliases, then collection aliases; the next alias of an earlier kind starts a new entry.
+# The list of entries, in order, is the quest's alias list.
 signature = "QUST"
 name = "Quest"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16339-L16514"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16339-L16514",
+  "corpus: the 2,610 QUST records of the 14 official ESMs, 2026-10-14 scan; every record decodes with an empty extra and re-encodes identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+flags = [["PartialForm", 0x4000]]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: CNAM, FULL, NNAM, QMDP, QMDS, QMDT, QMSU in the official QUST records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16339-L16514",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
-sig = "CNAM"
-name = "LogEntry"
-type = "lstring"
+sig = "VMAD"
+name = "Scripts"
+type = "ref:ScriptAttachment"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16425-L16425"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every CNAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3484-L3530"]
+note = "scripts, then quest stage and alias fragments (kept raw); 1,703 records"
 
-[[member.member]]
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16359-L16359"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed in one record"
+
+[[member]]
+sig = "DNAM"
+name = "General"
+type = "struct"
+size = 12
+field = [
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["StartGameEnabled", 0x1],
+    ["Completed", 0x2],
+    ["AddIdleTopicToHello", 0x4],
+    ["AllowRepeatedStages", 0x8],
+    ["StartsEnabled", 0x10],
+    ["DisplayedInHud", 0x20],
+    ["Failed", 0x40],
+    ["StageWait", 0x80],
+    ["RunOnce", 0x100],
+    ["ExcludeFromDialogueExport", 0x200],
+    ["WarnOnAliasFillFailure", 0x400],
+    ["Active", 0x800],
+    ["RepeatsConditions", 0x1000],
+    ["KeepInstance", 0x2000],
+    ["WantDormant", 0x4000],
+    ["HasDialogueData", 0x8000],
+    ["ShipDialogueOnly", 0x40000],
+    ["CanBeRejected", 0x80000],
+    ["AudioLogOnly", 0x100000],
+    ["DontStopInterruptPackagesOnAliasFill", 0x200000],
+    ["DontDumpOldLocationEventParameter", 0x400000],
+  ] },
+  { name = "Priority", type = "u8" },
+  { name = "Unused", type = "opaque", size = 7 },
 ]
-confidence = "corpus"
+
+[[member]]
+sig = "QTYP"
+name = "QuestType"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+sig = "FTYP"
+name = "QuestFaction"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+note = "a keyword, not a FACT"
+
+[[member]]
+sig = "ENAM"
+name = "Event"
+type = "sig"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8119-L8172"]
+note = "the story manager event that starts the quest, a four-character code (ADIA, CLOC, SCPT, ...)"
+
+[[member]]
+sig = "LNAM"
+name = "Location"
+type = "formid"
+targets = ["LCTN"]
+card = "optional"
+
+[[member]]
+sig = "QTLM"
+name = "QuestTimeLimit"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "QSRC"
+name = "SourceQuest"
+type = "formid"
+targets = ["QUST"]
+card = "optional"
+
+[[member]]
+sig = "QDUP"
+name = "Dialogue"
+type = "array"
+element = "formid"
+targets = ["DIAL", "INFO", "GLOB", "SCEN", "QUST"]
+count = "rest"
+card = "optional"
+note = "observed in 9 records (2 or 606 FormIDs)"
+
+[[member]]
+sig = "QTGL"
+name = "TextDisplayGlobals"
+type = "formid"
+targets = ["GLOB"]
+card = "repeated"
+
+[[member]]
+sig = "FLTR"
+name = "Filter"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5697-L5697"]
+
+[[member]]
+sig = "NAM3"
+name = "Summary"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group_ref = "Condition"
+name = "DialogueConditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+sig = "NEXT"
+name = "ConditionSeparator"
+type = "empty"
+note = "ends the dialogue conditions; the story manager conditions follow"
+
+[[member]]
+group_ref = "Condition"
+name = "StoryManagerConditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+group = "Stage"
+card = "repeated"
+note = "19,406 stages in 1,528 records"
+
+[[member.member]]
+sig = "INDX"
+name = "Index"
+type = "struct"
+size = 4
+field = [
+  { name = "StageIndex", type = "u16" },
+  { name = "Flags", type = "flags", base = "u8", bits = [
+    ["RunOnStart", 0x2],
+    ["RunOnStop", 0x4],
+    ["KeepInstanceDataFromHereOn", 0x8],
+    ["RunOnTimerEnd", 0x10],
+    ["StartQuestTimer", 0x20],
+    ["ReadyToDisplayOnUi", 0x40],
+  ], note = "bit 0x1 is unnamed upstream and preserved" },
+  { name = "Unused", type = "opaque", size = 1 },
+]
+
+[[member.member]]
+group = "LogEntry"
+card = "repeated"
+
+[[member.member.member]]
+sig = "QSDT"
+name = "StageFlags"
+type = "flags"
+base = "u8"
+bits = [["CompleteQuest", 0x1], ["FailQuest", 0x2]]
+
+[[member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member.member.member]]
+sig = "NAM2"
+name = "Note"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "SCFC"
+name = "ScriptFlagComment"
+type = "zstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "CNAM"
+name = "LogEntry"
+type = "lstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "QSRD"
+name = "RewardCount"
+type = "u32"
+note = "number of Rewards that follow; stored, not derived"
+
+[[member.member.member]]
+group = "Reward"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "QRXP"
+name = "Xp"
+type = "formid"
+targets = ["GLOB"]
+note = "a null FormID is allowed"
+
+[[member.member.member.member]]
+sig = "QRCR"
+name = "Currency"
+type = "formid"
+targets = ["GLOB"]
+note = "a null FormID is allowed"
+
+[[member.member.member.member]]
+sig = "QRRD"
+name = "Items"
+type = "struct"
+size = 8
+card = "repeated"
+field = [
+  { name = "Item", type = "formid", note = "any base object" },
+  { name = "Count", type = "u32" },
+]
+
+[[member.member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member.member.member]]
+sig = "QSRD"
+name = "RewardEnd"
+type = "empty"
+note = "the same signature as RewardCount, empty: closes the reward list"
+
+[[member.member.member]]
+sig = "NAM1"
+name = "AffinityChange"
+type = "formid"
+targets = ["AFFE"]
+card = "optional"
+
+[[member]]
+group = "Objective"
+card = "repeated"
+note = "3,352 objectives in 630 records"
+
+[[member.member]]
+sig = "QOBJ"
+name = "Index"
+type = "u16"
+
+[[member.member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["OredWithPrevious", 0x1], ["NoStatsTracking", 0x2]]
 
 [[member.member]]
 sig = "NNAM"
 name = "DisplayText"
 type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16460-L16460"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every NNAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
 
 [[member.member]]
-sig = "QMDP"
-name = "DetailPrimary"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16507-L16507"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every QMDP is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+group = "Target"
+card = "repeated"
+
+[[member.member.member]]
+sig = "QSTA"
+name = "Data"
+type = "struct"
+size_by_version = [{ max = 81, size = 8 }, { min = 82, size = 12 }]
+field = [
+  { name = "Alias", type = "i32", note = "a reference alias ID of this quest" },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["CompassMarkerIgnoresLocks", 0x1],
+    ["Hostile", 0x2],
+    ["UseStraightLinePathing", 0x4],
+  ] },
+  { name = "Keyword", type = "formid", targets = ["KYWD"], since = 82, note = "a null FormID is allowed" },
 ]
-confidence = "corpus"
+
+[[member.member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+
+[[member]]
+sig = "ANAM"
+name = "NextAliasId"
+type = "u32"
+
+[[member]]
+group = "Aliases"
+card = "repeated"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7996-L8254",
+]
+note = "a run of reference, then location, then collection aliases (see the file comment)"
 
 [[member.member]]
-sig = "QMDS"
-name = "DetailSecondary"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16508-L16508"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every QMDS is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+group_ref = "QuestReferenceAlias"
+name = "References"
+card = "repeated"
 
 [[member.member]]
-sig = "QMDT"
-name = "DetailTitle"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16506-L16506"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every QMDT is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+group = "Location"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8165-L8236"]
+
+[[member.member.member]]
+sig = "ALLS"
+name = "AliasId"
+type = "u32"
+
+[[member.member.member]]
+sig = "ALID"
+name = "AliasName"
+type = "zstring"
+
+[[member.member.member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [
+  ["ReservesLocation", 0x1],
+  ["Optional", 0x2],
+  ["AllowReuseInQuest", 0x8],
+  ["StoresText", 0x100],
+  ["AllowReserved", 0x200],
+  ["ForcedByAliases", 0x800],
+  ["AllowExplored", 0x10000],
+  ["ExternalAliasLinked", 0x100000],
+  ["DiscardOnShutdownIfUnused", 0x800000],
+  ["SearchShipLocations", 0x8000000],
+  ["MatchingLocPlanetsAndSystemsOnly", 0x10000000],
+  ["CurrentAliasSystem", 0x20000000],
+  ["CurrentAliasPlanet", 0x40000000],
 ]
-confidence = "corpus"
+
+[[member.member.member]]
+sig = "ALFG"
+name = "OrbitAltitudeMult"
+type = "opaque"
+size = 4
+note = "as on reference aliases: a float upstream, kept raw"
+
+[[member.member.member]]
+sig = "ALFI"
+name = "ForceIntoAliasWhenFilled"
+type = "i32"
+card = "optional"
+
+[[member.member.member]]
+sig = "ALFL"
+name = "SpecificLocation"
+type = "formid"
+targets = ["LCTN"]
+card = "optional"
+note = "fill type: a specific location"
+
+[[member.member.member]]
+group = "ReferenceAliasLocation"
+card = "optional"
+note = "fill type: the location of a reference alias, found by keyword"
+
+[[member.member.member.member]]
+sig = "ALFA"
+name = "Alias"
+type = "i32"
+
+[[member.member.member.member]]
+sig = "KNAM"
+name = "Keyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member.member.member]]
+group = "ExternalAliasLocation"
+card = "optional"
+note = "fill type: a location alias of another quest"
+
+[[member.member.member.member]]
+sig = "ALEQ"
+name = "Quest"
+type = "formid"
+targets = ["QUST"]
+
+[[member.member.member.member]]
+sig = "ALEA"
+name = "Alias"
+type = "i32"
+
+[[member.member.member]]
+group = "FromEvent"
+card = "optional"
+note = "fill type: the location an event names"
+
+[[member.member.member.member]]
+sig = "ALFE"
+name = "Event"
+type = "sig"
+note = "a four-character event code"
+
+[[member.member.member.member]]
+sig = "ALFD"
+name = "Data"
+type = "enum"
+base = "u32"
+values = [
+  ["None", 0x0],
+  ["CreatedObject", 0x314F],
+  ["Form", 0x3146],
+  ["Global", 0x3147],
+  ["Identifier", 0x3149],
+  ["Keyword1", 0x314B],
+  ["Keyword2", 0x324B],
+  ["Keyword3", 0x334B],
+  ["Location1", 0x314C],
+  ["Location2", 0x324C],
+  ["Player1", 0x3150],
+  ["Player2", 0x3250],
+  ["Quest", 0x3251],
+  ["Reference1", 0x3152],
+  ["Reference2", 0x3252],
+  ["Reference3", 0x3352],
+  ["Value1", 0x3156],
+  ["Value2", 0x3256],
+  ["All", 0x7FFFFFFF],
+]
+
+[[member.member.member]]
+group_ref = "Condition"
+name = "MatchConditions"
+card = "repeated"
+
+[[member.member.member]]
+group = "PlanetContentRequest"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "ALPS"
+name = "Marker"
+type = "empty"
+
+[[member.member.member.member]]
+group_ref = "Condition"
+name = "PlanetLocationConditions"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "LNAM"
+name = "RequestKeyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member.member.member]]
+sig = "ALCC"
+name = "ClosestToAlias"
+type = "i32"
+card = "optional"
+
+[[member.member.member]]
+sig = "ALSY"
+name = "CurrentAliasSystem"
+type = "i32"
+card = "optional"
+
+[[member.member.member]]
+sig = "ALPN"
+name = "CurrentAliasPlanet"
+type = "i32"
+card = "optional"
+
+[[member.member.member]]
+sig = "ALKF"
+name = "LocationTypeKeyword"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member.member.member]]
+sig = "ALDN"
+name = "DisplayName"
+type = "formid"
+targets = ["MESG"]
+card = "optional"
+
+[[member.member.member]]
+sig = "ALED"
+name = "End"
+type = "empty"
+
+[[member.member]]
+group = "Collection"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8238-L8254"]
+note = "a reference-collection alias: its ID and fill count, then the reference alias every member is filled like"
+
+[[member.member.member]]
+sig = "ALCS"
+name = "AliasId"
+type = "u32"
+
+[[member.member.member]]
+sig = "ALMI"
+name = "MaxInitialFillCount"
+type = "u8"
+
+[[member.member.member]]
+sig = "ALAM"
+name = "Alam"
+type = "opaque"
+size = 4
+card = "optional"
+note = "unnamed upstream; 0 in all but two of the 2,345 official occurrences (0x40000000 twice)"
+
+[[member.member.member]]
+group_ref = "QuestReferenceAlias"
+name = "Template"
+card = "optional"
+note = "present in every official collection alias"
+
+[[member.member.member]]
+sig = "ALED"
+name = "End"
+type = "empty"
+card = "optional"
+note = "only when no reference alias follows"
+
+[[member]]
+sig = "GNAM"
+name = "QuestGroup"
+type = "formid"
+targets = ["KYWD"]
+card = "optional"
+
+[[member]]
+sig = "SNAM"
+name = "SwfFile"
+type = "zstring"
+card = "optional"
+confidence = "reference"
+note = "not present in the official files"
+
+[[member]]
+group = "MissionBoard"
+card = "optional"
+note = "151 records"
+
+[[member.member]]
+sig = "QMTY"
+name = "MissionType"
+type = "formid"
+targets = ["KYWD"]
+note = "a null FormID is allowed"
 
 [[member.member]]
 sig = "QMSU"
-name = "MissionSummary"
+name = "Summary"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16504-L16504"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official QUST records every QMSU is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+
+[[member.member]]
+group = "Detail"
+card = "repeated"
+note = "up to 6 upstream"
+
+[[member.member.member]]
+sig = "QMDT"
+name = "Title"
+type = "lstring"
+
+[[member.member.member]]
+sig = "QMDP"
+name = "Primary"
+type = "lstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "QMDS"
+name = "Secondary"
+type = "lstring"
+card = "optional"
+
+[[member.member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "SCCM"
+name = "ScriptComment"
+type = "zstring"
+card = "optional"
