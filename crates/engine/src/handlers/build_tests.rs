@@ -431,6 +431,37 @@ fn v2_classes_operators_plan_and_identical_builds() {
         "{result:#}"
     );
     assert_eq!(result["data"]["changed_fields"], json!(5));
+    // Each change names the brief rows of the entries that wrote it (M3.E9), and the plan
+    // text lists every change with its row, entries, before and after.
+    let all = result["data"]["changes"].as_array().unwrap();
+    assert_eq!(all[0]["brief"], json!(["B1"]));
+    assert_eq!(all[2]["brief"], json!([]), "the settings rule names no row");
+    let summary = result["data"]["summary"].as_str().unwrap();
+    let lines: Vec<&str> = summary.lines().collect();
+    assert!(lines[0].starts_with("plan: 5 field change(s) on 5 record(s)"));
+    assert!(lines.contains(&"masters: Source.esm"), "{summary}");
+    assert!(
+        lines.contains(&"  B1   globals GLOB matched 2"),
+        "{summary}"
+    );
+    assert!(
+        lines.contains(&"  B1   rule[0] class globals: 2 record(s), 2 field(s) written, 2 changed"),
+        "{summary}"
+    );
+    assert!(lines.contains(&"changes (5):"), "{summary}");
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("  B1   rule[0] GLOB ") && l.ends_with(" GlobA FLTV: 1 -> 2")),
+        "{summary}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("  -    rule[1] GMST ")
+                && l.ends_with(" iMaxCount DATA: 7 -> 11")),
+        "{summary}"
+    );
     let classes = result["data"]["classes"].as_array().unwrap();
     assert_eq!(classes[0]["class"], json!("globals"));
     assert_eq!(classes[0]["matched"], json!(2));

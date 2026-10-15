@@ -116,6 +116,8 @@ pub struct SetEntry {
     pub edits: Vec<Edit>,
     /// May write `reference`-only members.
     pub allow_reference: bool,
+    /// The brief row it serves (version 2).
+    pub brief: Option<String>,
 }
 
 /// A parsed spec.
@@ -498,7 +500,6 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
                     "note",
                 ],
             )?;
-            optional_string(t, "brief", &at)?;
             optional_string(t, "note", &at)?;
         }
         sets.push(SetEntry {
@@ -507,6 +508,7 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
             plugin: optional_string(t, "plugin", &at)?,
             edits: fields(t, &at)?,
             allow_reference: boolean(t, "allow_reference", &at)?,
+            brief: optional_string(t, "brief", &at)?,
         });
     }
     if version == 1 && rules.is_empty() && sets.is_empty() {
