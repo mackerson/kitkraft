@@ -34,8 +34,10 @@ one version and runtime ID `01001000` on that two-plugin order. The group path i
 top > block 9 > sub-block 9 > cell children > persistent children (type 8), the `HEDR` next
 object ID is `FF001001`, and `INCC` is 1. Every member written is at `corpus` confidence
 (`NAME`, `DATA` position and rotation from the world family's `REFR` definition, `EDID` and
-the persistent flag from lane A's corpus tests); the record header's stamps (form version
-582, timestamp and version control 0) are corpus defaults until the CK is observed (F20).
+the persistent flag from lane A's corpus tests). The record header's stamps are not corpus
+defaults: form version 582 is the newest in the corpus, but timestamp, version control and
+unknown 0 is rare or unobserved there (unknown is never 0 in several official files and
+rarely elsewhere); what they mean is unknown, pending the CK's observation (F20).
 
 Console batch file `kitkraft-test.txt` (CRLF in the generated file):
 

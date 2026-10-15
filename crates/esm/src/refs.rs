@@ -59,7 +59,9 @@ pub struct RecordStamps {
 
 impl Default for RecordStamps {
     /// Form version 582 (the newest in the corpus, as a new `TES4` gets), every other
-    /// field 0. What the Creation Kit writes is fixture F20's question.
+    /// field 0. Not a corpus default: 0 is rare or unobserved for these stamps in the corpus
+    /// (`unknown` is never 0 in several official files) and their meaning is unknown. What
+    /// the Creation Kit writes is fixture F20's question.
     fn default() -> RecordStamps {
         RecordStamps {
             form_version: 582,
@@ -146,7 +148,7 @@ pub struct ComposedRef {
     pub position: [f32; 3],
     /// Every member written, with its confidence.
     pub members: Vec<MemberUse>,
-    /// What the caller should report: corpus defaults, allowed `reference` members, and a
+    /// What the caller should report: the header stamps chosen, allowed `reference` members, and a
     /// position outside its exterior cell ([`ComposedRef::placed`]).
     pub limitations: Vec<String>,
 }
@@ -361,8 +363,10 @@ pub fn compose_reference(spec: &RefSpec, allow_reference: &[&str]) -> Result<Com
         .collect();
     if spec.stamps == RecordStamps::default() {
         limitations.push(
-            "record header: form version 582 and timestamp, version control and unknown 0, \
-             corpus defaults until the Creation Kit is observed (F20)"
+            "record header: form version 582 (the newest in the corpus); timestamp, version \
+             control and unknown 0, which is rare or unobserved in the corpus for these \
+             stamps (unknown is never 0 in several official files); their meaning is unknown, \
+             pending the Creation Kit's observation (F20)"
                 .to_string(),
         );
     }

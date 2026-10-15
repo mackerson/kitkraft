@@ -585,3 +585,54 @@ fn an_existing_cell_keeps_its_observed_path() {
     assert_eq!(cells, 1, "the cell is not duplicated");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Fable review (lane E fix round, finding 4): the header stamps of a new reference (and of
+/// a new form) are not called corpus defaults: 0 is rare or unobserved in the corpus for
+/// them and their meaning is unknown (F20). The values are unchanged.
+#[test]
+fn header_stamps_are_not_claimed_as_corpus_defaults() {
+    let d = dir("place-stamps");
+    let data = world_master(&d);
+    let into = d.join("S.esm");
+    let r = place(&data, &into, json!({"cell": "TestInterior"})).unwrap();
+    let text: Vec<&str> = r["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l.as_str().unwrap())
+        .collect();
+    assert!(
+        !text.iter().any(|l| l.contains("corpus default")),
+        "{text:?}"
+    );
+    assert!(
+        text.iter()
+            .any(|l| l.contains("rare or unobserved in the corpus")
+                && l.contains("meaning is unknown")
+                && l.contains("F20")),
+        "{text:?}"
+    );
+    let bytes = std::fs::read(&into).unwrap();
+    let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+    let refr = index
+        .records
+        .iter()
+        .find(|x| x.signature == Signature(*b"REFR"))
+        .unwrap();
+    let header = &bytes[refr.offset as usize..refr.offset as usize + 24];
+    // Timestamp, version control, form version 582, unknown: as before.
+    assert_eq!(header[16..24], [0, 0, 0, 0, 0x46, 0x02, 0, 0]);
+    let r = execute(
+        "new",
+        json!({"type": "STAT", "edid": "KC_Stamped", "into": d.join("N.esm").display().to_string(),
+               "masters": ["World.esm"], "plugins": ["World.esm"],
+               "data_dir": data.display().to_string(), "no_cache": true}),
+    )
+    .unwrap();
+    assert!(!r["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|l| l.as_str().unwrap().contains("corpus default")));
+    let _ = std::fs::remove_dir_all(&d);
+}

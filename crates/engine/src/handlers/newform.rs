@@ -254,7 +254,7 @@ pub(crate) fn plan_new(
         Body::Raw(subs),
     );
     limitations.push(format!(
-        "{at}: record header form version {} and timestamp, version control and unknown 0: corpus defaults until the Creation Kit is observed (F06)",
+        "{at}: record header form version {} and timestamp, version control and unknown 0: 0 is rare or unobserved in the corpus for these stamps and their meaning is unknown, pending the Creation Kit's observation (F06, F20)",
         stamps.form_version
     ));
     Ok((
