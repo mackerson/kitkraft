@@ -26,8 +26,9 @@
 //!   prefix of that, the target's list is extended (refused if the target has records of
 //!   its own, whose FormIDs would change meaning). Otherwise the record's FormIDs are
 //!   remapped through the generated FormID visitors (M2.B3), which is refused when any of
-//!   its subrecords is opaque (a FormID could hide there), or when a plugin involved is
-//!   small or medium (scale classes are lane D's).
+//!   its subrecords is of unknown layout ([`has_opaque`]) or has non-zero untyped bytes
+//!   inside a known layout ([`untyped_id_runs`]; a FormID could hide there), or when a
+//!   plugin involved is small or medium (scale classes are lane D's).
 //! - **Header.** A new target: `HEDR` 0.96, next object ID `0xFF001000`, form version 582,
 //!   `CNAM` "DEFAULT", the masters, `INCC` (interior cells), master flag when the file name
 //!   ends in `.esm`, never localized, no `ONAM`, `SNAM`, `BNAM` or `CHGL`; the `HEDR` record
@@ -1257,9 +1258,17 @@ fn remap_record(
     let sig = record.header.signature.0;
     let subs = record.subrecords().unwrap_or_default();
     let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+    let dctx = kitkraft_doc::typed::Ctx {
+        form_version: record.header.form_version,
+        localized: source.localized(),
+        edid_first: subs
+            .iter()
+            .find(|s| s.signature() == Signature(*b"EDID"))
+            .and_then(|s| s.data().first().copied()),
+    };
     for (sub, layout) in subs.iter().zip(fields::layouts(sig, &sigs)) {
         let text = sub.signature().to_string();
-        let opaque = match layout {
+        let opaque = match &layout {
             Some(layout) => has_opaque(&layout.ty),
             None => true,
         };
@@ -1267,6 +1276,20 @@ fn remap_record(
             return Err(refused(format!(
                 "{what} needs its FormIDs remapped (its masters differ from the target's), but its {text} subrecord is opaque and could hold FormIDs; write it to a new patch instead"
             )));
+        }
+        // Known layout with untyped fields (OMOD DATA.Unknown2, ...): refused only when
+        // those bytes could hold a FormID (has_opaque, untyped_id_runs).
+        if let Some(layout) = layout {
+            let runs = untyped_id_runs(&layout.ty, sub.data(), &dctx).map_err(|e| {
+                refused(format!(
+                    "{what} needs its FormIDs remapped, but its {text} subrecord does not decode ({e})"
+                ))
+            })?;
+            if let Some((at, len)) = runs.first() {
+                return Err(refused(format!(
+                    "{what} needs its FormIDs remapped (its masters differ from the target's), but its {text} subrecord has {len} non-zero bytes the schema does not type at payload offset {at}, which could hold a FormID; write it to a new patch instead"
+                )));
+            }
         }
     }
     let ctx = Ctx::for_record(record, source.localized());
@@ -1287,15 +1310,87 @@ fn remap_record(
     Ok(())
 }
 
-/// Whether a layout contains bytes that are not decoded (opaque, or a union).
+/// Whether a subrecord layout leaves bytes of **unknown layout**: a whole payload kept as
+/// bytes (opaque, or a struct or array of opaque fields only), a rest-of-payload opaque
+/// run, or an EditorID-prefix union (a payload no variant claims stays raw).
+///
+/// Known layout, so not counted (M3.E9 round 2): a fixed-size opaque field inside a typed
+/// struct (OMOD `DATA.Unknown2`, the property padding `Unused1`/`Unused2`) and a struct
+/// field union decided by a sibling (OMOD `Value1`/`Value2`; every variant, and the raw
+/// fallback, is as wide as the field). Their place and width are fixed by typed
+/// neighbours, so they are never an lstring, which is only ever a whole 4-byte payload
+/// (the Resupply rule in [`inline_lstrings`]). Whether their bytes could still hold a
+/// FormID is a property of the value, not the layout: [`untyped_id_runs`].
 pub fn has_opaque(ty: &FieldType) -> bool {
+    unknown_layout(ty, true)
+}
+
+/// [`has_opaque`] at one level: `whole` when `ty` is the whole payload.
+fn unknown_layout(ty: &FieldType, whole: bool) -> bool {
     match ty {
-        FieldType::Opaque { .. } | FieldType::Union { .. } => true,
-        FieldType::Struct { fields } => fields.iter().any(|f| has_opaque(&f.ty)),
-        FieldType::Array { element, .. } => has_opaque(element),
-        FieldType::Ref { ty, .. } => has_opaque(ty),
+        FieldType::Opaque { size } => whole || size.is_none(),
+        FieldType::Union {
+            decider: kitkraft_schema::Decider::EditorIdPrefix,
+            ..
+        } => true,
+        FieldType::Union { variants, .. } => {
+            whole || variants.iter().any(|v| unknown_layout(&v.ty, false))
+        }
+        FieldType::Struct { fields } => {
+            let all_opaque = !fields.is_empty()
+                && fields
+                    .iter()
+                    .all(|f| matches!(f.ty, FieldType::Opaque { .. }));
+            (whole && all_opaque) || fields.iter().any(|f| unknown_layout(&f.ty, false))
+        }
+        FieldType::Array { element, .. } => unknown_layout(element, whole),
+        FieldType::Ref { ty, .. } => unknown_layout(ty, whole),
         _ => false,
     }
+}
+
+/// The bytes of `payload` (laid out as `ty`, a layout [`has_opaque`] accepts) that the
+/// layout does not type and that could hold a 4-byte ID: its opaque runs as decoded (a
+/// union names the variant its decider selects), adjacent runs merged, at least 4 bytes
+/// long and not all zero, as `(offset, len)`. `Err` when the payload does not decode.
+///
+/// Every official OMOD has `DATA.Unknown1`, `DATA.Unknown2` and each property's padding
+/// all zero (3,330 records, 8,215 properties, 14 official ESMs, 2026-10-15), so none of
+/// them blocks a FormID remap; a non-zero one still does.
+pub fn untyped_id_runs(
+    ty: &FieldType,
+    payload: &[u8],
+    ctx: &kitkraft_doc::typed::Ctx,
+) -> Result<Vec<(usize, usize)>, String> {
+    fn walk(v: &kitkraft_doc::typed::Decoded, out: &mut Vec<(usize, usize)>) {
+        use kitkraft_doc::typed::Decoded;
+        match v {
+            Decoded::Opaque { at, len } => out.push((*at, *len)),
+            Decoded::Struct(fields) => fields.iter().for_each(|(_, f)| walk(f, out)),
+            Decoded::Array(items) => items.iter().for_each(|i| walk(i, out)),
+            _ => {}
+        }
+    }
+    let decoded = kitkraft_doc::typed::decode(ty, payload, ctx)?;
+    let mut runs = Vec::new();
+    walk(&decoded, &mut runs);
+    runs.sort_unstable();
+    let mut merged: Vec<(usize, usize)> = Vec::new();
+    for (at, len) in runs {
+        match merged.last_mut() {
+            Some((start, n)) if start.checked_add(*n) == Some(at) => {
+                *n = n.saturating_add(len);
+            }
+            _ => merged.push((at, len)),
+        }
+    }
+    merged.retain(|(at, len)| {
+        *len >= 4
+            && payload
+                .get(*at..at.saturating_add(*len))
+                .is_none_or(|b| b.iter().any(|x| *x != 0))
+    });
+    Ok(merged)
 }
 
 /// The lstring spans of one subrecord laid out as `layout` (its layout at its position,

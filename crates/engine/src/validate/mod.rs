@@ -30,7 +30,7 @@ use serde::Serialize;
 
 use crate::edit::fields::{self, Layout};
 use crate::edit::lstrings;
-use crate::edit::patch::has_opaque;
+use crate::edit::patch::{has_opaque, untyped_id_runs};
 use crate::edit::source::file_name;
 use forms::{Space, Target};
 
@@ -848,14 +848,25 @@ fn check_record(
                 }
                 let extra: Vec<usize> = typed.extra().iter().map(|(i, _)| *i).collect();
                 let mut unchecked = extra.len() as u64;
-                for i in 0..subs.len() {
+                let dctx = kitkraft_doc::typed::Ctx {
+                    form_version: r.header.form_version,
+                    localized: pass.localized,
+                    edid_first: subs
+                        .iter()
+                        .find(|s| s.signature() == Signature(*b"EDID"))
+                        .and_then(|s| s.data().first().copied()),
+                };
+                for (i, s) in subs.iter().enumerate() {
                     if extra.contains(&i) {
                         continue;
                     }
-                    let opaque = layouts
-                        .get(i)
-                        .and_then(Option::as_ref)
-                        .is_none_or(|l| has_opaque(&l.ty));
+                    // Unknown layout, or untyped bytes in a known one that could hold a
+                    // FormID (patch::untyped_id_runs): FormIDs there go unchecked.
+                    let opaque = layouts.get(i).and_then(Option::as_ref).is_none_or(|l| {
+                        has_opaque(&l.ty)
+                            || untyped_id_runs(&l.ty, s.data(), &dctx)
+                                .map_or(true, |runs| !runs.is_empty())
+                    });
                     if opaque {
                         unchecked = unchecked.saturating_add(1);
                     }
