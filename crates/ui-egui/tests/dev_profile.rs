@@ -23,7 +23,9 @@ use kitkraft_ui_egui::envelope::EnvelopeView;
 use kitkraft_ui_egui::gate::Request;
 use kitkraft_ui_egui::panels::diag::{self, DiagView};
 use kitkraft_ui_egui::panels::diff::{DiffForm, DiffMode, DiffView};
+use kitkraft_ui_egui::panels::links::{LinksForm, LinksView};
 use kitkraft_ui_egui::panels::load::{LoadForm, LoadView};
+use kitkraft_ui_egui::panels::planet::{PlanetForm, PlanetView};
 use kitkraft_ui_egui::panels::records::{
     coverage_request, inspect_request, schema_request, types_from_coverage, types_from_schema,
     QueryForm, QueryView, RecordView,
@@ -148,6 +150,62 @@ fn every_panel_against_a_profile() {
     println!(
         "  unconfirmed (reference) signatures: {:?}",
         rec.unconfirmed()
+    );
+
+    for (title, links) in [
+        ("outgoing links", LinksForm::outgoing(&form)),
+        ("use info", LinksForm::use_info(&form)),
+    ] {
+        println!("\n== Links: {title} of {form}");
+        let lv = LinksView::from_envelope(&run(&mut worker, links.request(None).unwrap()));
+        println!(
+            "  {} {} total {}; {}; unrecognized {}",
+            lv.global, lv.label, lv.total, lv.counts, lv.unrecognized
+        );
+        for e in lv.edges.iter().take(6) {
+            println!(
+                "  [{}] {} {} {} {} -> {} {} {}",
+                e.depth,
+                e.from.as_deref().unwrap_or("?"),
+                e.from_label,
+                e.path,
+                e.status,
+                e.to.as_deref().unwrap_or(""),
+                e.to_label,
+                e.placed.as_deref().unwrap_or("")
+            );
+        }
+    }
+
+    println!("\n== Planet: PCM_QuestRequest");
+    let pf = PlanetForm {
+        form: "PCM_QuestRequest".into(),
+        limit: 20,
+    };
+    let pv = PlanetView::from_envelope(&run(&mut worker, pf.request(None).unwrap()));
+    println!(
+        "  {} {} [{}] {}",
+        pv.global,
+        pv.label,
+        pv.kind,
+        pv.counts.as_deref().unwrap_or("")
+    );
+    for n in pv.nodes.iter().take(8) {
+        println!(
+            "  {}{} {} {} sel={} cond={} {}",
+            "  ".repeat(usize::try_from(n.depth.min(8)).unwrap()),
+            n.form,
+            n.label,
+            n.order,
+            n.selection,
+            n.conditions,
+            n.content.as_ref().map_or("", |c| c.0.as_str())
+        );
+    }
+    println!(
+        "  {} links, {} placements",
+        pv.links.len(),
+        pv.placements.len()
     );
 
     println!("\n== Diff: {last} vs the versions before it (conflicts)");

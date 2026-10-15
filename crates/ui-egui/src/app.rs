@@ -17,7 +17,9 @@ use crate::envelope::Prepared;
 use crate::gate::{Request, RunError};
 use crate::panels::diag::{self, DiagView};
 use crate::panels::diff::{DiffForm, DiffMode, DiffView};
+use crate::panels::links::{LinksForm, LinksView, MAX_DEPTH};
 use crate::panels::load::{list_profiles, LoadForm, LoadView, ProfileEntry};
+use crate::panels::planet::{PlanetForm, PlanetView, PLANET_TYPES};
 use crate::panels::records::{
     coverage_request, inspect_request, schema_request, types_from_coverage, types_from_schema,
     QueryForm, QueryView, RecordView, TypeRow,
@@ -40,6 +42,8 @@ const GOOD: Color32 = Color32::from_rgb(110, 190, 110);
 enum Tab {
     Load,
     Records,
+    Links,
+    Planet,
     Diff,
     Diagnostics,
     Validate,
@@ -49,6 +53,8 @@ enum Tab {
 const TABS: &[(Tab, &str)] = &[
     (Tab::Load, "Load"),
     (Tab::Records, "Records"),
+    (Tab::Links, "Links"),
+    (Tab::Planet, "Planet"),
     (Tab::Diff, "Diff"),
     (Tab::Diagnostics, "Diagnostics"),
     (Tab::Validate, "Validate"),
@@ -63,6 +69,8 @@ enum Slot {
     Query,
     Inspect,
     InspectSchema,
+    Links,
+    Planet,
     Diff,
     DiagInspect,
     DiagValidate,
@@ -90,6 +98,11 @@ enum Action {
     Submit(Slot, Request),
     Inspect(String),
     Diagnose(String),
+    /// `refs` on a form: outgoing links, or its referrers ("Use info") when `true`.
+    Links(String, bool),
+    LinksPage(Option<String>),
+    Planet(String),
+    PlanetPage(Option<String>),
     PickType(String),
     QueryPage(Option<String>),
     UseProfile(PathBuf),
@@ -138,6 +151,14 @@ struct App {
     record_form: String,
     record_plugin: String,
     record_view: Option<RecordView>,
+
+    links_form: LinksForm,
+    links_view: Option<LinksView>,
+    links_cursor: Option<String>,
+
+    planet_form: PlanetForm,
+    planet_view: Option<PlanetView>,
+    planet_cursor: Option<String>,
 
     diff_form: DiffForm,
     diff_view: Option<DiffView>,
@@ -267,6 +288,12 @@ impl App {
             record_form: String::new(),
             record_plugin: String::new(),
             record_view: None,
+            links_form: LinksForm::default(),
+            links_view: None,
+            links_cursor: None,
+            planet_form: PlanetForm::default(),
+            planet_view: None,
+            planet_cursor: None,
             diff_form: DiffForm::default(),
             diff_view: None,
             diag_form: String::new(),
@@ -350,6 +377,8 @@ impl App {
                         view.join_schema(env);
                     }
                 }
+                Slot::Links => self.links_view = Some(LinksView::from_envelope(env)),
+                Slot::Planet => self.planet_view = Some(PlanetView::from_envelope(env)),
                 Slot::Diff => self.diff_view = Some(DiffView::from_envelope(env)),
                 Slot::DiagInspect => {
                     let view = DiagView::from_inspect(env, self.load_view.as_ref());
@@ -436,6 +465,34 @@ impl App {
                         self.submit(Slot::DiagInspect, req);
                     }
                     self.tab = Tab::Diagnostics;
+                }
+                Action::Links(form, incoming) => {
+                    self.links_form = if incoming {
+                        LinksForm::use_info(&form)
+                    } else {
+                        LinksForm::outgoing(&form)
+                    };
+                    self.apply(vec![Action::LinksPage(None)]);
+                    self.tab = Tab::Links;
+                }
+                Action::LinksPage(cursor) => {
+                    self.links_cursor.clone_from(&cursor);
+                    match self.links_form.request(cursor.as_deref()) {
+                        Ok(req) => self.submit(Slot::Links, req),
+                        Err(e) => self.notice = Some(e),
+                    }
+                }
+                Action::Planet(form) => {
+                    self.planet_form.form = form;
+                    self.apply(vec![Action::PlanetPage(None)]);
+                    self.tab = Tab::Planet;
+                }
+                Action::PlanetPage(cursor) => {
+                    self.planet_cursor.clone_from(&cursor);
+                    match self.planet_form.request(cursor.as_deref()) {
+                        Ok(req) => self.submit(Slot::Planet, req),
+                        Err(e) => self.notice = Some(e),
+                    }
                 }
                 Action::PickType(sig) => {
                     self.query_form.record_type = sig;
@@ -530,6 +587,8 @@ impl eframe::App for App {
                 .show(ui, |ui| match self.tab {
                     Tab::Load => self.tab_load(ui, busy, &mut actions),
                     Tab::Records => self.tab_records(ui, busy, &mut actions),
+                    Tab::Links => self.tab_links(ui, busy, &mut actions),
+                    Tab::Planet => self.tab_planet(ui, busy, &mut actions),
                     Tab::Diff => self.tab_diff(ui, busy, &mut actions),
                     Tab::Diagnostics => self.tab_diag(ui, busy, &mut actions),
                     Tab::Validate => self.tab_validate(ui, busy, &mut actions),
@@ -576,8 +635,12 @@ impl App {
                 let mut actions = Vec::new();
                 if let Some(form) = form {
                     actions.push(Action::Inspect(form.clone()));
+                    actions.push(Action::Links(form.clone(), true));
                     actions.push(Action::Diagnose(form));
                 }
+                // A Planet Content Manager tree of Starfield.esm (`planet_corpus.rs`).
+                self.planet_form.limit = 60;
+                actions.push(Action::Planet("PCM_QuestRequest".into()));
                 if let Some((name, path)) = plugin {
                     self.coverage_plugin.clone_from(&path);
                     actions.push(Action::Submit(Slot::Types, coverage_request(&path)));
@@ -893,6 +956,7 @@ impl App {
                             Grid::new("query-grid").striped(true).show(ui, |ui| {
                                 for h in [
                                     "form",
+                                    "",
                                     "editor id",
                                     "name",
                                     "plugin",
@@ -907,6 +971,7 @@ impl App {
                                     if link(ui, !busy, &r.form).on_hover_text("inspect").clicked() {
                                         actions.push(Action::Inspect(r.form.clone()));
                                     }
+                                    record_actions(ui, busy, &r.form, actions);
                                     ui.label(&r.editor_id);
                                     ui.label(&r.full);
                                     ui.label(&r.plugin);
@@ -961,6 +1026,330 @@ impl App {
                         .show(ui, |ui| envelope_block(ui, Some(shown), |_| {}));
                 }
             });
+    }
+
+    fn tab_links(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
+        ui.heading("Links");
+        ui.label("A form's typed FormID links (`refs`), or the records that name it (`refs --incoming`, the CK's Use Info). Every row comes from a `link` or `referrer` marker; a status other than resolved or null is shown in red.");
+        ui.horizontal(|ui| {
+            ui.label("form");
+            ui.add(
+                TextEdit::singleline(&mut self.links_form.form)
+                    .desired_width(260.0)
+                    .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX"),
+            );
+            ui.radio_value(&mut self.links_form.incoming, false, "outgoing links");
+            ui.radio_value(&mut self.links_form.incoming, true, "use info (incoming)");
+            ui.label("depth");
+            ui.add(egui::DragValue::new(&mut self.links_form.depth).range(1..=MAX_DEPTH));
+            if self.links_form.incoming {
+                ui.checkbox(&mut self.links_form.all_versions, "every version");
+            }
+            ui.label("types");
+            ui.add(
+                TextEdit::singleline(&mut self.links_form.types)
+                    .desired_width(120.0)
+                    .hint_text("WEAP, LVLI"),
+            );
+            if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
+                actions.push(Action::LinksPage(None));
+            }
+        });
+        envelope_block(ui, self.results.get(&Slot::Links.into()), |ui| {
+            let Some(view) = &self.links_view else { return };
+            let incoming = view.incoming();
+            ui.horizontal(|ui| {
+                ui.strong(format!("{} {}", view.global, view.label));
+                record_actions(ui, busy, &view.global, actions);
+            });
+            ui.label(format!(
+                "{} {} in total; {}",
+                view.total,
+                if incoming { "referrer(s)" } else { "link(s)" },
+                view.counts
+            ));
+            if view.truncated {
+                ui.colored_label(WARN, "the walk stopped at its cap: lower the depth");
+            }
+            if view.unrecognized > 0 {
+                ui.colored_label(
+                    WARN,
+                    format!(
+                        "{} edge(s) with a marker this view does not know (raw JSON below)",
+                        view.unrecognized
+                    ),
+                );
+            }
+            if let Some(n) = &view.not_searched {
+                ui.weak(n);
+            }
+            ui.horizontal(|ui| {
+                if self.links_cursor.is_some()
+                    && ui
+                        .add_enabled(!busy, egui::Button::new("First page"))
+                        .clicked()
+                {
+                    actions.push(Action::LinksPage(None));
+                }
+                if let Some(next) = &view.next_cursor {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new("Next page"))
+                        .clicked()
+                    {
+                        actions.push(Action::LinksPage(Some(next.clone())));
+                    }
+                }
+            });
+            if !view.placed_by_cell.is_empty() {
+                CollapsingHeader::new(format!(
+                    "placed referrers by cell ({})",
+                    view.placed_by_cell.len()
+                ))
+                .id_salt("links-cells")
+                .show(ui, |ui| {
+                    for c in &view.placed_by_cell {
+                        ui.monospace(c);
+                    }
+                });
+            }
+            ScrollArea::vertical()
+                .id_salt("links-rows")
+                .max_height(420.0)
+                .show(ui, |ui| {
+                    Grid::new("links-grid").striped(true).show(ui, |ui| {
+                        let heads: &[&str] = if incoming {
+                            &[
+                                "hop", "referrer", "", "path", "raw", "status", "plugin", "placed",
+                            ]
+                        } else {
+                            &["hop", "from", "path", "raw", "status", "to", "", "plugin"]
+                        };
+                        for h in heads {
+                            ui.strong(*h);
+                        }
+                        ui.end_row();
+                        for e in &view.edges {
+                            ui.label(e.depth.to_string());
+                            if incoming {
+                                form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions);
+                                match e.from.as_deref() {
+                                    Some(f) => record_actions(ui, busy, f, actions),
+                                    None => {
+                                        ui.label("");
+                                    }
+                                }
+                            } else {
+                                form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions);
+                            }
+                            ui.monospace(&e.path);
+                            ui.monospace(&e.raw);
+                            if e.problem() {
+                                ui.colored_label(BAD, &e.status);
+                            } else {
+                                ui.label(&e.status);
+                            }
+                            if incoming {
+                                ui.label(&e.plugin);
+                                ui.label(e.placed.as_deref().unwrap_or(""));
+                            } else {
+                                if e.problem() {
+                                    ui.colored_label(BAD, &e.to_label);
+                                } else {
+                                    form_cell(ui, busy, e.to.as_deref(), &e.to_label, actions);
+                                }
+                                match e.to.as_deref() {
+                                    Some(f) => record_actions(ui, busy, f, actions),
+                                    None => {
+                                        ui.label("");
+                                    }
+                                }
+                                if e.target_mismatch {
+                                    ui.colored_label(
+                                        WARN,
+                                        format!("{} (target type not listed)", e.plugin),
+                                    );
+                                } else {
+                                    ui.label(&e.plugin);
+                                }
+                            }
+                            ui.end_row();
+                        }
+                    });
+                });
+        });
+    }
+
+    fn tab_planet(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
+        ui.heading("Planet");
+        ui.label("The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.");
+        ui.horizontal(|ui| {
+            ui.label("form");
+            ui.add(
+                TextEdit::singleline(&mut self.planet_form.form)
+                    .desired_width(260.0)
+                    .hint_text("PCM_QuestRequest, Plugin.esm:XXXXXX"),
+            );
+            ui.label("nodes per page");
+            ui.add(egui::DragValue::new(&mut self.planet_form.limit).range(1..=5000));
+            if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
+                actions.push(Action::PlanetPage(None));
+            }
+        });
+        envelope_block(ui, self.results.get(&Slot::Planet.into()), |ui| {
+            let Some(view) = &self.planet_view else {
+                return;
+            };
+            ui.horizontal(|ui| {
+                ui.strong(format!("{} {}  [{}]", view.global, view.label, view.kind));
+                record_actions(ui, busy, &view.global, actions);
+            });
+            if let Some(tree) = &view.tree {
+                ui.horizontal(|ui| {
+                    ui.label("tree");
+                    if tree != &view.global && link(ui, !busy, tree).clicked() {
+                        actions.push(Action::Planet(tree.clone()));
+                    } else if tree == &view.global {
+                        ui.monospace(tree);
+                    }
+                });
+            }
+            if let Some(c) = &view.counts {
+                ui.label(c);
+            }
+            for u in &view.unresolved {
+                ui.colored_label(BAD, format!("unresolved: {u}"));
+            }
+            ui.horizontal(|ui| {
+                if self.planet_cursor.is_some()
+                    && ui
+                        .add_enabled(!busy, egui::Button::new("First page"))
+                        .clicked()
+                {
+                    actions.push(Action::PlanetPage(None));
+                }
+                if let Some(next) = &view.next_cursor {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new("Next page"))
+                        .clicked()
+                    {
+                        actions.push(Action::PlanetPage(Some(next.clone())));
+                    }
+                }
+            });
+            for (title, rows) in [("ancestors", &view.ancestors), ("nodes", &view.nodes)] {
+                if rows.is_empty() {
+                    continue;
+                }
+                ui.strong(format!("{title} ({})", rows.len()));
+                ScrollArea::vertical()
+                    .id_salt(("planet-rows", title))
+                    .max_height(380.0)
+                    .show(ui, |ui| {
+                        Grid::new(("planet-grid", title))
+                            .striped(true)
+                            .show(ui, |ui| {
+                                for h in ["node", "", "order", "selection", "conditions", "content"]
+                                {
+                                    ui.strong(h);
+                                }
+                                ui.end_row();
+                                for n in rows {
+                                    let indent = "    "
+                                        .repeat(usize::try_from(n.depth.min(12)).unwrap_or(0));
+                                    if link(ui, !busy, format!("{indent}{} {}", n.form, n.label))
+                                        .on_hover_text("planet chain of this node")
+                                        .clicked()
+                                    {
+                                        actions.push(Action::Planet(n.form.clone()));
+                                    }
+                                    record_actions(ui, busy, &n.form, actions);
+                                    if n.unreadable {
+                                        ui.colored_label(BAD, "not readable");
+                                    } else {
+                                        ui.label(&n.order);
+                                    }
+                                    ui.label(&n.selection);
+                                    ui.label(n.conditions.to_string());
+                                    match &n.content {
+                                        Some((text, Some(to))) => {
+                                            if link(ui, !busy, text)
+                                                .on_hover_text("inspect the content")
+                                                .clicked()
+                                            {
+                                                actions.push(Action::Inspect(to.clone()));
+                                            }
+                                        }
+                                        Some((text, None)) => {
+                                            ui.colored_label(BAD, text);
+                                        }
+                                        None => {
+                                            ui.label("");
+                                        }
+                                    }
+                                    ui.end_row();
+                                }
+                            });
+                    });
+            }
+            if !view.placements.is_empty() {
+                ui.strong(format!(
+                    "placed by {} content node(s)",
+                    view.placements.len()
+                ));
+                Grid::new("planet-placements").striped(true).show(ui, |ui| {
+                    for h in ["at", "content node", "tree", "chain (nearest first)"] {
+                        ui.strong(h);
+                    }
+                    ui.end_row();
+                    for p in &view.placements {
+                        ui.weak(&p.at);
+                        if link(ui, !busy, format!("{} {}", p.node, p.editor_id))
+                            .on_hover_text("planet chain of this node")
+                            .clicked()
+                        {
+                            actions.push(Action::Planet(p.node.clone()));
+                        }
+                        if p.tree.is_empty() {
+                            ui.label("");
+                        } else if link(ui, !busy, &p.tree).clicked() {
+                            actions.push(Action::Planet(p.tree.clone()));
+                        }
+                        ui.label(p.chain.join(" <- "));
+                        ui.end_row();
+                    }
+                });
+            }
+            CollapsingHeader::new(format!("every typed link ({})", view.links.len()))
+                .id_salt("planet-links")
+                .default_open(view.nodes.is_empty() && view.placements.is_empty())
+                .show(ui, |ui| {
+                    Grid::new("planet-links-grid").striped(true).show(ui, |ui| {
+                        for h in ["where", "link", ""] {
+                            ui.strong(h);
+                        }
+                        ui.end_row();
+                        for l in &view.links {
+                            ui.weak(&l.at);
+                            match (&l.to, l.problem) {
+                                (Some(to), false) => {
+                                    if link(ui, !busy, &l.text).clicked() {
+                                        actions.push(Action::Inspect(to.clone()));
+                                    }
+                                    record_actions(ui, busy, to, actions);
+                                }
+                                _ => {
+                                    ui.colored_label(
+                                        if l.problem { BAD } else { Color32::GRAY },
+                                        &l.text,
+                                    );
+                                    ui.label("");
+                                }
+                            }
+                            ui.end_row();
+                        }
+                    });
+                });
+        });
     }
 
     fn tab_diff(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
@@ -1043,9 +1432,12 @@ impl App {
                     .id_salt(("diff-rec", i))
                     .default_open(i < 5)
                     .show(ui, |ui| {
-                        if link(ui, !busy, "inspect across the load order").clicked() {
-                            actions.push(Action::Inspect(r.form.clone()));
-                        }
+                        ui.horizontal(|ui| {
+                            if link(ui, !busy, "inspect across the load order").clicked() {
+                                actions.push(Action::Inspect(r.form.clone()));
+                            }
+                            record_actions(ui, busy, &r.form, actions);
+                        });
                         Grid::new(("diff-grid", i)).striped(true).show(ui, |ui| {
                             for h in ["subrecord", "change", "path", "before", "after"] {
                                 ui.strong(h);
@@ -1067,7 +1459,7 @@ impl App {
 
     fn tab_diag(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
         ui.heading("FormID and reference diagnostics");
-        ui.label("Raw stored FormIDs beside master-aware identities (`inspect`), then `validate`'s master and FormID rules. Incoming references wait for `refs` (M4.D1).");
+        ui.label("Raw stored FormIDs beside master-aware identities (`inspect`), then `validate`'s master and FormID rules. \"use info\" lists the records that name a form (`refs --incoming`, Links tab).");
         ui.horizontal(|ui| {
             ui.label("form");
             ui.add(
@@ -1104,6 +1496,9 @@ impl App {
                     ui.end_row();
                 }
             });
+            if !view.global.is_empty() {
+                record_actions(ui, busy, &view.global, actions);
+            }
             ui.label("Versions: the FormID each plugin stores, and how it resolved");
             Grid::new("diag-versions").striped(true).show(ui, |ui| {
                 for h in ["plugin", "scale", "raw FormID", "resolved by", ""] {
@@ -1141,7 +1536,7 @@ impl App {
                 .max_height(260.0)
                 .show(ui, |ui| {
                     Grid::new("diag-refs-grid").striped(true).show(ui, |ui| {
-                        for h in ["at", "raw", "resolved"] {
+                        for h in ["at", "raw", "resolved", ""] {
                             ui.strong(h);
                         }
                         ui.end_row();
@@ -1150,10 +1545,15 @@ impl App {
                             ui.monospace(&r.raw);
                             if r.resolved == "unresolved" {
                                 ui.colored_label(BAD, &r.resolved);
+                                ui.label("");
                             } else if r.resolved == "NULL" {
                                 ui.label(&r.resolved);
-                            } else if link(ui, !busy, &r.resolved).clicked() {
-                                actions.push(Action::Diagnose(r.resolved.clone()));
+                                ui.label("");
+                            } else {
+                                if link(ui, !busy, &r.resolved).clicked() {
+                                    actions.push(Action::Diagnose(r.resolved.clone()));
+                                }
+                                record_actions(ui, busy, &r.resolved, actions);
                             }
                             ui.end_row();
                         }
@@ -1355,6 +1755,49 @@ fn link(ui: &mut egui::Ui, enabled: bool, text: impl Into<egui::WidgetText>) -> 
     ui.add_enabled(enabled, egui::Link::new(text))
 }
 
+/// The two `refs` actions every record row offers: "links" (its outgoing typed links) and
+/// "use info" (the records that name it).
+fn record_actions(ui: &mut egui::Ui, busy: bool, form: &str, actions: &mut Vec<Action>) {
+    ui.horizontal(|ui| {
+        if link(ui, !busy, "links")
+            .on_hover_text("Outgoing links: the typed FormIDs this record stores (refs)")
+            .clicked()
+        {
+            actions.push(Action::Links(form.to_string(), false));
+        }
+        if link(ui, !busy, "use info")
+            .on_hover_text("Use info: the records that name this form (refs --incoming)")
+            .clicked()
+        {
+            actions.push(Action::Links(form.to_string(), true));
+        }
+    });
+}
+
+/// A form cell: a link that inspects `form` (labelled `form label`), or the label alone
+/// when the form does not resolve.
+fn form_cell(
+    ui: &mut egui::Ui,
+    busy: bool,
+    form: Option<&str>,
+    label: &str,
+    actions: &mut Vec<Action>,
+) {
+    match form {
+        Some(f) => {
+            if link(ui, !busy, format!("{f} {label}"))
+                .on_hover_text("inspect")
+                .clicked()
+            {
+                actions.push(Action::Inspect(f.to_string()));
+            }
+        }
+        None => {
+            ui.label(label);
+        }
+    }
+}
+
 fn conf_label(ui: &mut egui::Ui, confidence: &str) {
     if confidence == "reference" {
         ui.colored_label(WARN, "reference (unconfirmed)")
@@ -1438,11 +1881,18 @@ fn record_view(ui: &mut egui::Ui, view: &RecordView, busy: bool, actions: &mut V
             "matched by {}; winner {}; runtime ID {}",
             view.matched_by, view.winner, view.runtime_id
         ));
-        if !view.global.is_empty()
-            && view.mode == "load_order"
-            && link(ui, !busy, "diagnose").clicked()
-        {
-            actions.push(Action::Diagnose(view.global.clone()));
+        if !view.global.is_empty() && view.mode == "load_order" {
+            if link(ui, !busy, "diagnose").clicked() {
+                actions.push(Action::Diagnose(view.global.clone()));
+            }
+            record_actions(ui, busy, &view.global, actions);
+            if PLANET_TYPES.contains(&view.signature.as_str())
+                && link(ui, !busy, "planet chain")
+                    .on_hover_text("the Planet Content Manager chain of this record (planet)")
+                    .clicked()
+            {
+                actions.push(Action::Planet(view.global.clone()));
+            }
         }
     });
     let unconfirmed = view.unconfirmed();

@@ -2,7 +2,7 @@
 //! show the raw stored FormID of every version beside the master-aware identity, each
 //! plugin's scale (`unknown` when the load order could not read it), the FormIDs the
 //! winner references (raw and resolved), then `validate`'s FormID and master rules on a
-//! plugin. `refs` (M4.D1) is not on `main` yet; incoming references wait for it.
+//! plugin. Incoming references are the Links panel's "use info" (`refs --incoming`).
 
 use serde_json::{json, Value};
 
@@ -163,7 +163,7 @@ mod tests {
             {"plugin": "Base.esm", "raw_form_id": "00000800", "resolved_by": "direct", "winner": false, "deleted": false, "subrecords": []},
             {"plugin": "Small.esm", "raw_form_id": "00000800", "resolved_by": "assumed:full-style-self", "winner": true, "deleted": false,
              "subrecords": [
-                {"signature": "KWDA", "member": "Keywords", "value": [{"raw": "01000801", "form": "Small.esm:000801"}, {"raw": "07000001", "form": null}]},
+                {"signature": "KWDA", "member": "Keywords", "value": [{"kind": "formref", "raw": "01000801", "form": "Small.esm:000801"}, {"kind": "formref", "raw": "07000001", "form": null}]},
                 {"signature": "EDID", "value": "TestForm"}
              ]}
         ]}});

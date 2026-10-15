@@ -80,7 +80,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | M4.O4 in-game results recorded | **pending-owner** | After E7/E9 land; the M4.E8 recipes are ready |
 | `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **done** (M4.H3, research skeleton: 39 graded claims, every Papyrus name verified with `kit papyrus events`, open questions as ledger rows). Planet content **carried** (M4.D3) |
 | M4.O3 and M4.O5 recorded | **done** | ADR 0008, ADR 0009 (2026-10-14) |
-| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Carried: M4.W0 shape tests (lane F), `build --plan` (M4.W6), `refs`/placement context (M4.D1 done in the engine; panels: Request to lane W; M4.D2). Licence ruling: row 7 |
+| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Links and Planet panels and the M4.W0 shapes and markers done (2026-10-15, "Lanes F and W follow-ups"). Carried: `build --plan` (M4.W6), placement context (M4.D2). Licence ruling: row 7 |
 | CK fixtures F20..F28 (M4.O1, M4.H2) | **carried** | Deferred by the owner with M3.O1 until the workbench exists. The first POI does not need them |
 | `cargo xtask ci` green, corpus roundtrip identical, parity regenerated, STATUS says M5 | **carried** | To M4 close |
 
@@ -1254,6 +1254,19 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     member. Rules: `docs/mcp.md`, "Data shapes and markers". xtask's SF1Edit comparator
     reads the new opaque marker (`sf1edit::scalar_object`). Not covered: `build --plan`
     (M4.W6 adds its shape with the guard).
+  - **Links and Planet panels (lane W; lane D's Request).** `refs` and `planet` are on
+    `gate::ALLOWLIST` (read only) and in `cmdline::SESSION_COMMANDS`; `gate` re-exports
+    the engine's marker names, which the view-models key on (`panels::fmt_value`,
+    `formids`; the shape heuristic and its `docs/gaps.md` row are gone). Links tab:
+    outgoing links to a depth or "use info" (incoming, winner or every version, type
+    filter), rows from `link`/`referrer` markers (an unknown marker is counted, not
+    guessed), placed referrers with cell and world, `next_cursor` paging. Planet tab: a
+    tree's nodes indented by depth with their content links, the placements (with the
+    branch chain) of a planet, star, biome, location, worldspace or pack-in, and every
+    `link` marker in the result. "links" and "use info" on every record row (query rows,
+    the record view, diff records, diagnostics, links and planet rows); "planet chain"
+    on a record of a planet-family type. View-model tests on canned envelopes, which are
+    checked against the engine's documented shapes; `dev_profile` walks both panels.
 - Lane E, M3.E9 round 2 (overhaul build 2), 2026-10-15: `has_opaque` (engine
   `edit/patch.rs`) now flags only unknown layout (whole opaque payload, rest-of-payload run,
   edid-prefix union); fixed-size untyped struct fields and sibling-decided unions are known
@@ -1569,7 +1582,7 @@ wins") but still the owner's to confirm:
 
 ## Requests (cross-lane)
 
-- **Lane D (M4.D1, M4.D3) -> lane W.** `refs` and `planet` are in the catalog (`writes:
+- ~~**Lane D (M4.D1, M4.D3) -> lane W.**~~ Done 2026-10-15 (lanes F and W follow-ups: Links and Planet panels, `refs`/`planet` on the gate's allowlist and in `cmdline::SESSION_COMMANDS`, "links"/"use info" on every record row). Was: `refs` and `planet` are in the catalog (`writes:
   false`, read only); `planet` needs the same treatment (a Planet view over `data.nodes`
   with `depth` indentation, or `data.placements`). `refs` in detail: it is in the catalog (`writes: false`, read only). The
   workbench has no generic envelope view a new command can use without code, so lane D
