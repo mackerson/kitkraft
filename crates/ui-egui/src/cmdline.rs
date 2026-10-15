@@ -1,14 +1,14 @@
 //! The `kit` command line and the MCP `execute` call that produce the same envelope as a
 //! panel's request, shown under every result so the workbench teaches the CLI.
 //!
-//! The text is written for the shared grammar (`kitkraft_engine::parse_line`, docs/mcp.md
+//! The text is written for the shared grammar (the engine's `parse_line`, docs/mcp.md
 //! "`command_line` grammar"): every argument as `--name value` (`_` written `-`), booleans
 //! as `--name` / `--no-name`, string lists by repeating the flag, objects as JSON text.
 //! Quotes group words and there are no escapes, so a value holding both quote characters
 //! cannot be written exactly ([`CommandLine::exact`] is then false). A test parses every
 //! line back with the engine's parser.
 
-use kitkraft_engine::{cmdline::command_words, find_command};
+use crate::gate::{command_words, find_command};
 use serde_json::{json, Value};
 
 /// A command line for one request.
@@ -84,7 +84,7 @@ fn quote(s: &str) -> (String, bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kitkraft_engine::{parse_line, Invocation};
+    use crate::gate::{parse_line, Invocation};
 
     fn parses_back(id: &str, args: Value) {
         let line = command_line(id, &args);

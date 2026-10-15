@@ -4,11 +4,24 @@
 //! argument form for a writing one. The [`Engine`] is a private field of [`ReadOnlyEngine`],
 //! whose only way in is [`ReadOnlyEngine::run`], which checks every request against
 //! [`ALLOWLIST`] (by canonical id, so an alias cannot slip past) and each entry's argument
-//! guard before the engine sees it. A test scans this crate's sources so that no other
-//! module names the engine's execution API.
+//! guard before the engine sees it.
+//!
+//! This is also the only file of the crate that names the engine crate at all: a test
+//! scans every other source file (and the integration tests) for the token, so neither a
+//! renamed import (`use <engine>::{execute as go}`) nor a glob import can reach the
+//! engine around the gate. The few engine helpers other modules need (catalog lookup and
+//! command words for the `kit` line, the engine's own output-location guard) are
+//! re-exported below.
 
-use kitkraft_engine::{find_command, Engine, EngineError};
+use std::path::Path;
+
+use kitkraft_engine::{Engine, EngineError};
 use serde_json::{json, Value};
+
+pub use kitkraft_engine::cmdline::command_words;
+pub use kitkraft_engine::find_command;
+#[cfg(test)]
+pub(crate) use kitkraft_engine::{catalog, parse_line, Invocation};
 
 /// One command the workbench may run, with the arguments that would make it write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,9 +36,12 @@ pub struct Allowed {
     pub why: &'static str,
 }
 
-/// Every command the workbench can reach. Everything else in the catalog (`set`, `build`,
-/// `new`, `clone`, `place`, `package`, `deploy*`, `testplan`, `overhaul.scaffold`,
-/// `ba2.*`, `strings.*`, `papyrus.*`) is refused, writing or not, until a panel needs it.
+/// The commands the workbench runs as they are: none of them writes (the catalog's
+/// `writes` is false for each; a test holds this). Besides these, only the [`GUARDED`]
+/// entries run, in their non-writing form. Everything else in the catalog (`set`,
+/// `build`, `new`, `clone`, `place`, `package`, `deploy*`, `testplan`,
+/// `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*`) is refused, writing or not,
+/// until a panel needs it.
 pub const ALLOWLIST: &[Allowed] = &[
     Allowed {
         id: "load",
@@ -76,16 +92,21 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads the builtin schema; no plugin",
     },
-    Allowed {
-        id: "roundtrip",
-        refuse_args: &["out", "overwrite"],
-        require_true: &["verify"],
-        why: "verify only: rewrites in memory and compares; `out` is refused",
-    },
 ];
 
-/// Catalog commands that write a file or into MO2. Never on [`ALLOWLIST`]; a test holds
-/// both lists against each other and against the catalog.
+/// Writing commands the workbench runs only in a non-writing form: every argument that
+/// would write is refused and the read-only mode is required. Each id is also in
+/// [`WRITING`]; a test holds that every entry refuses at least one argument.
+pub const GUARDED: &[Allowed] = &[Allowed {
+    id: "roundtrip",
+    refuse_args: &["out", "overwrite"],
+    require_true: &["verify"],
+    why: "verify only: rewrites in memory and compares; `out` is refused",
+}];
+
+/// Catalog commands that can write a file or into MO2: exactly the catalog's `writes`
+/// set (a test holds this). Never on [`ALLOWLIST`]; on [`GUARDED`] only with their
+/// writing arguments refused.
 pub const WRITING: &[&str] = &[
     "set",
     "build",
@@ -101,7 +122,17 @@ pub const WRITING: &[&str] = &[
     "strings.merge",
     "deploy",
     "deploy.rollback",
+    "roundtrip",
 ];
+
+/// Refuses `dir` as a place the workbench writes into (its screenshot tour) when it is,
+/// or is inside, the game's Data folder, the user Data folder, an MO2 instance or
+/// profile, or passes through a link: the engine's own output-location guard, applied to
+/// a file in `dir`.
+pub fn guard_output_dir(dir: &Path) -> Result<(), String> {
+    kitkraft_engine::edit::patch::guard_location(&dir.join("workbench.bmp"))
+        .map_err(|e| e.to_string())
+}
 
 /// A command and its JSON arguments, as a panel builds them.
 #[derive(Debug, Clone, PartialEq)]
@@ -167,12 +198,14 @@ impl RunError {
     }
 }
 
-/// Checks `request` against [`ALLOWLIST`] without running it. Returns the entry.
+/// Checks `request` against [`ALLOWLIST`] and [`GUARDED`] without running it. Returns
+/// the entry.
 pub fn check(request: &Request) -> Result<&'static Allowed, RunError> {
     let spec = find_command(&request.id)
         .ok_or_else(|| RunError::Refused(format!("`{}` is not a catalog command", request.id)))?;
     let entry = ALLOWLIST
         .iter()
+        .chain(GUARDED)
         .find(|a| a.id == spec.id)
         .ok_or_else(|| {
             RunError::Refused(format!(
@@ -251,7 +284,41 @@ impl ReadOnlyEngine {
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
-    use kitkraft_engine::catalog;
+    use std::collections::BTreeSet;
+
+    /// The lists here are a second entry for the catalog's `writes` flag: the allowlist
+    /// holds no writing command, `WRITING` is exactly the writing set, and a guarded
+    /// entry is a writing command with its writing arguments refused.
+    #[test]
+    fn allowlist_is_disjoint_from_writes_and_writing_equals_it() {
+        let writes: BTreeSet<&str> = catalog()
+            .iter()
+            .filter(|s| s.writes)
+            .map(|s| s.id)
+            .collect();
+        for a in ALLOWLIST {
+            assert!(
+                !writes.contains(a.id),
+                "{}: the catalog says it writes; move it to GUARDED with its writing arguments refused",
+                a.id
+            );
+        }
+        let writing: BTreeSet<&str> = WRITING.iter().copied().collect();
+        assert_eq!(writing.len(), WRITING.len(), "WRITING has a duplicate");
+        assert_eq!(
+            writing, writes,
+            "WRITING must equal the catalog's `writes` set"
+        );
+        for g in GUARDED {
+            assert!(writes.contains(g.id), "{}: guarded but not writing", g.id);
+            assert!(
+                !g.refuse_args.is_empty(),
+                "{}: a guarded command must refuse its writing arguments",
+                g.id
+            );
+            assert!(!ALLOWLIST.iter().any(|a| a.id == g.id), "{}", g.id);
+        }
+    }
 
     #[test]
     fn every_catalog_command_is_either_allowed_writing_or_refused_on_purpose() {
@@ -274,7 +341,7 @@ mod tests {
                 spec.id
             );
         }
-        for a in ALLOWLIST {
+        for a in ALLOWLIST.iter().chain(GUARDED) {
             assert!(find_command(a.id).is_some(), "{} not in the catalog", a.id);
         }
     }
@@ -353,51 +420,86 @@ mod tests {
         }
     }
 
-    /// Only this module may name the engine's execution API; every other module goes
-    /// through [`ReadOnlyEngine::run`].
+    /// Why `text` (a source file other than this one) could reach the engine around the
+    /// gate. The engine crate's name is denied outright, so renamed (`as`) and glob
+    /// imports are caught with everything else; the execution API's names are denied
+    /// besides, in case a path to them is ever re-exported by mistake.
+    fn engine_reach(text: &str) -> Vec<String> {
+        let mut found = Vec::new();
+        if text.contains("kitkraft_engine") {
+            found.push("names the engine crate `kitkraft_engine`; use what gate re-exports".into());
+        }
+        // `Engine` as a whole identifier (`ReadOnlyEngine` is fine).
+        for (at, _) in text.match_indices("Engine") {
+            let before = text[..at].chars().next_back();
+            let after = text[at + "Engine".len()..].chars().next();
+            let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+            if !(word(before) || word(after)) {
+                found.push("names `Engine`; go through gate::ReadOnlyEngine".into());
+            }
+        }
+        for needle in [".execute(", "execute_in(", "with_session(", "Session"] {
+            if text.contains(needle) {
+                found.push(format!("names `{needle}`; go through gate::ReadOnlyEngine"));
+            }
+        }
+        found
+    }
+
     #[test]
-    fn no_other_module_reaches_the_engine_directly() {
-        let src = concat!(env!("CARGO_MANIFEST_DIR"), "/src");
-        let mut stack = vec![std::path::PathBuf::from(src)];
+    fn renamed_and_glob_imports_of_the_engine_are_caught() {
+        for bypass in [
+            "use kitkraft_engine::{execute as go};\nfn f() { let _ = go(\"set\", x); }",
+            "use kitkraft_engine::*;\nfn f() { let _ = execute(\"set\", x); }",
+            "use ::kitkraft_engine as ke;",
+            "extern crate kitkraft_engine as ke;",
+        ] {
+            assert!(!engine_reach(bypass).is_empty(), "not caught: {bypass}");
+        }
+        let fine = "use crate::gate::{ReadOnlyEngine, Request};\nlet e = ReadOnlyEngine::new();";
+        assert!(engine_reach(fine).is_empty(), "{:?}", engine_reach(fine));
+    }
+
+    /// Only this file may name the engine crate; every other module (and every
+    /// integration test) goes through [`ReadOnlyEngine::run`] and the re-exports above.
+    /// The manifest may not rename the engine dependency (`package = ...`), which would
+    /// give it a name this scan does not know.
+    #[test]
+    fn no_other_file_reaches_the_engine_directly() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut stack = vec![root.join("src"), root.join("tests")];
         let mut checked = 0;
+        let mut problems = Vec::new();
         while let Some(dir) = stack.pop() {
-            for entry in std::fs::read_dir(&dir).unwrap() {
+            let Ok(entries) = std::fs::read_dir(&dir) else {
+                continue;
+            };
+            for entry in entries {
                 let path = entry.unwrap().path();
                 if path.is_dir() {
                     stack.push(path);
                     continue;
                 }
-                if path.file_name().and_then(|n| n.to_str()) == Some("gate.rs") {
+                if path == root.join("src").join("gate.rs")
+                    || path.extension().and_then(|e| e.to_str()) != Some("rs")
+                {
                     continue;
                 }
                 let text = std::fs::read_to_string(&path).unwrap();
-                // `Engine` as a whole identifier (`ReadOnlyEngine` is fine).
-                for (at, _) in text.match_indices("Engine") {
-                    let before = text[..at].chars().next_back();
-                    let after = text[at + "Engine".len()..].chars().next();
-                    let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
-                    assert!(
-                        word(before) || word(after),
-                        "{}: names `Engine`; go through gate::ReadOnlyEngine",
-                        path.display()
-                    );
-                }
-                for needle in [
-                    "kitkraft_engine::execute",
-                    ".execute(",
-                    "execute_in(",
-                    "with_session(",
-                    "Session",
-                ] {
-                    assert!(
-                        !text.contains(needle),
-                        "{}: names `{needle}`; go through gate::ReadOnlyEngine",
-                        path.display()
-                    );
+                for why in engine_reach(&text) {
+                    problems.push(format!("{}: {why}", path.display()));
                 }
                 checked += 1;
             }
         }
-        assert!(checked > 3, "scanned {checked} files");
+        assert!(problems.is_empty(), "{problems:#?}");
+        assert!(checked > 10, "scanned {checked} files");
+        let manifest = std::fs::read_to_string(root.join("Cargo.toml")).unwrap();
+        assert!(
+            !manifest
+                .lines()
+                .any(|l| l.split('#').next().unwrap_or("").contains("package") && l.contains('=')),
+            "Cargo.toml renames a dependency (`package = ...`)"
+        );
     }
 }
