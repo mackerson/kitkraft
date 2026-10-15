@@ -345,6 +345,16 @@ fn recover(slots: &Slots, touched: &mut Vec<Touched>) -> Result<Option<Value>, D
             ))
         }
     }
+    // Our own temp names a crash mid-`write_atomic` leaves at a folder's root (rollback's
+    // meta.ini copy into the live folder); left there, they would read as unmanaged files.
+    for dir in [&slots.target, &slots.previous] {
+        for own in [format!("{MO2_META}.tmp"), format!("{MANIFEST}.tmp")] {
+            let tmp = dir.join(own);
+            if fs::symlink_metadata(&tmp).is_ok_and(|m| m.is_file()) {
+                remove_file(&tmp, touched)?;
+            }
+        }
+    }
     remove_file(&slots.journal, touched)?;
     let steps: Vec<Value> = touched.iter().skip(before).map(Touched::json).collect();
     Ok(Some(json!({
@@ -640,13 +650,36 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
             }
         }
     }
-    for f in &source.files {
-        let longest = slots.staging.join(&f.rel);
-        if path_units(&longest) > MAX_PATH_UNITS {
+    // Every file lives under each slot in turn (`.previous` is the longest suffix), and
+    // the longest internal name is the manifest's temp file `write_atomic` uses.
+    let slot = [
+        &slots.target,
+        &slots.previous,
+        &slots.staging,
+        &slots.retired,
+    ]
+    .into_iter()
+    .max_by_key(|p| path_units(p))
+    .unwrap_or(&slots.previous);
+    let mut longest: Vec<(PathBuf, &str)> = source
+        .files
+        .iter()
+        .map(|f| (slot.join(&f.rel), "once deployed (in the rollback copy)"))
+        .collect();
+    longest.push((
+        slot.join(format!("{MANIFEST}.tmp")),
+        "for the deployment's own files; shorten the plugin name or the MO2 path",
+    ));
+    longest.push((
+        slots.journal_tmp(),
+        "for the deployment's own files; shorten the plugin name or the MO2 path",
+    ));
+    for (path, when) in longest {
+        if path_units(&path) > MAX_PATH_UNITS {
             refusals.push(refused(
                 "source-path",
-                &longest,
-                format!("is longer than {MAX_PATH_UNITS} characters once deployed"),
+                &path,
+                format!("is longer than {MAX_PATH_UNITS} characters {when}"),
             ));
         }
     }
@@ -1130,11 +1163,11 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
         .map(|s| t("remove-dir", s, None))
         .collect();
     steps.push(t("write", &slots.journal, None));
-    if live_check.meta_ini {
-        steps.push(t("write", &slots.previous.join(MO2_META), None));
-    }
     steps.push(t("rename", &slots.target, Some(&slots.staging)));
     steps.push(t("rename", &slots.previous, Some(&slots.target)));
+    if live_check.meta_ini {
+        steps.push(t("write", &slots.target.join(MO2_META), None));
+    }
     steps.push(t("rename", &slots.staging, Some(&slots.previous)));
     steps.push(t("remove-file", &slots.journal, None));
     let mut data = json!({
@@ -1218,15 +1251,18 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
             remove_dir(s, &mut touched)?;
         }
         write_journal(&slots, &journal, &mut touched)?;
-        if live_check.meta_ini {
-            let from = slots.target.join(MO2_META);
-            let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
-            write_atomic(&slots.previous.join(MO2_META), &bytes, &mut touched)?;
-        }
         move_dir(&slots.target, &slots.staging, &mut touched)?;
         req.hooks.check(Step::Moved)?;
         move_dir(&slots.previous, &slots.target, &mut touched)?;
         req.hooks.check(Step::Committed)?;
+        // MO2's meta.ini follows the live folder: copied into the new live folder after
+        // the swap, so `.previous` is never written before it is restored (a crash
+        // mid-copy leaves `meta.ini.tmp` in the live folder; recovery removes it).
+        if live_check.meta_ini {
+            let from = slots.staging.join(MO2_META);
+            let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
+            write_atomic(&slots.target.join(MO2_META), &bytes, &mut touched)?;
+        }
         move_dir(&slots.staging, &slots.previous, &mut touched)?;
         remove_file(&slots.journal, &mut touched)
     })();

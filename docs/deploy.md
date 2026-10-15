@@ -87,6 +87,12 @@ it is complete):
 A folder of the target name is written only when this file is present and its `kind` and
 `mod` name this dev mod. Anything else of that name (case-insensitively) is refused.
 
+`previous_deployment_id` is history: the deployment this one was **deployed over** (live
+when it was written, or, with no live folder, the one `.previous` held). A later rollback
+or redeploy does not rewrite it, so it need not name what `.previous` holds now. The
+deployment a rollback restores is `.previous`'s own manifest id, which `deploy.status`
+reports as `previous.manifest.deployment_id`.
+
 ## Algorithm
 
 `deploy`:
@@ -113,7 +119,9 @@ A folder of the target name is written only when this file is present and its `k
 On a failure in steps 5 and 6 the same recovery runs at once (automatic rollback), and the
 error lists every path touched. `deploy.rollback` swaps `.previous` and the live folder the
 same way (live -> `.staging`, `.previous` -> live, `.staging` -> `.previous`), so a rollback
-can be rolled back. One previous deployment is kept.
+can be rolled back. MO2's `meta.ini` follows the live folder: rollback copies it into the
+new live folder after the swap, so `.previous` is never written before it is restored.
+One previous deployment is kept.
 
 ### Journal recovery
 
@@ -127,7 +135,9 @@ after the call has taken the lock:
 - otherwise: remove `.staging` (deploy), put the old live folder back from `.previous`
   (deploy) or `.staging` (rollback), and `.retired` back to `.previous`.
 
-`deploy.status` and `--dry-run` only report a pending journal. `deploy.status` lists
+Recovery also removes our own temp names (`meta.ini.tmp`, `kitkraft-deploy.json.tmp`) left
+at the root of the live folder or `.previous` by a crash mid-write, which would otherwise
+read as unmanaged files. `deploy.status` and `--dry-run` only report a pending journal. `deploy.status` lists
 every `KitKraft Dev - ...` entry; one it cannot read is reported with `state: "error"`
 (and the reason) instead of failing the listing; the others carry `state: "ok"`. A `*.journal.json.tmp` left by
 a crash while the journal itself was written is removed (nothing else had changed).
@@ -146,7 +156,7 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `reparse-point`       | A component of `mo2`, `mods\`, the target, or an entry in the source or a dev mod folder is a symbolic link or junction |
 | `location`            | `mods\` is, or is inside, the game's Data folder or the user Data folder (`Documents\My Games\Starfield\Data`); `mods\` is the profiles, overwrite or downloads folder, or one of them is inside `mods\`; the instance is inside the game or user Data folder or another instance (`guard_location`, shared with `set` and `build`), or the source overlaps the dev mod's folders |
 | `source`              | Not a plugin or a folder with one plugin at its root                 |
-| `source-path`         | A name Windows forbids, `meta.ini` or `kitkraft-deploy.json` at the package root, a deployed path longer than 259 characters, too deep or too many files |
+| `source-path`         | A name Windows forbids, `meta.ini` or `kitkraft-deploy.json` at the package root, a deployed path longer than 259 characters (measured under the longest slot, `<target>.previous\`, where every file lives after the next deploy, and for the longest internal temp names, `<target>.previous\kitkraft-deploy.json.tmp` and the journal's `.tmp`), too deep or more than 20,000 files |
 | `plugin-name`         | The plugin stem is a name Windows forbids                            |
 | `package-manifest`    | A file differs from `kitcraft-manifest.json`, is not listed, or a listed file is missing |
 | `target-collision`    | The target, `.previous`, `.staging` or `.retired` exists and is not this dev mod's |

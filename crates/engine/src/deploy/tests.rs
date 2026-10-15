@@ -875,6 +875,93 @@ fn a_held_lock_refuses_and_recovery_waits_for_it() {
     assert!(!lock.exists() && !journal.exists());
 }
 
+/// Fable review (deploy round), finding 8: the path-length check measured files under
+/// `.staging`, but every file later lives under `.previous`, one character longer. A file
+/// that fits under `.staging` but not under `.previous` is refused before any write.
+#[test]
+fn path_length_is_checked_for_the_rollback_copy() {
+    let mo2 = Mo2::new("pathlen");
+    let staging = super::instance::path_units(&mo2.slot(".staging"));
+    // `<staging>\Scripts\<name>.pex` exactly at the limit: one over under `.previous`.
+    let name_len = super::instance::MAX_PATH_UNITS - staging - "\\Scripts\\".len() - ".pex".len();
+    let pkg = mo2.package("long", b"TES4");
+    fs::remove_file(pkg.join("Scripts").join("MyScript.pex")).unwrap();
+    let rel = format!("{}.pex", "s".repeat(name_len));
+    fs::write(pkg.join("Scripts").join(&rel), b"pex").unwrap();
+    assert_eq!(
+        super::instance::path_units(&mo2.slot(".staging").join("Scripts").join(&rel)),
+        super::instance::MAX_PATH_UNITS
+    );
+    let e = err_text(mo2.deploy(&pkg));
+    assert!(
+        e.contains("[source-path]") && e.contains(".previous") && e.contains(&rel),
+        "{e}"
+    );
+    assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+    // One character shorter fits everywhere.
+    fs::remove_file(pkg.join("Scripts").join(&rel)).unwrap();
+    fs::write(
+        pkg.join("Scripts")
+            .join(format!("{}.pex", "s".repeat(name_len - 1))),
+        b"pex",
+    )
+    .unwrap();
+    assert_eq!(mo2.deploy(&pkg).unwrap()["data"]["outcome"], "deployed");
+}
+
+/// Fable review (deploy round), finding 10: rollback wrote the live folder's `meta.ini`
+/// into `.previous` before the swap, so an interrupted rollback left `.previous` changed
+/// (and a crash mid-write left `meta.ini.tmp`, an unmanaged file, for good). It is copied
+/// into the new live folder after the swap, and recovery removes our own temp names.
+#[test]
+fn rollback_copies_meta_ini_after_the_swap() {
+    let mo2 = Mo2::new("rollmeta");
+    let (id1, id2) = two_deployments(&mo2);
+    fs::write(mo2.target().join("meta.ini"), b"live notes").unwrap();
+    fs::write(mo2.slot(".previous").join("meta.ini"), b"previous meta").unwrap();
+    let req = |hooks| RollbackRequest {
+        mo2: mo2.mo2(),
+        mod_arg: MOD.to_string(),
+        to: None,
+        profile: None,
+        dry_run: false,
+        hooks,
+    };
+    let e = rollback(&req(Hooks {
+        interrupt_after: Some(Step::Moved),
+    }))
+    .unwrap_err();
+    assert_eq!(e.rule, "interrupted");
+    assert_eq!(
+        fs::read(mo2.slot(".previous").join("meta.ini")).unwrap(),
+        b"previous meta",
+        "`.previous` is not written before the swap"
+    );
+    let r = rollback(&req(Hooks::default())).unwrap();
+    assert_eq!(r.data["recovered"]["outcome"], "rolled back");
+    assert_eq!(mo2.id(&mo2.target()), id1);
+    assert_eq!(
+        fs::read(mo2.target().join("meta.ini")).unwrap(),
+        b"live notes"
+    );
+    assert_eq!(
+        fs::read(mo2.slot(".previous").join("meta.ini")).unwrap(),
+        b"live notes"
+    );
+    // A crash while writing the live folder's meta.ini (after the commit) leaves our
+    // temp file: the next call's recovery removes it and the folder reads clean.
+    rollback(&req(Hooks {
+        interrupt_after: Some(Step::Committed),
+    }))
+    .unwrap_err();
+    fs::write(mo2.target().join("meta.ini.tmp"), b"half").unwrap();
+    let r = mo2.deploy(&mo2.plugin(b"TES4 v2")).unwrap();
+    assert_eq!(r["data"]["recovered"]["outcome"], "completed", "{r}");
+    assert_eq!(r["data"]["outcome"], "unchanged", "{r}");
+    assert!(!mo2.target().join("meta.ini.tmp").exists());
+    assert_eq!(mo2.id(&mo2.target()), id2);
+}
+
 #[test]
 fn interrupted_rollback_is_recovered_and_failures_roll_back() {
     let mo2 = Mo2::new("interrupt-rollback");
