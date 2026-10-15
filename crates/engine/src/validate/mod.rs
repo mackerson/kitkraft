@@ -7,6 +7,7 @@
 //! next to the plugin, then in `data_dir`; their headers are read for flags and their
 //! records indexed when a rule needs them. Rules and their sources: `docs/validate.md`.
 
+pub mod attached;
 pub mod cells;
 #[cfg(test)]
 mod cells_tests;
@@ -25,7 +26,6 @@ use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::index::{index_file, read_record_at, IndexOptions};
 use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
 use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature};
-use kitkraft_schema::FieldType;
 use serde::Serialize;
 
 use crate::edit::fields::{self, Layout};
@@ -165,6 +165,18 @@ pub const RULES: &[RuleInfo] = &[
         summary: "A compressed body that does not decompress, lstring payloads that do not fit the localized flag, a HEDR count that fits neither corpus meaning (warning)",
     },
     RuleInfo {
+        id: "papyrus.missing-script",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A script attached through VMAD has no .pex in loose Scripts next to the plugin or in Data, the plugin's archives, or the archives of its masters (M4.E9)",
+    },
+    RuleInfo {
+        id: "papyrus.property-unresolved",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A VMAD property the attached script and its parents do not declare, or whose stored type differs from the declaration (M4.E9); object values are FormIDs, checked by formid.dangling",
+    },
+    RuleInfo {
         id: "papyrus.denylisted-call",
         severity: Severity::Warning,
         input: Input::Scripts,
@@ -216,6 +228,10 @@ pub struct Options {
     /// Record indexes already built (lane D's load order): lower-case file name ->
     /// every stored FormID with its record offset. Plugins not listed are indexed here.
     pub indexed: HashMap<String, Arc<HashMap<u32, u64>>>,
+    /// Where the plugin will live, when `plugin` is a staged copy: loose `Scripts` next to
+    /// it and its `<stem> - *.ba2` archives are where the papyrus rules look for attached
+    /// scripts (default: `plugin` itself).
+    pub scripts_home: Option<PathBuf>,
 }
 
 /// A master as found.
@@ -413,6 +429,8 @@ struct Pass<'a> {
     limits: DecodeLimits,
     /// What the cell rules collect.
     cells: cells::Facts,
+    /// Scripts attached through VMAD, for the papyrus rules (checked after the walk).
+    attached: Vec<attached::Attached>,
 }
 
 impl Pass<'_> {
@@ -494,6 +512,8 @@ fn validate_plugin(
                 | "cell.missing-parent"
                 | "ref.orphan"
                 | "navmesh.unchanged"
+                | "papyrus.missing-script"
+                | "papyrus.property-unresolved"
         )
     });
 
@@ -629,6 +649,7 @@ fn validate_plugin(
         layouts: HashMap::new(),
         limits: options.limits,
         cells: cells::Facts::default(),
+        attached: Vec::new(),
     };
 
     let mut hedr: Option<u32> = None;
@@ -651,6 +672,20 @@ fn validate_plugin(
     .map_err(|e| format!("{name}: {e}"))?;
     if cells::Facts::any(&pass) {
         cells::finish(&pass, path, &mut findings, &mut report.limitations);
+    }
+    if !pass.attached.is_empty() {
+        let masters: Vec<PathBuf> = pass.files.values().filter_map(|f| f.path.clone()).collect();
+        let home = options.scripts_home.as_deref().unwrap_or(path);
+        let mut sources = attached::Sources::new(Some(home), &masters, options.data_dir.as_deref());
+        attached::check(
+            &pass.attached,
+            &mut sources,
+            &pass.name,
+            pass.on("papyrus.missing-script"),
+            pass.on("papyrus.property-unresolved"),
+            &mut findings,
+            &mut report.limitations,
+        );
     }
     report.records = stats.0;
     report.groups = stats.1;
@@ -881,6 +916,53 @@ fn check_record(
         }
     }
 
+    // Scripts attached through VMAD (M4.E9): names and properties go to the papyrus rules
+    // after the walk, with what the previous version in load order already attaches (an
+    // override carries those as they were: a warning, not an error).
+    let papyrus = pass.on("papyrus.missing-script") || pass.on("papyrus.property-unresolved");
+    if papyrus {
+        for s in subs.iter().filter(|s| s.signature() == Signature(*b"VMAD")) {
+            match crate::edit::vmad::decode(s.data()) {
+                Ok(v) => {
+                    let mut a = attached::Attached::from_vmad(&id, sub_offset(s), &v);
+                    if let Target::Form {
+                        owner,
+                        object_id,
+                        master_index,
+                    } = &header
+                    {
+                        if *master_index < pass.space.masters.len() {
+                            if let Some((plugin, prev)) =
+                                previous_record(pass, owner, *object_id, *master_index)
+                            {
+                                let earlier = prev
+                                    .subrecords()
+                                    .and_then(|subs| {
+                                        subs.iter()
+                                            .find(|x| x.signature() == Signature(*b"VMAD"))
+                                            .map(|x| x.data().to_vec())
+                                    })
+                                    .and_then(|d| crate::edit::vmad::decode(&d).ok());
+                                if let Some(e) = earlier {
+                                    a.inherit(&plugin, &e);
+                                }
+                            }
+                        }
+                    }
+                    pass.attached.push(a);
+                }
+                Err(e) => push(
+                    findings,
+                    "papyrus.property-unresolved",
+                    Severity::Warning,
+                    Some("VMAD".into()),
+                    sub_offset(s),
+                    format!("the VMAD script list does not decode ({e}); its scripts and properties are not checked"),
+                ),
+            }
+        }
+    }
+
     // lstrings: shapes (record.flags-body) and copied IDs (lstring.copied-id).
     let master_localized = match &header {
         Target::Form { owner, .. } if !owner.eq_ignore_ascii_case(&pass.name) => pass
@@ -918,7 +1000,15 @@ fn check_record(
             let Some(layout) = layout else {
                 continue;
             };
-            for (member, start, len) in spans(&layout, s.data(), r.header.form_version) {
+            let lctx = kitkraft_doc::typed::Ctx {
+                form_version: r.header.form_version,
+                localized: pass.localized,
+                edid_first: subs
+                    .iter()
+                    .find(|s| s.signature() == Signature(*b"EDID"))
+                    .and_then(|s| s.data().first().copied()),
+            };
+            for (member, start, len) in fields::lstring_spans(&layout.ty, s.data(), &lctx) {
                 let label = format!("{}[{occurrence}]{member}", s.signature());
                 let bytes = s
                     .data()
@@ -1005,26 +1095,6 @@ fn check_record(
     }
 }
 
-/// The lstring spans of a subrecord laid out as `layout`.
-fn spans(layout: &Layout, payload: &[u8], form_version: u16) -> Vec<(String, usize, usize)> {
-    match &layout.ty {
-        FieldType::LString => vec![(String::new(), 0, payload.len())],
-        FieldType::Struct { fields: list } => {
-            let last = list.iter().rev().find(|f| f.present_in(Some(form_version)));
-            match last {
-                Some(f) if matches!(f.ty, FieldType::LString) => {
-                    let steps = [fields::Step::Member(f.name.clone())];
-                    fields::locate("", &layout.ty, payload, &steps, form_version)
-                        .map(|at| vec![(format!(".{}", f.name), at.start, at.len)])
-                        .unwrap_or_default()
-                }
-                _ => Vec::new(),
-            }
-        }
-        _ => Vec::new(),
-    }
-}
-
 /// The last of the plugin's masters, from the owner on, holding the form, and whether
 /// its version has the subrecord `wanted`. `None` when no master's version can be read.
 fn previous_has(
@@ -1034,6 +1104,21 @@ fn previous_has(
     owner_index: usize,
     wanted: [u8; 4],
 ) -> Option<(String, bool)> {
+    let (name, record) = previous_record(pass, owner, object_id, owner_index)?;
+    let has = record
+        .subrecords()
+        .is_some_and(|subs| subs.iter().any(|s| s.signature().0 == wanted));
+    Some((name, has))
+}
+
+/// The last of the plugin's masters, from the owner on, holding the form: its name and
+/// that version of the record (decompressed). `None` when no master's version can be read.
+fn previous_record(
+    pass: &Pass<'_>,
+    owner: &str,
+    object_id: u32,
+    owner_index: usize,
+) -> Option<(String, Record<'static>)> {
     let mut last: Option<(&MasterFile, u64)> = None;
     for (name, _) in pass.space.masters.iter().skip(owner_index) {
         let Some(file) = pass.files.get(&name.to_ascii_lowercase()) else {
@@ -1052,29 +1137,12 @@ fn previous_has(
     let (file, offset) = last?;
     let mut input = File::open(file.path.as_ref()?).ok()?;
     let record = read_record_at(&mut input, offset, Some(&pass.limits)).ok()?;
-    let has = record
-        .subrecords()
-        .is_some_and(|subs| subs.iter().any(|s| s.signature().0 == wanted));
-    Some((file.name.clone(), has))
+    Some((file.name.clone(), record))
 }
 
-/// A FormID value that means "no form" in a typed member, like 0: `formid.dangling` does
-/// not check it (lane B round 4; upstream allows it for INFO TRDA's emotion keyword,
-/// which 53,844 response lines of `Starfield.esm` hold).
-pub const NONE_FORM_ID: u32 = 0xFFFF_FFFF;
-
-/// The game master whose low object IDs are engine-reserved.
-pub const RESERVED_MASTER: &str = "Starfield.esm";
-
-/// Object IDs below this in [`RESERVED_MASTER`]'s index space that the master does not
-/// define are engine-reserved default forms (the player reference 0x14, built-in actor
-/// values 0x2D0..0x3AC, a story manager root node 0x5B, ...): `formid.dangling` counts a
-/// typed member naming one as `reserved_form_ids` instead of reporting it. Corpus fact,
-/// grade D until a CK observation confirms it (ADR 0005 Amendment 4, `docs/validate.md`
-/// "Engine-reserved object IDs"): no official file defines these IDs, yet the 14 official
-/// files name them 1,410 times from 13 record types (M4.BX1). Low IDs that
-/// `Starfield.esm` does define are ordinary forms and are checked as usual.
-pub const RESERVED_OBJECT_IDS: u32 = 0x800;
+/// The "no form" value and the engine-reserved rule `formid.dangling` applies, defined once
+/// in `kitkraft_doc::links` (`refs` classifies links by the same rule).
+pub use kitkraft_doc::links::{NONE_FORM_ID, RESERVED_MASTER, RESERVED_OBJECT_IDS};
 
 /// Whether `owner:object_id` is in the engine-reserved range ([`RESERVED_OBJECT_IDS`]);
 /// `formid.dangling` asks only for forms the owner does not define.

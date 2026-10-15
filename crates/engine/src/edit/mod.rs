@@ -11,6 +11,7 @@ pub mod patch;
 pub(crate) mod patch_tests;
 pub mod source;
 pub mod strings;
+pub mod vmad;
 
 use kitkraft_esm::{DecodeLimits, Record, Signature};
 use serde_json::{json, Value};

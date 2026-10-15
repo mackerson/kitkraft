@@ -107,18 +107,79 @@ fn zstring(bytes: &[u8]) -> String {
     String::from_utf8_lossy(bytes.get(..end).unwrap_or(bytes)).into_owned()
 }
 
-fn decode_in(
-    ty: &FieldType,
+/// Where an lstring sits in a subrecord payload ([`lstring_spans`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LStringSpan {
+    /// The member path inside the subrecord: empty for a whole-subrecord lstring, else
+    /// `.Name`, `.Entries[2].Text`, `.Value1.Text` (union variants by name).
+    pub member: String,
+    /// Offset in the payload.
+    pub at: usize,
+    /// Length in bytes (4 in a localized plugin; the rest of the payload otherwise).
+    pub len: usize,
+}
+
+/// One step of the member path a decode is at.
+#[derive(Debug, Clone, Copy)]
+enum PathPart<'t> {
+    Member(&'t str),
+    Index(usize),
+}
+
+/// What a decode records besides the value.
+#[derive(Debug, Default)]
+struct Trace<'t> {
+    /// Payload offset of every FormID, in walk order.
+    forms: Vec<usize>,
+    /// Every lstring, when `track` is set.
+    lstrings: Vec<LStringSpan>,
+    /// The member path being decoded (kept only when `track` is set).
+    path: Vec<PathPart<'t>>,
+    /// Whether to keep the path and the lstrings.
+    track: bool,
+}
+
+impl<'t> Trace<'t> {
+    fn enter(&mut self, part: PathPart<'t>) {
+        if self.track {
+            self.path.push(part);
+        }
+    }
+    fn leave(&mut self) {
+        if self.track {
+            self.path.pop();
+        }
+    }
+    fn lstring(&mut self, at: usize, len: usize) {
+        if !self.track {
+            return;
+        }
+        let mut member = String::new();
+        for p in &self.path {
+            match p {
+                PathPart::Member(m) => {
+                    member.push('.');
+                    member.push_str(m);
+                }
+                PathPart::Index(i) => member.push_str(&format!("[{i}]")),
+            }
+        }
+        self.lstrings.push(LStringSpan { member, at, len });
+    }
+}
+
+fn decode_in<'t>(
+    ty: &'t FieldType,
     c: &mut Cursor<'_>,
     ctx: &Ctx,
     siblings: &[(String, Decoded)],
-    forms: &mut Vec<usize>,
+    trace: &mut Trace<'t>,
 ) -> Result<Decoded, String> {
     match ty {
         FieldType::Scalar(s) => scalar(*s, c),
         FieldType::Enum { base, .. } | FieldType::Flags { base, .. } => scalar(*base, c),
         FieldType::FormId { .. } => {
-            forms.push(c.pos);
+            trace.forms.push(c.pos);
             Ok(Decoded::Form(le(c.take(4)?) as u32))
         }
         FieldType::Sig => {
@@ -127,10 +188,15 @@ fn decode_in(
         }
         FieldType::ZString => Ok(Decoded::Text(zstring(c.rest()))),
         FieldType::LString => {
+            let at = c.pos;
             if ctx.localized {
-                Ok(Decoded::LStringId(le(c.take(4)?) as u32))
+                let id = le(c.take(4)?) as u32;
+                trace.lstring(at, 4);
+                Ok(Decoded::LStringId(id))
             } else {
-                Ok(Decoded::Text(zstring(c.rest())))
+                let rest = c.rest();
+                trace.lstring(at, rest.len());
+                Ok(Decoded::Text(zstring(rest)))
             }
         }
         FieldType::WString => {
@@ -154,7 +220,7 @@ fn decode_in(
             Ok(Decoded::Opaque { at, len })
         }
         FieldType::Empty => Ok(Decoded::Struct(Vec::new())),
-        FieldType::Ref { ty, .. } => decode_in(ty, c, ctx, siblings, forms),
+        FieldType::Ref { ty, .. } => decode_in(ty, c, ctx, siblings, trace),
         FieldType::Union {
             decider: Decider::EditorIdPrefix,
             variants,
@@ -162,7 +228,7 @@ fn decode_in(
             .edid_first
             .and_then(|b| select_variant(variants, i64::from(b), None))
         {
-            Some(v) => decode_in(&v.ty, c, ctx, siblings, forms),
+            Some(v) => decode_in(&v.ty, c, ctx, siblings, trace),
             None => {
                 let at = c.pos;
                 let len = c.rest().len();
@@ -191,8 +257,10 @@ fn decode_in(
             };
             match select_variant(variants, key, second) {
                 Some(v) => {
-                    let value = decode_in(&v.ty, c, ctx, siblings, forms)?;
-                    Ok(Decoded::Struct(vec![(v.name.clone(), value)]))
+                    trace.enter(PathPart::Member(&v.name));
+                    let value = decode_in(&v.ty, c, ctx, siblings, trace);
+                    trace.leave();
+                    Ok(Decoded::Struct(vec![(v.name.clone(), value?)]))
                 }
                 None => {
                     let size = ty
@@ -232,7 +300,10 @@ fn decode_in(
                     return Err("too many array elements".into());
                 }
                 let before = c.pos;
-                out.push(decode_in(element, c, ctx, &[], forms)?);
+                trace.enter(PathPart::Index(out.len()));
+                let v = decode_in(element, c, ctx, &[], trace);
+                trace.leave();
+                out.push(v?);
                 if n.is_none() && c.pos == before {
                     break;
                 }
@@ -248,8 +319,10 @@ fn decode_in(
                 if f.if_remaining && c.remaining() == 0 {
                     continue;
                 }
-                let v = decode_in(&f.ty, c, ctx, &out, forms)?;
-                out.push((f.name.clone(), v));
+                trace.enter(PathPart::Member(&f.name));
+                let v = decode_in(&f.ty, c, ctx, &out, trace);
+                trace.leave();
+                out.push((f.name.clone(), v?));
             }
             Ok(Decoded::Struct(out))
         }
@@ -270,12 +343,30 @@ pub fn decode_traced(
     ctx: &Ctx,
 ) -> Result<(Decoded, Vec<usize>), String> {
     let mut c = Cursor { data, pos: 0 };
-    let mut forms = Vec::new();
-    let v = decode_in(ty, &mut c, ctx, &[], &mut forms)?;
+    let mut trace = Trace::default();
+    let v = decode_in(ty, &mut c, ctx, &[], &mut trace)?;
     if c.remaining() != 0 {
         return Err(format!("layout covers {} of {} bytes", c.pos, data.len()));
     }
-    Ok((v, forms))
+    Ok((v, trace.forms))
+}
+
+/// Every lstring in a subrecord payload laid out as `ty`, wherever it sits (the whole
+/// payload, a struct member at any position, an array element, a union variant), in the
+/// order a depth-first walk meets them. The payload is decoded as [`decode`] does, so a
+/// localized lstring is 4 bytes and an inline one runs to the end of the payload (`ctx`'s
+/// `localized`). `Err` when the payload does not decode.
+pub fn lstring_spans(ty: &FieldType, data: &[u8], ctx: &Ctx) -> Result<Vec<LStringSpan>, String> {
+    let mut c = Cursor { data, pos: 0 };
+    let mut trace = Trace {
+        track: true,
+        ..Trace::default()
+    };
+    decode_in(ty, &mut c, ctx, &[], &mut trace)?;
+    if c.remaining() != 0 {
+        return Err(format!("layout covers {} of {} bytes", c.pos, data.len()));
+    }
+    Ok(trace.lstrings)
 }
 
 /// Where one subrecord of a record sits in its record type's definition, found by its
@@ -914,5 +1005,86 @@ mod tests {
         let mut bad = vec![255u8];
         bad.extend([0u8; 8]);
         assert!(decode(&ty, &bad, &ctx()).is_err());
+    }
+
+    /// M3.E4: lstrings are found wherever the layout puts them, not only as the whole
+    /// payload or a struct's last member.
+    #[test]
+    fn lstring_spans_inside_structs_and_arrays() {
+        use kitkraft_schema::FieldDef;
+        let prov = kitkraft_schema::builtin()
+            .unwrap()
+            .records
+            .values()
+            .next()
+            .unwrap()
+            .provenance
+            .clone();
+        let field = |name: &str, ty: FieldType| FieldDef {
+            name: name.into(),
+            ty,
+            since: None,
+            until: None,
+            if_remaining: false,
+            note: None,
+            provenance: prov.clone(),
+        };
+        let entry = FieldType::Struct {
+            fields: vec![
+                field("Text", FieldType::LString),
+                field("Value", FieldType::Scalar(Scalar::U16)),
+            ],
+        };
+        let ty = FieldType::Struct {
+            fields: vec![
+                field("Name", FieldType::LString),
+                field("Count", FieldType::Scalar(Scalar::U8)),
+                field(
+                    "Entries",
+                    FieldType::Array {
+                        element: Box::new(entry),
+                        count: ArrayCount::From("Count".into()),
+                    },
+                ),
+                field("Tail", FieldType::Scalar(Scalar::U32)),
+            ],
+        };
+        let mut data = 7u32.to_le_bytes().to_vec();
+        data.push(2);
+        for id in [8u32, 9] {
+            data.extend(id.to_le_bytes());
+            data.extend(1u16.to_le_bytes());
+        }
+        data.extend(0u32.to_le_bytes());
+        let spans = lstring_spans(&ty, &data, &ctx()).unwrap();
+        let got: Vec<(&str, usize, usize)> = spans
+            .iter()
+            .map(|s| (s.member.as_str(), s.at, s.len))
+            .collect();
+        assert_eq!(
+            got,
+            [
+                (".Name", 0, 4),
+                (".Entries[0].Text", 5, 4),
+                (".Entries[1].Text", 11, 4)
+            ]
+        );
+        // The decode is unchanged by tracing; a short payload has no spans.
+        assert!(decode(&ty, &data, &ctx()).is_ok());
+        assert!(lstring_spans(&ty, &data[..6], &ctx()).is_err());
+        // Inline (non-localized): a whole-payload lstring runs to the end.
+        let inline = Ctx {
+            localized: false,
+            ..ctx()
+        };
+        let whole = lstring_spans(&FieldType::LString, b"Hi\0", &inline).unwrap();
+        assert_eq!(
+            whole,
+            [LStringSpan {
+                member: String::new(),
+                at: 0,
+                len: 3
+            }]
+        );
     }
 }

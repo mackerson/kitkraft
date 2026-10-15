@@ -1,11 +1,16 @@
-//! Which subrecords are lstrings, per record type, where the schema does not say
-//! (Fable review round 2, finding 2).
+//! Which subrecords are lstrings, per record type, measured on the corpus: since M3.E4 a
+//! cross-check of the schema and a fallback where the schema has no member (Fable review
+//! round 2, finding 2).
 //!
-//! Lane B's schema types lstrings only where a definition names them (`FULL`, `DESC`,
-//! template names, ...). A localized plugin stores every lstring as a 4-byte string ID, so
-//! an lstring the schema keeps opaque (`ATTX`, `ITXT`, `RNAM`, `SHRT`, ...) would be copied
-//! into a non-localized patch as four bytes the game reads as text. This table closes that
-//! gap until the schema types those subrecords.
+//! `set`, `build` and `validate` take lstrings from the schema first (`edit::fields`
+//! layouts; every lstring member wherever it sits in a payload, through
+//! `kitkraft_doc::typed::lstring_spans`). Lane B typed all 105 lstring signatures of this
+//! table (M3.B8): 100 are whole-subrecord schema members, and [`compare`] checks that
+//! the two agree. The other 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT and STDT `FULL`) sit
+//! inside the base form component blocks the schema keeps raw, so this table is the
+//! fallback there and every use names it in a limitation ([`table_note`]). A localized
+//! plugin stores every lstring as a 4-byte string ID, so an lstring nothing types would be
+//! copied into a non-localized patch as four bytes the game reads as text.
 //!
 //! **Source** (`corpus:` the 13 official ESMs with English string tables, confidence
 //! `corpus`, ADR 0004 "Owner approval" clause 3): the pinned xEdit file is not available
@@ -30,7 +35,7 @@
 //!   every pair the corpus does not have.
 //!
 //! The method cannot see an lstring inside a larger struct (such a subrecord is never 4
-//! bytes); the schema's struct-tail lstrings cover the typed ones. `docs/validate.md`
+//! bytes); the schema's typed lstrings cover those wherever they sit. `docs/validate.md`
 //! ("lstring signature table") records the method and its limits.
 
 /// Fewest distinct non-zero values that make a 4-byte signature an lstring.
@@ -319,15 +324,189 @@ pub fn class(record: [u8; 4], sub: [u8; 4]) -> Class {
 /// The limitation reported when a subrecord is treated as an lstring by this table.
 pub fn table_note(record: [u8; 4], sub: [u8; 4]) -> String {
     format!(
-        "{}.{} treated as an lstring by the corpus lstring table (edit::lstrings; corpus, not in the schema)",
+        "{}.{} treated as an lstring by the corpus lstring table (edit::lstrings; corpus): the schema has no member for it here (a block it keeps raw, or a record type it does not define)",
         String::from_utf8_lossy(&record),
         String::from_utf8_lossy(&sub)
     )
 }
 
+/// Every lstring the schema defines, per `(record type, subrecord signature)`: the member
+/// paths inside the subrecord (`""` for a whole-subrecord lstring, `.Name` or
+/// `.Entries[].Text` for one inside a struct, an array or a union variant). Built from the
+/// definitions alone (no corpus), so it is what `set`, `build` and `validate` read
+/// lstrings from (M3.E4).
+pub fn schema_lstrings(
+    schema: &kitkraft_schema::Schema,
+) -> std::collections::BTreeMap<([u8; 4], [u8; 4]), Vec<String>> {
+    use kitkraft_schema::FieldType;
+    fn walk(ty: &FieldType, at: &str, out: &mut Vec<String>, depth: usize) {
+        if depth > 32 {
+            return;
+        }
+        let next = depth.saturating_add(1);
+        match ty {
+            FieldType::LString => out.push(at.to_string()),
+            FieldType::Ref { ty, .. } => walk(ty, at, out, next),
+            FieldType::Array { element, .. } => walk(element, &format!("{at}[]"), out, next),
+            FieldType::Struct { fields } => {
+                for f in fields {
+                    walk(&f.ty, &format!("{at}.{}", f.name), out, next);
+                }
+            }
+            FieldType::Union { decider, variants } => {
+                let named = matches!(decider, kitkraft_schema::Decider::Field { .. });
+                for v in variants {
+                    let here = if named {
+                        format!("{at}.{}", v.name)
+                    } else {
+                        at.to_string()
+                    };
+                    walk(&v.ty, &here, out, next);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut out: std::collections::BTreeMap<([u8; 4], [u8; 4]), Vec<String>> =
+        std::collections::BTreeMap::new();
+    for def in schema.records() {
+        let record = def.signature.as_bytes();
+        for (_, sub) in def.leaf_subrecords() {
+            let mut paths = Vec::new();
+            walk(&sub.ty, "", &mut paths, 0);
+            if !paths.is_empty() {
+                let entry = out.entry((record, sub.signature.as_bytes())).or_default();
+                for p in paths {
+                    if !entry.contains(&p) {
+                        entry.push(p);
+                    }
+                }
+            }
+        }
+    }
+    out
+}
+
+/// How the corpus table and the schema compare (M3.E4's cross-check).
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Comparison {
+    /// Table lstrings the schema types as whole-subrecord lstrings: the schema is used.
+    pub agree: Vec<String>,
+    /// Table lstrings the schema has no member for, because the record type keeps them
+    /// inside a block it stores raw (`any_until`, the base form component blocks): the
+    /// table is the fallback there, with a limitation ([`table_note`]).
+    pub fallback: Vec<String>,
+    /// Conflicts: a table lstring the schema defines otherwise (or whose record type it
+    /// does not define), or a pair the table measured as "not an lstring" that the schema
+    /// types as one. A conflict is a question for lane B; the schema wins meanwhile.
+    pub conflicts: Vec<String>,
+}
+
+/// Whether a member list (or a group in it) keeps a block of subrecords raw (`any_until`).
+fn has_raw_block(members: &[kitkraft_schema::Member], depth: usize) -> bool {
+    depth <= 16
+        && members.iter().any(|m| match m {
+            kitkraft_schema::Member::AnyUntil(_) => true,
+            kitkraft_schema::Member::Group(g) => has_raw_block(&g.members, depth.saturating_add(1)),
+            kitkraft_schema::Member::Subrecord(_) => false,
+        })
+}
+
+/// Compares the corpus [`TABLE`] with the schema's lstrings ([`schema_lstrings`]).
+pub fn compare(schema: &kitkraft_schema::Schema) -> Comparison {
+    let typed = schema_lstrings(schema);
+    let mut out = Comparison::default();
+    for (record, lstrings, others, _) in TABLE {
+        let Ok(r) = <[u8; 4]>::try_from(record.as_bytes()) else {
+            continue;
+        };
+        let def = kitkraft_schema::Signature::from_bytes(r).and_then(|sig| schema.record(sig));
+        let raw_block = def.is_some_and(|d| has_raw_block(&d.members, 0));
+        for (list, table_says) in [(lstrings, true), (others, false)] {
+            for sub in list.split(' ').filter(|s| !s.is_empty()) {
+                let Ok(s) = <[u8; 4]>::try_from(sub.as_bytes()) else {
+                    continue;
+                };
+                let paths = typed.get(&(r, s));
+                let whole = paths.is_some_and(|p| p.iter().any(String::is_empty));
+                let pair = format!("{record}.{sub}");
+                let defined_here = def.is_some_and(|d| {
+                    d.leaf_subrecords()
+                        .iter()
+                        .any(|(_, m)| m.signature.as_bytes() == s)
+                });
+                match (table_says, whole) {
+                    (true, true) => out.agree.push(pair),
+                    (true, false) if raw_block && !defined_here => out.fallback.push(pair),
+                    (true, false) => out.conflicts.push(format!(
+                        "{pair}: an lstring in the corpus table, {}",
+                        if def.is_none() {
+                            "and the schema does not define the record type"
+                        } else {
+                            "not a whole-subrecord lstring in the schema"
+                        }
+                    )),
+                    (false, true) => out.conflicts.push(format!(
+                        "{pair}: not an lstring in the corpus table, an lstring in the schema"
+                    )),
+                    (false, false) => {}
+                }
+            }
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// M3.E4: the corpus table is a cross-check of the schema now that lane B typed its
+    /// 105 lstring signatures (M3.B8). 100 are whole-subrecord schema lstrings; 5 sit in
+    /// the base form component blocks the schema keeps raw (CHAL's activities, GBFM's hull
+    /// name, the PNDT and STDT names), where the table stays the fallback; nothing the
+    /// table measured as "not an lstring" is one in the schema.
+    #[test]
+    fn the_schema_types_every_table_lstring() {
+        let schema = kitkraft_schema::builtin().unwrap();
+        let c = compare(schema);
+        assert_eq!(c.conflicts, Vec::<String>::new());
+        assert_eq!(
+            c.fallback,
+            [
+                "CHAL.DESC",
+                "CHAL.FULL",
+                "GBFM.HULL",
+                "PNDT.FULL",
+                "STDT.FULL"
+            ]
+        );
+        assert_eq!(c.agree.len(), 100);
+        let lstrings: usize = TABLE
+            .iter()
+            .map(|(_, l, ..)| l.split(' ').filter(|s| !s.is_empty()).count())
+            .sum();
+        assert_eq!(lstrings, c.agree.len() + c.fallback.len());
+    }
+
+    /// Where the schema has the member, a layout comes from it with no table limitation;
+    /// inside a raw component block the table is the fallback and says so.
+    #[test]
+    fn schema_first_table_as_fallback() {
+        use crate::edit::fields::layouts;
+        let acti = layouts(*b"ACTI", &[*b"EDID", *b"ATTX"]);
+        let attx = acti.get(1).cloned().flatten().unwrap();
+        assert_eq!(attx.ty, kitkraft_schema::FieldType::LString);
+        assert_eq!(attx.fallback, None);
+        let gbfm = layouts(*b"GBFM", &[*b"EDID", *b"BFCB", *b"HULL", *b"BFCE"]);
+        let hull = gbfm.get(2).cloned().flatten().unwrap();
+        assert_eq!(hull.ty, kitkraft_schema::FieldType::LString);
+        let note = hull.fallback.unwrap();
+        assert!(
+            note.starts_with("GBFM.HULL treated as an lstring by the corpus lstring table"),
+            "{note}"
+        );
+    }
 
     /// `distinct` values, `resolved` of them in one kind of table, `anchored` shared with
     /// another record type's `FULL`/`DESC`.

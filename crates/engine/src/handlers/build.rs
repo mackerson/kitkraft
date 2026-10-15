@@ -99,7 +99,8 @@ impl Writes {
         label: &str,
     ) -> Result<(), EngineError> {
         let entry = self.per_form.entry(form.key()).or_default();
-        if entry.is_empty() {
+        // A `[[set]]` that only attaches scripts adds a form with no edits.
+        if entry.is_empty() && !self.order.iter().any(|f| f.key() == form.key()) {
             self.order.push(form);
         }
         for edit in edits {
@@ -385,6 +386,145 @@ fn import_navmeshes(
     Ok(out)
 }
 
+/// Field values `new:<name>` (spec version 3) name a `[[new]]` or `[[clone]]` of the same
+/// build: a FormID member then holds that new form (M4.E7: a recipe's `CNAM` naming the
+/// object a `[[clone]]` writes). They become `{"local_form": <EditorID>}`, which the patch
+/// writer resolves once the form has its FormID. A name of a `[[place]]`, or one no entry
+/// has, is a spec error.
+fn local_form_values(spec: &mut Spec) -> Result<(), EngineError> {
+    let names: Vec<(String, String)> = spec
+        .news
+        .iter()
+        .filter_map(|n| Some((n.name.clone()?, n.edid.clone())))
+        .chain(
+            spec.clones
+                .iter()
+                .filter_map(|c| Some((c.name.clone()?, c.edid.clone()))),
+        )
+        .collect();
+    let places: Vec<String> = spec.places.iter().filter_map(|p| p.name.clone()).collect();
+    let convert = |v: &Value, key: &str| -> Result<Value, EngineError> {
+        fn walk(
+            v: &Value,
+            key: &str,
+            names: &[(String, String)],
+            places: &[String],
+        ) -> Result<Value, EngineError> {
+            match v {
+                Value::String(s) => match spec::local_ref(s) {
+                    None => Ok(v.clone()),
+                    Some(name) => {
+                        if let Some((_, edid)) =
+                            names.iter().find(|(n, _)| n.eq_ignore_ascii_case(name))
+                        {
+                            return Ok(json!({ crate::edit::patch::LOCAL_FORM: edid }));
+                        }
+                        let why = if places.iter().any(|p| p.eq_ignore_ascii_case(name)) {
+                            format!("`{name}` is a [[place]]; a field names a base form a [[new]] or [[clone]] writes")
+                        } else {
+                            format!(
+                                "unknown name `{name}` (names: {})",
+                                if names.is_empty() {
+                                    "none".to_string()
+                                } else {
+                                    names
+                                        .iter()
+                                        .map(|(n, _)| n.as_str())
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                }
+                            )
+                        };
+                        Err(spec_error(key, why))
+                    }
+                },
+                Value::Array(items) => items
+                    .iter()
+                    .map(|i| walk(i, key, names, places))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Value::Array),
+                _ => Ok(v.clone()),
+            }
+        }
+        walk(v, key, &names, &places)
+    };
+    let fix = |edits: &mut Vec<Edit>, key: &str| -> Result<(), EngineError> {
+        for e in edits {
+            if let crate::edit::fields::Op::Set(v) = &e.op {
+                let at = format!("{key}.fields.{}", e.path.text);
+                e.op = crate::edit::fields::Op::Set(convert(v, &at)?);
+            }
+        }
+        Ok(())
+    };
+    for r in &mut spec.rules {
+        let key = r.key.clone();
+        fix(&mut r.edits, &key)?;
+    }
+    for s in &mut spec.sets {
+        let key = s.key.clone();
+        fix(&mut s.edits, &key)?;
+    }
+    for n in &mut spec.news {
+        let key = n.key.clone();
+        fix(&mut n.edits, &key)?;
+    }
+    for c in &mut spec.clones {
+        let key = c.key.clone();
+        fix(&mut c.edits, &key)?;
+    }
+    Ok(())
+}
+
+/// The `scripts` of spec entries (M4.E9), typed against one script lookup.
+struct EntryScripts {
+    sources: Option<crate::validate::attached::Sources>,
+    out: PathBuf,
+    data_dir: Option<PathBuf>,
+    /// Spec name -> EditorID of the `[[new]]`/`[[clone]]` it names.
+    locals: Vec<(String, String)>,
+    /// `{entry, script, found, properties}` per attached script.
+    reports: Vec<Value>,
+    limitations: Vec<String>,
+}
+
+impl EntryScripts {
+    /// The typed scripts of entry `key` (`value` is its `scripts` key, if any).
+    fn get(
+        &mut self,
+        key: &str,
+        value: Option<&Value>,
+        loaded: &Loaded,
+    ) -> Result<Vec<crate::edit::vmad::Attach>, EngineError> {
+        let Some(value) = value else {
+            return Ok(Vec::new());
+        };
+        let at = format!("{key}.scripts");
+        let list =
+            super::scripts::parse(ID, &at, value).map_err(|e| spec_error(&at, e.to_string()))?;
+        let (out, data_dir) = (self.out.clone(), self.data_dir.clone());
+        let sources = self
+            .sources
+            .get_or_insert_with(|| super::scripts::sources(loaded, &out, data_dir.as_deref()));
+        let locals = self.locals.clone();
+        let local = |n: &str| {
+            locals
+                .iter()
+                .find(|(k, _)| k.eq_ignore_ascii_case(n))
+                .map(|(_, e)| e.clone())
+        };
+        let r = super::scripts::resolve(ID, &at, &list, loaded, sources, &local)?;
+        for mut rep in r.reports {
+            if let Some(obj) = rep.as_object_mut() {
+                obj.insert("entry".into(), json!(key));
+            }
+            self.reports.push(rep);
+        }
+        super::set::extend_once(&mut self.limitations, r.limitations);
+        Ok(r.scripts)
+    }
+}
+
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let spec_path = PathBuf::from(str_arg(ID, args, "spec")?);
@@ -397,7 +537,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     );
     let text = std::fs::read_to_string(&spec_path)
         .map_err(|e| failed(ID, format!("{}: {e}", spec_path.display())))?;
-    let spec: Spec = spec::parse(&text).map_err(|e| failed(ID, e.to_string()))?;
+    let mut spec: Spec = spec::parse(&text).map_err(|e| failed(ID, e.to_string()))?;
+    local_form_values(&mut spec)?;
     // The load order the spec resolves against, and the other one it may differ from: the
     // one the call also names (a spec's `[load_order]` wins over it), else the session's
     // before this call replaces it (`place::order_notes`).
@@ -628,6 +769,32 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         ));
     }
 
+    // Scripts to attach (M4.E9): typed by their declarations, refused when unknown.
+    let mut entry_scripts = EntryScripts {
+        sources: None,
+        out: out.clone(),
+        data_dir: super::data_dir(lo_args).or_else(|| super::data_dir(args)),
+        locals: spec
+            .news
+            .iter()
+            .filter_map(|n| Some((n.name.clone()?, n.edid.clone())))
+            .chain(
+                spec.clones
+                    .iter()
+                    .filter_map(|c| Some((c.name.clone()?, c.edid.clone()))),
+            )
+            .collect(),
+        reports: Vec::new(),
+        limitations: Vec::new(),
+    };
+    let mut set_scripts: HashMap<u64, Vec<crate::edit::vmad::Attach>> = HashMap::new();
+    for set in spec.sets.iter().filter(|s| s.scripts.is_some()) {
+        let g = find_form(ID, loaded, &set.form, set.plugin.as_deref())
+            .map_err(|e| spec_error(&format!("{}.form", set.key), e))?;
+        let list = entry_scripts.get(&set.key, set.scripts.as_ref(), loaded)?;
+        set_scripts.entry(g.key()).or_default().extend(list);
+    }
+
     // Write fresh into a staging directory (OS temp dir), validate, then move it to `out`
     // (or, for a plan, report and stop).
     let limits = DecodeLimits::default();
@@ -641,7 +808,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .get(&form.key())
             .map(|v| v.iter().map(|w| w.edit.clone()).collect())
             .unwrap_or_default();
-        let (copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
+        let (mut copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
+        copy.scripts = set_scripts.remove(&form.key()).unwrap_or_default();
         copies.push(copy);
         origins.push(origin);
     }
@@ -655,7 +823,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             edid: c.edid.clone(),
             edits: c.edits.clone(),
         };
-        let (copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
+        let (mut copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
+        copy.scripts = entry_scripts.get(&c.key, c.scripts.as_ref(), loaded)?;
         super::set::extend_once(&mut limitations, unrelated);
         clone_sigs.push((c.edid.clone(), copy.record.header.signature.0));
         copies.push(copy);
@@ -669,7 +838,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             edits: n.edits.clone(),
             masters: n.masters.clone(),
         };
-        let (copy, notes) = newform::plan_new(ID, loaded, &req)?;
+        let (mut copy, notes) = newform::plan_new(ID, loaded, &req)?;
+        copy.scripts = entry_scripts.get(&n.key, n.scripts.as_ref(), loaded)?;
         super::set::extend_once(&mut limitations, notes);
         copies.push(copy);
     }
@@ -696,8 +866,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut place_infos: Vec<Value> = Vec::new();
     let mut place_evidence = Vec::new();
     let mut carried: Vec<u64> = writes.order.iter().map(|f| f.key()).collect();
-    for req in &place_reqs {
-        let planned = place::plan(ID, loaded, req, &limits)?;
+    for (req, entry) in place_reqs.iter().zip(&spec.places) {
+        let mut planned = place::plan(ID, loaded, req, &limits)?;
+        planned.new_ref.scripts = entry_scripts.get(&entry.key, entry.scripts.as_ref(), loaded)?;
         super::set::extend_once(&mut limitations, planned.limitations);
         let cell = planned.new_ref.place.cell();
         let key = loaded.lo.find(&cell.plugin).map(|p| {
@@ -743,6 +914,11 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             .push("plan: nothing was written".to_string());
         return Ok(result);
     }
+    super::set::extend_once(
+        &mut limitations,
+        std::mem::take(&mut entry_scripts.limitations),
+    );
+    let scripts_json = std::mem::take(&mut entry_scripts.reports);
     let staged = stage(ID, &out, false)?;
     let mut report = write_with(ID, loaded, &staged.path, copies, new_refs, allow_untyped)?;
     let spec_dir = spec_path
@@ -886,6 +1062,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             obj.insert("warnings".into(), json!(warnings));
             obj.insert("validate".into(), validate_json(&checked));
             obj.insert("passed".into(), json!(checked.passed()));
+            if !scripts_json.is_empty() {
+                obj.insert("scripts".into(), Value::Array(scripts_json.clone()));
+            }
             let counts = v3
                 .as_ref()
                 .map(|v| {
@@ -966,6 +1145,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
         obj.insert("validate".into(), validate_json(&checked));
         obj.insert("passed".into(), json!(true));
+        if !scripts_json.is_empty() {
+            obj.insert("scripts".into(), Value::Array(scripts_json));
+        }
     }
     Ok(result)
 }

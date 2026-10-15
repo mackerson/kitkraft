@@ -351,6 +351,38 @@ fn default_zip(args: &Value) -> Result<PathBuf, EngineError> {
         })
 }
 
+/// Every script the base game's sources declare, as `(name, parent, [(property, type)])`,
+/// from the index of `<data_dir>\..\Tools\ContentResources.zip` (cached as for
+/// `papyrus.events`), with the zip's path; `None` when there is no such zip or it does not
+/// read. Script attachment (M4.E9) checks property names against it.
+pub(crate) fn declarations(data_dir: &Path) -> Option<(PathBuf, Vec<Declaration>)> {
+    let zip = data_dir
+        .parent()?
+        .join("Tools")
+        .join("ContentResources.zip");
+    if !zip.is_file() {
+        return None;
+    }
+    let (index, _, _) = index_for(&zip, Some(&default_cache_root())).ok()?;
+    let scripts = index
+        .scripts
+        .into_iter()
+        .map(|s| {
+            let props = s
+                .members
+                .into_iter()
+                .filter(|m| m.kind == "property")
+                .map(|m| (m.name, m.ty.unwrap_or_default()))
+                .collect();
+            (s.name, s.parent, props)
+        })
+        .collect();
+    Some((zip, scripts))
+}
+
+/// A script's name, parent and `(property, type)` list.
+pub(crate) type Declaration = (String, Option<String>, Vec<(String, String)>);
+
 /// The query arguments.
 struct Query {
     script: Option<String>,

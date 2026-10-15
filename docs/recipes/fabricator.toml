@@ -1,0 +1,25 @@
+# W8 recipe (M4.E7): a new fabricator (industrial workbench) recipe for an existing item.
+# Build: kit build docs/recipes/fabricator.toml out/recipes/KitKraftFabricator.esm
+# Evidence for every choice: docs/recipes/fabricator.md.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+# co_mfg_Tier01_AdaptiveFrame: BNAM WorkbenchIndustrialKeyword, no conditions (so no
+# research unlock), FNAM RecipeManufactured, two components (FVPA). The clone keeps those;
+# CNAM, NNAM, DESC and DATA change.
+name = "shells"
+form = "Starfield.esm:2457C1"
+edid = "KitKraft_co_FabricatorShotgunShells"
+brief = "W8"
+
+[clone.fields]
+# AmmoShotgun ("12g Shotgun Shell"), which the industrial workbench otherwise makes only
+# after research (co_ammo_12gShotgunShell has a condition).
+CNAM = "Starfield.esm:0547A1"
+# As many as the vanilla shell recipe produces.
+NNAM = 6
+DESC = "KitKraft test recipe: shotgun shells from iron and aluminum."
+DATA = 0

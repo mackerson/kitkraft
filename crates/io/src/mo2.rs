@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{IoError, Result};
 use crate::ini::Ini;
+use crate::instance::Instance;
 use crate::text::{entries, read_lines};
 
 /// The `modlist.txt` prefix of a mod line.
@@ -116,11 +117,9 @@ impl Profile {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
             Err(e) => return Err(IoError::io(&ini_path, e)),
         };
-        let game_dir = ini
-            .as_ref()
-            .and_then(|i| i.get("General", "gamePath"))
-            .filter(|p| !p.is_empty())
-            .map(PathBuf::from);
+        // The instance's folders, by the one reading of `ModOrganizer.ini` (`Instance`).
+        let instance = Instance::from_ini(&instance_dir, ini.as_ref());
+        let game_dir = instance.game_dir.clone();
         let data_dir = match (&options.data_dir, &game_dir) {
             (Some(d), _) => d.clone(),
             (None, Some(g)) => g.join("Data"),
@@ -131,18 +130,8 @@ impl Profile {
                 )))
             }
         };
-        let base = ini
-            .as_ref()
-            .and_then(|i| i.get("Settings", "base_directory"))
-            .map_or_else(|| instance_dir.clone(), PathBuf::from);
-        let setting = |key: &str, default: &str| -> PathBuf {
-            match ini.as_ref().and_then(|i| i.get("Settings", key)) {
-                Some(v) => PathBuf::from(v.replace("%BASE_DIR%", &base.to_string_lossy())),
-                None => base.join(default),
-            }
-        };
-        let mods_dir = setting("mod_directory", "mods");
-        let overwrite_dir = setting("overwrite_directory", "overwrite");
+        let mods_dir = instance.mods_dir;
+        let overwrite_dir = instance.overwrite_dir;
 
         let mut mods = Vec::new();
         for (line, text) in entries(&modlist) {

@@ -326,6 +326,24 @@ fn finish(record: [u8; 4], sub: [u8; 4], schema_ty: Option<FieldType>) -> Option
     }
 }
 
+/// The lstrings of a subrecord payload laid out as `ty`: `(member label, start, len)`,
+/// wherever the schema places them (the whole payload, any struct member, array element
+/// or union variant: M3.E4, `kitkraft_doc::typed::lstring_spans`). A whole-subrecord
+/// lstring is the whole payload whatever its length (callers report a localized one that
+/// is not 4 bytes); a payload that does not decode as `ty` has no spans.
+pub fn lstring_spans(
+    ty: &FieldType,
+    payload: &[u8],
+    ctx: &kitkraft_doc::typed::Ctx,
+) -> Vec<(String, usize, usize)> {
+    if matches!(ty, FieldType::LString) {
+        return vec![(String::new(), 0, payload.len())];
+    }
+    kitkraft_doc::typed::lstring_spans(ty, payload, ctx)
+        .map(|spans| spans.into_iter().map(|s| (s.member, s.at, s.len)).collect())
+        .unwrap_or_default()
+}
+
 /// How values are encoded into the target plugin.
 pub struct ValueCtx<'a> {
     /// Whether the target plugin is localized (patches never are in M2; an lstring set

@@ -426,3 +426,61 @@ fn the_plan_text_of_a_v3_spec_lists_places_new_forms_imports_and_carried() {
     assert!(!out.exists());
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// M4.E7: a field value `new:<name>` names a form a `[[new]]` or `[[clone]]` of the same
+/// build writes (a recipe's created object): the FormID member holds the new form's
+/// FormID in the built plugin. A name no entry has, or a `[[place]]`'s, is a spec error.
+#[test]
+fn field_values_name_new_forms_of_the_build() {
+    let d = dir("build-v3-local");
+    let data = world_master(&d);
+    let body = "[[clone]]\nname = \"crate\"\nform = \"KC_Crate\"\nedid = \"KC_CrateClone\"\n\n\
+[[new]]\nname = \"recipe\"\ntype = \"COBJ\"\nedid = \"KC_Recipe\"\nmasters = [\"World.esm\"]\n\
+fields = { CNAM = \"new:crate\" }\n";
+    let spec = spec_v3(&d, "local.toml", &data, body);
+    let out = d.join("Local.esm");
+    let r = build(&spec, &out, json!({})).unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let records = r["data"]["records"].as_array().unwrap();
+    let recipe = records
+        .iter()
+        .find(|x| x["editor_id"] == json!("KC_Recipe"))
+        .unwrap();
+    let cnam = recipe["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"] == json!("CNAM"))
+        .unwrap();
+    assert_eq!(cnam["after"], json!("01001000"), "{cnam:#}");
+    let bytes = std::fs::read(&out).unwrap();
+    // The COBJ's CNAM subrecord on disk: signature, size 4, the clone's FormID.
+    let mut want = b"CNAM\x04\x00".to_vec();
+    want.extend(0x0100_1000u32.to_le_bytes());
+    assert!(bytes.windows(want.len()).any(|w| w == want));
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    // Unknown names and placed references are spec errors naming the key.
+    let fails = |name: &str, body: &str| -> String {
+        let spec = spec_v3(&d, name, &data, body);
+        build(&spec, &d.join("E.esm"), json!({}))
+            .unwrap_err()
+            .to_string()
+    };
+    let e = fails(
+        "l1.toml",
+        "[[new]]\ntype = \"COBJ\"\nedid = \"KC_R\"\nmasters = [\"World.esm\"]\nfields = { CNAM = \"new:nope\" }\n",
+    );
+    assert!(
+        e.contains("new[0].fields.CNAM") && e.contains("unknown name `nope`"),
+        "{e}"
+    );
+    let e = fails(
+        "l2.toml",
+        "[[place]]\nname = \"spot\"\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [0, 0, 0]\n\
+[[new]]\ntype = \"COBJ\"\nedid = \"KC_R\"\nmasters = [\"World.esm\"]\nfields = { CNAM = \"new:spot\" }\n",
+    );
+    assert!(e.contains("is a [[place]]"), "{e}");
+    let _ = std::fs::remove_dir_all(&d);
+}

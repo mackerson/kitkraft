@@ -1367,6 +1367,61 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   yet; the matrix names the consumers (W2: LAYR, RFGP; W3: WKMF; W7/W8: IRES; W10: MESG).
   Record an owner here when a family lane takes a type. Gaps row: `docs/gaps.md` (M4.BX2
   inventories).
+- Lane E round 5 (engine `edit/`, `validate/`, `build/`, `handlers/`; `crates/io`
+  instance; `docs/recipes/`), 2026-10-15:
+  - **M3.E4 lstrings from the schema.** `set`, `build` and `validate` find every schema
+    `lstring` wherever the layout puts it (whole subrecord, any struct member, array
+    element, union variant) through `kitkraft_doc::typed::lstring_spans` (the decoder's
+    walk, with member paths), replacing the "whole subrecord or last struct field" rule in
+    `edit::patch` and `validate`. `edit::lstrings` is a cross-check and fallback:
+    `compare` finds 100 of the table's 105 lstrings typed as whole-subrecord schema
+    members, 0 conflicts, and 5 (CHAL `FULL`/`DESC`, GBFM `HULL`, PNDT/STDT `FULL`) inside
+    component blocks the schema keeps raw, where the table is used with a limitation
+    (unit test `the_schema_types_every_table_lstring`; the corpus test
+    `lstring_table_matches_the_corpus` now also checks the schema against the fresh scan).
+    No current definition has an lstring inside a struct (all are whole subrecords). The
+    `docs/gaps.md` lstring row is closed; `docs/validate.md` "lstring signature table"
+    updated.
+  - Engine-reserved constants defined once (`kitkraft_doc::links`, re-exported by
+    `validate`); `kitkraft_io::Instance` (read-only MO2 instance) used by `deploy` and the
+    profile reader (Requests, struck).
+  - **M4.E7 recipes W3 and W8** (`docs/recipes/workshop.{md,toml}`,
+    `docs/recipes/fabricator.{md,toml}`), each fact with its `query`/`inspect`/`refs`
+    evidence: an outpost recipe is a `COBJ` filed by its `BNAM` category keyword
+    (`OutpostCategoryDecorations` `293ADF`), and nothing lists it (0 incoming links); a
+    fabricator recipe is a `COBJ` filed by `WorkbenchIndustrialKeyword` (`0AA209`), the
+    ammunition ones behind one condition. Workshop: a clone of `CoffeeBrewingMachine01`
+    and of its recipe `co_Outpost_Decor_CoffeeMaker01` with `CNAM = "new:coffee"` (726
+    bytes, `f9dc6d24...`); fabricator: a clone of the unconditioned
+    `co_mfg_Tier01_AdaptiveFrame` making `AmmoShotgun` x6 (373 bytes, `1d5cce72...`).
+    Both build, validate 0/0, roundtrip identical; testplans written (no console command:
+    nothing placed), in-game steps in the docs. Engine: a spec field value `new:<name>`
+    names a `[[new]]`/`[[clone]]` of the same build (`{"local_form": EDID}`, applied by
+    the patch writer once FormIDs are allocated; test
+    `field_values_name_new_forms_of_the_build`). **Owner (M4.O4):** the in-game steps of
+    both docs on `KitKraft Dev`, disposable save (both plugins own forms).
+  - **M4.E9 script attachment.** `edit::vmad`: the `VMAD` script list (lane BQ's
+    `ScriptAttachment` header plus scripts, properties of every type, fragment bytes kept),
+    from `wbDefinitionsSF1.pas@9fb01688#L3232-L3411`; all 12,857 official `VMAD`s
+    re-encode identically (`tests/vmad_corpus.rs`), and attaching to a corpus copy keeps
+    the vanilla scripts and fragments byte for byte. `place`, `set` and `new` take
+    `scripts = [{name, properties}]` (spec v3 `[[place]]`, `[[set]]`, `[[new]]`,
+    `[[clone]]` too; values typed by the declaration, objects as formrefs, EditorIDs, null
+    or `new:<name>`); the patch writer attaches them in its late phase (VMAD created in the
+    schema's position or updated). `validate::attached`: a script is found as loose
+    `Scripts\NS\Name.pex` (next to the target or in Data) or in the archives of the plugin
+    and the load order; declarations are the `.pex` property tables up the `extends`
+    chain, with `kit papyrus events`'s source index as fallback. Rules
+    `papyrus.missing-script` and `papyrus.property-unresolved` (**error**; **warning** when
+    an override carries the master's attachment unchanged); the same cases refuse a write.
+    The official files carry stale attachments in their own records, pinned as known
+    errors in `validate_corpus_official_files` (Starfield.esm 14 + 16, ShatteredSpace 3 +
+    13, SFBGS00D 2 + 25, SFBGS050 2 + 7, BlueprintShips-Starfield 1). Recipe
+    `docs/recipes/scripts.{md,toml}` with `KitKraft:HelloOnLoad` (ours, compiled by
+    `papyrus.compile`, OnLoad from `papyrus.events`) on a placed switch in the embassy:
+    15,297 bytes, validate 0/0, roundtrip identical. Tests through `execute`:
+    `handlers/scripts_tests.rs` (a fixture per rule, refusals, inherited warning).
+    **Owner (M4.O4):** the in-game steps in `docs/recipes/scripts.md`.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1634,15 +1689,33 @@ wins") but still the owner's to confirm:
   `data.edges` (path, status, `to`/`from` as links that run `inspect`, `placed.cell`/
   `placed.world` for placed referrers) with `next_cursor` paging, and show
   `limitations`. Result shape: `docs/mcp.md`, "`refs`".
-- **Lane D (M4.D1) -> lane E (FYI).** `kitkraft_doc::links::{RESERVED_MASTER,
+- ~~**Lane D (M4.D1) -> lane E (FYI).** `kitkraft_doc::links::{RESERVED_MASTER,
   RESERVED_OBJECT_IDS, NONE_FORM_ID}` restate validate's rule (a test in
-  `handlers/refs.rs` keeps them equal); `validate` could use them, so the rule lives once.
+  `handlers/refs.rs` keeps them equal); `validate` could use them, so the rule lives once.~~
+  Done (lane E round 5): the constants are defined only in `kitkraft_doc::links`;
+  `kitkraft_engine::validate` re-exports them, and the equality test is gone.
 
 - ~~**To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITKRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).~~
   Done in M4.F1 (Done, "Lane F, M4"): one resolver (`handlers/resolve.rs`) for every
   input name; `not_found` names the places searched.
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Lane E (M4.E9) -> lane G (`papyrus.compile`).** (1) A relative `imports` path is
+  handed to the compiler as given, and the compiler resolves it against `out_dir` (its
+  working directory): `--imports docs\recipes\scripts` failed with "Cannot use import
+  folder ...\out\recipes\Scripts\docs\recipes\scripts"; make imports (and `out_dir`)
+  absolute before the call. (2) A `.psc` path of a namespaced script
+  (`ScriptName KitKraft:HelloOnLoad` in `KitKraft\HelloOnLoad.psc`) compiles as
+  `HelloOnLoad` and the compiler refuses the name mismatch; deriving the namespace from
+  the folders below an import (or reading the `ScriptName` line) would let the path form
+  work. Workaround used in `docs/recipes/scripts.md`: the name plus an absolute import.
+- **Lane E (M4.E9) -> lane B / lane D (FYI).** Object values inside `VMAD` (43,246 in the
+  official files) are now readable through `kitkraft_engine::edit::vmad::objects`;
+  `refs` and `formid.dangling` still skip them (the schema keeps `ScriptAttachment.Data`
+  opaque). Feeding them to `formid.dangling` names reserved actor values below 0x2D0 from
+  VMAD properties (Aggression 0x2BC, Confidence 0x2BD, Assistance 0x2C1, Suspicious 0x2EC)
+  and changes the pinned reserved counts, so it was left out of M4.E9.
 
 - ~~**Lane E (M3.E9) -> lane B (M3.B9).**~~ Done (lane B round 4; used in overhaul build 2,
   `docs/overhaul/build-2.md`). The overhaul's open parts were OMOD property
@@ -1692,20 +1765,27 @@ Agents append here when they need a change in a crate they do not own.
   SF1Edit part with `KITKRAFT_SF1EDIT` pointing there, and update the SF1EDIT row of
   `docs/source-registry.md` ("not installed yet"). Lane B: M3.B11 is unblocked on the
   SF1Edit side; record the build's skew from the pin.
-- **Policy -> lane D (later, for M4.E11, ADR 0009).** A read-only MO2 instance check in
+- ~~**Policy -> lane D (later, for M4.E11, ADR 0009).** A read-only MO2 instance check in
   `crates/io` (`ModOrganizer.ini`, `mods\`, `profiles\`; reparse points reported) for
-  `kit deploy --dev`.
+  `kit deploy --dev`.~~ Done (lane E round 5, at the director's request):
+  `kitkraft_io::Instance` (`crates/io/src/instance.rs`): `read`/`from_ini`, the root, base,
+  mods, profiles, overwrite and downloads folders, `gamePath`, `gameName`,
+  `selected_profile` (`@ByteArray` decoded), `profiles()`, `folders()` with each folder's
+  state and `reparse_points()`; nothing written or followed.
 - **Policy -> lane F (later, M4.W0, ADR 0007 Amendment 1).** `data` shape tests for the
   inspection commands and a catalog marking of writing commands, as the gate for lane W.
 - **Policy -> all lanes (naming).** Write KitKraft in prose and use only the `kitkraft`
   identifiers: the rename is done (M4.BX1 integration, "Done" and Decision records).
-- **Lane E (M4.E11) -> lane D.** `deploy` resolves the MO2 instance itself
+- ~~**Lane E (M4.E11) -> lane D.** `deploy` resolves the MO2 instance itself
   (`crates/engine/src/deploy/instance.rs`: `ModOrganizer.ini` `mod_directory`,
   `profiles_directory`, `overwrite_directory`, `download_directory`, `base_directory`,
   `selected_profile`; links and junctions refused) with `kitkraft_io::ini::Ini` and
   `Profile`. ADR 0009 wants a read-only instance type in `crates/io`; when it exists,
   `Instance::resolve` should call it (the settings logic duplicates part of
-  `Profile::read_with`).
+  `Profile::read_with`).~~ Done (lane E round 5): `deploy`'s `Instance::resolve` and
+  `Profile::read_with` both read the settings through `kitkraft_io::Instance`; the private
+  copy is gone (the profile reader now also ignores empty values and takes relative
+  folders against the instance root, as `deploy` did).
 - **Lane E (M4.E11) -> plan maintainer / integrator.** ADR 0009 (unmerged branch) needs an
   amendment for the brief's layout: `.previous` folder in `mods\` instead of external
   backups (one kept), journal beside the folders, `dry_run` instead of `plan`,

@@ -265,9 +265,11 @@ accepts these departures:
 
 ## Limits and open points
 
-- The MO2 instance check lives in the engine (`deploy/instance.rs`, using `kitkraft-io`'s
-  INI and profile readers). ADR 0009 puts it in `crates/io` (lane D); a request is in
-  `plan/STATUS.md`.
+- The instance's settings (`ModOrganizer.ini`: the `mods`, `profiles`, `overwrite` and
+  `downloads` folders, `gamePath`, `selected_profile` with `@ByteArray(...)` decoded) are
+  read by `kitkraft-io`'s read-only `Instance` (ADR 0009), the same reading the profile
+  reader uses. The write-side checks (links and junctions refused, guarded folders, the
+  `Default` gate) stay in the engine (`deploy/instance.rs`).
 - The package manifest is read tolerantly: a `files` array of `{path, sha256, size?}` is
   verified; another shape is named in `limitations` and the files are hashed as found.
   Paired with `package` (M4.E5) in M4.BX1: an end-to-end run on a synthetic MO2 instance

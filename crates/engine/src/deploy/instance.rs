@@ -4,7 +4,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use kitkraft_io::ini::Ini;
 use kitkraft_io::{ModState, Profile, ProfileOptions};
 use serde_json::{json, Value};
 
@@ -114,39 +113,33 @@ impl Instance {
     pub(crate) fn resolve(mo2: &Path) -> Result<Instance, DeployError> {
         let root = absolute(mo2)?;
         refuse_links(&root)?;
-        let ini_path = root.join("ModOrganizer.ini");
-        if !fs::symlink_metadata(&ini_path).is_ok_and(|m| m.is_file()) {
-            return Err(refused(
-                "mo2-instance",
-                &root,
-                "has no ModOrganizer.ini: not the root of an MO2 instance",
-            ));
-        }
-        let bytes = fs::read(&ini_path).map_err(|e| io_error(&ini_path, "reading", &e))?;
-        let ini = Ini::parse(&String::from_utf8_lossy(&bytes));
-        let base = ini
-            .get("Settings", "base_directory")
-            .filter(|v| !v.is_empty())
-            .map_or_else(|| root.clone(), PathBuf::from);
-        let base_text = base.to_string_lossy().into_owned();
-        let setting = |key: &str, default: &str| -> PathBuf {
-            let p = ini
-                .get("Settings", key)
-                .filter(|v| !v.is_empty())
-                .map_or_else(
-                    || base.join(default),
-                    |v| PathBuf::from(v.replace("%BASE_DIR%", &base_text)),
-                );
-            if p.is_absolute() {
-                p
-            } else {
-                root.join(p)
+        // The settings, read once by `kitkraft-io`'s read-only instance reader.
+        let mo2 = match kitkraft_io::Instance::read(&root) {
+            Ok(i) => i,
+            Err(kitkraft_io::IoError::NotAnInstance(_)) => {
+                return Err(refused(
+                    "mo2-instance",
+                    &root,
+                    "has no ModOrganizer.ini: not the root of an MO2 instance",
+                ))
+            }
+            Err(e) => {
+                return Err(refused(
+                    "mo2-instance",
+                    &root,
+                    format!("ModOrganizer.ini could not be read: {e}"),
+                ))
             }
         };
-        let mods = setting("mod_directory", "mods");
-        let profiles = setting("profiles_directory", "profiles");
-        let overwrite = setting("overwrite_directory", "overwrite");
-        let downloads = setting("download_directory", "downloads");
+        let kitkraft_io::Instance {
+            mods_dir: mods,
+            profiles_dir: profiles,
+            overwrite_dir: overwrite,
+            downloads_dir: downloads,
+            game_dir,
+            selected_profile,
+            ..
+        } = mo2;
         for (what, dir) in [("mods", &mods), ("profiles", &profiles)] {
             if !fs::symlink_metadata(dir).is_ok_and(|m| m.is_dir()) {
                 return Err(refused(
@@ -158,13 +151,6 @@ impl Instance {
         }
         refuse_links(&mods)?;
         guard_location(&root).map_err(|e| refused("location", &root, e.to_string()))?;
-        let game_dir = ini
-            .get("General", "gamePath")
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from);
-        let selected_profile = ini
-            .get("General", "selected_profile")
-            .filter(|v| !v.is_empty());
         let mut guarded = vec![
             ("the MO2 profiles folder", canonical(&profiles)?),
             ("the MO2 instance root", canonical(&root)?),

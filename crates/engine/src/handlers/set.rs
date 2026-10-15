@@ -236,6 +236,7 @@ pub(crate) fn winning_copy(
             formref: label,
             carried: false,
             new_form: None,
+            scripts: Vec::new(),
         },
         origin,
     ))
@@ -318,6 +319,8 @@ pub(crate) struct Staged {
     dir: PathBuf,
     /// The staged plugin (same file name as the destination).
     pub path: PathBuf,
+    /// The destination (scripts the plugin attaches are looked up next to it).
+    pub target: PathBuf,
 }
 
 impl Drop for Staged {
@@ -381,6 +384,7 @@ pub(crate) fn stage(command: &str, out: &Path, copy_existing: bool) -> Result<St
     let staged = Staged {
         path: dir.join(name),
         dir,
+        target: out.to_path_buf(),
     };
     if copy_existing && out.exists() {
         std::fs::copy(out, &staged.path)
@@ -423,6 +427,7 @@ pub(crate) fn check(
         plugin: Some(staged.path.clone()),
         plugins: protected(loaded),
         indexed: super::validate::indexes(&loaded.lo),
+        scripts_home: Some(staged.target.clone()),
         ..validate::Options::default()
     };
     validate::validate(&options).map_err(|m| failed(command, format!("validating the output: {m}")))
@@ -581,7 +586,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .get("fields")
         .and_then(Value::as_object)
         .ok_or_else(|| failed(ID, "argument `fields` is missing"))?;
-    let edits = edits(ID, "/fields", fields)?;
+    // With scripts to attach, `fields` may be empty.
+    let edits = if fields.is_empty() && args.get("scripts").is_some_and(|s| !s.is_null()) {
+        Vec::new()
+    } else {
+        edits(ID, "/fields", fields)?
+    };
     let allow_untyped = args
         .get("allow_untyped_lstrings")
         .and_then(Value::as_bool)
@@ -591,9 +601,16 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
     let unrelated = safe_source(ID, loaded, g)?;
-    let (copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
+    // Scripts to attach (M4.E9): refused here when a script or property is unknown.
+    let scripts = super::scripts::from_args(ID, args, loaded, &into)?;
+    if edits.is_empty() && scripts.scripts.is_empty() {
+        return Err(failed(ID, "nothing to set: give fields or scripts"));
+    }
+    let (mut copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
+    copy.scripts = scripts.scripts;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, unrelated);
+    extend_once(&mut limitations, scripts.limitations);
 
     // Write into a staged copy of `into`, run the record rules on it (as `build` does),
     // and replace `into` only when the records this call wrote pass.
@@ -633,6 +650,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut result = outcome(&report, &[origin], limitations);
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("validate".into(), validate_json(&checked));
+        if !scripts.reports.is_empty() {
+            obj.insert("scripts".into(), Value::Array(scripts.reports));
+        }
     }
     Ok(result)
 }

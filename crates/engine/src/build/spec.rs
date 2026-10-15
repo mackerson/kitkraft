@@ -155,6 +155,8 @@ pub struct SetEntry {
     pub allow_reference: bool,
     /// The brief row it serves (version 2).
     pub brief: Option<String>,
+    /// Scripts to attach (version 3, M4.E9), as the `scripts` argument takes them.
+    pub scripts: Option<Value>,
 }
 
 /// A `[[place]]` entry (version 3): a new placed reference, as `kit place` takes it.
@@ -181,6 +183,8 @@ pub struct PlaceEntry {
     pub allow_reference: Vec<String>,
     /// The brief row it serves.
     pub brief: Option<String>,
+    /// Scripts to attach to the new reference (M4.E9).
+    pub scripts: Option<Value>,
 }
 
 /// A `[[new]]` entry (version 3): a new base form, as `kit new` takes it.
@@ -200,6 +204,8 @@ pub struct NewEntry {
     pub masters: Vec<String>,
     /// The brief row it serves.
     pub brief: Option<String>,
+    /// Scripts to attach (M4.E9).
+    pub scripts: Option<Value>,
 }
 
 /// A `[[clone]]` entry (version 3): a copy of a base form, as `kit clone` takes it.
@@ -219,6 +225,8 @@ pub struct CloneEntry {
     pub edits: Vec<Edit>,
     /// The brief row it serves.
     pub brief: Option<String>,
+    /// Scripts to attach (M4.E9).
+    pub scripts: Option<Value>,
 }
 
 /// An `[[import]]` entry (version 3): every `NAVM` of a Creation Kit plugin, imported
@@ -327,6 +335,7 @@ fn places(root: &toml::Table) -> Result<Vec<PlaceEntry>, SpecError> {
                 "allow_reference",
                 "brief",
                 "note",
+                "scripts",
             ],
         )?;
         optional_string(t, "note", &at)?;
@@ -366,6 +375,7 @@ fn places(root: &toml::Table) -> Result<Vec<PlaceEntry>, SpecError> {
             edid: optional_string(t, "edid", &at)?,
             allow_reference,
             brief: optional_string(t, "brief", &at)?,
+            scripts: t.get("scripts").map(to_json),
         });
     }
     Ok(out)
@@ -503,7 +513,9 @@ fn news(root: &toml::Table) -> Result<Vec<NewEntry>, SpecError> {
         only_keys(
             t,
             &at,
-            &["name", "type", "edid", "fields", "masters", "brief", "note"],
+            &[
+                "name", "type", "edid", "fields", "masters", "brief", "note", "scripts",
+            ],
         )?;
         optional_string(t, "note", &at)?;
         let masters = match t.get("masters") {
@@ -540,6 +552,7 @@ fn news(root: &toml::Table) -> Result<Vec<NewEntry>, SpecError> {
             },
             masters,
             brief: optional_string(t, "brief", &at)?,
+            scripts: t.get("scripts").map(to_json),
         });
     }
     Ok(out)
@@ -553,7 +566,9 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
         only_keys(
             t,
             &at,
-            &["name", "form", "plugin", "edid", "fields", "brief", "note"],
+            &[
+                "name", "form", "plugin", "edid", "fields", "brief", "note", "scripts",
+            ],
         )?;
         optional_string(t, "note", &at)?;
         out.push(CloneEntry {
@@ -570,6 +585,7 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
                 Vec::new()
             },
             brief: optional_string(t, "brief", &at)?,
+            scripts: t.get("scripts").map(to_json),
         });
     }
     Ok(out)
@@ -945,27 +961,34 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
         if version == 1 {
             only_keys(t, &at, &["form", "plugin", "fields"])?;
         } else {
-            only_keys(
-                t,
-                &at,
-                &[
-                    "form",
-                    "plugin",
-                    "fields",
-                    "allow_reference",
-                    "brief",
-                    "note",
-                ],
-            )?;
+            let mut allowed = vec![
+                "form",
+                "plugin",
+                "fields",
+                "allow_reference",
+                "brief",
+                "note",
+            ];
+            if version >= 3 {
+                allowed.push("scripts");
+            }
+            only_keys(t, &at, &allowed)?;
             optional_string(t, "note", &at)?;
         }
+        let scripts = t.get("scripts").map(to_json);
         sets.push(SetEntry {
             key: at.clone(),
             form: string(t, "form", &at)?.to_string(),
             plugin: optional_string(t, "plugin", &at)?,
-            edits: fields(t, &at)?,
+            // A version 3 entry may attach scripts and set no field.
+            edits: if scripts.is_some() && !t.contains_key("fields") {
+                Vec::new()
+            } else {
+                fields(t, &at)?
+            },
             allow_reference: boolean(t, "allow_reference", &at)?,
             brief: optional_string(t, "brief", &at)?,
+            scripts,
         });
     }
     if version == 1 && rules.is_empty() && sets.is_empty() {

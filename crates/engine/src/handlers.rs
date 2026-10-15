@@ -35,6 +35,9 @@ mod resolve;
 mod resolve_tests;
 mod roundtrip;
 mod schema;
+mod scripts;
+#[cfg(test)]
+mod scripts_tests;
 mod set;
 #[cfg(test)]
 mod set_tests;
@@ -163,6 +166,14 @@ fn failed(command: &str, message: impl Into<String>) -> EngineError {
         command: command.to_string(),
         message: message.into(),
     }
+}
+
+/// The base game's script declarations next to `data_dir` (`papyrus.events`'s index of
+/// `Tools\ContentResources.zip`), for script attachment (`validate::attached`).
+pub(crate) fn papyrus_declarations(
+    data_dir: Option<&Path>,
+) -> Option<(PathBuf, Vec<papyrus::events::Declaration>)> {
+    papyrus::events::declarations(data_dir?)
 }
 
 /// The file name shown in evidence (not the full path).

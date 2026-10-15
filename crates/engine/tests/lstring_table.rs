@@ -298,4 +298,18 @@ fn lstring_table_matches_the_corpus() {
         "{} record types, {lstrings} lstring signatures: the table matches the corpus",
         rebuilt.len()
     );
+    // M3.E4: the schema against the same scan. The table now equals the scan, so
+    // `compare` (table vs schema) is the corpus vs the schema: no conflict, and the table
+    // is the fallback only inside blocks the schema keeps raw.
+    let schema = kitkraft_schema::builtin().unwrap();
+    let c = kitkraft_engine::edit::lstrings::compare(schema);
+    println!(
+        "schema: {} lstrings agree, {} from the table as fallback ({}), {} conflicts",
+        c.agree.len(),
+        c.fallback.len(),
+        c.fallback.join(", "),
+        c.conflicts.len()
+    );
+    assert_eq!(c.conflicts, Vec::<String>::new());
+    assert_eq!(c.agree.len() + c.fallback.len(), lstrings);
 }
