@@ -1,9 +1,10 @@
 //! `cargo xtask codegen [--check]` (M1.15, ADR 0003): typed records from the schema.
 //!
 //! Loads the embedded definition set (`kitkraft_schema::builtin()`), runs
-//! `kitkraft_schema::generate`, pipes the result through `rustfmt` with the workspace
-//! `rustfmt.toml` (the generator only mirrors rustfmt's width rules for the constructs it
-//! emits today), and writes [`OUT_DIR`]`/records.rs` plus a fixed `mod.rs`. Both start with
+//! `kitkraft_schema::generate`, pipes every file it writes through `rustfmt` with the
+//! workspace `rustfmt.toml` (the generator does not lay out lines itself; the schema's
+//! golden tests format the same way), and writes [`OUT_DIR`]`/records.rs` plus a fixed
+//! `mod.rs`. Both start with
 //! a DO NOT EDIT header; `records.rs` also names the hash of the definition set it came
 //! from. `--check` writes nothing and fails when a file is missing, stale, or an unexpected
 //! file sits in the directory; `cargo xtask ci` runs it.
@@ -74,10 +75,11 @@ fn render(root: &Path) -> Result<Vec<(&'static str, String)>> {
          // Schema defs hash: {}\n\n",
         defs_hash()
     );
-    let records = rustfmt(root, &format!("{header}{code}"))?;
+    // Every written file goes through rustfmt, unconditionally: the generator leaves line
+    // breaking to it.
     Ok(vec![
-        ("mod.rs", MOD_RS.to_string()),
-        ("records.rs", records),
+        ("mod.rs", rustfmt(root, MOD_RS)?),
+        ("records.rs", rustfmt(root, &format!("{header}{code}"))?),
     ])
 }
 

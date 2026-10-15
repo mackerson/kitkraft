@@ -21,7 +21,45 @@ fn golden_path(name: &str) -> PathBuf {
         .join(name)
 }
 
+fn rustfmt_config() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../rustfmt.toml")
+}
+
+/// `source` formatted by rustfmt with the workspace `rustfmt.toml`, the way `cargo xtask
+/// codegen` formats what it writes: the generator leaves line breaking to rustfmt, so the
+/// goldens hold the formatted output. rustfmt is a required toolchain component
+/// (`rust-toolchain.toml`); `RUSTFMT` overrides the binary as in xtask.
+fn rustfmt(source: &str) -> String {
+    use std::io::Write as _;
+    use std::process::Stdio;
+    let binary = std::env::var("RUSTFMT").unwrap_or_else(|_| "rustfmt".to_string());
+    let mut child = Command::new(&binary)
+        .args(["--edition", "2021", "--emit", "stdout", "--config-path"])
+        .arg(rustfmt_config())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap_or_else(|e| {
+            panic!("could not start `{binary}` (rustup component add rustfmt): {e}")
+        });
+    let mut stdin = child.stdin.take().unwrap();
+    let input = source.to_owned();
+    let writer = std::thread::spawn(move || stdin.write_all(input.as_bytes()));
+    let output = child.wait_with_output().unwrap();
+    writer.join().unwrap().unwrap();
+    assert!(
+        output.status.success(),
+        "rustfmt failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8(output.stdout).unwrap()
+}
+
+/// Compares the rustfmt-formatted `generated` with the golden (or rewrites the golden).
 fn check_golden(name: &str, generated: &str) {
+    let generated = rustfmt(generated);
+    let generated = generated.as_str();
     let path = golden_path(name);
     if std::env::var_os("KITKRAFT_UPDATE_GOLDEN")
         .or_else(|| std::env::var_os("KITCRAFT_UPDATE_GOLDEN"))
@@ -104,26 +142,41 @@ fn schema_without_records_has_no_dispatch() {
     assert!(generated.contains("pub struct Hdr {"));
 }
 
-/// The generated files must already be rustfmt-clean, because xtask checks them in under
-/// `cargo fmt --check`. Skips when rustfmt is not installed.
+/// The committed goldens are rustfmt output, and formatting them again changes nothing
+/// (rustfmt is idempotent on what `cargo xtask codegen` writes, so `cargo fmt --check`
+/// accepts the generated module).
 #[test]
 fn golden_files_are_rustfmt_clean() {
-    let config = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../rustfmt.toml");
     for name in ["seed.rs", "fixture.rs"] {
-        let status = Command::new("rustfmt")
-            .arg("--check")
-            .arg("--edition")
-            .arg("2021")
-            .arg("--config-path")
-            .arg(&config)
-            .arg(golden_path(name))
-            .status();
-        match status {
-            Ok(status) => assert!(status.success(), "{name} is not rustfmt-clean"),
-            Err(e) => {
-                eprintln!("skipping rustfmt check: {e}");
-                return;
-            }
-        }
+        let golden = std::fs::read_to_string(golden_path(name))
+            .unwrap()
+            .replace("\r\n", "\n");
+        assert!(rustfmt(&golden) == golden, "{name} is not rustfmt-clean");
     }
+}
+
+/// The generator does not lay out long lines itself; rustfmt does (lane B round 5: the
+/// quest and actor lanes hit the old width mimicry with long member paths and a
+/// one-member shared group). A definition with such names still yields a golden-stable,
+/// rustfmt-clean module.
+#[test]
+fn long_names_and_single_member_groups_are_left_to_rustfmt() {
+    let shared = "name = \"OnlyOneMemberInThisSharedGroupWithAVeryLongName\"\nkind = \"group\"\n\
+                  source = \"corpus: t\"\nconfidence = \"corpus\"\n\
+                  [[member]]\nsig = \"XNAM\"\nname = \"AnExtraordinarilyLongMemberNameForTesting\"\ntype = \"u32\"\n";
+    let record = "signature = \"LONG\"\nname = \"LongNames\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
+                  [[member]]\ngroup_ref = \"OnlyOneMemberInThisSharedGroupWithAVeryLongName\"\ncard = \"repeated\"\n\
+                  [[member]]\nsig = \"DATA\"\nname = \"DataWithAnUnusuallyLongStructNameHere\"\ntype = \"struct\"\n\
+                  field = [{ name = \"AVeryLongFieldNameThatPushesTheCallPastTheWidth\", type = \"f32\" }, \
+                  { name = \"AnotherQuiteLongFieldNameForTheSameReason\", type = \"formid\" }]\n";
+    let schema = load_sources([
+        (
+            "common/OnlyOneMemberInThisSharedGroupWithAVeryLongName.toml",
+            shared,
+        ),
+        ("LONG.toml", record),
+    ])
+    .unwrap();
+    let formatted = rustfmt(&generate(&schema).unwrap());
+    assert_eq!(rustfmt(&formatted), formatted);
 }

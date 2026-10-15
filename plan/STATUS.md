@@ -2074,7 +2074,12 @@ Agents append here when they need a change in a crate they do not own.
   expected from this lane; BC/BI may
   define their own script-attachment block: this lane's is a `type` (VMAD payload), not a
   group.
-- **Quest schema lane -> lane B (codegen library, `crates/schema/src/codegen.rs`).** The
+- ~~**Quest schema lane -> lane B (codegen library, `crates/schema/src/codegen.rs`).**~~
+  Done (lane B round 5): the generator no longer mimics rustfmt's widths (one-line
+  calls, arms and struct literals, no single-literal special case); `cargo xtask codegen`
+  formats every file it writes and the golden tests format `generate()` the same way
+  before comparing, so long names and one-member shared groups cannot break the gate.
+  Regenerated output and goldens were byte-identical. Was: the
   generator's rustfmt mimicry has two gaps the golden test (`golden_files_are_rustfmt_clean`)
   hits: (1) a shared group with exactly one member emits a one-element `MEMBERS` array
   rustfmt would join onto one line; (2) a call whose arguments exceed rustfmt's call width
@@ -2109,7 +2114,7 @@ Agents append here when they need a change in a crate they do not own.
   RACE, CLAS, as in PKIN), the model group (LVLN, as in LVLP) and the destructible block
   (NPC_, kept opaque) may meet other families' blocks. (5) Codegen note: the generated
   code follows rustfmt only up to its call-width heuristic; long member paths make the
-  golden `seed.rs` not rustfmt-clean (worked around with shorter NPC_/RACE names).
+  golden `seed.rs` not rustfmt-clean (worked around with shorter NPC_/RACE names). (5) done in lane B round 5: codegen output and goldens are formatted by rustfmt, no width mimicry.
 - **Actor schema lane (BC) -> lane H (CK observation).** Questions only the CK can answer
   (details in `docs/schema/actor-family.md`, "Open questions"): (1) actor values below
   0x800 in `PRPS` (NPC_, RACE, PKIN): does the CK name them and keep them on save? (2) does
