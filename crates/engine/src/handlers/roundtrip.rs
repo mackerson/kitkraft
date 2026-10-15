@@ -340,7 +340,7 @@ mod tests {
                     "not_examined": []
                 },
                 "limitations": [CONTAINER_ONLY],
-                "evidence": [{"file": file, "offset": 0, "length": bytes.len(),
+                "evidence": [{"kind": "evidence", "file": file, "offset": 0, "length": bytes.len(),
                               "record": null, "subrecord": null}]
             })
         );

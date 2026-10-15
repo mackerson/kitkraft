@@ -13,6 +13,7 @@ use serde_json::{json, Value};
 use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
+use crate::shapes::kind;
 
 const ID: &str = "diff";
 
@@ -35,15 +36,21 @@ fn field_value_json(v: Option<&FieldValue>, span: Option<Span>) -> Value {
         FieldValue::Float(f) => {
             serde_json::Number::from_f64(*f).map_or_else(|| json!(f.to_string()), Value::Number)
         }
-        FieldValue::Form(FormValue::Null) => json!({"form": null, "null": true}),
-        FieldValue::Form(FormValue::Form { label, .. }) => json!({"form": label}),
+        FieldValue::Form(FormValue::Null) => {
+            json!({"kind": kind::FORMREF, "form": null, "null": true})
+        }
+        FieldValue::Form(FormValue::Form { label, .. }) => {
+            json!({"kind": kind::FORMREF, "form": label})
+        }
         FieldValue::Form(FormValue::Unresolved { raw, error }) => {
-            json!({"form": null, "raw": format!("{raw:08X}"), "error": error})
+            json!({"kind": kind::FORMREF, "form": null, "raw": format!("{raw:08X}"), "error": error})
         }
         FieldValue::Sig(s) => json!(String::from_utf8_lossy(s)),
         FieldValue::Text(t) => json!(t),
-        FieldValue::LStringId(id) => json!({"string_id": format!("0x{id:08X}")}),
-        FieldValue::Opaque { offset, length } => json!({"opaque": {
+        FieldValue::LStringId(id) => {
+            json!({"kind": kind::LSTRING, "string_id": format!("0x{id:08X}")})
+        }
+        FieldValue::Opaque { offset, length } => json!({"kind": kind::OPAQUE, "opaque": {
             "payload_offset": offset,
             "length": length,
             "file_offset": span.and_then(|s| s.file_offset).map(|o| o.saturating_add(*offset)),

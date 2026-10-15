@@ -41,6 +41,7 @@ use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
+use crate::shapes::{self, kind};
 
 const ID: &str = "inspect";
 
@@ -475,29 +476,39 @@ struct VersionCtx<'a> {
     edid_first: Option<u8>,
 }
 
-/// A decoded schema value as JSON; FormIDs as formrefs resolved through the plugin's masters.
-fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>) -> Value {
+/// A decoded schema value as JSON, with a `kind` marker on every object that is not a
+/// struct (M4.W0, `crate::shapes`): FormIDs as `formref`s resolved through the plugin's
+/// masters, string IDs as `lstring`, opaque members as `opaque` byte ranges of the payload
+/// (and of the file, when `payload_at`, the payload's absolute offset, is known).
+fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>, payload_at: Option<u64>) -> Value {
     match v {
         Decoded::Int(i) => i64::try_from(*i).map_or_else(|_| json!(i.to_string()), |x| json!(x)),
         Decoded::Float(f) => {
             serde_json::Number::from_f64(*f).map_or_else(|| json!(f.to_string()), Value::Number)
         }
-        Decoded::Form(0) => json!({"raw": "00000000", "form": null, "null": true}),
-        Decoded::Form(raw) => match vc.lo.resolve(vc.plugin, *raw) {
-            Ok(g) => json!({"raw": format!("{raw:08X}"), "form": vc.lo.form_label(g)}),
-            Err(e) => json!({"raw": format!("{raw:08X}"), "form": null, "error": e.to_string()}),
-        },
+        Decoded::Form(raw) => shapes::formref(vc.lo, vc.plugin, *raw),
         Decoded::Sig(s) => json!(String::from_utf8_lossy(s)),
         Decoded::Text(t) => json!(t),
-        Decoded::LStringId(id) => json!({"string_id": format!("0x{id:08X}")}),
+        Decoded::LStringId(id) => {
+            json!({"kind": kind::LSTRING, "string_id": format!("0x{id:08X}")})
+        }
         Decoded::Struct(fields) => Value::Object(
             fields
                 .iter()
-                .map(|(k, v)| (k.clone(), decoded_json(v, vc)))
+                .map(|(k, v)| (k.clone(), decoded_json(v, vc, payload_at)))
                 .collect(),
         ),
-        Decoded::Array(items) => Value::Array(items.iter().map(|i| decoded_json(i, vc)).collect()),
-        Decoded::Opaque { .. } => json!("opaque"),
+        Decoded::Array(items) => Value::Array(
+            items
+                .iter()
+                .map(|i| decoded_json(i, vc, payload_at))
+                .collect(),
+        ),
+        Decoded::Opaque { at, len } => json!({"kind": kind::OPAQUE, "opaque": {
+            "payload_offset": at,
+            "length": len,
+            "file_offset": payload_at.and_then(|p| p.checked_add(u64::try_from(*at).ok()?)),
+        }}),
     }
 }
 
@@ -588,7 +599,7 @@ fn version_subrecords(
                 Ok(Decoded::Opaque { .. }) => {}
                 Ok(v) => {
                     typed_count = typed_count.saturating_add(1);
-                    obj.insert("value".into(), decoded_json(&v, vc));
+                    obj.insert("value".into(), decoded_json(&v, vc, span.file_offset));
                     if let Some(sc) = schema {
                         reference.extend(reference_members(
                             sc,
@@ -965,7 +976,7 @@ mod tests {
         assert_eq!(evidence.len(), 1 + 4);
         assert_eq!(
             evidence[0],
-            json!({"file": file, "offset": rec_off, "length": 24,
+            json!({"kind": "evidence", "file": file, "offset": rec_off, "length": 24,
                    "record": "WEAP:0001A2B3", "subrecord": null})
         );
         assert_eq!(evidence[4]["subrecord"], "DNAM");
@@ -1212,8 +1223,8 @@ mod tests {
         assert_eq!(
             kwda,
             json!([
-                {"raw": "00000000", "form": null, "null": true},
-                {"raw": "00000802", "form": "Base.esm:000802"}
+                {"kind": "formref", "raw": "00000000", "form": null, "null": true},
+                {"kind": "formref", "raw": "00000802", "form": "Base.esm:000802"}
             ])
         );
         assert_eq!(data["versions"][0]["deleted"], false);

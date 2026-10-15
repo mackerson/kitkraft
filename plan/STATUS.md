@@ -1237,6 +1237,23 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     - `refs` and placement context (M4.D1, M4.D2).
     - The M4.W0 shape tests (lane F).
     - The owner's licence ruling (row 7).
+- **Lanes F and W follow-ups, 2026-10-15.**
+  - **M4.W0 data shapes (lane F).** `kitkraft_engine::shapes`: a documented shape for the
+    `data` of `load`, `inspect`, `query`, `diff`, `conflicts`, `refs`, `planet`,
+    `coverage`, `schema` and `validate` (every mode; strict: an undocumented member fails),
+    printed to `docs/shapes.md` by `write_shape_docs` (a test fails when the file and the
+    code differ). Explicit markers (`kind`): `formref` on every stored FormID value
+    (`inspect` values, `diff`/`conflicts`/`vs_previous` fields, `planet` values, `refs`
+    `placed.cell`/`world`), `lstring`, `opaque` (`inspect`'s opaque members were the
+    string `"opaque"`, now a byte range with the file offset), `link` (`refs` outgoing
+    edges, `planet` links), `referrer` (incoming edges), `evidence` (every envelope
+    evidence entry). Limitations stay strings (prose, not values; every front end reads
+    them so). `handlers/shapes_tests.rs` runs all ten commands in 31 modes on the refs and
+    planet fixtures through `execute`, checks every envelope, the markers at their
+    positions, and that the checker catches an unmarked formref and an undocumented
+    member. Rules: `docs/mcp.md`, "Data shapes and markers". xtask's SF1Edit comparator
+    reads the new opaque marker (`sf1edit::scalar_object`). Not covered: `build --plan`
+    (M4.W6 adds its shape with the guard).
 - Lane E, M3.E9 round 2 (overhaul build 2), 2026-10-15: `has_opaque` (engine
   `edit/patch.rs`) now flags only unknown layout (whole opaque payload, rest-of-payload run,
   edid-prefix union); fixed-size untyped struct fields and sibling-decided unions are known
