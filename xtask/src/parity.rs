@@ -274,7 +274,20 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     // Per-confidence counts of the definitions (M2.F9), from the same command agents use.
     let schema = kit(root, &["schema"])?;
     let schema = schema.get("data").context("schema result has no data")?;
-    let doc = render(&manifest, defined, &types, &files, &not_examined, schema);
+    let signatures: Vec<String> = builtin
+        .records()
+        .map(|r| r.signature.as_str().to_string())
+        .collect();
+    let families = family_table(&signatures, &types);
+    let doc = render(
+        &manifest,
+        defined,
+        &types,
+        &files,
+        &not_examined,
+        schema,
+        &families,
+    );
     let out = root.join(OUT);
     if check {
         let current = fs::read_to_string(&out).unwrap_or_default();
@@ -523,6 +536,138 @@ fn decoded_table(sorted: &[(&String, &TypeAgg)]) -> String {
     table(&head, &rows, &right)
 }
 
+/// The schema families, each with the record types its lane typed (`docs/schema/*-family.md`,
+/// `crates/schema/defs/README.md` "Current set"). Every other record type, defined or not,
+/// counts under [`OTHER_FAMILY`].
+const FAMILIES: &[(&str, &[&str])] = &[
+    (
+        "weapons",
+        &[
+            "WEAP", "AMMO", "PROJ", "AMDL", "OMOD", "COBJ", "ZOOM", "LVLI", "FLST", "INNR",
+        ],
+    ),
+    (
+        "world",
+        &["WRLD", "CELL", "REFR", "ACHR", "NAVM", "LCTN", "LCRT"],
+    ),
+    (
+        "planet",
+        &[
+            "PCMT", "PCBN", "PCCN", "LVLP", "PKIN", "GBFM", "BIOM", "PNDT", "STDT", "SUNP", "SFBK",
+            "SFPT", "RSGD", "RSPJ", "TRAV",
+        ],
+    ),
+    (
+        "quest",
+        &[
+            "FACT", "QUST", "PACK", "DIAL", "INFO", "SCEN", "SMBN", "SMQN", "SMEN", "CHAL",
+        ],
+    ),
+    (
+        "actor",
+        &[
+            "NPC_", "LVLN", "OTFT", "CLAS", "AFFE", "RACE", "PERK", "SPEL", "MGEF",
+        ],
+    ),
+    (
+        "items",
+        &[
+            "STAT", "MISC", "CONT", "ACTI", "FURN", "MSTT", "TERM", "TMLM", "ARMO", "IDLE", "ANIO",
+            "CPTH",
+        ],
+    ),
+];
+
+/// The family of record types no family lane owns.
+const OTHER_FAMILY: &str = "container/other";
+
+/// The family a record type belongs to.
+fn family_of(signature: &str) -> &'static str {
+    FAMILIES
+        .iter()
+        .find(|(_, sigs)| sigs.contains(&signature))
+        .map_or(OTHER_FAMILY, |(name, _)| name)
+}
+
+/// The "Families" table: per family, the record types the corpus shows, the record
+/// definitions the schema has (`defined`: every defined signature), records, and subrecord
+/// occurrences by class; then a total.
+fn family_table(defined: &[String], types: &BTreeMap<String, TypeAgg>) -> String {
+    #[derive(Default, Clone, Copy)]
+    struct Sum {
+        types: u64,
+        definitions: u64,
+        records: u64,
+        typed: u64,
+        opaque: u64,
+        unknown: u64,
+    }
+    let names: Vec<&str> = FAMILIES
+        .iter()
+        .map(|(name, _)| *name)
+        .chain([OTHER_FAMILY])
+        .collect();
+    let mut sums: BTreeMap<&str, Sum> = names.iter().map(|n| (*n, Sum::default())).collect();
+    for sig in defined {
+        if let Some(s) = sums.get_mut(family_of(sig)) {
+            s.definitions = s.definitions.saturating_add(1);
+        }
+    }
+    for (sig, agg) in types {
+        let Some(s) = sums.get_mut(family_of(sig)) else {
+            continue;
+        };
+        s.types = s.types.saturating_add(1);
+        s.records = s.records.saturating_add(agg.records);
+        for (count, class) in agg.subs.values() {
+            let slot = match class.as_str() {
+                "typed" => &mut s.typed,
+                "opaque" => &mut s.opaque,
+                "unknown" => &mut s.unknown,
+                _ => continue,
+            };
+            *slot = slot.saturating_add(*count);
+        }
+    }
+    let row = |label: String, s: Sum| {
+        vec![
+            label,
+            n(s.types),
+            n(s.definitions),
+            n(s.records),
+            n(s.typed),
+            n(s.opaque),
+            n(s.unknown),
+        ]
+    };
+    let mut total = Sum::default();
+    let mut rows = Vec::new();
+    for name in &names {
+        let s = sums.get(name).copied().unwrap_or_default();
+        total.types = total.types.saturating_add(s.types);
+        total.definitions = total.definitions.saturating_add(s.definitions);
+        total.records = total.records.saturating_add(s.records);
+        total.typed = total.typed.saturating_add(s.typed);
+        total.opaque = total.opaque.saturating_add(s.opaque);
+        total.unknown = total.unknown.saturating_add(s.unknown);
+        rows.push(row((*name).to_string(), s));
+    }
+    rows.push(row("**Total**".to_string(), total));
+    table(
+        &[
+            "Family",
+            "Record types",
+            "Definitions",
+            "Records",
+            "Typed",
+            "Opaque",
+            "Unknown",
+        ],
+        &rows,
+        &[false, true, true, true, true, true, true],
+    )
+}
+
 fn render(
     manifest: &Manifest,
     defined: usize,
@@ -530,6 +675,7 @@ fn render(
     files: &[FileRow],
     not_examined: &[String],
     schema: &Value,
+    families: &str,
 ) -> String {
     let mut sorted: Vec<(&String, &TypeAgg)> = types.iter().collect();
     sorted.sort_by(|a, b| b.1.records.cmp(&a.1.records).then(a.0.cmp(b.0)));
@@ -602,6 +748,17 @@ fn render(
         "**Generated by `cargo xtask parity`; do not edit by hand.** Rerun it after a change to\n\
          `crates/schema/defs/`, to the `coverage` command, or to the corpus.\n\n",
     );
+    out.push_str("## Families\n\n");
+    out.push_str(
+        "Per schema family (the lanes that typed them; `docs/schema/*-family.md`), summed over\n\
+         the family's record types from the tables below: **Record types** seen in the corpus,\n\
+         **Definitions** in the schema (with or without corpus records), **Records**, and\n\
+         subrecord occurrences the definitions type, keep **Opaque**, or do not name\n\
+         (**Unknown**). *container/other* holds every other type: TES4, GMST, GLOB, KYWD, the\n\
+         lstring-only definitions and the types without a definition.\n\n",
+    );
+    out.push_str(families);
+    out.push_str("\n## Corpus and method\n\n");
     let _ = writeln!(
         out,
         "- Corpus: the {} files of `{MANIFEST}` (recorded {}, manifest hash\n  \
@@ -754,8 +911,12 @@ fn render(
 
 #[cfg(test)]
 mod tests {
-    use super::{confidence_table, decoded_table, n, occurrence_check, table, TypeAgg, CONFIDENCE};
+    use super::{
+        confidence_table, decoded_table, family_of, family_table, n, occurrence_check, table,
+        TypeAgg, CONFIDENCE, FAMILIES,
+    };
     use serde_json::json;
+    use std::collections::BTreeMap;
 
     /// Lane B round 4: a member that claims `corpus` must have its signature among the
     /// signatures the corpus shows in records of its type (COBJ FULL claimed `corpus` with
@@ -844,6 +1005,69 @@ mod tests {
         assert_eq!(
             occurrence_check(schema, &tes4(&with_data)).observed_container,
             ["TES4.Master.FileSize (DATA, container-reference)"]
+        );
+    }
+
+    /// Every family member is a builtin record definition, and no type is in two families,
+    /// so the rollup cannot drift from the schema unnoticed.
+    #[test]
+    fn families_name_defined_types_once() {
+        let schema = kitkraft_schema::builtin().unwrap();
+        let mut seen = std::collections::BTreeSet::new();
+        for (family, sigs) in FAMILIES {
+            for sig in *sigs {
+                assert!(seen.insert(*sig), "{sig} is in two families");
+                let parsed = kitkraft_schema::Signature::parse(sig).unwrap();
+                assert!(
+                    schema.record(parsed).is_some(),
+                    "{family}: {sig} has no definition"
+                );
+            }
+        }
+        assert_eq!(family_of("WEAP"), "weapons");
+        assert_eq!(family_of("TES4"), "container/other");
+        assert_eq!(family_of("RFGP"), "container/other");
+    }
+
+    #[test]
+    fn family_rows_sum_types_and_occurrences() {
+        let agg = |records: u64, subs: &[(&str, u64, &str)]| TypeAgg {
+            records,
+            subs: subs
+                .iter()
+                .map(|(s, c, k)| ((*s).to_string(), (*c, (*k).to_string())))
+                .collect(),
+            ..TypeAgg::default()
+        };
+        let types: BTreeMap<String, TypeAgg> = [
+            (
+                "WEAP".to_string(),
+                agg(10, &[("EDID", 10, "typed"), ("MO4C", 2, "opaque")]),
+            ),
+            ("AMMO".to_string(), agg(5, &[("EDID", 5, "typed")])),
+            ("RFGP".to_string(), agg(7, &[("NNAM", 7, "unknown")])),
+        ]
+        .into_iter()
+        .collect();
+        let defined = ["WEAP", "AMMO", "PROJ", "TES4"].map(String::from);
+        let t = family_table(&defined, &types);
+        assert!(
+            t.starts_with(
+                "| Family          | Record types | Definitions | Records | Typed | Opaque | Unknown |"
+            ),
+            "{t}"
+        );
+        assert!(
+            t.contains("| weapons         |            2 |           3 |      15 |    15 |      2 |       0 |"),
+            "{t}"
+        );
+        assert!(
+            t.contains("| container/other |            1 |           1 |       7 |     0 |      0 |       7 |"),
+            "{t}"
+        );
+        assert!(
+            t.contains("| **Total**       |            3 |           4 |      22 |    15 |      2 |       7 |"),
+            "{t}"
         );
     }
 

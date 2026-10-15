@@ -57,7 +57,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | Criterion | State | Tasks and evidence |
 | --------- | ----- | ------------------ |
 | QUEST, ACTOR, ITEMS/WORKSHOP typed, with WORLD, PLANET and round 3 merged; M4.BX1 after every merge with 0 typed conflicts | **done** | Six families: round 3, BW, BP, BQ1, BC1, BI1, each merged by M4.BX1. `unordered` record mode for CELL/REFR/ACHR (parity failed 1,712,200 -> 0). Lane B round 4 added the OMOD/OBTS property unions (8,669 entries) |
-| `docs/record-parity.md` shows the per-family counts | **carried** (partly) | Regenerated at each merge and at round 4, with counts per record type. There is no per-family total yet (lane F, `cargo xtask parity`) |
+| `docs/record-parity.md` shows the per-family counts | **done** | Lane B round 5: `cargo xtask parity` opens the document with a "Families" table (weapons, world, planet, quest, actor, items, container/other: record types, definitions, records, typed/opaque/unknown occurrences, total); the family lists live in `xtask/src/parity.rs` (`FAMILIES`, a test checks each type has a definition and sits in one family) |
 | M4.BX2 inventories (`LAYR RFGP WKMF IRES MESG`) | **carried** | M4.BX2, lane B. Not on `main` |
 | Builder: computed cell/world paths, rebuild gate (M4.A2); allocator and reference composition tested | **done** | M4.A1, A2, A3, A5, with the Fable review fix round |
 | NAVM passthrough on a synthetic plugin, and on F22 if it exists | **done** (synthetic) | M4.A4. The F22 half is carried with M4.O1 (deferred) |
