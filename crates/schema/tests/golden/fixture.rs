@@ -349,6 +349,22 @@ pub fn count<T: TryInto<usize>>(
         .map_err(|_| DecodeError::BadCount { field, offset })
 }
 
+/// The value a count field (`count_from`) is written with: the length of its array, or
+/// `max` when the length does not fit the count's type (the array is then written up to
+/// `max` elements, see [`write_counted`]), so the count always matches what follows.
+pub fn count_value<C: TryFrom<usize>>(len: usize, max: C) -> C {
+    C::try_from(len).unwrap_or(max)
+}
+
+/// Writes a `count_from` array: its elements in order, at most `max` of them (the largest
+/// value its count field holds; [`count_value`] writes the count).
+pub fn write_counted<T: Field, C: TryInto<usize>>(items: &[T], max: C, out: &mut Vec<u8>) {
+    let max = max.try_into().unwrap_or(usize::MAX);
+    for item in items.iter().take(max) {
+        item.write(out);
+    }
+}
+
 /// Writes every element in order.
 pub fn write_all<T: Field>(items: &[T], out: &mut Vec<u8>) {
     for item in items {
@@ -2143,8 +2159,8 @@ impl Field for VvvvSlotPairs {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.count.write(out);
-        self.items.write(out);
+        count_value(self.items.len(), u8::MAX).write(out);
+        write_counted(&self.items, u8::MAX, out);
     }
 }
 
@@ -2288,6 +2304,45 @@ impl Visit for VvvvLast {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct VvvvGatedCount {
+    pub count: u16,
+    pub tag: u8,
+    /// Present for form versions 10 and later.
+    pub items: Option<Vec<u8>>,
+}
+
+impl Field for VvvvGatedCount {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u16::read(r, "VVVV.CNTG.Count", ctx)?;
+        let f1 = u8::read(r, "VVVV.CNTG.Tag", ctx)?;
+        let f2 = if ctx.has(Some(10), None) {
+            let n2 = count(f0, "VVVV.CNTG.Items", r.position())?;
+            Some(read_array(r, n2, "VVVV.CNTG.Items", ctx)?)
+        } else {
+            None
+        };
+        Ok(Self {
+            count: f0,
+            tag: f1,
+            items: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match &self.items {
+            Some(items) => count_value(items.len(), u16::MAX).write(out),
+            None => self.count.write(out),
+        }
+        self.tag.write(out);
+        if let Some(value) = &self.items {
+            write_counted(value, u16::MAX, out);
+        }
+    }
+}
+
+impl Visit for VvvvGatedCount {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct VvvvRecord {
     /// `FULL`, optional.
@@ -2298,6 +2353,8 @@ pub struct VvvvRecord {
     pub slot: Vec<VvvvSlot>,
     /// `LAST`, optional.
     pub last: Option<Sub<VvvvLast>>,
+    /// `CNTG`, optional.
+    pub gated_count: Option<Sub<VvvvGatedCount>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -2322,6 +2379,10 @@ impl VvvvRecord {
         },
         MemberDesc::Sub {
             sig: *b"LAST",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNTG",
             card: Card::Optional,
         },
     ];
@@ -2349,6 +2410,9 @@ impl VvvvRecord {
                 Hit::Sub { member: 3, index } => {
                     put(&mut self.last, subs, *index, "VVVV.LAST", ctx, extra)
                 }
+                Hit::Sub { member: 4, index } => {
+                    put(&mut self.gated_count, subs, *index, "VVVV.CNTG", ctx, extra)
+                }
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -2361,6 +2425,7 @@ impl VvvvRecord {
             group.emit(out);
         }
         emit(out, *b"LAST", self.last.as_ref());
+        emit(out, *b"CNTG", self.gated_count.as_ref());
     }
 }
 
@@ -2901,8 +2966,8 @@ impl Field for YyyyList {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.count.write(out);
-        self.items.write(out);
+        count_value(self.items.len(), u8::MAX).write(out);
+        write_counted(&self.items, u8::MAX, out);
         self.title.write(out);
         self.short.write(out);
         self.pairs.write(out);

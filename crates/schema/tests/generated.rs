@@ -392,6 +392,90 @@ fn yyyy_count_from_and_length_prefixes_reject_bad_input() {
     }
 }
 
+/// M3.B10: encode writes a `count_from` count from its array's length, so an edited array
+/// (or a stale count) never yields an inconsistent payload, and an unedited one re-encodes
+/// byte for byte.
+#[test]
+fn yyyy_count_from_is_written_from_the_array_length() {
+    let decode = |subs: &[OwnedSub]| YyyyRecord::decode(&raw(subs), ctx(15, false));
+    let list_of = |subs: &[OwnedSub]| subs.iter().find(|s| &s.signature == b"LIST").cloned();
+
+    // Unedited: identical.
+    let body = yyyy_body();
+    assert_eq!(decode(&body).encode(), body);
+
+    // Add an element without touching the count.
+    let mut rec = decode(&body);
+    let items = &mut rec.list.as_mut().unwrap().value.items;
+    items.push(fixture::Point { x: 3, y: -3 });
+    let encoded = rec.encode();
+    assert_eq!(
+        list_of(&encoded).unwrap().data,
+        list_payload(3, &[(1, -1), (2, -2), (3, -3)], Some(42))
+    );
+    let again = decode(&encoded);
+    assert!(again.extra.is_empty(), "{:?}", again.extra);
+    assert_eq!(again.list.as_ref().unwrap().items.len(), 3);
+
+    // A stale count is not written: the array decides.
+    let mut rec = decode(&body);
+    rec.list.as_mut().unwrap().value.count = 9;
+    assert_eq!(rec.encode(), body);
+    rec.list.as_mut().unwrap().value.items.clear();
+    assert_eq!(
+        list_of(&rec.encode()).unwrap().data,
+        list_payload(0, &[], Some(42))
+    );
+
+    // More elements than the `u8` count holds: the count saturates and the array is cut
+    // to it, so the payload still decodes.
+    let mut rec = decode(&body);
+    rec.list.as_mut().unwrap().value.items =
+        (0..300).map(|i| fixture::Point { x: i, y: 0 }).collect();
+    let encoded = rec.encode();
+    assert_eq!(list_of(&encoded).unwrap().data.first(), Some(&255));
+    let again = decode(&encoded);
+    assert!(again.extra.is_empty(), "{:?}", again.extra);
+    let list = again.list.as_ref().unwrap();
+    assert_eq!(
+        (list.count, list.items.len(), list.tail),
+        (255, 255, Some(42))
+    );
+    assert_eq!(list.items.last().map(|p| p.x), Some(254));
+}
+
+/// M3.B10, a gated `count_from` array: present (form version 10+), its count follows the
+/// array; absent (before 10), the count is written as stored.
+#[test]
+fn vvvv_gated_count_from_array() {
+    let cntg = |count: u16, items: &[u8]| {
+        let mut d = count.to_le_bytes().to_vec();
+        d.push(0xAA);
+        d.extend_from_slice(items);
+        sub(b"CNTG", &d)
+    };
+    // Version 9: no array, the stored count (5) survives an encode.
+    let old = vec![cntg(5, &[])];
+    let rec = fixture::VvvvRecord::decode(&raw(&old), ctx(9, false));
+    let gated = rec.gated_count.as_ref().unwrap();
+    assert_eq!((gated.count, gated.items.as_ref()), (5, None));
+    assert_eq!(rec.encode(), old);
+    // Version 10: the array is there; an edit rewrites the count.
+    let new = vec![cntg(2, &[7, 8])];
+    let mut rec = fixture::VvvvRecord::decode(&raw(&new), ctx(10, false));
+    assert!(rec.extra.is_empty(), "{:?}", rec.extra);
+    assert_eq!(rec.encode(), new);
+    rec.gated_count
+        .as_mut()
+        .unwrap()
+        .value
+        .items
+        .as_mut()
+        .unwrap()
+        .push(9);
+    assert_eq!(rec.encode(), vec![cntg(3, &[7, 8, 9])]);
+}
+
 #[test]
 fn empty_record_keeps_everything_in_extra() {
     let subs = vec![sub(b"EDID", b"x\0"), big(b"DATA", &[1, 2])];

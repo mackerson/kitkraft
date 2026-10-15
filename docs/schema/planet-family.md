@@ -222,9 +222,10 @@ layer's signature-based decoder from misreading the FULL inside GBFM name compon
   signature alone (`kit inspect`, `where` paths, `kit set` field paths) cannot yet; until
   they can, edit those members by raw payload (`hex:`) and check the result with `kit
   roundtrip --verify`.
-- **Stored counts.** `CITC`, `LLCT`, `OBTE`, MOLM's count, PPBD's fauna/keyword/flora/
-  trailing counts and the length fields of PNDT's strings are written as stored; change
-  them with their lists.
+- **Stored counts.** `CITC`, `LLCT` and `OBTE` are written as stored; change them with
+  their lists. MOLM's count, PPBD's fauna/keyword/flora counts and the length fields of
+  PNDT's strings sit in the same payload as their `count_from` arrays, so the generated
+  encode writes them from the array (M3.B10).
 - **PNDT strings** in DNAM, HNAM and KNAM are a 32-bit byte count (including the NUL; 0 for
   an empty string) followed by the bytes, exposed as `...Length` plus a byte array.
 - **Raw FormIDs.** Every FormID member is the raw stored value; target types in the

@@ -27,8 +27,8 @@
 # names); tools that look a layout up by signature alone cannot (plan/STATUS.md Requests).
 #
 # The format has no 32-bit length-prefixed string, so each such string is an explicit
-# `...Length` field followed by that many bytes (`count_from`); keep the two in sync when
-# editing.
+# `...Length` field followed by that many bytes (`count_from`); encode writes the length
+# from the bytes (M3.B10).
 signature = "PNDT"
 name = "Planet"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16048-L16225"

@@ -540,6 +540,14 @@ fn count_from_rules() {
         )),
         ErrorKind::BadCountFrom("N".into())
     );
+    // One count field per array: encode writes the count from the array's length (M3.B10).
+    assert_eq!(
+        field(&format!(
+            "{{ name = \"N\", type = \"u8\" }}, {arr}, \
+             {{ name = \"M\", type = \"array\", element = \"u8\", count_from = \"N\" }}"
+        )),
+        ErrorKind::SharedCountFrom("N".into())
+    );
     // Not with `count`, and not on a whole-subrecord array (no siblings).
     assert!(matches!(
         field(

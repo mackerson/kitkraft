@@ -236,8 +236,13 @@ anywhere.
 - `count = "rest"`: elements until the payload ends; must be last.
 - `count_from = "Count"`: as many elements as the value of the named field, which must be
   an earlier, ungated, non-`if_remaining` integer field of the same struct. Only on struct
-  fields (a whole subrecord has no siblings). The count field is written as stored; keep it
-  in sync when editing.
+  fields (a whole subrecord has no siblings), and one count field serves one array
+  (`SharedCountFrom`). Generated encode writes the count from the array's length
+  (M3.B10), so an edited array never carries a stale count: the stored count field is
+  ignored on write. An array longer than the count's type holds is written up to that
+  many elements (`u8` count: 255) and the count saturates, so the payload still decodes.
+  A version-gated array that is absent leaves its count as stored. An unedited value
+  re-encodes byte for byte (decoding read exactly that many elements).
 
 Elements must not read to the end and must not be empty: scalars, `formid`, `sig`, `enum`,
 `flags`, fixed `opaque`, `wstring`, `bstring`, `ref:` types, or a `struct` of those.
@@ -449,8 +454,10 @@ Round 3 definitions (M3) cite the pinned xEdit file per member (`source`), with 
 ranges in `evidence`; a member is `corpus` when the round 3 typed check of every official
 record of the type confirms it (`corpus_full_roundtrip` and a per-type scan: nothing left in
 `extra`, zero re-encode differences), and `reference` when no official record has it.
-Counts stored in their own field or subrecord (`IncludeCount`, `LLCT`, `CITC`, `VNAM`,
-`OBTE`) are kept as read: an edit that changes the list must update them. Length prefixes
+Counts stored in their own subrecord (`LLCT`, `CITC`, `VNAM`, `OBTE`) are kept as read:
+an edit that changes the list must update them. A count field inside the same payload as
+its `count_from` array (`IncludeCount`, MOLM's `Count`) is written from the array (M3.B10).
+Length prefixes
 xEdit folds into its string and array types (a u32 before OMOD's name, PROJ's particle
 defines and OMOD's attach parent slots; a u8 before a template item's keywords) are written
 as explicit count fields with a `count_from` array.

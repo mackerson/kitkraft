@@ -98,6 +98,8 @@ pub enum ErrorKind {
     BadCount(String),
     #[error("`count_from = {0:?}` must name an earlier, ungated integer field of the same struct")]
     BadCountFrom(String),
+    #[error("count field {0:?} is named by two `count_from` arrays; encode writes it from one array's length")]
+    SharedCountFrom(String),
     #[error("{base} cannot hold {what}")]
     BadBase {
         base: &'static str,
@@ -1728,6 +1730,17 @@ fn convert_fields(
                 });
                 if !ok {
                     return Err(cx.err(ErrorKind::BadCountFrom(source.clone())));
+                }
+                // Encode writes the count from the array's length (M3.B10), so one count
+                // field serves one array.
+                let shared = fields.iter().any(|s| {
+                    matches!(
+                        &s.ty,
+                        FieldType::Array { count: ArrayCount::From(other), .. } if other == source
+                    )
+                });
+                if shared {
+                    return Err(cx.err(ErrorKind::SharedCountFrom(source.clone())));
                 }
             }
             Ok(FieldDef {

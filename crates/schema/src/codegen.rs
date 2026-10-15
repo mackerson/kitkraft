@@ -722,13 +722,40 @@ impl Visit for {name} {{}}
                     "    /// Present only when bytes remain in the payload."
                 );
             }
+            // `count_from` (M3.B10): a count field is written from its array's length, and
+            // the array up to as many elements as that count can hold, so an edited array
+            // never carries a stale count. A gated array that is absent leaves its count as
+            // stored. (The loader keeps count fields ungated, so only this branch has them.)
+            let counted = counted_array(fields, &f.name);
+            let count_max = count_max(fields, &f.ty);
             if conditions.is_empty() {
                 let _ = writeln!(decls, "    pub {ident}: {inner},");
                 if let Some(setup) = setup_at(8) {
                     reads.push_str(&setup);
                 }
                 reads.push_str(&let_call(8, &format!("let f{i} = "), &read.0, &read.1));
-                let _ = writeln!(writes, "        self.{ident}.write(out);");
+                let max = int_max(&f.ty);
+                match (&counted, &count_max) {
+                    (Some((array, false)), _) => {
+                        let _ = writeln!(
+                            writes,
+                            "        count_value(self.{array}.len(), {max}).write(out);"
+                        );
+                    }
+                    (Some((array, true)), _) => {
+                        let _ = writeln!(
+                            writes,
+                            "        match &self.{array} {{\n            Some(items) => count_value(items.len(), {max}).write(out),\n            None => self.{ident}.write(out),\n        }}"
+                        );
+                    }
+                    (None, Some(max)) => {
+                        let _ =
+                            writeln!(writes, "        write_counted(&self.{ident}, {max}, out);");
+                    }
+                    (None, None) => {
+                        let _ = writeln!(writes, "        self.{ident}.write(out);");
+                    }
+                }
             } else {
                 let _ = writeln!(decls, "    pub {ident}: Option<{inner}>,");
                 let _ = writeln!(
@@ -743,9 +770,13 @@ impl Visit for {name} {{}}
                     reads,
                     "            Some({read_inline})\n        }} else {{\n            None\n        }};"
                 );
+                let write = match &count_max {
+                    Some(max) => format!("write_counted(value, {max}, out)"),
+                    None => "value.write(out)".to_owned(),
+                };
                 let _ = writeln!(
                     writes,
-                    "        if let Some(value) = &self.{ident} {{\n            value.write(out);\n        }}"
+                    "        if let Some(value) = &self.{ident} {{\n            {write};\n        }}"
                 );
             }
             inits.push(format!("{ident}: f{i}"));
@@ -1537,6 +1568,43 @@ fn visit_call(func: &str, receiver: &str, path: &str) -> String {
 }
 
 /// Whether field `name` decides (or refines) a field union of the same struct.
+/// The array whose `count_from` names field `name`, as (Rust field name, whether the
+/// array is gated and so an `Option`). The loader allows one such array per count field.
+fn counted_array(fields: &[FieldDef], name: &str) -> Option<(String, bool)> {
+    fields.iter().find_map(|f| match &f.ty {
+        FieldType::Array {
+            count: ArrayCount::From(source),
+            ..
+        } if source == name => Some((
+            field_ident(&f.name),
+            f.since.is_some() || f.until.is_some() || f.if_remaining,
+        )),
+        _ => None,
+    })
+}
+
+/// For a `count_from` array of type `ty`, the largest value its count field holds
+/// (`u16::MAX`): the most elements encode writes.
+fn count_max(fields: &[FieldDef], ty: &FieldType) -> Option<String> {
+    let FieldType::Array {
+        count: ArrayCount::From(source),
+        ..
+    } = ty
+    else {
+        return None;
+    };
+    let source = fields.iter().find(|f| f.name == *source)?;
+    Some(int_max(&source.ty))
+}
+
+/// `T::MAX` for an integer field type (the loader admits only integer count fields).
+fn int_max(ty: &FieldType) -> String {
+    match ty {
+        FieldType::Scalar(s) => format!("{}::MAX", s.as_str()),
+        _ => "u32::MAX".to_owned(),
+    }
+}
+
 fn decides_union(fields: &[FieldDef], name: &str) -> bool {
     fields.iter().any(|f| match &f.ty {
         FieldType::Union {

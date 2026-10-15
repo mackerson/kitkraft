@@ -465,6 +465,22 @@ pub fn count<T: TryInto<usize>>(
         .map_err(|_| DecodeError::BadCount { field, offset })
 }
 
+/// The value a count field (`count_from`) is written with: the length of its array, or
+/// `max` when the length does not fit the count's type (the array is then written up to
+/// `max` elements, see [`write_counted`]), so the count always matches what follows.
+pub fn count_value<C: TryFrom<usize>>(len: usize, max: C) -> C {
+    C::try_from(len).unwrap_or(max)
+}
+
+/// Writes a `count_from` array: its elements in order, at most `max` of them (the largest
+/// value its count field holds; [`count_value`] writes the count).
+pub fn write_counted<T: Field, C: TryInto<usize>>(items: &[T], max: C, out: &mut Vec<u8>) {
+    let max = max.try_into().unwrap_or(usize::MAX);
+    for item in items.iter().take(max) {
+        item.write(out);
+    }
+}
+
 /// Writes every element in order.
 pub fn write_all<T: Field>(items: &[T], out: &mut Vec<u8>) {
     for item in items {
@@ -3482,8 +3498,8 @@ impl Field for ModelMaterialSwaps {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.count.write(out);
-        self.swaps.write(out);
+        count_value(self.swaps.len(), u16::MAX).write(out);
+        write_counted(&self.swaps, u16::MAX, out);
     }
 }
 
@@ -4469,18 +4485,18 @@ impl Field for ObteBlockCombinationTemplateItem {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.include_count.write(out);
-        self.property_count.write(out);
+        count_value(self.includes.len(), u32::MAX).write(out);
+        count_value(self.properties.len(), u32::MAX).write(out);
         self.level_min.write(out);
         self.level_max.write(out);
         self.parent_combination_index.write(out);
         self.default.write(out);
-        self.keyword_count.write(out);
-        self.keywords.write(out);
+        count_value(self.keywords.len(), u8::MAX).write(out);
+        write_counted(&self.keywords, u8::MAX, out);
         self.min_level_for_ranks.write(out);
         self.alt_levels_per_tier.write(out);
-        self.includes.write(out);
-        self.properties.write(out);
+        write_counted(&self.includes, u32::MAX, out);
+        write_counted(&self.properties, u32::MAX, out);
     }
 }
 
@@ -10148,8 +10164,8 @@ impl Field for ArmoMaleWorldModelMaterialSwaps {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.count.write(out);
-        self.swaps.write(out);
+        count_value(self.swaps.len(), u16::MAX).write(out);
+        write_counted(&self.swaps, u16::MAX, out);
     }
 }
 
@@ -10390,8 +10406,8 @@ impl Field for ArmoFemaleWorldModelMaterialSwaps {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.count.write(out);
-        self.swaps.write(out);
+        count_value(self.swaps.len(), u16::MAX).write(out);
+        write_counted(&self.swaps, u16::MAX, out);
     }
 }
 
@@ -34378,19 +34394,19 @@ impl Field for OmodData {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.include_count.write(out);
-        self.property_count.write(out);
+        count_value(self.includes.len(), u32::MAX).write(out);
+        count_value(self.properties.len(), u32::MAX).write(out);
         self.unknown1.write(out);
-        self.name_length.write(out);
-        self.name.write(out);
+        count_value(self.name.len(), u32::MAX).write(out);
+        write_counted(&self.name, u32::MAX, out);
         self.max_rank.write(out);
         self.level_tier_scaled_offset.write(out);
         self.attach_point.write(out);
-        self.attach_parent_slot_count.write(out);
-        self.attach_parent_slots.write(out);
+        count_value(self.attach_parent_slots.len(), u32::MAX).write(out);
+        write_counted(&self.attach_parent_slots, u32::MAX, out);
         self.unknown2.write(out);
-        self.includes.write(out);
-        self.properties.write(out);
+        write_counted(&self.includes, u32::MAX, out);
+        write_counted(&self.properties, u32::MAX, out);
     }
 }
 
@@ -39457,8 +39473,8 @@ impl Field for PkinMaterialSwaps {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.count.write(out);
-        self.swaps.write(out);
+        count_value(self.swaps.len(), u16::MAX).write(out);
+        write_counted(&self.swaps, u16::MAX, out);
     }
 }
 
@@ -40335,15 +40351,15 @@ impl Field for PndtBiomes {
         self.chance.write(out);
         self.data3.write(out);
         self.resource_generation.write(out);
-        self.fauna_count.write(out);
-        self.fauna.write(out);
-        self.keyword_count.write(out);
-        self.keywords.write(out);
-        self.flora_count.write(out);
+        count_value(self.fauna.len(), u32::MAX).write(out);
+        write_counted(&self.fauna, u32::MAX, out);
+        count_value(self.keywords.len(), u32::MAX).write(out);
+        write_counted(&self.keywords, u32::MAX, out);
+        count_value(self.flora.len(), u32::MAX).write(out);
         self.flora_entry_size.write(out);
-        self.flora.write(out);
-        self.data11_count.write(out);
-        self.data11.write(out);
+        write_counted(&self.flora, u32::MAX, out);
+        count_value(self.data11.len(), u32::MAX).write(out);
+        write_counted(&self.data11, u32::MAX, out);
     }
 }
 
@@ -40489,8 +40505,8 @@ impl Field for PndtBodySpaceCell {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.cell_editor_id_length.write(out);
-        self.cell_editor_id.write(out);
+        count_value(self.cell_editor_id.len(), u32::MAX).write(out);
+        write_counted(&self.cell_editor_id, u32::MAX, out);
         self.is_unique.write(out);
     }
 }
@@ -40905,22 +40921,22 @@ impl Field for PndtBodyCatalogueData {
 
     fn write(&self, out: &mut Vec<u8>) {
         self.data1.write(out);
-        self.spectral_class_length.write(out);
-        self.spectral_class.write(out);
-        self.catalogue_id_length.write(out);
-        self.catalogue_id.write(out);
-        self.life_length.write(out);
-        self.life.write(out);
-        self.magnetosphere_length.write(out);
-        self.magnetosphere.write(out);
-        self.mass_kg_length.write(out);
-        self.mass_kg.write(out);
-        self.type_length.write(out);
-        self.type_.write(out);
-        self.settled_star_length.write(out);
-        self.settled_star.write(out);
-        self.special_length.write(out);
-        self.special.write(out);
+        count_value(self.spectral_class.len(), u32::MAX).write(out);
+        write_counted(&self.spectral_class, u32::MAX, out);
+        count_value(self.catalogue_id.len(), u32::MAX).write(out);
+        write_counted(&self.catalogue_id, u32::MAX, out);
+        count_value(self.life.len(), u32::MAX).write(out);
+        write_counted(&self.life, u32::MAX, out);
+        count_value(self.magnetosphere.len(), u32::MAX).write(out);
+        write_counted(&self.magnetosphere, u32::MAX, out);
+        count_value(self.mass_kg.len(), u32::MAX).write(out);
+        write_counted(&self.mass_kg, u32::MAX, out);
+        count_value(self.type_.len(), u32::MAX).write(out);
+        write_counted(&self.type_, u32::MAX, out);
+        count_value(self.settled_star.len(), u32::MAX).write(out);
+        write_counted(&self.settled_star, u32::MAX, out);
+        count_value(self.special.len(), u32::MAX).write(out);
+        write_counted(&self.special, u32::MAX, out);
         self.perihelion.write(out);
         self.star_distance.write(out);
         self.density.write(out);
@@ -41014,8 +41030,8 @@ impl Field for PndtBodyBiomeNoise {
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.noise_filename_length.write(out);
-        self.noise_filename.write(out);
+        count_value(self.noise_filename.len(), u32::MAX).write(out);
+        write_counted(&self.noise_filename, u32::MAX, out);
         self.biome_frequency.write(out);
         self.terrain_height_frequency.write(out);
         self.noise_type.write(out);
@@ -42128,13 +42144,13 @@ impl Field for ProjData {
         self.collision_layer.write(out);
         self.tracer_frequency.write(out);
         self.vats_projectile.write(out);
-        self.muzzle_flash_particle_define_length.write(out);
-        self.muzzle_flash_particle_define.write(out);
+        count_value(self.muzzle_flash_particle_define.len(), u32::MAX).write(out);
+        write_counted(&self.muzzle_flash_particle_define, u32::MAX, out);
         self.seek_strength.write(out);
         self.sound_activation_condition.write(out);
         self.type_.write(out);
-        self.particle_define_length.write(out);
-        self.particle_define.write(out);
+        count_value(self.particle_define.len(), u32::MAX).write(out);
+        write_counted(&self.particle_define, u32::MAX, out);
         self.tracer_speed.write(out);
         self.zero_g_recoil_strength.write(out);
         self.zero_g_recoil_length.write(out);
@@ -64254,8 +64270,8 @@ impl Field for WrldLargeRefs {
     fn write(&self, out: &mut Vec<u8>) {
         self.cell_y.write(out);
         self.cell_x.write(out);
-        self.count.write(out);
-        self.refs.write(out);
+        count_value(self.refs.len(), u32::MAX).write(out);
+        write_counted(&self.refs, u32::MAX, out);
     }
 }
 

@@ -49,9 +49,9 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 1: 8 implemented, 4 partial, 2 open. Build 2 (2026-10-15, `docs/overhaul/build-2.md`): the OMOD values lane B round 4 typed and the owner's answers; 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
 | Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Row 3 above (build 2) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 reruns as members get typed. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, B10 (2026-10-15), D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 rerun 2026-10-15 on every record of the 12 typed types (lane H): 149,454 agree, 2,825 agree with fewer xEdit fields, 190 disagree (X9, version skew), 0 ours. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, B10 (2026-10-15), D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). M3.F5 is not built, by that decision |
 | `cargo xtask ci` green; corpus roundtrip identical; parity regenerated; STATUS says M4 | **done** at `01c77d8` | Gates as recorded at the lane B round 4 merge (`39ca2a2` regenerated parity). STATUS: this section |
 
@@ -1296,6 +1296,17 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     `docs/design/planet-content.md`: link statistics by member, tree depths and sibling
     chains, condition function counts, the two typed paths to placed content (tree and
     biome), every claim graded, open questions for M4.O1/M4.O4.
+- M3.B10 `count_from` consistency (lane B, 2026-10-15): generated encode writes a count
+  field from its array's length (`count_value`) and the array up to what the count's type
+  holds (`write_counted`; a `u8` count saturates at 255 and the array is cut to it), so an
+  edited array never carries a stale count; a version-gated array that is absent leaves its
+  count as stored. The loader rejects one count field shared by two arrays
+  (`SharedCountFrom`). Tests: `yyyy_count_from_is_written_from_the_array_length`,
+  `vvvv_gated_count_from_array` (new fixture member `VVVV.CNTG`), `count_from_rules`, and
+  `set_typed_writes_count_from_counts_from_the_array` (esm: a STAT `MOLM` edited through
+  `Record::set_typed`). Corpus re-encode unchanged (decode reads exactly the stored count).
+  `docs/gaps.md` row restated to the residual: the engine's byte-level `kit set` on a
+  `count_from` array or its count (lane E).
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64

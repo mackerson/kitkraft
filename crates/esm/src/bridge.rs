@@ -435,6 +435,53 @@ mod tests {
         assert_eq!(plugin.to_bytes().unwrap(), bytes);
     }
 
+    /// M3.B10: editing a `count_from` array (a model's material swaps, `MOLM`) through
+    /// `set_typed` writes the count from the array, whatever the stored count says.
+    #[test]
+    fn set_typed_writes_count_from_counts_from_the_array() {
+        use crate::generated::records::{FormId, Record as Typed};
+        let molm = |n: u16, forms: &[u32]| {
+            let mut d = n.to_le_bytes().to_vec();
+            for f in forms {
+                d.extend_from_slice(&f.to_le_bytes());
+            }
+            d
+        };
+        let body = [
+            sub(b"EDID", b"s\0"),
+            sub(b"MODL", b"a.nif\0"),
+            sub(b"MOLM", &molm(1, &[0x10])),
+            sub(b"FLLD", &[0; 4]),
+        ]
+        .concat();
+        let bytes = fixture::plugin(&[group(b"STAT", 0, &record(b"STAT", 0, 0x800, &body))]);
+        let mut plugin = Plugin::parse(&bytes).unwrap();
+        let Entry::Group(g) = &mut plugin.entries_mut()[0] else {
+            panic!()
+        };
+        let Entry::Record(r) = &mut g.children_mut()[0] else {
+            panic!()
+        };
+        let ctx = Ctx::default();
+        let mut typed = r.typed(ctx).unwrap();
+        let Typed::Stat(stat) = &mut typed else {
+            panic!("{typed:?}")
+        };
+        let swaps = &mut stat.model.as_mut().unwrap().material_swaps[0].value;
+        assert_eq!((swaps.count, swaps.swaps.len()), (1, 1));
+        swaps.swaps.extend([FormId(0x20), FormId(0x30)]);
+        assert!(r.set_typed(&typed));
+        let subs = r.subrecords().unwrap();
+        assert_eq!(subs[2].data(), molm(3, &[0x10, 0x20, 0x30]).as_slice());
+        // The written payload decodes back to the edited array.
+        let Typed::Stat(stat) = r.typed(ctx).unwrap() else {
+            panic!()
+        };
+        let swaps = &stat.model.as_ref().unwrap().material_swaps[0].value;
+        assert_eq!((swaps.count, swaps.swaps.len()), (3, 3));
+        assert!(stat.extra.is_empty(), "{:?}", stat.extra);
+    }
+
     /// Review round 3, finding 9: "no definition" and "compressed, not decoded" were both
     /// `None`; `Plugin::typed` now decodes on the fly.
     #[test]

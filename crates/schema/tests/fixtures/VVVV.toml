@@ -56,3 +56,16 @@ field = [
   { name = "Extra", type = "formid", since = 10 },
   { name = "Label", type = "lstring" },
 ]
+
+# M3.B10: a count field whose `count_from` array is version-gated. Encode writes the count
+# from the array's length when the array is present, and as stored when it is not.
+[[member]]
+sig = "CNTG"
+name = "GatedCount"
+type = "struct"
+card = "optional"
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Tag", type = "u8" },
+  { name = "Items", type = "array", element = "u8", count_from = "Count", since = 10 },
+]

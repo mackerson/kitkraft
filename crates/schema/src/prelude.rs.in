@@ -337,6 +337,22 @@ pub fn count<T: TryInto<usize>>(
         .map_err(|_| DecodeError::BadCount { field, offset })
 }
 
+/// The value a count field (`count_from`) is written with: the length of its array, or
+/// `max` when the length does not fit the count's type (the array is then written up to
+/// `max` elements, see [`write_counted`]), so the count always matches what follows.
+pub fn count_value<C: TryFrom<usize>>(len: usize, max: C) -> C {
+    C::try_from(len).unwrap_or(max)
+}
+
+/// Writes a `count_from` array: its elements in order, at most `max` of them (the largest
+/// value its count field holds; [`count_value`] writes the count).
+pub fn write_counted<T: Field, C: TryInto<usize>>(items: &[T], max: C, out: &mut Vec<u8>) {
+    let max = max.try_into().unwrap_or(usize::MAX);
+    for item in items.iter().take(max) {
+        item.write(out);
+    }
+}
+
 /// Writes every element in order.
 pub fn write_all<T: Field>(items: &[T], out: &mut Vec<u8>) {
     for item in items {
