@@ -35,6 +35,7 @@ use kitcraft_schema::{Confidence, Schema};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
+use super::newform;
 use super::place::{self, check_target_edids, PlaceRequest};
 use super::set::{
     check, describe, find_form, guard, install, outcome, stage, validate_json, winning_copy,
@@ -281,6 +282,25 @@ pub(super) fn gate(
     Ok(())
 }
 
+/// The new base forms a report holds (`[[new]]`, `[[clone]]`).
+fn new_forms_json(report: &crate::edit::patch::PatchReport) -> Value {
+    Value::Array(
+        report
+            .records
+            .iter()
+            .filter(|r| {
+                r.source.starts_with("new (") && r.signature != "REFR" && r.signature != "ACHR"
+            })
+            .map(|r| {
+                json!({
+                    "form": r.formref, "form_id": format!("{:08X}", r.form_id),
+                    "signature": r.signature, "editor_id": r.editor_id, "from": r.source,
+                })
+            })
+            .collect(),
+    )
+}
+
 /// A `[[place]]` entry as `place` takes it.
 fn place_request(p: &spec::PlaceEntry) -> Result<PlaceRequest, EngineError> {
     let f32s = |v: [f64; 3], what: &str| -> Result<[f32; 3], EngineError> {
@@ -301,6 +321,7 @@ fn place_request(p: &spec::PlaceEntry) -> Result<PlaceRequest, EngineError> {
         initially_disabled: p.initially_disabled,
         edid: p.edid.clone(),
         allow_reference: p.allow_reference.clone(),
+        base_local: None,
     })
 }
 
@@ -553,15 +574,44 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
         writes.add(g, &set.key, &set.edits, &label)?;
     }
-    // [[place]] (version 3): new references, resolved against the load order.
-    let place_reqs: Vec<PlaceRequest> = spec
+    // [[place]] (version 3): new references, resolved against the load order; a base
+    // `new:<name>` names a [[new]] or [[clone]] of this build.
+    let mut place_reqs: Vec<PlaceRequest> = spec
         .places
         .iter()
         .map(place_request)
         .collect::<Result<_, _>>()?;
-    let req_refs: Vec<&PlaceRequest> = place_reqs.iter().collect();
+    let local_bases: Vec<(String, String, Option<[u8; 4]>)> = spec
+        .news
+        .iter()
+        .filter_map(|n| Some((n.name.clone()?, n.edid.clone(), Some(n.signature))))
+        .chain(
+            spec.clones
+                .iter()
+                .filter_map(|c| Some((c.name.clone()?, c.edid.clone(), None))),
+        )
+        .collect();
+    // Every EditorID the build gives a new record, once.
+    let mut probes: Vec<PlaceRequest> = Vec::new();
+    for (key, edid) in spec
+        .news
+        .iter()
+        .map(|n| (&n.key, &n.edid))
+        .chain(spec.clones.iter().map(|c| (&c.key, &c.edid)))
+    {
+        let mut probe = PlaceRequest::probe(key);
+        probe.label = key.clone();
+        probe.edid = Some(edid.clone());
+        probes.push(probe);
+    }
+    let req_refs: Vec<&PlaceRequest> = place_reqs.iter().chain(probes.iter()).collect();
     check_target_edids(ID, None, &req_refs)?;
-    if writes.order.is_empty() && place_reqs.is_empty() && !plan {
+    if writes.order.is_empty()
+        && place_reqs.is_empty()
+        && spec.news.is_empty()
+        && spec.clones.is_empty()
+        && !plan
+    {
         return Err(failed(
             ID,
             "the spec's rules matched no records and it has no sets or places; nothing to write",
@@ -584,6 +634,51 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         let (copy, origin) = winning_copy(ID, loaded, *form, list, &limits)?;
         copies.push(copy);
         origins.push(origin);
+    }
+    // [[clone]] then [[new]] (clones carry their origin, after the sets').
+    let mut clone_sigs: Vec<(String, [u8; 4])> = Vec::new();
+    for c in &spec.clones {
+        let req = newform::CloneRequest {
+            label: c.key.clone(),
+            form: c.form.clone(),
+            plugin: c.plugin.clone(),
+            edid: c.edid.clone(),
+            edits: c.edits.clone(),
+        };
+        let (copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
+        super::set::extend_once(&mut limitations, unrelated);
+        clone_sigs.push((c.edid.clone(), copy.record.header.signature.0));
+        copies.push(copy);
+        origins.push(origin);
+    }
+    for n in &spec.news {
+        let req = newform::NewRequest {
+            label: n.key.clone(),
+            signature: n.signature,
+            edid: n.edid.clone(),
+            edits: n.edits.clone(),
+            masters: n.masters.clone(),
+        };
+        let (copy, notes) = newform::plan_new(ID, loaded, &req)?;
+        super::set::extend_once(&mut limitations, notes);
+        copies.push(copy);
+    }
+    for req in &mut place_reqs {
+        if let Some(name) = spec::local_ref(&req.base) {
+            let (_, edid, sig) = local_bases
+                .iter()
+                .find(|(n, _, _)| n.eq_ignore_ascii_case(name))
+                .ok_or_else(|| {
+                    spec_error(
+                        &format!("{}.base", req.label),
+                        format!("unknown name `{name}`"),
+                    )
+                })?;
+            let sig = sig
+                .or_else(|| clone_sigs.iter().find(|(e, _)| e == edid).map(|(_, s)| *s))
+                .ok_or_else(|| spec_error(&format!("{}.base", req.label), "no record type"))?;
+            req.base_local = Some((edid.clone(), sig));
+        }
     }
     // The places: each carries its cell (once per cell, and not when a rule or set already
     // writes that cell).
@@ -610,7 +705,11 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         place_evidence.extend(planned.evidence);
         new_refs.push(planned.new_ref);
     }
-    if writes.order.is_empty() && new_refs.is_empty() {
+    if writes.order.is_empty()
+        && new_refs.is_empty()
+        && spec.news.is_empty()
+        && spec.clones.is_empty()
+    {
         // A plan of nothing (a fresh scaffold: every rule commented out).
         let mut result = Outcome {
             data: json!({
@@ -716,6 +815,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             obj.insert("plan".into(), json!(true));
             obj.insert("spec".into(), json!(spec_path.display().to_string()));
             if spec.version >= 3 {
+                obj.insert("new_forms".into(), new_forms_json(&report));
                 obj.insert("placed".into(), Value::Array(placed.clone()));
                 obj.insert("imports".into(), Value::Array(imported.clone()));
                 obj.insert(
@@ -769,6 +869,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("spec".into(), json!(spec_path.display().to_string()));
         if spec.version >= 3 {
+            obj.insert("new_forms".into(), new_forms_json(&report));
             obj.insert("placed".into(), Value::Array(placed));
             obj.insert("imports".into(), Value::Array(imported));
             obj.insert(

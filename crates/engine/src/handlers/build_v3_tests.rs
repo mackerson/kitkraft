@@ -260,3 +260,77 @@ fn v3_spec_errors_name_the_key() {
     assert!(err.to_string().contains("spec: place"), "{err}");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+const NEW_AND_CLONE: &str = "[[clone]]\nname = \"crate\"\nform = \"KC_Crate\"\nedid = \"KC_CrateClone\"\n\n\
+[[new]]\nname = \"marker\"\ntype = \"STAT\"\nedid = \"KC_NewStatic\"\nmasters = [\"World.esm\"]\n\n\
+[[place]]\nbase = \"new:crate\"\ncell = \"TestInterior\"\nposition = [1, 2, 3]\nedid = \"KC_CloneRef\"\n\n\
+[[place]]\nbase = \"new:marker\"\ncell = \"TestInterior\"\nposition = [4, 5, 6]\n";
+
+#[test]
+fn new_and_clone_entries_feed_places() {
+    let d = dir("build-v3-new");
+    let data = world_master(&d);
+    let spec = spec_v3(&d, "new.toml", &data, NEW_AND_CLONE);
+    let out = d.join("New.esm");
+    let p = build(&spec, &out, json!({"plan": true})).unwrap();
+    let forms: Vec<(String, String)> = p["data"]["new_forms"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["editor_id"].as_str().unwrap().to_string(),
+                f["form_id"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    assert_eq!(
+        forms,
+        [
+            ("KC_CrateClone".to_string(), "01001000".to_string()),
+            ("KC_NewStatic".to_string(), "01001001".to_string()),
+        ]
+    );
+    let r = build(&spec, &out, json!({})).unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    let placed = r["data"]["placed"].as_array().unwrap();
+    assert_eq!(placed[0]["stored_base"], json!("01001000"));
+    assert_eq!(placed[0]["form_id"], json!("01001002"));
+    assert_eq!(placed[1]["stored_base"], json!("01001001"));
+    assert_eq!(placed[0]["base"]["editor_id"], json!("KC_CrateClone"));
+    let bytes = std::fs::read(&out).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    // Two builds, the same bytes.
+    build(&spec, &out, json!({"overwrite": true})).unwrap();
+    assert_eq!(std::fs::read(&out).unwrap(), bytes);
+    // Name errors: a clone of its own name, a clone of a new form, a new cell.
+    let fails = |name: &str, body: &str| -> String {
+        let spec = spec_v3(&d, name, &data, body);
+        build(&spec, &d.join("E.esm"), json!({}))
+            .unwrap_err()
+            .to_string()
+    };
+    assert!(fails(
+        "c1.toml",
+        "[[clone]]\nname = \"a\"\nform = \"new:a\"\nedid = \"KC_A\"\n"
+    )
+    .contains("a cycle"));
+    assert!(fails(
+        "c2.toml",
+        "[[new]]\nname = \"b\"\ntype = \"STAT\"\nedid = \"KC_B\"\n[[clone]]\nform = \"new:b\"\nedid = \"KC_C\"\n"
+    )
+    .contains("written by new[0]"));
+    assert!(fails(
+        "c3.toml",
+        "[[new]]\nname = \"b\"\ntype = \"STAT\"\nedid = \"KC_B\"\n[[place]]\nbase = \"KC_Crate\"\ncell = \"new:b\"\nposition = [0, 0, 0]\n"
+    )
+    .contains("must be a cell or world"));
+    assert!(fails(
+        "c4.toml",
+        "[[new]]\ntype = \"STAT\"\nedid = \"KC_Same\"\n[[clone]]\nform = \"KC_Crate\"\nedid = \"KC_Same\"\n"
+    )
+    .contains("edid-clash"));
+    let _ = std::fs::remove_dir_all(&d);
+}

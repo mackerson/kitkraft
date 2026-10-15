@@ -108,6 +108,11 @@ pub struct Copy {
     /// Carried only to hold the groups of a new record (`place`'s cell): reported as a
     /// parent, never edited.
     pub carried: bool,
+    /// A new form (`new`, `clone`, M4.E1) with this EditorID: the record gets a new own
+    /// FormID from the allocator once the master list is final, and its `EDID` set. A
+    /// `new` record has a source with an empty name, whose `masters` are the masters it
+    /// asks for.
+    pub new_form: Option<String>,
 }
 
 /// A form named by its defining plugin's file name and its object ID, mapped into the
@@ -170,6 +175,9 @@ pub struct NewRef {
     pub signature: Signature,
     /// The base form.
     pub base: FormName,
+    /// Instead of `base`: a new form written in the same call, by its EditorID (a spec's
+    /// `new:<name>` naming a `[[new]]` or `[[clone]]`).
+    pub base_local: Option<String>,
     /// Where it goes.
     pub place: RefPlace,
     /// Position X, Y, Z.
@@ -427,7 +435,7 @@ pub fn write_patch_with(
 
     // Pass 1: no scaled sources, the target's master list, and which copies need FormIDs
     // remapped.
-    for copy in &copies {
+    for copy in copies.iter().filter(|c| !c.source.name.is_empty()) {
         refuse_scaled(copy, &flag_of)?;
     }
     let original_masters: Vec<String> = existing
@@ -445,6 +453,21 @@ pub fn write_patch_with(
     let mut remap = vec![false; copies.len()];
     for (copy, needs) in copies.iter().zip(remap.iter_mut()) {
         let mut wanted = copy.source.masters.clone();
+        if copy.source.name.is_empty() {
+            // A `new` record: the masters it asks for join the list (no FormIDs of its
+            // own to keep in place).
+            for name in wanted {
+                if !masters.iter().any(|m| m.eq_ignore_ascii_case(&name)) {
+                    if own_records {
+                        return Err(refused(format!(
+                            "{target_name} has records of its own; adding the master {name} would change what their FormIDs mean"
+                        )));
+                    }
+                    masters.push(name);
+                }
+            }
+            continue;
+        }
         wanted.push(copy.source.name.clone());
         if wanted.iter().any(|m| m.eq_ignore_ascii_case(&target_name)) {
             return Err(refused(format!(
@@ -473,7 +496,10 @@ pub fn write_patch_with(
     }
     // New references name their base, cell and world: those plugins become masters.
     for new in &new_refs {
-        let mut named = vec![&new.base, new.place.cell()];
+        let mut named = vec![new.place.cell()];
+        if new.base_local.is_none() {
+            named.push(&new.base);
+        }
         named.extend(new.place.world());
         for form in named {
             let name = &form.plugin;
@@ -501,6 +527,8 @@ pub fn write_patch_with(
     let mut placed: Vec<Placed> = Vec::new();
     let mut reports: Vec<RecordReport> = Vec::new();
     let mut seen: BTreeSet<(u32, [u8; 4])> = BTreeSet::new();
+    // New forms waiting for their FormID: (index in `placed` and `reports`, EditorID).
+    let mut pending_new: Vec<(usize, String)> = Vec::new();
     for (copy, needs_remap) in copies.into_iter().zip(remap) {
         let source_masters = {
             let mut m = copy.source.masters.clone();
@@ -596,7 +624,9 @@ pub fn write_patch_with(
             &mut limitations,
         )?;
         let key = (record.header.form_id, record.header.signature.0);
-        if !seen.insert(key) {
+        if let Some(edid) = &copy.new_form {
+            pending_new.push((placed.len(), edid.clone()));
+        } else if !seen.insert(key) {
             return Err(refused(format!(
                 "{} {} is written twice in one patch; merge its edits into one",
                 record.header.signature, copy.formref
@@ -628,7 +658,7 @@ pub fn write_patch_with(
     };
     let mut forms: Option<NewForms> = None;
     let mut new_forms: Vec<NewFormReport> = Vec::new();
-    if !new_refs.is_empty() {
+    if !new_refs.is_empty() || !pending_new.is_empty() {
         // The allocator's own prefix is the master count, which holds only when every
         // master is full-scale (small and medium masters take no full slot in the game).
         for m in &masters {
@@ -659,6 +689,39 @@ pub fn write_patch_with(
         }
         .map_err(|e| refused(format!("{target_name}: {e}")))?;
         let mut allocator = allocator;
+        // New forms (`new`, `clone`): their FormIDs and EditorIDs.
+        let mut local: Vec<(String, u32)> = Vec::new();
+        for (i, edid) in &pending_new {
+            let form_id = allocator
+                .allocate()
+                .map_err(|e| refused(format!("{edid}: {e}")))?;
+            let (Some(p), Some(r)) = (placed.get_mut(*i), reports.get_mut(*i)) else {
+                return Err(PatchError::Io("a new form lost its place".into()));
+            };
+            p.record
+                .decompress(&options.limits)
+                .map_err(|e| PatchError::Io(format!("{edid}: {e}")))?;
+            p.record.header.form_id = form_id;
+            let mut data = edid.as_bytes().to_vec();
+            data.push(0);
+            let edid_sig = Signature(*b"EDID");
+            if let Some(subs) = p.record.subrecords_mut() {
+                match subs.iter_mut().find(|s| s.signature() == edid_sig) {
+                    Some(s) => s.set_data(data),
+                    None => subs.insert(0, Subrecord::new(edid_sig, data)),
+                }
+            }
+            if !seen.insert((form_id, p.record.header.signature.0)) {
+                return Err(refused(format!(
+                    "{edid}: FormID {form_id:08X} allocated twice"
+                )));
+            }
+            r.source = format!("new ({})", r.formref);
+            r.formref = format!("{target_name}:{:08X}", form_id & 0x00FF_FFFF);
+            r.form_id = form_id;
+            r.editor_id = Some(edid.clone());
+            local.push((edid.clone(), form_id));
+        }
         let target_masters = masters.clone();
         let stored = |form: &FormName| -> Result<u32, PatchError> {
             formref_in(
@@ -671,7 +734,19 @@ pub fn write_patch_with(
             .map_err(|m| refused(format!("{}: {m}", form.label())))
         };
         for new in new_refs {
-            let base = stored(&new.base)?;
+            let base = match &new.base_local {
+                Some(edid) => local
+                    .iter()
+                    .find(|(e, _)| e.eq_ignore_ascii_case(edid))
+                    .map(|(_, id)| *id)
+                    .ok_or_else(|| {
+                        refused(format!(
+                            "{}: no new form `{edid}` is written in this call",
+                            new.label
+                        ))
+                    })?,
+                None => stored(&new.base)?,
+            };
             let cell = stored(new.place.cell())?;
             let world = new.place.world().map(stored).transpose()?;
             let place = match (&new.place, world) {

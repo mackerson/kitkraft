@@ -80,6 +80,28 @@ pub(crate) struct PlaceRequest {
     pub initially_disabled: bool,
     pub edid: Option<String>,
     pub allow_reference: Vec<String>,
+    /// A base written in the same call (a spec's `new:<name>`): its EditorID and type.
+    pub base_local: Option<(String, [u8; 4])>,
+}
+
+impl PlaceRequest {
+    /// A request with only a label (for EditorID checks).
+    pub(crate) fn probe(label: &str) -> PlaceRequest {
+        PlaceRequest {
+            label: label.to_string(),
+            base: String::new(),
+            plugin: None,
+            cell: None,
+            world: None,
+            position: [0.0; 3],
+            rotation: [0.0; 3],
+            persistent: false,
+            initially_disabled: false,
+            edid: None,
+            allow_reference: Vec::new(),
+            base_local: None,
+        }
+    }
 }
 
 /// A placement resolved against the load order, ready for the patch writer.
@@ -162,6 +184,7 @@ impl PlaceRequest {
                         .collect()
                 })
                 .unwrap_or_default(),
+            base_local: None,
         })
     }
 }
@@ -195,14 +218,14 @@ fn name_of(loaded: &Loaded, form: GlobalForm) -> FormName {
 }
 
 /// Whether `edid` is a usable EditorID: ASCII letters, digits and `_`, 1..=200 bytes.
-fn valid_edid(edid: &str) -> bool {
+pub(crate) fn valid_edid(edid: &str) -> bool {
     !edid.is_empty()
         && edid.len() <= 200
         && edid.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
 /// The form of the load order that already has EditorID `edid` (case-insensitive).
-fn edid_owner(loaded: &Loaded, edid: &str) -> Option<String> {
+pub(crate) fn edid_owner(loaded: &Loaded, edid: &str) -> Option<String> {
     for (i, p) in loaded.lo.plugins.iter().enumerate() {
         let Some(idx) = p.index.as_deref() else {
             continue;
@@ -439,24 +462,43 @@ pub(crate) fn plan(
 ) -> Result<Planned, EngineError> {
     let at = &req.label;
     let mut limitations = Vec::new();
-    // The base.
-    let base = find_form(command, loaded, &req.base, req.plugin.as_deref())
-        .map_err(|e| refuse(command, "no-base", format!("{at}: {e}")))?;
-    extend_once(&mut limitations, safe_source(command, loaded, base)?);
-    let (base_sig, _, _, _, _) = winner_facts(loaded, base).ok_or_else(|| {
-        refuse(
-            command,
-            "no-base",
-            format!("{at}: {} has no version", loaded.lo.form_label(base)),
-        )
-    })?;
+    // The base: a form of the load order, or one written in the same call.
+    let base = match &req.base_local {
+        Some(_) => None,
+        None => {
+            let base = find_form(command, loaded, &req.base, req.plugin.as_deref())
+                .map_err(|e| refuse(command, "no-base", format!("{at}: {e}")))?;
+            extend_once(&mut limitations, safe_source(command, loaded, base)?);
+            Some(base)
+        }
+    };
+    let base_sig = match (&req.base_local, base) {
+        (Some((_, sig)), _) => *sig,
+        (None, Some(base)) => {
+            winner_facts(loaded, base)
+                .ok_or_else(|| {
+                    refuse(
+                        command,
+                        "no-base",
+                        format!("{at}: {} has no version", loaded.lo.form_label(base)),
+                    )
+                })?
+                .0
+        }
+        (None, None) => return Err(refuse(command, "no-base", format!("{at}: no base"))),
+    };
+    let base_label = match (&req.base_local, base) {
+        (Some((edid, _)), _) => format!("new form {edid}"),
+        (None, Some(b)) => loaded.lo.form_label(b),
+        (None, None) => String::new(),
+    };
     if NOT_PLACEABLE.iter().any(|s| **s == base_sig) {
         return Err(refuse(
             command,
             "base-not-placeable",
             format!(
                 "{at}: {} is a {}; a placed reference names a base object, never a reference, cell, world or navmesh (corpus: every REFR and ACHR NAME)",
-                loaded.lo.form_label(base),
+                base_label,
                 String::from_utf8_lossy(&base_sig)
             ),
         ));
@@ -674,7 +716,9 @@ pub(crate) fn plan(
     }
 
     let mut evidence = Vec::new();
-    evidence.extend(evidence_of(loaded, base));
+    if let Some(base) = base {
+        evidence.extend(evidence_of(loaded, base));
+    }
     evidence.extend(evidence_of(loaded, cell));
     let world_json = place
         .world()
@@ -701,7 +745,14 @@ pub(crate) fn plan(
     }
     let info = json!({
         "entry": at,
-        "base": form_json(loaded, base),
+        "base": match (&req.base_local, base) {
+            (Some((edid, sig)), _) => json!({
+                "form": req.base, "signature": String::from_utf8_lossy(sig),
+                "editor_id": edid, "winner": null,
+            }),
+            (None, Some(b)) => form_json(loaded, b),
+            (None, None) => Value::Null,
+        },
         "cell": cell_json,
         "world": world_json,
     });
@@ -710,7 +761,14 @@ pub(crate) fn plan(
         carried_origin: origin,
         new_ref: NewRef {
             signature,
-            base: name_of(loaded, base),
+            base: base.map_or_else(
+                || FormName {
+                    plugin: String::new(),
+                    object_id: 0,
+                },
+                |b| name_of(loaded, b),
+            ),
+            base_local: req.base_local.as_ref().map(|(e, _)| e.clone()),
             place,
             position: req.position,
             rotation: req.rotation,

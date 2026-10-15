@@ -107,6 +107,7 @@ fn copy_of(plugins: &[Indexed], form: &str, edits: Vec<Edit>) -> Copy {
         edits,
         formref: winner.form.formref(),
         carried: false,
+        new_form: None,
     }
 }
 
@@ -593,6 +594,7 @@ fn scaled_sources_are_refused() {
         edits: Vec::new(),
         formref: format!("{}:000800", p.plugin.name),
         carried: false,
+        new_form: None,
     };
     let target = d.join("P.esp");
     let opts = options(&NoStrings, &plugins);
@@ -643,6 +645,7 @@ fn new_header_metadata_and_interior_cell_count() {
             edits: Vec::new(),
             formref: format!("Cells.esm:{form_id:06X}"),
             carried: false,
+            new_form: None,
         }
     };
     let header = |path: &Path| -> Vec<(String, Vec<u8>)> {

@@ -870,6 +870,22 @@ unless named in `allow_reference`. `data` is `set`'s plus `placed[]` (`entry`, `
 `carried_from`, `next_object_id` and `validate`. Evidence: the base's and the cell's
 winning records, and every written record.
 
+### `new`, `clone` (M4.E1)
+
+`new {type, edid, into, fields?, masters?}` and `clone {form, edid, into, fields?, plugin?,
+allow_untyped_lstrings}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
+<into> --fields '{"FLTV": 1.0}' --masters Starfield.esm`, `kit clone <form> KC_Copy
+<into>`. A new base form (a type the schema defines that lives in its own top-level
+group; the schema's required members written as zeros or an empty string, each field's
+subrecord created first) or a copy of a top-level winner, with a new FormID from lane A's
+allocator (full-scale targets and masters only) and the EditorID given; written as `set`
+writes (staged, validated, moved). Refusals: `failed` with `new.<code>:` or
+`clone.<code>:` (`untyped`, `not-top-level`, `edid-invalid`, `edid-clash`, `no-master`,
+`edid-field`, `occurrence`, `unknown-member`, `no-form`, `fails-validate`). `data` is
+`set`'s plus `new_forms[]` (`form`, `form_id`, `signature`, `editor_id`, `from`, `offset`,
+`length`), `next_object_id` and `validate`. Spec v3 `[[new]]` and `[[clone]]` take the
+same keys plus a `name`; a `[[place]]` base may be `new:<name>`.
+
 ### `testplan` (M4.E6)
 
 `testplan {plugin, out, spec?}` plus the load-order arguments; CLI `kit testplan <plugin>

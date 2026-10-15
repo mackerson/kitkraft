@@ -233,6 +233,7 @@ pub(crate) fn winning_copy(
             edits,
             formref: label,
             carried: false,
+            new_form: None,
         },
         origin,
     ))

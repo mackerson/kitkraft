@@ -790,9 +790,9 @@ is under "Next".
     `TES4` `ONAM` by lane A's M4.A6 rule (overrides of master records in groups 7, 9, 10, in
     file order; F23 open) for every `set`, `build` and `place`. Each cell a place needs is
     carried once, and not when a rule or set writes it. `plan` lists the new forms with
-    their FormIDs; versions 1 and 2 build as before. `[[new]]` and `[[clone]]` are refused
-    with the reason (M4.E1's `new`/`clone` not implemented yet), and so is every `new:`
-    reference, since a placed reference is never a base, cell or world. Tests through
+    their FormIDs; versions 1 and 2 build as before. `[[new]]` and `[[clone]]` landed with
+    M4.E1 (below); a `new:` name of a placed reference is refused, since a placed
+    reference is never a base, cell or world. Tests through
     `execute` (`handlers/build_v3_tests.rs`): two builds byte-identical, the plan, rules over
     `REFR` with `ONAM`, an import (and its master refusal), and an error per case (unknown
     name, a cycle, a placed reference as a base, duplicate names and EditorIDs, positions,
@@ -833,6 +833,25 @@ is under "Next".
     `runtime-slots-by-scale` and `masters-load-first` and the batch folder (grade D) are
     limitations. Deterministic; `out` guarded (never game/user Data or MO2). Tests through
     `execute` (`handlers/testplan_tests.rs`).
+  - M4.E1 `new` and `clone` (`Implemented`; `handlers/newform.rs`; CLI `kit new <type>
+    <edid> <into> [--fields JSON] [--masters ...]`, `kit clone <form> <edid> <into>
+    [--fields JSON]`): a new base form of a typed top-level type (`EDID`, the schema's
+    required top-level members as zeros or an empty string, each field's subrecord created
+    in schema order then written as `set` writes it), or a copy of a top-level winner with
+    a new FormID and EditorID (lstrings inlined, FormIDs as stored, remapped or refused as
+    the patch writer does). FormIDs from lane A's `NewForms` after the master list is final
+    (`write_patch` `Copy::new_form`); full-scale targets and masters only; EditorID clashes,
+    nested types (references: `place`; cells, worlds, quest children), untyped types,
+    `EDID` in fields and repeated occurrences are typed refusals (`new.<code>`,
+    `clone.<code>`). Spec v3 `[[new]]` and `[[clone]]` (names; a `[[place]]` base may be
+    `new:<name>`; a clone of a form of the same build and a new cell or world are refused).
+    Tests through `execute` (`handlers/newform_tests.rs`, `build_v3_tests.rs`). **W1
+    deliverable** on the official file: `kit new GLOB KitKraftTestGlobal` (FLTV 1.0) and
+    `kit clone Starfield.esm:1E4FBD KitKraftCrateClone` into `out\w1\KitKraftW1.esm`
+    (430 bytes, SHA-256 `5d122dd3c93a0fecdbe8cde6da116f5f9c710d45d49d07a559ae51e68c2c33ae`):
+    FormIDs `01001000`, `01001001`, `HEDR` next object ID `FF001002`; validate 0 findings,
+    roundtrip identical, `inspect` finds the clone. Whether they equal the CK's choice is
+    fixture F06's question (not observed; named in `limitations`).
   - **First POI (rung 0) built** (`docs/poi/first-poi.md`, spec `docs/poi/first-poi.toml`):
     `out\poi\KitKraftFirstPOI.esm` (1,821 bytes, SHA-256
     `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1`, master

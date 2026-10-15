@@ -16,6 +16,9 @@ mod deploy;
 mod diff;
 mod inspect;
 mod load;
+mod newform;
+#[cfg(test)]
+mod newform_tests;
 mod overhaul;
 #[cfg(test)]
 mod overhaul_tests;
@@ -117,6 +120,8 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("overhaul.scaffold", Box::new(overhaul::run)),
         ("package", Box::new(package::run)),
         ("place", Box::new(place::run)),
+        ("new", Box::new(newform::run_new)),
+        ("clone", Box::new(newform::run_clone)),
         ("testplan", Box::new(testplan::run)),
     ];
     for r in resolving() {
