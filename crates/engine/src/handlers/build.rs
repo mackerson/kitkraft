@@ -34,7 +34,7 @@ use kitkraft_esm::DecodeLimits;
 use kitkraft_schema::{Confidence, Schema};
 use serde_json::{json, Value};
 
-use super::load::{acquire, Loaded};
+use super::load::{acquire, has_load_args, load, Loaded};
 use super::newform;
 use super::place::{self, check_target_edids, PlaceRequest};
 use super::set::{
@@ -417,10 +417,20 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let text = std::fs::read_to_string(&spec_path)
         .map_err(|e| failed(ID, format!("{}: {e}", spec_path.display())))?;
     let spec: Spec = spec::parse(&text).map_err(|e| failed(ID, e.to_string()))?;
-    let loaded = match &spec.load_order {
-        Some(lo_args) => acquire(session, lo_args, ID)?,
-        None => acquire(session, args, ID)?,
+    // The load order the spec resolves against, and the other one it may differ from: the
+    // one the call also names (a spec's `[load_order]` wins over it), else the session's
+    // before this call replaces it (`place::order_notes`).
+    let lo_args = spec.load_order.as_ref().unwrap_or(args);
+    let prior: Option<Loaded> = if spec.load_order.is_some() && has_load_args(args) {
+        Some(load(args, Some(&*session), ID)?.0)
+    } else {
+        place::take_prior(session, lo_args)
     };
+    if let Err(e) = acquire(session, lo_args, ID) {
+        place::restore_prior(session, prior);
+        return Err(e);
+    }
+    let loaded = acquire(session, &json!({}), ID)?;
     // `out` is checked as the patch writer checks its target (never a load-order plugin,
     // the game or user Data directory, or MO2), and an existing `out` is replaced only
     // with `overwrite`, before anything is staged. A plan writes nothing to `out`.
@@ -768,6 +778,13 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         &limits,
     )?;
     let checked = check(ID, loaded, &staged)?;
+    // Carried records (parents, and placed references' cells a rule or set edits) against
+    // their winners, read from the staged plugin before it moves.
+    let carried = place::carried_json(loaded, &report, &staged.path);
+    super::set::extend_once(
+        &mut limitations,
+        place::order_notes(loaded, prior.as_ref(), &carried),
+    );
     let placed = place::placed_json(
         &report,
         &place_infos
@@ -857,10 +874,21 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         if let Some(obj) = result.data.as_object_mut() {
             obj.insert("plan".into(), json!(true));
             obj.insert("spec".into(), json!(spec_path.display().to_string()));
-            if spec.version >= 3 {
-                obj.insert("new_forms".into(), new_forms_json(&report));
+            let v3 = (spec.version >= 3).then(|| V3Plan {
+                placed: placed.clone(),
+                briefs: spec.places.iter().map(|p| p.brief.clone()).collect(),
+                new_forms: new_forms_json(&report)
+                    .as_array()
+                    .cloned()
+                    .unwrap_or_default(),
+                imports: imported.clone(),
+                carried: carried.clone(),
+            });
+            if let Some(v3) = &v3 {
+                obj.insert("new_forms".into(), Value::Array(v3.new_forms.clone()));
                 obj.insert("placed".into(), Value::Array(placed.clone()));
                 obj.insert("imports".into(), Value::Array(imported.clone()));
+                obj.insert("carried".into(), Value::Array(carried.clone()));
                 obj.insert(
                     "next_object_id".into(),
                     json!(report.next_object_id.map(|n| format!("{n:08X}"))),
@@ -870,8 +898,20 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             obj.insert("warnings".into(), json!(warnings));
             obj.insert("validate".into(), validate_json(&checked));
             obj.insert("passed".into(), json!(checked.passed()));
+            let counts = v3
+                .as_ref()
+                .map(|v| {
+                    format!(
+                        ", {} placed reference(s), {} new form(s), {} import(s), {} carried record(s)",
+                        v.placed.len(),
+                        v.new_forms.len(),
+                        v.imports.len(),
+                        v.carried.len()
+                    )
+                })
+                .unwrap_or_default();
             let head = format!(
-                "plan: {changed_fields} field change(s) on {} record(s) for {} (nothing written); validate {}",
+                "plan: {changed_fields} field change(s) on {} record(s){counts} for {} (nothing written); validate {}",
                 writes.order.len(),
                 out.display(),
                 if checked.passed() { "passed" } else { "FAILED" }
@@ -884,7 +924,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     &masters,
                     &classes_json,
                     &rules_json,
-                    &changes
+                    &changes,
+                    v3.as_ref(),
                 )),
             );
             obj.insert("changes".into(), Value::Array(changes));
@@ -923,6 +964,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             obj.insert("new_forms".into(), new_forms_json(&report));
             obj.insert("placed".into(), Value::Array(placed));
             obj.insert("imports".into(), Value::Array(imported));
+            obj.insert("carried".into(), Value::Array(carried));
             obj.insert(
                 "next_object_id".into(),
                 json!(report.next_object_id.map(|n| format!("{n:08X}"))),
@@ -956,15 +998,31 @@ fn show(value: &Value) -> String {
     }
 }
 
+/// What a version 3 plan adds to its text.
+struct V3Plan {
+    /// `placed[]` entries, in spec order.
+    placed: Vec<Value>,
+    /// Each `[[place]]` entry's brief row, in spec order.
+    briefs: Vec<Option<String>>,
+    /// `new_forms[]` (new base forms; placed references are in `placed`).
+    new_forms: Vec<Value>,
+    /// `imports[]`.
+    imports: Vec<Value>,
+    /// `carried[]`.
+    carried: Vec<Value>,
+}
+
 /// The text of a plan (CLI output): the head line, the masters, every class and rule with
 /// its brief row and counts, and every change with its brief row, the spec entries that
-/// wrote it, and its before and after.
+/// wrote it, and its before and after; for a version 3 spec also every placed reference,
+/// new form, import and carried record.
 fn plan_text(
     head: &str,
     masters: &Value,
     classes: &[Value],
     rules: &[Value],
     changes: &[Value],
+    v3: Option<&V3Plan>,
 ) -> String {
     let text = |v: &Value| v.as_str().unwrap_or("-").to_string();
     let list = |v: &Value| {
@@ -1031,6 +1089,81 @@ fn plan_text(
                 " (unchanged)"
             } else {
                 ""
+            }
+        ));
+    }
+    if let Some(v3) = v3 {
+        out.push(format!("placed ({}):", v3.placed.len()));
+        let at =
+            |v: &Value, pointer: &str| v.pointer(pointer).map_or_else(|| "-".to_string(), text);
+        for (i, p) in v3.placed.iter().enumerate() {
+            let brief = v3.briefs.get(i).cloned().flatten();
+            let pos = p["position"]
+                .as_array()
+                .map(|a| a.iter().map(show).collect::<Vec<_>>().join(", "))
+                .unwrap_or_default();
+            out.push(format!(
+                "  {:<4} {} {} {} {}: base {} {} in {} {} {} at ({pos}){}",
+                brief.as_deref().unwrap_or("-"),
+                text(&p["entry"]),
+                text(&p["signature"]),
+                text(&p["form"]),
+                text(&p["editor_id"]),
+                at(p, "/base/form"),
+                at(p, "/base/editor_id"),
+                at(p, "/cell/kind"),
+                at(p, "/cell/form"),
+                at(p, "/cell/editor_id"),
+                if p["persistent"] == json!(true) {
+                    ", persistent"
+                } else {
+                    ""
+                }
+            ));
+        }
+        out.push(format!("new forms ({}):", v3.new_forms.len()));
+        for n in &v3.new_forms {
+            out.push(format!(
+                "  {} {} {}: {}",
+                text(&n["signature"]),
+                text(&n["form"]),
+                text(&n["editor_id"]),
+                text(&n["from"])
+            ));
+        }
+        out.push(format!("imports ({}):", v3.imports.len()));
+        for i in &v3.imports {
+            out.push(format!(
+                "  {} {}: {} inserted, {} replaced",
+                text(&i["import"]),
+                text(&i["from"]),
+                i["inserted"],
+                i["replaced"]
+            ));
+        }
+        let carried: Vec<String> = v3
+            .carried
+            .iter()
+            .map(|c| {
+                format!(
+                    "{} {} {}{}",
+                    text(&c["signature"]),
+                    text(&c["form"]),
+                    text(&c["editor_id"]),
+                    if c["edited"] == json!(true) {
+                        " (edited)"
+                    } else {
+                        ""
+                    }
+                )
+            })
+            .collect();
+        out.push(format!(
+            "carried: {}",
+            if carried.is_empty() {
+                "-".to_string()
+            } else {
+                carried.join(", ")
             }
         ));
     }

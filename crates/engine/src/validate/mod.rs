@@ -650,7 +650,7 @@ fn validate_plugin(
     })
     .map_err(|e| format!("{name}: {e}"))?;
     if cells::Facts::any(&pass) {
-        cells::finish(&pass, path, &mut findings);
+        cells::finish(&pass, path, &mut findings, &mut report.limitations);
     }
     report.records = stats.0;
     report.groups = stats.1;

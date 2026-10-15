@@ -40,7 +40,7 @@
 //!   (`My Games\Starfield\Data`) or an MO2 instance (a directory holding
 //!   `ModOrganizer.ini`, or a profile with `modlist.txt` and `plugins.txt`), at any depth.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
@@ -527,6 +527,8 @@ pub fn write_patch_with(
     let mut placed: Vec<Placed> = Vec::new();
     let mut reports: Vec<RecordReport> = Vec::new();
     let mut seen: BTreeSet<(u32, [u8; 4])> = BTreeSet::new();
+    // Records written as parents (cells, worlds): key -> the plugin they were copied from.
+    let mut parents_from: BTreeMap<(u32, [u8; 4]), String> = BTreeMap::new();
     // New forms waiting for their FormID: (index in `placed` and `reports`, EditorID).
     let mut pending_new: Vec<(usize, String)> = Vec::new();
     for (copy, needs_remap) in copies.into_iter().zip(remap) {
@@ -550,6 +552,7 @@ pub fn write_patch_with(
             if in_target || !seen.insert(key) {
                 continue;
             }
+            parents_from.insert(key, copy.source.name.clone());
             let inlined = inline_lstrings(
                 &mut record,
                 &copy.source,
@@ -589,6 +592,29 @@ pub fn write_patch_with(
         let mut record = copy.record.clone();
         if needs_remap {
             remap_record(&mut record, &copy.source, &map, &flag_of, &options.limits)?;
+        }
+        // A carried record (a placed reference's cell) that an earlier copy already wrote
+        // as its parent (a `[[set]]` or rule on a reference of that cell) is written once:
+        // the parent copy stands (its own parents were skipped above for the same reason).
+        if copy.carried && copy.edits.is_empty() {
+            let key = (record.header.form_id, record.header.signature.0);
+            if let Some(from) = parents_from.get(&key) {
+                let note = if from.eq_ignore_ascii_case(&copy.source.name) {
+                    format!(
+                        "{} {} is carried once (it is also the parent of an edited record)",
+                        record.header.signature, copy.formref
+                    )
+                } else {
+                    format!(
+                        "{} {} is carried once, as the parent of an edited record copied from {from}; its winning version in {} is not in the patch",
+                        record.header.signature, copy.formref, copy.source.name
+                    )
+                };
+                push_once(&mut limitations, note);
+                continue;
+            }
+        }
+        if needs_remap {
             limitations.push(format!(
                 "{} {}: FormIDs remapped into {target_name}'s master list",
                 record.header.signature, copy.formref

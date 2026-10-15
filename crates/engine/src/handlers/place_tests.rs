@@ -414,10 +414,10 @@ fn refusals_are_typed_and_write_nothing() {
         (json!({"base": "Nope", "cell": "TestInterior"}), "no-base"),
         (json!({"cell": "KC_Crate"}), "not-a-cell"),
         (json!({"cell": "Nope"}), "no-cell"),
-        (json!({}), "no-cell"),
+        (json!({}), "invalid_args"),
         (
             json!({"cell": "TestInterior", "world": "TestWorld"}),
-            "cell-and-world",
+            "invalid_args",
         ),
         (json!({"world": "KC_Crate"}), "not-a-world"),
         (
@@ -431,11 +431,11 @@ fn refusals_are_typed_and_write_nothing() {
         ),
         (
             json!({"cell": "TestInterior", "edid": "bad id"}),
-            "edid-invalid",
+            "invalid_args",
         ),
         (
             json!({"cell": "TestInterior", "edid": "bad\u{0}id"}),
-            "edid-invalid",
+            "invalid_args",
         ),
         (
             json!({"cell": "TestInterior", "position": [1.0, 2.0]}),
@@ -583,5 +583,178 @@ fn an_existing_cell_keeps_its_observed_path() {
         .filter(|r| r.signature == Signature(*b"CELL"))
         .count();
     assert_eq!(cells, 1, "the cell is not duplicated");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, finding 4): the header stamps of a new reference (and of
+/// a new form) are not called corpus defaults: 0 is rare or unobserved in the corpus for
+/// them and their meaning is unknown (F20). The values are unchanged.
+#[test]
+fn header_stamps_are_not_claimed_as_corpus_defaults() {
+    let d = dir("place-stamps");
+    let data = world_master(&d);
+    let into = d.join("S.esm");
+    let r = place(&data, &into, json!({"cell": "TestInterior"})).unwrap();
+    let text: Vec<&str> = r["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l.as_str().unwrap())
+        .collect();
+    assert!(
+        !text.iter().any(|l| l.contains("corpus default")),
+        "{text:?}"
+    );
+    assert!(
+        text.iter()
+            .any(|l| l.contains("rare or unobserved in the corpus")
+                && l.contains("meaning is unknown")
+                && l.contains("F20")),
+        "{text:?}"
+    );
+    let bytes = std::fs::read(&into).unwrap();
+    let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+    let refr = index
+        .records
+        .iter()
+        .find(|x| x.signature == Signature(*b"REFR"))
+        .unwrap();
+    let header = &bytes[refr.offset as usize..refr.offset as usize + 24];
+    // Timestamp, version control, form version 582, unknown: as before.
+    assert_eq!(header[16..24], [0, 0, 0, 0, 0x46, 0x02, 0, 0]);
+    let r = execute(
+        "new",
+        json!({"type": "STAT", "edid": "KC_Stamped", "into": d.join("N.esm").display().to_string(),
+               "masters": ["World.esm"], "plugins": ["World.esm"],
+               "data_dir": data.display().to_string(), "no_cache": true}),
+    )
+    .unwrap();
+    assert!(!r["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|l| l.as_str().unwrap().contains("corpus default")));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, finding 6): argument-shaped refusals are `invalid_args`
+/// with a JSON pointer, as `set` reports a bad field, and keep their `place.<code>` as the
+/// rule; in a spec they stay `failed` errors naming the key.
+#[test]
+fn argument_refusals_are_invalid_args_with_a_pointer() {
+    let d = dir("place-arg-refusals");
+    let data = world_master(&d);
+    let into = d.join("R.esm");
+    let cases = [
+        (json!({}), "", "place.no-cell"),
+        (
+            json!({"cell": "TestInterior", "world": "TestWorld"}),
+            "/world",
+            "place.cell-and-world",
+        ),
+        (
+            json!({"cell": "TestInterior", "edid": "bad id"}),
+            "/edid",
+            "place.edid-invalid",
+        ),
+        (
+            json!({"cell": "TestInterior", "position": [1.0, 1e39, 0.0]}),
+            "/position/1",
+            "place.bad-vector",
+        ),
+        (
+            json!({"cell": "TestInterior", "rotation": [0.0, 0.0, -1e39]}),
+            "/rotation/2",
+            "place.bad-vector",
+        ),
+    ];
+    for (extra, pointer, rule) in cases {
+        let err = place(&data, &into, extra.clone()).unwrap_err();
+        let crate::EngineError::InvalidArgs { violations, .. } = &err else {
+            panic!("{extra}: {err}")
+        };
+        assert_eq!(violations.len(), 1, "{extra}");
+        assert_eq!(violations[0].pointer, pointer, "{extra}");
+        assert_eq!(violations[0].rule, rule, "{extra}");
+        assert!(violations[0].message.starts_with(rule), "{extra}");
+        assert!(!into.exists());
+    }
+    // A resolution failure stays `failed` with its code.
+    let err = place(&data, &into, json!({"cell": "Nope"})).unwrap_err();
+    assert_eq!(err.kind(), "failed");
+    assert_eq!(code(err), "no-cell");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (lane E fix round, finding 5): `carried_from` and `carried[]` say how many
+/// versions the load order has, and a place resolved against another list than the
+/// session's says that its carried cell reverts the override the session's order has.
+#[test]
+fn the_result_counts_versions_and_names_a_reverted_override() {
+    let d = dir("place-order");
+    let data = world_master(&d);
+    // Mod.esm overrides the interior cell.
+    let m = data.join("Mod.esm");
+    execute(
+        "set",
+        json!({"form": "TestInterior", "into": m.display().to_string(),
+               "fields": {"FULL": "Modded Room"}, "plugins": ["World.esm"],
+               "data_dir": data.display().to_string(), "no_cache": true}),
+    )
+    .unwrap();
+    let engine = crate::Engine::with_default_handlers();
+    engine
+        .execute(
+            "load",
+            json!({"plugins": ["World.esm", "Mod.esm"], "data_dir": data.display().to_string(),
+                   "no_cache": true}),
+        )
+        .unwrap();
+    // The session's order (World.esm, Mod.esm): two versions, no note.
+    let mut a = args(&data, &d.join("A.esm"), json!({"cell": "TestInterior"}));
+    a.as_object_mut().unwrap().remove("plugins");
+    a.as_object_mut().unwrap().remove("data_dir");
+    let r = engine.execute("place", a).unwrap();
+    assert_eq!(
+        r["data"]["carried_from"]["versions_in_load_order"],
+        json!(2)
+    );
+    assert_eq!(r["data"]["carried_from"]["plugin"], json!("Mod.esm"));
+    assert_eq!(r["data"]["carried"][0]["versions_in_load_order"], json!(2));
+    assert_eq!(r["data"]["carried"][0]["winner"], json!("Mod.esm"));
+    let notes = |r: &Value| -> Vec<String> {
+        r["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|l| l.as_str().unwrap().to_string())
+            .filter(|l| l.contains("this call resolved against") || l.contains("reverts"))
+            .collect()
+    };
+    assert_eq!(notes(&r), Vec::<String>::new());
+    // A call naming World.esm alone: one version, and the note that the copy reverts
+    // Mod.esm's override in the session's order.
+    let r = engine
+        .execute(
+            "place",
+            args(&data, &d.join("B.esm"), json!({"cell": "TestInterior"})),
+        )
+        .unwrap();
+    assert_eq!(
+        r["data"]["carried_from"]["versions_in_load_order"],
+        json!(1)
+    );
+    let n = notes(&r);
+    assert_eq!(n.len(), 2, "{n:?}");
+    assert!(
+        n[0].contains("against plugins [World.esm], not plugins [World.esm, Mod.esm];"),
+        "{n:?}"
+    );
+    assert!(
+        n[1].starts_with("CELL World.esm:00000900: carried from World.esm (1 version(s) here)")
+            && n[1].contains("Mod.esm wins")
+            && n[1].contains("reverts that override"),
+        "{n:?}"
+    );
     let _ = std::fs::remove_dir_all(&d);
 }

@@ -25,7 +25,11 @@
 //!
 //! As `set`: the write goes to a staged copy of `into`, `validate` runs on it, and `into`
 //! is replaced only when the records written pass. Refusals are `failed` errors whose
-//! message starts with a stable code, `place.<reason>:`.
+//! message starts with a stable code, `place.<reason>:`; the argument-shaped ones
+//! (`bad-vector`, `edid-invalid`, `cell-and-world`, `no-cell` when neither is given) are
+//! `invalid_args` with a JSON pointer (`/position/1`, `/edid`) and the code as the rule,
+//! as `set` reports a bad field. In a spec's `[[place]]` they stay `failed` (`build`
+//! names the TOML key).
 
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -43,6 +47,7 @@ use super::set::{
     validate_json, winning_copy, write_with, Origin,
 };
 use super::{failed, str_arg};
+use crate::args::Violation;
 use crate::edit::patch::{Copy, FormName, NewRef, PatchReport, RefPlace};
 use crate::envelope::{Evidence, Outcome};
 use crate::exec::EngineError;
@@ -59,6 +64,34 @@ const NOT_PLACEABLE: [&[u8; 4]; 9] = [
 /// A refusal: `place.<code>: <message>`.
 pub(crate) fn refuse(command: &str, code: &str, message: impl std::fmt::Display) -> EngineError {
     failed(command, format!("place.{code}: {message}"))
+}
+
+/// An argument-shaped refusal (`rule` is the stable `place.<code>`): for the `place` command
+/// `invalid_args` at `/<field>` (`""`: the arguments object), as `set` reports a bad field;
+/// for a spec entry (`build`) the `failed` `place.<code>: <at>: <message>` it always was.
+fn refuse_arg(
+    command: &str,
+    at: &str,
+    field: &str,
+    rule: &'static str,
+    message: String,
+) -> EngineError {
+    if command == ID {
+        EngineError::InvalidArgs {
+            command: ID.to_string(),
+            violations: vec![Violation {
+                pointer: if field.is_empty() {
+                    String::new()
+                } else {
+                    format!("/{field}")
+                },
+                rule,
+                message: format!("{rule}: {message}"),
+            }],
+        }
+    } else {
+        failed(command, format!("{rule}: {at}: {message}"))
+    }
 }
 
 /// One placement, as `place` takes it or a spec's `[[place]]` entry.
@@ -129,22 +162,21 @@ pub(crate) fn vec3(
     let Some(value) = value else {
         return Ok(None);
     };
-    let items = value.as_array().filter(|a| a.len() == 3).ok_or_else(|| {
-        refuse(
-            command,
-            "bad-vector",
-            format!("{what} must be three numbers"),
-        )
-    })?;
+    let bad = |field: String, message: String| {
+        refuse_arg(command, what, &field, "place.bad-vector", message)
+    };
+    let items = value
+        .as_array()
+        .filter(|a| a.len() == 3)
+        .ok_or_else(|| bad(what.to_string(), format!("{what} must be three numbers")))?;
     let mut out = [0f32; 3];
-    for (slot, item) in out.iter_mut().zip(items) {
+    for (i, (slot, item)) in out.iter_mut().zip(items).enumerate() {
         let v = item
             .as_f64()
-            .ok_or_else(|| refuse(command, "bad-vector", format!("{what} must be numbers")))?;
+            .ok_or_else(|| bad(format!("{what}/{i}"), format!("{what} must be numbers")))?;
         if !v.is_finite() || v.abs() > f64::from(f32::MAX) {
-            return Err(refuse(
-                command,
-                "bad-vector",
+            return Err(bad(
+                format!("{what}/{i}"),
                 format!("{what} value {v} is not a finite 32-bit float"),
             ));
         }
@@ -226,23 +258,15 @@ pub(crate) fn valid_edid(edid: &str) -> bool {
 
 /// The form of the load order that already has EditorID `edid` (case-insensitive).
 pub(crate) fn edid_owner(loaded: &Loaded, edid: &str) -> Option<String> {
-    for (i, p) in loaded.lo.plugins.iter().enumerate() {
-        let Some(idx) = p.index.as_deref() else {
-            continue;
-        };
-        if let Some(loc) = idx
-            .records
-            .iter()
-            .find(|loc| idx.edid(loc).is_some_and(|e| e.eq_ignore_ascii_case(edid)))
-        {
-            let index = u16::try_from(i).unwrap_or(u16::MAX);
-            return Some(match loaded.lo.resolve(index, loc.form_id) {
-                Ok(g) => loaded.lo.form_label(g),
-                Err(_) => format!("{}:{:08X}", p.name, loc.form_id),
-            });
-        }
-    }
-    None
+    let (index, loc) = loaded.edid_hits(edid).into_iter().next()?;
+    Some(match loaded.lo.resolve(index, loc.form_id) {
+        Ok(g) => loaded.lo.form_label(g),
+        Err(_) => format!(
+            "{}:{:08X}",
+            loaded.lo.plugin(index).map_or("?", |p| p.name.as_str()),
+            loc.form_id
+        ),
+    })
 }
 
 /// The EditorID's owner in the plugin at `path`, if it exists.
@@ -303,57 +327,6 @@ fn place_from_path(
     Some(Placed::Exterior { world, grid })
 }
 
-/// Offsets of the records of type `want` directly inside the group the `steps` (group
-/// type, label) lead to, from the top level of the plugin at `path`: group and record
-/// headers only, siblings skipped by size (as `edit::source::placement_at`).
-fn records_under(path: &Path, steps: &[(i32, [u8; 4])], want: [u8; 4]) -> Result<Vec<u64>, String> {
-    let err = |e: &dyn std::fmt::Display| format!("{}: {e}", path.display());
-    let mut file = File::open(path).map_err(|e| err(&e))?;
-    let len = file.metadata().map_err(|e| err(&e))?.len();
-    let mut head = |at: u64| -> Result<[u8; 24], String> {
-        let mut buf = [0u8; 24];
-        file.seek(SeekFrom::Start(at)).map_err(|e| err(&e))?;
-        file.read_exact(&mut buf).map_err(|e| err(&e))?;
-        Ok(buf)
-    };
-    let field = |buf: &[u8; 24], at: usize| -> [u8; 4] {
-        buf.get(at..at.saturating_add(4))
-            .and_then(|b| <[u8; 4]>::try_from(b).ok())
-            .unwrap_or_default()
-    };
-    let tes4 = head(0)?;
-    let mut at = u64::from(u32::from_le_bytes(field(&tes4, 4))).saturating_add(24);
-    let mut end = len;
-    let mut depth = 0usize;
-    let mut out = Vec::new();
-    while at < end {
-        let buf = head(at)?;
-        let sig = field(&buf, 0);
-        let size = u64::from(u32::from_le_bytes(field(&buf, 4)));
-        if &sig == b"GRUP" {
-            let group_end = at.saturating_add(size);
-            if size < 24 || group_end > end {
-                return Err(err(&format!("group at {at} has a bad size {size}")));
-            }
-            let label = field(&buf, 8);
-            let kind = i32::from_le_bytes(field(&buf, 12));
-            if steps.get(depth) == Some(&(kind, label)) {
-                at = at.saturating_add(24);
-                end = group_end;
-                depth = depth.saturating_add(1);
-                continue;
-            }
-            at = group_end;
-            continue;
-        }
-        if depth == steps.len() && sig == want {
-            out.push(at);
-        }
-        at = at.saturating_add(size).saturating_add(24);
-    }
-    Ok(out)
-}
-
 /// The exterior cell of `world` whose grid is `grid`, from any plugin of the load order
 /// (every version of a form names the same cell).
 fn exterior_cell_at(
@@ -375,7 +348,8 @@ fn exterior_cell_at(
             (group_type::EXTERIOR_BLOCK, block),
             (group_type::EXTERIOR_SUB_BLOCK, sub),
         ];
-        let offsets = records_under(&p.path, &steps, *b"CELL").map_err(|m| failed(ID, m))?;
+        let offsets = crate::edit::source::records_under(&p.path, &steps, *b"CELL")
+            .map_err(|m| failed(ID, m))?;
         let mut file =
             File::open(&p.path).map_err(|e| failed(ID, format!("{}: {e}", p.path.display())))?;
         for offset in offsets {
@@ -411,7 +385,8 @@ fn persistent_cell_of(
             (group_type::TOP, *b"WRLD"),
             (group_type::WORLD_CHILDREN, raw.to_le_bytes()),
         ];
-        let offsets = records_under(&p.path, &steps, *b"CELL").map_err(|m| failed(ID, m))?;
+        let offsets = crate::edit::source::records_under(&p.path, &steps, *b"CELL")
+            .map_err(|m| failed(ID, m))?;
         if let Some(offset) = offsets.first() {
             let mut file = File::open(&p.path)
                 .map_err(|e| failed(ID, format!("{}: {e}", p.path.display())))?;
@@ -462,6 +437,40 @@ pub(crate) fn plan(
 ) -> Result<Planned, EngineError> {
     let at = &req.label;
     let mut limitations = Vec::new();
+    // The arguments' shape first: nothing below is resolved for a request that is wrong.
+    if let Some(edid) = &req.edid {
+        if !valid_edid(edid) {
+            return Err(refuse_arg(
+                command,
+                at,
+                "edid",
+                "place.edid-invalid",
+                format!("EditorID `{edid}` must be 1 to 200 ASCII letters, digits or `_`"),
+            ));
+        }
+    }
+    match (&req.cell, &req.world) {
+        (Some(_), Some(_)) => {
+            return Err(refuse_arg(
+                command,
+                at,
+                "world",
+                "place.cell-and-world",
+                "name the cell, or the world with a position, not both".to_string(),
+            ))
+        }
+        (None, None) => {
+            return Err(refuse_arg(
+                command,
+                at,
+                "",
+                "place.no-cell",
+                "name the cell (`cell`) or the world (`world`, the position picks the cell)"
+                    .to_string(),
+            ))
+        }
+        _ => {}
+    }
     // The base: a form of the load order, or one written in the same call.
     let base = match &req.base_local {
         Some(_) => None,
@@ -518,21 +527,8 @@ pub(crate) fn plan(
 
     // The cell.
     let cell = match (&req.cell, &req.world) {
-        (Some(_), Some(_)) => {
-            return Err(refuse(
-                command,
-                "cell-and-world",
-                format!("{at}: name the cell, or the world with a position, not both"),
-            ))
-        }
-        (None, None) => {
-            return Err(refuse(
-                command,
-                "no-cell",
-                format!(
-                "{at}: name the cell (`cell`) or the world (`world`, the position picks the cell)"
-            ),
-            ))
+        (Some(_), Some(_)) | (None, None) => {
+            return Err(refuse(command, "no-cell", format!("{at}: checked above")))
         }
         (Some(c), None) => find_form(command, loaded, c, req.plugin.as_deref())
             .map_err(|e| refuse(command, "no-cell", format!("{at}: {e}")))?,
@@ -697,15 +693,8 @@ pub(crate) fn plan(
     };
     copy.carried = true;
 
-    // The EditorID.
+    // The EditorID (its shape was checked first).
     if let Some(edid) = &req.edid {
-        if !valid_edid(edid) {
-            return Err(refuse(
-                command,
-                "edid-invalid",
-                format!("{at}: EditorID `{edid}` must be 1 to 200 ASCII letters, digits or `_`"),
-            ));
-        }
         if let Some(owner) = edid_owner(loaded, edid) {
             return Err(refuse(
                 command,
@@ -839,8 +828,29 @@ pub(crate) fn placed_json(report: &PatchReport, infos: &[(Value, &PlaceRequest)]
         .collect()
 }
 
-/// For each carried record: whether its bytes in `target` equal its winner's in the load
-/// order (lstrings inlined from a localized plugin change them).
+/// The load-order form of a record the patch wrote (`report.masters` names its owner).
+fn global_of(loaded: &Loaded, report: &PatchReport, form_id: u32) -> Option<GlobalForm> {
+    let owner = usize::try_from(form_id >> 24)
+        .ok()
+        .and_then(|i| report.masters.get(i))?;
+    Some(GlobalForm {
+        plugin: loaded.lo.find(owner)?,
+        object_id: form_id & 0x00FF_FFFF,
+    })
+}
+
+/// Whether a written record holds a new reference: the cell (or world) of a placed one.
+fn holds_new_ref(report: &PatchReport, r: &crate::edit::patch::RecordReport) -> bool {
+    report.new_forms.iter().any(|n| {
+        (r.signature == "CELL" && n.cell == r.form_id)
+            || (r.signature == "WRLD" && n.world == Some(r.form_id))
+    })
+}
+
+/// For each carried record (a parent, or the cell or world of a new reference that a rule
+/// or `[[set]]` edits): whether its bytes in `target` equal its winner's in the load order
+/// (lstrings inlined from a localized plugin, or an edit, change them), how many versions
+/// the load order has and which plugin wins.
 pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path) -> Vec<Value> {
     let read = |path: &Path, offset: u64, length: u64| -> Option<Vec<u8>> {
         let mut file = File::open(path).ok()?;
@@ -852,18 +862,16 @@ pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path)
     report
         .records
         .iter()
-        .filter(|r| r.parent)
+        .filter(|r| r.parent || holds_new_ref(report, r))
         .map(|r| {
-            let owner = usize::try_from(r.form_id >> 24)
-                .ok()
-                .and_then(|i| report.masters.get(i));
-            let winner = owner.and_then(|o| {
-                let p = loaded.lo.find(o)?;
-                let g = GlobalForm {
-                    plugin: p,
-                    object_id: r.form_id & 0x00FF_FFFF,
-                };
-                let (_, _, plugin, offset, length) = winner_facts(loaded, g)?;
+            let global = global_of(loaded, report, r.form_id);
+            let facts = global.and_then(|g| winner_facts(loaded, g));
+            let winner_name = facts
+                .as_ref()
+                .and_then(|f| loaded.lo.plugin(f.2))
+                .map(|p| p.name.clone());
+            let versions = global.map(|g| loaded.lo.forms.versions(g).len());
+            let winner = facts.and_then(|(_, _, plugin, offset, length)| {
                 Some((loaded.lo.plugin(plugin)?.path.clone(), offset, length))
             });
             let identical = match (winner, r.offset, r.length) {
@@ -877,11 +885,104 @@ pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path)
             json!({
                 "form": r.formref, "signature": r.signature, "editor_id": r.editor_id,
                 "source": r.source, "outcome": r.outcome,
+                "edited": !r.parent,
                 "identical_to_winner": identical,
+                "winner": winner_name, "versions_in_load_order": versions,
                 "inlined_lstrings": r.inlined.len(),
             })
         })
         .collect()
+}
+
+/// What the load order a write resolved against (`loaded`) means for its carried records
+/// when the session's load order before the call, or the one the call also named (`other`),
+/// is a different list: one note saying so, and per carried record whose winner there is
+/// another plugin, that the patch's copy (loaded after it) reverts that plugin's override.
+pub(crate) fn order_notes(
+    loaded: &Loaded,
+    other: Option<&Loaded>,
+    carried: &[Value],
+) -> Vec<String> {
+    let Some(other) = other else {
+        return Vec::new();
+    };
+    let names = |l: &Loaded| -> Vec<String> {
+        l.lo.plugins
+            .iter()
+            .map(|p| p.name.to_ascii_lowercase())
+            .collect()
+    };
+    if names(loaded) == names(other) {
+        return Vec::new();
+    }
+    // `profile:<dir>`, or the plugin list (the first few names).
+    let label = |l: &Loaded| -> String {
+        if l.source.starts_with("profile:") {
+            return l.source.clone();
+        }
+        let mut names: Vec<&str> =
+            l.lo.plugins
+                .iter()
+                .take(6)
+                .map(|p| p.name.as_str())
+                .collect();
+        if l.lo.plugins.len() > 6 {
+            names.push("...");
+        }
+        format!("plugins [{}]", names.join(", "))
+    };
+    let (here_label, there_label) = (label(loaded), label(other));
+    let mut notes = vec![format!(
+        "this call resolved against {here_label}, not {there_label}; every carried CELL and WRLD is a copy of its winner in the first"
+    )];
+    for c in carried {
+        let (Some(form), Some(sig)) = (c["form"].as_str(), c["signature"].as_str()) else {
+            continue;
+        };
+        let Some(f) = kitkraft_doc::FormRef::parse(form) else {
+            continue;
+        };
+        let here = c["winner"].as_str().unwrap_or("?");
+        let there = other.lo.find(&f.plugin).and_then(|p| {
+            let g = GlobalForm {
+                plugin: p,
+                object_id: f.object_id,
+            };
+            let versions = other.lo.forms.versions(g);
+            let w = versions.last()?;
+            Some((other.lo.plugin(w.plugin)?.name.clone(), versions.len()))
+        });
+        match there {
+            Some((w, n)) if !w.eq_ignore_ascii_case(here) => notes.push(format!(
+                "{sig} {form}: carried from {here} ({} version(s) here); in {there_label} it has {n} version(s) and {w} wins: loaded after {w}, this patch's copy reverts that override",
+                c["versions_in_load_order"],
+            )),
+            Some(_) => {}
+            None => notes.push(format!(
+                "{sig} {form}: not in {there_label} (its owner is not loaded there)"
+            )),
+        }
+    }
+    notes
+}
+
+/// The session's load order, taken out when `args` name another (`acquire` replaces it),
+/// to compare against ([`order_notes`]).
+pub(crate) fn take_prior(session: &mut Session, args: &Value) -> Option<Loaded> {
+    if super::load::has_load_args(args) {
+        session.remove::<Loaded>()
+    } else {
+        None
+    }
+}
+
+/// Puts `prior` back when the call failed before replacing it.
+pub(crate) fn restore_prior(session: &mut Session, prior: Option<Loaded>) {
+    if let Some(p) = prior {
+        if session.get::<Loaded>().is_none() {
+            session.insert(p);
+        }
+    }
 }
 
 /// Refuses an EditorID the target already has.
@@ -936,7 +1037,12 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .get("allow_untyped_lstrings")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let loaded = acquire(session, args, ID)?;
+    let prior = take_prior(session, args);
+    if let Err(e) = acquire(session, args, ID) {
+        restore_prior(session, prior);
+        return Err(e);
+    }
+    let loaded = acquire(session, &json!({}), ID)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
     let planned = plan(ID, loaded, &req, &limits)?;
@@ -989,6 +1095,10 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     result.evidence.extend(planned.evidence);
     let placed = placed_json(&report, &[(planned.info, &req)]);
     let carried = carried_json(loaded, &report, &into);
+    extend_once(
+        &mut result.limitations,
+        order_notes(loaded, prior.as_ref(), &carried),
+    );
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("placed".into(), Value::Array(placed));
         obj.insert("carried".into(), Value::Array(carried));
@@ -997,6 +1107,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             json!({
                 "plugin": planned.carried_origin.plugin, "offset": planned.carried_origin.offset,
                 "record": planned.carried_origin.label,
+                "versions_in_load_order": planned.carried_origin.versions,
             }),
         );
         obj.insert(

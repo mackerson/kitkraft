@@ -849,7 +849,15 @@ optional spec-local `name`; `allow_reference` is a list of member names) and `[[
 unchanged; refused unless its master list equals the built plugin's). Classes and rules
 work over the typed world records (`REFR`, `CELL`, ...). `data` adds `placed[]` (as
 `place`'s), `imports[]` (`import`, `from`, `inserted`, `replaced`, `cells`) and
-`next_object_id`; a plan lists the new forms with their FormIDs. Every written plugin gets
+`next_object_id`, and `carried[]` (as `place`'s: every parent record, and the cell or world
+of a new reference that a rule or `[[set]]` edits, with `edited: true`); a plan lists the
+new forms with their FormIDs, and its text (`summary`) adds `placed (n)`, `new forms (n)`,
+`imports (n)` and `carried: CELL ..., WRLD ...` sections, counted in its head line. A cell
+that a `[[set]]` or rule on one of its references already carries as a parent is written
+once (the parent copy stands; a limitation says so). When the spec's `[load_order]` differs
+from the one the call names (or, without one, the call's from the session's earlier one),
+a limitation says so and names each carried record whose winner there is another plugin
+(the patch's copy, loaded after it, reverts that override). Every written plugin gets
 `TES4` `ONAM` for its overrides in groups 7, 9 and 10 (lane A's M4.A6 rule).
 
 ### `place` (M4.E2)
@@ -863,17 +871,24 @@ named cell, or in the exterior cell of `world` holding the position (a persisten
 reference of a world goes into its persistent cell). The winning `CELL` (and `WRLD`) is
 carried as an unchanged copy first; a cell the target already has is kept. Written as
 `set` writes (staged, validated, then moved). Refusals are `failed` with
-`place.<code>: ...` (`base-not-placeable`, `no-base`, `no-cell`, `not-a-cell`,
-`cell-and-world`, `not-a-world`, `no-exterior-cell`, `persistence`, `edid-invalid`,
-`edid-clash`, `scaled-master`, `parent-not-carried`, `formid-exists`, `fails-validate`,
-`bad-vector`); a member below `corpus` confidence (`flag.initially_disabled`) is refused
-unless named in `allow_reference`. `data` is `set`'s plus `placed[]` (`entry`, `form`,
+`place.<code>: ...` (`base-not-placeable`, `no-base`, `no-cell` (a cell that does not
+resolve), `not-a-cell`, `not-a-world`, `no-exterior-cell`, `persistence`, `edid-clash`,
+`scaled-master`, `parent-not-carried`, `formid-exists`, `fails-validate`); the
+argument-shaped ones are `invalid_args` with a JSON pointer and the code as the rule
+(`place.bad-vector` at `/position/<i>` or `/rotation/<i>`, `place.edid-invalid` at
+`/edid`, `place.cell-and-world` at `/world`, `place.no-cell` at the arguments object when
+neither `cell` nor `world` is given); in a spec's `[[place]]` they stay `failed`
+(`build` names the key). A member below `corpus` confidence (`flag.initially_disabled`) is
+refused unless named in `allow_reference`. When the call names a load order other than the
+session's earlier one, a limitation says so and names each carried record whose winner
+there is another plugin (its override would be reverted). `data` is `set`'s plus `placed[]` (`entry`, `form`,
 `form_id`, `signature`, `editor_id`, `base`/`cell`/`world` with `form`, `signature`,
 `editor_id`, `winner` (cell: `kind`, `grid`), `stored_base`/`stored_cell`/`stored_world`,
 `position`, `rotation`, `persistent`, `initially_disabled`, `group_path[]` (`type`,
 `label`), `members[]` (`member`, `confidence`, `source`), `offset`, `length`), `carried[]`
-(`form`, `signature`, `outcome`, `identical_to_winner`, `inlined_lstrings`),
-`carried_from`, `next_object_id` and `validate`. Evidence: the base's and the cell's
+(`form`, `signature`, `outcome`, `edited`, `identical_to_winner`, `winner`,
+`versions_in_load_order`, `inlined_lstrings`), `carried_from` (`plugin`, `offset`,
+`record`, `versions_in_load_order`), `next_object_id` and `validate`. Evidence: the base's and the cell's
 winning records, and every written record.
 
 ### `new`, `clone` (M4.E1)
