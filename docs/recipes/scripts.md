@@ -28,10 +28,11 @@ kit roundtrip out/recipes/KitKraftScripts.esm --verify
 kit testplan out/recipes/KitKraftScripts.esm out/recipes/scripts-test --plugins Starfield.esm
 ```
 
-`papyrus.compile` is given the namespaced name with the source root imported (a `.psc`
-path would compile as `HelloOnLoad` and the compiler refuses the name mismatch), and
-absolute paths: the compiler resolves a relative import against `out_dir` (a request to
-lane G is in `plan/STATUS.md`). The build finds the `.pex` next to the plugin
+`papyrus.compile` is given the namespaced name with the source root imported. Since
+2026-10-15 the path form works too, with relative paths (papyrus oracle P2, P3,
+`docs/oracles.md`): `kit papyrus compile docs\recipes\scripts\KitKraft\HelloOnLoad.psc
+out\recipes\Scripts --sources-zip "<Starfield>\Tools\ContentResources.zip"` compiles
+`KitKraft:HelloOnLoad` with `docs\recipes\scripts` imported. The build finds the `.pex` next to the plugin
 (`out\recipes\Scripts\KitKraft\HelloOnLoad.pex`), checks `Text` (String) and `Times`
 (Int) against its property table and the parent `ObjectReference.pex`, and writes the
 `VMAD` on the new reference. An unknown script is refused (`papyrus.missing-script`), as
