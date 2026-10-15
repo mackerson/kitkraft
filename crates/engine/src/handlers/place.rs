@@ -829,10 +829,13 @@ pub(crate) fn carried_json(loaded: &Loaded, report: &PatchReport, target: &Path)
 /// Refuses an EditorID the target already has.
 pub(crate) fn check_target_edids(
     command: &str,
-    into: &Path,
+    into: Option<&Path>,
     requests: &[&PlaceRequest],
 ) -> Result<(), EngineError> {
     for req in requests {
+        let Some(into) = into else {
+            break;
+        };
         if let Some(edid) = &req.edid {
             if let Some(owner) = edid_in_file(into, edid).map_err(|m| failed(command, m))? {
                 return Err(refuse(
@@ -879,7 +882,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
     let planned = plan(ID, loaded, &req, &limits)?;
-    check_target_edids(ID, &into, &[&req])?;
+    check_target_edids(ID, Some(&into), &[&req])?;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, planned.limitations.clone());
 

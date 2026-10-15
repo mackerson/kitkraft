@@ -807,6 +807,15 @@ pub fn write_patch_with(
     // it was.
     let created = existing.is_none();
     let extended = masters != original_masters;
+    // Overrides of a master's records in topic, temporary cell or quest children need
+    // `ONAM` (lane A's M4.A6 corpus rule).
+    let master_count = masters.len();
+    let overrides_children = placed.iter().any(|p| {
+        p.path
+            .iter()
+            .any(|g| kitcraft_esm::cells::ONAM_GROUP_TYPES.contains(&g.group_type))
+            && usize::try_from(p.record.header.form_id >> 24).is_ok_and(|i| i < master_count)
+    });
     let temp = temp_path(target);
     let discard = |e: PatchError| {
         let _ = std::fs::remove_file(&temp);
@@ -891,6 +900,10 @@ pub fn write_patch_with(
             Upsert::Replaced => "replaced",
             Upsert::Inserted => "inserted",
         };
+    }
+    if overrides_children {
+        let listed = apply_onam(&temp).map_err(discard)?;
+        push_once(&mut limitations, onam_note(listed));
     }
     let bytes = finish(&temp, target, &mut reports, &options.limits)?;
     limitations.push(CK_DIFF_PENDING.to_string());
@@ -1364,7 +1377,7 @@ fn report_for(
 }
 
 /// Finds each written record in the output (evidence) and returns the file size.
-fn locate_written(
+pub(crate) fn locate_written(
     target: &Path,
     reports: &mut [RecordReport],
     limits: &DecodeLimits,
@@ -1435,6 +1448,33 @@ pub(crate) fn finish(
         let _ = std::fs::remove_file(temp);
     }
     done
+}
+
+/// The limitation an `ONAM` write carries.
+pub(crate) fn onam_note(listed: usize) -> String {
+    format!(
+        "TES4 ONAM lists the {listed} override(s) of master records in topic, temporary cell and quest children (lane A's corpus rule, M4.A6), in file order; the Creation Kit's own order is fixture F23's question, and whether each master has the record is not checked"
+    )
+}
+
+/// Rewrites the `TES4` `ONAM` of the plugin at `path` by lane A's corpus rule (M4.A6,
+/// `kitcraft_esm::cells::onam_forms`): every record in a group of type 7, 9 or 10 whose
+/// FormID names one of the plugin's masters, in file order. Returns how many are listed.
+/// Reads the whole plugin into memory (patches are small).
+pub(crate) fn apply_onam(path: &Path) -> Result<usize, PatchError> {
+    let io = |e: &dyn std::fmt::Display| PatchError::Io(format!("{}: {e}", path.display()));
+    let bytes = std::fs::read(path).map_err(|e| io(&e))?;
+    let mut plugin = Plugin::parse(&bytes).map_err(|e| io(&e))?;
+    let masters = plugin.tes4().masters().len();
+    let forms = kitcraft_esm::cells::onam_forms(&plugin, |id| {
+        usize::try_from(id >> 24).is_ok_and(|i| i < masters)
+    });
+    if forms != plugin.tes4().overridden_forms() {
+        Tes4::set_overridden_forms(plugin.header_mut(), &forms);
+        let out = plugin.to_bytes().map_err(|e| io(&e))?;
+        std::fs::write(path, out).map_err(|e| io(&e))?;
+    }
+    Ok(forms.len())
 }
 
 /// Adds `added` to the `INCC` count of a `TES4` record, if it has one.

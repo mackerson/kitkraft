@@ -35,9 +35,10 @@ use kitcraft_schema::{Confidence, Schema};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
+use super::place::{self, check_target_edids, PlaceRequest};
 use super::set::{
-    check, describe, find_form, guard, install, outcome, stage, validate_json, winning_copy, write,
-    Origin,
+    check, describe, find_form, guard, install, outcome, stage, validate_json, winning_copy,
+    write_with, Origin,
 };
 use super::{failed, str_arg};
 use crate::build::members;
@@ -280,6 +281,96 @@ pub(super) fn gate(
     Ok(())
 }
 
+/// A `[[place]]` entry as `place` takes it.
+fn place_request(p: &spec::PlaceEntry) -> Result<PlaceRequest, EngineError> {
+    let f32s = |v: [f64; 3], what: &str| -> Result<[f32; 3], EngineError> {
+        let json: Vec<Value> = v.iter().map(|x| json!(x)).collect();
+        place::vec3(ID, Some(&Value::Array(json)), what)
+            .map_err(|e| spec_error(&format!("{}.{what}", p.key), e))?
+            .ok_or_else(|| spec_error(&format!("{}.{what}", p.key), "is required"))
+    };
+    Ok(PlaceRequest {
+        label: p.key.clone(),
+        base: p.base.clone(),
+        plugin: p.plugin.clone(),
+        cell: p.cell.clone(),
+        world: p.world.clone(),
+        position: f32s(p.position, "position")?,
+        rotation: f32s(p.rotation, "rotation")?,
+        persistent: p.persistent,
+        initially_disabled: p.initially_disabled,
+        edid: p.edid.clone(),
+        allow_reference: p.allow_reference.clone(),
+    })
+}
+
+/// `[[import]]`: every `NAVM` of each named Creation Kit plugin, copied unchanged into the
+/// staged plugin (lane A's `navmesh::import_navmeshes`: refused unless the master lists
+/// are the same; the cells must be in the plugin). `ONAM` is redone and every written
+/// record is located again, since records moved.
+fn import_navmeshes(
+    spec_dir: &std::path::Path,
+    imports: &[spec::ImportEntry],
+    staged: &std::path::Path,
+    report: &mut crate::edit::patch::PatchReport,
+    limits: &DecodeLimits,
+) -> Result<Vec<Value>, EngineError> {
+    let mut out = Vec::new();
+    for import in imports {
+        let from = std::path::Path::new(&import.from);
+        let from = if from.is_absolute() {
+            from.to_path_buf()
+        } else {
+            spec_dir.join(from)
+        };
+        let key = format!("{}.from", import.key);
+        let source_bytes = std::fs::read(&from)
+            .map_err(|e| spec_error(&key, format!("{}: {e}", from.display())))?;
+        let source = kitcraft_esm::Plugin::parse(&source_bytes)
+            .map_err(|e| spec_error(&key, format!("{}: {e}", from.display())))?;
+        let target_bytes =
+            std::fs::read(staged).map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        let mut target = kitcraft_esm::Plugin::parse(&target_bytes)
+            .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        let done = kitcraft_esm::navmesh::import_navmeshes(
+            &source,
+            &mut target,
+            &kitcraft_esm::cells::PlacementStyle::OFFICIAL,
+        )
+        .map_err(|e| spec_error(&key, e))?;
+        let bytes = target
+            .to_bytes()
+            .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        std::fs::write(staged, bytes)
+            .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        out.push(json!({
+            "import": import.key, "from": from.display().to_string(),
+            "inserted": done.inserted, "replaced": done.replaced,
+            "cells": done.cells.iter().map(|c| format!("{c:08X}")).collect::<Vec<_>>(),
+        }));
+    }
+    if !imports.is_empty() {
+        let listed =
+            crate::edit::patch::apply_onam(staged).map_err(|e| failed(ID, e.to_string()))?;
+        if listed > 0 {
+            report
+                .limitations
+                .push(crate::edit::patch::onam_note(listed));
+        }
+        for r in &mut report.records {
+            r.offset = None;
+            r.length = None;
+            r.edited_subrecords.clear();
+        }
+        report.bytes = crate::edit::patch::locate_written(staged, &mut report.records, limits)
+            .map_err(|e| failed(ID, e.to_string()))?;
+        report.limitations.push(
+            "[[import]]: NAVM records copied unchanged from a Creation Kit plugin (lane A's passthrough); NAVI and other records the CK changed while generating are not imported (fixture F22)".to_string(),
+        );
+    }
+    Ok(out)
+}
+
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let spec_path = PathBuf::from(str_arg(ID, args, "spec")?);
@@ -462,10 +553,18 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
         writes.add(g, &set.key, &set.edits, &label)?;
     }
-    if writes.order.is_empty() && !plan {
+    // [[place]] (version 3): new references, resolved against the load order.
+    let place_reqs: Vec<PlaceRequest> = spec
+        .places
+        .iter()
+        .map(place_request)
+        .collect::<Result<_, _>>()?;
+    let req_refs: Vec<&PlaceRequest> = place_reqs.iter().collect();
+    check_target_edids(ID, None, &req_refs)?;
+    if writes.order.is_empty() && place_reqs.is_empty() && !plan {
         return Err(failed(
             ID,
-            "the spec's rules matched no records and it has no sets; nothing to write",
+            "the spec's rules matched no records and it has no sets or places; nothing to write",
         ));
     }
 
@@ -486,7 +585,32 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         copies.push(copy);
         origins.push(origin);
     }
-    if writes.order.is_empty() {
+    // The places: each carries its cell (once per cell, and not when a rule or set already
+    // writes that cell).
+    let mut new_refs = Vec::new();
+    let mut place_infos: Vec<Value> = Vec::new();
+    let mut place_evidence = Vec::new();
+    let mut carried: Vec<u64> = writes.order.iter().map(|f| f.key()).collect();
+    for req in &place_reqs {
+        let planned = place::plan(ID, loaded, req, &limits)?;
+        super::set::extend_once(&mut limitations, planned.limitations);
+        let cell = planned.new_ref.place.cell();
+        let key = loaded.lo.find(&cell.plugin).map(|p| {
+            GlobalForm {
+                plugin: p,
+                object_id: cell.object_id,
+            }
+            .key()
+        });
+        if key.is_none_or(|k| !carried.contains(&k)) {
+            carried.extend(key);
+            copies.push(planned.carried);
+        }
+        place_infos.push(planned.info);
+        place_evidence.extend(planned.evidence);
+        new_refs.push(planned.new_ref);
+    }
+    if writes.order.is_empty() && new_refs.is_empty() {
         // A plan of nothing (a fresh scaffold: every rule commented out).
         let mut result = Outcome {
             data: json!({
@@ -511,8 +635,21 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         return Ok(result);
     }
     let staged = stage(ID, &out, false)?;
-    let mut report = write(ID, loaded, &staged.path, copies, allow_untyped)?;
+    let mut report = write_with(ID, loaded, &staged.path, copies, new_refs, allow_untyped)?;
+    let spec_dir = spec_path
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+    let imported = import_navmeshes(&spec_dir, &spec.imports, &staged.path, &mut report, &limits)?;
     let checked = check(ID, loaded, &staged)?;
+    let placed = place::placed_json(
+        &report,
+        &place_infos
+            .iter()
+            .cloned()
+            .zip(place_reqs.iter())
+            .collect::<Vec<_>>(),
+    );
 
     // The change list: every planned write with its before and after, and the entries
     // that asked for it.
@@ -562,6 +699,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     if plan {
         report.target = out.clone();
         let mut result = outcome(&report, &origins, limitations);
+        result.evidence.extend(place_evidence.clone());
         // The staged file is not the plugin `out` would be: drop its evidence ranges.
         result.evidence.retain(|e| {
             e.file
@@ -577,6 +715,14 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         if let Some(obj) = result.data.as_object_mut() {
             obj.insert("plan".into(), json!(true));
             obj.insert("spec".into(), json!(spec_path.display().to_string()));
+            if spec.version >= 3 {
+                obj.insert("placed".into(), Value::Array(placed.clone()));
+                obj.insert("imports".into(), Value::Array(imported.clone()));
+                obj.insert(
+                    "next_object_id".into(),
+                    json!(report.next_object_id.map(|n| format!("{n:08X}"))),
+                );
+            }
             obj.insert("changes".into(), Value::Array(changes));
             obj.insert("changed_fields".into(), json!(changed_fields));
             obj.insert("classes".into(), Value::Array(classes_json));
@@ -619,8 +765,17 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     install(ID, &staged, &out)?;
     report.target = out.clone();
     let mut result = outcome(&report, &origins, limitations);
+    result.evidence.extend(place_evidence);
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("spec".into(), json!(spec_path.display().to_string()));
+        if spec.version >= 3 {
+            obj.insert("placed".into(), Value::Array(placed));
+            obj.insert("imports".into(), Value::Array(imported));
+            obj.insert(
+                "next_object_id".into(),
+                json!(report.next_object_id.map(|n| format!("{n:08X}"))),
+            );
+        }
         obj.insert("rules".into(), Value::Array(rules_json));
         if v2 {
             obj.insert("classes".into(), Value::Array(classes_json));

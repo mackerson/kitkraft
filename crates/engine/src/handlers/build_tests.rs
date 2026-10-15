@@ -111,7 +111,7 @@ fn spec_errors_name_the_key() {
         std::fs::write(&path, text).unwrap();
         build(&path, &out).unwrap_err().to_string()
     };
-    assert!(fails("v.toml", "version = 3\n").contains("spec: version"));
+    assert!(fails("v.toml", "version = 4\n").contains("spec: version"));
     assert!(fails("n.toml", "[[set]]\nform = \"x\"\n").contains("spec: version"));
     assert!(fails("k.toml", "version = 1\nfoo = 1\n").contains("spec: foo"));
     assert!(fails("l.toml", "version = 1\n[plugin]\nlocalized = true\n")

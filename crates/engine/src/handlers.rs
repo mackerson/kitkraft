@@ -8,6 +8,8 @@ mod ba2;
 mod build;
 #[cfg(test)]
 mod build_tests;
+#[cfg(test)]
+mod build_v3_tests;
 mod conflicts;
 mod coverage;
 mod deploy;

@@ -781,6 +781,23 @@ is under "Next".
     `Starfield.esm` references with only `NAME`+`DATA` placed again from their base, cell
     or world, position and rotation reproduce their record bodies byte for byte
     (header: new FormID, composition-default stamps).
+  - M4.E3 `build` spec version 3 (`build/spec.rs`, `handlers/build.rs`): `[[place]]`
+    entries (as `kit place`, with an optional spec-local `name`; positions and rotations as
+    three finite numbers), `[[import]]` (every `NAVM` of a Creation Kit plugin copied
+    unchanged by lane A's `import_navmeshes`; refused unless the master lists match; `ONAM`
+    redone and every written record located again), class rules over typed world records
+    (a rule over `REFR` writes overrides with their cells carried). The writer now writes
+    `TES4` `ONAM` by lane A's M4.A6 rule (overrides of master records in groups 7, 9, 10, in
+    file order; F23 open) for every `set`, `build` and `place`. Each cell a place needs is
+    carried once, and not when a rule or set writes it. `plan` lists the new forms with
+    their FormIDs; versions 1 and 2 build as before. `[[new]]` and `[[clone]]` are refused
+    with the reason (M4.E1's `new`/`clone` not implemented yet), and so is every `new:`
+    reference, since a placed reference is never a base, cell or world. Tests through
+    `execute` (`handlers/build_v3_tests.rs`): two builds byte-identical, the plan, rules over
+    `REFR` with `ONAM`, an import (and its master refusal), and an error per case (unknown
+    name, a cycle, a placed reference as a base, duplicate names and EditorIDs, positions,
+    a `reference`-only member without `allow_reference`, two writes to one field,
+    `[[new]]`, version 2 keys).
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box
