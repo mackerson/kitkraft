@@ -118,7 +118,7 @@ pub(crate) fn extract_sources(zip_path: &Path, cache_root: &Path) -> Result<Extr
         // Not written by this code (it renames complete folders only); replace it.
         let _ = fs::remove_dir_all(&dir);
     }
-    match fs::rename(&tmp, &dir) {
+    match rename_with_retry(&tmp, &dir) {
         Ok(()) => Ok(done(false)),
         Err(_) if dir.join(COMPLETE).is_file() => {
             // Another process finished the same extraction first.
@@ -131,6 +131,24 @@ pub(crate) fn extract_sources(zip_path: &Path, cache_root: &Path) -> Result<Extr
                 "{shown}: moving the extraction to `{}`: {e}",
                 dir.display()
             ))
+        }
+    }
+}
+
+/// Renames a freshly written folder, retrying briefly: on Windows a scanner (Defender, the
+/// search indexer) may still hold one of the new files open, and the rename then fails
+/// with "Access is denied" for a moment (seen with a cache under the repo's `.targets\`,
+/// M4.BX1). Gives up when the target appears (another process won) or after the retries.
+fn rename_with_retry(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut attempt: u64 = 0;
+    loop {
+        match fs::rename(from, to) {
+            Ok(()) => return Ok(()),
+            Err(e) if attempt >= 20 || to.exists() => return Err(e),
+            Err(_) => {
+                attempt = attempt.saturating_add(1);
+                std::thread::sleep(std::time::Duration::from_millis(attempt.saturating_mul(50)));
+            }
         }
     }
 }
