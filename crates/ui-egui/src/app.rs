@@ -794,6 +794,21 @@ impl App {
                 }
                 self.schema_form.record_type = "WEAP".into();
                 actions.push(Action::Submit(Slot::Schema, self.schema_form.request()));
+                // The Ledger tab: a preview of C3 (nothing written) with its confirm box
+                // open, never clicked.
+                self.ledger_form.row = "C3".into();
+                if let Some(t) = self
+                    .observations
+                    .as_deref()
+                    .and_then(|o| template_row(o, "C3"))
+                {
+                    self.ledger_form.forms = t.forms.join(", ");
+                }
+                self.ledger_form.note = "screenshot tour: a preview, nothing written".into();
+                if let Ok(req) = self.ledger_form.preview_request() {
+                    actions.push(Action::Submit(Slot::Ledger, req));
+                }
+                self.ledger_pending = Some(self.ledger_form.clone());
                 self.apply(actions);
                 self.set_step(TourStep::Seeded(2));
             }
