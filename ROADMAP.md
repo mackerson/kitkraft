@@ -3,6 +3,19 @@
 Milestones are gated by evidence, not dates. A milestone is done when its exit criteria pass
 in `cargo xtask ci` (or in a documented corpus run), not when the code exists.
 
+## Where we are (2026-10-15, `main` at `01c77d8`)
+
+M0, M1 and M2 are done. M3 is closing and M4 is in progress. `plan/STATUS.md` checks
+every exit criterion and lists the owner's next actions:
+
+- In-game checks on the **KitKraft Dev** profile. The rename is done (PASS). Next are the
+  first POI (`coc CityNewAtlantisApartmentTEMPLATE`, then
+  `player.moveto KitKraftFirstPOICrate`) and overhaul build 2 once it lands.
+- Answers to brief rows B8, B11 and B12.
+- `C:\Modding\scripts\finish_kitkraft_move.ps1`, run after closing every Claude Code
+  session.
+- When to start the workbench (lane W).
+
 ## M0: scaffold
 
 Toolchain on the dev box, repository skeleton, agent operating docs, layer check, local CI.
@@ -90,6 +103,16 @@ clarifications bind every task.
   can be compared side by side with KitKraft's inspection views; the `ck` write style and
   `ck-diff` confidence wait for it, and M3's CK exit criteria are carried until then.
 
+Status (2026-10-15):
+- **Done:** round 3 typed and merged, with OMOD property values typed in lane B round 4.
+  Spec v2 and `kit overhaul` work. Overhaul build 1 is built and reviewed: 8 brief rows
+  implemented, 4 partial, 2 open. The Spriggit and SF1Edit oracles are live. Parity and
+  coverage are done.
+- **Pending the owner:** build 2 (the OMOD rerun), answers to B8, B11 and B12, and then the
+  in-game check (M3.O5).
+- **Carried with the deferred CK session:** the CK ledger, the `ck` write style and the CK
+  feature ranking. Hardening tasks are carried with their `docs/gaps.md` rows.
+
 Exit criteria:
 - Round 3 types decode and re-encode identical on all 14 corpus files, every member sourced.
 - Every fixture the CK produced has ledger entries; `style: "ck"` reproduces the CK's bytes
@@ -139,6 +162,19 @@ new crate, no layer change).
     the same commands as the CLI (record browser, structural diff, schema and provenance,
     FormID and reference diagnostics, build validation), started once the inspection
     APIs are stable (lane W), off the critical path.
+
+Status (2026-10-15):
+- **Done:** six schema families typed and merged (round 3, WORLD, PLANET, QUEST, ACTOR,
+  ITEMS/WORKSHOP), with the `unordered` record mode and the OMOD unions. The placement
+  core and rebuild gate work. `new`, `clone`, `place`, spec v3, `testplan`,
+  `papyrus.events`, `package` and `deploy --dev` work and are reviewed. The first POI is
+  built, validated and packaged.
+- **Pending the owner:** the first POI in game (M4.O2) and session 2 (M4.O4).
+- **Carried:** `planet` and `refs` (lane D), the persistence and planet design documents,
+  and the M4.BX2 inventories. The outpost and fabricator recipes (M4.E7) and script
+  attachment (M4.E9) are carried too.
+- **Lane W:** planning only.
+- **CK fixtures:** deferred until the workbench exists.
 
 Exit criteria:
 - The first POI placed by KitKraft is visited in game on a disposable save, with its
