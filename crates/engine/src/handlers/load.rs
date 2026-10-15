@@ -12,7 +12,7 @@ use std::time::Instant;
 
 use kitkraft_doc::index::RecordLoc;
 use kitkraft_doc::strings::{DirSource, StringSource, StringTables};
-use kitkraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, Scale};
+use kitkraft_doc::{CacheUse, IndexCache, LoadOptions, LoadOrder, PluginSpec, RuntimeBasis, Scale};
 use kitkraft_io::{plan_profile, Active, ProfileOptions};
 use serde_json::{json, Value};
 
@@ -23,9 +23,31 @@ use crate::session::Session;
 
 const ID: &str = "load";
 
-/// Stated whenever runtime IDs are shown.
-pub(crate) const RUNTIME_ASSUMED: &str = "runtime slots and IDs follow the assumption \
-     `runtime-slots-by-scale` (docs/load-order.md): not yet observed in game or in the CK";
+/// How every statement about runtime IDs begins (see [`runtime_note`]).
+pub(crate) const RUNTIME_NOTE: &str = "runtime slots and IDs";
+
+/// Stated whenever inferred runtime IDs are shown.
+pub(crate) const RUNTIME_ASSUMED: &str = "runtime slots and IDs are inferred by the \
+     assumption `runtime-slots-by-scale` (docs/load-order.md; the owner's saves of game \
+     1.16.244.0 agree with it): not confirmed for this load order unless a save confirms \
+     them (`load --from-save`)";
+
+/// The statement about runtime IDs for `lo`: inferred, or confirmed by a save.
+pub(crate) fn runtime_note(lo: &LoadOrder) -> String {
+    match &lo.runtime_basis {
+        RuntimeBasis::Inferred => RUNTIME_ASSUMED.to_string(),
+        RuntimeBasis::ConfirmedBySave(save) => format!(
+            "{RUNTIME_NOTE} are confirmed by the save {save}: its plugin lists name exactly this \
+             load order's plugins, and each plugin's slot is its place in the save's list \
+             (docs/load-order.md, \"Save headers\")"
+        ),
+    }
+}
+
+/// Whether `limitations` already state where runtime IDs come from.
+pub(crate) fn has_runtime_note(limitations: &[String]) -> bool {
+    limitations.iter().any(|l| l.starts_with(RUNTIME_NOTE))
+}
 
 /// A loaded load order, kept in the session.
 pub(crate) struct Loaded {
@@ -141,6 +163,12 @@ pub(crate) fn acquire<'s>(
     args: &Value,
     command: &str,
 ) -> Result<&'s mut Loaded, EngineError> {
+    if args.get("from_save").is_some() && !has_load_args(args) {
+        return Err(failed(
+            command,
+            "`from_save` applies to the load order it loads: pass `profile` (or `plugins`) with it",
+        ));
+    }
     if has_load_args(args) {
         let (loaded, listing, _) = load(args, Some(&*session), command)?;
         session.set_load_order(Some(listing));
@@ -225,6 +253,90 @@ fn assumed_examples(lo: &LoadOrder, index: u16) -> Vec<Value> {
         })
         .take(ASSUMED_LISTED)
         .collect()
+}
+
+/// `from_save`: read the save (`newest`: the newest `.sfs` where the game keeps the
+/// profile's saves) and adopt its runtime slots when its lists name exactly the load order's
+/// plugins. Read-only. Returns the `save` object of the listing and limitations.
+fn from_save(
+    lo: &mut LoadOrder,
+    args: &Value,
+    which: &str,
+    command: &str,
+) -> Result<(Value, Vec<String>), EngineError> {
+    use kitkraft_io::save::{match_load_order, newest_save, read_save_header, saves_dir};
+    let path = if which.eq_ignore_ascii_case("newest") {
+        let profile = args.get("profile").and_then(Value::as_str).ok_or_else(|| {
+            failed(
+                command,
+                "`from_save: newest` needs `profile` (where its saves are); pass a save path with `plugins`",
+            )
+        })?;
+        let dir = saves_dir(Path::new(profile)).ok_or_else(|| {
+            failed(
+                command,
+                "no saves folder known for this profile (no USERPROFILE)",
+            )
+        })?;
+        newest_save(&dir)
+            .map_err(|e| failed(command, e.to_string()))?
+            .ok_or_else(|| failed(command, format!("{}: no .sfs save", dir.display())))?
+    } else {
+        PathBuf::from(which)
+    };
+    let header = read_save_header(&path).map_err(|e| failed(command, e.to_string()))?;
+    let m = match_load_order(lo, &header);
+    let name = path.file_name().map_or_else(
+        || path.display().to_string(),
+        |n| n.to_string_lossy().into_owned(),
+    );
+    let label = format!("{name} (game {})", header.game_version);
+    let mut notes = Vec::new();
+    match m.slots.clone() {
+        Some(slots) => {
+            lo.adopt_runtime_slots(slots, label.clone())
+                .map_err(|e| failed(command, format!("{name}: {e}")))?;
+            if !m.differs_from_inferred.is_empty() {
+                notes.push(format!(
+                    "the save {label} gives other runtime slots than `runtime-slots-by-scale` \
+                     infers for this load order (the save's are used): {}",
+                    m.differs_from_inferred.join("; ")
+                ));
+            }
+        }
+        None => {
+            let mut parts = Vec::new();
+            for (what, list) in [
+                ("only in the load order", &m.only_in_load_order),
+                ("only in the save", &m.only_in_save),
+                ("scale", &m.scale_mismatch),
+            ] {
+                if !list.is_empty() {
+                    parts.push(format!("{what}: {}", list.join(", ")));
+                }
+            }
+            notes.push(format!(
+                "the save {label} lists another plugin set, so its slots are not adopted and \
+                 runtime IDs stay inferred ({})",
+                parts.join("; ")
+            ));
+        }
+    }
+    let json = json!({
+        "path": path.display().to_string(),
+        "game_version": header.game_version,
+        "full": header.full.len(),
+        "small": header.small.len(),
+        "medium": header.medium.len(),
+        "plugin_block_offset": header.plugin_block_offset,
+        "plugin_block_size": header.plugin_block_size,
+        "confirmed": m.confirmed(),
+        "only_in_load_order": m.only_in_load_order,
+        "only_in_save": m.only_in_save,
+        "scale_mismatch": m.scale_mismatch,
+        "differs_from_inferred": m.differs_from_inferred,
+    });
+    Ok((json, notes))
 }
 
 /// Load per `args`: the session value (whose `limitations` every command over it repeats),
@@ -414,26 +526,36 @@ pub(crate) fn load(
         IndexCache::default_location()
     };
     let cache_dir = cache.as_ref().map(|c| c.dir().display().to_string());
-    let lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
+    let mut lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
         .map_err(|e| failed(command, e.to_string()))?;
     for w in &warnings {
         limitations.push(format!("profile: {w}"));
     }
-    let blueprint: Vec<&str> = lo
-        .plugins
-        .iter()
-        .filter(|p| {
-            p.header().is_some_and(|h| h.flags.blueprint()) && p.scale() == Some(Scale::Full)
-        })
-        .map(|p| p.name.as_str())
-        .collect();
-    if !blueprint.is_empty() {
-        limitations.push(format!(
-            "blueprint (0x800) full plugins take the full runtime slots after every other \
-             full plugin, whatever their place in the load order (`runtime-slots-by-scale`, \
-             as the owner's saves record): {}",
-            blueprint.join(", ")
-        ));
+    let save = match args.get("from_save").and_then(Value::as_str) {
+        Some(which) => {
+            let (json, notes) = from_save(&mut lo, args, which, command)?;
+            limitations.extend(notes);
+            json
+        }
+        None => Value::Null,
+    };
+    if lo.runtime_basis == RuntimeBasis::Inferred {
+        let blueprint: Vec<&str> = lo
+            .plugins
+            .iter()
+            .filter(|p| {
+                p.header().is_some_and(|h| h.flags.blueprint()) && p.scale() == Some(Scale::Full)
+            })
+            .map(|p| p.name.as_str())
+            .collect();
+        if !blueprint.is_empty() {
+            limitations.push(format!(
+                "blueprint (0x800) full plugins take the full runtime slots after every other \
+                 full plugin, whatever their place in the load order (`runtime-slots-by-scale`, \
+                 as the owner's saves record): {}",
+                blueprint.join(", ")
+            ));
+        }
     }
 
     let mut evidence = Vec::new();
@@ -522,6 +644,7 @@ pub(crate) fn load(
             "assumed_records": if assumed_self > 0 { assumed_examples(&lo, index) } else { Vec::new() },
             "duplicate_records": duplicates,
             "runtime_slot": p.runtime_slot.map(|s| s.label()),
+            "runtime_basis": lo.runtime_basis.as_str(),
             "cache": cache_label(p.cache),
             "error": p.error,
         }));
@@ -549,7 +672,7 @@ pub(crate) fn load(
             missing_links.join("; ")
         ));
     }
-    shared.push(RUNTIME_ASSUMED.to_string());
+    shared.push(runtime_note(&lo));
     if !full_style.is_empty() {
         shared.push(format!(
             "own records of small/medium plugins stored in the full class resolve to the plugin \
@@ -588,6 +711,8 @@ pub(crate) fn load(
     let listing = json!({
         "loaded": true,
         "source": source,
+        "runtime_basis": lo.runtime_basis.as_str(),
+        "save": save,
         "language": language,
         "plugins": plugins,
         "inactive": inactive,
@@ -938,6 +1063,93 @@ pub(crate) mod tests {
         args["plugins"] = json!(["Bad.esm", "Base.esm", "Patch.esm"]);
         let i = crate::execute("inspect", args).unwrap();
         assert_eq!(i["data"]["winner_source"]["safe"], true);
+    }
+
+    /// POI investigation follow-up: `from_save` adopts a save's plugin lists as the runtime
+    /// slots when they name exactly the load order's plugins (even when the inferred rule
+    /// disagrees), says so everywhere, and refuses nothing but stays inferred otherwise.
+    #[test]
+    fn from_save_confirms_runtime_slots_or_says_why_not() {
+        use crate::handlers::testdata::save;
+        let dir = fixture("load-from-save");
+        let path = |name: &str, bytes: Vec<u8>| {
+            let p = dir.join(name);
+            std::fs::write(&p, bytes).unwrap();
+            p.display().to_string()
+        };
+        let mut args = plugins_args(&dir);
+        // The game (by this save) gave Patch slot 00 and Base 01: the save wins.
+        args["from_save"] = json!(path(
+            "Swapped.sfs",
+            save(&["Patch.esm", "Base.esm"], &[], &[])
+        ));
+        let engine = Engine::with_default_handlers();
+        let r = engine.execute("load", args.clone()).unwrap();
+        let data = &r["data"];
+        assert_eq!(data["runtime_basis"], "confirmed-by-save");
+        assert_eq!(data["save"]["confirmed"], true);
+        assert_eq!(data["save"]["game_version"], "1.16.244.0");
+        assert_eq!(data["plugins"][0]["runtime_slot"], "01");
+        assert_eq!(data["plugins"][0]["runtime_basis"], "confirmed-by-save");
+        assert_eq!(
+            data["save"]["differs_from_inferred"],
+            json!([
+                "Base.esm: inferred 00, save 01",
+                "Patch.esm: inferred 01, save 00"
+            ])
+        );
+        assert!(
+            has_limitation(&r, "confirmed by the save Swapped.sfs"),
+            "{r}"
+        );
+        assert!(has_limitation(&r, "gives other runtime slots"), "{r}");
+        assert!(!has_limitation(&r, "are inferred"), "{r}");
+        // Commands over the session's load order show the confirmed IDs.
+        let i = engine
+            .execute("inspect", json!({"form": "Base.esm:000800"}))
+            .unwrap();
+        assert_eq!(i["data"]["runtime_id"], "01000800");
+        assert_eq!(i["data"]["runtime_id_basis"], "confirmed-by-save");
+
+        // A save of another plugin set: nothing adopted, the reason stated.
+        args["from_save"] = json!(path("Fewer.sfs", save(&["Base.esm"], &[], &[])));
+        let r = crate::execute("load", args.clone()).unwrap();
+        assert_eq!(r["data"]["runtime_basis"], "inferred");
+        assert_eq!(r["data"]["plugins"][0]["runtime_slot"], "00");
+        assert_eq!(
+            r["data"]["save"]["only_in_load_order"],
+            json!(["Patch.esm (full)"])
+        );
+        assert!(has_limitation(&r, "lists another plugin set"), "{r}");
+        assert!(has_limitation(&r, "are inferred"), "{r}");
+        // A scale the headers contradict.
+        args["from_save"] = json!(path("Scale.sfs", save(&["Base.esm"], &["Patch.esm"], &[])));
+        let r = crate::execute("load", args.clone()).unwrap();
+        assert_eq!(
+            r["data"]["save"]["scale_mismatch"],
+            json!(["Patch.esm: the save lists it as small, its header says full"])
+        );
+
+        // Errors: no save there, a non-save, `newest` without a profile, from_save alone.
+        args["from_save"] = json!(dir.join("None.sfs").display().to_string());
+        assert!(crate::execute("load", args.clone()).is_err());
+        args["from_save"] = json!(dir.join("Base.esm").display().to_string());
+        let e = crate::execute("load", args.clone()).unwrap_err();
+        assert!(e.to_string().contains("BCPS"), "{e}");
+        args["from_save"] = json!("newest");
+        let e = crate::execute("load", args).unwrap_err();
+        assert!(e.to_string().contains("needs `profile`"), "{e}");
+        let e = crate::execute(
+            "testplan",
+            json!({
+                "plugin": dir.join("Base.esm").display().to_string(),
+                "out": dir.join("plan").display().to_string(),
+                "from_save": "newest",
+            }),
+        )
+        .unwrap_err();
+        assert!(e.to_string().contains("pass `profile`"), "{e}");
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     fn has_limitation(result: &Value, needle: &str) -> bool {

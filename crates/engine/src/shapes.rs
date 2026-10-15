@@ -310,10 +310,30 @@ const LOAD_PLUGIN: Shape = Obj(&[&[
     ),
     req("duplicate_records", Int),
     req("runtime_slot", NSTR),
+    req("runtime_basis", RUNTIME_BASIS),
     req("cache", Enum(&["hit", "built", "uncached"])),
     req("error", NSTR),
 ]]);
+const RUNTIME_BASIS: Shape = Enum(&["inferred", "confirmed-by-save"]);
+/// `load --from-save`: the save read and how its lists compare with the load order.
+const LOAD_SAVE: Shape = Obj(&[&[
+    req("path", Str),
+    req("game_version", Str),
+    req("full", Int),
+    req("small", Int),
+    req("medium", Int),
+    // In the decompressed data, not the file.
+    req("plugin_block_offset", Int),
+    req("plugin_block_size", Int),
+    req("confirmed", Bool),
+    req("only_in_load_order", STRS),
+    req("only_in_save", STRS),
+    req("scale_mismatch", STRS),
+    req("differs_from_inferred", STRS),
+]]);
 const LOAD: Shape = Obj(&[&[
+    req("runtime_basis", RUNTIME_BASIS),
+    req("save", Nullable(&LOAD_SAVE)),
     req("loaded", Bool),
     req("source", Str),
     req("language", Str),

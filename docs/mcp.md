@@ -325,8 +325,12 @@ Rules, evidence and assumptions: `docs/load-order.md`.
 Every result over a load order (`load`, `inspect`, `query`, `conflicts`) repeats the
 limitations that affect it, whether it loaded the plugins itself or used the session's:
 ordering errors (a master loading after a plugin that names it), plugins that failed to
-load or have no file, masters missing from the load order, runtime IDs as an assumption
-(`runtime-slots-by-scale`), plugins whose own records resolve by the `full-style-self`
+load or have no file, masters missing from the load order, where runtime IDs come from
+(inferred by `runtime-slots-by-scale`, or confirmed by a save: `load --from-save <path |
+newest>` adopts a save's plugin lists as the runtime slots when they name exactly the load
+order's plugins; `load`'s `data` then has `runtime_basis: "confirmed-by-save"`, each plugin
+a `runtime_basis`, and `save` says which save and what differs; `docs/load-order.md`,
+"Runtime IDs" and "Save headers"), plugins whose own records resolve by the `full-style-self`
 assumption, records of one plugin resolving to the same form, records whose FormIDs do not
 resolve, the profile's warnings, which plugins are active by an assumption, and the
 `hardcoded-official-slots` order.
@@ -373,7 +377,8 @@ refused unless it is an EditorID), `runtime:<hex>` (a runtime ID under the runti
 assumption), or an EditorID (ASCII case-insensitive). `data`:
 `mode: "load_order"`, `load_order`, `language`, `form`, `matched_by` (`formref` |
 `form_id` | `runtime_id` | `editor_id`), `global` (formref), `defining_plugin`,
-`object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`),
+`object_id`, `runtime_id` and `runtime_id_basis` (`assumed:runtime-slots-by-scale`, or
+`confirmed-by-save` after `load --from-save`),
 `signature`, `editor_id` (the winner's), `winner`, `winner_deleted`, `winner_source`
 (M3.D1: `{safe, blocking[], unrelated[]}`, whether the winner is a safe source to copy;
 rules in `docs/load-order.md`, "Safe sources"), `summary` (says

@@ -15,6 +15,7 @@ pub mod instance;
 pub mod mo2;
 pub mod overlay;
 pub mod plan;
+pub mod save;
 #[cfg(test)]
 mod testdata;
 pub mod text;
@@ -282,6 +283,7 @@ mod tests {
     /// files carry them), so the blueprint rule reads the flag.
     #[test]
     fn kitkraft_dev_order_matches_its_saves() {
+        use crate::save::tests::{bcps, save_data};
         use crate::testdata::{dev_flags, tiny_plugin, DEV_FULL, DEV_MEDIUM, DEV_SMALL};
         use kitkraft_doc::{LoadOptions, LoadOrder, RuntimeSlot};
 
@@ -316,29 +318,20 @@ mod tests {
             "mods/KitKraft Gun Overhaul/KitKraftGunOverhaul.esm",
             &tiny_plugin(0x1),
         );
-        // Every active plugin takes the slot of its place in the save's list of its scale.
         let check = |plugins_txt: &[u8], full: &[(&str, bool)], save: &str| {
             inst.write("profiles/P/plugins.txt", plugins_txt);
             let load = plan(&inst);
             let lo = LoadOrder::load(load.plan.specs(), &LoadOptions::default()).unwrap();
-            let mut expected: Vec<(String, RuntimeSlot)> = Vec::new();
-            for (i, (n, _)) in full.iter().enumerate() {
-                expected.push((n.to_string(), RuntimeSlot::Full(u8::try_from(i).unwrap())));
-            }
-            for (i, (n, _)) in DEV_SMALL.iter().enumerate() {
-                expected.push((n.to_string(), RuntimeSlot::Small(u16::try_from(i).unwrap())));
-            }
-            for (i, (n, _)) in DEV_MEDIUM.iter().enumerate() {
-                expected.push((n.to_string(), RuntimeSlot::Medium(u8::try_from(i).unwrap())));
-            }
-            let mut got: Vec<(String, RuntimeSlot)> = lo
-                .plugins
-                .iter()
-                .map(|p| (p.name.clone(), p.runtime_slot.unwrap()))
-                .collect();
-            expected.sort_by(|a, b| a.0.cmp(&b.0));
-            got.sort_by(|a, b| a.0.cmp(&b.0));
-            assert_eq!(got, expected, "{save}");
+            let path = inst.root.join(save);
+            std::fs::write(
+                &path,
+                bcps(&save_data(full, &DEV_SMALL, &DEV_MEDIUM), 0x40000),
+            )
+            .unwrap();
+            let header = crate::save::read_save_header(&path).unwrap();
+            let m = crate::save::match_load_order(&lo, &header);
+            assert!(m.confirmed(), "{save}: {m:?}");
+            assert_eq!(m.differs_from_inferred, Vec::<String>::new(), "{save}");
             (load, lo)
         };
         // Autosave1 000039: only the POI enabled.

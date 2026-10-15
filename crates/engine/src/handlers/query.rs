@@ -10,7 +10,7 @@ use kitkraft_esm::HEADER_LEN;
 use serde_json::{json, Value};
 
 use super::failed;
-use super::load::{acquire, lstring_json, schema_of, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, has_runtime_note, lstring_json, runtime_note, schema_of, Loaded};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
 use crate::session::Session;
@@ -99,8 +99,8 @@ fn run_on(
         })
         .collect();
     let mut limitations = shared.clone();
-    if !limitations.iter().any(|l| l == RUNTIME_ASSUMED) {
-        limitations.push(RUNTIME_ASSUMED.to_string());
+    if !has_runtime_note(&limitations) {
+        limitations.push(runtime_note(lo));
     }
     if page.unknown_count > 0 {
         limitations.push(format!(

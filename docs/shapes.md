@@ -5,6 +5,20 @@ Generated from `crates/engine/src/shapes.rs` by `cargo test -p kitkraft-engine w
 ## `load`
 
 ```text
+runtime_basis: "inferred" | "confirmed-by-save"
+save: object or null
+save.path: str
+save.game_version: str
+save.full: int
+save.small: int
+save.medium: int
+save.plugin_block_offset: int
+save.plugin_block_size: int
+save.confirmed: bool
+save.only_in_load_order: [str]
+save.only_in_save: [str]
+save.scale_mismatch: [str]
+save.differs_from_inferred: [str]
 loaded: bool
 source: str
 language: str
@@ -36,6 +50,7 @@ plugins[].assumed_records[].form: str
 plugins[].assumed_records[].basis: str
 plugins[].duplicate_records: int
 plugins[].runtime_slot: str | null
+plugins[].runtime_basis: "inferred" | "confirmed-by-save"
 plugins[].cache: "hit" | "built" | "uncached"
 plugins[].error: str | null
 inactive: [str]

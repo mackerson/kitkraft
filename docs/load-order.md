@@ -49,7 +49,7 @@ A plugin is active when the first of these rules applies (`kitkraft_io::Active`)
 | Rule (label) | Evidence |
 | ------------ | -------- |
 | `Starfield.ccc` | Listed in the profile's `Starfield.ccc` (Ortham, below). |
-| `hardcoded-official` (**assumption**) | One of `Starfield.esm`, `Constellation.esm`, `OldMars.esm`, `BlueprintShips-Starfield.esm`, `SFBGS003.esm`, `SFBGS006.esm`, `SFBGS007.esm`, `SFBGS008.esm` (Ortham 2024: "hardcoded to always be active"), plus `SFBGS00D.esm`, `SFBGS047.esm`, `SFBGS050.esm` (LOOT 0.29.0, 2026-04-11: new hardcoded official masters, https://github.com/loot/loot/blob/master/docs/app/changelog.rst), plus `ShatteredSpace.esm` and `SFBGS004.esm` (the owner's saves, `docs/poi/first-poi-investigation.md`: the `KitKraft Dev` profile's `plugins.txt` lists all five of `ShatteredSpace`, `SFBGS004`, `SFBGS00D`, `SFBGS047`, `SFBGS050` without `*`, and every save of that profile lists them as loaded, game 1.16.244.0), when the file exists. The list changes with game builds. |
+| `hardcoded-official` (**assumption**) | One of `Starfield.esm`, `Constellation.esm`, `OldMars.esm`, `BlueprintShips-Starfield.esm`, `SFBGS003.esm`, `SFBGS006.esm`, `SFBGS007.esm`, `SFBGS008.esm` (Ortham 2024: "hardcoded to always be active"), plus `SFBGS00D.esm`, `SFBGS047.esm`, `SFBGS050.esm` (LOOT 0.29.0, 2026-04-11: new hardcoded official masters, https://github.com/loot/loot/blob/master/docs/app/changelog.rst), plus `ShatteredSpace.esm` and `SFBGS004.esm` (the owner's saves, below: the `KitKraft Dev` profile's `plugins.txt` lists all five of `ShatteredSpace`, `SFBGS004`, `SFBGS00D`, `SFBGS047`, `SFBGS050` without `*`, and every save of that profile lists them as loaded, game 1.16.244.0), when the file exists. The list changes with game builds. |
 | `plugins.txt` | A `*` line. |
 | `mo2-unmanaged:<entry>` (**assumption**) | The plugin of a `*Unmanaged: X` modlist entry. First evidence it is loaded: `ShatteredSpace.esm` is in neither `plugins.txt` (as `*`) nor `Starfield.ccc` nor the LOOT list, yet it is a master of the active `SVF-ShatteredSpace-Patch.esm`, so the game must load it; the saves confirm it, and it is now `hardcoded-official`. On both owner profiles only `BlueprintShips-SFBGS050.esm` is still active by this rule (it is also the companion of `SFBGS050`). How the game learns about such plugins (its own Creations list) is **not observed**. |
 | `blueprint-companion-of:<base>` | `BlueprintShips-<base>.esm` when `<base>` is active (LOOT 0.29.0: BlueprintShips plugins "displayed as active when there is an active plugin that matches the BlueprintShips plugin's suffix"; 0.29.1: they are no longer written to `plugins.txt`). In the Default profile both companions are already active by other rules (`BlueprintShips-Starfield.esm` through `Starfield.ccc`, `BlueprintShips-SFBGS050.esm` through its unmanaged entry), so the rule is fixture-tested only. |
@@ -66,7 +66,7 @@ A plugin is active when the first of these rules applies (`kitkraft_io::Active`)
 2. Everything else in `loadorder.txt` order; an active plugin it does not list is appended
    with a warning.
 
-Evidence (the game's own record, `docs/poi/first-poi-investigation.md`; game 1.16.244.0): every
+Evidence (the game's own record, "Save headers" below; game 1.16.244.0, 2026-10-15): every
 save of the owner's lists, per scale, the official plugins first, in this order: full
 `Starfield`, `ShatteredSpace`, `SFBGS00D`, `SFBGS050`; small `Constellation`, `OldMars`,
 `SFBGS004`, `SFBGS007`, `SFBGS008`, `SFBGS047`; medium `SFBGS003`, `SFBGS006`. Then the
@@ -240,24 +240,87 @@ An earlier version of this page said update plugins take full slots (citing Orth
 game version 1.12.30.0); the two readings differ only for an update plugin that also sets
 a scale bit, which no corpus file and no Default-profile plugin does.
 
-Evidence (game 1.16.244.0, 2026-10-15; `docs/poi/first-poi-investigation.md`): the saves' lists give
+Evidence (game 1.16.244.0, 2026-10-15; "Save headers" below): the saves' lists give
 `KitKraft Dev` full `00` Starfield, `01` ShatteredSpace, `02` SFBGS00D, `03` SFBGS050,
 `04` KitKraftFirstPOI, `05` KitKraftGunOverhaul (once enabled), then the two blueprint
 plugins; `Default` (`Save56`, 84 plugins) 41 full, 33 small, 10 medium, the blueprint
 plugins at `27` and `28` after `EasyLockpick_by_Kor.esp` at `26`. With the order above
 and this rule, `kit load --profile` reproduces every slot of both profiles' newest saves
-(and of `Save56`; `crates/io/src/lib.rs`, `kitkraft_dev_order_matches_its_saves`). The owner's console check of
+(and of `Save56`): `differs_from_inferred` is empty. The owner's console check of
 2026-10-15 is consistent with it (`02001000` behaved as `SFBGS00D.esm`'s exterior
 reference, not the POI's); `prid 04001000` is still to be run (M4.O2). Before this
 fix `load` put `BlueprintShips-Starfield` at `01`, so every user full plugin came out two
 slots high (the POI at `06`; MO2 showed `02`).
 
-Runtime IDs in results are inferred, and say so. Our scripts README says the in-game high
+Runtime IDs stay **inferred** unless a save confirms them: `load --profile <dir>
+--from-save <path|newest>` reads the save's plugin lists and, when they name exactly the
+load order's active plugins under the scales their headers give, adopts the save's slots
+(each result then says `runtime_basis: confirmed-by-save` and names the save). A save of
+another plugin set confirms nothing: `load` lists the plugins only in the load order, only
+in the save, or under another scale, and the IDs stay inferred. `newest` is the newest
+`.sfs` in `<profile>\saves` when the profile's `settings.ini` says `LocalSaves=true` (MO2's
+profile-specific saves), else in `%USERPROFILE%\Documents\My Games\Starfield\Saves`; a
+`sLocalSavePath` in the game's INIs is not read. Our scripts README says the in-game high
 byte is "the plugin's load-order index", which matches the full-slot case.
 
 `inspect` reads a bare hex `form` only as stored in a named `plugin`; a runtime ID needs
 the explicit `runtime:` prefix (`runtime:FE00A801`), so a raw FormID is never taken for a
 runtime one by accident.
+
+### Save headers (corpus)
+
+`kitkraft_io::save` reads only a save's plugin lists, read-only (nothing in `kitkraft-io`
+opens a file for writing; a save is never written). Every fact here is a **corpus** fact
+from the owner's saves, read from copies (game 1.16.244.0, 2026-10-15): `KitKraft Dev`
+`Save1` (`000006`, vanilla), `Autosave1` (`000039`, the POI), `Autosave2` (`000051`) and
+`Exitsave0` (`000052`, the POI and the gun overhaul), and `Default`'s `Save56` (`040127`,
+84 plugins). No outside source was used; the ignored test `owner_saves` in
+`crates/io/src/save.rs` re-reads a folder of copies (`KITKRAFT_SAVES`).
+
+Container, little-endian:
+
+| Offset | Size | Meaning | All five saves |
+| ------ | ---- | ------- | -------------- |
+| 0x00 | 4 | magic `BCPS` | yes |
+| 0x04 | 4 | container version | 1 |
+| 0x08 | 8 | offset of the chunk size table | 0x48 |
+| 0x18 | 8 | offset of the first compressed chunk | 0x80 (12 chunks), 0x2C0 (`Save56`, 157 chunks) |
+| 0x20 | 8 | total uncompressed size | 3,016,523 (`Autosave1`) to 41,106,480 (`Save56`) |
+| 0x30 | 4 | uncompressed chunk size | 0x40000 |
+| 0x38 | 8 | chunk alignment | 16 |
+| 0x44 | 4 | compression tag | `ZIP ` |
+| table | 4 per chunk | compressed size of each chunk; count = ceil(total / chunk size), then `padding\0` up to the data | yes |
+
+Each chunk is one zlib stream (header `78`), the next one starting at the following
+multiple of the alignment. The plugin lists sit in the first chunk in all five saves (the
+reader inflates more chunks only if a list runs past one).
+
+Decompressed data:
+
+| Field | Meaning | All five saves |
+| ----- | ------- | -------------- |
+| 12 bytes | `SFS_SAVEGAME` | yes |
+| u32 | size of the header that follows | 0x76..0x8C (it holds the player's name and location, which vary) |
+| header | starts with a u32 | 27 |
+| u8 | read as a form version, not interpreted | 153 |
+| wstring x2 | the game version, twice | `1.16.244.0` |
+| u32 | size of the plugin block | 261 (`Save1`) .. 4,657 (`Save56`) |
+| u8 count + entries | full plugins, in slot order | 6, 7, 8, 8, 41 |
+| u16 count + entries | small plugins, in `FE` slot order | 6, 6, 6, 6, 33 |
+| u32 count + entries | medium plugins, in `FD` slot order | 2, 2, 2, 2, 10 |
+| the rest of the block | not interpreted | 2 bytes, `01 00` |
+
+A wstring is a u16 length and that many bytes, no terminator. An entry is a wstring (the
+file name), a u8 0 or 1, and after a 1 a u32 (0), a wstring
+(`18446744073709551615.undefined`) and a u8 (0); official plugins carry 0, every other
+plugin 1. That the order within each list is the runtime slot order is read from the
+layout (each list starts with the official plugins, `Starfield.esm` first) and is
+consistent with the owner's console check of 2026-10-15 (`02001000` behaved as the
+exterior reference `SFBGS00D.esm:001000`, the save's full slot `02`;
+`docs/poi/first-poi-investigation.md`); the direct check, `prid 04001000` on the POI's
+crate, is the owner's pending M4.O2 step. The reader refuses
+anything else (another magic or tag, a flag other than 0 or 1, lists that end past the
+block, a chunk that runs past the file or inflates past the chunk size), with the offset.
 
 ## Deleted records
 

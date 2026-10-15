@@ -23,6 +23,17 @@ pub enum IoError {
     /// No `ModOrganizer.ini` two levels above the profile, or it has no `gamePath`.
     #[error("{0}")]
     Instance(String),
+    /// A save file's header could not be read (offset into the file for container
+    /// fields, into the decompressed data otherwise).
+    #[error("{}: save header at 0x{offset:X}: {what}", path.display())]
+    Save {
+        /// The save.
+        path: PathBuf,
+        /// Where it failed.
+        offset: u64,
+        /// What was wrong.
+        what: String,
+    },
     /// The load-order model refused the plugin list.
     #[error(transparent)]
     Doc(#[from] kitkraft_doc::DocError),

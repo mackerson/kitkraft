@@ -12,3 +12,4 @@ workspace = true
 [dependencies]
 kitkraft-doc.workspace = true
 thiserror.workspace = true
+flate2.workspace = true

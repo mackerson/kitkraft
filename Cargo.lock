@@ -1228,6 +1228,7 @@ dependencies = [
 name = "kitkraft-io"
 version = "0.0.0"
 dependencies = [
+ "flate2",
  "kitkraft-doc",
  "thiserror 2.0.21",
 ]

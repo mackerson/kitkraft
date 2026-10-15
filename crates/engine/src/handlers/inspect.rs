@@ -36,7 +36,7 @@ use kitkraft_doc::strings::StringTables;
 use kitkraft_doc::typed::{self, Decoded};
 use kitkraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
 
-use super::load::{acquire, lstring_json, schema_of, Loaded, RUNTIME_ASSUMED};
+use super::load::{acquire, has_runtime_note, lstring_json, runtime_note, schema_of, Loaded};
 use super::{failed, file_name, str_arg};
 use crate::envelope::{Coverage, CoverageStatus, Evidence, Outcome};
 use crate::exec::EngineError;
@@ -809,8 +809,8 @@ fn run_load_order(
             .to_string(),
     ];
     limitations.extend(loaded.limitations.iter().cloned());
-    if runtime.is_some() && !limitations.iter().any(|l| l == RUNTIME_ASSUMED) {
-        limitations.push(RUNTIME_ASSUMED.to_string());
+    if runtime.is_some() && !has_runtime_note(&limitations) {
+        limitations.push(runtime_note(lo));
     }
     if compressed_any {
         limitations.push(COMPRESSED_OFFSETS.to_string());
@@ -865,7 +865,10 @@ fn run_load_order(
         "defining_plugin": lo.plugin(form.plugin).map(|p| p.name.clone()),
         "object_id": format!("{:06X}", form.object_id),
         "runtime_id": runtime.map(|r| format!("{r:08X}")),
-        "runtime_id_basis": runtime.map(|_| "assumed:runtime-slots-by-scale"),
+        "runtime_id_basis": runtime.map(|_| match lo.runtime_basis {
+            kitkraft_doc::RuntimeBasis::Inferred => "assumed:runtime-slots-by-scale",
+            kitkraft_doc::RuntimeBasis::ConfirmedBySave(_) => "confirmed-by-save",
+        }),
         "signature": signature,
         "editor_id": editor_id,
         "winner": winner_name,
