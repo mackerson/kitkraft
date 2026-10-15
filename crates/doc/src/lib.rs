@@ -10,6 +10,7 @@
 //!
 //! LAYER: L1
 
+pub mod backrefs;
 pub mod cache;
 pub mod compare;
 pub mod confidence;
@@ -21,6 +22,7 @@ pub mod flags;
 pub mod form;
 pub mod hash;
 pub mod index;
+pub mod links;
 pub mod load_order;
 pub mod lstring;
 pub mod overrides;

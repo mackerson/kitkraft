@@ -383,8 +383,10 @@ fn outcome(plugin: &str, file: &str, form: &str, matched_by: &str, hit: &Hit) ->
     }
 }
 
-/// Find the form `form` names in the load order, and how it was matched.
-fn find_form(
+/// Find the form `form` names in the load order, and how it was matched (`inspect`'s
+/// lookup, shared by `refs` and `planet`; errors name `command`).
+pub(super) fn find_form(
+    command: &str,
     loaded: &Loaded,
     form: &str,
     plugin: Option<&str>,
@@ -394,7 +396,7 @@ fn find_form(
     if let Some(f) = FormRef::parse(form) {
         let p = lo
             .find(&f.plugin)
-            .ok_or_else(|| failed(ID, format!("`{}` is not in the load order", f.plugin)))?;
+            .ok_or_else(|| failed(command, format!("`{}` is not in the load order", f.plugin)))?;
         return Ok((
             GlobalForm {
                 plugin: p,
@@ -408,15 +410,19 @@ fn find_form(
         .filter(|p| p.eq_ignore_ascii_case(RUNTIME_PREFIX))
         .and_then(|_| form.get(RUNTIME_PREFIX.len()..))
     {
-        let raw = parse_form_id(text)
-            .ok_or_else(|| failed(ID, format!("`{form}`: `{text}` is not a hex runtime ID")))?;
+        let raw = parse_form_id(text).ok_or_else(|| {
+            failed(
+                command,
+                format!("`{form}`: `{text}` is not a hex runtime ID"),
+            )
+        })?;
         return lo
             .from_runtime_id(raw)
             .filter(present)
             .map(|g| (g, "runtime_id"))
             .ok_or_else(|| {
                 failed(
-                    ID,
+                    command,
                     format!("no form has runtime ID {raw:08X} (under `runtime-slots-by-scale`)"),
                 )
             });
@@ -425,8 +431,10 @@ fn find_form(
     if let (Some(raw), Some(name)) = (bare_hex, plugin) {
         let p = lo
             .find(name)
-            .ok_or_else(|| failed(ID, format!("`{name}` is not in the load order")))?;
-        let g = lo.resolve(p, raw).map_err(|e| failed(ID, e.to_string()))?;
+            .ok_or_else(|| failed(command, format!("`{name}` is not in the load order")))?;
+        let g = lo
+            .resolve(p, raw)
+            .map_err(|e| failed(command, e.to_string()))?;
         if present(&g) {
             return Ok((g, "form_id"));
         }
@@ -439,7 +447,7 @@ fn find_form(
     if bare_hex.is_some() && plugin.is_none() {
         // A bare hex FormID means nothing without the file whose masters number it.
         return Err(failed(
-            ID,
+            command,
             format!(
                 "`{form}` is no EditorID; as a hex FormID it needs `plugin` (the plugin whose \
                  numbering it uses), or write `runtime:{form}` for a runtime ID"
@@ -447,7 +455,7 @@ fn find_form(
         ));
     }
     Err(failed(
-        ID,
+        command,
         format!(
             "no record with formref, FormID, runtime ID or EditorID `{form}` in the load order"
         ),
@@ -650,7 +658,7 @@ fn run_load_order(
     let form_arg = str_arg(ID, args, "form")?;
     let plugin = args.get("plugin").and_then(Value::as_str);
     let lo = &loaded.lo;
-    let (form, matched_by) = find_form(loaded, form_arg, plugin)?;
+    let (form, matched_by) = find_form(ID, loaded, form_arg, plugin)?;
     let versions: Vec<Version> = lo.forms.versions(form).to_vec();
     if versions.is_empty() {
         return Err(failed(

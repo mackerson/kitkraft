@@ -112,11 +112,15 @@ fn decode_in(
     c: &mut Cursor<'_>,
     ctx: &Ctx,
     siblings: &[(String, Decoded)],
+    forms: &mut Vec<usize>,
 ) -> Result<Decoded, String> {
     match ty {
         FieldType::Scalar(s) => scalar(*s, c),
         FieldType::Enum { base, .. } | FieldType::Flags { base, .. } => scalar(*base, c),
-        FieldType::FormId { .. } => Ok(Decoded::Form(le(c.take(4)?) as u32)),
+        FieldType::FormId { .. } => {
+            forms.push(c.pos);
+            Ok(Decoded::Form(le(c.take(4)?) as u32))
+        }
         FieldType::Sig => {
             let b = c.take(4)?;
             Ok(Decoded::Sig(b.try_into().map_err(|_| "sig")?))
@@ -150,7 +154,7 @@ fn decode_in(
             Ok(Decoded::Opaque { at, len })
         }
         FieldType::Empty => Ok(Decoded::Struct(Vec::new())),
-        FieldType::Ref { ty, .. } => decode_in(ty, c, ctx, siblings),
+        FieldType::Ref { ty, .. } => decode_in(ty, c, ctx, siblings, forms),
         FieldType::Union {
             decider: Decider::EditorIdPrefix,
             variants,
@@ -158,7 +162,7 @@ fn decode_in(
             .edid_first
             .and_then(|b| select_variant(variants, i64::from(b), None))
         {
-            Some(v) => decode_in(&v.ty, c, ctx, siblings),
+            Some(v) => decode_in(&v.ty, c, ctx, siblings, forms),
             None => {
                 let at = c.pos;
                 let len = c.rest().len();
@@ -187,7 +191,7 @@ fn decode_in(
             };
             match select_variant(variants, key, second) {
                 Some(v) => {
-                    let value = decode_in(&v.ty, c, ctx, siblings)?;
+                    let value = decode_in(&v.ty, c, ctx, siblings, forms)?;
                     Ok(Decoded::Struct(vec![(v.name.clone(), value)]))
                 }
                 None => {
@@ -228,7 +232,7 @@ fn decode_in(
                     return Err("too many array elements".into());
                 }
                 let before = c.pos;
-                out.push(decode_in(element, c, ctx, &[])?);
+                out.push(decode_in(element, c, ctx, &[], forms)?);
                 if n.is_none() && c.pos == before {
                     break;
                 }
@@ -244,7 +248,7 @@ fn decode_in(
                 if f.if_remaining && c.remaining() == 0 {
                     continue;
                 }
-                let v = decode_in(&f.ty, c, ctx, &out)?;
+                let v = decode_in(&f.ty, c, ctx, &out, forms)?;
                 out.push((f.name.clone(), v));
             }
             Ok(Decoded::Struct(out))
@@ -254,12 +258,24 @@ fn decode_in(
 
 /// Decode a whole subrecord payload; every byte must be accounted for.
 pub fn decode(ty: &FieldType, data: &[u8], ctx: &Ctx) -> Result<Decoded, String> {
+    decode_traced(ty, data, ctx).map(|(v, _)| v)
+}
+
+/// As [`decode`], also returning the payload offset of every [`Decoded::Form`] value, in
+/// the order a depth-first walk of the result meets them (struct fields in order, array
+/// elements in order).
+pub fn decode_traced(
+    ty: &FieldType,
+    data: &[u8],
+    ctx: &Ctx,
+) -> Result<(Decoded, Vec<usize>), String> {
     let mut c = Cursor { data, pos: 0 };
-    let v = decode_in(ty, &mut c, ctx, &[])?;
+    let mut forms = Vec::new();
+    let v = decode_in(ty, &mut c, ctx, &[], &mut forms)?;
     if c.remaining() != 0 {
         return Err(format!("layout covers {} of {} bytes", c.pos, data.len()));
     }
-    Ok(v)
+    Ok((v, forms))
 }
 
 /// Where one subrecord of a record sits in its record type's definition, found by its

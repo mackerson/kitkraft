@@ -181,6 +181,17 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "refs",
+        label: "References (Use Info)...",
+        menu_path: "Record/References...",
+        shortcut: None,
+        aliases: &["useinfo"],
+        summary: "Typed FormID links of a form across the load order: outgoing (what its winning version names) or incoming (which records name it; placed references with cell and world), followed depth hops; raw values beside resolved forms, paged",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, runtime:<hex>, or a hex FormID as stored in `plugin`"},"incoming":{"type":"boolean","default":false,"description":"Records that name the form (the CK's Use Info) instead of the forms it names"},"depth":{"type":"integer","minimum":1,"maximum":6,"default":1,"description":"Hops to follow: 2 also lists the links of every form reached (outgoing) or the referrers of every referrer (incoming)"},"scope":{"type":"string","enum":["winner","all"],"default":"winner","description":"incoming: only winning versions of referrers, or every version"},"types":{"type":"array","items":{"type":"string","minLength":4,"maxLength":4},"description":"Only links to (outgoing) or from (incoming) records of these types"},"limit":{"type":"integer","minimum":1,"maximum":1000,"default":100},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache (the reverse index is then built in memory)"}},"required":["form"],"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "build",
         label: "Build Patch...",
         menu_path: "File/Build Patch...",

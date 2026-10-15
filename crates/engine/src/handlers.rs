@@ -28,6 +28,7 @@ mod place;
 #[cfg(test)]
 pub(crate) mod place_tests;
 mod query;
+mod refs;
 mod resolve;
 #[cfg(test)]
 mod resolve_tests;
@@ -124,6 +125,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("inspect", Box::new(inspect::run)),
         ("query", Box::new(query::run)),
         ("conflicts", Box::new(conflicts::run)),
+        ("refs", Box::new(refs::run)),
         ("set", Box::new(set::run)),
         ("validate", Box::new(validate::run)),
         ("build", Box::new(build::run)),

@@ -49,7 +49,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | First overhaul build from the owner's brief validated (M3.E9) | **done** (build 2) | Build 1: 8 implemented, 4 partial, 2 open. Build 2 (2026-10-15, `docs/overhaul/build-2.md`): the OMOD values lane B round 4 typed and the owner's answers; 13 rows implemented, B8 dropped; validate 0/0, roundtrip identical, packaged 0.2.0 |
 | Owner's in-game overhaul result recorded (M3.O5) | **pending-owner** | Row 3 above (build 2) |
 | `docs/oracles.md`: the Spriggit run, and the SF1Edit run with M3.B11's tables | **done** | M3.H4 (both harnesses), rerun after the family merges (M4.BX1). M3.B11 reruns as members get typed. A build at the pin is the owner's (`docs/gaps.md`) |
-| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: not on `main`, now M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
+| Every hardening task done or carried; `docs/gaps.md` says what M3 closed | **carried** | Done: M3.A1, A2, D1, D2, D3, D6, E1, E2, E3, F1..F4, G1..G3. Carried, each with its `docs/gaps.md` row: M3.A5 (fuzzing), M3.B9 (other deciders; round 4 did the sibling field), M3.B10 (`count_from`), M3.D4 (`follow`, `refs`: done as M4.D1), M3.D5 (M3.O1, M3.O2), M3.E4, M3.E10 (patch remapping) |
 | ADR 0007 committed; M3.O6 recorded | **done** | M3.F4; M3.O6 decided 2026-10-14 (Amendment 1). M3.F5 is not built, by that decision |
 | `cargo xtask ci` green; corpus roundtrip identical; parity regenerated; STATUS says M4 | **done** at `01c77d8` | Gates as recorded at the lane B round 4 merge (`39ca2a2` regenerated parity). STATUS: this section |
 
@@ -69,11 +69,11 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | First POI built, validated and packaged | **done** | `out\poi\KitKraftFirstPOI.esm` (`docs/poi/first-poi.md`), reviewed |
 | First POI visited in game, persistence steps recorded in `docs/game-observations.md` | **pending-owner**, **carried** | M4.O2 (row 2 above). The ledger file is M4.H4 (lane H), not on `main` yet. Until it lands, record the result in STATUS |
 | P0 first deliverables W1..W6, W12 | partly | W1 **done** (M4.E1, `KitKraftW1.esm`). W2 and W12 **pending-owner** (M4.O2). W3 **carried** (M4.E7 not started). W4 recipe built (M4.E8), **pending-owner** (M4.O4). W5 **carried** (M4.H3 `docs/design/persistence.md` not on `main`; then M4.O2). W6 **carried** (M4.G2 done; M4.E9 waits for a typed script-attachment block, VMAD opaque) |
-| P1 deliverables W7..W10 done or carried; W11 scoping document | partly | W7 **carried** (M4.D3). W8 **carried** (M4.E7). W9 recipe built (M4.E8), **pending-owner** (M4.O4). W10 **carried** (M4.D1 `refs`). W11 **done** (M4.G3, `docs/research/asset-formats.md`) |
+| P1 deliverables W7..W10 done or carried; W11 scoping document | partly | W7 **carried** (M4.D3). W8 **carried** (M4.E7). W9 recipe built (M4.E8), **pending-owner** (M4.O4). W10 `refs` **done** (M4.D1). W11 **done** (M4.G3, `docs/research/asset-formats.md`) |
 | M4.O4 in-game results recorded | **pending-owner** | After E7/E9 land; the M4.E8 recipes are ready |
 | `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **carried** (M4.H3), planet content **carried** (M4.D3) |
 | M4.O3 and M4.O5 recorded | **done** | ADR 0008, ADR 0009 (2026-10-14) |
-| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Carried: M4.W0 shape tests (lane F), `build --plan` (M4.W6), `refs`/placement context (M4.D1, M4.D2). Licence ruling: row 7 |
+| Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Carried: M4.W0 shape tests (lane F), `build --plan` (M4.W6), `refs`/placement context (M4.D1 done in the engine; panels: Request to lane W; M4.D2). Licence ruling: row 7 |
 | CK fixtures F20..F28 (M4.O1, M4.H2) | **carried** | Deferred by the owner with M3.O1 until the workbench exists. The first POI does not need them |
 | `cargo xtask ci` green, corpus roundtrip identical, parity regenerated, STATUS says M5 | **carried** | To M4 close |
 
@@ -1247,6 +1247,32 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   dry run refused by the live-profile guard (MO2 on `Default`). Rows: 13 implemented, B8
   dropped. Report, owner steps, checklist: `docs/overhaul/build-2.md`. **Owner (M3.O5):**
   the in-game check there, on `KitKraft Dev` with a disposable save.
+- Lane D, M4 (`crates/doc`; engine `handlers/{refs,load,inspect,build}.rs`), 2026-10-15:
+  - **M4.D1 `refs`** (CLI `kit refs <form> [--depth n] [--incoming]`, alias `useinfo`; MCP
+    through `execute`/`command_line`, no shortcut; `writes: false`). `kitkraft_doc::links`:
+    every value of a member the schema types as `formid`, with its member path in the
+    `set`/`where`/`diff` grammar (`WAM2.Ammunition.AmmoType`, `KWDA.Forms[3]`), the raw
+    value, the definition's target types (`target_allowed`), file and body offsets, and a
+    status that keeps `resolved`, `null`, `none` (`FFFFFFFF`), `missing`, `engine_reserved`
+    (the validate rule, a test keeps the constants equal) and `unresolvable` (with the
+    reason) apart; subrecords not scanned (no layout, component blocks, undecodable) and
+    `opaque` members are counted in `limitations`. Outgoing: the winner's links, breadth
+    first to `depth`. Incoming: `kitkraft_doc::backrefs`, a reverse index per plugin from
+    the generated decoder's `form_ids()` (raw values; the target turned into each plugin's
+    spellings, `full-style-self` included) with cell-group ranges, cached as `<hash>.kclnk`
+    beside the record index (schema fingerprint and record count in the staleness rule);
+    referrers in cells come after the others with cell, world and persistence; `scope`,
+    `types`, paging by cursor. Times (`docs/load-order.md`, "Reverse links"): on the 84-plugin
+    `KitKraft Dev` profile 18.9 s cold, 0.9 s warm (index 0.17 s), 220 MB cache. Corpus
+    (`crates/engine/tests/refs_corpus.rs`, release, ignored): the rifle `21BBCD` has 111
+    links (76 resolved, 35 null, 16 keywords), `WAM2.Ammunition.AmmoType` ->
+    `Ammo9x39mm` `2B559B` -> a PROJ at depth 2; `NA_Hard_RetWallASupport_03` lists its 2
+    placed REFRs in world `Starfield.esm:01251B` on the 14 official files.
+  - **`follow` replaces lane E's local `via`** (`kitkraft_doc::links::follow(lo, reader,
+    schema, form, where-path)`): `build` calls it; a hop now reports `missing` and
+    engine-reserved values as unfollowed instead of failing on them. Build tests unchanged.
+  - `inspect::find_form` is shared (`refs`, `planet`); `Loaded` keeps the cache directory
+    and the reverse index.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1494,6 +1520,19 @@ wins") but still the owner's to confirm:
   remote (owner decision 6).
 
 ## Requests (cross-lane)
+
+- **Lane D (M4.D1) -> lane W.** `refs` is in the catalog (`writes: false`, read only). The
+  workbench has no generic envelope view a new command can use without code, so lane D
+  only listed `refs` in the gate test's `UNUSED_READ_ONLY` (its classification test
+  requires every catalog command be classified). Please: move `refs` to `gate::ALLOWLIST` and
+  `cmdline::SESSION_COMMANDS`; give the Records panel's inspect view "Outgoing links" and
+  "Use info" actions (`refs {form}` and `refs {form, incoming: true}`) that list
+  `data.edges` (path, status, `to`/`from` as links that run `inspect`, `placed.cell`/
+  `placed.world` for placed referrers) with `next_cursor` paging, and show
+  `limitations`. Result shape: `docs/mcp.md`, "`refs`".
+- **Lane D (M4.D1) -> lane E (FYI).** `kitkraft_doc::links::{RESERVED_MASTER,
+  RESERVED_OBJECT_IDS, NONE_FORM_ID}` restate validate's rule (a test in
+  `handlers/refs.rs` keeps them equal); `validate` could use them, so the rule lives once.
 
 - ~~**To lane F (from the F7 check):** `coverage`, `diff` and `roundtrip` reject a bare plugin filename and need the full Data path, while `load`, `inspect` and `query` fall back to KITKRAFT_DATA_DIR. Make bare names resolve the same way in every command (M4.F1 or earlier).~~
   Done in M4.F1 (Done, "Lane F, M4"): one resolver (`handlers/resolve.rs`) for every
@@ -1939,6 +1978,8 @@ Agents append here when they need a change in a crate they do not own.
   descriptions and `kitkraft://commands` list it from the catalog). (2) Lane D: `build`'s `via` follows typed FormID
   members through `VersionSubject::lookup` locally (`handlers/build.rs` `follow`); M3.D4's
   `follow(form, member path)` should replace it when it lands. M3.E1/E2 wait for M3.D1.
+  **Done (lane D, M4.D1):** `build` calls `kitkraft_doc::links::follow`; the local one is
+  gone.
 - ~~**Lane E -> lane B (round 2).** `crates/engine/src/edit/lstrings.rs` is a corpus-built
   stand-in for lstring typing the schema lacks (105 signatures, e.g. ACTI/FLOR/FURN/NPC_
   `ATTX`, NPC_ `SHRT`, INFO `NAM1`, MESG `ITXT`, QUST `CNAM`, WEAP `WABB`). As round 3

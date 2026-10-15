@@ -46,6 +46,12 @@ pub(crate) struct Loaded {
     /// Every EditorID of the load order, built on the first EditorID lookup and kept with
     /// the load order (one scan of the indexes per session, not one per lookup).
     pub edids: OnceLock<EdidIndex>,
+    /// The index cache directory the load order was read through (`None` with
+    /// `no_cache`); the reverse link index is cached there too.
+    pub cache_dir: Option<PathBuf>,
+    /// The reverse link index (`refs --incoming`, M4.D1), built or read from the cache on
+    /// first use and kept with the load order.
+    pub backrefs: OnceLock<kitkraft_doc::backrefs::Backrefs>,
 }
 
 /// The EditorIDs of a load order's indexes: `(hash of the ASCII-lowercased EditorID, plugin,
@@ -585,6 +591,8 @@ pub(crate) fn load(
             limitations: shared,
             missing_active_plugins: missing_active,
             edids: OnceLock::new(),
+            cache_dir: cache_dir.map(PathBuf::from),
+            backrefs: OnceLock::new(),
         },
         listing,
         evidence,

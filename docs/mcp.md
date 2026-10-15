@@ -925,17 +925,59 @@ folder (grade D until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `pr
 `checklist`, `commands[]` (`command`, `why`), `forms[]` (`signature`, `form_id`, `new`,
 `editor_id`, `runtime_id`, `base`, `cell`, `position`, `persistent`), `summary`.
 
-### Coming in M3: `refs` (M3.D4)
+### `refs` (M4.D1; CLI `kit refs <form>`, alias `useinfo`)
 
-Not in the catalog yet: it lands as one `CommandSpec` with M3.D4, and lane D documents its
-result shape here when it does; until then `execute` answers `unknown_command`. It gets no
-MCP shortcut tool (the tool list stays at eight): `execute` and `command_line` reach it,
-and `kitkraft://commands` lists it with its `cli` words, like every other command.
+Arguments `{form, incoming = false, depth = 1 (max 6), scope = "winner" | "all", types?,
+limit = 100 (max 1000), cursor?, plugin?}` plus the load-order arguments. Read only. No MCP
+shortcut tool (the tool list stays at eight): `execute` and `command_line` reach it.
 
-- `refs {form, profile?, plugins?, ...}` (lane D); CLI `kit refs <form>`. The CK's "Use
-  Info": every record whose header or typed FormID members name `form` across the load
-  order (the shared load-order arguments above), with evidence per reference and the
-  count of opaque payloads not scanned in `limitations`. Read only.
+The typed FormID links of a form (`form` as for `inspect`: formref, EditorID, `runtime:`,
+or hex with `plugin`). A link is one value of a member the schema types as `formid`
+(`kitkraft_doc::links`), with its member path in the `set`/`where`/`diff` grammar
+(`KWDA.Forms[3]`, `WAM2.Ammunition.AmmoType`, `OBTS[1].TemplateItem.Includes[0].Mod`).
+
+- **Outgoing** (default): the links of the winning version; `depth: 2` also lists the
+  links of every form reached, and so on (breadth first, each form once, at most 5,000
+  forms). `types` keeps links whose target is of those types.
+- **Incoming** (`incoming: true`, the CK's "Use Info"): the records whose typed members
+  name the form, from a reverse index of every plugin of the load order (the generated
+  decoder's `form_ids()` values per record, raw, with each record's cell group;
+  `kitkraft_doc::backrefs`). It is built on first use and cached beside the record index
+  (`<hash>.kclnk`, the same staleness rule plus the schema fingerprint and record count;
+  `no_cache` builds it in memory). `scope: "winner"` (default) keeps winning versions of
+  referrers; `all` every version. `types` keeps referrers of those types. Referrers inside
+  a cell (placed references, navmeshes) come after the others (`group: "placed"`), each
+  with its cell, world and persistence from the groups that hold it; `depth: 2` adds the
+  referrers of each referrer.
+
+`data`: `form`, `matched_by`, `global`, `signature`, `editor_id`, `direction`, `depth`,
+`total` (edges, or referrers for incoming), `counts` (outgoing `by_status`; incoming
+`referrers`, `placed`, `by_signature`), `edges[]`, `next_cursor`, `truncated`, `summary`
+(one line per edge on the page), `elapsed_ms`; outgoing also `forms_read`; incoming also
+`scope`, `placed_by_cell[]` (`world`, `cell`, `count`, the 50 largest), `index` (`plugins`,
+`cache_hits`, `built`, `uncached`, `elapsed_ms`) and `not_searched` (`no_definition[]` by
+type, `records_with_raw_subrecords`). An outgoing edge: `depth`, `from`, `from_signature`,
+`from_editor_id`, `plugin`, `path`, `raw` (as stored), `status`, `to`, `to_signature`,
+`to_editor_id`, `targets` (the definition's target types), `target_allowed`,
+`resolved_by`, `error`, `offset` (absolute, `null` inside a compressed record),
+`body_offset`. An incoming edge: `depth`, `group`, `from`, `from_raw`, `from_signature`,
+`from_editor_id`, `plugin`, `winner`, `to`, `path`, `raw`, `status`, `resolved_by`,
+`offset`, `body_offset`, and `placed` (`cell` and `world` as `{form, raw, editor_id}`,
+`persistent`, `group_type`) or `null`.
+
+`status` keeps every case apart: `resolved`; `null` (`00000000`); `none` (`FFFFFFFF`);
+`missing` (resolves, but no plugin has a version of the form); `engine_reserved` (an object
+ID below `0x800` of `Starfield.esm` no plugin defines, grade D, `docs/validate.md`);
+`unresolvable` (the master is not loaded or the index is past the master list; `error`
+says which). Evidence: the four stored bytes of each link on the page (the record header
+inside a compressed record). `limitations` count what was not scanned: subrecords without
+a layout or inside component blocks, `opaque` members, and for incoming the records of
+types with no definition and the plugins whose FormIDs cannot be resolved. A cursor binds
+the load order, form, direction, depth, scope and types. Cold and warm times:
+`docs/load-order.md`, "Reverse links".
+
+`build`'s `via` follows its member paths through the same code (`kitkraft_doc::links::
+follow`), so a hop reports `missing` and engine-reserved values as unfollowed.
 
 ### `overhaul.scaffold` (M3.E7; CLI `kit overhaul`)
 

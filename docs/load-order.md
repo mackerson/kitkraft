@@ -304,6 +304,32 @@ field-level comparison (M3.D2; the profile then had 85 plugins): 15,587 forms, 1
 override records: 8,206 deleted, 6,029 differs, 1,644 identical, 15 first versions, still
 2.7 s warm.
 
+## Reverse links (M4.D1)
+
+`refs --incoming` reads a reverse index per plugin (`kitkraft_doc::backrefs`): for every
+record of a type whose definition has a `formid` member, the raw values the generated
+decoder's `form_ids()` yields (`00000000` and `FFFFFFFF` left out), as `(raw value, record
+index)` pairs, plus the cell children groups (types 6, 8, 9) as record ranges with the
+cell's and world's stored FormIDs. A query turns the target into the raw values each plugin
+would store for it (its master class index; for a small or medium plugin's own forms also
+the `full-style-self` spelling, and the masked spellings by a range scan) and looks them up
+by binary search; nothing is resolved by guessing. The index is cached next to the record
+index (`<hash>.kclnk`) under the same staleness rule, plus the format version, a
+fingerprint of the builtin schema definitions (what is typed decides what is indexed) and
+the record count; an entry that fails any check is rebuilt. Not searched, and counted in
+the result: records of types with no definition (100 types, 241,228 records on the owner's
+profile, most of them `RFGP`) and the subrecords the decoder keeps raw.
+
+| Load order (release, `kit refs <form> --incoming --profile`, wall clock with the load) | Cold (record index warm) | Warm |
+| --- | --- | --- |
+| `KitKraft Dev` profile, 84 plugins (2026-10-15) | 18.9 s (index 18.1 s, 84 entries, 220 MB on disk) | 0.9 s (index 0.17 s) |
+| The 14 official files (`crates/engine/tests/refs_corpus.rs`) | 19.0 s | - |
+
+Warm, `refs WeaponTypeBallistic --incoming` (94 referrers) and `refs Starfield.esm:21BBCD
+--depth 2` (357 links from 71 forms) take 0.9 s and 0.8 s wall clock on the same profile,
+most of it the load. The vanilla `STAT` `NA_Hard_RetWallASupport_03` lists its two placed
+references in world `Starfield.esm:01251B` with their cells.
+
 ## String tables (M2.D7)
 
 A localized plugin's lstrings resolve through `strings/<stem>_<language>.{strings,

@@ -26,9 +26,9 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 
-use kitkraft_doc::query::{FieldValue, Lookup, Path, Query, Subject};
+use kitkraft_doc::links::{FollowError, LinkStatus};
+use kitkraft_doc::query::{Path, Query};
 use kitkraft_doc::search::{run_page, PageRequest, Scope, MAX_LIMIT};
-use kitkraft_doc::subject::VersionSubject;
 use kitkraft_doc::{GlobalForm, RecordReader};
 use kitkraft_esm::DecodeLimits;
 use kitkraft_schema::{Confidence, Schema};
@@ -171,14 +171,6 @@ fn matches(
     Ok((out, unknown))
 }
 
-/// Why a `via` hop could not follow a record.
-enum Unfollowed {
-    /// The value is unknown (opaque, undecodable, unresolvable FormID): reported.
-    Unknown(String),
-    /// The path does not name FormIDs: a spec error.
-    NotForm(String),
-}
-
 /// The record type of `form`'s winning version.
 fn signature_of(loaded: &Loaded, form: GlobalForm) -> Option<[u8; 4]> {
     let v = loaded.lo.forms.versions(form).last()?;
@@ -188,47 +180,30 @@ fn signature_of(loaded: &Loaded, form: GlobalForm) -> Option<[u8; 4]> {
         .map(|loc| loc.signature)
 }
 
-/// The forms the typed FormID member `path` of `form`'s winning version names (the null
-/// FormID names nothing). Lane D's `follow` (M3.D4) will replace this once it lands.
+/// The forms the typed FormID member `path` of `form`'s winning version names, through
+/// lane D's `follow` (`kitkraft_doc::links`, M4.D1): `Ok` with the forms reached and the
+/// values that name no form in the load order (`missing`, engine-reserved; reported), the
+/// null and "none" values naming nothing.
 fn follow(
     loaded: &Loaded,
     reader: &mut RecordReader,
+    schema: &Schema,
     form: GlobalForm,
     path: &Path,
-) -> Result<Vec<GlobalForm>, Unfollowed> {
-    let Some(version) = loaded.lo.forms.versions(form).last().copied() else {
-        return Err(Unfollowed::Unknown(format!(
-            "{} has no version in the load order",
-            loaded.lo.form_label(form)
-        )));
-    };
-    let mut subject = VersionSubject::new(&loaded.lo, reader, version);
-    let values = match subject.lookup(path) {
-        Lookup::Absent => return Ok(Vec::new()),
-        Lookup::Unknown(why) => return Err(Unfollowed::Unknown(why)),
-        Lookup::Values(v) | Lookup::UnionValues(v) => v,
-    };
+) -> Result<(Vec<GlobalForm>, Vec<String>), FollowError> {
+    let links = kitkraft_doc::links::follow(&loaded.lo, reader, schema, form, path)?;
     let mut out = Vec::new();
-    for value in values {
-        match value {
-            FieldValue::Null => {}
-            FieldValue::Form { plugin, object_id } => {
-                let index = loaded.lo.find(&plugin).ok_or_else(|| {
-                    Unfollowed::Unknown(format!("`{plugin}` is not in the load order"))
-                })?;
-                out.push(GlobalForm {
-                    plugin: index,
-                    object_id,
-                });
-            }
-            other => {
-                return Err(Unfollowed::NotForm(format!(
-                    "holds {other:?}, not a FormID: `via` follows typed FormID members"
-                )))
+    let mut unknown = Vec::new();
+    for l in links {
+        match (l.status, l.form) {
+            (LinkStatus::Resolved, Some(g)) => out.push(g),
+            (LinkStatus::Null | LinkStatus::NoneValue, _) => {}
+            (status, _) => {
+                unknown.push(format!("{} = {:08X} ({})", l.path, l.raw, status.as_str()))
             }
         }
     }
-    Ok(out)
+    Ok((out, unknown))
 }
 
 /// The member checks of one entry's edits on a record of type `sig`: an unknown member (a
@@ -494,18 +469,25 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             let mut seen = HashSet::new();
             let mut unknown: Vec<String> = Vec::new();
             for form in &targets {
-                match follow(loaded, &mut reader, *form, &hop.path) {
-                    Ok(list) => {
+                match follow(loaded, &mut reader, schema, *form, &hop.path) {
+                    Ok((list, unnamed)) => {
                         for g in list {
                             if seen.insert(g.key()) {
                                 next.push(g);
                             }
                         }
+                        if !unnamed.is_empty() {
+                            unknown.push(format!(
+                                "{}: {}",
+                                loaded.lo.form_label(*form),
+                                unnamed.join(", ")
+                            ));
+                        }
                     }
-                    Err(Unfollowed::Unknown(why)) => {
+                    Err(FollowError::Unknown(why)) => {
                         unknown.push(format!("{}: {why}", loaded.lo.form_label(*form)))
                     }
-                    Err(Unfollowed::NotForm(why)) => {
+                    Err(FollowError::NotForm(why)) => {
                         return Err(spec_error(
                             &format!("{}.via[{j}]", rule.key),
                             format!("{} of {} {why}", hop.text, loaded.lo.form_label(*form)),
