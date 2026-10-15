@@ -390,9 +390,11 @@ a known error hid a single fact behind hundreds of lines.
   typed members whose layouts decode identically everywhere else (0 typed conflicts).
 - **The reading** (grade D until observed): object IDs below 0x800 in `Starfield.esm`'s
   index space that the file does not define are engine-reserved default forms (the player
-  reference, built-in actor values, a story manager root), which xEdit treats as hardcoded
-  forms rather than as missing ones. It is recorded as a corpus-derived fact pending a CK
-  confirmation (does the CK resolve and keep them on save; STATUS Requests to lane H).
+  reference, built-in actor values, a story manager root). SF1Edit is reported to list such
+  forms among its hardcoded ones; the integrator's oracle rerun on the five small official
+  files (M4.BX1, `docs/oracles.md`) compared no record naming one, so that is not yet our
+  observation. It is recorded as a corpus-derived fact pending a CK confirmation (does the
+  CK resolve and keep them on save; STATUS Requests to lane H).
 - **What it changes**: `validate`'s `formid.dangling` does not report a typed member naming
   such a form; it counts it as `reserved_form_ids` (per member path in
   `reserved_by_member`) and says so in `limitations`. Low IDs that `Starfield.esm` does

@@ -6,7 +6,8 @@
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
-//! - `cargo xtask oracle`: external tools (Spriggit) run as oracles (lane H, [`oracle`]).
+//! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit) run as oracles (lane H,
+//!   [`oracle`], [`sf1edit`]).
 //!
 //! The layer check has three parts.
 //!
@@ -34,6 +35,7 @@ mod graph;
 mod observe;
 mod oracle;
 mod parity;
+mod sf1edit;
 mod smuggle;
 
 use std::collections::BTreeMap;
@@ -153,7 +155,9 @@ fn print_help() {
     println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
     println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
     println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
-    println!("           round trips compared with kit (YAML never read; lane H)");
+    println!("           round trips compared with kit (YAML never read; lane H);");
+    println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");
+    println!("           decoded view (its console dumper) compared with kit inspect");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).

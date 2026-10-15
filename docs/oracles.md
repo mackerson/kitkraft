@@ -17,8 +17,9 @@ with ours (dossier gate G3, ADR 0005 Amendment 2 §2a and Amendment 3 §4). The 
   not why the tool does it.
 - Only the oracles named in `plan/execution-plan.md` M3 are run: Spriggit and SF1Edit.
 
-The harness is `cargo xtask oracle` (M3.H4, `xtask/src/oracle.rs`); its reports go to
-`observe\oracle\` (gitignored) and are summarised here in our own words.
+The harness is `cargo xtask oracle` (M3.H4, `xtask/src/oracle.rs` for Spriggit,
+`xtask/src/sf1edit.rs` for SF1Edit); its reports go to `observe\oracle\` (gitignored) and
+are summarised here in our own words.
 
 ## Spriggit
 
@@ -93,20 +94,151 @@ subrecord our writer adds that no official file has.
 
 ## SF1Edit
 
-Not installed (owner task M3.O3; agents do not download executables), so the SF1Edit half
-of M3.H4 and M3.B11 is open. `cargo xtask oracle sf1edit` stops with that message.
+### Build and method
 
-When it is installed:
+| Item | Value |
+| ---- | ----- |
+| Tool | xEdit **4.1.5f** x64 (file version 4.1.5.0; the GUI log names build `C0DCE642`), installed by the owner at `C:\Modding\tools\xEdit\` (M3.O3). The Starfield editor is `xSFEdit64.exe`; its console dumper `xDump64.exe` (banner `SF1Dump 4.1.5f x64`) is the same build |
+| Skew from the pin | 4.1.5f is the 2024-04-28 release, 1,459 commits older than `dev-4.1.6` and older than the pinned `9fb01688...` (`docs/xedit-reference.md`). Every disagreement below is read with that in mind; the game data is the 2026 build (`corpus/manifest.toml`) |
+| Capture method | xEdit's own dump feature run as a program: `xDump64.exe -sf1 -D:<scratch>\Data\ -I:<scratch>\Starfield.ini [-dg:SIG,...] <scratch>\Data\<plugin>` prints every record as an indented `Name: value` tree (the values the editor displays); `-check` prints the editor's error check instead. No xEdit source and no xEdit script were read or written |
+| Isolation | The plugin, its masters (recursively), and `<name> - Localization.ba2` / `<name> - Main.ba2` are copied to a scratch `Data` under `%TEMP%`; the game's `Starfield.ini` is copied next to it for `-I:`. The game `Data` folder and the MO2 instance are only read. The dumper writes its stdout/stderr (redirected into the scratch folder) and one file outside it: it appends to `xDump64Exception.log` next to its exe whenever it meets an exception (in the 2026-10-14 runs: 7 access violations, none of which cost a dump its output, and X3's error). That log was deleted after the runs; delete it after a rerun too |
+| Comparison | Our own tools judge: `kit query <TYPE> --scope all --where '@plugin == "<plugin>"'` lists our records, `kit inspect <form> --plugins <masters..> <plugin>` gives the members we decode (`value`) and the ones we keep opaque. Records are keyed by defining file and object ID (xEdit's load-order FormIDs are mapped back through the plugin's master list; a light plugin's own records show as `FE000xxx`). Per subrecord occurrence of each compared record: **agree**/**disagree** (a member we decode against xEdit's displayed values, converted by kind: text, number with 1e-6 tolerance, FormID, lstring by resolved text or by ID when xEdit has no table, integer 0/1 against a displayed boolean), **gap** (opaque to us, typed by xEdit), **both unknown**, **typed, xEdit unknown** (we decode it, xEdit lists it as unknown), plus what xEdit itself shows as unknown per `TYPE/SUB` |
+| Run | 2026-10-14; small official files and synthetic set with every record compared (`--sample 0`, 1,294 s in all); `Starfield.esm` WEAP/AMMO/PROJ/COBJ/OMOD with 50 records per type, evenly spaced by FormID (`--sample 50 --no-check`, 344 s in all) |
 
-1. Record the build (version and, if shown, the commit) and its skew from the pinned
-   revision `9fb016884bec138ea6c7b872cec831537d464c3e` (`docs/xedit-reference.md`).
-2. Choose the capture method and record it here: SF1Edit's own export or dump features run
-   as a program, or a script for its scripting engine written from its user
-   documentation only (never from xEdit source), kept outside the repo.
-3. Capture record counts per type, FormIDs and EditorIDs as SF1Edit shows them, and its
-   own error check on our outputs (the rename plugin, the `kit set` overrides above, the
-   overhaul build): gate G3.
-4. Add the build, the fixture set and a disagreement table here, in the format above.
+```powershell
+$env:KITCRAFT_SF1EDIT = 'C:\Modding\tools\xEdit\xSFEdit64.exe'   # its xDump64.exe is run
+$env:KITCRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+cargo xtask oracle sf1edit --official --synthetic C:\Modding\kitcraft\out\OldSovietMarksmanRifle.esm --sample 0
+cargo xtask oracle sf1edit Starfield.esm --types WEAP,AMMO,PROJ,COBJ,OMOD --sample 50 --no-check
+```
 
-Until then the SF1Edit parts are carried (to M4 if M3.O3 does not happen in M3), with this
-section as the reason.
+### Why not the editor's script mode (where it blocks)
+
+The editor runs Pascal scripts (`-script:<file>.pas`), but not headless in 4.1.5f. Observed
+with every path redirected to scratch (`-sf1 -D: -I: -P: -C: -T: -B: -R: -S:`), by reading
+window titles and texts only (nothing was clicked):
+
+- `-I:` takes the game ini **file** (`-I:<path>\Starfield.ini`); a folder gives `Fatal:
+  Could not find ini` in the log and the program waits.
+- With `-script:<name>.pas` the title is `SF1Script 4.1.5f x64` and the program stops at the
+  **Module Selection** window, with `-autoload`, `-autoexit`, `-VeryQuickShowConflicts`, the
+  plugin named as a positional argument, and `*Starfield.esm`/`*<plugin>` in the `-P:`
+  plugins file alike. `-quickedit:<plugin>` is refused: `Script is incompatible with
+  quickedit request!`.
+- Without `-script`, `-autoload` is honoured (title `... [Auto Load]`), but a fresh settings
+  file stops at **A message from the developer**; the setting that suppresses it is written
+  only when that window is dismissed, and no switch for it is documented. Nothing was
+  clicked, so script mode stays out of the harness. The editor also writes
+  `<plugins file>.sf1viewsettings` next to the `-P:` file, and an `xSFEdit64Exception.log`
+  next to the exe when it is killed (one appeared and was removed).
+
+The dumper needs none of that: it loads the named plugin and its masters, prints, exits.
+`Starfield.esm` loads in about 5 s (memory-mapped), so a dump of a small plugin takes 20-50
+s and the five round 3 groups of `Starfield.esm` 39 s; no 20-minute cap was approached.
+
+### Fixture set and results
+
+Records: xEdit / ours, both with the plugin as the defining or overriding file (`TES4`
+excluded). Classes count subrecord occurrences over every compared record. Check: findings
+of `xDump -check`, grouped by message.
+
+| Fixture | Records xEdit / ours | Only ours | Agree | Disagree | Gap | Both unknown | Typed, xEdit unknown | Check findings |
+| ------- | -------------------- | --------- | ----- | -------- | --- | ------------ | -------------------- | -------------- |
+| `OldMars.esm` | 38 / 38 | 0 | 21 | 0 | 639 | 42 | 0 | 38 (X2) |
+| `SFBGS007.esm` | 42 / 62 | 20 (X1) | 8 | 0 | 351 | 42 | 0 | 0 |
+| `Constellation.esm` | 56 / 56 | 0 | 33 | 0 | 791 | 59 | 0 | 56 (X2) |
+| `SFBGS004.esm` | 891 / 891 | 0 | 129 | 0 | 7,891 | 898 | 0 | 1,516 (X2, X4, X5) |
+| `SFBGS047.esm` | 0 / 42 (X3) | - | - | - | - | - | - | - |
+| `KC_S01_Empty.esp` (synthetic) | 0 / 0 | 0 | - | - | - | - | - | 0 |
+| `KC_S02_NewGlobal.esp` (synthetic) | 1 / 1 | 0 | 2 | 0 | 0 | 0 | 0 | 0 |
+| `KC_S03_CompressedGlobal.esp` (synthetic) | 1 / 1 | 0 | 2 | 0 | 0 | 0 | 0 | 1 (X6) |
+| `KC_S04_RifleRename.esm` (`kit set`) | 1 / 1 | 0 | 1 | 0 | 3 | 49 | 11 (X7) | 1 (X7) |
+| `KC_S05_GmstOverride.esp` (`kit set`) | 1 / 1 | 0 | 2 | 0 | 0 | 0 | 0 | 0 |
+| `KC_S06_GlobOverride.esp` (`kit set`) | 1 / 1 | 0 | 2 | 0 | 0 | 0 | 0 | 0 |
+| `OldSovietMarksmanRifle.esm` (M2 rename plugin) | 1 / 1 | 0 | 1 | 0 | 3 | 49 | 11 (X7) | 1 (X7) |
+| M3.O1 fixtures, the overhaul build | pending (rerun with their paths when they exist) | | | | | | | |
+
+`Starfield.esm`, the round 3 types (records 50 of each compared):
+
+| Type | Records xEdit / ours | Agree | Disagree | Gap | Both unknown | Typed, xEdit unknown |
+| ---- | -------------------- | ----- | -------- | --- | ------------ | -------------------- |
+| `WEAP` | 406 / 406 | 231 | 0 | 958 | 759 | 149 (X7) |
+| `AMMO` | 150 / 150 | 234 | 0 | 366 | 150 | 0 |
+| `PROJ` | 265 / 265 | 0 | 0 | 518 | 282 | 0 |
+| `COBJ` | 3,009 / 3,009 | 99 | 1 (X8) | 449 | 102 | 0 |
+| `OMOD` | 2,682 / 2,682 | 147 | 0 | 98 | 50 | 0 |
+
+Every record both tools list agrees on signature and EditorID (0 mismatches in all
+fixtures), and every FormID matches once xEdit's load-order numbering is mapped back.
+Every member we decode today (`EDID`, `FULL`/`DESC` lstrings, `KSIZ`/`KWDA`, GLOB and GMST
+values) agrees with xEdit's displayed value wherever xEdit decodes it, except X8.
+
+### Disagreements
+
+| # | What differs | Where (count) | Our byte evidence | Class | What it means for us |
+| - | ------------ | ------------- | ----------------- | ----- | -------------------- |
+| X1 | xEdit lists no `GPOG`/`GPOF` records (its log: `Error: unknown record type GPOF`) | `SFBGS007.esm`: 2 GPOG, 18 GPOF | `kit coverage` and `kit query` read all 20; the file roundtrips identical | version skew | Record types newer than 4.1.5f; nothing to compare there |
+| X2 | `-check` warns on every own record of a light master: `internal file FormID is a HITME: FE0000xx (should be 010000xx)` | OldMars 38, Constellation 56, SFBGS004 871 | The stored FormIDs are `FE0000xx` (`kit inspect` `raw_form_id`, e.g. `OldMars.esm` KYWD `FE000001`) | version skew | The official light files store FE-prefixed FormIDs for their own records; 4.1.5f expects master-index numbering. Evidence for lane D's G5 question, not a defect of ours |
+| X3 | The dumper stops: `ESL or Overlay flagged modules can't be masters of other modules in Starfield` (also with `-IgnoreESL`) | `SFBGS047.esm` (its master `SFBGS004.esm` is ESL-flagged) | The game ships it; `kit roundtrip --verify` is identical | version skew | 4.1.5f predates light masters; no xEdit view of this file |
+| X4 | `-check`: `lstring ID [...] could not be resolved`; the dump shows `<Error: No strings file for lstring ID ...>` | `SFBGS004.esm` 616 | `kit` resolves them from `SFBGS004 - Main.ba2` (`strings/sfbgs004_en.strings`); with that archive in its `Data`, the dumper still reads only `<name> - Localization.ba2` | theirs | The harness compares those lstrings by ID (all agree) |
+| X5 | `-check`: unknown enum values: condition function 966 (7), and 11 `SNAM` subtype names (`VPAW`, `VPEB`, ...) with their numeric subtypes | `SFBGS004.esm` 29 | - | version skew | Values newer than 4.1.5f's definitions |
+| X6 | `-check`: `Record Flags -> <Unknown: 18 $12>` | our compressed GLOB | Bit 18 (`0x00040000`) is the container's compressed flag; the record inflates and roundtrips identical | theirs | 4.1.5f has no name for that flag on GLOB |
+| X7 | After `Components` (a `BGSQualityUpgrade_Component` it cannot decode), xEdit lists the rest of the WEAP by bare signature (`QUPA`, `FULL`, `KSIZ`, ...), and `-check` reports `Missing required members: DESC, STOP` | 51 of 406 `Starfield.esm` WEAPs carry the component (the rifle `0021BBCD` among them), so also our rename plugin and `KC_S04` | xEdit shows the official record `Starfield.esm:21BBCD` the same way; our override roundtrips identical and its subrecord sequence is the official one | version skew | Not a defect in our writer; G3 is clean on everything else 4.1.5f can read |
+| X8 | An lstring text: ours has U+FFFD where xEdit shows `’` | `Starfield.esm` COBJ `22D0FF` `DESC` (1 of 50 sampled) | The table entry holds byte `0x92` (Windows-1252 apostrophe), not UTF-8 | ours (known) | Our `text` is decoded lossily for non-UTF-8 entries (`strings::Resolved.bytes` keeps the bytes, M3.D1); a Windows-1252 fallback would match xEdit |
+
+### Rerun after the schema integration (M4.BX1, 2026-10-14)
+
+The integrator reran the five small official files after merging the quest, actor and
+items/workshop families (`cargo xtask oracle sf1edit --official --sample 0`, 14.5 min; the
+dumper's `xDump64Exception.log` was deleted afterwards). Same build and method as above:
+
+| Fixture | Records xEdit / ours | Agree | Disagree | Gap | Both unknown | Typed, xEdit unknown | Check findings |
+| ------- | -------------------- | ----- | -------- | --- | ------------ | -------------------- | -------------- |
+| `OldMars.esm` | 38 / 38 | 45 (was 21) | 10 | 605 (was 639) | 31 | 11 | 38 (X2) |
+| `SFBGS007.esm` | 42 / 62 | 211 (was 8) | 74 | 74 (was 351) | 9 | 33 | 0 |
+| `Constellation.esm` | 56 / 56 | 63 (was 33) | 11 | 750 (was 791) | 45 | 14 | 56 (X2) |
+| `SFBGS004.esm` | 891 / 891 | 4,644 (was 129) | 2,580 | 796 (was 7,891) | 687 | 211 | 1,516 (X2, X4, X5) |
+| `SFBGS047.esm` | - (X3) | - | - | - | - | - | - |
+
+Gaps fell from 9,672 to 2,225 occurrences, mostly because INFO, DIAL, QUST, PERK, SPEL,
+MGEF, RACE, NPC_, IDLE, MSTT and FURN are typed now. The new **disagreements** are, in
+every example the report lists, display conversions the comparator does not make, not
+different values: enum and flag fields (ours a number, xEdit a name or a flag list, e.g.
+QUST `DNAM` Flags 273 = "Start Game Enabled, Starts Enabled, Run Once", INFO `INAM` 0 =
+"Low", COBJ `LRNM` 3), structs holding an opaque or union field (CTDA, VMAD, ACBS Level,
+TRDA Emotion), Wwise GUIDs (ours raw, xEdit `{...}`) and signature-valued fields (DIAL
+`SNAM` `IDAT` = "Shared Info"). Teaching the comparator enum, flag and GUID display (lane H)
+would turn them into agreements; until then they are not counted as evidence either way.
+No compared record names an object ID below 0x800 in Starfield.esm's index space, so this
+run says nothing about how SF1Edit shows engine-reserved forms (ADR 0005 Amendment 4).
+
+### Coverage gaps xEdit exposes
+
+A gap is a subrecord we keep opaque that xEdit shows as named, typed fields. Over the four
+small official files there are 370 `TYPE/SUB` pairs with gaps (9,672 occurrences; most in
+INFO 5,737, AVMD 1,323, RACE 628); record types without any definition of ours (AVMD,
+PROJ, INFO, ...) show even `EDID` and `FULL` as gaps. For the round 3 types in
+`Starfield.esm`:
+
+| Type | Subrecords xEdit types that we keep opaque | Unknown to both | Typed by us, unknown to xEdit |
+| ---- | ------------------------------------------ | --------------- | ----------------------------- |
+| `WEAP` | `ANAM APPR BAMT BFCB BFCE BIDS BNAM DAMA ETYP INRD MO4S MOD4 MODL NNAM OBND OBTE OBTF OBTS PDSH PTT2 PUSH QNAM STOP WABB WAIM WAM2 WAUD WCHG WDMG WFIR WFLG WGEN WMEL WRLO WVAR WVIS` | `FLLD ODTY OPDS PTCL QUPA REFL WTRM WTUR` (and every subrecord after `Components` in X7's 48 records) | `FULL DESC KSIZ KWDA` in X7's records |
+| `AMMO` | `DATA DNAM MODL NAM1 OBND ONAM PDSH PTT2 PUSH` | `FLLD ODTY` | - |
+| `PROJ` | `ANAM BFCB BFCE BNAM DEST DSTD DSTF EDID FULL MODL NAM1 NAM3 OBND PRAS PRCS PROD VNAM` (no PROJ definition yet) | `DATA FLLD ODTY OPDS PTCL REFL XALG` | - |
+| `COBJ` | `BFCB BFCE BNAM CNAM CTDA CUSH DATA FLTR FNAM FVPA LRNM NNAM PDSH PUSH RQPK SNAM` | `INTV RECF TNAM` | - |
+| `OMOD` | `BFCB BFCE DATA FNAM MNAM MODL` | `FLLD` | - |
+
+xEdit itself shows as unknown (any `Unknown` field, `Unknown N` enum value or raw bytes),
+over all records of the type, in every occurrence: WEAP `FLLD ODTY QNAM WAIM WAM2 WAUD
+WDMG WFIR WFLG WMEL WRLO WTRM WTUR WVIS`, AMMO `FLLD ODTY PTT2`, PROJ `DATA FLLD ODTY PROD
+PTCL REFL XALG`, COBJ `FVPA INTV RECF RQPK TNAM` (and `CTDA` in 2,524 of 2,536), OMOD
+`DATA FLLD`. These are where 4.1.5f is no reference: the pinned definitions
+(`docs/xedit-reference.md`) and the corpus decide them (M3.B1..B7), and M3.B11 reruns this
+comparison as members get typed.
+
+What this settles for M3: SF1Edit 4.1.5f runs headless through its dumper; it reads every
+official and kit-written plugin whose master structure it supports, agrees with every
+member we decode except one lossy lstring of ours (X8), and its error check finds nothing
+in our written plugins beyond X6 and X7, both traced to its age with our byte evidence.
+It is too old to judge GPOG/GPOF, light masters or the newer WEAP components (X1, X3,
+X7); a build at the pin would narrow those (owner decision 2: the pinned revision).

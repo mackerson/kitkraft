@@ -19,7 +19,7 @@
 //! Tools: `KITCRAFT_SPRIGGIT` names `Spriggit.CLI.exe` or a PowerShell wrapper (`.ps1`, run
 //! with `powershell -NoProfile -File`); the Starfield translation package version is
 //! `KITCRAFT_SPRIGGIT_PACKAGE_VERSION`, else the CLI's own version. `cargo xtask oracle
-//! sf1edit` waits for SF1Edit to be installed (M3.O3) and for its capture method.
+//! sf1edit` is in [`crate::sf1edit`] (xEdit's console dumper; `KITCRAFT_SF1EDIT`).
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -36,7 +36,6 @@ use crate::evidence::{
 
 const SPRIGGIT_VAR: &str = "KITCRAFT_SPRIGGIT";
 const SPRIGGIT_PACKAGE_VAR: &str = "KITCRAFT_SPRIGGIT_PACKAGE_VERSION";
-const SF1EDIT_VAR: &str = "KITCRAFT_SF1EDIT";
 const DATA_DIR_VAR: &str = "KITCRAFT_DATA_DIR";
 /// Spriggit's Starfield translation package.
 const PACKAGE: &str = "Spriggit.Yaml.Starfield";
@@ -54,19 +53,23 @@ const RANGE_CAP: usize = 32;
 pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     match args.first().map(String::as_str) {
         Some("spriggit") => {}
-        Some("sf1edit") => bail!(
-            "oracle sf1edit: SF1Edit is not installed (owner task M3.O3; agents do not download \
-             executables). Once it is, set {SF1EDIT_VAR} and record the build; the capture \
-             method is chosen then and documented in docs/oracles.md"
-        ),
+        Some("sf1edit") => {
+            return crate::sf1edit::run(root, args.get(1..).unwrap_or_default());
+        }
         _ => {
             println!(
                 "cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...] [--out <dir>] [--keep]"
             );
-            println!("cargo xtask oracle sf1edit   (after M3.O3)");
+            println!(
+                "cargo xtask oracle sf1edit [--official] [--synthetic] [<plugin>...] [--types SIG,..] [--sample N] [--no-check] [--timeout-mins N] [--out <dir>] [--keep]"
+            );
             println!();
             println!(
                 "  {SPRIGGIT_VAR}: Spriggit.CLI.exe or a .ps1 wrapper; {DATA_DIR_VAR}: masters"
+            );
+            println!(
+                "  {}: xEdit's xSFEdit64.exe (its xDump64.exe is run) or xDump64.exe",
+                crate::sf1edit::SF1EDIT_VAR
             );
             return Ok(());
         }
@@ -813,7 +816,7 @@ const KIT_MADE: &[(&str, &str, &str)] = &[
 ];
 
 /// Writes the synthetic set into `dir` (hand-built ones, then `kit set` overrides).
-fn write_synthetic(dir: &Path, kit: &dyn Runner, cache: &Path) -> Result<Vec<Input>> {
+pub(crate) fn write_synthetic(dir: &Path, kit: &dyn Runner, cache: &Path) -> Result<Vec<Input>> {
     fs::create_dir_all(dir)?;
     fs::create_dir_all(cache)?;
     let mut out = Vec::new();
