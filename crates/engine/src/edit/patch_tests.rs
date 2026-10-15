@@ -743,3 +743,66 @@ fn a_failed_evidence_pass_leaves_the_target_alone() {
     assert!(!temp.exists());
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Makes `link` a directory junction to `target` (`mklink /J`); false where that is not
+/// available (the junction tests then skip).
+pub(crate) fn junction(link: &Path, target: &Path) -> bool {
+    if !cfg!(windows) {
+        return false;
+    }
+    std::process::Command::new("cmd")
+        .args(["/C", "mklink", "/J"])
+        .arg(link)
+        .arg(target)
+        .output()
+        .is_ok_and(|o| o.status.success())
+}
+
+/// A synthetic MO2 instance under `d` (`ModOrganizer.ini`, an empty `mods\`) and a
+/// junction `d\link` to its `mods\`; `None` when junctions cannot be made.
+pub(crate) fn junction_into_mods(d: &Path) -> Option<(PathBuf, PathBuf)> {
+    let mo2 = d.join("MO2");
+    std::fs::create_dir_all(mo2.join("mods")).unwrap();
+    std::fs::write(mo2.join("ModOrganizer.ini"), b"[General]\r\n").unwrap();
+    let link = d.join("link");
+    if !junction(&link, &mo2.join("mods")) {
+        println!("skipped: mklink /J is not available");
+        return None;
+    }
+    Some((link, mo2.join("mods")))
+}
+
+/// Fable review (deploy round), finding 2: `absolute` resolves a junction even when the
+/// components after it do not exist yet, and `guard_location` refuses any path through a
+/// link, wherever it points.
+#[test]
+fn absolute_resolves_junctions_before_missing_components() {
+    let d = dir("junction-absolute");
+    let Some((link, mods)) = junction_into_mods(&d) else {
+        return;
+    };
+    let through = link.join("new").join("deeper").join("P.esp");
+    let resolved = super::patch::absolute(&through);
+    let mods = std::fs::canonicalize(&mods).unwrap();
+    assert!(resolved.starts_with(&mods), "{}", resolved.display());
+    assert_eq!(
+        super::patch::first_link(&through).as_deref(),
+        Some(link.as_path())
+    );
+    let err = super::patch::guard_location(&through)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("symbolic link or junction"), "{err}");
+    // A junction to a harmless folder is refused too: no reparse point on an output path.
+    let plain = d.join("plain");
+    std::fs::create_dir_all(&plain).unwrap();
+    assert!(junction(&d.join("link2"), &plain));
+    let err = super::patch::guard_location(&d.join("link2").join("x").join("P.esp"))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("junction"), "{err}");
+    assert!(super::patch::guard_location(&plain.join("x").join("P.esp")).is_ok());
+    std::fs::remove_dir(&link).unwrap();
+    std::fs::remove_dir(d.join("link2")).unwrap();
+    let _ = std::fs::remove_dir_all(&d);
+}

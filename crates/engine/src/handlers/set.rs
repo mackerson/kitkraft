@@ -90,6 +90,9 @@ pub(crate) fn find_form(
             .resolve(p, raw)
             .map_err(|e| failed(command, e.to_string()));
     }
+    // The first record with the EditorID that resolves; otherwise why the ones found do not
+    // (a missing master, named by lane D's resolver).
+    let mut unresolved: Option<String> = None;
     for (i, p) in lo.plugins.iter().enumerate() {
         let index = u16::try_from(i).unwrap_or(u16::MAX);
         let Some(idx) = p.index.as_deref() else {
@@ -97,15 +100,26 @@ pub(crate) fn find_form(
         };
         for loc in &idx.records {
             if idx.edid(loc).is_some_and(|e| e.eq_ignore_ascii_case(form)) {
-                if let Ok(g) = lo.resolve(index, loc.form_id) {
-                    return Ok(g);
+                match lo.resolve(index, loc.form_id) {
+                    Ok(g) => return Ok(g),
+                    Err(e) => {
+                        unresolved
+                            .get_or_insert_with(|| format!("{}:{:08X} ({e})", p.name, loc.form_id));
+                    }
                 }
             }
         }
     }
     Err(failed(
         command,
-        format!("no record with formref or EditorID `{form}` in the load order (a hex FormID needs `plugin`)"),
+        match unresolved {
+            Some(why) => format!(
+                "`{form}` is the EditorID of {why}, whose FormID does not resolve in this load order"
+            ),
+            None => format!(
+                "no record with formref or EditorID `{form}` in the load order (a hex FormID needs `plugin`)"
+            ),
+        },
     ))
 }
 
@@ -135,12 +149,8 @@ pub(crate) fn safe_source(
     Ok(check
         .unrelated
         .into_iter()
-        .map(|u| {
-            format!(
-                "load order problem that does not affect {}: {u}",
-                loaded.lo.form_label(form)
-            )
-        })
+        // One line per problem, however many forms it leaves alone (`extend_once`).
+        .map(|u| format!("load order problem that does not affect the forms written: {u}"))
         .collect())
 }
 

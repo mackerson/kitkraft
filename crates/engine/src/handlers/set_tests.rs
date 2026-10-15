@@ -420,3 +420,29 @@ fn a_missing_active_plugin_refuses_only_the_forms_it_can_touch() {
     assert!(!out.join("B.esp").exists());
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Fable review (deploy round), finding 2: `into` through a junction into MO2's `mods\`,
+/// followed by folders that do not exist yet, is refused and nothing lands in `mods\`.
+#[test]
+fn set_refuses_a_target_through_a_junction() {
+    let d = dir("set-junction");
+    let data = data(&d);
+    let Some((link, mods)) = crate::edit::patch_tests::junction_into_mods(&d) else {
+        return;
+    };
+    let into = link.join("new").join("deeper").join("P.esp");
+    let err = execute(
+        "set",
+        json!({
+            "form": "OldRifle", "fields": {"FULL": "x"}, "into": into.display().to_string(),
+            "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+            "no_cache": true,
+        }),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("junction"), "{err}");
+    assert!(std::fs::read_dir(&mods).unwrap().next().is_none());
+    std::fs::remove_dir(&link).unwrap();
+    let _ = std::fs::remove_dir_all(&d);
+}

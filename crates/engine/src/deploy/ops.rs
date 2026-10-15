@@ -15,7 +15,7 @@ use super::manifest::{
 use super::source::{self, Source, SourceFile};
 use super::{
     io_error, now_unix, refused, rfc3339, sha256, DeployError, Hooks, Step, Touched, DEV_PROFILE,
-    JOURNAL, LIVE_PROFILE, MANIFEST, MARKER, MO2_META, PREFIX, PREVIOUS, RETIRED, STAGING,
+    JOURNAL, LIVE_PROFILE, LOCK, MANIFEST, MARKER, MO2_META, PREFIX, PREVIOUS, RETIRED, STAGING,
 };
 
 /// Arguments of `deploy`.
@@ -79,6 +79,47 @@ struct Slots {
     staging: PathBuf,
     retired: PathBuf,
     journal: PathBuf,
+    lock: PathBuf,
+}
+
+/// The lock a writing call (`deploy`, `deploy.rollback`) holds from before journal
+/// recovery to its end: `<target>.kitkraft-lock`, created with `create_new`, so a second
+/// call on the same dev mod is refused instead of racing the first. Removed on drop; a
+/// process killed mid-run leaves it, and the refusal says how to clear it.
+#[derive(Debug)]
+struct Lock {
+    path: PathBuf,
+}
+
+impl Lock {
+    fn take(path: &Path) -> Result<Lock, DeployError> {
+        match fs::File::create_new(path) {
+            Ok(mut f) => {
+                let note = format!(
+                    "{{\"pid\": {}, \"started_at\": \"{}\"}}\n",
+                    std::process::id(),
+                    rfc3339(now_unix())
+                );
+                // The content is a note for a human; the file's existence is the lock.
+                let _ = f.write_all(note.as_bytes());
+                Ok(Lock {
+                    path: path.to_path_buf(),
+                })
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => Err(refused(
+                "locked",
+                path,
+                "another `kit deploy` or `kit deploy rollback` is running on this dev mod. If none is (a killed process leaves the lock behind), delete this file and run again; an interrupted operation's journal is recovered first",
+            )),
+            Err(e) => Err(io_error(path, "creating the lock", &e)),
+        }
+    }
+}
+
+impl Drop for Lock {
+    fn drop(&mut self) {
+        let _ = fs::remove_file(&self.path);
+    }
 }
 
 impl Slots {
@@ -95,6 +136,7 @@ impl Slots {
             staging: slot(STAGING)?,
             retired: slot(RETIRED)?,
             journal: slot(JOURNAL)?,
+            lock: slot(LOCK)?,
         })
     }
 
@@ -163,6 +205,36 @@ fn collision(path: &Path, why: &str) -> DeployError {
         path,
         format!("exists and is not KitKraft-managed ({why}); KitKraft never writes into another mod. Rename or remove it in MO2 first"),
     )
+}
+
+fn previous_modified(path: &Path, i: &Integrity) -> DeployError {
+    refused(
+        "previous-modified",
+        path,
+        format!(
+            "differs from its {MANIFEST} ({}); it holds an earlier deployment that this call would drop. Move the changes out (or delete the folder by hand if nothing in it is needed), then run again",
+            i.describe()
+        ),
+    )
+}
+
+/// Refuses to drop a folder holding an earlier deployment (`.previous`, or `.retired`
+/// while a deployment commits) unless it still matches its manifest (MO2's `meta.ini`
+/// allowed): a file edited or added by hand there is never deleted.
+fn check_droppable(path: &Path, s: &State) -> Result<(), DeployError> {
+    match s {
+        State::Absent => Ok(()),
+        State::Ours(m) => {
+            let i = check(path, m)?;
+            if i.clean() {
+                Ok(())
+            } else {
+                Err(previous_modified(path, &i))
+            }
+        }
+        State::Bare => Err(collision(path, &format!("no {MANIFEST}"))),
+        State::Foreign(why) => Err(collision(path, why)),
+    }
 }
 
 fn remove_dir(path: &Path, touched: &mut Vec<Touched>) -> Result<(), DeployError> {
@@ -236,6 +308,7 @@ fn recover(slots: &Slots, touched: &mut Vec<Touched>) -> Result<Option<Value>, D
         "deploy" => {
             if committed {
                 if retired.exists() {
+                    check_droppable(&slots.retired, &retired)?;
                     remove_dir(&slots.retired, touched)?;
                 }
                 if staging.exists() {
@@ -270,6 +343,16 @@ fn recover(slots: &Slots, touched: &mut Vec<Touched>) -> Result<Option<Value>, D
                 &slots.journal,
                 format!("unknown operation `{other}`"),
             ))
+        }
+    }
+    // Our own temp names a crash mid-`write_atomic` leaves at a folder's root (rollback's
+    // meta.ini copy into the live folder); left there, they would read as unmanaged files.
+    for dir in [&slots.target, &slots.previous] {
+        for own in [format!("{MO2_META}.tmp"), format!("{MANIFEST}.tmp")] {
+            let tmp = dir.join(own);
+            if fs::symlink_metadata(&tmp).is_ok_and(|m| m.is_file()) {
+                remove_file(&tmp, touched)?;
+            }
         }
     }
     remove_file(&slots.journal, touched)?;
@@ -520,6 +603,14 @@ fn stale(slots: &Slots, refusals: &mut Vec<DeployError>) -> Result<Vec<PathBuf>,
     for path in [&slots.staging, &slots.retired] {
         match state(path, &slots.name)? {
             State::Absent => {}
+            State::Ours(m) if path == &slots.retired => {
+                let i = check(path, &m)?;
+                if i.clean() {
+                    out.push(path.clone());
+                } else {
+                    refusals.push(previous_modified(path, &i));
+                }
+            }
             State::Ours(_) => out.push(path.clone()),
             State::Bare => refusals.push(collision(path, &format!("no {MANIFEST}"))),
             State::Foreign(why) => refusals.push(collision(path, &why)),
@@ -559,13 +650,36 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
             }
         }
     }
-    for f in &source.files {
-        let longest = slots.staging.join(&f.rel);
-        if path_units(&longest) > MAX_PATH_UNITS {
+    // Every file lives under each slot in turn (`.previous` is the longest suffix), and
+    // the longest internal name is the manifest's temp file `write_atomic` uses.
+    let slot = [
+        &slots.target,
+        &slots.previous,
+        &slots.staging,
+        &slots.retired,
+    ]
+    .into_iter()
+    .max_by_key(|p| path_units(p))
+    .unwrap_or(&slots.previous);
+    let mut longest: Vec<(PathBuf, &str)> = source
+        .files
+        .iter()
+        .map(|f| (slot.join(&f.rel), "once deployed (in the rollback copy)"))
+        .collect();
+    longest.push((
+        slot.join(format!("{MANIFEST}.tmp")),
+        "for the deployment's own files; shorten the plugin name or the MO2 path",
+    ));
+    longest.push((
+        slots.journal_tmp(),
+        "for the deployment's own files; shorten the plugin name or the MO2 path",
+    ));
+    for (path, when) in longest {
+        if path_units(&path) > MAX_PATH_UNITS {
             refusals.push(refused(
                 "source-path",
-                &longest,
-                format!("is longer than {MAX_PATH_UNITS} characters once deployed"),
+                &path,
+                format!("is longer than {MAX_PATH_UNITS} characters {when}"),
             ));
         }
     }
@@ -573,6 +687,12 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         return Err(combine(refusals));
     }
 
+    // Held to the end of the call (dropped on every return); recovery runs only under it.
+    let lock = if req.dry_run {
+        None
+    } else {
+        Some(Lock::take(&slots.lock)?)
+    };
     let mut touched = Vec::new();
     let pending = read_journal(&slots.journal)?;
     let recovered = if req.dry_run {
@@ -621,6 +741,17 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
     let diff = Diff::new(&source.files, old.as_ref());
     let target_exists = target.exists();
     let retire = target_exists && previous.exists();
+    let unchanged = old.is_some() && !diff.changed();
+    // The rollback copy is dropped by this deployment: only when it is as recorded.
+    let previous_integrity = match &previous {
+        State::Ours(m) => Some(check(&slots.previous, m)?),
+        _ => None,
+    };
+    if let Some(i) = &previous_integrity {
+        if retire && !unchanged && !i.clean() {
+            refusals.push(previous_modified(&slots.previous, i));
+        }
+    }
     let unix = now_unix();
     let previous_id = old
         .as_ref()
@@ -635,7 +766,6 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
             ));
         }
     }
-    let unchanged = old.is_some() && !diff.changed();
     let mut data = json!({
         "mod": name,
         "plugin": source.plugin,
@@ -652,9 +782,11 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         "previous_deployment_id": previous_id,
         "files": diff.json(),
         "live_integrity": integrity.as_ref().map(Integrity::json),
+        "previous_integrity": previous_integrity.as_ref().map(Integrity::json),
         "carried_over": if meta_ini { vec![MO2_META] } else { Vec::new() },
         "recovered": recovered,
         "pending_journal": if req.dry_run { pending.as_ref().map(|j| json!({"path": slots.journal.display().to_string(), "operation": j.operation, "started_at": j.started_at})) } else { None },
+        "lock": lock.as_ref().map(|l| l.path.display().to_string()),
         "refusals": refusals_json(&refusals),
         "never_touched": never_touched(&inst),
         "profile": profile,
@@ -943,6 +1075,12 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
     if !refusals.is_empty() && !req.dry_run {
         return Err(combine(refusals));
     }
+    // Held to the end of the call; recovery runs only under it.
+    let lock = if req.dry_run {
+        None
+    } else {
+        Some(Lock::take(&slots.lock)?)
+    };
     let mut touched = Vec::new();
     let pending = read_journal(&slots.journal)?;
     let recovered = if req.dry_run {
@@ -1025,11 +1163,11 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
         .map(|s| t("remove-dir", s, None))
         .collect();
     steps.push(t("write", &slots.journal, None));
-    if live_check.meta_ini {
-        steps.push(t("write", &slots.previous.join(MO2_META), None));
-    }
     steps.push(t("rename", &slots.target, Some(&slots.staging)));
     steps.push(t("rename", &slots.previous, Some(&slots.target)));
+    if live_check.meta_ini {
+        steps.push(t("write", &slots.target.join(MO2_META), None));
+    }
     steps.push(t("rename", &slots.staging, Some(&slots.previous)));
     steps.push(t("remove-file", &slots.journal, None));
     let mut data = json!({
@@ -1042,6 +1180,7 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
         "replacing": live.summary(),
         "recovered": recovered,
         "pending_journal": if req.dry_run { pending.as_ref().map(|j| json!({"path": slots.journal.display().to_string(), "operation": j.operation})) } else { None },
+        "lock": lock.as_ref().map(|l| l.path.display().to_string()),
         "refusals": refusals_json(&refusals),
         "never_touched": never_touched(&inst),
         "profile": profile,
@@ -1112,15 +1251,18 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
             remove_dir(s, &mut touched)?;
         }
         write_journal(&slots, &journal, &mut touched)?;
-        if live_check.meta_ini {
-            let from = slots.target.join(MO2_META);
-            let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
-            write_atomic(&slots.previous.join(MO2_META), &bytes, &mut touched)?;
-        }
         move_dir(&slots.target, &slots.staging, &mut touched)?;
         req.hooks.check(Step::Moved)?;
         move_dir(&slots.previous, &slots.target, &mut touched)?;
         req.hooks.check(Step::Committed)?;
+        // MO2's meta.ini follows the live folder: copied into the new live folder after
+        // the swap, so `.previous` is never written before it is restored (a crash
+        // mid-copy leaves `meta.ini.tmp` in the live folder; recovery removes it).
+        if live_check.meta_ini {
+            let from = slots.staging.join(MO2_META);
+            let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
+            write_atomic(&slots.target.join(MO2_META), &bytes, &mut touched)?;
+        }
         move_dir(&slots.staging, &slots.previous, &mut touched)?;
         remove_file(&slots.journal, &mut touched)
     })();
@@ -1161,6 +1303,7 @@ fn classify(entry: &str) -> Option<(String, &'static str)> {
     for (suffix, role) in [
         (format!("{JOURNAL}.tmp"), "journal-tmp"),
         (JOURNAL.to_string(), "journal"),
+        (LOCK.to_string(), "lock"),
         (PREVIOUS.to_string(), "previous"),
         (STAGING.to_string(), "staging"),
         (RETIRED.to_string(), "retired"),
@@ -1190,18 +1333,40 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
     }
     let mut warnings = Vec::new();
     let active = inst.selected_profile.clone();
-    if active
-        .as_deref()
-        .is_some_and(|p| p.eq_ignore_ascii_case(LIVE_PROFILE))
-    {
-        warnings.push(format!(
+    match active.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
+        Some(p) if p.eq_ignore_ascii_case(LIVE_PROFILE) => warnings.push(format!(
             "MO2's active profile is `{LIVE_PROFILE}` (the live game): deploy and rollback refuse until MO2 is switched to `{DEV_PROFILE}`"
-        ));
+        )),
+        Some(_) => {}
+        None => warnings.push(format!(
+            "ModOrganizer.ini names no active profile: deploy and rollback refuse unless --profile names an existing profile other than `{LIVE_PROFILE}`"
+        )),
+    }
+    if let Some(e) = req
+        .profile
+        .as_deref()
+        .and_then(|p| inst.check_profile_arg(p))
+    {
+        warnings.push(format!("profile not read: {e}"));
     }
     let mut out = Vec::new();
     let mut lines = Vec::new();
     for (name, roles) in &mods {
-        let slots = Slots::new(&inst, name)?;
+        // One odd folder (a name its slots cannot be derived from, an unreadable entry)
+        // is reported as that mod's error; the rest of the listing stands.
+        let slots = match Slots::new(&inst, name) {
+            Ok(s) => s,
+            Err(e) => {
+                lines.push(format!("{name}: error: {e}"));
+                out.push(json!({
+                    "mod": name,
+                    "state": "error",
+                    "error": e.to_string(),
+                    "entries": roles,
+                }));
+                continue;
+            }
+        };
         let describe = |path: &Path, deep: bool| -> Value {
             match state(path, name) {
                 Ok(State::Absent) => json!({"state": "absent"}),
@@ -1261,12 +1426,21 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
                 slots.journal.display()
             ));
         }
+        let locked = fs::symlink_metadata(&slots.lock).is_ok();
+        if locked {
+            lines.push(format!(
+                "  locked ({}): a deploy or rollback is running, or a killed one left the lock (delete it if none is running)",
+                slots.lock.display()
+            ));
+        }
         out.push(json!({
             "mod": name,
+            "state": "ok",
             "target": slots.target.display().to_string(),
             "live": live,
             "previous": previous,
             "pending_journal": journal,
+            "lock": locked.then(|| slots.lock.display().to_string()),
             "leftovers": leftovers,
             "profile": profile,
         }));
