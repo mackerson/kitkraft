@@ -10,7 +10,7 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | # | Action | Unblocks | State |
 | - | ------ | -------- | ----- |
 | 1 | In-game check of the rename plugin `OldSovietMarksmanRifle.esm` (M2.O6) | M2 exit | **done 2026-10-14: PASS** |
-| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, then `player.moveto KitKraftFirstPOICrate` (or `player.moveto 28001000`) and `prid` it. Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
+| 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, then `prid 04001000` and `player.moveto 04001000` (Kitkraft Dev's slot by its saves; `02001000` and `28001000` were wrong IDs, `docs/poi/first-poi-investigation.md`). Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
 | 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | pending (owner); build 2 landed 2026-10-15 |
 | 4 | ~~Answer the brief rows B8, B11 and B12~~ | overhaul build 2 (M3.E9 rerun) | **answered 2026-10-15**: B8 dropped, B11 base 18 (drum untouched, 48), B12 as built; applied in build 2 |
 | 5 | Close every Claude Code session that has the repo open. Then run `C:\Modding\scripts\finish_kitkraft_move.ps1`. It renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
@@ -2405,3 +2405,24 @@ Agents append here when they need a change in a crate they do not own.
   form lists; (8) for M4.O4 on `KitKraft Dev`: does a new recipe with a vanilla
   `OutpostCategory*` BNAM show at every beacon, and does a new category keyword need the
   beacon and `OutpostRecipeCategories`.
+
+- **POI investigation (2026-10-15) -> lane D (`kitkraft_io` order, `kitkraft_doc::form::runtime_slots`) and lane E (`testplan`).**
+  The owner's `player.moveto 02001000` failed because the ID was wrong. The plugin itself
+  is fine. Two saves of Kitkraft Dev and one of Default show the game's own plugin lists
+  (evidence, method and tables: `docs/poi/first-poi-investigation.md`).
+  (1) Full slots: the game puts `Starfield`, `ShatteredSpace`, `SFBGS00D` and `SFBGS050`
+  first, then user full plugins in `loadorder.txt` order, then the blueprint (0x800)
+  plugins after every other full plugin. `load` puts `BlueprintShips-Starfield` at `01`, so
+  every user full plugin comes out 2 slots too high (Kitkraft Dev: POI `06`, game `04`;
+  MO2 showed `02`).
+  (2) Small and medium official order: the game has `SFBGS004` before `SFBGS007`, and
+  `SFBGS003` before `SFBGS006`. KitKraft follows the ccc order and gets both wrong. User
+  small and medium slots already match.
+  Please: change `hardcoded-official-slots` and `runtime-slots-by-scale` to the save's
+  order, with blueprint plugins last among full plugins, and add a regression fixture with
+  these saves' lists. Consider a read-only save-header reader in `kitkraft_io` (BCPS, zlib
+  chunks; plugin lists at about 0xA0 of the decompressed data), so `testplan` can take
+  runtime IDs from the profile's newest save instead of an assumption. `testplan` should
+  lead with `player.moveto <EditorID>` and with clicking the object in the console, and
+  should label numeric IDs as predicted. The writer needs no change: the new ref has the
+  same shape as `TIG_Shipyards.esm`'s working persistent ref in a vanilla interior cell.
