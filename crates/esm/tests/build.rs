@@ -20,6 +20,7 @@ mod common;
 use std::io::{Cursor, Read, Seek, SeekFrom};
 
 use kitcraft_esm::build::{upsert_reader, HeaderSpec, Placed, Upsert, TOP_GROUP_ORDER};
+use kitcraft_esm::cells::{self, group_type as gt, PlacementStyle};
 use kitcraft_esm::driver::{roundtrip_bytes, RewriteOptions, RoundtripOptions};
 use kitcraft_esm::index::{index_bytes, read_indexed, IndexOptions, PluginIndex, RecordLoc};
 use kitcraft_esm::{DecodeLimits, Plugin, Record, Signature};
@@ -189,9 +190,64 @@ fn corpus_small_records_into_a_new_plugin() {
         let mut masters: Vec<Vec<u8>> = tes4.masters().into_iter().map(|m| m.name).collect();
         masters.push(file.name.as_bytes().to_vec());
         let mut plugin = Plugin::create(&HeaderSpec::new(masters.clone()));
-        let mut copied = Vec::new();
+        let mut copied: Vec<&RecordLoc> = Vec::new();
+        let read = |loc: &RecordLoc| read_indexed(&mut Cursor::new(&bytes), loc, None);
+        let limits = DecodeLimits::default();
+        let style = PlacementStyle::OFFICIAL;
         for loc in picks(&index) {
-            let record = read_indexed(&mut Cursor::new(&bytes), loc, None).unwrap();
+            // The records whose children groups hold the pick are carried first: a cell's
+            // WRLD and CELL by `cells::carry_parents` (computed paths, which must be the
+            // source's), a quest's QUST and DIAL from their source paths.
+            let path = index.group_path(loc.group);
+            let mut owners: Vec<(&RecordLoc, Vec<kitcraft_esm::GroupHeader>)> = Vec::new();
+            if let Some(g6) = path
+                .iter()
+                .find(|g| g.header.group_type == gt::CELL_CHILDREN)
+            {
+                let cell = g6.header.label_u32();
+                let cloc = index
+                    .records
+                    .iter()
+                    .find(|r| r.signature == Signature::new(b"CELL") && r.form_id == cell)
+                    .unwrap();
+                let place =
+                    cells::cell_place_in(&index, cloc, &read(cloc).unwrap(), &limits).unwrap();
+                for p in cells::carry_parents(&index, &place, cell, &style, &limits, read).unwrap()
+                {
+                    let owner = index
+                        .records
+                        .iter()
+                        .find(|r| {
+                            r.signature == p.record.header.signature
+                                && r.form_id == p.record.header.form_id
+                        })
+                        .unwrap();
+                    owners.push((owner, p.path));
+                }
+            }
+            for g in path
+                .iter()
+                .filter(|g| matches!(g.header.group_type, gt::QUEST_CHILDREN | gt::TOPIC_CHILDREN))
+            {
+                let owner = index
+                    .records
+                    .iter()
+                    .find(|r| r.form_id == g.header.label_u32() && r.group == g.parent)
+                    .unwrap();
+                owners.push((owner, index.group_headers(owner)));
+            }
+            for (owner, owner_path) in owners {
+                if copied.iter().any(|c| c.offset == owner.offset) {
+                    continue;
+                }
+                let record = read(owner).unwrap();
+                plugin.upsert(&owner_path, record).unwrap();
+                copied.push(owner);
+            }
+            if copied.iter().any(|c| c.offset == loc.offset) {
+                continue;
+            }
+            let record = read(loc).unwrap();
             let outcome = plugin.upsert(&index.group_headers(loc), record).unwrap();
             assert_eq!(outcome, Upsert::Inserted);
             copied.push(loc);

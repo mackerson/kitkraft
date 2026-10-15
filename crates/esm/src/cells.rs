@@ -672,6 +672,64 @@ pub fn cell_place_in(
     Ok(CellPlace::Exterior { world, grid })
 }
 
+/// The records a plugin must hold before a child of cell `cell` (stored FormID) at `place`
+/// can be placed in it ([`crate::Plugin::upsert_styled`] refuses a cell children group
+/// whose `CELL` is not there, and a world children group whose `WRLD` is not): for an
+/// exterior cell or a world's persistent cell the `WRLD`, then the `CELL`, each read from
+/// `index` (the plugin that has them, usually the master) with `read` (for example
+/// [`crate::index::read_indexed`] without decoding) and placed where `style` puts it, an
+/// interior cell in the block and sub-block `index` has it in. Upsert them first, and
+/// skip any the target already has (its override may carry edits).
+///
+/// Lossless: each record is the stored record (its bytes as read, a compressed body not
+/// recompressed, FormIDs as stored). Stored FormIDs are file-relative, so the copies mean
+/// the same records only in a target whose masters begin with `index`'s plugin's masters,
+/// in order, followed by that plugin (a patch of it); remapping is not done here.
+///
+/// Refused (`Error::Placement`): the cell or its world is not in `index`, or `index` has
+/// the cell at another place than `place` (interior block labels aside).
+pub fn carry_parents(
+    index: &PluginIndex,
+    place: &CellPlace,
+    cell: u32,
+    style: &PlacementStyle,
+    limits: &DecodeLimits,
+    mut read: impl FnMut(&RecordLoc) -> Result<Record<'static>>,
+) -> Result<Vec<crate::build::Placed>> {
+    use crate::build::Placed;
+    let loc = index
+        .records
+        .iter()
+        .find(|r| r.signature == CELL && r.form_id == cell)
+        .ok_or_else(|| refused("the cell to carry is not in the index"))?;
+    let record = read(loc)?;
+    let observed = cell_place_in(index, loc, &record, limits)?;
+    let agrees = match (place, &observed) {
+        (CellPlace::Interior { .. }, CellPlace::Interior { .. }) => true,
+        (a, b) => a == b,
+    };
+    if !agrees {
+        return Err(refused("the index has the cell to carry at another place"));
+    }
+    let mut out = Vec::with_capacity(2);
+    if let Some(world) = observed.world() {
+        let wloc = index
+            .records
+            .iter()
+            .find(|r| r.signature == WRLD && r.form_id == world)
+            .ok_or_else(|| refused("the world of the cell to carry is not in the index"))?;
+        out.push(Placed {
+            path: vec![style.header(WRLD.0, group_type::TOP)],
+            record: read(wloc)?,
+        });
+    }
+    out.push(Placed {
+        path: cell_path(&observed, cell, style)?,
+        record,
+    });
+    Ok(out)
+}
+
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {

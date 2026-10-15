@@ -209,7 +209,9 @@ pub fn import_navmeshes(
     for (cell, p) in placements(source, &places, style)? {
         match target.upsert_styled(&p.path, p.record, style)? {
             crate::build::Upsert::Inserted => report.inserted = report.inserted.saturating_add(1),
-            crate::build::Upsert::Replaced => report.replaced = report.replaced.saturating_add(1),
+            crate::build::Upsert::Replaced | crate::build::Upsert::Moved => {
+                report.replaced = report.replaced.saturating_add(1)
+            }
         }
         if !report.cells.contains(&cell) {
             report.cells.push(cell);

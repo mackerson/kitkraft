@@ -530,6 +530,7 @@ pub fn write_patch(
         report.outcome = match outcome {
             Upsert::Replaced => "replaced",
             Upsert::Inserted => "inserted",
+            Upsert::Moved => "moved",
         };
     }
     let bytes = finish(&temp, target, &mut reports, &options.limits)?;

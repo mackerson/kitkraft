@@ -351,11 +351,17 @@ pub fn compose_reference(spec: &RefSpec, allow_reference: &[&str]) -> Result<Com
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
+    use std::io::Cursor;
+
     use super::{compose_reference, RecordStamps, RefSpec};
     use crate::build::HeaderSpec;
-    use crate::cells::{CellPlace, Grid, PlacementStyle};
+    use crate::cells::{self, CellPlace, Grid, Parent, PlacementStyle};
     use crate::forms::NewForms;
-    use crate::{Entry, Error, Plugin, Signature, Subrecord};
+    use crate::index::{index_bytes, read_indexed, IndexOptions, RecordLoc};
+    use crate::tes4::Scale;
+    use crate::{
+        Body, DecodeLimits, Entry, Error, Plugin, Record, RecordHeader, Signature, Subrecord,
+    };
     use kitcraft_schema::Confidence;
 
     fn spec() -> RefSpec {
@@ -457,10 +463,61 @@ mod tests {
         );
     }
 
+    fn rec(sig: &[u8; 4], flags: u32, id: u32, subs: Vec<Subrecord<'static>>) -> Record<'static> {
+        Record::new(
+            RecordHeader {
+                signature: Signature::new(sig),
+                flags,
+                form_id: id,
+                form_version: 582,
+                ..RecordHeader::default()
+            },
+            Body::Raw(subs),
+        )
+    }
+
+    fn xclc(x: i32, y: i32) -> Vec<Subrecord<'static>> {
+        vec![Subrecord::new(
+            Signature::new(b"XCLC"),
+            [x.to_le_bytes(), y.to_le_bytes(), [0; 4]].concat(),
+        )]
+    }
+
+    /// A master with world 0x25, its persistent cell 0xD62 and the exterior cell 0x7777 at
+    /// grid (1, -1).
+    fn master() -> Vec<u8> {
+        let style = PlacementStyle::OFFICIAL;
+        let mut plugin = Plugin::create(&HeaderSpec::new(Vec::new()));
+        let world = 0x25;
+        let items = [
+            (rec(b"WRLD", 0, world, Vec::new()), Parent::None),
+            (
+                rec(b"CELL", 0x400, 0xD62, xclc(0, 0)),
+                Parent::CellAt(CellPlace::Persistent { world }),
+            ),
+            (
+                rec(b"CELL", 0, 0x7777, xclc(1, -1)),
+                Parent::CellAt(CellPlace::Exterior {
+                    world,
+                    grid: Grid::new(1, -1),
+                }),
+            ),
+        ];
+        for (r, parent) in items {
+            let path = cells::placement(&r.header, &parent, &style).unwrap();
+            plugin.upsert_styled(&path, r, &style).unwrap();
+        }
+        plugin.to_bytes().unwrap()
+    }
+
     #[test]
-    fn a_composed_reference_lands_in_its_cell_with_the_hedr_updated() {
+    fn a_composed_reference_lands_in_its_carried_cell_with_the_hedr_updated() {
+        let master = master();
+        let index = index_bytes(&master, &IndexOptions::default()).unwrap();
+        let limits = DecodeLimits::default();
+        let read = |loc: &RecordLoc| read_indexed(&mut Cursor::new(&master), loc, None);
         let mut plugin = Plugin::create(&HeaderSpec::new(vec![b"Starfield.esm".to_vec()]));
-        let mut forms = NewForms::for_plugin(&plugin, &[Some(crate::tes4::Scale::Full)]).unwrap();
+        let mut forms = NewForms::for_plugin(&plugin, &[Some(Scale::Full)]).unwrap();
         let style = PlacementStyle::OFFICIAL;
         let world = 0x0000_0025;
         let place = CellPlace::Exterior {
@@ -471,6 +528,16 @@ mod tests {
         s.form_id = forms.allocate().unwrap();
         let composed = compose_reference(&s, ALL).unwrap();
         let placed = composed.placed(place, 0x0000_7777, &style).unwrap();
+        // Without the master's WRLD and CELL in the patch: refused.
+        let mut bare = plugin.clone();
+        let refused = bare.upsert_styled(&placed.path, placed.record.clone(), &style);
+        assert!(matches!(refused, Err(Error::Placement { .. })));
+        // Carried first (lossless copies of the master's records), then placed.
+        let carried = cells::carry_parents(&index, &place, 0x7777, &style, &limits, read).unwrap();
+        assert_eq!(carried.len(), 2);
+        for p in carried {
+            plugin.upsert_styled(&p.path, p.record, &style).unwrap();
+        }
         plugin
             .upsert_styled(&placed.path, placed.record, &style)
             .unwrap();
@@ -482,22 +549,32 @@ mod tests {
         let composed = compose_reference(&p, ALL).unwrap();
         assert!(composed.placed(place, 0x0000_7777, &style).is_err());
         let pcell = CellPlace::Persistent { world };
+        let carried = cells::carry_parents(&index, &pcell, 0xD62, &style, &limits, read).unwrap();
+        // The WRLD the target already has is skipped (an override there may carry edits).
+        assert_eq!(carried[0].record.header.signature, Signature::new(b"WRLD"));
+        plugin
+            .upsert_styled(&carried[1].path, carried[1].record.clone(), &style)
+            .unwrap();
         let placed = composed.placed(pcell, 0x0000_0D62, &style).unwrap();
         plugin
             .upsert_styled(&placed.path, placed.record, &style)
             .unwrap();
+        // The index has 0x7777 at another place than the one given; 0x9999 not at all.
+        assert!(cells::carry_parents(&index, &pcell, 0x7777, &style, &limits, read).is_err());
+        assert!(cells::carry_parents(&index, &pcell, 0x9999, &style, &limits, read).is_err());
         forms.write_hedr(plugin.header_mut()).unwrap();
         let bytes = plugin.to_bytes().unwrap();
         let parsed = Plugin::parse(&bytes).unwrap();
         let hedr = parsed.tes4().hedr().unwrap().unwrap();
-        assert_eq!(hedr.record_count, 3);
+        // TES4, WRLD, two CELL, two REFR.
+        assert_eq!(hedr.record_count, 6);
         assert_eq!(hedr.next_object_id, 0xFF00_1002);
         let Entry::Group(wrld) = &parsed.entries()[0] else {
             panic!()
         };
         assert_eq!(wrld.header.label, *b"WRLD");
-        // WRLD > G1 > [G6 (persistent cell) > G8 > REFR, G4 > G5 > G6 > G9 > REFR]
-        let Entry::Group(g1) = &wrld.children()[0] else {
+        // WRLD > [WRLD, G1 > [CELL, G6 (persistent cell) > G8 > REFR, G4 > G5 > ...]]
+        let Entry::Group(g1) = &wrld.children()[1] else {
             panic!()
         };
         let kinds: Vec<i32> = g1
@@ -508,7 +585,22 @@ mod tests {
                 Entry::Record(_) => -1,
             })
             .collect();
-        assert_eq!(kinds, [6, 4]);
+        assert_eq!(kinds, [-1, 6, 4]);
+        // The carried records are the master's bytes.
+        let master_plugin = Plugin::parse(&master).unwrap();
+        let Entry::Group(master_wrld) = &master_plugin.entries()[0] else {
+            panic!()
+        };
+        let written = |e: &Entry<'_>| {
+            let mut out = Vec::new();
+            e.write_to(&mut out, 0, &crate::WriteOptions::default())
+                .unwrap();
+            out
+        };
+        assert_eq!(
+            written(&master_wrld.children()[0]),
+            written(&wrld.children()[0])
+        );
         assert!(crate::driver::roundtrip_bytes(
             &bytes,
             &crate::driver::RoundtripOptions::default()

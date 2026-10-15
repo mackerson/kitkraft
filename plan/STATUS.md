@@ -1363,7 +1363,12 @@ Agents append here when they need a change in a crate they do not own.
     100 units), `cells::placement(&header, &Parent, &style)` for any record under a cell,
     quest or topic; `Plugin::upsert_styled` / `RewriteOptions::placement` place in corpus
     order. A placed reference needs its parent `CELL` (and `WRLD`) carried in the plugin
-    for the corpus shape; without it the children group still lands in a sane place.
+    first: since the M4 placement-core fix round, `upsert_styled` and the streaming upsert
+    refuse (`Error::Placement`, "carry the WRLD/CELL override first") a children group
+    (types 1, 6, 7, 10) whose record is not in its parent group; `cells::carry_parents(
+    &master_index, &place, cell, &style, &limits, read)` gives the lossless `WRLD`/`CELL`
+    overrides to upsert first (skip those the target has). Before the fix the group was
+    created without its record, a shape no official file has.
   - `navmesh::import_navmeshes(&ck_plugin, &mut target, &style)` and
     `navmesh::navmesh_placements(&ck_plugin, &target_index, read_cell, &style)` for
     `[[import]]`; refused unless both plugins have the same masters.
