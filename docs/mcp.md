@@ -42,6 +42,16 @@ variables are still read for one release (`docs/corpus.md`, "Environment").
 
 ## Use from Claude Code
 
+**The short way (owner):** `cargo xtask dist`, close Claude Code, double-click
+`dist\KitKraft\Install.cmd` (or run `kit install --apply` there), start Claude Code again
+(docs/QUICKSTART.md). It registers `kitkraft` in `~/.claude.json` and the project's
+`.mcp.json`, pointing at the dist `kit.exe`, with a backup first. `kit doctor` shows the
+registrations it finds, whether each command exists, and whether it is this build.
+`kit install` is a CLI-only setup step, like `kit mcp`: it has no `CommandSpec` and is not
+an MCP tool, so a connected agent cannot change the PATH or its own registration.
+
+The manual way, for reference:
+
 1. Build the release binary: `cargo build --release -p kit-cli` (gives
    `C:\Modding\kitkraft\target\release\kit.exe` with the default target dir).
 2. Either copy `.mcp.json.example` at the repo root to `.mcp.json` (project scope; the

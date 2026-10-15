@@ -16,7 +16,7 @@ validated and planned by agents (lane E, M4.E2/E3/E4/E6); the in-game check is t
 | Carried | the cell, as an unchanged copy of its winner except its `FULL`, written inline ("Player House Apartment"; patches are non-localized) |
 | Runtime ID | **`04001000` on Kitkraft Dev**, confirmed by that profile's newest save and in game (M4.O2, 2026-10-15: `player.moveto 04001000` reached the crate; `kit testplan ... --from-save newest`, `Exitsave0` `000052`, game 1.16.244.0; `first-poi-investigation.md`). Name it by its EditorID first (`KitKraftFirstPOICrate`), and click it in the console to read the ID. The earlier `28001000` (Default, appended) came from the old slot rule; with the corrected rule `testplan` on Default predicts `26001000` (appended after the last master-flagged plugin, before `EasyLockpick_by_Kor.esp`, which has no master flag; assumptions `runtime-slots-by-scale` and `masters-load-first`, unconfirmed: no Default save has the plugin) |
 
-Reproduce (KITKRAFT_DATA_DIR = the game's Data folder):
+Reproduce (the game's Data folder is detected; `kit doctor` shows it):
 
 ```text
 kit build docs/poi/first-poi.toml out/poi/KitKraftFirstPOI.esm

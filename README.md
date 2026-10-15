@@ -28,16 +28,22 @@ round 3), then M3. See [ROADMAP.md](ROADMAP.md) and [plan/STATUS.md](plan/STATUS
 
 ## Quick start
 
-Point KitKraft at your game's Data folder once; every command uses it as the default
-`--data-dir` (plugin names, masters):
+**Owner on the dev box: read [docs/QUICKSTART.md](docs/QUICKSTART.md).** `cargo xtask dist`
+builds a folder of double-click files (workbench, shell, validate, deploy to the dev
+profile, install/uninstall), and `Install.cmd` puts `kit` on your PATH and registers the
+MCP server. No environment variables are needed.
+
+KitKraft finds the game (Steam's registry and libraries) and MO2
+(`C:\Modding\MO2-Starfield`) by itself; `kit doctor` shows what it found and how.
+Precedence for every command: argument > environment variable > detected.
 
 ```powershell
-$env:KITKRAFT_DATA_DIR = "C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data"
-cargo build --release -p kit-cli          # target\release\kit.exe
+cargo xtask dist                          # dist\KitKraft\kit.exe, kit-ui.exe and the .cmd files
+kit doctor                                # what was found, each line OK or a fix
 
-# Load an MO2 profile (read-only) and look around
-kit load  --profile "C:\Modding\MO2-Starfield\profiles\Default"
-kit query --type WEAP --where "FULL ~ 'Old Earth Hunting Rifle'" --profile "C:\Modding\MO2-Starfield\profiles\Default"
+# Load an MO2 profile (read-only) and look around; a bare name is a profile of the detected MO2
+kit load  --profile "KitKraft Dev"
+kit query --type WEAP --where "FULL ~ 'Old Earth Hunting Rifle'" --profile "KitKraft Dev"
 kit schema --type WEAP                    # what the schema knows about a record type
 
 # Write a patch: rename the rifle into a new plugin, then check it
@@ -73,7 +79,10 @@ kit roundtrip <esm> --verify                  # byte-identical rewrite, the M1 g
 kit ba2 {list,extract,pack}
 kit papyrus {disasm,compile}                  # wraps Bethesda's compiler; never -release
 kit strings {dump,merge}
+kit doctor [--get data_dir|mo2|dev_profile|...] # what is detected here; each line OK or a fix
 kit mcp [--profile DIR]                       # stdio MCP server over the same catalog
+kit ui [--dev]                                # the read-only workbench
+kit install | uninstall [--apply]             # PATH + MCP registration (CLI only; dry run by default)
 ```
 
 MCP tools: `execute` (any command), `command_line`, and the shortcuts `inspect_record`,
@@ -93,15 +102,15 @@ cargo xtask ci        # the gate: layer check, fmt, clippy -D warnings, tests
 git config core.hooksPath .githooks   # once per clone: pre-commit runs layers + fmt check
 ```
 
-Corpus tests use your own game install (`KITKRAFT_DATA_DIR`, as above) and are skipped
-without it; see [docs/corpus.md](docs/corpus.md).
+Corpus tests read your own game install through `KITKRAFT_DATA_DIR` (set it for them; they
+do not use detection) and are skipped without it; see [docs/corpus.md](docs/corpus.md).
 
 ## Layout
 
 ```
 crates/   schema esm ba2 pex strings nif (L0)  doc (L1)  io (L3)  engine (L4)  mcp (L5)
-apps/     kit-cli
-xtask/    cargo xtask ci | layers | codegen | parity
+apps/     kit-cli (kit), kit (kit-ui, the workbench)
+xtask/    cargo xtask ci | layers | codegen | parity | dist
 plan/     STATUS.md, execution-plan.md, adr/
 docs/     architecture, mcp, parity checklists, gaps, corpus
 corpus/   README only; the corpus lives in your game install

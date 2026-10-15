@@ -14,8 +14,8 @@ Installing is your step, in MO2 (owner decision M4.O5, default).
 
 1. Runs `validate` on the plugin (and on the scripts given). A plugin with any error is
    refused and nothing is written. Pass the same `--profile`, `--plugins` or `--data-dir`
-   you would pass to `validate` so its masters are found (`KITKRAFT_DATA_DIR` is used by
-   default).
+   you would pass to `validate` so its masters are found (by default the Data dir
+   `kit doctor` detects; `KITKRAFT_DATA_DIR` overrides it).
 2. Builds `<out>\<name>\` (default name: the plugin's file name without extension):
    - the plugin at the root;
    - `--loose <folder>`: a folder laid out like `Data` (`Meshes\...`, `Textures\...`,

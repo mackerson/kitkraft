@@ -7,13 +7,18 @@ envelope. The full authoring UI is M5.
 
 ## Launch
 
-PowerShell:
+Double-click `KitKraft Workbench.cmd` in the folder `cargo xtask dist` writes
+(docs/QUICKSTART.md). It runs `kit ui --dev`: the KitKraft Dev profile `kit doctor`
+finds, else the profile picker. From a terminal:
 
 ```text
-cargo build --release -p kit -p kit-cli
-kit ui --profile 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'
+kit ui --dev
+kit ui --profile "KitKraft Dev"           # a bare name is a profile of the detected MO2 instance
 kit ui --plugins Starfield.esm --plugins MyPatch.esp [--data-dir <Data>]
 ```
+
+The Data dir defaults to the detected game install (argument > `KITKRAFT_DATA_DIR` >
+detected). Without the dist folder: `cargo build --release -p kit -p kit-cli`.
 
 Build with `--release`. A debug build works but is slow and large: loading the KitKraft
 Dev profile took 53 s and about 2 GB of memory in a debug build (the 10 to 12 s under
