@@ -201,6 +201,7 @@ struct RawFile {
     note: Option<String>,
     flags: Option<Vec<(String, i64)>>,
     unordered: Option<bool>,
+    size_by_version: Option<Vec<RawVersionedSize>>,
     size: Option<u32>,
     member: Option<Vec<RawMember>>,
     field: Option<Vec<RawField>>,
@@ -782,10 +783,28 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
                 };
                 CommonBody::Type(convert_type(cx, &spec, false, &prov)?)
             };
+            // A shared type whose layout changes between form versions states its size
+            // per version range, checked like a member's `size_by_version`.
+            let mut size_by_version = Vec::new();
+            for (i, v) in raw.size_by_version.iter().flatten().enumerate() {
+                cx.scoped(format!("size_by_version[{i}]"), |cx| {
+                    version_range(cx, v.min, v.max)?;
+                    size_by_version.push(VersionedSize {
+                        min: v.min,
+                        max: v.max,
+                        size: v.size,
+                    });
+                    Ok(())
+                })?;
+            }
+            if let CommonBody::Type(ty) = &body {
+                check_size(cx, ty, None, &size_by_version)?;
+            }
             Ok(Definition::Common(CommonDef {
                 name: raw.name,
                 provenance: prov,
                 body,
+                size_by_version,
                 note: raw.note,
             }))
         }
@@ -803,6 +822,7 @@ fn reject_file_type_keys(cx: &Cx<'_, '_>, raw: &RawFile, kind: &str) -> Result<(
         (raw.base.is_some(), "base"),
         (raw.values.is_some(), "values"),
         (raw.bits.is_some(), "bits"),
+        (raw.size_by_version.is_some(), "size_by_version"),
     ] {
         reject(cx, present, key, &context)?;
     }

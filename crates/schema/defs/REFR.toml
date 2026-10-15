@@ -1131,14 +1131,12 @@ sig = "XLOC"
 name = "Lock"
 type = "struct"
 card = "optional"
-size = 16
 field = [
   { name = "Level", type = "u8" },
   { name = "Unused1", type = "opaque", size = 3 },
   { name = "Key", type = "formid", targets = ["KEYM"] },
   { name = "Flags", type = "flags", base = "u8", bits = [["LeveledLock", 4]] },
-  { name = "Unused9", type = "opaque", size = 3 },
-  { name = "Int12", type = "u32" },
+  { name = "Tail", type = "struct", if_remaining = true, note = "absent in the 9-byte form xEdit allows (its fields are optional from the fifth on, L3795); every official XLOC has it", field = [{ name = "Unused9", type = "opaque", size = 3 }, { name = "Int12", type = "u32" }] },
 ]
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9007-L9007"
 evidence = [
@@ -1146,7 +1144,7 @@ evidence = [
   "corpus: kitkraft-esm tests/world_family.rs (world_family_full), 2026-10-14: in all 6,719,725 REFR records of the 14 official ESMs every subrecord this definition places decodes with the declared layout and every record re-encodes identically",
 ]
 confidence = "corpus"
-note = "Level: 0 none to 100 master; 251 to 255 barred, chained, terminal, inaccessible, key; 3,185 XLOC placed in the corpus in member order, 101 more elsewhere (placed since the unordered mode, M4.BX1)"
+note = "Level: 0 none to 100 master; 251 to 255 barred, chained, terminal, inaccessible, key; 3,185 XLOC placed in the corpus in member order, 101 more elsewhere (placed since the unordered mode, M4.BX1), all 16 bytes; xEdit also allows a 9-byte form without Tail (lane B round 4: the 9-byte form is reference only)"
 
 [[member]]
 sig = "XATR"

@@ -1044,6 +1044,11 @@ fn previous_has(
     Some((file.name.clone(), has))
 }
 
+/// A FormID value that means "no form" in a typed member, like 0: `formid.dangling` does
+/// not check it (lane B round 4; upstream allows it for INFO TRDA's emotion keyword,
+/// which 53,844 response lines of `Starfield.esm` hold).
+pub const NONE_FORM_ID: u32 = 0xFFFF_FFFF;
+
 /// The game master whose low object IDs are engine-reserved.
 pub const RESERVED_MASTER: &str = "Starfield.esm";
 
@@ -1075,6 +1080,11 @@ fn check_form_id(
     target: &Target,
     header: bool,
 ) {
+    // 0xFFFFFFFF in a typed member is "none", like 0 (upstream allows it where a member
+    // may be unset, e.g. INFO TRDA Emotion: xedit wbDefinitionsSF1.pas L12816).
+    if !header && raw == NONE_FORM_ID {
+        return;
+    }
     let what = match &member {
         Some(m) => format!("{m} = {raw:08X}"),
         None => format!("FormID {raw:08X}"),

@@ -134,6 +134,14 @@ lacks), is checked as before.
 IDs changes the expectation with its evidence instead of hiding it. The test
 `formid_dangling_skips_engine_reserved_ids` covers the rule on synthetic plugins.
 
+## FormID 0xFFFFFFFF
+
+A typed member holding 0xFFFFFFFF names no form, like 0: `formid.dangling` does not check
+it, and patch remapping keeps it as is (`validate::NONE_FORM_ID`). Upstream allows the value
+where a member may be unset (INFO `TRDA` Emotion, xedit `wbDefinitionsSF1.pas` L12816;
+53,844 response lines of `Starfield.esm` hold it), and as a FormID its top byte would name a
+master slot no plugin has.
+
 ## On the official files
 
 `validate_corpus_official_files` (`crates/engine/tests/validate_corpus.rs`, `#[ignore]`,

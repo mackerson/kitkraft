@@ -99,7 +99,7 @@ name = "Data"
 type = "struct"
 size = 12
 field = [
-  { name = "Emotion", type = "opaque", size = 4, note = "an emotion keyword (KYWD) FormID, or 0xFFFFFFFF for none (allowed upstream; 53,844 response lines of Starfield.esm hold it); kept raw because a FormID member cannot carry that sentinel without failing formid.dangling" },
+  { name = "Emotion", type = "formid", targets = ["KYWD"], note = "an emotion keyword, or 0xFFFFFFFF for none (allowed upstream, L12816; 53,844 response lines of Starfield.esm hold it): formid.dangling and patch remapping treat 0xFFFFFFFF like 0 (lane B round 4; it was opaque before)" },
   { name = "WemFile", type = "u32", note = "the voice file number" },
   { name = "EmotionOut", type = "f32" },
 ]

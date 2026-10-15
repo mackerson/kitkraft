@@ -4872,14 +4872,19 @@ impl Visit for PositionRotation {}
 pub struct PropertyValue {
     pub actor_value: FormId,
     pub value: f32,
-    pub curve_table: FormId,
+    /// Present for form versions 152 and later.
+    pub curve_table: Option<FormId>,
 }
 
 impl Field for PropertyValue {
     fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
         let f0 = Field::read(r, "PropertyValue.ActorValue", ctx)?;
         let f1 = f32::read(r, "PropertyValue.Value", ctx)?;
-        let f2 = Field::read(r, "PropertyValue.CurveTable", ctx)?;
+        let f2 = if ctx.has(Some(152), None) {
+            Some(Field::read(r, "PropertyValue.CurveTable", ctx)?)
+        } else {
+            None
+        };
         Ok(Self {
             actor_value: f0,
             value: f1,
@@ -4890,7 +4895,9 @@ impl Field for PropertyValue {
     fn write(&self, out: &mut Vec<u8>) {
         self.actor_value.write(out);
         self.value.write(out);
-        self.curve_table.write(out);
+        if let Some(value) = &self.curve_table {
+            value.write(out);
+        }
     }
 }
 
@@ -21919,7 +21926,7 @@ impl Visit for InfoResponseFlags {}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InfoResponseData {
-    pub emotion: [u8; 4],
+    pub emotion: FormId,
     pub wem_file: u32,
     pub emotion_out: f32,
 }
@@ -21943,7 +21950,15 @@ impl Field for InfoResponseData {
     }
 }
 
-impl Visit for InfoResponseData {}
+impl Visit for InfoResponseData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.emotion, "INFO.Response.TRDA.Emotion", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.emotion, "INFO.Response.TRDA.Emotion", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InfoResponseVoiceTypeEmotions {
@@ -22635,6 +22650,7 @@ impl InfoResponse {
 
 impl Visit for InfoResponse {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.data, "INFO.Response.TRDA", out);
         visit_form_ids(&self.voice_type_emotions, "INFO.Response.TROT", out);
         visit_form_ids(&self.original_info, "INFO.Response.TROI", out);
         visit_form_ids(&self.animation, "INFO.Response.Animation", out);
@@ -22642,6 +22658,7 @@ impl Visit for InfoResponse {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.data, "INFO.Response.TRDA", out);
         visit_form_ids_mut(&mut self.voice_type_emotions, "INFO.Response.TROT", out);
         visit_form_ids_mut(&mut self.original_info, "INFO.Response.TROI", out);
         visit_form_ids_mut(&mut self.animation, "INFO.Response.Animation", out);
@@ -51888,13 +51905,37 @@ impl Field for RefrLockFlags {
 impl Visit for RefrLockFlags {}
 
 #[derive(Debug, Clone, PartialEq)]
+pub struct RefrLockTail {
+    pub unused9: [u8; 3],
+    pub int12: u32,
+}
+
+impl Field for RefrLockTail {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "REFR.XLOC.Tail.Unused9", ctx)?;
+        let f1 = u32::read(r, "REFR.XLOC.Tail.Int12", ctx)?;
+        Ok(Self {
+            unused9: f0,
+            int12: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.unused9.write(out);
+        self.int12.write(out);
+    }
+}
+
+impl Visit for RefrLockTail {}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct RefrLock {
     pub level: u8,
     pub unused1: [u8; 3],
     pub key: FormId,
     pub flags: RefrLockFlags,
-    pub unused9: [u8; 3],
-    pub int12: u32,
+    /// Present only when bytes remain in the payload.
+    pub tail: Option<RefrLockTail>,
 }
 
 impl Field for RefrLock {
@@ -51903,15 +51944,17 @@ impl Field for RefrLock {
         let f1 = Field::read(r, "REFR.XLOC.Unused1", ctx)?;
         let f2 = Field::read(r, "REFR.XLOC.Key", ctx)?;
         let f3 = Field::read(r, "REFR.XLOC.Flags", ctx)?;
-        let f4 = Field::read(r, "REFR.XLOC.Unused9", ctx)?;
-        let f5 = u32::read(r, "REFR.XLOC.Int12", ctx)?;
+        let f4 = if !r.is_empty() {
+            Some(Field::read(r, "REFR.XLOC.Tail", ctx)?)
+        } else {
+            None
+        };
         Ok(Self {
             level: f0,
             unused1: f1,
             key: f2,
             flags: f3,
-            unused9: f4,
-            int12: f5,
+            tail: f4,
         })
     }
 
@@ -51920,8 +51963,9 @@ impl Field for RefrLock {
         self.unused1.write(out);
         self.key.write(out);
         self.flags.write(out);
-        self.unused9.write(out);
-        self.int12.write(out);
+        if let Some(value) = &self.tail {
+            value.write(out);
+        }
     }
 }
 

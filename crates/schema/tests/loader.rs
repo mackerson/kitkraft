@@ -1339,6 +1339,47 @@ fn field_unions_decided_by_a_sibling() {
     );
 }
 
+/// Lane B round 4: a shared type whose fields are gated by form version states its size
+/// per version range (`size_by_version`, PropertyValue), checked like a member's; only
+/// shared types take it at the top level.
+#[test]
+fn shared_types_state_sizes_by_version() {
+    let shared = |sizes: &str| {
+        format!(
+            "name = \"Pv\"\nkind = \"type\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
+             type = \"struct\"\n{sizes}\
+             field = [{{ name = \"A\", type = \"u32\" }}, {{ name = \"B\", type = \"u32\", since = 152 }}]\n"
+        )
+    };
+    let ok = shared("size_by_version = [{ max = 151, size = 4 }, { min = 152, size = 8 }]\n");
+    let Definition::Common(def) = parse_definition("common/Pv.toml", &ok).unwrap() else {
+        panic!("shared");
+    };
+    assert_eq!(def.size_by_version.len(), 2);
+    let CommonBody::Type(ty) = &def.body else {
+        panic!("type");
+    };
+    assert_eq!(
+        (ty.fixed_size(Some(151)), ty.fixed_size(Some(152))),
+        (Some(4), Some(8))
+    );
+    let wrong = shared("size_by_version = [{ max = 151, size = 8 }]\n");
+    assert_eq!(
+        kind_of(parse_definition("common/Pv.toml", &wrong)),
+        ErrorKind::SizeConflict {
+            declared: 8,
+            computed: 4
+        }
+    );
+    assert!(matches!(
+        invalid("size_by_version = [{ size = 4 }]\n"),
+        ErrorKind::UnexpectedKey {
+            key: "size_by_version",
+            ..
+        }
+    ));
+}
+
 #[test]
 fn load_dir_reads_common_definitions() {
     let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");

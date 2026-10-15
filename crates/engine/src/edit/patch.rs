@@ -1151,10 +1151,11 @@ pub(crate) fn first_link(path: &Path) -> Option<PathBuf> {
 }
 
 /// A FormID stored by a plugin whose master list (masters, then itself) is `from`, as
-/// stored in a plugin whose masters are `to`. FormID 0 (none) stays 0.
+/// stored in a plugin whose masters are `to`. FormID 0 and 0xFFFFFFFF (none,
+/// `crate::validate::NONE_FORM_ID`) stay as they are.
 fn map_form_id(raw: u32, from: &[String], to: &[String]) -> Result<u32, String> {
-    if raw == 0 {
-        return Ok(0);
+    if raw == 0 || raw == crate::validate::NONE_FORM_ID {
+        return Ok(raw);
     }
     let index = usize::try_from(raw >> 24).unwrap_or(usize::MAX);
     let owner = from.get(index).ok_or_else(|| {

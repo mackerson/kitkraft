@@ -110,6 +110,7 @@ exact lines to add or remove when that list and this directory differ.
 | `size`      | headers         | Total header size in bytes; must equal the sum of `field` sizes |
 | `field`     | headers         | Ordered list of fields                                          |
 | `type` ...  | types           | A shared type: `type` plus its type keys, as on a field         |
+| `size_by_version` | no (types) | A shared type whose layout changes between form versions: its size per version range, checked as on a member (see Sizes) |
 
 ## Members
 
@@ -383,6 +384,16 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
   one is a breaking change.
 - Order comes from the source page or the corpus. Where two members never occur together,
   their relative order is unknown; say so in a `note`.
+- A signature upstream lists both inside a shared block and right after it (the XFLG
+  convention, lane B round 4): the block's member is the typed one and takes an occurrence
+  that directly follows the block's members (`Model.Flags`, the model flags: every official
+  OMOD XFLG and ARMO's world-model XFLG); the standalone member stays as upstream lists it,
+  `opaque` and `reference` until the corpus shows an occurrence the block cannot take, and is
+  named after its signature (`Xflg`). Coverage counts each occurrence at the member that
+  holds it. REFR's XFLG is a different member altogether (a `u32` of the placed reference).
+- A marker upstream lists twice in a row is defined twice only when the corpus has both;
+  a block that already ends with the marker takes the first (GBFM: `ObteBlock` ends with
+  STOP and `Marker2` takes the second; every official GBFM has both).
 
 ## Current set
 

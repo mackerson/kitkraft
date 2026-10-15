@@ -111,6 +111,7 @@ note = "the object template (the shared block, folded in M4.BX1): one combinatio
 sig = "STOP"
 name = "Marker2"
 type = "empty"
+note = "upstream's second STOP (L12262); the shared ObteBlock ends with the first. Not dead: kit coverage of Starfield.esm (lane B round 4, 2026-10-15) counts 6,282 STOP in its 3,141 GBFM records, two in each, placed as ObteBlock.EndMarker and Marker2"
 
 [[member]]
 sig = "NVNM"

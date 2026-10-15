@@ -2,8 +2,11 @@
 # value, and an optional curve table.
 #
 # Source (ADR 0004): the object property helper of wbDefinitionsSF1.pas at the pin and the
-# actor value helper it uses. xEdit adds the curve table from form version 152; every
-# official LCTN and REFR is form version 576 or later, so the field is always present there.
+# actor value helper it uses. xEdit adds the curve table from form version 152 (L5683), so
+# CurveTable is gated `since = 152` and the entry is 8 bytes before that and 12 from it
+# (`size_by_version`, lane B round 4). Every official record is form version 436 or later
+# (docs/corpus.md), so the field is always present in the corpus; the 8-byte form is only
+# what xEdit states.
 #
 # Folded in M4.BX1 (ITEMS merge): the items/workshop family defined the same 12-byte element
 # as common/ObjectProperty (STAT, ACTI, CONT, FURN, MSTT, TERM PRPS), and PKIN (planet
@@ -19,8 +22,9 @@ evidence = [
 ]
 confidence = "corpus"
 type = "struct"
+size_by_version = [{ max = 151, size = 8 }, { min = 152, size = 12 }]
 field = [
   { name = "ActorValue", type = "formid", targets = ["AVIF"] },
   { name = "Value", type = "f32" },
-  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+  { name = "CurveTable", type = "formid", targets = ["CURV"], since = 152 },
 ]

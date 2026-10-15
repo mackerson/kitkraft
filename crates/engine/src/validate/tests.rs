@@ -580,6 +580,17 @@ fn formid_dangling_skips_engine_reserved_ids() {
         [pair("formid.dangling", "warning")],
         "{data:#}"
     );
+    // Lane B round 4: 0xFFFFFFFF in a typed member means none, like 0 (INFO TRDA's
+    // emotion keyword): not a finding, not checked, not reserved.
+    let none = patch(
+        &d,
+        "None.esp",
+        &["Starfield.esm"],
+        vec![with_keyword(crate::validate::NONE_FORM_ID)],
+    );
+    let data = check(&none, &["formid.dangling"]);
+    assert_eq!(found(&data), [], "{data:#}");
+    assert_eq!(data["reserved_form_ids"], json!(0));
     let _ = std::fs::remove_dir_all(&d);
 }
 

@@ -682,6 +682,9 @@ pub struct CommonDef {
     /// inherit it wherever the definition is expanded.
     pub provenance: Provenance,
     pub body: CommonBody,
+    /// Declared sizes per form-version range of a shared type whose layout changes between
+    /// versions (`size_by_version`), checked against the layout.
+    pub size_by_version: Vec<VersionedSize>,
     pub note: Option<String>,
 }
 
