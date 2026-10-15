@@ -1,6 +1,7 @@
 //! `validate` (M2.E6): the rule registry in [`crate::validate`] over one plugin and/or
 //! compiled scripts. `data.passed` is false on any error finding (CLI exit 1).
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use serde_json::{json, Value};
@@ -206,7 +207,7 @@ pub(crate) fn outcome(options: &Options, report: &validate::Report) -> Outcome {
     }
     if report.reserved_form_ids > 0 {
         limitations.push(format!(
-            "formid.dangling skipped {} FormIDs naming engine-reserved forms (object IDs below 0x800 in Starfield.esm, which no plugin defines; data.reserved_by_member counts them per record type and member)",
+            "formid.dangling skipped {} FormIDs naming engine-reserved forms (object IDs below 0x800 in Starfield.esm, which no plugin defines; data.reserved_by_member counts them per record type and member, data.reserved_ids_by_member lists the IDs)",
             report.reserved_form_ids
         ));
     }
@@ -229,6 +230,7 @@ pub(crate) fn outcome(options: &Options, report: &validate::Report) -> Outcome {
             "unresolved_form_ids": report.unresolved_form_ids,
             "reserved_form_ids": report.reserved_form_ids,
             "reserved_by_member": report.reserved_by_member,
+            "reserved_ids_by_member": report.reserved_ids_by_member.iter().map(|(k, ids)| (k.clone(), ids.iter().map(|id| format!("{id:03X}")).collect::<Vec<_>>())).collect::<BTreeMap<_, _>>(),
             "unchecked_subrecords": report.unchecked_subrecords,
             "scripts_checked": report.scripts,
             "summary": summary,

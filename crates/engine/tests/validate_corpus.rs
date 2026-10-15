@@ -129,52 +129,214 @@ const KNOWN_ERRORS: &[Known] = &[
 /// Starfield.esm) and `formid.dangling` warnings (in the DLC files): the player reference
 /// 0x14 in reference slots, actor values 0x2D0..0x3AC in PRPS and FLST lists, REFR NAME
 /// 0x1FB, the story manager root 0x5B. A change in any count fails the test.
-const RESERVED: &[(&str, &str, u64)] = &[
-    ("Starfield.esm", "ACTI PropertyValue.ActorValue", 128),
-    ("Starfield.esm", "CONT PropertyValue.ActorValue", 443),
-    ("Starfield.esm", "FLST FLST.LNAM", 23),
-    ("Starfield.esm", "FURN PropertyValue.ActorValue", 13),
-    ("Starfield.esm", "LCTN LCTN.LCEP.Parent", 2),
-    ("Starfield.esm", "NPC_ PropertyValue.ActorValue", 139),
-    ("Starfield.esm", "OMOD ObjectModProperty.Value1", 3),
-    ("Starfield.esm", "PKIN PropertyValue.ActorValue", 21),
-    ("Starfield.esm", "QUST QuestReferenceAlias.ALFR", 2),
-    ("Starfield.esm", "RACE PropertyValue.ActorValue", 178),
-    ("Starfield.esm", "REFR EnableParent.Ref", 6),
-    ("Starfield.esm", "REFR LinkedReferences.XLKR.Ref", 1),
-    ("Starfield.esm", "REFR REFR.NAME", 1),
-    ("Starfield.esm", "REFR REFR.XATR", 4),
-    ("Starfield.esm", "SMEN SMEN.PNAM", 20),
-    ("Starfield.esm", "STAT PropertyValue.ActorValue", 61),
-    ("Starfield.esm", "TERM PropertyValue.ActorValue", 1),
-    ("SFBGS003.esm", "NPC_ PropertyValue.ActorValue", 186),
-    ("SFBGS003.esm", "RACE PropertyValue.ActorValue", 7),
-    ("SFBGS003.esm", "SMEN SMEN.PNAM", 1),
-    ("SFBGS004.esm", "RACE PropertyValue.ActorValue", 14),
-    ("SFBGS00D.esm", "FURN PropertyValue.ActorValue", 1),
-    ("SFBGS00D.esm", "NPC_ PropertyValue.ActorValue", 3),
-    ("SFBGS00D.esm", "OMOD ObjectModProperty.Value1", 2),
-    ("SFBGS00D.esm", "QUST QuestReferenceAlias.ALFR", 1),
-    ("SFBGS00D.esm", "RACE PropertyValue.ActorValue", 3),
-    ("SFBGS00D.esm", "REFR EnableParent.Ref", 1),
-    ("SFBGS00D.esm", "REFR LinkedReferences.XLKR.Ref", 1),
-    ("SFBGS047.esm", "RACE PropertyValue.ActorValue", 14),
-    ("SFBGS050.esm", "ACTI PropertyValue.ActorValue", 8),
-    ("SFBGS050.esm", "CONT PropertyValue.ActorValue", 12),
-    ("SFBGS050.esm", "LCTN LCTN.LCEP.Parent", 1),
-    ("SFBGS050.esm", "NPC_ PropertyValue.ActorValue", 3),
-    ("SFBGS050.esm", "RACE PropertyValue.ActorValue", 31),
-    ("SFBGS050.esm", "REFR EnableParent.Ref", 2),
-    ("ShatteredSpace.esm", "ACTI PropertyValue.ActorValue", 4),
-    ("ShatteredSpace.esm", "CONT PropertyValue.ActorValue", 1),
-    ("ShatteredSpace.esm", "NPC_ PropertyValue.ActorValue", 36),
-    ("ShatteredSpace.esm", "PKIN PropertyValue.ActorValue", 2),
-    ("ShatteredSpace.esm", "QUST QuestReferenceAlias.ALFR", 1),
-    ("ShatteredSpace.esm", "RACE PropertyValue.ActorValue", 31),
-    ("ShatteredSpace.esm", "REFR EnableParent.Ref", 1),
-    ("ShatteredSpace.esm", "REFR REFR.XATR", 1),
-    ("ShatteredSpace.esm", "SMEN SMEN.PNAM", 1),
+///
+/// Lane B round 4 (the ADR 0005 A4 masking surface): each entry also pins the distinct
+/// reserved object IDs the member names (compact hex runs), so a new ID behind the same
+/// count fails too; every one must be in `validate::NAMED_RESERVED_OBJECT_IDS` or listed in
+/// [`UNNAMED_RESERVED`].
+const RESERVED: &[(&str, &str, u64, &str)] = &[
+    (
+        "Starfield.esm",
+        "ACTI PropertyValue.ActorValue",
+        128,
+        "2D0,32E-330,338,3A2",
+    ),
+    (
+        "Starfield.esm",
+        "CONT PropertyValue.ActorValue",
+        443,
+        "330,33D,387,3A2,3AC",
+    ),
+    (
+        "Starfield.esm",
+        "FLST FLST.LNAM",
+        23,
+        "2D8,2DB,2E2,2EE,313,32E,34F-352,355,359",
+    ),
+    ("Starfield.esm", "FURN PropertyValue.ActorValue", 13, "33E"),
+    ("Starfield.esm", "LCTN LCTN.LCEP.Parent", 2, "14"),
+    (
+        "Starfield.esm",
+        "NPC_ PropertyValue.ActorValue",
+        139,
+        "32D,330,351,385,39E,3A2",
+    ),
+    (
+        "Starfield.esm",
+        "OMOD ObjectModProperty.Value1",
+        3,
+        "2E2,312",
+    ),
+    (
+        "Starfield.esm",
+        "PKIN PropertyValue.ActorValue",
+        21,
+        "33D-33E",
+    ),
+    ("Starfield.esm", "QUST QuestReferenceAlias.ALFR", 2, "14"),
+    (
+        "Starfield.esm",
+        "RACE PropertyValue.ActorValue",
+        178,
+        "2D8-2D9,2E0,385,39E-3A1",
+    ),
+    ("Starfield.esm", "REFR EnableParent.Ref", 6, "14"),
+    ("Starfield.esm", "REFR LinkedReferences.XLKR.Ref", 1, "14"),
+    ("Starfield.esm", "REFR REFR.NAME", 1, "1FB"),
+    ("Starfield.esm", "REFR REFR.XATR", 4, "14"),
+    ("Starfield.esm", "SMEN SMEN.PNAM", 20, "5B"),
+    (
+        "Starfield.esm",
+        "STAT PropertyValue.ActorValue",
+        61,
+        "33D-33E",
+    ),
+    ("Starfield.esm", "TERM PropertyValue.ActorValue", 1, "3A2"),
+    (
+        "SFBGS003.esm",
+        "NPC_ PropertyValue.ActorValue",
+        186,
+        "39E-3A0",
+    ),
+    (
+        "SFBGS003.esm",
+        "RACE PropertyValue.ActorValue",
+        7,
+        "2D8-2D9,2E0,39E-3A1",
+    ),
+    ("SFBGS003.esm", "SMEN SMEN.PNAM", 1, "5B"),
+    (
+        "SFBGS004.esm",
+        "RACE PropertyValue.ActorValue",
+        14,
+        "2D8-2D9,2E0,39E-3A1",
+    ),
+    ("SFBGS00D.esm", "FURN PropertyValue.ActorValue", 1, "33E"),
+    (
+        "SFBGS00D.esm",
+        "NPC_ PropertyValue.ActorValue",
+        3,
+        "385,390",
+    ),
+    (
+        "SFBGS00D.esm",
+        "OMOD ObjectModProperty.Value1",
+        2,
+        "385,3B7",
+    ),
+    ("SFBGS00D.esm", "QUST QuestReferenceAlias.ALFR", 1, "14"),
+    (
+        "SFBGS00D.esm",
+        "RACE PropertyValue.ActorValue",
+        3,
+        "2D8-2D9,2E0",
+    ),
+    ("SFBGS00D.esm", "REFR EnableParent.Ref", 1, "14"),
+    ("SFBGS00D.esm", "REFR LinkedReferences.XLKR.Ref", 1, "14"),
+    (
+        "SFBGS047.esm",
+        "RACE PropertyValue.ActorValue",
+        14,
+        "2D8-2D9,2E0,39E-3A1",
+    ),
+    (
+        "SFBGS050.esm",
+        "ACTI PropertyValue.ActorValue",
+        8,
+        "2D0,330,3A2",
+    ),
+    (
+        "SFBGS050.esm",
+        "CONT PropertyValue.ActorValue",
+        12,
+        "330,33D,3A2",
+    ),
+    ("SFBGS050.esm", "LCTN LCTN.LCEP.Parent", 1, "14"),
+    (
+        "SFBGS050.esm",
+        "NPC_ PropertyValue.ActorValue",
+        3,
+        "32D,385",
+    ),
+    (
+        "SFBGS050.esm",
+        "RACE PropertyValue.ActorValue",
+        31,
+        "2D8-2D9,2E0,39E-3A1",
+    ),
+    ("SFBGS050.esm", "REFR EnableParent.Ref", 2, "14"),
+    (
+        "ShatteredSpace.esm",
+        "ACTI PropertyValue.ActorValue",
+        4,
+        "2D0",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "CONT PropertyValue.ActorValue",
+        1,
+        "33D",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "NPC_ PropertyValue.ActorValue",
+        36,
+        "32D,385",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "PKIN PropertyValue.ActorValue",
+        2,
+        "33E",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "QUST QuestReferenceAlias.ALFR",
+        1,
+        "14",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "RACE PropertyValue.ActorValue",
+        31,
+        "2D8-2D9,2E0,39E-3A1",
+    ),
+    ("ShatteredSpace.esm", "REFR EnableParent.Ref", 1, "14"),
+    ("ShatteredSpace.esm", "REFR REFR.XATR", 1, "14"),
+    ("ShatteredSpace.esm", "SMEN SMEN.PNAM", 1, "5B"),
 ];
+/// Reserved IDs outside `validate::NAMED_RESERVED_OBJECT_IDS` that an official file names
+/// (each is skipped by `formid.dangling` with a warning until a CK observation): lane B
+/// round 4 typed OMOD property values, and SFBGS00D.esm OMOD 01026328 names 0x3B7 from a
+/// FormID value (value type 4 or 6) that `Starfield.esm` does not define, just past the
+/// 0x2D0..0x3AC actor value run the other files name.
+const UNNAMED_RESERVED: &[(&str, &str, u32)] =
+    &[("SFBGS00D.esm", "OMOD ObjectModProperty.Value1", 0x3B7)];
+
+/// Sorted object IDs as compact hex runs: `14`, `2D0-2D2,2F1`.
+fn compact(ids: &[u32]) -> String {
+    let mut sorted = ids.to_vec();
+    sorted.sort_unstable();
+    sorted.dedup();
+    let mut runs: Vec<(u32, u32)> = Vec::new();
+    for id in sorted {
+        match runs.last_mut() {
+            Some((_, hi)) if hi.checked_add(1) == Some(id) => *hi = id,
+            _ => runs.push((id, id)),
+        }
+    }
+    runs.iter()
+        .map(|(lo, hi)| {
+            if lo == hi {
+                format!("{lo:X}")
+            } else {
+                format!("{lo:X}-{hi:X}")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
 /// The stored FormID a `formid.dangling` message names (`... = 0000033E names ...`).
 fn named_value(message: &str) -> Option<u32> {
     let at = message.find(" = ")?;
@@ -284,31 +446,61 @@ fn validate_corpus_official_files() {
         if unexplained > 0 {
             failures.push(name);
         }
-        let seen: BTreeMap<String, u64> = data["reserved_by_member"]
+        let ids_of = |member: &str| -> Vec<u32> {
+            data["reserved_ids_by_member"][member]
+                .as_array()
+                .map(|ids| {
+                    ids.iter()
+                        .filter_map(|id| u32::from_str_radix(id.as_str()?, 16).ok())
+                        .collect()
+                })
+                .unwrap_or_default()
+        };
+        let seen: BTreeMap<String, (u64, String)> = data["reserved_by_member"]
             .as_object()
             .map(|m| {
                 m.iter()
-                    .map(|(k, v)| (k.clone(), v.as_u64().unwrap_or(0)))
+                    .map(|(k, v)| (k.clone(), (v.as_u64().unwrap_or(0), compact(&ids_of(k)))))
                     .collect()
             })
             .unwrap_or_default();
-        let expected: BTreeMap<String, u64> = RESERVED
+        let expected: BTreeMap<String, (u64, String)> = RESERVED
             .iter()
-            .filter(|(plugin, _, _)| *plugin == name)
-            .map(|(_, member, count)| ((*member).to_owned(), *count))
+            .filter(|(plugin, _, _, _)| *plugin == name)
+            .map(|(_, member, count, ids)| ((*member).to_owned(), (*count, (*ids).to_owned())))
             .collect();
         println!(
             "    reserved: {} {}",
             data["reserved_form_ids"],
             Value::from(serde_json::Map::from_iter(
-                seen.iter().map(|(k, v)| (k.clone(), json!(v)))
+                seen.iter()
+                    .map(|(k, (n, ids))| (k.clone(), json!(format!("{n} [{ids}]"))))
             ))
         );
         if seen != expected {
-            for (member, count) in &seen {
-                println!("    reserved count: (\"{name}\", \"{member}\", {count}),");
+            for (member, (count, ids)) in &seen {
+                println!("    reserved count: (\"{name}\", \"{member}\", {count}, \"{ids}\"),");
             }
             println!("    expected: {expected:?}");
+            failures.push(name);
+        }
+        // Every reserved ID the official files name is in the set the warning rule uses,
+        // or one of the listed exceptions.
+        let mut outside: Vec<(String, u32)> = Vec::new();
+        for member in seen.keys() {
+            for id in ids_of(member) {
+                if !kitkraft_engine::validate::is_named_reserved(id) {
+                    println!("    reserved ID {id:03X} in {member} is outside the named set");
+                    outside.push((member.clone(), id));
+                }
+            }
+        }
+        let listed: Vec<(String, u32)> = UNNAMED_RESERVED
+            .iter()
+            .filter(|(plugin, _, _)| *plugin == name)
+            .map(|(_, member, id)| ((*member).to_owned(), *id))
+            .collect();
+        if outside != listed {
             failures.push(name);
         }
     }

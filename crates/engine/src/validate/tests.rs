@@ -553,6 +553,42 @@ fn formid_dangling_skips_engine_reserved_ids() {
         json!(1),
         "{data:#}"
     );
+    // Lane B round 4 (ADR 0005 A4 masking surface): the distinct IDs per member path.
+    assert_eq!(
+        data["reserved_ids_by_member"]["WEAP Keywords.KWDA"],
+        json!(["014"]),
+        "{data:#}"
+    );
+    // A low ID the official files never name (0x100) is still skipped, with a warning
+    // until a CK observation settles what such IDs are.
+    let unnamed = patch(
+        &d,
+        "Unnamed.esp",
+        &["Starfield.esm"],
+        vec![with_keyword(0x0000_0100)],
+    );
+    let data = check(&unnamed, &["formid.dangling"]);
+    assert_eq!(
+        found(&data),
+        [pair("formid.dangling", "warning")],
+        "{data:#}"
+    );
+    assert!(
+        data["findings"][0]["message"]
+            .as_str()
+            .unwrap()
+            .contains("not one the official files name"),
+        "{data:#}"
+    );
+    assert_eq!(data["reserved_form_ids"], json!(1));
+    assert_eq!(
+        data["reserved_ids_by_member"]["WEAP Keywords.KWDA"],
+        json!(["100"])
+    );
+    assert!(crate::validate::is_named_reserved(0x2D0) && crate::validate::is_named_reserved(0x3AC));
+    assert!(
+        !crate::validate::is_named_reserved(0x3AD) && !crate::validate::is_named_reserved(0x15)
+    );
     // 0x800 and up is an ordinary form: Starfield.esm lacks 0x801.
     let ordinary = patch(
         &d,

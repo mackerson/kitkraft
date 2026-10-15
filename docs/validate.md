@@ -132,9 +132,17 @@ lane H). What does not change: a low ID that `Starfield.esm` defines is an ordin
 low ID under any other master, or in a record header (an override of a form the master
 lacks), is checked as before.
 
-`validate_corpus_official_files` pins the count per plugin, record type and member path (`RESERVED` in
-`crates/engine/tests/validate_corpus.rs`), so a family that types a new member naming such
-IDs changes the expectation with its evidence instead of hiding it. The test
+`validate_corpus_official_files` pins the count and the distinct IDs per plugin, record
+type and member path (`RESERVED` in `crates/engine/tests/validate_corpus.rs`; the IDs are
+in `data.reserved_ids_by_member`), so a family that types a new member naming such IDs, or
+a member that starts naming a new one, changes the expectation with its evidence instead of
+hiding it. The named set is 0x14, 0x5B, 0x1FB and 0x2D0..=0x3AC
+(`validate::NAMED_RESERVED_OBJECT_IDS`, the IDs the official files named before lane B
+round 4). A reserved ID outside it is still skipped, but with a `formid.dangling`
+**warning** saying so, until a CK observation settles what such IDs are. Lane B round 4
+typed the OMOD and object template property values: their FormID values name 0x2E2, 0x312
+and 0x385 (inside the set) and, once, 0x3B7 (SFBGS00D.esm OMOD 01026328, outside it: the one
+such warning in the official files, listed in `UNNAMED_RESERVED`). The test
 `formid_dangling_skips_engine_reserved_ids` covers the rule on synthetic plugins.
 
 ## FormID 0xFFFFFFFF

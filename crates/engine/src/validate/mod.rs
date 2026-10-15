@@ -15,7 +15,7 @@ pub mod scripts;
 #[cfg(test)]
 mod tests;
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -256,6 +256,9 @@ pub struct Report {
     /// [`Report::reserved_form_ids`] by record type and member path
     /// (`NPC_ PropertyValue.ActorValue`).
     pub reserved_by_member: BTreeMap<String, u64>,
+    /// The distinct reserved object IDs each record type and member path names (ADR 0005
+    /// Amendment 4: the masking surface, pinned per member by the corpus test).
+    pub reserved_ids_by_member: BTreeMap<String, BTreeSet<u32>>,
     /// Subrecords whose FormIDs could not be checked (opaque or undecoded payloads).
     pub unchecked_subrecords: u64,
     /// Subrecords examined.
@@ -1068,6 +1071,21 @@ pub fn is_reserved(owner: &str, object_id: u32) -> bool {
     object_id < RESERVED_OBJECT_IDS && owner.eq_ignore_ascii_case(RESERVED_MASTER)
 }
 
+/// The reserved object IDs the 14 official files name from typed members (lane B round 4,
+/// `validate_corpus_official_files` pins them per member path): the player reference
+/// 0x14, the story manager root 0x5B, the reference base 0x1FB, and the built-in actor
+/// values 0x2D0..=0x3AC. A reserved ID outside this set is still skipped by
+/// `formid.dangling`, with a warning, until a CK observation settles the reading.
+pub const NAMED_RESERVED_OBJECT_IDS: &[(u32, u32)] =
+    &[(0x14, 0x14), (0x5B, 0x5B), (0x1FB, 0x1FB), (0x2D0, 0x3AC)];
+
+/// Whether `object_id` is in [`NAMED_RESERVED_OBJECT_IDS`].
+pub fn is_named_reserved(object_id: u32) -> bool {
+    NAMED_RESERVED_OBJECT_IDS
+        .iter()
+        .any(|(lo, hi)| (*lo..=*hi).contains(&object_id))
+}
+
 #[allow(clippy::too_many_arguments)]
 fn check_form_id(
     pass: &Pass<'_>,
@@ -1120,7 +1138,7 @@ fn check_form_id(
             owner, object_id, ..
         } => {
             let reserved = !header && is_reserved(owner, *object_id);
-            let note_reserved = |report: &mut Report| {
+            let note_reserved = |report: &mut Report, findings: &mut Vec<Finding>| {
                 report.reserved_form_ids = report.reserved_form_ids.saturating_add(1);
                 // Keyed by record type and member path: a shared type's path
                 // (`PropertyValue.ActorValue`) is the same in every record type.
@@ -1129,15 +1147,33 @@ fn check_form_id(
                     record.get(..4).unwrap_or(record),
                     member.as_deref().unwrap_or_default()
                 );
-                let count = report.reserved_by_member.entry(key).or_default();
+                let count = report.reserved_by_member.entry(key.clone()).or_default();
                 *count = count.saturating_add(1);
+                report
+                    .reserved_ids_by_member
+                    .entry(key)
+                    .or_default()
+                    .insert(*object_id);
+                // Outside the set the official files name, the reading (an engine default
+                // form) is a guess for this ID too: say so until a CK observation.
+                if !is_named_reserved(*object_id) {
+                    findings.push(Finding {
+                        rule: "formid.dangling",
+                        severity: Severity::Warning,
+                        plugin: pass.name.clone(),
+                        record: Some(record.to_string()),
+                        subrecord: member.clone(),
+                        offset,
+                        message: format!("{what} names {owner}:{object_id:06X}, an object ID below 0x800 that {owner} does not define, but not one the official files name (0x14, 0x5B, 0x1FB, 0x2D0..=0x3AC): treated as engine-reserved only until a CK observation (ADR 0005 Amendment 4)"),
+                    });
+                }
             };
             let own = owner.eq_ignore_ascii_case(&pass.name);
             if own {
                 report.checked_form_ids = report.checked_form_ids.saturating_add(1);
                 if !header && !pass.own_ids.contains(&raw) {
                     if reserved {
-                        note_reserved(report);
+                        note_reserved(report, findings);
                         return;
                     }
                     push(
@@ -1154,7 +1190,7 @@ fn check_form_id(
             report.checked_form_ids = report.checked_form_ids.saturating_add(1);
             if pass.master_has(owner, *object_id).is_none() {
                 if reserved {
-                    note_reserved(report);
+                    note_reserved(report, findings);
                     return;
                 }
                 let message = if header {
