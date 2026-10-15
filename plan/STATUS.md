@@ -806,6 +806,26 @@ is under "Next".
     pixels identical under Archive2's own DDS header). Install steps and the manifest check
     in `docs/packaging.md`. **Owner (M4.O2):** install the rename package through MO2 on
     `KitKraft Dev` and check the hashes on disk against the manifest.
+- Lane E, M3.E9 (first real overhaul build), 2026-10-14: `docs/overhaul/overhaul.toml`
+  translates the owner's brief (B1..B14) into 16 classes and 16 rules, each naming its
+  row; targets resolved by EditorID/FULL on the `KitKraft Dev` profile (14 WEAP, 4 AMDL,
+  3 AMMO, 2 ammo LVLI, 10 OMOD; FormIDs in the spec header). `kit build --plan` now prints
+  every change with its brief row, rule, before and after (and each JSON change has
+  `brief`); `docs/overhaul/build-1-plan.md` is that output: 42 field changes on 17
+  overrides (13 WEAP, 4 AMDL). `out\overhaul\KitKraftGunOverhaul.esm` (43,955 bytes,
+  SHA-256 `a44d49bb...4a95342aae`; masters `Starfield.esm`, `OldSovietMarksmanRifle.esm`,
+  the rifle's winner in `KitKraft Dev`): validate 0 errors 0 warnings, `roundtrip
+  --verify` identical, packaged (`out\overhaul\package\KitKraftGunOverhaul-0.1.0.zip`),
+  `deploy --dev --dry-run` refused only by the live-profile guard (MO2's active profile is
+  `Default`). Rows: B1, B2, B4, B5, B7, B9, B13, B14 implemented; B3, B6, B11, B12 partial;
+  B8 open (the automatic receivers carry no damage property: owner to restate), B10 open
+  (OMOD value). The open parts are OMOD property values (`WSPS` on default receivers,
+  `ACPT` on magazines), opaque until lane B types `ObjectModProperty.Value1` (Requests).
+  `crates/engine/tests/overhaul_build.rs` builds the spec on a fixture of the 33 real
+  records (copied from `Starfield.esm` into a temp localized master with the English
+  tables; skipped without `KITCRAFT_DATA_DIR`) and checks all 42 changes. Report, owner
+  steps and checklist: `docs/overhaul/build-1.md`. **Owner (M3.O5):** the in-game check
+  there, on `KitKraft Dev` with a disposable save.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -1027,6 +1047,23 @@ wins") but still the owner's to confirm:
   input name; `not_found` names the places searched.
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Lane E (M3.E9) -> lane B (M3.B9).** The overhaul's open parts are OMOD property
+  values: `ObjectModProperty.Value1` is opaque because xEdit decides it by the sibling
+  `ValueType` (`wbDefinitionsSF1.pas@9fb0168...#L1981-L2031`, list `#L6894-L6938`), and
+  the format only has `edid-prefix` unions, so this is format work (loader, codegen,
+  `kitcraft_doc::typed`, `edit::fields`), not a TOML-only definition. Narrowest useful
+  step: Value1 as `i32` when `ValueType` = Int (0) and `f32` when Float (1), every other
+  variant raw (FormIDs stay opaque as now); corpus re-encode identical. It closes, with
+  rules only: `WSPS` on receivers `077F13` (7.5 -> 5.625), `057555` (1.0 -> 1.5625),
+  `04A750` (16 -> 12); `ACPT` on magazines `12D03F` (+5 -> +2), `087D4B` (+30, owner to
+  confirm), `132C4A`/`132C49`/`132C48` (+8/+4/+16 -> +4/+2/+8). Details:
+  `docs/overhaul/build-1.md`, "Why partial or open".
+- **Lane E (M3.E9) -> owner.** Brief row B8 has no counterpart in the records (no
+  automatic receiver OMOD carries a damage property); please restate it
+  (`docs/overhaul/build-1.md`, B8). B11 and B12 also need a reading: which magazine
+  "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
+  after this build) or the Extra Large magazine.
 
 - **Owner -> lanes H and B (M3.O3 done 2026-10-14).** SF1Edit is installed:
   `C:\Modding\tools\xEdit\xSFEdit64.exe` (file version 4.1.5.0). Lane H: run M3.H4's
