@@ -20,7 +20,11 @@
 //! encoding does not reproduce is a re-encode conflict (`reencode_conflicts`). The first
 //! failures and conflicts are listed in `typed_failures` with their offsets. Decoded
 //! occurrences are also counted by the `confidence` of the member that decoded them
-//! (`decoded_by_confidence`; the weakest, when several members share the signature).
+//! (`decoded_by_confidence`): each subrecord is placed in its member by position
+//! (`kitkraft_doc::typed::placements`, the generated decoder's matching rules), so two
+//! members sharing a signature count at their own levels. An occurrence that no member
+//! holds (inside an `any_until` body) counts at its signature's weakest member; the
+//! per-signature `confidence` in the listing is that weakest level.
 //!
 //! Compressed records are decompressed (bounded by the default `DecodeLimits`) unless
 //! `decode` is `false`; a record that fails to decompress is listed in
@@ -35,6 +39,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
+use kitkraft_doc::typed::Placement;
 use kitkraft_esm::bridge::{Ctx, RawSub};
 use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::generated::records::{match_body, Record as TypedRecord, RECORDS};
@@ -184,6 +189,9 @@ struct TypeStats {
     /// Offset, length and FormID of the first record of this type.
     first: (u64, u64, u32),
     subs: BTreeMap<[u8; 4], SubStats>,
+    /// Decoded (typed, not failed) occurrences by the confidence of the member each one is
+    /// placed in (`kitkraft_doc::typed::placements`).
+    decoded_confidence: BTreeMap<Confidence, u64>,
 }
 
 /// One subrecord where a definition and the bytes disagree (listed in `typed_failures`).
@@ -309,6 +317,7 @@ impl Walk {
                 reencode_conflicts: 0,
                 first: (offset, length, h.form_id),
                 subs: BTreeMap::new(),
+                decoded_confidence: BTreeMap::new(),
             });
         stats.records = stats.records.saturating_add(1);
 
@@ -347,13 +356,37 @@ impl Walk {
         if typed.is_some() {
             stats.typed_records = stats.typed_records.saturating_add(1);
         }
+        // Where each subrecord sits in the definition, so a decoded occurrence counts at the
+        // confidence of the member that holds it, not the weakest member of its signature.
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().bytes()).collect();
+        let placed = match (schema, &typed) {
+            (Some(schema), Some(_)) => {
+                kitkraft_doc::typed::placements(schema, h.signature.bytes(), &sigs)
+            }
+            _ => None,
+        };
         let mut failures = Vec::new();
         for (index, s) in subs.iter().enumerate() {
             let signature = s.signature().bytes();
-            let failed = stats.schema.class(signature) == Class::Typed
+            let class = stats.schema.class(signature);
+            let failed = class == Class::Typed
                 && typed
                     .as_ref()
                     .is_some_and(|t| t.not_decoded.contains(&index));
+            if class == Class::Typed && !failed {
+                let member = match placed.as_ref().and_then(|p| p.get(index)) {
+                    Some(Placement::Member { def, .. }) => Some(def.provenance.confidence),
+                    // Inside an any_until body, or not placed: the signature's weakest.
+                    _ => stats
+                        .schema
+                        .known
+                        .get(&signature)
+                        .and_then(|k| k.confidence),
+                };
+                if let Some(c) = member {
+                    add_confidence(&mut stats.decoded_confidence, c, 1);
+                }
+            }
             let sub = stats.subs.entry(signature).or_insert(SubStats {
                 count: 0,
                 failed: 0,
@@ -538,7 +571,7 @@ fn outcome(
         let signature = Signature(**sig).to_string();
         let mut distinct = Tally::default();
         let mut type_occurrences = Occurrences::default();
-        let mut type_confidence: BTreeMap<Confidence, u64> = BTreeMap::new();
+        let type_confidence = &stats.decoded_confidence;
         let mut subs = Vec::with_capacity(stats.subs.len());
         for (sub_sig, sub) in &stats.subs {
             let class = stats.schema.class(*sub_sig);
@@ -546,13 +579,6 @@ fn outcome(
             let confidence = known.and_then(|k| k.confidence);
             distinct.add(class, 1);
             type_occurrences.add(class, sub.count, sub.failed);
-            if let (Class::Typed, Some(c)) = (class, confidence) {
-                add_confidence(
-                    &mut type_confidence,
-                    c,
-                    sub.count.saturating_sub(sub.failed),
-                );
-            }
             subs.push(json!({
                 "signature": Signature(*sub_sig).to_string(),
                 "count": sub.count,
@@ -564,7 +590,7 @@ fn outcome(
             }));
         }
         occurrences.merge(type_occurrences);
-        for (c, n) in &type_confidence {
+        for (c, n) in type_confidence {
             add_confidence(&mut by_confidence, *c, *n);
         }
         reencode_conflicts = reencode_conflicts.saturating_add(stats.reencode_conflicts);
@@ -593,7 +619,7 @@ fn outcome(
             "typed_records": stats.typed_records,
             "subrecords": type_occurrences.total(),
             "occurrences": type_occurrences.json(),
-            "decoded_by_confidence": confidence_json(&type_confidence),
+            "decoded_by_confidence": confidence_json(type_confidence),
             "reencode_conflicts": stats.reencode_conflicts,
             "distinct": {
                 "seen": distinct.total(),
@@ -839,6 +865,37 @@ mod tests {
         );
         assert_eq!(evidence[3]["record"], "TES4:00000000");
         assert_eq!(evidence[3]["offset"], 0);
+        std::fs::remove_file(&path).unwrap();
+    }
+
+    /// Lane B round 4: a decoded occurrence counts at the confidence of the member it is
+    /// placed in. OMOD has XFLG twice: the model block's flags (`corpus`) and a top-level
+    /// unknown (`reference`); an XFLG right after MODL is the model's, so every occurrence
+    /// here is `corpus` (the weakest-by-signature rule counted it `reference`).
+    #[test]
+    fn confidence_follows_the_placed_member() {
+        use testdata::{group, record, sub};
+        let mut tes4 = sub(b"HEDR", &[0; 12]);
+        tes4.extend(sub(b"CNAM", b"kit\0"));
+        let mut out = record(b"TES4", 1, 0, &tes4);
+        let mut omod = sub(b"EDID", b"Mod\0");
+        omod.extend(sub(b"DESC", b"d\0"));
+        omod.extend(sub(b"MODL", b"a.nif\0"));
+        omod.extend(sub(b"XFLG", &[1]));
+        out.extend(group(b"OMOD", 0, &record(b"OMOD", 0, 0x900, &omod)));
+        let path = testdata::write_temp("coverage-placed", &out);
+        let result = execute("coverage", json!({"plugin": path.to_str().unwrap()})).unwrap();
+        let types = &result["data"]["record_types"];
+        let omod = find(types, "OMOD");
+        let xflg = find(&omod["signatures"], "XFLG");
+        // The listing still names the signature's weakest member level...
+        assert_eq!(xflg["confidence"], "reference");
+        assert_eq!(xflg["members"], json!(["Model.Flags", "Xflg"]));
+        // ...but the decoded occurrence counts at its own member's.
+        assert_eq!(
+            omod["decoded_by_confidence"],
+            json!({"reference": 0, "corpus": 4, "ck-diff": 0, "verified": 0})
+        );
         std::fs::remove_file(&path).unwrap();
     }
 

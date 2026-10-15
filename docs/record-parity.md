@@ -6,7 +6,7 @@
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 86 record definitions, defs hash `fnv1a64:88e583eb01f44f52` (the hash named in
+- Schema: 86 record definitions, defs hash `fnv1a64:e784c7a1b925b4dd` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -228,8 +228,8 @@ through the generated definition; **Decoded** typed subrecord occurrences whose
 payload decoded, **Failed** those that did not (the payload does not fit the layout,
 or the definition does not accept it at that position; kept raw); **Re-encode**
 subrecord positions where encoding the decoded record did not reproduce the input.
-The confidence columns split **Decoded** by the confidence of the decoding member
-(the weakest, when several members share a signature).
+The confidence columns split **Decoded** by the confidence of the member each
+occurrence is placed in (by position, as the decoder places it; lane B round 4).
 
 | Record    | Schema                  | Typed records |    Decoded | Failed | Re-encode | reference |     corpus | ck-diff | verified |
 | --------- | ----------------------- | ------------: | ---------: | -----: | --------: | --------: | ---------: | ------: | -------: |
@@ -247,38 +247,38 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | `KYWD`    | Keyword                 |         6,965 |      8,284 |      0 |         0 |         0 |      8,284 |       0 |        0 |
 | `LVLI`    | LeveledItem             |         6,543 |     80,308 |      0 |         0 |         0 |     80,308 |       0 |        0 |
 | `LCRT`    | LocationRefType         |         4,779 |     14,349 |      0 |         0 |         0 |     14,349 |       0 |        0 |
-| `PACK`    | Package                 |         4,578 |    225,093 |      0 |         0 |    31,639 |    193,454 |       0 |        0 |
+| `PACK`    | Package                 |         4,578 |    225,093 |      0 |         0 |         3 |    225,090 |       0 |        0 |
 | `GBFM`    | GenericBaseForm         |         3,903 |    145,436 |      0 |         0 |         0 |    145,436 |       0 |        0 |
 | `COBJ`    | ConstructibleObject     |         3,518 |     45,206 |      0 |         0 |         0 |     45,206 |       0 |        0 |
-| `OMOD`    | ObjectModification      |         3,330 |     20,261 |      0 |         0 |         5 |     20,256 |       0 |        0 |
+| `OMOD`    | ObjectModification      |         3,330 |     20,261 |      0 |         0 |         0 |     20,261 |       0 |        0 |
 | `GLOB`    | Global                  |         3,319 |      6,637 |      0 |         0 |         0 |      6,637 |       0 |        0 |
 | `MESG`    | Message                 |         2,671 |      7,723 |      0 |         0 |         0 |      7,723 |       0 |        0 |
 | `QUST`    | Quest                   |         2,610 |    365,844 |      0 |         0 |         0 |    365,844 |       0 |        0 |
 | `GMST`    | GameSetting             |         2,418 |      4,836 |      0 |         0 |         0 |      4,836 |       0 |        0 |
 | `PCCN`    | PlanetContentNode       |         2,148 |      8,636 |      0 |         0 |         0 |      8,636 |       0 |        0 |
-| `MSTT`    | MoveableStatic          |         2,134 |     20,037 |      0 |         0 |     2,435 |     17,602 |       0 |        0 |
-| `ACTI`    | Activator               |         1,940 |     22,681 |      0 |         0 |     2,324 |     20,357 |       0 |        0 |
+| `MSTT`    | MoveableStatic          |         2,134 |     20,037 |      0 |         0 |       290 |     19,747 |       0 |        0 |
+| `ACTI`    | Activator               |         1,940 |     22,681 |      0 |         0 |       384 |     22,297 |       0 |        0 |
 | `SFBK`    | SurfaceBlock            |         1,877 |     32,400 |      0 |         0 |         0 |     32,400 |       0 |        0 |
 | `PNDT`    | Planet                  |         1,786 |     55,229 |      0 |         0 |         0 |     55,229 |       0 |        0 |
 | `AFFE`    | AffinityEvent           |         1,593 |     24,261 |      0 |         0 |         0 |     24,261 |       0 |        0 |
-| `MISC`    | MiscItem                |         1,495 |     19,432 |      0 |         0 |     1,498 |     17,934 |       0 |        0 |
+| `MISC`    | MiscItem                |         1,495 |     19,432 |      0 |         0 |         3 |     19,429 |       0 |        0 |
 | `FLST`    | FormIdList              |         1,415 |     14,840 |      0 |         0 |         0 |     14,840 |       0 |        0 |
 | `BOOK`    | Book                    |         1,368 |      4,858 |      0 |         0 |         0 |      4,858 |       0 |        0 |
 | `IDLE`    | IdleAnimation           |         1,302 |      7,626 |      0 |         0 |         0 |      7,626 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |         1,267 |      1,509 |      0 |         0 |         0 |      1,509 |       0 |        0 |
-| `ARMO`    | Armor                   |         1,168 |     30,203 |      0 |         0 |     2,336 |     27,867 |       0 |        0 |
-| `FURN`    | Furniture               |         1,045 |     22,825 |      0 |         0 |     1,049 |     21,776 |       0 |        0 |
+| `ARMO`    | Armor                   |         1,168 |     30,203 |      0 |         0 |         0 |     30,203 |       0 |        0 |
+| `FURN`    | Furniture               |         1,045 |     22,825 |      0 |         0 |         4 |     22,821 |       0 |        0 |
 | `MGEF`    | MagicEffect             |           989 |      5,196 |      0 |         0 |         0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu            |           974 |     27,043 |      0 |         0 |         0 |     27,043 |       0 |        0 |
 | `FACT`    | Faction                 |           953 |      6,130 |      0 |         0 |         0 |      6,130 |       0 |        0 |
-| `CONT`    | Container               |           866 |     16,024 |      0 |         0 |       866 |     15,158 |       0 |        0 |
+| `CONT`    | Container               |           866 |     16,024 |      0 |         0 |         0 |     16,024 |       0 |        0 |
 | `OTFT`    | Outfit                  |           698 |      1,396 |      0 |         0 |         0 |      1,396 |       0 |        0 |
 | `SPEL`    | Spell                   |           662 |     13,305 |      0 |         0 |         0 |     13,305 |       0 |        0 |
 | `PERK`    | Perk                    |           608 |     27,868 |      0 |         0 |         0 |     27,868 |       0 |        0 |
 | `WRLD`    | Worldspace              |           583 |     22,135 |      0 |         0 |       842 |     21,293 |       0 |        0 |
-| `TERM`    | Terminal                |           501 |     11,612 |      0 |         0 |       501 |     11,111 |       0 |        0 |
+| `TERM`    | Terminal                |           501 |     11,612 |      0 |         0 |         0 |     11,612 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode   |           471 |      6,754 |      0 |         0 |         0 |      6,754 |       0 |        0 |
-| `WEAP`    | Weapon                  |           452 |     18,219 |      0 |         0 |       904 |     17,315 |       0 |        0 |
+| `WEAP`    | Weapon                  |           452 |     18,219 |      0 |         0 |         0 |     18,219 |       0 |        0 |
 | `BIOM`    | Biome                   |           434 |     81,085 |      0 |         0 |         0 |     81,085 |       0 |        0 |
 | `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode |           379 |      5,308 |      0 |         0 |         0 |      5,308 |       0 |        0 |
@@ -288,12 +288,12 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |        682 |       0 |        0 |
 | `IRES`    | Resource                |           333 |        715 |      0 |         0 |         0 |        715 |       0 |        0 |
 | `FLOR`    | Flora                   |           302 |        902 |      0 |         0 |         0 |        902 |       0 |        0 |
-| `PROJ`    | Projectile              |           299 |      4,409 |      0 |         0 |       557 |      3,852 |       0 |        0 |
+| `PROJ`    | Projectile              |           299 |      4,409 |      0 |         0 |         0 |      4,409 |       0 |        0 |
 | `LVLN`    | LeveledNpc              |           298 |      5,323 |      0 |         0 |         0 |      5,323 |       0 |        0 |
 | `SFPT`    | SurfacePattern          |           264 |      1,753 |      0 |         0 |         0 |      1,753 |       0 |        0 |
 | `HDPT`    | HeadPart                |           236 |        472 |      0 |         0 |         0 |        472 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode  |           173 |      1,243 |      0 |         0 |         0 |      1,243 |       0 |        0 |
-| `AMMO`    | Ammunition              |           154 |      2,298 |      0 |         0 |       308 |      1,990 |       0 |        0 |
+| `AMMO`    | Ammunition              |           154 |      2,298 |      0 |         0 |         0 |      2,298 |       0 |        0 |
 | `CPTH`    | CameraPath              |           152 |        793 |      0 |         0 |         0 |        793 |       0 |        0 |
 | `ZOOM`    | Zoom                    |           141 |        282 |      0 |         0 |         0 |        282 |       0 |        0 |
 | `ENCH`    | Enchantment             |           135 |        264 |      0 |         0 |         0 |        264 |       0 |        0 |
@@ -319,7 +319,7 @@ The confidence columns split **Decoded** by the confidence of the decoding membe
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |         27 |       0 |        0 |
-| **Total** |                         |     7,258,537 | 46,249,514 |      0 |         0 |    45,265 | 46,204,249 |       0 |        0 |
+| **Total** |                         |     7,258,537 | 46,249,514 |      0 |         0 |     1,527 | 46,247,987 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -346,7 +346,7 @@ the payload as raw bytes.
 | `CELL`    | Cell                    |             35 |    33 |      2 |         4 |     31 |       0 |        0 |
 | `CHAL`    | Challenge               |              3 |     3 |      0 |         0 |      3 |       0 |        0 |
 | `CLAS`    | Class                   |              9 |     7 |      2 |         2 |      7 |       0 |        0 |
-| `COBJ`    | ConstructibleObject     |             30 |    29 |      1 |         6 |     24 |       0 |        0 |
+| `COBJ`    | ConstructibleObject     |             30 |    29 |      1 |         7 |     23 |       0 |        0 |
 | `CONT`    | Container               |             44 |    43 |      1 |         8 |     36 |       0 |        0 |
 | `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |      7 |       0 |        0 |
 | `DIAL`    | DialogTopic             |             13 |    13 |      0 |         0 |     13 |       0 |        0 |
@@ -417,7 +417,7 @@ the payload as raw bytes.
 | `WEAP`    | Weapon                  |             64 |    62 |      2 |         9 |     55 |       0 |        0 |
 | `WRLD`    | Worldspace              |             40 |    38 |      2 |         7 |     33 |       0 |        0 |
 | `ZOOM`    | Zoom                    |              4 |     4 |      0 |         0 |      4 |       0 |        0 |
-| **Total** |                         |          2,065 | 1,971 |     94 |       248 |  1,817 |       0 |        0 |
+| **Total** |                         |          2,065 | 1,971 |     94 |       249 |  1,816 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -483,6 +483,10 @@ Signatures seen in records of a defined type that its definition does not name
 - `WATR`: `ANAM` (19), `DATA` (19), `DNAM` (19), `ENAM` (18), `FNAM` (19), `GNAM` (19), `HNAM` (18), `JNAM` (18), `LNAM` (18), `MNAM` (18), `NAM0` (19), `NAM1` (19), `QNAM` (18), `UNAM` (18), `WASH` (18), `XNAM` (3), `YNAM` (19)
 - `DMGT`: `DNAM` (11)
 - `CHAL`: `ANAM` (18), `ATAF` (18), `ATAN` (18), `ATAV` (18), `ATCP` (10), `CITC` (45), `CTDA` (17), `DESC` (18), `DNAM` (45), `FULL` (18)
+
+By design, REFR's FLCS, KSIZ, KWDA, VLMS and OPDS count as unknown: in REFR they
+occur only inside the BFCB..BFCE base form component blocks (the component bodies the
+definition keeps as raw subrecords, `common/BfcbBlock.toml`), not as REFR members.
 
 ## Roundtrip
 

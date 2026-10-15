@@ -1124,6 +1124,15 @@ is under "Next".
   tests), and `deploy` still reads a package's `kitcraft-manifest.json` (`package`
   `overwrite` still recognizes a folder holding one); see `docs/corpus.md`, "Environment".
   The binary stays `kit`; commit history and the remote are unchanged.
+- Lane B round 4 (2026-10-15): struct-field unions decided by a sibling field (and an
+  optional secondary sibling), applied to `common/ObjectModProperty.toml`: OMOD and OBTS
+  property values are typed (8,669 entries, 0 unknown value types, byte-identical; member
+  paths `DATA.Properties[n].Value1.Float` etc. for lane E). Unordered-record ambiguity lint;
+  COBJ FULL `reference` plus a parity check that `corpus` members occur; coverage counts
+  confidence by the placed member (reference decoded occurrences 45,265 -> 1,527); PropertyValue
+  `since = 152`, REFR XLOC 9-byte form, INFO TRDA Emotion as a FormID with 0xFFFFFFFF as none;
+  reserved object IDs pinned per member, with a warning outside the named set (one: SFBGS00D
+  OMOD 0x3B7). Open: TES4 DATA/INTV (docs/gaps.md), GBFM STOP Marker2 is live (not dropped).
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64

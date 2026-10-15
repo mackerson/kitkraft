@@ -660,8 +660,8 @@ fn render(
          payload decoded, **Failed** those that did not (the payload does not fit the layout,\n\
          or the definition does not accept it at that position; kept raw); **Re-encode**\n\
          subrecord positions where encoding the decoded record did not reproduce the input.\n\
-         The confidence columns split **Decoded** by the confidence of the decoding member\n\
-         (the weakest, when several members share a signature).\n\n",
+         The confidence columns split **Decoded** by the confidence of the member each\n\
+         occurrence is placed in (by position, as the decoder places it; lane B round 4).\n\n",
     );
     out.push_str(&decoded_table(&sorted));
 
