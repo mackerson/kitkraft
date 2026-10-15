@@ -61,6 +61,7 @@ use super::fields::{self, FieldError, FieldPath, Op, ValueCtx};
 use super::lstrings;
 use super::source::{file_name, SourcePlugin};
 use super::strings::StringLookup;
+use super::vmad;
 use super::{apply_field, FieldChange};
 
 /// Why a patch was not written.
@@ -114,6 +115,64 @@ pub struct Copy {
     /// `new` record has a source with an empty name, whose `masters` are the masters it
     /// asks for.
     pub new_form: Option<String>,
+    /// Scripts to attach (M4.E9), after the edits and once new forms have FormIDs.
+    pub scripts: Vec<vmad::Attach>,
+}
+
+/// The key of a JSON object value that names a form written in the same call by its
+/// EditorID (`{"local_form": "KK_Bed"}`): `build` turns a spec's `new:<name>` into it; the
+/// writer applies such an edit once the form has its FormID.
+pub const LOCAL_FORM: &str = "local_form";
+
+/// Whether an edit's value names a form written in the same call.
+pub fn names_local_form(op: &Op) -> bool {
+    fn has(v: &Value) -> bool {
+        match v {
+            Value::Object(m) => m.contains_key(LOCAL_FORM),
+            Value::Array(items) => items.iter().any(has),
+            _ => false,
+        }
+    }
+    matches!(op, Op::Set(v) if has(v))
+}
+
+/// `op` with every `{"local_form": EDID}` replaced by the formref of that new form in
+/// `target` (`Target.esm:00000801`).
+fn resolve_local_forms(op: &Op, local: &[(String, u32)], target: &str) -> Result<Op, String> {
+    fn walk(v: &Value, local: &[(String, u32)], target: &str) -> Result<Value, String> {
+        match v {
+            Value::Object(m) => match m.get(LOCAL_FORM).and_then(Value::as_str) {
+                Some(edid) => local
+                    .iter()
+                    .find(|(e, _)| e.eq_ignore_ascii_case(edid))
+                    .map(|(_, f)| Value::String(format!("{target}:{:08X}", f & 0x00FF_FFFF)))
+                    .ok_or_else(|| format!("no new form `{edid}` is written in this call")),
+                None => Ok(v.clone()),
+            },
+            Value::Array(items) => items
+                .iter()
+                .map(|i| walk(i, local, target))
+                .collect::<Result<Vec<_>, _>>()
+                .map(Value::Array),
+            _ => Ok(v.clone()),
+        }
+    }
+    match op {
+        Op::Set(v) => walk(v, local, target).map(Op::Set),
+        other => Ok(other.clone()),
+    }
+}
+
+/// Work on one written record that waits for the new forms' FormIDs.
+struct Late {
+    /// Index in `placed` and `reports`.
+    index: usize,
+    /// Edits naming a new form.
+    edits: Vec<Edit>,
+    /// Scripts to attach.
+    scripts: Vec<vmad::Attach>,
+    /// Whether the record was copied from a localized plugin.
+    localized_source: bool,
 }
 
 /// A form named by its defining plugin's file name and its object ID, mapped into the
@@ -195,6 +254,8 @@ pub struct NewRef {
     pub allow_reference: Vec<String>,
     /// The entry that asked for it (`place`, `place[0]`), for reports.
     pub label: String,
+    /// Scripts to attach (M4.E9).
+    pub scripts: Vec<vmad::Attach>,
 }
 
 /// What the writer did for one [`NewRef`].
@@ -532,6 +593,10 @@ pub fn write_patch_with(
     let mut parents_from: BTreeMap<(u32, [u8; 4]), String> = BTreeMap::new();
     // New forms waiting for their FormID: (index in `placed` and `reports`, EditorID).
     let mut pending_new: Vec<(usize, String)> = Vec::new();
+    // Work that needs the new forms' FormIDs: edits whose value names a form written in
+    // this call, and scripts to attach (their object values may name one), per index in
+    // `placed` and `reports`.
+    let mut late: Vec<Late> = Vec::new();
     for (copy, needs_remap) in copies.into_iter().zip(remap) {
         let source_masters = {
             let mut m = copy.source.masters.clone();
@@ -633,7 +698,12 @@ pub fn write_patch_with(
         };
         let mut changes = Vec::new();
         let mut written: BTreeSet<usize> = BTreeSet::new();
+        let mut deferred: Vec<Edit> = Vec::new();
         for edit in &copy.edits {
+            if names_local_form(&edit.op) {
+                deferred.push(edit.clone());
+                continue;
+            }
             let change = apply_field(&mut record, &edit.path, &edit.op, &ctx, &options.limits)?;
             for note in &change.notes {
                 push_once(&mut limitations, note.clone());
@@ -667,6 +737,14 @@ pub fn write_patch_with(
             changes,
             inlined,
         ));
+        if !deferred.is_empty() || !copy.scripts.is_empty() {
+            late.push(Late {
+                index: placed.len(),
+                edits: deferred,
+                scripts: copy.scripts.clone(),
+                localized_source: copy.source.localized(),
+            });
+        }
         placed.push(Placed {
             path: copy.path,
             record,
@@ -685,6 +763,8 @@ pub fn write_patch_with(
     };
     let mut forms: Option<NewForms> = None;
     let mut new_forms: Vec<NewFormReport> = Vec::new();
+    // The new forms' EditorIDs and FormIDs.
+    let mut local: Vec<(String, u32)> = Vec::new();
     if !new_refs.is_empty() || !pending_new.is_empty() {
         // The allocator's own prefix is the master count, which holds only when every
         // master is full-scale (small and medium masters take no full slot in the game).
@@ -725,7 +805,6 @@ pub fn write_patch_with(
         .map_err(|e| refused(format!("{target_name}: {e}")))?;
         let mut allocator = allocator;
         // New forms (`new`, `clone`): their FormIDs and EditorIDs.
-        let mut local: Vec<(String, u32)> = Vec::new();
         for (i, edid) in &pending_new {
             let form_id = allocator
                 .allocate()
@@ -903,12 +982,120 @@ pub fn write_patch_with(
                     .collect(),
                 members: composed.members,
             });
+            if !new.scripts.is_empty() {
+                late.push(Late {
+                    index: placed.len(),
+                    edits: Vec::new(),
+                    scripts: new.scripts.clone(),
+                    localized_source: false,
+                });
+            }
             placed.push(at);
         }
         for l in allocator.limitations() {
             push_once(&mut limitations, l);
         }
         forms = Some(allocator);
+    }
+
+    // Late work: edits naming a form written in this call, and scripts, now that every
+    // new form has its FormID. A formref into the target itself resolves only to one of
+    // those new forms.
+    if !late.is_empty() {
+        let target_masters = masters.clone();
+        let own = |plugin: &str, id: u32| -> Option<u32> {
+            plugin
+                .eq_ignore_ascii_case(&target_name)
+                .then(|| {
+                    local
+                        .iter()
+                        .find(|(_, f)| f & 0x00FF_FFFF == id)
+                        .map(|(_, f)| *f)
+                })
+                .flatten()
+        };
+        let formref = |plugin: &str, id: u32| -> Result<u32, String> {
+            match own(plugin, id) {
+                Some(f) => Ok(f),
+                None => formref_in(plugin, id, &target_masters, &target_name, &flag_of),
+            }
+        };
+        let object = |t: &vmad::ObjectTarget| -> Result<u32, String> {
+            match t {
+                vmad::ObjectTarget::Null => Ok(0),
+                vmad::ObjectTarget::Form(f) => formref(&f.plugin, f.object_id),
+                vmad::ObjectTarget::Local(edid) => local
+                    .iter()
+                    .find(|(e, _)| e.eq_ignore_ascii_case(edid))
+                    .map(|(_, f)| *f)
+                    .ok_or_else(|| format!("no new form `{edid}` is written in this call")),
+            }
+        };
+        for job in late {
+            let (Some(p), Some(r)) = (placed.get_mut(job.index), reports.get_mut(job.index)) else {
+                return Err(PatchError::Io("a late edit lost its record".into()));
+            };
+            let what = format!("{} {}", p.record.header.signature, r.formref);
+            let ctx = ValueCtx {
+                localized_target: false,
+                localized_source: job.localized_source,
+                form_version: p.record.header.form_version,
+                formref: &formref,
+            };
+            for edit in &job.edits {
+                let op = resolve_local_forms(&edit.op, &local, &target_name)
+                    .map_err(|m| refused(format!("{what}: {}: {m}", edit.path.text)))?;
+                let change = apply_field(&mut p.record, &edit.path, &op, &ctx, &options.limits)?;
+                for note in &change.notes {
+                    push_once(&mut limitations, note.clone());
+                }
+                r.changes.push(change);
+            }
+            if !job.scripts.is_empty() {
+                let count = |rec: &Record<'_>| rec.subrecords().map_or(0, <[Subrecord]>::len);
+                let vmad_at = |rec: &Record<'_>| rec.find_subrecord(Signature(*b"VMAD"), 0);
+                let before_count = count(&p.record);
+                let before = vmad_at(&p.record)
+                    .and_then(|i| p.record.subrecords()?.get(i).map(|s| s.data().to_vec()));
+                let done = vmad::attach(&mut p.record, &job.scripts, &object, &options.limits)
+                    .map_err(|m| refused(format!("{what}: scripts: {m}")))?;
+                let at = vmad_at(&p.record).unwrap_or_default();
+                if count(&p.record) > before_count {
+                    // A new VMAD shifts the subrecords after it.
+                    for c in &mut r.changes {
+                        if c.subrecord_index >= at {
+                            c.subrecord_index = c.subrecord_index.saturating_add(1);
+                        }
+                    }
+                }
+                let summary = |bytes: Option<&[u8]>| match bytes.map(vmad::decode) {
+                    None => Value::Null,
+                    Some(Ok(v)) => {
+                        json!({"scripts": v.scripts.iter().map(vmad::Script::name_text).collect::<Vec<_>>()})
+                    }
+                    Some(Err(e)) => json!({"error": e}),
+                };
+                let after = p
+                    .record
+                    .subrecords()
+                    .and_then(|s| s.get(at))
+                    .map(|s| s.data().to_vec());
+                r.changes.push(FieldChange {
+                    path: "VMAD".to_string(),
+                    subrecord_index: at,
+                    before: summary(before.as_deref()),
+                    after: json!({
+                        "scripts": summary(after.as_deref()).get("scripts").cloned().unwrap_or(Value::Null),
+                        "attached": done.iter().map(|d| json!({
+                            "script": d.script, "outcome": d.outcome, "properties": d.properties,
+                        })).collect::<Vec<_>>(),
+                    }),
+                    changed: before != after,
+                    notes: Vec::new(),
+                    lstring: false,
+                });
+            }
+        }
     }
 
     // Write.

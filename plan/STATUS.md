@@ -1314,6 +1314,21 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   - Engine-reserved constants defined once (`kitkraft_doc::links`, re-exported by
     `validate`); `kitkraft_io::Instance` (read-only MO2 instance) used by `deploy` and the
     profile reader (Requests, struck).
+  - **M4.E7 recipes W3 and W8** (`docs/recipes/workshop.{md,toml}`,
+    `docs/recipes/fabricator.{md,toml}`), each fact with its `query`/`inspect`/`refs`
+    evidence: an outpost recipe is a `COBJ` filed by its `BNAM` category keyword
+    (`OutpostCategoryDecorations` `293ADF`), and nothing lists it (0 incoming links); a
+    fabricator recipe is a `COBJ` filed by `WorkbenchIndustrialKeyword` (`0AA209`), the
+    ammunition ones behind one condition. Workshop: a clone of `CoffeeBrewingMachine01`
+    and of its recipe `co_Outpost_Decor_CoffeeMaker01` with `CNAM = "new:coffee"` (726
+    bytes, `f9dc6d24...`); fabricator: a clone of the unconditioned
+    `co_mfg_Tier01_AdaptiveFrame` making `AmmoShotgun` x6 (373 bytes, `1d5cce72...`).
+    Both build, validate 0/0, roundtrip identical; testplans written (no console command:
+    nothing placed), in-game steps in the docs. Engine: a spec field value `new:<name>`
+    names a `[[new]]`/`[[clone]]` of the same build (`{"local_form": EDID}`, applied by
+    the patch writer once FormIDs are allocated; test
+    `field_values_name_new_forms_of_the_build`). **Owner (M4.O4):** the in-game steps of
+    both docs on `KitKraft Dev`, disposable save (both plugins own forms).
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64

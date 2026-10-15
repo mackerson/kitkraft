@@ -908,7 +908,10 @@ writes (staged, validated, moved). Refusals: `failed` with `new.<code>:` or
 `edid-field`, `occurrence`, `unknown-member`, `no-form`, `fails-validate`). `data` is
 `set`'s plus `new_forms[]` (`form`, `form_id`, `signature`, `editor_id`, `from`, `offset`,
 `length`), `next_object_id` and `validate`. Spec v3 `[[new]]` and `[[clone]]` take the
-same keys plus a `name`; a `[[place]]` base may be `new:<name>`.
+same keys plus a `name`; a `[[place]]` base may be `new:<name>`, and so may a FormID
+field value of a `[[set]]`, `[[rule]]`, `[[new]]` or `[[clone]]` (`CNAM = "new:coffee"`:
+the member holds the FormID that form gets in the built plugin, M4.E7; a name no
+`[[new]]`/`[[clone]]` has, or a `[[place]]`'s, is a spec error).
 
 ### `testplan` (M4.E6)
 

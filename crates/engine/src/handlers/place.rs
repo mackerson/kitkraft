@@ -766,6 +766,7 @@ pub(crate) fn plan(
             editor_id: req.edid.clone(),
             allow_reference: req.allow_reference.clone(),
             label: at.clone(),
+            scripts: Vec::new(),
         },
         info,
         evidence,

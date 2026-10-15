@@ -272,6 +272,7 @@ pub(crate) fn plan_new(
             formref: format!("new {text}"),
             carried: false,
             new_form: Some(req.edid.clone()),
+            scripts: Vec::new(),
         },
         limitations,
     ))

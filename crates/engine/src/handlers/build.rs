@@ -385,6 +385,96 @@ fn import_navmeshes(
     Ok(out)
 }
 
+/// Field values `new:<name>` (spec version 3) name a `[[new]]` or `[[clone]]` of the same
+/// build: a FormID member then holds that new form (M4.E7: a recipe's `CNAM` naming the
+/// object a `[[clone]]` writes). They become `{"local_form": <EditorID>}`, which the patch
+/// writer resolves once the form has its FormID. A name of a `[[place]]`, or one no entry
+/// has, is a spec error.
+fn local_form_values(spec: &mut Spec) -> Result<(), EngineError> {
+    let names: Vec<(String, String)> = spec
+        .news
+        .iter()
+        .filter_map(|n| Some((n.name.clone()?, n.edid.clone())))
+        .chain(
+            spec.clones
+                .iter()
+                .filter_map(|c| Some((c.name.clone()?, c.edid.clone()))),
+        )
+        .collect();
+    let places: Vec<String> = spec.places.iter().filter_map(|p| p.name.clone()).collect();
+    let convert = |v: &Value, key: &str| -> Result<Value, EngineError> {
+        fn walk(
+            v: &Value,
+            key: &str,
+            names: &[(String, String)],
+            places: &[String],
+        ) -> Result<Value, EngineError> {
+            match v {
+                Value::String(s) => match spec::local_ref(s) {
+                    None => Ok(v.clone()),
+                    Some(name) => {
+                        if let Some((_, edid)) =
+                            names.iter().find(|(n, _)| n.eq_ignore_ascii_case(name))
+                        {
+                            return Ok(json!({ crate::edit::patch::LOCAL_FORM: edid }));
+                        }
+                        let why = if places.iter().any(|p| p.eq_ignore_ascii_case(name)) {
+                            format!("`{name}` is a [[place]]; a field names a base form a [[new]] or [[clone]] writes")
+                        } else {
+                            format!(
+                                "unknown name `{name}` (names: {})",
+                                if names.is_empty() {
+                                    "none".to_string()
+                                } else {
+                                    names
+                                        .iter()
+                                        .map(|(n, _)| n.as_str())
+                                        .collect::<Vec<_>>()
+                                        .join(", ")
+                                }
+                            )
+                        };
+                        Err(spec_error(key, why))
+                    }
+                },
+                Value::Array(items) => items
+                    .iter()
+                    .map(|i| walk(i, key, names, places))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(Value::Array),
+                _ => Ok(v.clone()),
+            }
+        }
+        walk(v, key, &names, &places)
+    };
+    let fix = |edits: &mut Vec<Edit>, key: &str| -> Result<(), EngineError> {
+        for e in edits {
+            if let crate::edit::fields::Op::Set(v) = &e.op {
+                let at = format!("{key}.fields.{}", e.path.text);
+                e.op = crate::edit::fields::Op::Set(convert(v, &at)?);
+            }
+        }
+        Ok(())
+    };
+    for r in &mut spec.rules {
+        let key = r.key.clone();
+        fix(&mut r.edits, &key)?;
+    }
+    for s in &mut spec.sets {
+        let key = s.key.clone();
+        fix(&mut s.edits, &key)?;
+    }
+    for n in &mut spec.news {
+        let key = n.key.clone();
+        fix(&mut n.edits, &key)?;
+    }
+    for c in &mut spec.clones {
+        let key = c.key.clone();
+        fix(&mut c.edits, &key)?;
+    }
+    Ok(())
+}
+
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let spec_path = PathBuf::from(str_arg(ID, args, "spec")?);
@@ -397,7 +487,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     );
     let text = std::fs::read_to_string(&spec_path)
         .map_err(|e| failed(ID, format!("{}: {e}", spec_path.display())))?;
-    let spec: Spec = spec::parse(&text).map_err(|e| failed(ID, e.to_string()))?;
+    let mut spec: Spec = spec::parse(&text).map_err(|e| failed(ID, e.to_string()))?;
+    local_form_values(&mut spec)?;
     // The load order the spec resolves against, and the other one it may differ from: the
     // one the call also names (a spec's `[load_order]` wins over it), else the session's
     // before this call replaces it (`place::order_notes`).

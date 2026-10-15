@@ -1,0 +1,27 @@
+# W3 recipe (M4.E7): a cloned vanilla outpost object with its own recipe in the outpost
+# build menu.
+# Build: kit build docs/recipes/workshop.toml out/recipes/KitKraftWorkshop.esm
+# Evidence for every choice: docs/recipes/workshop.md.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+# CoffeeBrewingMachine01 ("Coffee Maker"), the STAT that co_Outpost_Decor_CoffeeMaker01
+# creates: its model, bounds, PTT2 transforms and keyword component come along.
+name = "coffee"
+form = "Starfield.esm:136FDF"
+edid = "KitKraftCoffeeMaker"
+fields = { FULL = "KitKraft Coffee Maker" }
+brief = "W3"
+
+[[clone]]
+# co_Outpost_Decor_CoffeeMaker01: BNAM OutpostCategoryDecorations, no conditions, a STAT
+# as its created object. The clone keeps BNAM, FNAM, FVPA, TNAM, LRNM, RECF and the sounds;
+# CNAM names the clone above.
+name = "coffee_recipe"
+form = "Starfield.esm:039657"
+edid = "KitKraft_co_Outpost_Decor_CoffeeMaker"
+fields = { CNAM = "new:coffee" }
+brief = "W3"
