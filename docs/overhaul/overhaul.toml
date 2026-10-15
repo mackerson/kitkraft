@@ -1,0 +1,266 @@
+# KitKraft gun overhaul, build 1 (M3.E9): the owner's brief (docs/overhaul/brief.md, rows
+# B1..B14) as a `build` spec v2. Every class and every rule names its brief row.
+#
+#   kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm --plan
+#   kit build docs\overhaul\overhaul.toml C:\Modding\kitcraft\out\overhaul\KitKraftGunOverhaul.esm [--overwrite]
+#
+# Report, per row status and the reasons: docs/overhaul/build-1.md. Plan: build-1-plan.md.
+#
+# How the targets were found (2026-10-14, `kit query` / `kit inspect` on the `KitKraft Dev`
+# profile; every one wins in Starfield.esm except the hunting rifle, whose winner there is
+# the rename smoke test OldSovietMarksmanRifle.esm):
+#
+#   WEAP  Starfield.esm:26D96C  M1919                Old Earth Pistol
+#   WEAP  Starfield.esm:24561C  XM2311               XM-2311
+#   WEAP  Starfield.esm:21BBCD  RussianHuntingRifle  Old Earth Hunting Rifle
+#   WEAP  Starfield.esm:2984DF  Maelstrom            Maelstrom
+#   WEAP  Starfield.esm:21FEB4  Kraken               Kraken
+#   WEAP  Starfield.esm:26D96D  UrbanEagle           Urban Eagle
+#   WEAP  Starfield.esm:02D7F4  Lawgiver             Lawgiver
+#   WEAP  Starfield.esm:02EB36  Tombstone            Tombstone
+#   WEAP  Starfield.esm:04716C  Beowulf              Beowulf
+#   WEAP  Starfield.esm:0546CC  HardTarget           Hard Target
+#   WEAP  Starfield.esm:18DE2C  DrumBeat             Drum Beat
+#   WEAP  Starfield.esm:26D960  Shotty               Shotty
+#   WEAP  Starfield.esm:0547A3  Breach               Breach
+#   WEAP  Starfield.esm:0546CD  Microgun             Microgun
+#   AMMO  Starfield.esm:04AD3E  Ammo777mm            7.77mm Caseless
+#   AMMO  Starfield.esm:2B5590  Ammo65mm             6.5mm CT
+#   AMMO  Starfield.esm:2B5595  Ammo11mm             11mm Caseless
+#   AMDL  Starfield.esm:1B01CA  Maelstrom_FA_AM      (WEAP Maelstrom WAIM.AimModel; its default receiver sets the same)
+#   AMDL  Starfield.esm:11287A  Tombstone_FA_AM      (WEAP Tombstone and Crew_Elite_Tombstone)
+#   AMDL  Starfield.esm:179DBD  Drumbeat_SA_AM       (WEAP DrumBeat WAIM.AimModel; semi-auto receiver)
+#   AMDL  Starfield.esm:2BF29F  Drumbeat_FA_AM       (set by the default full-auto receiver OMOD only)
+#   LVLI  Starfield.esm:00E841  LLW_Ammo_Beowulf     (one entry: LL_Ammo_777mm)
+#   LVLI  Starfield.esm:12F0CE  LLW_Ammo_Kraken      (one entry: LL_Ammo_65mm)
+#
+# Base weapons only: the NPC-only variants (Crew_Elite_*, Companion_Lawgiver) and the
+# research-menu dummies (NOCLUTTER_*) keep vanilla values; Crew_Elite_Tombstone shares
+# Tombstone_FA_AM, so it gets B7's recoil. Fire rate is scaled on the three WFIR members
+# together (ShotsPerSecond x r, AttackDelaySeconds and AttackAnimationDuration / r): in 447
+# of the 450 official WEAP records ShotsPerSecond x AttackDelaySeconds = 1 and
+# AttackAnimationDuration is a fixed multiple of AttackDelaySeconds, so the three stay
+# consistent.
+
+version = 2
+strict = true
+
+[plugin]
+localized = false
+style = "kit"
+
+[load_order]
+profile = 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'
+
+# B1 ---------------------------------------------------------------------------------------
+[class.b1_old_earth_pistol]
+type = "WEAP"
+where = 'EDID == "M1919" or EDID == "XM2311"'
+brief = "B1"
+note = "Old Earth Pistol (26D96C) and XM-2311 (24561C): base capacity 9, BaseDamage 28 and 36"
+
+[[rule]]
+class = "b1_old_earth_pistol"
+brief = "B1"
+note = "7-round base magazine; base damage x0.85 (23.8 and 30.6, above the floor of 15)"
+fields = { "WAM2.AmmoCapacity" = 7, "WDMG.BaseDamage" = { mul = 0.85 } }
+
+# B2 ---------------------------------------------------------------------------------------
+[class.b2_hunting_rifle]
+type = "WEAP"
+where = 'EDID == "RussianHuntingRifle"'
+brief = "B2"
+note = "Old Earth Hunting Rifle (21BBCD); in KitKraft Dev the winner is OldSovietMarksmanRifle.esm"
+
+[[rule]]
+class = "b2_hunting_rifle"
+brief = "B2"
+fields = { FULL = "Old Earth Marksman Rifle" }
+
+# B3 ---------------------------------------------------------------------------------------
+[class.b3_maelstrom]
+type = "WEAP"
+where = 'EDID == "Maelstrom"'
+brief = "B3"
+note = "Maelstrom (2984DF): capacity 40, BaseDamage 4, 7.59 shots/s"
+
+[[rule]]
+class = "b3_maelstrom"
+brief = "B3"
+note = "24-round base magazine; damage x1.35; fire rate x0.75 (the default receiver's WSPS is opaque: see build-1.md)"
+fields = { "WAM2.AmmoCapacity" = 24, "WDMG.BaseDamage" = { mul = 1.35 }, "WFIR.ShotsPerSecond" = { mul = 0.75 }, "WFIR.AttackDelaySeconds" = { mul = 1.3333333333333333 }, "WFIR.AttackAnimationDuration" = { mul = 1.3333333333333333 } }
+
+[[rule]]
+class = "b3_maelstrom"
+brief = "B3"
+via = ["WAIM.AimModel"]
+note = "recoil kick x1.5 on Maelstrom_FA_AM (1B01CA), used only by the Maelstrom and its full-auto receiver"
+fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.5 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.5 } }
+
+# B4 ---------------------------------------------------------------------------------------
+[class.b4_kraken]
+type = "WEAP"
+where = 'EDID == "Kraken"'
+brief = "B4"
+note = "Kraken (21FEB4): 6.5mm CT (2B5590), ammo list LLW_Ammo_Kraken, BaseDamage 3"
+
+[[rule]]
+class = "b4_kraken"
+brief = "B4"
+note = "re-chambered to 7.77mm Caseless; NPC ammo list swapped to the 7.77mm one; damage x1.2"
+fields = { "WAM2.AmmoType" = "Starfield.esm:04AD3E", "WAM2.AmmoList" = "Starfield.esm:00E841", "WDMG.BaseDamage" = { mul = 1.2 } }
+
+# B5 ---------------------------------------------------------------------------------------
+[class.b5_urban_eagle]
+type = "WEAP"
+where = 'EDID == "UrbanEagle"'
+brief = "B5"
+note = "Urban Eagle (26D96D): 2.5 shots/s, 0.4 s delay; its default receiver sets no fire rate"
+
+[[rule]]
+class = "b5_urban_eagle"
+brief = "B5"
+note = "fire rate x1.75: 4.375 shots/s (minimum 3.5), delay 0.229 s"
+fields = { "WFIR.ShotsPerSecond" = { mul = 1.75 }, "WFIR.AttackDelaySeconds" = { mul = 0.5714285714285714 }, "WFIR.AttackAnimationDuration" = { mul = 0.5714285714285714 } }
+
+# B6 ---------------------------------------------------------------------------------------
+[class.b6_lawgiver]
+type = "WEAP"
+where = 'EDID == "Lawgiver"'
+brief = "B6"
+note = "Lawgiver (02D7F4): 1 shot/s, 1.0 s delay"
+
+[[rule]]
+class = "b6_lawgiver"
+brief = "B6"
+note = "x1.5625 rather than x1.5: x1.5 gives a 0.667 s delay, above the row's 0.65 s; 0.64 s meets both"
+fields = { "WFIR.ShotsPerSecond" = { mul = 1.5625 }, "WFIR.AttackDelaySeconds" = { mul = 0.64 }, "WFIR.AttackAnimationDuration" = { mul = 0.64 } }
+
+# B7 ---------------------------------------------------------------------------------------
+[class.b7_tombstone]
+type = "WEAP"
+where = 'EDID == "Tombstone"'
+brief = "B7"
+note = "Tombstone (02EB36): BaseDamage 19; its default receiver sets no aim model"
+
+[[rule]]
+class = "b7_tombstone"
+brief = "B7"
+fields = { "WDMG.BaseDamage" = { mul = 1.25 } }
+
+[[rule]]
+class = "b7_tombstone"
+brief = "B7"
+via = ["WAIM.AimModel"]
+note = "recoil kick x1.5 on Tombstone_FA_AM (11287A), shared only with Crew_Elite_Tombstone"
+fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.5 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.5 } }
+
+# B8 ---------------------------------------------------------------------------------------
+# Open: the six automatic receivers carry no damage property (they set FORF, WSPS, WAIM,
+# WTMC and keywords; their shared template 1341F4 sets FTYP, GVAL, keywords and an actor
+# value), so there is no per-shot penalty to reduce. The class lists them; no rule.
+[class.b8_automatic_receivers]
+type = "OMOD"
+where = 'EDID == "mod_Grendel_Receiver_FullAuto_Standard" or EDID == "mod_Beowulf_Receiver_FullAuto" or EDID == "mod_Maelstrom_Receiver_FullAuto_Standard" or EDID == "mod_Drumbeat_Receiver_FullAuto_Standard" or EDID == "mod_AA99_Receiver_FullAuto_Standard" or EDID == "mod_Kodama_Receiver_FullAuto_Standard"'
+brief = "B8"
+note = "0191EF, 13136D, 077F13, 04A750, 08E0FD, 04A7AC: no damage property to change (open)"
+
+# B9 ---------------------------------------------------------------------------------------
+[class.b9_beowulf]
+type = "WEAP"
+where = 'EDID == "Beowulf"'
+brief = "B9"
+note = "Beowulf (04716C): 7.77mm Caseless, ammo list LLW_Ammo_Beowulf, capacity 30"
+
+[[rule]]
+class = "b9_beowulf"
+brief = "B9"
+note = "re-chambered to 6.5mm CT; NPC ammo list swapped to the 6.5mm one; 20-round base magazine"
+fields = { "WAM2.AmmoType" = "Starfield.esm:2B5590", "WAM2.AmmoList" = "Starfield.esm:12F0CE", "WAM2.AmmoCapacity" = 20 }
+
+# B10 --------------------------------------------------------------------------------------
+# Open: the large magazine adds its capacity through an OMOD property whose value is opaque
+# in the schema (ACPT, Int, ADD +5 on a base of 5). The class lists it; no rule.
+[class.b10_hard_target_large_mag]
+type = "OMOD"
+where = 'EDID == "mod_HardTarget_Mag_L"'
+brief = "B10"
+note = "12D03F: ACPT ADD 5 (total 10); the target (total 7) needs ADD 2 (open)"
+
+# B11 --------------------------------------------------------------------------------------
+[class.b11_drum_beat]
+type = "WEAP"
+where = 'EDID == "DrumBeat"'
+brief = "B11"
+note = "Drum Beat (18DE2C): capacity 30 (+30 from the default drum OMOD), BaseDamage 8, 16 shots/s"
+
+[[rule]]
+class = "b11_drum_beat"
+brief = "B11"
+note = "18-round base magazine; damage x1.5; fire rate x0.75 (the default receiver's WSPS and the drum's ACPT are opaque: see build-1.md)"
+fields = { "WAM2.AmmoCapacity" = 18, "WDMG.BaseDamage" = { mul = 1.5 }, "WFIR.ShotsPerSecond" = { mul = 0.75 }, "WFIR.AttackDelaySeconds" = { mul = 1.3333333333333333 }, "WFIR.AttackAnimationDuration" = { mul = 1.3333333333333333 } }
+
+[[rule]]
+class = "b11_drum_beat"
+brief = "B11"
+via = ["WAIM.AimModel"]
+note = "recoil kick x1.6 on Drumbeat_SA_AM (179DBD)"
+fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.6 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.6 } }
+
+[class.b11_drum_beat_full_auto_aim]
+type = "AMDL"
+where = 'EDID == "Drumbeat_FA_AM"'
+brief = "B11"
+note = "2BF29F, the aim model the default full-auto receiver (04A750) sets"
+
+[[rule]]
+class = "b11_drum_beat_full_auto_aim"
+brief = "B11"
+note = "recoil kick x1.6"
+fields = { "ANAM.RecoilDegreesPerShotX" = { mul = 1.6 }, "ANAM.RecoilDegreesPerShotY" = { mul = 1.6 } }
+
+# B12 --------------------------------------------------------------------------------------
+[class.b12_shotty]
+type = "WEAP"
+where = 'EDID == "Shotty"'
+brief = "B12"
+note = "Shotty (26D960): capacity 12"
+
+[[rule]]
+class = "b12_shotty"
+brief = "B12"
+fields = { "WAM2.AmmoCapacity" = 6 }
+
+# Open: the larger magazines add capacity through opaque OMOD property values (ACPT, Int,
+# ADD: L +8, Extended +4, XL +16 on a base of 12). The class lists them; no rule.
+[class.b12_shotty_magazines]
+type = "OMOD"
+where = 'EDID == "mod_Shotty_Mag_L" or EDID == "mod_Shotty_Mag_Extended" or EDID == "mod_Shotty_Mag_XL"'
+brief = "B12"
+note = "132C4A, 132C49, 132C48: halving needs ADD +4, +2, +8 (XL total 14) (open)"
+
+# B13 --------------------------------------------------------------------------------------
+[class.b13_breach]
+type = "WEAP"
+where = 'EDID == "Breach"'
+brief = "B13"
+note = "Breach (0547A3): 1 shot/s, 1.0 s delay; its default receiver sets no fire rate"
+
+[[rule]]
+class = "b13_breach"
+brief = "B13"
+note = "fire rate x1.5, delay -33% (0.667 s)"
+fields = { "WFIR.ShotsPerSecond" = { mul = 1.5 }, "WFIR.AttackDelaySeconds" = { mul = 0.6666666666666666 }, "WFIR.AttackAnimationDuration" = { mul = 0.6666666666666666 } }
+
+# B14 --------------------------------------------------------------------------------------
+[class.b14_microgun]
+type = "WEAP"
+where = 'EDID == "Microgun"'
+brief = "B14"
+note = "Microgun (0546CD): FireSeconds 1.0 (the spin-up; ~0 on every non-wind-up gun), BaseDamage 9"
+
+[[rule]]
+class = "b14_microgun"
+brief = "B14"
+note = "spin-up x0.1 (0.1 s); damage x1.5"
+fields = { "WFIR.FireSeconds" = { mul = 0.1 }, "WDMG.BaseDamage" = { mul = 1.5 } }

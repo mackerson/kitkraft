@@ -513,8 +513,19 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut report = write(ID, loaded, &staged.path, copies, allow_untyped)?;
     let checked = check(ID, loaded, &staged)?;
 
-    // The change list: every planned write with its before and after, and the entries
-    // that asked for it.
+    // The change list: every planned write with its before and after, the entries that
+    // asked for it, and the brief rows those entries name.
+    let briefs: HashMap<&str, &str> = spec
+        .rules
+        .iter()
+        .map(|r| (r.key.as_str(), r.brief.as_deref()))
+        .chain(
+            spec.sets
+                .iter()
+                .map(|s| (s.key.as_str(), s.brief.as_deref())),
+        )
+        .filter_map(|(k, b)| b.map(|b| (k, b)))
+        .collect();
     let mut changes = Vec::new();
     let mut changed_fields = 0u64;
     let mut per_entry: BTreeMap<String, (u64, u64)> = BTreeMap::new();
@@ -536,10 +547,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     counts.1 = counts.1.saturating_add(1);
                 }
             }
+            let mut brief: Vec<&str> = entries
+                .iter()
+                .filter_map(|e| briefs.get(e.as_str()).copied())
+                .collect();
+            brief.dedup();
             changes.push(json!({
                 "form": record.formref, "signature": record.signature,
                 "editor_id": record.editor_id, "path": c.path, "before": c.before,
-                "after": c.after, "changed": c.changed, "by": entries,
+                "after": c.after, "changed": c.changed, "by": entries, "brief": brief,
             }));
         }
     }
@@ -576,22 +592,30 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         if let Some(obj) = result.data.as_object_mut() {
             obj.insert("plan".into(), json!(true));
             obj.insert("spec".into(), json!(spec_path.display().to_string()));
-            obj.insert("changes".into(), Value::Array(changes));
             obj.insert("changed_fields".into(), json!(changed_fields));
-            obj.insert("classes".into(), Value::Array(classes_json));
-            obj.insert("rules".into(), Value::Array(rules_json));
             obj.insert("warnings".into(), json!(warnings));
             obj.insert("validate".into(), validate_json(&checked));
             obj.insert("passed".into(), json!(checked.passed()));
+            let head = format!(
+                "plan: {changed_fields} field change(s) on {} record(s) for {} (nothing written); validate {}",
+                writes.order.len(),
+                out.display(),
+                if checked.passed() { "passed" } else { "FAILED" }
+            );
+            let masters = obj.get("masters").cloned().unwrap_or(Value::Null);
             obj.insert(
                 "summary".into(),
-                json!(format!(
-                    "plan: {changed_fields} field change(s) on {} record(s) for {} (nothing written); validate {}",
-                    writes.order.len(),
-                    out.display(),
-                    if checked.passed() { "passed" } else { "FAILED" }
+                json!(plan_text(
+                    &head,
+                    &masters,
+                    &classes_json,
+                    &rules_json,
+                    &changes
                 )),
             );
+            obj.insert("changes".into(), Value::Array(changes));
+            obj.insert("classes".into(), Value::Array(classes_json));
+            obj.insert("rules".into(), Value::Array(rules_json));
         }
         return Ok(result);
     }
@@ -630,4 +654,101 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         obj.insert("passed".into(), json!(true));
     }
     Ok(result)
+}
+
+/// A JSON number as the plan text shows it: a value an `f32` holds exactly in its shortest
+/// `f32` form (`30.6`, not `30.600000381469727`), anything else as JSON.
+fn show(value: &Value) -> String {
+    match value.as_f64() {
+        Some(f) if value.is_f64() => {
+            let narrow = f as f32;
+            if f64::from(narrow) == f {
+                format!("{narrow}")
+            } else {
+                format!("{f}")
+            }
+        }
+        _ => value.to_string(),
+    }
+}
+
+/// The text of a plan (CLI output): the head line, the masters, every class and rule with
+/// its brief row and counts, and every change with its brief row, the spec entries that
+/// wrote it, and its before and after.
+fn plan_text(
+    head: &str,
+    masters: &Value,
+    classes: &[Value],
+    rules: &[Value],
+    changes: &[Value],
+) -> String {
+    let text = |v: &Value| v.as_str().unwrap_or("-").to_string();
+    let list = |v: &Value| {
+        v.as_array()
+            .map(|a| a.iter().map(text).collect::<Vec<_>>().join(","))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "-".to_string())
+    };
+    let mut out = vec![head.to_string(), format!("masters: {}", list(masters))];
+    out.push(format!("classes ({}):", classes.len()));
+    for c in classes {
+        out.push(format!(
+            "  {:<4} {} {} matched {}{}",
+            text(&c["brief"]),
+            text(&c["class"]),
+            text(&c["type"]),
+            c["matched"],
+            match c["undecided"].as_u64() {
+                Some(n) if n > 0 => format!(" (undecided {n})"),
+                _ => String::new(),
+            }
+        ));
+    }
+    out.push(format!("rules ({}):", rules.len()));
+    for r in rules {
+        let via = r["via"]
+            .as_array()
+            .map(|hops| {
+                hops.iter()
+                    .map(|h| {
+                        format!(
+                            " via {} ({} -> {})",
+                            text(&h["via"]),
+                            h["from"],
+                            h["reached"]
+                        )
+                    })
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
+        out.push(format!(
+            "  {:<4} {} class {}{via}: {} record(s), {} field(s) written, {} changed",
+            text(&r["brief"]),
+            text(&r["rule"]),
+            text(&r["class"]),
+            r["records"],
+            r["fields_written"],
+            r["fields_changed"]
+        ));
+    }
+    out.push(format!("changes ({}):", changes.len()));
+    for c in changes {
+        out.push(format!(
+            "  {:<4} {} {} {} {} {}: {} -> {}{}",
+            list(&c["brief"]),
+            list(&c["by"]),
+            text(&c["signature"]),
+            text(&c["form"]),
+            text(&c["editor_id"]),
+            text(&c["path"]),
+            show(&c["before"]),
+            show(&c["after"]),
+            if c["changed"] == json!(false) {
+                " (unchanged)"
+            } else {
+                ""
+            }
+        ));
+    }
+    out.join("\n")
 }

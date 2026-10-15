@@ -209,6 +209,26 @@ fn out_is_guarded_before_anything_is_written() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// Fable review (deploy round), finding 2: `out` through a junction into MO2's `mods\`,
+/// followed by folders that do not exist yet, is refused before anything is staged.
+#[test]
+fn out_through_a_junction_is_refused() {
+    let d = dir("build-junction");
+    let data = data(&d);
+    let rename = spec(&d, "rename.toml", &data, RENAME);
+    let Some((link, mods)) = crate::edit::patch_tests::junction_into_mods(&d) else {
+        return;
+    };
+    let out = link.join("new").join("deeper").join("P.esp");
+    for result in [build(&rename, &out), rebuild(&rename, &out)] {
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("junction"), "{err}");
+    }
+    assert!(std::fs::read_dir(&mods).unwrap().next().is_none());
+    std::fs::remove_dir(&link).unwrap();
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// Fable review round 2, finding 8: a whole subrecord and a member of it, from two
 /// entries, conflict; another occurrence does not.
 #[test]
@@ -431,6 +451,37 @@ fn v2_classes_operators_plan_and_identical_builds() {
         "{result:#}"
     );
     assert_eq!(result["data"]["changed_fields"], json!(5));
+    // Each change names the brief rows of the entries that wrote it (M3.E9), and the plan
+    // text lists every change with its row, entries, before and after.
+    let all = result["data"]["changes"].as_array().unwrap();
+    assert_eq!(all[0]["brief"], json!(["B1"]));
+    assert_eq!(all[2]["brief"], json!([]), "the settings rule names no row");
+    let summary = result["data"]["summary"].as_str().unwrap();
+    let lines: Vec<&str> = summary.lines().collect();
+    assert!(lines[0].starts_with("plan: 5 field change(s) on 5 record(s)"));
+    assert!(lines.contains(&"masters: Source.esm"), "{summary}");
+    assert!(
+        lines.contains(&"  B1   globals GLOB matched 2"),
+        "{summary}"
+    );
+    assert!(
+        lines.contains(&"  B1   rule[0] class globals: 2 record(s), 2 field(s) written, 2 changed"),
+        "{summary}"
+    );
+    assert!(lines.contains(&"changes (5):"), "{summary}");
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("  B1   rule[0] GLOB ") && l.ends_with(" GlobA FLTV: 1 -> 2")),
+        "{summary}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|l| l.starts_with("  -    rule[1] GMST ")
+                && l.ends_with(" iMaxCount DATA: 7 -> 11")),
+        "{summary}"
+    );
     let classes = result["data"]["classes"].as_array().unwrap();
     assert_eq!(classes[0]["class"], json!("globals"));
     assert_eq!(classes[0]["matched"], json!(2));

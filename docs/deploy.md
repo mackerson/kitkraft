@@ -6,6 +6,22 @@ one isolated, KitKraft-managed MO2 mod folder. It is the only place KitKraft wri
 a Mod Organizer instance. Code: `crates/engine/src/deploy/`, handler
 `crates/engine/src/handlers/deploy.rs`.
 
+## Operating notes
+
+- **Run it with the game and the Creation Kit closed.** Both hold plugin and archive files
+  open; a held file makes a folder rename fail, and the call then rolls back (nothing is
+  lost, but nothing is deployed). Refresh MO2 (F5) after each deployment.
+- **The `Default` gate is policy, not confinement.** `deploy` reads MO2's active profile
+  from `ModOrganizer.ini` (`selected_profile`), which MO2 writes only when it exits or
+  switches profiles; while MO2 runs, the file can name a profile other than the one on
+  screen. The gate refuses what it can see (`Default`, or no profile at all); it cannot
+  stop MO2 from showing the dev mod to `Default`. The writes themselves are confined to the
+  dev mod's own folders whatever the profile.
+- **MO2 lists the dev mod and its `.previous` in every profile, `Default` included**, as
+  disabled entries at the bottom of the left pane (MO2 adds every new folder under `mods\`
+  to each profile's list, disabled). This is harmless (a disabled mod contributes no
+  files) but visible; leave them disabled outside `KitKraft Dev`.
+
 ## Commands
 
 | Command           | CLI                                                    | Writes |
@@ -23,7 +39,10 @@ Arguments (JSON, same over MCP `execute` / `command_line`, which carry `destruct
   call; no configuration file, environment variable or session supplies it.
 - `dev`: required and must be `true` (`--dev`). The schema admits only `true`, and the
   handler checks it again.
-- `profile`: the MO2 profile to check (read-only diagnostics). Never `Default`.
+- `profile`: the MO2 profile to check (read-only diagnostics). Never `Default`. A
+  `profile` that is refused (`Default`, missing, a bad name) is never read for
+  diagnostics. When `ModOrganizer.ini` names no active profile, `profile` must name an
+  existing profile other than `Default` or the call is refused (`live-profile-unknown`).
 - `dry_run`: report the plan, the refusals and every path that would be touched; write
   nothing. The result's `data.passed` is `false` when the real call would be refused
   (CLI exit 1).
@@ -41,6 +60,7 @@ For a plugin `MyMod.esm`:
 | `KitKraft Dev - MyMod.staging\`               | Only while a deployment runs                  |
 | `KitKraft Dev - MyMod.retired\`               | Only while a deployment commits (the older copy being dropped) |
 | `KitKraft Dev - MyMod.kitkraft-journal.json`  | Only while an operation is in flight          |
+| `KitKraft Dev - MyMod.kitkraft-lock`          | Only while a `deploy` or `rollback` runs (the lock) |
 
 The folder name is `KitKraft Dev - ` plus the plugin's file stem. A stem Windows forbids
 (a reserved device name such as `CON`, a character in `<>:"/\|?*`, a trailing dot or
@@ -83,20 +103,29 @@ it is complete):
 A folder of the target name is written only when this file is present and its `kind` and
 `mod` name this dev mod. Anything else of that name (case-insensitively) is refused.
 
+`previous_deployment_id` is history: the deployment this one was **deployed over** (live
+when it was written, or, with no live folder, the one `.previous` held). A later rollback
+or redeploy does not rewrite it, so it need not name what `.previous` holds now. The
+deployment a rollback restores is `.previous`'s own manifest id, which `deploy.status`
+reports as `previous.manifest.deployment_id`.
+
 ## Algorithm
 
 `deploy`:
 
 1. Resolve the instance from `ModOrganizer.ini` (read-only): `mods\` (`mod_directory`,
    default `<base>\mods`), `profiles\`, `overwrite\`, `downloads\`, `selected_profile`,
-   `gamePath`. Refuse if MO2's active profile or `profile` is `Default`.
+   `gamePath` (a UTF-8 byte order mark is ignored). Refuse if MO2's active profile or
+   `profile` is `Default`, and when the INI names no active profile unless `profile`
+   names an existing profile other than `Default` (the gate fails closed).
 2. Read and hash the source (SHA-256 of every file); verify it against
    `kitcraft-manifest.json` when there is one.
 3. Recover a journal left by an interrupted call (below).
 4. Check the slots: the live folder and `.previous` must be absent or KitKraft's; the live
    folder must match its manifest (a file edited by hand, missing, or not listed is
-   reported and the deploy refused before any write). If the files are identical to the
-   live deployment, stop: nothing is written.
+   reported and the deploy refused before any write). `.previous`, which a redeploy
+   drops, must match its manifest too (`previous-modified`; MO2's `meta.ini` allowed).
+   If the files are identical to the live deployment, stop: nothing is written.
 5. Write the journal, create `.staging`, copy every file (hashing on the way, then reading
    the copy back and checking its SHA-256), carry `meta.ini` over, write the manifest.
 6. Swap by renaming folders, all inside `mods\` (one volume): `.previous` -> `.retired`,
@@ -106,18 +135,27 @@ A folder of the target name is written only when this file is present and its `k
 On a failure in steps 5 and 6 the same recovery runs at once (automatic rollback), and the
 error lists every path touched. `deploy.rollback` swaps `.previous` and the live folder the
 same way (live -> `.staging`, `.previous` -> live, `.staging` -> `.previous`), so a rollback
-can be rolled back. One previous deployment is kept.
+can be rolled back. MO2's `meta.ini` follows the live folder: rollback copies it into the
+new live folder after the swap, so `.previous` is never written before it is restored.
+One previous deployment is kept.
 
 ### Journal recovery
 
 The journal records the operation and the deployment ids live before and after. A journal
-found at the start of `deploy` or `rollback` is recovered before anything else:
+found at the start of `deploy` or `rollback` is recovered before anything else, and only
+after the call has taken the lock:
 
 - the new deployment is live (committed): finish the cleanup (`.retired`, `.staging`);
+  `.retired` is removed only when it still matches its manifest (else `previous-modified`
+  and the journal stays);
 - otherwise: remove `.staging` (deploy), put the old live folder back from `.previous`
   (deploy) or `.staging` (rollback), and `.retired` back to `.previous`.
 
-`deploy.status` and `--dry-run` only report a pending journal. A `*.journal.json.tmp` left by
+Recovery also removes our own temp names (`meta.ini.tmp`, `kitkraft-deploy.json.tmp`) left
+at the root of the live folder or `.previous` by a crash mid-write, which would otherwise
+read as unmanaged files. `deploy.status` and `--dry-run` only report a pending journal. `deploy.status` lists
+every `KitKraft Dev - ...` entry; one it cannot read is reported with `state: "error"`
+(and the reason) instead of failing the listing; the others carry `state: "ok"`. A `*.journal.json.tmp` left by
 a crash while the journal itself was written is removed (nothing else had changed).
 
 ## Refusals
@@ -129,20 +167,22 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 | `dev-flag-required`   | `dev` is not `true` (the schema already rejects it as `invalid_args`) |
 | `mo2-instance`        | `mo2` has no `ModOrganizer.ini`, or its `mods\` or `profiles\` folder is missing |
 | `live-profile`        | MO2's active profile, or `profile`, is `Default` (any case)          |
+| `live-profile-unknown`| `ModOrganizer.ini` names no active profile (`selected_profile` missing or empty) and `profile` does not name an existing profile other than `Default` |
 | `profile-missing` / `profile-name` | `profile` is not a profile folder of the instance       |
 | `reparse-point`       | A component of `mo2`, `mods\`, the target, or an entry in the source or a dev mod folder is a symbolic link or junction |
-| `location`            | `mods\` is inside the game's Data folder (or one of profiles, overwrite, downloads is inside `mods\`), the instance is inside the game or user Data folder or another instance (`guard_location`, shared with `set` and `build`), or the source overlaps the dev mod's folders |
+| `location`            | `mods\` is, or is inside, the game's Data folder or the user Data folder (`Documents\My Games\Starfield\Data`); `mods\` is the profiles, overwrite or downloads folder, or one of them is inside `mods\`; the instance is inside the game or user Data folder or another instance (`guard_location`, shared with `set` and `build`), or the source overlaps the dev mod's folders |
 | `source`              | Not a plugin or a folder with one plugin at its root                 |
-| `source-path`         | A name Windows forbids, `meta.ini` or `kitkraft-deploy.json` at the package root, a deployed path longer than 259 characters, too deep or too many files |
+| `source-path`         | A name Windows forbids, `meta.ini` or `kitkraft-deploy.json` at the package root, a deployed path longer than 259 characters (measured under the longest slot, `<target>.previous\`, where every file lives after the next deploy, and for the longest internal temp names, `<target>.previous\kitkraft-deploy.json.tmp` and the journal's `.tmp`), too deep or more than 20,000 files |
 | `plugin-name`         | The plugin stem is a name Windows forbids                            |
 | `package-manifest`    | A file differs from `kitcraft-manifest.json`, is not listed, or a listed file is missing |
 | `target-collision`    | The target, `.previous`, `.staging` or `.retired` exists and is not this dev mod's |
 | `target-modified`     | The live folder differs from its manifest (modified, missing or unmanaged files) |
-| `previous-modified`   | `rollback`: `.previous` differs from its manifest                    |
+| `previous-modified`   | `.previous` (or `.retired`) differs from its manifest (MO2's `meta.ini` allowed) and the call would restore or drop it: `rollback`, a redeploy that replaces the rollback copy, or a journal recovery that removes `.retired` |
 | `nothing-to-roll-back`| No live deployment, or no `.previous`                                |
 | `rollback-target`     | `to` is not the id `.previous` holds                                 |
 | `source-changed` / `copy-verify` | A file changed while being copied, or the copy's hash differs |
 | `journal`             | A journal that cannot be read or names another mod                   |
+| `locked`              | `<target>.kitkraft-lock` exists: another `deploy` or `rollback` is running on this dev mod, or a killed one left it (delete it once none runs) |
 | `io`                  | A file system error (the message names the action)                   |
 
 ## Never touched
@@ -238,5 +278,8 @@ accepts these departures:
 - Whether MO2 or the game holds files open is not detected up front; a rename that fails
   with a file in use stops the deployment and rolls it back. Refresh MO2 after each
   deployment.
-- One writer at a time: two `deploy` calls on the same dev mod at once are not locked
-  against each other beyond the journal.
+- One writer at a time: `deploy` and `rollback` create `<target>.kitkraft-lock` with
+  `create_new` before journal recovery and remove it when they return, so a second call
+  on the same dev mod is refused (`locked`). A process killed mid-run leaves the lock;
+  `deploy.status` reports it, and the owner deletes it once no `kit` runs (the journal is
+  then recovered by the next call). `--dry-run` and `deploy.status` take no lock.

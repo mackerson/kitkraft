@@ -598,6 +598,13 @@ pub fn guard_target(target: &Path, protected: &[PathBuf]) -> Result<(), PatchErr
 /// game's Data directory, the user Data directory, or an MO2 instance or profile, at any
 /// depth.
 pub fn guard_location(target: &Path) -> Result<(), PatchError> {
+    if let Some(link) = first_link(target) {
+        return Err(refused(format!(
+            "{} passes through {}, a symbolic link or junction; outputs are written to real paths only, so no write can be redirected into the game, the user Data folder or MO2",
+            target.display(),
+            link.display()
+        )));
+    }
     let abs_target = absolute(target);
     let mut dir = abs_target.parent();
     while let Some(d) = dir {
@@ -632,7 +639,7 @@ pub fn guard_location(target: &Path) -> Result<(), PatchError> {
 /// The per-user Data folder the game also loads plugins from: a directory named `Data`
 /// whose parent is `My Games\Starfield`, or whose parent holds `StarfieldCustom.ini` or
 /// `StarfieldPrefs.ini` (the same test lane G's `ba2.extract` applies).
-fn is_user_data_dir(dir: &Path) -> bool {
+pub(crate) fn is_user_data_dir(dir: &Path) -> bool {
     let named = |p: &Path, want: &str| {
         p.file_name()
             .and_then(|n| n.to_str())
@@ -650,24 +657,39 @@ fn is_user_data_dir(dir: &Path) -> bool {
             .any(|ini| parent.join(ini).is_file())
 }
 
-fn absolute(path: &Path) -> PathBuf {
-    if let Ok(p) = std::fs::canonicalize(path) {
-        return p;
-    }
-    // A file that does not exist yet: canonicalize its directory.
-    match (path.parent(), path.file_name()) {
-        (Some(dir), Some(name)) => {
-            let dir = if dir.as_os_str().is_empty() {
-                Path::new(".")
-            } else {
-                dir
-            };
-            std::fs::canonicalize(dir)
-                .map(|d| d.join(name))
-                .unwrap_or_else(|_| path.to_path_buf())
+/// `path` made absolute and canonical as far as it exists: the deepest existing ancestor
+/// is canonicalized (links and junctions resolved) and the components that do not exist
+/// yet are appended. A path through a junction followed by folders still to be created
+/// therefore resolves to where a write would land (Fable review, deploy round, finding 2:
+/// canonicalizing only the parent let `out\<junction>\new\...` keep its unresolved
+/// spelling). Shared by `set`, `build` and `package`.
+pub(crate) fn absolute(path: &Path) -> PathBuf {
+    let abs = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    let mut rest: Vec<&std::ffi::OsStr> = Vec::new();
+    let mut cur: &Path = &abs;
+    loop {
+        if let Ok(c) = std::fs::canonicalize(cur) {
+            return rest.iter().rev().fold(c, |p, name| p.join(name));
         }
-        _ => path.to_path_buf(),
+        match (cur.parent(), cur.file_name()) {
+            (Some(parent), Some(name)) => {
+                rest.push(name);
+                cur = parent;
+            }
+            _ => return abs.clone(),
+        }
     }
+}
+
+/// The first component of `path` (made absolute, links not resolved), from the path
+/// itself up to its root, that is a symbolic link or junction (a name-surrogate reparse
+/// point; Rust's `is_symlink` covers both on Windows).
+pub(crate) fn first_link(path: &Path) -> Option<PathBuf> {
+    let abs = std::path::absolute(path).unwrap_or_else(|_| path.to_path_buf());
+    abs.ancestors()
+        .filter(|p| !p.as_os_str().is_empty())
+        .find(|p| std::fs::symlink_metadata(p).is_ok_and(|m| m.file_type().is_symlink()))
+        .map(Path::to_path_buf)
 }
 
 /// A FormID stored by a plugin whose master list (masters, then itself) is `from`, as
