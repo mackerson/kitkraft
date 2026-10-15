@@ -1259,7 +1259,21 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
     let mut out = Vec::new();
     let mut lines = Vec::new();
     for (name, roles) in &mods {
-        let slots = Slots::new(&inst, name)?;
+        // One odd folder (a name its slots cannot be derived from, an unreadable entry)
+        // is reported as that mod's error; the rest of the listing stands.
+        let slots = match Slots::new(&inst, name) {
+            Ok(s) => s,
+            Err(e) => {
+                lines.push(format!("{name}: error: {e}"));
+                out.push(json!({
+                    "mod": name,
+                    "state": "error",
+                    "error": e.to_string(),
+                    "entries": roles,
+                }));
+                continue;
+            }
+        };
         let describe = |path: &Path, deep: bool| -> Value {
             match state(path, name) {
                 Ok(State::Absent) => json!({"state": "absent"}),
@@ -1321,6 +1335,7 @@ pub(crate) fn status(req: &StatusRequest) -> Result<Report, DeployError> {
         }
         out.push(json!({
             "mod": name,
+            "state": "ok",
             "target": slots.target.display().to_string(),
             "live": live,
             "previous": previous,

@@ -125,7 +125,9 @@ found at the start of `deploy` or `rollback` is recovered before anything else:
 - otherwise: remove `.staging` (deploy), put the old live folder back from `.previous`
   (deploy) or `.staging` (rollback), and `.retired` back to `.previous`.
 
-`deploy.status` and `--dry-run` only report a pending journal. A `*.journal.json.tmp` left by
+`deploy.status` and `--dry-run` only report a pending journal. `deploy.status` lists
+every `KitKraft Dev - ...` entry; one it cannot read is reported with `state: "error"`
+(and the reason) instead of failing the listing; the others carry `state: "ok"`. A `*.journal.json.tmp` left by
 a crash while the journal itself was written is removed (nothing else had changed).
 
 ## Refusals

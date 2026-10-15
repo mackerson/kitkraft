@@ -583,6 +583,30 @@ fn mods_folder_location_is_checked() {
     assert_eq!(mo2.protected(), before);
 }
 
+/// Fable review (deploy round), finding 5: one odd `KitKraft Dev - ...` folder (here a
+/// name too long to derive its journal's name from) used to fail the whole listing; it
+/// is reported as `state: "error"` and the other dev mods are still listed.
+#[test]
+fn status_reports_an_odd_folder_and_lists_the_rest() {
+    let mo2 = Mo2::new("oddstatus");
+    mo2.deploy(&mo2.plugin(b"TES4")).unwrap();
+    let odd = format!("KitKraft Dev - {}", "a".repeat(235));
+    fs::create_dir_all(mo2.mods().join(&odd)).unwrap();
+    let s = execute("deploy.status", json!({"mo2": mo2.mo2().to_str().unwrap()})).unwrap();
+    let mods = s["data"]["mods"].as_array().unwrap();
+    assert_eq!(mods.len(), 2, "{s}");
+    let by_name = |n: &str| mods.iter().find(|m| m["mod"] == n).unwrap();
+    assert_eq!(by_name(MOD)["state"], "ok");
+    assert_eq!(by_name(MOD)["live"]["state"], "managed");
+    let bad = by_name(&odd);
+    assert_eq!(bad["state"], "error");
+    assert!(
+        bad["error"].as_str().unwrap().contains("longer than 255"),
+        "{bad}"
+    );
+    assert!(s["data"]["summary"].as_str().unwrap().contains("error"));
+}
+
 #[test]
 fn same_named_folder_that_is_not_kitkraft_s_is_refused() {
     let mo2 = Mo2::new("collision");
