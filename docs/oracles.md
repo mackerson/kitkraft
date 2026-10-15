@@ -212,13 +212,139 @@ would turn them into agreements; until then they are not counted as evidence eit
 No compared record names an object ID below 0x800 in Starfield.esm's index space, so this
 run says nothing about how SF1Edit shows engine-reserved forms (ADR 0005 Amendment 4).
 
+The comparator now makes those conversions (M3.B11, next section); these small-file
+numbers were not rerun with it.
+
+### M3.B11: every record of the round 3 types, KYWD and GMST (2026-10-15)
+
+M3.B11's rerun on the typed types: all 21,686 records of `WEAP AMMO PROJ AMDL OMOD COBJ
+ZOOM LVLI FLST INNR KYWD GMST` in `Starfield.esm` (no sampling), same xEdit build (4.1.5f)
+and dump method as above, with the comparator taught the display conversions the rerun
+above could not make:
+
+```powershell
+$env:KITKRAFT_SF1EDIT = 'C:\Modding\tools\xEdit\xSFEdit64.exe'
+$env:KITKRAFT_DATA_DIR = 'C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data'
+cargo xtask oracle sf1edit Starfield.esm --types WEAP,AMMO,PROJ,AMDL,OMOD,COBJ,ZOOM,LVLI,FLST,INNR,KYWD,GMST --sample 0 --no-check
+```
+
+239 s in all (the dump 38 s; the 21,686 `inspect` calls go through one `kit mcp` session,
+which keeps the load order loaded, so each costs milliseconds; the harness falls back to
+one `kit inspect` process per record when the session cannot start). The dumper wrote no
+`xDump64Exception.log`.
+
+**What the comparator converts now** (`xtask/src/sf1edit.rs`; every rule has a unit test):
+
+- **Typed walk.** Each value of ours is flattened along its schema type
+  (`kitkraft_schema`), in definition order, instead of as a JSON object (whose keys are
+  sorted). Opaque fields hold their place and match anything; an empty byte run is skipped.
+- **Order.** Our values are aligned with xEdit's leaves in order (a dynamic-programming
+  alignment: xEdit may show fields between ours, an exact match beats a name pair, and a
+  value of ours left without a leaf costs more than any pairing, so a different value is
+  never hidden). Values 4.1.5f shows in another order are matched afterwards (exact first).
+- **Enums, flags and unnamed integer codes.** A value matches when xEdit shows the same
+  number (`5`, `<Unknown: 5>`, `Unknown 5`, a boolean), the same name (spelling and spaces
+  aside; flags as a set of names), or a name of its own. A name of xEdit's own is a **name
+  pair** `(field, value, xEdit's text)`; it counts as agreement only if, over the whole run,
+  each value of a field is always shown as the same text and that text never stands for
+  another value. A field that breaks this turns its occurrences into disagreements. This
+  covers our enums with names in our words (`COBJ` `LRNM` 3 = "Known by default or when
+  conditions are met"), and integer fields we give no names (`CTDA` `Function` 874 =
+  "IsResearchComplete", `CTDA` `Type` 0 = "Equal to", `KYWD` `TNAM` 0 = "None", `OMOD`
+  property codes = "Armor - Value"). A FormID display never pairs with a number.
+- **Bytes.** A `u8` array is compared as text (up to its NUL) or as a GUID: xEdit shows
+  Wwise GUIDs as `{XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX}` with the first three groups
+  little-endian. The Wwise events of our sound structs are opaque today, so they hold their
+  place and are not compared.
+- **Other displays.** Raw bytes `00 00 ..` equal any zero, null FormID or empty value of
+  ours; a number 0 equals a null FormID (`MO4S`); the float maximum is xEdit's "Default"
+  (`WVIS` Color Remapping Index); `<Unknown: X>` around a text is unwrapped (component
+  names); a NUL the dumper prints at the end of a fixed string is ignored; a text of
+  several lines is compared by its first line (the dumper prints later lines as lines of
+  their own); string IDs `kit inspect` leaves without text (lstrings inside structs: AMMO
+  `ONAM`, INNR `WNAM`, GMST string values, WEAP `WABB`) are resolved through the plugin's
+  string tables (`strings.dump`).
+- **Fewer fields.** When every value xEdit shows agrees and ours has more (a field 4.1.5f
+  does not have, or a length prefix xEdit shows only as its list), the occurrence is
+  counted as "agree, xEdit shows fewer fields", apart from full agreement.
+
+Classes count subrecord occurrences; "typed, xEdit unknown" is an occurrence we decode
+that xEdit shows entirely as unknown (X7's records, and `FLLD`, `ODTY`, `XALG`, ...).
+
+| Type | Records | Agree | Agree, xEdit fewer fields | Disagree | Gap | Both unknown | Typed, xEdit unknown | Typed, not shown |
+| ---- | ------- | ----- | ------------------------- | -------- | --- | ------------ | -------------------- | ---------------- |
+| `WEAP` | 406 | 9,942 | 33 (`OBTS` keyword count) | 0 | 117 | 252 | 5,599 | 37 (X7) |
+| `AMMO` | 150 | 1,786 | 0 | 0 | 0 | 0 | 450 | 0 |
+| `PROJ` | 265 | 2,497 | 0 | 190 (X9) | 8 | 329 | 1,154 | 0 |
+| `AMDL` | 110 | 110 | 110 (`ANAM`, X10) | 0 | 0 | 0 | 0 | 0 |
+| `OMOD` | 2,682 | 10,449 | 2,682 (`DATA` name length) | 0 | 6 | 0 | 2,687 | 0 |
+| `COBJ` | 3,009 | 32,792 | 0 | 0 | 77 | 77 | 6,014 | 27 (X7) |
+| `ZOOM` | 118 | 236 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `LVLI` | 5,556 | 57,153 | 0 | 0 | 1 | 0 | 11,547 | 0 |
+| `FLST` | 1,142 | 10,088 | 0 | 0 | 44 | 44 | 1,142 | 0 |
+| `INNR` | 5 | 1,756 | 0 | 0 | 0 | 0 | 0 | 0 |
+| `KYWD` | 5,931 | 18,021 | 0 | 0 | 0 | 5,969 | 1,684 | 0 |
+| `GMST` | 2,312 | 4,624 | 0 | 0 | 0 | 0 | 16 | 0 |
+| **Total** | **21,686** | **149,454** | **2,825** | **190** | **253** | **6,671** | **30,293** | **64** |
+
+Records: 21,686 on both sides, none only in one, 0 signature or EditorID differences. Before
+the conversions (the same run with the old comparator, the rerun above's method) these
+types gave 139,392 agreements and 13,077 disagreements; every one of the 12,887 that went
+away was a display conversion above, and X8 (cp1252 text, `COBJ` `22D0FF`) now agrees.
+
+**Name pairs found consistent over the run** (the run's `report.json`, `name_pairs` per
+type), for instance: `CTDA` `Function` 74 = GetGlobalValue, 448 = HasPerk, 560 =
+HasKeyword, 874 = IsResearchComplete (12 functions in COBJ conditions, 11 in FLST, 23 in LVLI); `CTDA` `Type`
+0 = "Equal to", 1 = "Equal to / Or", 96 = "Greater than or equal to"; `KYWD` `TNAM` 55
+values ("Attach Point" 2, "Planet Trait" 44, ...); `OMOD` property codes (`AVAL` = "Armor -
+Value", ...); `WEAP` `WGEN` `Type` 9 = "Ranged" and 12 = "Ship Weapon" (our names `Gun` and
+`Mounted`: names, not values, differ); `LVLI` `LVLF` bits 3, 4, 5 and 8, which 4.1.5f
+lists as "Unknown N". None broke consistency.
+
+### Disagreements and differences found by M3.B11
+
+No disagreement is ours; none becomes a `docs/gaps.md` row. Byte evidence from `kit inspect`
+on `Starfield.esm`:
+
+| # | What differs | Where (count) | Our byte evidence | Class | What it means for us |
+| - | ------------ | ------------- | ----------------- | ----- | -------------------- |
+| X9 | 4.1.5f shows `PROD`'s 32-bit Flags as a 16-bit flag list followed by a "Type" (e.g. "Bullet", "Flags=Explosion" for our `0x20002`); the pinned definition has a `u32` Flags and a `u8` Type later in the struct (`Missile`..`Emitter`, cited in `PROJ.toml`). Where its "Type" has no counterpart among our values the occurrence disagrees | `PROJ` `PROD`, 190 of 265 (e.g. `Starfield.esm:08E481`) | Every `PROD` decodes with nothing left over and re-encodes identically (`PROJ.toml` evidence); the lower 16 bits' flag names pair consistently over all 265 | version skew | None for our schema; the 4.1.5f view of `PROD` is no reference for Type or the upper flag bits |
+| X10 | 4.1.5f shows 16 `ANAM` aim-model values; the pinned definition (ours) has 17, `ConeOfFireIgnoresMovement` (a bool, 0 in all 110) being the one 4.1.5f lacks; the other 16 agree, in another order | `AMDL` `ANAM`, 110 of 110 | 110 `ANAM` decode and re-encode identically | version skew | Counted as "fewer fields"; the extra field's meaning rests on the pin only |
+| - | Length prefixes xEdit shows only as their list: `OMOD` `DATA` `NameLength` (2,682), `WEAP` `OBTS` `KeywordCount` (33) | as named | The count equals the list's length in every record | display | Counted as "fewer fields" |
+
+### Remaining opaque-vs-typed gaps (M3.B11)
+
+What xEdit 4.1.5f types and we keep opaque, over every record of these 12 types: all of it
+sits inside base-form component blocks (`BFCB`..`BFCE`, kept raw by definition, ADR 0005
+§1; the component payloads are lane B's open item) or is the script-attachment block:
+
+| Type | Subrecord (occurrences) | Component or block | xEdit shows |
+| ---- | ----------------------- | ------------------ | ----------- |
+| `WEAP` | `ANAM` (58), `BNAM` (58), `STCP` (1) | `BGSAnimationGraph_Component`, `BGSSoundTag_Component` | animation root path, skeleton path, an `STAG` FormID |
+| `PROJ` | `ANAM` (4), `BNAM` (4) | `BGSAnimationGraph_Component` | as WEAP |
+| `COBJ` | `FLTR` (77) | `BGSObjectWindowFilter_Component` | a filter path (`Station/Habs/`) |
+| `FLST` | `FLTR` (44) | `BGSObjectWindowFilter_Component` | as COBJ |
+| `OMOD` | `KSIZ` (3), `KWDA` (3) | `BGSKeywordForm_Component` | a keyword count and list |
+| `LVLI` | `VMAD` (1) | script attachment (opaque in every definition; M4.E9 waits for it) | script name, flags, properties |
+
+Both unknown (opaque to us and unknown to 4.1.5f): `KYWD` `FNAM` (5,931); `WEAP` `QUPA`,
+`REFL`, `PTCL`, `STCP`, `ENAM`, `ANAM`/`BNAM` in X7's records; `PROJ` `PTCL` (243), `REFL`
+(86); `COBJ` and `FLST` `INTV`. Typed by us and unknown to 4.1.5f in every occurrence: AMMO
+`FLLD` `ODTY` `PTT2`; COBJ `FVPA` `INTV` `RECF` `RQPK` `TNAM`; FLST `ANAM`; GMST `XALG`;
+KYWD `ENAM` `FNAM`; LVLI `FLLD` `LIMC` `LLKC` `LVLL` `ODTY` `OPDS`; OMOD `DATA` `FLLD`
+`XFLG`; PROJ `DATA` `DEST` `DSTD` `FLLD` `ODTY` `PROD` `PTCL` `REFL` `XALG`; WEAP `FLLD`
+`ODTY` `PTT2` `QNAM` `WAIM` `WAM2` `WAUD` `WDMG` `WFIR` `WFLG` `WMEL` `WRLO` `WTRM` `WTUR`
+`WVIS` (all 405 or 406) and X7's 48 records. There 4.1.5f is no reference; the pin and the
+corpus decide (M3.B1..B7). A build at the pin would narrow these (owner decision 2).
+
 ### Coverage gaps xEdit exposes
 
 A gap is a subrecord we keep opaque that xEdit shows as named, typed fields. Over the four
 small official files there are 370 `TYPE/SUB` pairs with gaps (9,672 occurrences; most in
 INFO 5,737, AVMD 1,323, RACE 628); record types without any definition of ours (AVMD,
 PROJ, INFO, ...) show even `EDID` and `FULL` as gaps. For the round 3 types in
-`Starfield.esm`:
+`Starfield.esm`, from the 2026-10-14 run of 50 records per type, before PROJ, AMDL, LVLI and
+the rest were typed (superseded by "Remaining opaque-vs-typed gaps (M3.B11)" above):
 
 | Type | Subrecords xEdit types that we keep opaque | Unknown to both | Typed by us, unknown to xEdit |
 | ---- | ------------------------------------------ | --------------- | ----------------------------- |
