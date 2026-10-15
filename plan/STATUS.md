@@ -13,18 +13,73 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | 2 | In-game check of the first POI (M4.O2). Install `out\poi\package` through MO2 and check the hashes against its manifest. Then in the console: `coc CityNewAtlantisApartmentTEMPLATE`, `player.moveto KitKraftFirstPOICrate`, click the crate (the console should show `04001000`), then `prid 04001000` (Kitkraft Dev's slot, confirmed by its newest save: `kit testplan ... --from-save newest`, `docs/poi/first-poi.md`; `02001000` and `28001000` were wrong IDs, `docs/poi/first-poi-investigation.md`). Take a screenshot and run the persistence steps in `docs/poi/first-poi.md`. In the same session, install the rename package (W12, `docs/packaging.md`) | M4 exit (first POI, W2, W5, W12) | pending (owner) |
 | 3 | In-game check of overhaul build 2 (M3.O5, steps and checklist in `docs/overhaul/build-2.md`, "In game"; package `out\overhaul\package\KitKraftGunOverhaul-0.2.0.zip`), on `KitKraft Dev` with a disposable save | M3 exit (overhaul) | pending (owner); build 2 landed 2026-10-15 |
 | 4 | ~~Answer the brief rows B8, B11 and B12~~ | overhaul build 2 (M3.E9 rerun) | **answered 2026-10-15**: B8 dropped, B11 base 18 (drum untouched, 48), B12 as built; applied in build 2 |
-| 5 | Close every Claude Code session that has the repo open. Then run `C:\Modding\scripts\finish_kitkraft_move.ps1`. It renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
+| 5 | Close every Claude Code session that has the repo open. Then double-click `C:\Modding\kitcraft\dist\KitKraft\Finish Move.cmd` (it warns, asks for `YES`, and runs `C:\Modding\scripts\finish_kitkraft_move.ps1` from a copy in TEMP; docs/QUICKSTART.md section 8). The script renames `C:\Modding\kitcraft` to `C:\Modding\kitkraft`, re-points the MCP registrations, and runs `git worktree prune`, so run it only when no lane worktree is in use. Open new sessions on `C:\Modding\kitkraft` | the folder name every doc already uses | pending (owner) |
 | 6 | Decide when to start the workbench (lane W, M4.W0..W6, ADR 0007 Amendment 1). The M4.W0 gate needs M4.D1 (`refs`) and M4.D2 (placement context), and neither is on `main`. The deferred CK sessions (M3.O1, M4.O1) wait for M4.W2..W5 | M3.O1 and M4.O1 (CK), with them every `ck-diff` upgrade | **decided 2026-10-15: started**. Lane W built the read-only workbench (`kit ui`, `docs/workbench.md`) |
 | 7 | Rule on two licenses in the workbench's dependency tree (ADR 0007, "Dependency list"). First, **BSL-1.0** (`clipboard-win`, `error-code`): eframe always pulls these in for the copy buttons; the license is permissive but is not named in the MIT/Apache/Zlib/BSD rule. Second, whether the optional `default_fonts` feature may ever be enabled (OFL-1.1 and Ubuntu Font Licence). It is off: the window uses the Windows system fonts | the first workbench merge to `main` | open (owner decision) |
 | 9 | Rule on **ADR 0010** (agent-driven game sessions on `KitKraft Dev`, M4.O6; drafted 2026-10-15 with lane T in `plan/execution-plan.md` and the research note `docs/research/in-game-agent-testing-2026-10-15.md`). Default until then: no agent launches the game. The three sub-questions are in the ADR's "Consequences". Owner, 2026-10-15 (chat, before the formal ruling): "If we need to build out any part of a QA harness via scripts to make launching the whole thing via MO2 easier, I'm on board", and the goal is that someone can "point an agent at this project and say 'I want a mod that does X'" and the tooling carries it end to end (now M4.T10) | lane T (M4.T1..T10): unattended closing of in-game rows, then brief-to-mod end to end | open (owner decision; owner leaning yes) |
 | 10 | After a yes on row 9: M4.O7. Install Console API (Nexus 4280), Console Command Runner Updated (Nexus 7318) and optionally Console Output To File (Nexus 3142) into the `KitKraft Dev` profile through MO2; add `[General] bAlwaysActive=1` and the `[Papyrus]` logging keys to the profile's `StarfieldCustom.ini`; windowed in the profile's `StarfieldPrefs.ini`; create a disposable base save `KitKraftBase` in a quiet interior; note the versions in `docs/source-registry.md` | M4.T1 (V0: `GetSFSEVersion` over HTTP on 1.16.244) | pending (owner), after row 9 |
 | 8 | Run the workbench walkthrough against `KitKraft Dev` when the workbench changes (it is `#[ignore]`d, so `cargo xtask ci` skips it). PowerShell: `$env:KITKRAFT_WORKBENCH_PROFILE = 'C:\Modding\MO2-Starfield\profiles\KitKraft Dev'`, then `cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocapture`; it reads the profile and writes nothing but the engine's index cache (`docs/workbench.md`, "Panels") | confidence that `docs/workbench.md` matches the real profile | pending (owner), after each workbench round |
+| 11 | Install KitKraft for daily use (lane F, docs/QUICKSTART.md): close every Claude Code session, double-click `C:\Modding\kitcraft\dist\KitKraft\Install.cmd`, read the dry run (the same as "Install dry run" below), type `y`. Then start Claude Code: `/mcp` should list `kitkraft`, and `kit doctor` should end with no FIX on the MCP lines. Do it after row 5, or let `Finish Move.cmd` re-point it afterwards | `kit` on PATH in every terminal; the MCP server registered as `kitkraft` at the dist build | pending (owner) |
 
 **Director ruling pending owner confirmation (2026-10-15):** eframe's clipboard support brings `clipboard-win` and `error-code` under BSL-1.0 (Boost). BSL-1.0 is permissive with no copyleft and is compatible with MIT/Apache-2.0; applying owner clarification 2 (no pause unless the license category differs), the workbench was merged with this noted. Owner: confirm, or ask for the clipboard feature to be dropped.
 
 **M3.O5 result (2026-10-15):** PASS. Owner ran every `player.additem` row of docs/overhaul/build-2.md on the vanilla `KitKraft Dev` profile with build 2 loaded: C1-C7 and C9-C14 pass (C8 dropped). Rifle shows "Old Earth Marksman Rifle". Gun overhaul closed; M3 exit criteria met except the deferred CK session.
 
 **M4.O2 result (2026-10-15):** PASS. On the vanilla `KitKraft Dev` profile the owner reached the crate with `coc CityNewAtlantisApartmentTEMPLATE` + `player.moveto 04001000` (runtime slot from the save, not MO2's index). Save/quit/reload persistence row: pending owner confirmation.
+
+## Lane F: human accessibility (2026-10-15)
+
+Start at **docs/QUICKSTART.md**. No environment variable or `--data-dir` is needed any
+more in the owner's steps:
+
+- `kit doctor` (catalog command, read-only) finds the game (Steam registry and
+  libraries), the Data dir, the game version, the MO2 instance and its profiles (the
+  KitKraft Dev folder is `Kitkraft Dev`; matched ignoring case), xEdit/xDump64, the
+  Papyrus compiler, ContentResources.zip, SFSE, the cache and the MCP registrations, one
+  line each with the path, how it was found, and `OK` or a fix. Its detection is every
+  command's default: argument > environment variable > detected; a bare `--profile
+  "KitKraft Dev"` is that profile of the detected instance.
+- `cargo xtask dist` writes `C:\Modding\kitcraft\dist\KitKraft\` (built 2026-10-15):
+  `kit.exe`, `kit-ui.exe`, Workbench, Shell, Validate Plugin, Load Dev Profile, Deploy
+  to Dev, Finish Move, Install, Uninstall `.cmd` files and `README.txt`. Checked here:
+  `kit doctor` (output in QUICKSTART section 3), `Validate Plugin.cmd` on
+  `out\overhaul\KitKraftGunOverhaul.esm` (passed, 0 errors, 0 warnings), Load Dev
+  Profile, Shell, and Deploy to Dev against a synthetic MO2 instance (dry run, cancel,
+  and a real deploy there). Not run: `Install.cmd`, `kit install --apply`, the workbench
+  window, Finish Move, and any deploy against `C:\Modding\MO2-Starfield`.
+- `kit install` / `kit uninstall` (CLI only, dry run unless `--apply`) do the PATH and
+  MCP edits; tested against a temp home and a JSON stand-in for the registry.
+
+### Install dry run
+
+`C:\Modding\kitcraft\dist\KitKraft\kit.exe install --dry-run` on the dev box, 2026-10-15
+(read-only; this is what `Install.cmd` will show and do):
+
+```text
+kit install would change:
+- User PATH: HKCU\Environment Path (the user PATH)
+    add C:\Modding\kitcraft\dist\KitKraft
+    old value (REG_EXPAND_SZ): C:\Users\macke\.cargo\bin;C:\Users\macke\AppData\Local\Programs\Python\Python310\Scripts\;C:\Users\macke\AppData\Local\Programs\Python\Python310\;C:\Users\macke\AppData\Local\Microsoft\WindowsApps;C:\Users\macke\AppData\Local\JetBrains\Toolbox\scripts;C:\Users\macke\AppData\Local\GitHubDesktop\bin;C:\Program Files\LOVE;C:\Users\macke\.lmstudio\bin;%USERPROFILE%\AppData\Local\Microsoft\WindowsApps;C:\Users\macke\AppData\Roaming\npm;%USERPROFILE%\.dotnet\tools
+    old value saved to C:\Modding\kitcraft\dist\KitKraft\backups\user-path-1792105194.txt
+- Claude Code user config: C:\Users\macke\.claude.json
+    remove the pre-rename entry `kitcraft` (command C:/Modding/kitcraft/bin/kit.exe)
+    env KITCRAFT_DATA_DIR dropped: it names the Data dir `kit doctor` detects anyway
+    set mcpServers.kitkraft: command C:/Modding/kitcraft/dist/KitKraft/kit.exe, args ["mcp","--profile","C:/Modding/MO2-Starfield/profiles/Default"]
+    backup copy first: C:\Users\macke\.claude.json.kitkraft-backup-1792105194
+- Project MCP file: C:\Modding\kitcraft\.mcp.json
+    remove the pre-rename entry `kitcraft` (command C:/Modding/kitcraft/bin/kit.exe)
+    env KITCRAFT_DATA_DIR dropped: it names the Data dir `kit doctor` detects anyway
+    set mcpServers.kitkraft: command C:/Modding/kitcraft/dist/KitKraft/kit.exe, args ["mcp","--profile","C:/Modding/MO2-Starfield/profiles/Default"]
+    backup copy first: C:\Modding\kitcraft\.mcp.json.kitkraft-backup-1792105194
+- Install record: C:\Modding\kitcraft\dist\KitKraft\install-state.json
+    what was there before, for kit uninstall
+Dry run: nothing was changed. Run `kit install --apply` to make these changes.
+```
+
+Notes: the backup names carry the time of the run. Rewriting `.claude.json` keeps every
+key but sorts them (serde_json without key-order preservation); the backup copy holds the
+original. The MCP server keeps preloading `Default` read-only, as the `kitcraft` entry
+did. `C:/Modding/kitcraft/bin/kit.exe` stays on disk; nothing points at it afterwards.
 
 ## Current milestone: M3 closing, M4 in progress
 
