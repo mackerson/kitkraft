@@ -8,6 +8,8 @@
 //!   against canned envelopes without a window.
 //! - [`cmdline`]: the `kit` line and MCP call behind every result, so the window teaches
 //!   the CLI.
+//! - [`md`]: plain Markdown for the Help tab, which shows the owner's QA material from the
+//!   repo's docs at runtime ([`panels::help`]).
 //! - [`prefs`]: the per-user UI prefs file (`%LOCALAPPDATA%\kitkraft\ui.json`), the only
 //!   file the workbench writes on its own; UI state, never game data.
 //! - [`run`]: opens the window (eframe, OpenGL backend).
@@ -21,6 +23,7 @@ mod app;
 pub mod cmdline;
 pub mod envelope;
 pub mod gate;
+pub mod md;
 pub mod panels;
 pub mod prefs;
 pub mod shots;

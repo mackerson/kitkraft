@@ -15,8 +15,10 @@ use serde_json::{Map, Value};
 use crate::cmdline::{mcp_call, result_line, session_args, ResultLine};
 use crate::envelope::Prepared;
 use crate::gate::{Request, RunError};
+use crate::md::{Block, Inline};
 use crate::panels::diag::{self, DiagView};
 use crate::panels::diff::{DiffForm, DiffMode, DiffView};
+use crate::panels::help::{self, HelpDoc};
 use crate::panels::links::{LinksForm, LinksView, MAX_DEPTH};
 use crate::panels::load::{list_profiles, LoadForm, LoadView, ProfileEntry};
 use crate::panels::planet::{PlanetForm, PlanetView, PLANET_TYPES};
@@ -39,6 +41,7 @@ const LIMITATION_CHARS: usize = 200;
 const WARN: Color32 = Color32::from_rgb(230, 170, 60);
 const BAD: Color32 = Color32::from_rgb(230, 90, 80);
 const GOOD: Color32 = Color32::from_rgb(110, 190, 110);
+const CODE: Color32 = Color32::from_rgb(140, 190, 235);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Tab {
@@ -51,6 +54,7 @@ enum Tab {
     Diagnostics,
     Validate,
     Schema,
+    Help,
 }
 
 const TABS: &[(Tab, &str)] = &[
@@ -63,6 +67,7 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Diagnostics, "Diagnostics"),
     (Tab::Validate, "Validate"),
     (Tab::Schema, "Schema"),
+    (Tab::Help, "Help"),
 ];
 
 /// Where a reply goes.
@@ -150,6 +155,11 @@ struct App {
     prefs_path: Option<PathBuf>,
     start_instance: String,
     start_view: Option<StartView>,
+
+    /// The checkout whose docs the Help tab shows, and how it was found.
+    checkout: Option<(PathBuf, &'static str)>,
+    checkout_field: String,
+    help_docs: Vec<HelpDoc>,
 
     load_form: LoadForm,
     profiles_dir: String,
@@ -301,6 +311,9 @@ impl App {
             prefs_path,
             start_instance,
             start_view: None,
+            checkout: None,
+            checkout_field: String::new(),
+            help_docs: Vec::new(),
             profiles: if profiles_dir.is_empty() {
                 Vec::new()
             } else {
@@ -362,6 +375,7 @@ impl App {
                 app.submit(Slot::Load, req);
             }
         }
+        app.reload_help();
         if shots_refused.is_some() {
             app.notice = shots_refused;
         }
@@ -578,6 +592,18 @@ impl App {
         self.save_prefs();
     }
 
+    /// Finds the checkout again and rereads the Help tab's docs.
+    fn reload_help(&mut self) {
+        self.checkout = help::find_checkout_here(self.prefs.repo_dir.as_deref());
+        match &self.checkout {
+            Some((root, _)) => {
+                self.checkout_field = root.display().to_string();
+                self.help_docs = help::load(root);
+            }
+            None => self.help_docs.clear(),
+        }
+    }
+
     fn save_prefs(&mut self) {
         if let Some(path) = &self.prefs_path {
             if let Err(e) = self.prefs.save(path) {
@@ -665,6 +691,7 @@ impl eframe::App for App {
                     Tab::Diagnostics => self.tab_diag(ui, busy, &mut actions),
                     Tab::Validate => self.tab_validate(ui, busy, &mut actions),
                     Tab::Schema => self.tab_schema(ui, busy, &mut actions),
+                    Tab::Help => self.tab_help(ui),
                 });
         });
         self.apply(actions);
@@ -1848,6 +1875,65 @@ impl App {
         });
     }
 
+    fn tab_help(&mut self, ui: &mut egui::Ui) {
+        ui.heading("Help");
+        ui.label("The owner's QA material, read from the checkout's own docs when the window opens or Reload is clicked. Click any code to copy it. In-game steps run only on the MO2 profile KitKraft Dev with a disposable save, never on Default.");
+        let mut reload = false;
+        let mut use_field = false;
+        ui.horizontal(|ui| {
+            ui.label("Checkout");
+            ui.add(TextEdit::singleline(&mut self.checkout_field).desired_width(420.0));
+            use_field = ui
+                .button("Use this checkout")
+                .on_hover_text("remembered in the UI prefs file")
+                .clicked();
+            reload = ui.button("Reload").clicked();
+        });
+        match &self.checkout {
+            Some((root, how)) => ui.weak(format!("docs from {} (found {how})", root.display())),
+            None => ui.colored_label(
+                BAD,
+                format!(
+                    "no KitKraft checkout found (a folder with AGENTS.md and docs): set {} or type it above",
+                    help::REPO_ENV
+                ),
+            ),
+        };
+        if use_field {
+            let dir = self.checkout_field.trim().to_string();
+            if help::is_checkout(Path::new(&dir)) {
+                self.prefs.repo_dir = Some(dir);
+                self.save_prefs();
+                reload = true;
+            } else {
+                self.notice = Some(format!(
+                    "{dir}: not a KitKraft checkout (no AGENTS.md and docs there)"
+                ));
+            }
+        }
+        if reload {
+            self.reload_help();
+        }
+        for (i, doc) in self.help_docs.iter().enumerate() {
+            CollapsingHeader::new(doc.source.title)
+                .id_salt(("help", i))
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.weak(format!(
+                        "{} (from the heading \"{}\")",
+                        doc.path.display(),
+                        doc.source.heading
+                    ));
+                    match &doc.blocks {
+                        Ok(blocks) => md_blocks(ui, i, blocks),
+                        Err(e) => {
+                            ui.colored_label(BAD, e);
+                        }
+                    }
+                });
+        }
+    }
+
     fn tab_schema(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
         ui.heading("Schema and provenance");
         ui.horizontal(|ui| {
@@ -2264,6 +2350,115 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
             });
         });
     raw_lines(ui, id, "raw data (JSON)", &shown.prepared, false);
+}
+
+/// Code in the Help tab: monospace, copied on click.
+fn copy_code(ui: &mut egui::Ui, code: &str) {
+    let r = ui
+        .add(
+            egui::Label::new(RichText::new(code).monospace().color(CODE))
+                .sense(egui::Sense::click()),
+        )
+        .on_hover_text("click to copy");
+    if r.clicked() {
+        ui.ctx().copy_text(code.to_string());
+    }
+}
+
+/// Inline runs, laid out in a wrapping row.
+fn md_inlines(ui: &mut egui::Ui, runs: &[Inline], strong: bool) {
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        for r in runs {
+            match r {
+                Inline::Text(t) if strong => {
+                    ui.label(RichText::new(t).strong());
+                }
+                Inline::Text(t) => {
+                    ui.label(t);
+                }
+                Inline::Strong(t) => {
+                    ui.label(RichText::new(t).strong());
+                }
+                Inline::Struck(t) => {
+                    ui.label(RichText::new(t).strikethrough().weak());
+                }
+                Inline::Code(c) => copy_code(ui, c),
+            }
+        }
+    });
+}
+
+/// One table cell, wrapped at `width`.
+fn md_cell(ui: &mut egui::Ui, runs: &[Inline], width: f32, strong: bool) {
+    ui.vertical(|ui| {
+        ui.set_max_width(width);
+        md_inlines(ui, runs, strong);
+    });
+}
+
+/// A parsed doc section (`crate::md`), drawn plainly.
+fn md_blocks(ui: &mut egui::Ui, doc: usize, blocks: &[Block]) {
+    for (i, b) in blocks.iter().enumerate() {
+        match b {
+            Block::Heading { level, text } => {
+                let t = crate::md::plain(text);
+                ui.add_space(4.0);
+                match level {
+                    1 | 2 => ui.label(RichText::new(t).heading()),
+                    3 => ui.label(RichText::new(t).strong().size(16.0)),
+                    _ => ui.label(RichText::new(t).strong()),
+                };
+            }
+            Block::Para(text) => md_inlines(ui, text, false),
+            Block::Item {
+                depth,
+                marker,
+                text,
+            } => {
+                ui.horizontal(|ui| {
+                    ui.add_space(f32::from(*depth) * 18.0 + 6.0);
+                    ui.label(format!("{marker} "));
+                    ui.vertical(|ui| md_inlines(ui, text, false));
+                });
+            }
+            Block::Table { header, rows } => {
+                let width = match header.len() {
+                    0..=2 => 520.0,
+                    3..=4 => 360.0,
+                    _ => 230.0,
+                };
+                ScrollArea::horizontal()
+                    .id_salt(("md-table-scroll", doc, i))
+                    .show(ui, |ui| {
+                        Grid::new(("md-table", doc, i))
+                            .striped(true)
+                            .show(ui, |ui| {
+                                for c in header {
+                                    md_cell(ui, c, width, true);
+                                }
+                                ui.end_row();
+                                for row in rows {
+                                    for c in row {
+                                        md_cell(ui, c, width, false);
+                                    }
+                                    ui.end_row();
+                                }
+                            });
+                    });
+            }
+            Block::Code(lines) => {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    if ui.small_button("copy all").clicked() {
+                        ui.ctx().copy_text(lines.join("\n"));
+                    }
+                    for l in lines {
+                        copy_code(ui, l);
+                    }
+                });
+            }
+        }
+    }
 }
 
 /// The prepared raw JSON in a scroll area that lays out only the visible lines.

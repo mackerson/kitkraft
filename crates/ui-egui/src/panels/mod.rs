@@ -4,6 +4,7 @@
 
 pub mod diag;
 pub mod diff;
+pub mod help;
 pub mod links;
 pub mod load;
 pub mod planet;
