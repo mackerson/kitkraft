@@ -18,7 +18,7 @@ const MAX_JSON: u64 = 16_777_216;
 /// Deepest folder nesting checked in a deployed folder.
 const MAX_DEPTH: usize = 32;
 /// Most files checked in a deployed folder.
-const MAX_FILES: usize = 20_000;
+const MAX_FILES: usize = super::MAX_PACKAGE_FILES;
 /// `kind` of the journal.
 pub(crate) const JOURNAL_KIND: &str = "kitkraft-dev-journal";
 
@@ -63,7 +63,11 @@ pub(crate) struct Manifest {
     pub plugin: String,
     /// This deployment.
     pub deployment_id: String,
-    /// The deployment it replaced (now in `.previous`), if any.
+    /// The deployment this one was deployed over: live when it was written (or, with no
+    /// live folder, the one `.previous` held), if any. History, not a pointer: a later
+    /// rollback or redeploy does not update it, so it need not name what `.previous`
+    /// holds now. That is `.previous`'s own manifest id (`deploy.status`:
+    /// `previous.manifest.deployment_id`), the one `deploy.rollback` restores.
     pub previous_deployment_id: Option<String>,
     /// UTC, RFC 3339.
     pub deployed_at: String,

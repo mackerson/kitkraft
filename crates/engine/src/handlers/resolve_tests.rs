@@ -141,7 +141,12 @@ fn set_resolves_a_bare_name() {
 fn build_resolves_a_bare_name() {
     let dir = temp_dir("resolve-build");
     let spec = dir.join("spec.toml");
-    std::fs::write(&spec, "version = 2\n\n[plugin]\nlocalized = false\n").unwrap();
+    // M3.E1: load-order problems refuse the forms they touch, so the spec names one.
+    std::fs::write(
+        &spec,
+        "version = 2\n\n[plugin]\nlocalized = false\n\n[[set]]\nform = \"AVM_Equinox_Equinox_Digital_Deluxe\"\nfields = { EDID = \"X\" }\n",
+    )
+    .unwrap();
     let out = dir.join("Out.esp");
     let args = json!({
         "spec": spec.display().to_string(), "out": out.display().to_string(),

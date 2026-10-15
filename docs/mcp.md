@@ -838,6 +838,70 @@ the command fails with the errors. Spec errors are `failed` with `spec: <key>: .
 and `passed`. Two builds of one spec give the same bytes, and a one-`[[set]]` spec gives
 the bytes `set` writes.
 
+**Spec version 3** (M4.E3) adds `[[place]]` (the arguments of `place` below, with an
+optional spec-local `name`; `allow_reference` is a list of member names) and `[[import]]`
+(`from`: a Creation Kit plugin, relative to the spec, whose `NAVM` records are copied
+unchanged; refused unless its master list equals the built plugin's). Classes and rules
+work over the typed world records (`REFR`, `CELL`, ...). `data` adds `placed[]` (as
+`place`'s), `imports[]` (`import`, `from`, `inserted`, `replaced`, `cells`) and
+`next_object_id`; a plan lists the new forms with their FormIDs. Every written plugin gets
+`TES4` `ONAM` for its overrides in groups 7, 9 and 10 (lane A's M4.A6 rule).
+
+### `place` (M4.E2)
+
+`place {base, position, into, cell? | world?, rotation?, persistent = false,
+initially_disabled = false, edid?, allow_reference?, plugin?, allow_untyped_lstrings}` plus
+the load-order arguments; CLI `kit place <base> --position "[x,y,z]" <into> --cell <CELL>`
+(or `--world <WRLD>`). A new `REFR` (`ACHR` for an `NPC_` base) with a new FormID (the
+`HEDR` next object ID advanced; full-scale plugins with full-scale masters only), in the
+named cell, or in the exterior cell of `world` holding the position (a persistent
+reference of a world goes into its persistent cell). The winning `CELL` (and `WRLD`) is
+carried as an unchanged copy first; a cell the target already has is kept. Written as
+`set` writes (staged, validated, then moved). Refusals are `failed` with
+`place.<code>: ...` (`base-not-placeable`, `no-base`, `no-cell`, `not-a-cell`,
+`cell-and-world`, `not-a-world`, `no-exterior-cell`, `persistence`, `edid-invalid`,
+`edid-clash`, `scaled-master`, `parent-not-carried`, `formid-exists`, `fails-validate`,
+`bad-vector`); a member below `corpus` confidence (`flag.initially_disabled`) is refused
+unless named in `allow_reference`. `data` is `set`'s plus `placed[]` (`entry`, `form`,
+`form_id`, `signature`, `editor_id`, `base`/`cell`/`world` with `form`, `signature`,
+`editor_id`, `winner` (cell: `kind`, `grid`), `stored_base`/`stored_cell`/`stored_world`,
+`position`, `rotation`, `persistent`, `initially_disabled`, `group_path[]` (`type`,
+`label`), `members[]` (`member`, `confidence`, `source`), `offset`, `length`), `carried[]`
+(`form`, `signature`, `outcome`, `identical_to_winner`, `inlined_lstrings`),
+`carried_from`, `next_object_id` and `validate`. Evidence: the base's and the cell's
+winning records, and every written record.
+
+### `new`, `clone` (M4.E1)
+
+`new {type, edid, into, fields?, masters?}` and `clone {form, edid, into, fields?, plugin?,
+allow_untyped_lstrings}`, plus the load-order arguments; CLI `kit new GLOB KC_Global
+<into> --fields '{"FLTV": 1.0}' --masters Starfield.esm`, `kit clone <form> KC_Copy
+<into>`. A new base form (a type the schema defines that lives in its own top-level
+group; the schema's required members written as zeros or an empty string, each field's
+subrecord created first) or a copy of a top-level winner, with a new FormID from lane A's
+allocator (full-scale targets and masters only) and the EditorID given; written as `set`
+writes (staged, validated, moved). Refusals: `failed` with `new.<code>:` or
+`clone.<code>:` (`untyped`, `not-top-level`, `edid-invalid`, `edid-clash`, `no-master`,
+`edid-field`, `occurrence`, `unknown-member`, `no-form`, `fails-validate`). `data` is
+`set`'s plus `new_forms[]` (`form`, `form_id`, `signature`, `editor_id`, `from`, `offset`,
+`length`), `next_object_id` and `validate`. Spec v3 `[[new]]` and `[[clone]]` take the
+same keys plus a `name`; a `[[place]]` base may be `new:<name>`.
+
+### `testplan` (M4.E6)
+
+`testplan {plugin, out, spec?}` plus the load-order arguments; CLI `kit testplan <plugin>
+<out> --profile <dir>`. Writes `out/kitkraft-test.txt` (console commands, CRLF: `coc
+<cell EditorID>`, `player.moveto <runtime ID>`, `prid <runtime ID>` per new reference,
+`player.additem <runtime ID> 1` per new item) and `out/checklist.md` (setup on the MO2
+profile `KitKraft Dev` from a disposable save, a step per form with its expected
+observation, persistence steps, the game-ledger entry) and nothing else. Runtime IDs are
+lane D's, for the plugin appended to the load order (after the last master-flagged plugin
+when it is one): both are assumptions named in `limitations`, as is the batch file's
+folder (grade D until M4.O2). `data`: `plugin`, `sha256`, `size`, `masters`, `profile`
+(always `KitKraft Dev`), `load_order_source`, `load_index`, `appended`, `batch`,
+`checklist`, `commands[]` (`command`, `why`), `forms[]` (`signature`, `form_id`, `new`,
+`editor_id`, `runtime_id`, `base`, `cell`, `position`, `persistent`), `summary`.
+
 ### Coming in M3: `refs` (M3.D4)
 
 Not in the catalog yet: it lands as one `CommandSpec` with M3.D4, and lane D documents its

@@ -9,7 +9,7 @@ use kitcraft_io::{ModState, Profile, ProfileOptions};
 use serde_json::{json, Value};
 
 use super::{io_error, refused, DeployError, DEV_PROFILE, LIVE_PROFILE, PREFIX};
-use crate::edit::patch::guard_location;
+use crate::edit::patch::{guard_location, is_user_data_dir};
 
 /// Longest full path (UTF-16 units) a deployed file may have: the classic Windows limit,
 /// which MO2 and the game are not known to lift.
@@ -195,11 +195,14 @@ impl Instance {
         Ok(instance)
     }
 
-    /// `mods\` must not be (inside) the game's Data folder, and the guarded folders must
-    /// not be inside `mods\`.
+    /// `mods\` must not be, or be inside, the game's Data folder or the user Data folder
+    /// (`Documents\My Games\Starfield\Data`, `is_user_data_dir`, shared with `set` and
+    /// `build`); it must not be the profiles, overwrite or downloads folder (MO2 lets
+    /// `mod_directory` name any of them); and the guarded folders must not be inside it.
     fn check_mods_location(&self) -> Result<(), DeployError> {
         let mods = canonical(&self.mods)?;
-        for dir in mods.ancestors() {
+        let spelled = absolute(&self.mods)?;
+        for dir in mods.ancestors().chain(spelled.ancestors()) {
             if dir.join("Starfield.esm").is_file() {
                 return Err(refused(
                     "location",
@@ -207,8 +210,28 @@ impl Instance {
                     format!("is inside the game's Data folder ({})", dir.display()),
                 ));
             }
+            if is_user_data_dir(dir) {
+                return Err(refused(
+                    "location",
+                    &self.mods,
+                    format!(
+                        "is inside the game's user Data folder ({}), which the game also loads from",
+                        dir.display()
+                    ),
+                ));
+            }
         }
         for (what, g) in &self.guarded {
+            if g == &mods && *what != "the MO2 instance root" {
+                return Err(refused(
+                    "location",
+                    &self.mods,
+                    format!(
+                        "is {what} ({}); mod_directory must be a folder of its own",
+                        g.display()
+                    ),
+                ));
+            }
             if g != &mods && (mods.starts_with(g) && *what != "the MO2 instance root") {
                 return Err(refused(
                     "location",
@@ -267,55 +290,85 @@ impl Instance {
             .map(|(_, p)| p))
     }
 
-    /// Refusals for the profiles involved: MO2's active profile is `Default`, or the
-    /// `profile` argument is `Default`, names more than one folder, or does not exist.
+    /// The refusal for a `profile` argument, if any: `Default` (any case), a name Windows
+    /// forbids, or not a profile folder of this instance.
+    pub(crate) fn check_profile_arg(&self, name: &str) -> Option<DeployError> {
+        let dir = self.profiles.join(name);
+        if name.trim().eq_ignore_ascii_case(LIVE_PROFILE) {
+            Some(refused(
+                "live-profile",
+                &dir,
+                format!(
+                    "`{LIVE_PROFILE}` is the owner's live game and never a deployment target; use `{DEV_PROFILE}`"
+                ),
+            ))
+        } else if let Err(m) = check_name(name) {
+            Some(refused("profile-name", &dir, m))
+        } else if !dir.join("modlist.txt").is_file() {
+            Some(refused(
+                "profile-missing",
+                &dir,
+                "is not an MO2 profile of this instance (no modlist.txt)",
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// The `profile` argument when [`Instance::check_profiles`] accepts it; diagnostics
+    /// read nothing else the caller named.
+    pub(crate) fn accepted_profile<'a>(&self, profile: Option<&'a str>) -> Option<&'a str> {
+        profile.filter(|p| self.check_profile_arg(p).is_none())
+    }
+
+    /// MO2's active profile, trimmed, when `ModOrganizer.ini` names one.
+    fn active_profile(&self) -> Option<&str> {
+        self.selected_profile
+            .as_deref()
+            .map(str::trim)
+            .filter(|p| !p.is_empty())
+    }
+
+    /// Refusals for the profiles involved: MO2's active profile is `Default`; or it is
+    /// unknown (`selected_profile` missing or empty) and `profile` does not name an
+    /// existing profile other than `Default`; or the `profile` argument is refused
+    /// ([`Instance::check_profile_arg`]). The gate fails closed: an INI it cannot read a
+    /// profile from never counts as "not `Default`".
     pub(crate) fn check_profiles(&self, profile: Option<&str>) -> Vec<DeployError> {
         let mut out = Vec::new();
         let ini = self.root.join("ModOrganizer.ini");
-        if self
-            .selected_profile
-            .as_deref()
-            .is_some_and(|p| p.trim().eq_ignore_ascii_case(LIVE_PROFILE))
-        {
-            out.push(refused(
+        match self.active_profile() {
+            Some(p) if p.eq_ignore_ascii_case(LIVE_PROFILE) => out.push(refused(
                 "live-profile",
                 &ini,
                 format!(
                     "MO2's active profile is `{LIVE_PROFILE}`, the owner's live game; switch MO2 to the `{DEV_PROFILE}` profile first"
                 ),
-            ));
+            )),
+            Some(_) => {}
+            None if self.accepted_profile(profile).is_some() => {}
+            None => out.push(refused(
+                "live-profile-unknown",
+                &ini,
+                format!(
+                    "names no active profile ([General] selected_profile is missing or empty), so it may be `{LIVE_PROFILE}`; pass --profile \"{DEV_PROFILE}\" (an existing profile other than `{LIVE_PROFILE}`), or open MO2 on `{DEV_PROFILE}` and close it so it records the profile"
+                ),
+            )),
         }
-        if let Some(name) = profile {
-            let dir = self.profiles.join(name);
-            if name.trim().eq_ignore_ascii_case(LIVE_PROFILE) {
-                out.push(refused(
-                    "live-profile",
-                    &dir,
-                    format!(
-                        "`{LIVE_PROFILE}` is the owner's live game and never a deployment target; use `{DEV_PROFILE}`"
-                    ),
-                ));
-            } else if let Err(m) = check_name(name) {
-                out.push(refused("profile-name", &dir, m));
-            } else if !dir.join("modlist.txt").is_file() {
-                out.push(refused(
-                    "profile-missing",
-                    &dir,
-                    "is not an MO2 profile of this instance (no modlist.txt)",
-                ));
-            }
+        if let Some(e) = profile.and_then(|name| self.check_profile_arg(name)) {
+            out.push(e);
         }
         out
     }
 
-    /// The profile diagnostics are read for: the `profile` argument, else MO2's active
-    /// profile, else `KitKraft Dev` when it exists. Never `Default`: its state is
-    /// irrelevant, and a warning such as "not enabled in Default" must not read as advice.
+    /// The profile diagnostics are read for: the `profile` argument when it is accepted,
+    /// else MO2's active profile, else `KitKraft Dev` when it exists. Never `Default`: its
+    /// state is irrelevant, and a warning such as "not enabled in Default" must not read
+    /// as advice.
     pub(crate) fn diagnostic_profile<'a>(&'a self, profile: Option<&'a str>) -> Option<&'a str> {
         let live = |p: &&str| p.trim().eq_ignore_ascii_case(LIVE_PROFILE);
-        profile
-            .filter(|p| !live(p))
-            .or(self.selected_profile.as_deref().filter(|p| !live(p)))
+        self.accepted_profile(profile)
+            .or(self.active_profile().filter(|p| !live(p)))
             .or_else(|| {
                 self.profiles
                     .join(DEV_PROFILE)

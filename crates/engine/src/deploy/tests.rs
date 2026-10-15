@@ -434,6 +434,179 @@ fn default_profile_is_refused_by_name() {
     assert_eq!(mo2.protected(), before);
 }
 
+/// Fable review (deploy round), finding 1: a `ModOrganizer.ini` saved with a UTF-8 BOM
+/// hid `[General]`, so `selected_profile=Default` read as absent and the gate failed open.
+#[test]
+fn bom_before_general_still_refuses_default() {
+    let mo2 = Mo2::new("bom");
+    let src = mo2.plugin(b"TES4");
+    let game = mo2
+        .root
+        .join("Game")
+        .to_string_lossy()
+        .replace('\\', "\\\\");
+    let mut ini = b"\xef\xbb\xbf".to_vec();
+    ini.extend_from_slice(
+        format!(
+            "[General]\r\nselected_profile=@ByteArray(Default)\r\ngamePath=@ByteArray({game})\r\n"
+        )
+        .as_bytes(),
+    );
+    mo2.write("mo2/ModOrganizer.ini", &ini);
+    let e = err_text(mo2.deploy(&src));
+    assert!(e.contains("[live-profile]"), "{e}");
+    assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+}
+
+/// Fable review (deploy round), finding 1: an INI that names no active profile is not
+/// "not `Default`". Refused unless `profile` names an existing profile other than
+/// `Default`; finding 9: diagnostics never read a `profile` the check refused.
+#[test]
+fn unknown_active_profile_fails_closed() {
+    let mo2 = Mo2::new("noprofile");
+    let src = mo2.plugin(b"TES4");
+    let game = mo2
+        .root
+        .join("Game")
+        .to_string_lossy()
+        .replace('\\', "\\\\");
+    for general in [
+        String::new(),
+        "selected_profile=\r\n".to_string(),
+        "selected_profile=@ByteArray()\r\n".to_string(),
+    ] {
+        mo2.write(
+            "mo2/ModOrganizer.ini",
+            format!("[General]\r\n{general}gamePath=@ByteArray({game})\r\n").as_bytes(),
+        );
+        let e = err_text(mo2.deploy(&src));
+        assert!(e.contains("[live-profile-unknown]"), "{general:?}: {e}");
+        assert!(err_text(mo2.rollback()).contains("live-profile-unknown"));
+        for bad in ["Default", "KitKraft Dve"] {
+            let r = execute(
+                "deploy",
+                json!({"source": src.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "profile": bad}),
+            );
+            assert!(err_text(r).contains("live-profile-unknown"), "{bad}");
+        }
+        assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+    }
+    // A dry run with a refused `profile`: diagnostics fall back, never read the bad name.
+    let r = execute(
+        "deploy",
+        json!({"source": src.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "dry_run": true, "profile": "KitKraft Dve"}),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["passed"], false);
+    let rules: Vec<&str> = r["data"]["refusals"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|x| x["rule"].as_str().unwrap())
+        .collect();
+    assert_eq!(rules, ["live-profile-unknown", "profile-missing"]);
+    assert_eq!(r["data"]["profile"]["profile"], "KitKraft Dev");
+    let s = execute(
+        "deploy.status",
+        json!({"mo2": mo2.mo2().to_str().unwrap(), "profile": "KitKraft Dve"}),
+    )
+    .unwrap();
+    let warnings = s["data"]["warnings"].to_string();
+    assert!(
+        warnings.contains("names no active profile") && warnings.contains("profile-missing"),
+        "{warnings}"
+    );
+    // Named explicitly, an existing profile other than Default lets it through.
+    let r = execute(
+        "deploy",
+        json!({"source": src.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(), "dev": true, "profile": "KitKraft Dev"}),
+    )
+    .unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+}
+
+/// Fable review (deploy round), findings 4 and 9: `mod_directory` may point anywhere. A
+/// `mods\` that is the user Data folder (or inside it), or that is the instance's
+/// overwrite, downloads or profiles folder, is refused before anything is written.
+#[test]
+fn mods_folder_location_is_checked() {
+    let mo2 = Mo2::new("modsloc");
+    let src = mo2.plugin(b"TES4");
+    let before = mo2.protected();
+    let esc = |p: &Path| p.to_string_lossy().replace('\\', "\\\\");
+    let game = esc(&mo2.root.join("Game"));
+    let user = mo2.root.join("My Games").join("Starfield");
+    fs::create_dir_all(user.join("Data").join("mods")).unwrap();
+    let custom = mo2.root.join("Custom");
+    fs::create_dir_all(custom.join("Data")).unwrap();
+    fs::write(custom.join("StarfieldCustom.ini"), b"[General]\r\n").unwrap();
+    for (dir, needle) in [
+        (mo2.mo2().join("overwrite"), "overwrite folder"),
+        (mo2.mo2().join("downloads"), "downloads folder"),
+        (mo2.mo2().join("profiles"), "profiles folder"),
+        (user.join("Data"), "user Data folder"),
+        (user.join("Data").join("mods"), "user Data folder"),
+        (custom.join("Data"), "user Data folder"),
+    ] {
+        mo2.write(
+            "mo2/ModOrganizer.ini",
+            format!(
+                "[General]\r\nselected_profile=@ByteArray(KitKraft Dev)\r\ngamePath=@ByteArray({game})\r\n[Settings]\r\nmod_directory=@ByteArray({})\r\n",
+                esc(&dir)
+            )
+            .as_bytes(),
+        );
+        let e = err_text(mo2.deploy(&src));
+        assert!(
+            e.contains("[location]") && e.contains(needle),
+            "{needle}: {e}"
+        );
+        let e = err_text(execute(
+            "deploy.status",
+            json!({"mo2": mo2.mo2().to_str().unwrap()}),
+        ));
+        assert!(e.contains("[location]"), "{e}");
+        assert_eq!(
+            fs::read_dir(&dir)
+                .unwrap()
+                .filter(|e| e
+                    .as_ref()
+                    .unwrap()
+                    .file_name()
+                    .to_string_lossy()
+                    .starts_with("KitKraft Dev - "))
+                .count(),
+            0
+        );
+    }
+    mo2.select("KitKraft Dev");
+    assert_eq!(mo2.protected(), before);
+}
+
+/// Fable review (deploy round), finding 5: one odd `KitKraft Dev - ...` folder (here a
+/// name too long to derive its journal's name from) used to fail the whole listing; it
+/// is reported as `state: "error"` and the other dev mods are still listed.
+#[test]
+fn status_reports_an_odd_folder_and_lists_the_rest() {
+    let mo2 = Mo2::new("oddstatus");
+    mo2.deploy(&mo2.plugin(b"TES4")).unwrap();
+    let odd = format!("KitKraft Dev - {}", "a".repeat(235));
+    fs::create_dir_all(mo2.mods().join(&odd)).unwrap();
+    let s = execute("deploy.status", json!({"mo2": mo2.mo2().to_str().unwrap()})).unwrap();
+    let mods = s["data"]["mods"].as_array().unwrap();
+    assert_eq!(mods.len(), 2, "{s}");
+    let by_name = |n: &str| mods.iter().find(|m| m["mod"] == n).unwrap();
+    assert_eq!(by_name(MOD)["state"], "ok");
+    assert_eq!(by_name(MOD)["live"]["state"], "managed");
+    let bad = by_name(&odd);
+    assert_eq!(bad["state"], "error");
+    assert!(
+        bad["error"].as_str().unwrap().contains("longer than 255"),
+        "{bad}"
+    );
+    assert!(s["data"]["summary"].as_str().unwrap().contains("error"));
+}
+
 #[test]
 fn same_named_folder_that_is_not_kitkraft_s_is_refused() {
     let mo2 = Mo2::new("collision");
@@ -594,6 +767,199 @@ fn interrupted_deploys_are_recovered_from_the_journal() {
         );
         assert_eq!(mo2.protected(), before, "{step:?}");
     }
+}
+
+/// Fable review (deploy round), finding 3: a redeploy drops `.previous`; it used to do so
+/// without checking it. A hand edit there refuses the deploy (`previous-modified`), in
+/// the deploy itself and when a journal's recovery would drop `.retired`; MO2's
+/// `meta.ini` is allowed.
+#[test]
+fn edited_rollback_copy_is_never_dropped() {
+    let mo2 = Mo2::new("prevmod");
+    let (_, id2) = two_deployments(&mo2);
+    let prev = mo2.slot(".previous");
+    fs::write(prev.join("MyMod.esm"), b"edited in the rollback copy").unwrap();
+    let v3 = mo2.plugin(b"TES4 v3");
+    let e = err_text(mo2.deploy(&v3));
+    assert!(
+        e.contains("[previous-modified]") && e.contains("MyMod.esm"),
+        "{e}"
+    );
+    assert_eq!(
+        fs::read(prev.join("MyMod.esm")).unwrap(),
+        b"edited in the rollback copy"
+    );
+    assert_eq!(mo2.id(&mo2.target()), id2);
+    // An unmanaged file there refuses too.
+    fs::write(prev.join("MyMod.esm"), b"TES4 v1").unwrap();
+    fs::write(prev.join("notes.txt"), b"mine").unwrap();
+    assert!(err_text(mo2.deploy(&v3)).contains("unmanaged: notes.txt"));
+    fs::remove_file(prev.join("notes.txt")).unwrap();
+    // MO2's meta.ini is allowed (MO2 lists `.previous` as a mod and writes one).
+    fs::write(prev.join("meta.ini"), b"[General]\r\n").unwrap();
+    let r = mo2.deploy(&v3).unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+    assert_eq!(mo2.id(&mo2.slot(".previous")), id2);
+
+    // Recovery: a deploy interrupted after its commit leaves `.retired` (the old
+    // `.previous`) for the next call to drop; edited meanwhile, it is kept and refused.
+    let e = deploy_with(
+        &mo2,
+        &mo2.plugin(b"TES4 v4"),
+        Hooks {
+            interrupt_after: Some(Step::Committed),
+        },
+    )
+    .unwrap_err();
+    assert_eq!(e.rule, "interrupted");
+    let retired = mo2.slot(".retired");
+    assert!(retired.is_dir());
+    fs::write(retired.join("MyMod.esm"), b"edited while retired").unwrap();
+    let e = err_text(mo2.deploy(&mo2.plugin(b"TES4 v4")));
+    assert!(e.contains("[previous-modified]"), "{e}");
+    assert_eq!(
+        fs::read(retired.join("MyMod.esm")).unwrap(),
+        b"edited while retired"
+    );
+    assert!(mo2.slot(".kitkraft-journal.json").is_file());
+    // Put back as recorded, the next call finishes the cleanup.
+    fs::write(retired.join("MyMod.esm"), b"TES4 v2").unwrap();
+    let r = mo2.deploy(&mo2.plugin(b"TES4 v4")).unwrap();
+    assert_eq!(r["data"]["recovered"]["outcome"], "completed", "{r}");
+    assert!(!retired.exists());
+}
+
+/// Fable review (deploy round), finding 6: two writing calls on one dev mod are locked
+/// against each other by `<target>.kitkraft-lock` (`create_new`), and journal recovery
+/// runs only under the lock.
+#[test]
+fn a_held_lock_refuses_and_recovery_waits_for_it() {
+    let mo2 = Mo2::new("lock");
+    let (_, id2) = two_deployments(&mo2);
+    let lock = mo2.slot(".kitkraft-lock");
+    assert!(!lock.exists(), "released after each call");
+    // Leave a journal behind, then hold the lock as another process would.
+    deploy_with(
+        &mo2,
+        &mo2.plugin(b"TES4 v3"),
+        Hooks {
+            interrupt_after: Some(Step::Moved),
+        },
+    )
+    .unwrap_err();
+    let journal = mo2.slot(".kitkraft-journal.json");
+    assert!(journal.is_file() && !lock.exists());
+    fs::write(&lock, b"held").unwrap();
+    let listing = mo2.mods_listing();
+    let e = err_text(mo2.deploy(&mo2.plugin(b"TES4 v2")));
+    assert!(e.contains("[locked]"), "{e}");
+    assert!(err_text(mo2.rollback()).contains("[locked]"));
+    // Nothing recovered or written under someone else's lock.
+    assert!(journal.is_file());
+    assert_eq!(mo2.mods_listing(), listing);
+    assert_eq!(fs::read(&lock).unwrap(), b"held");
+    let s = execute("deploy.status", json!({"mo2": mo2.mo2().to_str().unwrap()})).unwrap();
+    assert!(
+        s["data"]["mods"][0]["lock"]
+            .as_str()
+            .unwrap()
+            .ends_with("KitKraft Dev - MyMod.kitkraft-lock"),
+        "{s}"
+    );
+    // Released, the next call recovers first and runs.
+    fs::remove_file(&lock).unwrap();
+    let r = mo2.deploy(&mo2.plugin(b"TES4 v2")).unwrap();
+    assert_eq!(r["data"]["recovered"]["outcome"], "rolled back", "{r}");
+    assert_eq!(r["data"]["outcome"], "unchanged");
+    assert_eq!(mo2.id(&mo2.target()), id2);
+    assert!(!lock.exists() && !journal.exists());
+}
+
+/// Fable review (deploy round), finding 8: the path-length check measured files under
+/// `.staging`, but every file later lives under `.previous`, one character longer. A file
+/// that fits under `.staging` but not under `.previous` is refused before any write.
+#[test]
+fn path_length_is_checked_for_the_rollback_copy() {
+    let mo2 = Mo2::new("pathlen");
+    let staging = super::instance::path_units(&mo2.slot(".staging"));
+    // `<staging>\Scripts\<name>.pex` exactly at the limit: one over under `.previous`.
+    let name_len = super::instance::MAX_PATH_UNITS - staging - "\\Scripts\\".len() - ".pex".len();
+    let pkg = mo2.package("long", b"TES4");
+    fs::remove_file(pkg.join("Scripts").join("MyScript.pex")).unwrap();
+    let rel = format!("{}.pex", "s".repeat(name_len));
+    fs::write(pkg.join("Scripts").join(&rel), b"pex").unwrap();
+    assert_eq!(
+        super::instance::path_units(&mo2.slot(".staging").join("Scripts").join(&rel)),
+        super::instance::MAX_PATH_UNITS
+    );
+    let e = err_text(mo2.deploy(&pkg));
+    assert!(
+        e.contains("[source-path]") && e.contains(".previous") && e.contains(&rel),
+        "{e}"
+    );
+    assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+    // One character shorter fits everywhere.
+    fs::remove_file(pkg.join("Scripts").join(&rel)).unwrap();
+    fs::write(
+        pkg.join("Scripts")
+            .join(format!("{}.pex", "s".repeat(name_len - 1))),
+        b"pex",
+    )
+    .unwrap();
+    assert_eq!(mo2.deploy(&pkg).unwrap()["data"]["outcome"], "deployed");
+}
+
+/// Fable review (deploy round), finding 10: rollback wrote the live folder's `meta.ini`
+/// into `.previous` before the swap, so an interrupted rollback left `.previous` changed
+/// (and a crash mid-write left `meta.ini.tmp`, an unmanaged file, for good). It is copied
+/// into the new live folder after the swap, and recovery removes our own temp names.
+#[test]
+fn rollback_copies_meta_ini_after_the_swap() {
+    let mo2 = Mo2::new("rollmeta");
+    let (id1, id2) = two_deployments(&mo2);
+    fs::write(mo2.target().join("meta.ini"), b"live notes").unwrap();
+    fs::write(mo2.slot(".previous").join("meta.ini"), b"previous meta").unwrap();
+    let req = |hooks| RollbackRequest {
+        mo2: mo2.mo2(),
+        mod_arg: MOD.to_string(),
+        to: None,
+        profile: None,
+        dry_run: false,
+        hooks,
+    };
+    let e = rollback(&req(Hooks {
+        interrupt_after: Some(Step::Moved),
+    }))
+    .unwrap_err();
+    assert_eq!(e.rule, "interrupted");
+    assert_eq!(
+        fs::read(mo2.slot(".previous").join("meta.ini")).unwrap(),
+        b"previous meta",
+        "`.previous` is not written before the swap"
+    );
+    let r = rollback(&req(Hooks::default())).unwrap();
+    assert_eq!(r.data["recovered"]["outcome"], "rolled back");
+    assert_eq!(mo2.id(&mo2.target()), id1);
+    assert_eq!(
+        fs::read(mo2.target().join("meta.ini")).unwrap(),
+        b"live notes"
+    );
+    assert_eq!(
+        fs::read(mo2.slot(".previous").join("meta.ini")).unwrap(),
+        b"live notes"
+    );
+    // A crash while writing the live folder's meta.ini (after the commit) leaves our
+    // temp file: the next call's recovery removes it and the folder reads clean.
+    rollback(&req(Hooks {
+        interrupt_after: Some(Step::Committed),
+    }))
+    .unwrap_err();
+    fs::write(mo2.target().join("meta.ini.tmp"), b"half").unwrap();
+    let r = mo2.deploy(&mo2.plugin(b"TES4 v2")).unwrap();
+    assert_eq!(r["data"]["recovered"]["outcome"], "completed", "{r}");
+    assert_eq!(r["data"]["outcome"], "unchanged", "{r}");
+    assert!(!mo2.target().join("meta.ini.tmp").exists());
+    assert_eq!(mo2.id(&mo2.target()), id2);
 }
 
 #[test]

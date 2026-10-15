@@ -268,10 +268,11 @@ fn set_refuses_malformed_strings_and_records_that_fail_validate() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
-/// Until lane D's round 2: a load order with a plugin before its master (or missing one)
-/// is refused as a source, and so is a deleted winning version.
+/// M3.E1: a load-order problem refuses only the forms it can touch (lane D's source
+/// check): a plugin before its master that holds a version of the form, a missing master,
+/// a deleted winner. Anything else is a limitation.
 #[test]
-fn unverified_load_orders_and_deleted_records_are_refused() {
+fn unsafe_winners_are_refused_and_unrelated_problems_are_limitations() {
     let d = dir("set-unsafe");
     let data = data(&d);
     let target = d.join("P.esp");
@@ -284,14 +285,26 @@ fn unverified_load_orders_and_deleted_records_are_refused() {
             }),
         )
     };
-    let err = run(json!(["Override.esp", "Source.esm"]), "OldRifle").unwrap_err();
+    // Override.esp loads before its master and holds a version of OtherRifle: refused.
+    let err = run(json!(["Override.esp", "Source.esm"]), "Source.esm:000801").unwrap_err();
     let text = err.to_string();
     assert!(
-        text.contains("load order unverified") && text.contains("Override.esp loads before"),
+        text.contains("not a safe source") && text.contains("Override.esp loads before"),
         "{text}"
     );
+    assert!(!target.exists());
+    // OldRifle has no version in Override.esp: the ordering error is a limitation only.
+    let ok = run(json!(["Override.esp", "Source.esm"]), "OldRifle").unwrap();
+    assert!(
+        ok["limitations"].as_array().unwrap().iter().any(|l| {
+            let l = l.as_str().unwrap();
+            l.contains("does not affect") && l.contains("Override.esp loads before")
+        }),
+        "{ok:#}"
+    );
+    let _ = std::fs::remove_file(&target);
     let err = run(json!(["Override.esp"]), "Override.esp:000801").unwrap_err();
-    assert!(err.to_string().contains("misses master"), "{err}");
+    assert!(err.to_string().contains("no version"), "{err}");
     // A deleted winner.
     let mut gone = weapon(0x0000_0800, "OldRifle", 0x0002_E469);
     gone.header.flags |= 0x20;
@@ -299,5 +312,137 @@ fn unverified_load_orders_and_deleted_records_are_refused() {
     let err = run(json!(["Source.esm", "Delete.esp"]), "Source.esm:000800").unwrap_err();
     assert!(err.to_string().contains("deleted"), "{err}");
     assert!(!target.exists());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// M3.E2: a string table entry that is not UTF-8 is copied inline as the table stores it
+/// (lane D's `Resolved::bytes`), not refused and not replaced by lossy text.
+#[test]
+fn non_utf8_table_strings_are_copied_byte_for_byte() {
+    let d = dir("set-non-utf8");
+    let data = data(&d);
+    let table = Table::new(
+        Kind::Strings,
+        vec![
+            Entry::new(0x0002_E469, "Old Earth Hunting Rifle"),
+            Entry::new(0x0002_E46A, "Other Rifle"),
+            Entry::new(0x0002_EDD8, b"Simpl\xE9".to_vec()),
+        ],
+    );
+    std::fs::write(
+        data.join("Strings").join("source_en.strings"),
+        table.to_bytes().unwrap(),
+    )
+    .unwrap();
+    let target = d.join("P.esp");
+    let result = set(&data, "OldRifle", json!({"FULL": "X"}), &target);
+    let bytes = std::fs::read(&target).unwrap();
+    assert!(
+        bytes.windows(7).any(|w| w == b"Simpl\xE9\0"),
+        "the table's bytes are written inline"
+    );
+    assert!(
+        result["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l.as_str().unwrap().contains(">= 0x80")),
+        "{result:#}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// M3.E1 acceptance: on an MO2 profile with an active plugin that has no file, a form the
+/// gap cannot touch is written with a limitation; a form a plugin needing the missing one
+/// may override is refused.
+#[test]
+fn a_missing_active_plugin_refuses_only_the_forms_it_can_touch() {
+    let d = dir("set-missing-active");
+    let data = data(&d);
+    // Later.esp needs Gone.esm (active, no file), so its records do not resolve; one of
+    // them has OldRifle's object ID.
+    let mut later = weapon(0x0000_0800, "OldRifle", 0);
+    for s in later.subrecords_mut().unwrap() {
+        if s.signature().to_string() == "FULL" {
+            s.set_data(b"Later\0".to_vec());
+        }
+        if s.signature().to_string() == "DESC" {
+            s.set_data(b"\0".to_vec());
+        }
+    }
+    write_plugin(
+        &data,
+        "Later.esp",
+        &["Source.esm", "Gone.esm"],
+        0,
+        vec![later],
+    );
+    let root = d.join("MO2");
+    for sub in ["mods", "overwrite", "profiles/P"] {
+        std::fs::create_dir_all(root.join(sub)).unwrap();
+    }
+    let game = d.to_string_lossy().replace('\\', "\\\\");
+    std::fs::write(
+        root.join("ModOrganizer.ini"),
+        format!("[General]\r\ngameName=Starfield\r\ngamePath=@ByteArray({game})\r\n"),
+    )
+    .unwrap();
+    std::fs::write(
+        root.join("profiles/P/plugins.txt"),
+        b"*Source.esm\r\n*Override.esp\r\n*Gone.esm\r\n*Later.esp\r\n",
+    )
+    .unwrap();
+    std::fs::write(root.join("profiles/P/modlist.txt"), b"").unwrap();
+    let out = d.join("out");
+    std::fs::create_dir_all(&out).unwrap();
+    let run = |form: &str, into: &Path| {
+        execute(
+            "set",
+            json!({
+                "form": form, "fields": {"FULL": "x"}, "into": into.display().to_string(),
+                "profile": root.join("profiles/P").display().to_string(), "no_cache": true,
+            }),
+        )
+    };
+    let ok = run("Source.esm:000801", &out.join("A.esp")).unwrap();
+    assert!(
+        ok["limitations"].as_array().unwrap().iter().any(|l| {
+            let l = l.as_str().unwrap();
+            l.contains("does not affect") && l.contains("Gone.esm")
+        }),
+        "{ok:#}"
+    );
+    let err = run("Source.esm:000800", &out.join("B.esp")).unwrap_err();
+    assert!(
+        err.to_string().contains("not a safe source") && err.to_string().contains("Later.esp"),
+        "{err}"
+    );
+    assert!(!out.join("B.esp").exists());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Fable review (deploy round), finding 2: `into` through a junction into MO2's `mods\`,
+/// followed by folders that do not exist yet, is refused and nothing lands in `mods\`.
+#[test]
+fn set_refuses_a_target_through_a_junction() {
+    let d = dir("set-junction");
+    let data = data(&d);
+    let Some((link, mods)) = crate::edit::patch_tests::junction_into_mods(&d) else {
+        return;
+    };
+    let into = link.join("new").join("deeper").join("P.esp");
+    let err = execute(
+        "set",
+        json!({
+            "form": "OldRifle", "fields": {"FULL": "x"}, "into": into.display().to_string(),
+            "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+            "no_cache": true,
+        }),
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(err.contains("junction"), "{err}");
+    assert!(std::fs::read_dir(&mods).unwrap().next().is_none());
+    std::fs::remove_dir(&link).unwrap();
     let _ = std::fs::remove_dir_all(&d);
 }

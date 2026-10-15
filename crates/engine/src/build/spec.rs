@@ -1,4 +1,41 @@
-//! The `build` spec (TOML): version 1 (M2.E9) and version 2 (M3.E6).
+//! The `build` spec (TOML): version 1 (M2.E9), version 2 (M3.E6) and version 3 (M4.E3).
+//!
+//! Version 3 is version 2 plus new records and imports:
+//!
+//! ```toml
+//! version = 3
+//!
+//! [[place]]                           # a new reference, as `kit place` takes it
+//! name = "poi_marker"                 # optional spec-local name (`new:poi_marker`)
+//! base = "Starfield.esm:0001A2B3"     # formref, EditorID, or hex FormID with `plugin`
+//! cell = "SomeInteriorCell"           # or world = "SomeWorld" (the position picks the cell)
+//! position = [10.0, 20.0, 30.0]
+//! rotation = [0.0, 0.0, 1.5]          # optional, default 0 0 0
+//! persistent = true                   # optional
+//! edid = "KC_PoiMarker"               # optional, unique in the load order and the spec
+//! allow_reference = ["flag.initially_disabled"]   # members below corpus, by name
+//!
+//! [[import]]                          # every NAVM of a Creation Kit plugin, unchanged
+//! from = "KC_POI_navmesh.esm"         # relative to the spec; same masters required
+//!
+//! [[new]]                            # a new base form, as `kit new` takes it
+//! name = "marker_base"
+//! type = "STAT"
+//! edid = "KC_MarkerBase"
+//! fields = { ... }
+//! masters = ["Starfield.esm"]
+//!
+//! [[clone]]                           # a copy of a base form, as `kit clone` takes it
+//! name = "crate"
+//! form = "Starfield.esm:001E4FBD"
+//! edid = "KC_Crate"
+//! ```
+//!
+//! A `[[place]]` base may be `new:<name>` of a `[[new]]` or `[[clone]]`. Classes and rules
+//! work over any typed record type, the world family's included (a rule over `REFR` writes
+//! overrides of placed references; the writer lists those in temporary children in
+//! `ONAM`). Names are unique; a placed reference, a new cell or world, and a clone of a
+//! form of the same build cannot be named.
 //!
 //! ```toml
 //! version = 2                         # 1 is still accepted, with M2's meaning
@@ -116,12 +153,88 @@ pub struct SetEntry {
     pub edits: Vec<Edit>,
     /// May write `reference`-only members.
     pub allow_reference: bool,
+    /// The brief row it serves (version 2).
+    pub brief: Option<String>,
+}
+
+/// A `[[place]]` entry (version 3): a new placed reference, as `kit place` takes it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct PlaceEntry {
+    /// `place[0]`.
+    pub key: String,
+    /// The spec-local name other entries use (`new:<name>`).
+    pub name: Option<String>,
+    /// The base form (formref, EditorID, hex FormID in `plugin`).
+    pub base: String,
+    /// The plugin whose numbering hex FormIDs use.
+    pub plugin: Option<String>,
+    /// The cell.
+    pub cell: Option<String>,
+    /// The world (the position picks the cell).
+    pub world: Option<String>,
+    pub position: [f64; 3],
+    pub rotation: [f64; 3],
+    pub persistent: bool,
+    pub initially_disabled: bool,
+    pub edid: Option<String>,
+    /// Members below `corpus` confidence to write anyway (`flag.initially_disabled`).
+    pub allow_reference: Vec<String>,
+    /// The brief row it serves.
+    pub brief: Option<String>,
+}
+
+/// A `[[new]]` entry (version 3): a new base form, as `kit new` takes it.
+#[derive(Debug, Clone)]
+pub struct NewEntry {
+    /// `new[0]`.
+    pub key: String,
+    /// The spec-local name (`new:<name>`).
+    pub name: Option<String>,
+    /// The record type.
+    pub signature: [u8; 4],
+    /// The EditorID.
+    pub edid: String,
+    /// The fields.
+    pub edits: Vec<Edit>,
+    /// Masters its FormID fields need.
+    pub masters: Vec<String>,
+    /// The brief row it serves.
+    pub brief: Option<String>,
+}
+
+/// A `[[clone]]` entry (version 3): a copy of a base form, as `kit clone` takes it.
+#[derive(Debug, Clone)]
+pub struct CloneEntry {
+    /// `clone[0]`.
+    pub key: String,
+    /// The spec-local name (`new:<name>`).
+    pub name: Option<String>,
+    /// The form to copy (formref, EditorID, hex FormID with `plugin`).
+    pub form: String,
+    /// The plugin whose numbering a hex FormID uses.
+    pub plugin: Option<String>,
+    /// The clone's EditorID.
+    pub edid: String,
+    /// The fields.
+    pub edits: Vec<Edit>,
+    /// The brief row it serves.
+    pub brief: Option<String>,
+}
+
+/// An `[[import]]` entry (version 3): every `NAVM` of a Creation Kit plugin, imported
+/// unchanged (lane A's NAVM passthrough, M4.A4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ImportEntry {
+    /// `import[0]`.
+    pub key: String,
+    /// The plugin to import from (a path).
+    pub from: String,
 }
 
 /// A parsed spec.
 #[derive(Debug, Clone)]
 pub struct Spec {
-    /// 1 or 2.
+    /// 1, 2 or 3.
     pub version: u8,
     /// The `[load_order]` table as JSON load-order arguments.
     pub load_order: Option<Value>,
@@ -133,6 +246,333 @@ pub struct Spec {
     pub rules: Vec<Rule>,
     /// Explicit sets in spec order.
     pub sets: Vec<SetEntry>,
+    /// New base forms in spec order (version 3).
+    pub news: Vec<NewEntry>,
+    /// Clones in spec order (version 3).
+    pub clones: Vec<CloneEntry>,
+    /// New placed references in spec order (version 3).
+    pub places: Vec<PlaceEntry>,
+    /// Navmesh imports in spec order (version 3).
+    pub imports: Vec<ImportEntry>,
+}
+
+/// A spec-local name: ASCII letters, digits and `_`.
+fn local_name(text: &str, key: &str) -> Result<String, SpecError> {
+    if text.is_empty()
+        || text.len() > 64
+        || !text.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_')
+    {
+        return Err(error(key, "a name is 1 to 64 ASCII letters, digits or `_`"));
+    }
+    Ok(text.to_string())
+}
+
+/// Three finite numbers (`position`, `rotation`).
+fn vec3(table: &toml::Table, key: &str, at: &str, required: bool) -> Result<[f64; 3], SpecError> {
+    let here = format!("{at}.{key}");
+    let Some(value) = table.get(key) else {
+        return if required {
+            Err(error(&here, "is required (three numbers)"))
+        } else {
+            Ok([0.0; 3])
+        };
+    };
+    let items = match value {
+        toml::Value::Array(a) if a.len() == 3 => a,
+        _ => return Err(error(&here, "must be three numbers")),
+    };
+    let mut out = [0f64; 3];
+    for (i, (slot, item)) in out.iter_mut().zip(items).enumerate() {
+        let v = match item {
+            toml::Value::Float(f) => *f,
+            toml::Value::Integer(n) => {
+                // i64 to f64: exact for the positions a world holds; checked below.
+                #[allow(clippy::cast_precision_loss)]
+                {
+                    *n as f64
+                }
+            }
+            _ => return Err(error(&format!("{here}[{i}]"), "must be a number")),
+        };
+        if !v.is_finite() || v.abs() > f64::from(f32::MAX) {
+            return Err(error(
+                &format!("{here}[{i}]"),
+                format!("{v} is not a finite 32-bit float (range)"),
+            ));
+        }
+        *slot = v;
+    }
+    Ok(out)
+}
+
+/// The `[[place]]` entries; names are checked unique across the spec by the caller.
+fn places(root: &toml::Table) -> Result<Vec<PlaceEntry>, SpecError> {
+    let mut out = Vec::new();
+    for (i, t) in entries(root, "place")?.iter().enumerate() {
+        let at = format!("place[{i}]");
+        only_keys(
+            t,
+            &at,
+            &[
+                "name",
+                "base",
+                "plugin",
+                "cell",
+                "world",
+                "position",
+                "rotation",
+                "persistent",
+                "initially_disabled",
+                "edid",
+                "allow_reference",
+                "brief",
+                "note",
+            ],
+        )?;
+        optional_string(t, "note", &at)?;
+        let name = optional_string(t, "name", &at)?
+            .map(|n| local_name(&n, &format!("{at}.name")))
+            .transpose()?;
+        let allow_reference =
+            match t.get("allow_reference") {
+                None => Vec::new(),
+                Some(toml::Value::Array(items)) => items
+                    .iter()
+                    .enumerate()
+                    .map(|(j, v)| match v {
+                        toml::Value::String(s) => Ok(s.clone()),
+                        _ => Err(error(
+                            &format!("{at}.allow_reference[{j}]"),
+                            "must be a member name (DATA.Rotation, flag.initially_disabled)",
+                        )),
+                    })
+                    .collect::<Result<_, _>>()?,
+                Some(_) => return Err(error(
+                    &format!("{at}.allow_reference"),
+                    "must be an array of member names (a [[place]] names the members it allows)",
+                )),
+            };
+        out.push(PlaceEntry {
+            key: at.clone(),
+            name,
+            base: string(t, "base", &at)?.to_string(),
+            plugin: optional_string(t, "plugin", &at)?,
+            cell: optional_string(t, "cell", &at)?,
+            world: optional_string(t, "world", &at)?,
+            position: vec3(t, "position", &at, true)?,
+            rotation: vec3(t, "rotation", &at, false)?,
+            persistent: boolean(t, "persistent", &at)?,
+            initially_disabled: boolean(t, "initially_disabled", &at)?,
+            edid: optional_string(t, "edid", &at)?,
+            allow_reference,
+            brief: optional_string(t, "brief", &at)?,
+        });
+    }
+    Ok(out)
+}
+
+/// The `[[import]]` entries.
+fn imports(root: &toml::Table) -> Result<Vec<ImportEntry>, SpecError> {
+    entries(root, "import")?
+        .iter()
+        .enumerate()
+        .map(|(i, t)| {
+            let at = format!("import[{i}]");
+            only_keys(t, &at, &["from", "note"])?;
+            optional_string(t, "note", &at)?;
+            Ok(ImportEntry {
+                key: at.clone(),
+                from: string(t, "from", &at)?.to_string(),
+            })
+        })
+        .collect()
+}
+
+/// Spec-local names (`new:<name>`) in a value: the name, if the text is one.
+pub fn local_ref(text: &str) -> Option<&str> {
+    text.strip_prefix("new:")
+}
+
+/// Checks the spec-local names: unique across `[[new]]`, `[[clone]]` and `[[place]]`, and
+/// every `new:<name>` known and usable: a `[[place]]` base may name a `[[new]]` or
+/// `[[clone]]` (a base form written by the same build); nothing may name a `[[place]]` (a
+/// placed reference is never a base, cell or world), a cell or world may not be new (no
+/// entry creates one), and a `[[clone]]` may not copy a form of the same build (its own
+/// name is a cycle).
+fn check_names(
+    news: &[NewEntry],
+    clones: &[CloneEntry],
+    places: &[PlaceEntry],
+) -> Result<(), SpecError> {
+    // (name, key, kind)
+    let mut seen: Vec<(&str, &str, &str)> = Vec::new();
+    let named = news
+        .iter()
+        .map(|n| (n.name.as_ref(), n.key.as_str(), "new"))
+        .chain(
+            clones
+                .iter()
+                .map(|c| (c.name.as_ref(), c.key.as_str(), "clone")),
+        )
+        .chain(
+            places
+                .iter()
+                .map(|p| (p.name.as_ref(), p.key.as_str(), "place")),
+        );
+    for (name, key, kind) in named {
+        let Some(name) = name else { continue };
+        if let Some((_, first, _)) = seen.iter().find(|(n, _, _)| n.eq_ignore_ascii_case(name)) {
+            return Err(error(
+                &format!("{key}.name"),
+                format!("`{name}` is already the name of {first}"),
+            ));
+        }
+        seen.push((name, key, kind));
+    }
+    let unknown = |key: &str, name: &str| {
+        let names: Vec<&str> = seen.iter().map(|(n, _, _)| *n).collect();
+        error(
+            key,
+            format!(
+                "unknown name `{name}` (names: {})",
+                if names.is_empty() {
+                    "none".to_string()
+                } else {
+                    names.join(", ")
+                }
+            ),
+        )
+    };
+    for c in clones {
+        if let Some(name) = local_ref(&c.form) {
+            let key = format!("{}.form", c.key);
+            return Err(match seen.iter().find(|(n, _, _)| n.eq_ignore_ascii_case(name)) {
+                None => unknown(&key, name),
+                Some((_, owner, _)) if *owner == c.key => {
+                    error(&key, format!("`{name}` names this entry itself (a cycle)"))
+                }
+                Some((_, owner, _)) => error(
+                    &key,
+                    format!("`{name}` is written by {owner} in this build; a [[clone]] copies a form of the load order"),
+                ),
+            });
+        }
+    }
+    for p in places {
+        for (field, value) in [
+            ("base", Some(&p.base)),
+            ("cell", p.cell.as_ref()),
+            ("world", p.world.as_ref()),
+        ] {
+            let Some(name) = value.and_then(|v| local_ref(v)) else {
+                continue;
+            };
+            let key = format!("{}.{field}", p.key);
+            match seen.iter().find(|(n, _, _)| n.eq_ignore_ascii_case(name)) {
+                None => return Err(unknown(&key, name)),
+                Some((_, owner, _)) if *owner == p.key => {
+                    return Err(error(
+                        &key,
+                        format!("`{name}` names this entry itself (a cycle)"),
+                    ));
+                }
+                Some((_, owner, "place")) => {
+                    return Err(error(
+                        &key,
+                        format!("`{name}` is the reference {owner} places; a {field} must be a base form, cell or world, not a placed reference"),
+                    ));
+                }
+                Some((_, owner, _)) if field != "base" => {
+                    return Err(error(
+                        &key,
+                        format!("`{name}` is the base form {owner} writes; a {field} must be a cell or world of the load order"),
+                    ));
+                }
+                Some(_) => {}
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The `[[new]]` entries.
+fn news(root: &toml::Table) -> Result<Vec<NewEntry>, SpecError> {
+    let mut out = Vec::new();
+    for (i, t) in entries(root, "new")?.iter().enumerate() {
+        let at = format!("new[{i}]");
+        only_keys(
+            t,
+            &at,
+            &["name", "type", "edid", "fields", "masters", "brief", "note"],
+        )?;
+        optional_string(t, "note", &at)?;
+        let masters = match t.get("masters") {
+            None => Vec::new(),
+            Some(toml::Value::Array(items)) => items
+                .iter()
+                .enumerate()
+                .map(|(j, v)| match v {
+                    toml::Value::String(s) => Ok(s.clone()),
+                    _ => Err(error(
+                        &format!("{at}.masters[{j}]"),
+                        "must be a plugin name",
+                    )),
+                })
+                .collect::<Result<_, _>>()?,
+            Some(_) => {
+                return Err(error(
+                    &format!("{at}.masters"),
+                    "must be an array of plugin names",
+                ))
+            }
+        };
+        out.push(NewEntry {
+            key: at.clone(),
+            name: optional_string(t, "name", &at)?
+                .map(|n| local_name(&n, &format!("{at}.name")))
+                .transpose()?,
+            signature: signature(string(t, "type", &at)?, &format!("{at}.type"))?,
+            edid: string(t, "edid", &at)?.to_string(),
+            edits: if t.contains_key("fields") {
+                fields(t, &at)?
+            } else {
+                Vec::new()
+            },
+            masters,
+            brief: optional_string(t, "brief", &at)?,
+        });
+    }
+    Ok(out)
+}
+
+/// The `[[clone]]` entries.
+fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
+    let mut out = Vec::new();
+    for (i, t) in entries(root, "clone")?.iter().enumerate() {
+        let at = format!("clone[{i}]");
+        only_keys(
+            t,
+            &at,
+            &["name", "form", "plugin", "edid", "fields", "brief", "note"],
+        )?;
+        optional_string(t, "note", &at)?;
+        out.push(CloneEntry {
+            key: at.clone(),
+            name: optional_string(t, "name", &at)?
+                .map(|n| local_name(&n, &format!("{at}.name")))
+                .transpose()?,
+            form: string(t, "form", &at)?.to_string(),
+            plugin: optional_string(t, "plugin", &at)?,
+            edid: string(t, "edid", &at)?.to_string(),
+            edits: if t.contains_key("fields") {
+                fields(t, &at)?
+            } else {
+                Vec::new()
+            },
+            brief: optional_string(t, "brief", &at)?,
+        });
+    }
+    Ok(out)
 }
 
 /// TOML -> JSON (field values and load-order arguments).
@@ -303,14 +743,29 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
     let version: u8 = match root.get("version") {
         Some(toml::Value::Integer(1)) => 1,
         Some(toml::Value::Integer(2)) => 2,
-        Some(_) => return Err(error("version", "must be 1 or 2")),
-        None => return Err(error("version", "is required (version = 2)")),
+        Some(toml::Value::Integer(3)) => 3,
+        Some(_) => return Err(error("version", "must be 1, 2 or 3")),
+        None => return Err(error("version", "is required (version = 3)")),
     };
     if version == 1 {
         only_keys(
             &root,
             "",
             &["version", "plugin", "load_order", "set", "rule"],
+        )?;
+    } else if version == 2 {
+        only_keys(
+            &root,
+            "",
+            &[
+                "version",
+                "plugin",
+                "load_order",
+                "strict",
+                "class",
+                "rule",
+                "set",
+            ],
         )?;
     } else {
         only_keys(
@@ -324,6 +779,10 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
                 "class",
                 "rule",
                 "set",
+                "place",
+                "import",
+                "new",
+                "clone",
             ],
         )?;
     }
@@ -498,7 +957,6 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
                     "note",
                 ],
             )?;
-            optional_string(t, "brief", &at)?;
             optional_string(t, "note", &at)?;
         }
         sets.push(SetEntry {
@@ -507,11 +965,21 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
             plugin: optional_string(t, "plugin", &at)?,
             edits: fields(t, &at)?,
             allow_reference: boolean(t, "allow_reference", &at)?,
+            brief: optional_string(t, "brief", &at)?,
         });
     }
     if version == 1 && rules.is_empty() && sets.is_empty() {
         return Err(error("set", "the spec has no [[set]] or [[rule]] entries"));
     }
+    let (news, clones, places, imports) = if version >= 3 {
+        let news = news(&root)?;
+        let clones = clones(&root)?;
+        let places = places(&root)?;
+        check_names(&news, &clones, &places)?;
+        (news, clones, places, imports(&root)?)
+    } else {
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new())
+    };
     Ok(Spec {
         version,
         load_order,
@@ -519,6 +987,10 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
         classes,
         rules,
         sets,
+        news,
+        clones,
+        places,
+        imports,
     })
 }
 
@@ -561,7 +1033,7 @@ mod tests {
 
     #[test]
     fn errors_name_the_key() {
-        assert!(err("version = 3\n").starts_with("spec: version:"));
+        assert!(err("version = 4\n").starts_with("spec: version:"));
         assert!(err("version = 2\nfoo = 1\n").starts_with("spec: foo:"));
         // Version 2 keys are not version 1 keys.
         assert!(err("version = 1\nstrict = true\n").starts_with("spec: strict:"));

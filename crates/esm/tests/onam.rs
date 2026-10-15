@@ -141,6 +141,14 @@ fn corpus_onam_membership_full() {
                 .is_some_and(|m| m.contains(&(id & 0x00FF_FFFF)))
         });
         assert_eq!(found, expected, "{}", file.name);
+        // The same from the index alone (a patch streamed from disk).
+        let from_index = cells::onam_forms_in(index, |id| {
+            let hi = usize::try_from(id >> 24).unwrap();
+            master_objects
+                .get(hi)
+                .is_some_and(|m| m.contains(&(id & 0x00FF_FFFF)))
+        });
+        assert_eq!(from_index, expected, "{}", file.name);
         let mut header = plugin.header().clone();
         assert!(Tes4::set_overridden_forms(&mut header, &[]));
         assert!(Tes4::new(&header).overridden_forms().is_empty());

@@ -49,6 +49,39 @@ pub const FLAG_MEDIUM: u32 = 0x0000_0400;
 /// TES4 flag "Blueprint" (xEdit). Confidence `corpus`: both `BlueprintShips` files.
 pub const FLAG_BLUEPRINT: u32 = 0x0000_0800;
 
+/// A plugin's scale class, from its `TES4` flags alone (`docs/load-order.md`, "Plugin
+/// flags and scale"): [`FLAG_SMALL`] small, [`FLAG_MEDIUM`] medium, neither full. Master,
+/// update and blueprint are not scales. A stored FormID's master index counts only the
+/// file's masters of its class, so writing a file's own FormIDs needs every master's scale.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Scale {
+    Full,
+    Medium,
+    Small,
+}
+
+impl Scale {
+    /// The scale `flags` (raw `TES4` flags) give; `None` with both scale bits set (no known
+    /// meaning).
+    pub fn of_flags(flags: u32) -> Option<Scale> {
+        match (flags & FLAG_SMALL != 0, flags & FLAG_MEDIUM != 0) {
+            (false, false) => Some(Scale::Full),
+            (true, false) => Some(Scale::Small),
+            (false, true) => Some(Scale::Medium),
+            (true, true) => None,
+        }
+    }
+}
+
+/// Limitation to name when records are added to a plugin with [`FLAG_BLUEPRINT`]: the
+/// `HEDR` record count is rewritten with the majority meaning, while both blueprint files
+/// of the corpus use the other one (see the module documentation).
+pub const BLUEPRINT_COUNT_LIMITATION: &str =
+    "the plugin has the blueprint flag (0x800): the HEDR record count is rewritten with the \
+     meaning 12 of the 14 official files use (records including TES4, groups not counted), \
+     while both BlueprintShips files count records without TES4 plus groups; what the \
+     Creation Kit writes for a blueprint plugin is not observed";
+
 /// `HEDR`: version, record count, next object ID.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Hedr {
@@ -122,6 +155,17 @@ impl<'r, 'a> Tes4<'r, 'a> {
     /// Raw record flags.
     pub fn flags(&self) -> u32 {
         self.record.header.flags
+    }
+
+    /// The plugin's scale ([`Scale::of_flags`]).
+    pub fn scale(&self) -> Option<Scale> {
+        Scale::of_flags(self.flags())
+    }
+
+    /// [`BLUEPRINT_COUNT_LIMITATION`] when the plugin has [`FLAG_BLUEPRINT`]: name it in
+    /// the result of any edit that adds or removes records.
+    pub fn count_limitation(&self) -> Option<&'static str> {
+        (self.flags() & FLAG_BLUEPRINT != 0).then_some(BLUEPRINT_COUNT_LIMITATION)
     }
 
     /// Whether [`FLAG_MASTER`] is set.

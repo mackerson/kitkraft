@@ -35,9 +35,11 @@ use kitcraft_schema::{Confidence, Schema};
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
+use super::newform;
+use super::place::{self, check_target_edids, PlaceRequest};
 use super::set::{
-    check, describe, find_form, guard, install, outcome, stage, validate_json, winning_copy, write,
-    Origin,
+    check, describe, find_form, guard, install, outcome, stage, validate_json, winning_copy,
+    write_with, Origin,
 };
 use super::{failed, str_arg};
 use crate::build::members;
@@ -280,6 +282,128 @@ pub(super) fn gate(
     Ok(())
 }
 
+/// The new base forms a report holds (`[[new]]`, `[[clone]]`).
+fn new_forms_json(report: &crate::edit::patch::PatchReport) -> Value {
+    Value::Array(
+        report
+            .records
+            .iter()
+            .filter(|r| {
+                r.source.starts_with("new (") && r.signature != "REFR" && r.signature != "ACHR"
+            })
+            .map(|r| {
+                json!({
+                    "form": r.formref, "form_id": format!("{:08X}", r.form_id),
+                    "signature": r.signature, "editor_id": r.editor_id, "from": r.source,
+                })
+            })
+            .collect(),
+    )
+}
+
+/// A `[[place]]` entry as `place` takes it.
+fn place_request(p: &spec::PlaceEntry) -> Result<PlaceRequest, EngineError> {
+    let f32s = |v: [f64; 3], what: &str| -> Result<[f32; 3], EngineError> {
+        let json: Vec<Value> = v.iter().map(|x| json!(x)).collect();
+        place::vec3(ID, Some(&Value::Array(json)), what)
+            .map_err(|e| spec_error(&format!("{}.{what}", p.key), e))?
+            .ok_or_else(|| spec_error(&format!("{}.{what}", p.key), "is required"))
+    };
+    Ok(PlaceRequest {
+        label: p.key.clone(),
+        base: p.base.clone(),
+        plugin: p.plugin.clone(),
+        cell: p.cell.clone(),
+        world: p.world.clone(),
+        position: f32s(p.position, "position")?,
+        rotation: f32s(p.rotation, "rotation")?,
+        persistent: p.persistent,
+        initially_disabled: p.initially_disabled,
+        edid: p.edid.clone(),
+        allow_reference: p.allow_reference.clone(),
+        base_local: None,
+    })
+}
+
+/// `[[import]]`: every `NAVM` of each named Creation Kit plugin, copied unchanged into the
+/// staged plugin (lane A's `navmesh::import_navmeshes`: refused unless the master lists
+/// are the same; the cells must be in the plugin). `ONAM` is redone and every written
+/// record is located again, since records moved.
+fn import_navmeshes(
+    master_scale: &dyn Fn(&str) -> Option<kitcraft_esm::tes4::Scale>,
+    spec_dir: &std::path::Path,
+    imports: &[spec::ImportEntry],
+    staged: &std::path::Path,
+    report: &mut crate::edit::patch::PatchReport,
+    limits: &DecodeLimits,
+) -> Result<Vec<Value>, EngineError> {
+    let mut out = Vec::new();
+    for import in imports {
+        let from = std::path::Path::new(&import.from);
+        let from = if from.is_absolute() {
+            from.to_path_buf()
+        } else {
+            spec_dir.join(from)
+        };
+        let key = format!("{}.from", import.key);
+        let source_bytes = std::fs::read(&from)
+            .map_err(|e| spec_error(&key, format!("{}: {e}", from.display())))?;
+        let source = kitcraft_esm::Plugin::parse(&source_bytes)
+            .map_err(|e| spec_error(&key, format!("{}: {e}", from.display())))?;
+        let target_bytes =
+            std::fs::read(staged).map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        let mut target = kitcraft_esm::Plugin::parse(&target_bytes)
+            .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        // The scales of the masters the two plugins share (they must be the same list).
+        let scales: Vec<Option<kitcraft_esm::tes4::Scale>> = source
+            .tes4()
+            .masters()
+            .iter()
+            .map(|m| master_scale(&m.name_lossy()))
+            .collect();
+        let done = kitcraft_esm::navmesh::import_navmeshes(
+            &source,
+            &mut target,
+            &kitcraft_esm::navmesh::NavmeshOptions {
+                style: kitcraft_esm::cells::PlacementStyle::OFFICIAL,
+                limits: *limits,
+                master_scales: &scales,
+            },
+        )
+        .map_err(|e| spec_error(&key, e))?;
+        let bytes = target
+            .to_bytes()
+            .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        std::fs::write(staged, bytes)
+            .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        out.push(json!({
+            "import": import.key, "from": from.display().to_string(),
+            "inserted": done.inserted, "replaced": done.replaced,
+            "cells": done.cells.iter().map(|c| format!("{c:08X}")).collect::<Vec<_>>(),
+        }));
+    }
+    if !imports.is_empty() {
+        let listed =
+            crate::edit::patch::apply_onam(staged).map_err(|e| failed(ID, e.to_string()))?;
+        if listed > 0 {
+            report
+                .limitations
+                .push(crate::edit::patch::onam_note(listed));
+        }
+        for r in &mut report.records {
+            r.offset = None;
+            r.length = None;
+            r.edited_subrecords.clear();
+        }
+        report.bytes = crate::edit::patch::locate_written(staged, &mut report.records, limits)
+            .map_err(|e| failed(ID, e.to_string()))?;
+        report.limitations.push(
+            "[[import]]: NAVM records copied unchanged from a Creation Kit plugin (lane A's passthrough); NAVI and other records the CK changed while generating are not imported (fixture F22)".to_string(),
+        );
+    }
+    Ok(out)
+}
+
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     let spec_path = PathBuf::from(str_arg(ID, args, "spec")?);
@@ -297,7 +421,6 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         Some(lo_args) => acquire(session, lo_args, ID)?,
         None => acquire(session, args, ID)?,
     };
-    super::set::verify_load_order(ID, loaded)?;
     // `out` is checked as the patch writer checks its target (never a load-order plugin,
     // the game or user Data directory, or MO2), and an existing `out` is replaced only
     // with `overwrite`, before anything is staged. A plan writes nothing to `out`.
@@ -463,10 +586,47 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         }
         writes.add(g, &set.key, &set.edits, &label)?;
     }
-    if writes.order.is_empty() && !plan {
+    // [[place]] (version 3): new references, resolved against the load order; a base
+    // `new:<name>` names a [[new]] or [[clone]] of this build.
+    let mut place_reqs: Vec<PlaceRequest> = spec
+        .places
+        .iter()
+        .map(place_request)
+        .collect::<Result<_, _>>()?;
+    let local_bases: Vec<(String, String, Option<[u8; 4]>)> = spec
+        .news
+        .iter()
+        .filter_map(|n| Some((n.name.clone()?, n.edid.clone(), Some(n.signature))))
+        .chain(
+            spec.clones
+                .iter()
+                .filter_map(|c| Some((c.name.clone()?, c.edid.clone(), None))),
+        )
+        .collect();
+    // Every EditorID the build gives a new record, once.
+    let mut probes: Vec<PlaceRequest> = Vec::new();
+    for (key, edid) in spec
+        .news
+        .iter()
+        .map(|n| (&n.key, &n.edid))
+        .chain(spec.clones.iter().map(|c| (&c.key, &c.edid)))
+    {
+        let mut probe = PlaceRequest::probe(key);
+        probe.label = key.clone();
+        probe.edid = Some(edid.clone());
+        probes.push(probe);
+    }
+    let req_refs: Vec<&PlaceRequest> = place_reqs.iter().chain(probes.iter()).collect();
+    check_target_edids(ID, None, &req_refs)?;
+    if writes.order.is_empty()
+        && place_reqs.is_empty()
+        && spec.news.is_empty()
+        && spec.clones.is_empty()
+        && !plan
+    {
         return Err(failed(
             ID,
-            "the spec's rules matched no records and it has no sets; nothing to write",
+            "the spec's rules matched no records and it has no sets or places; nothing to write",
         ));
     }
 
@@ -476,6 +636,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut copies = Vec::new();
     let mut origins: Vec<Origin> = Vec::new();
     for form in &writes.order {
+        let unrelated = super::set::safe_source(ID, loaded, *form)?;
+        super::set::extend_once(&mut limitations, unrelated);
         let list: Vec<Edit> = writes
             .per_form
             .get(&form.key())
@@ -485,7 +647,81 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         copies.push(copy);
         origins.push(origin);
     }
-    if writes.order.is_empty() {
+    // [[clone]] then [[new]] (clones carry their origin, after the sets').
+    let mut clone_sigs: Vec<(String, [u8; 4])> = Vec::new();
+    for c in &spec.clones {
+        let req = newform::CloneRequest {
+            label: c.key.clone(),
+            form: c.form.clone(),
+            plugin: c.plugin.clone(),
+            edid: c.edid.clone(),
+            edits: c.edits.clone(),
+        };
+        let (copy, origin, _, unrelated) = newform::plan_clone(ID, loaded, &req, &limits)?;
+        super::set::extend_once(&mut limitations, unrelated);
+        clone_sigs.push((c.edid.clone(), copy.record.header.signature.0));
+        copies.push(copy);
+        origins.push(origin);
+    }
+    for n in &spec.news {
+        let req = newform::NewRequest {
+            label: n.key.clone(),
+            signature: n.signature,
+            edid: n.edid.clone(),
+            edits: n.edits.clone(),
+            masters: n.masters.clone(),
+        };
+        let (copy, notes) = newform::plan_new(ID, loaded, &req)?;
+        super::set::extend_once(&mut limitations, notes);
+        copies.push(copy);
+    }
+    for req in &mut place_reqs {
+        if let Some(name) = spec::local_ref(&req.base) {
+            let (_, edid, sig) = local_bases
+                .iter()
+                .find(|(n, _, _)| n.eq_ignore_ascii_case(name))
+                .ok_or_else(|| {
+                    spec_error(
+                        &format!("{}.base", req.label),
+                        format!("unknown name `{name}`"),
+                    )
+                })?;
+            let sig = sig
+                .or_else(|| clone_sigs.iter().find(|(e, _)| e == edid).map(|(_, s)| *s))
+                .ok_or_else(|| spec_error(&format!("{}.base", req.label), "no record type"))?;
+            req.base_local = Some((edid.clone(), sig));
+        }
+    }
+    // The places: each carries its cell (once per cell, and not when a rule or set already
+    // writes that cell).
+    let mut new_refs = Vec::new();
+    let mut place_infos: Vec<Value> = Vec::new();
+    let mut place_evidence = Vec::new();
+    let mut carried: Vec<u64> = writes.order.iter().map(|f| f.key()).collect();
+    for req in &place_reqs {
+        let planned = place::plan(ID, loaded, req, &limits)?;
+        super::set::extend_once(&mut limitations, planned.limitations);
+        let cell = planned.new_ref.place.cell();
+        let key = loaded.lo.find(&cell.plugin).map(|p| {
+            GlobalForm {
+                plugin: p,
+                object_id: cell.object_id,
+            }
+            .key()
+        });
+        if key.is_none_or(|k| !carried.contains(&k)) {
+            carried.extend(key);
+            copies.push(planned.carried);
+        }
+        place_infos.push(planned.info);
+        place_evidence.extend(planned.evidence);
+        new_refs.push(planned.new_ref);
+    }
+    if writes.order.is_empty()
+        && new_refs.is_empty()
+        && spec.news.is_empty()
+        && spec.clones.is_empty()
+    {
         // A plan of nothing (a fresh scaffold: every rule commented out).
         let mut result = Outcome {
             data: json!({
@@ -510,11 +746,50 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         return Ok(result);
     }
     let staged = stage(ID, &out, false)?;
-    let mut report = write(ID, loaded, &staged.path, copies, allow_untyped)?;
+    let mut report = write_with(ID, loaded, &staged.path, copies, new_refs, allow_untyped)?;
+    let spec_dir = spec_path
+        .parent()
+        .map(std::path::Path::to_path_buf)
+        .unwrap_or_default();
+    let scale_of = |name: &str| {
+        loaded
+            .lo
+            .find(name)
+            .and_then(|i| loaded.lo.plugin(i))
+            .and_then(|p| p.header())
+            .and_then(|h| kitcraft_esm::tes4::Scale::of_flags(h.flags.0))
+    };
+    let imported = import_navmeshes(
+        &scale_of,
+        &spec_dir,
+        &spec.imports,
+        &staged.path,
+        &mut report,
+        &limits,
+    )?;
     let checked = check(ID, loaded, &staged)?;
+    let placed = place::placed_json(
+        &report,
+        &place_infos
+            .iter()
+            .cloned()
+            .zip(place_reqs.iter())
+            .collect::<Vec<_>>(),
+    );
 
-    // The change list: every planned write with its before and after, and the entries
-    // that asked for it.
+    // The change list: every planned write with its before and after, the entries that
+    // asked for it, and the brief rows those entries name.
+    let briefs: HashMap<&str, &str> = spec
+        .rules
+        .iter()
+        .map(|r| (r.key.as_str(), r.brief.as_deref()))
+        .chain(
+            spec.sets
+                .iter()
+                .map(|s| (s.key.as_str(), s.brief.as_deref())),
+        )
+        .filter_map(|(k, b)| b.map(|b| (k, b)))
+        .collect();
     let mut changes = Vec::new();
     let mut changed_fields = 0u64;
     let mut per_entry: BTreeMap<String, (u64, u64)> = BTreeMap::new();
@@ -536,10 +811,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     counts.1 = counts.1.saturating_add(1);
                 }
             }
+            let mut brief: Vec<&str> = entries
+                .iter()
+                .filter_map(|e| briefs.get(e.as_str()).copied())
+                .collect();
+            brief.dedup();
             changes.push(json!({
                 "form": record.formref, "signature": record.signature,
                 "editor_id": record.editor_id, "path": c.path, "before": c.before,
-                "after": c.after, "changed": c.changed, "by": entries,
+                "after": c.after, "changed": c.changed, "by": entries, "brief": brief,
             }));
         }
     }
@@ -561,6 +841,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     if plan {
         report.target = out.clone();
         let mut result = outcome(&report, &origins, limitations);
+        result.evidence.extend(place_evidence.clone());
         // The staged file is not the plugin `out` would be: drop its evidence ranges.
         result.evidence.retain(|e| {
             e.file
@@ -576,22 +857,39 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         if let Some(obj) = result.data.as_object_mut() {
             obj.insert("plan".into(), json!(true));
             obj.insert("spec".into(), json!(spec_path.display().to_string()));
-            obj.insert("changes".into(), Value::Array(changes));
+            if spec.version >= 3 {
+                obj.insert("new_forms".into(), new_forms_json(&report));
+                obj.insert("placed".into(), Value::Array(placed.clone()));
+                obj.insert("imports".into(), Value::Array(imported.clone()));
+                obj.insert(
+                    "next_object_id".into(),
+                    json!(report.next_object_id.map(|n| format!("{n:08X}"))),
+                );
+            }
             obj.insert("changed_fields".into(), json!(changed_fields));
-            obj.insert("classes".into(), Value::Array(classes_json));
-            obj.insert("rules".into(), Value::Array(rules_json));
             obj.insert("warnings".into(), json!(warnings));
             obj.insert("validate".into(), validate_json(&checked));
             obj.insert("passed".into(), json!(checked.passed()));
+            let head = format!(
+                "plan: {changed_fields} field change(s) on {} record(s) for {} (nothing written); validate {}",
+                writes.order.len(),
+                out.display(),
+                if checked.passed() { "passed" } else { "FAILED" }
+            );
+            let masters = obj.get("masters").cloned().unwrap_or(Value::Null);
             obj.insert(
                 "summary".into(),
-                json!(format!(
-                    "plan: {changed_fields} field change(s) on {} record(s) for {} (nothing written); validate {}",
-                    writes.order.len(),
-                    out.display(),
-                    if checked.passed() { "passed" } else { "FAILED" }
+                json!(plan_text(
+                    &head,
+                    &masters,
+                    &classes_json,
+                    &rules_json,
+                    &changes
                 )),
             );
+            obj.insert("changes".into(), Value::Array(changes));
+            obj.insert("classes".into(), Value::Array(classes_json));
+            obj.insert("rules".into(), Value::Array(rules_json));
         }
         return Ok(result);
     }
@@ -618,8 +916,18 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     install(ID, &staged, &out)?;
     report.target = out.clone();
     let mut result = outcome(&report, &origins, limitations);
+    result.evidence.extend(place_evidence);
     if let Some(obj) = result.data.as_object_mut() {
         obj.insert("spec".into(), json!(spec_path.display().to_string()));
+        if spec.version >= 3 {
+            obj.insert("new_forms".into(), new_forms_json(&report));
+            obj.insert("placed".into(), Value::Array(placed));
+            obj.insert("imports".into(), Value::Array(imported));
+            obj.insert(
+                "next_object_id".into(),
+                json!(report.next_object_id.map(|n| format!("{n:08X}"))),
+            );
+        }
         obj.insert("rules".into(), Value::Array(rules_json));
         if v2 {
             obj.insert("classes".into(), Value::Array(classes_json));
@@ -630,4 +938,101 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         obj.insert("passed".into(), json!(true));
     }
     Ok(result)
+}
+
+/// A JSON number as the plan text shows it: a value an `f32` holds exactly in its shortest
+/// `f32` form (`30.6`, not `30.600000381469727`), anything else as JSON.
+fn show(value: &Value) -> String {
+    match value.as_f64() {
+        Some(f) if value.is_f64() => {
+            let narrow = f as f32;
+            if f64::from(narrow) == f {
+                format!("{narrow}")
+            } else {
+                format!("{f}")
+            }
+        }
+        _ => value.to_string(),
+    }
+}
+
+/// The text of a plan (CLI output): the head line, the masters, every class and rule with
+/// its brief row and counts, and every change with its brief row, the spec entries that
+/// wrote it, and its before and after.
+fn plan_text(
+    head: &str,
+    masters: &Value,
+    classes: &[Value],
+    rules: &[Value],
+    changes: &[Value],
+) -> String {
+    let text = |v: &Value| v.as_str().unwrap_or("-").to_string();
+    let list = |v: &Value| {
+        v.as_array()
+            .map(|a| a.iter().map(text).collect::<Vec<_>>().join(","))
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "-".to_string())
+    };
+    let mut out = vec![head.to_string(), format!("masters: {}", list(masters))];
+    out.push(format!("classes ({}):", classes.len()));
+    for c in classes {
+        out.push(format!(
+            "  {:<4} {} {} matched {}{}",
+            text(&c["brief"]),
+            text(&c["class"]),
+            text(&c["type"]),
+            c["matched"],
+            match c["undecided"].as_u64() {
+                Some(n) if n > 0 => format!(" (undecided {n})"),
+                _ => String::new(),
+            }
+        ));
+    }
+    out.push(format!("rules ({}):", rules.len()));
+    for r in rules {
+        let via = r["via"]
+            .as_array()
+            .map(|hops| {
+                hops.iter()
+                    .map(|h| {
+                        format!(
+                            " via {} ({} -> {})",
+                            text(&h["via"]),
+                            h["from"],
+                            h["reached"]
+                        )
+                    })
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
+        out.push(format!(
+            "  {:<4} {} class {}{via}: {} record(s), {} field(s) written, {} changed",
+            text(&r["brief"]),
+            text(&r["rule"]),
+            text(&r["class"]),
+            r["records"],
+            r["fields_written"],
+            r["fields_changed"]
+        ));
+    }
+    out.push(format!("changes ({}):", changes.len()));
+    for c in changes {
+        out.push(format!(
+            "  {:<4} {} {} {} {} {}: {} -> {}{}",
+            list(&c["brief"]),
+            list(&c["by"]),
+            text(&c["signature"]),
+            text(&c["form"]),
+            text(&c["editor_id"]),
+            text(&c["path"]),
+            show(&c["before"]),
+            show(&c["after"]),
+            if c["changed"] == json!(false) {
+                " (unchanged)"
+            } else {
+                ""
+            }
+        ));
+    }
+    out.join("\n")
 }

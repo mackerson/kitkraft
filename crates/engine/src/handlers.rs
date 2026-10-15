@@ -8,17 +8,25 @@ mod ba2;
 mod build;
 #[cfg(test)]
 mod build_tests;
+#[cfg(test)]
+mod build_v3_tests;
 mod conflicts;
 mod coverage;
 mod deploy;
 mod diff;
 mod inspect;
 mod load;
+mod newform;
+#[cfg(test)]
+mod newform_tests;
 mod overhaul;
 #[cfg(test)]
 mod overhaul_tests;
 mod package;
 mod papyrus;
+mod place;
+#[cfg(test)]
+pub(crate) mod place_tests;
 mod query;
 mod resolve;
 #[cfg(test)]
@@ -31,6 +39,9 @@ mod set_tests;
 mod strings;
 #[cfg(test)]
 pub(crate) mod testdata;
+mod testplan;
+#[cfg(test)]
+mod testplan_tests;
 mod validate;
 
 use std::ffi::OsString;
@@ -108,6 +119,10 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("build", Box::new(build::run)),
         ("overhaul.scaffold", Box::new(overhaul::run)),
         ("package", Box::new(package::run)),
+        ("place", Box::new(place::run)),
+        ("new", Box::new(newform::run_new)),
+        ("clone", Box::new(newform::run_clone)),
+        ("testplan", Box::new(testplan::run)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

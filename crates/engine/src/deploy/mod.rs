@@ -62,6 +62,12 @@ pub(crate) const STAGING: &str = ".staging";
 pub(crate) const RETIRED: &str = ".retired";
 /// Suffix of the journal file beside the folders.
 pub(crate) const JOURNAL: &str = ".kitkraft-journal.json";
+/// Most files in one package and in one dev mod: `package` writes no more, and `deploy`
+/// reads no more from a package or a deployed folder (one limit, so every package can be
+/// deployed).
+pub(crate) const MAX_PACKAGE_FILES: usize = 20_000;
+/// Suffix of the lock file a writing call holds for its whole run.
+pub(crate) const LOCK: &str = ".kitkraft-lock";
 
 /// Why a deployment command stopped. Every refusal names its rule and the path.
 #[derive(Debug, Clone, PartialEq, Eq)]

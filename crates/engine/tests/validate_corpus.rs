@@ -53,14 +53,24 @@ const XPLK_INDEX: &str = "REFR XPLK (power links: reference, u32; xedit wbDefini
     01); with the plugin's own index every target exists (kit inspect: SFBGS00D 0103065F, \
     SFBGS050 0202599E and 02028369 are REFR records next to the linking ones), and \
     Starfield.esm's XPLK all resolve. The layout fits (8 bytes, 0 typed conflicts); the \
-    numbering is a corpus fact to check in the CK (plan/STATUS.md)";
+    numbering is a corpus fact to check in the CK (plan/STATUS.md). Since the unordered \
+    record mode (M4.BX1) the XPLK that stood out of member order are typed too: \
+    ShatteredSpace 30 -> 41, all 41 at index 02";
 
 const XBPS_SELF: &str = "CELL XBPS (ship snap links: parent ref, linked ref, two node \
-    indexes; xedit wbDefinitionsSF1.pas L10695-L10704, world family, M4) in three \
-    SFBGS050.esm cells (020A38DA, 02073D30, 02043C48) names SFBGS050 references the file \
-    does not contain (nor BlueprintShips-SFBGS050.esm); every XBPS entry is 16 bytes with 0 \
-    typed conflicts and Starfield.esm's resolve, so these are dangling links, not a layout \
-    error";
+    indexes; xedit wbDefinitionsSF1.pas L10695-L10704, world family, M4) in SFBGS050.esm \
+    cells (020A38DA, 02073D30, 02043C48 at the world merge) names SFBGS050 references the \
+    file does not contain (nor BlueprintShips-SFBGS050.esm); every XBPS entry is 16 bytes \
+    with 0 typed conflicts and Starfield.esm's resolve, so these are dangling links, not a \
+    layout error. Since the unordered record mode (M4.BX1) the XBPS that stood out of \
+    member order are typed too: SFBGS050 24/23 -> 119/107, and five \
+    BlueprintShips-SFBGS050.esm cells (030DB654, 030DB67F, 030DB6AA, 030DB6D5, 030DB701) \
+    name 20 of that file's own references (030DD18F..030DD1A2) it does not contain";
+
+const LOW_BASE: &str = "REFR:00014893's NAME (base object) is 0x1FB, an object ID below \
+    0x800 that no official file defines: an engine-reserved form (ADR 0005 Amendment 4), \
+    which formid.dangling counts as reserved; ref.orphan (lane E, cell rules) still reports \
+    the reference whose base no file defines";
 
 const RDSA_STALE: &str = "NPC_:0018B5F4's RDSA entry (xedit wbDefinitionsSF1.pas, actor \
     family, M4.BC1) names SpecificReference 00577823, which Starfield.esm does not have; the \
@@ -77,11 +87,33 @@ const KNOWN_ERRORS: &[Known] = &[
             form of SFBGS050.esm itself that the file does not contain (planet lane, \
             docs/schema/planet-family.md)",
     ),
+    Known {
+        plugin: "Starfield.esm",
+        rule: "ref.orphan",
+        member: "NAME",
+        value: None,
+        count: 1,
+        evidence: LOW_BASE,
+    },
     dangling("SFBGS00D.esm", "REFR.XPLK.Ref", None, 4, XPLK_INDEX),
     dangling("SFBGS050.esm", "REFR.XPLK.Ref", None, 4, XPLK_INDEX),
-    dangling("ShatteredSpace.esm", "REFR.XPLK.Ref", None, 30, XPLK_INDEX),
-    dangling("SFBGS050.esm", "CELL.XBPS.ParentRef", None, 24, XBPS_SELF),
-    dangling("SFBGS050.esm", "CELL.XBPS.LinkedRef", None, 23, XBPS_SELF),
+    dangling("ShatteredSpace.esm", "REFR.XPLK.Ref", None, 41, XPLK_INDEX),
+    dangling("SFBGS050.esm", "CELL.XBPS.ParentRef", None, 119, XBPS_SELF),
+    dangling("SFBGS050.esm", "CELL.XBPS.LinkedRef", None, 107, XBPS_SELF),
+    dangling(
+        "BlueprintShips-SFBGS050.esm",
+        "CELL.XBPS.ParentRef",
+        None,
+        10,
+        XBPS_SELF,
+    ),
+    dangling(
+        "BlueprintShips-SFBGS050.esm",
+        "CELL.XBPS.LinkedRef",
+        None,
+        10,
+        XBPS_SELF,
+    ),
     dangling(
         "Starfield.esm",
         "NPC_.RDSA.SpecificReference",

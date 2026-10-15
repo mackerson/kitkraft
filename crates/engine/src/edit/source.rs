@@ -239,8 +239,10 @@ pub fn read_copy(
 
 /// Group types whose label is the FormID of the record that owns the group (world
 /// children 1, cell children 6, topic children 7; UESP, Skyrim_Mod:Mod_File_Format,
-/// "Groups"). A copy of a record under one of these needs that record in the target too.
-pub const PARENT_LABELLED: [i32; 3] = [1, 6, 7];
+/// "Groups"; quest children 10, lane A's corpus inventory, M4.A1). A copy of a record
+/// under one of these needs that record in the target too (lane A's `upsert_styled`
+/// refuses an ownerless children group).
+pub const PARENT_LABELLED: [i32; 4] = [1, 6, 7, 10];
 
 /// The records that own the groups on `loc`'s path (outermost first), each with its own
 /// group path: what [`kitcraft_esm::Plugin::upsert`] needs placed first (lane A's

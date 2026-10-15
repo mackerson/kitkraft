@@ -23,7 +23,7 @@ use super::{failed, str_arg};
 use crate::args::Violation;
 use crate::edit::fields::{parse_op, parse_path};
 use crate::edit::patch::{
-    guard_target, write_patch, Copy, Edit, PatchError, PatchOptions, PatchReport,
+    guard_target, write_patch_with, Copy, Edit, NewRef, PatchError, PatchOptions, PatchReport,
 };
 use crate::edit::source::{placement_at, SourcePlugin};
 use crate::edit::strings::TableStrings;
@@ -90,6 +90,9 @@ pub(crate) fn find_form(
             .resolve(p, raw)
             .map_err(|e| failed(command, e.to_string()));
     }
+    // The first record with the EditorID that resolves; otherwise why the ones found do not
+    // (a missing master, named by lane D's resolver).
+    let mut unresolved: Option<String> = None;
     for (i, p) in lo.plugins.iter().enumerate() {
         let index = u16::try_from(i).unwrap_or(u16::MAX);
         let Some(idx) = p.index.as_deref() else {
@@ -97,65 +100,67 @@ pub(crate) fn find_form(
         };
         for loc in &idx.records {
             if idx.edid(loc).is_some_and(|e| e.eq_ignore_ascii_case(form)) {
-                if let Ok(g) = lo.resolve(index, loc.form_id) {
-                    return Ok(g);
+                match lo.resolve(index, loc.form_id) {
+                    Ok(g) => return Ok(g),
+                    Err(e) => {
+                        unresolved
+                            .get_or_insert_with(|| format!("{}:{:08X} ({e})", p.name, loc.form_id));
+                    }
                 }
             }
         }
     }
     Err(failed(
         command,
-        format!("no record with formref or EditorID `{form}` in the load order (a hex FormID needs `plugin`)"),
+        match unresolved {
+            Some(why) => format!(
+                "`{form}` is the EditorID of {why}, whose FormID does not resolve in this load order"
+            ),
+            None => format!(
+                "no record with formref or EditorID `{form}` in the load order (a hex FormID needs `plugin`)"
+            ),
+        },
     ))
 }
 
-/// The text lane D's `load` puts in a limitation for active plugins with no file.
-const NO_FILE: &str = "active plugins with no file";
+/// Refuses to copy the winning version of `form` when lane D's source check (M3.D1,
+/// `kitcraft_doc::source`) finds a problem that can change which version wins or what its
+/// FormIDs mean: a plugin holding a version loads before its master, or a plugin after the
+/// winner failed to load or has unresolved records that could be this form, or the winner
+/// is missing or deleted. Problems elsewhere in the load order (an active plugin with no
+/// file, an unrelated ordering error) are returned for `limitations` (M3.E1; this replaces
+/// the blanket "load order unverified" refusal).
+pub(crate) fn safe_source(
+    command: &str,
+    loaded: &Loaded,
+    form: GlobalForm,
+) -> Result<Vec<String>, EngineError> {
+    let check = loaded.source_check(form);
+    if !check.blocking.is_empty() {
+        return Err(failed(
+            command,
+            format!(
+                "the winning version of {} is not a safe source: {} (fix the load order, or name the plugins with `plugins`)",
+                loaded.lo.form_label(form),
+                check.blocking.join("; ")
+            ),
+        ));
+    }
+    Ok(check
+        .unrelated
+        .into_iter()
+        // One line per problem, however many forms it leaves alone (`extend_once`).
+        .map(|u| format!("load order problem that does not affect the forms written: {u}"))
+        .collect())
+}
 
-/// Refuses a load order whose winners cannot be trusted yet (lane D round 2 pending): a
-/// plugin that failed to load, a plugin that loads before one of its masters or misses
-/// one, an active plugin with no file. `set` and `build` copy the winning version, so on
-/// such a load order they stop instead of guessing.
-pub(crate) fn verify_load_order(command: &str, loaded: &Loaded) -> Result<(), EngineError> {
-    let mut problems: Vec<String> = Vec::new();
-    for (i, p) in loaded.lo.plugins.iter().enumerate() {
-        if let Some(e) = &p.error {
-            problems.push(format!("{} failed to load ({e})", p.name));
-        }
-        let late = p.late_masters(u16::try_from(i).unwrap_or(u16::MAX));
-        if !late.is_empty() {
-            problems.push(format!(
-                "{} loads before its master(s) {}",
-                p.name,
-                late.join(", ")
-            ));
-        }
-        let missing = p.missing_masters();
-        if !missing.is_empty() {
-            problems.push(format!(
-                "{} misses master(s) {}",
-                p.name,
-                missing.join(", ")
-            ));
+/// Appends each of `more` to `limitations` unless it is already there.
+pub(crate) fn extend_once(limitations: &mut Vec<String>, more: Vec<String>) {
+    for l in more {
+        if !limitations.contains(&l) {
+            limitations.push(l);
         }
     }
-    problems.extend(
-        loaded
-            .limitations
-            .iter()
-            .filter(|l| l.starts_with(NO_FILE))
-            .cloned(),
-    );
-    if problems.is_empty() {
-        return Ok(());
-    }
-    Err(failed(
-        command,
-        format!(
-            "load order unverified, so its winning versions are not a safe source: {} (fix the load order, or name the plugins with `plugins`)",
-            problems.join("; ")
-        ),
-    ))
 }
 
 /// Where the copied version came from, for the report.
@@ -237,6 +242,8 @@ pub(crate) fn winning_copy(
             parents,
             edits,
             formref: label,
+            carried: false,
+            new_form: None,
         },
         origin,
     ))
@@ -263,6 +270,25 @@ pub(crate) fn write(
     copies: Vec<Copy>,
     allow_untyped_lstrings: bool,
 ) -> Result<PatchReport, EngineError> {
+    write_with(
+        command,
+        loaded,
+        into,
+        copies,
+        Vec::new(),
+        allow_untyped_lstrings,
+    )
+}
+
+/// [`write`] with new placed references (`place`, spec v3 `[[place]]`).
+pub(crate) fn write_with(
+    command: &str,
+    loaded: &mut Loaded,
+    into: &Path,
+    copies: Vec<Copy>,
+    new_refs: Vec<NewRef>,
+    allow_untyped_lstrings: bool,
+) -> Result<PatchReport, EngineError> {
     let protected = protected(loaded);
     let plugin_flags: Vec<(String, u32)> = loaded
         .lo
@@ -278,7 +304,7 @@ pub(crate) fn write(
         limits: DecodeLimits::default(),
         allow_untyped_lstrings,
     };
-    write_patch(into, copies, &options).map_err(|e| match e {
+    write_patch_with(into, copies, new_refs, &options).map_err(|e| match e {
         PatchError::Field(f) => EngineError::InvalidArgs {
             command: command.to_string(),
             violations: vec![Violation {
@@ -379,6 +405,11 @@ pub(crate) fn install(command: &str, staged: &Staged, out: &Path) -> Result<(), 
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     let temp = out.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()));
+    // A missing destination folder is created (`out` was guarded before staging).
+    if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| failed(command, format!("{}: {e}", parent.display())))?;
+    }
     std::fs::copy(&staged.path, &temp)
         .and_then(|_| std::fs::rename(&temp, out))
         .map_err(|e| {
@@ -506,7 +537,9 @@ pub(crate) fn outcome(
                 r.signature,
                 r.formref,
                 r.editor_id.as_deref().unwrap_or("-"),
-                if fields.is_empty() {
+                if r.source.starts_with("new (") {
+                    "new".to_string()
+                } else if fields.is_empty() {
                     "copied".to_string()
                 } else {
                     fields.join(", ")
@@ -562,12 +595,13 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .and_then(Value::as_bool)
         .unwrap_or(false);
     let loaded = acquire(session, args, ID)?;
-    verify_load_order(ID, loaded)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
     let g = find_form(ID, loaded, form, args.get("plugin").and_then(Value::as_str))?;
+    let unrelated = safe_source(ID, loaded, g)?;
     let (copy, origin) = winning_copy(ID, loaded, g, edits, &limits)?;
     let mut limitations = loaded.limitations.clone();
+    extend_once(&mut limitations, unrelated);
 
     // Write into a staged copy of `into`, run the record rules on it (as `build` does),
     // and replace `into` only when the records this call wrote pass.

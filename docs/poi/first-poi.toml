@@ -1,0 +1,21 @@
+# The first POI placed by KitKraft (M4 critical path, rung 0: a vanilla interior cell).
+# Build: kit build docs/poi/first-poi.toml out/poi/KitKraftFirstPOI.esm
+# (Data dir from KITCRAFT_DATA_DIR; Starfield.esm is the only master.)
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[place]]
+name = "first_poi"
+# Crate_MilitarySupply_01 (STAT), a military supply crate.
+base = "Starfield.esm:1E4FBD"
+# CityNewAtlantisApartmentTEMPLATE ("Player House Apartment"): a small New Atlantis
+# apartment interior; one version on the owner's Default profile (no mod overrides it).
+cell = "Starfield.esm:21966F"
+# On the floor (z 4.63, as the cell's REFR 001B21E0 at (-17, -6)), two units from it.
+position = [-17.0, -4.0, 4.63]
+rotation = [0.0, 0.0, 3.14]
+persistent = true
+edid = "KitKraftFirstPOICrate"
+brief = "M4 first POI"

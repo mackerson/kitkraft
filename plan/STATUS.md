@@ -477,6 +477,17 @@ is under "Next".
     `cells::onam_forms(&plugin, overrides_master_record) -> Vec<u32>` (file order, a
     stated choice until F23) and `Tes4::set_overridden_forms(&mut tes4, &forms)` (after
     the master list, as in every file). Request to lane E below.
+  - Fix round after the Fable review of the placement core (2026-10-14): (1) blocker:
+    the own FormID prefix counts only full masters (`NewForms` takes the masters'
+    scales, refuses unknown ones); (2) a children group without its record is refused,
+    `cells::carry_parents` carries the `WRLD`/`CELL` overrides, `upsert_before_owner` is
+    the rebuild-only opt-in; (3) existing interior cells keep their observed blocks;
+    (4) a persistence toggle moves the record (`Upsert::Moved`); (5) off-cell positions
+    are named, bad reference specs refused; (6) `onam_forms_in`, `NavmeshImport`
+    master overrides; (7) `PlacementStyle::detect`, flag-0x400 path checks, one
+    persistent cell per world, iterative walks, `DecodeLimits` through the navmesh
+    import, the blueprint `HEDR` count limitation. Rebuild gate and full roundtrip
+    unchanged (see the lane's report). Lane E: new signatures in Requests below.
 - Lanes F and G, M3 (2026-10-14):
   - M3.F2 `coverage` decodes every record of a defined type through its generated
     definition (plugin context: form version, TES4 localized flag) and encodes it again:
@@ -774,6 +785,19 @@ is under "Next".
   for byte, profiles and `ModOrganizer.ini` untouched; one mismatch fixed (`package`
   writes `plugins` as `{file, ...}` objects, which `deploy` now reads). ADR 0009
   Amendment 1 accepts the five departures `docs/deploy.md` lists.
+- `deploy --dev` / `package` fix round after a Fable review (2026-10-14): the `Default`
+  gate fails closed (UTF-8 BOM stripped in `Ini::parse`; no `selected_profile` refuses
+  `live-profile-unknown` unless `--profile` names an existing non-Default profile;
+  diagnostics read only an accepted `profile`); `patch::absolute` resolves through the
+  deepest existing ancestor and `guard_location` refuses any link or junction (`set`,
+  `build`, `package`); `.previous`/`.retired` are dropped only when they match their
+  manifest (`previous-modified`); `mods\` is checked against the user Data folder and may
+  not be overwrite, downloads or profiles; `deploy.status` reports one odd folder as
+  `state: "error"`; a `<target>.kitkraft-lock` (`create_new`) serializes writers and
+  guards recovery; path length is measured under `.previous` and the longest temp name;
+  rollback copies `meta.ini` after the swap and recovery removes our `.tmp` names;
+  `package` writes archive entries' `source_sha256`, replaces by renames only, and shares
+  the 20,000-file limit with `deploy`. `docs/deploy.md` gains operating notes.
 - **M4.E11 `deploy --dev` (lane E, ADR 0009, 2026-10-14).** Commands `deploy` (CLI
   `kit deploy --dev <source> <mo2>`), `deploy.rollback`, `deploy.status` in
   `crates/engine/src/deploy/` and `handlers/deploy.rs`; `docs/deploy.md` has the shapes,
@@ -791,6 +815,138 @@ is under "Next".
   `ModOrganizer.ini`, an unrelated mod, `overwrite\` and `downloads\` byte-identical.
   Differences from ADR 0009's text (per the owner's brief) are listed in
   `docs/deploy.md`; the ADR is on an unmerged branch and needs an amendment.
+- Lane E, M4 (set + validate + build, 2026-10-14):
+  - M3.E1 (carried from M3): `set` and `build` no longer refuse a whole load order. Each
+    copied form goes through lane D's `Loaded::source_check` (`handlers/set.rs`
+    `safe_source`): a blocking problem (a holder of a version loading before its master, a
+    later plugin that failed or has unresolved records that could be the form, a missing or
+    deleted winner) refuses that form; every other problem (an active plugin with no file,
+    an unrelated ordering error) is a limitation. Tests through `execute`: a synthetic MO2
+    profile with an active plugin that has no file writes an unrelated form with a
+    limitation and refuses a form a plugin needing the missing one may override.
+  - M3.E2: lstrings inlined from string tables are the table's bytes (`Resolved::bytes`),
+    so the few non-UTF-8 official entries are copied exactly instead of refused;
+    `record.flags-body` accepts any one NUL-terminated string. The `docs/gaps.md` row is
+    closed.
+  - M4.E2 `place` (`Implemented`; `handlers/place.rs`, writer `edit::patch::write_patch_with`;
+    CLI `kit place <base> --position "[x,y,z]" <into> --cell <CELL>` or `--world <WRLD>`):
+    a new `REFR` (`ACHR` for an `NPC_` base) composed by lane A's `compose_reference`, a
+    FormID from `NewForms` once the master list is final, `HEDR` next object ID advanced;
+    the winning `CELL` (and `WRLD`) carried as an unchanged copy before the children groups
+    (a cell the target already has is kept where it is, and the reference goes under its
+    observed path); `world` + position picks the exterior cell by `XCLC` grid, and a
+    persistent reference of a world goes into the world's persistent cell. Typed refusals
+    (`place.<code>:`): base not placeable (references, cells, worlds, navmeshes; `LVLN`
+    until checked), no cell or world, cell and world both, no exterior cell at the grid,
+    a temporary reference in a persistent cell, EditorID invalid or clashing (load order,
+    target, or twice), a small or medium master (`place.scaled-master`, per lane A's review
+    round), a parent not carried, a FormID already in the target; a position outside the
+    named exterior cell is a limitation. Evidence: base and cell winners, every written
+    record; `placed[]` lists base, cell, world, grid, group path and each member with its
+    confidence; `carried[]` says whether each carried record equals its winner byte for
+    byte. Tests through `execute` (synthetic master: interior, persistent and exterior
+    cells; ACHR; observed path; determinism and the CLI form; every refusal) and
+    `tests/place_corpus.rs` (ignored, release, 18.6 s): 8 interior and 8 exterior
+    `Starfield.esm` references with only `NAME`+`DATA` placed again from their base, cell
+    or world, position and rotation reproduce their record bodies byte for byte
+    (header: new FormID, composition-default stamps).
+  - M4.E3 `build` spec version 3 (`build/spec.rs`, `handlers/build.rs`): `[[place]]`
+    entries (as `kit place`, with an optional spec-local `name`; positions and rotations as
+    three finite numbers), `[[import]]` (every `NAVM` of a Creation Kit plugin copied
+    unchanged by lane A's `import_navmeshes`; refused unless the master lists match; `ONAM`
+    redone and every written record located again), class rules over typed world records
+    (a rule over `REFR` writes overrides with their cells carried). The writer now writes
+    `TES4` `ONAM` by lane A's M4.A6 rule (overrides of master records in groups 7, 9, 10, in
+    file order; F23 open) for every `set`, `build` and `place`. Each cell a place needs is
+    carried once, and not when a rule or set writes it. `plan` lists the new forms with
+    their FormIDs; versions 1 and 2 build as before. `[[new]]` and `[[clone]]` landed with
+    M4.E1 (below); a `new:` name of a placed reference is refused, since a placed
+    reference is never a base, cell or world. Tests through
+    `execute` (`handlers/build_v3_tests.rs`): two builds byte-identical, the plan, rules over
+    `REFR` with `ONAM`, an import (and its master refusal), and an error per case (unknown
+    name, a cycle, a placed reference as a base, duplicate names and EditorIDs, positions,
+    a `reference`-only member without `allow_reference`, two writes to one field,
+    `[[new]]`, version 2 keys).
+  - M4.E4 validate cell rules (`validate/cells.rs`; rows in `docs/validate.md`):
+    `cell.missing-parent` (a cell child outside cell children, or a WRLD/CELL children
+    group whose record nobody has: error; a master's record not carried: warning),
+    `ref.orphan` (a REFR/ACHR base that resolves nowhere, or no NAME: error),
+    `ref.outside-block` (a cell in the wrong block/sub-block for its object ID or XCLC grid:
+    error, warning in small/medium plugins; an exterior reference outside its cell's
+    square: warning), `ref.persistent-flag` (flag 0x400 against group type 8/9, on a NAVM,
+    on a CELL that is not a world's persistent cell: error), `ref.persistence` (a temporary
+    reference a quest, scene, package, dialogue or story-manager record or a door link
+    names: warning, grade D), `cell.actor-without-navmesh` (warning; masters scanned by
+    group headers only), `cell.incc` (error; missing INCC with interior cells: warning),
+    `navmesh.unchanged` (a NAVM override equal to its master's: warning). Positive and
+    negative synthetic fixtures per rule (`validate/cells_tests.rs`).
+    `validate_corpus_official_files` (release, 279 s): 0 unexplained errors; one new known
+    error (`ref.orphan` on `Starfield.esm` `REFR:00014893`, base 0x1FB, the same record
+    `formid.dangling` lists). New warnings by kind, with their reasons:
+    `ref.outside-block` REFR (Starfield.esm 4, SFBGS00D 57, SFBGS050 217, ShatteredSpace
+    76: exterior references outside their cell's square, the corpus's 0.02 %);
+    `navmesh.unchanged` NAVM (SFBGS003 301: navmesh overrides byte-equal to Starfield.esm's,
+    an official-pipeline habit, so a warning); `ref.persistence` REFR (SFBGS00D 5: door
+    links, `XTEL`, to temporary references). Corpus finding that shaped `ref.persistence`:
+    official files name temporary references from `WRLD` `RNAM` and `LCTN` `LCSR`/`LCPR`
+    (48,538 in Starfield.esm), so those referrers are not reported.
+  - M4.E6 `testplan` (`Implemented`; `handlers/testplan.rs`; CLI `kit testplan <plugin>
+    <out> --profile <dir>`): writes only `out/kitkraft-test.txt` (CRLF console commands:
+    `coc <cell EditorID>`, `player.moveto`/`prid <runtime ID>` per new reference,
+    `player.additem <runtime ID> 1` per new item, `coc`+`prid` per reference override) and
+    `out/checklist.md` (setup on the MO2 profile `KitKraft Dev` from a disposable save, the
+    plugin's SHA-256, a step per form with the expected observation, persistence steps,
+    the `docs/game-observations.md` ledger entry, the removal rule for plugins that own
+    forms). Runtime IDs from lane D's `LoadOrder::runtime_id` with the plugin appended (a
+    master-flagged plugin after the last master-flagged one): assumptions
+    `runtime-slots-by-scale` and `masters-load-first` and the batch folder (grade D) are
+    limitations. Deterministic; `out` guarded (never game/user Data or MO2). Tests through
+    `execute` (`handlers/testplan_tests.rs`).
+  - M4.E1 `new` and `clone` (`Implemented`; `handlers/newform.rs`; CLI `kit new <type>
+    <edid> <into> [--fields JSON] [--masters ...]`, `kit clone <form> <edid> <into>
+    [--fields JSON]`): a new base form of a typed top-level type (`EDID`, the schema's
+    required top-level members as zeros or an empty string, each field's subrecord created
+    in schema order then written as `set` writes it), or a copy of a top-level winner with
+    a new FormID and EditorID (lstrings inlined, FormIDs as stored, remapped or refused as
+    the patch writer does). FormIDs from lane A's `NewForms` after the master list is final
+    (`write_patch` `Copy::new_form`); full-scale targets and masters only; EditorID clashes,
+    nested types (references: `place`; cells, worlds, quest children), untyped types,
+    `EDID` in fields and repeated occurrences are typed refusals (`new.<code>`,
+    `clone.<code>`). Spec v3 `[[new]]` and `[[clone]]` (names; a `[[place]]` base may be
+    `new:<name>`; a clone of a form of the same build and a new cell or world are refused).
+    Tests through `execute` (`handlers/newform_tests.rs`, `build_v3_tests.rs`). **W1
+    deliverable** on the official file: `kit new GLOB KitKraftTestGlobal` (FLTV 1.0) and
+    `kit clone Starfield.esm:1E4FBD KitKraftCrateClone` into `out\w1\KitKraftW1.esm`
+    (430 bytes, SHA-256 `5d122dd3c93a0fecdbe8cde6da116f5f9c710d45d49d07a559ae51e68c2c33ae`):
+    FormIDs `01001000`, `01001001`, `HEDR` next object ID `FF001002`; validate 0 findings,
+    roundtrip identical, `inspect` finds the clone. Whether they equal the CK's choice is
+    fixture F06's question (not observed; named in `limitations`).
+  - M4.E8 recipes `docs/recipes/ownership.md` + `ownership.toml` (W4: `XOWN.Owner` of
+    `CityNewAtlantisFreestarEmbassy` set to `PlayerFaction`; 15,053 bytes, SHA-256
+    `cc77ed38...cc259`) and `docs/recipes/actors.md` + `actors.toml` (W9: an `ACHR` of
+    `Vendor_ChunksEmployee_M` in the embassy, which has a `NAVM`; 15,190 bytes, SHA-256
+    `837b6371...8f27a`): each builds, validates with 0 findings and roundtrips identical;
+    every fact cites its source. `cell.actor-without-navmesh` caught the first choice of
+    cell (the POI's apartment has no `NAVM`). Finding: `query` by owner cannot decide 65
+    `CELL`s (`XOWN` out of the ordered definition's place; lane B's `unordered` mode).
+    The ownership cell is a stand-in until M4.H1 (F27). In-game steps for M4.O4 in each
+    recipe (KitKraft Dev, disposable save).
+  - Not started, gated: M4.E9 (script attachment) waits for BQ's typed script-attachment
+    block (`VMAD` is opaque in every definition); M4.E10 (procedural placement) waits for
+    M4.D3 (`planet`, not on main).
+  - **First POI (rung 0) built** (`docs/poi/first-poi.md`, spec `docs/poi/first-poi.toml`):
+    `out\poi\KitKraftFirstPOI.esm` (1,821 bytes, SHA-256
+    `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1`, master
+    `Starfield.esm` only): one persistent `REFR` `KitKraftFirstPOICrate` (`01001000`) of
+    `Crate_MilitarySupply_01` (`Starfield.esm:1E4FBD`) in the interior cell
+    `CityNewAtlantisApartmentTEMPLATE` (`Starfield.esm:21966F`, one version on Default).
+    Two builds identical; `validate` 0 errors 0 warnings (14 rules); `roundtrip --verify`
+    identical; `inspect` with the plugin appended finds it; `testplan` against the Default
+    profile (read only) gives runtime ID `28001000`; `package` validated it into
+    `out\poi\package`. **Owner (M4.O2):** on **KitKraft Dev** with a disposable save,
+    `coc CityNewAtlantisApartmentTEMPLATE`, then `player.moveto 28001000` (or
+    `player.moveto KitKraftFirstPOICrate`), `prid` it, screenshot, and run the persistence
+    steps in `docs/poi/first-poi.md`.
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box
@@ -936,6 +1092,26 @@ is under "Next".
   Gates: `cargo xtask ci`; ignored release tests for esm, doc and engine (17 min; doc `typed_corpus` 7,258,523 typed records, 181 pinned unresolved lstrings); parity:
   86 record definitions, 46,249,514 typed (1,712,200 failed, the unordered CELL/REFR/ACHR
   placements only), 2,261,438 opaque, 1,908,609 unknown.
+- Lane E, M3.E9 (first real overhaul build), 2026-10-14: `docs/overhaul/overhaul.toml`
+  translates the owner's brief (B1..B14) into 16 classes and 16 rules, each naming its
+  row; targets resolved by EditorID/FULL on the `KitKraft Dev` profile (14 WEAP, 4 AMDL,
+  3 AMMO, 2 ammo LVLI, 10 OMOD; FormIDs in the spec header). `kit build --plan` now prints
+  every change with its brief row, rule, before and after (and each JSON change has
+  `brief`); `docs/overhaul/build-1-plan.md` is that output: 42 field changes on 17
+  overrides (13 WEAP, 4 AMDL). `out\overhaul\KitKraftGunOverhaul.esm` (43,955 bytes,
+  SHA-256 `a44d49bb...4a95342aae`; masters `Starfield.esm`, `OldSovietMarksmanRifle.esm`,
+  the rifle's winner in `KitKraft Dev`): validate 0 errors 0 warnings, `roundtrip
+  --verify` identical, packaged (`out\overhaul\package\KitKraftGunOverhaul-0.1.0.zip`),
+  `deploy --dev --dry-run` refused only by the live-profile guard (MO2's active profile is
+  `Default`). Rows: B1, B2, B4, B5, B7, B9, B13, B14 implemented; B3, B6, B11, B12 partial;
+  B8 open (the automatic receivers carry no damage property: owner to restate), B10 open
+  (OMOD value). The open parts are OMOD property values (`WSPS` on default receivers,
+  `ACPT` on magazines), opaque until lane B types `ObjectModProperty.Value1` (Requests).
+  `crates/engine/tests/overhaul_build.rs` builds the spec on a fixture of the 33 real
+  records (copied from `Starfield.esm` into a temp localized master with the English
+  tables; skipped without `KITCRAFT_DATA_DIR`) and checks all 42 changes. Report, owner
+  steps and checklist: `docs/overhaul/build-1.md`. **Owner (M3.O5):** the in-game check
+  there, on `KitKraft Dev` with a disposable save.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -964,6 +1140,12 @@ is under "Next".
   all 6,719,725 REFR, 40,251 CELL, 14,731 ACHR) places every subrecord the definitions name
   (0 unplaced, 0 failed, 0 re-encode differences, 89 s); parity **failed 1,712,200 -> 0**
   (46,249,514 typed, 2,261,438 opaque, 1,908,609 unknown; no subrecord is left undecodable).
+  The newly typed out-of-order CELL XBPS and REFR XPLK expose more of the two known
+  dangling classes (`validate_corpus_official_files`, fixed at the main merge): SFBGS050
+  XBPS 24/23 -> 119/107, BlueprintShips-SFBGS050 XBPS 10/10 (five cells, 20 of its own
+  references it lacks), ShatteredSpace XPLK 30 -> 41 (all at file index 02). Main merged
+  afterwards (lane E's M4 commands and cell rules, lane A's placement fixes): `ref.orphan`
+  keeps its REFR NAME 0x1FB known error; all gates green on the merged head.
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
   `docs/mcp.md` are in; an agent cannot restart Claude Code, so the owner runs:
 **M2.F7 result (2026-10-14):** PASS. Owner opened a fresh Claude Code session: `kitcraft` connected with exactly 8 tools (execute, command_line, coverage, diff_plugins, inspect_record, query_records, record_schema, roundtrip), the Default profile preloaded, `record_schema WEAP` returned 50 subrecord definitions (6 typed, 44 opaque), `coverage Constellation.esm` returned 57 records / 8 types. Caveat filed as a lane F request below.
@@ -1183,6 +1365,23 @@ wins") but still the owner's to confirm:
   input name; `not_found` names the places searched.
 
 Agents append here when they need a change in a crate they do not own.
+
+- **Lane E (M3.E9) -> lane B (M3.B9).** The overhaul's open parts are OMOD property
+  values: `ObjectModProperty.Value1` is opaque because xEdit decides it by the sibling
+  `ValueType` (`wbDefinitionsSF1.pas@9fb0168...#L1981-L2031`, list `#L6894-L6938`), and
+  the format only has `edid-prefix` unions, so this is format work (loader, codegen,
+  `kitcraft_doc::typed`, `edit::fields`), not a TOML-only definition. Narrowest useful
+  step: Value1 as `i32` when `ValueType` = Int (0) and `f32` when Float (1), every other
+  variant raw (FormIDs stay opaque as now); corpus re-encode identical. It closes, with
+  rules only: `WSPS` on receivers `077F13` (7.5 -> 5.625), `057555` (1.0 -> 1.5625),
+  `04A750` (16 -> 12); `ACPT` on magazines `12D03F` (+5 -> +2), `087D4B` (+30, owner to
+  confirm), `132C4A`/`132C49`/`132C48` (+8/+4/+16 -> +4/+2/+8). Details:
+  `docs/overhaul/build-1.md`, "Why partial or open".
+- **Lane E (M3.E9) -> owner.** Brief row B8 has no counterpart in the records (no
+  automatic receiver OMOD carries a damage property); please restate it
+  (`docs/overhaul/build-1.md`, B8). B11 and B12 also need a reading: which magazine
+  "18 rounds" means for the Drum Beat, and whether B12's "14" is the Large (already 14
+  after this build) or the Extra Large magazine.
 
 - **Owner -> lanes H and B (M3.O3 done 2026-10-14).** SF1Edit is installed:
   `C:\Modding\tools\xEdit\xSFEdit64.exe` (file version 4.1.5.0). Lane H: run M3.H4's
@@ -1511,13 +1710,25 @@ Agents append here when they need a change in a crate they do not own.
   members now come first) and `tests/diff_corpus.rs` (picks a record type whose definition
   places KWDA, since lstring-only definitions keep it raw).
 - **Lane A -> lane E (M4.A1..A6 landed; for M4.E1, E2, E3, E4).** `kitcraft_esm`:
-  - `forms::NewForms::for_index(&index)` / `for_plugin(&plugin)` -> `allocate() ->
-    Result<u32>`, `write_hedr(&mut tes4)`; `Error::Refused` for small/medium targets;
-    name `forms::LIMITATIONS` in results.
+  - `forms::NewForms::for_index(&index, &master_scales)` / `for_plugin(&plugin,
+    &master_scales)` / `new(&tes4, &master_scales, own_max)` -> `allocate() ->
+    Result<u32>`, `write_hedr(&mut tes4)`; `master_scales: &[Option<tes4::Scale>]` is
+    each master's scale in master-list order (`Scale::of_flags(master_tes4.flags())`, or
+    from lane D's load order); the own prefix is the **full**-master count, and an
+    unknown (`None`) scale, a wrong-length list or a small/medium target is
+    `Error::Refused` (fix round, review blocker: masters [Starfield full, Constellation
+    small, SFBGS003 medium] give 01xxxxxx). One allocator per plugin per edit session
+    (not `Copy`). Name `forms.limitations()` in results (`LIMITATIONS` plus a low `HEDR`
+    next object ID and the blueprint flag's `HEDR` count meaning).
+    `forms::names_master(form_id, &master_scales) -> Option<bool>` classifies a stored
+    FormID.
   - `refs::compose_reference(&RefSpec, allow_reference: &[&str]) -> Result<ComposedRef>`
     (`RefSpec::new(sig, form_id, base, position, rotation)`, then `persistent`,
-    `initially_disabled`, `editor_id`, `extra`...); `ComposedRef { record, members,
-    limitations }`; `composed.placed(place, cell, &style) -> Result<Placed>`. Until BW's
+    `initially_disabled`, `editor_id`, `extra`...); `ComposedRef { record, position,
+    members, limitations }`; `composed.placed(place, cell, &style) -> Result<Placed>`
+    (`&mut self` since the fix round: a position outside its exterior cell adds a
+    limitation; non-finite numbers, a NUL in the EditorID and `EDID`/`NAME`/`DATA`/`XXXX`
+    in `leading`/`extra`/`trailing` are refused). Until BW's
     `REFR`/`ACHR` definitions reach `main` through BX, `DATA.Position.Z` and
     `DATA.Rotation` are below `corpus` and must be in `allow_reference` (nothing to change
     when they land). They have landed (M4.BX1): both come from the REFR/ACHR `DATA`
@@ -1529,14 +1740,31 @@ Agents append here when they need a change in a crate they do not own.
     100 units), `cells::placement(&header, &Parent, &style)` for any record under a cell,
     quest or topic; `Plugin::upsert_styled` / `RewriteOptions::placement` place in corpus
     order. A placed reference needs its parent `CELL` (and `WRLD`) carried in the plugin
-    for the corpus shape; without it the children group still lands in a sane place.
-  - `navmesh::import_navmeshes(&ck_plugin, &mut target, &style)` and
-    `navmesh::navmesh_placements(&ck_plugin, &target_index, read_cell, &style)` for
-    `[[import]]`; refused unless both plugins have the same masters.
+    first: since the M4 placement-core fix round, `upsert_styled` and the streaming upsert
+    refuse (`Error::Placement`, "carry the WRLD/CELL override first") a children group
+    (types 1, 6, 7, 10) whose record is not in its parent group; `cells::carry_parents(
+    &master_index, &place, cell, &style, &limits, read)` gives the lossless `WRLD`/`CELL`
+    overrides to upsert first (skip those the target has). Before the fix the group was
+    created without its record, a shape no official file has. **Lane E:** the engine's
+    `edit::source::PARENT_LABELLED` is `[1, 6, 7]`; a copied `DIAL`/`SCEN`/`DLBR` (or an
+    `INFO`, whose `DIAL` sits in type 10) also needs its `QUST`, so add 10 there, or such
+    a patch is now refused instead of getting an ownerless quest children group.
+  - `navmesh::import_navmeshes(&ck_plugin, &mut target, &NavmeshOptions { style, limits,
+    master_scales })` and `navmesh::navmesh_placements(&ck_plugin, &target_index,
+    read_cell, &options)` for `[[import]]`; refused unless both plugins have the same
+    masters. `NavmeshImport::master_forms` lists imported NAVMs that override a master's
+    (ONAM candidates), `unknown_forms` those a missing scale leaves undecided.
+  - `CellPlace::Interior { labels }` (fix round): an existing interior cell keeps the
+    block/sub-block it was read in (`cell_place_in`); `CellPlace::INTERIOR` computes them
+    for a new cell. `PlacementStyle::detect(&index)` reads a target's style back.
+    `Upsert::Moved`: a reference whose flag 0x400 changed leaves its cell's other
+    children group (engine's patch report says "moved"). Paths are checked against flag
+    0x400 and a second persistent `CELL` per world is refused.
   - ONAM (M4.A6): when a patch overrides records in groups 7, 9 or 10, set
     `Tes4::set_overridden_forms(&mut tes4, &cells::onam_forms(&plugin, |id| <id is a
-    master's and the master has it>))`; patches that only override top-level records or
-    persistent references still need none. INCC stays yours (as M2.E3).
+    master's and the master has it>))` (`cells::onam_forms_in(&index, pick)` for a
+    streamed patch); patches that only override top-level records or persistent
+    references still need none. INCC stays yours (as M2.E3).
 - **Lane E -> lanes D, F (M3 round 1).** (1) Lane F: new catalog command
   `overhaul.scaffold` (alias `overhaul`, session handler registered in
   `handlers::session_defaults`), `build` gained `plan`, `validate` gained

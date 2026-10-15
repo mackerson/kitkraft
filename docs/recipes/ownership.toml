@@ -1,0 +1,15 @@
+# W4 recipe (M4.E8): the owner of a vanilla interior cell changed by an override.
+# Build: kit build docs/recipes/ownership.toml out/recipes/KitKraftOwnership.esm
+# The cell is a stand-in until lane H's M4.H1 picks the fixture cell (F27); see
+# docs/recipes/ownership.md.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[set]]
+# CityNewAtlantisFreestarEmbassy ("Freestar Collective Embassy"), an owned interior cell.
+form = "Starfield.esm:017307"
+# PlayerFaction: taking the cell's items should no longer count as stealing.
+fields = { "XOWN.Owner" = "Starfield.esm:01C21C" }
+brief = "W4"
