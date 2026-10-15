@@ -103,7 +103,7 @@ pub(crate) fn world_master(dir: &Path) -> PathBuf {
                 sub(b"FULL", &zstr("Test Room")),
             ],
         ),
-        Parent::CellAt(CellPlace::Interior),
+        Parent::CellAt(CellPlace::INTERIOR),
     );
     put(
         rec(
@@ -116,7 +116,7 @@ pub(crate) fn world_master(dir: &Path) -> PathBuf {
             ],
         ),
         Parent::Cell {
-            place: CellPlace::Interior,
+            place: CellPlace::INTERIOR,
             cell: INTERIOR_CELL,
         },
     );

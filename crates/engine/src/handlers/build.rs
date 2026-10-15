@@ -330,6 +330,7 @@ fn place_request(p: &spec::PlaceEntry) -> Result<PlaceRequest, EngineError> {
 /// are the same; the cells must be in the plugin). `ONAM` is redone and every written
 /// record is located again, since records moved.
 fn import_navmeshes(
+    master_scale: &dyn Fn(&str) -> Option<kitcraft_esm::tes4::Scale>,
     spec_dir: &std::path::Path,
     imports: &[spec::ImportEntry],
     staged: &std::path::Path,
@@ -353,10 +354,21 @@ fn import_navmeshes(
             std::fs::read(staged).map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
         let mut target = kitcraft_esm::Plugin::parse(&target_bytes)
             .map_err(|e| failed(ID, format!("{}: {e}", staged.display())))?;
+        // The scales of the masters the two plugins share (they must be the same list).
+        let scales: Vec<Option<kitcraft_esm::tes4::Scale>> = source
+            .tes4()
+            .masters()
+            .iter()
+            .map(|m| master_scale(&m.name_lossy()))
+            .collect();
         let done = kitcraft_esm::navmesh::import_navmeshes(
             &source,
             &mut target,
-            &kitcraft_esm::cells::PlacementStyle::OFFICIAL,
+            &kitcraft_esm::navmesh::NavmeshOptions {
+                style: kitcraft_esm::cells::PlacementStyle::OFFICIAL,
+                limits: *limits,
+                master_scales: &scales,
+            },
         )
         .map_err(|e| spec_error(&key, e))?;
         let bytes = target
@@ -739,7 +751,22 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .parent()
         .map(std::path::Path::to_path_buf)
         .unwrap_or_default();
-    let imported = import_navmeshes(&spec_dir, &spec.imports, &staged.path, &mut report, &limits)?;
+    let scale_of = |name: &str| {
+        loaded
+            .lo
+            .find(name)
+            .and_then(|i| loaded.lo.plugin(i))
+            .and_then(|p| p.header())
+            .and_then(|h| kitcraft_esm::tes4::Scale::of_flags(h.flags.0))
+    };
+    let imported = import_navmeshes(
+        &scale_of,
+        &spec_dir,
+        &spec.imports,
+        &staged.path,
+        &mut report,
+        &limits,
+    )?;
     let checked = check(ID, loaded, &staged)?;
     let placed = place::placed_json(
         &report,

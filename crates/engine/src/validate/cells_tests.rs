@@ -22,6 +22,32 @@ use crate::handlers::place_tests::{
 const RULES: [&str; 8] = super::cells::RULES;
 
 /// A patch of `World.esm` in `data`, each record at its path; `INCC` as given.
+/// Puts `record` under the groups `path`, creating them, with no placement rules.
+fn force(
+    entries: &mut Vec<kitcraft_esm::Entry<'static>>,
+    path: &[GroupHeader],
+    record: Record<'static>,
+) {
+    use kitcraft_esm::{Entry, Group};
+    let Some((g, rest)) = path.split_first() else {
+        entries.push(Entry::Record(record));
+        return;
+    };
+    let i = match entries
+        .iter()
+        .position(|e| matches!(e, Entry::Group(x) if x.header.same_group(g)))
+    {
+        Some(i) => i,
+        None => {
+            entries.push(Entry::Group(Group::new(*g)));
+            entries.len() - 1
+        }
+    };
+    if let Entry::Group(x) = &mut entries[i] {
+        force(x.children_mut(), rest, record);
+    }
+}
+
 fn patch(
     data: &Path,
     name: &str,
@@ -37,7 +63,12 @@ fn patch(
     }
     let mut plugin = Plugin::new(header);
     for (record, path) in records {
-        plugin.upsert(&path, record).unwrap();
+        // The builder refuses the shapes the negative fixtures need (a children group
+        // without its record, a flag against its group): those are put in by hand.
+        if let Err(e) = plugin.upsert(&path, record.clone()) {
+            assert!(matches!(e, kitcraft_esm::Error::Placement { .. }), "{e}");
+            force(plugin.entries_mut(), &path, record);
+        }
     }
     let file = data.join(name);
     std::fs::write(&file, plugin.to_bytes().unwrap()).unwrap();
@@ -50,7 +81,7 @@ fn at(record: &Record<'_>, parent: Parent) -> Vec<GroupHeader> {
 
 fn interior() -> Parent {
     Parent::Cell {
-        place: CellPlace::Interior,
+        place: CellPlace::INTERIOR,
         cell: INTERIOR_CELL,
     }
 }
@@ -73,7 +104,7 @@ fn carried_cell() -> (Record<'static>, Vec<GroupHeader>) {
             sub(b"FULL", &zstr("Test Room")),
         ],
     );
-    let path = at(&cell, Parent::CellAt(CellPlace::Interior));
+    let path = at(&cell, Parent::CellAt(CellPlace::INTERIOR));
     (cell, path)
 }
 
@@ -159,7 +190,7 @@ fn missing_parents_and_orphans() {
         one("cell.missing-parent", "warning", "CELL:00000900")
     );
     let nobody = Parent::Cell {
-        place: CellPlace::Interior,
+        place: CellPlace::INTERIOR,
         cell: 0x0000_0999,
     };
     let p = patch(
@@ -235,7 +266,7 @@ fn blocks_grids_and_persistent_flags() {
         found(&check(&p)),
         one("ref.outside-block", "error", "CELL:01000905")
     );
-    let right = at(&cell, Parent::CellAt(CellPlace::Interior));
+    let right = at(&cell, Parent::CellAt(CellPlace::INTERIOR));
     let p = patch(&data, "BlockOk.esm", vec![(cell, right)], Some(1));
     assert_eq!(found(&check(&p)), []);
     // An exterior cell whose XCLC says (9, 9) in the (1, -1) sub-block.

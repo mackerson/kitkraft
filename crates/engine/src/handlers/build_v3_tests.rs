@@ -130,7 +130,7 @@ fn ck_plugin(data: &Path) -> PathBuf {
         )],
     );
     let path =
-        cells::placement(&cell.header, &Parent::CellAt(CellPlace::Interior), &style).unwrap();
+        cells::placement(&cell.header, &Parent::CellAt(CellPlace::INTERIOR), &style).unwrap();
     ck.upsert_styled(&path, cell, &style).unwrap();
     let navm = rec(
         b"NAVM",
@@ -138,7 +138,7 @@ fn ck_plugin(data: &Path) -> PathBuf {
         vec![Subrecord::new(Signature(*b"NVNM"), vec![7u8; 16])],
     );
     let parent = Parent::Cell {
-        place: CellPlace::Interior,
+        place: CellPlace::INTERIOR,
         cell: INTERIOR_CELL,
     };
     let path = cells::placement(&navm.header, &parent, &style).unwrap();

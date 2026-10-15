@@ -51,7 +51,7 @@ use kitcraft_esm::driver::RewriteOptions;
 use kitcraft_esm::forms::NewForms;
 use kitcraft_esm::index::{index_file, read_indexed, IndexOptions, PluginIndex};
 use kitcraft_esm::refs::{compose_reference, RefSpec};
-use kitcraft_esm::tes4::{Tes4, FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
+use kitcraft_esm::tes4::{Scale, Tes4, FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
 use kitcraft_esm::{DecodeLimits, GroupHeader, Plugin, Record, Signature, Subrecord};
 use kitcraft_schema::FieldType;
 use serde_json::{json, Value};
@@ -677,14 +677,22 @@ pub fn write_patch_with(
             }
         }
         let names: Vec<Vec<u8>> = masters.iter().map(|m| m.as_bytes().to_vec()).collect();
+        // Every master is full-scale here (checked just above); lane A's allocator takes
+        // the scales in master-list order.
+        let master_scales: Vec<Option<Scale>> = masters
+            .iter()
+            .map(|m| flag_of(m).and_then(Scale::of_flags))
+            .collect();
         let allocator = match &existing {
-            None => NewForms::new(&created_header(&masters).to_record(), None),
-            Some((_, index)) if masters == original_masters => NewForms::for_index(index),
+            None => NewForms::new(&created_header(&masters).to_record(), &master_scales, None),
+            Some((_, index)) if masters == original_masters => {
+                NewForms::for_index(index, &master_scales)
+            }
             Some((_, index)) => {
                 // Extended masters: the target has no records of its own (checked above).
                 let mut header = index.header.clone();
                 set_masters(&mut header, &names);
-                NewForms::new(&header, None)
+                NewForms::new(&header, &master_scales, None)
             }
         }
         .map_err(|e| refused(format!("{target_name}: {e}")))?;
@@ -750,7 +758,7 @@ pub fn write_patch_with(
             let cell = stored(new.place.cell())?;
             let world = new.place.world().map(stored).transpose()?;
             let place = match (&new.place, world) {
-                (RefPlace::Interior { .. }, _) => CellPlace::Interior,
+                (RefPlace::Interior { .. }, _) => CellPlace::INTERIOR,
                 (RefPlace::Exterior { grid, .. }, Some(world)) => {
                     CellPlace::Exterior { world, grid: *grid }
                 }
@@ -770,7 +778,7 @@ pub fn write_patch_with(
             spec.initially_disabled = new.initially_disabled;
             spec.editor_id = new.editor_id.as_ref().map(|e| e.as_bytes().to_vec());
             let allow: Vec<&str> = new.allow_reference.iter().map(String::as_str).collect();
-            let composed = compose_reference(&spec, &allow)
+            let mut composed = compose_reference(&spec, &allow)
                 .map_err(|e| refused(format!("{}: {e}", new.label)))?;
             let mut at = composed
                 .placed(place, cell, &PlacementStyle::OFFICIAL)
@@ -870,8 +878,8 @@ pub fn write_patch_with(
             });
             placed.push(at);
         }
-        for l in kitcraft_esm::forms::LIMITATIONS {
-            push_once(&mut limitations, (*l).to_string());
+        for l in allocator.limitations() {
+            push_once(&mut limitations, l);
         }
         forms = Some(allocator);
     }
@@ -974,6 +982,7 @@ pub fn write_patch_with(
         report.outcome = match outcome {
             Upsert::Replaced => "replaced",
             Upsert::Inserted => "inserted",
+            Upsert::Moved => "moved",
         };
     }
     if overrides_children {

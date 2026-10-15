@@ -18,8 +18,11 @@
 //! Missing groups and new records go where the corpus rules of [`crate::cells`] put them
 //! (M4.A2; the rebuild gate in `tests/rebuild.rs` reproduces every top-level group of the
 //! 14 official files this way): a top-level group in [`TOP_GROUP_ORDER`] order; a children
-//! group (types 1, 6, 7, 10) right after the record its label names (at the end of its
-//! parent when that record is missing); blocks and sub-blocks (types 2 to 5) by label; a
+//! group (types 1, 6, 7, 10) right after the record its label names, which must be there
+//! (refused otherwise: carry the `WRLD`/`CELL` override first,
+//! [`crate::cells::carry_parents`]; only [`Plugin::upsert_before_owner`], for rebuilding
+//! from records in any order, puts it at the end of its parent and moves it when the
+//! record comes); blocks and sub-blocks (types 2 to 5) by label; a
 //! cell's persistent and temporary children in the [`PlacementStyle`]'s order; records by
 //! FormID where the corpus orders them (sub-blocks, topic and quest children, the
 //! top-level `WRLD` and `QUST` groups), a world's persistent cell first, `NAVM` first in a
@@ -30,7 +33,10 @@
 //! [`RewriteOptions::placement`] another).
 //!
 //! Inside the innermost group a direct child record with the same FormID and signature is
-//! replaced in place. Records are copied as given: their FormIDs are stored values,
+//! replaced in place; a reference whose flag 0x400 changed leaves the cell's other
+//! children group ([`Upsert::Moved`]). The path's innermost group must agree with the
+//! record's flag 0x400 (types 8 and 9, a `CELL` directly in type 1), and a world keeps one
+//! persistent cell. Records are copied as given: their FormIDs are stored values,
 //! file-relative to the masters of the plugin they are written into, and nothing here
 //! remaps them or infers anything about a master.
 //!
@@ -247,6 +253,12 @@ pub enum Upsert {
     Replaced,
     /// The record was added (and any missing group created).
     Inserted,
+    /// A record with the same FormID was in the cell's other children group (persistent
+    /// or temporary, under the same cell children group: its record flag 0x400 changed).
+    /// It was taken out of there (with that group, when it was its last record) and the
+    /// record put where its path says. A move between two cells is the caller's: this
+    /// sees one cell children group only.
+    Moved,
 }
 
 /// A record and where it goes (see the module documentation).
@@ -267,7 +279,41 @@ impl Placed {
     }
 }
 
+/// Refuse a path whose innermost group disagrees with the record's flags where the corpus
+/// has no exception (`crate::cells`, "Where records live"): a record in persistent children
+/// (type 8) carries record flag 0x400 and is no `NAVM`, a record in temporary children
+/// (type 9) does not carry it, and a `CELL` directly in a world's children group (type 1)
+/// is its persistent cell and carries it.
+fn check_flags(path: &[GroupHeader], record: &Record<'_>) -> Result<()> {
+    use crate::cells::group_type::*;
+    use crate::cells::FLAG_PERSISTENT;
+    let signature = record.header.signature;
+    let persistent = record.header.flags & FLAG_PERSISTENT != 0;
+    let reason = match path.last().map(|g| g.group_type) {
+        Some(CELL_PERSISTENT) if signature.0 == *b"NAVM" => {
+            "no NAVM is in persistent children (type 8) in the corpus"
+        }
+        Some(CELL_PERSISTENT) if !persistent => {
+            "every record in persistent children (type 8) carries record flag 0x400 in the \
+             corpus"
+        }
+        Some(CELL_TEMPORARY) if persistent => {
+            "no record in temporary children (type 9) carries record flag 0x400 in the corpus"
+        }
+        Some(WORLD_CHILDREN) if signature.0 == *b"CELL" && !persistent => {
+            "a CELL directly in a world's children group (type 1) is its persistent cell and \
+             carries record flag 0x400 in the corpus"
+        }
+        _ => return Ok(()),
+    };
+    Err(Error::Placement {
+        offset: record.offset().unwrap_or(0),
+        reason,
+    })
+}
+
 fn check_path(path: &[GroupHeader], record: &Record<'_>) -> Result<()> {
+    check_flags(path, record)?;
     let offset = record.offset().unwrap_or(0);
     match path.first() {
         None => Err(Error::Placement {
@@ -401,13 +447,103 @@ fn group_position(
     }
 }
 
-/// Whether `group` is the children group (types 1, 6, 7, 10) of the record `form_id`.
-fn is_children_of(group: &GroupHeader, form_id: u32) -> bool {
+/// Whether `group_type` is a children group type (1, 6, 7, 10): a group that belongs to
+/// the record its label names.
+fn is_children_type(group_type: i32) -> bool {
     use crate::cells::group_type::*;
     matches!(
-        group.group_type,
+        group_type,
         WORLD_CHILDREN | CELL_CHILDREN | TOPIC_CHILDREN | QUEST_CHILDREN
-    ) && group.label_u32() == form_id
+    )
+}
+
+/// Whether `group` is the children group (types 1, 6, 7, 10) of the record `form_id`.
+fn is_children_of(group: &GroupHeader, form_id: u32) -> bool {
+    is_children_type(group.group_type) && group.label_u32() == form_id
+}
+
+/// Whether a missing children group may be created before the record it belongs to.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Owners {
+    /// Refused ([`NO_OWNER`]): the default.
+    Required,
+    /// Created at the end of its parent; the record, when it comes, moves it after itself
+    /// ([`Plugin::upsert_before_owner`]).
+    MayFollow,
+}
+
+const NO_OWNER: &str = "a new children group (type 1, 6, 7 or 10) needs the WRLD, CELL, DIAL \
+                        or QUST record it belongs to in its parent group: carry the WRLD/CELL \
+                        override first (cells::carry_parents)";
+
+/// Refuse (under [`Owners::Required`]) placing `record` at `rest` below a top-level group
+/// whose children are `top_children` (`None` when the group does not exist yet) when that
+/// would create a children group whose owner record is not in the parent group. Read
+/// only: nothing is created before the refusal.
+fn check_owners(
+    top_children: Option<&[Entry<'_>]>,
+    rest: &[GroupHeader],
+    record: &Record<'_>,
+    owners: Owners,
+) -> Result<()> {
+    if owners == Owners::MayFollow {
+        return Ok(());
+    }
+    let mut level = top_children;
+    for next in rest {
+        let found = level.and_then(|kids| {
+            kids.iter().find_map(|e| match e {
+                Entry::Group(g) if g.header.same_group(next) => Some(g.children()),
+                _ => None,
+            })
+        });
+        if found.is_none() && is_children_type(next.group_type) {
+            let owner = next.label_u32();
+            let present = level.is_some_and(|kids| {
+                kids.iter()
+                    .any(|e| matches!(e, Entry::Record(r) if r.header.form_id == owner))
+            });
+            if !present {
+                return Err(Error::Placement {
+                    offset: record.offset().unwrap_or(0),
+                    reason: NO_OWNER,
+                });
+            }
+        }
+        level = found;
+    }
+    Ok(())
+}
+
+/// Take the record `form_id` out of the sibling of the persistent or temporary group
+/// `next` (the other of types 8 and 9 with the same label) among `children`, the children
+/// of a cell children group; drop that sibling when it is left empty. Whether one was
+/// taken.
+fn take_from_sibling(children: &mut Vec<Entry<'_>>, next: &GroupHeader, form_id: u32) -> bool {
+    use crate::cells::group_type::*;
+    let other = match next.group_type {
+        CELL_PERSISTENT => CELL_TEMPORARY,
+        CELL_TEMPORARY => CELL_PERSISTENT,
+        _ => return false,
+    };
+    let Some(at) = children.iter().position(
+        |e| matches!(e, Entry::Group(g) if g.header.group_type == other && g.header.label == next.label),
+    ) else {
+        return false;
+    };
+    let (taken, empty) = match children.get_mut(at) {
+        Some(Entry::Group(g)) => {
+            let kids = g.children_mut();
+            let before = kids.len();
+            kids.retain(|e| !matches!(e, Entry::Record(r) if r.header.form_id == form_id));
+            (kids.len() != before, kids.is_empty())
+        }
+        _ => (false, false),
+    };
+    if taken && empty {
+        children.remove(at);
+    }
+    taken
 }
 
 /// Place `record` under the groups `rest` inside `children`, the children of the group
@@ -418,23 +554,36 @@ fn place<'a>(
     rest: &[GroupHeader],
     record: Record<'a>,
     style: &PlacementStyle,
-) -> Upsert {
+) -> Result<Upsert> {
+    use crate::cells::group_type::*;
     let Some((next, deeper)) = rest.split_first() else {
+        let form_id = record.header.form_id;
+        if parent.group_type == WORLD_CHILDREN
+            && record.header.signature.0 == *b"CELL"
+            && children.iter().any(|e| {
+                matches!(e, Entry::Record(r) if r.header.signature.0 == *b"CELL"
+                    && r.header.form_id != form_id)
+            })
+        {
+            return Err(Error::Placement {
+                offset: record.offset().unwrap_or(0),
+                reason: "a world has one persistent cell in the corpus, and this world's \
+                         children group already holds another CELL",
+            });
+        }
         let same = children.iter().position(|e| match e {
             Entry::Record(r) => {
-                r.header.form_id == record.header.form_id
-                    && r.header.signature == record.header.signature
+                r.header.form_id == form_id && r.header.signature == record.header.signature
             }
             Entry::Group(_) => false,
         });
-        return match same.and_then(|i| children.get_mut(i)) {
+        return Ok(match same.and_then(|i| children.get_mut(i)) {
             Some(slot) => {
                 *slot = Entry::Record(record);
                 Upsert::Replaced
             }
             None => {
                 // A children group placed before its record moves to follow it.
-                let form_id = record.header.form_id;
                 let orphan = children
                     .iter()
                     .position(
@@ -448,8 +597,12 @@ fn place<'a>(
                 }
                 Upsert::Inserted
             }
-        };
+        });
     };
+    // A record whose persistence changed leaves the cell's other children group.
+    let moved = parent.group_type == CELL_CHILDREN
+        && deeper.is_empty()
+        && take_from_sibling(children, next, record.header.form_id);
     let found = children.iter().position(|e| match e {
         Entry::Group(g) => g.header.same_group(next),
         Entry::Record(_) => false,
@@ -462,14 +615,19 @@ fn place<'a>(
             at
         }
     };
-    match children.get_mut(index) {
+    let outcome = match children.get_mut(index) {
         Some(Entry::Group(g)) => {
             let header = g.header;
-            place(g.children_mut(), &header, deeper, record, style)
+            place(g.children_mut(), &header, deeper, record, style)?
         }
-        // `index` was found or inserted as a group just above.
-        _ => Upsert::Inserted,
-    }
+        _ => {
+            return Err(Error::Internal {
+                offset: 0,
+                message: "a group found or inserted while placing a record is not there",
+            })
+        }
+    };
+    Ok(if moved { Upsert::Moved } else { outcome })
 }
 
 /// The empty top-level group a record placed at `path` needs under `style`, if any: the
@@ -507,16 +665,57 @@ impl<'a> Plugin<'a> {
     /// [`crate::cells`]): new groups and records go where the corpus rules put them, and
     /// a nested `NAVM`, `DIAL`, `INFO`, `DLBR` or `SCEN` also gets its empty top-level
     /// group when the style keeps one.
+    ///
+    /// Refused (`Error::Placement`), with nothing changed: a path whose innermost group
+    /// disagrees with the record's flag 0x400 (types 8, 9, a `CELL` directly in type 1); a
+    /// second persistent `CELL` in a world; and a path that would create a children group
+    /// (types 1, 6, 7, 10) whose `WRLD`, `CELL`, `DIAL` or `QUST` record is not in its
+    /// parent group: upsert that record first (for a master's cell,
+    /// [`crate::cells::carry_parents`] gives the `WRLD` and `CELL` overrides). The path
+    /// itself is otherwise taken as given: [`crate::cells::placement`] computes one that
+    /// follows the corpus rules.
     pub fn upsert_styled(
         &mut self,
         path: &[GroupHeader],
         record: Record<'a>,
         style: &PlacementStyle,
     ) -> Result<Upsert> {
+        self.upsert_with(path, record, style, Owners::Required)
+    }
+
+    /// [`Plugin::upsert_styled`] that may create a children group before the record it
+    /// belongs to (at the end of its parent; the record, when upserted, moves the group
+    /// after itself). **Only for rebuilding a plugin from all of its records in any order**
+    /// (the rebuild gate's shuffles): a plugin written before every such record is there
+    /// has a children group without its record, which the corpus never has.
+    pub fn upsert_before_owner(
+        &mut self,
+        path: &[GroupHeader],
+        record: Record<'a>,
+        style: &PlacementStyle,
+    ) -> Result<Upsert> {
+        self.upsert_with(path, record, style, Owners::MayFollow)
+    }
+
+    fn upsert_with(
+        &mut self,
+        path: &[GroupHeader],
+        record: Record<'a>,
+        style: &PlacementStyle,
+        owners: Owners,
+    ) -> Result<Upsert> {
         check_path(path, &record)?;
         let Some((top, rest)) = path.split_first() else {
-            return Ok(Upsert::Inserted);
+            return Err(Error::Internal {
+                offset: 0,
+                message: "an empty path passed the path check",
+            });
         };
+        let top_children = self.entries().iter().find_map(|e| match e {
+            Entry::Group(g) if g.header.same_group(top) => Some(g.children()),
+            _ => None,
+        });
+        check_owners(top_children, rest, &record, owners)?;
         if let Some(placeholder) = placeholder_for(path, &record, style) {
             self.top_group(&placeholder);
         }
@@ -524,7 +723,7 @@ impl<'a> Plugin<'a> {
         match self.entries_mut().get_mut(index) {
             Some(Entry::Group(g)) => {
                 let header = g.header;
-                Ok(place(g.children_mut(), &header, rest, record, style))
+                place(g.children_mut(), &header, rest, record, style)
             }
             _ => Err(Error::Internal {
                 offset: 0,
@@ -660,8 +859,9 @@ pub fn upsert_reader<R: Read + Seek>(
         let rest = p.path.get(1..).unwrap_or(&[]);
         let i = create(&mut created, top);
         if let Some((_, g)) = created.get_mut(i) {
+            check_owners(Some(g.children()), rest, &p.record, Owners::Required)?;
             let header = g.header;
-            *outcome = Some(place(g.children_mut(), &header, rest, p.record, &style));
+            *outcome = Some(place(g.children_mut(), &header, rest, p.record, &style)?);
         }
     }
     // Stable: groups of equal rank (unknown types) keep their first-use order.
@@ -687,8 +887,9 @@ pub fn upsert_reader<R: Read + Seek>(
                     }
                     if let Some(p) = slot.take() {
                         let rest = p.path.get(1..).unwrap_or(&[]);
+                        check_owners(Some(g.children()), rest, &p.record, Owners::Required)?;
                         let header = g.header;
-                        *outcome = Some(place(g.children_mut(), &header, rest, p.record, &style));
+                        *outcome = Some(place(g.children_mut(), &header, rest, p.record, &style)?);
                     }
                 }
             }
@@ -745,6 +946,7 @@ mod tests {
     use super::{
         set_masters, top_group_rank, upsert_reader, HeaderSpec, Placed, Upsert, TOP_GROUP_ORDER,
     };
+    use crate::cells::PlacementStyle;
     use crate::driver::{roundtrip_bytes, RewriteOptions, RoundtripOptions};
     use crate::fixture::{self, group, record, sub};
     use crate::tes4::Tes4;
@@ -903,14 +1105,25 @@ mod tests {
         // Two records added: the HEDR count follows the majority meaning.
         assert_eq!(reparsed.tes4().hedr().unwrap().unwrap().record_count, 10);
 
-        // A children group for a record that is not there goes to the end.
+        // A children group for a record that is not there is refused, with nothing
+        // changed; with the rebuild opt-in it goes to the end.
         let orphan = GroupHeader {
             label: 0x999u32.to_le_bytes(),
             group_type: 6,
             ..GroupHeader::default()
         };
-        plugin
+        let before = plugin.to_bytes().unwrap();
+        let err = plugin
             .upsert(&[cell_top, orphan], rec(b"REFR", 0x302, b"o"))
+            .unwrap_err();
+        assert!(err.to_string().contains("carry the WRLD/CELL"), "{err}");
+        assert_eq!(plugin.to_bytes().unwrap(), before);
+        plugin
+            .upsert_before_owner(
+                &[cell_top, orphan],
+                rec(b"REFR", 0x302, b"o"),
+                &PlacementStyle::OFFICIAL,
+            )
             .unwrap();
         let Entry::Group(cells) = &plugin.entries()[1] else {
             panic!()
@@ -1139,15 +1352,15 @@ mod tests {
             (flagged(b"QUST", 0, 0x40), Parent::None),
             (
                 flagged(b"CELL", 0, 0x0000_0012),
-                Parent::CellAt(CellPlace::Interior),
+                Parent::CellAt(CellPlace::INTERIOR),
             ),
             (
                 flagged(b"CELL", 0, 0x0000_0002),
-                Parent::CellAt(CellPlace::Interior),
+                Parent::CellAt(CellPlace::INTERIOR),
             ),
             (
                 flagged(b"CELL", 0, 0x0000_0011),
-                Parent::CellAt(CellPlace::Interior),
+                Parent::CellAt(CellPlace::INTERIOR),
             ),
             (flagged(b"CELL", 0, 0x0000_0050), Parent::CellAt(ext)),
             (flagged(b"CELL", 0x400, 0x0000_0051), Parent::CellAt(pers)),
@@ -1172,21 +1385,21 @@ mod tests {
             (
                 flagged(b"REFR", 0, 0x80),
                 Parent::Cell {
-                    place: CellPlace::Interior,
+                    place: CellPlace::INTERIOR,
                     cell: 0x12,
                 },
             ),
             (
                 flagged(b"REFR", 0x400, 0x81),
                 Parent::Cell {
-                    place: CellPlace::Interior,
+                    place: CellPlace::INTERIOR,
                     cell: 0x12,
                 },
             ),
             (
                 flagged(b"NAVM", 0, 0x82),
                 Parent::Cell {
-                    place: CellPlace::Interior,
+                    place: CellPlace::INTERIOR,
                     cell: 0x12,
                 },
             ),
@@ -1207,6 +1420,7 @@ mod tests {
         ];
         // Mode 0: as listed; 1: parents first, the rest reversed; 2: all reversed (children
         // before the records their groups belong to).
+        let refusals = std::cell::Cell::new(0usize);
         let build = |style: &PlacementStyle, mode: u8| {
             let mut plugin = Plugin::create(&HeaderSpec::new(Vec::new()));
             let mut items: Vec<_> = records.clone();
@@ -1227,7 +1441,15 @@ mod tests {
             }
             for (r, parent) in items {
                 let path = placement(&r.header, &parent, style).unwrap();
-                plugin.upsert_styled(&path, r, style).unwrap();
+                if mode == 2 {
+                    // Children before their records: only the rebuild opt-in allows it.
+                    let mut probe = plugin.clone();
+                    let strict = probe.upsert_styled(&path, r.clone(), style);
+                    plugin.upsert_before_owner(&path, r, style).unwrap();
+                    refusals.set(refusals.get() + usize::from(strict.is_err()));
+                } else {
+                    plugin.upsert_styled(&path, r, style).unwrap();
+                }
             }
             let mut out = Vec::new();
             outline(plugin.entries(), 0, &mut out);
@@ -1236,6 +1458,10 @@ mod tests {
         let official = build(&PlacementStyle::OFFICIAL, 0);
         assert_eq!(official, build(&PlacementStyle::OFFICIAL, 1));
         assert_eq!(official, build(&PlacementStyle::OFFICIAL, 2));
+        // Without the opt-in, the first record that needs each missing children group is
+        // refused: under the exterior world, the persistent cell, the interior cell and the
+        // quest (the later ones find the groups the opt-in created).
+        assert_eq!(refusals.get(), 4);
         let expected = [
             // 0x2 = 2: block 2, sub-block 0; 0x11 = 17: 7, 1; 0x12 = 18: 8, 1.
             "G0:CELL",
@@ -1325,5 +1551,204 @@ mod tests {
         let mut out = Vec::new();
         outline(streamed.entries(), 0, &mut out);
         assert_eq!(out, expected);
+    }
+
+    fn flagged(sig: &[u8; 4], flags: u32, id: u32) -> Record<'static> {
+        let mut r = rec(sig, id, b"x");
+        r.header.flags = flags;
+        r
+    }
+
+    /// Review finding (M4 placement core): a patch that places a reference into a master's
+    /// cell without carrying the cell got a children group with no CELL before it. Now
+    /// refused, in memory and streaming, with nothing written.
+    #[test]
+    fn children_groups_need_their_record_in_memory_and_streaming() {
+        use crate::cells::{placement, CellPlace, Grid, Parent};
+        let style = PlacementStyle::OFFICIAL;
+        let place = CellPlace::Exterior {
+            world: 0x25,
+            grid: Grid::new(1, -1),
+        };
+        let refr = flagged(b"REFR", 0, 0x0100_1000);
+        let parent = Parent::Cell {
+            place,
+            cell: 0x7777,
+        };
+        let path = placement(&refr.header, &parent, &style).unwrap();
+        let mut plugin = Plugin::create(&HeaderSpec::new(vec![b"Starfield.esm".to_vec()]));
+        let empty = plugin.to_bytes().unwrap();
+        let err = plugin
+            .upsert_styled(&path, refr.clone(), &style)
+            .unwrap_err();
+        assert!(matches!(err, Error::Placement { .. }), "{err}");
+        assert_eq!(plugin.to_bytes().unwrap(), empty);
+        // Streaming: refused too, for a new top-level group and for an existing one.
+        let stream = |base: &[u8], placed: Vec<Placed>| {
+            upsert_reader(
+                Cursor::new(base),
+                base.len() as u64,
+                &RewriteOptions::default(),
+                &mut Cursor::new(Vec::new()),
+                placed,
+                |_| Ok(()),
+            )
+        };
+        let one = || {
+            vec![Placed {
+                path: path.clone(),
+                record: refr.clone(),
+            }]
+        };
+        assert!(matches!(
+            stream(&empty, one()),
+            Err(Error::Placement { .. })
+        ));
+        let wrld = flagged(b"WRLD", 0, 0x25);
+        let mut with_world = plugin.clone();
+        with_world
+            .upsert(&[GroupHeader::top(Signature::new(b"WRLD"))], wrld.clone())
+            .unwrap();
+        let with_world = with_world.to_bytes().unwrap();
+        assert!(matches!(
+            stream(&with_world, one()),
+            Err(Error::Placement { .. })
+        ));
+        // Carried first (WRLD, then the CELL): accepted, in either form.
+        let xclc = [1i32.to_le_bytes(), (-1i32).to_le_bytes()].concat();
+        let mut cell = flagged(b"CELL", 0, 0x7777);
+        cell.subrecords_mut()
+            .unwrap()
+            .push(Subrecord::new(Signature::new(b"XCLC"), xclc));
+        let cell_path = placement(&cell.header, &Parent::CellAt(place), &style).unwrap();
+        let carried = vec![
+            Placed::top_level(wrld),
+            Placed {
+                path: cell_path,
+                record: cell,
+            },
+        ];
+        let mut all = carried.clone();
+        all.extend(one());
+        let mut sink = Cursor::new(Vec::new());
+        let report = upsert_reader(
+            Cursor::new(&empty),
+            empty.len() as u64,
+            &RewriteOptions::default(),
+            &mut sink,
+            all,
+            |_| Ok(()),
+        )
+        .unwrap();
+        assert_eq!(report.outcomes, [Upsert::Inserted; 3]);
+        for p in carried {
+            plugin.upsert_styled(&p.path, p.record, &style).unwrap();
+        }
+        assert_eq!(
+            plugin.upsert_styled(&path, refr, &style).unwrap(),
+            Upsert::Inserted
+        );
+        if let Some(fix) = report.rewrite.hedr_fix {
+            fix.apply(&mut sink).unwrap();
+        }
+        assert_eq!(sink.into_inner(), plugin.to_bytes().unwrap());
+    }
+
+    /// Review finding: toggling a reference's persistence put a second copy into the cell's
+    /// other children group. Now the old copy leaves (with its group when it was the last)
+    /// and the outcome says so.
+    #[test]
+    fn a_persistence_toggle_moves_the_record() {
+        use crate::cells::{placement, CellPlace, Parent};
+        let style = PlacementStyle::OFFICIAL;
+        let mut plugin = Plugin::create(&HeaderSpec::new(Vec::new()));
+        let cell = flagged(b"CELL", 0, 0x12);
+        let at = Parent::CellAt(CellPlace::INTERIOR);
+        let path = placement(&cell.header, &at, &style).unwrap();
+        plugin.upsert_styled(&path, cell, &style).unwrap();
+        let parent = Parent::Cell {
+            place: CellPlace::INTERIOR,
+            cell: 0x12,
+        };
+        let mut put = |r: Record<'static>| {
+            let path = placement(&r.header, &parent, &style).unwrap();
+            plugin.upsert_styled(&path, r, &style).unwrap()
+        };
+        assert_eq!(put(flagged(b"REFR", 0, 0x80)), Upsert::Inserted);
+        assert_eq!(put(flagged(b"REFR", 0, 0x81)), Upsert::Inserted);
+        // 0x80 becomes persistent: out of type 9 (which keeps 0x81), into a new type 8.
+        assert_eq!(put(flagged(b"REFR", 0x400, 0x80)), Upsert::Moved);
+        // 0x81 too: type 9 is left empty and goes.
+        assert_eq!(put(flagged(b"REFR", 0x400, 0x81)), Upsert::Moved);
+        assert_eq!(put(flagged(b"REFR", 0x400, 0x81)), Upsert::Replaced);
+        // And back.
+        assert_eq!(put(flagged(b"REFR", 0, 0x80)), Upsert::Moved);
+        let mut out = Vec::new();
+        outline(plugin.entries(), 0, &mut out);
+        assert_eq!(
+            out[4..],
+            [
+                "   G6:12",
+                "    G9:12",
+                "     REFR:80",
+                "    G8:12",
+                "     REFR:81"
+            ]
+        );
+        let bytes = plugin.to_bytes().unwrap();
+        let parsed = Plugin::parse(&bytes).unwrap();
+        // CELL and two references, plus TES4.
+        assert_eq!(parsed.tes4().hedr().unwrap().unwrap().record_count, 4);
+    }
+
+    /// Review nits: the path is checked against the record's flag 0x400, and a world has
+    /// one persistent cell.
+    #[test]
+    fn paths_that_disagree_with_the_flags_are_refused() {
+        use crate::cells::group_type as gt;
+        let mut plugin = Plugin::create(&HeaderSpec::new(Vec::new()));
+        let wrld_top = GroupHeader::top(Signature::new(b"WRLD"));
+        let cell_top = GroupHeader::top(Signature::new(b"CELL"));
+        let g = |group_type: i32, label: u32| GroupHeader {
+            label: label.to_le_bytes(),
+            group_type,
+            ..GroupHeader::default()
+        };
+        plugin
+            .upsert(&[cell_top], flagged(b"CELL", 0, 0x12))
+            .unwrap();
+        plugin
+            .upsert(&[wrld_top], flagged(b"WRLD", 0, 0x30))
+            .unwrap();
+        let g8 = [
+            cell_top,
+            g(gt::CELL_CHILDREN, 0x12),
+            g(gt::CELL_PERSISTENT, 0x12),
+        ];
+        let g9 = [
+            cell_top,
+            g(gt::CELL_CHILDREN, 0x12),
+            g(gt::CELL_TEMPORARY, 0x12),
+        ];
+        let g1 = [wrld_top, g(gt::WORLD_CHILDREN, 0x30)];
+        let before = plugin.to_bytes().unwrap();
+        for (path, r) in [
+            (&g8[..], flagged(b"REFR", 0, 1)),
+            (&g8[..], flagged(b"NAVM", 0x400, 2)),
+            (&g9[..], flagged(b"REFR", 0x400, 3)),
+            (&g1[..], flagged(b"CELL", 0, 4)),
+        ] {
+            let err = plugin.upsert(path, r).unwrap_err();
+            assert!(matches!(err, Error::Placement { .. }), "{err}");
+        }
+        assert_eq!(plugin.to_bytes().unwrap(), before);
+        assert!(plugin.upsert(&g8, flagged(b"REFR", 0x400, 1)).is_ok());
+        assert!(plugin.upsert(&g9, flagged(b"NAVM", 0, 2)).is_ok());
+        assert!(plugin.upsert(&g1, flagged(b"CELL", 0x400, 5)).is_ok());
+        // The same persistent cell again is a replacement; a second one is refused.
+        let again = plugin.upsert(&g1, flagged(b"CELL", 0x400, 5)).unwrap();
+        assert_eq!(again, Upsert::Replaced);
+        let err = plugin.upsert(&g1, flagged(b"CELL", 0x400, 6)).unwrap_err();
+        assert!(err.to_string().contains("one persistent cell"), "{err}");
     }
 }

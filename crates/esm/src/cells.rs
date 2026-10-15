@@ -235,11 +235,31 @@ pub fn interior_block(form_id: u32) -> (u32, u32) {
     (block, sub)
 }
 
+/// The interior block and sub-block labels (each read as a `u32`) of the group path that
+/// holds an interior `CELL`, outermost first: `Some` when the path has both a type 2 and a
+/// type 3 group.
+pub fn interior_labels<'h>(path: impl IntoIterator<Item = &'h GroupHeader>) -> Option<(u32, u32)> {
+    let mut block = None;
+    let mut sub = None;
+    for g in path {
+        match g.group_type {
+            group_type::INTERIOR_BLOCK => block = Some(g.label_u32()),
+            group_type::INTERIOR_SUB_BLOCK => sub = Some(g.label_u32()),
+            _ => {}
+        }
+    }
+    Some((block?, sub?))
+}
+
 /// Where a cell sits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CellPlace {
-    /// An interior cell: under the top-level `CELL` group, by [`interior_block`].
-    Interior,
+    /// An interior cell: under the top-level `CELL` group, in the block and sub-block
+    /// `labels` names (`(block, sub_block)`, each label read as a `u32`) when the cell
+    /// exists in a plugin ([`cell_place_in`] reads them from the path that holds it, so a
+    /// cell some other writer put elsewhere is still found), or by [`interior_block`] for a
+    /// cell being created (`labels: None`, [`CellPlace::INTERIOR`]).
+    Interior { labels: Option<(u32, u32)> },
     /// The persistent cell of world `world` (stored FormID): directly in its world
     /// children group. It holds the world's persistent references.
     Persistent { world: u32 },
@@ -248,10 +268,13 @@ pub enum CellPlace {
 }
 
 impl CellPlace {
+    /// A new interior cell: its block and sub-block computed by [`interior_block`].
+    pub const INTERIOR: CellPlace = CellPlace::Interior { labels: None };
+
     /// The world, for an exterior or persistent cell.
     pub fn world(&self) -> Option<u32> {
         match self {
-            CellPlace::Interior => None,
+            CellPlace::Interior { .. } => None,
             CellPlace::Persistent { world } | CellPlace::Exterior { world, .. } => Some(*world),
         }
     }
@@ -360,6 +383,47 @@ impl PlacementStyle {
             .unwrap_or_default()
     }
 
+    /// The style the writer of `index`'s plugin used, so an edit keeps it: from the first
+    /// cell children group that holds both a persistent and a temporary group (temporary
+    /// first: [`PlacementStyle::OFFICIAL`]; persistent first:
+    /// [`PlacementStyle::blueprint`] with the first top-level group's timestamp). Without
+    /// such a cell, a first top-level group with a timestamp other than 0 means
+    /// `blueprint` (the official pipeline stamps every group 0), anything else `OFFICIAL`
+    /// (which is also what a new plugin gets until F20 is observed).
+    pub fn detect(index: &PluginIndex) -> PlacementStyle {
+        let stamp = index
+            .groups
+            .iter()
+            .find(|g| g.header.group_type == group_type::TOP)
+            .map_or(0, |g| g.header.timestamp);
+        let mut first: std::collections::HashMap<u32, i32> = std::collections::HashMap::new();
+        for g in &index.groups {
+            let t = g.header.group_type;
+            if t != group_type::CELL_PERSISTENT && t != group_type::CELL_TEMPORARY {
+                continue;
+            }
+            let Some(parent) = g.parent else { continue };
+            match first.get(&parent) {
+                None => {
+                    first.insert(parent, t);
+                }
+                Some(seen) if *seen != t => {
+                    return if *seen == group_type::CELL_TEMPORARY {
+                        PlacementStyle::OFFICIAL
+                    } else {
+                        PlacementStyle::blueprint(stamp)
+                    };
+                }
+                Some(_) => {}
+            }
+        }
+        if stamp != 0 {
+            PlacementStyle::blueprint(stamp)
+        } else {
+            PlacementStyle::OFFICIAL
+        }
+    }
+
     /// A group header of `group_type` with `label` and this style's stamps.
     pub fn header(&self, label: [u8; 4], group_type: i32) -> GroupHeader {
         let s = self.stamps_for(group_type);
@@ -398,8 +462,8 @@ fn refused(reason: &'static str) -> Error {
 pub fn cell_path(place: &CellPlace, cell: u32, style: &PlacementStyle) -> Result<Vec<GroupHeader>> {
     use group_type::*;
     Ok(match *place {
-        CellPlace::Interior => {
-            let (block, sub) = interior_block(cell);
+        CellPlace::Interior { labels } => {
+            let (block, sub) = labels.unwrap_or_else(|| interior_block(cell));
             vec![
                 style.header(CELL.0, TOP),
                 style.header(block.to_le_bytes(), INTERIOR_BLOCK),
@@ -555,35 +619,58 @@ pub fn onam_forms(
     plugin: &crate::Plugin<'_>,
     mut overrides_master_record: impl FnMut(u32) -> bool,
 ) -> Vec<u32> {
-    fn walk(
-        entries: &[crate::Entry<'_>],
-        listed: bool,
-        out: &mut Vec<u32>,
-        pick: &mut dyn FnMut(u32) -> bool,
-    ) {
-        for e in entries {
-            match e {
-                crate::Entry::Group(g) => walk(
-                    g.children(),
-                    ONAM_GROUP_TYPES.contains(&g.header.group_type),
-                    out,
-                    pick,
-                ),
-                crate::Entry::Record(r) if listed && pick(r.header.form_id) => {
-                    out.push(r.header.form_id);
-                }
-                crate::Entry::Record(_) => {}
+    let mut out = Vec::new();
+    walk_records(plugin.entries(), |path, r| {
+        let listed = path
+            .last()
+            .is_some_and(|g| ONAM_GROUP_TYPES.contains(&g.group_type));
+        if listed && overrides_master_record(r.header.form_id) {
+            out.push(r.header.form_id);
+        }
+    });
+    out
+}
+
+/// [`onam_forms`] for a plugin known by its index (a patch streamed from disk): the same
+/// records, from the group each record of `index` sits in, in file order.
+pub fn onam_forms_in(
+    index: &PluginIndex,
+    mut overrides_master_record: impl FnMut(u32) -> bool,
+) -> Vec<u32> {
+    index
+        .records
+        .iter()
+        .filter(|r| {
+            r.group
+                .and_then(|g| index.groups.get(usize::try_from(g).ok()?))
+                .is_some_and(|g| ONAM_GROUP_TYPES.contains(&g.header.group_type))
+        })
+        .map(|r| r.form_id)
+        .filter(|id| overrides_master_record(*id))
+        .collect()
+}
+
+/// Call `f` with every record of `entries` and the headers of the groups around it,
+/// outermost first, in file order. Iterative: the depth is the tree's, with no recursion.
+pub(crate) fn walk_records<'p, 'a>(
+    entries: &'p [crate::Entry<'a>],
+    mut f: impl FnMut(&[GroupHeader], &'p Record<'a>),
+) {
+    let mut path: Vec<GroupHeader> = Vec::new();
+    let mut stack: Vec<std::slice::Iter<'p, crate::Entry<'a>>> = vec![entries.iter()];
+    while let Some(level) = stack.last_mut() {
+        match level.next() {
+            Some(crate::Entry::Group(g)) => {
+                path.push(g.header);
+                stack.push(g.children().iter());
+            }
+            Some(crate::Entry::Record(r)) => f(&path, r),
+            None => {
+                stack.pop();
+                path.pop();
             }
         }
     }
-    let mut out = Vec::new();
-    walk(
-        plugin.entries(),
-        false,
-        &mut out,
-        &mut overrides_master_record,
-    );
-    out
 }
 
 /// The persistent cell of world `world` (stored FormID) in `index`: the `CELL` directly in
@@ -621,7 +708,9 @@ pub fn cell_place_in(
         .map(|g| g.header.label_u32());
     let Some(world) = world else {
         return match path.first() {
-            Some(top) if top.header.label == CELL.0 => Ok(CellPlace::Interior),
+            Some(top) if top.header.label == CELL.0 => Ok(CellPlace::Interior {
+                labels: interior_labels(path.iter().map(|g| &g.header)),
+            }),
             _ => Err(refused("the CELL is not in a cell group")),
         };
     };
@@ -645,6 +734,64 @@ pub fn cell_place_in(
         .and_then(|s| Grid::from_xclc(s.data()))
         .ok_or_else(|| refused("an exterior cell without an XCLC grid"))?;
     Ok(CellPlace::Exterior { world, grid })
+}
+
+/// The records a plugin must hold before a child of cell `cell` (stored FormID) at `place`
+/// can be placed in it ([`crate::Plugin::upsert_styled`] refuses a cell children group
+/// whose `CELL` is not there, and a world children group whose `WRLD` is not): for an
+/// exterior cell or a world's persistent cell the `WRLD`, then the `CELL`, each read from
+/// `index` (the plugin that has them, usually the master) with `read` (for example
+/// [`crate::index::read_indexed`] without decoding) and placed where `style` puts it, an
+/// interior cell in the block and sub-block `index` has it in. Upsert them first, and
+/// skip any the target already has (its override may carry edits).
+///
+/// Lossless: each record is the stored record (its bytes as read, a compressed body not
+/// recompressed, FormIDs as stored). Stored FormIDs are file-relative, so the copies mean
+/// the same records only in a target whose masters begin with `index`'s plugin's masters,
+/// in order, followed by that plugin (a patch of it); remapping is not done here.
+///
+/// Refused (`Error::Placement`): the cell or its world is not in `index`, or `index` has
+/// the cell at another place than `place` (interior block labels aside).
+pub fn carry_parents(
+    index: &PluginIndex,
+    place: &CellPlace,
+    cell: u32,
+    style: &PlacementStyle,
+    limits: &DecodeLimits,
+    mut read: impl FnMut(&RecordLoc) -> Result<Record<'static>>,
+) -> Result<Vec<crate::build::Placed>> {
+    use crate::build::Placed;
+    let loc = index
+        .records
+        .iter()
+        .find(|r| r.signature == CELL && r.form_id == cell)
+        .ok_or_else(|| refused("the cell to carry is not in the index"))?;
+    let record = read(loc)?;
+    let observed = cell_place_in(index, loc, &record, limits)?;
+    let agrees = match (place, &observed) {
+        (CellPlace::Interior { .. }, CellPlace::Interior { .. }) => true,
+        (a, b) => a == b,
+    };
+    if !agrees {
+        return Err(refused("the index has the cell to carry at another place"));
+    }
+    let mut out = Vec::with_capacity(2);
+    if let Some(world) = observed.world() {
+        let wloc = index
+            .records
+            .iter()
+            .find(|r| r.signature == WRLD && r.form_id == world)
+            .ok_or_else(|| refused("the world of the cell to carry is not in the index"))?;
+        out.push(Placed {
+            path: vec![style.header(WRLD.0, group_type::TOP)],
+            record: read(wloc)?,
+        });
+    }
+    out.push(Placed {
+        path: cell_path(&observed, cell, style)?,
+        record,
+    });
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -700,7 +847,7 @@ mod tests {
     fn paths_follow_the_corpus_rules() {
         let style = PlacementStyle::OFFICIAL;
         let cell = header(b"CELL", 0, 0x0001_2345);
-        let p = placement(&cell, &Parent::CellAt(CellPlace::Interior), &style).unwrap();
+        let p = placement(&cell, &Parent::CellAt(CellPlace::INTERIOR), &style).unwrap();
         // 0x12345 = 74565: block 5, sub-block 6.
         let cell_top = u32::from_le_bytes(*b"CELL");
         assert_eq!(shape(&p), [(0, cell_top), (2, 5), (3, 6)]);
@@ -746,7 +893,7 @@ mod tests {
         let navm = header(b"NAVM", FLAG_PERSISTENT, 1);
         assert!(placement(&navm, &child(wcell, 1), &style).is_err());
         let pcell = header(b"CELL", FLAG_PERSISTENT, 1);
-        assert!(placement(&pcell, &Parent::CellAt(CellPlace::Interior), &style).is_err());
+        assert!(placement(&pcell, &Parent::CellAt(CellPlace::INTERIOR), &style).is_err());
         assert!(placement(&cell, &Parent::CellAt(wcell), &style).is_err());
         assert!(placement(&pcell, &Parent::CellAt(wcell), &style).is_ok());
         let weap = header(b"WEAP", 0, 1);
@@ -792,7 +939,7 @@ mod tests {
             let rec = read_indexed(&mut file, loc, None).unwrap();
             cell_place_in(&index, loc, &rec, &limits)
         };
-        assert_eq!(place(0x200).unwrap(), CellPlace::Interior);
+        assert_eq!(place(0x200).unwrap(), CellPlace::INTERIOR);
         assert_eq!(place(0x701).unwrap(), CellPlace::Persistent { world });
         let grid = Grid::new(5, -3);
         assert_eq!(place(0x702).unwrap(), CellPlace::Exterior { world, grid });
@@ -800,5 +947,91 @@ mod tests {
         let found = persistent_cell(&index, world).map(|r| r.form_id);
         assert_eq!(found, Some(0x701));
         assert!(persistent_cell(&index, 0x999).is_none());
+    }
+
+    /// An existing interior cell keeps the block and sub-block it was found in, even where
+    /// the corpus rule would compute others (a third-party writer's choice); only a cell
+    /// being created gets computed ones.
+    #[test]
+    fn existing_interior_cells_keep_their_observed_blocks() {
+        // 0x705 = 1797: computed block 7, sub-block 9; the file has it in 3 / 4.
+        let cell = record(b"CELL", 0, 0x705, &sub(b"EDID", b"c\0"));
+        let sub_block = group(&4u32.to_le_bytes(), 3, &cell);
+        let block = group(&3u32.to_le_bytes(), 2, &sub_block);
+        let bytes = fixture::plugin(&[group(b"CELL", 0, &block)]);
+        let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+        let loc = index.records.iter().find(|r| r.form_id == 0x705).unwrap();
+        let rec = read_indexed(&mut std::io::Cursor::new(&bytes), loc, None).unwrap();
+        let place = cell_place_in(&index, loc, &rec, &DecodeLimits::default()).unwrap();
+        assert_eq!(
+            place,
+            CellPlace::Interior {
+                labels: Some((3, 4))
+            }
+        );
+        let style = PlacementStyle::OFFICIAL;
+        let p = cell_children_path(&place, 0x705, Children::Temporary, &style).unwrap();
+        let cell_top = u32::from_le_bytes(*b"CELL");
+        assert_eq!(
+            shape(&p),
+            [(0, cell_top), (2, 3), (3, 4), (6, 0x705), (9, 0x705)]
+        );
+        let new = cell_children_path(&CellPlace::INTERIOR, 0x705, Children::Temporary, &style);
+        assert_eq!(shape(&new.unwrap())[1..3], [(2, 7), (3, 9)]);
+        assert_eq!(
+            interior_labels(index.group_path(loc.group).iter().map(|g| &g.header)),
+            Some((3, 4))
+        );
+    }
+
+    /// Review nits: the style is read back from a plugin, and ONAM is found from an index
+    /// as from the tree.
+    #[test]
+    fn style_detection_and_onam_from_an_index() {
+        // The sample has a cell with type 8 before type 9: the BlueprintShips order.
+        let sample = fixture::sample_plugin();
+        let index = index_bytes(&sample, &IndexOptions::default()).unwrap();
+        let stamp = index.groups[0].header.timestamp;
+        assert_eq!(
+            PlacementStyle::detect(&index),
+            PlacementStyle::blueprint(stamp)
+        );
+        // Type 9 first: official. No cell with both and a stamp-free first group: official;
+        // a stamped one: blueprint with that timestamp.
+        let refr = |id: u32, flags: u32| record(b"REFR", flags, id, &sub(b"NAME", &[0; 4]));
+        let label = 0x200u32.to_le_bytes();
+        let both = group(
+            &label,
+            6,
+            &[
+                group(&label, 9, &refr(0x202, 0)),
+                group(&label, 8, &refr(0x201, 0x400)),
+            ]
+            .concat(),
+        );
+        let cell = record(b"CELL", 0, 0x200, &sub(b"EDID", b"c\0"));
+        let official = fixture::plugin(&[group(b"CELL", 0, &[cell.clone(), both].concat())]);
+        let index = index_bytes(&official, &IndexOptions::default()).unwrap();
+        assert_eq!(PlacementStyle::detect(&index), PlacementStyle::OFFICIAL);
+        // (The fixture stamps groups 0x2A39; the timestamp is set by hand here.)
+        let mut plain = fixture::plugin(&[group(b"CELL", 0, &cell)]);
+        let top = plain.len() - (24 + cell.len());
+        plain[top + 16..top + 18].copy_from_slice(&0u16.to_le_bytes());
+        let index = index_bytes(&plain, &IndexOptions::default()).unwrap();
+        assert_eq!(PlacementStyle::detect(&index), PlacementStyle::OFFICIAL);
+        let mut stamped = plain.clone();
+        stamped[top + 16..top + 18].copy_from_slice(&13505u16.to_le_bytes());
+        let index = index_bytes(&stamped, &IndexOptions::default()).unwrap();
+        assert_eq!(
+            PlacementStyle::detect(&index),
+            PlacementStyle::blueprint(13505)
+        );
+        // ONAM: records in types 7, 9 and 10 that the caller says override a master's.
+        let index = index_bytes(&official, &IndexOptions::default()).unwrap();
+        let plugin = crate::Plugin::parse(&official).unwrap();
+        let pick = |id: u32| id != 0x999;
+        assert_eq!(onam_forms_in(&index, pick), [0x202]);
+        assert_eq!(onam_forms(&plugin, pick), [0x202]);
+        assert!(onam_forms_in(&index, |_| false).is_empty());
     }
 }
