@@ -47,9 +47,9 @@ marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from 
 | L3    | `crates/io`      | `kitkraft-io`      | MO2 profile reader, `plugins.txt`, Creations manifests             |
 | L4    | `crates/engine`  | `kitkraft-engine`  | `CommandSpec` catalog, sessions, undo, validation rules            |
 | L5    | `crates/mcp`     | `kitkraft-mcp`     | MCP server: `server.rs`, `tools.rs`, `backend.rs`                  |
-| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | UI (later, swappable, not created yet)                             |
+| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | Read-only workbench (ADR 0007 Am. 1); swappable; engine only       |
 | APP   | `apps/kit-cli`   | `kit-cli`          | `kit` binary, one `main.rs`                                        |
-| APP   | `apps/kit`       | `kit`              | Desktop app (later, not created yet)                               |
+| APP   | `apps/kit`       | `kit`              | `kit-ui` binary: the workbench window (`kit ui` starts it)         |
 | TOOL  | `xtask`          | `xtask`            | `cargo xtask ci`, `cargo xtask layers`                             |
 
 Rules:
@@ -58,6 +58,9 @@ Rules:
   `xtask/src/main.rs` with a reason in `plan/adr/0002-layering.md`. Today the only one is
   `esm -> schema`.
 - Nothing depends on an APP or TOOL package, dev-dependencies included.
+- `kitkraft-ui-egui` depends on `kitkraft-engine` alone among workspace crates, dev-dependencies
+  included (`INTERNAL_ONLY` in `xtask/src/graph.rs`), and reaches the engine only through its
+  read-only gate (`crates/ui-egui/src/gate.rs`, a test scans the crate's sources).
 - Nothing below L5 depends on a UI toolkit, directly, transitively, or as a dev-dependency.
   Banned by name prefix: `egui`, `eframe`, `winit`, `wgpu`, `rfd`, `iced`, `slint`.
 - Library crates (L0..L5) use `thiserror`; `anyhow` and `eyre` (by prefix, transitively) are

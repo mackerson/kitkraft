@@ -23,6 +23,7 @@ kitkraft-doc = { path = "crates/doc" }
 kitkraft-io = { path = "crates/io" }
 kitkraft-engine = { path = "crates/engine" }
 kitkraft-mcp = { path = "crates/mcp" }
+kitkraft-ui-egui = { path = "crates/ui-egui" }
 
 # External. Keep this list short; every addition is reviewed.
 # anyhow is for apps/ and xtask/ only; library crates use thiserror.
@@ -45,6 +46,11 @@ regex = "1"
 # Deflate only, through the flate2 zlib-rs backend we already build; no AES, bzip2, zstd,
 # lzma or time features.
 zip = { version = "9", default-features = false, features = ["deflate-flate2-zlib-rs"] }
+# The developer workbench (crates/ui-egui, apps/kit; L5 and APP only, ADR 0007 Amendment 1;
+# dependency list and licenses in that ADR). The OpenGL (`glow`) backend instead of the
+# default `wgpu` one; no bundled fonts, AccessKit, web or Linux display features (ui-egui
+# adds x11/wayland on Linux only): the smallest native tree that builds on Windows.
+eframe = { version = "0.36", default-features = false, features = ["glow"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

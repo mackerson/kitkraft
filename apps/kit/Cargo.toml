@@ -1,0 +1,21 @@
+[package]
+name = "kit"
+description = "kit-ui: the read-only KitKraft developer workbench window (ADR 0007 Amendment 1)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+autobins = false
+
+[lints]
+workspace = true
+
+[dependencies]
+kitkraft-ui-egui.workspace = true
+clap.workspace = true
+
+# `kit-ui`, not `kit`: the CLI binary (apps/kit-cli) owns that name, and `kit ui` starts
+# this one.
+[[bin]]
+name = "kit-ui"
+path = "src/main.rs"

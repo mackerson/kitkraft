@@ -209,3 +209,38 @@ confidence upgrades now wait for M4.W2..W5.
   ROADMAP M4 gains the workbench, M5 keeps the full authoring UI.
 - AGENTS.md "Layers": `crates/ui-egui` and `apps/kit` are marked as existing when lane W
   creates them, not before.
+
+## Dependency list (lane W, 2026-10-15; Amendment 1 "before the first UI merge")
+
+`crates/ui-egui` depends on `eframe` 0.36 with `default-features = false, features =
+["glow"]` (OpenGL through `glutin`; no `wgpu`, no bundled fonts, no AccessKit, no web
+features; Linux adds `x11`/`wayland` in a target table). `apps/kit` adds only `clap`, which
+the workspace already has. `cargo tree -p kitkraft-ui-egui -e normal` on Windows lists 117
+distinct external packages, the engine's existing ones included. `Cargo.lock` grows from 67
+to 344 packages because it records the macOS, Linux and Android crates eframe could use;
+no existing locked version changed. No workspace package gained a build script.
+
+Licenses of the 117, by expression:
+
+| License expression | Packages | Status |
+| ------------------ | -------- | ------ |
+| MIT OR Apache-2.0 (in any spelling) | 81 | allowed |
+| MIT | 9 | allowed |
+| Apache-2.0 (incl. `winit`, `glutin`); Apache-2.0 AND MIT (`dpi`) | 6 | allowed |
+| Zlib, or Zlib with MIT and Apache options | 9 | allowed |
+| BSD-3-Clause OR Apache-2.0; BSD-2-Clause OR Apache-2.0 OR MIT; 0BSD OR MIT OR Apache-2.0 | 4 | allowed |
+| Unlicense OR MIT | 3 | allowed (MIT option) |
+| Apache-2.0 OR GPL-2.0-only (`self_cell`) | 1 | allowed (Apache option) |
+| ISC (`libloading`) | 1 | BSD-style |
+| (MIT OR Apache-2.0) AND Unicode-3.0 (`unicode-ident`) | 1 | already in the workspace (proc-macro, build time) |
+| **BSL-1.0** (`clipboard-win`, `error-code`, through `arboard`) | 2 | **owner decision pending**: not MIT/Apache/Zlib/BSD by name. The Boost licence is permissive and needs no attribution in binaries; eframe's native build enables the clipboard unconditionally, so dropping it means no copy buttons |
+
+Not built: `epaint_default_fonts` ((MIT OR Apache-2.0) AND OFL-1.1 AND Ubuntu-font-1.0).
+The window reads Segoe UI and Consolas from `%WINDIR%\Fonts` at start, so no font is
+compiled in or shipped. `kitkraft-ui-egui`'s `default_fonts` feature turns the bundled
+fonts on for a machine without them; it needs the owner's yes before it is used.
+
+Build and test cost on the dev box: a clean debug build of the eframe tree takes about
+36 s (in parallel with the rest of the workspace); `cargo xtask ci` with a warm target dir
+and the corpus available took 271 s, of which the `kitkraft-ui-egui` and `kit` tests are
+under 1 s (view-models against canned envelopes, the gate, the worker; no window is opened).

@@ -13,6 +13,9 @@
 //! `kit mcp [--profile DIR]` serves MCP on stdio until stdin closes (exit 0; 2 on an I/O
 //! error); a failed `--profile` preload is reported on stderr and in the server's
 //! instructions, and the server starts with an empty session.
+//! `kit ui [--profile DIR] [--plugins FILE...] [--data-dir DIR]` starts the read-only
+//! workbench window (`kit-ui`, built from `apps/kit`, next to this binary) with those
+//! arguments and returns its exit code; 2 when `kit-ui` is not there.
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
@@ -55,6 +58,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(("mcp", sub)) => run_mcp(sub.get_one::<String>("profile").map(String::as_str)),
+        Some(("ui", sub)) => run_ui(sub.get_many::<String>("words").into_iter().flatten()),
         Some((word, sub)) => {
             let mut words = vec![word.to_string()];
             words.extend(
@@ -104,6 +108,31 @@ fn run_mcp(profile: Option<&str>) -> ExitCode {
     }
 }
 
+/// `kit ui`: starts the workbench binary (`kit-ui`, next to `kit`) with the given
+/// arguments (it parses them). A launcher: it acts on no data, so it has no `CommandSpec`.
+fn run_ui<'a>(args: impl Iterator<Item = &'a String>) -> ExitCode {
+    let name = format!("kit-ui{}", std::env::consts::EXE_SUFFIX);
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)));
+    let Some(path) = path.filter(|p| p.is_file()) else {
+        eprintln!(
+            "kit ui: {name} is not next to kit; build it with `cargo build -p kit` (or run `cargo run -p kit -- --profile DIR`)"
+        );
+        return ExitCode::from(EXIT_ERROR);
+    };
+    match std::process::Command::new(&path).args(args).status() {
+        Ok(status) => {
+            let code = status.code().and_then(|c| u8::try_from(c).ok());
+            code.map_or(ExitCode::from(EXIT_ERROR), ExitCode::from)
+        }
+        Err(err) => {
+            eprintln!("kit ui: could not start {}: {err}", path.display());
+            ExitCode::from(EXIT_ERROR)
+        }
+    }
+}
+
 /// The clap shell. Catalog commands take their words raw; the engine parses them.
 fn cli() -> Command {
     let mut cmd = Command::new("kit")
@@ -136,6 +165,11 @@ fn cli() -> Command {
                         .help("MO2 profile to load (through `load`) before serving"),
                 ),
         )
+        .subcommand(passthrough(
+            "ui",
+            "Open the read-only workbench window (kit ui [--profile DIR] [--plugins F...] [--data-dir DIR])"
+                .to_string(),
+        ))
         .subcommand(passthrough(
             "help",
             "Print the catalog, or one command's usage".to_string(),
@@ -349,6 +383,10 @@ fn print_catalog_help() {
     println!(
         "  {:<18} Serve the same catalog over MCP on stdio (kit mcp [--profile DIR])",
         "mcp"
+    );
+    println!(
+        "  {:<18} Open the read-only workbench window (kit ui [--profile DIR] [--plugins F...])",
+        "ui"
     );
     println!();
     println!("ENVIRONMENT:");

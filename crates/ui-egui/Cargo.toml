@@ -1,0 +1,26 @@
+[package]
+name = "kitkraft-ui-egui"
+description = "L5: the read-only developer workbench, an egui window over Engine::execute"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+# The only workspace crate this one may depend on (xtask `INTERNAL_ONLY`).
+kitkraft-engine.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+eframe.workspace = true
+
+[features]
+# Compile egui's bundled fonts in (OFL-1.1 and Ubuntu Font Licence: an owner decision
+# before it is ever on by default, ADR 0007). Off: the window reads Windows system fonts.
+default_fonts = ["eframe/default_fonts"]
+
+# A Linux window needs a display protocol; Windows and macOS need nothing more.
+[target.'cfg(target_os = "linux")'.dependencies]
+eframe = { workspace = true, features = ["x11", "wayland"] }
