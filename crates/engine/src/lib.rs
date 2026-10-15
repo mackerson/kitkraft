@@ -192,6 +192,17 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "planet",
+        label: "Planet Content...",
+        menu_path: "Record/Planet Content...",
+        shortcut: None,
+        aliases: &["pcm"],
+        summary: "The Planet Content Manager chain of a PCMT, PCBN, PCCN, PNDT, STDT, BIOM, LCTN, WRLD, PKIN or LVLP: the tree from its parent and sibling links, conditions as stored, content and the planets, stars, biomes and locations around it, with evidence; paged",
+        args_schema: r#"{"type":"object","properties":{"form":{"type":"string","description":"Plugin.esm:XXXXXX, EditorID, runtime:<hex>, or a hex FormID as stored in `plugin`"},"limit":{"type":"integer","minimum":1,"maximum":5000,"default":200,"description":"Tree nodes per page"},"cursor":{"type":"string","description":"Opaque paging token from the previous result"},"plugin":{"type":"string","description":"The plugin whose numbering a hex FormID uses"},"profile":{"type":"string","description":"MO2 profile to load first"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files to load first, in load order"},"data_dir":{"type":"string","description":"Game Data dir for profile or plugin names (default KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"}},"required":["form"],"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "build",
         label: "Build Patch...",
         menu_path: "File/Build Patch...",

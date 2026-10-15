@@ -27,6 +27,7 @@ mod papyrus;
 mod place;
 #[cfg(test)]
 pub(crate) mod place_tests;
+mod planet;
 mod query;
 mod refs;
 mod resolve;
@@ -126,6 +127,7 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("query", Box::new(query::run)),
         ("conflicts", Box::new(conflicts::run)),
         ("refs", Box::new(refs::run)),
+        ("planet", Box::new(planet::run)),
         ("set", Box::new(set::run)),
         ("validate", Box::new(validate::run)),
         ("build", Box::new(build::run)),

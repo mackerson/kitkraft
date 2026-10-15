@@ -331,6 +331,8 @@ mod tests {
             "deploy.status",
             // Lane D (M4.D1): no panel yet; a Request to lane W in plan/STATUS.md.
             "refs",
+            // Lane D (M4.D3): as `refs`.
+            "planet",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);

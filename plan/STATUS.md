@@ -63,15 +63,15 @@ reconciliation. Each "done" cites the evidence that lane recorded.
 | Builder: computed cell/world paths, rebuild gate (M4.A2); allocator and reference composition tested | **done** | M4.A1, A2, A3, A5, with the Fable review fix round |
 | NAVM passthrough on a synthetic plugin, and on F22 if it exists | **done** (synthetic) | M4.A4. The F22 half is carried with M4.O1 (deferred) |
 | `new`, `clone`, `place`, `package`, `testplan`, `papyrus.events` `Implemented` and on MCP | **done** | M4.E1, E2, E6, G2, and `package` (lane G). `deploy --dev` is live and reviewed too (M4.E11, ADR 0009 Amendment 1) |
-| `planet` `Implemented` | **carried** | M4.D3, lane D. Not on `main` (it also gates M4.E10) |
+| `planet` `Implemented` | **done** | M4.D3, lane D (`kit planet`, alias `pcm`; Done, "Lane D, M4"). Unblocks M4.E10 |
 | Spec v3 builds deterministically | **done** | M4.E3 (two builds identical), Fable review E fixes |
 | Cell rules run with 0 errors on the official files | **done** | M4.E4. 0 unexplained errors; one known error (`ref.orphan` on 0x1FB) |
 | First POI built, validated and packaged | **done** | `out\poi\KitKraftFirstPOI.esm` (`docs/poi/first-poi.md`), reviewed |
 | First POI visited in game, persistence steps recorded in `docs/game-observations.md` | **pending-owner**, **carried** | M4.O2 (row 2 above). The ledger file is M4.H4 (lane H), not on `main` yet. Until it lands, record the result in STATUS |
 | P0 first deliverables W1..W6, W12 | partly | W1 **done** (M4.E1, `KitKraftW1.esm`). W2 and W12 **pending-owner** (M4.O2). W3 **carried** (M4.E7 not started). W4 recipe built (M4.E8), **pending-owner** (M4.O4). W5 **carried** (M4.H3 `docs/design/persistence.md` not on `main`; then M4.O2). W6 **carried** (M4.G2 done; M4.E9 waits for a typed script-attachment block, VMAD opaque) |
-| P1 deliverables W7..W10 done or carried; W11 scoping document | partly | W7 **carried** (M4.D3). W8 **carried** (M4.E7). W9 recipe built (M4.E8), **pending-owner** (M4.O4). W10 `refs` **done** (M4.D1). W11 **done** (M4.G3, `docs/research/asset-formats.md`) |
+| P1 deliverables W7..W10 done or carried; W11 scoping document | partly | W7 **done** (M4.D3: `kit planet`, `docs/design/planet-content.md`). W8 **carried** (M4.E7). W9 recipe built (M4.E8), **pending-owner** (M4.O4). W10 `refs` **done** (M4.D1). W11 **done** (M4.G3, `docs/research/asset-formats.md`) |
 | M4.O4 in-game results recorded | **pending-owner** | After E7/E9 land; the M4.E8 recipes are ready |
-| `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **carried** (M4.H3), planet content **carried** (M4.D3) |
+| `docs/design/persistence.md`, `docs/design/planet-content.md`; `docs/research/asset-formats.md` | partly | asset formats **done** (M4.G3). Persistence **carried** (M4.H3), planet content **done** (M4.D3) |
 | M4.O3 and M4.O5 recorded | **done** | ADR 0008, ADR 0009 (2026-10-14) |
 | Lane W | **done** (read-only part) | Started 2026-10-15 (row 6). `crates/ui-egui` + `apps/kit` (`kit-ui`, `kit ui`) have the Load, Records, Diff, Diagnostics, Validate and Schema panels (`docs/workbench.md`). Carried: M4.W0 shape tests (lane F), `build --plan` (M4.W6), `refs`/placement context (M4.D1 done in the engine; panels: Request to lane W; M4.D2). Licence ruling: row 7 |
 | CK fixtures F20..F28 (M4.O1, M4.H2) | **carried** | Deferred by the owner with M3.O1 until the workbench exists. The first POI does not need them |
@@ -1247,7 +1247,7 @@ reconciliation. Each "done" cites the evidence that lane recorded.
   dry run refused by the live-profile guard (MO2 on `Default`). Rows: 13 implemented, B8
   dropped. Report, owner steps, checklist: `docs/overhaul/build-2.md`. **Owner (M3.O5):**
   the in-game check there, on `KitKraft Dev` with a disposable save.
-- Lane D, M4 (`crates/doc`; engine `handlers/{refs,load,inspect,build}.rs`), 2026-10-15:
+- Lane D, M4 (`crates/doc`; engine `handlers/{refs,planet,load,inspect,build}.rs`), 2026-10-15:
   - **M4.D1 `refs`** (CLI `kit refs <form> [--depth n] [--incoming]`, alias `useinfo`; MCP
     through `execute`/`command_line`, no shortcut; `writes: false`). `kitkraft_doc::links`:
     every value of a member the schema types as `formid`, with its member path in the
@@ -1273,6 +1273,22 @@ reconciliation. Each "done" cites the evidence that lane recorded.
     engine-reserved values as unfollowed instead of failing on them. Build tests unchanged.
   - `inspect::find_form` is shared (`refs`, `planet`); `Loaded` keeps the cache directory
     and the reverse index.
+  - **M4.D3 `planet`** (CLI `kit planet <form>`, alias `pcm`; MCP through `execute`/
+    `command_line`; `writes: false`): for a `PCMT`/`PCBN`/`PCCN`, the tree from the nodes'
+    upward links (`PRTN`, siblings ordered by `PRVN`, `order` says how), each node with
+    selection fields, keywords, conditions as stored (union fields as hex), content and one
+    level of content detail, ancestors, the `DFOB` holding a tree (stored-bytes match), and
+    every unresolved or out-of-target link of the tree; for a `PNDT` its worldspaces,
+    biomes, star (system ID match) and the content nodes placing its worldspaces with their
+    branch chains; `STDT`, `BIOM`, `LCTN`, `WRLD`, `PKIN`, `LVLP` views likewise, with
+    keyword condition candidates (raw-byte matches) for biomes and locations. Nothing
+    evaluates a condition. On the 14 official files all five trees walk with 0 unresolved
+    links (2,518 nodes; content counts of `Starfield.esm` equal planet-family.md's), about
+    0.9 s each warm; `crates/engine/tests/planet_corpus.rs` (release, ignored) pins the
+    trees, a planet chain (Mars -> Sol, 12 placing nodes) and prints the link table.
+    `docs/design/planet-content.md`: link statistics by member, tree depths and sibling
+    chains, condition function counts, the two typed paths to placed content (tree and
+    biome), every claim graded, open questions for M4.O1/M4.O4.
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
@@ -1521,9 +1537,11 @@ wins") but still the owner's to confirm:
 
 ## Requests (cross-lane)
 
-- **Lane D (M4.D1) -> lane W.** `refs` is in the catalog (`writes: false`, read only). The
+- **Lane D (M4.D1, M4.D3) -> lane W.** `refs` and `planet` are in the catalog (`writes:
+  false`, read only); `planet` needs the same treatment (a Planet view over `data.nodes`
+  with `depth` indentation, or `data.placements`). `refs` in detail: it is in the catalog (`writes: false`, read only). The
   workbench has no generic envelope view a new command can use without code, so lane D
-  only listed `refs` in the gate test's `UNUSED_READ_ONLY` (its classification test
+  only listed `refs` and `planet` in the gate test's `UNUSED_READ_ONLY` (its classification test
   requires every catalog command be classified). Please: move `refs` to `gate::ALLOWLIST` and
   `cmdline::SESSION_COMMANDS`; give the Records panel's inspect view "Outgoing links" and
   "Use info" actions (`refs {form}` and `refs {form, incoming: true}`) that list

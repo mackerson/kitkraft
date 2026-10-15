@@ -272,7 +272,7 @@ driver one top-level group at a time, rewrites it, and compares the output with 
   the working directory and the write guards (never the game or user Data dir) apply as
   before. One helper does this (`crates/engine/src/handlers/resolve.rs`).
 
-### Load-order arguments (`load`, `inspect`, `query`, `conflicts`)
+### Load-order arguments (`load`, `inspect`, `query`, `conflicts`, `refs`, `planet`)
 
 `profile` (an MO2 profile dir, read-only) or `plugins` (files in load order; bare names
 resolve in the current load order, the working directory, then `data_dir`: "Bare input
@@ -978,6 +978,48 @@ the load order, form, direction, depth, scope and types. Cold and warm times:
 
 `build`'s `via` follows its member paths through the same code (`kitkraft_doc::links::
 follow`), so a hop reports `missing` and engine-reserved values as unfollowed.
+
+### `planet` (M4.D3; CLI `kit planet <form>`, alias `pcm`)
+
+Arguments `{form, limit = 200 (max 5000), cursor?, plugin?}` plus the load-order arguments.
+Read only; no MCP shortcut. The Planet Content Manager chain of one record, from the typed
+links of the planet and world families (`refs`' links) and the structure
+`docs/design/planet-content.md` describes. `data.kind` says which view:
+
+- `tree` (a `PCMT`, `PCBN` or `PCCN`): `tree` (the root), `ancestors[]` (root first, for a
+  branch or content node), `default_objects[]` (a `PCMT`: the `DFOB` records whose payload
+  holds its FormID at a four-byte boundary; `match: "raw-bytes"`, DFOB has no definition),
+  `nodes[]` (the subtree in depth-first order, paged by `limit`/`cursor`: `form`,
+  `signature`, `editor_id`, `depth`, `parent`, `order` (`root`, `first`, `chained`,
+  `shared-previous`, `unchained`: how the `PRVN` chain placed it among its siblings),
+  `node_type`, `child_selection`, `consume_request_on_failure`, `count_curve`,
+  `distribution_curve`, `parent_link`, `previous`, `content` (links as in `refs`),
+  `override_content_properties`, `keywords[]`, `conditions[]` (each `CTDA` as stored: typed
+  fields as numbers, the union fields as `{opaque: hex}`), `content_detail` (a pack-in's
+  `cell`, a leveled pack-in's `entries[]`, a worldspace's `location` and `planets[]`)),
+  `counts` (`nodes`, `branches`, `content_nodes`, `max_depth`, `by_content`), `total`,
+  `unresolved[]` and `target_mismatches[]` over the whole tree (not paged).
+- `planet` (`PNDT`): `planet` (`worldspaces[]`, `biomes[]`, `resource_links`, `galaxy`, `star`
+  (the `STDT` with the same system ID), `other_links[]`) and `placements[]` (each content
+  node that places one of its worldspaces: `node`, `editor_id`, `content`, `tree`,
+  `chain[]` of the branches above it with their `child_selection` and `conditions`).
+- `star` (`STDT`): `star` (`system_id`, `links[]`) and `planets[]` (each with its
+  `worldspaces` and `placements`).
+- `biome` (`BIOM`): `biome` (`objects` by target type, `flora`, `keywords`, `links[]`),
+  `planets[]` that list it, `keyword_conditions[]`.
+- `location` (`LCTN`): `location.links[]`, `worldspaces[]` whose `XLCN` names it,
+  `planets[]`, `placements[]`, `keyword_conditions[]`.
+- `worldspace` (`WRLD`) or `pack-in` (`PKIN`, `LVLP`): `detail`, `placements[]`, and for a
+  pack-in `in_leveled[]` and `in_biomes[]`.
+
+`keyword_conditions[]`: conditions of `PCMT`, `PCBN` and `LVLP` records whose raw parameter
+(or comparison value) equals one of the biome's or location's keywords as that record's
+plugin stores it (`node`, `condition`, `member`, `function`, `parameter`, `raw`, `keyword`,
+`match: "raw-bytes"`): candidates, since the parameter's type depends on the function,
+which is not typed. Nothing evaluates a condition. Every result also has `next_cursor`,
+`records_read`, `tree_nodes_indexed`, `elapsed_ms` and `summary` (the tree indented, or
+the placements). Evidence: the record header of each node shown and the bytes of each
+parent, previous-sibling and content link.
 
 ### `overhaul.scaffold` (M3.E7; CLI `kit overhaul`)
 
