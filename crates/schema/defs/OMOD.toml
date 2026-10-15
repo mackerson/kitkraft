@@ -12,9 +12,10 @@
 #
 # Names are ours (PascalCase, CK wording where it exists); no xEdit code, comments or labels
 # are copied. FormID fields keep the raw stored value (0 means none); targets name the record
-# types xEdit allows. One-byte booleans use the shared Bool8 enum. Inside each property, the function type, property name and the
-# two values are xEdit unions: the values stay opaque (Value1 can be a FormID), the other two
-# are plain integers (see common/ObjectModProperty.toml and docs/gaps.md). VMAD, the BFCB
+# types xEdit allows. One-byte booleans use the shared Bool8 enum. Inside each property, the
+# function type and the two values are struct-field unions decided by the value type (lane B
+# round 4; Value1's FormID variant is visited by form_ids()), and the property name is a
+# plain u32 (see common/ObjectModProperty.toml). VMAD, the BFCB
 # component data and the unknown XFLG stay opaque; members no official OMOD has stay at
 # `reference`.
 signature = "OMOD"

@@ -155,12 +155,22 @@ pub enum ErrorKind {
     },
     #[error("shared definition {0:?} refers to itself")]
     RefCycle(String),
-    #[error("unknown union decider {0:?}: expected edid-prefix")]
+    #[error("unknown union decider {0:?}: expected edid-prefix or field:<SiblingName>")]
     UnknownDecider(String),
-    #[error("union variant key `when = {0:?}` must be one ASCII letter or digit")]
+    #[error("union variant key `when = {0}` must be one ASCII letter or digit for `decider = \"edid-prefix\"`, and one integer or a non-empty list of integers for a field decider")]
     BadWhen(String),
-    #[error("`type = \"union\"` is only valid on a whole subrecord member, not inside a field, array or shared type")]
+    #[error("`type = \"union\"` with `decider = \"edid-prefix\"` is only valid on a whole subrecord member, and with `decider = \"field:...\"` only on a struct field; never on an array element or a shared type")]
     UnionPlacement,
+    #[error("union decider field {0:?} must be an earlier, ungated, non-`if_remaining` sibling of at most 32 bits: an integer or an enum")]
+    BadDeciderField(String),
+    #[error("union variant {variant:?} has size {size:?}, but every variant of a field union must have the fixed size of the first ({first:?})")]
+    VariantSize {
+        variant: String,
+        size: Option<u32>,
+        first: Option<u32>,
+    },
+    #[error("`secondary_when = {0}` must be an integer or four printable ASCII characters, on a union that sets `secondary`, and fit the secondary field")]
+    BadSecondaryWhen(String),
     #[error(
         "a union with `decider = \"edid-prefix\"` needs an EDID subrecord member in the record"
     )]
@@ -226,18 +236,53 @@ struct RawMember {
     evidence: Option<Vec<String>>,
     confidence: Option<String>,
     decider: Option<String>,
+    secondary: Option<String>,
     variants: Option<Vec<RawVariant>>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawVariant {
-    when: String,
+    when: RawWhen,
+    secondary_when: Option<RawKey>,
     name: String,
     #[serde(rename = "type")]
     ty: String,
     targets: Option<Vec<String>>,
+    base: Option<String>,
+    values: Option<Vec<(String, i64)>>,
+    bits: Option<Vec<(String, i64)>>,
+    size: Option<u32>,
     note: Option<String>,
+}
+
+/// A variant's `when`: one EditorID prefix letter (`"f"`), or one or more values of the
+/// deciding field (`4`, `[4, 6]`).
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RawWhen {
+    Number(i64),
+    List(Vec<i64>),
+    Text(String),
+}
+
+impl RawWhen {
+    fn describe(&self) -> String {
+        match self {
+            Self::Number(n) => n.to_string(),
+            Self::List(list) => format!("{list:?}"),
+            Self::Text(text) => text.clone(),
+        }
+    }
+}
+
+/// A `secondary_when` value: an integer, or four characters read as a little-endian `u32`
+/// (a signature-like property name such as `"WSLV"`).
+#[derive(Debug, Deserialize)]
+#[serde(untagged)]
+enum RawKey {
+    Number(i64),
+    Text(String),
 }
 
 #[derive(Debug, Deserialize)]
@@ -262,6 +307,9 @@ struct RawField {
     source: Option<String>,
     evidence: Option<Vec<String>>,
     confidence: Option<String>,
+    decider: Option<String>,
+    secondary: Option<String>,
+    variants: Option<Vec<RawVariant>>,
 }
 
 /// The provenance keys a member or field may set (all optional; see [`provenance`]).
@@ -1077,6 +1125,7 @@ fn convert_member(
     if !is_union {
         let context = "a member that is not `type = \"union\"`";
         reject(cx, m.decider.is_some(), "decider", context)?;
+        reject(cx, m.secondary.is_some(), "secondary", context)?;
         reject(cx, m.variants.is_some(), "variants", context)?;
     }
     if let Some(group) = &m.group {
@@ -1163,35 +1212,238 @@ fn convert_member(
     }))
 }
 
-/// `type = "union"` on a subrecord member: `decider` plus `variants`, each a `when` value,
-/// a name and a simple type (scalars, `formid` with `targets`, strings, `sig`, fixed
-/// opaque). Payloads no variant claims stay raw at decode time.
+/// The decider of a union: `edid-prefix`, or `field:<Name>` (plus an optional
+/// `secondary = "field:<Name>"`).
+fn parse_decider(
+    cx: &Cx<'_, '_>,
+    decider: Option<&str>,
+    secondary: Option<&str>,
+) -> Result<Decider, SchemaError> {
+    let field_name = |text: &str| {
+        text.strip_prefix("field:")
+            .filter(|name| is_pascal_case(name))
+            .map(str::to_owned)
+    };
+    match decider {
+        Some("edid-prefix") => {
+            reject(
+                cx,
+                secondary.is_some(),
+                "secondary",
+                "a union with `decider = \"edid-prefix\"`",
+            )?;
+            Ok(Decider::EditorIdPrefix)
+        }
+        Some(text) => {
+            let name = field_name(text)
+                .ok_or_else(|| cx.err(ErrorKind::UnknownDecider(text.to_owned())))?;
+            let secondary = match secondary {
+                Some(text) => Some(
+                    field_name(text)
+                        .filter(|s| *s != name)
+                        .ok_or_else(|| cx.err(ErrorKind::BadDeciderField(text.to_owned())))?,
+                ),
+                None => None,
+            };
+            Ok(Decider::Field { name, secondary })
+        }
+        None => Err(cx.err(ErrorKind::MissingKey("decider"))),
+    }
+}
+
+/// `type = "union"` on a subrecord member: `decider = "edid-prefix"` plus `variants`, each
+/// a `when` letter, a name and a simple type (scalars, enums, flags, `formid` with
+/// `targets`, strings, `sig`, fixed opaque). Payloads no variant claims stay raw at
+/// decode time.
 fn convert_union(
     cx: &mut Cx<'_, '_>,
     m: &RawMember,
     prov: &Provenance,
 ) -> Result<FieldType, SchemaError> {
-    let decider = match m.decider.as_deref() {
-        Some("edid-prefix") => Decider::EditorIdPrefix,
-        Some(other) => return Err(cx.err(ErrorKind::UnknownDecider(other.to_owned()))),
-        None => return Err(cx.err(ErrorKind::MissingKey("decider"))),
-    };
+    let decider = parse_decider(cx, m.decider.as_deref(), m.secondary.as_deref())?;
+    if decider != Decider::EditorIdPrefix {
+        return Err(cx.err(ErrorKind::UnionPlacement));
+    }
     let raw = m
         .variants
         .as_ref()
         .ok_or_else(|| cx.err(ErrorKind::MissingKey("variants")))?;
+    let variants = convert_variants(cx, raw, None, prov)?;
+    Ok(FieldType::Union { decider, variants })
+}
+
+/// The integer type of a union decider field (`None` when the field cannot decide: not an
+/// earlier, ungated integer or enum sibling of at most 32 bits).
+fn decider_base(fields: &[FieldDef], name: &str) -> Option<Scalar> {
+    let field = fields.iter().find(|f| f.name == name)?;
+    if field.since.is_some() || field.until.is_some() || field.if_remaining {
+        return None;
+    }
+    let mut ty = &field.ty;
+    while let FieldType::Ref { ty: inner, .. } = ty {
+        ty = inner;
+    }
+    let base = match ty {
+        FieldType::Scalar(s) => *s,
+        FieldType::Enum { base, .. } => *base,
+        _ => return None,
+    };
+    (base.is_integer() && base.size() <= 4).then_some(base)
+}
+
+/// `type = "union"` on a struct field: `decider = "field:<Sibling>"` (and an optional
+/// `secondary = "field:<Sibling>"`), both earlier siblings in `earlier`; every variant has
+/// the same fixed size, so a decider value no variant names keeps the bytes as read.
+fn convert_field_union(
+    cx: &mut Cx<'_, '_>,
+    f: &RawField,
+    earlier: &[FieldDef],
+    prov: &Provenance,
+) -> Result<FieldType, SchemaError> {
+    for (present, key) in [
+        (f.targets.is_some(), "targets"),
+        (f.count.is_some(), "count"),
+        (f.count_from.is_some(), "count_from"),
+        (f.element.is_some(), "element"),
+        (f.base.is_some(), "base"),
+        (f.values.is_some(), "values"),
+        (f.bits.is_some(), "bits"),
+        (f.size.is_some(), "size"),
+        (f.field.is_some(), "field"),
+        (f.since.is_some(), "since"),
+        (f.until.is_some(), "until"),
+        (f.if_remaining.is_some(), "if_remaining"),
+    ] {
+        reject(
+            cx,
+            present,
+            key,
+            "a union field (variants carry their own types; it is never gated)",
+        )?;
+    }
+    let decider = parse_decider(cx, f.decider.as_deref(), f.secondary.as_deref())?;
+    let Decider::Field { name, secondary } = &decider else {
+        return Err(cx.err(ErrorKind::UnionPlacement));
+    };
+    let base = decider_base(earlier, name)
+        .ok_or_else(|| cx.err(ErrorKind::BadDeciderField(name.clone())))?;
+    let secondary_base = match secondary {
+        Some(s) => Some(
+            decider_base(earlier, s)
+                .ok_or_else(|| cx.err(ErrorKind::BadDeciderField(s.clone())))?,
+        ),
+        None => None,
+    };
+    let raw = f
+        .variants
+        .as_ref()
+        .ok_or_else(|| cx.err(ErrorKind::MissingKey("variants")))?;
+    let variants = convert_variants(cx, raw, Some((base, secondary_base)), prov)?;
+    // One fixed size for every variant: the raw fallback keeps exactly that many bytes.
+    let first = variants.first().and_then(|v| v.ty.fixed_size(None));
+    for v in &variants {
+        let size = v.ty.fixed_size(None);
+        if size.is_none() || size != first || size == Some(0) {
+            return Err(cx.err(ErrorKind::VariantSize {
+                variant: v.name.clone(),
+                size,
+                first,
+            }));
+        }
+    }
+    Ok(FieldType::Union { decider, variants })
+}
+
+/// The `when` values of one variant.
+fn variant_when(
+    cx: &Cx<'_, '_>,
+    when: &RawWhen,
+    bases: Option<(Scalar, Option<Scalar>)>,
+) -> Result<Vec<i64>, SchemaError> {
+    let bad = || cx.err(ErrorKind::BadWhen(when.describe()));
+    match (when, bases) {
+        (RawWhen::Text(text), None) => match text.as_bytes() {
+            [b] if b.is_ascii_alphanumeric() => Ok(vec![i64::from(*b)]),
+            _ => Err(bad()),
+        },
+        (RawWhen::Number(n), Some((base, _))) => {
+            if !base.fits(i128::from(*n)) {
+                return Err(cx.err(ErrorKind::ValueOutOfRange {
+                    value: i128::from(*n),
+                    base: base.as_str(),
+                }));
+            }
+            Ok(vec![*n])
+        }
+        (RawWhen::List(list), Some((base, _))) if !list.is_empty() => {
+            let mut out = Vec::with_capacity(list.len());
+            for n in list {
+                if !base.fits(i128::from(*n)) {
+                    return Err(cx.err(ErrorKind::ValueOutOfRange {
+                        value: i128::from(*n),
+                        base: base.as_str(),
+                    }));
+                }
+                if out.contains(n) {
+                    return Err(cx.err(ErrorKind::DuplicateValue(i128::from(*n))));
+                }
+                out.push(*n);
+            }
+            Ok(out)
+        }
+        _ => Err(bad()),
+    }
+}
+
+/// A variant's `secondary_when`: an integer or four printable characters (read as a
+/// little-endian `u32`), fitting the secondary field.
+fn variant_secondary(
+    cx: &Cx<'_, '_>,
+    raw: Option<&RawKey>,
+    secondary_base: Option<Scalar>,
+) -> Result<Option<i64>, SchemaError> {
+    let Some(raw) = raw else {
+        return Ok(None);
+    };
+    let (value, text) = match raw {
+        RawKey::Number(n) => (Some(*n), n.to_string()),
+        RawKey::Text(t) => (
+            Signature::parse(t).map(|s| i64::from(u32::from_le_bytes(s.as_bytes()))),
+            format!("{t:?}"),
+        ),
+    };
+    match (value, secondary_base) {
+        (Some(v), Some(base)) if base.fits(i128::from(v)) => Ok(Some(v)),
+        _ => Err(cx.err(ErrorKind::BadSecondaryWhen(text))),
+    }
+}
+
+/// The variants of a union. `bases` is `None` for `edid-prefix` (letters), else the
+/// decider field's base and the secondary field's base (if any).
+fn convert_variants(
+    cx: &mut Cx<'_, '_>,
+    raw: &[RawVariant],
+    bases: Option<(Scalar, Option<Scalar>)>,
+    prov: &Provenance,
+) -> Result<Vec<UnionVariant>, SchemaError> {
     if raw.is_empty() {
         return Err(cx.err(ErrorKind::Empty));
     }
+    let secondary_base = bases.and_then(|(_, s)| s);
     let mut variants: Vec<UnionVariant> = Vec::with_capacity(raw.len());
     for (i, v) in raw.iter().enumerate() {
         let variant = cx.scoped(format!("variants[{i}]"), |cx| {
-            let when = match v.when.as_bytes() {
-                [b] if b.is_ascii_alphanumeric() => *b,
-                _ => return Err(cx.err(ErrorKind::BadWhen(v.when.clone()))),
-            };
-            if variants.iter().any(|seen| seen.when == when) {
-                return Err(cx.err(ErrorKind::DuplicateValue(i128::from(when))));
+            let when = variant_when(cx, &v.when, bases)?;
+            // Without a `secondary` decider there is no secondary base, so any
+            // `secondary_when` is rejected here.
+            let secondary_when = variant_secondary(cx, v.secondary_when.as_ref(), secondary_base)?;
+            for value in &when {
+                let taken = variants
+                    .iter()
+                    .any(|seen| seen.when.contains(value) && seen.secondary_when == secondary_when);
+                if taken {
+                    return Err(cx.err(ErrorKind::DuplicateValue(i128::from(*value))));
+                }
             }
             if v.ty == "union" || v.ty == "struct" || v.ty == "array" {
                 return Err(cx.err(ErrorKind::UnexpectedKey {
@@ -1205,15 +1457,16 @@ fn convert_union(
                 count: None,
                 count_from: None,
                 element: None,
-                base: None,
-                values: None,
-                bits: None,
-                size: None,
+                base: v.base.as_deref(),
+                values: v.values.as_ref(),
+                bits: v.bits.as_ref(),
+                size: v.size,
                 field: None,
             };
             let ty = convert_type(cx, &spec, false, prov)?;
             Ok(UnionVariant {
                 when,
+                secondary_when,
                 name: v.name.clone(),
                 ty,
                 note: v.note.clone(),
@@ -1221,8 +1474,9 @@ fn convert_union(
         })?;
         variants.push(variant);
     }
-    check_unique_names(cx, variants.iter().map(|v| v.name.as_str()), &[])?;
-    Ok(FieldType::Union { decider, variants })
+    // `Other` names the raw fallback of a field union (codegen), so it is reserved.
+    check_unique_names(cx, variants.iter().map(|v| v.name.as_str()), &["Other"])?;
+    Ok(variants)
 }
 
 fn reject_type_keys(cx: &Cx<'_, '_>, m: &RawMember, context: &str) -> Result<(), SchemaError> {
@@ -1333,6 +1587,25 @@ fn convert_fields(
         let field = cx.scoped(format!("field[{i}]"), |cx| {
             let prov = provenance(cx, parent, &f.prov())?;
             version_range(cx, f.since, f.until)?;
+            if f.ty == "union" {
+                let ty = convert_field_union(cx, f, &fields, &prov)?;
+                return Ok(FieldDef {
+                    name: f.name.clone(),
+                    ty,
+                    since: None,
+                    until: None,
+                    if_remaining: false,
+                    note: f.note.clone(),
+                    provenance: prov,
+                });
+            }
+            for (present, key) in [
+                (f.decider.is_some(), "decider"),
+                (f.secondary.is_some(), "secondary"),
+                (f.variants.is_some(), "variants"),
+            ] {
+                reject(cx, present, key, "a field that is not `type = \"union\"`")?;
+            }
             let spec = TypeSpec {
                 ty: &f.ty,
                 targets: f.targets.as_ref(),

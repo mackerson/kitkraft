@@ -372,18 +372,78 @@ pub fn locate<'t>(
     let mut ty = deref(ty);
     let mut start = 0usize;
     let mut len = payload.len();
+    // The integer members before the current one in its struct (union deciders).
+    let mut siblings: Vec<(&str, i128)> = Vec::new();
     for step in steps {
         let window = payload
             .get(start..start.saturating_add(len))
             .ok_or_else(|| FieldError::new(path, "payload", "payload shorter than its layout"))?;
         match (step, ty) {
             (Step::Member(name), FieldType::Struct { fields }) => {
-                let (off, flen, field) = member_span(path, fields, window, name, form_version)?;
+                let (off, flen, field, before) =
+                    member_span(path, fields, window, name, form_version)?;
                 start = start
                     .checked_add(off)
                     .ok_or_else(|| FieldError::new(path, "payload", "offset overflow"))?;
                 len = flen;
                 ty = deref(&field.ty);
+                siblings = before;
+            }
+            (
+                Step::Member(name),
+                FieldType::Union {
+                    decider:
+                        kitkraft_schema::Decider::Field {
+                            name: key,
+                            secondary,
+                        },
+                    variants,
+                },
+            ) => {
+                // A struct field union: the step names a variant, which must be the one the
+                // record's own decider fields select (`Value1.Float` where ValueType is 1).
+                let wanted = variants
+                    .iter()
+                    .find(|v| v.name.eq_ignore_ascii_case(name))
+                    .ok_or_else(|| {
+                        let names: Vec<&str> = variants.iter().map(|v| v.name.as_str()).collect();
+                        FieldError::new(
+                            path,
+                            "no-member",
+                            format!("no variant `{name}`; variants: {}", names.join(", ")),
+                        )
+                    })?;
+                let value = |field: &str| {
+                    siblings
+                        .iter()
+                        .rev()
+                        .find(|(f, _)| f.eq_ignore_ascii_case(field))
+                        .and_then(|(_, v)| i64::try_from(*v).ok())
+                };
+                let key_value = value(key).ok_or_else(|| {
+                    FieldError::new(path, "layout", format!("union decider `{key}` not read"))
+                })?;
+                let second = secondary.as_deref().and_then(value);
+                let chosen = kitkraft_schema::select_variant(variants, key_value, second);
+                if chosen.map(|v| v.name.as_str()) != Some(wanted.name.as_str()) {
+                    let here = chosen.map_or_else(
+                        || "raw bytes (no variant names this value)".to_string(),
+                        |v| format!("`{}`", v.name),
+                    );
+                    let mut deciders = format!("{key} = {key_value}");
+                    if let (Some(s), Some(v)) = (secondary, second) {
+                        deciders.push_str(&format!(", {s} = {v:#X}"));
+                    }
+                    return Err(FieldError::new(
+                        path,
+                        "layout",
+                        format!(
+                            "this entry's {deciders} selects {here}, not `{}`; set the decider first",
+                            wanted.name
+                        ),
+                    ));
+                }
+                ty = deref(&wanted.ty);
             }
             (Step::Index(i), FieldType::Array { element, .. }) => {
                 let size = element
@@ -444,9 +504,8 @@ pub fn select_variant(ty: &FieldType, edid_first: Option<u8>) -> &FieldType {
         FieldType::Union {
             decider: kitkraft_schema::Decider::EditorIdPrefix,
             variants,
-        } => variants
-            .iter()
-            .find(|v| Some(v.when) == edid_first)
+        } => edid_first
+            .and_then(|b| kitkraft_schema::select_variant(variants, i64::from(b), None))
             .map_or(ty, |v| deref(&v.ty)),
         other => other,
     }
@@ -459,14 +518,27 @@ fn deref(ty: &FieldType) -> &FieldType {
     }
 }
 
-/// Offset, length and definition of member `name` in a struct payload.
+/// The integer base of a field that can count an array or decide a union: an integer
+/// scalar or an enum.
+fn int_base(ty: &FieldType) -> Option<Scalar> {
+    match deref(ty) {
+        FieldType::Scalar(s) if s.is_integer() => Some(*s),
+        FieldType::Enum { base, .. } => Some(*base),
+        _ => None,
+    }
+}
+
+/// Offset, length and definition of member `name` in a struct payload, and the integer
+/// values of the members before it (array counts, union deciders).
+type Span<'f> = (usize, usize, &'f FieldDef, Vec<(&'f str, i128)>);
+
 fn member_span<'f>(
     path: &str,
     fields: &'f [FieldDef],
     payload: &[u8],
     name: &str,
     form_version: u16,
-) -> Result<(usize, usize, &'f FieldDef), FieldError> {
+) -> Result<Span<'f>, FieldError> {
     let mut cursor = 0usize;
     let mut ints: Vec<(&str, i128)> = Vec::new();
     for field in fields {
@@ -499,10 +571,10 @@ fn member_span<'f>(
         }
         let len = field_len(path, &field.ty, rest, &ints, form_version)?;
         if field.name.eq_ignore_ascii_case(name) {
-            return Ok((cursor, len, field));
+            return Ok((cursor, len, field, ints));
         }
-        if let FieldType::Scalar(s) = deref(&field.ty) {
-            if let Some(v) = rest.get(..len).and_then(|b| read_int(*s, b)) {
+        if let Some(s) = int_base(&field.ty) {
+            if let Some(v) = rest.get(..len).and_then(|b| read_int(s, b)) {
                 ints.push((field.name.as_str(), v));
             }
         }
@@ -568,8 +640,8 @@ fn field_len(
                     continue;
                 }
                 let len = field_len(path, &field.ty, sub, &inner, form_version)?;
-                if let FieldType::Scalar(s) = deref(&field.ty) {
-                    if let Some(v) = sub.get(..len).and_then(|b| read_int(*s, b)) {
+                if let Some(s) = int_base(&field.ty) {
+                    if let Some(v) = sub.get(..len).and_then(|b| read_int(s, b)) {
                         inner.push((field.name.as_str(), v));
                     }
                 }
@@ -1253,6 +1325,68 @@ mod tests {
         for bad in ["full", "FUL", "FULL.", "FULL[x]", "FULL[1][2]", "FULL.a b"] {
             assert_eq!(parse_path(bad).unwrap_err().rule, "path-syntax", "{bad}");
         }
+    }
+
+    /// Lane B round 4: an object mod property's Value1/Value2 are field unions decided by
+    /// its ValueType; a path steps into the variant the entry's own value type selects
+    /// (`DATA.Properties[1].Value1.Float`), and naming another variant is refused.
+    #[test]
+    fn omod_property_value_paths() {
+        let layout = layout_at(*b"OMOD", &[*b"EDID", *b"DATA"], 1).unwrap();
+        let entry = |vt: u8, prop: &[u8; 4], v1: [u8; 4], v2: [u8; 4]| {
+            let mut out = vec![vt, 0, 0, 0, 0, 0, 0, 0];
+            out.extend_from_slice(prop);
+            out.extend_from_slice(&v1);
+            out.extend_from_slice(&v2);
+            out.extend_from_slice(&0f32.to_le_bytes());
+            out
+        };
+        let mut data = Vec::new();
+        data.extend(0u32.to_le_bytes()); // IncludeCount
+        data.extend(2u32.to_le_bytes()); // PropertyCount
+        data.extend([0, 0]); // Unknown1
+        data.extend(0u32.to_le_bytes()); // NameLength
+        data.extend([1, 0]); // MaxRank, LevelTierScaledOffset
+        data.extend(0u32.to_le_bytes()); // AttachPoint
+        data.extend(0u32.to_le_bytes()); // AttachParentSlotCount
+        data.extend([0; 4]); // Unknown2
+        let header = data.len();
+        data.extend(entry(
+            4,
+            b"WKWD",
+            0x0001_2345u32.to_le_bytes(),
+            0i32.to_le_bytes(),
+        ));
+        data.extend(entry(
+            1,
+            b"WSPS",
+            1.5f32.to_le_bytes(),
+            0.25f32.to_le_bytes(),
+        ));
+        let at = |text: &str| {
+            let p = parse_path(text).unwrap();
+            locate(text, &layout.ty, &data, &p.steps, 582)
+        };
+        let float = at("DATA.Properties[1].Value1.Float").unwrap();
+        assert_eq!((float.start, float.len), (header + 24 + 12, 4));
+        assert_eq!(*float.ty, FieldType::Scalar(Scalar::F32));
+        let old = &data[float.start..float.start + 4];
+        let doubled = encode_value("X", float.ty, old, &Op::Mul(2.0), &ctx(false)).unwrap();
+        assert_eq!(doubled, 3.0f32.to_le_bytes());
+        let second = at("DATA.properties[1].value2.float").unwrap();
+        assert_eq!(second.start, header + 24 + 16);
+        let form = at("DATA.Properties[0].Value1.FormId").unwrap();
+        assert!(matches!(form.ty, FieldType::FormId { .. }), "{:?}", form.ty);
+        // Entry 0 has value type 4: its Value1 is a FormID, not a float.
+        let wrong = at("DATA.Properties[0].Value1.Float").unwrap_err();
+        assert_eq!(wrong.rule, "layout");
+        assert!(wrong.message.contains("selects `FormId`"), "{wrong}");
+        let none = at("DATA.Properties[0].Value1.Nope").unwrap_err();
+        assert_eq!(none.rule, "no-member");
+        assert!(none.message.contains("Int, Float"), "{none}");
+        // The union itself is not a number.
+        let whole = at("DATA.Properties[1].Value1").unwrap();
+        assert!(encode_value("X", whole.ty, &[0; 4], &Op::Set(json!(1)), &ctx(false)).is_err());
     }
 
     #[test]

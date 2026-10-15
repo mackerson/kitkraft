@@ -202,7 +202,7 @@ assignments is script and keyword behaviour (`LinkOutpost*`, `CrewFurniture_*`,
 | NVNM (navmesh geometry) | STAT, ACTI | Large nested geometry; kept raw. |
 | CTDA comparison value, parameters, reference | ACTI, TMLM, IDLE, CPTH | Unions selected by the type byte, the function or Run On (`common/Condition.toml`). |
 | COED middle slot | CONT (never seen) | A global FormID or a faction rank depending on the owner's type. |
-| OBTS property values (object template item) | ARMO (CONT, TERM never) | The item is typed through `ObteBlock` since M4.BX1; each property value is a union by value type and stays raw. |
+| OBTS property values (object template item) | ARMO (CONT, TERM never) | The item is typed through `ObteBlock` since M4.BX1; since lane B round 4 each property's function type and values are struct-field unions by value type (`common/ObjectModProperty.toml`), typed. |
 | NNAM (marker files) | FURN | Pairs of NUL-terminated strings, which an array element cannot hold. |
 | WBDT | TERM | Declared unused and zero-length upstream; one zero byte in every official record. |
 | ISET and XLOC padding | TMLM | Filler bytes with non-zero values (AB AB, AD DE); kept raw so they roundtrip. |

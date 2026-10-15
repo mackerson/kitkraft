@@ -941,3 +941,78 @@ fn unions_follow_the_editor_id_prefix() {
     assert_eq!(err, DecodeError::Undecided { field: "UUUU.DATA" });
     assert!(err.to_string().contains("EditorID prefix"));
 }
+
+/// Lane B round 4: struct-field unions decided by an earlier sibling (`Kind`), refined by
+/// a second one (`Prop`) for some values. Each array element picks its own variant; a
+/// kind no variant names keeps the bytes as read (`Other`); FormID variants are visited;
+/// every body re-encodes byte for byte.
+#[test]
+fn field_unions_follow_their_sibling() {
+    use fixture::{
+        UuuuPropsItem, UuuuPropsItemKind, UuuuPropsItemSecond, UuuuPropsItemValue,
+        UuuuPropsItemValueLevel,
+    };
+    let entry = |kind: u8, prop: &[u8; 4], value: [u8; 4], second: [u8; 2]| {
+        let mut out = vec![kind];
+        out.extend_from_slice(prop);
+        out.extend_from_slice(&value);
+        out.extend_from_slice(&second);
+        out
+    };
+    let mut payload = Vec::new();
+    payload.extend(entry(0, b"ABCD", (-5i32).to_le_bytes(), 7i16.to_le_bytes()));
+    payload.extend(entry(1, b"ABCD", 2.5f32.to_le_bytes(), [1, 2]));
+    payload.extend(entry(6, b"ABCD", 0x0100_0042u32.to_le_bytes(), [3, 4]));
+    payload.extend(entry(5, b"WSLV", 2u32.to_le_bytes(), [5, 6]));
+    payload.extend(entry(5, b"WSTG", 3u32.to_le_bytes(), [7, 8]));
+    payload.extend(entry(9, b"ABCD", [1, 2, 3, 4], [9, 9]));
+    let subs = vec![sub(b"EDID", b"fX\0"), sub(b"PROP", &payload)];
+    let rec = Record::decode(*b"UUUU", &raw(&subs), ctx(1, true)).unwrap();
+    assert!(rec.extra().is_empty(), "{:?}", rec.extra());
+    let Record::Uuuu(u) = &rec else {
+        panic!("UUUU");
+    };
+    let items: &Vec<UuuuPropsItem> = &u.props.as_ref().unwrap().0;
+    let values: Vec<UuuuPropsItemValue> = items.iter().map(|i| i.value.clone()).collect();
+    assert_eq!(
+        values,
+        [
+            UuuuPropsItemValue::Int(-5),
+            UuuuPropsItemValue::Float(2.5),
+            UuuuPropsItemValue::Ref(FormId(0x0100_0042)),
+            UuuuPropsItemValue::Level(UuuuPropsItemValueLevel::Loud),
+            UuuuPropsItemValue::Enum(3),
+            UuuuPropsItemValue::Other([1, 2, 3, 4]),
+        ]
+    );
+    assert_eq!(items[0].kind, UuuuPropsItemKind::Int);
+    assert_eq!(items[0].second, UuuuPropsItemSecond::Int(7));
+    assert_eq!(items[1].second, UuuuPropsItemSecond::Half([1, 2]));
+    // Kind 6 is named by `Value` but not by `Second`; kind 9 by neither.
+    assert_eq!(items[2].second, UuuuPropsItemSecond::Other([3, 4]));
+    assert_eq!(items[5].kind, UuuuPropsItemKind::Other(9));
+    assert_eq!(items[5].second, UuuuPropsItemSecond::Other([9, 9]));
+    let ids: Vec<(&str, u32)> = rec.form_ids().into_iter().map(|(p, f)| (p, f.0)).collect();
+    assert_eq!(ids, [("UUUU.PROP.Value", 0x0100_0042)]);
+    assert_eq!(rec.encode(), subs);
+
+    // Remapping through the visitor rewrites the FormID variant in place.
+    let mut rec = rec;
+    for (_, id) in rec.form_ids_mut() {
+        id.0 = 0x0200_0042;
+    }
+    let encoded = rec.encode();
+    assert_eq!(
+        encoded[1].data.get(27..31),
+        Some(&0x0200_0042u32.to_le_bytes()[..])
+    );
+
+    // A truncated entry fails the whole payload, which then stays raw.
+    let short = vec![sub(b"PROP", &payload[..payload.len() - 1])];
+    let rec = Record::decode(*b"UUUU", &raw(&short), ctx(1, true)).unwrap();
+    assert_eq!(rec.extra().len(), 1);
+    assert_eq!(rec.encode(), short);
+    // Without its decider a field union keeps the bytes as read.
+    let lone = fixture::decode::<UuuuPropsItemValue>(&[1, 2, 3, 4], "V", ctx(1, true)).unwrap();
+    assert_eq!(lone, UuuuPropsItemValue::Other([1, 2, 3, 4]));
+}

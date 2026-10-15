@@ -18,8 +18,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 
 use crate::model::{
-    ArrayCount, Cardinality, CommonBody, FieldDef, FieldType, HeaderDef, Member, NamedValue,
-    RecordDef, Schema, Signature, SubrecordDef, UnionVariant,
+    ArrayCount, Cardinality, CommonBody, Decider, FieldDef, FieldType, HeaderDef, Member,
+    NamedValue, RecordDef, Schema, Signature, SubrecordDef, UnionVariant,
 };
 use crate::names::{const_ident, field_ident, signature_type_name};
 
@@ -221,11 +221,173 @@ impl Gen {
                 self.struct_type(type_name, fields, path)?;
                 type_name.to_owned()
             }
-            FieldType::Union { variants, .. } => {
+            FieldType::Union {
+                decider: Decider::EditorIdPrefix,
+                variants,
+            } => {
                 self.union_type(type_name, variants, path)?;
                 type_name.to_owned()
             }
+            FieldType::Union {
+                decider: Decider::Field { name, secondary },
+                variants,
+            } => {
+                self.keyed_union_type(type_name, name, secondary.as_deref(), variants, path)?;
+                type_name.to_owned()
+            }
         })
+    }
+
+    /// An enum with one variant per layout plus `Other` (the bytes as read, for a decider
+    /// value no variant names), read through `read_keyed` with the values of the deciding
+    /// sibling fields (a struct field union, `decider = "field:<Name>"`).
+    fn keyed_union_type(
+        &mut self,
+        name: &str,
+        decider: &str,
+        secondary: Option<&str>,
+        variants: &[UnionVariant],
+        path: &str,
+    ) -> Result<(), CodegenError> {
+        self.claim(name)?;
+        let size = variants
+            .first()
+            .and_then(|v| v.ty.fixed_size(None))
+            .ok_or_else(|| CodegenError::BadIdentifier(name.to_owned()))?;
+        let mut decls = String::new();
+        let mut first_arms = String::new();
+        let mut arms = String::new();
+        let mut writes = String::new();
+        let mut visits: [String; 4] = Default::default();
+        let wants = [Want::FormId, Want::FormId, Want::LString, Want::LString];
+        let methods = [
+            "visit_form_ids",
+            "visit_form_ids_mut",
+            "visit_lstrings",
+            "visit_lstrings_mut",
+        ];
+        for v in variants {
+            if v.name == "Self" || v.name == "Other" {
+                return Err(CodegenError::BadIdentifier(v.name.clone()));
+            }
+            let inner = self.payload_type(&v.ty, &format!("{name}{}", v.name), path)?;
+            let keys: Vec<String> = v.when.iter().map(|w| w.to_string()).collect();
+            let doc = match (v.secondary_when, secondary) {
+                (Some(s), Some(field)) => format!(
+                    "`{decider}` {}, `{field}` {}",
+                    keys.join(" or "),
+                    hex(i128::from(s))
+                ),
+                _ => format!("`{decider}` {}", keys.join(" or ")),
+            };
+            let _ = writeln!(decls, "    /// {doc}.\n    {}({inner}),", v.name);
+            let pattern = keys.join(" | ");
+            let read = format!("Field::read(r, field, ctx).map(Self::{})", v.name);
+            match (v.secondary_when, secondary.is_some()) {
+                (Some(s), true) => {
+                    let _ = writeln!(
+                        first_arms,
+                        "            ({pattern}, {}) => {read},",
+                        hex(i128::from(s))
+                    );
+                }
+                (_, true) => {
+                    let _ = writeln!(arms, "            ({pattern}, _) => {read},");
+                }
+                (_, false) => {
+                    let _ = writeln!(arms, "            {pattern} => {read},");
+                }
+            }
+            let _ = writeln!(
+                writes,
+                "            Self::{}(value) => value.write(out),",
+                v.name
+            );
+            for ((body, want), method) in visits.iter_mut().zip(wants).zip(methods) {
+                if type_has(&v.ty, want) {
+                    let _ = writeln!(
+                        body,
+                        "        if let Self::{}(value) = self {{\n            {method}(value, path, out);\n        }}",
+                        v.name
+                    );
+                }
+            }
+        }
+        let (scrutinee, secondary_param, keys_doc) = match secondary {
+            Some(field) => (
+                "(key, secondary)",
+                "secondary",
+                format!("`key` is the value of `{decider}`, `secondary` that of `{field}`"),
+            ),
+            None => (
+                "key",
+                "_secondary",
+                format!("`key` is the value of `{decider}` (`secondary` is unused)"),
+            ),
+        };
+        let _ = write!(
+            self.out,
+            "
+/// A field whose layout the value of `{decider}` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum {name} {{
+{decls}    /// A decider value no variant names: the bytes as read.
+    Other([u8; {size}]),
+}}
+
+impl {name} {{
+    /// Reads the variant the decider values select: {keys_doc}.
+    pub fn read_keyed(
+        key: i64,
+        {secondary_param}: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {{
+        match {scrutinee} {{
+{first_arms}{arms}            _ => Field::read(r, field, ctx).map(Self::Other),
+        }}
+    }}
+}}
+
+impl Field for {name} {{
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {{
+        Field::read(r, field, ctx).map(Self::Other)
+    }}
+
+    fn write(&self, out: &mut Vec<u8>) {{
+        match self {{
+{writes}            Self::Other(value) => value.write(out),
+        }}
+    }}
+}}
+"
+        );
+        let receivers = ["&'a self", "&'a mut self", "&'a self", "&'a mut self"];
+        let aliases = ["FormIds", "FormIdsMut", "LStrings", "LStringsMut"];
+        let mut bodies = Vec::new();
+        for (((body, method), receiver), alias) in
+            visits.iter().zip(methods).zip(receivers).zip(aliases)
+        {
+            if body.is_empty() {
+                continue;
+            }
+            bodies.push(format!(
+                "    fn {method}<'a>({receiver}, path: &'static str, out: &mut {alias}<'a>) {{\n{body}    }}\n"
+            ));
+        }
+        if bodies.is_empty() {
+            let _ = writeln!(self.out, "\nimpl Visit for {name} {{}}");
+        } else {
+            let _ = writeln!(
+                self.out,
+                "\nimpl Visit for {name} {{\n{}}}",
+                bodies.join("\n")
+            );
+        }
+        Ok(())
     }
 
     /// An enum with one variant per layout, read through `ByPrefix` (the decider) rather
@@ -254,7 +416,10 @@ impl Gen {
                 return Err(CodegenError::BadIdentifier(v.name.clone()));
             }
             let inner = self.payload_type(&v.ty, &format!("{name}{}", v.name), path)?;
-            let when = char::from(v.when);
+            let when = char::from(
+                v.prefix()
+                    .ok_or_else(|| CodegenError::BadIdentifier(v.name.clone()))?,
+            );
             let _ = writeln!(
                 decls,
                 "    /// EditorID starting with `{when}`.\n    {}({inner}),",
@@ -496,6 +661,36 @@ impl Visit for {name} {{}}
                     None,
                     (
                         format!("{}::read", s.as_str()),
+                        vec!["r".to_owned(), p.clone(), "ctx".to_owned()],
+                    ),
+                ),
+                FieldType::Union {
+                    decider:
+                        Decider::Field {
+                            name: key,
+                            secondary,
+                        },
+                    ..
+                } => {
+                    let key = decider_value(fields, key)?;
+                    let secondary = match secondary {
+                        Some(s) => decider_value(fields, s)?,
+                        None => "0".to_owned(),
+                    };
+                    (
+                        None,
+                        (
+                            format!("{inner}::read_keyed"),
+                            vec![key, secondary, "r".to_owned(), p.clone(), "ctx".to_owned()],
+                        ),
+                    )
+                }
+                // A union decider is used before the struct literal fixes its type, so it is
+                // read through its own type.
+                _ if decides_union(fields, &f.name) => (
+                    None,
+                    (
+                        format!("{inner}::read"),
                         vec!["r".to_owned(), p.clone(), "ctx".to_owned()],
                     ),
                 ),
@@ -1229,6 +1424,14 @@ fn let_call(indent: usize, lead: &str, func: &str, args: &[String]) -> String {
     if joined.len() <= FN_CALL_WIDTH && line.len() <= MAX_WIDTH {
         return format!("{line}\n");
     }
+    // rustfmt moves a call that fits its argument width but not the line to the next
+    // line, after the `=` of a `let`.
+    let call = format!("{pad}    {func}({joined})?;");
+    if let Some(head) = lead.strip_suffix(' ') {
+        if head.ends_with('=') && joined.len() <= FN_CALL_WIDTH && call.len() <= MAX_WIDTH {
+            return format!("{pad}{head}\n{call}\n");
+        }
+    }
     let mut out = format!("{pad}{lead}{func}(\n");
     for arg in args {
         let _ = writeln!(out, "{pad}    {arg},");
@@ -1415,6 +1618,39 @@ fn visit_call(func: &str, receiver: &str, path: &str) -> String {
     }
     out.push_str("        );\n");
     out
+}
+
+/// Whether field `name` decides (or refines) a field union of the same struct.
+fn decides_union(fields: &[FieldDef], name: &str) -> bool {
+    fields.iter().any(|f| match &f.ty {
+        FieldType::Union {
+            decider:
+                Decider::Field {
+                    name: key,
+                    secondary,
+                },
+            ..
+        } => key == name || secondary.as_deref() == Some(name),
+        _ => false,
+    })
+}
+
+/// The `i64` expression for the value of decider field `name` (read earlier into its
+/// local `f<j>`): the integer itself, or an enum's stored value.
+fn decider_value(fields: &[FieldDef], name: &str) -> Result<String, CodegenError> {
+    let (j, field) = fields
+        .iter()
+        .enumerate()
+        .find(|(_, f)| f.name == name)
+        .ok_or_else(|| CodegenError::BadIdentifier(name.to_owned()))?;
+    let mut ty = &field.ty;
+    while let FieldType::Ref { ty: inner, .. } = ty {
+        ty = inner;
+    }
+    Ok(match ty {
+        FieldType::Enum { .. } => format!("i64::from(f{j}.to_raw())"),
+        _ => format!("i64::from(f{j})"),
+    })
 }
 
 fn opt_lit(v: Option<u16>) -> String {

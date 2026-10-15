@@ -143,8 +143,9 @@ How the types link, by member path:
   thousandths; a union selected by a flag.
 - **NPC_ `NAM5`**: unnamed upstream; `FF 00` in all 8,447 records.
 - **NPC_ OBTS property values**: since the integrator's ITEMS merge (M4.BX1) the object
-  template is the shared `ObteBlock` and OBTS its typed `TemplateItem` (includes and
-  property list); each property value is a union and stays raw.
+  template is the shared `ObteBlock` (xedit L6961-L6974) and OBTS its typed `TemplateItem`
+  (includes and property list); since lane B round 4 each property's function type and
+  values are struct-field unions decided by its value type (`common/ObjectModProperty.toml`).
 - **NPC_ `RaceOverrides.Overrides`** (ONA2 after its flags): one block per set flag, in
   flag order; presence decided by the flags.
 - **`COED`** (NPC_, LVLN): not in the official records; COED's owner union is kept raw.

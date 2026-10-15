@@ -8,7 +8,7 @@
 //! validated, so a write that depends on a `reference`-only member is refused unless the
 //! spec entry says `allow_reference = true`.
 
-use kitkraft_schema::{Confidence, FieldType, RecordDef, Schema, Signature};
+use kitkraft_schema::{Confidence, Decider, FieldType, RecordDef, Schema, Signature};
 
 use crate::edit::fields::{FieldPath, Step, LSTRING_FALLBACK};
 use crate::edit::lstrings;
@@ -106,6 +106,28 @@ pub fn resolve(schema: &Schema, record: [u8; 4], path: &FieldPath) -> Result<Res
                 ty = deref(&field.ty);
             }
             (Step::Index(_), FieldType::Array { element, .. }) => ty = deref(element),
+            (
+                Step::Member(m),
+                FieldType::Union {
+                    decider: Decider::Field { .. },
+                    variants,
+                },
+            ) => {
+                // A struct field union (`Value1.Float`): the step names a variant; which
+                // variant an entry holds is checked against its decider when written.
+                let variant = variants
+                    .iter()
+                    .find(|v| v.name.eq_ignore_ascii_case(m))
+                    .ok_or_else(|| {
+                        let names: Vec<&str> = variants.iter().map(|v| v.name.as_str()).collect();
+                        format!(
+                            "unknown member: {label} has no variant `{m}` (variants: {})",
+                            names.join(", ")
+                        )
+                    })?;
+                label = format!("{label}.{}", variant.name);
+                ty = deref(&variant.ty);
+            }
             (Step::Member(m), FieldType::Union { variants, .. }) => {
                 // A member inside a union variant: the variant applies per record (its
                 // EditorID), so the path is accepted when some variant has the member.
@@ -221,6 +243,22 @@ impl Walk<'_> {
                 self.visit(element);
                 self.in_array = was;
             }
+            FieldType::Union {
+                decider: Decider::Field { .. },
+                variants,
+            } => {
+                // A struct field union: each numeric variant is its own member path.
+                for v in variants {
+                    let mut inner = Walk {
+                        out: &mut *self.out,
+                        label: format!("{}.{}", self.label, v.name),
+                        path: format!("{}.{}", self.path, v.name),
+                        confidence: self.confidence,
+                        in_array: self.in_array,
+                    };
+                    inner.visit(&v.ty);
+                }
+            }
             FieldType::Union { variants, .. }
                 if variants
                     .iter()
@@ -279,6 +317,33 @@ mod tests {
         // The whole subrecord contains the reference member, but its own node is corpus.
         let r = resolve(&s, *b"TEST", &path("DNAM")).unwrap();
         assert_eq!(r.confidence, Some(Confidence::Corpus));
+    }
+
+    /// Lane B round 4: OMOD property values are field unions; a build path names the
+    /// variant (`DATA.Properties[0].Value1.Int`), and the numeric listing has one entry per
+    /// numeric variant.
+    #[test]
+    fn omod_property_variants_resolve() {
+        let builtin = kitkraft_schema::builtin().unwrap();
+        let r = resolve(builtin, *b"OMOD", &path("DATA.Properties[0].Value1.Int")).unwrap();
+        assert_eq!(r.label, "OMOD.Data.Properties.Value1.Int");
+        assert_eq!(r.confidence, Some(Confidence::Corpus));
+        let e = resolve(builtin, *b"OMOD", &path("DATA.Properties[0].Value1.Nope")).unwrap_err();
+        assert!(
+            e.contains("no variant `Nope`") && e.contains("SoundLevel"),
+            "{e}"
+        );
+        let paths: Vec<String> = numeric_members(builtin, *b"OMOD")
+            .into_iter()
+            .map(|m| m.path)
+            .collect();
+        for p in [
+            "DATA.Properties.Value1.Int",
+            "DATA.Properties.Value1.Float",
+            "DATA.Properties.Value2.Float",
+        ] {
+            assert!(paths.iter().any(|x| x == p), "{p}: {paths:?}");
+        }
     }
 
     #[test]

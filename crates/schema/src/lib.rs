@@ -29,6 +29,7 @@ pub use load::{
     load_dir, load_sources, parse_definition, ErrorKind, SchemaError, COMMON_DIR,
     FORBIDDEN_UESP_STARFIELD_PAGES, MAX_DEPTH, SOURCE_PREFIXES, XEDIT_FILES, XEDIT_REVISION,
 };
+pub use model::select_variant;
 pub use model::{
     AnyUntilDef, ArrayCount, Cardinality, CommonBody, CommonDef, Confidence, Decider, Definition,
     FieldDef, FieldType, GroupDef, HeaderDef, Member, NamedValue, Provenance, RecordDef, Scalar,

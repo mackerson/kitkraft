@@ -202,7 +202,7 @@ components; SFBK uses block editor metadata (585).
 | Base form component blocks (BFCB..BFCE) | every type that has them | Upstream reads each block by its component name: a union decided by a string in another subrecord, which the format cannot express yet. Kept as raw subrecords (lossless). FULL, keywords, models, properties and the placement properties inside them are therefore not typed, and the FormID and lstring visitors do not see them |
 | Condition comparison value, parameters 1-3, reference | `Condition` (CTDA) | Unions chosen by the type byte, the function index or Run On; 4 raw bytes each. Type, function index and Run On are typed |
 | VMAD | LVLP, PKIN, GBFM, TRAV | Script property values are unions by property type |
-| OBTS property values | GBFM | The item is typed through `ObteBlock` since M4.BX1; its property values are unions and stay raw |
+| OBTS property values | GBFM | The item is typed through `ObteBlock` since M4.BX1; its property values are struct-field unions by value type, typed since lane B round 4 |
 | NVNM | GBFM | Large nested navmesh geometry; kept raw until navmesh work |
 | REFL, RDIF | SUNP | Described by a helper in another upstream unit (`wbDefinitionsReflection.pas`) that is not an authorized source yet (ADR 0004 clarification 2) |
 | ONAM, WED0 | STDT | Unknown upstream / a sound reference; never in an official STDT |

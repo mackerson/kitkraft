@@ -7,7 +7,8 @@
 //! opaque member, or a union variant no definition claims is unknown, never a guess.
 
 use kitkraft_schema::{
-    ArrayCount, Cardinality, Decider, FieldType, Member, Scalar, Schema, Signature, SubrecordDef,
+    select_variant, ArrayCount, Cardinality, Decider, FieldType, Member, Scalar, Schema, Signature,
+    SubrecordDef,
 };
 
 /// Most array elements decoded from one payload.
@@ -150,14 +151,53 @@ fn decode_in(
         }
         FieldType::Empty => Ok(Decoded::Struct(Vec::new())),
         FieldType::Ref { ty, .. } => decode_in(ty, c, ctx, siblings),
-        FieldType::Union { decider, variants } => {
-            let Decider::EditorIdPrefix = decider;
-            match variants.iter().find(|v| Some(v.when) == ctx.edid_first) {
-                Some(v) => decode_in(&v.ty, c, ctx, siblings),
+        FieldType::Union {
+            decider: Decider::EditorIdPrefix,
+            variants,
+        } => match ctx
+            .edid_first
+            .and_then(|b| select_variant(variants, i64::from(b), None))
+        {
+            Some(v) => decode_in(&v.ty, c, ctx, siblings),
+            None => {
+                let at = c.pos;
+                let len = c.rest().len();
+                Ok(Decoded::Opaque { at, len })
+            }
+        },
+        FieldType::Union {
+            decider: Decider::Field { name, secondary },
+            variants,
+        } => {
+            // A struct field decided by earlier siblings: the value is a one-member struct
+            // named after the variant (`Value1.Float`); a key no variant names is opaque.
+            let int = |field: &str| {
+                siblings
+                    .iter()
+                    .find(|(k, _)| k == field)
+                    .and_then(|(_, v)| match v {
+                        Decoded::Int(i) => i64::try_from(*i).ok(),
+                        _ => None,
+                    })
+            };
+            let key = int(name).ok_or_else(|| format!("union decider `{name}` not decoded"))?;
+            let second = match secondary {
+                Some(s) => Some(int(s).ok_or_else(|| format!("union decider `{s}` not decoded"))?),
+                None => None,
+            };
+            match select_variant(variants, key, second) {
+                Some(v) => {
+                    let value = decode_in(&v.ty, c, ctx, siblings)?;
+                    Ok(Decoded::Struct(vec![(v.name.clone(), value)]))
+                }
                 None => {
+                    let size = ty
+                        .fixed_size(Some(ctx.form_version))
+                        .and_then(|s| usize::try_from(s).ok())
+                        .ok_or("a field union without a fixed size")?;
                     let at = c.pos;
-                    let len = c.rest().len();
-                    Ok(Decoded::Opaque { at, len })
+                    c.take(size)?;
+                    Ok(Decoded::Opaque { at, len: size })
                 }
             }
         }
@@ -645,6 +685,66 @@ mod tests {
         assert!(layout_at(schema, *b"GMST", &[*b"EDID"], 5)
             .unwrap()
             .is_none());
+    }
+
+    /// Lane B round 4: an object mod property's FunctionType, Value1 and Value2 are
+    /// struct-field unions decided by its ValueType (and Value1 by its Property for enum
+    /// values); each decodes as a one-member struct named after its variant, and a value
+    /// type no variant names is opaque.
+    #[test]
+    fn omod_property_values_follow_the_value_type() {
+        let schema = kitkraft_schema::builtin().unwrap();
+        let kitkraft_schema::CommonBody::Type(ty) = &schema.common["ObjectModProperty"].body else {
+            panic!("type");
+        };
+        let entry = |vt: u8, prop: &[u8; 4], v1: [u8; 4], v2: [u8; 4]| {
+            let mut out = vec![vt, 0, 0, 0, 1, 0, 0, 0];
+            out.extend_from_slice(prop);
+            out.extend_from_slice(&v1);
+            out.extend_from_slice(&v2);
+            out.extend_from_slice(&0.5f32.to_le_bytes());
+            out
+        };
+        let pick = |data: &[u8], path: &[&str]| {
+            let v = decode(ty, data, &ctx()).unwrap();
+            let members: Vec<String> = path.iter().map(|s| s.to_string()).collect();
+            select(&v, &members, "OMOD.DATA")
+        };
+        let float = entry(1, b"WSPS", 1.5f32.to_le_bytes(), 2.0f32.to_le_bytes());
+        assert_eq!(
+            pick(&float, &["Value1", "Float"]).unwrap(),
+            [Decoded::Float(1.5)]
+        );
+        assert_eq!(
+            pick(&float, &["value2", "float"]).unwrap(),
+            [Decoded::Float(2.0)]
+        );
+        assert_eq!(
+            pick(&float, &["FunctionType", "Numeric"]).unwrap(),
+            [Decoded::Int(1)]
+        );
+        // The wrong variant is not a member of this entry.
+        let err = pick(&float, &["Value1", "Int"]).unwrap_err();
+        assert!(err.contains("members: Float"), "{err}");
+        let form = entry(4, b"WKWD", 0x0002_1234u32.to_le_bytes(), 5i32.to_le_bytes());
+        assert_eq!(
+            pick(&form, &["Value1", "FormId"]).unwrap(),
+            [Decoded::Form(0x0002_1234)]
+        );
+        assert_eq!(pick(&form, &["Value2", "Int"]).unwrap(), [Decoded::Int(5)]);
+        let level = entry(5, b"WSLV", 2u32.to_le_bytes(), [0; 4]);
+        assert_eq!(
+            pick(&level, &["Value1", "SoundLevel"]).unwrap(),
+            [Decoded::Int(2)]
+        );
+        // Value type 9: no variant; the bytes are opaque, and the entry still decodes.
+        let odd = entry(9, b"WSPS", [1, 2, 3, 4], [5, 6, 7, 8]);
+        assert_eq!(
+            decode(ty, &odd, &ctx())
+                .map(|v| select(&v, &["value1".into()], "X").unwrap())
+                .unwrap(),
+            [Decoded::Opaque { at: 12, len: 4 }]
+        );
     }
 
     /// Planet schema lane request to lane D: a VNAM inside a PKIN base form component

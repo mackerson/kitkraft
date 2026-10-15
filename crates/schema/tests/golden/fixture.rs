@@ -1646,6 +1646,275 @@ impl Visit for UuuuItems {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UuuuPropsItemKind {
+    Int,
+    Float,
+    Form,
+    Enum,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl UuuuPropsItemKind {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Int,
+            1 => Self::Float,
+            4 => Self::Form,
+            5 => Self::Enum,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Int => 0,
+            Self::Float => 1,
+            Self::Form => 4,
+            Self::Enum => 5,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for UuuuPropsItemKind {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for UuuuPropsItemKind {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UuuuPropsItemValueLevel {
+    Loud,
+    /// A value the definition does not name.
+    Other(u32),
+}
+
+impl UuuuPropsItemValueLevel {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u32) -> Self {
+        match raw {
+            2 => Self::Loud,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u32 {
+        match self {
+            Self::Loud => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for UuuuPropsItemValueLevel {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u32::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for UuuuPropsItemValueLevel {}
+
+/// A field whose layout the value of `Kind` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum UuuuPropsItemValue {
+    /// `Kind` 0.
+    Int(i32),
+    /// `Kind` 1.
+    Float(f32),
+    /// `Kind` 4 or 6.
+    Ref(FormId),
+    /// `Kind` 5.
+    Enum(u32),
+    /// `Kind` 5, `Prop` 0x564c5357.
+    Level(UuuuPropsItemValueLevel),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl UuuuPropsItemValue {
+    /// Reads the variant the decider values select: `key` is the value of `Kind`, `secondary` that of `Prop`.
+    pub fn read_keyed(
+        key: i64,
+        secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match (key, secondary) {
+            (5, 0x564c5357) => Field::read(r, field, ctx).map(Self::Level),
+            (0, _) => Field::read(r, field, ctx).map(Self::Int),
+            (1, _) => Field::read(r, field, ctx).map(Self::Float),
+            (4 | 6, _) => Field::read(r, field, ctx).map(Self::Ref),
+            (5, _) => Field::read(r, field, ctx).map(Self::Enum),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for UuuuPropsItemValue {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Int(value) => value.write(out),
+            Self::Float(value) => value.write(out),
+            Self::Ref(value) => value.write(out),
+            Self::Enum(value) => value.write(out),
+            Self::Level(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for UuuuPropsItemValue {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::Ref(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::Ref(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+}
+
+/// A field whose layout the value of `Kind` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum UuuuPropsItemSecond {
+    /// `Kind` 0 or 4.
+    Int(i16),
+    /// `Kind` 1.
+    Half([u8; 2]),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 2]),
+}
+
+impl UuuuPropsItemSecond {
+    /// Reads the variant the decider values select: `key` is the value of `Kind` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 4 => Field::read(r, field, ctx).map(Self::Int),
+            1 => Field::read(r, field, ctx).map(Self::Half),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for UuuuPropsItemSecond {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Int(value) => value.write(out),
+            Self::Half(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for UuuuPropsItemSecond {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UuuuPropsItem {
+    pub kind: UuuuPropsItemKind,
+    pub prop: u32,
+    pub value: UuuuPropsItemValue,
+    pub second: UuuuPropsItemSecond,
+}
+
+impl Field for UuuuPropsItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = UuuuPropsItemKind::read(r, "UUUU.PROP.Kind", ctx)?;
+        let f1 = u32::read(r, "UUUU.PROP.Prop", ctx)?;
+        let f2 = UuuuPropsItemValue::read_keyed(
+            i64::from(f0.to_raw()),
+            i64::from(f1),
+            r,
+            "UUUU.PROP.Value",
+            ctx,
+        )?;
+        let f3 =
+            UuuuPropsItemSecond::read_keyed(i64::from(f0.to_raw()), 0, r, "UUUU.PROP.Second", ctx)?;
+        Ok(Self {
+            kind: f0,
+            prop: f1,
+            value: f2,
+            second: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.kind.write(out);
+        self.prop.write(out);
+        self.value.write(out);
+        self.second.write(out);
+    }
+}
+
+impl Visit for UuuuPropsItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.value, "UUUU.PROP.Value", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.value, "UUUU.PROP.Value", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct UuuuProps(pub Vec<UuuuPropsItem>);
+
+impl Field for UuuuProps {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for UuuuProps {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct UuuuRecord {
     /// `EDID`, required.
@@ -1654,6 +1923,8 @@ pub struct UuuuRecord {
     pub value: Option<Sub<UuuuValue>>,
     /// `LIST`, repeated.
     pub items: Vec<Sub<UuuuItems>>,
+    /// `PROP`, optional.
+    pub props: Option<Sub<UuuuProps>>,
     /// Subrecords that matched no member or failed to decode, each with its index
     /// in the record body as read. `encode` re-inserts them at those indexes (see
     /// `merge_extra`); when typed values are added or removed, an index stays a number,
@@ -1676,6 +1947,10 @@ impl UuuuRecord {
             sig: *b"LIST",
             card: Card::Repeated,
         },
+        MemberDesc::Sub {
+            sig: *b"PROP",
+            card: Card::Optional,
+        },
     ];
 
     fn fill(
@@ -1696,6 +1971,9 @@ impl UuuuRecord {
                 Hit::Sub { member: 2, index } => {
                     push_by_prefix(&mut self.items, subs, *index, "UUUU.LIST", ctx, extra)
                 }
+                Hit::Sub { member: 3, index } => {
+                    put(&mut self.props, subs, *index, "UUUU.PROP", ctx, extra)
+                }
                 _ => unmatched(hit, subs, extra),
             }
         }
@@ -1707,6 +1985,7 @@ impl UuuuRecord {
         for value in &self.items {
             emit(out, *b"LIST", Some(value));
         }
+        emit(out, *b"PROP", self.props.as_ref());
     }
 }
 
@@ -1714,11 +1993,13 @@ impl Visit for UuuuRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.value, "UUUU.DATA", out);
         visit_form_ids(&self.items, "UUUU.LIST", out);
+        visit_form_ids(&self.props, "UUUU.PROP", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.value, "UUUU.DATA", out);
         visit_form_ids_mut(&mut self.items, "UUUU.LIST", out);
+        visit_form_ids_mut(&mut self.props, "UUUU.PROP", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {

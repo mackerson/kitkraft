@@ -2,29 +2,98 @@
 # type, the function applied, the property, two values and a step.
 #
 # Source (ADR 0004): the object mod property list of wbDefinitionsSF1.pas at the pin
-# (L6894-L6938). Four of its members are unions in xEdit: the function type and the
-# property name (the same width in every variant; only their value names change, by the
-# value type and by the record type the mod applies to) and the two values (4 bytes each;
-# integer, float, boolean, FormID or enum by the value type). Every variant has the same
-# width, so the layout is fixed; the values stay opaque because a FormID can sit in Value1
-# (value types FormIdInt and FormIdFloat) and a typed integer would hide it from the FormID
-# visitors. The function type and property name are kept as plain integers. See
-# docs/gaps.md (unions).
+# (L6894-L6938) and the deciders it uses for its unions: the function type by the value
+# type (L1936-L1956), the property name by the record type (L1959-L1978), the first value
+# by the value type and, for enum values, by the property (L1981-L2007), and the second
+# value by the value type (L2009-L2028).
+#
+# FunctionType, Value1 and Value2 are struct-field unions decided by ValueType (M4 lane B
+# round 4, `decider = "field:ValueType"`): every variant is as wide as the field, and a
+# value type no variant names keeps the bytes as read (`Other`). Value1's enum values are
+# further decided by Property for three weapon properties (sound level, stagger, hit
+# behaviour), whose property names are four-character codes (L3104, L3135, L3144); they
+# stay u32 (the value names are display facts, not layouts). The property name stays a
+# u32: its names depend on the record type the mod applies to (xEdit's union by record
+# signature, L1959-L1978), which is a display fact. FormID values (value types 4 and 6)
+# are visited by `form_ids()`; xEdit gives them no target check, so no targets here.
+#
+# Used by OMOD DATA (Properties) and by the object template items (OBTS) of
+# common/ObteBlock.toml.
 name = "ObjectModProperty"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6894-L6938"
 evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1936-L1956",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1959-L1978",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1981-L2007",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2009-L2028",
   "corpus: kitkraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every property entry of the 3,330 OMOD DATA payloads and of the WEAP object template items in the 14 official ESMs decodes as 24 bytes and re-encodes identically",
+  "corpus: kitkraft-esm tests/omod_properties.rs omod_properties_full (lane B round 4), 2026-10-15: all 8,669 property entries of the 14 official ESMs (8,215 in the 3,330 OMOD DATA payloads, 454 in the 6,115 OBTS template items of ARMO, CONT, GBFM, NPC_, TERM and WEAP) decode through the unions with 0 value types no variant names (value types 0: 169, 1: 1,571, 2: 64, 4: 6,037, 5: 7, 6: 821; none of 3), every record re-encodes identically, and form_ids() visits all 6,858 FormID values (6,851 non-zero); value type 5 occurs with properties FTYP (4, Enum) and WSLV (3, SoundLevel)",
 ]
 confidence = "corpus"
 type = "struct"
-field = [
-  { name = "ValueType", type = "enum", base = "u8", values = [["Int", 0], ["Float", 1], ["Bool", 2], ["String", 3], ["FormIdInt", 4], ["Enum", 5], ["FormIdFloat", 6]] },
-  { name = "Unused1", type = "opaque", size = 3 },
-  { name = "FunctionType", type = "u8", note = "SET/MUL+ADD/ADD, SET/AND/OR, SET or SET/REM/ADD by the value type (xEdit union)" },
-  { name = "Unused2", type = "opaque", size = 3 },
-  { name = "Property", type = "u32", note = "property name; its value names depend on the record type the mod applies to (xEdit union)" },
-  { name = "Value1", type = "opaque", size = 4, note = "int, float, bool, FormID or enum by ValueType (xEdit union)" },
-  { name = "Value2", type = "opaque", size = 4, note = "unused, int, float or bool by ValueType (xEdit union)" },
-  { name = "Step", type = "f32" },
+
+[[field]]
+name = "ValueType"
+type = "enum"
+base = "u8"
+values = [["Int", 0], ["Float", 1], ["Bool", 2], ["String", 3], ["FormIdInt", 4], ["Enum", 5], ["FormIdFloat", 6]]
+
+[[field]]
+name = "Unused1"
+type = "opaque"
+size = 3
+
+[[field]]
+name = "FunctionType"
+type = "union"
+decider = "field:ValueType"
+note = "how the value is applied; the names depend on the value type"
+variants = [
+  { when = [0, 1, 3, 6], name = "Numeric", type = "enum", base = "u8", values = [["Set", 0], ["MulAdd", 1], ["Add", 2]], note = "value types Int, Float, FormIdFloat; String too (xEdit's default branch)" },
+  { when = 2, name = "Bool", type = "enum", base = "u8", values = [["Set", 0], ["And", 1], ["Or", 2]] },
+  { when = 5, name = "Enum", type = "enum", base = "u8", values = [["Set", 0]] },
+  { when = 4, name = "Form", type = "enum", base = "u8", values = [["Set", 0], ["Remove", 1], ["Add", 2]] },
 ]
+
+[[field]]
+name = "Unused2"
+type = "opaque"
+size = 3
+
+[[field]]
+name = "Property"
+type = "u32"
+note = "property name; its value names depend on the record type the mod applies to (xEdit union by record signature), mostly four-character codes such as WDMG"
+
+[[field]]
+name = "Value1"
+type = "union"
+decider = "field:ValueType"
+secondary = "field:Property"
+variants = [
+  { when = 0, name = "Int", type = "i32" },
+  { when = 1, name = "Float", type = "f32" },
+  { when = 2, name = "Bool", type = "u32", note = "0 false, 1 true" },
+  { when = 3, name = "String", type = "opaque", size = 4, note = "xEdit does not decode these 4 bytes; value type 3 is in no official entry" },
+  { when = [4, 6], name = "FormId", type = "formid", note = "no target check in xEdit" },
+  { when = 5, name = "Enum", type = "u32", note = "an enum value; its names depend on the property" },
+  { when = 5, secondary_when = "WSLV", name = "SoundLevel", type = "u32", note = "weapon sound level (xEdit's sound level names)" },
+  { when = 5, secondary_when = "WSTG", name = "Stagger", type = "u32", note = "weapon stagger (xEdit's stagger names); in no official entry" },
+  { when = 5, secondary_when = "WHBV", name = "HitBehavior", type = "u32", note = "weapon hit behaviour (xEdit's hit behaviour names); in no official entry" },
+]
+
+[[field]]
+name = "Value2"
+type = "union"
+decider = "field:ValueType"
+variants = [
+  { when = [0, 4], name = "Int", type = "i32" },
+  { when = [1, 6], name = "Float", type = "f32" },
+  { when = 2, name = "Bool", type = "u32", note = "0 false, 1 true" },
+  { when = [3, 5], name = "Unused", type = "opaque", size = 4 },
+]
+
+[[field]]
+name = "Step"
+type = "f32"

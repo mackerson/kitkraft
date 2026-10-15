@@ -32,3 +32,46 @@ variants = [
   { when = "f", name = "Small", type = "u8" },
   { when = "r", name = "Form", type = "formid" },
 ]
+
+# Struct-field unions (lane B round 4): `Value` is decided by the earlier `Kind` and, for
+# kind 5, refined by `Prop`; `Second` by `Kind` alone. A kind no variant names (9) keeps
+# the field's bytes as read (`Other`).
+[[member]]
+sig = "PROP"
+name = "Props"
+type = "array"
+card = "optional"
+count = "rest"
+element = "struct"
+
+[[member.field]]
+name = "Kind"
+type = "enum"
+base = "u8"
+values = [["Int", 0], ["Float", 1], ["Form", 4], ["Enum", 5]]
+
+[[member.field]]
+name = "Prop"
+type = "u32"
+
+[[member.field]]
+name = "Value"
+type = "union"
+decider = "field:Kind"
+secondary = "field:Prop"
+variants = [
+  { when = 0, name = "Int", type = "i32" },
+  { when = 1, name = "Float", type = "f32" },
+  { when = [4, 6], name = "Ref", type = "formid" },
+  { when = 5, name = "Enum", type = "u32" },
+  { when = 5, secondary_when = "WSLV", name = "Level", type = "enum", base = "u32", values = [["Loud", 2]] },
+]
+
+[[member.field]]
+name = "Second"
+type = "union"
+decider = "field:Kind"
+variants = [
+  { when = [0, 4], name = "Int", type = "i16" },
+  { when = 1, name = "Half", type = "opaque", size = 2 },
+]

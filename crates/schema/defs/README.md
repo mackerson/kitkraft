@@ -187,7 +187,7 @@ bodies themselves.
 | `opaque`  | `size`  | `size` (omit for "rest of data")   | Bytes we do not decode yet. Never guess a layout         |
 | `empty`   | 0       | -                                  | Zero-length marker subrecord                             |
 | `ref:Name`| shared  | - (a member may add `size`)        | The shared type `common/Name.toml`                       |
-| `union`   | variant | `decider`, `variants`              | Subrecord members only; see Unions                       |
+| `union`   | variant | `decider`, `variants`, `secondary` | A whole subrecord (EditorID prefix) or a struct field (sibling decider); see Unions |
 
 `wstring` and `bstring` follow the string conventions on
 <https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions> (container fact, ADR 0005
@@ -229,6 +229,11 @@ Element keys (`targets`, `base`, `values`, `bits`, `field`) sit on the array its
 
 ### Unions (`type = "union"`)
 
+Two deciders: the record's EditorID prefix, for a whole subrecord, and the value of an
+earlier sibling field, for a struct field.
+
+#### By EditorID prefix (whole subrecords)
+
 A whole subrecord whose layout the record's EditorID selects (M2.B9, GMST `DATA`):
 
 ```toml
@@ -245,9 +250,10 @@ variants = [
 
 - `decider = "edid-prefix"`: the first byte of the record's first `EDID` payload, compared
   exactly with each variant's `when` (one ASCII letter or digit, unique). The record must
-  have an `EDID` member. It is the only decider so far.
+  have an `EDID` member.
 - Variants take `name`, `type` (anything but `struct`, `array` and `union`; `formid` may
-  have `targets`) and `note`.
+  have `targets`, `enum`/`flags` their `base` and `values`/`bits`, `opaque` its `size`)
+  and `note`. `Other` is reserved as a variant name.
 - Only on subrecord members (not on fields, array elements or shared types). A declared
   `size` must match every variant, so it is not allowed when a variant is variable
   (`lstring`).
@@ -256,10 +262,59 @@ variants = [
   names, or that does not fit the chosen layout, stays raw in `extra`. Editing the EDID's
   first letter does not change an already decoded value's variant.
 
+#### By a sibling field (struct fields)
+
+A struct field whose layout the value of an earlier field of the same struct selects
+(lane B round 4, the object mod property in `common/ObjectModProperty.toml`):
+
+```toml
+[[field]]
+name = "Value1"
+type = "union"
+decider = "field:ValueType"
+secondary = "field:Property"          # optional
+variants = [
+  { when = 0, name = "Int", type = "i32" },
+  { when = [4, 6], name = "FormId", type = "formid" },
+  { when = 5, name = "Enum", type = "u32" },
+  { when = 5, secondary_when = "WSLV", name = "SoundLevel", type = "u32" },
+]
+```
+
+- `decider = "field:<Name>"` names the deciding sibling: an **earlier** field of the same
+  struct, ungated (no `since`/`until`), not `if_remaining`, and an integer or an `enum` of
+  at most 32 bits (a `ref:` to one counts). Each variant's `when` is one value of it or a
+  non-empty list; every value must fit the sibling's type.
+- `secondary = "field:<Name>"` (optional) names a second earlier sibling with the same
+  rules. A variant with `secondary_when` (an integer, or four printable characters read
+  as a little-endian `u32`, the way four-character property codes are stored) applies only
+  when both values match; a variant without one applies to its `when` values whenever no
+  variant with a matching `secondary_when` does. Each (`when` value, `secondary_when`)
+  pair is unique.
+- Every variant has the **same fixed size** (the loader rejects a variable or different
+  size). A decider value no variant names keeps the field's bytes as read, so decoding
+  never fails because of the decider and re-encoding is byte-identical.
+- Variants take the same keys as EditorID-prefix variants; `Other` is reserved.
+- A union field takes no type keys of its own (`size`, `count`, ...), is never gated
+  (`since`, `until`, `if_remaining`), and is allowed only as a struct field: not on a
+  whole subrecord (it has no siblings), an array element or a shared type. The struct
+  itself may be an array element or a shared type (`ObjectModProperty` is both).
+- Codegen emits an enum with one variant per layout plus `Other([u8; N])` for the raw
+  bytes, read by `read_keyed(key, secondary, ..)` with the sibling values (enums by their
+  stored value). `Field::read` without the decider values yields `Other`. Editing the
+  decider does not change an already decoded value's variant; write the matching variant.
+- The member path of a variant is the field path plus the variant name
+  (`DATA.Properties[3].Value1.Float`): the `doc` reader decodes the field as a one-member
+  struct named after the variant that applies, and the engine's field paths accept a
+  variant step only when the entry's own decider values select that variant.
+- FormID and lstring variants are visited (`form_ids()`, `lstrings()`) under the field's
+  path (`ObjectModProperty.Value1`).
+
 ### Not supported (stays opaque)
 
-Unions decided by anything other than the EditorID prefix (the value of another field or
-subrecord) are not expressible yet. Such payloads stay `opaque`.
+Unions decided by another subrecord, by flags, or by a value outside the same struct
+(a component block's BFCB type, CTDA's parameters, COED's owner) are not expressible yet.
+Such payloads stay `opaque`.
 
 ## Shared definitions (`common/`)
 
@@ -335,7 +390,7 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `GMST.toml` | record | corpus scan + UESP Skyrim/Starfield GMST pages | EDID; DATA as a union by EditorID prefix (b/f/i/s/u); XALG opaque |
 | `GLOB.toml` | record | corpus scan + UESP Skyrim GLOB page | EDID; FLTV as `f32`; BFCB blocks |
 | `KYWD.toml` | record | corpus scan | Inventory: EDID and FULL typed, the rest opaque |
-| `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union (VMAD, BFCB component data, CTDA, OMOD property values, LVLI COED owner data) or does not describe it (WEAP MO4C, OMOD XFLG) |
+| `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union the format cannot express (VMAD, BFCB component data, CTDA, LVLI COED owner data; OMOD property values are field unions since lane B round 4) or does not describe it (WEAP MO4C, OMOD XFLG) |
 | 39 more `<SIG>.toml` (ACTI ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
 | `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
 | `common/ObteBlock.toml` | group | xEdit object template + corpus | OBTE count, combinations (OBTF, FULL, OBTS template item), STOP |

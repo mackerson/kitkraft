@@ -6,9 +6,9 @@
 use std::path::Path;
 
 use kitkraft_schema::{
-    load_dir, load_sources, parse_definition, ArrayCount, Cardinality, CommonBody, Confidence,
-    Decider, Definition, ErrorKind, FieldType, Member, Scalar, Schema, SchemaError, Signature,
-    XEDIT_FILES, XEDIT_REVISION,
+    load_dir, load_sources, parse_definition, select_variant, ArrayCount, Cardinality, CommonBody,
+    Confidence, Decider, Definition, ErrorKind, FieldType, Member, Scalar, Schema, SchemaError,
+    Signature, XEDIT_FILES, XEDIT_REVISION,
 };
 
 const FIXTURE: &str = include_str!("fixtures/ZZZZ.toml");
@@ -1056,8 +1056,8 @@ fn union_rules() {
         panic!("union");
     };
     assert_eq!(*decider, Decider::EditorIdPrefix);
-    assert_eq!(decider.as_str(), "edid-prefix");
-    let whens: Vec<u8> = variants.iter().map(|v| v.when).collect();
+    assert_eq!(decider.spelling(), "edid-prefix");
+    let whens: Vec<u8> = variants.iter().filter_map(|v| v.prefix()).collect();
     assert_eq!(whens, b"fsr");
     // Variable (lstring) variant: no fixed size, and a declared size is rejected.
     assert_eq!(data.ty.fixed_size(None), None);
@@ -1123,7 +1123,7 @@ fn union_rules() {
     assert_eq!(
         invalid(
             "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
-             field = [{ name = \"A\", type = \"union\" }]\n"
+             field = [{ name = \"A\", type = \"union\", decider = \"edid-prefix\", variants = [{ when = \"f\", name = \"F\", type = \"f32\" }] }]\n"
         ),
         ErrorKind::UnionPlacement
     );
@@ -1139,6 +1139,204 @@ fn union_rules() {
         ),
         ErrorKind::UnexpectedKey { key: "decider", .. }
     ));
+}
+
+/// Lane B round 4: a struct field whose layout an earlier sibling decides
+/// (`decider = "field:<Name>"`), optionally refined by a second sibling for some values
+/// (`secondary`, `secondary_when`).
+#[test]
+fn field_unions_decided_by_a_sibling() {
+    let head = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                [[member.field]]\nname = \"Kind\"\ntype = \"enum\"\nbase = \"u8\"\nvalues = [[\"I\", 0], [\"F\", 1], [\"E\", 5]]\n\
+                [[member.field]]\nname = \"Prop\"\ntype = \"u32\"\n\
+                [[member.field]]\nname = \"Wide\"\ntype = \"u64\"\n\
+                [[member.field]]\nname = \"Ratio\"\ntype = \"f32\"\n";
+    let field =
+        |keys: &str| format!("{head}[[member.field]]\nname = \"Value\"\ntype = \"union\"\n{keys}");
+    let ok = "decider = \"field:Kind\"\nsecondary = \"field:Prop\"\nvariants = [\n\
+              { when = 0, name = \"Int\", type = \"i32\" },\n\
+              { when = [1, 3], name = \"Float\", type = \"f32\" },\n\
+              { when = 5, name = \"Enum\", type = \"u32\" },\n\
+              { when = 5, secondary_when = \"WSLV\", name = \"Level\", type = \"enum\", base = \"u32\", values = [[\"Loud\", 2]] },\n\
+              { when = 5, secondary_when = 7, name = \"Seven\", type = \"opaque\", size = 4 },\n]\n";
+    let Definition::Record(rec) = parse_definition("TEST.toml", &record(&field(ok))).unwrap()
+    else {
+        panic!("record");
+    };
+    let Member::Subrecord(data) = &rec.members[0] else {
+        panic!("DATA");
+    };
+    let FieldType::Struct { fields } = &data.ty else {
+        panic!("struct");
+    };
+    let FieldType::Union { decider, variants } = &fields[4].ty else {
+        panic!("union");
+    };
+    assert_eq!(
+        *decider,
+        Decider::Field {
+            name: "Kind".into(),
+            secondary: Some("Prop".into())
+        }
+    );
+    assert_eq!(decider.to_string(), "field:Kind then field:Prop");
+    assert_eq!(variants[1].when, [1, 3]);
+    let wslv = i64::from(u32::from_le_bytes(*b"WSLV"));
+    assert_eq!(variants[3].secondary_when, Some(wslv));
+    // Every variant is 4 bytes, so the field (and the struct) has a fixed size.
+    assert_eq!(fields[4].ty.fixed_size(None), Some(4));
+    assert_eq!(data.ty.fixed_size(None), Some(1 + 4 + 8 + 4 + 4));
+    // A secondary match wins over the plain variant for the same key; others fall back.
+    let pick = |k, s| select_variant(variants, k, s).map(|v| v.name.as_str());
+    assert_eq!(pick(5, Some(wslv)), Some("Level"));
+    assert_eq!(pick(5, Some(7)), Some("Seven"));
+    assert_eq!(pick(5, Some(8)), Some("Enum"));
+    assert_eq!(pick(5, None), Some("Enum"));
+    assert_eq!(pick(3, Some(wslv)), Some("Float"));
+    assert_eq!(pick(9, None), None);
+
+    let one = |decider: &str, variants: &str| {
+        field(&format!(
+            "decider = \"{decider}\"\nvariants = [{variants}]\n"
+        ))
+    };
+    let int = "{ when = 0, name = \"Int\", type = \"i32\" }";
+    // The decider must be an earlier ungated integer or enum sibling of at most 32 bits.
+    for bad in ["field:Later", "field:Wide", "field:Ratio", "field:Nope"] {
+        let mut body = one(bad, int);
+        body.push_str("[[member.field]]\nname = \"Later\"\ntype = \"u8\"\n");
+        let name = bad.trim_start_matches("field:");
+        assert_eq!(
+            invalid(&body),
+            ErrorKind::BadDeciderField(name.into()),
+            "{bad}"
+        );
+    }
+    assert_eq!(
+        invalid(&one("field:kind", int)),
+        ErrorKind::UnknownDecider("field:kind".into())
+    );
+    let gated = "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"struct\"\n\
+                 [[member.field]]\nname = \"Kind\"\ntype = \"u8\"\nsince = 10\n\
+                 [[member.field]]\nname = \"Value\"\ntype = \"union\"\ndecider = \"field:Kind\"\n\
+                 variants = [{ when = 0, name = \"Int\", type = \"i32\" }]\n";
+    assert_eq!(invalid(gated), ErrorKind::BadDeciderField("Kind".into()));
+    // Same fixed size for every variant.
+    assert_eq!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = 0, name = \"Int\", type = \"i32\" }, { when = 1, name = \"Small\", type = \"u8\" }"
+        )),
+        ErrorKind::VariantSize {
+            variant: "Small".into(),
+            size: Some(1),
+            first: Some(4)
+        }
+    );
+    assert!(matches!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = 0, name = \"Text\", type = \"zstring\" }"
+        )),
+        ErrorKind::VariantSize { size: None, .. }
+    ));
+    // `when` values are integers that fit the decider; letters are for edid-prefix.
+    assert_eq!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = \"f\", name = \"F\", type = \"f32\" }"
+        )),
+        ErrorKind::BadWhen("f".into())
+    );
+    assert_eq!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = [], name = \"F\", type = \"f32\" }"
+        )),
+        ErrorKind::BadWhen("[]".into())
+    );
+    assert_eq!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = 300, name = \"F\", type = \"f32\" }"
+        )),
+        ErrorKind::ValueOutOfRange {
+            value: 300,
+            base: "u8"
+        }
+    );
+    assert_eq!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = [0, 1], name = \"A\", type = \"f32\" }, { when = 1, name = \"B\", type = \"u32\" }"
+        )),
+        ErrorKind::DuplicateValue(1)
+    );
+    // `secondary_when` needs a `secondary` decider, and four characters or an integer.
+    assert!(matches!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = 0, secondary_when = 3, name = \"A\", type = \"f32\" }"
+        )),
+        ErrorKind::BadSecondaryWhen(_)
+    ));
+    let with_secondary = |variants: &str| {
+        field(&format!(
+            "decider = \"field:Kind\"\nsecondary = \"field:Prop\"\nvariants = [{variants}]\n"
+        ))
+    };
+    assert_eq!(
+        invalid(&with_secondary(
+            "{ when = 0, secondary_when = \"TOOLONG\", name = \"A\", type = \"f32\" }"
+        )),
+        ErrorKind::BadSecondaryWhen("\"TOOLONG\"".into())
+    );
+    assert_eq!(
+        invalid(&field(
+            "decider = \"field:Kind\"\nsecondary = \"field:Kind\"\nvariants = [{ when = 0, name = \"A\", type = \"f32\" }]\n"
+        )),
+        ErrorKind::BadDeciderField("field:Kind".into())
+    );
+    // `Other` names the raw fallback.
+    assert_eq!(
+        invalid(&one(
+            "field:Kind",
+            "{ when = 0, name = \"Other\", type = \"i32\" }"
+        )),
+        ErrorKind::ReservedName("Other".into())
+    );
+    // A field union is never gated, takes no type keys of its own, and the union keys
+    // belong to unions only.
+    assert!(matches!(
+        invalid(&field(&format!("since = 3\n{ok}"))),
+        ErrorKind::UnexpectedKey { key: "since", .. }
+    ));
+    assert!(matches!(
+        invalid(&format!(
+            "{head}[[member.field]]\nname = \"Value\"\ntype = \"u32\"\ndecider = \"field:Kind\"\n"
+        )),
+        ErrorKind::UnexpectedKey { key: "decider", .. }
+    ));
+    // A field decider needs siblings: not on a whole subrecord, an array element or a
+    // shared type.
+    let edid = "[[member]]\nsig = \"EDID\"\nname = \"EditorId\"\ntype = \"zstring\"\n";
+    assert_eq!(
+        invalid(&format!(
+            "{edid}[[member]]\nsig = \"DATA\"\nname = \"V\"\ntype = \"union\"\ndecider = \"field:Kind\"\nvariants = [{int}]\n"
+        )),
+        ErrorKind::UnionPlacement
+    );
+    assert_eq!(
+        invalid(
+            "[[member]]\nsig = \"DATA\"\nname = \"D\"\ntype = \"array\"\nelement = \"union\"\ncount = \"rest\"\n"
+        ),
+        ErrorKind::UnionPlacement
+    );
+    let shared = "name = \"U\"\nkind = \"type\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\ntype = \"union\"\n";
+    assert_eq!(
+        kind_of(parse_definition("common/U.toml", shared)),
+        ErrorKind::UnionPlacement
+    );
 }
 
 #[test]

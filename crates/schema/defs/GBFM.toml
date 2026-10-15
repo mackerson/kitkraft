@@ -8,8 +8,8 @@
 #     markers and NVNM. Helpers: script data (L3393-L3411, kept opaque), object bounds
 #     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), the
 #     base form component block (L5984-L6832, kept raw), FLTR (L5697), the object template
-#     (L6961-L6974) with its OBTS item (L6940-L6959, kept opaque: its property list holds
-#     unions), navmesh geometry (L3995 onwards, kept opaque).
+#     (L6961-L6974) with its OBTS item (L6940-L6959; typed through common/ObteBlock since
+#     M4.BX1, its property values since lane B round 4), navmesh geometry (L3995 onwards, opaque).
 #   corpus: the 3,903 GBFM records (Starfield.esm 3,141, BlueprintShips-Starfield 356,
 #     SFBGS006 175, SFBGS050 148, BlueprintShips-SFBGS050 32, ShatteredSpace 24, SFBGS00D 22,
 #     SFBGS003 3, SFBGS004 1, SFBGS047 1; form versions 581, 582), 2026-10-14: order [EDID]

@@ -284,8 +284,10 @@ pub enum FieldType {
     Empty,
     /// A shared type from `defs/common/` (`type = "ref:Name"`), resolved at load time.
     Ref { name: String, ty: Box<FieldType> },
-    /// A whole-subrecord payload whose layout is chosen by `decider` (a discriminated
-    /// union). A payload no variant claims stays raw.
+    /// A payload whose layout is chosen by `decider` (a discriminated union): a whole
+    /// subrecord decided by the record's EditorID prefix (a payload no variant claims
+    /// stays raw in `extra`), or a struct field decided by earlier sibling fields (a
+    /// decider value no variant names keeps the field's bytes as read).
     Union {
         decider: Decider,
         variants: Vec<UnionVariant>,
@@ -293,31 +295,100 @@ pub enum FieldType {
 }
 
 /// What selects the variant of a [`FieldType::Union`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Decider {
     /// The first byte of the record's first `EDID` payload (`decider = "edid-prefix"`).
+    /// Whole subrecord members only.
     EditorIdPrefix,
+    /// The stored value of an earlier sibling field of the same struct
+    /// (`decider = "field:<Name>"`), optionally refined by a second earlier sibling
+    /// (`secondary = "field:<Name>"`) for the variants that name a `secondary_when`
+    /// value. Struct fields only. The sibling fields are ungated integers or enums of at
+    /// most 32 bits.
+    Field {
+        /// The deciding sibling field.
+        name: String,
+        /// The refining sibling field, if any.
+        secondary: Option<String>,
+    },
 }
 
 impl Decider {
-    /// The TOML spelling.
-    pub fn as_str(self) -> &'static str {
+    /// The TOML spelling of the decider (`edid-prefix`, `field:ValueType`); the secondary
+    /// field is not included (see [`Decider::secondary`]).
+    pub fn spelling(&self) -> String {
         match self {
-            Self::EditorIdPrefix => "edid-prefix",
+            Self::EditorIdPrefix => "edid-prefix".to_owned(),
+            Self::Field { name, .. } => format!("field:{name}"),
         }
+    }
+
+    /// The secondary sibling field of a field decider, if any.
+    pub fn secondary(&self) -> Option<&str> {
+        match self {
+            Self::EditorIdPrefix => None,
+            Self::Field { secondary, .. } => secondary.as_deref(),
+        }
+    }
+}
+
+impl fmt::Display for Decider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.spelling())?;
+        if let Some(secondary) = self.secondary() {
+            write!(f, " then field:{secondary}")?;
+        }
+        Ok(())
     }
 }
 
 /// One layout of a [`FieldType::Union`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnionVariant {
-    /// The decider value that selects this layout (for `edid-prefix`, one ASCII letter or
-    /// digit, compared exactly).
-    pub when: u8,
-    /// PascalCase name, unique in the union.
+    /// The decider values that select this layout: for `edid-prefix` one ASCII letter or
+    /// digit (as its byte value), compared exactly; for a field decider one or more
+    /// values of the deciding field.
+    pub when: Vec<i64>,
+    /// With a secondary decider: the value the secondary field must also have for this
+    /// variant (`secondary_when`). A variant without one applies to its `when` values
+    /// whenever no variant with a matching `secondary_when` does.
+    pub secondary_when: Option<i64>,
+    /// PascalCase name, unique in the union (`Other` is reserved for the raw fallback).
     pub name: String,
     pub ty: FieldType,
     pub note: Option<String>,
+}
+
+impl UnionVariant {
+    /// The EditorID prefix byte of an `edid-prefix` variant.
+    pub fn prefix(&self) -> Option<u8> {
+        match self.when.as_slice() {
+            [one] => u8::try_from(*one).ok(),
+            _ => None,
+        }
+    }
+}
+
+/// The variant of a union that decider value `key` (and, for a union with a secondary
+/// decider, `secondary`) selects: a variant naming `key` and that `secondary` value
+/// first, else a variant naming `key` without a secondary value. `None` when no variant
+/// names `key` (the bytes stay raw).
+pub fn select_variant(
+    variants: &[UnionVariant],
+    key: i64,
+    secondary: Option<i64>,
+) -> Option<&UnionVariant> {
+    let names = |v: &&UnionVariant| v.when.contains(&key);
+    variants
+        .iter()
+        .filter(names)
+        .find(|v| v.secondary_when.is_some() && v.secondary_when == secondary)
+        .or_else(|| {
+            variants
+                .iter()
+                .filter(names)
+                .find(|v| v.secondary_when.is_none())
+        })
 }
 
 impl FieldType {

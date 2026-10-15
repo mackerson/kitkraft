@@ -3759,27 +3759,405 @@ impl Field for ObjectModPropertyValueType {
 
 impl Visit for ObjectModPropertyValueType {}
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectModPropertyFunctionTypeNumeric {
+    Set,
+    MulAdd,
+    Add,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl ObjectModPropertyFunctionTypeNumeric {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Set,
+            1 => Self::MulAdd,
+            2 => Self::Add,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Set => 0,
+            Self::MulAdd => 1,
+            Self::Add => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ObjectModPropertyFunctionTypeNumeric {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ObjectModPropertyFunctionTypeNumeric {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectModPropertyFunctionTypeBool {
+    Set,
+    And,
+    Or,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl ObjectModPropertyFunctionTypeBool {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Set,
+            1 => Self::And,
+            2 => Self::Or,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Set => 0,
+            Self::And => 1,
+            Self::Or => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ObjectModPropertyFunctionTypeBool {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ObjectModPropertyFunctionTypeBool {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectModPropertyFunctionTypeEnum {
+    Set,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl ObjectModPropertyFunctionTypeEnum {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Set,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Set => 0,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ObjectModPropertyFunctionTypeEnum {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ObjectModPropertyFunctionTypeEnum {}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ObjectModPropertyFunctionTypeForm {
+    Set,
+    Remove,
+    Add,
+    /// A value the definition does not name.
+    Other(u8),
+}
+
+impl ObjectModPropertyFunctionTypeForm {
+    /// The variant for a stored value.
+    pub fn from_raw(raw: u8) -> Self {
+        match raw {
+            0 => Self::Set,
+            1 => Self::Remove,
+            2 => Self::Add,
+            other => Self::Other(other),
+        }
+    }
+
+    /// The stored value.
+    pub fn to_raw(self) -> u8 {
+        match self {
+            Self::Set => 0,
+            Self::Remove => 1,
+            Self::Add => 2,
+            Self::Other(raw) => raw,
+        }
+    }
+}
+
+impl Field for ObjectModPropertyFunctionTypeForm {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        u8::read(r, field, ctx).map(Self::from_raw)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.to_raw().write(out);
+    }
+}
+
+impl Visit for ObjectModPropertyFunctionTypeForm {}
+
+/// A field whose layout the value of `ValueType` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectModPropertyFunctionType {
+    /// `ValueType` 0 or 1 or 3 or 6.
+    Numeric(ObjectModPropertyFunctionTypeNumeric),
+    /// `ValueType` 2.
+    Bool(ObjectModPropertyFunctionTypeBool),
+    /// `ValueType` 5.
+    Enum(ObjectModPropertyFunctionTypeEnum),
+    /// `ValueType` 4.
+    Form(ObjectModPropertyFunctionTypeForm),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 1]),
+}
+
+impl ObjectModPropertyFunctionType {
+    /// Reads the variant the decider values select: `key` is the value of `ValueType` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 1 | 3 | 6 => Field::read(r, field, ctx).map(Self::Numeric),
+            2 => Field::read(r, field, ctx).map(Self::Bool),
+            5 => Field::read(r, field, ctx).map(Self::Enum),
+            4 => Field::read(r, field, ctx).map(Self::Form),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ObjectModPropertyFunctionType {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Numeric(value) => value.write(out),
+            Self::Bool(value) => value.write(out),
+            Self::Enum(value) => value.write(out),
+            Self::Form(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for ObjectModPropertyFunctionType {}
+
+/// A field whose layout the value of `ValueType` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectModPropertyValue1 {
+    /// `ValueType` 0.
+    Int(i32),
+    /// `ValueType` 1.
+    Float(f32),
+    /// `ValueType` 2.
+    Bool(u32),
+    /// `ValueType` 3.
+    String([u8; 4]),
+    /// `ValueType` 4 or 6.
+    FormId(FormId),
+    /// `ValueType` 5.
+    Enum(u32),
+    /// `ValueType` 5, `Property` 0x564c5357.
+    SoundLevel(u32),
+    /// `ValueType` 5, `Property` 0x47545357.
+    Stagger(u32),
+    /// `ValueType` 5, `Property` 0x56424857.
+    HitBehavior(u32),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl ObjectModPropertyValue1 {
+    /// Reads the variant the decider values select: `key` is the value of `ValueType`, `secondary` that of `Property`.
+    pub fn read_keyed(
+        key: i64,
+        secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match (key, secondary) {
+            (5, 0x564c5357) => Field::read(r, field, ctx).map(Self::SoundLevel),
+            (5, 0x47545357) => Field::read(r, field, ctx).map(Self::Stagger),
+            (5, 0x56424857) => Field::read(r, field, ctx).map(Self::HitBehavior),
+            (0, _) => Field::read(r, field, ctx).map(Self::Int),
+            (1, _) => Field::read(r, field, ctx).map(Self::Float),
+            (2, _) => Field::read(r, field, ctx).map(Self::Bool),
+            (3, _) => Field::read(r, field, ctx).map(Self::String),
+            (4 | 6, _) => Field::read(r, field, ctx).map(Self::FormId),
+            (5, _) => Field::read(r, field, ctx).map(Self::Enum),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ObjectModPropertyValue1 {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Int(value) => value.write(out),
+            Self::Float(value) => value.write(out),
+            Self::Bool(value) => value.write(out),
+            Self::String(value) => value.write(out),
+            Self::FormId(value) => value.write(out),
+            Self::Enum(value) => value.write(out),
+            Self::SoundLevel(value) => value.write(out),
+            Self::Stagger(value) => value.write(out),
+            Self::HitBehavior(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for ObjectModPropertyValue1 {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::FormId(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::FormId(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+}
+
+/// A field whose layout the value of `ValueType` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ObjectModPropertyValue2 {
+    /// `ValueType` 0 or 4.
+    Int(i32),
+    /// `ValueType` 1 or 6.
+    Float(f32),
+    /// `ValueType` 2.
+    Bool(u32),
+    /// `ValueType` 3 or 5.
+    Unused([u8; 4]),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl ObjectModPropertyValue2 {
+    /// Reads the variant the decider values select: `key` is the value of `ValueType` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 4 => Field::read(r, field, ctx).map(Self::Int),
+            1 | 6 => Field::read(r, field, ctx).map(Self::Float),
+            2 => Field::read(r, field, ctx).map(Self::Bool),
+            3 | 5 => Field::read(r, field, ctx).map(Self::Unused),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ObjectModPropertyValue2 {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Int(value) => value.write(out),
+            Self::Float(value) => value.write(out),
+            Self::Bool(value) => value.write(out),
+            Self::Unused(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for ObjectModPropertyValue2 {}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ObjectModProperty {
     pub value_type: ObjectModPropertyValueType,
     pub unused1: [u8; 3],
-    pub function_type: u8,
+    pub function_type: ObjectModPropertyFunctionType,
     pub unused2: [u8; 3],
     pub property: u32,
-    pub value1: [u8; 4],
-    pub value2: [u8; 4],
+    pub value1: ObjectModPropertyValue1,
+    pub value2: ObjectModPropertyValue2,
     pub step: f32,
 }
 
 impl Field for ObjectModProperty {
     fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = Field::read(r, "ObjectModProperty.ValueType", ctx)?;
+        let f0 = ObjectModPropertyValueType::read(r, "ObjectModProperty.ValueType", ctx)?;
         let f1 = Field::read(r, "ObjectModProperty.Unused1", ctx)?;
-        let f2 = u8::read(r, "ObjectModProperty.FunctionType", ctx)?;
+        let f2 = ObjectModPropertyFunctionType::read_keyed(
+            i64::from(f0.to_raw()),
+            0,
+            r,
+            "ObjectModProperty.FunctionType",
+            ctx,
+        )?;
         let f3 = Field::read(r, "ObjectModProperty.Unused2", ctx)?;
         let f4 = u32::read(r, "ObjectModProperty.Property", ctx)?;
-        let f5 = Field::read(r, "ObjectModProperty.Value1", ctx)?;
-        let f6 = Field::read(r, "ObjectModProperty.Value2", ctx)?;
+        let f5 = ObjectModPropertyValue1::read_keyed(
+            i64::from(f0.to_raw()),
+            i64::from(f4),
+            r,
+            "ObjectModProperty.Value1",
+            ctx,
+        )?;
+        let f6 = ObjectModPropertyValue2::read_keyed(
+            i64::from(f0.to_raw()),
+            0,
+            r,
+            "ObjectModProperty.Value2",
+            ctx,
+        )?;
         let f7 = f32::read(r, "ObjectModProperty.Step", ctx)?;
         Ok(Self {
             value_type: f0,
@@ -3805,7 +4183,15 @@ impl Field for ObjectModProperty {
     }
 }
 
-impl Visit for ObjectModProperty {}
+impl Visit for ObjectModProperty {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.value1, "ObjectModProperty.Value1", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.value1, "ObjectModProperty.Value1", out);
+    }
+}
 
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -4102,6 +4488,11 @@ impl Visit for ObteBlockCombinationTemplateItem {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.keywords, "ObteBlock.Combination.OBTS.Keywords", out);
         visit_form_ids(&self.includes, "ObteBlock.Combination.OBTS.Includes", out);
+        visit_form_ids(
+            &self.properties,
+            "ObteBlock.Combination.OBTS.Properties",
+            out,
+        );
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
@@ -4113,6 +4504,11 @@ impl Visit for ObteBlockCombinationTemplateItem {
         visit_form_ids_mut(
             &mut self.includes,
             "ObteBlock.Combination.OBTS.Includes",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.properties,
+            "ObteBlock.Combination.OBTS.Properties",
             out,
         );
     }
@@ -33955,6 +34351,7 @@ impl Visit for OmodData {
             out,
         );
         visit_form_ids(&self.includes, "OMOD.DATA.Includes", out);
+        visit_form_ids(&self.properties, "OMOD.DATA.Properties", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
@@ -33965,6 +34362,7 @@ impl Visit for OmodData {
             out,
         );
         visit_form_ids_mut(&mut self.includes, "OMOD.DATA.Includes", out);
+        visit_form_ids_mut(&mut self.properties, "OMOD.DATA.Properties", out);
     }
 }
 

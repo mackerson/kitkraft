@@ -169,11 +169,7 @@ fn type_label(ty: &FieldType) -> String {
         FieldType::Empty => "empty".to_string(),
         FieldType::Ref { name, ty } => format!("{name}: {}", type_label(ty)),
         FieldType::Union { decider, variants } => {
-            format!(
-                "union by {} ({} variants)",
-                decider.as_str(),
-                variants.len()
-            )
+            format!("union by {} ({} variants)", decider, variants.len())
         }
     }
 }
@@ -218,12 +214,22 @@ fn type_detail(obj: &mut Map<String, Value>, ty: &FieldType, parent: &Provenance
             }
         }
         FieldType::Ref { ty, .. } => type_detail(obj, ty, parent),
-        FieldType::Union { variants, .. } => {
+        FieldType::Union { decider, variants } => {
             let list: Vec<Value> = variants
                 .iter()
                 .map(|v| {
                     let mut out = Map::new();
-                    insert(&mut out, "when", json!(char::from(v.when).to_string()));
+                    let edid = *decider == kitkraft_schema::Decider::EditorIdPrefix;
+                    match v.prefix().filter(|_| edid) {
+                        // An EditorID prefix letter, as written in the definition.
+                        Some(b) => {
+                            insert(&mut out, "when", json!(char::from(b).to_string()));
+                        }
+                        _ => insert(&mut out, "when", json!(v.when)),
+                    }
+                    if let Some(s) = v.secondary_when {
+                        insert(&mut out, "secondary_when", json!(s));
+                    }
                     insert(&mut out, "name", json!(v.name));
                     insert(&mut out, "type", json!(type_label(&v.ty)));
                     if let Some(note) = &v.note {
