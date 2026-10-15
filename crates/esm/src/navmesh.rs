@@ -112,7 +112,10 @@ fn place_from_path(path: &[GroupHeader], cell: &Record<'_>) -> Result<CellPlace>
         .find(|g| g.group_type == group_type::WORLD_CHILDREN)
         .map(|g| g.label_u32());
     let Some(world) = world else {
-        return Ok(CellPlace::Interior);
+        // An existing cell: the blocks it was found in, not recomputed.
+        return Ok(CellPlace::Interior {
+            labels: cells::interior_labels(path),
+        });
     };
     if path
         .last()
@@ -288,7 +291,7 @@ mod tests {
         let xclc = [1i32.to_le_bytes(), (-1i32).to_le_bytes(), [0u8; 4]].concat();
         let ext = parse_record(&record(b"CELL", 0, EXT_CELL, &sub(b"XCLC", &xclc)));
         let wrld = parse_record(&record(b"WRLD", 0, WORLD, &sub(b"EDID", b"w\0")));
-        let interior = CellPlace::Interior;
+        let interior = CellPlace::INTERIOR;
         let exterior = CellPlace::Exterior {
             world: WORLD,
             grid: Grid::new(1, -1),

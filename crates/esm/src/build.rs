@@ -1139,15 +1139,15 @@ mod tests {
             (flagged(b"QUST", 0, 0x40), Parent::None),
             (
                 flagged(b"CELL", 0, 0x0000_0012),
-                Parent::CellAt(CellPlace::Interior),
+                Parent::CellAt(CellPlace::INTERIOR),
             ),
             (
                 flagged(b"CELL", 0, 0x0000_0002),
-                Parent::CellAt(CellPlace::Interior),
+                Parent::CellAt(CellPlace::INTERIOR),
             ),
             (
                 flagged(b"CELL", 0, 0x0000_0011),
-                Parent::CellAt(CellPlace::Interior),
+                Parent::CellAt(CellPlace::INTERIOR),
             ),
             (flagged(b"CELL", 0, 0x0000_0050), Parent::CellAt(ext)),
             (flagged(b"CELL", 0x400, 0x0000_0051), Parent::CellAt(pers)),
@@ -1172,21 +1172,21 @@ mod tests {
             (
                 flagged(b"REFR", 0, 0x80),
                 Parent::Cell {
-                    place: CellPlace::Interior,
+                    place: CellPlace::INTERIOR,
                     cell: 0x12,
                 },
             ),
             (
                 flagged(b"REFR", 0x400, 0x81),
                 Parent::Cell {
-                    place: CellPlace::Interior,
+                    place: CellPlace::INTERIOR,
                     cell: 0x12,
                 },
             ),
             (
                 flagged(b"NAVM", 0, 0x82),
                 Parent::Cell {
-                    place: CellPlace::Interior,
+                    place: CellPlace::INTERIOR,
                     cell: 0x12,
                 },
             ),

@@ -235,11 +235,31 @@ pub fn interior_block(form_id: u32) -> (u32, u32) {
     (block, sub)
 }
 
+/// The interior block and sub-block labels (each read as a `u32`) of the group path that
+/// holds an interior `CELL`, outermost first: `Some` when the path has both a type 2 and a
+/// type 3 group.
+pub fn interior_labels<'h>(path: impl IntoIterator<Item = &'h GroupHeader>) -> Option<(u32, u32)> {
+    let mut block = None;
+    let mut sub = None;
+    for g in path {
+        match g.group_type {
+            group_type::INTERIOR_BLOCK => block = Some(g.label_u32()),
+            group_type::INTERIOR_SUB_BLOCK => sub = Some(g.label_u32()),
+            _ => {}
+        }
+    }
+    Some((block?, sub?))
+}
+
 /// Where a cell sits.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum CellPlace {
-    /// An interior cell: under the top-level `CELL` group, by [`interior_block`].
-    Interior,
+    /// An interior cell: under the top-level `CELL` group, in the block and sub-block
+    /// `labels` names (`(block, sub_block)`, each label read as a `u32`) when the cell
+    /// exists in a plugin ([`cell_place_in`] reads them from the path that holds it, so a
+    /// cell some other writer put elsewhere is still found), or by [`interior_block`] for a
+    /// cell being created (`labels: None`, [`CellPlace::INTERIOR`]).
+    Interior { labels: Option<(u32, u32)> },
     /// The persistent cell of world `world` (stored FormID): directly in its world
     /// children group. It holds the world's persistent references.
     Persistent { world: u32 },
@@ -248,10 +268,13 @@ pub enum CellPlace {
 }
 
 impl CellPlace {
+    /// A new interior cell: its block and sub-block computed by [`interior_block`].
+    pub const INTERIOR: CellPlace = CellPlace::Interior { labels: None };
+
     /// The world, for an exterior or persistent cell.
     pub fn world(&self) -> Option<u32> {
         match self {
-            CellPlace::Interior => None,
+            CellPlace::Interior { .. } => None,
             CellPlace::Persistent { world } | CellPlace::Exterior { world, .. } => Some(*world),
         }
     }
@@ -398,8 +421,8 @@ fn refused(reason: &'static str) -> Error {
 pub fn cell_path(place: &CellPlace, cell: u32, style: &PlacementStyle) -> Result<Vec<GroupHeader>> {
     use group_type::*;
     Ok(match *place {
-        CellPlace::Interior => {
-            let (block, sub) = interior_block(cell);
+        CellPlace::Interior { labels } => {
+            let (block, sub) = labels.unwrap_or_else(|| interior_block(cell));
             vec![
                 style.header(CELL.0, TOP),
                 style.header(block.to_le_bytes(), INTERIOR_BLOCK),
@@ -621,7 +644,9 @@ pub fn cell_place_in(
         .map(|g| g.header.label_u32());
     let Some(world) = world else {
         return match path.first() {
-            Some(top) if top.header.label == CELL.0 => Ok(CellPlace::Interior),
+            Some(top) if top.header.label == CELL.0 => Ok(CellPlace::Interior {
+                labels: interior_labels(path.iter().map(|g| &g.header)),
+            }),
             _ => Err(refused("the CELL is not in a cell group")),
         };
     };
@@ -700,7 +725,7 @@ mod tests {
     fn paths_follow_the_corpus_rules() {
         let style = PlacementStyle::OFFICIAL;
         let cell = header(b"CELL", 0, 0x0001_2345);
-        let p = placement(&cell, &Parent::CellAt(CellPlace::Interior), &style).unwrap();
+        let p = placement(&cell, &Parent::CellAt(CellPlace::INTERIOR), &style).unwrap();
         // 0x12345 = 74565: block 5, sub-block 6.
         let cell_top = u32::from_le_bytes(*b"CELL");
         assert_eq!(shape(&p), [(0, cell_top), (2, 5), (3, 6)]);
@@ -746,7 +771,7 @@ mod tests {
         let navm = header(b"NAVM", FLAG_PERSISTENT, 1);
         assert!(placement(&navm, &child(wcell, 1), &style).is_err());
         let pcell = header(b"CELL", FLAG_PERSISTENT, 1);
-        assert!(placement(&pcell, &Parent::CellAt(CellPlace::Interior), &style).is_err());
+        assert!(placement(&pcell, &Parent::CellAt(CellPlace::INTERIOR), &style).is_err());
         assert!(placement(&cell, &Parent::CellAt(wcell), &style).is_err());
         assert!(placement(&pcell, &Parent::CellAt(wcell), &style).is_ok());
         let weap = header(b"WEAP", 0, 1);
@@ -792,7 +817,7 @@ mod tests {
             let rec = read_indexed(&mut file, loc, None).unwrap();
             cell_place_in(&index, loc, &rec, &limits)
         };
-        assert_eq!(place(0x200).unwrap(), CellPlace::Interior);
+        assert_eq!(place(0x200).unwrap(), CellPlace::INTERIOR);
         assert_eq!(place(0x701).unwrap(), CellPlace::Persistent { world });
         let grid = Grid::new(5, -3);
         assert_eq!(place(0x702).unwrap(), CellPlace::Exterior { world, grid });
@@ -800,5 +825,40 @@ mod tests {
         let found = persistent_cell(&index, world).map(|r| r.form_id);
         assert_eq!(found, Some(0x701));
         assert!(persistent_cell(&index, 0x999).is_none());
+    }
+
+    /// An existing interior cell keeps the block and sub-block it was found in, even where
+    /// the corpus rule would compute others (a third-party writer's choice); only a cell
+    /// being created gets computed ones.
+    #[test]
+    fn existing_interior_cells_keep_their_observed_blocks() {
+        // 0x705 = 1797: computed block 7, sub-block 9; the file has it in 3 / 4.
+        let cell = record(b"CELL", 0, 0x705, &sub(b"EDID", b"c\0"));
+        let sub_block = group(&4u32.to_le_bytes(), 3, &cell);
+        let block = group(&3u32.to_le_bytes(), 2, &sub_block);
+        let bytes = fixture::plugin(&[group(b"CELL", 0, &block)]);
+        let index = index_bytes(&bytes, &IndexOptions::default()).unwrap();
+        let loc = index.records.iter().find(|r| r.form_id == 0x705).unwrap();
+        let rec = read_indexed(&mut std::io::Cursor::new(&bytes), loc, None).unwrap();
+        let place = cell_place_in(&index, loc, &rec, &DecodeLimits::default()).unwrap();
+        assert_eq!(
+            place,
+            CellPlace::Interior {
+                labels: Some((3, 4))
+            }
+        );
+        let style = PlacementStyle::OFFICIAL;
+        let p = cell_children_path(&place, 0x705, Children::Temporary, &style).unwrap();
+        let cell_top = u32::from_le_bytes(*b"CELL");
+        assert_eq!(
+            shape(&p),
+            [(0, cell_top), (2, 3), (3, 4), (6, 0x705), (9, 0x705)]
+        );
+        let new = cell_children_path(&CellPlace::INTERIOR, 0x705, Children::Temporary, &style);
+        assert_eq!(shape(&new.unwrap())[1..3], [(2, 7), (3, 9)]);
+        assert_eq!(
+            interior_labels(index.group_path(loc.group).iter().map(|g| &g.header)),
+            Some((3, 4))
+        );
     }
 }

@@ -95,7 +95,7 @@ fn collect<'a>(entry: &Entry<'a>, limits: &DecodeLimits) -> Vec<Placing<'a>> {
             .find(|h| h.group_type == gt::WORLD_CHILDREN)
             .map(|h| h.label_u32());
         let place = match world {
-            None => CellPlace::Interior,
+            None => CellPlace::INTERIOR,
             Some(world) if r.header.flags & FLAG_PERSISTENT != 0 => CellPlace::Persistent { world },
             Some(world) => {
                 let subs = match r.subrecords() {
