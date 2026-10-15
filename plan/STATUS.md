@@ -1623,20 +1623,27 @@ Agents append here when they need a change in a crate they do not own.
   SF1Edit part with `KITKRAFT_SF1EDIT` pointing there, and update the SF1EDIT row of
   `docs/source-registry.md` ("not installed yet"). Lane B: M3.B11 is unblocked on the
   SF1Edit side; record the build's skew from the pin.
-- **Policy -> lane D (later, for M4.E11, ADR 0009).** A read-only MO2 instance check in
+- ~~**Policy -> lane D (later, for M4.E11, ADR 0009).** A read-only MO2 instance check in
   `crates/io` (`ModOrganizer.ini`, `mods\`, `profiles\`; reparse points reported) for
-  `kit deploy --dev`.
+  `kit deploy --dev`.~~ Done (lane E round 5, at the director's request):
+  `kitkraft_io::Instance` (`crates/io/src/instance.rs`): `read`/`from_ini`, the root, base,
+  mods, profiles, overwrite and downloads folders, `gamePath`, `gameName`,
+  `selected_profile` (`@ByteArray` decoded), `profiles()`, `folders()` with each folder's
+  state and `reparse_points()`; nothing written or followed.
 - **Policy -> lane F (later, M4.W0, ADR 0007 Amendment 1).** `data` shape tests for the
   inspection commands and a catalog marking of writing commands, as the gate for lane W.
 - **Policy -> all lanes (naming).** Write KitKraft in prose and use only the `kitkraft`
   identifiers: the rename is done (M4.BX1 integration, "Done" and Decision records).
-- **Lane E (M4.E11) -> lane D.** `deploy` resolves the MO2 instance itself
+- ~~**Lane E (M4.E11) -> lane D.** `deploy` resolves the MO2 instance itself
   (`crates/engine/src/deploy/instance.rs`: `ModOrganizer.ini` `mod_directory`,
   `profiles_directory`, `overwrite_directory`, `download_directory`, `base_directory`,
   `selected_profile`; links and junctions refused) with `kitkraft_io::ini::Ini` and
   `Profile`. ADR 0009 wants a read-only instance type in `crates/io`; when it exists,
   `Instance::resolve` should call it (the settings logic duplicates part of
-  `Profile::read_with`).
+  `Profile::read_with`).~~ Done (lane E round 5): `deploy`'s `Instance::resolve` and
+  `Profile::read_with` both read the settings through `kitkraft_io::Instance`; the private
+  copy is gone (the profile reader now also ignores empty values and takes relative
+  folders against the instance root, as `deploy` did).
 - **Lane E (M4.E11) -> plan maintainer / integrator.** ADR 0009 (unmerged branch) needs an
   amendment for the brief's layout: `.previous` folder in `mods\` instead of external
   backups (one kept), journal beside the folders, `dry_run` instead of `plan`,

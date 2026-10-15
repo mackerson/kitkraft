@@ -11,12 +11,14 @@
 
 mod error;
 pub mod ini;
+pub mod instance;
 pub mod mo2;
 pub mod overlay;
 pub mod plan;
 pub mod text;
 
 pub use error::{IoError, Result};
+pub use instance::{FolderState, Instance};
 pub use mo2::{ModEntry, ModState, PluginLine, Profile, ProfileOptions};
 pub use overlay::{Depth, Overlay, Provider, Resolved};
 pub use plan::{Active, LoadPlan, PlannedPlugin};

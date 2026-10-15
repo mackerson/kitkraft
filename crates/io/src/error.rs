@@ -17,6 +17,9 @@ pub enum IoError {
     /// The directory is not an MO2 profile (no `modlist.txt`).
     #[error("{}: not an MO2 profile (no modlist.txt)", .0.display())]
     NotAProfile(PathBuf),
+    /// The directory has no `ModOrganizer.ini` file: not the root of an MO2 instance.
+    #[error("{}: no ModOrganizer.ini, not the root of an MO2 instance", .0.display())]
+    NotAnInstance(PathBuf),
     /// No `ModOrganizer.ini` two levels above the profile, or it has no `gamePath`.
     #[error("{0}")]
     Instance(String),
