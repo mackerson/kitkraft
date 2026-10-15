@@ -1,105 +1,1100 @@
-# RACE: Race, lstring-only definition (lane B round 3, M3.B8).
+# RACE: Race, the body plan every NPC_ points at (RNAM): size, movement, skeleton and
+# animation per sex, attacks, body part and equip slots, character-generation presets and
+# morphs, behaviour subgraphs and head parts.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): DESC, FDSL, FMRN, FULL, SNAM are lstrings in every official RACE record.
-#   xedit: the RACE definition of wbDefinitionsSF1.pas at the pinned revision (L16517-L16812)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L16517-L16812 - the record: member order, DAT2
+#     (221 bytes), the skeleton, junk, chargen and head part sections per sex, attacks,
+#     biped object names and conditions, movement overrides, equip slots, subgraphs,
+#     mannequin skin swaps. Helpers: EDID (L3182), script data (L3393-L3411, kept opaque),
+#     XALG (L3230), the base form component block (L5984-L6832, kept raw), FULL (L3184),
+#     DESC (L3190-L3193), SPLO (L2255-L2256), BO64 (L2543-L2549), keywords
+#     (wbDefinitionsCommon.pas L8935-L8951), PRPS (L5679-L5686 with the actor value at
+#     L2271-L2274), APPR (L5698), the DAT2 flag bits (L7843-L7909), the size enum and
+#     its field (L7911-L7923), the biped object enum (L2405-L2472, kept as numbers), FLLD
+#     (L3818-L3823), attacks (L3592-L3655, common/AttackData.toml), the sound reference
+#     (L2213-L2226, common/SoundReference.toml), SPED (L7743-L7789, kept opaque), the equip
+#     type flags (L2841-L2857), morph groups (L7944-L7967), face morphs (L7969-L7986).
+#   corpus: the 47 RACE records (Starfield.esm 31, SFBGS050 5, ShatteredSpace 5, SFBGS004
+#     2, SFBGS047 2, SFBGS003 1, SFBGS00D 1; form versions 581, 582), 2026-10-14: every
+#     record fits the order below. Each record has four MNAM and four FNAM markers (the
+#     skeleton, junk, chargen and head part sections); DAT2 221, VTCK 8, RBPC 256 (64
+#     FormIDs), NAME 64 per record, WED0/WED1 40, ATKD 48, SRAF 4, NNAM 12, SPED 252.
+#     Every record decodes and re-encodes identically.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Corpus against upstream: inside a subgraph entry upstream lists SAKD, SGNM, SAPT, STKD
+# and marks the entry unordered; every official entry stores SADD SAKD* STKD* SGNM SAPT*
+# SRAF, and that order is used here. A face morph phenotype may start with its FMSR
+# entries (no FMRI), as upstream allows. FDDS, SNMV, NAM8, APPR and attacks without ATKE
+# are not present in the official records.
+#
+# What stays opaque, and why: VMAD, the component blocks, DAT2's seven unnamed words and
+# its unnamed float (offsets 92 to 127), the chargen NNAM (12 unnamed bytes), the junk
+# FLLD (unnamed), SPED (one occurrence; nested speed tables not transcribed). The biped
+# object slots and BO64 are kept as numbers (an enum and a flag set of 64 slot names
+# upstream, not transcribed).
 signature = "RACE"
 name = "Race"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16517-L16812"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16517-L16812",
+  "corpus: the 47 RACE records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official RACE records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer; not present in the official RACE records"
+
+[[member]]
+group_ref = "BfcbBlock"
 card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: DESC, FDSL, FMRN, FULL, SNAM in the official RACE records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16517-L16812",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components; observed in 4 records"
 
-[[member.member]]
-sig = "DESC"
-name = "Description"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16526-L16526"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3192-L3192",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official RACE records every DESC is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
-
-[[member.member]]
-sig = "FDSL"
-name = "FaceDialLabel"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16714-L16714"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16733-L16733",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official RACE records every FDSL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
-
-[[member.member]]
-sig = "FMRN"
-name = "FaceMorphName"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7969-L7985"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official RACE records every FMRN is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
-note = "xEdit has it in the face morph phenotypes, twice"
-
-[[member.member]]
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16525-L16525"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+note = "observed in 15 records"
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3190-L3193"]
+
+[[member]]
+sig = "SPLO"
+name = "ActorEffects"
+type = "formid"
+targets = ["SPEL", "LVSP"]
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2255-L2256"]
+note = "racial spells and abilities; no SPCT count precedes them"
+
+[[member]]
+sig = "WNAM"
+name = "Skin"
+type = "formid"
+targets = ["ARMO"]
+card = "optional"
+
+[[member]]
+sig = "BO64"
+name = "BipedObjectTemplate"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2543-L2549"]
+note = "first-person biped slot flags (one bit per slot); slot names not transcribed"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official RACE records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
 ]
-confidence = "corpus"
+note = "racial actor value properties; present in every official record"
+field = [
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "APPR"
+name = "AttachParentSlots"
+type = "array"
+element = "formid"
+targets = ["KYWD"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698"]
+confidence = "reference"
+note = "not present in the official RACE records"
+
+[[member]]
+sig = "GNAM"
+name = "BodyPartData"
+type = "formid"
+targets = ["BPTD"]
+card = "optional"
+
+[[member]]
+sig = "DAT2"
+name = "Data"
+type = "struct"
+size = 221
+field = [
+  { name = "MaleHeight", type = "f32" },
+  { name = "FemaleHeight", type = "f32" },
+  { name = "MaleDefaultWeight", type = "struct", field = [
+    { name = "Thin", type = "f32" },
+    { name = "Muscular", type = "f32" },
+    { name = "Fat", type = "f32" },
+  ] },
+  { name = "FemaleDefaultWeight", type = "struct", field = [
+    { name = "Thin", type = "f32" },
+    { name = "Muscular", type = "f32" },
+    { name = "Fat", type = "f32" },
+  ] },
+  { name = "Flags", type = "flags", base = "u64", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7843-L7909"], note = "bits unnamed upstream are kept as read", bits = [
+    ["Playable", 0x1],
+    ["FaceGenHead", 0x2],
+    ["Child", 0x4],
+    ["TiltFrontBack", 0x8],
+    ["TiltLeftRight", 0x10],
+    ["Jumps", 0x20],
+    ["Swims", 0x40],
+    ["Flies", 0x80],
+    ["Walks", 0x100],
+    ["Immobile", 0x200],
+    ["NotPushable", 0x400],
+    ["NoCombatInWater", 0x800],
+    ["NoRotatingToHeadTrack", 0x1000],
+    ["DontShowBloodSpray", 0x2000],
+    ["DontShowBloodDecal", 0x4000],
+    ["UsesHeadTrackAnims", 0x8000],
+    ["SpellsAlignWithMagicNode", 0x10000],
+    ["UseWorldRaycastsForFootIk", 0x20000],
+    ["AllowRagdollCollision", 0x40000],
+    ["RegenHpInCombat", 0x80000],
+    ["CantOpenDoors", 0x100000],
+    ["AllowPcDialogue", 0x200000],
+    ["NoKnockdowns", 0x400000],
+    ["AllowPickpocket", 0x800000],
+    ["AlwaysUseProxyController", 0x1000000],
+    ["DontShowWeaponBlood", 0x2000000],
+    ["OverlayHeadPartList", 0x4000000],
+    ["OverrideHeadPartList", 0x8000000],
+    ["CanPickupItems", 0x10000000],
+    ["AllowMultipleMembraneShaders", 0x20000000],
+    ["CanDualWield", 0x40000000],
+    ["AvoidsRoads", 0x80000000],
+    ["UseAdvancedAvoidance", 0x100000000],
+    ["NonHostile", 0x200000000],
+    ["Floats", 0x400000000],
+    ["HeadAxisBitY", 0x2000000000],
+    ["HeadAxisBitZ", 0x4000000000],
+    ["CanMeleeWhenKnockedDown", 0x8000000000],
+    ["UseIdleChatterDuringCombat", 0x10000000000],
+    ["Ungendered", 0x20000000000],
+    ["CanMoveWhenKnockedDown", 0x40000000000],
+    ["UseLargeActorPathing", 0x80000000000],
+    ["FlightDeferKill", 0x200000000000],
+    ["CalcCharacterControllerRotationCenterOff", 0x400000000000],
+    ["FlightAllowProceduralCrashLand", 0x800000000000],
+    ["DisableWeaponCulling", 0x1000000000000],
+    ["SimulateClothOnDown", 0x2000000000000],
+    ["HasFacialRig", 0x4000000000000],
+    ["CanUseCrippledLimbs", 0x8000000000000],
+    ["UseQuadrupedController", 0x10000000000000],
+    ["LowPriorityPushable", 0x20000000000000],
+    ["CannotUsePlayableItems", 0x40000000000000],
+    ["Tunnels", 0x200000000000000],
+    ["Hops", 0x400000000000000],
+    ["Teleport", 0x800000000000000],
+  ] },
+  { name = "AccelerationRate", type = "f32" },
+  { name = "DecelerationRate", type = "f32" },
+  { name = "Size", type = "enum", base = "i32", values = [["Small", 0], ["Medium", 1], ["Large", 2], ["ExtraLarge", 3]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7911-L7923"], note = "-1 is also defined upstream, without a real name" },
+  { name = "HeadBipedObject", type = "i32", note = "biped slot index" },
+  { name = "HairBipedObject", type = "i32", note = "biped slot index" },
+  { name = "InjuredHealthPct", type = "f32" },
+  { name = "ShieldBipedObject", type = "i32", note = "biped slot index" },
+  { name = "BeardBipedObject", type = "i32", note = "biped slot index" },
+  { name = "BodyBipedObject", type = "i32", note = "biped slot index" },
+  { name = "AimAngleTolerance", type = "f32" },
+  { name = "FlightRadius", type = "f32" },
+  { name = "AngularAccelerationRate", type = "f32" },
+  { name = "AngularTolerance", type = "f32" },
+  { name = "Unnamed", type = "opaque", size = 36, note = "seven unnamed 4-byte values, an unnamed float and one more unnamed 4-byte value upstream" },
+  { name = "PipboyBipedObject", type = "i32", note = "biped slot index" },
+  { name = "XpValue", type = "i16" },
+  { name = "OnCripple", type = "struct", field = [
+    { name = "DebrisScale", type = "f32" },
+    { name = "DebrisCount", type = "u8" },
+    { name = "DecalCount", type = "u8" },
+    { name = "Explosion", type = "formid", targets = ["EXPL"] },
+    { name = "Debris", type = "formid", targets = ["DEBR"] },
+    { name = "ImpactDataSet", type = "formid", targets = ["IPDS"] },
+  ] },
+  { name = "OrientationLimitsPitch", type = "f32" },
+  { name = "OrientationLimitsRoll", type = "f32" },
+  { name = "Bleedout", type = "struct", field = [
+    { name = "HealthPct", type = "f32" },
+    { name = "Chance", type = "f32" },
+    { name = "RecoverChance", type = "f32" },
+    { name = "TimeMin", type = "f32" },
+    { name = "TimeMax", type = "f32" },
+    { name = "HealthDrainRate", type = "f32" },
+  ] },
+  { name = "MaxSize", type = "enum", base = "i32", values = [["Small", 0], ["Medium", 1], ["Large", 2], ["ExtraLarge", 3]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7911-L7923"] },
+  { name = "IntelligenceLevel", type = "enum", base = "u32", values = [["None", 0], ["Moderate", 1], ["Normal", 2], ["High", 3]] },
+  { name = "EmShock", type = "struct", note = "electromagnetic shock behaviour", field = [
+    { name = "SupportEmShock", type = "u8", note = "0 or 1" },
+    { name = "RecoverChance", type = "f32" },
+    { name = "TimeMin", type = "f32" },
+    { name = "TimeMax", type = "f32" },
+    { name = "RecoverChanceOnDamageReceived", type = "f32" },
+    { name = "HealthDrainRate", type = "f32" },
+    { name = "HealthAfterRecovery", type = "f32" },
+    { name = "ImmunityDurationAfterRecovery", type = "f32" },
+  ] },
+]
+
+# Skeleton and animation data, male then female.
+[[member]]
+group = "MaleSkeleton"
 
 [[member.member]]
+sig = "MNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "ANAM"
+name = "SkeletalModel"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+
+[[member.member]]
+sig = "NAM5"
+name = "SkeletonRig"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "NAM6"
+name = "AnimationRoot"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "DNAM"
+name = "Animations"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group = "FemaleSkeleton"
+
+[[member.member]]
+sig = "FNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+sig = "ANAM"
+name = "SkeletalModel"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+
+[[member.member]]
+sig = "NAM5"
+name = "SkeletonRig"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "NAM6"
+name = "AnimationRoot"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "DNAM"
+name = "Animations"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "MTNM"
+name = "MovementTypeNames"
+type = "sig"
+card = "repeated"
+note = "four-character movement type names; observed 5 per record"
+
+[[member]]
+sig = "VTCK"
+name = "Voices"
+type = "struct"
+size = 8
+field = [
+  { name = "Male", type = "formid", targets = ["VTYP"] },
+  { name = "Female", type = "formid", targets = ["VTYP"] },
+]
+
+[[member]]
+sig = "PNAM"
+name = "FaceGenMainClamp"
+type = "f32"
+
+[[member]]
+sig = "UNAM"
+name = "FaceGenFaceClamp"
+type = "f32"
+
+[[member]]
+group_ref = "AttackData"
+name = "Attacks"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3592-L3655"]
+note = "observed in 40 records, up to 24 per record"
+
+# Junk data: markers and unnamed values the CK keeps, male then female.
+[[member]]
+group = "JunkData"
+
+[[member.member]]
+sig = "NAM1"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+group = "Male"
+
+[[member.member.member]]
+sig = "MNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member.member]]
+sig = "INDX"
+name = "Indx"
+type = "u32"
+note = "unnamed upstream"
+
+[[member.member.member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+size = 4
+note = "unnamed upstream"
+
+[[member.member]]
+group = "Female"
+
+[[member.member.member]]
+sig = "FNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member.member]]
+sig = "INDX"
+name = "Indx"
+type = "u32"
+note = "unnamed upstream"
+
+[[member.member.member]]
+sig = "FLLD"
+name = "Flld"
+type = "opaque"
+size = 4
+note = "unnamed upstream"
+
+[[member]]
+sig = "ENAM"
+name = "AimAssistPoseData"
+type = "formid"
+targets = ["AAPD"]
+card = "optional"
+
+[[member]]
+sig = "NAM3"
+name = "Nam3Marker"
+type = "empty"
+
+[[member]]
+sig = "NAM4"
+name = "ImpactMaterialType"
+type = "formid"
+targets = ["MATT"]
+card = "optional"
+
+[[member]]
+group = "CorpseSounds"
+card = "optional"
+
+[[member.member]]
+sig = "WED0"
+name = "OpenCorpse"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2226"]
+
+[[member.member]]
+sig = "WED1"
+name = "CloseCorpse"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2213-L2226"]
+
+[[member]]
+sig = "NAME"
+name = "BipedObjectNames"
+type = "zstring"
+card = "repeated"
+note = "one name per biped slot; 64 per official record"
+
+[[member]]
+sig = "RBPC"
+name = "BipedObjectConditions"
+type = "array"
+element = "formid"
+targets = ["AVIF"]
+count = "rest"
+card = "optional"
+note = "one actor value per biped slot; 64 in every official record"
+
+[[member]]
+group = "MovementDataOverride"
+card = "repeated"
+note = "observed in 1 record"
+
+[[member.member]]
+sig = "MTYP"
+name = "MovementType"
+type = "formid"
+targets = ["MOVT"]
+
+[[member.member]]
+sig = "SPED"
+name = "MovementData"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7743-L7789"]
+note = "speed tables per movement direction, kept raw; 252 bytes in the one official occurrence"
+
+[[member]]
+sig = "VNAM"
+name = "EquipmentFlags"
+type = "flags"
+base = "u32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2841-L2857"]
+bits = [
+  ["HandToHandMelee", 0x1],
+  ["OneHandSword", 0x2],
+  ["OneHandDagger", 0x4],
+  ["OneHandAxe", 0x8],
+  ["OneHandMace", 0x10],
+  ["TwoHandSword", 0x20],
+  ["TwoHandAxe", 0x40],
+  ["Bow", 0x80],
+  ["Staff", 0x100],
+  ["Gun", 0x200],
+  ["Grenade", 0x400],
+  ["Mine", 0x800],
+  ["Spell", 0x1000],
+  ["Shield", 0x2000],
+  ["Torch", 0x4000],
+]
+
+[[member]]
+group = "EquipSlot"
+card = "repeated"
+note = "order matters (upstream marks it unsortable); observed up to 9 per record"
+
+[[member.member]]
+sig = "QNAM"
+name = "Slot"
+type = "formid"
+targets = ["EQUP"]
+
+[[member.member]]
+sig = "ZNAM"
+name = "Node"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "UNWP"
+name = "UnarmedWeapon"
+type = "formid"
+targets = ["WEAP"]
+card = "optional"
+
+[[member]]
+sig = "WKMV"
+name = "BaseMovementDefault"
+type = "formid"
+targets = ["MOVT"]
+card = "optional"
+
+[[member]]
+sig = "SWMV"
+name = "BaseMovementSwim"
+type = "formid"
+targets = ["MOVT"]
+card = "optional"
+
+[[member]]
+sig = "FLMV"
+name = "BaseMovementFly"
+type = "formid"
+targets = ["MOVT"]
+card = "optional"
+
+[[member]]
+sig = "SNMV"
+name = "BaseMovementSneak"
+type = "formid"
+targets = ["MOVT"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official RACE records"
+
+# Character generation and skin tones, male then female.
+[[member]]
+group = "MaleChargen"
+note = "male character generation and skin tones"
+
+[[member.member]]
+sig = "MNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+group = "Chargen"
+card = "optional"
+note = "observed in 8 records"
+
+[[member.member.member]]
+sig = "NAM0"
+name = "Marker"
+type = "empty"
+
+[[member.member.member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "optional"
+note = "12 unnamed bytes upstream"
+
+[[member.member.member]]
+sig = "RPRM"
+name = "RacePresets"
+type = "formid"
+targets = ["NPC_"]
+card = "repeated"
+note = "preset NPCs shown in character creation"
+
+[[member.member.member]]
+group = "MorphGroup"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7944-L7967"]
+
+[[member.member.member.member]]
+sig = "MPGN"
+name = "Name"
+type = "zstring"
+
+[[member.member.member.member]]
+sig = "MPGM"
+name = "Morphs"
+type = "zstring"
+card = "repeated"
+
+[[member.member.member]]
+group = "FaceMorph"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7969-L7986"]
+note = "a face morph phenotype; upstream allows its members in any order and every official record uses this one"
+
+[[member.member.member.member]]
+sig = "FMRI"
+name = "Index"
+type = "u32"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "FMRU"
+name = "Fmru"
+type = "zstring"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member.member.member]]
+sig = "FMRN"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "FMRS"
+name = "Fmrs"
+type = "zstring"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member.member.member]]
+group = "Entry"
+card = "repeated"
+
+[[member.member.member.member.member]]
+sig = "FMSR"
+name = "Index"
+type = "u32"
+
+[[member.member.member.member.member]]
+sig = "FMRU"
+name = "Fmru"
+type = "zstring"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member.member.member.member]]
+sig = "FMRN"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "FDDS"
+name = "SkinToneAvmsSubtype"
+type = "zstring"
+card = "optional"
+confidence = "reference"
+note = "not present in the official RACE records"
+
+[[member.member.member]]
+group = "FaceDial"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "FDSI"
+name = "SkinIndex"
+type = "u32"
+
+[[member.member.member.member]]
+sig = "FDSL"
+name = "Label"
+type = "lstring"
+card = "optional"
+
+[[member.member]]
+sig = "BSTT"
+name = "BodySkinTones"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "HSTT"
+name = "HandSkinTones"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FCTP"
+name = "FaceCustomTexturesBasePath"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FSTT"
+name = "FaceSkinTones"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group = "FemaleChargen"
+note = "female character generation and skin tones"
+
+[[member.member]]
+sig = "FNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+group = "Chargen"
+card = "optional"
+note = "observed in 8 records"
+
+[[member.member.member]]
+sig = "NAM0"
+name = "Marker"
+type = "empty"
+
+[[member.member.member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "optional"
+note = "12 unnamed bytes upstream"
+
+[[member.member.member]]
+sig = "RPRF"
+name = "RacePresets"
+type = "formid"
+targets = ["NPC_"]
+card = "repeated"
+note = "preset NPCs shown in character creation"
+
+[[member.member.member]]
+group = "MorphGroup"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7944-L7967"]
+
+[[member.member.member.member]]
+sig = "MPGN"
+name = "Name"
+type = "zstring"
+
+[[member.member.member.member]]
+sig = "MPGM"
+name = "Morphs"
+type = "zstring"
+card = "repeated"
+
+[[member.member.member]]
+group = "FaceMorph"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7969-L7986"]
+note = "a face morph phenotype; upstream allows its members in any order and every official record uses this one"
+
+[[member.member.member.member]]
+sig = "FMRI"
+name = "Index"
+type = "u32"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "FMRU"
+name = "Fmru"
+type = "zstring"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member.member.member]]
+sig = "FMRN"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member.member.member.member]]
+sig = "FMRS"
+name = "Fmrs"
+type = "zstring"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member.member.member]]
+group = "Entry"
+card = "repeated"
+
+[[member.member.member.member.member]]
+sig = "FMSR"
+name = "Index"
+type = "u32"
+
+[[member.member.member.member.member]]
+sig = "FMRU"
+name = "Fmru"
+type = "zstring"
+card = "optional"
+note = "unnamed upstream"
+
+[[member.member.member.member.member]]
+sig = "FMRN"
+name = "Name"
+type = "lstring"
+card = "optional"
+
+[[member.member.member]]
+sig = "FDDS"
+name = "SkinToneAvmsSubtype"
+type = "zstring"
+card = "optional"
+confidence = "reference"
+note = "not present in the official RACE records"
+
+[[member.member.member]]
+group = "FaceDial"
+card = "repeated"
+
+[[member.member.member.member]]
+sig = "FDSI"
+name = "SkinIndex"
+type = "u32"
+
+[[member.member.member.member]]
+sig = "FDSL"
+name = "Label"
+type = "lstring"
+card = "optional"
+
+[[member.member]]
+sig = "BSTT"
+name = "BodySkinTones"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "HSTT"
+name = "HandSkinTones"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FCTP"
+name = "FaceCustomTexturesBasePath"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "FSTT"
+name = "FaceSkinTones"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "NAM8"
+name = "MorphRace"
+type = "formid"
+targets = ["RACE"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official RACE records"
+
+[[member]]
+sig = "RNAM"
+name = "ArmorRace"
+type = "formid"
+targets = ["RACE"]
+card = "optional"
+
+[[member]]
+sig = "SRAC"
+name = "SubgraphTemplateRace"
+type = "formid"
+targets = ["RACE"]
+card = "optional"
+
+[[member]]
+group = "Subgraph"
+card = "repeated"
+note = "behaviour subgraph data; upstream marks the entry unordered, every official entry uses this order"
+
+[[member.member]]
+sig = "SADD"
+name = "Race"
+type = "formid"
+targets = ["RACE"]
+card = "optional"
+
+[[member.member]]
+sig = "SAKD"
+name = "ActorKeywords"
+type = "formid"
+targets = ["KYWD"]
+card = "repeated"
+
+[[member.member]]
+sig = "STKD"
+name = "TargetKeywords"
+type = "formid"
+targets = ["KYWD"]
+card = "repeated"
+
+[[member.member]]
+sig = "SGNM"
+name = "BehaviourGraph"
+type = "zstring"
+
+[[member.member]]
+sig = "SAPT"
+name = "AnimationPaths"
+type = "zstring"
+card = "repeated"
+
+[[member.member]]
+sig = "SRAF"
+name = "Flags"
+type = "struct"
+size = 4
+note = "closes the entry"
+field = [
+  { name = "Role", type = "enum", base = "u16", values = [
+    ["Mt", 0],
+    ["Weapon", 1],
+    ["Furniture", 2],
+    ["LinkingOnly", 3],
+    ["Pipboy", 4],
+    ["MtGeneration", 5],
+    ["WeaponGeneration", 6],
+    ["FurnitureGeneration", 7],
+  ] },
+  { name = "Perspective", type = "enum", base = "u16", values = [["ThirdPerson", 0], ["FirstPerson", 1]] },
+]
+
+[[member]]
+sig = "PTOP"
+name = "IdleChatterTimeMin"
+type = "f32"
+card = "optional"
+
+[[member]]
+sig = "NTOP"
+name = "IdleChatterTimeMax"
+type = "f32"
+card = "optional"
+
+[[member]]
+sig = "QSTI"
+name = "DialogueQuest"
+type = "formid"
+targets = ["QUST"]
+card = "optional"
+
+# Head parts and bone modifiers, male then female.
+[[member]]
+group = "MaleHeadParts"
+
+[[member.member]]
+sig = "MNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+group = "HeadPart"
+card = "repeated"
+
+[[member.member.member]]
+sig = "INDX"
+name = "Index"
+type = "u32"
+card = "optional"
+
+[[member.member.member]]
+sig = "HEAD"
+name = "Part"
+type = "formid"
+targets = ["HDPT"]
+
+[[member.member]]
+sig = "BNAM"
+name = "BoneModifiers"
+type = "formid"
+targets = ["BMOD"]
+card = "repeated"
+
+[[member]]
+group = "FemaleHeadParts"
+
+[[member.member]]
+sig = "FNAM"
+name = "Marker"
+type = "empty"
+
+[[member.member]]
+group = "HeadPart"
+card = "repeated"
+
+[[member.member.member]]
+sig = "INDX"
+name = "Index"
+type = "u32"
+card = "optional"
+
+[[member.member.member]]
+sig = "HEAD"
+name = "Part"
+type = "formid"
+targets = ["HDPT"]
+
+[[member.member]]
+sig = "BNAM"
+name = "BoneModifiers"
+type = "formid"
+targets = ["BMOD"]
+card = "repeated"
+
+[[member]]
+group = "MannequinSkinSwap"
+card = "repeated"
+note = "observed in 1 record"
+
+[[member.member]]
+sig = "MSSS"
+name = "Gender"
+type = "enum"
+base = "u32"
+values = [["Male", 0], ["Female", 1]]
+
+[[member.member]]
+group = "Swap"
+card = "repeated"
+
+[[member.member.member]]
+sig = "MSSI"
+name = "SkinSwapIndex"
+type = "enum"
+base = "u32"
+values = [["Body", 0], ["Hands", 1]]
+card = "optional"
+
+[[member.member.member]]
+sig = "MSSA"
+name = "MaterialSwap"
+type = "formid"
+targets = ["LMSW"]
+
+[[member]]
 sig = "SNAM"
 name = "PluralName"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L16811-L16811"
-evidence = [
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official RACE records every SNAM is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"

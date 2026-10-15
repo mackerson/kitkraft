@@ -1,0 +1,77 @@
+# AttackData: one attack of an actor or race (ATKD plus its event, weapon slot, required
+# slot and description). Records reference it as `group_ref = "AttackData"` with
+# `card = "repeated"`.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L3592-L3655 - the attack list: the ATKD field
+#     order, widths and flag bits, and the four optional subrecords after it.
+#   corpus: the RACE records of the 14 official ESMs (2026-10-14): 599 attacks in 40
+#     records; ATKD is 48 bytes in every one, ATKE always follows it, ATKW (333) and ATKS
+#     (12) never occur together, ATKT (3) only after ATKW. Every RACE record decodes and
+#     re-encodes identically through this group. No NPC_ record carries attacks.
+#
+# Bits 6 to 30 of the attack flags are unnamed upstream and kept as read. The stagger
+# offset is a signed integer whose upstream labels are its own values (-2..2), so it is a
+# plain i32.
+name = "AttackData"
+kind = "group"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3592-L3655"
+evidence = [
+  "corpus: the 599 attacks in the RACE records of the 14 official ESMs, 2026-10-14 scan: ATKD always 48 bytes; actorcheck typed pass decodes and re-encodes every RACE record identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "ATKD"
+name = "Data"
+type = "struct"
+size = 48
+field = [
+  { name = "DamageMult", type = "f32" },
+  { name = "AttackChance", type = "f32" },
+  { name = "AttackSpell", type = "formid", targets = ["SPEL"] },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["IgnoreWeapon", 0x1],
+    ["BashAttack", 0x2],
+    ["PowerAttack", 0x4],
+    ["ChargeAttack", 0x8],
+    ["RotatingAttack", 0x10],
+    ["ContinuousAttack", 0x20],
+    ["OverrideData", 0x80000000],
+  ] },
+  { name = "AttackAngle", type = "f32" },
+  { name = "HitCone", type = "f32" },
+  { name = "Stagger", type = "f32" },
+  { name = "Knockdown", type = "f32" },
+  { name = "RecoveryTime", type = "f32" },
+  { name = "ActionPointsMult", type = "f32" },
+  { name = "StaggerOffset", type = "i32" },
+  { name = "StrikeAngle", type = "f32" },
+]
+
+[[member]]
+sig = "ATKE"
+name = "Event"
+type = "zstring"
+card = "optional"
+note = "animation event name"
+
+[[member]]
+sig = "ATKW"
+name = "WeaponSlot"
+type = "formid"
+targets = ["EQUP"]
+card = "optional"
+
+[[member]]
+sig = "ATKS"
+name = "RequiredSlot"
+type = "formid"
+targets = ["EQUP"]
+card = "optional"
+
+[[member]]
+sig = "ATKT"
+name = "Description"
+type = "zstring"
+card = "optional"

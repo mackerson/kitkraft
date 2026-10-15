@@ -775,7 +775,8 @@ directory, then `data_dir` (default `KITCRAFT_DATA_DIR`). So with the variable s
 `errors`, `warnings`, `rules` (ids run), `findings[]` (first 1,000: `rule`, `severity`,
 `plugin`, `record` = `SIGN:FORMID` or `Script.Function`, `subrecord`, `offset`,
 `message`), `findings_total`, `masters[]` (`name`, `path`, `flags`, `localized`),
-`records`, `groups`, `subrecords`, `checked_form_ids`, `unresolved_form_ids`,
+`records`, `groups`, `subrecords`, `checked_form_ids`, `unresolved_form_ids`, `reserved_form_ids` and
+`reserved_by_member` (engine-reserved IDs, `docs/validate.md`),
 `unchecked_subrecords`, `scripts_checked`, `summary`. Coverage is `complete` only when no
 FormID was left unchecked; opaque subrecords count as `opaque_subrecords`. Evidence: one
 byte at each finding's offset.

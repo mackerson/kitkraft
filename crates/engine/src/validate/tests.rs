@@ -518,6 +518,71 @@ fn papyrus_denylisted_call_on_the_local_noc_patch() {
     assert_eq!(count("CS7_SpaceshipLandingQuestScript.pex"), 4);
 }
 
+/// M4.BX1: an object ID below 0x800 in Starfield.esm's index space is an engine-reserved
+/// form: not a finding, counted as `reserved_form_ids` per member. The same ID under any
+/// other master is still checked.
+#[test]
+fn formid_dangling_skips_engine_reserved_ids() {
+    let d = dir("validate-reserved");
+    let keyword = record(b"KYWD", 0x0000_0900, vec![sub(b"EDID", b"Kw\0")]);
+    write_plugin(&d, "Starfield.esm", &[], FLAG_MASTER, vec![keyword]);
+    master(&d);
+    let with_keyword = |kw: u32| {
+        let mut w = good_weapon();
+        w.header.form_id = 0x0100_0800;
+        let subs = w.subrecords_mut().unwrap();
+        let at = subs
+            .iter()
+            .position(|s| s.signature() == Signature(*b"DESC"))
+            .unwrap();
+        subs.insert(at, sub(b"KWDA", &kw.to_le_bytes()));
+        subs.insert(at, sub(b"KSIZ", &1u32.to_le_bytes()));
+        w
+    };
+    let reserved = patch(
+        &d,
+        "Reserved.esp",
+        &["Starfield.esm"],
+        vec![with_keyword(0x0000_0014)],
+    );
+    let data = check(&reserved, &["formid.dangling"]);
+    assert_eq!(found(&data), [], "{data:#}");
+    assert_eq!(data["reserved_form_ids"], json!(1), "{data:#}");
+    assert_eq!(
+        data["reserved_by_member"]["Keywords.KWDA"],
+        json!(1),
+        "{data:#}"
+    );
+    // 0x800 and up is an ordinary form: Starfield.esm lacks 0x801.
+    let ordinary = patch(
+        &d,
+        "Ordinary.esp",
+        &["Starfield.esm"],
+        vec![with_keyword(0x0000_0801)],
+    );
+    let data = check(&ordinary, &["formid.dangling"]);
+    assert_eq!(
+        found(&data),
+        [pair("formid.dangling", "warning")],
+        "{data:#}"
+    );
+    assert_eq!(data["reserved_form_ids"], json!(0));
+    // Another master's low IDs are not reserved.
+    let other = patch(
+        &d,
+        "Other.esp",
+        &["Master.esm"],
+        vec![with_keyword(0x0000_0014)],
+    );
+    let data = check(&other, &["formid.dangling"]);
+    assert_eq!(
+        found(&data),
+        [pair("formid.dangling", "warning")],
+        "{data:#}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 /// M3.E3: `FE`/`FD` FormIDs are checked through lane D's class encoding. A small master's
 /// keyword the master has passes, one it lacks is a warning, a small index past the
 /// small masters is an error; none of them is counted as unresolved any more.

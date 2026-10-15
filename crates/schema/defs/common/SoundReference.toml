@@ -11,12 +11,18 @@
 # member form of the helper (L2213-L2227) for INFO WED0 and RVSH; its corpus evidence is
 # kept below. Observed there: a start GUID with a zero stop GUID, or zero GUIDs with a
 # start form.
+#
+# Folded again at the ACTOR merge: the actor family wrote the same 40 bytes as an event-set
+# struct (start event, stop event, condition) followed by the start form; the flat layout
+# here is the same bytes and keeps the paths round 3 and the quest family already use. Its
+# corpus evidence (NPC_ CS3S, RACE WED0/WED1, SPEL PUSH/PDSH, the MGEF ESSH tail) is below.
 name = "SoundReference"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2197-L2227"
 evidence = [
   "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3), 2026-10-14: WEAP WAUD 288 bytes and PUSH/PDSH 40 bytes in all 452 WEAP records of the 14 official ESMs",
   "corpus: the 2,098 WED0 and 232 RVSH of the INFO records of the 14 official ESMs, 2026-10-14 scan (quest family, M4.BQ1): all 40 bytes, every record decodes and re-encodes identically",
+  "corpus: CS3S (NPC_ 614), WED0/WED1 (RACE 92), PUSH/PDSH (SPEL 2) and the ESSH tail (MGEF 224) in the 14 official ESMs, 2026-10-14 scan (actor family, M4.BC1): all 40 bytes; every one decodes and re-encodes identically",
 ]
 confidence = "corpus"
 type = "struct"

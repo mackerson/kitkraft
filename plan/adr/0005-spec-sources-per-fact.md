@@ -371,3 +371,42 @@ From the dossier's section 5, with where each lands:
   D and E to draw on when an existing task needs them.
 - The dossier's suggested provenance manifest (YAML per field) is not adopted: our
   `source`, `evidence` and `confidence` keys already carry that information.
+
+## Amendment 4 (2026-10-14): engine-reserved object IDs, a corpus-derived fact
+
+### Why
+
+Each schema family that typed more FormID members exposed more `formid.dangling` errors in
+the official files with the same shape: an object ID below 0x800 in `Starfield.esm`'s index
+space that no official file defines. By the ACTOR and ITEMS merges they ran to hundreds
+(PRPS actor values on NPC_, RACE, PKIN and the items family, FLST actor-value lists, the
+player reference 0x14 in reference slots, REFR NAME 0x1FB, SMEN PNAM 0x5B). Listing each as
+a known error hid a single fact behind hundreds of lines.
+
+### Decision
+
+- **The fact** (grade A: a fixture we reproduce, `validate_corpus_official_files`): none of
+  the 14 official files defines these object IDs, and the official files name them from
+  typed members whose layouts decode identically everywhere else (0 typed conflicts).
+- **The reading** (grade D until observed): object IDs below 0x800 in `Starfield.esm`'s
+  index space that the file does not define are engine-reserved default forms (the player
+  reference, built-in actor values, a story manager root), which xEdit treats as hardcoded
+  forms rather than as missing ones. It is recorded as a corpus-derived fact pending a CK
+  confirmation (does the CK resolve and keep them on save; STATUS Requests to lane H).
+- **What it changes**: `validate`'s `formid.dangling` does not report a typed member naming
+  such a form; it counts it as `reserved_form_ids` (per member path in
+  `reserved_by_member`) and says so in `limitations`. Low IDs that `Starfield.esm` does
+  define are ordinary forms; a low ID under any other master, and a record header (an
+  override of a missing low form), are checked as before. `docs/validate.md`
+  ("Engine-reserved object IDs") has the rule; the per-plugin, per-member counts are the
+  regression expectation of `validate_corpus_official_files` (`RESERVED`).
+- It drives no write and no layout: the IDs are copied as stored (§3's rule for grade D
+  claims holds).
+
+### Consequences
+
+- The `< 0x800` entries leave `KNOWN_ERRORS`; a change in any reserved count fails the
+  corpus test, so a family that types a new member naming such IDs updates the table with
+  its evidence.
+- A CK observation that the CK rejects or rewrites these IDs reverts the exception (they
+  become errors again) and is recorded here as Amendment 5.

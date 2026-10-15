@@ -1,58 +1,92 @@
-# CLAS: Class, lstring-only definition (lane B round 3, M3.B8).
+# CLAS: Class, a named set of actor value properties an NPC_ can point at (CNAM).
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official CLAS record.
-#   xedit: the CLAS definition of wbDefinitionsSF1.pas at the pinned revision (L10769-L10780)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L10769-L10780 - member order, FULL and DESC
+#     required, ICON, PRPS and the 4-byte DATA. Helpers: EDID (L3182), script data
+#     (L3393-L3411, kept opaque), the base form component block (L5984-L6832, kept raw),
+#     FULL (L3185), DESC (L3190-L3193), ICON (L5674), PRPS (L5679-L5686 with the actor
+#     value at L2271-L2274).
+#   corpus: the 8 CLAS records (all in Starfield.esm, form version 581), 2026-10-14: every
+#     record is EDID FULL DESC PRPS DATA; FULL and DESC 4 bytes (localized), PRPS 84 or 96
+#     (7 or 8 properties), DATA 4. Every record decodes and re-encodes identically.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# DATA is a single unnamed 4-byte value upstream, kept raw.
 signature = "CLAS"
 name = "Class"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10769-L10780"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10769-L10780",
+  "corpus: the 8 CLAS records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official CLAS records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10769-L10780",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official CLAS records"
 
-[[member.member]]
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official CLAS records"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3185-L3185"]
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3190-L3193"]
+
+[[member]]
+sig = "ICON"
+name = "InventoryImage"
+type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10773-L10773"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5674-L5674"]
+confidence = "reference"
+note = "not present in the official CLAS records"
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3185-L3185",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official CLAS records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
 ]
-confidence = "corpus"
+note = "the class's actor value properties; the curve table slot exists from form version 152"
+field = [
+  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
+  { name = "Value", type = "f32" },
+  { name = "CurveTable", type = "formid", targets = ["CURV"] },
+]
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+size = 4
+note = "one unnamed 4-byte value upstream"

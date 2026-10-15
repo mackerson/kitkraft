@@ -197,6 +197,13 @@ pub struct Report {
     pub checked_form_ids: u64,
     /// FormIDs that could not be resolved without guessing (`FE`/`FD`, unknown scale).
     pub unresolved_form_ids: u64,
+    /// FormIDs in typed members naming an engine-reserved form: an object ID below
+    /// [`RESERVED_OBJECT_IDS`] in `Starfield.esm`'s index space that it does not define
+    /// (see [`is_reserved`]). Not findings; counted here and per member path in
+    /// [`Report::reserved_by_member`].
+    pub reserved_form_ids: u64,
+    /// [`Report::reserved_form_ids`] by member path (`NPC_.PRPS.ActorValue`).
+    pub reserved_by_member: BTreeMap<String, u64>,
     /// Subrecords whose FormIDs could not be checked (opaque or undecoded payloads).
     pub unchecked_subrecords: u64,
     /// Subrecords examined.
@@ -947,6 +954,25 @@ fn previous_has(
     Some((file.name.clone(), has))
 }
 
+/// The game master whose low object IDs are engine-reserved.
+pub const RESERVED_MASTER: &str = "Starfield.esm";
+
+/// Object IDs below this in [`RESERVED_MASTER`]'s index space that the master does not
+/// define are engine-reserved default forms (the player reference 0x14, built-in actor
+/// values 0x2D0..0x3AC, a story manager root node 0x5B, ...): `formid.dangling` counts a
+/// typed member naming one as `reserved_form_ids` instead of reporting it. Corpus fact,
+/// grade D until a CK observation confirms it (ADR 0005 Amendment 4, `docs/validate.md`
+/// "Engine-reserved object IDs"): no official file defines these IDs, yet the 14 official
+/// files name them 738 times at 11 typed member paths (M4.BX1). Low IDs that
+/// `Starfield.esm` does define are ordinary forms and are checked as usual.
+pub const RESERVED_OBJECT_IDS: u32 = 0x800;
+
+/// Whether `owner:object_id` is in the engine-reserved range ([`RESERVED_OBJECT_IDS`]);
+/// `formid.dangling` asks only for forms the owner does not define.
+pub fn is_reserved(owner: &str, object_id: u32) -> bool {
+    object_id < RESERVED_OBJECT_IDS && owner.eq_ignore_ascii_case(RESERVED_MASTER)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn check_form_id(
     pass: &Pass<'_>,
@@ -993,10 +1019,21 @@ fn check_form_id(
         Target::Form {
             owner, object_id, ..
         } => {
+            let reserved = !header && is_reserved(owner, *object_id);
+            let note_reserved = |report: &mut Report| {
+                report.reserved_form_ids = report.reserved_form_ids.saturating_add(1);
+                let path = member.clone().unwrap_or_default();
+                let count = report.reserved_by_member.entry(path).or_default();
+                *count = count.saturating_add(1);
+            };
             let own = owner.eq_ignore_ascii_case(&pass.name);
             if own {
                 report.checked_form_ids = report.checked_form_ids.saturating_add(1);
                 if !header && !pass.own_ids.contains(&raw) {
+                    if reserved {
+                        note_reserved(report);
+                        return;
+                    }
                     push(
                         Severity::Error,
                         format!("{what} names {owner}:{object_id:06X}, a form of this plugin that it does not have (a dangling self-reference: a record copied from a small or medium plugin, or a form that was removed)"),
@@ -1010,6 +1047,10 @@ fn check_form_id(
             }
             report.checked_form_ids = report.checked_form_ids.saturating_add(1);
             if pass.master_has(owner, *object_id).is_none() {
+                if reserved {
+                    note_reserved(report);
+                    return;
+                }
                 let message = if header {
                     format!("this record overrides {owner}:{object_id:06X}, which {owner} does not have (an injected record, or an override of a deleted form)")
                 } else {

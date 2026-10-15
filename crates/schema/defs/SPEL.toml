@@ -1,70 +1,165 @@
-# SPEL: Spell, lstring-only definition (lane B round 3, M3.B8).
+# SPEL: Spell, a magic item made of effects: spells, abilities, powers, diseases,
+# addictions and the like. NPC_ and RACE list them in SPLO; perk effects and magic
+# effects point at them.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): DESC, FULL are lstrings in every official SPEL record.
-#   xedit: the SPEL definition of wbDefinitionsSF1.pas at the pinned revision (L17765-L17780)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
-#
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L17765-L17780 - member order. Helpers: EDID
+#     (L3182), script data (L3393-L3411, kept opaque), object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), the base form component
+#     block (L5984-L6832, kept raw), FULL (L3184), keywords (wbDefinitionsCommon.pas
+#     L8935-L8951), MDOB (wbDefinitionsCommon.pas L9149-L9152), ETYP (L4252), PUSH/PDSH
+#     (L2334-L2335 with the sound reference at L2213-L2226, common/SoundReference.toml),
+#     DESC (L3190-L3193), SPIT (L8256-L8312) with the cast and target enums (L4141-L4152),
+#     the effect list (L6977-L6995, common/Effect.toml).
+#   corpus: the 662 SPEL records (Starfield.esm 584, SFBGS00D 43, ShatteredSpace 21,
+#     SFBGS050 7, SFBGS007 6, SFBGS003 1; form versions 581, 582), 2026-10-14: order EDID
+#     OBND ODTY [FULL] [KSIZ KWDA] ETYP [PUSH PDSH] DESC SPIT (effect)*; SPIT 27 bytes,
+#     ETYP 4, PUSH/PDSH 40, up to 25 effects per record. Every record decodes and
+#     re-encodes identically.
 signature = "SPEL"
 name = "Spell"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780",
+  "corpus: the 662 SPEL records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: DESC, FULL in the official SPEL records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17765-L17780",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
-
-[[member.member]]
-sig = "DESC"
-name = "Description"
-type = "lstring"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17777-L17777"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3192-L3192",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official SPEL records every DESC is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
-]
-confidence = "corpus"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official SPEL records"
 
-[[member.member]]
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+card = "optional"
+note = "present in every official record"
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official SPEL records"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L17771-L17771"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official SPEL records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "MDOB"
+name = "MenuDisplayObject"
+type = "formid"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9149-L9152"]
+confidence = "reference"
+note = "upstream sets no target type here; not present in the official SPEL records"
+
+[[member]]
+sig = "ETYP"
+name = "EquipmentType"
+type = "formid"
+targets = ["EQUP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4252-L4252"]
+note = "present in every official record"
+
+[[member]]
+sig = "PUSH"
+name = "PickupSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2334-L2334"]
+note = "observed in 1 record"
+
+[[member]]
+sig = "PDSH"
+name = "PutdownSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2335-L2335"]
+note = "observed in 1 record"
+
+[[member]]
+sig = "DESC"
+name = "Description"
+type = "lstring"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3190-L3193"]
+
+[[member]]
+sig = "SPIT"
+name = "Data"
+type = "struct"
+size = 27
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8256-L8312"]
+note = "present in every official record"
+field = [
+  { name = "BaseCost", type = "u32" },
+  { name = "Flags", type = "flags", base = "u32", bits = [
+    ["ManualCostCalc", 0x1],
+    ["PcStartSpell", 0x20000],
+    ["InstantCast", 0x40000],
+    ["AreaEffectIgnoresLos", 0x80000],
+    ["IgnoreResistance", 0x100000],
+    ["NoAbsorbReflect", 0x200000],
+    ["NoDualCastModifications", 0x800000],
+  ], note = "unnamed upstream bits are kept as read" },
+  { name = "Type", type = "enum", base = "u8", values = [
+    ["Spell", 0],
+    ["Disease", 1],
+    ["Power", 2],
+    ["LesserPower", 3],
+    ["Ability", 4],
+    ["Poison", 5],
+    ["Enchantment", 6],
+    ["Potion", 7],
+    ["WortCraft", 8],
+    ["LeveledSpell", 9],
+    ["Addiction", 10],
+    ["VoicePower", 11],
+  ] },
+  { name = "ChargeTime", type = "f32" },
+  { name = "CastType", type = "enum", base = "u8", values = [["ConstantEffect", 0], ["FireAndForget", 1], ["Concentration", 2]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4141-L4145"] },
+  { name = "TargetType", type = "enum", base = "u8", values = [["SelfTarget", 0], ["Touch", 1], ["Aimed", 2], ["TargetActor", 3], ["TargetLocation", 4]], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4147-L4152"] },
+  { name = "CastDuration", type = "f32" },
+  { name = "Range", type = "f32" },
+  { name = "CastingPerk", type = "formid", targets = ["PERK"] },
 ]
-confidence = "corpus"
+
+[[member]]
+group_ref = "Effect"
+name = "Effects"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6977-L6995"]
+note = "observed up to 25 per record; 2 official records have none"

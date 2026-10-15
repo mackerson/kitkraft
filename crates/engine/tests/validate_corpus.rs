@@ -1,7 +1,11 @@
 //! M2.E7 acceptance: every `validate` rule on the 14 official ESMs gives zero errors,
 //! except the errors [`KNOWN_ERRORS`] lists as corpus facts, each with its evidence and
 //! exact count (M4.BX1: a new official-file error is a layout error in the merged family
-//! until it is explained there). Warnings are printed by kind for `plan/STATUS.md`. `#[ignore]`: it reads 2.5 GB; run
+//! until it is explained there). FormIDs naming engine-reserved forms (object IDs below
+//! 0x800 in Starfield.esm's index space, `kitcraft_engine::validate::is_reserved`) are not
+//! findings; their count per plugin and member path is pinned in [`RESERVED`] as the
+//! regression expectation. Warnings are printed by kind for `plan/STATUS.md`. `#[ignore]`:
+//! it reads 2.5 GB; run
 //! `cargo test -p kitcraft-engine --release --test validate_corpus -- --ignored --nocapture`
 //! with `KITCRAFT_DATA_DIR` set.
 
@@ -9,7 +13,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use kitcraft_engine::execute;
-use serde_json::json;
+use serde_json::{json, Value};
 
 /// Errors the official files really have: real dangling FormIDs that more typed members
 /// expose, not layout errors. Each entry is matched by plugin, rule, member path and stored
@@ -43,35 +47,6 @@ const fn dangling(
     }
 }
 
-const PRPS_AV: &str = "PKIN PRPS (properties: actor value, value, curve; xedit \
-    wbDefinitionsSF1.pas, M4 planet family) names actor values 0x33D (7 records) and 0x33E \
-    (14), object IDs below 0x800 that no official file defines; ShatteredSpace.esm has 2 \
-    more (warnings, since they name its master). Grade D hypothesis: engine-reserved IDs \
-    below 0x800 (a CK check, plan/STATUS.md, planet lane request to lane E)";
-
-const FLST_AV: &str = "FLST LNAM (one FormID per entry; xedit wbDefinitionsSF1.pas, lane B \
-    round 3, M3.B7) in five actor-value form lists of Starfield.esm (ENV_imGui_4_ActorValues, \
-    ENV_imGui_4B_ActorValuesBasic, ENV_imGui_6_Weather, \
-    ENV_imGui_7B_Breathing_and_Suit_Integrity, SpaceshipPartSummedValues: 23 entries) names \
-    object IDs 0x2D8..0x359 below 0x800 that no official file defines, the same class as the \
-    PKIN PRPS actor values. Grade D hypothesis: engine-reserved actor values (a CK check, \
-    plan/STATUS.md)";
-
-/// One `FLST.LNAM` known error of Starfield.esm.
-const fn flst_av(value: u32, count: u64) -> Known {
-    dangling("Starfield.esm", "FLST.LNAM", Some(value), count, FLST_AV)
-}
-
-const PLAYER_REF: &str = "object ID 0x14 in a placed-reference slot (world family, M4: enable \
-    parent, attach ref, linked ref, location enable parent; quest family, M4.BQ1: a quest alias's specific reference) whose xEdit target list names \
-    PLYR, the player reference (xedit wbDefinitionsSF1.pas L3892-L3899 and the \
-    placed-reference target lists); no official file defines 0x14. Grade D hypothesis: the \
-    engine's player reference (validate could resolve it, request to lane E)";
-
-const LOW_BASE: &str = "REFR:00014893's NAME (base object) is 0x1FB, an object ID below \
-    0x800 that no official file defines, the same class as the PKIN PRPS and FLST LNAM \
-    actor values (world family, M4). Grade D hypothesis: an engine-reserved form";
-
 const XPLK_INDEX: &str = "REFR XPLK (power links: reference, u32; xedit wbDefinitionsSF1.pas \
     L8844, world family, M4) in the DLC files stores its reference with a file index one \
     above the plugin's own (SFBGS00D 02 for 01, SFBGS050 03 for 02, ShatteredSpace 02 for \
@@ -87,48 +62,12 @@ const XBPS_SELF: &str = "CELL XBPS (ship snap links: parent ref, linked ref, two
     typed conflicts and Starfield.esm's resolve, so these are dangling links, not a layout \
     error";
 
-const SMEN_ROOT: &str = "SMEN PNAM (parent node: SMQN, SMBN or SMEN; xedit \
-    wbDefinitionsSF1.pas, quest family, M4.BQ1) is 0x5B on 20 story manager event nodes of \
-    Starfield.esm, an object ID below 0x800 that no official file defines (SFBGS003 and \
-    ShatteredSpace have one more each, as warnings). Grade D hypothesis: an engine-reserved \
-    root node of the story manager tree (a CK check, plan/STATUS.md, quest lane request to \
-    lane H)";
+const RDSA_STALE: &str = "NPC_:0018B5F4's RDSA entry (xedit wbDefinitionsSF1.pas, actor \
+    family, M4.BC1) names SpecificReference 00577823, which Starfield.esm does not have; the \
+    entry's flags do not enable the specific reference, so it is a stale value the game \
+    ignores, not a layout error (actor lane request to lane H: does the CK clear it?)";
 
 const KNOWN_ERRORS: &[Known] = &[
-    dangling("Starfield.esm", "SMEN.PNAM", Some(0x5B), 20, SMEN_ROOT),
-    dangling(
-        "Starfield.esm",
-        "QuestReferenceAlias.ALFR",
-        Some(0x14),
-        2,
-        PLAYER_REF,
-    ),
-    flst_av(0x0000_02D8, 2),
-    flst_av(0x0000_02DB, 1),
-    flst_av(0x0000_02E2, 3),
-    flst_av(0x0000_02EE, 1),
-    flst_av(0x0000_0313, 3),
-    flst_av(0x0000_032E, 1),
-    flst_av(0x0000_034F, 3),
-    flst_av(0x0000_0350, 2),
-    flst_av(0x0000_0351, 2),
-    flst_av(0x0000_0352, 2),
-    flst_av(0x0000_0355, 1),
-    flst_av(0x0000_0359, 2),
-    dangling(
-        "Starfield.esm",
-        "PKIN.PRPS.ActorValue",
-        Some(0x0000_033D),
-        7,
-        PRPS_AV,
-    ),
-    dangling(
-        "Starfield.esm",
-        "PKIN.PRPS.ActorValue",
-        Some(0x0000_033E),
-        14,
-        PRPS_AV,
-    ),
     dangling(
         "SFBGS050.esm",
         "PNDT.EOVR.Worldspace",
@@ -138,34 +77,59 @@ const KNOWN_ERRORS: &[Known] = &[
             form of SFBGS050.esm itself that the file does not contain (planet lane, \
             docs/schema/planet-family.md)",
     ),
-    dangling(
-        "Starfield.esm",
-        "EnableParent.Ref",
-        Some(0x14),
-        6,
-        PLAYER_REF,
-    ),
-    dangling("Starfield.esm", "REFR.XATR", Some(0x14), 4, PLAYER_REF),
-    dangling(
-        "Starfield.esm",
-        "LinkedReferences.XLKR.Ref",
-        Some(0x14),
-        1,
-        PLAYER_REF,
-    ),
-    dangling(
-        "Starfield.esm",
-        "LCTN.LCEP.Parent",
-        Some(0x14),
-        2,
-        PLAYER_REF,
-    ),
-    dangling("Starfield.esm", "REFR.NAME", Some(0x1FB), 1, LOW_BASE),
     dangling("SFBGS00D.esm", "REFR.XPLK.Ref", None, 4, XPLK_INDEX),
     dangling("SFBGS050.esm", "REFR.XPLK.Ref", None, 4, XPLK_INDEX),
     dangling("ShatteredSpace.esm", "REFR.XPLK.Ref", None, 30, XPLK_INDEX),
     dangling("SFBGS050.esm", "CELL.XBPS.ParentRef", None, 24, XBPS_SELF),
     dangling("SFBGS050.esm", "CELL.XBPS.LinkedRef", None, 23, XBPS_SELF),
+    dangling(
+        "Starfield.esm",
+        "NPC_.RDSA.SpecificReference",
+        Some(0x0057_7823),
+        1,
+        RDSA_STALE,
+    ),
+];
+
+/// Engine-reserved FormIDs the official files name, per plugin and member path: the
+/// regression expectation of the reserved-ID exception (`docs/validate.md`, "Engine-reserved
+/// object IDs"; ADR 0005 Amendment 4). Before the exception these were `KNOWN_ERRORS` (in
+/// Starfield.esm) and `formid.dangling` warnings (in the DLC files): the player reference
+/// 0x14 in reference slots, actor values 0x2D0..0x3AC in PRPS and FLST lists, REFR NAME
+/// 0x1FB, the story manager root 0x5B. A change in any count fails the test.
+const RESERVED: &[(&str, &str, u64)] = &[
+    ("Starfield.esm", "EnableParent.Ref", 6),
+    ("Starfield.esm", "FLST.LNAM", 23),
+    ("Starfield.esm", "LCTN.LCEP.Parent", 2),
+    ("Starfield.esm", "LinkedReferences.XLKR.Ref", 1),
+    ("Starfield.esm", "NPC_.PRPS.ActorValue", 139),
+    ("Starfield.esm", "PKIN.PRPS.ActorValue", 21),
+    ("Starfield.esm", "QuestReferenceAlias.ALFR", 2),
+    ("Starfield.esm", "RACE.PRPS.ActorValue", 178),
+    ("Starfield.esm", "REFR.NAME", 1),
+    ("Starfield.esm", "REFR.XATR", 4),
+    ("Starfield.esm", "SMEN.PNAM", 20),
+    ("SFBGS003.esm", "NPC_.PRPS.ActorValue", 186),
+    ("SFBGS003.esm", "RACE.PRPS.ActorValue", 7),
+    ("SFBGS003.esm", "SMEN.PNAM", 1),
+    ("SFBGS004.esm", "RACE.PRPS.ActorValue", 14),
+    ("SFBGS00D.esm", "EnableParent.Ref", 1),
+    ("SFBGS00D.esm", "LinkedReferences.XLKR.Ref", 1),
+    ("SFBGS00D.esm", "NPC_.PRPS.ActorValue", 3),
+    ("SFBGS00D.esm", "QuestReferenceAlias.ALFR", 1),
+    ("SFBGS00D.esm", "RACE.PRPS.ActorValue", 3),
+    ("SFBGS047.esm", "RACE.PRPS.ActorValue", 14),
+    ("SFBGS050.esm", "EnableParent.Ref", 2),
+    ("SFBGS050.esm", "LCTN.LCEP.Parent", 1),
+    ("SFBGS050.esm", "NPC_.PRPS.ActorValue", 3),
+    ("SFBGS050.esm", "RACE.PRPS.ActorValue", 31),
+    ("ShatteredSpace.esm", "EnableParent.Ref", 1),
+    ("ShatteredSpace.esm", "NPC_.PRPS.ActorValue", 36),
+    ("ShatteredSpace.esm", "PKIN.PRPS.ActorValue", 2),
+    ("ShatteredSpace.esm", "QuestReferenceAlias.ALFR", 1),
+    ("ShatteredSpace.esm", "RACE.PRPS.ActorValue", 31),
+    ("ShatteredSpace.esm", "REFR.XATR", 1),
+    ("ShatteredSpace.esm", "SMEN.PNAM", 1),
 ];
 /// The stored FormID a `formid.dangling` message names (`... = 0000033E names ...`).
 fn named_value(message: &str) -> Option<u32> {
@@ -273,6 +237,33 @@ fn validate_corpus_official_files() {
             "{name}: findings are capped; errors cannot be matched"
         );
         if unexplained > 0 {
+            failures.push(name);
+        }
+        let seen: BTreeMap<String, u64> = data["reserved_by_member"]
+            .as_object()
+            .map(|m| {
+                m.iter()
+                    .map(|(k, v)| (k.clone(), v.as_u64().unwrap_or(0)))
+                    .collect()
+            })
+            .unwrap_or_default();
+        let expected: BTreeMap<String, u64> = RESERVED
+            .iter()
+            .filter(|(plugin, _, _)| *plugin == name)
+            .map(|(_, member, count)| ((*member).to_owned(), *count))
+            .collect();
+        println!(
+            "    reserved: {} {}",
+            data["reserved_form_ids"],
+            Value::from(serde_json::Map::from_iter(
+                seen.iter().map(|(k, v)| (k.clone(), json!(v)))
+            ))
+        );
+        if seen != expected {
+            for (member, count) in &seen {
+                println!("    reserved count: (\"{name}\", \"{member}\", {count}),");
+            }
+            println!("    expected: {expected:?}");
             failures.push(name);
         }
     }

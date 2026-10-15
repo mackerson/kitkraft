@@ -204,6 +204,12 @@ pub(crate) fn outcome(options: &Options, report: &validate::Report) -> Outcome {
             report.checked_form_ids, report.unchecked_subrecords, report.unresolved_form_ids
         ));
     }
+    if report.reserved_form_ids > 0 {
+        limitations.push(format!(
+            "formid.dangling skipped {} FormIDs naming engine-reserved forms (object IDs below 0x800 in Starfield.esm, which no plugin defines; data.reserved_by_member counts them per member)",
+            report.reserved_form_ids
+        ));
+    }
     let complete = report.unchecked_subrecords == 0 && report.unresolved_form_ids == 0;
     Outcome {
         data: json!({
@@ -221,6 +227,8 @@ pub(crate) fn outcome(options: &Options, report: &validate::Report) -> Outcome {
             "subrecords": report.subrecords,
             "checked_form_ids": report.checked_form_ids,
             "unresolved_form_ids": report.unresolved_form_ids,
+            "reserved_form_ids": report.reserved_form_ids,
+            "reserved_by_member": report.reserved_by_member,
             "unchecked_subrecords": report.unchecked_subrecords,
             "scripts_checked": report.scripts,
             "summary": summary,

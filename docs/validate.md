@@ -26,7 +26,7 @@ headers give flags (localized, scale); their record indexes are built when
 | ---- | -------- | ------------- | ------------ |
 | `masters.missing` | error | A `MAST` the plugin lists that is in none of the places above | The game refuses to load a plugin with a missing master |
 | `masters.order` | error | A master listed before one of its own masters | Masters load in list order; a master must follow its own masters |
-| `formid.dangling` | error / warning | A FormID (record header, or a typed member through the generated visitors, M2.B3) whose top byte names no master slot (**error**); a typed member naming a form of the plugin itself that the plugin does not have (**error**: a dangling self-reference, what a verbatim copy from a small or medium plugin leaves; Fable review round 2, finding 3); one whose master has no such form (**warning**: an injected record, or a reference to a deleted form; the record-header case stays a warning) | File-relative FormIDs (`plan/execution-plan.md` "Format facts"); full-scale slots skip small and medium masters, and `FE`/`FD` FormIDs index the small and medium masters (lane D's class encoding, `kitcraft_doc::RawRef`, `docs/load-order.md` "FormIDs"; M3.E3). A slot after a master of unknown scale, and a small or medium plugin's own record stored full-style (lane D's assumption `full-style-self`), are counted as `unresolved_form_ids`, never guessed; opaque or undecoded subrecords are counted as `unchecked_subrecords` (they shrink as lane B round 3 types land) |
+| `formid.dangling` | error / warning | A FormID (record header, or a typed member through the generated visitors, M2.B3) whose top byte names no master slot (**error**); a typed member naming a form of the plugin itself that the plugin does not have (**error**: a dangling self-reference, what a verbatim copy from a small or medium plugin leaves; Fable review round 2, finding 3); one whose master has no such form (**warning**: an injected record, or a reference to a deleted form; the record-header case stays a warning). A typed member naming an engine-reserved form (an object ID below 0x800 in `Starfield.esm`'s index space that it does not define) is not a finding: it is counted as `reserved_form_ids` ("Engine-reserved object IDs" below) | File-relative FormIDs (`plan/execution-plan.md` "Format facts"); full-scale slots skip small and medium masters, and `FE`/`FD` FormIDs index the small and medium masters (lane D's class encoding, `kitcraft_doc::RawRef`, `docs/load-order.md` "FormIDs"; M3.E3). A slot after a master of unknown scale, and a small or medium plugin's own record stored full-style (lane D's assumption `full-style-self`), are counted as `unresolved_form_ids`, never guessed; opaque or undecoded subrecords are counted as `unchecked_subrecords` (they shrink as lane B round 3 types land) |
 | `lstring.copied-id` | error / warning | In a non-localized plugin, a 4-byte lstring payload (FULL, DESC, a template FULL, an lstring of the corpus table below such as ACTI `ATTX` or MESG `ITXT`, ...) in a record that overrides a record of a localized master, or one whose bytes are not text: "localized string id copied into non-localized plugin" (**error**). In such an override, a non-zero 4-byte payload of unknown layout (no schema layout or opaque bytes, and not classed by the table) may be a copied ID the rule cannot see: **warning** naming the subrecord | The Resupply lesson (`C:\Modding\scripts\fix_resupply_door.py`, ours): the game reads the ID's bytes as the name. Lstring layouts: lane B's schema (M2.B2), `FULL`/`DESC` by the `uesp-skyrim` fact elsewhere, then the corpus lstring table. A legitimate 3-character name in such an override is flagged too (the owner's rule: flag every 4-byte lstring there). A zero payload is not warned about (it reads as the empty string either way), nor one the table classes as not an lstring |
 | `override.stripped-name` | error / warning | An override that has no `FULL` (or `NTRM`) where the previous version in load order (the last of the plugin's masters holding the form) has one: **error**, except on `CELL`, `LCTN`, `NPC_`, `QUST` and `WRLD` overrides (**warning**) | The Resupply door: Resupply 2.6 dropped the door's FULL, which removed its name and the "open" prompt on every door of that type. The official DLCs drop names on 92 overrides, all of those five types (`corpus:` `validate_corpus_official_files`: SFBGS003 4 CELL + 20 LCTN, SFBGS008 5 LCTN, SFBGS00D 6 CELL + 6 LCTN + 1 NPC_ + 2 WRLD, SFBGS047 1 WRLD, SFBGS050 11 CELL + 13 LCTN + 3 NPC_ + 6 QUST + 12 WRLD, ShatteredSpace 1 CELL + 1 QUST), so there it is a warning |
 | `record.flags-body` | error / warning | A compressed record whose body does not decompress (**error**); in a localized plugin an lstring that is not 4 bytes, in a non-localized one an lstring that is not one NUL-terminated string (**error**); a `HEDR` record count that is neither "records including TES4" nor "records without TES4 plus groups" (**warning**) | Container rules (`crates/esm`); the two `HEDR` meanings from the corpus (`docs/corpus.md`, TES4 header inventory and Writing rules) |
@@ -102,6 +102,29 @@ entry, through lane G's `kitcraft-ba2`, at most 64 MiB each; a finding names
 `plugin_archives` adds the plugin's own `<stem> - *.ba2` (M3.E3, test
 `papyrus_denylisted_call_in_archives`). On the local patch the test `papyrus_denylisted_call_on_the_local_noc_patch`
 expects 4 findings for the landing script and none for the airlock script.
+
+## Engine-reserved object IDs
+
+`formid.dangling` skips a typed member whose FormID names an object ID below 0x800 in
+`Starfield.esm`'s index space that `Starfield.esm` does not define (`validate::is_reserved`,
+`RESERVED_OBJECT_IDS`). Such IDs are counted in `data.reserved_form_ids`, per member path in
+`data.reserved_by_member`, and named in `limitations`; they are neither errors nor warnings.
+
+Why (ADR 0005 Amendment 4): no official file defines these IDs, yet the official files name
+them from typed members that decode identically everywhere (corpus fact, grade A): the player
+reference 0x14 in reference slots (enable parents, attach refs, linked refs, location enable
+parents, quest alias specific references), actor values 0x2D0..0x3AC in PRPS property lists
+(NPC_, RACE, PKIN and the items family) and in FLST actor-value lists, REFR NAME 0x1FB, and
+SMEN PNAM 0x5B (a story manager root). The reading that they are engine-reserved default forms
+is grade D until the Creation Kit is observed resolving and keeping them (STATUS Requests to
+lane H). What does not change: a low ID that `Starfield.esm` defines is an ordinary form; a
+low ID under any other master, or in a record header (an override of a form the master
+lacks), is checked as before.
+
+`validate_corpus_official_files` pins the count per plugin and member path (`RESERVED` in
+`crates/engine/tests/validate_corpus.rs`), so a family that types a new member naming such
+IDs changes the expectation with its evidence instead of hiding it. The test
+`formid_dangling_skips_engine_reserved_ids` covers the rule on synthetic plugins.
 
 ## On the official files
 

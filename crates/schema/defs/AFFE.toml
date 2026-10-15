@@ -1,0 +1,108 @@
+# AFFE: Affinity Event, an event companions react to (approve or disapprove). Each
+# reaction pairs a companion (NNAM, an NPC_) with a global holding the reaction value
+# (RNAM); the event's size, distance, cooldown, actor value and required faction follow.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9309-L9329 - member order, the FNAM flag bits,
+#     the reaction group and the six trailing FormIDs. Helpers: EDID (L3182), NLDT (L3183).
+#   corpus: the 1,593 AFFE records (Starfield.esm 1,360, ShatteredSpace 132, SFBGS050 55,
+#     SFBGS00D 46; form versions 581, 582), 2026-10-14: order EDID FNAM [NLDT]
+#     (NNAM [RNAM])* [ANAM] [ENAM] [DNAM] [CNAM] [BNAM] [PNAM]; every FormID and FNAM 4
+#     bytes; NNAM/RNAM pairs up to 32 per record. Every record decodes and re-encodes
+#     identically.
+#
+# Corpus against upstream: one reaction in the official files has an NNAM without its
+# RNAM, so RNAM is optional here (upstream requires it).
+signature = "AFFE"
+name = "AffinityEvent"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9309-L9329"
+evidence = [
+  "corpus: the 1,593 AFFE records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u32"
+bits = [["AllowRepeatedEvents", 0x1], ["TemplateAffinityEvent", 0x2], ["FillCompanionDialogue", 0x4]]
+
+[[member]]
+sig = "NLDT"
+name = "ContextNotes"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3183-L3183"]
+note = "an editor note for translators; observed in 1,579 records"
+
+[[member]]
+group = "Reaction"
+card = "repeated"
+note = "one companion's reaction; observed up to 32 per record"
+
+[[member.member]]
+sig = "NNAM"
+name = "Actor"
+type = "formid"
+targets = ["NPC_"]
+
+[[member.member]]
+sig = "RNAM"
+name = "ReactionValue"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+note = "a global holding the reaction value; missing after one NNAM in the official files"
+
+[[member]]
+sig = "ANAM"
+name = "ActorValue"
+type = "formid"
+targets = ["AVIF"]
+card = "optional"
+
+[[member]]
+sig = "ENAM"
+name = "EventSize"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "DNAM"
+name = "DistanceToPlayer"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "CNAM"
+name = "CooldownInMinutes"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member]]
+sig = "BNAM"
+name = "RequiredFaction"
+type = "formid"
+targets = ["FACT"]
+card = "optional"
+
+[[member]]
+sig = "PNAM"
+name = "AddToEvent"
+type = "formid"
+targets = ["AFFE"]
+card = "optional"
+note = "observed in 41 records"

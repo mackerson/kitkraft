@@ -9,6 +9,11 @@
 #
 # The material swap list carries a count prefix before its FormIDs; xEdit encodes it as a
 # 2-byte prefix (negative array count). It is written here as an explicit count field.
+#
+# Folded in M4.BX1 (ACTOR merge): LVLP (planet family) and LVLN (actor family) spelled the
+# same block out inline from the same xEdit lines; both now reference this one, and their
+# corpus checks are added to MODL and FLLD below (no official LVLP or LVLN has MOLM, MODC
+# or XFLG).
 name = "Model"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"
@@ -21,6 +26,7 @@ type = "zstring"
 card = "optional"
 evidence = [
   "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every MODL in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs decodes and re-encodes identically",
+  "corpus: the planet family (M4, every LVLP) and actor family (M4.BC1, every LVLN: MODL in 10 records) typed checks of the 14 official ESMs, 2026-10-14: every model MODL decodes and re-encodes identically",
 ]
 confidence = "corpus"
 
@@ -45,6 +51,7 @@ bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4],
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"
 evidence = [
   "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every model FLLD in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs is 4 bytes and re-encodes identically",
+  "corpus: the planet family (M4, every LVLP) and actor family (M4.BC1, FLLD in every LVLN) typed checks of the 14 official ESMs, 2026-10-14: every model FLLD is 4 bytes and re-encodes identically",
 ]
 confidence = "corpus"
 

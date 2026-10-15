@@ -334,6 +334,8 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `FACT` `QUST` `PACK` `DIAL` `INFO` `SCEN` `SMBN` `SMQN` `SMEN` `CHAL` (`.toml`) | record | xedit at the pin + corpus (every official record) | Quest family (`docs/schema/quest-family.md`): typed except VMAD after its header, CTDA unions, component blocks, SCEN action type-specific subrecords, PACK input unions and unnamed slots |
 | `common/ScriptAttachment.toml`, `PackageLocation` | type | xedit + corpus | VMAD header (scripts and fragments raw), the package/vendor location (the quest family's Wwise sound reference folded into `common/SoundReference.toml`, M4.BX1) |
 | `common/QuestReferenceAlias.toml` | group | xedit L7996-L8163 + corpus | One quest reference alias (ALST..ALED), used twice by QUST |
+| `NPC_` `LVLN` `OTFT` `CLAS` `AFFE` `RACE` `PERK` `SPEL` `MGEF` (`.toml`) | record | xedit at the pin + corpus (every official record) | Actor family (`docs/schema/actor-family.md`): typed except VMAD, component blocks, unions and unnamed slots |
+| `common/AttackData.toml`, `common/Effect.toml` | group | xedit + corpus | An attack (ATKD..ATKT); a magic item's effect entry (EFID..MUID, conditions without CITC) |
 
 Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
 is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`

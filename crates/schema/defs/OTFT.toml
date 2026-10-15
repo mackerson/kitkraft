@@ -1,0 +1,54 @@
+# OTFT: Outfit, the list of armor pieces (or leveled item lists) an actor wears. NPC_
+# points at one through DOFT (default outfit) and SOFT (space outfit).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L15506-L15511 - member order and the item list.
+#     Helpers: EDID (L3182), script data (L3393-L3411, kept opaque), the base form
+#     component block (L5984-L6832, kept raw).
+#   corpus: the 698 OTFT records (Starfield.esm 596, ShatteredSpace 68, SFBGS050 15,
+#     SFBGS00D 10, SFBGS003 9; form versions 581, 582), 2026-10-14: every record is EDID
+#     INAM; INAM is 0, 4, 8 or 12 bytes (a list of 0 to 3 FormIDs). Every record decodes and
+#     re-encodes identically.
+signature = "OTFT"
+name = "Outfit"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15506-L15511"
+evidence = [
+  "corpus: the 698 OTFT records of the 14 official ESMs, 2026-10-14 scan; typed check: kitcraft-esm corpus_full_roundtrip (M2.A3) and an out-of-tree pass requiring an empty extra decode every record and re-encode it identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3393-L3411"]
+confidence = "reference"
+note = "script data; its property values are unions by property type, kept raw; not present in the official OTFT records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+confidence = "reference"
+note = "base form components; not present in the official OTFT records"
+
+[[member]]
+sig = "INAM"
+name = "Items"
+type = "array"
+element = "formid"
+targets = ["ARMO", "LVLI"]
+count = "rest"
+card = "optional"
+note = "present in every official record; empty in 2"

@@ -851,6 +851,45 @@ is under "Next".
     pixels identical under Archive2's own DDS header). Install steps and the manifest check
     in `docs/packaging.md`. **Owner (M4.O2):** install the rename package through MO2 on
     `KitKraft Dev` and check the hashes on disk against the manifest.
+- M4.BC1 ACTOR schema family (family lane BC, `crates/schema/defs`, 2026-10-14): NPC_,
+  LVLN, OTFT, CLAS, AFFE, RACE, PERK, SPEL, MGEF transcribed from the pinned xEdit files
+  (one commit per type, every member cited with its line range); new shared `common/`
+  definitions `SoundReference`, `AttackData`, `Effect`. Corpus check (14 files, generated
+  decoder regenerated in the worktree): all 13,350 records of the 9 types (NPC_ 8,447, all
+  compressed; LVLN 298; OTFT 698; CLAS 8; AFFE 1,593; RACE 47; PERK 608; SPEL 662; MGEF
+  989) decode with every subrecord placed, nothing in `extra`, and re-encode
+  byte-identically; `corpus_full_roundtrip` (release) 14/14 identical, 0 typed conflicts;
+  doc `typed_corpus` all files passes (60,063 typed records, the 181 pinned unresolved
+  lstrings as before). Confidence `corpus`, members never seen in an official file
+  `reference`. Opaque by design: VMAD, component blocks, NPC_ ACBS level union, NAM5, OBTS,
+  ONA2 tail, RACE DAT2 unnamed words, PERK effect DATA/EPFD unions, ATAV, MGEF archetype
+  slots (gaps rows in `docs/schema/actor-family.md`, the mod-author guide). `cargo xtask
+  ci` green in the worktree with the generated files regenerated; generated output, the
+  `BUILTIN_DEFINITIONS` region, the golden `seed.rs` and the `tests/defs.rs` lists are left
+  to the integrator (9 records, 3 common files to add).
+- M4.BX1 ACTOR merge (integrator, BX3, 2026-10-14): the actor family's full CLAS, MGEF,
+  NPC_, PERK, RACE and SPEL win over round 3's lstring-only stubs (every corpus-table
+  lstring is a member). Shared blocks folded: the family's `SoundReference` (an event-set
+  struct plus the start form, the same 40 bytes) into the existing flat one, LVLN's and
+  LVLP's inline model groups into `common/Model` (same members and cardinalities), NPC_'s
+  opaque destructible block into `common/Destructible` (absent from the official NPC_);
+  `common_blocks_are_not_duplicated` now also checks that those records reference the
+  shared blocks. Derived files regenerated (83 record definitions, 32 shared).
+  **Engine-reserved object IDs** (ADR 0005 Amendment 4, `docs/validate.md`): instead of
+  listing the 318 new `PRPS.ActorValue` errors, `formid.dangling` no longer reports a typed
+  member naming an object ID below 0x800 in `Starfield.esm`'s index space that it does not
+  define; it counts them (`reserved_form_ids`, `reserved_by_member`, a limitation). Every
+  earlier `< 0x800` known error (PKIN/FLST actor values, the player reference 0x14, REFR
+  NAME 0x1FB, SMEN PNAM 0x5B, quest alias ALFR 0x14) left `KNOWN_ERRORS`; the corpus test
+  pins the counts per plugin and member path instead (`RESERVED`: 738 in all, 397 in
+  Starfield.esm: NPC_ PRPS 139, RACE PRPS 178, FLST LNAM 23, PKIN PRPS 21, SMEN PNAM 20,
+  ...); the DLC warnings of the same class are gone. The one other new error,
+  `NPC_:0018B5F4` `RDSA.SpecificReference = 00577823` (a stale value its flags do not
+  enable), is a `KNOWN_ERRORS` entry. Synthetic test `formid_dangling_skips_engine_reserved_ids`.
+  Gates: `cargo xtask ci`; ignored release tests for esm, doc and engine (31 min; doc
+  `typed_corpus` 7,257,137 typed records, 181 pinned unresolved lstrings). Parity: 83 record
+  definitions, 45,923,589 typed (1,712,200 failed, the unordered CELL/REFR/ACHR placements),
+  2,262,151 opaque, 2,233,821 unknown.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -1591,3 +1630,30 @@ Agents append here when they need a change in a crate they do not own.
   those low object IDs are to the CK (engine-reserved forms?). (7) Whether the CK
   writes a CITC before quest, scene, package-level and response conditions on a new record
   (no official one has it).
+- **Actor schema lane (BC) -> integrator (BX).** Done in M4.BX1 (ACTOR merge, see Done; (2) by the engine-reserved ID rule, (3) CIS1 was raised at the QUEST merge, (4) model and destructible folded, PRPS at the ITEMS merge). At the ACTOR merge: (1) add the 9 records
+  and `common/{AttackData,Effect,SoundReference}.toml` to `BUILTIN_DEFINITIONS`, the
+  `tests/defs.rs` lists and the golden; (2) `validate_corpus_official_files` then reports
+  319 new `formid.dangling` errors in Starfield.esm, all explained, none a layout error:
+  318 are `PRPS.ActorValue` values below 0x800 that no file defines, the same class as the
+  known PKIN ones (NPC_ 139: 0x385 x102, 0x32D x17, 0x330 x7, 0x3A2 x7, 0x39E x5, 0x351
+  x1; RACE 178: 0x2D8, 0x2D9, 0x2E0 x31 each, 0x39E, 0x39F, 0x3A0, 0x3A1 x21 each, 0x385
+  x1), plus `NPC_:0018B5F4` `RDSA.SpecificReference = 00577823`, a stale value in an
+  entry whose flags do not enable it; the DLC files report the same actor values as
+  warnings. Please list them in `KNOWN_ERRORS`. (3) `common/Condition.toml`'s CIS1 is
+  `reference`, but one official PERK condition carries a 40-byte CIS1 that decodes; it can
+  be raised to `corpus`. (4) Duplicate candidates: the inline PRPS property layout (NPC_,
+  RACE, CLAS, as in PKIN), the model group (LVLN, as in LVLP) and the destructible block
+  (NPC_, kept opaque) may meet other families' blocks. (5) Codegen note: the generated
+  code follows rustfmt only up to its call-width heuristic; long member paths make the
+  golden `seed.rs` not rustfmt-clean (worked around with shorter NPC_/RACE names).
+- **Actor schema lane (BC) -> lane H (CK observation).** Questions only the CK can answer
+  (details in `docs/schema/actor-family.md`, "Open questions"): (1) actor values below
+  0x800 in `PRPS` (NPC_, RACE, PKIN): does the CK name them and keep them on save? (2) does
+  the CK write `STOP` on an NPC_ without an object template, and keep PRKZ, COCT, CS3H,
+  EDCT, OBTE and LVLN LLCT in sync with their lists? (3) how `ACBS.Level` reads and is
+  written with `PcLevelMult`; (4) which template applies to a section whose flag is set and
+  whose `TPTA` slot is 0; (5) which controls set each `ONA2` override flag and the block
+  order; (6) whether `RDSA.SpecificReference` is cleared when `UseSpecificReference` is
+  off; (7) EPFT against the EPFD sizes (4, 8) and whether the CK writes a 3-byte PERK
+  `DATA`; (8) any CK field that changes NPC_ `NAM5` (always `FF 00`), RACE `DAT2` offsets
+  92-127 or the chargen NNAM.
