@@ -513,6 +513,12 @@ fn checklist(
                     "{n}. `player.moveto {runtime}`: you stand at the new {} `{edid}`.",
                     f.signature
                 );
+                if f.persistent && f.editor_id.is_some() {
+                    let _ = writeln!(
+                        s,
+                        "   If the console says the ID is unknown (the plugin took another slot), try\n   `player.moveto {edid}` and `prid {edid}`: a persistent reference with an EditorID\n   may be named directly (grade D); note the ID it shows."
+                    );
+                }
                 n = n.saturating_add(1);
             }
             let _ = writeln!(

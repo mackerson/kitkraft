@@ -833,6 +833,19 @@ is under "Next".
     `runtime-slots-by-scale` and `masters-load-first` and the batch folder (grade D) are
     limitations. Deterministic; `out` guarded (never game/user Data or MO2). Tests through
     `execute` (`handlers/testplan_tests.rs`).
+  - **First POI (rung 0) built** (`docs/poi/first-poi.md`, spec `docs/poi/first-poi.toml`):
+    `out\poi\KitKraftFirstPOI.esm` (1,821 bytes, SHA-256
+    `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1`, master
+    `Starfield.esm` only): one persistent `REFR` `KitKraftFirstPOICrate` (`01001000`) of
+    `Crate_MilitarySupply_01` (`Starfield.esm:1E4FBD`) in the interior cell
+    `CityNewAtlantisApartmentTEMPLATE` (`Starfield.esm:21966F`, one version on Default).
+    Two builds identical; `validate` 0 errors 0 warnings (14 rules); `roundtrip --verify`
+    identical; `inspect` with the plugin appended finds it; `testplan` against the Default
+    profile (read only) gives runtime ID `28001000`; `package` validated it into
+    `out\poi\package`. **Owner (M4.O2):** on **KitKraft Dev** with a disposable save,
+    `coc CityNewAtlantisApartmentTEMPLATE`, then `player.moveto 28001000` (or
+    `player.moveto KitKraftFirstPOICrate`), `prid` it, screenshot, and run the persistence
+    steps in `docs/poi/first-poi.md`.
 - Lane G, M4 (archives, scripts, strings; 2026-10-14):
   - M4.G0: ADR 0006 Amendment 1: `.psc` declaration facts come from the official sources
     in `Tools\ContentResources.zip` read in place (level 1), the compiler as a black box

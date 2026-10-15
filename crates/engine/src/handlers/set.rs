@@ -394,6 +394,11 @@ pub(crate) fn install(command: &str, staged: &Staged, out: &Path) -> Result<(), 
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
     let temp = out.with_file_name(format!(".{name}.kitcraft-{}.tmp", std::process::id()));
+    // A missing destination folder is created (`out` was guarded before staging).
+    if let Some(parent) = out.parent().filter(|p| !p.as_os_str().is_empty()) {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| failed(command, format!("{}: {e}", parent.display())))?;
+    }
     std::fs::copy(&staged.path, &temp)
         .and_then(|_| std::fs::rename(&temp, out))
         .map_err(|e| {
@@ -521,7 +526,9 @@ pub(crate) fn outcome(
                 r.signature,
                 r.formref,
                 r.editor_id.as_deref().unwrap_or("-"),
-                if fields.is_empty() {
+                if r.source.starts_with("new (") {
+                    "new".to_string()
+                } else if fields.is_empty() {
                     "copied".to_string()
                 } else {
                     fields.join(", ")
