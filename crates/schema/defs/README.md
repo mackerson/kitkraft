@@ -136,8 +136,9 @@ signature. A subrecord member with that signature must follow later in the same 
 it for blocks whose contents are not modelled yet.
 
 `card` is `required` (exactly once, the default), `optional` (0..1) or `repeated` (0..n,
-consecutive). The same signature may appear at two positions if the members have different
-names (WEAP has two `FLLD` slots).
+consecutive). In an ordered record the same signature may appear at two positions if the
+members have different names (WEAP has two `FLLD` slots); an unordered record does not
+allow that at the top level (see Unordered records).
 
 ### Unordered records
 
@@ -151,8 +152,11 @@ typed value in on-disk order (`disk_order`) and `encode` writes the values back 
 order, so an unedited record re-encodes byte for byte; values added since decoding follow
 the recorded ones, member by member, and a record built from scratch is written in
 definition order. List the members in the order most records use. Not allowed: a
-top-level `any_until` member (it would accept every subrecord out of place), and the
-member name `DiskOrder`. Generated helpers: `UNORDERED` (the signatures) and
+top-level `any_until` member (it would accept every subrecord out of place), a signature
+that can start two top-level members (two subrecord members of that signature, or a
+subrecord member and a group whose leading members, up to its first required one, include
+it: which member took it would depend on where the matcher stood; signatures inside a
+group past its first required member are fine), and the member name `DiskOrder`. Generated helpers: `UNORDERED` (the signatures) and
 `match_body(signature, subs, members)`, which picks the right matcher for tools that match
 bodies themselves.
 

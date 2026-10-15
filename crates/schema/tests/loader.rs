@@ -1371,6 +1371,43 @@ fn unordered_records() {
         invalid("[[member]]\nsig = \"DATA\"\nname = \"DiskOrder\"\ntype = \"u32\"\n"),
         ErrorKind::ReservedName("DiskOrder".into())
     );
+    // Lane B round 4: no signature may start two top-level members of an unordered record
+    // (two subrecord members, or a subrecord and a group that can begin with it); in an
+    // ordered record the same signature may sit at two positions.
+    let two = "[[member]]\nsig = \"DATA\"\nname = \"A\"\ntype = \"u32\"\n\
+               [[member]]\nsig = \"DATA\"\nname = \"B\"\ntype = \"u32\"\n";
+    parse_definition("TEST.toml", &record(two)).unwrap();
+    assert_eq!(
+        invalid(&format!("unordered = true\n{two}")),
+        ErrorKind::UnorderedAmbiguous {
+            signature: sig("DATA"),
+            first: "A".into(),
+            second: "B".into()
+        }
+    );
+    // A group whose optional first member is followed by a required one can start with
+    // either; a later member of the group does not start it.
+    let grouped = |inner_first: &str| {
+        format!(
+            "unordered = true\n[[member]]\nsig = \"XNAM\"\nname = \"Top\"\ntype = \"u32\"\n\
+             [[member]]\ngroup = \"Block\"\ncard = \"repeated\"\n\
+             [[member.member]]\nsig = \"{inner_first}\"\nname = \"Lead\"\ntype = \"u8\"\ncard = \"optional\"\n\
+             [[member.member]]\nsig = \"BODY\"\nname = \"Body\"\ntype = \"u8\"\n\
+             [[member.member]]\nsig = \"XNAM\"\nname = \"Tail\"\ntype = \"u8\"\ncard = \"optional\"\n"
+        )
+    };
+    parse_definition("TEST.toml", &record(&grouped("LEAD"))).unwrap();
+    assert_eq!(
+        invalid(&grouped("XNAM")),
+        ErrorKind::UnorderedAmbiguous {
+            signature: sig("XNAM"),
+            first: "Top".into(),
+            second: "Block".into()
+        }
+    );
+    // The builtin unordered records pass the rule.
+    let builtin = kitkraft_schema::builtin().unwrap();
+    assert!(builtin.records.values().filter(|r| r.unordered).count() >= 3);
     let header = "name = \"Hdr\"\nkind = \"header\"\nsource = \"corpus: t\"\n\
                   confidence = \"corpus\"\nunordered = true\nsize = 4\n\
                   field = [{ name = \"Size\", type = \"u32\" }]\n";

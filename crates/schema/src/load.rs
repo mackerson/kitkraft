@@ -177,6 +177,12 @@ pub enum ErrorKind {
     UnionWithoutEditorId,
     #[error("an unordered record cannot have a top-level `any_until` member: it would accept every subrecord out of place")]
     UnorderedAnyUntil,
+    #[error("in an unordered record, {signature} can start two top-level members ({first} and {second}): which one takes it would depend on match order")]
+    UnorderedAmbiguous {
+        signature: Signature,
+        first: String,
+        second: String,
+    },
 }
 
 // ---------------------------------------------------------------------------------------
@@ -667,6 +673,9 @@ fn convert_file(cx: &mut Cx<'_, '_>, raw: RawFile) -> Result<Definition, SchemaE
             if unordered && members.iter().any(|m| matches!(m, Member::AnyUntil(_))) {
                 return Err(cx.err(ErrorKind::UnorderedAnyUntil));
             }
+            if unordered {
+                check_unordered_entries(cx, &members)?;
+            }
             Ok(Definition::Record(RecordDef {
                 signature,
                 name: raw.name,
@@ -1051,6 +1060,48 @@ fn leaf_types<'m>(members: &'m [Member], out: &mut Vec<(Signature, &'m FieldType
             Member::AnyUntil(_) => {}
         }
     }
+}
+
+/// The signatures that can start `member`: its own for a subrecord; for a group, those of
+/// its members up to and including the first required one (nested groups likewise).
+fn entry_signatures(member: &Member, depth: usize, out: &mut BTreeSet<Signature>) {
+    match member {
+        Member::Subrecord(s) => {
+            out.insert(s.signature);
+        }
+        Member::AnyUntil(_) => {}
+        Member::Group(g) if depth <= MAX_DEPTH => {
+            for inner in &g.members {
+                entry_signatures(inner, depth.saturating_add(1), out);
+                if inner.cardinality() == Cardinality::Required {
+                    break;
+                }
+            }
+        }
+        Member::Group(_) => {}
+    }
+}
+
+/// An unordered record matches a subrecord against every top-level member from the start
+/// again when the current one does not take it, so a signature that two top-level members
+/// can start (two subrecord members, or a subrecord and a group that may begin with it)
+/// would make which member it lands in depend on the order the matcher happens to be in.
+fn check_unordered_entries(cx: &Cx<'_, '_>, members: &[Member]) -> Result<(), SchemaError> {
+    let mut seen: BTreeMap<Signature, &str> = BTreeMap::new();
+    for member in members {
+        let mut sigs = BTreeSet::new();
+        entry_signatures(member, 0, &mut sigs);
+        for sig in sigs {
+            if let Some(first) = seen.insert(sig, member.name()) {
+                return Err(cx.err(ErrorKind::UnorderedAmbiguous {
+                    signature: sig,
+                    first: first.to_owned(),
+                    second: member.name().to_owned(),
+                }));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Names reserved in member lists: generated record structs have an `extra` field, and
