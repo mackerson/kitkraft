@@ -206,7 +206,7 @@ pub(crate) fn outcome(options: &Options, report: &validate::Report) -> Outcome {
     }
     if report.reserved_form_ids > 0 {
         limitations.push(format!(
-            "formid.dangling skipped {} FormIDs naming engine-reserved forms (object IDs below 0x800 in Starfield.esm, which no plugin defines; data.reserved_by_member counts them per member)",
+            "formid.dangling skipped {} FormIDs naming engine-reserved forms (object IDs below 0x800 in Starfield.esm, which no plugin defines; data.reserved_by_member counts them per record type and member)",
             report.reserved_form_ids
         ));
     }

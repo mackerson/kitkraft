@@ -336,6 +336,9 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `common/QuestReferenceAlias.toml` | group | xedit L7996-L8163 + corpus | One quest reference alias (ALST..ALED), used twice by QUST |
 | `NPC_` `LVLN` `OTFT` `CLAS` `AFFE` `RACE` `PERK` `SPEL` `MGEF` (`.toml`) | record | xedit at the pin + corpus (every official record) | Actor family (`docs/schema/actor-family.md`): typed except VMAD, component blocks, unions and unnamed slots |
 | `common/AttackData.toml`, `common/Effect.toml` | group | xedit + corpus | An attack (ATKD..ATKT); a magic item's effect entry (EFID..MUID, conditions without CITC) |
+| `STAT` `MISC` `CONT` `ACTI` `FURN` `MSTT` `TERM` `TMLM` `ARMO` `IDLE` `ANIO` `CPTH` (`.toml`) | record | xedit at the pin + corpus (every official record) | Items and workshop family (`docs/schema/items-workshop-family.md`): typed except VMAD, component blocks, NVNM, unions and raw padding |
+| `common/ContainerItems.toml` | group | xedit + corpus | Container entries COCT, CNTO (COED middle slot raw); used by CONT, NPC_ and the quest alias inventory |
+| `common/RadioReceiver.toml`, `FurnitureMarkerFlags`, `FurnitureMarkerParameter`, `FurnitureEntryPoint` | type | xedit + corpus (RadioReceiver: xedit only) | Shared payload types of the items and workshop family (its model, destructible, object template, sound reference, object property and colour blocks were folded into `Model`, `Destructible`, `ObteBlock`, `SoundReference`, `PropertyValue` and `ColorRgb`, M4.BX1) |
 
 Universal subrecords (M2.B2): `EDID` is `EditorId` (zstring), `FULL` is `Name` and `DESC`
 is `Description` (lstring), and `KSIZ`/`KWDA` are the shared group `Keywords`

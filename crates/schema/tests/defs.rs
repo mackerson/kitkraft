@@ -142,14 +142,14 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "AVIF", "BIOM", "BOOK", "BPTD", "CELL",
-            "CHAL", "CLAS", "COBJ", "CONT", "DIAL", "DMGT", "DOOR", "ENCH", "EXPL", "FACT", "FLOR",
-            "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD", "HDPT", "IDLE", "INFO",
-            "INNR", "IRES", "KEYM", "KYWD", "LCRT", "LCTN", "LSCR", "LVLI", "LVLN", "LVLP", "MESG",
-            "MGEF", "MISC", "MSTT", "NAVM", "NPC_", "OMOD", "OTFT", "PACK", "PCBN", "PCCN", "PCMT",
-            "PERK", "PKIN", "PMFT", "PNDT", "PROJ", "QUST", "RACE", "REFR", "RSGD", "RSPJ", "SCEN",
-            "SFBK", "SFPT", "SMBN", "SMEN", "SMQN", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4",
-            "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
+            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "ANIO", "ARMO", "AVIF", "BIOM", "BOOK",
+            "BPTD", "CELL", "CHAL", "CLAS", "COBJ", "CONT", "CPTH", "DIAL", "DMGT", "DOOR", "ENCH",
+            "EXPL", "FACT", "FLOR", "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF", "HAZD",
+            "HDPT", "IDLE", "INFO", "INNR", "IRES", "KEYM", "KYWD", "LCRT", "LCTN", "LSCR", "LVLI",
+            "LVLN", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NAVM", "NPC_", "OMOD", "OTFT", "PACK",
+            "PCBN", "PCCN", "PCMT", "PERK", "PKIN", "PMFT", "PNDT", "PROJ", "QUST", "RACE", "REFR",
+            "RSGD", "RSPJ", "SCEN", "SFBK", "SFPT", "SMBN", "SMEN", "SMQN", "SPEL", "STAT", "STDT",
+            "SUNP", "TERM", "TES4", "TMLM", "TRAV", "WATR", "WEAP", "WRLD", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -167,9 +167,13 @@ fn builtin_set_loads_and_matches_the_directory() {
             "ColorRgba",
             "Component",
             "Condition",
+            "ContainerItems",
             "Destructible",
             "Effect",
             "EnableParent",
+            "FurnitureEntryPoint",
+            "FurnitureMarkerFlags",
+            "FurnitureMarkerParameter",
             "GroupedPackIn",
             "Keywords",
             "LinkedReferences",
@@ -183,6 +187,7 @@ fn builtin_set_loads_and_matches_the_directory() {
             "PositionRotation",
             "PropertyValue",
             "QuestReferenceAlias",
+            "RadioReceiver",
             "RagdollBone",
             "ResourceBiomeTier",
             "ResourceCellTier",
@@ -544,11 +549,11 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// lane's full definition replaces one (M4.BX1: BIOM, GBFM, PKIN, PNDT, RSPJ and STDT from
 /// the planet family; CELL, LCTN, REFR and WRLD from the world family; CHAL, DIAL, FACT,
 /// INFO and QUST from the quest family; CLAS, MGEF, NPC_, PERK, RACE and SPEL from the
-/// actor family).
+/// actor family; ACTI, CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
+/// items/workshop family).
 const LSTRING_ONLY: &[&str] = &[
-    "ACTI", "ALCH", "AVIF", "BOOK", "BPTD", "CONT", "DMGT", "DOOR", "ENCH", "EXPL", "FLOR", "FURN",
-    "FXPD", "GPOF", "HAZD", "HDPT", "IDLE", "IRES", "KEYM", "LSCR", "MESG", "MISC", "MSTT", "PMFT",
-    "STAT", "TERM", "TMLM", "WATR",
+    "ALCH", "AVIF", "BOOK", "BPTD", "DMGT", "DOOR", "ENCH", "EXPL", "FLOR", "FXPD", "GPOF", "HAZD",
+    "HDPT", "IRES", "KEYM", "LSCR", "MESG", "PMFT", "WATR",
 ];
 
 /// Corpus-table lstrings that official records carry only inside a base form component
@@ -832,11 +837,18 @@ fn common_blocks_are_not_duplicated() {
         }
     }
     // Records reference the shared blocks the families had spelled out inline (M4.BX1:
-    // LVLP and LVLN models, the NPC_ destructible block).
+    // LVLP and LVLN models, the NPC_ destructible block and container items, every object
+    // template).
     for (record, block) in [
         ("LVLP", "Model"),
         ("LVLN", "Model"),
         ("NPC_", "Destructible"),
+        ("NPC_", "ContainerItems"),
+        ("NPC_", "ObteBlock"),
+        ("ARMO", "ObteBlock"),
+        ("CONT", "ObteBlock"),
+        ("TERM", "ObteBlock"),
+        ("GBFM", "ObteBlock"),
     ] {
         let rec = schema.record(sig(record)).unwrap();
         assert!(
@@ -846,6 +858,27 @@ fn common_blocks_are_not_duplicated() {
             "{record} references common/{block}"
         );
     }
+    for record in [
+        "PKIN", "NPC_", "RACE", "CLAS", "STAT", "ACTI", "CONT", "FURN", "MSTT", "TERM",
+    ] {
+        let rec = schema.record(sig(record)).unwrap();
+        let prps = rec
+            .leaf_subrecords()
+            .into_iter()
+            .find(|(_, s)| s.signature == sig("PRPS"))
+            .unwrap();
+        assert!(
+            matches!(&prps.1.ty, FieldType::Array { element, .. }
+                if matches!(element.as_ref(), FieldType::Ref { name, .. } if name == "PropertyValue")),
+            "{record}.PRPS uses common/PropertyValue"
+        );
+    }
+    let alias = &schema.common["QuestReferenceAlias"];
+    let CommonBody::Group(members) = &alias.body else {
+        panic!("QuestReferenceAlias is a group");
+    };
+    assert!(members.iter().any(|m| matches!(m, Member::Group(g)
+        if g.name == "Inventory" && g.shared.as_deref() == Some("ContainerItems"))));
     // The folds of M4.BX1 hold.
     for (name, field, target) in [
         ("PositionRotation", "Position", "Vec3"),

@@ -107,7 +107,7 @@ expects 4 findings for the landing script and none for the airlock script.
 
 `formid.dangling` skips a typed member whose FormID names an object ID below 0x800 in
 `Starfield.esm`'s index space that `Starfield.esm` does not define (`validate::is_reserved`,
-`RESERVED_OBJECT_IDS`). Such IDs are counted in `data.reserved_form_ids`, per member path in
+`RESERVED_OBJECT_IDS`). Such IDs are counted in `data.reserved_form_ids`, per record type and member path in
 `data.reserved_by_member`, and named in `limitations`; they are neither errors nor warnings.
 
 Why (ADR 0005 Amendment 4): no official file defines these IDs, yet the official files name
@@ -121,7 +121,7 @@ lane H). What does not change: a low ID that `Starfield.esm` defines is an ordin
 low ID under any other master, or in a record header (an override of a form the master
 lacks), is checked as before.
 
-`validate_corpus_official_files` pins the count per plugin and member path (`RESERVED` in
+`validate_corpus_official_files` pins the count per plugin, record type and member path (`RESERVED` in
 `crates/engine/tests/validate_corpus.rs`), so a family that types a new member naming such
 IDs changes the expectation with its evidence instead of hiding it. The test
 `formid_dangling_skips_engine_reserved_ids` covers the rule on synthetic plugins.

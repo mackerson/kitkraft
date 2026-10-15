@@ -1,58 +1,373 @@
-# TERM: Terminal, lstring-only definition (lane B round 3, M3.B8).
+# TERM: Terminal, a piece of furniture-like hardware that opens a terminal menu (TMLM)
+# when used. Terminals use furniture markers and a furniture template.
 #
-# Sources (ADR 0004, ADR 0005):
-#   corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs, checked by
-#     lstring_table_matches_the_corpus): FULL is an lstring in every official TERM record.
-#   xedit: the TERM definition of wbDefinitionsSF1.pas at the pinned revision (L18155-L18249)
-#     and the helpers it uses, cited per member where they lay the subrecord out as a localized
-#     string.
-#   uesp-skyrim / universal scan: the EDID string convention (M2.B2).
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L18155-L18249 - member order, the record flags, the
+#     script data with PERK-style fragments, DNAM (TMLM), NAM1 (art theme, L8342-L8360),
+#     PNAM, FNAM and its bits, JNAM, RADR, the condition block, MNAM, GNAM, WBDT, FTMP, FNPR,
+#     XMRK, SNAM, STRV, the object template, STOP. Helpers: object bounds
+#     (wbDefinitionsCommon.pas L9348-L9365), ODTY (L3921-L3923), OPDS (L3925-L3962), PTT2
+#     (L3965-L3978), SNTP/SNBH (L3919-L3920), DEFL (L3963), XALG (L3230), the base form
+#     component block (L5984-L6832, kept raw), FULL (L3184), the generic model
+#     (L7008-L7029), destruction data (L3829-L3890), keywords (wbDefinitionsCommon.pas
+#     L8935-L8951), PRPS (L5679-L5686), FTYP (L5699), NTRM (L5676), the byte colour
+#     (wbDefinitionsCommon.pas L6954-L6968), ALSH/ACSH (L2331-L2332), ATTX (L5700), CITC
+#     (L2251), conditions (L4750-L4840), MNAM (L6834-L6866), the marker parameters
+#     (L6881-L6892), the object template (L6961-L6974).
+#   corpus: the 501 TERM records (Starfield.esm 368, ShatteredSpace 76, SFBGS050 31,
+#     SFBGS00D 24, SFBGS003 2; form versions 581, 582), 2026-10-14: order EDID VMAD OBND
+#     ODTY [PTT2] [SNTP] [component blocks] [DNAM] NAM1 [FULL] MODL MOLM* FLLD [XFLG] KSIZ
+#     KWDA [PRPS] [FTYP] PNAM FNAM JNAM MNAM GNAM WBDT [FTMP] [FNPR] [XMRK] [SNAM] STOP;
+#     DNAM 4 (TMLM), NAM1 1, PNAM 4, FNAM/JNAM/GNAM 2, MNAM 4, WBDT 1 (0 in every record),
+#     FTMP 4 (FURN), SNAM 28. Every record has VMAD (482 of them only attach
+#     TerminalScript). No record is compressed. Every record decodes and re-encodes
+#     identically.
 #
-# Only EDID and the lstrings are described. The lstrings sit in a repeated group whose members
-# are all optional, so every occurrence is typed wherever it stands in the record; every other
-# subrecord matches no member and is kept raw, in place, so the record re-encodes identically.
-# This is not an inventory of the record (corpus order and cardinality of the other members
-# are not recorded yet); a later round transcribes the record from the pinned xEdit file.
-# Names are ours (PascalCase, CK wording where it exists).
+# What stays opaque, and why: VMAD (fragments and property values are unions); WBDT, which
+# upstream declares as an unused zero-length payload while every official one is a single
+# zero byte. FNAM bit 0x4 and MNAM bit 0x20000000 are unnamed upstream and stay unnamed.
 signature = "TERM"
 name = "Terminal"
-source = "corpus: lane E's corpus lstring table (crates/engine/src/edit/lstrings.rs), lstring_table_matches_the_corpus"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249"
 evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249",
+  "corpus: the 501 TERM records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
 ]
 confidence = "corpus"
-note = "lstring-only definition (M3.B8); other subrecords stay raw"
+flags = [
+  ["HeadingMarker", 0x4],
+  ["NonOccluder", 0x10],
+  ["NeverFades", 0x40],
+  ["MustUpdateAnims", 0x100],
+  ["HiddenFromLocalMap", 0x200],
+  ["HeadtrackMarker", 0x400],
+  ["UsedAsPlatform", 0x800],
+  ["PackInUseOnly", 0x2000],
+  ["HasDistantLod", 0x8000],
+  ["RandomAnimStart", 0x10000],
+  ["Dangerous", 0x20000],
+  ["HasCurrents", 0x80000],
+  ["IgnoreObjectInteraction", 0x100000],
+  ["IsMarker", 0x800000],
+  ["Obstacle", 0x2000000],
+  ["NavmeshFilter", 0x4000000],
+  ["NavmeshBoundingBox", 0x8000000],
+  ["NavmeshOnlyCut", 0x10000000],
+  ["NavmeshIgnoreErosion", 0x20000000],
+  ["NavmeshGround", 0x40000000],
+  ["MustBeUnique", 0x80000000],
+]
 
 [[member]]
 sig = "EDID"
 name = "EditorId"
 type = "zstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
 ]
-confidence = "corpus"
 
 [[member]]
-group = "LocalizedStrings"
-card = "repeated"
-source = "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: FULL in the official TERM records are lstrings (lane E's table, edit::lstrings)"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249",
-]
-confidence = "corpus"
-note = "the lstring subrecords of this record type wherever they occur; every other subrecord is kept raw (an lstring-only definition, M3.B8)"
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3476-L3482"]
+note = "script data with PERK-style fragments; kept raw; present in every official record"
 
-[[member.member]]
+[[member]]
+sig = "OBND"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365"]
+
+[[member]]
+sig = "ODTY"
+name = "DirtinessScale"
+type = "f32"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3921-L3923"]
+
+[[member]]
+sig = "OPDS"
+name = "ObjectPaletteDefaults"
+type = "ref:ObjectPaletteDefaults"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3925-L3962"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "PTT2"
+name = "Transforms"
+type = "ref:Transforms"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3965-L3978"]
+
+[[member]]
+sig = "SNTP"
+name = "SnapTemplate"
+type = "formid"
+targets = ["STMP"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3919-L3919"]
+
+[[member]]
+sig = "SNBH"
+name = "SnapBehavior"
+type = "formid"
+targets = ["STBH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3920-L3920"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "DEFL"
+name = "DefaultLayer"
+type = "formid"
+targets = ["LAYR"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3963-L3963"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components (animation graph, effect sequence)"
+
+[[member]]
+sig = "DNAM"
+name = "TerminalMenu"
+type = "formid"
+targets = ["TMLM"]
+card = "optional"
+note = "the menu the terminal opens; absent from 1 official record"
+
+[[member]]
+sig = "NAM1"
+name = "ArtTheme"
+type = "enum"
+base = "u8"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8342-L8360"]
+values = [
+  ["Constellation", 0],
+  ["FreestarCollective", 1],
+  ["Generic", 2],
+  ["Nasa", 3],
+  ["RyujinIndustries", 4],
+  ["SlaytonAerospace", 5],
+  ["UnitedColonies", 6],
+  ["CrimsonFleet", 7],
+  ["HouseVaruun", 9],
+  ["ShipUpgrade", 10],
+  ["TerranArmada", 11],
+]
+note = "upstream reads the list from an optional side file first and falls back to these values; every official value is in the list"
+
+[[member]]
 sig = "FULL"
 name = "Name"
 type = "lstring"
 card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18198-L18198"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "corpus: lstring_table_matches_the_corpus (crates/engine/tests/lstring_table.rs), 2026-10-14: in the official TERM records every FULL is 4 bytes and more than 95% of its distinct values are IDs in the plugin's own English string tables (lane E's table, edit::lstrings)",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
 ]
-confidence = "corpus"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]
+
+[[member]]
+group_ref = "Destructible"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+group_ref = "Keywords"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
+
+[[member]]
+sig = "PRPS"
+name = "Properties"
+type = "array"
+count = "rest"
+element = "ref:PropertyValue"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686"]
+
+[[member]]
+sig = "FTYP"
+name = "ForcedLocRefTypes"
+type = "array"
+element = "formid"
+targets = ["LCRT"]
+count = "rest"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5699-L5699"]
+
+[[member]]
+sig = "NTRM"
+name = "NativeTerminal"
+type = "formid"
+targets = ["TMLM"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5676-L5676"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "PNAM"
+name = "DefaultPrimitiveColor"
+type = "ref:ColorRgb"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6954-L6968"]
+
+[[member]]
+sig = "ALSH"
+name = "LoopingSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2331-L2331"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "ACSH"
+name = "ActivateSound"
+type = "ref:SoundReference"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2332-L2332"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "WTFM"
+name = "Water"
+type = "formid"
+targets = ["WATR"]
+card = "optional"
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "ATTX"
+name = "ActivateTextOverride"
+type = "lstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5700-L5700"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "FNAM"
+name = "Flags"
+type = "flags"
+base = "u16"
+bits = [["NonPlanar", 0x1], ["IgnoredBySandbox", 0x2], ["IsARadio", 0x10], ["AllowWaterDisplacements", 0x20]]
+
+[[member]]
+sig = "JNAM"
+name = "ActivationAnglePlayer"
+type = "u16"
+note = "default 360 upstream"
+
+[[member]]
+sig = "RADR"
+name = "RadioReceiver"
+type = "ref:RadioReceiver"
+card = "optional"
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251"]
+confidence = "reference"
+note = "number of Conditions that follow; not present in the official TERM records"
+
+[[member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L4750-L4840"]
+confidence = "reference"
+note = "not present in the official TERM records"
+
+[[member]]
+sig = "MNAM"
+name = "ActiveMarkers"
+type = "ref:FurnitureMarkerFlags"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6834-L6866"]
+
+[[member]]
+sig = "GNAM"
+name = "ActivationAngleSittingActor"
+type = "u16"
+note = "default 360 upstream"
+
+[[member]]
+sig = "WBDT"
+name = "WorkbenchData"
+type = "opaque"
+note = "declared unused (zero length) upstream; one zero byte in every official record; kept raw"
+
+[[member]]
+sig = "FTMP"
+name = "FurnitureTemplate"
+type = "formid"
+targets = ["FURN"]
+card = "optional"
+
+[[member]]
+sig = "FNPR"
+name = "MarkerEntryPoints"
+type = "ref:FurnitureEntryPoint"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18238-L18243"]
+note = "present in one official record"
+
+[[member]]
+sig = "XMRK"
+name = "MarkerModel"
+type = "zstring"
+card = "optional"
+
+[[member]]
+sig = "SNAM"
+name = "MarkerParameters"
+type = "array"
+count = "rest"
+element = "ref:FurnitureMarkerParameter"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6881-L6892"]
+
+[[member]]
+sig = "STRV"
+name = "InstanceData"
+type = "zstring"
+card = "repeated"
+confidence = "reference"
+note = "object template instance-data names; not present in the official TERM records"
+
+[[member]]
+group_ref = "ObteBlock"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
+note = "the object template (the shared block, folded in M4.BX1): no OBTE or combination in the official TERM records, only the STOP that ends the empty template"
+

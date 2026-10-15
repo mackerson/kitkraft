@@ -102,48 +102,10 @@ card = "repeated"
 note = "names of the template's instance-data components"
 
 [[member]]
-sig = "OBTE"
-name = "TemplateCount"
-type = "u32"
+group_ref = "ObteBlock"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
-note = "number of Combinations that follow; stored, not derived; 1 in every official record"
-
-[[member]]
-group = "Combination"
-card = "repeated"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"]
-note = "upstream: OBTF, FULL and OBTS in any order; here in the order lane B round 3 observed in WEAP (OBTF FULL OBTS); every official GBFM combination is OBTF OBTS"
-
-[[member.member]]
-sig = "OBTF"
-name = "EditorOnly"
-type = "empty"
-card = "optional"
-
-[[member.member]]
-sig = "FULL"
-name = "Name"
-type = "lstring"
-card = "optional"
-source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6974"
-evidence = [
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-]
-confidence = "reference"
-note = "combination name; not in any official GBFM record (their FULL is inside the full-name component)"
-
-[[member.member]]
-sig = "OBTS"
-name = "Item"
-type = "opaque"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959"]
-note = "object mod template item: counts, level range, keywords, includes and a property list whose values are unions; kept raw; observed 32, 25 or 18 bytes"
-
-[[member]]
-sig = "STOP"
-name = "Marker1"
-type = "empty"
+note = "the object template (the shared block, folded in M4.BX1): one combination in every official record, OBTF OBTS (no FULL), then the first STOP"
 
 [[member]]
 sig = "STOP"

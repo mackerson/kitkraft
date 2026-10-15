@@ -13,7 +13,9 @@
 # Folded in M4.BX1 (ACTOR merge): LVLP (planet family) and LVLN (actor family) spelled the
 # same block out inline from the same xEdit lines; both now reference this one, and their
 # corpus checks are added to MODL and FLLD below (no official LVLP or LVLN has MOLM, MODC
-# or XFLG).
+# or XFLG). The items/workshop family (M4.BI1) defined the block again for STAT, MISC, CONT,
+# ACTI, FURN, MSTT, TERM and ANIO; folded at the ITEMS merge, with one fact it added: MOLM
+# repeats (one official STAT has two in a row), so it is `repeated` here.
 name = "Model"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"
@@ -27,6 +29,7 @@ card = "optional"
 evidence = [
   "corpus: kitcraft-esm tests/corpus.rs corpus_full_roundtrip typed check (M2.A3) and the round 3 per-type scan, 2026-10-14: every MODL in the WEAP, AMMO, PROJ, OMOD and LVLI records of the 14 official ESMs decodes and re-encodes identically",
   "corpus: the planet family (M4, every LVLP) and actor family (M4.BC1, every LVLN: MODL in 10 records) typed checks of the 14 official ESMs, 2026-10-14: every model MODL decodes and re-encodes identically",
+  "corpus: model members in the STAT, MISC, CONT, ACTI, FURN, MSTT, TERM and ANIO records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family, M4.BI1): every record decodes and re-encodes identically",
 ]
 confidence = "corpus"
 
@@ -34,9 +37,13 @@ confidence = "corpus"
 sig = "MOLM"
 name = "MaterialSwaps"
 type = "struct"
-card = "optional"
+card = "repeated"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"
-confidence = "reference"
+evidence = [
+  "corpus: model members in the STAT, MISC, CONT, ACTI, FURN, MSTT, TERM and ANIO records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family, M4.BI1): every MOLM decodes and re-encodes identically; one STAT has two MOLM in a row",
+]
+confidence = "corpus"
+note = "layered material swaps"
 field = [
   { name = "Count", type = "u16" },
   { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },

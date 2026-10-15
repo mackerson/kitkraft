@@ -890,6 +890,52 @@ is under "Next".
   `typed_corpus` 7,257,137 typed records, 181 pinned unresolved lstrings). Parity: 83 record
   definitions, 45,923,589 typed (1,712,200 failed, the unordered CELL/REFR/ACHR placements),
   2,262,151 opaque, 2,233,821 unknown.
+- M4.BI1 ITEMS/WORKSHOP schema family (parallel schema lane, `crates/schema/defs`,
+  2026-10-14): STAT, MISC, CONT, ACTI, FURN, MSTT, TERM, TMLM, ARMO, IDLE, ANIO, CPTH
+  transcribed from the pinned xEdit files (staged copies verified first: sizes and blob
+  hashes match `docs/xedit-reference.md`; one commit per type, every member cited with its
+  line range). New shared `common/` definitions: Model (first owner, as planned),
+  Destructible, ContainerItems, ObjectTemplate, SoundReference, ObjectProperty, ColorRgb,
+  RadioReceiver, FurnitureMarkerFlags, FurnitureMarkerParameter, FurnitureEntryPoint
+  (ObjectBounds already existed from the planet family and is reused). Corpus check (14
+  files, out-of-tree checker over the generated decoder): all 33,939 records of the 12
+  types (STAT 22,296, MSTT 2,134, ACTI 1,940, MISC 1,495, IDLE 1,302, ARMO 1,168, FURN
+  1,045, TMLM 974, CONT 866, TERM 501, CPTH 152, ANIO 66; none compressed) decode with
+  every subrecord placed, nothing in `extra`, and re-encode byte-identically; confidence
+  `corpus`, members never seen `reference`. Opaque by design: VMAD, component blocks,
+  NVNM, CTDA unions, COED's middle slot, OBTS, FURN NNAM, TERM WBDT, TMLM padding (gaps
+  rows in the guide). Lstring members equal the corpus lstring table for these types.
+  Mod-author guide with the outpost build menu read from the corpus (recipe categories,
+  beacon keywords, created-object traits, what a new buildable needs):
+  `docs/schema/items-workshop-family.md`. One small change outside the lane, in its own
+  commit: two lane E unit tests used ACTI ATTX as their example of an lstring the schema
+  does not type; now typed, the examples move to FLOR ATTX (Requests). Derived files left
+  to the integrator (family lane rule): `crates/esm/src/generated/`, the
+  `BUILTIN_DEFINITIONS` region (12 records, 11 shared files), `crates/schema/tests/golden/
+  seed.rs` and the builtin lists in `crates/schema/tests/defs.rs`; with them regenerated
+  locally `cargo xtask ci` passed (with `KITCRAFT_DATA_DIR`).
+- M4.BX1 ITEMS merge (integrator, BX3, 2026-10-14): the items/workshop family's full ACTI,
+  CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM win over round 3's lstring-only stubs
+  (every corpus-table lstring is a member); lane E's two tests keep main's ACTI ATTX example
+  in `edit::fields` (typed, no fallback) and take the lane's FLOR ATTX one in `patch_tests`.
+  Shared blocks folded (one definition each, every citation kept, every reference
+  updated): the family's `Model` into main's (MOLM becomes `repeated`: one STAT has two),
+  `Destructible`, `SoundReference` and `ColorRgb` into main's; its `ObjectProperty` into the
+  world family's identical `PropertyValue`, which PKIN, NPC_, RACE and CLAS PRPS now use too
+  (they spelled the element out inline); its `ObjectTemplate` and the inline object
+  templates of NPC_ and GBFM into round 3's `ObteBlock` (FULL made optional: no official
+  NPC_ or GBFM combination has one; ARMO, CONT and TERM drop their own STOP for the block's;
+  GBFM keeps its second STOP), so OBTS is typed in ARMO, NPC_ and GBFM with 0 new decode
+  failures; NPC_'s inline container items and the quest alias inventory into the family's
+  `ContainerItems` (the base-object target list from the actor family);
+  `RadioReceiver` uses `ref:Bool8`. 86 record definitions, 37 shared;
+  `common_blocks_are_not_duplicated` checks every fold. Engine-reserved IDs: the 646 new
+  Starfield.esm PRPS actor values (ACTI 128, CONT 443, FURN 13, STAT 61, TERM 1) are counted,
+  not reported; `reserved_by_member` is keyed by record type and member path (shared types
+  share a path), and `RESERVED` pins 1,410 occurrences in 7 files (Starfield.esm 1,043).
+  Gates: `cargo xtask ci`; ignored release tests for esm, doc and engine (17 min; doc `typed_corpus` 7,258,523 typed records, 181 pinned unresolved lstrings); parity:
+  86 record definitions, 46,249,514 typed (1,712,200 failed, the unordered CELL/REFR/ACHR
+  placements only), 2,261,438 opaque, 1,908,609 unknown.
 ## In progress
 
 - **M2.F7 (owner check pending).** `.mcp.json.example` and "Use from Claude Code" in
@@ -1657,3 +1703,45 @@ Agents append here when they need a change in a crate they do not own.
   off; (7) EPFT against the EPFD sizes (4, 8) and whether the CK writes a 3-byte PERK
   `DATA`; (8) any CK field that changes NPC_ `NAM5` (always `FF 00`), RACE `DAT2` offsets
   92-127 or the chargen NNAM.
+- **Items/workshop schema lane (M4.BI1) -> BX (integrator).** Done in M4.BX1 (ITEMS merge, see Done; (2) by the engine-reserved ID rule of ADR 0005 Amendment 4). (1) Derived files to
+  regenerate at merge: `crates/esm/src/generated/` (`cargo xtask codegen`), the
+  `BUILTIN_DEFINITIONS` region (12 records, 11 `common/` files), `crates/schema/tests/
+  golden/seed.rs` (`KITCRAFT_UPDATE_GOLDEN=1`) and the record and common lists in
+  `crates/schema/tests/defs.rs`. (2) `validate_corpus_official_files` (`#[ignore]`) then
+  reports 646 new `formid.dangling` errors in Starfield.esm, all `ObjectProperty.ActorValue`
+  (the PRPS element) naming object IDs below 0x800 that no official file defines, the same
+  fact as PKIN's known 0x33D/0x33E: ACTI 128, CONT 443, FURN 13, STAT 61, TERM 1; by value
+  0x330 207, 0x3A2 230, 0x33E 70, 0x2D0 62, 0x33D 31, 0x32E 19, 0x32F 19, 0x387 6, 0x338 1,
+  0x3AC 1 (the DLC files report the same values as warnings). Extend `KNOWN_ERRORS` or,
+  better, decide once how actor values below 0x800 are treated (the open CK question from
+  the planet lane). (3) Shared blocks to fold: `common/Model` vs LVLP's inline `Model`
+  group and the weapon family's inline MODL/FLLD members; `common/ObjectProperty` vs PKIN's
+  inline PRPS element; `common/ObjectTemplate` vs GBFM's inline OBTE/Combination and WEAP's
+  `ObteBlock`; `common/SoundReference` vs any inline sound slot another family types
+  (WEAP, ASPC, KSSM use the same upstream helper); `ColorRgb` is RGB plus a pad byte, not a
+  duplicate of `ColorBgra`. (4) Ignored release corpus tests with these definitions: esm
+  `corpus_full_roundtrip` passes (all 14 identical; M2.A3 typed check 0 conflicts, 0
+  unchecked), doc `typed_corpus` passes (80,652 typed records, the same 181 pinned
+  unresolved lstrings); engine `validate_corpus_official_files` fails only on (2).
+- **Items/workshop schema lane -> lane E (FYI, done in its own commit).** Two unit tests
+  used ACTI ATTX as their example of an lstring the schema does not type
+  (`edit::fields::tests::layouts_and_fallback`,
+  `patch_tests::untyped_lstrings_of_localized_sources`); ACTI is typed now (ATTX as an
+  lstring), so both examples moved to FLOR ATTX (no definition, an lstring in the corpus
+  table). Test-only change.
+- **Items/workshop schema lane -> lane E and the plan (W3 row).** `WKMF` is "Wwise Keyword
+  Mapping" (sound selection for ship engines, cockpits, grav drives, creature animation),
+  not a workshop record; W3 does not need it. What registers an outpost object is the COBJ
+  BNAM category keyword (`docs/schema/items-workshop-family.md`, input for M4.E7).
+- **Items/workshop schema lane -> lane H (CK observation).** Questions only the CK or the
+  game can answer (details in `docs/schema/items-workshop-family.md`, "Open questions"):
+  (1) which COBJ field the CK writes as BNAM and as FNAM for an outpost recipe, and which
+  the build menu reads; (2) whether a PTT2 with a workshop-icon transform is required for
+  an object to show in the outpost menu; (3) which CK checkbox sets record flag 0x10000000
+  on outpost furniture; (4) the CK fields behind FURN FNAM 0x1, CONT DATA 0x8, MNAM bit 29,
+  CPTH DATA 0x8, IDLE FNAM 0x10 and TERM's one-byte WBDT; (5) the CK names of TMLM INAM,
+  TMLM XLOC's last u32 and STAT DNAM's second float; (6) whether the CK writes ARMO's
+  FLLD/XFLG inside the world models; (7) what references the `OutpostFoundation*List`
+  form lists; (8) for M4.O4 on `KitKraft Dev`: does a new recipe with a vanilla
+  `OutpostCategory*` BNAM show at every beacon, and does a new category keyword need the
+  beacon and `OutpostRecipeCategories`.

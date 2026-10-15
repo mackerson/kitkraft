@@ -296,38 +296,11 @@ card = "optional"
 evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8935-L8951"]
 
 [[member]]
-group = "Inventory"
+group_ref = "ContainerItems"
+name = "Inventory"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2294-L2327"]
-note = "items added to the alias reference"
-
-[[member.member]]
-sig = "COCT"
-name = "Count"
-type = "u32"
-note = "number of items that follow; stored, not derived"
-
-[[member.member]]
-group = "Item"
-card = "repeated"
-
-[[member.member.member]]
-sig = "CNTO"
-name = "Entry"
-type = "struct"
-size = 8
-field = [
-  { name = "Item", type = "formid", note = "any base object" },
-  { name = "Count", type = "i32" },
-]
-
-[[member.member.member]]
-sig = "COED"
-name = "ExtraData"
-type = "opaque"
-card = "optional"
-confidence = "reference"
-note = "owner and item condition; never present in an official quest alias"
+note = "items added to the alias reference (the shared container items block, folded in M4.BX1)"
 
 [[member]]
 sig = "SPOR"

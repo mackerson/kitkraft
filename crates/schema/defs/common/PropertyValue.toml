@@ -4,12 +4,18 @@
 # Source (ADR 0004): the object property helper of wbDefinitionsSF1.pas at the pin and the
 # actor value helper it uses. xEdit adds the curve table from form version 152; every
 # official LCTN and REFR is form version 576 or later, so the field is always present there.
+#
+# Folded in M4.BX1 (ITEMS merge): the items/workshop family defined the same 12-byte element
+# as common/ObjectProperty (STAT, ACTI, CONT, FURN, MSTT, TERM PRPS), and PKIN (planet
+# family) and NPC_, RACE and CLAS (actor family) spelled it out inline; all reference this
+# type now. Their corpus checks are added below.
 name = "PropertyValue"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5684"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
   "corpus: kitcraft-esm tests/world_family.rs (world_family_full), 2026-10-14: every LCTN PRPS and REFR XPPS payload the definitions place in the 14 official ESMs is a whole number of 12-byte entries and decodes with this layout",
+  "corpus: PRPS in the STAT, ACTI, CONT, FURN, MSTT and TERM records (ITEMS/WORKSHOP family, M4.BI1), the PKIN records (planet family) and the NPC_, RACE and CLAS records (actor family, M4.BC1) of the 14 official ESMs, 2026-10-14 typed checks: every payload a whole number of 12-byte entries, every record decodes and re-encodes identically",
 ]
 confidence = "corpus"
 type = "struct"

@@ -23,7 +23,7 @@ stay at `reference` confidence (documented upstream, not yet seen).
 | PCCN | 2,148 | 4 | 6 of 7 | component block | - |
 | LVLP | 52 | 2 | 24 of 26 | VMAD, component block | VMAD, PTT2, XALG, MOLM, MODC, XFLG, CIS1/CIS2 |
 | PKIN | 15,128 | 8 | 20 of 22 | VMAD, component block | - |
-| GBFM | 3,903 | 10 | 11 of 15 | VMAD, component block, OBTS, NVNM | - |
+| GBFM | 3,903 | 10 | 11 of 15 | VMAD, component block, NVNM | - |
 | BIOM | 434 | 2 | 47 of 48 | BNAM (plus raw slots inside GNAM) | ZNAM |
 | PNDT | 1,786 | 5 | 23 of 24 | component block (plus raw slots inside PPBD and HNAM) | XEMP |
 | STDT | 124 | 2 | 10 of 13 | component block, ONAM, WED0 | ONAM, SNAM, HNAM, WED0 |
@@ -202,7 +202,7 @@ components; SFBK uses block editor metadata (585).
 | Base form component blocks (BFCB..BFCE) | every type that has them | Upstream reads each block by its component name: a union decided by a string in another subrecord, which the format cannot express yet. Kept as raw subrecords (lossless). FULL, keywords, models, properties and the placement properties inside them are therefore not typed, and the FormID and lstring visitors do not see them |
 | Condition comparison value, parameters 1-3, reference | `Condition` (CTDA) | Unions chosen by the type byte, the function index or Run On; 4 raw bytes each. Type, function index and Run On are typed |
 | VMAD | LVLP, PKIN, GBFM, TRAV | Script property values are unions by property type |
-| OBTS | GBFM | Its property list holds unions |
+| OBTS property values | GBFM | The item is typed through `ObteBlock` since M4.BX1; its property values are unions and stay raw |
 | NVNM | GBFM | Large nested navmesh geometry; kept raw until navmesh work |
 | REFL, RDIF | SUNP | Described by a helper in another upstream unit (`wbDefinitionsReflection.pas`) that is not an authorized source yet (ADR 0004 clarification 2) |
 | ONAM, WED0 | STDT | Unknown upstream / a sound reference; never in an official STDT |

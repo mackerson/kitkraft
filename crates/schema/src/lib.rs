@@ -52,6 +52,8 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("ALCH.toml", include_str!("../defs/ALCH.toml")),
     ("AMDL.toml", include_str!("../defs/AMDL.toml")),
     ("AMMO.toml", include_str!("../defs/AMMO.toml")),
+    ("ANIO.toml", include_str!("../defs/ANIO.toml")),
+    ("ARMO.toml", include_str!("../defs/ARMO.toml")),
     ("AVIF.toml", include_str!("../defs/AVIF.toml")),
     ("BIOM.toml", include_str!("../defs/BIOM.toml")),
     ("BOOK.toml", include_str!("../defs/BOOK.toml")),
@@ -61,6 +63,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("CLAS.toml", include_str!("../defs/CLAS.toml")),
     ("COBJ.toml", include_str!("../defs/COBJ.toml")),
     ("CONT.toml", include_str!("../defs/CONT.toml")),
+    ("CPTH.toml", include_str!("../defs/CPTH.toml")),
     ("DIAL.toml", include_str!("../defs/DIAL.toml")),
     ("DMGT.toml", include_str!("../defs/DMGT.toml")),
     ("DOOR.toml", include_str!("../defs/DOOR.toml")),
@@ -168,6 +171,10 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
         include_str!("../defs/common/Condition.toml"),
     ),
     (
+        "common/ContainerItems.toml",
+        include_str!("../defs/common/ContainerItems.toml"),
+    ),
+    (
         "common/Destructible.toml",
         include_str!("../defs/common/Destructible.toml"),
     ),
@@ -178,6 +185,18 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     (
         "common/EnableParent.toml",
         include_str!("../defs/common/EnableParent.toml"),
+    ),
+    (
+        "common/FurnitureEntryPoint.toml",
+        include_str!("../defs/common/FurnitureEntryPoint.toml"),
+    ),
+    (
+        "common/FurnitureMarkerFlags.toml",
+        include_str!("../defs/common/FurnitureMarkerFlags.toml"),
+    ),
+    (
+        "common/FurnitureMarkerParameter.toml",
+        include_str!("../defs/common/FurnitureMarkerParameter.toml"),
     ),
     (
         "common/GroupedPackIn.toml",
@@ -230,6 +249,10 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     (
         "common/QuestReferenceAlias.toml",
         include_str!("../defs/common/QuestReferenceAlias.toml"),
+    ),
+    (
+        "common/RadioReceiver.toml",
+        include_str!("../defs/common/RadioReceiver.toml"),
     ),
     (
         "common/RagdollBone.toml",

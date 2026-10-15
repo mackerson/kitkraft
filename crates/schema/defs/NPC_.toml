@@ -401,18 +401,13 @@ sig = "PRPS"
 name = "Properties"
 type = "array"
 count = "rest"
-element = "struct"
+element = "ref:PropertyValue"
 card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
 ]
 note = "actor value properties (base actor values); present in every official record; the curve table slot exists from form version 152"
-field = [
-  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
-  { name = "Value", type = "f32" },
-  { name = "CurveTable", type = "formid", targets = ["CURV"] },
-]
 
 [[member]]
 sig = "FTYP"
@@ -433,38 +428,10 @@ card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5676-L5676"]
 
 [[member]]
-group = "ContainerItems"
+group_ref = "ContainerItems"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2304-L2327"]
-note = "starting inventory; observed in 2,291 records"
-
-[[member.member]]
-sig = "COCT"
-name = "Count"
-type = "u32"
-note = "number of Item entries that follow; stored, not derived"
-
-[[member.member]]
-group = "Item"
-card = "repeated"
-
-[[member.member.member]]
-sig = "CNTO"
-name = "Item"
-type = "struct"
-size = 8
-field = [
-  { name = "Item", type = "formid", targets = ["ACTI", "ADDN", "ALCH", "AMMO", "ARMO", "ARTO", "ASPC", "BNDS", "BOOK", "CMPO", "COBJ", "CONT", "DEBR", "DOOR", "EXPL", "FLST", "FLOR", "FURN", "HAZD", "IDLM", "INGR", "KEYM", "LIGH", "LVLI", "LVLN", "LVSP", "MISC", "MSTT", "NOTE", "NPC_", "OMOD", "PROJ", "SCOL", "SCRL", "SOUN", "SPEL", "STAT", "TACT", "TERM", "TREE", "TXST", "WATR", "WEAP", "ENCH", "SECH", "LGDI", "IRES", "BMMP", "PDCL", "PKIN", "GBFM", "AOPF", "BMMO", "LVLB", "LVLP", "GRAS"], evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L43-L53"] },
-  { name = "Count", type = "i32" },
-]
-
-[[member.member.member]]
-sig = "COED"
-name = "ExtraData"
-type = "opaque"
-card = "optional"
-confidence = "reference"
-note = "owner, a union of global or required rank, and item condition; not present in the official NPC_ records"
+note = "starting inventory; observed in 2,291 records (the shared container items block, folded in M4.BX1)"
 
 [[member]]
 sig = "AIDT"
@@ -570,49 +537,10 @@ card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5698-L5698"]
 
 [[member]]
-group = "ObjectTemplate"
+group_ref = "ObteBlock"
 card = "optional"
 evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6961-L6973"]
-note = "observed in 1,365 records, each with one combination"
-
-[[member.member]]
-sig = "OBTE"
-name = "Count"
-type = "u32"
-note = "number of Combinations that follow; stored, not derived"
-
-[[member.member]]
-group = "Combination"
-card = "repeated"
-
-[[member.member.member]]
-sig = "OBTF"
-name = "EditorOnly"
-type = "empty"
-card = "optional"
-
-[[member.member.member]]
-sig = "FULL"
-name = "Name"
-type = "lstring"
-card = "optional"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184"]
-confidence = "reference"
-note = "not present in the official NPC_ object templates"
-
-[[member.member.member]]
-sig = "OBTS"
-name = "Template"
-type = "opaque"
-evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6940-L6959"]
-note = "an object-mod template item with its own include and property lists, kept raw"
-
-[[member]]
-sig = "STOP"
-name = "ObjectTemplateEnd"
-type = "empty"
-card = "optional"
-note = "marker; upstream requires it, but 3,551 official records have none"
+note = "the object template (the shared block, folded in M4.BX1); observed in 1,365 records, each with one combination; the STOP marker is in the block, and 3,551 official records without a template have none"
 
 [[member]]
 sig = "CNAM"

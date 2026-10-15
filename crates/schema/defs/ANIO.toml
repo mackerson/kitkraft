@@ -1,0 +1,55 @@
+# ANIO: Animated Object, a model an actor holds or uses during an animation (props in idle
+# animations).
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9519-L9528 - member order. Helpers: script data
+#     (L3407-L3411, kept opaque), XALG (L3230), the base form component block (L5984-L6832,
+#     kept raw), the generic model (L7008-L7029, common/Model.toml).
+#   corpus: the 66 ANIO records (Starfield.esm 63, ShatteredSpace 3; form versions 581,
+#     582), 2026-10-14: order EDID [XALG] [component blocks] MODL FLLD; no VMAD, no record
+#     flags set. No record is compressed. Every record decodes and re-encodes identically.
+#
+# The one record flag upstream lists (0x200) is an unnamed placeholder and is not named.
+signature = "ANIO"
+name = "AnimatedObject"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9519-L9528"
+evidence = [
+  "corpus: the 66 ANIO records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family); every record decodes and re-encodes identically",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+confidence = "reference"
+note = "script data, kept raw; not present in the official ANIO records"
+
+[[member]]
+sig = "XALG"
+name = "XalgFlags"
+type = "u64"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3230-L3230"]
+note = "a flag set whose bit names upstream marks as unverified; kept as a plain integer"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components (animation graph, effect sequence, keyword form)"
+
+[[member]]
+group_ref = "Model"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7008-L7029"]

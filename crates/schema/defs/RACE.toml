@@ -123,18 +123,13 @@ sig = "PRPS"
 name = "Properties"
 type = "array"
 count = "rest"
-element = "struct"
+element = "ref:PropertyValue"
 card = "optional"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5679-L5686",
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2271-L2274",
 ]
 note = "racial actor value properties; present in every official record"
-field = [
-  { name = "ActorValue", type = "formid", targets = ["AVIF"] },
-  { name = "Value", type = "f32" },
-  { name = "CurveTable", type = "formid", targets = ["CURV"] },
-]
 
 [[member]]
 sig = "APPR"

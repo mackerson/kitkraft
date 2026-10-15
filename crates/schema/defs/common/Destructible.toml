@@ -6,10 +6,16 @@
 # (L3829-L3890), with the light layer (L3818-L3823) and material swap (L3825) it uses.
 # The stage count in the header is stored, not derived: an edit that adds or removes a
 # stage must update it. xEdit lets the stage model members appear in any order; they are
-# listed in xEdit's order. Not observed in any record type typed so far.
+# listed in xEdit's order. Observed in PROJ (round 3) and in ACTI, MISC, CONT, FURN and MSTT
+# (the items/workshop family, folded in M4.BX1: the same members, with the stage model as a
+# nested group there; the flat optional members here accept the same runs). Members keep
+# `reference` unless a corpus check names them.
 name = "Destructible"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3829-L3890"
+evidence = [
+  "corpus: destruction blocks of the ACTI, MISC, CONT, FURN and MSTT records of the 14 official ESMs, 2026-10-14 scan (ITEMS/WORKSHOP family, M4.BI1): every record decodes and re-encodes identically; every stage model is DMDL FLLD [DMDS]",
+]
 confidence = "reference"
 
 [[member]]

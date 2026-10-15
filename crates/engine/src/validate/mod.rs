@@ -202,7 +202,8 @@ pub struct Report {
     /// (see [`is_reserved`]). Not findings; counted here and per member path in
     /// [`Report::reserved_by_member`].
     pub reserved_form_ids: u64,
-    /// [`Report::reserved_form_ids`] by member path (`NPC_.PRPS.ActorValue`).
+    /// [`Report::reserved_form_ids`] by record type and member path
+    /// (`NPC_ PropertyValue.ActorValue`).
     pub reserved_by_member: BTreeMap<String, u64>,
     /// Subrecords whose FormIDs could not be checked (opaque or undecoded payloads).
     pub unchecked_subrecords: u64,
@@ -963,7 +964,7 @@ pub const RESERVED_MASTER: &str = "Starfield.esm";
 /// typed member naming one as `reserved_form_ids` instead of reporting it. Corpus fact,
 /// grade D until a CK observation confirms it (ADR 0005 Amendment 4, `docs/validate.md`
 /// "Engine-reserved object IDs"): no official file defines these IDs, yet the 14 official
-/// files name them 738 times at 11 typed member paths (M4.BX1). Low IDs that
+/// files name them 1,410 times from 13 record types (M4.BX1). Low IDs that
 /// `Starfield.esm` does define are ordinary forms and are checked as usual.
 pub const RESERVED_OBJECT_IDS: u32 = 0x800;
 
@@ -1022,8 +1023,14 @@ fn check_form_id(
             let reserved = !header && is_reserved(owner, *object_id);
             let note_reserved = |report: &mut Report| {
                 report.reserved_form_ids = report.reserved_form_ids.saturating_add(1);
-                let path = member.clone().unwrap_or_default();
-                let count = report.reserved_by_member.entry(path).or_default();
+                // Keyed by record type and member path: a shared type's path
+                // (`PropertyValue.ActorValue`) is the same in every record type.
+                let key = format!(
+                    "{} {}",
+                    record.get(..4).unwrap_or(record),
+                    member.as_deref().unwrap_or_default()
+                );
+                let count = report.reserved_by_member.entry(key).or_default();
                 *count = count.saturating_add(1);
             };
             let own = owner.eq_ignore_ascii_case(&pass.name);

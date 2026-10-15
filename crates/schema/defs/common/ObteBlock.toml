@@ -45,6 +45,7 @@ card = "optional"
 sig = "FULL"
 name = "Name"
 type = "lstring"
+card = "optional"
 evidence = [
   "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
   "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types, these included) in the 14 official ESMs are 4 bytes, and all 14 files are localized",

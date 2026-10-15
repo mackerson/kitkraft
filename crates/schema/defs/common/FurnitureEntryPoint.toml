@@ -1,0 +1,24 @@
+# FurnitureEntryPoint: the FNPR payload of furniture and terminals: a marker's animation
+# type and the directions it can be entered from.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L12201-L12206 (FURN; the same pair in TERM at
+#     L18238-L18243) - a u16 animation type (L2859-L2865: sit 1, lay 2, lean 4; 0 and 3
+#     unnamed upstream) and a u16 of entry flags (wbDefinitionsCommon.pas L8261-L8271:
+#     front, behind, right, left, up).
+#   corpus: FNPR in the FURN and TERM records of the 14 official ESMs (2026-10-14 scan,
+#     ITEMS/WORKSHOP family): all 469 payloads are 4 bytes.
+name = "FurnitureEntryPoint"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L12201-L12206"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2859-L2865",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8261-L8271",
+  "corpus: FNPR in the FURN and TERM records of the 14 official ESMs, 2026-10-14 scan: all 4 bytes",
+]
+confidence = "corpus"
+type = "struct"
+field = [
+  { name = "Type", type = "enum", base = "u16", values = [["Sit", 1], ["Lay", 2], ["Lean", 4]] },
+  { name = "EntryPoints", type = "flags", base = "u16", bits = [["Front", 0x1], ["Behind", 0x2], ["Right", 0x4], ["Left", 0x8], ["Up", 0x10]] },
+]

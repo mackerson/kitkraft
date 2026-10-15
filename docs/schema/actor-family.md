@@ -21,7 +21,7 @@ kept as raw bytes (opaque members and component-block bodies).
 
 | Type | Records | Files | Subrecords | Typed | Opaque | Opaque members | Never seen (`reference`) |
 | ---- | ------: | ----: | ---------: | ----: | -----: | -------------- | ------------------------ |
-| NPC_ | 8,447 | 6 | 1,121,511 | 1,110,969 | 10,542 | VMAD, component blocks, NAM5, OBTS, ONA2 tail, COED | SNBH, DEFL, destructible block, attacks, OCOR, GWOR, FCPL, RCLR, RPLD, RPLI, COED, CS3K, the template FULL |
+| NPC_ | 8,447 | 6 | 1,121,511 | 1,110,969 | 10,542 | VMAD, component blocks, NAM5, ONA2 tail, COED | SNBH, DEFL, destructible block, attacks, OCOR, GWOR, FCPL, RCLR, RPLD, RPLI, COED, CS3K, the template FULL |
 | LVLN | 298 | 5 | 5,342 | 5,321 | 21 | VMAD, component block, COED | OPDS, both XALG, list conditions, LVLG, COED, LLKC, MOLM, MODC, XFLG |
 | OTFT | 698 | 5 | 1,396 | 1,396 | 0 | VMAD, component block | VMAD, component block |
 | CLAS | 8 | 1 | 40 | 32 | 8 | VMAD, component block, DATA | VMAD, component block, ICON |
@@ -142,8 +142,9 @@ How the types link, by member path:
 - **NPC_ `ACBS.Level`**: a level or, with `PcLevelMult`, a level multiplier in
   thousandths; a union selected by a flag.
 - **NPC_ `NAM5`**: unnamed upstream; `FF 00` in all 8,447 records.
-- **NPC_ `ObjectTemplate.Combination.Template`** (OBTS): an object-mod template item with
-  its own include and property lists.
+- **NPC_ OBTS property values**: since the integrator's ITEMS merge (M4.BX1) the object
+  template is the shared `ObteBlock` and OBTS its typed `TemplateItem` (includes and
+  property list); each property value is a union and stays raw.
 - **NPC_ `RaceOverrides.Overrides`** (ONA2 after its flags): one block per set flag, in
   flag order; presence decided by the flags.
 - **`COED`** (NPC_, LVLN): not in the official records; COED's owner union is kept raw.
