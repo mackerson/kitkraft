@@ -251,9 +251,18 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
         });
     }
 
-    let defined = kitkraft_schema::builtin()
-        .map(|s| s.records.len())
-        .unwrap_or(0);
+    let builtin = kitkraft_schema::builtin()
+        .map_err(|e| anyhow::anyhow!("loading the builtin schema definitions: {e}"))?;
+    let defined = builtin.records.len();
+    let unobserved = unobserved_corpus_members(builtin, &types);
+    if !unobserved.is_empty() {
+        bail!(
+            "{} member(s) claim `corpus` (or better) confidence, but their subrecord signature \
+             occurs in no record of their type in the corpus (lower them to `reference`):\n  {}",
+            unobserved.len(),
+            unobserved.join("\n  ")
+        );
+    }
     // Per-confidence counts of the definitions (M2.F9), from the same command agents use.
     let schema = kit(root, &["schema"])?;
     let schema = schema.get("data").context("schema result has no data")?;
@@ -270,6 +279,82 @@ pub(crate) fn run(root: &Path, check: bool) -> Result<()> {
     fs::write(&out, &doc).with_context(|| format!("writing {}", out.display()))?;
     println!("parity: wrote {OUT} ({} record types)", types.len());
     Ok(())
+}
+
+/// Members the check below accepts without an occurrence: UESP Skyrim container facts on
+/// TES4 that no Starfield file has. The loader rejects `reference` next to a
+/// `uesp-skyrim:` citation (ADR 0005 Amendment 2), so they cannot be lowered; they are
+/// listed in `docs/gaps.md` instead.
+const UNOBSERVED_ALLOWED: &[&str] = &["TES4.Master.FileSize", "TES4.TagifyCount"];
+
+/// Members whose confidence says the corpus confirmed them (`corpus` or better) while no
+/// record of their type in the corpus has their signature ("Seen" in the record types
+/// table): a `corpus` claim needs an occurrence (ADR 0005 Amendment 2), so such a member
+/// must be `reference`. Signature-level: a signature seen anywhere in the record type
+/// counts for every member that uses it. A shared group (`group_ref`) is checked at its
+/// place in the record (its own confidence, and one of the signatures that can start it):
+/// its inner members' confidence is about the shared layout, which the record types that
+/// have it confirm. Record types the corpus does not have are skipped.
+fn unobserved_corpus_members(
+    schema: &kitkraft_schema::Schema,
+    types: &BTreeMap<String, TypeAgg>,
+) -> Vec<String> {
+    use kitkraft_schema::{Cardinality, Confidence, Member};
+    fn walk(members: &[Member], prefix: &str, sig: &str, agg: &TypeAgg, out: &mut Vec<String>) {
+        let seen = |s: &str| agg.subs.get(s).is_some_and(|(n, _)| *n > 0);
+        for member in members {
+            let path = if prefix.is_empty() {
+                member.name().to_string()
+            } else {
+                format!("{prefix}.{}", member.name())
+            };
+            match member {
+                Member::Subrecord(sub) => {
+                    let claimed = sub.provenance.confidence >= Confidence::Corpus;
+                    let full = format!("{sig}.{path}");
+                    if claimed
+                        && !seen(sub.signature.as_str())
+                        && !UNOBSERVED_ALLOWED.contains(&full.as_str())
+                    {
+                        out.push(format!(
+                            "{full} ({}, {})",
+                            sub.signature, sub.provenance.confidence
+                        ));
+                    }
+                }
+                Member::Group(g) if g.shared.is_some() => {
+                    // The signatures that can start the group: up to its first required one.
+                    let mut starts = Vec::new();
+                    for inner in &g.members {
+                        if let Member::Subrecord(s) = inner {
+                            starts.push(s.signature.as_str().to_string());
+                        }
+                        if inner.cardinality() == Cardinality::Required {
+                            break;
+                        }
+                    }
+                    let claimed = g.provenance.confidence >= Confidence::Corpus;
+                    if claimed && !starts.iter().any(|s| seen(s)) {
+                        out.push(format!(
+                            "{sig}.{path} (group starting {}, {})",
+                            starts.join("/"),
+                            g.provenance.confidence
+                        ));
+                    }
+                }
+                Member::Group(g) => walk(&g.members, &path, sig, agg, out),
+                Member::AnyUntil(_) => {}
+            }
+        }
+    }
+    let mut out = Vec::new();
+    for record in schema.records() {
+        let sig = record.signature.as_str();
+        if let Some(agg) = types.get(sig) {
+            walk(&record.members, "", sig, agg, &mut out);
+        }
+    }
+    out
 }
 
 /// A Markdown table with columns padded to their widest cell.
@@ -636,8 +721,58 @@ fn render(
 
 #[cfg(test)]
 mod tests {
-    use super::{confidence_table, decoded_table, n, table, TypeAgg};
+    use super::{confidence_table, decoded_table, n, table, unobserved_corpus_members, TypeAgg};
     use serde_json::json;
+
+    /// Lane B round 4: a member that claims `corpus` must have its signature among the
+    /// signatures the corpus shows in records of its type (COBJ FULL claimed `corpus` with
+    /// no occurrence). `reference` members and types the corpus lacks are not checked.
+    #[test]
+    fn corpus_members_need_an_occurrence() {
+        let schema = kitkraft_schema::load_sources([(
+            "TEST.toml",
+            "signature = \"TEST\"\nname = \"Test\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
+             [[member]]\nsig = \"EDID\"\nname = \"EditorId\"\ntype = \"zstring\"\n\
+             [[member]]\nsig = \"FULL\"\nname = \"Name\"\ntype = \"lstring\"\ncard = \"optional\"\n\
+             [[member]]\nsig = \"XNAM\"\nname = \"Extra2\"\ntype = \"u32\"\ncard = \"optional\"\n\
+             source = \"xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1-L2\"\n\
+             confidence = \"reference\"\n",
+        )])
+        .unwrap();
+        let mut agg = TypeAgg::default();
+        agg.subs.insert("EDID".into(), (3, "typed".into()));
+        let types = [("TEST".to_string(), agg)].into_iter().collect();
+        assert_eq!(
+            unobserved_corpus_members(&schema, &types),
+            ["TEST.Name (FULL, corpus)"]
+        );
+        // A type the corpus does not have is not checked.
+        assert!(unobserved_corpus_members(&schema, &Default::default()).is_empty());
+
+        // A shared group is checked at its place: one of its start signatures must occur;
+        // its inner members' levels are about the shared layout.
+        let block =
+            "name = \"Block\"\nkind = \"group\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
+                     [[member]]\nsig = \"BFCB\"\nname = \"Start\"\ntype = \"u32\"\n\
+                     [[member]]\nsig = \"BFCE\"\nname = \"End\"\ntype = \"empty\"\n";
+        let rec = "signature = \"TEST\"\nname = \"Test\"\nsource = \"corpus: t\"\nconfidence = \"corpus\"\n\
+                   [[member]]\ngroup_ref = \"Block\"\ncard = \"optional\"\n";
+        let schema =
+            kitkraft_schema::load_sources([("common/Block.toml", block), ("TEST.toml", rec)])
+                .unwrap();
+        let with = |sigs: &[&str]| {
+            let mut agg = TypeAgg::default();
+            for s in sigs {
+                agg.subs.insert((*s).to_string(), (1, "typed".into()));
+            }
+            [("TEST".to_string(), agg)].into_iter().collect()
+        };
+        assert!(unobserved_corpus_members(&schema, &with(&["BFCB"])).is_empty());
+        assert_eq!(
+            unobserved_corpus_members(&schema, &with(&["EDID"])),
+            ["TEST.Block (group starting BFCB, corpus)"]
+        );
+    }
 
     #[test]
     fn decoded_rows_skip_undefined_types_and_total() {

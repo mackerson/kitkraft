@@ -67,11 +67,9 @@ card = "optional"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L10906-L10906"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3184-L3184",
-  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
-  "corpus: universal subrecord scan 2026-10-14: all 44,077 FULL payloads (53 record types) in the 14 official ESMs are 4 bytes, and all 14 files are localized",
 ]
-confidence = "corpus"
-note = "not in any official COBJ"
+confidence = "reference"
+note = "not in any official COBJ, so `reference` (lane B round 4; it claimed `corpus` from the universal FULL scan, which has no COBJ occurrence); the lstring layout is the universal FULL convention"
 
 [[member]]
 sig = "DESC"
