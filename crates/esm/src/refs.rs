@@ -36,7 +36,7 @@
 use kitcraft_schema::{Confidence, FieldType, Member};
 
 use crate::build::Placed;
-use crate::cells::{self, CellPlace, PlacementStyle, FLAG_PERSISTENT};
+use crate::cells::{self, CellPlace, Grid, PlacementStyle, FLAG_PERSISTENT};
 use crate::model::{Body, Record, RecordHeader, Subrecord};
 use crate::{Error, Result, Signature, FLAG_COMPRESSED};
 
@@ -142,9 +142,12 @@ pub struct MemberUse {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ComposedRef {
     pub record: Record<'static>,
+    /// The position written into `DATA`.
+    pub position: [f32; 3],
     /// Every member written, with its confidence.
     pub members: Vec<MemberUse>,
-    /// What the caller should report: corpus defaults and allowed `reference` members.
+    /// What the caller should report: corpus defaults, allowed `reference` members, and a
+    /// position outside its exterior cell ([`ComposedRef::placed`]).
     pub limitations: Vec<String>,
 }
 
@@ -152,12 +155,40 @@ impl ComposedRef {
     /// The record with the path [`crate::cells::placement`] computes for it in cell `cell`
     /// at `place` (for a persistent reference in a world, `place` is the world's persistent
     /// cell: [`crate::cells::persistent_cell`]).
-    pub fn placed(&self, place: CellPlace, cell: u32, style: &PlacementStyle) -> Result<Placed> {
+    ///
+    /// For an exterior cell, a position whose cell ([`crate::cells::Grid::of_position`]) is
+    /// not the cell's grid is placed anyway and named in [`ComposedRef::limitations`]: the
+    /// corpus has 354 exterior references outside their cell's square (`docs/corpus.md`,
+    /// "Cell size"), so it is not refused.
+    pub fn placed(
+        &mut self,
+        place: CellPlace,
+        cell: u32,
+        style: &PlacementStyle,
+    ) -> Result<Placed> {
         let path = cells::placement(
             &self.record.header,
             &cells::Parent::Cell { place, cell },
             style,
         )?;
+        if let CellPlace::Exterior { grid, .. } = place {
+            let [x, y, _] = self.position;
+            let found = Grid::of_position(x, y);
+            if found != Some(grid) {
+                let at = found.map_or_else(
+                    || "no cell a group label can name".to_string(),
+                    |g| format!("cell ({}, {})", g.x, g.y),
+                );
+                let note = format!(
+                    "{} {:08X}: position ({x}, {y}) is in {at}, not in its cell {cell:08X} at \
+                     ({}, {}) (100-unit cells; 354 corpus references are outside their cell too)",
+                    self.record.header.signature, self.record.header.form_id, grid.x, grid.y
+                );
+                if !self.limitations.contains(&note) {
+                    self.limitations.push(note);
+                }
+            }
+        }
         Ok(Placed {
             path,
             record: self.record.clone(),
@@ -220,6 +251,35 @@ pub fn compose_reference(spec: &RefSpec, allow_reference: &[&str]) -> Result<Com
              compressed flag; use the fields"
                 .to_string(),
         ));
+    }
+    if let Some(v) = spec
+        .position
+        .iter()
+        .chain(&spec.rotation)
+        .find(|v| !v.is_finite())
+    {
+        return Err(refused(format!(
+            "position and rotation must be finite numbers, not {v}"
+        )));
+    }
+    if spec.editor_id.as_ref().is_some_and(|e| e.contains(&0)) {
+        return Err(refused(
+            "the EditorID may not contain a NUL byte (it is written NUL-terminated)".to_string(),
+        ));
+    }
+    let owned = [EDID, NAME, DATA, Signature::XXXX];
+    for (list, subs) in [
+        ("leading", &spec.leading),
+        ("extra", &spec.extra),
+        ("trailing", &spec.trailing),
+    ] {
+        if let Some(s) = subs.iter().find(|s| owned.contains(&s.signature())) {
+            return Err(refused(format!(
+                "{list} may not hold {}: EDID, NAME and DATA come from the spec's fields (each \
+                 occurs once), and an XXXX size prefix is written by the writer",
+                s.signature()
+            )));
+        }
     }
     let mut members: Vec<MemberUse> = Vec::new();
     let mut add = |member: &str, confidence: Confidence, source: &str| {
@@ -343,6 +403,7 @@ pub fn compose_reference(spec: &RefSpec, allow_reference: &[&str]) -> Result<Com
     );
     Ok(ComposedRef {
         record,
+        position: spec.position,
         members,
         limitations,
     })
@@ -463,6 +524,68 @@ mod tests {
         );
     }
 
+    /// Review findings: non-finite numbers, a NUL in the EditorID and subrecords the spec's
+    /// fields own are refused; a position outside the exterior cell is placed but named.
+    #[test]
+    fn bad_specs_are_refused_and_off_cell_positions_named() {
+        for v in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+            let mut s = spec();
+            s.position[2] = v;
+            assert!(matches!(
+                compose_reference(&s, ALL),
+                Err(Error::Refused { .. })
+            ));
+            let mut s = spec();
+            s.rotation[0] = v;
+            assert!(compose_reference(&s, ALL).is_err());
+        }
+        let mut s = spec();
+        s.editor_id = Some(b"a\0b".to_vec());
+        assert!(compose_reference(&s, ALL).is_err());
+        for sig in [b"EDID", b"NAME", b"DATA", b"XXXX"] {
+            let sub = Subrecord::new(Signature::new(sig), vec![0; 4]);
+            for which in 0..3 {
+                let mut s = spec();
+                match which {
+                    0 => s.leading.push(sub.clone()),
+                    1 => s.extra.push(sub.clone()),
+                    _ => s.trailing.push(sub.clone()),
+                }
+                let err = compose_reference(&s, ALL).unwrap_err();
+                assert!(err.to_string().contains("may not hold"), "{err}");
+            }
+        }
+        // (150, -20) is in cell (1, -1); placed in cell (0, 0) it is still placed, and said.
+        let style = PlacementStyle::OFFICIAL;
+        let mut composed = compose_reference(&spec(), ALL).unwrap();
+        let before = composed.limitations.len();
+        let right = CellPlace::Exterior {
+            world: 0x25,
+            grid: Grid::new(1, -1),
+        };
+        composed.placed(right, 0x7777, &style).unwrap();
+        assert_eq!(composed.limitations.len(), before);
+        let wrong = CellPlace::Exterior {
+            world: 0x25,
+            grid: Grid::new(0, 0),
+        };
+        composed.placed(wrong, 0x7778, &style).unwrap();
+        composed.placed(wrong, 0x7778, &style).unwrap();
+        assert_eq!(composed.limitations.len(), before + 1);
+        let note = composed.limitations.last().unwrap();
+        assert!(note.contains("cell (1, -1)"), "{note}");
+        // Interior and persistent places have no grid to compare.
+        let mut p = spec();
+        p.persistent = true;
+        let mut composed = compose_reference(&p, ALL).unwrap();
+        let before = composed.limitations.len();
+        composed
+            .placed(CellPlace::Persistent { world: 0x25 }, 0xD62, &style)
+            .unwrap();
+        composed.placed(CellPlace::INTERIOR, 0x12, &style).unwrap();
+        assert_eq!(composed.limitations.len(), before);
+    }
+
     fn rec(sig: &[u8; 4], flags: u32, id: u32, subs: Vec<Subrecord<'static>>) -> Record<'static> {
         Record::new(
             RecordHeader {
@@ -526,7 +649,7 @@ mod tests {
         };
         let mut s = spec();
         s.form_id = forms.allocate().unwrap();
-        let composed = compose_reference(&s, ALL).unwrap();
+        let mut composed = compose_reference(&s, ALL).unwrap();
         let placed = composed.placed(place, 0x0000_7777, &style).unwrap();
         // Without the master's WRLD and CELL in the patch: refused.
         let mut bare = plugin.clone();
@@ -546,7 +669,7 @@ mod tests {
         let mut p = spec();
         p.persistent = true;
         p.form_id = forms.allocate().unwrap();
-        let composed = compose_reference(&p, ALL).unwrap();
+        let mut composed = compose_reference(&p, ALL).unwrap();
         assert!(composed.placed(place, 0x0000_7777, &style).is_err());
         let pcell = CellPlace::Persistent { world };
         let carried = cells::carry_parents(&index, &pcell, 0xD62, &style, &limits, read).unwrap();
