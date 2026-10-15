@@ -1,0 +1,19 @@
+# W9 recipe (M4.E8): a vanilla NPC placed into a vanilla interior cell that has navmesh.
+# Build: kit build docs/recipes/actors.toml out/recipes/KitKraftActors.esm
+# See docs/recipes/actors.md for the navmesh check and the in-game steps.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[place]]
+# Vendor_ChunksEmployee_M ("Chunks Employee"), an NPC_ base: placed as an ACHR.
+base = "Starfield.esm:271133"
+# CityNewAtlantisFreestarEmbassy: one NAVM in its temporary children, six vanilla actors.
+cell = "Starfield.esm:017307"
+# On the floor next to the vanilla actor standing at (4.86, 2.43, 0.0).
+position = [4.0, 4.0, 0.0]
+rotation = [0.0, 0.0, 1.57]
+persistent = true
+edid = "KitKraftTestActor"
+brief = "W9"

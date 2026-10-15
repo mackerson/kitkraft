@@ -852,6 +852,19 @@ is under "Next".
     FormIDs `01001000`, `01001001`, `HEDR` next object ID `FF001002`; validate 0 findings,
     roundtrip identical, `inspect` finds the clone. Whether they equal the CK's choice is
     fixture F06's question (not observed; named in `limitations`).
+  - M4.E8 recipes `docs/recipes/ownership.md` + `ownership.toml` (W4: `XOWN.Owner` of
+    `CityNewAtlantisFreestarEmbassy` set to `PlayerFaction`; 15,053 bytes, SHA-256
+    `cc77ed38...cc259`) and `docs/recipes/actors.md` + `actors.toml` (W9: an `ACHR` of
+    `Vendor_ChunksEmployee_M` in the embassy, which has a `NAVM`; 15,190 bytes, SHA-256
+    `837b6371...8f27a`): each builds, validates with 0 findings and roundtrips identical;
+    every fact cites its source. `cell.actor-without-navmesh` caught the first choice of
+    cell (the POI's apartment has no `NAVM`). Finding: `query` by owner cannot decide 65
+    `CELL`s (`XOWN` out of the ordered definition's place; lane B's `unordered` mode).
+    The ownership cell is a stand-in until M4.H1 (F27). In-game steps for M4.O4 in each
+    recipe (KitKraft Dev, disposable save).
+  - Not started, gated: M4.E9 (script attachment) waits for BQ's typed script-attachment
+    block (`VMAD` is opaque in every definition); M4.E10 (procedural placement) waits for
+    M4.D3 (`planet`, not on main).
   - **First POI (rung 0) built** (`docs/poi/first-poi.md`, spec `docs/poi/first-poi.toml`):
     `out\poi\KitKraftFirstPOI.esm` (1,821 bytes, SHA-256
     `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1`, master
