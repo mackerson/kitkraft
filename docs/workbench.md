@@ -43,8 +43,9 @@ temp file; the next start removes it.
 `crates/ui-egui/src/gate.rs` is the only module that holds the `Engine`. Every request is
 checked against its allowlist by canonical id, so an alias cannot get around it:
 
-- **Allowed:** `load`, `inspect`, `query`, `diff`, `conflicts`, `validate`, `coverage` and
-  `schema`, none of which the catalog marks `writes`.
+- **Allowed:** `load`, `inspect`, `query`, `diff`, `conflicts`, `validate`, `coverage`,
+  `schema`, `refs` and `planet`, none of which the catalog marks `writes`. (`refs
+  --incoming` fills the engine's reverse-link cache, as `load` fills the index cache.)
 - **Guarded:** `roundtrip`, which writes with `out`, runs only with `verify: true`, and never
   with `out` or `overwrite`.
 - **Refused before the engine sees the request:** every other catalog command and alias.
@@ -76,7 +77,8 @@ engine's own index cache, as it does for the CLI and MCP.
 Each panel shows the following under its result:
 
 - The `kit` command line that gives the same envelope, with a copy button.
-  - For `inspect`, `query`, `conflicts` and `validate`, the load-order arguments are added,
+  - For `inspect`, `query`, `conflicts`, `validate`, `refs` and `planet`, the load-order
+    arguments are added,
     because each `kit` process starts with an empty session. They are the arguments of the
     `load` that had succeeded when the command ran, not what the Load form says now. When
     no load had succeeded, there is no `kit` line, only the MCP call.
@@ -136,14 +138,39 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
   - Example: `WEAP where FULL ~ 'Rifle'` gave 7 matches. On the first match, `inspect`
     showed decoded values with offsets, FormIDs as `Starfield.esm:12F677 [raw 0012F677]`,
     and one undecoded `QUPA` payload as hex.
+- **Links** (`refs`)
+  - Outgoing links of a form, breadth first to a depth (1 to 6), or "use info": the
+    records whose typed members name it (incoming; winners or every version; a type
+    filter). Every record row in the window (query rows, the record view, diff records,
+    diagnostics, links and planet rows) has "links" and "use info", which open this tab.
+  - One row per edge, read from its `link` or `referrer` marker: hop, the record holding
+    the link, member path, raw FormID, status (anything but `resolved` or `null` in red),
+    and the target. Forms are links that run `inspect`. A placed referrer shows its cell
+    and world; the largest cells are listed separately. An edge with a marker the view
+    does not know is counted, not guessed. Pages by `next_cursor`.
+  - On KitKraft Dev, the first rifle (`Starfield.esm:02EB36` Tombstone): 146 outgoing
+    links (115 resolved, 31 null: transforms, keywords, attach slots, template mods),
+    instant. "Use info": 14 referrers, 6 leveled lists and 8 placed references (cells in
+    Akila City, `LC006World`, and `SFBGS003.esm`'s Trackers Alliance HQ). That took 21 s
+    with the reverse-link index built cold (84 plugins); warm it is under a second.
+- **Planet** (`planet`)
+  - The Planet Content Manager chain of one record. A tree, branch or content node shows
+    its subtree indented by depth (order in the `PRVN` chain, child selection, condition
+    count, and the content a node places, which runs `inspect`); a branch or content node
+    also its ancestors. A planet, star, biome, location, worldspace or pack-in shows the
+    content nodes that place it, each with its branch chain. Every `link` marker in the
+    result is listed with where it sits, so a view without its own rows still shows its
+    links. "planet chain" on the record view of a planet-family record opens this tab.
+  - On KitKraft Dev: `PCM_QuestRequest` is a tree of 390 nodes (46 branches, 343 content
+    nodes placing worldspaces, depth 4), 0 unresolved links, in under a second.
 - **Diff**
   - Compares two plugins (`diff`) or one plugin against the versions before it
     (`conflicts`, which needs a load).
   - Each differing record is collapsible, with a row per field: subrecord and occurrence,
     change, field path, before and after.
   - FormIDs are shown as formrefs or `NULL`. Opaque members are shown as `opaque bytes @off
-    len n`. A FormID is recognized by the shape of the value, because the envelope has no
-    explicit marker for one yet (`docs/gaps.md`).
+    len n`. Both are recognized by their `kind` marker (`formref`, `opaque`; M4.W0), never
+    by the shape of the value: an object without a marker is a struct.
   - A subrecord compared only as bytes shows its byte spans for `diff`. For `conflicts` it
     shows "range not reported", because that command returns no spans. Identical byte-only
     rows of one signature are folded into one row such as `NVMI x12 (#0..#11)`.
@@ -185,10 +212,11 @@ Set `KITKRAFT_WORKBENCH_SHOTS=<dir>` and start `kit-ui` with a profile. The tour
 runs these read-only requests:
 
 1. `query WEAP where FULL ~ 'Rifle'`.
-2. `inspect` and the diagnostics on its first match.
-3. `coverage`, `conflicts`, `validate` and `roundtrip --verify` on the biggest plugin the
+2. `inspect`, "use info" (`refs --incoming`) and the diagnostics on its first match.
+3. `planet PCM_QuestRequest` (a Planet Content Manager tree of `Starfield.esm`), 60 nodes.
+4. `coverage`, `conflicts`, `validate` and `roundtrip --verify` on the biggest plugin the
    profile activates.
-4. `schema --deep WEAP`.
+5. `schema --deep WEAP`.
 
 It then saves `<dir>/<tab>.bmp` for each tab and closes. Keep the images outside the repo.
 The tour refuses a `<dir>` that is, or is inside, the game's Data folder, the user Data
@@ -199,9 +227,11 @@ through a link (the engine's own output guard); the window then says why and run
 
 - `build --plan` (M4.W6). The gate refuses `build` in every mode for now. Opening it for
   `plan: true` needs an argument guard like the one for `roundtrip`.
-- `refs` (M4.D1) and placement context (M4.D2). Neither is on `main`, so the Diagnostics
-  panel shows outgoing references only.
-- The M4.W0 shape tests (lane F). Until they land, the view-models read every envelope
-  member defensively, and a member that is missing shows as unknown.
+- Placement context (M4.D2) is not on `main`.
+
+The view-models read the inspection commands' shapes as `docs/shapes.md` documents them
+(M4.W0), and format values by their `kind` marker. Their canned test envelopes for `refs`
+and `planet` are checked against the engine's own shapes, so they cannot drift from what
+the engine returns.
 - Owner decisions on licenses: BSL-1.0 for the clipboard crates, and the optional
   `default_fonts` feature (ADR 0007, "Dependency list").
