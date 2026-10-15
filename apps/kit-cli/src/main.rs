@@ -13,9 +13,14 @@
 //! `kit mcp [--profile DIR]` serves MCP on stdio until stdin closes (exit 0; 2 on an I/O
 //! error); a failed `--profile` preload is reported on stderr and in the server's
 //! instructions, and the server starts with an empty session.
-//! `kit ui [--profile DIR] [--plugins FILE...] [--data-dir DIR]` starts the read-only
+//! `kit ui [--dev | --profile DIR] [--plugins FILE...] [--data-dir DIR]` starts the read-only
 //! workbench window (`kit-ui`, built from `apps/kit`, next to this binary) with those
-//! arguments and returns its exit code; 2 when `kit-ui` is not there.
+//! arguments and returns its exit code; 2 when `kit-ui` is not there. `--dev` opens the
+//! KitKraft Dev profile `kit doctor` finds (else the window's profile picker).
+//! `kit install` / `kit uninstall [--dry-run | --apply] [--home DIR] ...` print, and with
+//! `--apply` make, the PATH and MCP registration changes of `kitkraft_engine::install`
+//! (front-end setup like `mcp` and `ui`, so no `CommandSpec` and not reachable over MCP);
+//! exit 0, or 2 on an error.
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
@@ -27,7 +32,7 @@ use std::process::ExitCode;
 
 use clap::{Arg, ArgAction, Command};
 use kitkraft_engine::{
-    catalog, cmdline, find_command, CommandSpec, EngineError, Invocation, Status,
+    catalog, cmdline, find_command, install, CommandSpec, EngineError, Invocation, Status,
 };
 use serde_json::{json, Value};
 
@@ -58,7 +63,15 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some(("mcp", sub)) => run_mcp(sub.get_one::<String>("profile").map(String::as_str)),
-        Some(("ui", sub)) => run_ui(sub.get_many::<String>("words").into_iter().flatten()),
+        Some(("ui", sub)) => run_ui(&ui_words(
+            sub.get_many::<String>("words")
+                .into_iter()
+                .flatten()
+                .cloned()
+                .collect(),
+        )),
+        Some(("install", sub)) => run_install(sub, install::Action::Install),
+        Some(("uninstall", sub)) => run_install(sub, install::Action::Uninstall),
         Some((word, sub)) => {
             let mut words = vec![word.to_string()];
             words.extend(
@@ -108,9 +121,168 @@ fn run_mcp(profile: Option<&str>) -> ExitCode {
     }
 }
 
+/// `kit ui --dev`: the `--dev` word becomes `--profile <the KitKraft Dev profile>` when
+/// `kit doctor` finds one; without one the window opens on its profile picker. Other
+/// words pass through unchanged.
+fn ui_words(words: Vec<String>) -> Vec<String> {
+    if !words.iter().any(|w| w == "--dev") {
+        return words;
+    }
+    let mut out: Vec<String> = words.into_iter().filter(|w| w != "--dev").collect();
+    let dev = kitkraft_engine::execute("doctor", json!({"get": "dev_profile"}))
+        .ok()
+        .and_then(|r| {
+            r.pointer("/data/value")
+                .and_then(Value::as_str)
+                .map(str::to_string)
+        });
+    match dev {
+        Some(dir) if !out.iter().any(|w| w == "--profile") => {
+            eprintln!("kit ui: opening the KitKraft Dev profile {dir}");
+            out.splice(0..0, ["--profile".to_string(), dir]);
+        }
+        Some(_) => {}
+        None => eprintln!(
+            "kit ui: no KitKraft Dev profile found (run `kit doctor`); opening the profile picker"
+        ),
+    }
+    out
+}
+
+/// `kit install` / `kit uninstall` (front-end setup, no `CommandSpec`: see
+/// `kitkraft_engine::install`). Prints the plan; changes things only with `--apply`.
+fn run_install(sub: &clap::ArgMatches, action: install::Action) -> ExitCode {
+    let name = match action {
+        install::Action::Install => "install",
+        install::Action::Uninstall => "uninstall",
+    };
+    let dist = sub
+        .get_one::<String>("dist")
+        .map(std::path::PathBuf::from)
+        .or_else(|| {
+            std::env::current_exe()
+                .ok()
+                .and_then(|e| e.parent().map(std::path::Path::to_path_buf))
+        });
+    let Some(dist) = dist else {
+        eprintln!("kit {name}: cannot tell where kit.exe is; pass --dist <folder>");
+        return ExitCode::from(EXIT_ERROR);
+    };
+    let mut opts = install::Options::detect(dist);
+    if let Some(home) = sub.get_one::<String>("home") {
+        opts.home = home.into();
+    }
+    if let Some(project) = sub.get_one::<String>("project") {
+        opts.project = Some(project.into());
+    }
+    if sub.get_flag("no-project") {
+        opts.project = None;
+    }
+    opts.path = !sub.get_flag("no-path");
+    opts.mcp = !sub.get_flag("no-mcp");
+    let mut env: Box<dyn install::UserEnv> = match sub.get_one::<String>("env-file") {
+        Some(file) => Box::new(install::FileEnv { path: file.into() }),
+        None => Box::new(install::SystemEnv),
+    };
+    let plan = match install::plan(&opts, env.as_ref(), action) {
+        Ok(plan) => plan,
+        Err(err) => {
+            eprintln!("kit {name}: {err}");
+            return ExitCode::from(EXIT_ERROR);
+        }
+    };
+    if !sub.get_flag("apply") {
+        print!("{}", plan.render(false));
+        if plan.changes_anything() {
+            println!(
+                "Dry run: nothing was changed. Run `kit {name} --apply` to make these changes."
+            );
+        }
+        return ExitCode::SUCCESS;
+    }
+    print!("{}", plan.render(true));
+    match install::apply(&plan, env.as_mut()) {
+        Ok(done) => {
+            for line in done {
+                println!("done: {line}");
+            }
+            if plan.changes_anything() {
+                println!("Open a new terminal, and restart Claude Code, to pick the changes up.");
+            }
+            ExitCode::SUCCESS
+        }
+        Err(err) => {
+            eprintln!("kit {name}: {err}");
+            eprintln!("kit {name}: the steps printed as done above stay applied; nothing after the failed one was changed");
+            ExitCode::from(EXIT_ERROR)
+        }
+    }
+}
+
+/// The arguments of `kit install` and `kit uninstall`.
+fn install_command(name: &'static str, about: &'static str) -> Command {
+    Command::new(name)
+        .about(about)
+        .arg(
+            Arg::new("dry-run")
+                .long("dry-run")
+                .action(ArgAction::SetTrue)
+                .conflicts_with("apply")
+                .help("Print what would change and change nothing (the default)"),
+        )
+        .arg(
+            Arg::new("apply")
+                .long("apply")
+                .action(ArgAction::SetTrue)
+                .help("Make the changes (backups first)"),
+        )
+        .arg(
+            Arg::new("home")
+                .long("home")
+                .value_name("DIR")
+                .help("Folder holding .claude.json (default %USERPROFILE%)"),
+        )
+        .arg(
+            Arg::new("project")
+                .long("project")
+                .value_name("DIR")
+                .help("Project folder for .mcp.json (default: the repository above the dist folder)"),
+        )
+        .arg(
+            Arg::new("no-project")
+                .long("no-project")
+                .action(ArgAction::SetTrue)
+                .help("Leave the project .mcp.json alone"),
+        )
+        .arg(
+            Arg::new("dist")
+                .long("dist")
+                .value_name("DIR")
+                .help("The dist folder holding kit.exe (default: this program's folder)"),
+        )
+        .arg(
+            Arg::new("no-path")
+                .long("no-path")
+                .action(ArgAction::SetTrue)
+                .help("Leave the user PATH alone"),
+        )
+        .arg(
+            Arg::new("no-mcp")
+                .long("no-mcp")
+                .action(ArgAction::SetTrue)
+                .help("Leave the MCP registrations alone"),
+        )
+        .arg(
+            Arg::new("env-file")
+                .long("env-file")
+                .value_name("FILE")
+                .help("A JSON file standing in for HKCU\\Environment (tests; the real registry is not read)"),
+        )
+}
+
 /// `kit ui`: starts the workbench binary (`kit-ui`, next to `kit`) with the given
 /// arguments (it parses them). A launcher: it acts on no data, so it has no `CommandSpec`.
-fn run_ui<'a>(args: impl Iterator<Item = &'a String>) -> ExitCode {
+fn run_ui(args: &[String]) -> ExitCode {
     let name = format!("kit-ui{}", std::env::consts::EXE_SUFFIX);
     let path = std::env::current_exe()
         .ok()
@@ -167,8 +339,16 @@ fn cli() -> Command {
         )
         .subcommand(passthrough(
             "ui",
-            "Open the read-only workbench window (kit ui [--profile DIR] [--plugins F...] [--data-dir DIR])"
+            "Open the read-only workbench window (kit ui [--dev | --profile DIR] [--plugins F...] [--data-dir DIR])"
                 .to_string(),
+        ))
+        .subcommand(install_command(
+            "install",
+            "Put this folder on the user PATH and register it as the kitkraft MCP server (--dry-run by default; --apply)",
+        ))
+        .subcommand(install_command(
+            "uninstall",
+            "Undo kit install: PATH entry, MCP registrations, install record (--dry-run by default; --apply)",
         ))
         .subcommand(passthrough(
             "help",
@@ -385,11 +565,25 @@ fn print_catalog_help() {
         "mcp"
     );
     println!(
-        "  {:<18} Open the read-only workbench window (kit ui [--profile DIR] [--plugins F...])",
+        "  {:<18} Open the read-only workbench window (kit ui [--dev | --profile DIR] [--plugins F...])",
         "ui"
     );
+    println!(
+        "  {:<18} Put this folder on PATH, register the MCP server (kit install [--apply])",
+        "install"
+    );
+    println!(
+        "  {:<18} Undo kit install (kit uninstall [--apply])",
+        "uninstall"
+    );
     println!();
-    println!("ENVIRONMENT:");
+    println!("DEFAULTS: `kit doctor` shows what is detected on this machine (game, Data dir, MO2,");
+    println!("profiles). Precedence everywhere: argument > environment variable > detected.");
+    println!(
+        "A bare --profile name (\"KitKraft Dev\") is that profile of the detected MO2 instance."
+    );
+    println!();
+    println!("ENVIRONMENT (optional; overrides detection):");
     println!(
         "  {:<18} Game Data dir; the default for --data-dir: plugin names (--plugins,",
         "KITKRAFT_DATA_DIR"
@@ -401,6 +595,10 @@ fn print_catalog_help() {
     println!(
         "  {:<18} order, next to the plugin, then there. A profile uses MO2's gamePath first.",
         ""
+    );
+    println!(
+        "  {:<18} 0 turns the detected defaults off (arguments and variables still apply)",
+        "KITKRAFT_DETECT"
     );
     println!(
         "  {:<18} Index cache (default %LOCALAPPDATA%\\kitkraft\\cache)",
@@ -435,5 +633,18 @@ mod tests {
         assert_eq!(result_code(roundtrip, &json!({"data": null})), 0);
         assert_eq!(result_code(roundtrip, &with(json!(false))), EXIT_NEGATIVE);
         assert_eq!(result_code(planned, &with(json!(true))), EXIT_ERROR);
+    }
+
+    #[test]
+    fn ui_words_pass_through_without_dev() {
+        let words = vec!["--plugins".to_string(), "A.esm".to_string()];
+        assert_eq!(super::ui_words(words.clone()), words);
+        // `--dev` never reaches kit-ui, whatever doctor finds; an explicit --profile wins.
+        let out = super::ui_words(vec![
+            "--dev".to_string(),
+            "--profile".to_string(),
+            "P".to_string(),
+        ]);
+        assert_eq!(out, ["--profile", "P"]);
     }
 }

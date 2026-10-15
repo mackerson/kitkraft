@@ -37,3 +37,6 @@ desktop.ini
 
 # Patch plugins written by kit set/build for the owner to install (M2.E10)
 /out/
+
+# The double-click distribution folder `cargo xtask dist` writes (docs/QUICKSTART.md)
+/dist/

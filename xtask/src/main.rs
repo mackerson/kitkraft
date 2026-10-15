@@ -5,6 +5,7 @@
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
+//! - `cargo xtask dist [--out DIR]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit) run as oracles (lane H,
 //!   [`oracle`], [`sf1edit`]).
@@ -30,6 +31,7 @@
 //! LAYER: TOOL
 
 mod codegen;
+mod dist;
 mod evidence;
 mod graph;
 mod observe;
@@ -140,6 +142,10 @@ fn run() -> Result<()> {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             observe::run(&workspace_root()?, &rest)
         }
+        Some("dist") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            dist::run(&workspace_root()?, &rest)
+        }
         Some("oracle") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             oracle::run(&workspace_root()?, &rest)
@@ -164,6 +170,10 @@ fn print_help() {
     println!("           docs/record-parity.md; --check fails when it is stale");
     println!("  observe  CK observation fixtures (observe/<date>-<id>/) to report.md/report.json;");
     println!("           `observe new <F-id>` writes a fixture.toml template (lane H)");
+    println!(
+        "  dist     release-build kit.exe and kit-ui.exe into <out>\\KitKraft\\ (default dist\\)"
+    );
+    println!("           with the double-click .cmd files and README.txt; [--out DIR]");
     println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
     println!("           round trips compared with kit (YAML never read; lane H);");
     println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");
