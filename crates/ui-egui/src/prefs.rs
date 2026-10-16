@@ -4,11 +4,12 @@
 //! writes images only when asked, and the ledger row is written by the engine's
 //! `ledger` command, ADR 0007 Amendment 2). It is UI state, not game data: the MO2
 //! instance and profile last loaded from the start screen, the checkout whose docs the
-//! Help and Ledger tabs read, the visual theme (`theme`) and the Records split
-//! (`records_split`). It is written only when a start-screen button, the Start tab's
-//! theme picker, the Help tab's "use this checkout", or the end of a drag of the Records
-//! inspector's edge asks for it, and never names or touches a plugin, a profile's files
-//! or the game.
+//! Help and Ledger tabs read, the visual theme (`theme`), the Records split
+//! (`records_split`) and the CK-style windows' layout (`ck_windows`). It is written only
+//! when a start-screen button, the Start tab's theme picker, the Help tab's "use this
+//! checkout", the end of a drag of the Records inspector's edge, or a CK-style window
+//! opened, closed, moved or resized asks for it, and never names or touches a plugin, a
+//! profile's files or the game.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -36,6 +37,9 @@ pub struct Prefs {
     /// The Records inspector's share of the tab's width (0.2 to 0.8), written when a drag
     /// of the pane's edge ends.
     pub records_split: Option<f32>,
+    /// The CK-style windows (M7.M0): open or closed, position and size, per window and
+    /// per floating tab (`crate::windows`, which reads and writes the object).
+    pub ck_windows: Option<Value>,
 }
 
 /// `<local_app_data>\kitkraft\ui.json`, or `None` without `%LOCALAPPDATA%`.
@@ -75,6 +79,7 @@ impl Prefs {
             repo_dir: get("repo_dir"),
             theme: get("theme"),
             records_split,
+            ck_windows: map.get("ck_windows").filter(|v| v.is_object()).cloned(),
         }
     }
 
@@ -96,6 +101,9 @@ impl Prefs {
             .and_then(|v| serde_json::Number::from_f64(f64::from(v)))
         {
             map.insert("records_split".into(), Value::Number(n));
+        }
+        if let Some(w) = &self.ck_windows {
+            map.insert("ck_windows".into(), w.clone());
         }
         serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_else(|_| "{}".to_string())
     }
@@ -148,6 +156,7 @@ mod tests {
             repo_dir: None,
             theme: Some("studio-dark".into()),
             records_split: Some(0.5),
+            ck_windows: Some(serde_json::json!({"Warnings": {"open": true}})),
         };
         prefs.save(&path).unwrap();
         assert_eq!(Prefs::load(&path), prefs);

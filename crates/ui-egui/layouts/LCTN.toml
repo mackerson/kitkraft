@@ -1,0 +1,62 @@
+# Edit-dialog layout for LCTN (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
+# Tabs, groups and field order are KitKraft's own arrangement in the style of the
+# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
+# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
+# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
+# Fields are subrecord signatures from the record schema (a test checks each one);
+# a subrecord the layout does not place shows on an "Other" tab. Read-only until
+# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+type = "LCTN"
+parity = "Edit dialog: LCTN"
+observed = false
+
+[[tab]]
+name = "Location"
+[[tab.group]]
+name = "Identity"
+fields = ["EDID", "FULL", "PNAM"]
+[[tab.group]]
+name = "Data"
+fields = ["DATA", "NAM1", "FNAM", "MNAM", "RNAM", "ANAM", "TNAM", "NAM0", "CNAM"]
+[[tab.group]]
+name = "Planet"
+fields = ["XNAM", "YNAM"]
+
+[[tab]]
+name = "Keywords"
+[[tab.group]]
+name = "Keywords"
+fields = ["KSIZ", "KWDA"]
+[[tab.group]]
+name = "Properties"
+fields = ["PRPS"]
+
+[[tab]]
+name = "References"
+[[tab.group]]
+name = "Persistent references"
+fields = ["LCPR", "ACPR", "RCPR"]
+[[tab.group]]
+name = "Unique base forms"
+fields = ["LCUR", "ACUR", "RCUR"]
+[[tab.group]]
+name = "Unique actors"
+fields = ["LCUN", "ACUN", "RCUN"]
+[[tab.group]]
+name = "Special references"
+fields = ["LCSR", "ACSR", "RCSR"]
+[[tab.group]]
+name = "Initially disabled and enable parents"
+fields = ["LCID", "ACID", "LCEP", "ACEP"]
+
+[[tab]]
+name = "Cells"
+[[tab.group]]
+name = "World cells"
+fields = ["LCEC", "ACEC", "RCEC"]
+
+[[tab]]
+name = "Scripts"
+[[tab.group]]
+name = "Scripts"
+fields = ["VMAD"]

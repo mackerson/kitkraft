@@ -39,8 +39,11 @@ pub(crate) use kitkraft_engine::shapes::{check_shape, data_shape};
 /// The envelope's value markers (M4.W0, `docs/mcp.md` "Data shapes and markers"): the
 /// view-models format a value by its `kind`, never by its shape.
 pub use kitkraft_engine::shapes::{kind as marker, KIND};
+/// The catalog itself, read by the menu bar (M7.M1, `crate::menu`): ids, labels,
+/// `menu_path`, shortcuts, `writes` and status. Reading it runs nothing.
+pub use kitkraft_engine::{catalog, CommandSpec, Status as CommandStatus};
 #[cfg(test)]
-pub(crate) use kitkraft_engine::{catalog, parse_line, Invocation};
+pub(crate) use kitkraft_engine::{parse_line, Invocation};
 
 /// One command the workbench may run, with the arguments that would make it write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
