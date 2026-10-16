@@ -648,6 +648,39 @@ impl RecordDef {
     }
 }
 
+/// The shared group of base form components (`common/BfcbBlock.toml`), as records expand it
+/// (`group_ref = "BfcbBlock"`, under its own name).
+pub const COMPONENT_BLOCK: &str = "BfcbBlock";
+
+/// Whether member path `path` lies inside one of the component layouts typed in the base
+/// form component block (`BfcbBlock.PlanetContentProperties.DaysUntilResetGlobal`; lane D,
+/// 2026-10-15): a member of the shared block's data, not of the record. Its signature may
+/// mean something else at the record's own level (PKIN `VNAM`, AMDL `ANAM`).
+pub fn in_component_layout(path: &str) -> bool {
+    path.strip_prefix(COMPONENT_BLOCK)
+        .and_then(|rest| rest.strip_prefix('.'))
+        .is_some_and(|rest| rest.contains('.'))
+}
+
+impl RecordDef {
+    /// The subrecord definitions with signature `sig`, for a lookup by signature alone (a
+    /// `build` spec path, a scaffold): the record's own members when it has one with that
+    /// signature, else the members inside the component layouts
+    /// ([`in_component_layout`]). Position-based lookups place each occurrence instead.
+    pub fn leaves_for(&self, sig: Signature) -> Vec<(String, &SubrecordDef)> {
+        let (own, component): (Vec<_>, Vec<_>) = self
+            .leaf_subrecords()
+            .into_iter()
+            .filter(|(_, s)| s.signature == sig)
+            .partition(|(path, _)| !in_component_layout(path));
+        if own.is_empty() {
+            component
+        } else {
+            own
+        }
+    }
+}
+
 fn collect_leaves<'a>(
     members: &'a [Member],
     prefix: &str,

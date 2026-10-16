@@ -4,6 +4,8 @@
 //! add it to [`defaults`]. Flip the catalog `status` to `Implemented` only when the
 //! handler does the real work; front ends treat a `Planned` command's result as a stub.
 
+#[cfg(test)]
+mod authoring_tests;
 mod ba2;
 mod build;
 #[cfg(test)]
@@ -18,6 +20,7 @@ mod doctor;
 mod inspect;
 mod ledger;
 mod load;
+mod matrix;
 mod newform;
 #[cfg(test)]
 mod newform_tests;
@@ -137,6 +140,7 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
 /// order, then the working directory, then the Data dir) before the stateless handler runs.
 fn resolving() -> Vec<Resolving> {
     const PLUGIN: &[Input] = &[Input::file("plugin")];
+    const COVERAGE: &[Input] = &[Input::file("plugin"), Input::file("plugins")];
     const AB: &[Input] = &[Input::file("a"), Input::file("b")];
     const ARCHIVE: &[Input] = &[Input::file("archive")];
     const TABLE: &[Input] = &[Input::file("archive"), Input::unless("table", "archive")];
@@ -147,7 +151,7 @@ fn resolving() -> Vec<Resolving> {
         |id: &'static str, inputs: &'static [Input], run: Run| Resolving { id, inputs, run };
     vec![
         entry("roundtrip", PLUGIN, roundtrip::run),
-        entry("coverage", PLUGIN, coverage::run),
+        entry("coverage", COVERAGE, coverage::run),
         entry("diff", AB, diff::run),
         entry("ba2.list", ARCHIVE, ba2::list),
         entry("ba2.extract", ARCHIVE, ba2::extract),

@@ -1401,26 +1401,41 @@ impl Visit for AttackData {
 }
 
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct BfcbBlock {
-    /// `BFCB`, required.
-    pub component_type: Option<Sub<ZString>>,
-    /// Raw subrecords up to `BFCE`, in order.
-    pub component_data: Vec<OwnedSub>,
-    /// `BFCE`, required.
-    pub end_marker: Option<Sub<Empty>>,
+pub struct BfcbBlockAnimationGraph {
+    /// `ANAM`, optional.
+    pub root_graph: Option<Sub<ZString>>,
+    /// `BNAM`, optional.
+    pub rig_file: Option<Sub<ZString>>,
+    /// `CNAM`, optional.
+    pub animations_path: Option<Sub<ZString>>,
+    /// `DNAM`, optional.
+    pub response_file: Option<Sub<ZString>>,
+    /// `ENAM`, optional.
+    pub controls_base_skeleton: Option<Sub<Empty>>,
 }
 
-impl BfcbBlock {
+impl BfcbBlockAnimationGraph {
     /// Members in on-disk order.
     pub const MEMBERS: &'static [MemberDesc] = &[
         MemberDesc::Sub {
-            sig: *b"BFCB",
-            card: Card::Required,
+            sig: *b"ANAM",
+            card: Card::Optional,
         },
-        MemberDesc::AnyUntil { until: *b"BFCE" },
         MemberDesc::Sub {
-            sig: *b"BFCE",
-            card: Card::Required,
+            sig: *b"BNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"ENAM",
+            card: Card::Optional,
         },
     ];
 
@@ -1434,19 +1449,42 @@ impl BfcbBlock {
         for hit in hits {
             match hit {
                 Hit::Sub { member: 0, index } => put(
-                    &mut self.component_type,
+                    &mut self.root_graph,
                     subs,
                     *index,
-                    "BfcbBlock.BFCB",
+                    "BfcbBlock.AnimationGraph.ANAM",
                     ctx,
                     extra,
                 ),
-                Hit::Sub { member: 1, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 2, index } => put(
-                    &mut self.end_marker,
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.rig_file,
                     subs,
                     *index,
-                    "BfcbBlock.BFCE",
+                    "BfcbBlock.AnimationGraph.BNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.animations_path,
+                    subs,
+                    *index,
+                    "BfcbBlock.AnimationGraph.CNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.response_file,
+                    subs,
+                    *index,
+                    "BfcbBlock.AnimationGraph.DNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.controls_base_skeleton,
+                    subs,
+                    *index,
+                    "BfcbBlock.AnimationGraph.ENAM",
                     ctx,
                     extra,
                 ),
@@ -1456,61 +1494,93 @@ impl BfcbBlock {
     }
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
-        emit(out, *b"BFCB", self.component_type.as_ref());
-        out.extend(self.component_data.iter().cloned());
-        emit(out, *b"BFCE", self.end_marker.as_ref());
+        emit(out, *b"ANAM", self.root_graph.as_ref());
+        emit(out, *b"BNAM", self.rig_file.as_ref());
+        emit(out, *b"CNAM", self.animations_path.as_ref());
+        emit(out, *b"DNAM", self.response_file.as_ref());
+        emit(out, *b"ENAM", self.controls_base_skeleton.as_ref());
     }
 }
 
-impl Visit for BfcbBlock {}
+impl Visit for BfcbBlockAnimationGraph {}
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct BiomeNoiseLayer {
-    pub noise_offset_u: f32,
-    pub noise_offset_v: f32,
-    pub noise_scale_u: f32,
-    pub noise_scale_v: f32,
-    pub noise_contrast: f32,
-    pub alt_texture_coverage: f32,
-    pub alt_data_contribution_min: f32,
-    pub alt_data_contribution_max: f32,
+pub struct BfcbBlockContactShadowContactShadows {
+    pub thickness: f32,
+    pub fade_length: f32,
+    pub fade_start: f32,
+    pub max_distance: f32,
+    pub proximity_limit: f32,
 }
 
-impl Field for BiomeNoiseLayer {
+impl Field for BfcbBlockContactShadowContactShadows {
     fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = f32::read(r, "BiomeNoiseLayer.NoiseOffsetU", ctx)?;
-        let f1 = f32::read(r, "BiomeNoiseLayer.NoiseOffsetV", ctx)?;
-        let f2 = f32::read(r, "BiomeNoiseLayer.NoiseScaleU", ctx)?;
-        let f3 = f32::read(r, "BiomeNoiseLayer.NoiseScaleV", ctx)?;
-        let f4 = f32::read(r, "BiomeNoiseLayer.NoiseContrast", ctx)?;
-        let f5 = f32::read(r, "BiomeNoiseLayer.AltTextureCoverage", ctx)?;
-        let f6 = f32::read(r, "BiomeNoiseLayer.AltDataContributionMin", ctx)?;
-        let f7 = f32::read(r, "BiomeNoiseLayer.AltDataContributionMax", ctx)?;
+        let f0 = f32::read(r, "BfcbBlock.ContactShadow.FLCS.Thickness", ctx)?;
+        let f1 = f32::read(r, "BfcbBlock.ContactShadow.FLCS.FadeLength", ctx)?;
+        let f2 = f32::read(r, "BfcbBlock.ContactShadow.FLCS.FadeStart", ctx)?;
+        let f3 = f32::read(r, "BfcbBlock.ContactShadow.FLCS.MaxDistance", ctx)?;
+        let f4 = f32::read(r, "BfcbBlock.ContactShadow.FLCS.ProximityLimit", ctx)?;
         Ok(Self {
-            noise_offset_u: f0,
-            noise_offset_v: f1,
-            noise_scale_u: f2,
-            noise_scale_v: f3,
-            noise_contrast: f4,
-            alt_texture_coverage: f5,
-            alt_data_contribution_min: f6,
-            alt_data_contribution_max: f7,
+            thickness: f0,
+            fade_length: f1,
+            fade_start: f2,
+            max_distance: f3,
+            proximity_limit: f4,
         })
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.noise_offset_u.write(out);
-        self.noise_offset_v.write(out);
-        self.noise_scale_u.write(out);
-        self.noise_scale_v.write(out);
-        self.noise_contrast.write(out);
-        self.alt_texture_coverage.write(out);
-        self.alt_data_contribution_min.write(out);
-        self.alt_data_contribution_max.write(out);
+        self.thickness.write(out);
+        self.fade_length.write(out);
+        self.fade_start.write(out);
+        self.max_distance.write(out);
+        self.proximity_limit.write(out);
     }
 }
 
-impl Visit for BiomeNoiseLayer {}
+impl Visit for BfcbBlockContactShadowContactShadows {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockContactShadow {
+    /// `FLCS`, required.
+    pub contact_shadows: Option<Sub<BfcbBlockContactShadowContactShadows>>,
+}
+
+impl BfcbBlockContactShadow {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"FLCS",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.contact_shadows,
+                    subs,
+                    *index,
+                    "BfcbBlock.ContactShadow.FLCS",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"FLCS", self.contact_shadows.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockContactShadow {}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bool8 {
@@ -1553,38 +1623,6 @@ impl Field for Bool8 {
 impl Visit for Bool8 {}
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ColorBgra {
-    pub blue: u8,
-    pub green: u8,
-    pub red: u8,
-    pub alpha: u8,
-}
-
-impl Field for ColorBgra {
-    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = u8::read(r, "ColorBgra.Blue", ctx)?;
-        let f1 = u8::read(r, "ColorBgra.Green", ctx)?;
-        let f2 = u8::read(r, "ColorBgra.Red", ctx)?;
-        let f3 = u8::read(r, "ColorBgra.Alpha", ctx)?;
-        Ok(Self {
-            blue: f0,
-            green: f1,
-            red: f2,
-            alpha: f3,
-        })
-    }
-
-    fn write(&self, out: &mut Vec<u8>) {
-        self.blue.write(out);
-        self.green.write(out);
-        self.red.write(out);
-        self.alpha.write(out);
-    }
-}
-
-impl Visit for ColorBgra {}
-
-#[derive(Debug, Clone, PartialEq)]
 pub struct ColorRgb {
     pub red: u8,
     pub green: u8,
@@ -1616,73 +1654,667 @@ impl Field for ColorRgb {
 
 impl Visit for ColorRgb {}
 
+/// A field whose layout the value of `Type` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
 #[derive(Debug, Clone, PartialEq)]
-pub struct ColorRgba {
-    pub red: u8,
-    pub green: u8,
-    pub blue: u8,
-    pub alpha: u8,
+pub enum ConditionDataComparisonValue {
+    /// `Type` 0 or 1 or 2 or 3 or 8 or 9 or 10 or 11 or 16 or 17 or 18 or 19 or 24 or 25 or 26 or 27 or 32 or 33 or 34 or 35 or 40 or 41 or 42 or 43 or 48 or 49 or 50 or 51 or 56 or 57 or 58 or 59 or 64 or 65 or 66 or 67 or 72 or 73 or 74 or 75 or 80 or 81 or 82 or 83 or 88 or 89 or 90 or 91 or 96 or 97 or 98 or 99 or 104 or 105 or 106 or 107 or 112 or 113 or 114 or 115 or 120 or 121 or 122 or 123 or 128 or 129 or 130 or 131 or 136 or 137 or 138 or 139 or 144 or 145 or 146 or 147 or 152 or 153 or 154 or 155 or 160 or 161 or 162 or 163 or 168 or 169 or 170 or 171 or 176 or 177 or 178 or 179 or 184 or 185 or 186 or 187 or 192 or 193 or 194 or 195 or 200 or 201 or 202 or 203 or 208 or 209 or 210 or 211 or 216 or 217 or 218 or 219 or 224 or 225 or 226 or 227 or 232 or 233 or 234 or 235 or 240 or 241 or 242 or 243 or 248 or 249 or 250 or 251.
+    Float(f32),
+    /// `Type` 4 or 5 or 6 or 7 or 12 or 13 or 14 or 15 or 20 or 21 or 22 or 23 or 28 or 29 or 30 or 31 or 36 or 37 or 38 or 39 or 44 or 45 or 46 or 47 or 52 or 53 or 54 or 55 or 60 or 61 or 62 or 63 or 68 or 69 or 70 or 71 or 76 or 77 or 78 or 79 or 84 or 85 or 86 or 87 or 92 or 93 or 94 or 95 or 100 or 101 or 102 or 103 or 108 or 109 or 110 or 111 or 116 or 117 or 118 or 119 or 124 or 125 or 126 or 127 or 132 or 133 or 134 or 135 or 140 or 141 or 142 or 143 or 148 or 149 or 150 or 151 or 156 or 157 or 158 or 159 or 164 or 165 or 166 or 167 or 172 or 173 or 174 or 175 or 180 or 181 or 182 or 183 or 188 or 189 or 190 or 191 or 196 or 197 or 198 or 199 or 204 or 205 or 206 or 207 or 212 or 213 or 214 or 215 or 220 or 221 or 222 or 223 or 228 or 229 or 230 or 231 or 236 or 237 or 238 or 239 or 244 or 245 or 246 or 247 or 252 or 253 or 254 or 255.
+    Global(FormId),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
 }
 
-impl Field for ColorRgba {
-    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = u8::read(r, "ColorRgba.Red", ctx)?;
-        let f1 = u8::read(r, "ColorRgba.Green", ctx)?;
-        let f2 = u8::read(r, "ColorRgba.Blue", ctx)?;
-        let f3 = u8::read(r, "ColorRgba.Alpha", ctx)?;
-        Ok(Self {
-            red: f0,
-            green: f1,
-            blue: f2,
-            alpha: f3,
-        })
+impl ConditionDataComparisonValue {
+    /// Reads the variant the decider values select: `key` is the value of `Type` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 1 | 2 | 3 | 8 | 9 | 10 | 11 | 16 | 17 | 18 | 19 | 24 | 25 | 26 | 27 | 32 | 33
+            | 34 | 35 | 40 | 41 | 42 | 43 | 48 | 49 | 50 | 51 | 56 | 57 | 58 | 59 | 64 | 65
+            | 66 | 67 | 72 | 73 | 74 | 75 | 80 | 81 | 82 | 83 | 88 | 89 | 90 | 91 | 96 | 97
+            | 98 | 99 | 104 | 105 | 106 | 107 | 112 | 113 | 114 | 115 | 120 | 121 | 122 | 123
+            | 128 | 129 | 130 | 131 | 136 | 137 | 138 | 139 | 144 | 145 | 146 | 147 | 152 | 153
+            | 154 | 155 | 160 | 161 | 162 | 163 | 168 | 169 | 170 | 171 | 176 | 177 | 178 | 179
+            | 184 | 185 | 186 | 187 | 192 | 193 | 194 | 195 | 200 | 201 | 202 | 203 | 208 | 209
+            | 210 | 211 | 216 | 217 | 218 | 219 | 224 | 225 | 226 | 227 | 232 | 233 | 234 | 235
+            | 240 | 241 | 242 | 243 | 248 | 249 | 250 | 251 => {
+                Field::read(r, field, ctx).map(Self::Float)
+            }
+            4 | 5 | 6 | 7 | 12 | 13 | 14 | 15 | 20 | 21 | 22 | 23 | 28 | 29 | 30 | 31 | 36 | 37
+            | 38 | 39 | 44 | 45 | 46 | 47 | 52 | 53 | 54 | 55 | 60 | 61 | 62 | 63 | 68 | 69
+            | 70 | 71 | 76 | 77 | 78 | 79 | 84 | 85 | 86 | 87 | 92 | 93 | 94 | 95 | 100 | 101
+            | 102 | 103 | 108 | 109 | 110 | 111 | 116 | 117 | 118 | 119 | 124 | 125 | 126 | 127
+            | 132 | 133 | 134 | 135 | 140 | 141 | 142 | 143 | 148 | 149 | 150 | 151 | 156 | 157
+            | 158 | 159 | 164 | 165 | 166 | 167 | 172 | 173 | 174 | 175 | 180 | 181 | 182 | 183
+            | 188 | 189 | 190 | 191 | 196 | 197 | 198 | 199 | 204 | 205 | 206 | 207 | 212 | 213
+            | 214 | 215 | 220 | 221 | 222 | 223 | 228 | 229 | 230 | 231 | 236 | 237 | 238 | 239
+            | 244 | 245 | 246 | 247 | 252 | 253 | 254 | 255 => {
+                Field::read(r, field, ctx).map(Self::Global)
+            }
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ConditionDataComparisonValue {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.red.write(out);
-        self.green.write(out);
-        self.blue.write(out);
-        self.alpha.write(out);
+        match self {
+            Self::Float(value) => value.write(out),
+            Self::Global(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
     }
 }
 
-impl Visit for ColorRgba {}
+impl Visit for ConditionDataComparisonValue {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::Global(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
 
-#[derive(Debug, Clone, PartialEq)]
-pub struct Component {
-    pub component: FormId,
-    pub count: u32,
-    pub curve_table: FormId,
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::Global(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
 }
 
-impl Field for Component {
-    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = Field::read(r, "Component.Component", ctx)?;
-        let f1 = u32::read(r, "Component.Count", ctx)?;
-        let f2 = Field::read(r, "Component.CurveTable", ctx)?;
-        Ok(Self {
-            component: f0,
-            count: f1,
-            curve_table: f2,
-        })
+/// A field whose layout the value of `Function` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConditionDataParameter1 {
+    /// `Function` 0 or 5 or 12 or 18 or 24 or 25 or 26 or 35 or 36 or 38 or 39 or 41 or 46 or 48 or 49 or 50 or 61 or 62 or 63 or 64 or 65 or 75 or 77 or 80 or 81 or 91 or 101 or 102 or 103 or 106 or 107 or 108 or 111 or 112 or 116 or 118 or 123 or 125 or 128 or 129 or 130 or 133 or 134 or 135 or 141 or 143 or 144 or 145 or 146 or 147 or 148 or 150 or 153 or 154 or 157 or 159 or 170 or 175 or 176 or 185 or 190 or 192 or 203 or 215 or 224 or 225 or 226 or 227 or 229 or 231 or 235 or 237 or 242 or 244 or 249 or 254 or 255 or 263 or 265 or 266 or 267 or 274 or 282 or 285 or 286 or 287 or 288 or 300 or 304 or 305 or 306 or 309 or 313 or 314 or 315 or 318 or 320 or 323 or 327 or 329 or 332 or 338 or 339 or 353 or 354 or 358 or 361 or 365 or 367 or 380 or 381 or 390 or 391 or 402 or 409 or 411 or 415 or 416 or 427 or 429 or 430 or 431 or 434 or 435 or 453 or 454 or 458 or 470 or 476 or 483 or 485 or 487 or 488 or 490 or 491 or 495 or 499 or 500 or 503 or 508 or 519 or 521 or 530 or 536 or 544 or 547 or 554 or 555 or 568 or 569 or 574 or 578 or 580 or 589 or 590 or 594 or 613 or 614 or 615 or 616 or 618 or 621 or 623 or 627 or 630 or 631 or 632 or 633 or 635 or 636 or 638 or 641 or 642 or 644 or 645 or 646 or 647 or 654 or 655 or 656 or 657 or 672 or 673 or 674 or 676 or 680 or 683 or 694 or 698 or 700 or 701 or 702 or 703 or 704 or 709 or 710 or 711 or 714 or 715 or 716 or 718 or 721 or 723 or 724 or 725 or 726 or 728 or 729 or 734 or 735 or 738 or 739 or 743 or 745 or 750 or 751 or 756 or 757 or 758 or 759 or 760 or 761 or 762 or 763 or 764 or 765 or 767 or 769 or 770 or 771 or 774 or 775 or 777 or 778 or 779 or 780 or 781 or 782 or 784 or 785 or 786 or 787 or 788 or 789 or 790 or 791 or 792 or 793 or 794 or 795 or 796 or 797 or 798 or 799 or 800 or 801 or 803 or 805 or 812 or 813 or 814 or 815 or 816 or 820 or 824 or 825 or 826 or 828 or 830 or 831 or 832 or 836 or 845 or 846 or 847 or 848 or 849 or 850 or 853 or 855 or 857 or 862 or 863 or 869 or 870 or 871 or 872 or 873 or 879 or 882 or 886 or 887 or 888 or 891 or 895 or 906 or 908 or 924 or 925 or 926 or 927 or 928 or 934 or 937 or 939 or 942 or 943 or 944 or 946 or 947 or 950 or 951 or 957 or 965 or 966.
+    Unused([u8; 4]),
+    /// `Function` 865.
+    BiomeMask([u8; 4]),
+    /// `Function` 929.
+    LimbCategory([u8; 4]),
+    /// `Function` 912.
+    ReactionType([u8; 4]),
+    /// `Function` 811.
+    Float(f32),
+    /// `Function` 819.
+    Form(FormId),
+    /// `Function` 98 or 289 or 368 or 407 or 437 or 744 or 746 or 747 or 748 or 776 or 883 or 941.
+    Integer(i32),
+    /// `Function` 447 or 659 or 660 or 675.
+    String(u32),
+    /// `Function` 181 or 360 or 566 or 567 or 598 or 600 or 601 or 604 or 605 or 608 or 610 or 626 or 838 or 856 or 901 or 902 or 933.
+    Alias(i32),
+    /// `Function` 576.
+    Event(u32),
+    /// `Function` 325 or 611 or 612.
+    PackdataId(u32),
+    /// `Function` 473.
+    Alignment(u32),
+    /// `Function` 6 or 8 or 10 or 11 or 446 or 619 or 620 or 622 or 684.
+    Axis(u32),
+    /// `Function` 570 or 571 or 572 or 596 or 597 or 706.
+    CastingSource(u32),
+    /// `Function` 528.
+    CriticalStage(u32),
+    /// `Function` 396.
+    DamageCauseType(u32),
+    /// `Function` 247 or 432.
+    FormType(u32),
+    /// `Function` 312.
+    MiscStat(u32),
+    /// `Function` 876 or 878.
+    PerkCategory(u32),
+    /// `Function` 877.
+    PerkSkillGroupComparison(u32),
+    /// `Function` 931.
+    Pronoun(u32),
+    /// `Function` 70.
+    Sex(u32),
+    /// `Function` 602.
+    WardState(u32),
+    /// `Function` 439 or 637.
+    FurnitureEntry(u32),
+    /// `Function` 84 or 916.
+    ActorBase(FormId),
+    /// `Function` 14 or 109 or 277 or 494 or 511 or 640 or 661 or 696 or 923 or 960.
+    ActorValue(FormId),
+    /// `Function` 829.
+    AcousticSpace(FormId),
+    /// `Function` 617.
+    AssociationType(FormId),
+    /// `Function` 67 or 230 or 280.
+    Cell(FormId),
+    /// `Function` 68 or 228.
+    Class(FormId),
+    /// `Function` 837.
+    ConditionForm(FormId),
+    /// `Function` 736.
+    DamageType(FormId),
+    /// `Function` 223 or 264 or 595 or 936.
+    EffectItem(FormId),
+    /// `Function` 479.
+    EquipType(FormId),
+    /// `Function` 60 or 71 or 73 or 152 or 193 or 195 or 197 or 199 or 366 or 373 or 410 or 497 or 905.
+    Faction(FormId),
+    /// `Function` 375 or 376 or 459 or 533 or 534 or 535.
+    FactionOrNone(FormId),
+    /// `Function` 262 or 372 or 398 or 444.
+    FormList(FormId),
+    /// `Function` 163.
+    Furniture(FormId),
+    /// `Function` 961 or 967.
+    GameplayOption(FormId),
+    /// `Function` 74 or 899.
+    Global(FormId),
+    /// `Function` 450.
+    Idle(FormId),
+    /// `Function` 47 or 72 or 142 or 182 or 246 or 493 or 691.
+    InventoryObject(FormId),
+    /// `Function` 276 or 362 or 406 or 465 or 501 or 560 or 562 or 651 or 681 or 682 or 693 or 697 or 699 or 707 or 722 or 730 or 741 or 742 or 749 or 766 or 783 or 818 or 839 or 841 or 842 or 854 or 858 or 859 or 860 or 861 or 864 or 866 or 867 or 868 or 875 or 880 or 892 or 904 or 907 or 930 or 935 or 938 or 940 or 955 or 958.
+    Keyword(FormId),
+    /// `Function` 250 or 359 or 445 or 565 or 591 or 592 or 606 or 625 or 851 or 852.
+    Location(FormId),
+    /// `Function` 561 or 563.
+    LocationRefType(FormId),
+    /// `Function` 214 or 919.
+    MagicEffect(FormId),
+    /// `Function` 278.
+    Owner(FormId),
+    /// `Function` 448 or 507 or 713.
+    Perk(FormId),
+    /// `Function` 110.
+    Planet(FormId),
+    /// `Function` 56 or 58 or 59 or 543 or 629 or 664 or 954.
+    Quest(FormId),
+    /// `Function` 69.
+    Race(FormId),
+    /// `Function` 117.
+    Region(FormId),
+    /// `Function` 874.
+    ResearchProject(FormId),
+    /// `Function` 949.
+    Resource(FormId),
+    /// `Function` 131 or 248 or 550.
+    Scene(FormId),
+    /// `Function` 737.
+    SpeechChallenge(FormId),
+    /// `Function` 426.
+    VoiceType(FormId),
+    /// `Function` 149 or 889.
+    Weather(FormId),
+    /// `Function` 310.
+    Worldspace(FormId),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl ConditionDataParameter1 {
+    /// Reads the variant the decider values select: `key` is the value of `Function` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 5 | 12 | 18 | 24 | 25 | 26 | 35 | 36 | 38 | 39 | 41 | 46 | 48 | 49 | 50 | 61
+            | 62 | 63 | 64 | 65 | 75 | 77 | 80 | 81 | 91 | 101 | 102 | 103 | 106 | 107 | 108
+            | 111 | 112 | 116 | 118 | 123 | 125 | 128 | 129 | 130 | 133 | 134 | 135 | 141 | 143
+            | 144 | 145 | 146 | 147 | 148 | 150 | 153 | 154 | 157 | 159 | 170 | 175 | 176 | 185
+            | 190 | 192 | 203 | 215 | 224 | 225 | 226 | 227 | 229 | 231 | 235 | 237 | 242 | 244
+            | 249 | 254 | 255 | 263 | 265 | 266 | 267 | 274 | 282 | 285 | 286 | 287 | 288 | 300
+            | 304 | 305 | 306 | 309 | 313 | 314 | 315 | 318 | 320 | 323 | 327 | 329 | 332 | 338
+            | 339 | 353 | 354 | 358 | 361 | 365 | 367 | 380 | 381 | 390 | 391 | 402 | 409 | 411
+            | 415 | 416 | 427 | 429 | 430 | 431 | 434 | 435 | 453 | 454 | 458 | 470 | 476 | 483
+            | 485 | 487 | 488 | 490 | 491 | 495 | 499 | 500 | 503 | 508 | 519 | 521 | 530 | 536
+            | 544 | 547 | 554 | 555 | 568 | 569 | 574 | 578 | 580 | 589 | 590 | 594 | 613 | 614
+            | 615 | 616 | 618 | 621 | 623 | 627 | 630 | 631 | 632 | 633 | 635 | 636 | 638 | 641
+            | 642 | 644 | 645 | 646 | 647 | 654 | 655 | 656 | 657 | 672 | 673 | 674 | 676 | 680
+            | 683 | 694 | 698 | 700 | 701 | 702 | 703 | 704 | 709 | 710 | 711 | 714 | 715 | 716
+            | 718 | 721 | 723 | 724 | 725 | 726 | 728 | 729 | 734 | 735 | 738 | 739 | 743 | 745
+            | 750 | 751 | 756 | 757 | 758 | 759 | 760 | 761 | 762 | 763 | 764 | 765 | 767 | 769
+            | 770 | 771 | 774 | 775 | 777 | 778 | 779 | 780 | 781 | 782 | 784 | 785 | 786 | 787
+            | 788 | 789 | 790 | 791 | 792 | 793 | 794 | 795 | 796 | 797 | 798 | 799 | 800 | 801
+            | 803 | 805 | 812 | 813 | 814 | 815 | 816 | 820 | 824 | 825 | 826 | 828 | 830 | 831
+            | 832 | 836 | 845 | 846 | 847 | 848 | 849 | 850 | 853 | 855 | 857 | 862 | 863 | 869
+            | 870 | 871 | 872 | 873 | 879 | 882 | 886 | 887 | 888 | 891 | 895 | 906 | 908 | 924
+            | 925 | 926 | 927 | 928 | 934 | 937 | 939 | 942 | 943 | 944 | 946 | 947 | 950 | 951
+            | 957 | 965 | 966 => Field::read(r, field, ctx).map(Self::Unused),
+            865 => Field::read(r, field, ctx).map(Self::BiomeMask),
+            929 => Field::read(r, field, ctx).map(Self::LimbCategory),
+            912 => Field::read(r, field, ctx).map(Self::ReactionType),
+            811 => Field::read(r, field, ctx).map(Self::Float),
+            819 => Field::read(r, field, ctx).map(Self::Form),
+            98 | 289 | 368 | 407 | 437 | 744 | 746 | 747 | 748 | 776 | 883 | 941 => {
+                Field::read(r, field, ctx).map(Self::Integer)
+            }
+            447 | 659 | 660 | 675 => Field::read(r, field, ctx).map(Self::String),
+            181 | 360 | 566 | 567 | 598 | 600 | 601 | 604 | 605 | 608 | 610 | 626 | 838 | 856
+            | 901 | 902 | 933 => Field::read(r, field, ctx).map(Self::Alias),
+            576 => Field::read(r, field, ctx).map(Self::Event),
+            325 | 611 | 612 => Field::read(r, field, ctx).map(Self::PackdataId),
+            473 => Field::read(r, field, ctx).map(Self::Alignment),
+            6 | 8 | 10 | 11 | 446 | 619 | 620 | 622 | 684 => {
+                Field::read(r, field, ctx).map(Self::Axis)
+            }
+            570 | 571 | 572 | 596 | 597 | 706 => {
+                Field::read(r, field, ctx).map(Self::CastingSource)
+            }
+            528 => Field::read(r, field, ctx).map(Self::CriticalStage),
+            396 => Field::read(r, field, ctx).map(Self::DamageCauseType),
+            247 | 432 => Field::read(r, field, ctx).map(Self::FormType),
+            312 => Field::read(r, field, ctx).map(Self::MiscStat),
+            876 | 878 => Field::read(r, field, ctx).map(Self::PerkCategory),
+            877 => Field::read(r, field, ctx).map(Self::PerkSkillGroupComparison),
+            931 => Field::read(r, field, ctx).map(Self::Pronoun),
+            70 => Field::read(r, field, ctx).map(Self::Sex),
+            602 => Field::read(r, field, ctx).map(Self::WardState),
+            439 | 637 => Field::read(r, field, ctx).map(Self::FurnitureEntry),
+            84 | 916 => Field::read(r, field, ctx).map(Self::ActorBase),
+            14 | 109 | 277 | 494 | 511 | 640 | 661 | 696 | 923 | 960 => {
+                Field::read(r, field, ctx).map(Self::ActorValue)
+            }
+            829 => Field::read(r, field, ctx).map(Self::AcousticSpace),
+            617 => Field::read(r, field, ctx).map(Self::AssociationType),
+            67 | 230 | 280 => Field::read(r, field, ctx).map(Self::Cell),
+            68 | 228 => Field::read(r, field, ctx).map(Self::Class),
+            837 => Field::read(r, field, ctx).map(Self::ConditionForm),
+            736 => Field::read(r, field, ctx).map(Self::DamageType),
+            223 | 264 | 595 | 936 => Field::read(r, field, ctx).map(Self::EffectItem),
+            479 => Field::read(r, field, ctx).map(Self::EquipType),
+            60 | 71 | 73 | 152 | 193 | 195 | 197 | 199 | 366 | 373 | 410 | 497 | 905 => {
+                Field::read(r, field, ctx).map(Self::Faction)
+            }
+            375 | 376 | 459 | 533 | 534 | 535 => {
+                Field::read(r, field, ctx).map(Self::FactionOrNone)
+            }
+            262 | 372 | 398 | 444 => Field::read(r, field, ctx).map(Self::FormList),
+            163 => Field::read(r, field, ctx).map(Self::Furniture),
+            961 | 967 => Field::read(r, field, ctx).map(Self::GameplayOption),
+            74 | 899 => Field::read(r, field, ctx).map(Self::Global),
+            450 => Field::read(r, field, ctx).map(Self::Idle),
+            47 | 72 | 142 | 182 | 246 | 493 | 691 => {
+                Field::read(r, field, ctx).map(Self::InventoryObject)
+            }
+            276 | 362 | 406 | 465 | 501 | 560 | 562 | 651 | 681 | 682 | 693 | 697 | 699 | 707
+            | 722 | 730 | 741 | 742 | 749 | 766 | 783 | 818 | 839 | 841 | 842 | 854 | 858 | 859
+            | 860 | 861 | 864 | 866 | 867 | 868 | 875 | 880 | 892 | 904 | 907 | 930 | 935 | 938
+            | 940 | 955 | 958 => Field::read(r, field, ctx).map(Self::Keyword),
+            250 | 359 | 445 | 565 | 591 | 592 | 606 | 625 | 851 | 852 => {
+                Field::read(r, field, ctx).map(Self::Location)
+            }
+            561 | 563 => Field::read(r, field, ctx).map(Self::LocationRefType),
+            214 | 919 => Field::read(r, field, ctx).map(Self::MagicEffect),
+            278 => Field::read(r, field, ctx).map(Self::Owner),
+            448 | 507 | 713 => Field::read(r, field, ctx).map(Self::Perk),
+            110 => Field::read(r, field, ctx).map(Self::Planet),
+            56 | 58 | 59 | 543 | 629 | 664 | 954 => Field::read(r, field, ctx).map(Self::Quest),
+            69 => Field::read(r, field, ctx).map(Self::Race),
+            117 => Field::read(r, field, ctx).map(Self::Region),
+            874 => Field::read(r, field, ctx).map(Self::ResearchProject),
+            949 => Field::read(r, field, ctx).map(Self::Resource),
+            131 | 248 | 550 => Field::read(r, field, ctx).map(Self::Scene),
+            737 => Field::read(r, field, ctx).map(Self::SpeechChallenge),
+            426 => Field::read(r, field, ctx).map(Self::VoiceType),
+            149 | 889 => Field::read(r, field, ctx).map(Self::Weather),
+            310 => Field::read(r, field, ctx).map(Self::Worldspace),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ConditionDataParameter1 {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
     }
 
     fn write(&self, out: &mut Vec<u8>) {
-        self.component.write(out);
-        self.count.write(out);
-        self.curve_table.write(out);
+        match self {
+            Self::Unused(value) => value.write(out),
+            Self::BiomeMask(value) => value.write(out),
+            Self::LimbCategory(value) => value.write(out),
+            Self::ReactionType(value) => value.write(out),
+            Self::Float(value) => value.write(out),
+            Self::Form(value) => value.write(out),
+            Self::Integer(value) => value.write(out),
+            Self::String(value) => value.write(out),
+            Self::Alias(value) => value.write(out),
+            Self::Event(value) => value.write(out),
+            Self::PackdataId(value) => value.write(out),
+            Self::Alignment(value) => value.write(out),
+            Self::Axis(value) => value.write(out),
+            Self::CastingSource(value) => value.write(out),
+            Self::CriticalStage(value) => value.write(out),
+            Self::DamageCauseType(value) => value.write(out),
+            Self::FormType(value) => value.write(out),
+            Self::MiscStat(value) => value.write(out),
+            Self::PerkCategory(value) => value.write(out),
+            Self::PerkSkillGroupComparison(value) => value.write(out),
+            Self::Pronoun(value) => value.write(out),
+            Self::Sex(value) => value.write(out),
+            Self::WardState(value) => value.write(out),
+            Self::FurnitureEntry(value) => value.write(out),
+            Self::ActorBase(value) => value.write(out),
+            Self::ActorValue(value) => value.write(out),
+            Self::AcousticSpace(value) => value.write(out),
+            Self::AssociationType(value) => value.write(out),
+            Self::Cell(value) => value.write(out),
+            Self::Class(value) => value.write(out),
+            Self::ConditionForm(value) => value.write(out),
+            Self::DamageType(value) => value.write(out),
+            Self::EffectItem(value) => value.write(out),
+            Self::EquipType(value) => value.write(out),
+            Self::Faction(value) => value.write(out),
+            Self::FactionOrNone(value) => value.write(out),
+            Self::FormList(value) => value.write(out),
+            Self::Furniture(value) => value.write(out),
+            Self::GameplayOption(value) => value.write(out),
+            Self::Global(value) => value.write(out),
+            Self::Idle(value) => value.write(out),
+            Self::InventoryObject(value) => value.write(out),
+            Self::Keyword(value) => value.write(out),
+            Self::Location(value) => value.write(out),
+            Self::LocationRefType(value) => value.write(out),
+            Self::MagicEffect(value) => value.write(out),
+            Self::Owner(value) => value.write(out),
+            Self::Perk(value) => value.write(out),
+            Self::Planet(value) => value.write(out),
+            Self::Quest(value) => value.write(out),
+            Self::Race(value) => value.write(out),
+            Self::Region(value) => value.write(out),
+            Self::ResearchProject(value) => value.write(out),
+            Self::Resource(value) => value.write(out),
+            Self::Scene(value) => value.write(out),
+            Self::SpeechChallenge(value) => value.write(out),
+            Self::VoiceType(value) => value.write(out),
+            Self::Weather(value) => value.write(out),
+            Self::Worldspace(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
     }
 }
 
-impl Visit for Component {
-    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
-        visit_form_ids(&self.component, "Component.Component", out);
-        visit_form_ids(&self.curve_table, "Component.CurveTable", out);
+impl Visit for ConditionDataParameter1 {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        match self {
+            Self::Form(value) => visit_form_ids(value, path, out),
+            Self::ActorBase(value) => visit_form_ids(value, path, out),
+            Self::ActorValue(value) => visit_form_ids(value, path, out),
+            Self::AcousticSpace(value) => visit_form_ids(value, path, out),
+            Self::AssociationType(value) => visit_form_ids(value, path, out),
+            Self::Cell(value) => visit_form_ids(value, path, out),
+            Self::Class(value) => visit_form_ids(value, path, out),
+            Self::ConditionForm(value) => visit_form_ids(value, path, out),
+            Self::DamageType(value) => visit_form_ids(value, path, out),
+            Self::EffectItem(value) => visit_form_ids(value, path, out),
+            Self::EquipType(value) => visit_form_ids(value, path, out),
+            Self::Faction(value) => visit_form_ids(value, path, out),
+            Self::FactionOrNone(value) => visit_form_ids(value, path, out),
+            Self::FormList(value) => visit_form_ids(value, path, out),
+            Self::Furniture(value) => visit_form_ids(value, path, out),
+            Self::GameplayOption(value) => visit_form_ids(value, path, out),
+            Self::Global(value) => visit_form_ids(value, path, out),
+            Self::Idle(value) => visit_form_ids(value, path, out),
+            Self::InventoryObject(value) => visit_form_ids(value, path, out),
+            Self::Keyword(value) => visit_form_ids(value, path, out),
+            Self::Location(value) => visit_form_ids(value, path, out),
+            Self::LocationRefType(value) => visit_form_ids(value, path, out),
+            Self::MagicEffect(value) => visit_form_ids(value, path, out),
+            Self::Owner(value) => visit_form_ids(value, path, out),
+            Self::Perk(value) => visit_form_ids(value, path, out),
+            Self::Planet(value) => visit_form_ids(value, path, out),
+            Self::Quest(value) => visit_form_ids(value, path, out),
+            Self::Race(value) => visit_form_ids(value, path, out),
+            Self::Region(value) => visit_form_ids(value, path, out),
+            Self::ResearchProject(value) => visit_form_ids(value, path, out),
+            Self::Resource(value) => visit_form_ids(value, path, out),
+            Self::Scene(value) => visit_form_ids(value, path, out),
+            Self::SpeechChallenge(value) => visit_form_ids(value, path, out),
+            Self::VoiceType(value) => visit_form_ids(value, path, out),
+            Self::Weather(value) => visit_form_ids(value, path, out),
+            Self::Worldspace(value) => visit_form_ids(value, path, out),
+            _ => {}
+        }
     }
 
-    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
-        visit_form_ids_mut(&mut self.component, "Component.Component", out);
-        visit_form_ids_mut(&mut self.curve_table, "Component.CurveTable", out);
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        match self {
+            Self::Form(value) => visit_form_ids_mut(value, path, out),
+            Self::ActorBase(value) => visit_form_ids_mut(value, path, out),
+            Self::ActorValue(value) => visit_form_ids_mut(value, path, out),
+            Self::AcousticSpace(value) => visit_form_ids_mut(value, path, out),
+            Self::AssociationType(value) => visit_form_ids_mut(value, path, out),
+            Self::Cell(value) => visit_form_ids_mut(value, path, out),
+            Self::Class(value) => visit_form_ids_mut(value, path, out),
+            Self::ConditionForm(value) => visit_form_ids_mut(value, path, out),
+            Self::DamageType(value) => visit_form_ids_mut(value, path, out),
+            Self::EffectItem(value) => visit_form_ids_mut(value, path, out),
+            Self::EquipType(value) => visit_form_ids_mut(value, path, out),
+            Self::Faction(value) => visit_form_ids_mut(value, path, out),
+            Self::FactionOrNone(value) => visit_form_ids_mut(value, path, out),
+            Self::FormList(value) => visit_form_ids_mut(value, path, out),
+            Self::Furniture(value) => visit_form_ids_mut(value, path, out),
+            Self::GameplayOption(value) => visit_form_ids_mut(value, path, out),
+            Self::Global(value) => visit_form_ids_mut(value, path, out),
+            Self::Idle(value) => visit_form_ids_mut(value, path, out),
+            Self::InventoryObject(value) => visit_form_ids_mut(value, path, out),
+            Self::Keyword(value) => visit_form_ids_mut(value, path, out),
+            Self::Location(value) => visit_form_ids_mut(value, path, out),
+            Self::LocationRefType(value) => visit_form_ids_mut(value, path, out),
+            Self::MagicEffect(value) => visit_form_ids_mut(value, path, out),
+            Self::Owner(value) => visit_form_ids_mut(value, path, out),
+            Self::Perk(value) => visit_form_ids_mut(value, path, out),
+            Self::Planet(value) => visit_form_ids_mut(value, path, out),
+            Self::Quest(value) => visit_form_ids_mut(value, path, out),
+            Self::Race(value) => visit_form_ids_mut(value, path, out),
+            Self::Region(value) => visit_form_ids_mut(value, path, out),
+            Self::ResearchProject(value) => visit_form_ids_mut(value, path, out),
+            Self::Resource(value) => visit_form_ids_mut(value, path, out),
+            Self::Scene(value) => visit_form_ids_mut(value, path, out),
+            Self::SpeechChallenge(value) => visit_form_ids_mut(value, path, out),
+            Self::VoiceType(value) => visit_form_ids_mut(value, path, out),
+            Self::Weather(value) => visit_form_ids_mut(value, path, out),
+            Self::Worldspace(value) => visit_form_ids_mut(value, path, out),
+            _ => {}
+        }
+    }
+}
+
+/// A field whose layout the value of `Function` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConditionDataParameter2 {
+    /// `Function` 0 or 1 or 5 or 6 or 8 or 10 or 11 or 12 or 14 or 18 or 24 or 25 or 26 or 27 or 32 or 35 or 36 or 38 or 39 or 41 or 42 or 43 or 44 or 45 or 46 or 47 or 48 or 49 or 50 or 56 or 58 or 61 or 62 or 63 or 64 or 65 or 66 or 67 or 68 or 69 or 70 or 71 or 72 or 73 or 74 or 75 or 77 or 79 or 80 or 81 or 84 or 91 or 99 or 101 or 102 or 103 or 106 or 107 or 108 or 109 or 111 or 112 or 116 or 117 or 118 or 123 or 125 or 128 or 129 or 130 or 132 or 133 or 134 or 135 or 136 or 141 or 142 or 143 or 144 or 145 or 146 or 147 or 148 or 149 or 150 or 152 or 153 or 154 or 157 or 159 or 161 or 162 or 163 or 170 or 172 or 175 or 176 or 182 or 185 or 190 or 192 or 193 or 195 or 197 or 199 or 203 or 214 or 215 or 223 or 224 or 225 or 226 or 227 or 228 or 229 or 231 or 235 or 237 or 242 or 244 or 246 or 247 or 248 or 249 or 250 or 254 or 255 or 259 or 261 or 262 or 263 or 264 or 265 or 266 or 267 or 274 or 276 or 277 or 278 or 282 or 285 or 286 or 287 or 288 or 289 or 300 or 304 or 305 or 306 or 309 or 310 or 312 or 313 or 314 or 315 or 318 or 320 or 323 or 325 or 327 or 329 or 332 or 338 or 339 or 353 or 354 or 358 or 359 or 360 or 361 or 362 or 365 or 366 or 367 or 368 or 370 or 372 or 373 or 375 or 376 or 378 or 380 or 381 or 390 or 391 or 396 or 398 or 402 or 403 or 406 or 408 or 409 or 411 or 414 or 415 or 416 or 426 or 427 or 429 or 430 or 431 or 432 or 434 or 435 or 437 or 438 or 439 or 444 or 445 or 446 or 447 or 448 or 449 or 450 or 453 or 454 or 458 or 459 or 463 or 465 or 470 or 473 or 476 or 477 or 479 or 483 or 485 or 487 or 488 or 490 or 491 or 493 or 494 or 495 or 497 or 499 or 500 or 501 or 503 or 507 or 508 or 511 or 512 or 513 or 515 or 516 or 517 or 518 or 519 or 521 or 522 or 523 or 524 or 525 or 528 or 530 or 533 or 534 or 535 or 536 or 543 or 544 or 547 or 554 or 555 or 560 or 561 or 562 or 563 or 565 or 566 or 567 or 568 or 569 or 570 or 571 or 572 or 574 or 578 or 580 or 589 or 590 or 594 or 597 or 598 or 602 or 611 or 612 or 613 or 614 or 615 or 616 or 617 or 618 or 619 or 620 or 621 or 622 or 623 or 624 or 625 or 626 or 627 or 630 or 631 or 632 or 633 or 635 or 636 or 637 or 638 or 640 or 641 or 642 or 644 or 645 or 646 or 647 or 651 or 652 or 654 or 655 or 656 or 657 or 659 or 661 or 664 or 672 or 673 or 674 or 675 or 676 or 678 or 680 or 681 or 682 or 683 or 684 or 691 or 693 or 694 or 696 or 697 or 698 or 699 or 700 or 701 or 702 or 703 or 704 or 705 or 706 or 707 or 709 or 710 or 711 or 713 or 714 or 715 or 716 or 718 or 719 or 720 or 721 or 722 or 723 or 724 or 725 or 726 or 728 or 729 or 730 or 734 or 735 or 736 or 737 or 738 or 739 or 741 or 742 or 743 or 745 or 746 or 747 or 748 or 749 or 750 or 751 or 753 or 754 or 756 or 757 or 758 or 759 or 760 or 761 or 762 or 763 or 764 or 765 or 766 or 767 or 769 or 770 or 771 or 772 or 773 or 774 or 775 or 776 or 777 or 778 or 779 or 780 or 781 or 782 or 783 or 784 or 785 or 786 or 787 or 788 or 789 or 790 or 791 or 792 or 793 or 794 or 795 or 796 or 797 or 798 or 799 or 800 or 801 or 802 or 803 or 804 or 805 or 806 or 807 or 808 or 809 or 810 or 811 or 812 or 813 or 814 or 815 or 816 or 817 or 818 or 819 or 820 or 822 or 823 or 824 or 825 or 826 or 827 or 828 or 829 or 830 or 831 or 832 or 833 or 834 or 836 or 837 or 838 or 839 or 841 or 842 or 843 or 844 or 845 or 846 or 847 or 848 or 849 or 850 or 851 or 852 or 853 or 854 or 855 or 856 or 857 or 858 or 859 or 860 or 861 or 862 or 863 or 864 or 866 or 867 or 868 or 869 or 870 or 871 or 872 or 873 or 874 or 875 or 876 or 879 or 880 or 882 or 883 or 886 or 887 or 888 or 889 or 891 or 892 or 894 or 895 or 896 or 897 or 898 or 899 or 900 or 901 or 902 or 904 or 905 or 906 or 907 or 908 or 912 or 916 or 919 or 921 or 922 or 923 or 924 or 925 or 926 or 927 or 928 or 929 or 930 or 931 or 932 or 933 or 934 or 935 or 936 or 937 or 938 or 939 or 940 or 941 or 942 or 943 or 944 or 945 or 946 or 947 or 950 or 951 or 954 or 957 or 958 or 960 or 961 or 965 or 966 or 967.
+    Unused([u8; 4]),
+    /// `Function` 865.
+    BiomeMask([u8; 4]),
+    /// `Function` 639.
+    Float(f32),
+    /// `Function` 98 or 110 or 131 or 407 or 550 or 744 or 881 or 949 or 955.
+    Integer(i32),
+    /// `Function` 629 or 660.
+    String(u32),
+    /// `Function` 59.
+    QuestStage(u32),
+    /// `Function` 584.
+    Axis(u32),
+    /// `Function` 595.
+    CastingSource(u32),
+    /// `Function` 122.
+    CrimeType(u32),
+    /// `Function` 877.
+    PerkSkillGroup(u32),
+    /// `Function` 878.
+    PerkSkillGroupComparison(u32),
+    /// `Function` 258.
+    AssociationType(FormId),
+    /// `Function` 576.
+    EventData(FormId),
+    /// `Function` 410.
+    Faction(FormId),
+    /// `Function` 180 or 181 or 596 or 603 or 604 or 606 or 608 or 610 or 650.
+    Keyword(FormId),
+    /// `Function` 605.
+    Location(FormId),
+    /// `Function` 591 or 592 or 600 or 601.
+    LocationRefType(FormId),
+    /// `Function` 280.
+    Owner(FormId),
+    /// `Function` 840.
+    SnapTemplate(FormId),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl ConditionDataParameter2 {
+    /// Reads the variant the decider values select: `key` is the value of `Function` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 1 | 5 | 6 | 8 | 10 | 11 | 12 | 14 | 18 | 24 | 25 | 26 | 27 | 32 | 35 | 36 | 38
+            | 39 | 41 | 42 | 43 | 44 | 45 | 46 | 47 | 48 | 49 | 50 | 56 | 58 | 61 | 62 | 63
+            | 64 | 65 | 66 | 67 | 68 | 69 | 70 | 71 | 72 | 73 | 74 | 75 | 77 | 79 | 80 | 81
+            | 84 | 91 | 99 | 101 | 102 | 103 | 106 | 107 | 108 | 109 | 111 | 112 | 116 | 117
+            | 118 | 123 | 125 | 128 | 129 | 130 | 132 | 133 | 134 | 135 | 136 | 141 | 142 | 143
+            | 144 | 145 | 146 | 147 | 148 | 149 | 150 | 152 | 153 | 154 | 157 | 159 | 161 | 162
+            | 163 | 170 | 172 | 175 | 176 | 182 | 185 | 190 | 192 | 193 | 195 | 197 | 199 | 203
+            | 214 | 215 | 223 | 224 | 225 | 226 | 227 | 228 | 229 | 231 | 235 | 237 | 242 | 244
+            | 246 | 247 | 248 | 249 | 250 | 254 | 255 | 259 | 261 | 262 | 263 | 264 | 265 | 266
+            | 267 | 274 | 276 | 277 | 278 | 282 | 285 | 286 | 287 | 288 | 289 | 300 | 304 | 305
+            | 306 | 309 | 310 | 312 | 313 | 314 | 315 | 318 | 320 | 323 | 325 | 327 | 329 | 332
+            | 338 | 339 | 353 | 354 | 358 | 359 | 360 | 361 | 362 | 365 | 366 | 367 | 368 | 370
+            | 372 | 373 | 375 | 376 | 378 | 380 | 381 | 390 | 391 | 396 | 398 | 402 | 403 | 406
+            | 408 | 409 | 411 | 414 | 415 | 416 | 426 | 427 | 429 | 430 | 431 | 432 | 434 | 435
+            | 437 | 438 | 439 | 444 | 445 | 446 | 447 | 448 | 449 | 450 | 453 | 454 | 458 | 459
+            | 463 | 465 | 470 | 473 | 476 | 477 | 479 | 483 | 485 | 487 | 488 | 490 | 491 | 493
+            | 494 | 495 | 497 | 499 | 500 | 501 | 503 | 507 | 508 | 511 | 512 | 513 | 515 | 516
+            | 517 | 518 | 519 | 521 | 522 | 523 | 524 | 525 | 528 | 530 | 533 | 534 | 535 | 536
+            | 543 | 544 | 547 | 554 | 555 | 560 | 561 | 562 | 563 | 565 | 566 | 567 | 568 | 569
+            | 570 | 571 | 572 | 574 | 578 | 580 | 589 | 590 | 594 | 597 | 598 | 602 | 611 | 612
+            | 613 | 614 | 615 | 616 | 617 | 618 | 619 | 620 | 621 | 622 | 623 | 624 | 625 | 626
+            | 627 | 630 | 631 | 632 | 633 | 635 | 636 | 637 | 638 | 640 | 641 | 642 | 644 | 645
+            | 646 | 647 | 651 | 652 | 654 | 655 | 656 | 657 | 659 | 661 | 664 | 672 | 673 | 674
+            | 675 | 676 | 678 | 680 | 681 | 682 | 683 | 684 | 691 | 693 | 694 | 696 | 697 | 698
+            | 699 | 700 | 701 | 702 | 703 | 704 | 705 | 706 | 707 | 709 | 710 | 711 | 713 | 714
+            | 715 | 716 | 718 | 719 | 720 | 721 | 722 | 723 | 724 | 725 | 726 | 728 | 729 | 730
+            | 734 | 735 | 736 | 737 | 738 | 739 | 741 | 742 | 743 | 745 | 746 | 747 | 748 | 749
+            | 750 | 751 | 753 | 754 | 756 | 757 | 758 | 759 | 760 | 761 | 762 | 763 | 764 | 765
+            | 766 | 767 | 769 | 770 | 771 | 772 | 773 | 774 | 775 | 776 | 777 | 778 | 779 | 780
+            | 781 | 782 | 783 | 784 | 785 | 786 | 787 | 788 | 789 | 790 | 791 | 792 | 793 | 794
+            | 795 | 796 | 797 | 798 | 799 | 800 | 801 | 802 | 803 | 804 | 805 | 806 | 807 | 808
+            | 809 | 810 | 811 | 812 | 813 | 814 | 815 | 816 | 817 | 818 | 819 | 820 | 822 | 823
+            | 824 | 825 | 826 | 827 | 828 | 829 | 830 | 831 | 832 | 833 | 834 | 836 | 837 | 838
+            | 839 | 841 | 842 | 843 | 844 | 845 | 846 | 847 | 848 | 849 | 850 | 851 | 852 | 853
+            | 854 | 855 | 856 | 857 | 858 | 859 | 860 | 861 | 862 | 863 | 864 | 866 | 867 | 868
+            | 869 | 870 | 871 | 872 | 873 | 874 | 875 | 876 | 879 | 880 | 882 | 883 | 886 | 887
+            | 888 | 889 | 891 | 892 | 894 | 895 | 896 | 897 | 898 | 899 | 900 | 901 | 902 | 904
+            | 905 | 906 | 907 | 908 | 912 | 916 | 919 | 921 | 922 | 923 | 924 | 925 | 926 | 927
+            | 928 | 929 | 930 | 931 | 932 | 933 | 934 | 935 | 936 | 937 | 938 | 939 | 940 | 941
+            | 942 | 943 | 944 | 945 | 946 | 947 | 950 | 951 | 954 | 957 | 958 | 960 | 961 | 965
+            | 966 | 967 => Field::read(r, field, ctx).map(Self::Unused),
+            865 => Field::read(r, field, ctx).map(Self::BiomeMask),
+            639 => Field::read(r, field, ctx).map(Self::Float),
+            98 | 110 | 131 | 407 | 550 | 744 | 881 | 949 | 955 => {
+                Field::read(r, field, ctx).map(Self::Integer)
+            }
+            629 | 660 => Field::read(r, field, ctx).map(Self::String),
+            59 => Field::read(r, field, ctx).map(Self::QuestStage),
+            584 => Field::read(r, field, ctx).map(Self::Axis),
+            595 => Field::read(r, field, ctx).map(Self::CastingSource),
+            122 => Field::read(r, field, ctx).map(Self::CrimeType),
+            877 => Field::read(r, field, ctx).map(Self::PerkSkillGroup),
+            878 => Field::read(r, field, ctx).map(Self::PerkSkillGroupComparison),
+            258 => Field::read(r, field, ctx).map(Self::AssociationType),
+            576 => Field::read(r, field, ctx).map(Self::EventData),
+            410 => Field::read(r, field, ctx).map(Self::Faction),
+            180 | 181 | 596 | 603 | 604 | 606 | 608 | 610 | 650 => {
+                Field::read(r, field, ctx).map(Self::Keyword)
+            }
+            605 => Field::read(r, field, ctx).map(Self::Location),
+            591 | 592 | 600 | 601 => Field::read(r, field, ctx).map(Self::LocationRefType),
+            280 => Field::read(r, field, ctx).map(Self::Owner),
+            840 => Field::read(r, field, ctx).map(Self::SnapTemplate),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ConditionDataParameter2 {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Unused(value) => value.write(out),
+            Self::BiomeMask(value) => value.write(out),
+            Self::Float(value) => value.write(out),
+            Self::Integer(value) => value.write(out),
+            Self::String(value) => value.write(out),
+            Self::QuestStage(value) => value.write(out),
+            Self::Axis(value) => value.write(out),
+            Self::CastingSource(value) => value.write(out),
+            Self::CrimeType(value) => value.write(out),
+            Self::PerkSkillGroup(value) => value.write(out),
+            Self::PerkSkillGroupComparison(value) => value.write(out),
+            Self::AssociationType(value) => value.write(out),
+            Self::EventData(value) => value.write(out),
+            Self::Faction(value) => value.write(out),
+            Self::Keyword(value) => value.write(out),
+            Self::Location(value) => value.write(out),
+            Self::LocationRefType(value) => value.write(out),
+            Self::Owner(value) => value.write(out),
+            Self::SnapTemplate(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for ConditionDataParameter2 {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        match self {
+            Self::AssociationType(value) => visit_form_ids(value, path, out),
+            Self::EventData(value) => visit_form_ids(value, path, out),
+            Self::Faction(value) => visit_form_ids(value, path, out),
+            Self::Keyword(value) => visit_form_ids(value, path, out),
+            Self::Location(value) => visit_form_ids(value, path, out),
+            Self::LocationRefType(value) => visit_form_ids(value, path, out),
+            Self::Owner(value) => visit_form_ids(value, path, out),
+            Self::SnapTemplate(value) => visit_form_ids(value, path, out),
+            _ => {}
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        match self {
+            Self::AssociationType(value) => visit_form_ids_mut(value, path, out),
+            Self::EventData(value) => visit_form_ids_mut(value, path, out),
+            Self::Faction(value) => visit_form_ids_mut(value, path, out),
+            Self::Keyword(value) => visit_form_ids_mut(value, path, out),
+            Self::Location(value) => visit_form_ids_mut(value, path, out),
+            Self::LocationRefType(value) => visit_form_ids_mut(value, path, out),
+            Self::Owner(value) => visit_form_ids_mut(value, path, out),
+            Self::SnapTemplate(value) => visit_form_ids_mut(value, path, out),
+            _ => {}
+        }
     }
 }
 
@@ -1768,32 +2400,190 @@ impl Field for ConditionDataRunOn {
 
 impl Visit for ConditionDataRunOn {}
 
+/// A field whose layout the value of `RunOn` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConditionDataReference {
+    /// `RunOn` 2.
+    Reference(FormId),
+    /// `RunOn` 0 or 1 or 3 or 4 or 5 or 6 or 7 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15.
+    Unused(u32),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl ConditionDataReference {
+    /// Reads the variant the decider values select: `key` is the value of `RunOn` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            2 => Field::read(r, field, ctx).map(Self::Reference),
+            0 | 1 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 => {
+                Field::read(r, field, ctx).map(Self::Unused)
+            }
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ConditionDataReference {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Reference(value) => value.write(out),
+            Self::Unused(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for ConditionDataReference {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::Reference(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::Reference(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+}
+
+/// A field whose layout the value of `RunOn` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ConditionDataParameter3 {
+    /// `RunOn` 0 or 1 or 2 or 3 or 6 or 8 or 9 or 10 or 11 or 12 or 13 or 14 or 15.
+    Integer(i32),
+    /// `RunOn` 4.
+    LinkedKeyword(FormId),
+    /// `RunOn` 5.
+    QuestAlias(i32),
+    /// `RunOn` 7.
+    EventData(i32),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl ConditionDataParameter3 {
+    /// Reads the variant the decider values select: `key` is the value of `RunOn` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 | 1 | 2 | 3 | 6 | 8 | 9 | 10 | 11 | 12 | 13 | 14 | 15 => {
+                Field::read(r, field, ctx).map(Self::Integer)
+            }
+            4 => Field::read(r, field, ctx).map(Self::LinkedKeyword),
+            5 => Field::read(r, field, ctx).map(Self::QuestAlias),
+            7 => Field::read(r, field, ctx).map(Self::EventData),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for ConditionDataParameter3 {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Integer(value) => value.write(out),
+            Self::LinkedKeyword(value) => value.write(out),
+            Self::QuestAlias(value) => value.write(out),
+            Self::EventData(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for ConditionDataParameter3 {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        if let Self::LinkedKeyword(value) = self {
+            visit_form_ids(value, path, out);
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        if let Self::LinkedKeyword(value) = self {
+            visit_form_ids_mut(value, path, out);
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConditionData {
     pub type_: u8,
     pub unused1: [u8; 3],
-    pub comparison_value: [u8; 4],
+    pub comparison_value: ConditionDataComparisonValue,
     pub function: u16,
     pub unused2: [u8; 2],
-    pub parameter1: [u8; 4],
-    pub parameter2: [u8; 4],
+    pub parameter1: ConditionDataParameter1,
+    pub parameter2: ConditionDataParameter2,
     pub run_on: ConditionDataRunOn,
-    pub reference: [u8; 4],
-    pub parameter3: [u8; 4],
+    pub reference: ConditionDataReference,
+    pub parameter3: ConditionDataParameter3,
 }
 
 impl Field for ConditionData {
     fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
         let f0 = u8::read(r, "Condition.CTDA.Type", ctx)?;
         let f1 = Field::read(r, "Condition.CTDA.Unused1", ctx)?;
-        let f2 = Field::read(r, "Condition.CTDA.ComparisonValue", ctx)?;
+        let f2 = ConditionDataComparisonValue::read_keyed(
+            i64::from(f0),
+            0,
+            r,
+            "Condition.CTDA.ComparisonValue",
+            ctx,
+        )?;
         let f3 = u16::read(r, "Condition.CTDA.Function", ctx)?;
         let f4 = Field::read(r, "Condition.CTDA.Unused2", ctx)?;
-        let f5 = Field::read(r, "Condition.CTDA.Parameter1", ctx)?;
-        let f6 = Field::read(r, "Condition.CTDA.Parameter2", ctx)?;
-        let f7 = Field::read(r, "Condition.CTDA.RunOn", ctx)?;
-        let f8 = Field::read(r, "Condition.CTDA.Reference", ctx)?;
-        let f9 = Field::read(r, "Condition.CTDA.Parameter3", ctx)?;
+        let f5 = ConditionDataParameter1::read_keyed(
+            i64::from(f3),
+            0,
+            r,
+            "Condition.CTDA.Parameter1",
+            ctx,
+        )?;
+        let f6 = ConditionDataParameter2::read_keyed(
+            i64::from(f3),
+            0,
+            r,
+            "Condition.CTDA.Parameter2",
+            ctx,
+        )?;
+        let f7 = ConditionDataRunOn::read(r, "Condition.CTDA.RunOn", ctx)?;
+        let f8 = ConditionDataReference::read_keyed(
+            i64::from(f7.to_raw()),
+            0,
+            r,
+            "Condition.CTDA.Reference",
+            ctx,
+        )?;
+        let f9 = ConditionDataParameter3::read_keyed(
+            i64::from(f7.to_raw()),
+            0,
+            r,
+            "Condition.CTDA.Parameter3",
+            ctx,
+        )?;
         Ok(Self {
             type_: f0,
             unused1: f1,
@@ -1822,7 +2612,31 @@ impl Field for ConditionData {
     }
 }
 
-impl Visit for ConditionData {}
+impl Visit for ConditionData {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.comparison_value,
+            "Condition.CTDA.ComparisonValue",
+            out,
+        );
+        visit_form_ids(&self.parameter1, "Condition.CTDA.Parameter1", out);
+        visit_form_ids(&self.parameter2, "Condition.CTDA.Parameter2", out);
+        visit_form_ids(&self.reference, "Condition.CTDA.Reference", out);
+        visit_form_ids(&self.parameter3, "Condition.CTDA.Parameter3", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.comparison_value,
+            "Condition.CTDA.ComparisonValue",
+            out,
+        );
+        visit_form_ids_mut(&mut self.parameter1, "Condition.CTDA.Parameter1", out);
+        visit_form_ids_mut(&mut self.parameter2, "Condition.CTDA.Parameter2", out);
+        visit_form_ids_mut(&mut self.reference, "Condition.CTDA.Reference", out);
+        visit_form_ids_mut(&mut self.parameter3, "Condition.CTDA.Parameter3", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Condition {
@@ -1891,7 +2705,696 @@ impl Condition {
     }
 }
 
-impl Visit for Condition {}
+impl Visit for Condition {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.data, "Condition.CTDA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.data, "Condition.CTDA", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockPlanetContentProperties {
+    /// `ZNAM`, optional.
+    pub znam: Option<Sub<[u8; 4]>>,
+    /// `YNAM`, optional.
+    pub do_all_before_repeating: Option<Sub<Bool8>>,
+    /// `XNAM`, optional.
+    pub times_allowed_global: Option<Sub<u32>>,
+    /// `WNAM`, optional.
+    pub times_allowed_per_system: Option<Sub<u32>>,
+    /// `VNAM`, optional.
+    pub save_placement: Option<Sub<Bool8>>,
+    /// `UNAM`, optional.
+    pub days_until_reset_global: Option<Sub<FormId>>,
+    /// `NAM1`, optional.
+    pub minimum_density_chance: Option<Sub<f32>>,
+    /// `NAM2`, optional.
+    pub minimum_density_chance_global: Option<Sub<FormId>>,
+    /// `NAM3`, optional.
+    pub times_allowed_per_planet: Option<Sub<u32>>,
+    /// `NAM4`, optional.
+    pub debug_color: Option<Sub<ColorRgb>>,
+    /// `NAM5`, optional.
+    pub times_per_request_curve: Option<Sub<FormId>>,
+    /// `NAM6`, optional.
+    pub spawn_groups_limit_curve: Option<Sub<FormId>>,
+    /// `NAM7`, optional.
+    pub spawn_group_distance_override_curve: Option<Sub<FormId>>,
+    /// `NAM8`, optional.
+    pub allow_invalid_biome_markers: Option<Sub<Bool8>>,
+    /// `NAM9`, optional.
+    pub times_allowed_per_planet_world: Option<Sub<u32>>,
+    /// `CITC`, optional.
+    pub condition_count: Option<Sub<u32>>,
+    /// Group `Conditions`, repeated.
+    pub conditions: Vec<Condition>,
+}
+
+impl BfcbBlockPlanetContentProperties {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"ZNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"YNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"XNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"WNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"VNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"UNAM",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM1",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM2",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM3",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM4",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM5",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM6",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM7",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM8",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"NAM9",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"CITC",
+            card: Card::Optional,
+        },
+        MemberDesc::Group {
+            card: Card::Repeated,
+            members: Condition::MEMBERS,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.znam,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.ZNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.do_all_before_repeating,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.YNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.times_allowed_global,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.XNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 3, index } => put(
+                    &mut self.times_allowed_per_system,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.WNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 4, index } => put(
+                    &mut self.save_placement,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.VNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 5, index } => put(
+                    &mut self.days_until_reset_global,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.UNAM",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.minimum_density_chance,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM1",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 7, index } => put(
+                    &mut self.minimum_density_chance_global,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM2",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 8, index } => put(
+                    &mut self.times_allowed_per_planet,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM3",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 9, index } => put(
+                    &mut self.debug_color,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM4",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 10, index } => put(
+                    &mut self.times_per_request_curve,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM5",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 11, index } => put(
+                    &mut self.spawn_groups_limit_curve,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM6",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 12, index } => put(
+                    &mut self.spawn_group_distance_override_curve,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM7",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 13, index } => put(
+                    &mut self.allow_invalid_biome_markers,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM8",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 14, index } => put(
+                    &mut self.times_allowed_per_planet_world,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.NAM9",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 15, index } => put(
+                    &mut self.condition_count,
+                    subs,
+                    *index,
+                    "BfcbBlock.PlanetContentProperties.CITC",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 16, hits } => {
+                    let mut group = Condition::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.conditions.push(group);
+                }
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"ZNAM", self.znam.as_ref());
+        emit(out, *b"YNAM", self.do_all_before_repeating.as_ref());
+        emit(out, *b"XNAM", self.times_allowed_global.as_ref());
+        emit(out, *b"WNAM", self.times_allowed_per_system.as_ref());
+        emit(out, *b"VNAM", self.save_placement.as_ref());
+        emit(out, *b"UNAM", self.days_until_reset_global.as_ref());
+        emit(out, *b"NAM1", self.minimum_density_chance.as_ref());
+        emit(out, *b"NAM2", self.minimum_density_chance_global.as_ref());
+        emit(out, *b"NAM3", self.times_allowed_per_planet.as_ref());
+        emit(out, *b"NAM4", self.debug_color.as_ref());
+        emit(out, *b"NAM5", self.times_per_request_curve.as_ref());
+        emit(out, *b"NAM6", self.spawn_groups_limit_curve.as_ref());
+        emit(
+            out,
+            *b"NAM7",
+            self.spawn_group_distance_override_curve.as_ref(),
+        );
+        emit(out, *b"NAM8", self.allow_invalid_biome_markers.as_ref());
+        emit(out, *b"NAM9", self.times_allowed_per_planet_world.as_ref());
+        emit(out, *b"CITC", self.condition_count.as_ref());
+        for group in &self.conditions {
+            group.emit(out);
+        }
+    }
+}
+
+impl Visit for BfcbBlockPlanetContentProperties {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.days_until_reset_global,
+            "BfcbBlock.PlanetContentProperties.UNAM",
+            out,
+        );
+        visit_form_ids(
+            &self.minimum_density_chance_global,
+            "BfcbBlock.PlanetContentProperties.NAM2",
+            out,
+        );
+        visit_form_ids(
+            &self.times_per_request_curve,
+            "BfcbBlock.PlanetContentProperties.NAM5",
+            out,
+        );
+        visit_form_ids(
+            &self.spawn_groups_limit_curve,
+            "BfcbBlock.PlanetContentProperties.NAM6",
+            out,
+        );
+        visit_form_ids(
+            &self.spawn_group_distance_override_curve,
+            "BfcbBlock.PlanetContentProperties.NAM7",
+            out,
+        );
+        visit_form_ids(
+            &self.conditions,
+            "BfcbBlock.PlanetContentProperties.Conditions",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.days_until_reset_global,
+            "BfcbBlock.PlanetContentProperties.UNAM",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.minimum_density_chance_global,
+            "BfcbBlock.PlanetContentProperties.NAM2",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.times_per_request_curve,
+            "BfcbBlock.PlanetContentProperties.NAM5",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.spawn_groups_limit_curve,
+            "BfcbBlock.PlanetContentProperties.NAM6",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.spawn_group_distance_override_curve,
+            "BfcbBlock.PlanetContentProperties.NAM7",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "BfcbBlock.PlanetContentProperties.Conditions",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockReflection {
+    /// `REFL`, required.
+    pub data: Option<Sub<Bytes>>,
+}
+
+impl BfcbBlockReflection {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"REFL",
+        card: Card::Required,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.data,
+                    subs,
+                    *index,
+                    "BfcbBlock.Reflection.REFL",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"REFL", self.data.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockReflection {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlock {
+    /// `BFCB`, required.
+    pub component_type: Option<Sub<ZString>>,
+    /// Group `AnimationGraph`, optional.
+    pub animation_graph: Option<BfcbBlockAnimationGraph>,
+    /// Group `ContactShadow`, optional.
+    pub contact_shadow: Option<BfcbBlockContactShadow>,
+    /// Group `PlanetContentProperties`, optional.
+    pub planet_content_properties: Option<BfcbBlockPlanetContentProperties>,
+    /// Group `Reflection`, optional.
+    pub reflection: Option<BfcbBlockReflection>,
+    /// Raw subrecords up to `BFCE`, in order.
+    pub component_data: Vec<OwnedSub>,
+    /// `BFCE`, required.
+    pub end_marker: Option<Sub<Empty>>,
+}
+
+impl BfcbBlock {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"BFCB",
+            card: Card::Required,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockAnimationGraph::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockContactShadow::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockPlanetContentProperties::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockReflection::MEMBERS,
+        },
+        MemberDesc::AnyUntil { until: *b"BFCE" },
+        MemberDesc::Sub {
+            sig: *b"BFCE",
+            card: Card::Required,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.component_type,
+                    subs,
+                    *index,
+                    "BfcbBlock.BFCB",
+                    ctx,
+                    extra,
+                ),
+                Hit::Group { member: 1, hits } if self.animation_graph.is_none() => {
+                    let mut group = BfcbBlockAnimationGraph::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.animation_graph = Some(group);
+                }
+                Hit::Group { member: 2, hits } if self.contact_shadow.is_none() => {
+                    let mut group = BfcbBlockContactShadow::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.contact_shadow = Some(group);
+                }
+                Hit::Group { member: 3, hits } if self.planet_content_properties.is_none() => {
+                    let mut group = BfcbBlockPlanetContentProperties::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.planet_content_properties = Some(group);
+                }
+                Hit::Group { member: 4, hits } if self.reflection.is_none() => {
+                    let mut group = BfcbBlockReflection::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.reflection = Some(group);
+                }
+                Hit::Sub { member: 5, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 6, index } => put(
+                    &mut self.end_marker,
+                    subs,
+                    *index,
+                    "BfcbBlock.BFCE",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"BFCB", self.component_type.as_ref());
+        if let Some(group) = &self.animation_graph {
+            group.emit(out);
+        }
+        if let Some(group) = &self.contact_shadow {
+            group.emit(out);
+        }
+        if let Some(group) = &self.planet_content_properties {
+            group.emit(out);
+        }
+        if let Some(group) = &self.reflection {
+            group.emit(out);
+        }
+        out.extend(self.component_data.iter().cloned());
+        emit(out, *b"BFCE", self.end_marker.as_ref());
+    }
+}
+
+impl Visit for BfcbBlock {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.planet_content_properties,
+            "BfcbBlock.PlanetContentProperties",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.planet_content_properties,
+            "BfcbBlock.PlanetContentProperties",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BiomeNoiseLayer {
+    pub noise_offset_u: f32,
+    pub noise_offset_v: f32,
+    pub noise_scale_u: f32,
+    pub noise_scale_v: f32,
+    pub noise_contrast: f32,
+    pub alt_texture_coverage: f32,
+    pub alt_data_contribution_min: f32,
+    pub alt_data_contribution_max: f32,
+}
+
+impl Field for BiomeNoiseLayer {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = f32::read(r, "BiomeNoiseLayer.NoiseOffsetU", ctx)?;
+        let f1 = f32::read(r, "BiomeNoiseLayer.NoiseOffsetV", ctx)?;
+        let f2 = f32::read(r, "BiomeNoiseLayer.NoiseScaleU", ctx)?;
+        let f3 = f32::read(r, "BiomeNoiseLayer.NoiseScaleV", ctx)?;
+        let f4 = f32::read(r, "BiomeNoiseLayer.NoiseContrast", ctx)?;
+        let f5 = f32::read(r, "BiomeNoiseLayer.AltTextureCoverage", ctx)?;
+        let f6 = f32::read(r, "BiomeNoiseLayer.AltDataContributionMin", ctx)?;
+        let f7 = f32::read(r, "BiomeNoiseLayer.AltDataContributionMax", ctx)?;
+        Ok(Self {
+            noise_offset_u: f0,
+            noise_offset_v: f1,
+            noise_scale_u: f2,
+            noise_scale_v: f3,
+            noise_contrast: f4,
+            alt_texture_coverage: f5,
+            alt_data_contribution_min: f6,
+            alt_data_contribution_max: f7,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.noise_offset_u.write(out);
+        self.noise_offset_v.write(out);
+        self.noise_scale_u.write(out);
+        self.noise_scale_v.write(out);
+        self.noise_contrast.write(out);
+        self.alt_texture_coverage.write(out);
+        self.alt_data_contribution_min.write(out);
+        self.alt_data_contribution_max.write(out);
+    }
+}
+
+impl Visit for BiomeNoiseLayer {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorBgra {
+    pub blue: u8,
+    pub green: u8,
+    pub red: u8,
+    pub alpha: u8,
+}
+
+impl Field for ColorBgra {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "ColorBgra.Blue", ctx)?;
+        let f1 = u8::read(r, "ColorBgra.Green", ctx)?;
+        let f2 = u8::read(r, "ColorBgra.Red", ctx)?;
+        let f3 = u8::read(r, "ColorBgra.Alpha", ctx)?;
+        Ok(Self {
+            blue: f0,
+            green: f1,
+            red: f2,
+            alpha: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.blue.write(out);
+        self.green.write(out);
+        self.red.write(out);
+        self.alpha.write(out);
+    }
+}
+
+impl Visit for ColorBgra {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ColorRgba {
+    pub red: u8,
+    pub green: u8,
+    pub blue: u8,
+    pub alpha: u8,
+}
+
+impl Field for ColorRgba {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u8::read(r, "ColorRgba.Red", ctx)?;
+        let f1 = u8::read(r, "ColorRgba.Green", ctx)?;
+        let f2 = u8::read(r, "ColorRgba.Blue", ctx)?;
+        let f3 = u8::read(r, "ColorRgba.Alpha", ctx)?;
+        Ok(Self {
+            red: f0,
+            green: f1,
+            blue: f2,
+            alpha: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.red.write(out);
+        self.green.write(out);
+        self.blue.write(out);
+        self.alpha.write(out);
+    }
+}
+
+impl Visit for ColorRgba {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct Component {
+    pub component: FormId,
+    pub count: u32,
+    pub curve_table: FormId,
+}
+
+impl Field for Component {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "Component.Component", ctx)?;
+        let f1 = u32::read(r, "Component.Count", ctx)?;
+        let f2 = Field::read(r, "Component.CurveTable", ctx)?;
+        Ok(Self {
+            component: f0,
+            count: f1,
+            curve_table: f2,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.component.write(out);
+        self.count.write(out);
+        self.curve_table.write(out);
+    }
+}
+
+impl Visit for Component {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.component, "Component.Component", out);
+        visit_form_ids(&self.curve_table, "Component.CurveTable", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.component, "Component.Component", out);
+        visit_form_ids_mut(&mut self.curve_table, "Component.CurveTable", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ContainerItemsItemEntry {
@@ -2762,6 +4265,7 @@ impl Effect {
 impl Visit for Effect {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.base_effect, "Effect.EFID", out);
+        visit_form_ids(&self.conditions, "Effect.Conditions", out);
         visit_form_ids(&self.magnitude_global, "Effect.MNAM", out);
         visit_form_ids(&self.area_global, "Effect.ANAM", out);
         visit_form_ids(&self.duration_global, "Effect.ZNAM", out);
@@ -2769,6 +4273,7 @@ impl Visit for Effect {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.base_effect, "Effect.EFID", out);
+        visit_form_ids_mut(&mut self.conditions, "Effect.Conditions", out);
         visit_form_ids_mut(&mut self.magnitude_global, "Effect.MNAM", out);
         visit_form_ids_mut(&mut self.area_global, "Effect.ANAM", out);
         visit_form_ids_mut(&mut self.duration_global, "Effect.ZNAM", out);
@@ -4838,18 +6343,130 @@ impl Field for PackageLocationType {
 
 impl Visit for PackageLocationType {}
 
+/// A field whose layout the value of `Type` selects (union). A value no variant
+/// names keeps the field's bytes as read in `Other`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum PackageLocationValue {
+    /// `Type` 0.
+    Reference(FormId),
+    /// `Type` 1.
+    Cell(FormId),
+    /// `Type` 2 or 3 or 7 or 12.
+    Unused([u8; 4]),
+    /// `Type` 4.
+    ObjectId(FormId),
+    /// `Type` 5.
+    ObjectType(u32),
+    /// `Type` 6 or 16.
+    Keyword(FormId),
+    /// `Type` 8.
+    RefAlias(i32),
+    /// `Type` 9.
+    LocationAlias(i32),
+    /// `Type` 10.
+    InterruptData(u32),
+    /// `Type` 11.
+    PackdataTarget(u32),
+    /// `Type` 13 or 15.
+    Unknown([u8; 4]),
+    /// `Type` 14.
+    RefCollectionAlias(i32),
+    /// A decider value no variant names: the bytes as read.
+    Other([u8; 4]),
+}
+
+impl PackageLocationValue {
+    /// Reads the variant the decider values select: `key` is the value of `Type` (`secondary` is unused).
+    pub fn read_keyed(
+        key: i64,
+        _secondary: i64,
+        r: &mut Reader<'_>,
+        field: &'static str,
+        ctx: Ctx,
+    ) -> Result<Self, DecodeError> {
+        match key {
+            0 => Field::read(r, field, ctx).map(Self::Reference),
+            1 => Field::read(r, field, ctx).map(Self::Cell),
+            2 | 3 | 7 | 12 => Field::read(r, field, ctx).map(Self::Unused),
+            4 => Field::read(r, field, ctx).map(Self::ObjectId),
+            5 => Field::read(r, field, ctx).map(Self::ObjectType),
+            6 | 16 => Field::read(r, field, ctx).map(Self::Keyword),
+            8 => Field::read(r, field, ctx).map(Self::RefAlias),
+            9 => Field::read(r, field, ctx).map(Self::LocationAlias),
+            10 => Field::read(r, field, ctx).map(Self::InterruptData),
+            11 => Field::read(r, field, ctx).map(Self::PackdataTarget),
+            13 | 15 => Field::read(r, field, ctx).map(Self::Unknown),
+            14 => Field::read(r, field, ctx).map(Self::RefCollectionAlias),
+            _ => Field::read(r, field, ctx).map(Self::Other),
+        }
+    }
+}
+
+impl Field for PackageLocationValue {
+    /// Without the decider values the bytes are kept as read (`Other`).
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self::Other)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        match self {
+            Self::Reference(value) => value.write(out),
+            Self::Cell(value) => value.write(out),
+            Self::Unused(value) => value.write(out),
+            Self::ObjectId(value) => value.write(out),
+            Self::ObjectType(value) => value.write(out),
+            Self::Keyword(value) => value.write(out),
+            Self::RefAlias(value) => value.write(out),
+            Self::LocationAlias(value) => value.write(out),
+            Self::InterruptData(value) => value.write(out),
+            Self::PackdataTarget(value) => value.write(out),
+            Self::Unknown(value) => value.write(out),
+            Self::RefCollectionAlias(value) => value.write(out),
+            Self::Other(value) => value.write(out),
+        }
+    }
+}
+
+impl Visit for PackageLocationValue {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        match self {
+            Self::Reference(value) => visit_form_ids(value, path, out),
+            Self::Cell(value) => visit_form_ids(value, path, out),
+            Self::ObjectId(value) => visit_form_ids(value, path, out),
+            Self::Keyword(value) => visit_form_ids(value, path, out),
+            _ => {}
+        }
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        match self {
+            Self::Reference(value) => visit_form_ids_mut(value, path, out),
+            Self::Cell(value) => visit_form_ids_mut(value, path, out),
+            Self::ObjectId(value) => visit_form_ids_mut(value, path, out),
+            Self::Keyword(value) => visit_form_ids_mut(value, path, out),
+            _ => {}
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct PackageLocation {
     pub type_: PackageLocationType,
-    pub value: [u8; 4],
+    pub value: PackageLocationValue,
     pub radius: f32,
     pub collection_index: u32,
 }
 
 impl Field for PackageLocation {
     fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
-        let f0 = Field::read(r, "PackageLocation.Type", ctx)?;
-        let f1 = Field::read(r, "PackageLocation.Value", ctx)?;
+        let f0 = PackageLocationType::read(r, "PackageLocation.Type", ctx)?;
+        let f1 = PackageLocationValue::read_keyed(
+            i64::from(f0.to_raw()),
+            0,
+            r,
+            "PackageLocation.Value",
+            ctx,
+        )?;
         let f2 = f32::read(r, "PackageLocation.Radius", ctx)?;
         let f3 = u32::read(r, "PackageLocation.CollectionIndex", ctx)?;
         Ok(Self {
@@ -4868,7 +6485,15 @@ impl Field for PackageLocation {
     }
 }
 
-impl Visit for PackageLocation {}
+impl Visit for PackageLocation {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.value, "PackageLocation.Value", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.value, "PackageLocation.Value", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct PositionRotation {
@@ -6314,6 +7939,11 @@ impl Visit for QuestReferenceAlias {
             out,
         );
         visit_form_ids(&self.near_alias, "QuestReferenceAlias.NearAlias", out);
+        visit_form_ids(
+            &self.match_conditions,
+            "QuestReferenceAlias.MatchConditions",
+            out,
+        );
         visit_form_ids(&self.keywords, "QuestReferenceAlias.Keywords", out);
         visit_form_ids(&self.inventory, "QuestReferenceAlias.Inventory", out);
         visit_form_ids(
@@ -6367,6 +7997,11 @@ impl Visit for QuestReferenceAlias {
             out,
         );
         visit_form_ids_mut(&mut self.near_alias, "QuestReferenceAlias.NearAlias", out);
+        visit_form_ids_mut(
+            &mut self.match_conditions,
+            "QuestReferenceAlias.MatchConditions",
+            out,
+        );
         visit_form_ids_mut(&mut self.keywords, "QuestReferenceAlias.Keywords", out);
         visit_form_ids_mut(&mut self.inventory, "QuestReferenceAlias.Inventory", out);
         visit_form_ids_mut(
@@ -7756,6 +9391,7 @@ impl Unordered for AchrRecord {
 
 impl Visit for AchrRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "ACHR.BfcbBlock", out);
         visit_form_ids(&self.base, "ACHR.NAME", out);
         visit_form_ids(&self.reference_group, "ACHR.XRFG", out);
         visit_form_ids(&self.source_pack_in, "ACHR.XPCS", out);
@@ -7775,6 +9411,7 @@ impl Visit for AchrRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "ACHR.BfcbBlock", out);
         visit_form_ids_mut(&mut self.base, "ACHR.NAME", out);
         visit_form_ids_mut(&mut self.reference_group, "ACHR.XRFG", out);
         visit_form_ids_mut(&mut self.source_pack_in, "ACHR.XPCS", out);
@@ -8400,6 +10037,7 @@ impl Visit for ActiRecord {
         visit_form_ids(&self.snap_template, "ACTI.SNTP", out);
         visit_form_ids(&self.snap_behavior, "ACTI.SNBH", out);
         visit_form_ids(&self.default_layer, "ACTI.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "ACTI.BfcbBlock", out);
         visit_form_ids(&self.model, "ACTI.Model", out);
         visit_form_ids(&self.destructible, "ACTI.Destructible", out);
         visit_form_ids(&self.keywords, "ACTI.Keywords", out);
@@ -8409,6 +10047,7 @@ impl Visit for ActiRecord {
         visit_form_ids(&self.looping_sound, "ACTI.ALSH", out);
         visit_form_ids(&self.activate_sound, "ACTI.ACSH", out);
         visit_form_ids(&self.water, "ACTI.WTFM", out);
+        visit_form_ids(&self.conditions, "ACTI.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
@@ -8416,6 +10055,7 @@ impl Visit for ActiRecord {
         visit_form_ids_mut(&mut self.snap_template, "ACTI.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "ACTI.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "ACTI.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "ACTI.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "ACTI.Model", out);
         visit_form_ids_mut(&mut self.destructible, "ACTI.Destructible", out);
         visit_form_ids_mut(&mut self.keywords, "ACTI.Keywords", out);
@@ -8425,6 +10065,7 @@ impl Visit for ActiRecord {
         visit_form_ids_mut(&mut self.looping_sound, "ACTI.ALSH", out);
         visit_form_ids_mut(&mut self.activate_sound, "ACTI.ACSH", out);
         visit_form_ids_mut(&mut self.water, "ACTI.WTFM", out);
+        visit_form_ids_mut(&mut self.conditions, "ACTI.Conditions", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -9245,7 +10886,15 @@ impl AmdlRecord {
     }
 }
 
-impl Visit for AmdlRecord {}
+impl Visit for AmdlRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "AMDL.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "AMDL.BfcbBlock", out);
+    }
+}
 
 impl AmdlRecord {
     /// Record signature.
@@ -9882,6 +11531,7 @@ impl Visit for AmmoRecord {
         visit_form_ids(&self.snap_behavior, "AMMO.SNBH", out);
         visit_form_ids(&self.default_layer, "AMMO.DEFL", out);
         visit_form_ids(&self.transforms, "AMMO.PTT2", out);
+        visit_form_ids(&self.bfcb_block, "AMMO.BfcbBlock", out);
         visit_form_ids(&self.model, "AMMO.Model", out);
         visit_form_ids(&self.destructible, "AMMO.Destructible", out);
         visit_form_ids(&self.pickup_sound, "AMMO.PUSH", out);
@@ -9895,6 +11545,7 @@ impl Visit for AmmoRecord {
         visit_form_ids_mut(&mut self.snap_behavior, "AMMO.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "AMMO.DEFL", out);
         visit_form_ids_mut(&mut self.transforms, "AMMO.PTT2", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "AMMO.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "AMMO.Model", out);
         visit_form_ids_mut(&mut self.destructible, "AMMO.Destructible", out);
         visit_form_ids_mut(&mut self.pickup_sound, "AMMO.PUSH", out);
@@ -10089,10 +11740,12 @@ impl AnioRecord {
 
 impl Visit for AnioRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "ANIO.BfcbBlock", out);
         visit_form_ids(&self.model, "ANIO.Model", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "ANIO.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "ANIO.Model", out);
     }
 }
@@ -11351,6 +13004,7 @@ impl ArmoRecord {
 impl Visit for ArmoRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.transforms, "ARMO.PTT2", out);
+        visit_form_ids(&self.bfcb_block, "ARMO.BfcbBlock", out);
         visit_form_ids(&self.enchantment, "ARMO.EITM", out);
         visit_form_ids(&self.male_world_model, "ARMO.MaleWorldModel", out);
         visit_form_ids(&self.female_world_model, "ARMO.FemaleWorldModel", out);
@@ -11371,6 +13025,7 @@ impl Visit for ArmoRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.transforms, "ARMO.PTT2", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "ARMO.BfcbBlock", out);
         visit_form_ids_mut(&mut self.enchantment, "ARMO.EITM", out);
         visit_form_ids_mut(&mut self.male_world_model, "ARMO.MaleWorldModel", out);
         visit_form_ids_mut(&mut self.female_world_model, "ARMO.FemaleWorldModel", out);
@@ -11647,10 +13302,12 @@ impl ArtoRecord {
 
 impl Visit for ArtoRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "ARTO.BfcbBlock", out);
         visit_form_ids(&self.keywords, "ARTO.Keywords", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "ARTO.BfcbBlock", out);
         visit_form_ids_mut(&mut self.keywords, "ARTO.Keywords", out);
     }
 }
@@ -14926,6 +16583,7 @@ impl Unordered for CellRecord {
 
 impl Visit for CellRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "CELL.BfcbBlock", out);
         visit_form_ids(&self.lighting_template, "CELL.LTMP", out);
         visit_form_ids(&self.image_space, "CELL.XCIM", out);
         visit_form_ids(&self.ship_snap_links, "CELL.XBPS", out);
@@ -14941,6 +16599,7 @@ impl Visit for CellRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "CELL.BfcbBlock", out);
         visit_form_ids_mut(&mut self.lighting_template, "CELL.LTMP", out);
         visit_form_ids_mut(&mut self.image_space, "CELL.XCIM", out);
         visit_form_ids_mut(&mut self.ship_snap_links, "CELL.XBPS", out);
@@ -15091,7 +16750,15 @@ impl ChalRecord {
     }
 }
 
-impl Visit for ChalRecord {}
+impl Visit for ChalRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "CHAL.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "CHAL.BfcbBlock", out);
+    }
+}
 
 impl ChalRecord {
     /// Record signature.
@@ -15298,10 +16965,12 @@ impl ClasRecord {
 
 impl Visit for ClasRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "CLAS.BfcbBlock", out);
         visit_form_ids(&self.properties, "CLAS.PRPS", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "CLAS.BfcbBlock", out);
         visit_form_ids_mut(&mut self.properties, "CLAS.PRPS", out);
     }
 
@@ -16032,7 +17701,9 @@ impl CobjRecord {
 
 impl Visit for CobjRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "COBJ.BfcbBlock", out);
         visit_form_ids(&self.workbench_keyword, "COBJ.BNAM", out);
+        visit_form_ids(&self.conditions, "COBJ.Conditions", out);
         visit_form_ids(&self.components, "COBJ.FVPA", out);
         visit_form_ids(&self.required_perks, "COBJ.RQPK", out);
         visit_form_ids(&self.created_object, "COBJ.CNAM", out);
@@ -16050,7 +17721,9 @@ impl Visit for CobjRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "COBJ.BfcbBlock", out);
         visit_form_ids_mut(&mut self.workbench_keyword, "COBJ.BNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "COBJ.Conditions", out);
         visit_form_ids_mut(&mut self.components, "COBJ.FVPA", out);
         visit_form_ids_mut(&mut self.required_perks, "COBJ.RQPK", out);
         visit_form_ids_mut(&mut self.created_object, "COBJ.CNAM", out);
@@ -16599,6 +18272,7 @@ impl Visit for ContRecord {
         visit_form_ids(&self.transforms, "CONT.PTT2", out);
         visit_form_ids(&self.snap_template, "CONT.SNTP", out);
         visit_form_ids(&self.snap_behavior, "CONT.SNBH", out);
+        visit_form_ids(&self.bfcb_block, "CONT.BfcbBlock", out);
         visit_form_ids(&self.model, "CONT.Model", out);
         visit_form_ids(&self.container_items, "CONT.ContainerItems", out);
         visit_form_ids(&self.destructible, "CONT.Destructible", out);
@@ -16617,6 +18291,7 @@ impl Visit for ContRecord {
         visit_form_ids_mut(&mut self.transforms, "CONT.PTT2", out);
         visit_form_ids_mut(&mut self.snap_template, "CONT.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "CONT.SNBH", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "CONT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "CONT.Model", out);
         visit_form_ids_mut(&mut self.container_items, "CONT.ContainerItems", out);
         visit_form_ids_mut(&mut self.destructible, "CONT.Destructible", out);
@@ -16875,11 +18550,13 @@ impl CpthRecord {
 
 impl Visit for CpthRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "CPTH.Conditions", out);
         visit_form_ids(&self.links, "CPTH.ANAM", out);
         visit_form_ids(&self.camera_shots, "CPTH.SNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "CPTH.Conditions", out);
         visit_form_ids_mut(&mut self.links, "CPTH.ANAM", out);
         visit_form_ids_mut(&mut self.camera_shots, "CPTH.SNAM", out);
     }
@@ -17246,6 +18923,7 @@ impl DialRecord {
 
 impl Visit for DialRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "DIAL.BfcbBlock", out);
         visit_form_ids(&self.branch, "DIAL.BNAM", out);
         visit_form_ids(&self.quest, "DIAL.QNAM", out);
         visit_form_ids(&self.keyword, "DIAL.KNAM", out);
@@ -17254,6 +18932,7 @@ impl Visit for DialRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "DIAL.BfcbBlock", out);
         visit_form_ids_mut(&mut self.branch, "DIAL.BNAM", out);
         visit_form_ids_mut(&mut self.quest, "DIAL.QNAM", out);
         visit_form_ids_mut(&mut self.keyword, "DIAL.KNAM", out);
@@ -17788,10 +19467,12 @@ impl DoorRecord {
 
 impl Visit for DoorRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "DOOR.BfcbBlock", out);
         visit_form_ids(&self.keywords, "DOOR.Keywords", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "DOOR.BfcbBlock", out);
         visit_form_ids_mut(&mut self.keywords, "DOOR.Keywords", out);
     }
 
@@ -18422,7 +20103,7 @@ pub struct FactCrimeValues {
     pub assault: u16,
     pub trespass: u16,
     pub pickpocket: u16,
-    pub unnamed: [u8; 2],
+    pub unnamed: u16,
     pub steal_multiplier: f32,
     pub escape: u16,
     pub piracy: u16,
@@ -18437,7 +20118,7 @@ impl Field for FactCrimeValues {
         let f3 = u16::read(r, "FACT.CRVA.Assault", ctx)?;
         let f4 = u16::read(r, "FACT.CRVA.Trespass", ctx)?;
         let f5 = u16::read(r, "FACT.CRVA.Pickpocket", ctx)?;
-        let f6 = Field::read(r, "FACT.CRVA.Unnamed", ctx)?;
+        let f6 = u16::read(r, "FACT.CRVA.Unnamed", ctx)?;
         let f7 = f32::read(r, "FACT.CRVA.StealMultiplier", ctx)?;
         let f8 = u16::read(r, "FACT.CRVA.Escape", ctx)?;
         let f9 = u16::read(r, "FACT.CRVA.Piracy", ctx)?;
@@ -18896,7 +20577,15 @@ impl FactConditions {
     }
 }
 
-impl Visit for FactConditions {}
+impl Visit for FactConditions {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "FACT.Conditions.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "FACT.Conditions.Conditions", out);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct FactHerdData {
@@ -19323,22 +21012,28 @@ impl FactRecord {
 
 impl Visit for FactRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "FACT.BfcbBlock", out);
         visit_form_ids(&self.relations, "FACT.XNAM", out);
         visit_form_ids(&self.faction_type, "FACT.DNAM", out);
         visit_form_ids(&self.shared_crime_faction_list, "FACT.CRGR", out);
         visit_form_ids(&self.prisons, "FACT.PRIS", out);
         visit_form_ids(&self.vendor_buy_sell_list, "FACT.VEND", out);
         visit_form_ids(&self.merchant_container, "FACT.VENC", out);
+        visit_form_ids(&self.vendor_location, "FACT.PLVD", out);
+        visit_form_ids(&self.conditions, "FACT.Conditions", out);
         visit_form_ids(&self.voice, "FACT.VTCK", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "FACT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.relations, "FACT.XNAM", out);
         visit_form_ids_mut(&mut self.faction_type, "FACT.DNAM", out);
         visit_form_ids_mut(&mut self.shared_crime_faction_list, "FACT.CRGR", out);
         visit_form_ids_mut(&mut self.prisons, "FACT.PRIS", out);
         visit_form_ids_mut(&mut self.vendor_buy_sell_list, "FACT.VEND", out);
         visit_form_ids_mut(&mut self.merchant_container, "FACT.VENC", out);
+        visit_form_ids_mut(&mut self.vendor_location, "FACT.PLVD", out);
+        visit_form_ids_mut(&mut self.conditions, "FACT.Conditions", out);
         visit_form_ids_mut(&mut self.voice, "FACT.VTCK", out);
     }
 
@@ -19685,7 +21380,19 @@ impl FlstConditionalEntries {
     }
 }
 
-impl Visit for FlstConditionalEntries {}
+impl Visit for FlstConditionalEntries {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "FLST.ConditionalEntries.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "FLST.ConditionalEntries.Conditions",
+            out,
+        );
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct FlstRecord {
@@ -19791,12 +21498,20 @@ impl FlstRecord {
 
 impl Visit for FlstRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "FLST.BfcbBlock", out);
         visit_form_ids(&self.forms, "FLST.LNAM", out);
+        visit_form_ids(&self.conditional_entries, "FLST.ConditionalEntries", out);
         visit_form_ids(&self.add_to_list, "FLST.ANAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "FLST.BfcbBlock", out);
         visit_form_ids_mut(&mut self.forms, "FLST.LNAM", out);
+        visit_form_ids_mut(
+            &mut self.conditional_entries,
+            "FLST.ConditionalEntries",
+            out,
+        );
         visit_form_ids_mut(&mut self.add_to_list, "FLST.ANAM", out);
     }
 
@@ -20584,6 +22299,7 @@ impl Visit for FurnRecord {
         visit_form_ids(&self.transforms, "FURN.PTT2", out);
         visit_form_ids(&self.snap_template, "FURN.SNTP", out);
         visit_form_ids(&self.snap_behavior, "FURN.SNBH", out);
+        visit_form_ids(&self.bfcb_block, "FURN.BfcbBlock", out);
         visit_form_ids(&self.model, "FURN.Model", out);
         visit_form_ids(&self.destructible, "FURN.Destructible", out);
         visit_form_ids(&self.keywords, "FURN.Keywords", out);
@@ -20602,6 +22318,7 @@ impl Visit for FurnRecord {
         visit_form_ids_mut(&mut self.transforms, "FURN.PTT2", out);
         visit_form_ids_mut(&mut self.snap_template, "FURN.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "FURN.SNBH", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "FURN.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "FURN.Model", out);
         visit_form_ids_mut(&mut self.destructible, "FURN.Destructible", out);
         visit_form_ids_mut(&mut self.keywords, "FURN.Keywords", out);
@@ -21088,11 +22805,13 @@ impl GbfmRecord {
 
 impl Visit for GbfmRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "GBFM.BfcbBlock", out);
         visit_form_ids(&self.template, "GBFM.ANAM", out);
         visit_form_ids(&self.obte_block, "GBFM.ObteBlock", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "GBFM.BfcbBlock", out);
         visit_form_ids_mut(&mut self.template, "GBFM.ANAM", out);
         visit_form_ids_mut(&mut self.obte_block, "GBFM.ObteBlock", out);
     }
@@ -21233,7 +22952,15 @@ impl GlobRecord {
     }
 }
 
-impl Visit for GlobRecord {}
+impl Visit for GlobRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "GLOB.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "GLOB.BfcbBlock", out);
+    }
+}
 
 impl GlobRecord {
     /// Record signature.
@@ -22282,10 +24009,12 @@ impl IdleRecord {
 
 impl Visit for IdleRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "IDLE.Conditions", out);
         visit_form_ids(&self.links, "IDLE.ANAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "IDLE.Conditions", out);
         visit_form_ids_mut(&mut self.links, "IDLE.ANAM", out);
     }
 
@@ -22774,6 +24503,7 @@ impl Visit for InfoResponseAnimation {
             out,
         );
         visit_form_ids(&self.anim_flavor, "INFO.Response.Animation.FLAV", out);
+        visit_form_ids(&self.conditions, "INFO.Response.Animation.Conditions", out);
         visit_form_ids(&self.action, "INFO.Response.Animation.ATAC", out);
     }
 
@@ -22790,6 +24520,11 @@ impl Visit for InfoResponseAnimation {
             out,
         );
         visit_form_ids_mut(&mut self.anim_flavor, "INFO.Response.Animation.FLAV", out);
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "INFO.Response.Animation.Conditions",
+            out,
+        );
         visit_form_ids_mut(&mut self.action, "INFO.Response.Animation.ATAC", out);
     }
 }
@@ -23512,10 +25247,12 @@ impl InfoRecord {
 
 impl Visit for InfoRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "INFO.BfcbBlock", out);
         visit_form_ids(&self.previous_topic, "INFO.TPIC", out);
         visit_form_ids(&self.shared_info, "INFO.DNAM", out);
         visit_form_ids(&self.info_group, "INFO.GNAM", out);
         visit_form_ids(&self.response, "INFO.Response", out);
+        visit_form_ids(&self.conditions, "INFO.Conditions", out);
         visit_form_ids(&self.speaker, "INFO.ANAM", out);
         visit_form_ids(&self.start_scene, "INFO.TSCE", out);
         visit_form_ids(&self.voice_override, "INFO.WED0", out);
@@ -23526,10 +25263,12 @@ impl Visit for InfoRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "INFO.BfcbBlock", out);
         visit_form_ids_mut(&mut self.previous_topic, "INFO.TPIC", out);
         visit_form_ids_mut(&mut self.shared_info, "INFO.DNAM", out);
         visit_form_ids_mut(&mut self.info_group, "INFO.GNAM", out);
         visit_form_ids_mut(&mut self.response, "INFO.Response", out);
+        visit_form_ids_mut(&mut self.conditions, "INFO.Conditions", out);
         visit_form_ids_mut(&mut self.speaker, "INFO.ANAM", out);
         visit_form_ids_mut(&mut self.start_scene, "INFO.TSCE", out);
         visit_form_ids_mut(&mut self.voice_override, "INFO.WED0", out);
@@ -24017,10 +25756,12 @@ impl InnrRecord {
 
 impl Visit for InnrRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "INNR.BfcbBlock", out);
         visit_form_ids(&self.rulesets, "INNR.Rulesets", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "INNR.BfcbBlock", out);
         visit_form_ids_mut(&mut self.rulesets, "INNR.Rulesets", out);
     }
 
@@ -24667,10 +26408,12 @@ impl KywdRecord {
 
 impl Visit for KywdRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "KYWD.BfcbBlock", out);
         visit_form_ids(&self.attraction_rule, "KYWD.DATA", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "KYWD.BfcbBlock", out);
         visit_form_ids_mut(&mut self.attraction_rule, "KYWD.DATA", out);
     }
 
@@ -24830,7 +26573,15 @@ impl LayrRecord {
     }
 }
 
-impl Visit for LayrRecord {}
+impl Visit for LayrRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LAYR.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LAYR.BfcbBlock", out);
+    }
+}
 
 impl LayrRecord {
     /// Record signature.
@@ -25044,10 +26795,12 @@ impl LcrtRecord {
 
 impl Visit for LcrtRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LCRT.BfcbBlock", out);
         visit_form_ids(&self.attraction_rule, "LCRT.DATA", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LCRT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.attraction_rule, "LCRT.DATA", out);
     }
 
@@ -26841,6 +28594,7 @@ impl LctnRecord {
 
 impl Visit for LctnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LCTN.BfcbBlock", out);
         visit_form_ids(&self.properties, "LCTN.PRPS", out);
         visit_form_ids(&self.added_persistent_refs, "LCTN.ACPR", out);
         visit_form_ids(&self.persistent_refs, "LCTN.LCPR", out);
@@ -26871,6 +28625,7 @@ impl Visit for LctnRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LCTN.BfcbBlock", out);
         visit_form_ids_mut(&mut self.properties, "LCTN.PRPS", out);
         visit_form_ids_mut(&mut self.added_persistent_refs, "LCTN.ACPR", out);
         visit_form_ids_mut(&mut self.persistent_refs, "LCTN.LCPR", out);
@@ -27196,10 +28951,12 @@ impl LighRecord {
 
 impl Visit for LighRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LIGH.BfcbBlock", out);
         visit_form_ids(&self.keywords, "LIGH.Keywords", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LIGH.BfcbBlock", out);
         visit_form_ids_mut(&mut self.keywords, "LIGH.Keywords", out);
     }
 }
@@ -27902,11 +29659,13 @@ impl Visit for LvliEntries {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.entry, "LVLI.Entries.LVLO", out);
         visit_form_ids(&self.extra_data, "LVLI.Entries.COED", out);
+        visit_form_ids(&self.conditions, "LVLI.Entries.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.entry, "LVLI.Entries.LVLO", out);
         visit_form_ids_mut(&mut self.extra_data, "LVLI.Entries.COED", out);
+        visit_form_ids_mut(&mut self.conditions, "LVLI.Entries.Conditions", out);
     }
 }
 
@@ -28411,6 +30170,8 @@ impl Visit for LvliRecord {
         visit_form_ids(&self.transforms, "LVLI.PTT2", out);
         visit_form_ids(&self.snap_behavior, "LVLI.SNBH", out);
         visit_form_ids(&self.default_layer, "LVLI.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "LVLI.BfcbBlock", out);
+        visit_form_ids(&self.conditions, "LVLI.Conditions", out);
         visit_form_ids(&self.use_chance_none_global, "LVLI.LVLG", out);
         visit_form_ids(&self.required_biome, "LVLI.LLRB", out);
         visit_form_ids(&self.required_resource_vein, "LVLI.LLRV", out);
@@ -28425,6 +30186,8 @@ impl Visit for LvliRecord {
         visit_form_ids_mut(&mut self.transforms, "LVLI.PTT2", out);
         visit_form_ids_mut(&mut self.snap_behavior, "LVLI.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "LVLI.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "LVLI.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.conditions, "LVLI.Conditions", out);
         visit_form_ids_mut(&mut self.use_chance_none_global, "LVLI.LVLG", out);
         visit_form_ids_mut(&mut self.required_biome, "LVLI.LLRB", out);
         visit_form_ids_mut(&mut self.required_resource_vein, "LVLI.LLRV", out);
@@ -28674,10 +30437,12 @@ impl LvlnEntry {
 impl Visit for LvlnEntry {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.data, "LVLN.Entry.LVLO", out);
+        visit_form_ids(&self.conditions, "LVLN.Entry.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.data, "LVLN.Entry.LVLO", out);
+        visit_form_ids_mut(&mut self.conditions, "LVLN.Entry.Conditions", out);
     }
 }
 
@@ -28995,6 +30760,8 @@ impl LvlnRecord {
 
 impl Visit for LvlnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "LVLN.BfcbBlock", out);
+        visit_form_ids(&self.conditions, "LVLN.Conditions", out);
         visit_form_ids(&self.use_global, "LVLN.LVLG", out);
         visit_form_ids(&self.entry, "LVLN.Entry", out);
         visit_form_ids(&self.filter_keyword_chances, "LVLN.LLKC", out);
@@ -29002,6 +30769,8 @@ impl Visit for LvlnRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "LVLN.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.conditions, "LVLN.Conditions", out);
         visit_form_ids_mut(&mut self.use_global, "LVLN.LVLG", out);
         visit_form_ids_mut(&mut self.entry, "LVLN.Entry", out);
         visit_form_ids_mut(&mut self.filter_keyword_chances, "LVLN.LLKC", out);
@@ -29207,10 +30976,12 @@ impl LvlpEntry {
 impl Visit for LvlpEntry {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.data, "LVLP.Entry.LVLO", out);
+        visit_form_ids(&self.conditions, "LVLP.Entry.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.data, "LVLP.Entry.LVLO", out);
+        visit_form_ids_mut(&mut self.conditions, "LVLP.Entry.Conditions", out);
     }
 }
 
@@ -29478,6 +31249,8 @@ impl LvlpRecord {
 impl Visit for LvlpRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.transforms, "LVLP.PTT2", out);
+        visit_form_ids(&self.bfcb_block, "LVLP.BfcbBlock", out);
+        visit_form_ids(&self.conditions, "LVLP.Conditions", out);
         visit_form_ids(&self.use_global, "LVLP.LVLG", out);
         visit_form_ids(&self.entry, "LVLP.Entry", out);
         visit_form_ids(&self.model, "LVLP.Model", out);
@@ -29486,6 +31259,8 @@ impl Visit for LvlpRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.transforms, "LVLP.PTT2", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "LVLP.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.conditions, "LVLP.Conditions", out);
         visit_form_ids_mut(&mut self.use_global, "LVLP.LVLG", out);
         visit_form_ids_mut(&mut self.entry, "LVLP.Entry", out);
         visit_form_ids_mut(&mut self.model, "LVLP.Model", out);
@@ -30759,19 +32534,23 @@ impl MgefRecord {
 
 impl Visit for MgefRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "MGEF.BfcbBlock", out);
         visit_form_ids(&self.menu_display_object, "MGEF.MDOB", out);
         visit_form_ids(&self.keywords, "MGEF.Keywords", out);
         visit_form_ids(&self.data, "MGEF.DATA", out);
         visit_form_ids(&self.counter_effects, "MGEF.ESCE", out);
         visit_form_ids(&self.sounds, "MGEF.ESSH", out);
+        visit_form_ids(&self.conditions, "MGEF.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "MGEF.BfcbBlock", out);
         visit_form_ids_mut(&mut self.menu_display_object, "MGEF.MDOB", out);
         visit_form_ids_mut(&mut self.keywords, "MGEF.Keywords", out);
         visit_form_ids_mut(&mut self.data, "MGEF.DATA", out);
         visit_form_ids_mut(&mut self.counter_effects, "MGEF.ESCE", out);
         visit_form_ids_mut(&mut self.sounds, "MGEF.ESSH", out);
+        visit_form_ids_mut(&mut self.conditions, "MGEF.Conditions", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -31301,6 +33080,7 @@ impl Visit for MiscRecord {
         visit_form_ids(&self.transforms, "MISC.PTT2", out);
         visit_form_ids(&self.snap_template, "MISC.SNTP", out);
         visit_form_ids(&self.snap_behavior, "MISC.SNBH", out);
+        visit_form_ids(&self.bfcb_block, "MISC.BfcbBlock", out);
         visit_form_ids(&self.model, "MISC.Model", out);
         visit_form_ids(&self.destructible, "MISC.Destructible", out);
         visit_form_ids(&self.crafting_sound, "MISC.CUSH", out);
@@ -31315,6 +33095,7 @@ impl Visit for MiscRecord {
         visit_form_ids_mut(&mut self.transforms, "MISC.PTT2", out);
         visit_form_ids_mut(&mut self.snap_template, "MISC.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "MISC.SNBH", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "MISC.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "MISC.Model", out);
         visit_form_ids_mut(&mut self.destructible, "MISC.Destructible", out);
         visit_form_ids_mut(&mut self.crafting_sound, "MISC.CUSH", out);
@@ -31765,6 +33546,7 @@ impl Visit for MsttRecord {
         visit_form_ids(&self.snap_template, "MSTT.SNTP", out);
         visit_form_ids(&self.snap_behavior, "MSTT.SNBH", out);
         visit_form_ids(&self.default_layer, "MSTT.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "MSTT.BfcbBlock", out);
         visit_form_ids(&self.transforms2, "MSTT.PTT2", out);
         visit_form_ids(&self.model, "MSTT.Model", out);
         visit_form_ids(&self.destructible, "MSTT.Destructible", out);
@@ -31778,6 +33560,7 @@ impl Visit for MsttRecord {
         visit_form_ids_mut(&mut self.snap_template, "MSTT.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "MSTT.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "MSTT.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "MSTT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.transforms2, "MSTT.PTT2", out);
         visit_form_ids_mut(&mut self.model, "MSTT.Model", out);
         visit_form_ids_mut(&mut self.destructible, "MSTT.Destructible", out);
@@ -31966,7 +33749,15 @@ impl NavmRecord {
     }
 }
 
-impl Visit for NavmRecord {}
+impl Visit for NavmRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "NAVM.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "NAVM.BfcbBlock", out);
+    }
+}
 
 impl NavmRecord {
     /// Record signature.
@@ -35085,6 +36876,7 @@ impl Visit for NpcRecord {
         visit_form_ids(&self.snap_template, "NPC_.SNTP", out);
         visit_form_ids(&self.snap_behavior, "NPC_.SNBH", out);
         visit_form_ids(&self.default_layer, "NPC_.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "NPC_.BfcbBlock", out);
         visit_form_ids(&self.factions, "NPC_.SNAM", out);
         visit_form_ids(&self.death_item, "NPC_.INAM", out);
         visit_form_ids(&self.voice, "NPC_.VTCK", out);
@@ -35136,6 +36928,7 @@ impl Visit for NpcRecord {
         visit_form_ids_mut(&mut self.snap_template, "NPC_.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "NPC_.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "NPC_.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "NPC_.BfcbBlock", out);
         visit_form_ids_mut(&mut self.factions, "NPC_.SNAM", out);
         visit_form_ids_mut(&mut self.death_item, "NPC_.INAM", out);
         visit_form_ids_mut(&mut self.voice, "NPC_.VTCK", out);
@@ -35652,6 +37445,7 @@ impl OmodRecord {
 
 impl Visit for OmodRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "OMOD.BfcbBlock", out);
         visit_form_ids(&self.model, "OMOD.Model", out);
         visit_form_ids(&self.data, "OMOD.DATA", out);
         visit_form_ids(&self.target_omod_keywords, "OMOD.MNAM", out);
@@ -35662,6 +37456,7 @@ impl Visit for OmodRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "OMOD.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "OMOD.Model", out);
         visit_form_ids_mut(&mut self.data, "OMOD.DATA", out);
         visit_form_ids_mut(&mut self.target_omod_keywords, "OMOD.MNAM", out);
@@ -35848,10 +37643,12 @@ impl OtftRecord {
 
 impl Visit for OtftRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "OTFT.BfcbBlock", out);
         visit_form_ids(&self.items, "OTFT.INAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "OTFT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.items, "OTFT.INAM", out);
     }
 }
@@ -36528,7 +38325,23 @@ impl PackPackageDataValueTarget {
     }
 }
 
-impl Visit for PackPackageDataValueTarget {}
+impl Visit for PackPackageDataValueTarget {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.conditions,
+            "PACK.PackageData.Value.Target.Conditions",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "PACK.PackageData.Value.Target.Conditions",
+            out,
+        );
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PackPackageDataValue {
@@ -36633,10 +38446,14 @@ impl PackPackageDataValue {
 
 impl Visit for PackPackageDataValue {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.location, "PACK.PackageData.Value.PLDT", out);
+        visit_form_ids(&self.target, "PACK.PackageData.Value.Target", out);
         visit_form_ids(&self.scene, "PACK.PackageData.Value.STSC", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.location, "PACK.PackageData.Value.PLDT", out);
+        visit_form_ids_mut(&mut self.target, "PACK.PackageData.Value.Target", out);
         visit_form_ids_mut(&mut self.scene, "PACK.PackageData.Value.STSC", out);
     }
 }
@@ -37120,7 +38937,15 @@ impl PackBranch {
     }
 }
 
-impl Visit for PackBranch {}
+impl Visit for PackBranch {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "PACK.Branch.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "PACK.Branch.Conditions", out);
+    }
+}
 
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -37920,24 +39745,30 @@ impl PackRecord {
 
 impl Visit for PackRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "PACK.BfcbBlock", out);
+        visit_form_ids(&self.conditions, "PACK.Conditions", out);
         visit_form_ids(&self.idle_animations, "PACK.IdleAnimations", out);
         visit_form_ids(&self.combat_style, "PACK.CNAM", out);
         visit_form_ids(&self.owner_quest, "PACK.QNAM", out);
         visit_form_ids(&self.anim_flavor, "PACK.FLAV", out);
         visit_form_ids(&self.counter, "PACK.PKCU", out);
         visit_form_ids(&self.package_data, "PACK.PackageData", out);
+        visit_form_ids(&self.branch, "PACK.Branch", out);
         visit_form_ids(&self.on_begin, "PACK.OnBegin", out);
         visit_form_ids(&self.on_end, "PACK.OnEnd", out);
         visit_form_ids(&self.on_change, "PACK.OnChange", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "PACK.BfcbBlock", out);
+        visit_form_ids_mut(&mut self.conditions, "PACK.Conditions", out);
         visit_form_ids_mut(&mut self.idle_animations, "PACK.IdleAnimations", out);
         visit_form_ids_mut(&mut self.combat_style, "PACK.CNAM", out);
         visit_form_ids_mut(&mut self.owner_quest, "PACK.QNAM", out);
         visit_form_ids_mut(&mut self.anim_flavor, "PACK.FLAV", out);
         visit_form_ids_mut(&mut self.counter, "PACK.PKCU", out);
         visit_form_ids_mut(&mut self.package_data, "PACK.PackageData", out);
+        visit_form_ids_mut(&mut self.branch, "PACK.Branch", out);
         visit_form_ids_mut(&mut self.on_begin, "PACK.OnBegin", out);
         visit_form_ids_mut(&mut self.on_end, "PACK.OnEnd", out);
         visit_form_ids_mut(&mut self.on_change, "PACK.OnChange", out);
@@ -38348,18 +40179,22 @@ impl PcbnRecord {
 
 impl Visit for PcbnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "PCBN.BfcbBlock", out);
         visit_form_ids(&self.count_curve, "PCBN.NAM3", out);
         visit_form_ids(&self.distribution_curve, "PCBN.NAM4", out);
         visit_form_ids(&self.nodes, "PCBN.PCCB", out);
+        visit_form_ids(&self.conditions, "PCBN.Conditions", out);
         visit_form_ids(&self.keywords, "PCBN.KWDA", out);
         visit_form_ids(&self.parent_node, "PCBN.PRTN", out);
         visit_form_ids(&self.previous_node, "PCBN.PRVN", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "PCBN.BfcbBlock", out);
         visit_form_ids_mut(&mut self.count_curve, "PCBN.NAM3", out);
         visit_form_ids_mut(&mut self.distribution_curve, "PCBN.NAM4", out);
         visit_form_ids_mut(&mut self.nodes, "PCBN.PCCB", out);
+        visit_form_ids_mut(&mut self.conditions, "PCBN.Conditions", out);
         visit_form_ids_mut(&mut self.keywords, "PCBN.KWDA", out);
         visit_form_ids_mut(&mut self.parent_node, "PCBN.PRTN", out);
         visit_form_ids_mut(&mut self.previous_node, "PCBN.PRVN", out);
@@ -38566,6 +40401,7 @@ impl PccnRecord {
 
 impl Visit for PccnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "PCCN.BfcbBlock", out);
         visit_form_ids(&self.content, "PCCN.PCCC", out);
         visit_form_ids(&self.keywords, "PCCN.KWDA", out);
         visit_form_ids(&self.parent_node, "PCCN.PRTN", out);
@@ -38573,6 +40409,7 @@ impl Visit for PccnRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "PCCN.BfcbBlock", out);
         visit_form_ids_mut(&mut self.content, "PCCN.PCCC", out);
         visit_form_ids_mut(&mut self.keywords, "PCCN.KWDA", out);
         visit_form_ids_mut(&mut self.parent_node, "PCCN.PRTN", out);
@@ -38925,12 +40762,16 @@ impl PcmtRecord {
 
 impl Visit for PcmtRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "PCMT.BfcbBlock", out);
         visit_form_ids(&self.nodes, "PCMT.PCCB", out);
+        visit_form_ids(&self.conditions, "PCMT.Conditions", out);
         visit_form_ids(&self.keywords, "PCMT.KWDA", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "PCMT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.nodes, "PCMT.PCCB", out);
+        visit_form_ids_mut(&mut self.conditions, "PCMT.Conditions", out);
         visit_form_ids_mut(&mut self.keywords, "PCMT.KWDA", out);
     }
 }
@@ -39353,7 +41194,23 @@ impl PerkRankEffectPerkCondition {
     }
 }
 
-impl Visit for PerkRankEffectPerkCondition {}
+impl Visit for PerkRankEffectPerkCondition {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.conditions,
+            "PERK.Rank.Effect.PerkCondition.Conditions",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "PERK.Rank.Effect.PerkCondition.Conditions",
+            out,
+        );
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PerkRankEffectFunctionParametersType {
@@ -39666,6 +41523,18 @@ impl PerkRankEffect {
 }
 
 impl Visit for PerkRankEffect {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.perk_condition, "PERK.Rank.Effect.PerkCondition", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.perk_condition,
+            "PERK.Rank.Effect.PerkCondition",
+            out,
+        );
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(
             &self.function_parameters,
@@ -39754,7 +41623,23 @@ impl PerkRankActivityTrackerActivityArgument {
     }
 }
 
-impl Visit for PerkRankActivityTrackerActivityArgument {}
+impl Visit for PerkRankActivityTrackerActivityArgument {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.conditions,
+            "PERK.Rank.ActivityTracker.Activity.Argument.Conditions",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "PERK.Rank.ActivityTracker.Activity.Argument.Conditions",
+            out,
+        );
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct PerkRankActivityTrackerActivity {
@@ -39888,6 +41773,22 @@ impl PerkRankActivityTrackerActivity {
 }
 
 impl Visit for PerkRankActivityTrackerActivity {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.argument,
+            "PERK.Rank.ActivityTracker.Activity.Argument",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.argument,
+            "PERK.Rank.ActivityTracker.Activity.Argument",
+            out,
+        );
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.name, "PERK.Rank.ActivityTracker.Activity.FULL", out);
         visit_lstrings(
@@ -39968,6 +41869,18 @@ impl PerkRankActivityTracker {
 }
 
 impl Visit for PerkRankActivityTracker {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.activity, "PERK.Rank.ActivityTracker.Activity", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.activity,
+            "PERK.Rank.ActivityTracker.Activity",
+            out,
+        );
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.activity, "PERK.Rank.ActivityTracker.Activity", out);
     }
@@ -40101,6 +42014,18 @@ impl PerkRank {
 }
 
 impl Visit for PerkRank {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.effect, "PERK.Rank.Effect", out);
+        visit_form_ids(&self.conditions, "PERK.Rank.Conditions", out);
+        visit_form_ids(&self.activity_tracker, "PERK.Rank.ActivityTracker", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.effect, "PERK.Rank.Effect", out);
+        visit_form_ids_mut(&mut self.conditions, "PERK.Rank.Conditions", out);
+        visit_form_ids_mut(&mut self.activity_tracker, "PERK.Rank.ActivityTracker", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.effect, "PERK.Rank.Effect", out);
         visit_lstrings(&self.activity_tracker, "PERK.Rank.ActivityTracker", out);
@@ -40256,12 +42181,14 @@ impl Visit for PerkRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.restriction, "PERK.TNAM", out);
         visit_form_ids(&self.training, "PERK.UNAM", out);
+        visit_form_ids(&self.rank, "PERK.Rank", out);
         visit_form_ids(&self.bonus_perks, "PERK.RNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.restriction, "PERK.TNAM", out);
         visit_form_ids_mut(&mut self.training, "PERK.UNAM", out);
+        visit_form_ids_mut(&mut self.rank, "PERK.Rank", out);
         visit_form_ids_mut(&mut self.bonus_perks, "PERK.RNAM", out);
     }
 
@@ -41213,6 +43140,7 @@ impl Visit for PkinRecord {
         visit_form_ids(&self.transforms, "PKIN.PTT2", out);
         visit_form_ids(&self.snap_template, "PKIN.SNTP", out);
         visit_form_ids(&self.snap_behavior, "PKIN.SNBH", out);
+        visit_form_ids(&self.bfcb_block, "PKIN.BfcbBlock", out);
         visit_form_ids(&self.cell, "PKIN.CNAM", out);
         visit_form_ids(&self.keywords, "PKIN.Keywords", out);
         visit_form_ids(&self.forced_loc_ref_types, "PKIN.FTYP", out);
@@ -41225,6 +43153,7 @@ impl Visit for PkinRecord {
         visit_form_ids_mut(&mut self.transforms, "PKIN.PTT2", out);
         visit_form_ids_mut(&mut self.snap_template, "PKIN.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "PKIN.SNBH", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "PKIN.BfcbBlock", out);
         visit_form_ids_mut(&mut self.cell, "PKIN.CNAM", out);
         visit_form_ids_mut(&mut self.keywords, "PKIN.Keywords", out);
         visit_form_ids_mut(&mut self.forced_loc_ref_types, "PKIN.FTYP", out);
@@ -42910,6 +44839,7 @@ impl PndtRecord {
 
 impl Visit for PndtRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "PNDT.BfcbBlock", out);
         visit_form_ids(&self.master_worldspaces, "PNDT.CNAM", out);
         visit_form_ids(&self.edited_worldspaces, "PNDT.EOVR", out);
         visit_form_ids(&self.biomes, "PNDT.PPBD", out);
@@ -42918,6 +44848,7 @@ impl Visit for PndtRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "PNDT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.master_worldspaces, "PNDT.CNAM", out);
         visit_form_ids_mut(&mut self.edited_worldspaces, "PNDT.EOVR", out);
         visit_form_ids_mut(&mut self.biomes, "PNDT.PPBD", out);
@@ -44075,6 +46006,7 @@ impl Visit for ProjRecord {
         visit_form_ids(&self.snap_template, "PROJ.SNTP", out);
         visit_form_ids(&self.snap_behavior, "PROJ.SNBH", out);
         visit_form_ids(&self.default_layer, "PROJ.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "PROJ.BfcbBlock", out);
         visit_form_ids(&self.model, "PROJ.Model", out);
         visit_form_ids(&self.destructible, "PROJ.Destructible", out);
         visit_form_ids(&self.data, "PROJ.PROD", out);
@@ -44089,6 +46021,7 @@ impl Visit for ProjRecord {
         visit_form_ids_mut(&mut self.snap_template, "PROJ.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "PROJ.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "PROJ.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "PROJ.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "PROJ.Model", out);
         visit_form_ids_mut(&mut self.destructible, "PROJ.Destructible", out);
         visit_form_ids_mut(&mut self.data, "PROJ.PROD", out);
@@ -44473,12 +46406,22 @@ impl Visit for QustStageLogEntryReward {
         visit_form_ids(&self.xp, "QUST.Stage.LogEntry.Reward.QRXP", out);
         visit_form_ids(&self.currency, "QUST.Stage.LogEntry.Reward.QRCR", out);
         visit_form_ids(&self.items, "QUST.Stage.LogEntry.Reward.QRRD", out);
+        visit_form_ids(
+            &self.conditions,
+            "QUST.Stage.LogEntry.Reward.Conditions",
+            out,
+        );
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.xp, "QUST.Stage.LogEntry.Reward.QRXP", out);
         visit_form_ids_mut(&mut self.currency, "QUST.Stage.LogEntry.Reward.QRCR", out);
         visit_form_ids_mut(&mut self.items, "QUST.Stage.LogEntry.Reward.QRRD", out);
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "QUST.Stage.LogEntry.Reward.Conditions",
+            out,
+        );
     }
 }
 
@@ -44644,11 +46587,13 @@ impl QustStageLogEntry {
 
 impl Visit for QustStageLogEntry {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "QUST.Stage.LogEntry.Conditions", out);
         visit_form_ids(&self.reward, "QUST.Stage.LogEntry.Reward", out);
         visit_form_ids(&self.affinity_change, "QUST.Stage.LogEntry.NAM1", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "QUST.Stage.LogEntry.Conditions", out);
         visit_form_ids_mut(&mut self.reward, "QUST.Stage.LogEntry.Reward", out);
         visit_form_ids_mut(&mut self.affinity_change, "QUST.Stage.LogEntry.NAM1", out);
     }
@@ -44886,10 +46831,16 @@ impl QustObjectiveTarget {
 impl Visit for QustObjectiveTarget {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.data, "QUST.Objective.Target.QSTA", out);
+        visit_form_ids(&self.conditions, "QUST.Objective.Target.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.data, "QUST.Objective.Target.QSTA", out);
+        visit_form_ids_mut(
+            &mut self.conditions,
+            "QUST.Objective.Target.Conditions",
+            out,
+        );
     }
 }
 
@@ -45408,6 +47359,11 @@ impl QustAliasesLocationPlanetContentRequest {
 impl Visit for QustAliasesLocationPlanetContentRequest {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(
+            &self.planet_location_conditions,
+            "QUST.Aliases.Location.PlanetContentRequest.PlanetLocationConditions",
+            out,
+        );
+        visit_form_ids(
             &self.request_keyword,
             "QUST.Aliases.Location.PlanetContentRequest.LNAM",
             out,
@@ -45415,6 +47371,11 @@ impl Visit for QustAliasesLocationPlanetContentRequest {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.planet_location_conditions,
+            "QUST.Aliases.Location.PlanetContentRequest.PlanetLocationConditions",
+            out,
+        );
         visit_form_ids_mut(
             &mut self.request_keyword,
             "QUST.Aliases.Location.PlanetContentRequest.LNAM",
@@ -45714,6 +47675,11 @@ impl Visit for QustAliasesLocation {
             out,
         );
         visit_form_ids(
+            &self.match_conditions,
+            "QUST.Aliases.Location.MatchConditions",
+            out,
+        );
+        visit_form_ids(
             &self.planet_content_request,
             "QUST.Aliases.Location.PlanetContentRequest",
             out,
@@ -45740,6 +47706,11 @@ impl Visit for QustAliasesLocation {
         visit_form_ids_mut(
             &mut self.external_alias_location,
             "QUST.Aliases.Location.ExternalAliasLocation",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.match_conditions,
+            "QUST.Aliases.Location.MatchConditions",
             out,
         );
         visit_form_ids_mut(
@@ -46502,6 +48473,7 @@ impl QustRecord {
 
 impl Visit for QustRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "QUST.BfcbBlock", out);
         visit_form_ids(&self.quest_type, "QUST.QTYP", out);
         visit_form_ids(&self.quest_faction, "QUST.FTYP", out);
         visit_form_ids(&self.location, "QUST.LNAM", out);
@@ -46509,6 +48481,12 @@ impl Visit for QustRecord {
         visit_form_ids(&self.source_quest, "QUST.QSRC", out);
         visit_form_ids(&self.dialogue, "QUST.QDUP", out);
         visit_form_ids(&self.text_display_globals, "QUST.QTGL", out);
+        visit_form_ids(&self.dialogue_conditions, "QUST.DialogueConditions", out);
+        visit_form_ids(
+            &self.story_manager_conditions,
+            "QUST.StoryManagerConditions",
+            out,
+        );
         visit_form_ids(&self.stage, "QUST.Stage", out);
         visit_form_ids(&self.objective, "QUST.Objective", out);
         visit_form_ids(&self.aliases, "QUST.Aliases", out);
@@ -46517,6 +48495,7 @@ impl Visit for QustRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "QUST.BfcbBlock", out);
         visit_form_ids_mut(&mut self.quest_type, "QUST.QTYP", out);
         visit_form_ids_mut(&mut self.quest_faction, "QUST.FTYP", out);
         visit_form_ids_mut(&mut self.location, "QUST.LNAM", out);
@@ -46524,6 +48503,16 @@ impl Visit for QustRecord {
         visit_form_ids_mut(&mut self.source_quest, "QUST.QSRC", out);
         visit_form_ids_mut(&mut self.dialogue, "QUST.QDUP", out);
         visit_form_ids_mut(&mut self.text_display_globals, "QUST.QTGL", out);
+        visit_form_ids_mut(
+            &mut self.dialogue_conditions,
+            "QUST.DialogueConditions",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.story_manager_conditions,
+            "QUST.StoryManagerConditions",
+            out,
+        );
         visit_form_ids_mut(&mut self.stage, "QUST.Stage", out);
         visit_form_ids_mut(&mut self.objective, "QUST.Objective", out);
         visit_form_ids_mut(&mut self.aliases, "QUST.Aliases", out);
@@ -50786,6 +52775,7 @@ impl RaceRecord {
 
 impl Visit for RaceRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "RACE.BfcbBlock", out);
         visit_form_ids(&self.actor_effects, "RACE.SPLO", out);
         visit_form_ids(&self.skin, "RACE.WNAM", out);
         visit_form_ids(&self.keywords, "RACE.Keywords", out);
@@ -50823,6 +52813,7 @@ impl Visit for RaceRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "RACE.BfcbBlock", out);
         visit_form_ids_mut(&mut self.actor_effects, "RACE.SPLO", out);
         visit_form_ids_mut(&mut self.skin, "RACE.WNAM", out);
         visit_form_ids_mut(&mut self.keywords, "RACE.Keywords", out);
@@ -54648,6 +56639,7 @@ impl Unordered for RefrRecord {
 
 impl Visit for RefrRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "REFR.BfcbBlock", out);
         visit_form_ids(&self.base, "REFR.NAME", out);
         visit_form_ids(&self.volume_data, "REFR.XVL2", out);
         visit_form_ids(&self.patrol, "REFR.Patrol", out);
@@ -54681,6 +56673,7 @@ impl Visit for RefrRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "REFR.BfcbBlock", out);
         visit_form_ids_mut(&mut self.base, "REFR.NAME", out);
         visit_form_ids_mut(&mut self.volume_data, "REFR.XVL2", out);
         visit_form_ids_mut(&mut self.patrol, "REFR.Patrol", out);
@@ -54877,7 +56870,15 @@ impl RfgpRecord {
     }
 }
 
-impl Visit for RfgpRecord {}
+impl Visit for RfgpRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "RFGP.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "RFGP.BfcbBlock", out);
+    }
+}
 
 impl RfgpRecord {
     /// Record signature.
@@ -55149,10 +57150,12 @@ impl RsgdRecord {
 
 impl Visit for RsgdRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "RSGD.BfcbBlock", out);
         visit_form_ids(&self.resource, "RSGD.Resource", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "RSGD.BfcbBlock", out);
         visit_form_ids_mut(&mut self.resource, "RSGD.Resource", out);
     }
 }
@@ -55562,7 +57565,9 @@ impl RspjRecord {
 
 impl Visit for RspjRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "RSPJ.BfcbBlock", out);
         visit_form_ids(&self.workbench_keyword, "RSPJ.BNAM", out);
+        visit_form_ids(&self.conditions, "RSPJ.Conditions", out);
         visit_form_ids(&self.required_items, "RSPJ.FVPA", out);
         visit_form_ids(&self.required_perks, "RSPJ.RQPK", out);
         visit_form_ids(&self.created_item, "RSPJ.CNAM", out);
@@ -55571,7 +57576,9 @@ impl Visit for RspjRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "RSPJ.BfcbBlock", out);
         visit_form_ids_mut(&mut self.workbench_keyword, "RSPJ.BNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "RSPJ.Conditions", out);
         visit_form_ids_mut(&mut self.required_items, "RSPJ.FVPA", out);
         visit_form_ids_mut(&mut self.required_perks, "RSPJ.RQPK", out);
         visit_form_ids_mut(&mut self.created_item, "RSPJ.CNAM", out);
@@ -55910,7 +57917,29 @@ impl ScenPhase {
     }
 }
 
-impl Visit for ScenPhase {}
+impl Visit for ScenPhase {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.start_conditions, "SCEN.Phase.StartConditions", out);
+        visit_form_ids(
+            &self.completion_conditions,
+            "SCEN.Phase.CompletionConditions",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.start_conditions,
+            "SCEN.Phase.StartConditions",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.completion_conditions,
+            "SCEN.Phase.CompletionConditions",
+            out,
+        );
+    }
+}
 
 /// Bit flags; bits without a name are preserved.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -57052,14 +59081,18 @@ impl ScenRecord {
 
 impl Visit for ScenRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.phase, "SCEN.Phase", out);
         visit_form_ids(&self.parent_quest, "SCEN.PNAM", out);
+        visit_form_ids(&self.conditions, "SCEN.Conditions", out);
         visit_form_ids(&self.template_scene, "SCEN.TNAM", out);
         visit_form_ids(&self.scpp, "SCEN.SCPP", out);
         visit_form_ids(&self.speech_challenge, "SCEN.SpeechChallenge", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.phase, "SCEN.Phase", out);
         visit_form_ids_mut(&mut self.parent_quest, "SCEN.PNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "SCEN.Conditions", out);
         visit_form_ids_mut(&mut self.template_scene, "SCEN.TNAM", out);
         visit_form_ids_mut(&mut self.scpp, "SCEN.SCPP", out);
         visit_form_ids_mut(&mut self.speech_challenge, "SCEN.SpeechChallenge", out);
@@ -57725,10 +59758,12 @@ impl SfbkRecord {
 
 impl Visit for SfbkRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "SFBK.BfcbBlock", out);
         visit_form_ids(&self.source_block, "SFBK.NAM5", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "SFBK.BfcbBlock", out);
         visit_form_ids_mut(&mut self.source_block, "SFBK.NAM5", out);
     }
 }
@@ -58067,6 +60102,7 @@ impl SfptRecord {
 
 impl Visit for SfptRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "SFPT.BfcbBlock", out);
         visit_form_ids(&self.style, "SFPT.CNAM", out);
         visit_form_ids(&self.surface_blocks, "SFPT.BNAM", out);
         visit_form_ids(&self.master_blocks, "SFPT.FNAM", out);
@@ -58075,6 +60111,7 @@ impl Visit for SfptRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "SFPT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.style, "SFPT.CNAM", out);
         visit_form_ids_mut(&mut self.surface_blocks, "SFPT.BNAM", out);
         visit_form_ids_mut(&mut self.master_blocks, "SFPT.FNAM", out);
@@ -58293,11 +60330,13 @@ impl Visit for SmbnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.parent_node, "SMBN.PNAM", out);
         visit_form_ids(&self.previous_node, "SMBN.SNAM", out);
+        visit_form_ids(&self.conditions, "SMBN.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.parent_node, "SMBN.PNAM", out);
         visit_form_ids_mut(&mut self.previous_node, "SMBN.SNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "SMBN.Conditions", out);
     }
 }
 
@@ -58521,11 +60560,13 @@ impl Visit for SmenRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.parent_node, "SMEN.PNAM", out);
         visit_form_ids(&self.previous_node, "SMEN.SNAM", out);
+        visit_form_ids(&self.conditions, "SMEN.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.parent_node, "SMEN.PNAM", out);
         visit_form_ids_mut(&mut self.previous_node, "SMEN.SNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "SMEN.Conditions", out);
     }
 }
 
@@ -58858,12 +60899,14 @@ impl Visit for SmqnRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.parent_node, "SMQN.PNAM", out);
         visit_form_ids(&self.previous_node, "SMQN.SNAM", out);
+        visit_form_ids(&self.conditions, "SMQN.Conditions", out);
         visit_form_ids(&self.quest, "SMQN.Quest", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.parent_node, "SMQN.PNAM", out);
         visit_form_ids_mut(&mut self.previous_node, "SMQN.SNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "SMQN.Conditions", out);
         visit_form_ids_mut(&mut self.quest, "SMQN.Quest", out);
     }
 }
@@ -59571,6 +61614,7 @@ impl SpelRecord {
 
 impl Visit for SpelRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "SPEL.BfcbBlock", out);
         visit_form_ids(&self.keywords, "SPEL.Keywords", out);
         visit_form_ids(&self.menu_display_object, "SPEL.MDOB", out);
         visit_form_ids(&self.equipment_type, "SPEL.ETYP", out);
@@ -59581,6 +61625,7 @@ impl Visit for SpelRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "SPEL.BfcbBlock", out);
         visit_form_ids_mut(&mut self.keywords, "SPEL.Keywords", out);
         visit_form_ids_mut(&mut self.menu_display_object, "SPEL.MDOB", out);
         visit_form_ids_mut(&mut self.equipment_type, "SPEL.ETYP", out);
@@ -60041,6 +62086,7 @@ impl Visit for StatRecord {
         visit_form_ids(&self.snap_template, "STAT.SNTP", out);
         visit_form_ids(&self.snap_behavior, "STAT.SNBH", out);
         visit_form_ids(&self.default_layer, "STAT.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "STAT.BfcbBlock", out);
         visit_form_ids(&self.forced_loc_ref_types, "STAT.FTYP", out);
         visit_form_ids(&self.model, "STAT.Model", out);
         visit_form_ids(&self.properties, "STAT.PRPS", out);
@@ -60052,6 +62098,7 @@ impl Visit for StatRecord {
         visit_form_ids_mut(&mut self.snap_template, "STAT.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "STAT.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "STAT.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "STAT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.forced_loc_ref_types, "STAT.FTYP", out);
         visit_form_ids_mut(&mut self.model, "STAT.Model", out);
         visit_form_ids_mut(&mut self.properties, "STAT.PRPS", out);
@@ -60390,6 +62437,7 @@ impl StdtRecord {
 
 impl Visit for StdtRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "STDT.BfcbBlock", out);
         visit_form_ids(&self.keywords, "STDT.Keywords", out);
         visit_form_ids(&self.binary_star, "STDT.SNAM", out);
         visit_form_ids(&self.sun_preset, "STDT.PNAM", out);
@@ -60397,6 +62445,7 @@ impl Visit for StdtRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "STDT.BfcbBlock", out);
         visit_form_ids_mut(&mut self.keywords, "STDT.Keywords", out);
         visit_form_ids_mut(&mut self.binary_star, "STDT.SNAM", out);
         visit_form_ids_mut(&mut self.sun_preset, "STDT.PNAM", out);
@@ -61358,6 +63407,7 @@ impl Visit for TermRecord {
         visit_form_ids(&self.snap_template, "TERM.SNTP", out);
         visit_form_ids(&self.snap_behavior, "TERM.SNBH", out);
         visit_form_ids(&self.default_layer, "TERM.DEFL", out);
+        visit_form_ids(&self.bfcb_block, "TERM.BfcbBlock", out);
         visit_form_ids(&self.terminal_menu, "TERM.DNAM", out);
         visit_form_ids(&self.model, "TERM.Model", out);
         visit_form_ids(&self.destructible, "TERM.Destructible", out);
@@ -61368,6 +63418,7 @@ impl Visit for TermRecord {
         visit_form_ids(&self.looping_sound, "TERM.ALSH", out);
         visit_form_ids(&self.activate_sound, "TERM.ACSH", out);
         visit_form_ids(&self.water, "TERM.WTFM", out);
+        visit_form_ids(&self.conditions, "TERM.Conditions", out);
         visit_form_ids(&self.furniture_template, "TERM.FTMP", out);
         visit_form_ids(&self.marker_parameters, "TERM.SNAM", out);
         visit_form_ids(&self.obte_block, "TERM.ObteBlock", out);
@@ -61378,6 +63429,7 @@ impl Visit for TermRecord {
         visit_form_ids_mut(&mut self.snap_template, "TERM.SNTP", out);
         visit_form_ids_mut(&mut self.snap_behavior, "TERM.SNBH", out);
         visit_form_ids_mut(&mut self.default_layer, "TERM.DEFL", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "TERM.BfcbBlock", out);
         visit_form_ids_mut(&mut self.terminal_menu, "TERM.DNAM", out);
         visit_form_ids_mut(&mut self.model, "TERM.Model", out);
         visit_form_ids_mut(&mut self.destructible, "TERM.Destructible", out);
@@ -61388,6 +63440,7 @@ impl Visit for TermRecord {
         visit_form_ids_mut(&mut self.looping_sound, "TERM.ALSH", out);
         visit_form_ids_mut(&mut self.activate_sound, "TERM.ACSH", out);
         visit_form_ids_mut(&mut self.water, "TERM.WTFM", out);
+        visit_form_ids_mut(&mut self.conditions, "TERM.Conditions", out);
         visit_form_ids_mut(&mut self.furniture_template, "TERM.FTMP", out);
         visit_form_ids_mut(&mut self.marker_parameters, "TERM.SNAM", out);
         visit_form_ids_mut(&mut self.obte_block, "TERM.ObteBlock", out);
@@ -62056,6 +64109,14 @@ impl TmlmBodyText {
 }
 
 impl Visit for TmlmBodyText {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.conditions, "TMLM.BodyText.Conditions", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.conditions, "TMLM.BodyText.Conditions", out);
+    }
+
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
         visit_lstrings(&self.text, "TMLM.BodyText.BTXT", out);
     }
@@ -62478,12 +64539,14 @@ impl Visit for TmlmMenuItem {
         visit_form_ids(&self.lock, "TMLM.MenuItem.XLOC", out);
         visit_form_ids(&self.submenu, "TMLM.MenuItem.TNAM", out);
         visit_form_ids(&self.data_slate, "TMLM.MenuItem.BNAM", out);
+        visit_form_ids(&self.conditions, "TMLM.MenuItem.Conditions", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.lock, "TMLM.MenuItem.XLOC", out);
         visit_form_ids_mut(&mut self.submenu, "TMLM.MenuItem.TNAM", out);
         visit_form_ids_mut(&mut self.data_slate, "TMLM.MenuItem.BNAM", out);
+        visit_form_ids_mut(&mut self.conditions, "TMLM.MenuItem.Conditions", out);
     }
 
     fn visit_lstrings<'a>(&'a self, _path: &'static str, out: &mut LStrings<'a>) {
@@ -62671,10 +64734,12 @@ impl TmlmRecord {
 
 impl Visit for TmlmRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.body_text, "TMLM.BodyText", out);
         visit_form_ids(&self.menu_item, "TMLM.MenuItem", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.body_text, "TMLM.BodyText", out);
         visit_form_ids_mut(&mut self.menu_item, "TMLM.MenuItem", out);
     }
 
@@ -62935,7 +65000,15 @@ impl TravRecord {
     }
 }
 
-impl Visit for TravRecord {}
+impl Visit for TravRecord {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "TRAV.BfcbBlock", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "TRAV.BfcbBlock", out);
+    }
+}
 
 impl TravRecord {
     /// Record signature.
@@ -66052,6 +68125,7 @@ impl WeapRecord {
 impl Visit for WeapRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
         visit_form_ids(&self.transforms, "WEAP.PTT2", out);
+        visit_form_ids(&self.bfcb_block, "WEAP.BfcbBlock", out);
         visit_form_ids(&self.model, "WEAP.Model", out);
         visit_form_ids(&self.enchantment, "WEAP.Enchantment", out);
         visit_form_ids(&self.destructible, "WEAP.Destructible", out);
@@ -66077,6 +68151,7 @@ impl Visit for WeapRecord {
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
         visit_form_ids_mut(&mut self.transforms, "WEAP.PTT2", out);
+        visit_form_ids_mut(&mut self.bfcb_block, "WEAP.BfcbBlock", out);
         visit_form_ids_mut(&mut self.model, "WEAP.Model", out);
         visit_form_ids_mut(&mut self.enchantment, "WEAP.Enchantment", out);
         visit_form_ids_mut(&mut self.destructible, "WEAP.Destructible", out);
@@ -67593,6 +69668,7 @@ impl WrldRecord {
 
 impl Visit for WrldRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "WRLD.BfcbBlock", out);
         visit_form_ids(&self.large_refs, "WRLD.RNAM", out);
         visit_form_ids(&self.location, "WRLD.XLCN", out);
         visit_form_ids(&self.biome, "WRLD.BNAM", out);
@@ -67606,6 +69682,7 @@ impl Visit for WrldRecord {
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "WRLD.BfcbBlock", out);
         visit_form_ids_mut(&mut self.large_refs, "WRLD.RNAM", out);
         visit_form_ids_mut(&mut self.location, "WRLD.XLCN", out);
         visit_form_ids_mut(&mut self.biome, "WRLD.BNAM", out);
@@ -68105,10 +70182,12 @@ impl ZoomRecord {
 
 impl Visit for ZoomRecord {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.bfcb_block, "ZOOM.BfcbBlock", out);
         visit_form_ids(&self.data, "ZOOM.ZNAM", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.bfcb_block, "ZOOM.BfcbBlock", out);
         visit_form_ids_mut(&mut self.data, "ZOOM.ZNAM", out);
     }
 }

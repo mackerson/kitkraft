@@ -10,10 +10,11 @@
 #     (2026-10-14 scan): all 80 and 3,749 are 16 bytes, the sum of the field widths below,
 #     and decode and re-encode identically.
 #
-# What stays opaque, and why: the 4-byte value is a union selected by the location type
-# (a reference, a cell, an object, an object type code, a keyword, an alias index, ...);
-# the format cannot express a union decided by a sibling field, so it is kept as its raw
-# 4 bytes (lossless). A FormID inside it stays raw and is not visited.
+# The 4-byte value is a union selected by the location type (L3715-L3733: a reference, a
+# cell, an object, an object type code, a keyword, an alias index, ...), a struct field
+# union decided by its sibling `Type` (lane D, 2026-10-15), so its FormIDs are visited by
+# `refs` and `validate`. Types upstream leaves without a value (2, 3, 7, 12) or as unknown
+# bytes (13, 15) keep 4 raw bytes; a type outside 0..16 keeps the bytes as read (`Other`).
 name = "PackageLocation"
 kind = "type"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3710-L3742"
@@ -41,7 +42,20 @@ field = [
     ["NearEditorLocationCell", 13],
     ["RefCollectionAlias", 14],
   ] },
-  { name = "Value", type = "opaque", size = 4, note = "union selected by Type: a reference, cell, object or keyword FormID, an object type code or an alias index" },
+  { name = "Value", type = "union", decider = "field:Type", source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3715-L3733", evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L1918-L1934", "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L37-L40", "corpus: kitkraft-engine tests/validate_corpus.rs (validate_corpus_official_files), 2026-10-15 (lane D): every FormID these variants read in the FACT PLVD and PACK PLDT of the 14 official ESMs names a form of the file or its masters, or the player reference 0x14 (pinned per file)"], confidence = "corpus", note = "union selected by Type", variants = [
+    { when = 0, name = "Reference", type = "formid", targets = ["PLYR", "ACHR", "REFR", "PGRE", "PHZD", "PMIS", "PARW", "PBAR", "PBEA", "PCON", "PFLA"] },
+    { when = 1, name = "Cell", type = "formid", targets = ["CELL"] },
+    { when = [2, 3, 7, 12], name = "Unused", type = "opaque", size = 4 },
+    { when = 4, name = "ObjectId", type = "formid", targets = ["ACTI", "DOOR", "STAT", "MSTT", "FURN", "SPEL", "NPC_", "CONT", "ARMO", "AMMO", "MISC", "WEAP", "OMOD", "BOOK", "NOTE", "KEYM", "ALCH", "INGR", "LIGH", "FACT", "FLST", "IDLM", "TXST", "PROJ"] },
+    { when = 5, name = "ObjectType", type = "u32" },
+    { when = [6, 16], name = "Keyword", type = "formid", targets = ["KYWD"] },
+    { when = 8, name = "RefAlias", type = "i32" },
+    { when = 9, name = "LocationAlias", type = "i32" },
+    { when = 10, name = "InterruptData", type = "u32" },
+    { when = 11, name = "PackdataTarget", type = "u32" },
+    { when = [13, 15], name = "Unknown", type = "opaque", size = 4 },
+    { when = 14, name = "RefCollectionAlias", type = "i32" },
+  ] },
   { name = "Radius", type = "f32" },
   { name = "CollectionIndex", type = "u32", note = "optional upstream; present in every official occurrence" },
 ]

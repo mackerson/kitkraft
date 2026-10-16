@@ -943,6 +943,52 @@ mod tests {
         );
     }
 
+    /// The support-depth matrix over MCP (lane D): the `coverage` tool with `matrix`, on a
+    /// header-only plugin and the checked-in evidence file.
+    #[test]
+    fn coverage_matrix_over_mcp() {
+        let mut s = server();
+        let dir = std::env::temp_dir().join(format!("kitkraft-mcp-matrix-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let plugin = dir.join("Header.esm");
+        let mut bytes = b"TES4".to_vec();
+        bytes.extend_from_slice(&18u32.to_le_bytes());
+        bytes.extend_from_slice(&[0; 16]);
+        bytes.extend_from_slice(b"HEDR");
+        bytes.extend_from_slice(&12u16.to_le_bytes());
+        bytes.extend_from_slice(&1.0f32.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&0x800u32.to_le_bytes());
+        std::fs::write(&plugin, bytes).unwrap();
+        let evidence = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/schema/evidence.toml"
+        );
+        let r = call(
+            &mut s,
+            legacy(
+                1,
+                "tools/call",
+                json!({"name": "coverage", "arguments": {
+                    "matrix": true, "plugin": plugin.display().to_string(),
+                    "evidence": evidence, "types": ["WEAP", "LCTN"],
+                }}),
+            ),
+        );
+        assert_eq!(r["result"]["isError"], false, "{r}");
+        let rows = r["result"]["structuredContent"]["data"]["rows"]
+            .as_array()
+            .unwrap();
+        let row = |t: &str| rows.iter().find(|r| r["type"] == t).unwrap();
+        // No instance in this plugin: measured statuses are not-run; the evidence file
+        // still says what the game and the tests have shown.
+        assert_eq!(row("WEAP")["parsed"]["status"], "not-run");
+        assert_eq!(row("WEAP")["game_runtime_tested"]["status"], "pass");
+        assert_eq!(row("LCTN")["typed_writable"]["status"], "pass");
+        assert_eq!(row("LCTN")["save_reload_verified"]["status"], "not-run");
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn command_line_help() {
         let mut s = server();

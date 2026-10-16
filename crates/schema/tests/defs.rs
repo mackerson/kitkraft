@@ -293,11 +293,20 @@ fn every_file_names_its_source() {
     }
 }
 
-/// Member paths of the typed (non-opaque) leaf subrecords of a record.
+/// Whether `path` lies inside one of the component layouts of the shared `BfcbBlock`
+/// (`BfcbBlock.PlanetContentProperties.Unam`, lane D): sourced in `common/BfcbBlock.toml`,
+/// not by the record that expands the block.
+fn in_component_layout(path: &str) -> bool {
+    path.strip_prefix("BfcbBlock.")
+        .is_some_and(|rest| rest.contains('.'))
+}
+
+/// Member paths of the typed (non-opaque) leaf subrecords of a record, outside the shared
+/// component layouts.
 fn typed_leaves(rec: &kitkraft_schema::RecordDef) -> Vec<String> {
     rec.leaf_subrecords()
         .into_iter()
-        .filter(|(_, s)| !s.ty.is_opaque())
+        .filter(|(p, s)| !s.ty.is_opaque() && !in_component_layout(p))
         .map(|(p, _)| p)
         .collect()
 }
@@ -349,8 +358,8 @@ fn inventory_definitions_type_only_sourced_members() {
         );
         assert_eq!(typed_leaves(rec), typed, "{s}");
     }
-    // The component data inside a BFCB block is a union decided by the component type
-    // and stays raw (docs/gaps.md).
+    // The component data inside a BFCB block is a union decided by the component type;
+    // the layouts not typed as groups of the block stay raw (docs/gaps.md).
     let bfcb = &schema.common["BfcbBlock"];
     let CommonBody::Group(members) = &bfcb.body else {
         panic!("BfcbBlock is a group");
@@ -447,7 +456,7 @@ fn round3_definitions_cite_xedit_per_member() {
     let opaque: Vec<String> = weap
         .leaf_subrecords()
         .into_iter()
-        .filter(|(_, s)| s.ty.is_opaque())
+        .filter(|(p, s)| s.ty.is_opaque() && !in_component_layout(p))
         .map(|(p, _)| p)
         .collect();
     assert_eq!(opaque, ["Scripts", "FirstPersonModel.Mo4c"]);

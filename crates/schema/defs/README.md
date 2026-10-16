@@ -334,9 +334,19 @@ variants = [
 
 ### Not supported (stays opaque)
 
-Unions decided by another subrecord, by flags, or by a value outside the same struct
-(a component block's BFCB type, CTDA's parameters, COED's owner) are not expressible yet.
-Such payloads stay `opaque`.
+Unions decided by another subrecord, by a bit of a second sibling, or by a value outside
+the same struct (COED's owner; CTDA's parameters 1 and 2 when the function's parameter is a
+reference, an actor or a package, which the type byte's alias and packdata bits re-type) are
+not expressible yet. Such payloads stay `opaque`. A decider bit of the deciding field itself
+is expressed by listing every value with the bit set (CTDA's comparison value, lane D).
+
+Base form component data (lane D, 2026-10-15): upstream reads it as a record union, each
+layout a run of subrecords recognised by its first one. `common/BfcbBlock.toml` lists the
+typed layouts as optional groups after `ComponentType` and keeps every other layout in the
+`any_until` member after them; a layout's leading signatures must not start any other
+upstream layout (`crates/doc/tests/components.rs` checks the official blocks). Lookups by
+signature alone (`build` spec paths, the overhaul scaffold) prefer the record's own member
+over one inside a component layout (`RecordDef::leaves_for`, `in_component_layout`).
 
 ## Shared definitions (`common/`)
 
@@ -425,7 +435,7 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `WEAP.toml` `AMMO.toml` `PROJ.toml` `AMDL.toml` `OMOD.toml` `COBJ.toml` `ZOOM.toml` `LVLI.toml` `FLST.toml` `INNR.toml` | record | xEdit at the pin, member by member + corpus (lane B round 3) | Every member xEdit lists, typed; opaque only where xEdit decides the layout by a union the format cannot express (VMAD, BFCB component data, CTDA, LVLI COED owner data; OMOD property values are field unions since lane B round 4) or does not describe it (WEAP MO4C, OMOD XFLG) |
 | 15 more `<SIG>.toml` (ALCH ... WATR) | record | corpus lstring table + xEdit lines (M3.B8) | lstring-only: EDID plus a repeated `LocalizedStrings` group of optional lstring members; every other subrecord stays raw |
 | `ARTO` `DOOR` `IRES` `LAYR` `LIGH` `LSCR` `MESG` `PGRE` `PHZD` `RFGP` `SOUN` `TXST` `WKMF` `WWED` (`.toml`) | record | corpus scan (`tests/inventory_types.rs`) + xEdit lines | M4.BX2 inventories (see "Inventory definitions"): EDID, the corpus table's lstrings, `Keywords` and `BfcbBlock` typed; every other member opaque, in corpus order and cardinality |
-| `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the component data stays raw (a union by component type) |
+| `common/BfcbBlock.toml` | group | xEdit base form components + corpus | BFCB component type and BFCE marker typed; the animation graph, contact shadow, placement properties and reflection layouts typed as optional groups (lane D, 2026-10-15); every other layout's data stays raw (a union by component type) |
 | `common/ObteBlock.toml` | group | xEdit object template + corpus | OBTE count, combinations (OBTF, FULL, OBTS template item), STOP |
 | `WRLD.toml` `CELL.toml` `REFR.toml` `ACHR.toml` `NAVM.toml` `LCTN.toml` `LCRT.toml` | record | xedit (pinned) + corpus (`tests/world_family.rs`) | World family: typed from xEdit, checked on every official record; VMAD, NVNM, NAVM MNAM, XSL1, XTV2, XNSE and unknowns opaque; CELL/REFR/ACHR are `unordered = true` (xEdit marks them so; member list in the most common order, M4.BX1). `docs/schema/world-family.md` |
 | `common/PositionRotation.toml` `OwnerData` `EnableParent` `ColorRgb` `ColorRgba` `PropertyValue` `RagdollBone` | type | xedit (pinned) + corpus | Shared payload layouts of the world family (positions and rotations are `Vec3`, OwnerData NoCrime is `Bool8`, M4.BX1) |
@@ -435,10 +445,10 @@ once, a struct per header, a `<Sig>Record` per record, and `enum Record` with
 | `common/Destructible.toml` | group | xEdit destructible block     | DEST, DAMC, DSDL, stages (DSTD, DSTA, DMDL, FLLD, DMDS, DSTF) |
 | `common/SoundReference.toml` `common/ObjectModProperty.toml` `common/Component.toml` `common/Vec3.toml` `common/Bool8.toml` | type | xEdit helpers (+ corpus) | Sound reference (40 bytes), object mod property (24 bytes), crafting component (12 bytes), three floats, one-byte boolean |
 | `PCMT` `PCBN` `PCCN` `LVLP` `PKIN` `GBFM` `BIOM` `PNDT` `STDT` `SUNP` `SFBK` `SFPT` `RSGD` `RSPJ` `TRAV` (`.toml`) | record | xedit at the pin + corpus (every official record) | Planet content family (`docs/schema/planet-family.md`): typed except component blocks, VMAD, unions and unnamed slots |
-| `common/Condition.toml` | group | xedit L4750-L4840 + corpus (planet family and round 3, merged in M4.BX1) | One CTDA (unions kept as raw 4-byte fields) with optional CIS1/CIS2 (`corpus` since the QUEST merge); used by COBJ, FLST, LVLI, LVLP, PCBN, PCMT, RSPJ and the quest family |
+| `common/Condition.toml` | group | xedit L4750-L4840 + corpus (planet family and round 3, merged in M4.BX1) | One CTDA with optional CIS1/CIS2 (`corpus` since the QUEST merge); the comparison value, parameters 1-3 and the reference are field unions (lane D, 2026-10-15; the function table L150-L761 by index), except parameters 1-2 of reference, actor and package parameters; used by COBJ, FLST, LVLI, LVLP, PCBN, PCMT, RSPJ, the quest family and the placement-properties component |
 | `common/ObjectBounds.toml`, `ObjectPaletteDefaults`, `Transforms`, `ColorBgra`, `BiomeNoiseLayer`, `ResourceBiomeTier`, `ResourceCellTier` | type | xedit + corpus | Shared payload structs of the planet family |
 | `FACT` `QUST` `PACK` `DIAL` `INFO` `SCEN` `SMBN` `SMQN` `SMEN` `CHAL` (`.toml`) | record | xedit at the pin + corpus (every official record) | Quest family (`docs/schema/quest-family.md`): typed except VMAD after its header, CTDA unions, component blocks, SCEN action type-specific subrecords, PACK input unions and unnamed slots |
-| `common/ScriptAttachment.toml`, `PackageLocation` | type | xedit + corpus | VMAD header (scripts and fragments raw), the package/vendor location (the quest family's Wwise sound reference folded into `common/SoundReference.toml`, M4.BX1) |
+| `common/ScriptAttachment.toml`, `PackageLocation` | type | xedit + corpus | VMAD header (scripts and fragments raw), the package/vendor location, its value a union by type since lane D (the quest family's Wwise sound reference folded into `common/SoundReference.toml`, M4.BX1) |
 | `common/QuestReferenceAlias.toml` | group | xedit L7996-L8163 + corpus | One quest reference alias (ALST..ALED), used twice by QUST |
 | `NPC_` `LVLN` `OTFT` `CLAS` `AFFE` `RACE` `PERK` `SPEL` `MGEF` (`.toml`) | record | xedit at the pin + corpus (every official record) | Actor family (`docs/schema/actor-family.md`): typed except VMAD, component blocks, unions and unnamed slots |
 | `common/AttackData.toml`, `common/Effect.toml` | group | xedit + corpus | An attack (ATKD..ATKT); a magic item's effect entry (EFID..MUID, conditions without CITC) |

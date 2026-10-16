@@ -256,7 +256,8 @@ impl Gen {
         let mut first_arms = String::new();
         let mut arms = String::new();
         let mut writes = String::new();
-        let mut visits: [String; 4] = Default::default();
+        // Per visitor, the variants holding a visited value.
+        let mut visits: [Vec<String>; 4] = Default::default();
         let wants = [Want::FormId, Want::FormId, Want::LString, Want::LString];
         let methods = [
             "visit_form_ids",
@@ -301,13 +302,9 @@ impl Gen {
                 "            Self::{}(value) => value.write(out),",
                 v.name
             );
-            for ((body, want), method) in visits.iter_mut().zip(wants).zip(methods) {
+            for (body, want) in visits.iter_mut().zip(wants) {
                 if type_has(&v.ty, want) {
-                    let _ = writeln!(
-                        body,
-                        "        if let Self::{}(value) = self {{\n            {method}(value, path, out);\n        }}",
-                        v.name
-                    );
+                    body.push(v.name.clone());
                 }
             }
         }
@@ -369,11 +366,24 @@ impl Field for {name} {{
         for (((body, method), receiver), alias) in
             visits.iter().zip(methods).zip(receivers).zip(aliases)
         {
-            if body.is_empty() {
-                continue;
-            }
+            let code = match body.as_slice() {
+                [] => continue,
+                [one] => format!(
+                    "        if let Self::{one}(value) = self {{\n            {method}(value, path, out);\n        }}\n"
+                ),
+                // Several variants: one `match` (a run of `if let`s cannot borrow
+                // `&'a mut self` twice; the CTDA parameters have many FormID variants).
+                // `Other` (raw bytes) holds none, so the wildcard is reachable.
+                many => {
+                    let arms: String = many
+                        .iter()
+                        .map(|n| format!("            Self::{n}(value) => {method}(value, path, out),\n"))
+                        .collect();
+                    format!("        match self {{\n{arms}            _ => {{}}\n        }}\n")
+                }
+            };
             bodies.push(format!(
-                "    fn {method}<'a>({receiver}, path: &'static str, out: &mut {alias}<'a>) {{\n{body}    }}\n"
+                "    fn {method}<'a>({receiver}, path: &'static str, out: &mut {alias}<'a>) {{\n{code}    }}\n"
             ));
         }
         if bodies.is_empty() {

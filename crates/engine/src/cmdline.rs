@@ -6,7 +6,9 @@
 //!
 //! - Command words: `roundtrip`, `ba2 list` (or the dotted id `ba2.list`), or an alias.
 //! - Required string/integer/number arguments are positional, in the schema's
-//!   `required` order: `roundtrip <plugin>`, `ba2 extract <archive> <out_dir>`.
+//!   `required` order: `roundtrip <plugin>`, `ba2 extract <archive> <out_dir>`. So is an
+//!   optional argument listed in [`OPTIONAL_POSITIONAL`] (after the required ones):
+//!   `coverage <plugin>`, which `coverage --matrix` may leave out.
 //! - Every argument is also a flag: `--name value` or `--name=value`; `_` in a name may
 //!   be written `-` (`--out-dir`).
 //! - Booleans: `--name` is `true`, `--no-name` is `false`, `--name=true|false` works too.
@@ -149,7 +151,7 @@ fn resolve(words: &[&str]) -> Result<(&'static CommandSpec, usize), EngineError>
 
 fn parse_args(spec: &'static CommandSpec, words: &[&str]) -> Result<Invocation, EngineError> {
     let params = params(spec)?;
-    let positional: Vec<&Param> = params.iter().filter(|p| is_positional(p)).collect();
+    let positional: Vec<&Param> = params.iter().filter(|p| is_positional(spec, p)).collect();
     let mut next_positional = positional.iter();
     let mut map = Map::new();
     let shorthand_target = object_param(spec)?;
@@ -330,8 +332,11 @@ fn merge_fields(
     Ok(())
 }
 
-fn is_positional(param: &Param) -> bool {
-    param.required
+/// Optional arguments that are still positional: `(command id, argument)`.
+pub const OPTIONAL_POSITIONAL: &[(&str, &str)] = &[("coverage", "plugin")];
+
+fn is_positional(spec: &CommandSpec, param: &Param) -> bool {
+    (param.required || OPTIONAL_POSITIONAL.contains(&(spec.id, param.name.as_str())))
         && matches!(
             param.kind,
             ParamKind::String | ParamKind::Integer | ParamKind::Number
@@ -451,7 +456,7 @@ pub fn command_help(spec: &CommandSpec, program: &str) -> Result<String, EngineE
     let mut rows: Vec<(String, String)> = Vec::new();
     for param in &params {
         let flag = param.name.replace('_', "-");
-        let (synopsis, row) = if is_positional(param) {
+        let (synopsis, row) = if is_positional(spec, param) {
             (format!("<{}>", param.name), format!("<{}>", param.name))
         } else {
             let value = match param.kind {
@@ -527,6 +532,26 @@ mod tests {
         );
         assert_eq!(split_words("   ").unwrap(), Vec::<String>::new());
         assert_eq!(split_words("a \"b").unwrap_err().kind(), "usage");
+    }
+
+    #[test]
+    fn coverage_plugin_is_positional_and_optional_with_the_matrix() {
+        assert_eq!(
+            run("coverage X.esm"),
+            ("coverage", json!({"plugin": "X.esm"}))
+        );
+        assert_eq!(
+            run("coverage --matrix"),
+            ("coverage", json!({"matrix": true}))
+        );
+        assert_eq!(
+            run("coverage --matrix --types LCTN --types TERM").1,
+            json!({"matrix": true, "types": ["LCTN", "TERM"]})
+        );
+        assert_eq!(
+            run("coverage --matrix X.esm").1,
+            json!({"matrix": true, "plugin": "X.esm"})
+        );
     }
 
     #[test]

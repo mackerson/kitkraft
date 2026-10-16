@@ -180,12 +180,15 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         128,
         "2D0,32E-330,338,3A2",
     ),
+    ("Starfield.esm", "COBJ Condition.CTDA.Reference", 485, "14"),
     (
         "Starfield.esm",
         "CONT PropertyValue.ActorValue",
         443,
         "330,33D,387,3A2,3AC",
     ),
+    ("Starfield.esm", "CPTH Condition.CTDA.Reference", 2, "14"),
+    ("Starfield.esm", "FLST Condition.CTDA.Reference", 28, "14"),
     (
         "Starfield.esm",
         "FLST FLST.LNAM",
@@ -193,7 +196,23 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         "2D8,2DB,2E2,2EE,313,32E,34F-352,355,359",
     ),
     ("Starfield.esm", "FURN PropertyValue.ActorValue", 13, "33E"),
+    (
+        "Starfield.esm",
+        "INFO Condition.CTDA.Parameter1",
+        115,
+        "2BD,2EC,38A-38F",
+    ),
+    ("Starfield.esm", "INFO Condition.CTDA.Reference", 1868, "14"),
     ("Starfield.esm", "LCTN LCTN.LCEP.Parent", 2, "14"),
+    ("Starfield.esm", "LVLI Condition.CTDA.Parameter1", 4, "3AC"),
+    ("Starfield.esm", "LVLI Condition.CTDA.Reference", 74, "14"),
+    (
+        "Starfield.esm",
+        "MGEF Condition.CTDA.Parameter1",
+        4,
+        "2BD,39E",
+    ),
+    ("Starfield.esm", "MGEF Condition.CTDA.Reference", 1, "14"),
     (
         "Starfield.esm",
         "NPC_ PropertyValue.ActorValue",
@@ -208,10 +227,27 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ),
     (
         "Starfield.esm",
+        "PACK Condition.CTDA.Parameter1",
+        26,
+        "2BC,2EC,301,345",
+    ),
+    ("Starfield.esm", "PACK Condition.CTDA.Reference", 181, "14"),
+    ("Starfield.esm", "PACK PackageLocation.Value", 344, "14"),
+    (
+        "Starfield.esm",
+        "PERK Condition.CTDA.Parameter1",
+        9,
+        "32E,39E,3AC",
+    ),
+    ("Starfield.esm", "PERK Condition.CTDA.Reference", 94, "14"),
+    (
+        "Starfield.esm",
         "PKIN PropertyValue.ActorValue",
         21,
         "33D-33E",
     ),
+    ("Starfield.esm", "QUST Condition.CTDA.Parameter1", 9, "342"),
+    ("Starfield.esm", "QUST Condition.CTDA.Reference", 665, "14"),
     ("Starfield.esm", "QUST QuestReferenceAlias.ALFR", 2, "14"),
     (
         "Starfield.esm",
@@ -223,7 +259,12 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ("Starfield.esm", "REFR LinkedReferences.XLKR.Ref", 1, "14"),
     ("Starfield.esm", "REFR REFR.NAME", 1, "1FB"),
     ("Starfield.esm", "REFR REFR.XATR", 4, "14"),
+    ("Starfield.esm", "SCEN Condition.CTDA.Reference", 511, "14"),
+    ("Starfield.esm", "SMBN Condition.CTDA.Reference", 14, "14"),
     ("Starfield.esm", "SMEN SMEN.PNAM", 20, "5B"),
+    ("Starfield.esm", "SMQN Condition.CTDA.Reference", 29, "14"),
+    ("Starfield.esm", "SPEL Condition.CTDA.Parameter1", 5, "313"),
+    ("Starfield.esm", "SPEL Condition.CTDA.Reference", 27, "14"),
     (
         "Starfield.esm",
         "STAT PropertyValue.ActorValue",
@@ -231,26 +272,42 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         "33D-33E",
     ),
     ("Starfield.esm", "TERM PropertyValue.ActorValue", 1, "3A2"),
+    ("Starfield.esm", "TMLM Condition.CTDA.Reference", 60, "14"),
+    ("SFBGS003.esm", "INFO Condition.CTDA.Parameter1", 2, "2BD"),
+    ("SFBGS003.esm", "INFO Condition.CTDA.Reference", 114, "14"),
     (
         "SFBGS003.esm",
         "NPC_ PropertyValue.ActorValue",
         186,
         "39E-3A0",
     ),
+    ("SFBGS003.esm", "PACK Condition.CTDA.Reference", 2, "14"),
+    ("SFBGS003.esm", "PACK PackageLocation.Value", 8, "14"),
+    ("SFBGS003.esm", "PERK Condition.CTDA.Parameter1", 1, "39E"),
+    ("SFBGS003.esm", "QUST Condition.CTDA.Reference", 3, "14"),
     (
         "SFBGS003.esm",
         "RACE PropertyValue.ActorValue",
         7,
         "2D8-2D9,2E0,39E-3A1",
     ),
+    ("SFBGS003.esm", "SCEN Condition.CTDA.Reference", 5, "14"),
     ("SFBGS003.esm", "SMEN SMEN.PNAM", 1, "5B"),
+    ("SFBGS003.esm", "SMQN Condition.CTDA.Reference", 4, "14"),
+    ("SFBGS004.esm", "INFO Condition.CTDA.Reference", 10, "14"),
     (
         "SFBGS004.esm",
         "RACE PropertyValue.ActorValue",
         14,
         "2D8-2D9,2E0,39E-3A1",
     ),
+    ("SFBGS00D.esm", "COBJ Condition.CTDA.Reference", 2, "14"),
     ("SFBGS00D.esm", "FURN PropertyValue.ActorValue", 1, "33E"),
+    ("SFBGS00D.esm", "INFO Condition.CTDA.Parameter1", 1, "307"),
+    ("SFBGS00D.esm", "INFO Condition.CTDA.Reference", 95, "14"),
+    ("SFBGS00D.esm", "LVLI Condition.CTDA.Reference", 9, "14"),
+    ("SFBGS00D.esm", "MGEF Condition.CTDA.Parameter1", 1, "2BD"),
+    ("SFBGS00D.esm", "MGEF Condition.CTDA.Reference", 4, "14"),
     (
         "SFBGS00D.esm",
         "NPC_ PropertyValue.ActorValue",
@@ -263,6 +320,11 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         2,
         "385,3B7",
     ),
+    ("SFBGS00D.esm", "PACK Condition.CTDA.Reference", 5, "14"),
+    ("SFBGS00D.esm", "PACK PackageLocation.Value", 16, "14"),
+    ("SFBGS00D.esm", "PERK Condition.CTDA.Parameter1", 1, "3B6"),
+    ("SFBGS00D.esm", "PERK Condition.CTDA.Reference", 1, "14"),
+    ("SFBGS00D.esm", "QUST Condition.CTDA.Reference", 48, "14"),
     ("SFBGS00D.esm", "QUST QuestReferenceAlias.ALFR", 1, "14"),
     (
         "SFBGS00D.esm",
@@ -272,31 +334,50 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ),
     ("SFBGS00D.esm", "REFR EnableParent.Ref", 1, "14"),
     ("SFBGS00D.esm", "REFR LinkedReferences.XLKR.Ref", 1, "14"),
+    ("SFBGS00D.esm", "SCEN Condition.CTDA.Reference", 37, "14"),
+    ("SFBGS00D.esm", "SPEL Condition.CTDA.Reference", 3, "14"),
+    ("SFBGS00D.esm", "TMLM Condition.CTDA.Reference", 58, "14"),
     (
         "SFBGS047.esm",
         "RACE PropertyValue.ActorValue",
         14,
         "2D8-2D9,2E0,39E-3A1",
     ),
+    ("SFBGS050.esm", "ACTI Condition.CTDA.Reference", 1, "14"),
     (
         "SFBGS050.esm",
         "ACTI PropertyValue.ActorValue",
         8,
         "2D0,330,3A2",
     ),
+    ("SFBGS050.esm", "COBJ Condition.CTDA.Reference", 17, "14"),
     (
         "SFBGS050.esm",
         "CONT PropertyValue.ActorValue",
         12,
         "330,33D,3A2",
     ),
+    (
+        "SFBGS050.esm",
+        "INFO Condition.CTDA.Parameter1",
+        20,
+        "2EC,38A-38F",
+    ),
+    ("SFBGS050.esm", "INFO Condition.CTDA.Reference", 119, "14"),
     ("SFBGS050.esm", "LCTN LCTN.LCEP.Parent", 1, "14"),
+    ("SFBGS050.esm", "LVLI Condition.CTDA.Parameter1", 6, "3AC"),
+    ("SFBGS050.esm", "MGEF Condition.CTDA.Reference", 1, "14"),
     (
         "SFBGS050.esm",
         "NPC_ PropertyValue.ActorValue",
         3,
         "32D,385",
     ),
+    ("SFBGS050.esm", "PACK Condition.CTDA.Parameter1", 4, "2EC"),
+    ("SFBGS050.esm", "PACK Condition.CTDA.Reference", 5, "14"),
+    ("SFBGS050.esm", "PACK PackageLocation.Value", 14, "14"),
+    ("SFBGS050.esm", "PERK Condition.CTDA.Reference", 3, "14"),
+    ("SFBGS050.esm", "QUST Condition.CTDA.Reference", 197, "14"),
     (
         "SFBGS050.esm",
         "RACE PropertyValue.ActorValue",
@@ -304,6 +385,10 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         "2D8-2D9,2E0,39E-3A1",
     ),
     ("SFBGS050.esm", "REFR EnableParent.Ref", 2, "14"),
+    ("SFBGS050.esm", "SCEN Condition.CTDA.Reference", 8, "14"),
+    ("SFBGS050.esm", "SMBN Condition.CTDA.Reference", 1, "14"),
+    ("SFBGS050.esm", "SMQN Condition.CTDA.Reference", 1, "14"),
+    ("SFBGS050.esm", "TMLM Condition.CTDA.Reference", 12, "14"),
     (
         "ShatteredSpace.esm",
         "ACTI PropertyValue.ActorValue",
@@ -318,15 +403,64 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ),
     (
         "ShatteredSpace.esm",
+        "INFO Condition.CTDA.Parameter1",
+        48,
+        "2BD,2EC,301,38A-38F",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "INFO Condition.CTDA.Reference",
+        103,
+        "14",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "LVLI Condition.CTDA.Parameter1",
+        4,
+        "3AC",
+    ),
+    (
+        "ShatteredSpace.esm",
         "NPC_ PropertyValue.ActorValue",
         36,
         "32D,385",
     ),
     (
         "ShatteredSpace.esm",
+        "PACK Condition.CTDA.Parameter1",
+        1,
+        "2EC",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "PACK Condition.CTDA.Reference",
+        7,
+        "14",
+    ),
+    ("ShatteredSpace.esm", "PACK PackageLocation.Value", 28, "14"),
+    (
+        "ShatteredSpace.esm",
+        "PERK Condition.CTDA.Reference",
+        8,
+        "14",
+    ),
+    (
+        "ShatteredSpace.esm",
         "PKIN PropertyValue.ActorValue",
         2,
         "33E",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "QUST Condition.CTDA.Parameter1",
+        1,
+        "2BC",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "QUST Condition.CTDA.Reference",
+        140,
+        "14",
     ),
     (
         "ShatteredSpace.esm",
@@ -342,15 +476,54 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
     ),
     ("ShatteredSpace.esm", "REFR EnableParent.Ref", 1, "14"),
     ("ShatteredSpace.esm", "REFR REFR.XATR", 1, "14"),
+    (
+        "ShatteredSpace.esm",
+        "SCEN Condition.CTDA.Reference",
+        44,
+        "14",
+    ),
     ("ShatteredSpace.esm", "SMEN SMEN.PNAM", 1, "5B"),
+    (
+        "ShatteredSpace.esm",
+        "SMQN Condition.CTDA.Reference",
+        12,
+        "14",
+    ),
+    (
+        "ShatteredSpace.esm",
+        "TMLM Condition.CTDA.Reference",
+        9,
+        "14",
+    ),
 ];
 /// Reserved IDs outside `validate::NAMED_RESERVED_OBJECT_IDS` that an official file names
 /// (each is skipped by `formid.dangling` with a warning until a CK observation): lane B
 /// round 4 typed OMOD property values, and SFBGS00D.esm OMOD 01026328 names 0x3B7 from a
 /// FormID value (value type 4 or 6) that `Starfield.esm` does not define, just past the
-/// 0x2D0..0x3AC actor value run the other files name.
-const UNNAMED_RESERVED: &[(&str, &str, u32)] =
-    &[("SFBGS00D.esm", "OMOD ObjectModProperty.Value1", 0x3B7)];
+/// 0x2D0..0x3AC actor value run the other files name. Lane D (2026-10-15) types the
+/// condition parameters: parameter 1 of the actor-value functions (GetValue and its kin)
+/// names actor values 0x2BC, 0x2BD (below that run) and 0x3B6 (past it) in INFO, MGEF,
+/// PACK, PERK and QUST conditions; and the condition Reference (run on a reference) and
+/// the package location value name the player reference 0x14 throughout.
+const UNNAMED_RESERVED: &[(&str, &str, u32)] = &[
+    ("Starfield.esm", "INFO Condition.CTDA.Parameter1", 0x2BD),
+    ("Starfield.esm", "MGEF Condition.CTDA.Parameter1", 0x2BD),
+    ("Starfield.esm", "PACK Condition.CTDA.Parameter1", 0x2BC),
+    ("SFBGS003.esm", "INFO Condition.CTDA.Parameter1", 0x2BD),
+    ("SFBGS00D.esm", "MGEF Condition.CTDA.Parameter1", 0x2BD),
+    ("SFBGS00D.esm", "OMOD ObjectModProperty.Value1", 0x3B7),
+    ("SFBGS00D.esm", "PERK Condition.CTDA.Parameter1", 0x3B6),
+    (
+        "ShatteredSpace.esm",
+        "INFO Condition.CTDA.Parameter1",
+        0x2BD,
+    ),
+    (
+        "ShatteredSpace.esm",
+        "QUST Condition.CTDA.Parameter1",
+        0x2BC,
+    ),
+];
 
 /// Sorted object IDs as compact hex runs: `14`, `2D0-2D2,2F1`.
 fn compact(ids: &[u32]) -> String {

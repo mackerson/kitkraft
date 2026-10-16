@@ -164,11 +164,29 @@ fn opaque_u32(d: &Decoded, payload: &[u8], name: &str) -> Option<u32> {
         return None;
     };
     let (_, v) = fields.iter().find(|(k, _)| k == name)?;
-    let Decoded::Opaque { at, len: 4 } = v else {
-        return None;
-    };
-    let bytes: [u8; 4] = payload.get(*at..at.checked_add(4)?)?.try_into().ok()?;
-    Some(u32::from_le_bytes(bytes))
+    raw_u32(v, payload, 0)
+}
+
+/// The four stored bytes of a condition field as a `u32`: kept raw, or read through the
+/// union variant its decider selects (a one-member struct named after the variant; lane D
+/// types the CTDA parameters since 2026-10-15).
+fn raw_u32(v: &Decoded, payload: &[u8], depth: usize) -> Option<u32> {
+    match v {
+        Decoded::Opaque { at, len: 4 } => {
+            let bytes: [u8; 4] = payload.get(*at..at.checked_add(4)?)?.try_into().ok()?;
+            Some(u32::from_le_bytes(bytes))
+        }
+        Decoded::Form(raw) => Some(*raw),
+        Decoded::Int(i) => u32::try_from(*i).ok().or_else(|| {
+            i32::try_from(*i)
+                .ok()
+                .map(|x| u32::from_le_bytes(x.to_le_bytes()))
+        }),
+        Decoded::Struct(fs) if fs.len() == 1 && depth < 2 => {
+            raw_u32(&fs.first()?.1, payload, depth.saturating_add(1))
+        }
+        _ => None,
+    }
 }
 
 /// The records of one call, read once each.
@@ -1528,10 +1546,13 @@ pub(crate) mod tests {
         assert_eq!(bad[0]["path"], "PCCC.Content");
         assert_eq!(bad[0]["raw"], "05000001");
         assert_eq!(bad[0]["status"], "unresolvable");
-        // Conditions as stored: the function index, parameters as raw bytes.
+        // Conditions as stored: the function index, parameter 1 typed by the function (HasKeyword-style: a keyword).
         let cond = &nodes[1]["conditions"][0];
         assert_eq!(cond["Function"], 560);
-        assert_eq!(cond["Parameter1"]["opaque"], "01080000");
+        assert_eq!(
+            cond["Parameter1"]["Keyword"]["form"], "Base.esm:000801",
+            "{cond}"
+        );
         // The worldspace content: its location and the planet that lists it.
         let world = &nodes[2];
         assert_eq!(world["content"]["to"], "Base.esm:000803");
