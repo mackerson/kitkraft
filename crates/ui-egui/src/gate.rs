@@ -26,6 +26,7 @@
 //! re-exported below.
 
 use std::path::Path;
+use std::sync::Arc;
 
 use kitkraft_engine::{Engine, EngineError};
 use serde_json::{json, Map, Value};
@@ -39,6 +40,8 @@ pub(crate) use kitkraft_engine::shapes::{check_shape, data_shape};
 /// The envelope's value markers (M4.W0, `docs/mcp.md` "Data shapes and markers"): the
 /// view-models format a value by its `kind`, never by its shape.
 pub use kitkraft_engine::shapes::{kind as marker, KIND};
+/// A progress event from a long command (M6.P2b), for the worker's status line (M6.P2a).
+pub use kitkraft_engine::Progress;
 #[cfg(test)]
 pub(crate) use kitkraft_engine::{catalog, parse_line, Invocation};
 
@@ -495,6 +498,18 @@ impl ReadOnlyEngine {
         check(request)?;
         self.engine
             .execute(&request.id, request.args.clone())
+            .map_err(|e| RunError::from_engine(&e))
+    }
+
+    /// As [`ReadOnlyEngine::run`], sending the command's [`Progress`] events to `sink`
+    /// while it runs (M6.P2a; the envelope is the same with or without one).
+    pub fn run_with_progress<F>(&self, request: &Request, sink: F) -> Result<Value, RunError>
+    where
+        F: Fn(&Progress) + Send + Sync + 'static,
+    {
+        check(request)?;
+        self.engine
+            .execute_with_progress(&request.id, request.args.clone(), Arc::new(sink))
             .map_err(|e| RunError::from_engine(&e))
     }
 }

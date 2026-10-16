@@ -295,7 +295,7 @@ impl ValidateTab {
                     .id_salt(("rule", g.rule.as_str()))
                     .default_open(!g.findings.is_empty() && g.findings.len() < 50)
                     .show(ui, |ui| {
-                        findings_grid(ui, &g.rule, g.findings.iter());
+                        findings_grid(ui, &g.rule, &g.findings);
                     });
             }
         });
