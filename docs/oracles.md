@@ -455,3 +455,96 @@ The equivalent results above are with these fixes.
   has it (with `--sources-zip`, its cache extraction of the same zip); the hand run names
   CK-CONTENT-RESOURCES' copy. Same table, no difference in the output.
 - `-op`: off by default on both; see above.
+
+## CK oracle (`cargo xtask oracle ck`, M5.A2)
+
+Lane A, 2026-10-16. The Creation Kit is the oracle for what a plugin "should" look like
+once the CK has saved it (ADR 0005 §2, observed black box only). `cargo xtask oracle ck`
+(`xtask/src/ckoracle.rs`) compares our plugin with the CK's export of the same content and
+puts every difference in one of three classes. It automates the hand classing of M5.A3.
+
+**No real CK output exists yet.** No CK sitting has happened (M5.O1 is the owner's), so
+the oracle has only run on synthetic fixtures (below). Its first real input is F29/F30
+(`docs/ck-sessions/f29-f30.md`).
+
+### Fixture folder
+
+| File | Content |
+| ---- | ------- |
+| `kitkraft.esm` | Ours (built beforehand, e.g. `kit build docs/poi/first-poi.toml`); `ours = "..."` in `fixture.toml` names another file |
+| `ck.esm` | The CK's save of the same content; `ck = "..."` names another file |
+| masters | Any master that is not the official game's (found through `KITKRAFT_DATA_DIR`) |
+| `fixture.toml` | The keys below; unknown keys are refused |
+
+```toml
+fixture = "F29"                       # id in the report and the verdict line (else the folder name)
+title = "First POI crate placed in the CK"
+ck_version = "1.16.244.0"
+ours = "KitKraftFirstPOI.esm"         # default kitkraft.esm
+ck = "KitKraftFirstPOI-CK.esm"        # default ck.esm
+# Records that must be in both files, as `kit diff` labels them (our own forms carry our
+# file's name).
+match = ["KitKraftFirstPOI.esm:001000"]
+
+# Expected CK normalizations. Each must cite the ledger finding that shows it.
+[[normalization]]
+record = "TES4"          # a signature, a form label (Plugin.esm:XXXXXX), or "*"
+subrecord = "HEDR"       # a subrecord signature, @flags, @order, @record, @bytes,
+                         # @timestamp, @version-control, @form-version, @unknown, or "*" (default)
+reason = "the CK recounts records and moves the next object ID"
+ledger = "ck-20261020-01"
+```
+
+### Method and classes
+
+Per fixture: `kit roundtrip --verify --decode` on both files; a positional byte diff; the
+`TES4` diff of the harness (header fields and subrecords); `kit diff <ours> <ck>` with every
+entry listed. Each difference becomes one item: a `TES4` field or subrecord; a record only
+in the CK's file or only in ours (`@record`); a changed record's flags (`@flags`),
+subrecord order (`@order`) or one subrecord (by signature, with the typed fields that
+differ). When the bytes differ and neither diff sees anything, one `@bytes` item stands
+for what lies outside both (record header stamps, group headers).
+
+| Class | When |
+| ----- | ---- |
+| explained | A `[[normalization]]` entry matches the item (record by signature or form, subrecord by name); the report names its reason and ledger finding |
+| ours-missing | Not explained, and the record is only in the CK's file |
+| unexplained | Anything else, including a record only in ours |
+
+Each record in `match` is looked up with `kit diff --form`, and found in `both`, `ck-only`,
+`ours-only` or `neither`.
+
+The verdict is `identical` (equal bytes, round trips pass, every `match` record in both),
+`clean` (every difference explained), `ours-missing` (no unexplained difference, but
+records the CK wrote that we did not), or `fail` (an unexplained difference, a failed
+round trip, or a `match` record missing from either file). `--check` exits non-zero on
+`fail`; `ours-missing` alone does not fail it, it is reported.
+
+Output: `observe\ck-oracle\<folder>\report.md`, `report.json` and `verdict.txt` (one line,
+also printed: `F98: fail (1 unexplained, 1 ours-missing, 1 explained; roundtrip ours pass,
+ck pass; match 2/2)`); `--out <dir>` changes the root. `kit`'s index cache lives in the
+report folder during the run and is deleted after it. Nothing is written into the fixture
+folder.
+
+```powershell
+cargo xtask oracle ck observe\2026-10-20-F29 observe\2026-10-20-F30 --check
+```
+
+### Limits
+
+- Records are matched by FormID through each file's masters (`kit diff`). If the CK gives
+  a new record another FormID than ours (the CK chooses its own next object ID), the pair
+  shows as one ours-missing and one unexplained item; F29's script asks the owner to note
+  the FormID the CK assigned, and a fixture that needs it rebuilds ours with that ID.
+- The oracle does not build `kitkraft.esm` itself (the plan's `kit_equivalent` step);
+  `cargo xtask observe` still does, and its `kit\kit\` output can be copied in.
+- `validate` and `coverage` are not rerun here; `cargo xtask observe` reports both.
+
+### Results
+
+Synthetic fixtures only (`ckoracle::tests`): fake-`kit` fixtures for identical, explained,
+unexplained plus ours-missing, a bytes-only difference, and a normalization without its
+ledger finding (refused); and one fixture built by the real `kit new` (ours: two `GLOB`s;
+the "CK's": one value changed and a third `GLOB` added), classed `TES4 HEDR` explained,
+`GLOB FLTV` unexplained and the third `GLOB` ours-missing (verdict `fail`); with the value
+change allow-listed, the verdict is `ours-missing`. Ours against itself is `identical`.

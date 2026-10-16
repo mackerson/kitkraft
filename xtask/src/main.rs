@@ -8,7 +8,8 @@
 //! - `cargo xtask dist [--out DIR] [--sync-bin]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit, the Papyrus compiler) run as
-//!   oracles (lane H, [`oracle`], [`sf1edit`], [`papyrus`]).
+//!   oracles (lane H, [`oracle`], [`sf1edit`], [`papyrus`]); `oracle ck` compares our plugin
+//!   with the Creation Kit's export of it (lane A, [`ckoracle`]).
 //!
 //! The layer check has three parts.
 //!
@@ -30,6 +31,7 @@
 //!
 //! LAYER: TOOL
 
+mod ckoracle;
 mod codegen;
 mod dist;
 mod evidence;
@@ -182,7 +184,9 @@ fn print_help() {
     println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");
     println!("           decoded view (its console dumper) compared with kit inspect;");
     println!("           `oracle papyrus [<psc>...] [--sources DIR] [--optimize]`: the official");
-    println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff");
+    println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff;");
+    println!("           `oracle ck <fixture-dir>... [--out DIR] [--check]`: kitkraft.esm vs the");
+    println!("           CK's ck.esm, every difference classed (lane A, M5.A2)");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).
