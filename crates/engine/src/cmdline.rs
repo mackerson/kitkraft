@@ -344,6 +344,14 @@ fn lookup<'p>(params: &'p [Param], flag: &str) -> Option<(&'p Param, bool)> {
     if let Some(param) = params.iter().find(|p| p.name == wanted) {
         return Some((param, false));
     }
+    // A list also takes its singular, repeated: `--import a --import b` for `imports`.
+    let plural = format!("{wanted}s");
+    if let Some(param) = params
+        .iter()
+        .find(|p| p.name == plural && p.kind == ParamKind::StringList)
+    {
+        return Some((param, false));
+    }
     let negated = wanted.strip_prefix("no_")?;
     params
         .iter()
@@ -564,6 +572,11 @@ mod tests {
             ("inspect", json!({"form": "0001A2B3", "plugin": "X.esm"}))
         );
         assert_eq!(run("pexdis x.pex").0, "papyrus.disasm");
+        // A list parameter takes its singular too (the compiler's `-i`/`-import`).
+        assert_eq!(
+            run("papyrus compile S o --import a --imports b --import=c;d").1["imports"],
+            json!(["a", "b", "c;d"])
+        );
         assert_eq!(run("ba2 extract A.ba2 --out-dir o").1["out_dir"], "o");
     }
 

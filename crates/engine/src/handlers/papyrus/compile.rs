@@ -2,11 +2,22 @@
 //! 0006) on one script, by name, with import directories.
 //!
 //! The argument builder ([`compiler_args`]) emits only the object name, `-f=`, `-i=`,
-//! `-o=` and optionally `-op`. It has no way to ask for release or final mode (`-release`,
-//! `-r`, `-final`), checks its own output for them, and the catalog schema rejects any
-//! extra argument. Project files (`.ppj`) are refused because they can turn release mode
-//! on themselves. Output is never written under the game Data directory, and the produced
-//! `.pex` is parsed and disassembled with `kitkraft-pex` as a check.
+//! `-o=`, `-ignorecwd` and optionally `-op`. It has no way to ask for release or final mode
+//! (`-release`, `-r`, `-final`), checks its own output for them, and the catalog schema
+//! rejects any extra argument. Project files (`.ppj`) are refused because they can turn
+//! release mode on themselves. Output is never written under the game Data directory, and
+//! the produced `.pex` is parsed and disassembled with `kitkraft-pex` as a check.
+//!
+//! Paths follow the official compiler's command line (papyrus oracle, `docs/oracles.md`):
+//! every import entry may hold several folders separated by `;` (its `-i=` form), and every
+//! path is made absolute against the caller's working directory before the call, because
+//! the compiler runs in `out_dir` and would resolve a relative one there. The compiler
+//! treats its working directory as the first import unless told `-ignorecwd`; a stale
+//! `.psc` in `out_dir` then shadowed the requested source (observed 2026-10-15), so
+//! `-ignorecwd` is always passed and only the listed imports are searched. A `.psc` path
+//! compiles as the name its `ScriptName` statement declares, with the folder that holds
+//! its namespace folders imported first (`KitKraft\HelloOnLoad.psc` declaring
+//! `KitKraft:HelloOnLoad` imports the folder above `KitKraft`).
 //!
 //! `sources_zip` (M3.G1) names `Tools\ContentResources.zip`: its `Scripts/Source` files are
 //! extracted once into the KitKraft cache ([`super::sources`]) and that folder is imported
@@ -79,6 +90,7 @@ pub(crate) fn compiler_args(req: &Request) -> Result<Vec<String>, String> {
         args.push(format!("-i={}", dirs.join(";")));
     }
     args.push(format!("-o={}", plain(&req.out_dir)?));
+    args.push("-ignorecwd".to_string());
     if req.optimize {
         args.push("-op".to_string());
     }
@@ -153,24 +165,105 @@ fn compiler_candidates(explicit: Option<&str>) -> Vec<PathBuf> {
     out
 }
 
+/// `path` made absolute against the working directory (no symlink resolution), without a
+/// verbatim prefix.
+fn absolute(path: &Path) -> Result<PathBuf, String> {
+    std::path::absolute(path)
+        .map(|p| strip_verbatim(&p))
+        .map_err(|e| format!("`{}`: {e}", path.display()))
+}
+
+/// The import entries as folders: each entry may list several separated by `;` (the
+/// compiler's `-i=` form); empty pieces are dropped.
+fn split_imports(entries: &[String]) -> Vec<PathBuf> {
+    entries
+        .iter()
+        .flat_map(|e| e.split(';'))
+        .map(str::trim)
+        .filter(|e| !e.is_empty())
+        .map(PathBuf::from)
+        .collect()
+}
+
+/// What a `.psc` path compiles as: the name its `ScriptName` statement declares, and the
+/// import root that holds it (for `A:B:Name`, the folder above `A\B\`). The file's stem
+/// and its folders must spell the name (ignoring case), as the compiler requires. A source
+/// the declaration reader cannot read falls back to the file stem and its own folder, and
+/// the compiler reports the problem.
+pub(crate) fn psc_object(path: &Path) -> Result<(String, PathBuf), String> {
+    let stem = path
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let dir = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    let cap = u64::try_from(kitkraft_pex::psc::MAX_SOURCE_BYTES).unwrap_or(u64::MAX);
+    let Ok(bytes) = super::read_capped(path, cap) else {
+        return Ok((stem, dir));
+    };
+    let Ok(script) = kitkraft_pex::psc::parse(&bytes) else {
+        return Ok((stem, dir));
+    };
+    let mut parts: Vec<&str> = script.name.split(':').collect();
+    let Some(last) = parts.pop() else {
+        return Ok((stem, dir));
+    };
+    if !last.eq_ignore_ascii_case(&stem) {
+        return Err(format!(
+            "`{}` declares `ScriptName {}`, but the file is named `{stem}`; the compiler \
+             needs the file name to match the script name",
+            path.display(),
+            script.name
+        ));
+    }
+    let mut root = dir;
+    for ns in parts.iter().rev() {
+        let folder = root
+            .file_name()
+            .map(|f| f.to_string_lossy().into_owned())
+            .unwrap_or_default();
+        if !folder.eq_ignore_ascii_case(ns) {
+            return Err(format!(
+                "`{}` declares `ScriptName {}`, so it must sit in a `{}` folder below an \
+                 import root (it is in `{folder}`); move it, or pass the name and import \
+                 the root",
+                path.display(),
+                script.name,
+                parts.join("\\")
+            ));
+        }
+        root = root
+            .parent()
+            .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
+    }
+    Ok((script.name, root))
+}
+
 /// `papyrus.compile`.
 pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
     let source = str_arg(ID, args, "source")?;
-    let out_dir = PathBuf::from(str_arg(ID, args, "out_dir")?);
+    let out_dir = absolute(Path::new(str_arg(ID, args, "out_dir")?)).map_err(|e| failed(ID, e))?;
     let optimize = args
         .get("optimize")
         .and_then(Value::as_bool)
         .unwrap_or(false);
-    let mut imports: Vec<PathBuf> = args
+    let entries: Vec<String> = args
         .get("imports")
         .and_then(Value::as_array)
         .map(|a| {
             a.iter()
                 .filter_map(Value::as_str)
-                .map(PathBuf::from)
+                .map(str::to_string)
                 .collect()
         })
         .unwrap_or_default();
+    let mut imports = split_imports(&entries)
+        .iter()
+        .map(|d| absolute(d))
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|e| failed(ID, e))?;
 
     let lower = source.to_ascii_lowercase();
     if lower.ends_with(".ppj") {
@@ -184,15 +277,10 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
         if !path.is_file() {
             return Err(failed(ID, format!("`{source}` does not exist")));
         }
-        let dir = path
-            .parent()
-            .filter(|p| !p.as_os_str().is_empty())
-            .map_or_else(|| PathBuf::from("."), Path::to_path_buf);
-        let dir = fs::canonicalize(&dir).unwrap_or(dir);
-        imports.insert(0, strip_verbatim(&dir));
-        path.file_stem()
-            .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or_default()
+        let path = absolute(path).map_err(|e| failed(ID, e))?;
+        let (name, root) = psc_object(&path).map_err(|e| failed(ID, e))?;
+        imports.insert(0, root);
+        name
     } else {
         source.to_string()
     };
@@ -205,7 +293,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
             let extracted =
                 super::sources::extract_sources(&zip_path, &super::sources::default_cache_root())
                     .map_err(|e| failed(ID, e))?;
-            imports.push(strip_verbatim(&extracted.dir));
+            imports.push(absolute(&extracted.dir).map_err(|e| failed(ID, e))?);
             Some((zip_path, extracted))
         }
         None => None,
@@ -220,7 +308,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
     }
     let flags = match args.get("flags").and_then(Value::as_str) {
         Some(f) => {
-            let p = PathBuf::from(f);
+            let p = absolute(Path::new(f)).map_err(|e| failed(ID, e))?;
             if !p.is_file() {
                 return Err(failed(ID, format!("flags file `{f}` does not exist")));
             }
@@ -249,6 +337,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
             ),
         )
     })?;
+    let compiler = absolute(compiler).map_err(|e| failed(ID, e))?;
 
     let request = Request {
         object,
@@ -259,7 +348,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
     };
     let compiler_args = compiler_args(&request).map_err(|e| failed(ID, e))?;
     let (exit_code, stdout, stderr) =
-        run_compiler(compiler, &compiler_args, &out_dir).map_err(|e| failed(ID, e))?;
+        run_compiler(&compiler, &compiler_args, &out_dir).map_err(|e| failed(ID, e))?;
     let passed = exit_code == Some(0);
 
     let pex_path = request
@@ -460,6 +549,7 @@ mod tests {
                 r"-f=C:\base\Starfield_Papyrus_Flags.flg",
                 r"-i=C:\src a;C:\base",
                 r"-o=C:\out",
+                "-ignorecwd",
                 "-op"
             ]
         );
@@ -470,7 +560,10 @@ mod tests {
             out_dir: PathBuf::from("out"),
             optimize: false,
         };
-        assert_eq!(compiler_args(&minimal).unwrap(), ["S", "-o=out"]);
+        assert_eq!(
+            compiler_args(&minimal).unwrap(),
+            ["S", "-o=out", "-ignorecwd"]
+        );
         for bad in ["-release", "-r", "a b", "", "x.psc", ":x", "x;y"] {
             let r = Request {
                 object: bad.into(),
@@ -488,6 +581,69 @@ mod tests {
             ..request()
         };
         assert!(compiler_args(&switch).is_err());
+    }
+
+    /// Import entries take the compiler's `;` lists; relative paths become absolute against
+    /// the working directory, not the compiler's (`out_dir`). Regression for the lane E
+    /// request (M4.E9): `--imports docs\recipes\scripts` failed with "Cannot use import
+    /// folder ...\out\recipes\Scripts\docs\recipes\scripts".
+    #[test]
+    fn imports_split_and_become_absolute() {
+        let entries = vec![r"a;b ; ;C:\c".to_string(), "d".to_string()];
+        assert_eq!(
+            super::split_imports(&entries),
+            ["a", "b", r"C:\c", "d"].map(PathBuf::from)
+        );
+        let abs = super::absolute(std::path::Path::new(r"docs\recipes\scripts")).unwrap();
+        assert!(abs.is_absolute(), "{}", abs.display());
+        assert!(abs.starts_with(std::env::current_dir().unwrap()));
+        assert!(!abs.display().to_string().starts_with(r"\\?\"));
+    }
+
+    /// A `.psc` path compiles as its declared (namespaced) name with the folder above its
+    /// namespace folders imported. Regression for the lane E request (M4.E9): the path of
+    /// `KitKraft\HelloOnLoad.psc` compiled as `HelloOnLoad` and the compiler refused it.
+    #[test]
+    fn psc_path_names_its_namespace_root() {
+        let dir = std::env::temp_dir().join(format!("kitkraft-psc-ns-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let ns = dir.join("root").join("kitkraft").join("Sub");
+        fs::create_dir_all(&ns).unwrap();
+        let psc = ns.join("Hello.psc");
+        fs::write(
+            &psc,
+            "ScriptName KitKraft:Sub:Hello extends ObjectReference\n",
+        )
+        .unwrap();
+        let (name, root) = super::psc_object(&psc).unwrap();
+        assert_eq!(name, "KitKraft:Sub:Hello");
+        assert_eq!(root, dir.join("root"));
+
+        // A plain script: its own folder.
+        let plain = dir.join("Plain.psc");
+        fs::write(&plain, "Scriptname plain extends ScriptObject\n").unwrap();
+        assert_eq!(
+            super::psc_object(&plain).unwrap(),
+            ("plain".to_string(), dir.clone())
+        );
+        // The folders must spell the namespace, the file the name.
+        let wrong = dir.join("Other.psc");
+        fs::write(&wrong, "ScriptName KitKraft:Other\n").unwrap();
+        let err = super::psc_object(&wrong).unwrap_err();
+        assert!(err.contains("`KitKraft` folder"), "{err}");
+        let renamed = dir.join("Renamed.psc");
+        fs::write(&renamed, "ScriptName Original\n").unwrap();
+        assert!(super::psc_object(&renamed)
+            .unwrap_err()
+            .contains("named `Renamed`"));
+        // Unreadable declarations fall back to the file name; the compiler reports.
+        let broken = dir.join("Broken.psc");
+        fs::write(&broken, "; no script name here\n").unwrap();
+        assert_eq!(
+            super::psc_object(&broken).unwrap(),
+            ("Broken".to_string(), dir.clone())
+        );
+        fs::remove_dir_all(&dir).unwrap();
     }
 
     #[test]
@@ -607,6 +763,34 @@ mod tests {
             .unwrap()
             .starts_with("DefaultCounterQuestA.psc v3.12"));
         assert_eq!(r["evidence"][0]["file"], "ContentResources.zip");
+
+        // A namespaced `.psc` path compiles under its declared name, and a stale copy of
+        // the source in `out_dir` (the compiler's working directory) is not picked up:
+        // without `-ignorecwd` the compiler searched it first and compiled the decoy
+        // (papyrus oracle, 2026-10-15).
+        let src = dir.join("src").join("KitKraft");
+        let out = dir.join("out");
+        fs::create_dir_all(&src).unwrap();
+        fs::create_dir_all(out.join("KitKraft")).unwrap();
+        let probe = "ScriptName KitKraft:Probe extends ScriptObject\nInt Property Real = 1 Auto\n";
+        fs::write(src.join("Probe.psc"), probe).unwrap();
+        fs::write(
+            out.join("KitKraft").join("Probe.psc"),
+            probe.replace("Real", "Decoy"),
+        )
+        .unwrap();
+        let r = execute(
+            "papyrus.compile",
+            json!({"source": src.join("Probe.psc").to_str().unwrap(),
+                   "out_dir": out.to_str().unwrap(), "sources_zip": zip.to_str().unwrap()}),
+        )
+        .unwrap();
+        assert_eq!(r["data"]["passed"], true, "{}", r["data"]);
+        assert_eq!(r["data"]["script"], "KitKraft:Probe");
+        let text = r["data"]["pex"]["text"].as_str().unwrap();
+        assert!(text.contains("PROP Int Real"), "{text}");
+        assert!(!text.contains("Decoy"), "{text}");
+        assert!(out.join("KitKraft").join("Probe.pex").is_file());
         fs::remove_dir_all(&dir).unwrap();
     }
 

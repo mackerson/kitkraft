@@ -56,12 +56,18 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
         Some("sf1edit") => {
             return crate::sf1edit::run(root, args.get(1..).unwrap_or_default());
         }
+        Some("papyrus") => {
+            return crate::papyrus::run(root, args.get(1..).unwrap_or_default());
+        }
         _ => {
             println!(
                 "cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...] [--out <dir>] [--keep]"
             );
             println!(
                 "cargo xtask oracle sf1edit [--official] [--synthetic] [<plugin>...] [--types SIG,..] [--sample N] [--no-check] [--timeout-mins N] [--out <dir>] [--keep]"
+            );
+            println!(
+                "cargo xtask oracle papyrus [<psc>...] [--sources <Scripts\\Source>] [--optimize] [--out <dir>] [--keep]"
             );
             println!();
             println!(

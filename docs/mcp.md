@@ -667,18 +667,26 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   (`pexdis.py`'s format), `json` (the structured model) or `both`. `data`: `pex`,
   `archive`, `bytes`, `version`, `game_id`, `source`, `objects`, `functions`,
   `instructions`, `text` and/or `script` (header, string count, debug block summary,
-  user flags, objects with structs, variables, guards, properties, property functions
-  and states; every function with params, locals and instructions with `offset`,
-  `opcode`, `op`, `args` / `varargs` as `{type, value, text}`), and `summary` = the text
+  user flags, `string_table` (every string, in file order), the debug block with its
+  `function_lines`, `groups` and `member_orders`, objects with structs, variables, guards,
+  properties, property functions and states; every function with params, locals and
+  instructions with `offset`, `opcode`, `op`, `args` / `varargs` as `{type, value,
+  text}`), and `summary` = the text
   without its final newline, so `kit papyrus disasm x.pex` prints what `pexdis.py x.pex`
   prints. Structs are in the model, not the text (a limitation when present).
 - `papyrus.compile {source, out_dir, imports?, sources_zip?, flags?, compiler?, optimize =
-  false}`; CLI `kit papyrus compile <source> <out_dir> [--imports <dir> ...]
-  [--sources-zip <Tools\ContentResources.zip>]`. Runs Bethesda's
-  `PapyrusCompiler.exe` (black box) on one script by name: a `.psc` path becomes its name
-  with its folder imported first; `.ppj` projects are refused. Arguments are only the
-  object, `-f=`, `-i=`, `-o=` and `-op`; release and final mode can never be requested
-  (any extra argument such as `release` is `invalid_args`). The flags file defaults to
+  false}`; CLI `kit papyrus compile <source> <out_dir> [--import <dir> ...]
+  [--sources-zip <Tools\ContentResources.zip>]` (`--imports` too). Runs Bethesda's
+  `PapyrusCompiler.exe` (black box) on one script by name: a `.psc` path compiles as the
+  name its `ScriptName` statement declares, with the folder above its namespace folders
+  imported first (`KitKraft\HelloOnLoad.psc` declaring `KitKraft:HelloOnLoad` imports the
+  folder holding `KitKraft`; a stem or folder that does not spell the name is `failed`);
+  `.ppj` projects are refused. An `imports` entry may list several folders separated by
+  `;` (the compiler's `-i=` form); every path is made absolute against the caller's
+  working directory. Arguments are only the object, `-f=`, `-i=`, `-o=`, `-ignorecwd`
+  (so a `.psc` left in `out_dir`, the compiler's working directory, is never compiled
+  instead: papyrus oracle P1, `docs/oracles.md`) and `-op`; release and final mode can
+  never be requested (any extra argument such as `release` is `invalid_args`). The flags file defaults to
   `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
   the `Scripts\Source` folder of `Tools\ContentResources.zip`: with `sources_zip` (M3.G1)
   its `.psc` and `.flg` files are extracted once into the KitKraft cache
