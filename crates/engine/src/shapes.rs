@@ -1279,6 +1279,20 @@ pub fn data_shape(command: &str) -> Option<&'static Shape> {
 /// Deepest nesting the checks follow (the engine's own values are far shallower).
 const MAX_DEPTH: u16 = 64;
 
+/// The envelope's required member names in order (`command`, `data`, ..., `build`): what
+/// a front end describing the envelope in prose must name.
+pub fn envelope_members() -> Vec<&'static str> {
+    match ENVELOPE {
+        Obj(groups) | Open(groups) => groups
+            .iter()
+            .flat_map(|g| g.iter())
+            .filter(|m| m.required)
+            .map(|m| m.name)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// Every place `env` differs from the envelope and its command's documented data shape,
 /// and every marker problem anywhere in `data` (a marker object off its shape, an
 /// unmarked object that looks like a FormID value). Empty when it conforms.
