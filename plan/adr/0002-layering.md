@@ -15,7 +15,7 @@ everything. The craft suite solves this with a fixed layer stack checked in CI.
 | ----- | ----------------------------------------------- | ----------------------------------- |
 | L0    | Formats: bytes in, bytes out, no policy         | schema, esm, ba2, pex, strings, nif |
 | L1    | Document model across a load order              | doc                                 |
-| L2    | Rendering (later)                               | render                              |
+| L2    | Rendering (retired by Amendment 1, 2026-10-16)  | render (none; see Amendment 1)      |
 | L3    | Outside-world I/O (MO2, plugins.txt, manifests) | io                                  |
 | L4    | Commands, sessions, undo, validation            | engine                              |
 | L5    | Front-end adapters                              | mcp, ui-egui (later)                |
@@ -68,3 +68,33 @@ None.
 - The L2 `render` slot is reserved, not designed: no crate exists yet, and it may move to a
   different layer (with an ADR) once the viewport work starts.
 - Adding a crate means editing `LAYER_TABLE` and the AGENTS.md table in the same commit.
+
+## Amendment 1 (2026-10-16): the viewport is L5 view code; the L2 `render` slot is retired
+
+- Status: **Accepted by the director**, 2026-10-16. Layering is not on the owner's list
+  (AGENTS.md "Owner decisions"); the owner may overrule it (`plan/execution-plan.md`,
+  "Decisions taken by the director 2026-10-16, pending owner").
+- Context: the 3D viewport is planned as M7 lane R (`plan/execution-plan.md` "M7"), with
+  its first ticket (M7.R1) allowed to start during M6. It draws inside the egui window
+  through eframe's glow backend, so its code is toolkit code and cannot sit below L5
+  (rule 3). The L2 slot above was reserved for it "with an ADR once the viewport work
+  starts"; this is that ADR.
+
+Decision:
+
+1. **The viewport is L5 view code** in `crates/ui-egui/src/viewport/` (camera, drawing,
+   picking). It is bound by everything that binds `kitkraft-ui-egui`: `INTERNAL_ONLY`
+   (the engine alone among workspace crates) and the read-only gate.
+2. **Geometry reaches the viewport only through engine commands** (`cell`,
+   `mesh.bounds`, `mesh.geometry`; M7.S3 to M7.S5). The window never reads a plugin, a
+   `.nif` or a `.ba2` itself.
+3. **`crates/nif` stays behind the engine.** There is no L5 -> L0 edge: `kitkraft-ui-egui`
+   never depends on `kitkraft-nif` or `kitkraft-ba2`, and `INTERNAL_ONLY` is unchanged.
+4. **The L2 `render` slot is retired**, not kept in reserve. A future crate that prepares
+   geometry below the engine (a headless mesh decoder, for instance) gets its own row by a
+   new amendment when someone proposes it; nothing is reserved for it now. The
+   `kitkraft-render` entry leaves xtask's `LAYER_TABLE`, the AGENTS.md layer table and
+   `docs/architecture.md` in one commit, with M7.R1 (code change, so not in this docs
+   commit). Until then the entry names a crate that does not exist and constrains nothing.
+
+The "Consequences" bullets above about `render` (L2) are superseded by this amendment.
