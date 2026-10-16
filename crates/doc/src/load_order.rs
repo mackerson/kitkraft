@@ -31,6 +31,23 @@ pub struct PluginSpec {
     pub path: PathBuf,
 }
 
+/// One plugin finished, as reported to an [`OnPluginDone`] callback by
+/// [`LoadOrder::load_with_progress`] and [`crate::backrefs::Backrefs::build_with_progress`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PluginDone<'a> {
+    /// Plugins finished so far, this one included (1 for the first call).
+    pub done: usize,
+    /// Plugins to do in all.
+    pub total: usize,
+    /// The plugin's file name as listed.
+    pub plugin: &'a str,
+}
+
+/// Called once per plugin as it finishes, from the worker thread that did it. Calls are
+/// serialized and `done` counts up by one each time; the order of plugins is the order
+/// they finished in (largest files start first), not the load order.
+pub type OnPluginDone<'a> = &'a (dyn Fn(PluginDone<'_>) + Sync);
+
 /// Settings for [`LoadOrder::load`].
 #[derive(Debug, Clone, Default)]
 pub struct LoadOptions {
@@ -144,6 +161,16 @@ impl LoadOrder {
     /// Index every plugin (in parallel, through the cache), link masters, and build the
     /// override table.
     pub fn load(specs: Vec<PluginSpec>, options: &LoadOptions) -> Result<LoadOrder> {
+        Self::load_with_progress(specs, options, &|_| {})
+    }
+
+    /// As [`LoadOrder::load`], calling `on_indexed` once per plugin as its index is read
+    /// from the cache or built ([`OnPluginDone`]).
+    pub fn load_with_progress(
+        specs: Vec<PluginSpec>,
+        options: &LoadOptions,
+        on_indexed: OnPluginDone<'_>,
+    ) -> Result<LoadOrder> {
         if specs.len() > MAX_PLUGINS {
             return Err(DocError::Invalid(format!(
                 "{} plugins: at most {MAX_PLUGINS} are supported",
@@ -151,7 +178,7 @@ impl LoadOrder {
             )));
         }
         let started = Instant::now();
-        let loaded = index_all(&specs, options);
+        let loaded = index_all(&specs, options, on_indexed);
         let index_ms = elapsed_ms(started);
 
         let names: Vec<String> = specs.iter().map(|s| s.name.to_ascii_lowercase()).collect();
@@ -457,7 +484,11 @@ fn index_one(path: &Path, cache: Option<&IndexCache>) -> Indexed {
 }
 
 /// Index every plugin with a small worker pool, largest files first.
-fn index_all(specs: &[PluginSpec], options: &LoadOptions) -> Vec<Indexed> {
+fn index_all(
+    specs: &[PluginSpec],
+    options: &LoadOptions,
+    on_indexed: OnPluginDone<'_>,
+) -> Vec<Indexed> {
     let threads = match options.threads {
         0 => std::thread::available_parallelism()
             .map_or(1, std::num::NonZeroUsize::get)
@@ -475,6 +506,7 @@ fn index_all(specs: &[PluginSpec], options: &LoadOptions) -> Vec<Indexed> {
     order.sort_by_key(|i| std::cmp::Reverse(size(i)));
     let results: Mutex<Vec<Option<Indexed>>> = Mutex::new((0..specs.len()).map(|_| None).collect());
     let next = AtomicUsize::new(0);
+    let done = AtomicUsize::new(0);
     std::thread::scope(|scope| {
         for _ in 0..threads {
             scope.spawn(|| loop {
@@ -486,6 +518,13 @@ fn index_all(specs: &[PluginSpec], options: &LoadOptions) -> Vec<Indexed> {
                     if let Some(slot) = slots.get_mut(i) {
                         *slot = Some(result);
                     }
+                    // Under the lock, so calls are serialized and `done` counts up.
+                    let n = done.fetch_add(1, Ordering::SeqCst).saturating_add(1);
+                    on_indexed(PluginDone {
+                        done: n,
+                        total: specs.len(),
+                        plugin: &spec.name,
+                    });
                 }
             });
         }

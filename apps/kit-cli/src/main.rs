@@ -16,6 +16,9 @@
 //! `kit ui [--dev | --profile DIR] [--plugins FILE...] [--data-dir DIR] [--theme PRESET]`
 //! starts the read-only workbench window (`kit-ui`, built from `apps/kit`, next to this
 //! binary) with those arguments and returns its exit code; 2 when `kit-ui` is not there.
+//! A debug `kit` starts a release `kit-ui` instead (from cargo's `release` dir, `bin\` or
+//! `dist\KitKraft\`), and says so; when there is none it prints where to get one and exits
+//! 2, unless `--allow-debug` lets it run the debug window beside it (M6.P6a).
 //! `--dev` opens the KitKraft Dev profile `kit doctor` finds (else the window's profile
 //! picker); `--theme` picks the visual preset (`kit-ui --help`).
 //! `kit install` / `kit uninstall [--dry-run | --apply] [--home DIR] ...` print, and with
@@ -27,6 +30,10 @@
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
+//! `--progress` adds one `progress: <command>: <stage> <done>/<total> <item>` line on
+//! stderr per progress event of a long command (`kitkraft_engine::progress`); stdout and
+//! the exit code are the same as without it. `--version` prints
+//! `kit <version> (<commit>, <build date>, <debug|release>)` (`kitkraft_engine::identity`).
 //!
 //! LAYER: APP
 
@@ -56,6 +63,11 @@ fn main() -> ExitCode {
         }
     };
     let json = matches.get_flag("json");
+    let progress = matches.get_flag("progress");
+    if matches.get_flag("version") {
+        println!("kit {}", kitkraft_engine::build_identity().line());
+        return ExitCode::SUCCESS;
+    }
     if matches.get_flag("help") {
         print_catalog_help();
         return ExitCode::SUCCESS;
@@ -83,8 +95,9 @@ fn main() -> ExitCode {
                     .flatten()
                     .cloned(),
             );
-            let (words, json_after) = strip_json_flag(words);
-            run(&words, json || json_after)
+            let (words, json_after) = strip_flag(words, "--json");
+            let (words, progress_after) = strip_flag(words, "--progress");
+            run(&words, json || json_after, progress || progress_after)
         }
     }
 }
@@ -332,16 +345,28 @@ fn install_command(name: &'static str, about: &'static str) -> Command {
 
 /// `kit ui`: starts the workbench binary (`kit-ui`, next to `kit`) with the given
 /// arguments (it parses them). A launcher: it acts on no data, so it has no `CommandSpec`.
+///
+/// A release `kit` starts the `kit-ui` beside it. A debug `kit` (`cargo run -p kit-cli --
+/// ui`) looks for a release window first ([`ui_program`]) and runs the debug one beside
+/// it only with `--allow-debug` (M6.P6a): a debug window loads a profile about 5x slower.
 fn run_ui(args: &[String]) -> ExitCode {
-    let name = format!("kit-ui{}", std::env::consts::EXE_SUFFIX);
-    let path = std::env::current_exe()
-        .ok()
-        .and_then(|exe| exe.parent().map(|dir| dir.join(&name)));
-    let Some(path) = path.filter(|p| p.is_file()) else {
-        eprintln!(
-            "kit ui: {name} is not next to kit; build it with `cargo build -p kit` (or run `cargo run -p kit -- --profile DIR`)"
-        );
+    let allow_debug = args.iter().any(|a| a == "--allow-debug");
+    let args: Vec<&String> = args.iter().filter(|a| *a != "--allow-debug").collect();
+    let Ok(exe) = std::env::current_exe() else {
+        eprintln!("kit ui: cannot tell where kit is");
         return ExitCode::from(EXIT_ERROR);
+    };
+    let path = match ui_program(&exe, cfg!(debug_assertions), allow_debug) {
+        UiProgram::Found { path, note } => {
+            if let Some(note) = note {
+                eprintln!("{note}");
+            }
+            path
+        }
+        UiProgram::Missing(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(EXIT_ERROR);
+        }
     };
     match std::process::Command::new(&path).args(args).status() {
         Ok(status) => {
@@ -355,13 +380,97 @@ fn run_ui(args: &[String]) -> ExitCode {
     }
 }
 
+/// Which window program `kit ui` starts.
+#[derive(Debug, PartialEq, Eq)]
+enum UiProgram {
+    /// This one, with a line for stderr saying why when it is not the one beside `kit`.
+    Found {
+        path: std::path::PathBuf,
+        note: Option<String>,
+    },
+    /// None fits; the message says where to get one.
+    Missing(String),
+}
+
+/// The window program for `kit` at `exe`. A release `kit`: `kit-ui` beside it. A debug
+/// `kit`: the first release `kit-ui` of [`release_windows`], else (with `allow_debug`) the
+/// debug one beside it, else none, with a message naming the places looked in and how to
+/// build a release window.
+fn ui_program(exe: &std::path::Path, debug: bool, allow_debug: bool) -> UiProgram {
+    let name = format!("kit-ui{}", std::env::consts::EXE_SUFFIX);
+    let beside = exe
+        .parent()
+        .map(|dir| dir.join(&name))
+        .filter(|p| p.is_file());
+    const GET_ONE: &str = "`cargo xtask ui` builds a release window and opens it on the dev \
+                           profile; `cargo xtask dist --sync-bin` puts kit.exe and kit-ui.exe \
+                           in dist\\KitKraft\\ and bin\\";
+    if !debug {
+        return match beside {
+            Some(path) => UiProgram::Found { path, note: None },
+            None => UiProgram::Missing(format!(
+                "kit ui: {name} is not next to kit ({}); {GET_ONE}",
+                exe.parent()
+                    .map_or_else(String::new, |d| d.display().to_string())
+            )),
+        };
+    }
+    let candidates = release_windows(exe, &name);
+    if let Some(path) = candidates.iter().find(|p| p.is_file()) {
+        return UiProgram::Found {
+            path: path.clone(),
+            note: Some(format!(
+                "kit ui: this kit is a debug build; starting the release window {}",
+                path.display()
+            )),
+        };
+    }
+    match beside {
+        Some(path) if allow_debug => UiProgram::Found {
+            path,
+            note: Some(
+                "kit ui: starting a DEBUG window (--allow-debug); it loads a profile about 5x \
+                 slower than a release one"
+                    .to_string(),
+            ),
+        },
+        _ => {
+            let looked: Vec<String> = candidates.iter().map(|p| p.display().to_string()).collect();
+            UiProgram::Missing(format!(
+                "kit ui: this kit is a debug build and no release {name} was found (looked in: \
+                 {}). {GET_ONE}. `kit ui --allow-debug` runs the debug window anyway (about 5x \
+                 slower).",
+                looked.join("; ")
+            ))
+        }
+    }
+}
+
+/// Where a debug `kit` looks for a release window, in order: the cargo `release` dir beside
+/// its own `debug` dir, then `bin\` and `dist\KitKraft\` in each folder above it (so a lane
+/// target dir under the main checkout finds the main checkout's).
+fn release_windows(exe: &std::path::Path, name: &str) -> Vec<std::path::PathBuf> {
+    let mut out = Vec::new();
+    let Some(dir) = exe.parent() else {
+        return out;
+    };
+    if let Some(target) = dir.parent() {
+        out.push(target.join("release").join(name));
+    }
+    for above in dir.ancestors().skip(1) {
+        out.push(above.join("bin").join(name));
+        out.push(above.join("dist").join("KitKraft").join(name));
+    }
+    out
+}
+
 /// The clap shell. Catalog commands take their words raw; the engine parses them.
 fn cli() -> Command {
     let mut cmd = Command::new("kit")
         .bin_name("kit")
-        .version(env!("CARGO_PKG_VERSION"))
         .about("Open-source Creation Kit tooling for Starfield (pre-alpha)")
         .disable_help_flag(true)
+        .disable_version_flag(true)
         .disable_help_subcommand(true)
         .arg(
             Arg::new("json")
@@ -369,6 +478,20 @@ fn cli() -> Command {
                 .global(true)
                 .action(ArgAction::SetTrue)
                 .help("Print the result envelope (or the error) as JSON"),
+        )
+        .arg(
+            Arg::new("progress")
+                .long("progress")
+                .global(true)
+                .action(ArgAction::SetTrue)
+                .help("Print progress lines of long commands to stderr (the result is unchanged)"),
+        )
+        .arg(
+            Arg::new("version")
+                .short('V')
+                .long("version")
+                .action(ArgAction::SetTrue)
+                .help("Print the version, commit, build date and profile"),
         )
         .arg(
             Arg::new("help")
@@ -461,8 +584,9 @@ fn catalog_words() -> Vec<(&'static str, String)> {
     out
 }
 
-/// Removes `--json` words placed after the command (before any `--`).
-fn strip_json_flag(words: Vec<String>) -> (Vec<String>, bool) {
+/// Removes the global `flag` (`--json`, `--progress`) where it is placed after the command
+/// (before any `--`).
+fn strip_flag(words: Vec<String>, flag: &str) -> (Vec<String>, bool) {
     let mut found = false;
     let mut after_separator = false;
     let mut out = Vec::with_capacity(words.len());
@@ -470,7 +594,7 @@ fn strip_json_flag(words: Vec<String>) -> (Vec<String>, bool) {
         if word == "--" {
             after_separator = true;
         }
-        if !after_separator && word == "--json" {
+        if !after_separator && word == flag {
             found = true;
             continue;
         }
@@ -479,7 +603,7 @@ fn strip_json_flag(words: Vec<String>) -> (Vec<String>, bool) {
     (out, found)
 }
 
-fn run(words: &[String], json: bool) -> ExitCode {
+fn run(words: &[String], json: bool, progress: bool) -> ExitCode {
     let invocation = match kitkraft_engine::parse_words(words) {
         Ok(invocation) => invocation,
         Err(err) => return fail(&err, json),
@@ -502,7 +626,19 @@ fn run(words: &[String], json: bool) -> ExitCode {
         }
         Invocation::Run { command, args } => (command, args),
     };
-    match kitkraft_engine::execute(spec.id, args) {
+    let result = if progress {
+        // One line per event on stderr, so stdout (the result, `--json`) is unchanged.
+        kitkraft_engine::execute_with_progress(
+            spec.id,
+            args,
+            std::sync::Arc::new(|p: &kitkraft_engine::Progress| {
+                eprintln!("progress: {}", p.line());
+            }),
+        )
+    } else {
+        kitkraft_engine::execute(spec.id, args)
+    };
+    match result {
         Ok(result) => {
             print_result(&result, json);
             let code = result_code(spec, &result);
@@ -610,10 +746,10 @@ fn to_pretty(value: &Value) -> String {
 fn print_catalog_help() {
     println!(
         "kit {} - open-source Creation Kit tooling for Starfield (pre-alpha)",
-        env!("CARGO_PKG_VERSION")
+        kitkraft_engine::build_identity().line()
     );
     println!();
-    println!("USAGE: kit [--json] <command> [args]");
+    println!("USAGE: kit [--json] [--progress] <command> [args]");
     println!("       kit help <command>    usage of one command");
     println!();
     println!("COMMANDS:");
@@ -695,6 +831,83 @@ mod tests {
         assert_eq!(result_code(roundtrip, &json!({"data": null})), 0);
         assert_eq!(result_code(roundtrip, &with(json!(false))), EXIT_NEGATIVE);
         assert_eq!(result_code(planned, &with(json!(true))), EXIT_ERROR);
+    }
+
+    /// M6.P6a: a release kit runs the window beside it; a debug kit prefers a release
+    /// window (cargo's release dir, then bin\ and dist\KitKraft\ above it) and runs the
+    /// debug one only with --allow-debug, else says where to get one.
+    #[test]
+    fn kit_ui_prefers_a_release_window() {
+        use super::{ui_program, UiProgram};
+        let root = std::env::temp_dir().join(format!("kit-cli-ui-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let name = format!("kit-ui{}", std::env::consts::EXE_SUFFIX);
+        let debug = root.join("repo").join("target").join("debug");
+        std::fs::create_dir_all(&debug).unwrap();
+        let exe = debug.join("kit.exe");
+        let touch = |p: &std::path::Path| {
+            std::fs::create_dir_all(p.parent().unwrap()).unwrap();
+            std::fs::write(p, b"").unwrap();
+        };
+        // Nothing anywhere: missing, naming bin\ and dist\KitKraft\ and how to build one.
+        let UiProgram::Missing(m) = ui_program(&exe, true, false) else {
+            panic!("expected missing")
+        };
+        assert!(
+            m.contains("cargo xtask ui") && m.contains("--allow-debug"),
+            "{m}"
+        );
+        assert!(m.contains(
+            &root
+                .join("repo")
+                .join("bin")
+                .join(&name)
+                .display()
+                .to_string()
+        ));
+        // A debug window beside kit: still refused without --allow-debug.
+        touch(&debug.join(&name));
+        assert!(matches!(
+            ui_program(&exe, true, false),
+            UiProgram::Missing(_)
+        ));
+        let UiProgram::Found { path, note } = ui_program(&exe, true, true) else {
+            panic!("expected the debug window")
+        };
+        assert_eq!(path, debug.join(&name));
+        assert!(note.unwrap().contains("DEBUG"));
+        // A release window in dist\KitKraft above: preferred, and said so.
+        let dist = root.join("dist").join("KitKraft").join(&name);
+        touch(&dist);
+        assert_eq!(
+            ui_program(&exe, true, false),
+            UiProgram::Found {
+                path: dist.clone(),
+                note: Some(format!(
+                    "kit ui: this kit is a debug build; starting the release window {}",
+                    dist.display()
+                )),
+            }
+        );
+        // Cargo's release dir beside debug comes first.
+        let release = root.join("repo").join("target").join("release").join(&name);
+        touch(&release);
+        assert!(
+            matches!(ui_program(&exe, true, false), UiProgram::Found { path, .. } if path == release)
+        );
+        // A release kit runs what is beside it, and nothing else.
+        assert_eq!(
+            ui_program(&exe, false, false),
+            UiProgram::Found {
+                path: debug.join(&name),
+                note: None
+            }
+        );
+        let lone = root.join("lone").join("kit.exe");
+        assert!(
+            matches!(ui_program(&lone, false, false), UiProgram::Missing(m) if m.contains("not next to kit"))
+        );
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

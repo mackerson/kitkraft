@@ -7,12 +7,13 @@
 //! when a handler is added or replaced.
 
 use std::collections::BTreeMap;
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
 use serde_json::Value;
 
 use crate::args::{self, Violation};
 use crate::envelope::{Envelope, Outcome};
+use crate::progress::{self, ProgressSink};
 use crate::session::Session;
 use crate::{find_command, handlers, CommandSpec, Status};
 
@@ -254,9 +255,34 @@ impl Engine {
 
     /// Resolves `id` (or an alias), validates `args` against the command's
     /// `args_schema`, runs its handler on the engine's own session, and returns the
-    /// envelope `{command, data, coverage, limitations, evidence}` as JSON.
+    /// envelope `{command, data, coverage, limitations, evidence, build}` as JSON.
     pub fn execute(&self, id: &str, args: Value) -> Result<Value, EngineError> {
         self.with_session(|session| self.execute_in(session, id, args))
+    }
+
+    /// As [`Engine::execute`], sending [`crate::Progress`] events to `sink` while the command
+    /// runs (`crate::progress` lists which commands emit). The result is the same as
+    /// without a sink.
+    pub fn execute_with_progress(
+        &self,
+        id: &str,
+        args: Value,
+        sink: Arc<dyn ProgressSink>,
+    ) -> Result<Value, EngineError> {
+        self.with_session(|session| self.execute_in_with_progress(session, id, args, sink))
+    }
+
+    /// As [`Engine::execute_with_progress`], on a session the caller owns.
+    pub fn execute_in_with_progress(
+        &self,
+        session: &mut Session,
+        id: &str,
+        args: Value,
+        sink: Arc<dyn ProgressSink>,
+    ) -> Result<Value, EngineError> {
+        let spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.to_string()))?;
+        let _scope = progress::Scope::enter(sink, spec.id);
+        self.execute_in(session, id, args)
     }
 
     /// As [`Engine::execute`], on a session the caller owns.
@@ -280,6 +306,7 @@ impl Engine {
         let envelope = Envelope {
             command: spec.id,
             outcome,
+            build: crate::identity::build_identity(),
         };
         Ok(serde_json::to_value(envelope)?)
     }
@@ -321,8 +348,20 @@ pub fn prepare_args(spec: &CommandSpec, args: Value) -> Result<Value, EngineErro
 /// Runs a command on the default handlers with a fresh, empty [`Session`] (one command,
 /// no state carried over: the CLI's model). See [`Engine::execute`].
 pub fn execute(id: &str, args: Value) -> Result<Value, EngineError> {
+    default_engine().execute_in(&mut Session::new(), id, args)
+}
+
+/// As [`execute`], sending [`crate::Progress`] events to `sink` while the command runs (the CLI's
+/// `--progress`). See [`Engine::execute_with_progress`].
+pub fn execute_with_progress(
+    id: &str,
+    args: Value,
+    sink: Arc<dyn ProgressSink>,
+) -> Result<Value, EngineError> {
+    default_engine().execute_in_with_progress(&mut Session::new(), id, args, sink)
+}
+
+fn default_engine() -> &'static Engine {
     static ENGINE: OnceLock<Engine> = OnceLock::new();
-    ENGINE
-        .get_or_init(Engine::with_default_handlers)
-        .execute_in(&mut Session::new(), id, args)
+    ENGINE.get_or_init(Engine::with_default_handlers)
 }
