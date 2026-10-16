@@ -21,6 +21,7 @@ pub mod links;
 pub mod load;
 pub mod planet;
 pub mod records;
+pub mod render;
 pub mod schema;
 pub mod start;
 pub mod validate;

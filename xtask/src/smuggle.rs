@@ -10,6 +10,10 @@
 //!
 //! It is a lexical scan: comments and string contents are skipped, paths are normalized
 //! without touching the filesystem.
+//!
+//! The same scan holds `unsafe` to the files in [`UNSAFE_ALLOWED`]: the workspace denies
+//! the `unsafe_code` lint (`Cargo.toml`, `[workspace.lints.rust]`), and a file may only
+//! allow it, or use the `unsafe` keyword, if it is listed there (ADR 0013).
 
 use std::fs;
 use std::path::{Component, Path, PathBuf};
@@ -40,20 +44,58 @@ enum SourceRef {
     Include { name: String, arg: IncludeArg },
 }
 
-/// Scans every Rust source file of the package in `dir`; returns one message per violation.
-pub fn scan_package(dir: &Path) -> Result<Vec<String>> {
+/// The only source files, as (package, path inside the package with `/`), that may use
+/// `unsafe` or name the `unsafe_code` lint. Each entry is justified in an ADR.
+pub const UNSAFE_ALLOWED: &[(&str, &str)] = &[
+    // ADR 0013: the GL calls of the workbench's 3D viewport (glow has no safe API).
+    ("kitkraft-ui-egui", "src/viewport/gl.rs"),
+];
+
+/// Scans every Rust source file of the package `name` in `dir`; returns one message per
+/// violation.
+pub fn scan_package(dir: &Path, name: &str) -> Result<Vec<String>> {
     let mut files = Vec::new();
     for sub in ["src", "tests", "benches", "examples"] {
         collect_rs(&dir.join(sub), &mut files)?;
     }
     files.sort();
     let mut errors = Vec::new();
+    for (pkg, rel) in UNSAFE_ALLOWED {
+        if *pkg == name && !dir.join(rel).is_file() {
+            errors.push(format!(
+                "{}: xtask UNSAFE_ALLOWED names `{rel}`, which does not exist; remove the entry",
+                dir.display()
+            ));
+        }
+    }
     for file in files {
         let text =
             fs::read_to_string(&file).with_context(|| format!("reading {}", file.display()))?;
         errors.extend(scan_source(&file, dir, &text));
+        let rel = file
+            .strip_prefix(dir)
+            .map(|r| r.to_string_lossy().replace('\\', "/"))
+            .unwrap_or_default();
+        if !UNSAFE_ALLOWED.contains(&(name, rel.as_str())) {
+            if let Some(word) = unsafe_word(&lex(&text)) {
+                errors.push(format!(
+                    "{}: uses `{word}`; only the files in xtask UNSAFE_ALLOWED may (ADR 0013)",
+                    file.display()
+                ));
+            }
+        }
     }
     Ok(errors)
+}
+
+/// The first `unsafe` keyword or `unsafe_code` lint name in the code (not in comments or
+/// strings).
+fn unsafe_word(tokens: &[Tok]) -> Option<&'static str> {
+    tokens.iter().find_map(|t| match t {
+        Tok::Ident(i) if i == "unsafe" => Some("unsafe"),
+        Tok::Ident(i) if i == "unsafe_code" => Some("unsafe_code"),
+        _ => None,
+    })
 }
 
 fn collect_rs(dir: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
@@ -370,7 +412,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
-    use super::{find_refs, lex, scan_package, scan_source, IncludeArg, SourceRef};
+    use super::{find_refs, lex, scan_package, scan_source, unsafe_word, IncludeArg, SourceRef};
 
     fn refs(text: &str) -> Vec<SourceRef> {
         find_refs(&lex(text))
@@ -513,9 +555,61 @@ mod tests {
         )
         .unwrap();
         fs::write(dir.join("notes.txt"), "include!(\"../../x\")").unwrap();
-        let found = scan_package(&dir).unwrap();
+        let found = scan_package(&dir, "kitkraft-fixture").unwrap();
         fs::remove_dir_all(&dir).unwrap();
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].contains("smuggle.rs"), "{found:?}");
+    }
+
+    #[test]
+    fn unsafe_is_found_in_code_only() {
+        for bad in [
+            "fn f() { unsafe { g() } }",
+            "unsafe fn f() {}",
+            "unsafe impl Send for X {}",
+            "#![allow(unsafe_code)]",
+            "#[cfg_attr(test, allow(dead_code, unsafe_code))] mod m;",
+        ] {
+            assert!(unsafe_word(&lex(bad)).is_some(), "{bad}");
+        }
+        for good in [
+            "// unsafe { g() }",
+            "/* #![allow(unsafe_code)] */",
+            "const S: &str = \"unsafe\";",
+            "fn unsafe_free() {} let not_unsafe = 1;",
+        ] {
+            assert!(unsafe_word(&lex(good)).is_none(), "{good}");
+        }
+    }
+
+    /// Only the listed file of the listed package may use `unsafe`; the same file in
+    /// another package may not, and a listed file that is gone is reported.
+    #[test]
+    fn unsafe_is_held_to_the_allowed_files() {
+        let dir =
+            std::env::temp_dir().join(format!("kitkraft-xtask-unsafe-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(dir.join("src/viewport")).unwrap();
+        let gl = "#![allow(unsafe_code)]\nfn f() { unsafe { g() } }\n";
+        fs::write(dir.join("src/viewport/gl.rs"), gl).unwrap();
+        fs::write(dir.join("src/lib.rs"), "mod viewport;\n").unwrap();
+        assert_eq!(
+            scan_package(&dir, "kitkraft-ui-egui").unwrap(),
+            Vec::<String>::new()
+        );
+        let other = scan_package(&dir, "kitkraft-esm").unwrap();
+        assert_eq!(other.len(), 1, "{other:?}");
+        assert!(other[0].contains("gl.rs") && other[0].contains("UNSAFE_ALLOWED"));
+        fs::write(dir.join("src/lib.rs"), "mod viewport;\nunsafe fn x() {}\n").unwrap();
+        let lib = scan_package(&dir, "kitkraft-ui-egui").unwrap();
+        assert_eq!(lib.len(), 1, "{lib:?}");
+        assert!(lib[0].contains("lib.rs"), "{lib:?}");
+        fs::remove_file(dir.join("src/viewport/gl.rs")).unwrap();
+        let stale = scan_package(&dir, "kitkraft-ui-egui").unwrap();
+        fs::remove_dir_all(&dir).unwrap();
+        assert!(
+            stale.iter().any(|e| e.contains("does not exist")),
+            "{stale:?}"
+        );
     }
 }

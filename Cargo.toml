@@ -57,9 +57,16 @@ eframe = { version = "0.36", default-features = false, features = ["glow"] }
 # in the tree through eframe (and arboard) with the `png` feature: no new package, MIT OR
 # Apache-2.0 (ADR 0007 Amendment 3, dependency table).
 image = { version = "0.25", default-features = false, features = ["png"] }
+# Vector and matrix math of the workbench's 3D viewport (crates/ui-egui `viewport/`, M7.R1):
+# camera, projection, marker transforms. MIT OR Apache-2.0; no dependencies with these
+# features (ADR 0007 Amendment 3, dependency table; ATTRIBUTION.md).
+glam = { version = "0.34.1", default-features = false, features = ["std"] }
 
 [workspace.lints.rust]
-unsafe_code = "forbid"
+# Denied, not forbidden, so that the one file xtask's `UNSAFE_ALLOWED` names may allow it:
+# the GL calls of the workbench viewport (`glow` has no safe API; ADR 0013). `cargo xtask
+# layers` fails on `unsafe` or `unsafe_code` in any other source file.
+unsafe_code = "deny"
 
 [workspace.lints.clippy]
 unwrap_used = "deny"

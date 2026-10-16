@@ -24,7 +24,8 @@
 //!    - a package without `[lints] workspace = true`.
 //!
 //!    `[dependencies]`, `[build-dependencies]` and their `[target.*]` forms are read here.
-//! 2. **Sources** ([`smuggle`]): `#[path]` and `include!`-family paths that leave the package.
+//! 2. **Sources** ([`smuggle`]): `#[path]` and `include!`-family paths that leave the package;
+//!    `unsafe` (or the `unsafe_code` lint) outside the files in `smuggle::UNSAFE_ALLOWED`.
 //! 3. **Resolved graph** ([`graph`], via `cargo metadata`): transitive bans,
 //!    dev-dependency rules, build scripts, and agreement between cargo's member list and
 //!    part 1.
@@ -62,7 +63,6 @@ const LAYER_TABLE: &[(&str, Layer)] = &[
     ("kitkraft-strings", Layer::L(0)),
     ("kitkraft-nif", Layer::L(0)),
     ("kitkraft-doc", Layer::L(1)),
-    ("kitkraft-render", Layer::L(2)),
     ("kitkraft-io", Layer::L(3)),
     ("kitkraft-game", Layer::L(3)),
     ("kitkraft-engine", Layer::L(4)),
@@ -366,7 +366,7 @@ fn layers(root: &Path) -> Result<()> {
                 ));
             }
         }
-        errors.extend(smuggle::scan_package(&pkg.dir)?);
+        errors.extend(smuggle::scan_package(&pkg.dir, &pkg.name)?);
     }
 
     let layer_of: BTreeMap<String, Layer> =

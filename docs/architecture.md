@@ -15,14 +15,14 @@ L4               engine   CommandSpec catalog, execute(json) -> json, sessions, 
                     |
 L3                 io     MO2 profile, plugins.txt, Creations manifests -> load order
                     |
-L2               render   (later) viewport over doc
-                    |
 L1                 doc    load order, FormID resolution, overrides, conflict graph, strings
                     |
 L0   schema <- esm   ba2   pex   strings   nif
 ```
 
-Arrows point down only. The single same-layer edge is `esm -> schema`.
+Arrows point down only. The single same-layer edge is `esm -> schema`. There is no L2: the
+viewport is L5 view code inside `ui-egui` (`src/viewport/`), fed by engine commands (ADR 0002
+Amendment 1, carried out by M7.R1).
 
 | Crate     | Layer | Owns                                                                            | Status       |
 | --------- | ----- | ------------------------------------------------------------------------------- | ------------ |
