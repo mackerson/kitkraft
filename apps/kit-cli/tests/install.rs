@@ -176,7 +176,74 @@ fn detection_off_gives_plain_mcp_args() {
     let s = Sandbox::new("nodetect");
     let o = s.kit_unforced(&["install"], &[("KITKRAFT_DETECT", "0")]);
     assert!(o.status.success(), "{}", text(&o));
-    assert!(text(&o).contains(r#"args ["mcp"]"#), "{}", text(&o));
+    assert!(text(&o).contains(r#"+ args: ["mcp"]"#), "{}", text(&o));
+    assert!(
+        text(&o).contains("limitation: MCP --profile: no MO2 instance found"),
+        "{}",
+        text(&o)
+    );
+    let _ = std::fs::remove_dir_all(&s.root);
+}
+
+/// A temp MO2 instance (`KITKRAFT_MO2_DIR`) with `Default` active and a `Kitkraft Dev`
+/// profile, and a temp home whose entry preloads `Default` (what the first Install.cmd
+/// wrote on the dev box): the dry run re-points it to the dev profile as a diff;
+/// `--profile Default` keeps it; an unknown `--profile` is refused.
+#[test]
+fn the_dry_run_repoints_a_default_profile_to_kitkraft_dev() {
+    let s = Sandbox::new("devprofile");
+    let mo2 = s.root.join("MO2");
+    for p in ["Default", "Kitkraft Dev"] {
+        std::fs::create_dir_all(mo2.join("profiles").join(p)).unwrap();
+        std::fs::write(mo2.join("profiles").join(p).join("modlist.txt"), b"").unwrap();
+    }
+    std::fs::write(
+        mo2.join("ModOrganizer.ini"),
+        "[General]\r\ngameName=Starfield\r\nselected_profile=@ByteArray(Default)\r\n",
+    )
+    .unwrap();
+    let slash = |p: PathBuf| p.display().to_string().replace('\\', "/");
+    let live = slash(mo2.join("profiles").join("Default"));
+    let dev = slash(mo2.join("profiles").join("Kitkraft Dev"));
+    let claude = s.root.join("home").join(".claude.json");
+    let before = serde_json::to_vec(&json!({"mcpServers": {"kitkraft": {
+        "type": "stdio",
+        "command": slash(s.dist().join("kit.exe")),
+        "args": ["mcp", "--profile", live],
+        "env": {}
+    }}}))
+    .unwrap();
+    std::fs::write(&claude, &before).unwrap();
+    let vars = [("KITKRAFT_MO2_DIR", mo2.to_str().unwrap())];
+
+    let o = s.kit_unforced(&["install", "--no-project"], &vars);
+    let out = text(&o);
+    assert!(o.status.success(), "{out}");
+    assert!(out.contains("change mcpServers.kitkraft"), "{out}");
+    assert!(
+        out.contains(&format!(r#"- args: ["mcp","--profile","{live}"]"#)),
+        "{out}"
+    );
+    assert!(
+        out.contains(&format!(r#"+ args: ["mcp","--profile","{dev}"]"#)),
+        "{out}"
+    );
+    assert!(out.contains("note: MCP --profile"), "{out}");
+    assert_eq!(
+        std::fs::read(&claude).unwrap(),
+        before,
+        "a dry run writes nothing"
+    );
+
+    let o = s.kit_unforced(&["install", "--no-project", "--profile", "default"], &vars);
+    let out = text(&o);
+    assert!(o.status.success(), "{out}");
+    assert!(!out.contains("change mcpServers.kitkraft"), "{out}");
+    assert!(out.contains("the --profile argument `default`"), "{out}");
+
+    let o = s.kit_unforced(&["install", "--profile", "Nope"], &vars);
+    assert_eq!(o.status.code(), Some(2), "{}", text(&o));
+    assert!(text(&o).contains("not an MO2 profile"), "{}", text(&o));
     let _ = std::fs::remove_dir_all(&s.root);
 }
 

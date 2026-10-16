@@ -11,10 +11,13 @@ use std::path::{Path, PathBuf};
 use serde_json::{json, Value};
 
 use super::failed;
+use crate::deploy::LIVE_PROFILE;
 use crate::envelope::{Coverage, CoverageStatus, Outcome};
 use crate::exec::EngineError;
 use crate::host::{detect, mo2_from_env, Detected, DEV_PROFILE};
-use crate::install::{command_of, kit_servers, CLAUDE_JSON, LEGACY_SERVERS, MCP_JSON, SERVER};
+use crate::install::{
+    command_of, kit_servers, profile_arg, CLAUDE_JSON, LEGACY_SERVERS, MCP_JSON, SERVER,
+};
 use kitkraft_io::host::{dir_size, native_path, pe_file_version, same_path, Found, Host};
 use kitkraft_io::Instance;
 
@@ -561,19 +564,43 @@ fn mcp_checks(
                 (true, true) => "exists, matches this build",
                 (true, false) => "exists, a different build",
             };
+            let profile = entry.get("args").and_then(profile_arg);
+            let live = profile.as_deref().is_some_and(|p| {
+                native_path(p)
+                    .file_name()
+                    .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(LIVE_PROFILE))
+            });
+            let profile_text = profile
+                .as_deref()
+                .map_or_else(|| "no --profile".to_string(), |p| format!("profile {p}"));
             let mut c = Check {
                 path: Some(path.clone()),
                 how: Some(format!("mcpServers.{name} in {}", file.display())),
-                ..Check::ok(id, label, format!("{name} -> {command} ({state})"))
+                ..Check::ok(
+                    id,
+                    label,
+                    format!("{name} -> {command} ({state}), {profile_text}"),
+                )
             };
+            let mut fixes: Vec<String> = Vec::new();
             if !exists {
-                c = c.fix("the command does not exist; run Install.cmd to point it at this build");
+                fixes.push(
+                    "the command does not exist; run Install.cmd to point it at this build".into(),
+                );
             } else if LEGACY_SERVERS.iter().any(|l| name.eq_ignore_ascii_case(l)) {
-                c = c.fix(format!(
+                fixes.push(format!(
                     "pre-rename name; run Install.cmd to register it as `{SERVER}`"
                 ));
             } else if !same {
-                c = c.fix("another kit.exe; run Install.cmd to point it at this build (then restart Claude Code)");
+                fixes.push("another kit.exe; run Install.cmd to point it at this build (then restart Claude Code)".into());
+            }
+            if live {
+                fixes.push(format!(
+                    "live game profile; re-run Install.cmd to use {DEV_PROFILE}"
+                ));
+            }
+            if !fixes.is_empty() {
+                c = c.fix(fixes.join("; "));
             }
             out.push(c);
         }
@@ -753,6 +780,86 @@ mod tests {
             let l = c.line();
             assert!(l.ends_with("OK") || l.contains("FIX: "), "{l}");
         }
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// Each MCP line names the profile its registration preloads; `Default` (the live
+    /// game) gets a FIX pointing at Install.cmd and KitKraft Dev.
+    #[test]
+    fn mcp_lines_name_the_profile_and_flag_default() {
+        let root = temp("mcpprofile");
+        let exe = root.join("dist").join("kit.exe");
+        std::fs::create_dir_all(exe.parent().unwrap()).unwrap();
+        std::fs::write(&exe, b"MZ").unwrap();
+        let command = exe.display().to_string().replace('\\', "/");
+        let write = |name: &str, args: Value| {
+            let file = root.join(name);
+            std::fs::write(
+                &file,
+                serde_json::to_vec(&json!({"mcpServers": {"kitkraft": {
+                    "type": "stdio", "command": command, "args": args, "env": {}
+                }}}))
+                .unwrap(),
+            )
+            .unwrap();
+            file
+        };
+        let user = write(
+            "claude.json",
+            json!([
+                "mcp",
+                "--profile",
+                "C:/Modding/MO2-Starfield/profiles/Default"
+            ]),
+        );
+        let project = write(
+            "mcp.json",
+            json!([
+                "mcp",
+                "--profile",
+                "C:/Modding/MO2-Starfield/profiles/Kitkraft Dev"
+            ]),
+        );
+        let checks = mcp_checks(Some(user), Some(project), Some(&exe), None);
+        assert_eq!(checks.len(), 2);
+        let u = &checks[0];
+        assert!(
+            u.value.ends_with(
+                "(exists, matches this build), profile C:/Modding/MO2-Starfield/profiles/Default"
+            ),
+            "{}",
+            u.value
+        );
+        assert_eq!(
+            u.fix.as_deref(),
+            Some("live game profile; re-run Install.cmd to use KitKraft Dev")
+        );
+        assert!(u.line().contains("FIX: live game profile"), "{}", u.line());
+        let p = &checks[1];
+        assert!(
+            p.value
+                .ends_with("profile C:/Modding/MO2-Starfield/profiles/Kitkraft Dev"),
+            "{}",
+            p.value
+        );
+        assert!(p.fix.is_none(), "{:?}", p.fix);
+        // No --profile is said so; a missing command and Default give both fixes.
+        let bare = write("bare.json", json!(["mcp"]));
+        let c = mcp_checks(Some(bare), None, Some(&exe), None);
+        assert!(c[0].value.ends_with(", no --profile"), "{}", c[0].value);
+        assert!(c[0].fix.is_none());
+        std::fs::remove_file(&exe).unwrap();
+        let gone = write(
+            "gone.json",
+            json!(["mcp", "--profile=D:\\MO2\\profiles\\default"]),
+        );
+        let c = mcp_checks(Some(gone), None, None, None);
+        let fix = c[0].fix.as_deref().unwrap();
+        assert!(fix.starts_with("the command does not exist"), "{fix}");
+        assert!(
+            fix.ends_with("re-run Install.cmd to use KitKraft Dev"),
+            "{fix}"
+        );
         let _ = std::fs::remove_dir_all(&root);
     }
 

@@ -6,7 +6,7 @@
       "args": [
         "mcp",
         "--profile",
-        "C:\\Modding\\MO2-Starfield\\profiles\\Default"
+        "C:\\Modding\\MO2-Starfield\\profiles\\KitKraft Dev"
       ],
       "env": {}
     }

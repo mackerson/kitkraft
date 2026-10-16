@@ -19,7 +19,7 @@ and are deliberately not `CommandSpec`s. Everything else a user can do is.
 
 ```powershell
 kit mcp                                   # empty session
-kit mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"   # preload a load order
+kit mcp --profile "C:\Modding\MO2-Starfield\profiles\KitKraft Dev"   # preload a load order
 ```
 
 `--profile` runs the `load` command before serving (a warm load of the owner's 84-plugin
@@ -45,8 +45,14 @@ variables are still read for one release (`docs/corpus.md`, "Environment").
 **The short way (owner):** `cargo xtask dist`, close Claude Code, double-click
 `dist\KitKraft\Install.cmd` (or run `kit install --apply` there), start Claude Code again
 (docs/QUICKSTART.md). It registers `kitkraft` in `~/.claude.json` and the project's
-`.mcp.json`, pointing at the dist `kit.exe`, with a backup first. `kit doctor` shows the
-registrations it finds, whether each command exists, and whether it is this build.
+`.mcp.json`, pointing at the dist `kit.exe`, with a backup first. The entry preloads the
+KitKraft Dev profile (`--profile`, read-only; the profile `kit doctor` detects as
+`dev_profile`), else MO2's active profile with a `limitation:` line in the plan saying
+which and why; `kit install --profile <name-or-path>` overrides. A registered `--profile`
+that names another folder (the `Default` an earlier install wrote) is re-pointed, shown
+as a `- args` / `+ args` diff of the entry. `kit doctor` shows the registrations it
+finds, whether each command exists, whether it is this build, and which profile each
+preloads (`Default`, the live game, gets a FIX).
 `kit install` is a CLI-only setup step, like `kit mcp`: it has no `CommandSpec` and is not
 an MCP tool, so a connected agent cannot change the PATH or its own registration.
 
@@ -59,7 +65,7 @@ The manual way, for reference:
    Claude Code asks, or register it for yourself only:
 
    ```powershell
-   claude mcp add --scope local kitkraft -- C:\Modding\kitkraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\Default"
+   claude mcp add --scope local kitkraft -- C:\Modding\kitkraft\target\release\kit.exe mcp --profile "C:\Modding\MO2-Starfield\profiles\KitKraft Dev"
    ```
 
 3. Restart Claude Code (or start a new session). `/mcp` should list `kitkraft` as connected
