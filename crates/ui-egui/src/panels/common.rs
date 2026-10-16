@@ -41,6 +41,14 @@ pub(crate) enum Slot {
     Roundtrip,
     Schema,
     Ledger,
+    // Lane G (M6.G2, M6.G3, M6.G7, M6.G8): the Cockpit and Coverage tabs.
+    CockpitStatus,
+    CockpitValidate,
+    CockpitRoundtrip,
+    CockpitMasters,
+    CockpitDeploy,
+    CockpitRollback,
+    Coverage,
 }
 
 /// `Slot` as a map key.

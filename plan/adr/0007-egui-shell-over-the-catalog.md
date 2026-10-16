@@ -475,3 +475,100 @@ mockups".
     needs M6.G4 and M4.T3. M6.G6 needs M6.G5 and M5.C1.
   - M6.G6 adds no id. It prefills the existing confirmed `ledger` request.
   - AGENTS.md "Layers" takes the `ui-egui` row wording above, in a separate small commit.
+
+## Amendment 4 (proposed, lane G for M7 lane E, 2026-10-16; owner decision M7.O4): the editor's write scope
+
+- Status: **PROPOSED.** Nothing in it takes effect until the owner accepts it (M7.O4).
+  Until then Amendment 3 stands as written: the window's writes are the six commands of
+  `COCKPIT_SCOPE`, and the M7 dialogs are read-only.
+- Context: M7 reproduces the Creation Kit's edit workflow (`ROADMAP.md`, "M7: CK
+  parity"; ADR 0012). Agents stay the main authors through MCP, but a CK-shaped window
+  that cannot edit is not CK parity. This amendment opens the editor's writes and no
+  others, with the same mechanics M6 built for the cockpit (M6.G1, `gate.rs`).
+
+### What the editor may run in a writing form in M7
+
+Six catalog commands, each `writes: true`, each run only through `Engine::execute` and
+only after a confirm click. They write only into **the active file**: the one plugin the
+window names as the file being edited (the CK's "active file"), chosen in the Data dialog
+(M7.M3), never an official master, never a plugin of the loaded order other than the
+active file, never under the game's Data folder, the user Data folder or an MO2 instance
+(the engine's output guard, `edit::patch::guard_location`, refuses those on its own).
+
+| Command | Writes | Preview (writes nothing) | Writing form (confirmed only) | Exists |
+| ------- | ------ | ------------------------ | ----------------------------- | ------ |
+| `set` | Field values of one record into the active file (`into`) | `dry_run: true` (M7.S6: before and after, member paths, `validate` findings on the result) | `dry_run` absent or false | `set` yes; its `dry_run` is M7.S6 |
+| `new` | One new record into the active file | its dry run (to be added beside M7.S6 if `new` lacks one; until then it stays out) | as `set` | yes |
+| `clone` | One copy of a record into the active file | as `new` | as `set` | yes |
+| `place` | One placed reference into a cell of the active file | as `new` | as `set` | yes |
+| `build` (output) | The plugin a build spec describes, written to its `out` (the active file or a new one) | `plan: true` (already exists; the gate has kept `build` refused in every mode, M4.W6's note) | `plan` absent or false, `out` the active file | yes |
+| `revert` | The inverse of one edit to the active file (M7.S7) | `dry_run: true` | as `set` | **no**: M7.S7 (lane D) |
+
+Each id joins `PERMITTED_WRITES` only with the M7.E ticket that implements its dialog
+(M7.E2 `set`, M7.E3 `new` and `clone`, M7.E4 `place`, M7.E5 `build`, M7.E6 `revert`) and
+only once its command is in the catalog, `Implemented` and has its preview: the same
+five-point rule as Amendment 3 ("The rule for adding a write"). A command without a
+preview form that writes nothing does not join.
+
+Not in this scope: `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.merge`,
+`papyrus.compile`, `mod.run`, any write into MO2 beyond Amendment 3's `deploy --dev`, and
+anything the viewport would write (M8).
+
+### What the gate checks, and what the dialog checks
+
+The gate (`gate.rs`) stays a const table and a pure check over id, arguments and the
+confirmation:
+
+- the preview form passes like a read; the writing form passes only confirmed;
+- the writing form names its output (`into` for `set`, `new`, `clone`, `place`, `revert`;
+  `out` for `build`), and that output is not an official master by name (`Starfield.esm`,
+  `Constellation.esm`, `OldMars.esm`, `BlueprintShips-*.esm`, `SFBGS*.esm`, the list the
+  engine's official order holds) and has a plugin extension;
+- `overwrite` and similar flags that would replace a file other than the active file are
+  refused.
+
+The **dialog** (one file per command under `crates/ui-egui/src/dialogs/`, M7 lane W and E)
+compares the output with the window's active file and keeps its confirm box closed when
+they differ; it shows the preview's before and after and its `validate` findings in the
+confirm box. The **engine** refuses the game and user Data folders, MO2 and links on its
+own (the output guard), whatever the window sends.
+
+### The test that enforces it
+
+`COCKPIT_SCOPE` keeps Amendment 3's six ids. A second constant, `EDITOR_SCOPE = ["set",
+"new", "clone", "place", "build", "revert"]`, joins it once the owner accepts this
+amendment, and the disjointness test checks every `PERMITTED_WRITES` id against their
+union (a permitted id outside both fails, as `revert` does today in
+`a_permitted_write_outside_the_scope_fails_the_rule`). The per-entry source scan is
+unchanged: `Request::confirmed("<id>", ..)` only in `gate.rs` and that entry's dialog
+file. Each new entry adds the Amendment 3 tests (preview unconfirmed, writing form
+refused unconfirmed, confirmed reaches the engine on a scratch copy of a fixture plugin,
+an official master as output refused by the gate and by the engine).
+
+### Decided here (proposed): one write per OK
+
+The CK collects a dialog's edits and applies them on OK, and writes the file on Save.
+Two ways to map that:
+
+- **A (proposed): one confirmed write per OK.** OK runs the preview of the dialog's
+  edits as one request (`set` with every changed field of that record; `new`, `clone` or
+  `place` with its fields), shows before, after and `validate` findings, and the confirm
+  writes the active file. The CK's Save has nothing left to do and shows "saved at each
+  OK" as its state. Every write is previewed and confirmed on its own, `revert` inverts
+  exactly one confirmed write, and the evidence (the request, its envelope) is one per
+  edit, like the CLI and MCP.
+- **B: collect until Save.** OK keeps edits in the window; Save sends them as a batch
+  (a `build` spec, or one `set` per record) with one preview and one confirm. Closer to
+  the CK's feel, but the window would hold unsaved state the engine does not know (a
+  second source of truth, against "no logic of its own"), and one confirm would cover
+  many records.
+
+The proposal is A. B can follow later as a `build`-spec batch if sittings show the owner
+needs it.
+
+### Consequences
+
+- M7.E2 to M7.E6 wait on M7.O4; until then the dialogs are read-only, as the plan says.
+- `docs/workbench.md` "What it can run" is rewritten on each addition, as for Amendment 3.
+- The cockpit's six writes are unchanged; nothing here widens what the window may do in
+  MO2 or in the game.
