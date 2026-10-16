@@ -23,7 +23,9 @@ official ESM and write it back byte-identical.
    owns it).
 2. Read `docs/architecture.md` if you will touch more than one crate.
 3. Check `docs/gaps.md` before claiming something works.
-4. Pick up the first unblocked task you own. Don't stop to ask unless the decision is listed
+4. Asked for a mod ("I want a mod that does X")? Follow `docs/playbooks/mod-from-brief.md`:
+   brief, spec kind, `kit mod run <spec>`, the report, the fix loop.
+5. Pick up the first unblocked task you own. Don't stop to ask unless the decision is listed
    as the owner's (see "Owner decisions" below). Otherwise decide, record why in the commit
    message or an ADR, and keep going.
 
