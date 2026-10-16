@@ -24,6 +24,7 @@ use `Default` (AGENTS.md, "Owner's live game is off limits").
 | 13 | M5.O2: confirm the dependency list `crates/game` adds (an HTTP client and a process crate) at the M4.T3 merge (ADR 0010 Amendment 1 (c)). Blocks the merge only if a license is not MIT or Apache-2.0 | M4.T3 merge, so path (b) | pending (owner), when M4.T3 is ready |
 | 14 | M4.O4: in-game session 2 on `KitKraft Dev` with a disposable save, template O4 in `docs/game-observations.md`: the ownership and actors recipes (O4-01..O4-04), the outpost object and fabricator recipes (O4-05, O4-06; `docs/recipes/workshop.md`, `fabricator.md`), and the **scripts recipe in game** (O4-07; `docs/recipes/scripts.md`, "In game", plugin `KitKraftScripts.esm`) | M5.B3 (the scripted activator in game, Gate K0) unless lane C's M4.T6 closes O4-07 first; M5.O3; M4 exit | pending (owner) |
 | 15 | M4.O1: the CK sittings for fixtures F20..F28 (`plan/execution-plan.md` M4, "Fixture matrix (M4.H1)"), owner-assisted; a computer-use agent may drive the CK while you watch. Deferred on 2026-10-14 until the workbench existed (row 6); the workbench is built, so the deferral's condition is met. Best after M5.O1 (row 12), whose F29/F30 sitting sets up the CK | M5.A5 (fixtures through the CK differential), and through it FTH-EXP-01, -04, -08 and -10; M4.A1..A6's rules raised to `ck-diff` | pending (owner), after row 12 |
+| 16 | M6 "Cockpit" owner decisions (`plan/execution-plan.md` "M6", lane O). **M6.O3**: accept, amend or reject ADR 0007 Amendment 3, the cockpit write scope (`ledger`, `deploy --dev`, `game.session`, `game.probe`, each previewed and confirmed per click, nothing else; the window never launches the game itself). **M6.O2**: fonts, either Windows system fonts (the default) or a compiled-in OFL font or MIT/Apache icon font; row 7's BSL-1.0 ruling is still open beside it. **M6.O1**: choose the visual direction from M6.V2's two mockups when they exist. **M6.O4**: the usability sign-off at 125 and 150 percent at the end of M6. M7 adds M7.O1 (ADR 0012, the CK interface clean-room rule), M7.O2 and M7.O3 (CK interface sittings, combinable with rows 12 and 15), M7.O4 (Amendment 4, the editor write scope), M7.O5 (NIF and geometry sources) and M7.O6 (A/B sign-off) | M6.G1 onward (O3), M6.V3 onward (O1), M6 exit (O4); M7 lanes K, E and R | O3 and O2 can be decided now; O1 waits on M6.V2 |
 
 **Director ruling pending owner confirmation (2026-10-15):** eframe's clipboard support brings `clipboard-win` and `error-code` under BSL-1.0 (Boost). BSL-1.0 is permissive with no copyleft and is compatible with MIT/Apache-2.0; applying owner clarification 2 (no pause unless the license category differs), the workbench was merged with this noted. Owner: confirm, or ask for the clipboard feature to be dropped.
 
@@ -1704,6 +1705,8 @@ definition is checked against every corpus occurrence before it moves to
 | M4.O3 | SFSE / runtime extensions             | **decided 2026-10-14**: supported where technically justified (ADR 0008) |
 | M4.O6 | Agent-driven game sessions on `KitKraft Dev` (ADR 0010) | **decided 2026-10-15: approved in principle** (ADR 0010 Amendment 1): screenshots in scope, input injection deferred, `crates/game` dependencies MIT/Apache-2.0 confirmed by the owner at the merge |
 | M4.O5 | Installing into MO2                   | **decided 2026-10-14**: `package` never; `kit deploy --dev` only (ADR 0009) |
+| UI track | Audience, pains, stack, editor goal (2026-10-16) | **decided 2026-10-16**: "Both, cockpit first" (M6 Cockpit, then M7 CK parity, M8 Beyond the CK); top pains (1) look, feel and performance, (2) game-loop integration, while navigation and the read-only wall are not top pains; keep egui (license rule unchanged, OFL fonts off); M7 reproduces the CK's interface from black-box observation ("users know one, know the other"), and its Render Window is a 3D viewport from its first ticket. `ROADMAP.md` "M6 onward" |
+| M6.O3 | Cockpit write scope (ADR 0007 Amendment 3) | **open**, proposed 2026-10-16: `ledger`, `deploy --dev`, `game.session`, `game.probe` only; until decided the ledger stays the only UI write |
 
 ### M2 owner tasks (lane O, `plan/execution-plan.md`)
 
@@ -2538,3 +2541,20 @@ Agents append here when they need a change in a crate they do not own.
   not regenerated: run `cargo xtask parity` at the integration. Also fixed the
   `profiles` CommandSpec the lane W/F merge broke (engine did not compile on `main`).
 - **Fix round B/D landed (2026-10-15, Fable review of lanes B and D):** `set`/`new`/`clone`/`build` refuse a payload that no longer decodes as its layout (hex: arrays of partial elements, counts that disagree; ACPR/LCPR entries are 16 bytes, PRIS 20) and the new `validate` rule `layout.undecoded` (error; 0 findings on the 14 official files, pinned in `validate_corpus`); `papyrus.compile` prefers the official ContentResources flags file and names the one used with its SHA-256, and refuses an `out_dir` under MO2 (`guard_location`); float values in `papyrus disasm --format json` carry `bits` and the oracle compares by them; a TAB in `docs/source-registry.md` fixed.
+- **Roadmap lane landed (2026-10-16, docs only):** the UI track after M5 was planned from
+  the owner's 2026-10-16 decisions (owner row 16, "Open owner decisions" row "UI track").
+  - `ROADMAP.md`: "M6+: editor" is replaced by M6 "Cockpit", M7 "CK parity", an M8 "Beyond
+    the CK" sketch and "Later".
+  - `plan/execution-plan.md`: M6 has 36 tickets in lanes V, P, G, X and O. M7 has 38
+    tickets in lanes K, M, W, E, R (the 3D viewport chain), S and O. M8 has 8 example
+    tickets.
+  - ADR 0007 Amendment 3 (**proposed**): the cockpit write scope.
+  - `docs/design/workbench-performance.md`: the measurement protocol, with a first CLI
+    baseline. On the dev profile (16 plugins, 7.49M records) a warm load takes 0.65 s and
+    a cold one 3.5 s. `conflicts --plugin SFBGS00D.esm` takes 26.7 s and returns 29.8 MB
+    for one page, which is engine request M6.P5b.
+  - `docs/ck-parity.md` "Interface parity": seeded, every row `unresearched`.
+  - `docs/workbench.md` "Roadmap".
+  - Requests filed as tickets: M6.P2b and M6.P6b go to lane F, M6.P3b and M6.P5b to lane
+    D. Finding: `C:\Modding\kitcraft\bin` lacks `kit-ui.exe`, so `kit ui` there exits 2
+    (M6.P6a).

@@ -3,7 +3,8 @@
 The workbench is a read-only egui window over `Engine::execute` (ADR 0007 Amendment 1,
 plan M4 lane W). It is a way to look at the data, not a second implementation of anything.
 Each view runs one engine command, or a fixed sequence of commands, and shows the result
-envelope. The full authoring UI is M6 (`ROADMAP.md`, renumbered from M5 on 2026-10-15). One write is permitted (Amendment 2): the Ledger
+envelope. The UI track continues in M6 "Cockpit", M7 "CK parity" and M8 "Beyond the CK"
+("Roadmap" at the end). One write is permitted (Amendment 2): the Ledger
 tab appends the owner's in-game result as a row of `docs/game-observations.md`, a repo
 doc, one confirm click per row.
 
@@ -314,3 +315,31 @@ and `planet` are checked against the engine's own shapes, so they cannot drift f
 the engine returns.
 - Owner decisions on licenses: BSL-1.0 for the clipboard crates, and the optional
   `default_fonts` feature (ADR 0007, "Dependency list").
+
+## Roadmap
+
+Owner decisions of 2026-10-16 (`ROADMAP.md`, "M6 onward"; tickets in
+`plan/execution-plan.md` "M6", "M7", "M8 (sketch)"):
+
+- **M6, Cockpit.** The workbench becomes the human cockpit beside the agents. It gets a
+  KitKraft visual system (tokens for light and dark, statuses that are not color-only,
+  `docs/design/workbench-style.md`). It gets measured performance work
+  (`docs/design/workbench-performance.md`), fixes to the window quirks (restored if it
+  starts minimized, geometry kept in `ui.json`), a release build by default, accessibility
+  at 125 and 150 percent, and first-run help. It also gets the game loop through engine
+  commands only: deploy to dev, then launch, probes and screenshots through lane C's
+  `game.session` and `game.probe`, which are disabled with "M4.T3" until they exist, then
+  a prefilled ledger. Its writes are limited to `ledger`, `deploy --dev`, `game.session`
+  and `game.probe` by ADR 0007 Amendment 3, which is **proposed** and awaits the owner
+  (M6.O3). Until then this page's "What it can run" is unchanged.
+- **M7, CK parity.** The Creation Kit's menus, Data dialog, Object Window, Cell View, edit
+  dialogs, Preferences and Warnings window, reproduced from black-box observation and
+  recorded in `docs/ck-parity.md` "Interface parity". The Render Window is a read-only 3D
+  viewport on the glow backend. Editing goes through `set`, `new`, `clone`, `place` and
+  `build`, under ADR 0007 Amendment 4.
+- **M8, Beyond the CK.** Search everywhere, inline validation and conflicts, undo
+  history, an agent panel, and probe results beside records.
+
+Known today (2026-10-16): `C:\Modding\kitcraft\bin` holds `kit.exe` but not
+`kit-ui.exe`, so `kit ui` started from there exits 2. Use `dist\KitKraft` until M6.P6a
+fixes the layout.
