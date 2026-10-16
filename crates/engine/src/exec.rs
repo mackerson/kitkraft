@@ -365,3 +365,14 @@ fn default_engine() -> &'static Engine {
     static ENGINE: OnceLock<Engine> = OnceLock::new();
     ENGINE.get_or_init(Engine::with_default_handlers)
 }
+
+/// Runs `id` on the default handlers against `session`, through the same validation and
+/// dispatch as [`Engine::execute_in`]: for a command that chains other commands (lane T
+/// round 2, `mod.run`), so each stage is exactly the command a front end would run.
+pub(crate) fn execute_nested(
+    session: &mut Session,
+    id: &str,
+    args: Value,
+) -> Result<Value, EngineError> {
+    default_engine().execute_in(session, id, args)
+}
