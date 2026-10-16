@@ -359,3 +359,73 @@ fn official_sources() {
         outpost["data"]["total"]
     );
 }
+
+/// Every `.psc` under `dir`, as `(path below dir with '/', bytes)`, in no particular order.
+fn psc_tree(dir: &std::path::Path) -> Vec<(String, Vec<u8>)> {
+    let mut out = Vec::new();
+    let mut stack = vec![dir.to_path_buf()];
+    while let Some(d) = stack.pop() {
+        for e in fs::read_dir(&d).unwrap() {
+            let p = e.unwrap().path();
+            if p.is_dir() {
+                stack.push(p);
+            } else if p.extension().is_some_and(|x| x.eq_ignore_ascii_case("psc")) {
+                let rel = p
+                    .strip_prefix(dir)
+                    .unwrap()
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                out.push((rel, fs::read(&p).unwrap()));
+            }
+        }
+    }
+    out
+}
+
+/// M5.B1: the owner's extraction of `Tools\ContentResources.zip`
+/// (`C:\Modding\tools\ck-sources\Scripts\Source`, or `KITKRAFT_PAPYRUS_IMPORTS`; registry
+/// row CK-CONTENT-RESOURCES) gives `papyrus.events` the same index as the zip read in
+/// place: the same files, scripts (names, parents, flags, files, lines, offsets, members),
+/// failures and diagnostics. Only the key differs (the zip's directory hash). Skipped when
+/// either the zip or the folder is absent.
+#[test]
+fn extracted_folder_gives_the_same_index_as_the_zip() {
+    let Some(zip) = official_zip() else {
+        return;
+    };
+    let folder = crate::handlers::env_var_os("KITKRAFT_PAPYRUS_IMPORTS").map_or_else(
+        || PathBuf::from(r"C:\Modding\tools\ck-sources\Scripts\Source"),
+        PathBuf::from,
+    );
+    if !folder.is_dir() {
+        println!("skipped: no extracted sources at {}", folder.display());
+        return;
+    }
+    let (mut from_zip, _, _) = index_for(&zip, None).unwrap();
+    let mut from_dir = super::build_from(&psc_tree(&folder), 0);
+    for i in [&mut from_zip, &mut from_dir] {
+        i.key = String::new();
+        i.failures.sort();
+        // The sort by name is stable, so ties keep the input order, which differs between
+        // the zip's directory and a folder walk.
+        i.scripts.sort_by(|a, b| {
+            (a.name.to_ascii_lowercase(), &a.file).cmp(&(b.name.to_ascii_lowercase(), &b.file))
+        });
+    }
+    assert_eq!(from_dir.files, 5_033);
+    assert_eq!(from_dir.files, from_zip.files);
+    assert_eq!(from_dir.failures, from_zip.failures);
+    assert_eq!(from_dir.diagnostics, from_zip.diagnostics);
+    assert_eq!(from_dir.scripts.len(), from_zip.scripts.len());
+    for (a, b) in from_dir.scripts.iter().zip(&from_zip.scripts) {
+        assert_eq!(a, b, "{} differs between the folder and the zip", a.file);
+    }
+    assert!(from_dir == from_zip);
+    println!(
+        "folder and zip: {} files, {} scripts, {} failures, {} diagnostics: the same index",
+        from_dir.files,
+        from_dir.scripts.len(),
+        from_dir.failures.len(),
+        from_dir.diagnostics
+    );
+}

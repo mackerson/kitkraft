@@ -59,6 +59,10 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
         Some("papyrus") => {
             return crate::papyrus::run(root, args.get(1..).unwrap_or_default());
         }
+        // Lane A (M5.A2): ours against the CK's export of the same content.
+        Some("ck") => {
+            return crate::ckoracle::run(root, args.get(1..).unwrap_or_default());
+        }
         _ => {
             println!(
                 "cargo xtask oracle spriggit [--official] [--synthetic] [<plugin>...] [--out <dir>] [--keep]"
@@ -69,6 +73,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
             println!(
                 "cargo xtask oracle papyrus [<psc>...] [--sources <Scripts\\Source>] [--optimize] [--out <dir>] [--keep]"
             );
+            println!("cargo xtask oracle ck <fixture-dir>... [--out <dir>] [--check]");
             println!();
             println!(
                 "  {SPRIGGIT_VAR}: Spriggit.CLI.exe or a .ps1 wrapper; {DATA_DIR_VAR}: masters"

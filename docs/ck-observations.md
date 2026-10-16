@@ -238,6 +238,73 @@ the CK's file vs ours in each style), `kit\<style>\` (our equivalents) and `kit\
 (`kit`'s index cache). The style `ck` reports "unavailable" until `set` and `build` take a
 `style` argument (M3.E5). No timings are recorded, so a rerun writes the same reports.
 
+## Session scripts (M5.A1)
+
+Owner-assisted sittings follow a written script: per step what the owner does, what the
+agent records (a screenshot, the CK's messages verbatim, hashes) and where the files go
+(`observe\ck-<yyyy-mm-dd>\`, one fixture folder per fixture), then the ingestion commands
+(`kit roundtrip --verify --decode`, `kit diff`, `cargo xtask observe`, `cargo xtask oracle
+ck`). Every CK interface claim in a script is marked *(unobserved)* until a sitting
+confirms it.
+
+| Script | Fixtures | Sitting | State |
+| ------ | -------- | ------- | ----- |
+| `docs/ck-sessions/f29-f30.md` | F29 (the first POI's crate placed in the CK, `KitKraftFirstPOI-CK.esm`), F30 (`KitKraftFirstPOI.esm` re-saved as `KitKraftFirstPOI-CKRoundtrip.esm`) | M5.O1 (`plan/STATUS.md` row 12) | written 2026-10-16; not run |
+
+## M5.A4: an unattended route into the CK? (grade: static strings, unverified)
+
+Research only, 2026-10-16. Question: does the CK have a command line or INI route that
+loads plugins and saves (re-exports) without a person at the keyboard? Method: the
+printable ASCII and UTF-16 strings of `CreationKit.exe` 1.16.244.0 (239,885,664 bytes,
+SHA-256 `ed54e4906bc13b0fbc43ec7624fec4af2389a9a1e12b2789d73c5617f5a14020`) were extracted
+by a Python script (`python -I`, reading bytes only) and searched for `-` switches and for
+command-line wording; the CK's INI files in the game folder were read, not changed. The CK
+was not run, disassembled or debugged; nothing here says what a switch does, only that the
+binary carries the text.
+
+What the strings show:
+
+- The CK carries an "automated process" command-line facility: strings name a handler for
+  the command line, a group called "Automated Commands", "Automated process : -<switch>"
+  log lines, and errors for a missing master file ("aborting automated process") and for a
+  command line over a length limit.
+- Switches with a usage string of the form "Should be -Switch:<args>", among them, for our
+  question: `-SaveDefaultPlugin:<PluginFilename><MasterFilename>`,
+  `-CheckInPlugin:<PluginFilename> <ESMFilename>`, `-ExportESM:<ESMFilename> <output
+  folder> [raw] [--progress]`, `-DepersistRefs:<ESMFilename>` (with the file name
+  `Data\DepersistRefs.esp` nearby), `-RunValidationSuite:<ESMFilename> <SuiteName>[...]`,
+  `-GenerateCellAndRefCounts:<ESMFilename> [TargetWorld] [Max Lines]`. Without a usage
+  string: `-LoadESMAndExit`, `-SavePluginCellCount`, `-TestCopyAndCompare` (with a report
+  file key), `-NoCheckIn` (described as generating an esp the classical way, not optimized
+  for automated check-ins), `-GenerateWarnings`, `-TagifyPlugin`, `-ExportText`,
+  `-ExportDialogue`, `-DumpNeededFiles`, and about forty others for LOD, icons, face data,
+  materials and animation.
+- INI setting names in the binary that bear on loading a plugin without the Data dialog:
+  `[General] sUserPlugin`, `bLoadTheUserPlugin`, `bAllowMultipleMasterLoads`,
+  `sBaseGameMasterfile`, `bAllowUnsafeSave`, `bSavePrefsOnExit`; `[IconGenerator]
+  bAutomatedProcessLoadUserPlugin`; `[Papyrus] bCompilerAutoClose`.
+- The installed INI files set none of these: `CreationKit.ini` (2,451 bytes) has
+  `[General]`, `[MMS]`, `[Localization]`, `[Display]`, `[Archive]` (the archive lists),
+  `[LODManager]`, `[Wwise]`, `[RenderGraph]`, `[Debug]`, `[Particles]`, `[LOD]`, `[Morph]`
+  and `[Papyrus]` (compiler and source folders); `CreationKitPrefs.ini` has display,
+  quality, general and movement preferences; no `CreationKitCustom.ini` exists (the
+  binary names one).
+
+Reading (hypotheses, all unverified): `-LoadESMAndExit` may be a load test that exits;
+`-SaveDefaultPlugin` and `-ExportESM` look like the closest candidates for "load and
+write a plugin with no UI"; `sUserPlugin` with `bLoadTheUserPlugin` may preload a plugin.
+Each automated switch most likely writes into the game's `Data` folder, so trying one is a
+CK run that writes into the game folder: **only in an owner sitting**, after F29/F30, with
+the owner's say-so, on copies, and with the folder listed before and after.
+
+Result: **inconclusive** (grade static strings, unverified). A command-line route exists in
+the binary's text; whether any switch loads `KitKraftFirstPOI.esm` and saves it unchanged
+is not known. CK fixtures stay owner-assisted (binding constraint 3). Proposed experiment
+for a later sitting: run `CreationKit.exe -LoadESMAndExit` and then
+`-SaveDefaultPlugin:<copy> Starfield.esm` from MO2's `KitKraft Dev` profile with the owner
+watching, record the exit code, the files written and the CK's log, and diff any output
+with `cargo xtask oracle ck`.
+
 ## Ledger
 
 No entries yet: the first M3.O1 session has not happened (M3.H3 is gated on it).
