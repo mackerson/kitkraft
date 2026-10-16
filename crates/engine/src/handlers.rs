@@ -26,6 +26,10 @@ mod matrix;
 mod newform;
 #[cfg(test)]
 mod newform_tests;
+// Lane T round 2 (M4.T10).
+mod modrun;
+#[cfg(test)]
+mod modrun_tests;
 mod overhaul;
 #[cfg(test)]
 mod overhaul_tests;
@@ -196,6 +200,8 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         // lane D (M7.S7, M7.S3)
         ("revert", Box::new(revert::run)),
         ("cell", Box::new(cell::run)),
+        // Lane T round 2 (M4.T10): brief to report, chaining the commands above.
+        ("mod.run", Box::new(modrun::run)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));
