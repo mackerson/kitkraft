@@ -1274,6 +1274,24 @@ done. `game.stop {id, dry_run = false}` ends the session and returns its `report
 real Starfield profile is refused today (`unverified-profile`) until M4.T1 records the
 launch, console and save facts.
 
+### `mod.run` (lane T round 2, M4.T10; CLI `kit mod run <spec>`)
+
+`mod.run {spec, name?, plugin?, out?, mo2?, dev_profile = "KitKraft Dev", profile?,
+plugins?, data_dir?, no_cache?, language?, loose?, scripts?, ba2?, game?, base_save?,
+base_save_sha256?, observe?, ledger?, until = "session", dry_run = false}` runs `build`,
+`validate`, `roundtrip --verify`, `package`, `deploy --dev`, `testplan` and `game.session`
+(preflight with `dry_run` first; the session itself only when nothing is refused), each
+through `execute` on the caller's session, and stops at the first failing stage. It
+writes `out/<name>/report.md`, `report.json` (this `data`) and
+`stages/<nn>-<stage>.json` (each stage's envelope). `data`: `kind` (`kitkraft-mod-run`),
+`name`, `spec {path, sha256}`, `plugin`, `dir`, `report`, `result`
+(`pass|partial|fail`, or `dry-run`), `passed` (`false` only on `fail`), `until`,
+`failed_stage`, `stages[]` (`stage`, `command`, `status` `pass|fail|not-run|inconclusive`,
+`reason`, `args`, `summary`, `limitations`, `envelope`, `error`, `facts`), `session`
+(`ran`, `refused`, `rules`, `refusals[]`, or `session`, `status`, `ledger_entry`, `rows`),
+`ledger_entry`, `probes[] {row, title, status, reason}`, `next_steps[]`, `summary`. The
+agent playbook is `docs/playbooks/mod-from-brief.md`.
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends

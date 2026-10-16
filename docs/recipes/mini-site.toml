@@ -1,0 +1,105 @@
+# Gate K0 mini-plugin recipe (M5.D7): a small site of new forms linked to each other and
+# placed in an existing interior, Starfield.esm the only master.
+# Compile first (docs/recipes/mini-site.md), so that out/recipes/Scripts/KitKraft/
+# HelloOnLoad.pex sits next to the plugin; then:
+# kit build docs/recipes/mini-site.toml out/recipes/KitKraftMiniSite.esm
+# Evidence for every choice: docs/recipes/mini-site.md.
+#
+# FormIDs: `build` gives [[clone]] entries theirs first, then [[new]], then [[place]],
+# each in spec order, from 0x001000 (master index 01). The keyword clone is therefore
+# KitKraftMiniSite.esm:001000, which the location's KWDA below names in hex.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+# LocTypeOutpost (KYWD, colour, type 0): the site's own location-type keyword, a copy so
+# its colour, type and FNAM match the vanilla one.
+name = "keyword"
+form = "Starfield.esm:0234F1"
+edid = "KitKraftLocTypeMiniSite"
+brief = "M5.D7"
+
+[[clone]]
+# DefaultBlankTerminal_Genesis: the empty menu of the blank computer below.
+name = "menu"
+form = "Starfield.esm:227DA9"
+edid = "KitKraftMiniSiteMenu"
+fields = { FULL = "KitKraft Mini Site Menu" }
+brief = "M5.D7"
+
+[[clone]]
+# DefaultBlankComputer_ConsoleSitting_UsePackin ("Computer"); its menu is the clone above.
+name = "terminal"
+form = "Starfield.esm:00351B"
+edid = "KitKraftMiniSiteTerminal"
+fields = { FULL = "KitKraft Site Terminal", DNAM = "new:menu" }
+brief = "M5.D7"
+
+[[clone]]
+# SC_LD_CratesMedium02: a pack-in of crates (its content cell stays the vanilla one).
+name = "packin"
+form = "Starfield.esm:0121EC"
+edid = "KitKraftMiniSitePackIn"
+brief = "M5.D7"
+
+[[clone]]
+# ActivatorSwitch01 ("Switch"), with the scripts recipe's script on the base form.
+name = "switch"
+form = "Starfield.esm:03CCF4"
+edid = "KitKraftMiniSiteSwitch"
+fields = { FULL = "KitKraft Site Switch" }
+brief = "M5.D7"
+scripts = [
+  { name = "KitKraft:HelloOnLoad", properties = { Text = "KitKraft: mini site switch loaded", Times = 1 } },
+]
+
+[[new]]
+# The site's faction; the location names it as its unreported-crime faction.
+name = "faction"
+type = "FACT"
+edid = "KitKraftMiniSiteFaction"
+fields = { FULL = "KitKraft Mini Site Crew" }
+brief = "M5.D7"
+
+[[new]]
+# The site's location: parent CityNewAtlantisLocation, keywords LocTypeOutpost and the
+# site keyword, unreported-crime faction the new faction.
+# KWDA is an array, so a field value takes it only as hex (edit/fields.rs; a `new:` name
+# cannot go inside it): LocTypeOutpost Starfield.esm:0234F1 (F1340200, master index 00)
+# and the keyword clone, 01001000 (00100001). The corpus test checks both slots.
+name = "location"
+type = "LCTN"
+edid = "KitKraftMiniSiteLocation"
+fields = { FULL = "KitKraft Mini Site", PNAM = "Starfield.esm:01295A", KSIZ = 2, KWDA = "hex:F134020000100001", FNAM = "new:faction" }
+brief = "M5.D7"
+
+# CityNewAtlantisApartmentTEMPLATE ("Player House Apartment"), the first POI's cell, on
+# the floor (z 4.63) west of the first POI's crate at (-17, -4).
+[[place]]
+name = "switch_ref"
+base = "new:switch"
+cell = "Starfield.esm:21966F"
+position = [-19.0, -4.0, 4.63]
+persistent = true
+edid = "KitKraftMiniSiteSwitchRef"
+brief = "M5.D7"
+
+[[place]]
+name = "terminal_ref"
+base = "new:terminal"
+cell = "Starfield.esm:21966F"
+position = [-21.0, -4.0, 4.63]
+persistent = true
+edid = "KitKraftMiniSiteTerminalRef"
+brief = "M5.D7"
+
+[[place]]
+name = "packin_ref"
+base = "new:packin"
+cell = "Starfield.esm:21966F"
+position = [-23.0, -4.0, 4.63]
+persistent = true
+edid = "KitKraftMiniSitePackInRef"
+brief = "M5.D7"

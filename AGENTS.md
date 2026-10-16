@@ -23,7 +23,9 @@ official ESM and write it back byte-identical.
    owns it).
 2. Read `docs/architecture.md` if you will touch more than one crate.
 3. Check `docs/gaps.md` before claiming something works.
-4. Pick up the first unblocked task you own. Don't stop to ask unless the decision is listed
+4. Asked for a mod ("I want a mod that does X")? Follow `docs/playbooks/mod-from-brief.md`:
+   brief, spec kind, `kit mod run <spec>`, the report, the fix loop.
+5. Pick up the first unblocked task you own. Don't stop to ask unless the decision is listed
    as the owner's (see "Owner decisions" below). Otherwise decide, record why in the commit
    message or an ADR, and keep going.
 
@@ -43,12 +45,11 @@ marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from 
 | L0    | `crates/strings` | `kitkraft-strings` | `.STRINGS` / `.DLSTRINGS` / `.ILSTRINGS`                           |
 | L0    | `crates/nif`     | `kitkraft-nif`     | Read-only mesh/material metadata, no renderer                      |
 | L1    | `crates/doc`     | `kitkraft-doc`     | Load order, FormID resolution across masters, overrides, conflicts |
-| L2    | `crates/render`  | `kitkraft-render`  | Viewport (later, not created yet)                                  |
 | L3    | `crates/io`      | `kitkraft-io`      | MO2 profile reader, `plugins.txt`, Creations manifests             |
 | L3    | `crates/game`    | `kitkraft-game`    | Game sessions on the dev profile (ADR 0010): preflight, loopback console, probes, backups, ledger; depends on no workspace crate |
 | L4    | `crates/engine`  | `kitkraft-engine`  | `CommandSpec` catalog, sessions, undo, validation rules            |
 | L5    | `crates/mcp`     | `kitkraft-mcp`     | MCP server: `server.rs`, `tools.rs`, `backend.rs`                  |
-| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | Workbench (ADR 0007 Am. 1 to 3): reads, plus the confirmed writes of Amendment 3; swappable; engine only |
+| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | Workbench (ADR 0007 Am. 1 to 3): reads, plus the confirmed writes of Amendment 3; swappable; engine only; the 3D viewport (`src/viewport/`, ADR 0002 Am. 1, which retired the L2 `render` slot) |
 | APP   | `apps/kit-cli`   | `kit-cli`          | `kit` binary, one `main.rs`                                        |
 | APP   | `apps/kit`       | `kit`              | `kit-ui` binary: the workbench window (`kit ui` starts it)         |
 | TOOL  | `xtask`          | `xtask`            | `cargo xtask ci`, `cargo xtask layers`                             |
@@ -165,7 +166,9 @@ catalog command (read-only), and what it detects is every command's default
 Plugins come from the internet. Treat every input byte as hostile.
 
 - No `unwrap`, `expect`, `panic!`, `unreachable!`, `todo!`, `unimplemented!`, or `unsafe`
-  outside tests. `[workspace.lints]` denies them; `unsafe_code` is forbidden outright.
+  outside tests. `[workspace.lints]` denies them. `unsafe` has one exception, the GL calls
+  of the workbench viewport (`crates/ui-egui/src/viewport/gl.rs`, ADR 0013): `cargo xtask
+  layers` fails on `unsafe` in any file not in `UNSAFE_ALLOWED` (`xtask/src/smuggle.rs`).
 - No slice indexing (`buf[i]`, `buf[a..b]`): use `get()` / `get(a..b)` and return an error.
 - Checked arithmetic on every size and offset from input (`checked_add`, `checked_mul`,
   `usize::try_from`). Cap allocations by the bytes actually remaining before allocating.

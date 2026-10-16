@@ -23,6 +23,7 @@ use crate::panels::links::{LinksForm, LinksTab};
 use crate::panels::load::{list_profiles, LoadForm, LoadTab, LoadView};
 use crate::panels::planet::PlanetTab;
 use crate::panels::records::{coverage_request, inspect_request, schema_request, RecordsTab};
+use crate::panels::render::RenderTab;
 use crate::panels::schema::SchemaTab;
 use crate::panels::start::{instance_of_profile, profiles_request, StartProfile, StartTab};
 use crate::panels::validate::ValidateTab;
@@ -52,6 +53,7 @@ enum Tab {
     // Lane G (M6.G2, M6.G7).
     Cockpit,
     Coverage,
+    Render,
 }
 
 const TABS: &[(Tab, &str)] = &[
@@ -68,6 +70,7 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Help, "Help"),
     (Tab::Cockpit, "Cockpit"),
     (Tab::Coverage, "Coverage"),
+    (Tab::Render, "Render Window"),
 ];
 
 impl Tab {
@@ -272,6 +275,7 @@ struct App {
     help: HelpTab,
     cockpit: CockpitTab,
     coverage: CoverageTab,
+    render: RenderTab,
 }
 
 /// Opens the window and blocks until it closes.
@@ -305,6 +309,8 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
     }
     let native = eframe::NativeOptions {
         viewport,
+        // A depth buffer for the Render Window's viewport (M7.R1); egui draws without one.
+        depth_buffer: 24,
         ..Default::default()
     };
     eframe::run_native(
@@ -464,6 +470,7 @@ impl App {
                 bench: perf::bench_requested().then_some(Bench::WaitLoad),
                 ..PerfState::default()
             },
+            render: RenderTab::default(),
         };
         let mut shots_refused = None;
         if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
@@ -1017,6 +1024,11 @@ impl eframe::App for App {
                     self.records.ui(ui, &mut ctx);
                     return;
                 }
+                if tab == Tab::Render {
+                    // The viewport fills the tab and takes the wheel: no scroll area.
+                    self.render.ui(ui, &mut ctx);
+                    return;
+                }
                 ScrollArea::vertical()
                     .id_salt(("tab-scroll", tab))
                     // The tour shoots each tab in one step (an animated scroll restarted
@@ -1051,6 +1063,7 @@ impl eframe::App for App {
                             let checkout = self.help.checkout.as_ref().map(|(p, _)| p.as_path());
                             self.coverage.ui(ui, &mut ctx, checkout);
                         }
+                        Tab::Render => {}
                     });
             });
         note_perf_target(ui.ctx(), PERF_TARGET_CENTRAL, central_out.response.rect);

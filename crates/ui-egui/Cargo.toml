@@ -17,6 +17,8 @@ thiserror.workspace = true
 eframe.workspace = true
 # PNG for the screenshot tour; already built for eframe (no new package).
 image.workspace = true
+# Camera and transform math of the 3D viewport (`src/viewport/`, M7.R1).
+glam.workspace = true
 
 [features]
 # Compile egui's bundled fonts in (OFL-1.1 and Ubuntu Font Licence: an owner decision

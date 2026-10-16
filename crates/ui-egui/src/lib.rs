@@ -21,6 +21,8 @@
 //! - [`perf`]: the `KITKRAFT_WORKBENCH_PERF=1` trace (stderr `perf:` lines) and the
 //!   window bench of `docs/design/workbench-performance.md` (M6.P1).
 //! - [`run`]: opens the window (eframe, OpenGL backend).
+//! - [`viewport`]: the 3D viewport of the Render Window tab (M7 lane R), drawn with GL
+//!   through an egui paint callback.
 //!
 //! The crate depends on `kitkraft-engine` alone among workspace crates (xtask
 //! `INTERNAL_ONLY`), so the UI toolkit can be swapped without touching anything below.
@@ -38,6 +40,7 @@ pub mod prefs;
 mod prepare;
 pub mod shots;
 pub mod theme;
+pub mod viewport;
 pub mod worker;
 
 /// What the launcher (`kit-ui`, `kit ui`) passes in: the same load-order arguments as

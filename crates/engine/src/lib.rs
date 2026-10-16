@@ -556,6 +556,18 @@ static CATALOG: &[CommandSpec] = &[
         writes: false,
         status: Status::Implemented,
     },
+    // Lane T round 2 (M4.T10): a brief's spec to one report (docs/playbooks/mod-from-brief.md).
+    CommandSpec {
+        id: "mod.run",
+        label: "Run Mod From Spec...",
+        menu_path: "Tools/Run Mod From Spec...",
+        shortcut: None,
+        aliases: &[],
+        summary: "End to end from a spec (M4.T10): build -> validate -> roundtrip --verify -> package -> deploy --dev -> testplan -> game.session, each the catalog command itself; stops at the first failing stage; writes out/<name>/report.md (every stage's envelope summary, the ledger entry, pass/fail/not-run/inconclusive per probe), report.json and stages/<nn>-<stage>.json; a session refused by preflight leaves every probe not-run and the result partial",
+        args_schema: r#"{"type":"object","properties":{"spec":{"type":"string","description":"The build spec (TOML: an overhaul.toml, a docs/recipes/*.toml, a [[place]] or [[set]] spec)"},"name":{"type":"string","description":"The run's name: its folder out/<name>/ (default: the spec's file stem); ASCII letters, digits, . - _"},"plugin":{"type":"string","description":"The plugin file name to build (default <name>.esm); .esm or .esp"},"out":{"type":"string","description":"The folder holding <name>/ (default out under the working directory; never the game or user Data dir or MO2). A <name>/ folder is reused only when an earlier mod run wrote it"},"mo2":{"type":"string","description":"The MO2 instance root for deploy --dev and game.session (required from the deploy stage on; never guessed)"},"dev_profile":{"type":"string","description":"The MO2 dev profile deploy checks and the session runs on (default KitKraft Dev; Default is refused by both)"},"profile":{"type":"string","description":"MO2 profile for the load order (read only; default: the spec's [load_order])"},"plugins":{"type":"array","items":{"type":"string"},"description":"Plugin files of the load order (default: the spec's [load_order])"},"data_dir":{"type":"string","description":"Game Data dir (default: the spec's, else KITKRAFT_DATA_DIR)"},"no_cache":{"type":"boolean","description":"Index plugins from their files, not the index cache"},"language":{"type":"string","description":"String-table language for build, default en"},"loose":{"type":"string","description":"Passed to package: a folder laid out as Data"},"scripts":{"type":"array","items":{"type":"string"},"description":"Passed to package: .pex files or folders of them"},"ba2":{"type":"boolean","description":"Passed to package: pack loose files and scripts into archives"},"game":{"type":"string","description":"Passed to game.session: the game profile (default starfield)"},"base_save":{"type":"string","description":"Passed to game.session (default KitKraftBase)"},"base_save_sha256":{"type":"string","description":"Passed to game.session: the base save's SHA-256 recorded at M4.O7"},"observe":{"type":"string","description":"Passed to game.session: the observe folder"},"ledger":{"type":"string","description":"Passed to game.session: <checkout>/docs/game-observations.md"},"until":{"type":"string","enum":["build","validate","roundtrip","package","deploy","testplan","session"],"default":"session","description":"Stop after this stage (the later ones are not-run)"},"dry_run":{"type":"boolean","default":false,"description":"Run build --plan only and list every stage's arguments; write nothing"}},"required":["spec"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
 ];
 
 #[cfg(test)]
@@ -661,6 +673,8 @@ mod tests {
             "game.session",
             "game.probe",
             "game.stop",
+            // Lane T round 2 (M4.T10).
+            "mod.run",
         ]
         .into_iter()
         .collect();
