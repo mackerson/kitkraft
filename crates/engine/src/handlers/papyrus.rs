@@ -159,7 +159,13 @@ fn value_json(pex: &Pex, v: &Value) -> Json {
         Value::Float(f) => json!(f),
         Value::Bool(b) => json!(*b != 0),
     };
-    json!({"type": kind, "value": value, "text": format_value(pex, v)})
+    let mut out = json!({"type": kind, "value": value, "text": format_value(pex, v)});
+    // A float's exact bits: JSON numbers equate -0.0 with 0.0 and turn every NaN into
+    // null, so comparisons (the papyrus oracle) need the stored pattern.
+    if let (Value::Float(f), Some(map)) = (v, out.as_object_mut()) {
+        map.insert("bits".into(), json!(format!("0x{:08X}", f.to_bits())));
+    }
+    out
 }
 
 fn function_json(pex: &Pex, name: &str, f: &Function) -> Json {
@@ -415,6 +421,22 @@ pub(super) mod tests {
         let err = execute("papyrus.disasm", json!({"pex": pex.to_str().unwrap()})).unwrap_err();
         assert!(err.to_string().contains("offset"), "{err}");
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A float value carries its stored bits (-0.0, NaN payloads), which JSON numbers lose
+    /// (Fable review of lane B, finding 5: the oracle compares by them).
+    #[test]
+    fn float_values_carry_their_bits() {
+        use kitkraft_pex::{Pex, Value};
+        let pex = Pex::parse(&tiny_pex()).unwrap();
+        let neg = super::value_json(&pex, &Value::Float(-0.0));
+        assert_eq!(neg["bits"], "0x80000000");
+        let nan = super::value_json(&pex, &Value::Float(f32::from_bits(0x7FC0_0001)));
+        assert_eq!(nan["bits"], "0x7FC00001");
+        assert!(nan["value"].is_null());
+        assert!(super::value_json(&pex, &Value::Int(1))
+            .get("bits")
+            .is_none());
     }
 
     /// Regression (review round 2): a script whose record declares 512 MiB (a zlib bomb

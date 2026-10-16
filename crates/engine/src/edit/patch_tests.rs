@@ -52,9 +52,17 @@ pub(crate) fn weapon(form_id: u32, edid: &str, full: u32) -> Record<'static> {
             sub(b"DESC", &[0, 0, 0, 0]),
             sub(b"OBTE", &[1, 0, 0, 0]),
             sub(b"FULL", &0x0002_EDD8u32.to_le_bytes()),
-            sub(b"OBTS", &[9; 22]),
+            // 22 bytes that decode as the schema's OBTS (no includes or properties, one
+            // keyword, FormID 0) and a 62-byte WDMG: `validate`'s `layout.undecoded`
+            // rejects payloads that do not decode under their layout.
+            sub(
+                b"OBTS",
+                &[
+                    0, 0, 0, 0, 0, 0, 0, 0, 9, 9, 9, 9, 9, 9, 9, 1, 0, 0, 0, 0, 9, 9,
+                ],
+            ),
             sub(b"STOP", &[]),
-            sub(b"WDMG", &[1, 2, 3, 4, 5]),
+            sub(b"WDMG", &[0; 62]),
         ]),
     )
 }

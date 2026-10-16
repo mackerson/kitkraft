@@ -103,7 +103,7 @@ fn a_clean_patch_passes_every_rule() {
     let data = &result["data"];
     assert_eq!(data["passed"], json!(true), "{data:#}");
     assert_eq!(found(data), Vec::<(String, String)>::new());
-    assert_eq!(data["rules"].as_array().unwrap().len(), 16);
+    assert_eq!(data["rules"].as_array().unwrap().len(), 17);
     assert_eq!(data["masters"][0]["localized"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -169,7 +169,13 @@ fn formid_dangling() {
     );
     assert_eq!(data["passed"], json!(false));
     assert!(data["checked_form_ids"].as_u64().unwrap() >= 3);
-    let good = patch(&d, "Good.esp", &["Master.esm"], vec![keywords(0x0000_0900)]);
+    // A subrecord the schema does not type: its FormIDs (if any) go unchecked, counted.
+    let mut untyped = keywords(0x0000_0900);
+    untyped
+        .subrecords_mut()
+        .unwrap()
+        .push(sub(b"ZZZZ", &[1, 2, 3, 4]));
+    let good = patch(&d, "Good.esp", &["Master.esm"], vec![untyped]);
     let data = check(&good, &["formid.dangling"]);
     assert_eq!(found(&data), []);
     assert!(data["unchecked_subrecords"].as_u64().unwrap() > 0);

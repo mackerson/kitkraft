@@ -65,6 +65,11 @@ pub enum Input {
 pub const NAMES_STRIPPED_IN_CORPUS: [[u8; 4]; 5] =
     [*b"CELL", *b"LCTN", *b"NPC_", *b"QUST", *b"WRLD"];
 
+/// (record, subrecord) pairs whose official instances include payloads that do not decode
+/// under the schema layout: `layout.undecoded` is a warning for them, an error elsewhere
+/// (`validate_corpus_official_files` pins the count).
+pub const UNDECODED_IN_CORPUS: &[([u8; 4], [u8; 4])] = &[];
+
 /// One rule in the registry.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct RuleInfo {
@@ -163,6 +168,12 @@ pub const RULES: &[RuleInfo] = &[
         severity: Severity::Error,
         input: Input::Plugin,
         summary: "A compressed body that does not decompress, lstring payloads that do not fit the localized flag, a HEDR count that fits neither corpus meaning (warning)",
+    },
+    RuleInfo {
+        id: "layout.undecoded",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A subrecord the schema has a layout for (placed by its position) whose payload does not decode under it: an array whose length is not a multiple of its element size, a count that disagrees with its array, a payload too short or too long",
     },
     RuleInfo {
         id: "papyrus.missing-script",
@@ -834,6 +845,7 @@ fn check_record(
     let layouts = if pass.on("formid.dangling")
         || pass.on("record.flags-body")
         || pass.on("lstring.copied-id")
+        || pass.on("layout.undecoded")
     {
         let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
         pass.layouts(sig, &sigs)
@@ -912,6 +924,46 @@ fn check_record(
                 report.unchecked_subrecords = report
                     .unchecked_subrecords
                     .saturating_add(subs.len() as u64);
+            }
+        }
+    }
+
+    // layout.undecoded: a schema layout (not the lstring fallback, not opaque bytes) the
+    // payload does not decode under (Fable review of lane D, finding 1).
+    if pass.on("layout.undecoded") {
+        let dctx = kitkraft_doc::typed::Ctx {
+            form_version: r.header.form_version,
+            localized: pass.localized,
+            edid_first: subs
+                .iter()
+                .find(|s| s.signature() == Signature(*b"EDID"))
+                .and_then(|s| s.data().first().copied()),
+        };
+        for (i, s) in subs.iter().enumerate() {
+            let Some(layout) = layouts.get(i).and_then(Option::as_ref) else {
+                continue;
+            };
+            if layout.fallback.is_some() || layout.ty.is_opaque() {
+                continue;
+            }
+            let sub_sig = s.signature().to_string();
+            if let Some(why) = fields::undecoded(&sub_sig, &layout.ty, s.data(), &dctx) {
+                let severity = if UNDECODED_IN_CORPUS.contains(&(sig, s.signature().0)) {
+                    Severity::Warning
+                } else {
+                    Severity::Error
+                };
+                push(
+                    findings,
+                    "layout.undecoded",
+                    severity,
+                    Some(sub_sig.clone()),
+                    sub_offset(s),
+                    format!(
+                        "{id} {sub_sig} ({} bytes) does not decode under its schema layout: {why}",
+                        s.data().len()
+                    ),
+                );
             }
         }
     }

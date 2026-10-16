@@ -686,8 +686,17 @@ error before anything is written. A bad pattern is `invalid_args` (`rule: "patte
   working directory. Arguments are only the object, `-f=`, `-i=`, `-o=`, `-ignorecwd`
   (so a `.psc` left in `out_dir`, the compiler's working directory, is never compiled
   instead: papyrus oracle P1, `docs/oracles.md`) and `-op`; release and final mode can
-  never be requested (any extra argument such as `release` is `invalid_args`). The flags file defaults to
-  `Starfield_Papyrus_Flags.flg` from the first import that has it. The base sources are
+  never be requested (any extra argument such as `release` is `invalid_args`). The flags file is, in order:
+  `flags`; the official `Starfield_Papyrus_Flags.flg` of `Tools\ContentResources.zip`
+  (`sources_zip`'s extraction, else the zip `kit doctor` detects next to the game Data
+  folder or in the Steam install, whose flags file alone is cached under
+  `papyrus-flags\<key>`); only then the first import that has one, so a stray flags file
+  beside the caller's scripts never replaces the official one. A limitation always names
+  the flags file used, where it came from and its SHA-256, and any different flags file
+  in an import that was not used. `out_dir` is refused under the game Data folder, the
+  user Data folder (`Documents\My Games\Starfield\Data`) and an MO2 instance or profile
+  (the output guard `set`, `build` and `package` use; only `deploy --dev` writes into
+  MO2). The base sources are
   the `Scripts\Source` folder of `Tools\ContentResources.zip`: with `sources_zip` (M3.G1)
   its `.psc` and `.flg` files are extracted once into the KitKraft cache
   (`KITKRAFT_CACHE_DIR`, else `%LOCALAPPDATA%\kitkraft\cache`, folder

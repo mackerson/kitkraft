@@ -615,3 +615,178 @@ fn fact_dangling_link_is_reported() {
         &["XNAM", "PackageLocation.Value", "Parameter1", "VEND"],
     );
 }
+
+/// The whole-array payloads the hex tests write: (record, subrecord, bytes, what the
+/// refusal and the finding must say). ACPR and LCPR entries are 16 bytes (Ref,
+/// WorldOrCell, two i16 grid values, 4 bytes), PRIS entries 20 (five REFR FormIDs), and
+/// PKIN's MOLM is a u16 count of 4-byte FormIDs (Fable review of lane D, finding 1).
+fn bad_arrays() -> Vec<(&'static str, &'static str, Vec<u8>, Vec<&'static str>)> {
+    let mut molm = 2u16.to_le_bytes().to_vec();
+    molm.extend_from_slice(&FORM.to_le_bytes());
+    vec![
+        (
+            "LCTN",
+            "ACPR",
+            vec![1; 13],
+            vec!["16-byte elements", "13 bytes"],
+        ),
+        (
+            "LCTN",
+            "LCPR",
+            vec![1; 17],
+            vec!["16-byte elements", "17 bytes"],
+        ),
+        (
+            "FACT",
+            "PRIS",
+            vec![1; 21],
+            vec!["20-byte elements", "21 bytes"],
+        ),
+        (
+            "PKIN",
+            "MOLM",
+            molm,
+            vec!["4-byte elements", "count from `Count`"],
+        ),
+    ]
+}
+
+fn sig4(text: &str) -> kitkraft_esm::Signature {
+    kitkraft_esm::Signature(<[u8; 4]>::try_from(text.as_bytes()).unwrap())
+}
+
+/// `new` and `set` refuse a whole array subrecord given as `hex:` whose length is not a
+/// multiple of its element size, or whose count field disagrees with it, naming the
+/// element size; a whole number of elements is written and validates.
+#[test]
+fn hex_arrays_must_fit_their_element_size() {
+    for (sig, sub, bytes, want) in bad_arrays() {
+        let d = dir(&format!(
+            "authoring-hex-{}-{}",
+            sig.to_lowercase(),
+            sub.to_lowercase()
+        ));
+        let data = data(&d);
+        let into = d.join("New.esp");
+        let new = |payload: &[u8]| {
+            execute(
+                "new",
+                json!({
+                    "type": sig, "edid": "KC_HexArray", "fields": {sub: hex(payload)},
+                    "masters": ["Source.esm"], "into": into.display().to_string(),
+                    "plugins": ["Source.esm"], "data_dir": data.display().to_string(),
+                    "no_cache": true,
+                }),
+            )
+        };
+        let err = new(&bytes).unwrap_err().to_string();
+        for w in &want {
+            assert!(err.contains(w), "{sig} {sub}: `{w}` not in {err}");
+        }
+        assert!(!into.exists(), "{sig} {sub}: written despite the refusal");
+
+        // Whole elements (and, for MOLM, a count that agrees) are written.
+        let good: Vec<u8> = if sub == "MOLM" {
+            let mut b = 1u16.to_le_bytes().to_vec();
+            b.extend_from_slice(&FORM.to_le_bytes());
+            b
+        } else {
+            let size = if sub == "PRIS" { 20 } else { 16 };
+            let mut b = vec![0u8; size * 2];
+            b[..4].copy_from_slice(&FORM.to_le_bytes());
+            b
+        };
+        let r = new(&good).unwrap_or_else(|e| panic!("{sig} {sub}: {e}"));
+        assert_eq!(
+            r["data"]["validate"]["passed"],
+            json!(true),
+            "{sig} {sub}: {:#}",
+            r["data"]["validate"]
+        );
+
+        // `set` on the written record refuses the same payload.
+        let patch = d.join("Patch.esp");
+        let err = execute(
+            "set",
+            json!({
+                "form": "KC_HexArray", "fields": {sub: hex(&bytes)},
+                "into": patch.display().to_string(),
+                "plugins": ["Source.esm", into.display().to_string()],
+                "data_dir": data.display().to_string(), "no_cache": true,
+            }),
+        )
+        .unwrap_err()
+        .to_string();
+        for w in &want {
+            assert!(err.contains(w), "set {sig} {sub}: `{w}` not in {err}");
+        }
+        assert!(!patch.exists());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+}
+
+/// `validate`'s `layout.undecoded`: a subrecord the schema places whose payload does not
+/// decode under its layout is an error naming the record, signature, length and element
+/// size, not only a limitation; a well-formed payload is no finding.
+#[test]
+fn undecodable_arrays_are_validate_errors() {
+    use kitkraft_esm::{Body, RecordHeader, Subrecord};
+    let d = dir("authoring-layout-undecoded");
+    let data = data(&d);
+    let record = |sig: &str, id: u32, sub: &str, bytes: Vec<u8>| {
+        Record::new(
+            RecordHeader {
+                signature: sig4(sig),
+                form_id: id,
+                form_version: FORM_VERSION,
+                ..RecordHeader::default()
+            },
+            Body::Raw(vec![
+                Subrecord::new(sig4("EDID"), format!("KC_Bad{id:X}\0").into_bytes()),
+                Subrecord::new(sig4(sub), bytes),
+            ]),
+        )
+    };
+    let mut records: Vec<Record<'static>> = Vec::new();
+    let mut id = 0x0100_0900u32;
+    for (sig, sub, bytes, _) in bad_arrays() {
+        records.push(record(sig, id, sub, bytes));
+        id += 1;
+    }
+    // A whole element: no finding.
+    records.push(record("LCTN", id, "ACPR", vec![0; 16]));
+    let plugin = crate::edit::patch_tests::write_plugin(&d, "New.esp", &["Source.esm"], 0, records);
+    let v = execute(
+        "validate",
+        json!({"plugin": plugin.display().to_string(), "data_dir": data.display().to_string(),
+               "rules": ["layout.undecoded"]}),
+    )
+    .unwrap()["data"]
+        .clone();
+    let findings: Vec<&Value> = v["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|f| f["rule"] == "layout.undecoded")
+        .collect();
+    assert_eq!(findings.len(), 4, "{findings:#?}");
+    assert_eq!(v["passed"], json!(false));
+    for (sig, sub, bytes, want) in bad_arrays() {
+        let f = findings
+            .iter()
+            .find(|f| f["subrecord"] == sub)
+            .unwrap_or_else(|| panic!("no finding for {sub}: {findings:#?}"));
+        assert_eq!(f["severity"], "error");
+        assert!(f["record"].as_str().unwrap().starts_with(sig), "{f}");
+        assert_eq!(f["subrecord"], sub);
+        let message = f["message"].as_str().unwrap();
+        assert!(
+            message.contains(&format!("({} bytes)", bytes.len())),
+            "{message}"
+        );
+        for w in want {
+            assert!(message.contains(w), "{sig} {sub}: `{w}` not in {message}");
+        }
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}

@@ -5,7 +5,8 @@
 //! `-o=`, `-ignorecwd` and optionally `-op`. It has no way to ask for release or final mode
 //! (`-release`, `-r`, `-final`), checks its own output for them, and the catalog schema
 //! rejects any extra argument. Project files (`.ppj`) are refused because they can turn
-//! release mode on themselves. Output is never written under the game Data directory, and
+//! release mode on themselves. Output is never written under the game or user Data
+//! directory or an MO2 instance (the shared output guard, `edit::patch::guard_location`), and
 //! the produced `.pex` is parsed and disassembled with `kitkraft-pex` as a check.
 //!
 //! Paths follow the official compiler's command line (papyrus oracle, `docs/oracles.md`):
@@ -306,7 +307,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
             ));
         }
     }
-    let flags = match args.get("flags").and_then(Value::as_str) {
+    let explicit_flags = match args.get("flags").and_then(Value::as_str) {
         Some(f) => {
             let p = absolute(Path::new(f)).map_err(|e| failed(ID, e))?;
             if !p.is_file() {
@@ -314,13 +315,17 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
             }
             Some(p)
         }
-        None => imports
-            .iter()
-            .map(|d| d.join(FLAGS_FILE))
-            .find(|p| p.is_file()),
+        None => None,
     };
 
     refuse_game_data(ID, &out_dir)?;
+    // Nothing writes under an MO2 instance or profile but `deploy --dev` (AGENTS.md): the
+    // shared output guard every writing command uses (Fable review of lane B, finding 3).
+    let pex_target = object
+        .split(':')
+        .fold(out_dir.clone(), |p, part| p.join(part))
+        .with_extension("pex");
+    crate::edit::patch::guard_location(&pex_target).map_err(|e| failed(ID, e.to_string()))?;
     fs::create_dir_all(&out_dir)
         .map_err(|e| failed(ID, format!("creating `{}`: {e}", out_dir.display())))?;
     let out_dir = strip_verbatim(&fs::canonicalize(&out_dir).unwrap_or(out_dir));
@@ -338,6 +343,11 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
         )
     })?;
     let compiler = absolute(compiler).map_err(|e| failed(ID, e))?;
+    let (flags, flags_note) = choose_flags(
+        explicit_flags,
+        zip.as_ref().map(|(_, x)| x.dir.as_path()),
+        &imports,
+    );
 
     let request = Request {
         object,
@@ -356,12 +366,7 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
         .split(':')
         .fold(out_dir.clone(), |p, part| p.join(part))
         .with_extension("pex");
-    let mut limitations = Vec::new();
-    if request.flags.is_none() {
-        limitations.push(format!(
-            "no flags file: none given and {FLAGS_FILE} is not in any import directory"
-        ));
-    }
+    let mut limitations = flags_note;
     let mut evidence = Vec::new();
     let sources_zip = match &zip {
         Some((zip_path, x)) => {
@@ -455,6 +460,90 @@ pub(crate) fn run(args: &Value) -> Result<Outcome, EngineError> {
     })
 }
 
+/// `Tools\ContentResources.zip` as `kit doctor` finds it: next to the game Data folder
+/// (`KITKRAFT_DATA_DIR`, else detected), else in the Steam install.
+fn detected_sources_zip() -> Option<PathBuf> {
+    let mut candidates = Vec::new();
+    if let Some(data) = crate::handlers::default_data_dir() {
+        if let Some(game) = Path::new(&data).parent() {
+            candidates.push(game.join("Tools").join("ContentResources.zip"));
+        }
+    }
+    candidates.push(
+        PathBuf::from(STEAM_GAME)
+            .join("Tools")
+            .join("ContentResources.zip"),
+    );
+    candidates.into_iter().find(|p| p.is_file())
+}
+
+/// The flags file to compile with, and the limitation lines that name it (path, where it
+/// came from, SHA-256). Order: the `flags` argument; the official one of
+/// `Tools\ContentResources.zip` (`sources_zip`'s extraction, else the zip `kit doctor`
+/// detects, its flags file alone cached); only then the first import directory that holds
+/// one. A flags file beside a user's scripts never replaces the official one silently
+/// (Fable review of lane B, finding 2).
+fn choose_flags(
+    explicit: Option<PathBuf>,
+    extracted: Option<&Path>,
+    imports: &[PathBuf],
+) -> (Option<PathBuf>, Vec<String>) {
+    let in_imports: Vec<PathBuf> = imports
+        .iter()
+        .map(|d| d.join(FLAGS_FILE))
+        .filter(|p| p.is_file())
+        .collect();
+    let official = || -> Option<(PathBuf, String)> {
+        if let Some(dir) = extracted {
+            let p = dir.join(FLAGS_FILE);
+            return p
+                .is_file()
+                .then(|| (p, "the sources_zip extraction".to_string()));
+        }
+        let zip = detected_sources_zip()?;
+        let cache = super::sources::default_cache_root();
+        let p = super::sources::cached_file(&zip, &cache, FLAGS_FILE).ok()??;
+        Some((p, format!("`{}` (detected; cached)", zip.display())))
+    };
+    let chosen = match explicit {
+        Some(p) => Some((p, "the `flags` argument".to_string())),
+        None => official().or_else(|| {
+            in_imports.first().map(|p| {
+                (
+                    p.clone(),
+                    "the first import directory that holds one (no official \
+                     Tools\\ContentResources.zip was found)"
+                        .to_string(),
+                )
+            })
+        }),
+    };
+    let mut notes = Vec::new();
+    let Some((path, origin)) = chosen else {
+        notes.push(format!(
+            "no flags file: none given, no Tools\\ContentResources.zip found, and {FLAGS_FILE} is not in any import directory"
+        ));
+        return (None, notes);
+    };
+    let sha =
+        crate::deploy::sha256::file(&path).map_or_else(|e| format!("unreadable ({e})"), |(_, h)| h);
+    notes.push(format!(
+        "flags file: `{}` from {origin}, SHA-256 {sha}",
+        path.display()
+    ));
+    for other in in_imports.iter().filter(|p| **p != path) {
+        let other_sha = crate::deploy::sha256::file(other)
+            .map_or_else(|e| format!("unreadable ({e})"), |(_, h)| h);
+        if other_sha != sha {
+            notes.push(format!(
+                "a different {FLAGS_FILE} in an import directory was not used: `{}`, SHA-256 {other_sha}",
+                other.display()
+            ));
+        }
+    }
+    (Some(path), notes)
+}
+
 /// Runs the compiler with no stdin, collecting its output; kills it after [`TIMEOUT`].
 fn run_compiler(
     compiler: &Path,
@@ -524,7 +613,7 @@ fn strip_verbatim(path: &Path) -> PathBuf {
 #[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
-    use super::{compiler_args, refuse_release, Request};
+    use super::{compiler_args, refuse_release, Request, FLAGS_FILE};
     use crate::execute;
     use serde_json::json;
     use std::fs;
@@ -724,6 +813,69 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
+    /// A flags file beside a user's scripts (an import directory; the `.psc`'s namespace
+    /// root is imported first) never replaces the official one: the `ContentResources`
+    /// extraction's wins, and the limitations name the file used and the decoy, each with
+    /// its SHA-256 (Fable review of lane B, finding 2). The `flags` argument still wins.
+    #[test]
+    fn official_flags_win_over_a_decoy_in_an_import() {
+        use crate::deploy::sha256;
+        let dir = std::env::temp_dir().join(format!("kitkraft-flags-decoy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let official = dir.join("extracted");
+        let user = dir.join("user");
+        fs::create_dir_all(&official).unwrap();
+        fs::create_dir_all(&user).unwrap();
+        fs::write(official.join(FLAGS_FILE), b"official flags").unwrap();
+        fs::write(user.join(FLAGS_FILE), b"decoy flags").unwrap();
+        let imports = [user.clone(), official.clone()];
+
+        let (flags, notes) = super::choose_flags(None, Some(&official), &imports);
+        assert_eq!(flags, Some(official.join(FLAGS_FILE)));
+        assert!(
+            notes[0].starts_with("flags file:")
+                && notes[0].contains("sources_zip")
+                && notes[0].contains(&sha256::hex(b"official flags")),
+            "{notes:?}"
+        );
+        assert!(
+            notes.iter().any(|n| n.contains("was not used")
+                && n.contains(&user.join(FLAGS_FILE).display().to_string())
+                && n.contains(&sha256::hex(b"decoy flags"))),
+            "{notes:?}"
+        );
+
+        let (flags, notes) =
+            super::choose_flags(Some(user.join(FLAGS_FILE)), Some(&official), &imports);
+        assert_eq!(flags, Some(user.join(FLAGS_FILE)));
+        assert!(notes[0].contains("`flags` argument"), "{notes:?}");
+        assert!(notes[0].contains(&sha256::hex(b"decoy flags")), "{notes:?}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// `out_dir` under an MO2 instance is refused before anything is created, by the
+    /// output guard every writing command uses (AGENTS.md: nothing writes under MO2 but
+    /// `deploy --dev`; Fable review of lane B, finding 3).
+    #[test]
+    fn out_dir_under_an_mo2_instance_is_refused() {
+        let dir = std::env::temp_dir().join(format!("kitkraft-compile-mo2-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let mo2 = dir.join("MO2-Starfield");
+        fs::create_dir_all(&mo2).unwrap();
+        fs::write(mo2.join("ModOrganizer.ini"), "[General]\n").unwrap();
+        let out = mo2.join("mods").join("Mine").join("Scripts");
+        let err = execute(
+            "papyrus.compile",
+            json!({"source": "KitKraft:S", "out_dir": out.to_str().unwrap(),
+                   "compiler": dir.join("nope.exe").to_str().unwrap()}),
+        )
+        .unwrap_err();
+        assert_eq!(err.kind(), "failed");
+        assert!(err.to_string().contains("Mod Organizer"), "{err}");
+        assert!(!mo2.join("mods").exists());
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
     /// With the compiler installed and `KITKRAFT_DATA_DIR` set, a base-game script compiles
     /// by name given only `Tools\ContentResources.zip` (M3.G1).
     #[test]
@@ -774,6 +926,9 @@ mod tests {
         fs::create_dir_all(out.join("KitKraft")).unwrap();
         let probe = "ScriptName KitKraft:Probe extends ScriptObject\nInt Property Real = 1 Auto\n";
         fs::write(src.join("Probe.psc"), probe).unwrap();
+        // A stray flags file in the namespace root (imported first) is not used.
+        let decoy = dir.join("src").join(FLAGS_FILE);
+        fs::write(&decoy, "this is not a flags file {\n").unwrap();
         fs::write(
             out.join("KitKraft").join("Probe.psc"),
             probe.replace("Real", "Decoy"),
@@ -790,6 +945,24 @@ mod tests {
         let text = r["data"]["pex"]["text"].as_str().unwrap();
         assert!(text.contains("PROP Int Real"), "{text}");
         assert!(!text.contains("Decoy"), "{text}");
+        let limits: Vec<&str> = r["limitations"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|l| l.as_str())
+            .collect();
+        assert!(
+            limits
+                .iter()
+                .any(|l| l.starts_with("flags file:") && l.contains("sources_zip")),
+            "{limits:?}"
+        );
+        assert!(
+            limits
+                .iter()
+                .any(|l| l.contains("was not used") && l.contains(&decoy.display().to_string())),
+            "{limits:?}"
+        );
         assert!(out.join("KitKraft").join("Probe.pex").is_file());
         fs::remove_dir_all(&dir).unwrap();
     }
