@@ -1562,8 +1562,9 @@ engine, not in `ui-egui`.
 ### Lane V: visual system
 
 **Started 2026-10-16** (owner, in chat: "Approve Amendment 3 and ADR 0012, start lane V
-mockups"). M6.V1 and M6.V2 are in progress. M6.V3 onward wait on M6.O1, the owner's
-choice between M6.V2's two mockups.
+mockups"). M6.V1 and M6.V2 landed; **M6.O1 was decided 2026-10-16: Workbench** (owner, in
+chat, verbatim: "Workbench, themes look great only keep the mocks if there's a good reason."). M6.V3 and the rest of M6.V1 (the `app.rs` split)
+landed in lane V round 2; M6.V4 onward are open.
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
@@ -1586,10 +1587,27 @@ and V2 differently from the rows above):
   through `theme::*` helpers, so that move does not touch the tokens.
 - **M6.V2 as delivered:** 2 presets x 3 screens (Start, Records with the inspector,
   Validate) x 2 modes, 12 PNGs committed under `docs/design/mockups/2026-10-16/` (3.6 MB,
-  the director asked for them in the repo) with a one-page comparison README; Diff and
+  the director asked for them in the repo; removed after M6.O1, in the history at
+  `48beef1`) with a one-page comparison README; Diff and
   Ledger were not captured. `kit ui --theme <preset>` and `ui.json` `theme` select a
   preset. The tour now writes PNG (`image`, already in the tree; ADR 0007 Amendment 3
   table).
+
+- **M6.V1 rest and M6.V3, lane V round 2 (2026-10-16, after M6.O1):** each tab's drawing
+  moved from `app.rs` (2,791 lines) into `crates/ui-egui/src/panels/<tab>.rs` behind one
+  `fn ui(&mut self, ui, ctx)` per tab (the view-models stay above a `// ---- drawing`
+  line in the same file; shared pieces in `panels/common.rs`); `app.rs` is the shell
+  (851 lines). `workbench` is the default preset (system light or dark; `--theme` and
+  `ui.json` override); the Start tab has a picker (preset; system, light or dark) that
+  writes `ui.json` (the row's "saved in `ui.json`"). New tokens: `control_border` and
+  `focus` (3:1 on every surface, tested), `status.unknown` (glyph: empty square),
+  `type_scale.subheading`, `spacing.block`, and `Sizes` (field widths, scroll views in
+  rows, Help cell widths, the Records split). Every panel takes colors, sizes and gaps
+  from `theme`; the scan test `no_color_size_or_spacing_literal_outside_the_theme` covers
+  every file under `src/` outside `theme/`. Layout: the session text moved from the top
+  bar to a status line at the bottom; Records is two panes (types and query left,
+  inspector right) with a draggable line whose share is kept in `ui.json`
+  (`records_split`). The tour runs at 1400 x 900.
 
 ### Lane P: performance
 
@@ -1646,7 +1664,7 @@ focused in M6.P7, `doctor` on `ALLOWLIST` in M6.G1), so nothing is re-homed. The
 
 | ID | Task | Gates |
 | -- | ---- | ----- |
-| M6.O1 | Choose the visual direction from M6.V2's two mockups (or a mix, named per token group) | M6.V3, so all of lane V after it |
+| M6.O1 | Choose the visual direction from M6.V2's two mockups (or a mix, named per token group). **Decided 2026-10-16: Workbench** (owner, in chat, verbatim: "Workbench, themes look great only keep the mocks if there's a good reason."); `workbench` is the default preset, `studio` stays selectable, `classic` is marked legacy; the mockups were removed (no good reason to keep them: `docs/design/workbench-visual-system.md`, "Chosen direction") | M6.V3, so all of lane V after it; now unblocked |
 | M6.O2 | Rule on fonts: keep the Windows system fonts (Segoe UI, Consolas; the default) or allow a compiled-in OFL font or an MIT/Apache icon font (each then listed in `ATTRIBUTION.md`). Row 7's BSL-1.0 ruling is still open beside it | M6.V4 icons (only if an icon font is wanted), M6.V3 type scale |
 | M6.O3 | Accept, amend or reject ADR 0007 Amendment 3 (the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`). **Decided 2026-10-16: approved** as written (owner, in chat: "Approve Amendment 3 and ADR 0012, start lane V mockups"); ADR 0007 Amendment 3, "Owner ruling 2026-10-16" | M6.G3 to M6.G6 (not M6.G1, which enables no write); now unblocked |
 | M6.O4 | Sign-off on the release build and `KitKraft Dev`: a walkthrough of the M6 exit criteria (`ROADMAP.md` "M6: Cockpit"), the S2 start check, and the V1 run from the window once M4.T3 exists (M6.G4). Optional, if the owner wants it: the same walkthrough at 125 and 150 percent Windows scaling (performance row U1) | M6 exit |
