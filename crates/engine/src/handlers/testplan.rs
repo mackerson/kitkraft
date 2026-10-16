@@ -2,7 +2,9 @@
 //! profile `KitKraft Dev` with a disposable save (AGENTS.md, "Owner's live game is off
 //! limits").
 //!
-//! It writes two files into `out` and nothing anywhere else:
+//! It writes three files into `out` and nothing anywhere else (the plan is run by the
+//! owner, or by `kit game session` on `KitKraft Dev` once ADR 0010's launch facts are
+//! observed):
 //!
 //! - `kitkraft-test.txt`, a console batch file: for each new placed reference, `coc` to its
 //!   interior cell (by the cell's EditorID), `player.moveto` and `prid` on the reference's
@@ -21,8 +23,14 @@
 //!   (leave, save, reload, return), what to record in the game ledger
 //!   (`docs/game-observations.md`, `game-<yyyymmdd>-<nn>`), and the removal rule for a plugin
 //!   that owns forms.
+//! - `probes.toml` (lane C, M4.T2; [`probes`]): one probe per checklist step, with the
+//!   step's number as its row (`T-<nn>`), each a console command or a short batch and a
+//!   matcher whose expected value comes from the plugin's own records, or
+//!   `matcher = "manual"` with the reason. `kit game session` runs it.
 //!
-//! Both are deterministic: no clock, sorted by FormID.
+//! All three are deterministic: no clock, sorted by FormID.
+
+mod probes;
 
 use std::fmt::Write as _;
 use std::fs::File;
@@ -74,6 +82,12 @@ struct Form {
     persistent: bool,
     offset: u64,
     length: u64,
+    /// The plugin's own `FULL` text, when stored inline (lane C, for `probes.toml`).
+    full: Option<String>,
+    /// For a reference: the base's EditorID.
+    base_edid: Option<String>,
+    /// For a reference: the record's initially-disabled flag (0x800).
+    disabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -191,7 +205,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let plugin = PathBuf::from(str_arg(ID, args, "plugin")?);
     let out = PathBuf::from(str_arg(ID, args, "out")?);
     let no_cache = args.get("no_cache").and_then(Value::as_bool) == Some(true);
-    for file in [BATCH, "checklist.md"] {
+    for file in [BATCH, "checklist.md", probes::FILE] {
         guard_location(&out.join(file)).map_err(|e| failed(ID, e.to_string()))?;
     }
     if !plugin.is_file() {
@@ -293,7 +307,20 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 .is_some_and(|g| g.header.group_type == group_type::CELL_PERSISTENT),
             offset: loc.offset,
             length: loc.len(),
+            full: None,
+            base_edid: None,
+            disabled: is_ref && loc.flags & probes::FLAG_INITIALLY_DISABLED != 0,
         };
+        if !is_ref && !tes4.is_localized() {
+            let record = read_indexed(&mut file, loc, Some(&limits))
+                .map_err(|e| failed(ID, format!("{name}: {e}")))?;
+            form.full = record
+                .subrecords()
+                .unwrap_or_default()
+                .iter()
+                .find(|s| s.signature() == Signature(*b"FULL"))
+                .and_then(|s| probes::inline_text(s.data()));
+        }
         if is_ref {
             let record = read_indexed(&mut file, loc, Some(&limits))
                 .map_err(|e| failed(ID, format!("{name}: {e}")))?;
@@ -306,6 +333,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                     .map(u32::from_le_bytes)
             };
             if let Some(base) = raw_of(b"NAME").and_then(|r| lo.resolve(at, r).ok()) {
+                form.base_edid = edid_of(&lo, base);
                 form.base = Some(match edid_of(&lo, base) {
                     Some(e) => format!(
                         "{e} ({}, {})",
@@ -430,6 +458,15 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .map_err(|e| failed(ID, format!("{}: {e}", batch_path.display())))?;
     std::fs::write(&checklist_path, checklist.as_bytes())
         .map_err(|e| failed(ID, format!("{}: {e}", checklist_path.display())))?;
+    // Lane C (M4.T2): the probes, one per checklist step.
+    let probe_file = probes::build(&name, &sha, &forms, &id_basis);
+    let probes_path = out.join(probes::FILE);
+    let probes_text = probe_file
+        .to_toml()
+        .map_err(|e| failed(ID, e.to_string()))?;
+    std::fs::write(&probes_path, probes_text.as_bytes())
+        .map_err(|e| failed(ID, format!("{}: {e}", probes_path.display())))?;
+    let manual = probe_file.probes.iter().filter(|p| p.is_manual()).count();
 
     let evidence: Vec<Evidence> = forms
         .iter()
@@ -469,6 +506,11 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             "load_index": at, "appended": appended, "runtime_id_basis": id_basis.short,
             "batch": batch_path.display().to_string(),
             "checklist": checklist_path.display().to_string(),
+            "probes": {
+                "path": probes_path.display().to_string(),
+                "rows": probe_file.probes.len(),
+                "manual": manual,
+            },
             "commands": commands, "forms": forms_json, "summary": summary,
         }),
         coverage: Coverage {
@@ -536,6 +578,11 @@ fn checklist(
     let _ = writeln!(s, "3. Copy `{BATCH}` into the folder that holds `Starfield.exe` (the game reads batch files\n   from there: grade D, confirm it in this session).");
     let _ = writeln!(s, "4. Start Starfield through MO2 with the **{DEV_PROFILE}** profile and load a disposable save\n   (or start a new game and save it as one).\n");
     let _ = writeln!(s, "## Steps\n");
+    let _ = writeln!(
+        s,
+        "Step `n` is row `T-<nn>` of `{}` beside this file (the same checks, machine-checkable, for\n`kit game session`); the persistence steps below continue the numbering.\n",
+        probes::FILE
+    );
     let _ = writeln!(s, "Run all at once with `bat kitkraft-test` in the console, or type the commands one by one.\n");
     let _ = writeln!(
         s,

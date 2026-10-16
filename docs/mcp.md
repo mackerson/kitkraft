@@ -1187,6 +1187,24 @@ in `loose`, a `.pex` that does not parse. Deterministic (no times, no absolute p
 `version`, `files[] {name, size, sha256}`); `files[] {path, size, sha256}`), `files`,
 `bytes`, `summary`. Install steps and the manifest check: `docs/packaging.md`.
 
+### `game.session`, `game.status`, `game.probe`, `game.stop` (lane C, M4.T3; CLI `kit game <verb>`)
+
+`game.session {mo2, probes, profile = "KitKraft Dev", game = "starfield", base_save?,
+base_save_sha256?, observe?, ledger?, start = false, dry_run = false}` runs one session on
+the dev profile (ADR 0010; `docs/game-sessions.md`). It refuses with
+`refused [<rule>]: ...` for every preflight rule that fails, and nothing is written before
+it starts. `dry_run` returns `would_start`, `refusals[]` (`rule`, `message`) and `plan`,
+and writes nothing. Without `start` the session runs to the end and returns `report`
+(`status`, `rows[]` with `row`, `commands`, `expected`, `seen`, `verdict`
+`{status: pass|fail|inconclusive|not-run, reason}`, `screenshots`; `changes[]`, `backups[]`,
+`findings[]`, `logs`, `ledger_entry`, `ledger_text`, `written[]`). With `start` it returns
+`session` (`yyyy-mm-dd-T<nn>`) at once. `game.status {id}` (read only) returns `phase`,
+`current_row`, `rows`, `reruns`, `screenshots[] {file, path}`, `events`, `elapsed_secs` and
+`report`. `game.probe {id, row, screenshot = false}` re-runs one row once the probes are
+done. `game.stop {id, dry_run = false}` ends the session and returns its `report`. The
+real Starfield profile is refused today (`unverified-profile`) until M4.T1 records the
+launch, console and save facts.
+
 ## Errors
 
 `execute` fails with a typed `EngineError`; `kind()` is the stable string front ends

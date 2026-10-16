@@ -1201,6 +1201,7 @@ dependencies = [
  "kitkraft-ba2",
  "kitkraft-doc",
  "kitkraft-esm",
+ "kitkraft-game",
  "kitkraft-io",
  "kitkraft-nif",
  "kitkraft-pex",

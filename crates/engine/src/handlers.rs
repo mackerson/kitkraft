@@ -17,6 +17,7 @@ mod coverage;
 mod deploy;
 mod diff;
 mod doctor;
+mod game;
 mod inspect;
 mod ledger;
 mod load;
@@ -182,6 +183,11 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("new", Box::new(newform::run_new)),
         ("clone", Box::new(newform::run_clone)),
         ("testplan", Box::new(testplan::run)),
+        // Lane C (runtime, M4.T3): game sessions; the session owns the running ones.
+        ("game.session", Box::new(game::session)),
+        ("game.status", Box::new(game::status)),
+        ("game.probe", Box::new(game::probe)),
+        ("game.stop", Box::new(game::stop)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

@@ -29,6 +29,18 @@ read-only), observed 2026-10-14. Code: `crates/io` (profile, overlay, plan) and
 | `overwrite\` | Highest priority of all: beats every mod. | STEP guide (above): Overwrite sits at the bottom of the left pane. Default profile: holds saves backups and photos only, no plugin. |
 | `ModOrganizer.ini` | `[General] gamePath=@ByteArray(<path>)` with `\\` for `\`; the game Data dir is `<gamePath>\Data`; `mods\`, `overwrite\`, `profiles\` sit next to the ini (portable instance). | Default instance: `gamePath=@ByteArray(C:\\Program Files (x86)\\Steam\\steamapps\\common\\Starfield)`; no `[Settings]` directory keys. `base_directory` / `mod_directory` / `profiles_directory` / `overwrite_directory` / `download_directory` (with `%BASE_DIR%`) are honoured if present but **not observed**; an empty value counts as absent and a relative one is taken against the instance root. One reader, `kitkraft_io::Instance` (read-only; also `selected_profile` and `gameName`, and which folders are links or junctions), serves the profile reader and `deploy`. |
 | `meta.ini` at a mod's root | MO2's bookkeeping, not game data: skipped by the overlay. | Every mod folder has one (`mods\Resupply - ...\meta.ini`). **Assumption** `mo2-meta-ini-hidden`. |
+| `ModOrganizer.ini` `[customExecutables]` | MO2's executable list: `size`, then `<n>\title`, `<n>\binary`, `<n>\arguments`, `<n>\workingDirectory` per entry. The title is what an MO2 command line names (below). | Owner's instance, 2026-10-16 (read only): 5 entries; `1\title=SFSE` (`sfse_loader.exe`), `2` `Starfield`, `3` `Explore Virtual Folder`, `4` `CreationKit`, `5` `Creation Kit`. Grade A for the file content. |
+| `settings.ini` (profile) | `[General] LocalSaves` and `LocalSettings`: whether the profile keeps its own saves (`saves\`) and its own game INIs. The session controller requires both `true` (`docs/game-sessions.md`). | `Kitkraft Dev`, 2026-10-16: `LocalSaves=true`, `LocalSettings=false`. With `false`, the profile's `StarfieldCustom.ini` is not the one the game reads; which file the game does read under MO2 is **not observed** (M4.T1 (h)). |
+
+### Starting an executable on a profile (M4.T1 (a))
+
+The command line that makes MO2 start one named executable on one named profile is
+**not observed**. `ModOrganizer.exe --help` (MO2 2.5.2 revision 9c130cbf, from
+`logs\mo_interface.log`) was not run on 2026-10-16. The owner's `ModOrganizer.exe` was
+running then, and ADR 0010 section 1 treats a second MO2 on the instance as unsafe. The
+controller's candidate is `ModOrganizer.exe -p "<profile>" "moshortcut://:<title>"`, grade D
+(`crates/game/profiles/starfield.toml`, `[launch]`). It has no `evidence`, so no session
+can launch until the help text is recorded: ledger entry `game-20261016-T1`, row (a).
 
 Text files are read as UTF-8 with a BOM stripped and invalid bytes replaced; `\n` and `\r\n`
 both end lines. The owner's files are LF-only, without BOM.
