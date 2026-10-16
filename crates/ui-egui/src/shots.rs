@@ -7,10 +7,9 @@
 pub const SHOTS_ENV: &str = "KITKRAFT_WORKBENCH_SHOTS";
 
 /// The window's inner size during the tour, in points (pixels at 100 percent scaling):
-/// taller than the usual 1400 x 900 so the Records image holds the query table and the
-/// selected record's inspector together, and still inside a 1920 x 1200 screen with the
-/// taskbar.
-pub const TOUR_SIZE: [f32; 2] = [1400.0, 1100.0];
+/// the usual 1400 x 900, which shows the Records query table and the selected record's
+/// inspector side by side (M6.V3).
+pub const TOUR_SIZE: [f32; 2] = crate::theme::WINDOW;
 
 /// The tour's output directory from [`SHOTS_ENV`]'s value, or why it is refused: the
 /// game's Data folder, the user Data folder (`My Games\Starfield\Data`), an MO2 instance

@@ -4,9 +4,11 @@
 //! writes images only when asked, and the ledger row is written by the engine's
 //! `ledger` command, ADR 0007 Amendment 2). It is UI state, not game data: the MO2
 //! instance and profile last loaded from the start screen, the checkout whose docs the
-//! Help and Ledger tabs read, and the visual theme (`theme`, read but not changed). It is written only when a start-screen button or the
-//! Help tab's "use this checkout" is clicked, and never names or touches a plugin, a
-//! profile's files or the game.
+//! Help and Ledger tabs read, the visual theme (`theme`) and the Records split
+//! (`records_split`). It is written only when a start-screen button, the Start tab's
+//! theme picker, the Help tab's "use this checkout", or the end of a drag of the Records
+//! inspector's edge asks for it, and never names or touches a plugin, a profile's files
+//! or the game.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -19,7 +21,7 @@ pub const PREFS_DIR: &str = "kitkraft";
 pub const PREFS_FILE: &str = "ui.json";
 
 /// What the workbench remembers between runs.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct Prefs {
     /// MO2 instance root last used.
     pub instance: Option<String>,
@@ -27,10 +29,13 @@ pub struct Prefs {
     pub profile: Option<String>,
     /// KitKraft checkout whose docs the Help and Ledger tabs read.
     pub repo_dir: Option<String>,
-    /// The visual preset (`classic`, `workbench`, `studio`, each with an optional
-    /// `-light` or `-dark`); `--theme` overrides it. The window reads it and keeps it on
-    /// save; nothing in the window changes it yet (the owner picks a direction, M6.O1).
+    /// The visual preset (`workbench`, `studio`, `classic`, each with an optional
+    /// `-light` or `-dark`); `--theme` overrides it at start. The Start tab's picker
+    /// writes it.
     pub theme: Option<String>,
+    /// The Records inspector's share of the tab's width (0.2 to 0.8), written when a drag
+    /// of the pane's edge ends.
+    pub records_split: Option<f32>,
 }
 
 /// `<local_app_data>\kitkraft\ui.json`, or `None` without `%LOCALAPPDATA%`.
@@ -59,11 +64,17 @@ impl Prefs {
                 .filter(|s| !s.is_empty())
                 .map(str::to_string)
         };
+        let records_split = map
+            .get("records_split")
+            .and_then(Value::as_f64)
+            .filter(|v| (0.2..=0.8).contains(v))
+            .map(|v| v as f32);
         Self {
             instance: get("instance"),
             profile: get("profile"),
             repo_dir: get("repo_dir"),
             theme: get("theme"),
+            records_split,
         }
     }
 
@@ -79,6 +90,12 @@ impl Prefs {
             if let Some(v) = v {
                 map.insert(k.into(), Value::String(v.clone()));
             }
+        }
+        if let Some(n) = self
+            .records_split
+            .and_then(|v| serde_json::Number::from_f64(f64::from(v)))
+        {
+            map.insert("records_split".into(), Value::Number(n));
         }
         serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_else(|_| "{}".to_string())
     }
@@ -130,6 +147,7 @@ mod tests {
             profile: Some(r"C:\Modding\MO2-Starfield\profiles\KitKraft Dev".into()),
             repo_dir: None,
             theme: Some("studio-dark".into()),
+            records_split: Some(0.5),
         };
         prefs.save(&path).unwrap();
         assert_eq!(Prefs::load(&path), prefs);
@@ -137,6 +155,11 @@ mod tests {
         assert!(!std::fs::read_to_string(&path).unwrap().contains("repo_dir"));
         std::fs::write(&path, "{not json").unwrap();
         assert_eq!(Prefs::load(&path), Prefs::default());
+        // A share outside 0.2 to 0.8 is ignored.
+        assert_eq!(
+            Prefs::from_json(r#"{"records_split": 0.95}"#),
+            Prefs::default()
+        );
         assert_eq!(
             Prefs::from_json(r#"{"instance": 5, "profile": "  ", "repo_dir": "D:\\kk", "x": 1}"#),
             Prefs {

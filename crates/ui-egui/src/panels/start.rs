@@ -158,6 +158,204 @@ impl StartView {
     }
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, CollapsingHeader, ComboBox, TextEdit};
+
+use crate::panels::common::{envelope_block, Action, Slot, TabCtx};
+use crate::theme::{self, Field, Mode, Preset, Status, ThemeChoice};
+
+/// The Start tab's state: the instance field and the last `profiles` result.
+#[derive(Default)]
+pub(crate) struct StartTab {
+    pub instance: String,
+    pub view: Option<StartView>,
+}
+
+impl StartTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        let busy = ctx.busy;
+        ui.heading("Start");
+        theme_line(ui, ctx);
+        ui.label("The MO2 instance, its profiles and the Data folder, as the engine's `profiles` command reads them. Each button loads a profile read-only; `Default` is the owner's live game and is only ever read. In-game checks run on `KitKraft Dev`.");
+        let actions = &mut ctx.actions;
+        ui.horizontal(|ui| {
+            ui.label("MO2 instance");
+            ui.add(
+                TextEdit::singleline(&mut self.instance)
+                    .desired_width(theme::width(ui, Field::Long)),
+            )
+            .on_hover_text("the folder holding ModOrganizer.ini; empty: the engine looks for one");
+            if ui
+                .add_enabled(!busy, egui::Button::new("Look again"))
+                .clicked()
+            {
+                actions.push(Action::Submit(
+                    Slot::Profiles,
+                    profiles_request(Some(&self.instance)),
+                ));
+            }
+        });
+        let last = ctx.last_profile;
+        let prefs_path = ctx.prefs_path;
+        envelope_block(ui, ctx.results.get(&Slot::Profiles.into()), |ui| {
+            let Some(view) = &self.view else { return };
+            theme::table(ui, "start-instance")
+                .num_columns(2)
+                .show(ui, |ui| {
+                    ui.strong("MO2 instance");
+                    match &view.instance {
+                        Some(root) => {
+                            ui.label(format!(
+                                "{root}  (found by {}; game {}; MO2's selected profile {})",
+                                view.found_by,
+                                if view.game_name.is_empty() {
+                                    "not set"
+                                } else {
+                                    &view.game_name
+                                },
+                                if view.selected_profile.is_empty() {
+                                    "not set"
+                                } else {
+                                    &view.selected_profile
+                                }
+                            ));
+                        }
+                        None => {
+                            theme::status(
+                                ui,
+                                Status::Fail,
+                                "none found: type the folder holding ModOrganizer.ini above",
+                            );
+                        }
+                    }
+                    ui.end_row();
+                    ui.strong("Data dir");
+                    if view.data_ok {
+                        ui.label(&view.data_dir);
+                    } else {
+                        theme::status(ui, Status::Warn, &view.data_dir);
+                    }
+                    ui.end_row();
+                });
+            CollapsingHeader::new(format!("places searched ({})", view.searched.len()))
+                .id_salt("start-searched")
+                .show(ui, |ui| {
+                    for (path, source, found) in &view.searched {
+                        ui.label(format!(
+                            "{} {path} ({source})",
+                            if *found { "found:" } else { "no instance:" }
+                        ));
+                    }
+                });
+            theme::gap(ui);
+            if view.profiles.is_empty() && view.instance.is_some() {
+                theme::status(
+                    ui,
+                    Status::Warn,
+                    "the instance has no profiles (folders with a modlist.txt)",
+                );
+            }
+            theme::table(ui, "start-profiles").show(ui, |ui| {
+                for p in &view.profiles {
+                    let label = if p.live {
+                        format!("Load {} (read-only)", p.name)
+                    } else {
+                        format!("Load {}", p.name)
+                    };
+                    if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
+                        actions.push(Action::LoadProfile(p.clone()));
+                    }
+                    match p.badge() {
+                        Some(b) if p.live => {
+                            theme::status(ui, Status::Warn, b);
+                        }
+                        Some(b) => {
+                            theme::status(ui, Status::Pass, b);
+                        }
+                        None => {
+                            ui.label("");
+                        }
+                    }
+                    let mut notes = Vec::new();
+                    if p.selected {
+                        notes.push("MO2's selected profile");
+                    }
+                    if StartView::is_last(p, last) {
+                        notes.push("last used");
+                    }
+                    if !p.plugins_txt {
+                        notes.push("no plugins.txt");
+                    }
+                    ui.weak(notes.join("; "));
+                    ui.monospace(&p.path);
+                    ui.end_row();
+                }
+            });
+            match prefs_path {
+                Some(path) => ui.weak(format!(
+                    "the choice is remembered in {} (UI prefs, not game data; the only file the workbench writes on its own)",
+                    path.display()
+                )),
+                None => ui.weak("no %LOCALAPPDATA%: the choice is not remembered"),
+            };
+        });
+    }
+}
+
+/// The preset's name in the picker (`Classic` is marked legacy).
+fn preset_label(p: Preset) -> String {
+    let t = p.theme();
+    if p.legacy() {
+        format!("{} (legacy)", t.name)
+    } else if p == Preset::Workbench {
+        format!("{} (default)", t.name)
+    } else {
+        t.name.to_string()
+    }
+}
+
+/// The theme line: the active preset and mode, where the choice came from, a picker
+/// (preset and light, dark or system; kept in `ui.json`), and the statuses as the preset
+/// draws them.
+fn theme_line(ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+    let current = ctx.theme;
+    let active = current.preset.theme();
+    let mut pick = current;
+    ui.horizontal_wrapped(|ui| {
+        ui.strong("Theme");
+        ComboBox::from_id_salt("theme-preset")
+            .selected_text(preset_label(current.preset))
+            .show_ui(ui, |ui| {
+                for p in Preset::ALL {
+                    ui.selectable_value(&mut pick.preset, p, preset_label(p));
+                }
+            });
+        for (mode, label) in [
+            (Mode::System, "system"),
+            (Mode::Light, "light"),
+            (Mode::Dark, "dark"),
+        ] {
+            ui.radio_value(&mut pick.mode, mode, label);
+        }
+        ui.weak(format!(
+            "from {}: {}. Also `kit ui --theme <name>`: {}",
+            ctx.theme_source,
+            active.summary,
+            ThemeChoice::HELP
+        ));
+    });
+    if pick != current {
+        ctx.actions.push(Action::SetTheme(pick));
+    }
+    ui.horizontal_wrapped(|ui| {
+        ui.weak("statuses:");
+        for s in Status::ALL {
+            theme::status(ui, s, "");
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

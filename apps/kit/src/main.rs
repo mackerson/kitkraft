@@ -82,7 +82,7 @@ fn cli() -> Command {
                 .value_name("PRESET")
                 .value_parser(|s: &str| ThemeChoice::parse(s))
                 .help(format!(
-                    "Visual preset: {} (default: `theme` in ui.json, else classic)",
+                    "Visual preset: {} (default: `theme` in ui.json, else workbench)",
                     ThemeChoice::HELP
                 )),
         )

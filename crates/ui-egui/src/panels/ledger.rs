@@ -234,6 +234,201 @@ pub fn template_row(observations: &str, row: &str) -> Option<TemplateRow> {
     None
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, ComboBox, RichText, TextEdit};
+
+use crate::panels::common::{envelope_block, Action, Slot, TabCtx};
+use crate::theme::{self, Field, Status};
+
+/// The Ledger tab's state: the ledger's text as last read (its template rows), the form,
+/// the last result, and the row waiting for its confirm click.
+#[derive(Default)]
+pub(crate) struct LedgerTab {
+    pub observations: Option<String>,
+    pub form: LedgerForm,
+    pub view: Option<LedgerView>,
+    pub pending: Option<LedgerForm>,
+}
+
+impl LedgerTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        let busy = ctx.busy;
+        let actions = &mut ctx.actions;
+        ui.heading("Ledger");
+        ui.label("Records one in-game result as a row of docs/game-observations.md through the engine's `ledger` command: the workbench's only write (ADR 0007 Amendment 2). Preview writes nothing; Append asks once more, and each confirm click appends one row. Checks run on KitKraft Dev with a disposable save; the engine refuses Default and any other file.");
+        let template = self
+            .observations
+            .as_deref()
+            .and_then(|t| template_row(t, &self.form.row));
+        let form = &mut self.form;
+        let wide = theme::width(ui, Field::Wide);
+        theme::form_grid(ui, "ledger-form").show(ui, |ui| {
+            ui.label("Ledger file");
+            ui.add(TextEdit::singleline(&mut form.file).desired_width(wide));
+            ui.end_row();
+            ui.label("Row");
+            ui.horizontal(|ui| {
+                ComboBox::from_id_salt("ledger-row")
+                    .selected_text(form.row.clone())
+                    .show_ui(ui, |ui| {
+                        for r in ROWS {
+                            ui.selectable_value(&mut form.row, (*r).to_string(), *r);
+                        }
+                    });
+                for r in RESULTS {
+                    ui.radio_value(&mut form.result, (*r).to_string(), *r);
+                }
+            });
+            ui.end_row();
+            ui.label(if form.row == "custom" {
+                "What was checked"
+            } else {
+                "Label (optional)"
+            });
+            ui.add(TextEdit::singleline(&mut form.label).desired_width(wide));
+            ui.end_row();
+            ui.label("FormIDs");
+            ui.horizontal(|ui| {
+                ui.add(
+                    TextEdit::singleline(&mut form.forms)
+                        .desired_width(theme::width(ui, Field::Long))
+                        .hint_text("Starfield.esm:2984DF, ... (commas)"),
+                );
+                if let Some(t) = &template {
+                    if ui
+                        .add_enabled(!t.forms.is_empty(), egui::Button::new("from template"))
+                        .on_hover_text(format!("the Forms of template row {}", t.id))
+                        .clicked()
+                    {
+                        form.forms = t.forms.join(", ");
+                    }
+                }
+            });
+            ui.end_row();
+            ui.label("Seen (note)");
+            ui.add(
+                TextEdit::multiline(&mut form.note)
+                    .desired_rows(3)
+                    .desired_width(wide),
+            );
+            ui.end_row();
+            ui.label("Profile");
+            ui.add(
+                TextEdit::singleline(&mut form.profile)
+                    .desired_width(theme::width(ui, Field::Short)),
+            );
+            ui.end_row();
+            ui.label("Date");
+            ui.add(
+                TextEdit::singleline(&mut form.date)
+                    .desired_width(theme::width(ui, Field::Medium))
+                    .hint_text("yyyy-mm-dd (empty: today, UTC)"),
+            );
+            ui.end_row();
+        });
+        match &template {
+            Some(t) => {
+                ui.label(format!("Template row {}: {}", t.id, t.check));
+                ui.weak(format!("expected: {}", t.expected));
+            }
+            None if self.observations.is_none() => {
+                theme::status(
+                    ui,
+                    Status::Warn,
+                    "the ledger was not read: no checkout found (see the Help tab)",
+                );
+            }
+            None => {
+                ui.weak("no template row for this check");
+            }
+        }
+        ui.horizontal(|ui| {
+            if ui
+                .add_enabled(!busy, egui::Button::new("Preview"))
+                .on_hover_text("`ledger` without confirm: shows the text, writes nothing")
+                .clicked()
+            {
+                match self.form.preview_request() {
+                    Ok(req) => actions.push(Action::Submit(Slot::Ledger, req)),
+                    Err(e) => *ctx.notice = Some(e),
+                }
+            }
+            if ui
+                .add_enabled(
+                    !busy && self.pending.is_none(),
+                    egui::Button::new("Append to the ledger..."),
+                )
+                .clicked()
+            {
+                self.pending = Some(self.form.clone());
+            }
+        });
+        let mut cancel = false;
+        if let Some(p) = &self.pending {
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                theme::status_line(
+                    ui,
+                    Status::Warn,
+                    &format!("Append this row to {}? This is the workbench's only write; one row per click.", p.file),
+                );
+                ui.monospace(format!(
+                    "{} {}  forms: {}  profile: {}  date: {}",
+                    p.row,
+                    p.result,
+                    if p.forms.trim().is_empty() { "-" } else { p.forms.trim() },
+                    p.profile.trim(),
+                    if p.date.trim().is_empty() { "today (UTC)" } else { p.date.trim() }
+                ));
+                if !p.label.trim().is_empty() {
+                    ui.label(format!("label: {}", p.label.trim()));
+                }
+                ui.label(format!("seen: {}", if p.note.trim().is_empty() { "-" } else { p.note.trim() }));
+                ui.horizontal(|ui| {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new(RichText::new("Confirm: append").strong()))
+                        .clicked()
+                    {
+                        actions.push(Action::LedgerAppend(p.clone()));
+                        cancel = true;
+                    }
+                    if ui.button("Cancel").clicked() {
+                        cancel = true;
+                    }
+                });
+            });
+        }
+        if cancel {
+            self.pending = None;
+        }
+        envelope_block(ui, ctx.results.get(&Slot::Ledger.into()), |ui| {
+            let Some(v) = &self.view else { return };
+            if v.appended {
+                theme::status(
+                    ui,
+                    Status::Pass,
+                    &format!("appended to {} in {}", v.entry, v.file),
+                );
+            } else {
+                theme::status(
+                    ui,
+                    Status::NotRun,
+                    &format!(
+                        "preview only (nothing written): it would go into {}{}",
+                        v.entry,
+                        if v.new_entry { " (a new entry)" } else { "" }
+                    ),
+                );
+            }
+            egui::Frame::group(ui.style()).show(ui, |ui| {
+                for l in v.text.lines() {
+                    ui.monospace(l);
+                }
+            });
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

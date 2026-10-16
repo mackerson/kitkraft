@@ -4,16 +4,18 @@
 //! - [`gate`]: the only holder of the engine; an allowlist of non-writing commands and
 //!   argument guards (`roundtrip` only with `verify`, never with `out`).
 //! - [`worker`]: the engine on its own thread, one command at a time.
-//! - [`panels`]: toolkit-free view-models (inputs to a request, envelope to rows), tested
-//!   against canned envelopes without a window.
+//! - [`panels`]: one file per tab: its toolkit-free view-model (inputs to a request,
+//!   envelope to rows), tested against canned envelopes without a window, and its
+//!   drawing (`fn ui`).
 //! - [`cmdline`]: the `kit` line and MCP call behind every result, so the window teaches
 //!   the CLI.
 //! - [`md`]: plain Markdown for the Help tab, which shows the owner's QA material from the
 //!   repo's docs at runtime ([`panels::help`]).
 //! - [`prefs`]: the per-user UI prefs file (`%LOCALAPPDATA%\kitkraft\ui.json`), the only
 //!   file the workbench writes on its own; UI state, never game data.
-//! - [`theme`]: the visual tokens (type, spacing, radii, density, light and dark
-//!   palettes) and the one function that applies them to egui; presets by `--theme`.
+//! - [`theme`]: the visual tokens (type, spacing, sizes, radii, density, light and dark
+//!   palettes) and the one function that applies them to egui; `workbench` by default,
+//!   other presets by `--theme`, `ui.json` or the Start tab's picker.
 //! - [`run`]: opens the window (eframe, OpenGL backend).
 //!
 //! The crate depends on `kitkraft-engine` alone among workspace crates (xtask
@@ -43,7 +45,7 @@ pub struct LaunchOptions {
     /// Game Data dir.
     pub data_dir: Option<String>,
     /// `--theme`: the visual preset and mode; `None` reads `theme` from `ui.json`, else
-    /// today's look (`classic`).
+    /// the default (`workbench`, following the system's light or dark setting).
     pub theme: Option<theme::ThemeChoice>,
 }
 

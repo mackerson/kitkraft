@@ -338,6 +338,182 @@ fn placed_text(p: &Value) -> Option<String> {
     Some(format!("cell {cell}{world}{persistent}"))
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
+
+use crate::panels::common::{envelope_block, form_cell, record_actions, Action, Slot, TabCtx};
+use crate::theme::{self, Field, Status, View};
+
+/// The Links tab's state: the form, the last `refs` page and its cursor.
+#[derive(Default)]
+pub(crate) struct LinksTab {
+    pub form: LinksForm,
+    pub view: Option<LinksView>,
+    pub cursor: Option<String>,
+}
+
+impl LinksTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        let busy = ctx.busy;
+        let actions = &mut ctx.actions;
+        ui.heading("Links");
+        ui.label("A form's typed FormID links (`refs`), or the records that name it (`refs --incoming`, the CK's Use Info). Every row comes from a `link` or `referrer` marker; a status other than resolved or null is shown as a failure.");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("form");
+            ui.add(
+                TextEdit::singleline(&mut self.form.form)
+                    .desired_width(theme::width(ui, Field::Medium))
+                    .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX"),
+            );
+            ui.radio_value(&mut self.form.incoming, false, "outgoing links");
+            ui.radio_value(&mut self.form.incoming, true, "use info (incoming)");
+            ui.label("depth");
+            ui.add(egui::DragValue::new(&mut self.form.depth).range(1..=MAX_DEPTH));
+            if self.form.incoming {
+                ui.checkbox(&mut self.form.all_versions, "every version");
+            }
+            ui.label("types");
+            ui.add(
+                TextEdit::singleline(&mut self.form.types)
+                    .desired_width(theme::width(ui, Field::Short))
+                    .hint_text("WEAP, LVLI"),
+            );
+            if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
+                actions.push(Action::LinksPage(None));
+            }
+        });
+        envelope_block(ui, ctx.results.get(&Slot::Links.into()), |ui| {
+            let Some(view) = &self.view else { return };
+            let incoming = view.incoming();
+            ui.horizontal(|ui| {
+                ui.strong(format!("{} {}", view.global, view.label));
+                record_actions(ui, busy, &view.global, actions);
+            });
+            ui.label(format!(
+                "{} {} in total; {}",
+                view.total,
+                if incoming { "referrer(s)" } else { "link(s)" },
+                view.counts
+            ));
+            if view.truncated {
+                theme::status(
+                    ui,
+                    Status::Warn,
+                    "the walk stopped at its cap: lower the depth",
+                );
+            }
+            if view.unrecognized > 0 {
+                theme::status(
+                    ui,
+                    Status::Unknown,
+                    &format!(
+                        "{} edge(s) with a marker this view does not know (raw JSON below)",
+                        view.unrecognized
+                    ),
+                );
+            }
+            if let Some(n) = &view.not_searched {
+                ui.weak(n);
+            }
+            ui.horizontal(|ui| {
+                if self.cursor.is_some()
+                    && ui
+                        .add_enabled(!busy, egui::Button::new("First page"))
+                        .clicked()
+                {
+                    actions.push(Action::LinksPage(None));
+                }
+                if let Some(next) = &view.next_cursor {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new("Next page"))
+                        .clicked()
+                    {
+                        actions.push(Action::LinksPage(Some(next.clone())));
+                    }
+                }
+            });
+            if !view.placed_by_cell.is_empty() {
+                CollapsingHeader::new(format!(
+                    "placed referrers by cell ({})",
+                    view.placed_by_cell.len()
+                ))
+                .id_salt("links-cells")
+                .show(ui, |ui| {
+                    for c in &view.placed_by_cell {
+                        ui.monospace(c);
+                    }
+                });
+            }
+            ScrollArea::vertical()
+                .id_salt("links-rows")
+                .max_height(theme::view_height(ui, View::Tall))
+                .show(ui, |ui| {
+                    theme::table(ui, "links-grid").show(ui, |ui| {
+                        let heads: &[&str] = if incoming {
+                            &[
+                                "hop", "referrer", "", "path", "raw", "status", "plugin", "placed",
+                            ]
+                        } else {
+                            &["hop", "from", "path", "raw", "status", "to", "", "plugin"]
+                        };
+                        for h in heads {
+                            ui.strong(*h);
+                        }
+                        ui.end_row();
+                        for e in &view.edges {
+                            ui.label(e.depth.to_string());
+                            if incoming {
+                                form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions);
+                                match e.from.as_deref() {
+                                    Some(f) => record_actions(ui, busy, f, actions),
+                                    None => {
+                                        ui.label("");
+                                    }
+                                }
+                            } else {
+                                form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions);
+                            }
+                            ui.monospace(&e.path);
+                            ui.monospace(&e.raw);
+                            if e.problem() {
+                                theme::status(ui, Status::Fail, &e.status);
+                            } else {
+                                ui.label(&e.status);
+                            }
+                            if incoming {
+                                ui.label(&e.plugin);
+                                ui.label(e.placed.as_deref().unwrap_or(""));
+                            } else {
+                                if e.problem() {
+                                    ui.colored_label(theme::bad(ui), &e.to_label);
+                                } else {
+                                    form_cell(ui, busy, e.to.as_deref(), &e.to_label, actions);
+                                }
+                                match e.to.as_deref() {
+                                    Some(f) => record_actions(ui, busy, f, actions),
+                                    None => {
+                                        ui.label("");
+                                    }
+                                }
+                                if e.target_mismatch {
+                                    theme::status(
+                                        ui,
+                                        Status::Warn,
+                                        &format!("{} (target type not listed)", e.plugin),
+                                    );
+                                } else {
+                                    ui.label(&e.plugin);
+                                }
+                            }
+                            ui.end_row();
+                        }
+                    });
+                });
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
