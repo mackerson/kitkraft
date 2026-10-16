@@ -63,6 +63,22 @@ M5.B3 and M5.O3 wait on it unless lane C's M4.T6 closes it first) and M4.O1 (the
 CK sittings; M5.A5 waits on them). The M4.O2 persistence row stays open for the owner
 (row 2 and M5.O3); lane C may close it first.
 
+## Added 2026-10-16: M6 lane V started
+
+The owner, in chat, 2026-10-16: "Approve Amendment 3 and ADR 0012, start lane V mockups".
+Lane V (`plan/execution-plan.md` "M6", "Lane V: visual system") runs beside the M5
+tickets above. It works in `crates/ui-egui` only, so it touches none of the M5 lanes'
+files.
+
+| Ticket | Lane | Writer | Reviewer | Notes |
+| ------ | ---- | ------ | -------- | ----- |
+| M6.V1 make room for parallel work | V (in progress) | Opus | Fable | No visible change. Each tab's drawing moves from `app.rs` into its `panels/` file, and `theme.rs` holds today's colors and spacing. Merges first among the M6 lanes, since the others branch off its file layout |
+| M6.V2 two static mockups | V (in progress; after M6.V1) | Opus | Fable | Two theme presets x 5 tabs x light and dark, as screenshot tour images kept outside the repo, plus `docs/design/workbench-style.md` (draft). The owner then chooses (M6.O1), and M6.V3 onward wait on that choice |
+
+The same ruling unblocks M6.G3 (after M6.G2) and lane K's M7.K2 (the sitting scripts),
+because it accepted ADR 0007 Amendment 3 (M6.O3) and ADR 0012 (M7.O1). Neither is
+scheduled in this sprint.
+
 ## Merge order
 
 The director merges as branches pass review: lane D's handler changes first (D2 before D3

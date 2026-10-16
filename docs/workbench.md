@@ -332,9 +332,9 @@ Owner decisions of 2026-10-16 (`ROADMAP.md`, "M6 onward"; tickets in
   the catalog, so the one engine worker is never held for a whole session), `game.probe`
   and `game.stop`, which are disabled with "M4.T3" until they exist, then a prefilled
   ledger. Its writes are limited to `ledger`, `deploy --dev`, `deploy.rollback`,
-  `game.session`, `game.probe` and `game.stop` by ADR 0007 Amendment 3, which is
-  **proposed** and awaits the owner (M6.O3). Until then this page's "What it can run" is
-  unchanged. A read-only 3D placeholder (M7.R1) may arrive during M6.
+  `game.session`, `game.probe` and `game.stop` by ADR 0007 Amendment 3, which the owner
+  **accepted** on 2026-10-16 (M6.O3). This page's "What it can run" changes as M6.G1 and
+  M6.G3 to M6.G5 merge. Until then the ledger is still the only write. A read-only 3D placeholder (M7.R1) may arrive during M6.
 - **M7, CK parity.** The Creation Kit's menus, Data dialog, Object Window, Cell View, edit
   dialogs, Preferences and Warnings window, reproduced from black-box observation and
   recorded in `docs/ck-parity.md` "Interface parity". The Render Window is a read-only 3D

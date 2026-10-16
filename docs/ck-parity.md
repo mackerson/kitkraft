@@ -53,8 +53,9 @@ ledger id or session note as evidence for every row.
 The exit-criteria source for M7 "CK parity" (`ROADMAP.md`; tickets in
 `plan/execution-plan.md` "M7"). There is one row per CK window, menu, menu item, dialog,
 shortcut or camera control. A Creation Kit user should find each one in KitKraft where
-they expect it. Rows are reproduced from black-box observation only (ADR 0012, proposed
-in M7.K1):
+they expect it. Rows are reproduced from black-box observation only (ADR 0012,
+`plan/adr/0012-ck-interface-clean-room.md`, accepted 2026-10-16; its section 4 says what
+evidence each status needs):
 
 - Layout, labels, workflows and shortcuts are described here in our own words.
 - CK icons, images, help text, resources and binaries are never copied, and the CK's

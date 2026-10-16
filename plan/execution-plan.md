@@ -1507,7 +1507,8 @@ stands until the owner overrules it (`plan/STATUS.md` row 16).
 3. **Cockpit write scope (ADR 0007 Amendment 3):** `deploy.rollback` is in, as a safety
    control (what the cockpit deploys, it can take back); `testplan` stays out (file
    output, not a safety control). `game.stop` joins with M4.T3's start, poll and stop
-   split (M6.G4).
+   split (M6.G4). **Confirmed by the owner 2026-10-16** with the acceptance of
+   Amendment 3 (M6.O3).
 4. **CK menu order** stays `unresearched` until CK interface sitting 1 (M7.O2). The
    order written in `docs/ck-parity.md` and `ROADMAP.md` is a recollection, not
    evidence; M7.M1 waits on M7.K3 and builds nothing on it before then.
@@ -1522,10 +1523,11 @@ stands until the owner overrules it (`plan/STATUS.md` row 16).
    `gate.rs` and depends on no other workspace crate (`INTERNAL_ONLY`). A view that needs
    data no command returns gets it from the lane that owns that command, as a request
    ticket (marked "engine" below).
-3. **Writes:** only ADR 0007 Amendment 3's list, once the owner accepts it (M6.O3):
+3. **Writes:** only ADR 0007 Amendment 3's list (accepted by the owner 2026-10-16, M6.O3):
    `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`.
    Each is previewed and confirmed per click and enforced by the gate test. M6.G1 (the
-   mechanics, scope `[ledger]`) needs no ruling; M6.G3 to M6.G6 wait on M6.O3.
+   mechanics, scope `[ledger]`) needed no ruling; M6.G3 to M6.G6 waited on M6.O3, which
+   is now decided, and wait only on their other dependencies.
 4. **No game launcher in the UI.** `game.session`, `game.status`, `game.probe` and
    `game.stop` are lane C's (M4.T3). Until they are `Implemented` in the catalog, their
    buttons are disabled with the ticket id. No process spawning, MO2 command line or
@@ -1558,6 +1560,10 @@ engine, not in `ui-egui`.
 | O | owner | decisions, sign-offs |
 
 ### Lane V: visual system
+
+**Started 2026-10-16** (owner, in chat: "Approve Amendment 3 and ADR 0012, start lane V
+mockups"). M6.V1 and M6.V2 are in progress. M6.V3 onward wait on M6.O1, the owner's
+choice between M6.V2's two mockups.
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
@@ -1592,7 +1598,7 @@ Lane C (M5) owns every game command. These tickets show and confirm them, nothin
 | -- | ---- | ---------- | --------- |
 | M6.G1 | Gate mechanics of ADR 0007 Amendment 3, enabling no new write and needing no ruling: `PERMITTED_WRITE` becomes `PERMITTED_WRITES` (id, preview test, the one panel file allowed to confirm, why); `COCKPIT_SCOPE = ["ledger"]` in the test (Amendment 2's scope; it grows only with M6.G3 to M6.G5 after M6.O3); the source scan generalized per entry; `deploy.status` and `doctor` move from "unused read-only" to `ALLOWLIST` | - | The extended disjointness test passes with `PERMITTED_WRITES = [ledger]`; adding a non-scope id in a scratch test fails it; `docs/workbench.md` "What it can run" rewritten |
 | M6.G2 | The Cockpit tab: the plugin under review (from `out\` or a path), its dev deployment (`deploy.status`), the dev profile, the session readiness (`game.status` when the catalog has it), and the buttons Deploy, Roll back, Launch and run probes, Stop, Re-run probe, Screenshot. Each button's state is read from the catalog: present and `Implemented` turns it on; otherwise it is disabled with the ticket id (M4.T3) | M6.G1, M6.V5 | A shell-model test with a catalog lacking `game.*` shows the buttons disabled with "M4.T3"; with a fake `Implemented` spec they turn on |
-| M6.G3 | Deploy to dev and roll back: `deploy` and `deploy.rollback` with `dev: true`. The panel fills `mo2` and `profile` from the loaded dev profile (and, for rollback, `mod` and `to` from `deploy.status`) and keeps the confirm box closed when they differ from it; the gate checks only `dev: true`, the writing form and `profile` not `Default` (ADR 0007 Amendment 3, "What the gate checks"); the engine refuses `Default` on its own. Preview runs `dry_run: true` and lists every path; the confirm box shows that list; the confirm button builds the one confirmed request | M6.G2, M6.O3 | Gate tests per Amendment 3 for both ids; a shell-model test deploys to a synthetic MO2 instance, reads it back with `deploy.status`, rolls it back and reads it again; nothing written without the click; a profile mismatch keeps the confirm box closed |
+| M6.G3 | Deploy to dev and roll back: `deploy` and `deploy.rollback` with `dev: true`. The panel fills `mo2` and `profile` from the loaded dev profile (and, for rollback, `mod` and `to` from `deploy.status`) and keeps the confirm box closed when they differ from it; the gate checks only `dev: true`, the writing form and `profile` not `Default` (ADR 0007 Amendment 3, "What the gate checks"); the engine refuses `Default` on its own. Preview runs `dry_run: true` and lists every path; the confirm box shows that list; the confirm button builds the one confirmed request | M6.G2, M6.O3 (decided 2026-10-16) | First, the gate test extension Amendment 3 names: `COCKPIT_SCOPE` and `PERMITTED_WRITES` grow by `deploy` and `deploy.rollback` (ADR 0007 Amendment 3 accepted 2026-10-16), and the extended disjointness test and the per-entry source scan pass with them; gate tests per Amendment 3 for both ids; a shell-model test deploys to a synthetic MO2 instance, reads it back with `deploy.status`, rolls it back and reads it again; nothing written without the click; a profile mismatch keeps the confirm box closed |
 | M6.G4 | Launch the dev profile and run probes: `game.session` with `start: true` (preview with its `dry_run`, confirm) returns a session id at once, with M6.P2b's progress events for its own steps; the window then follows the session by polling `game.status <id>` through the catalog on a timer, each poll a short read on the one engine worker (no second worker, no process of its own); Stop through `game.stop <id>` (preview, confirm); the result: every probe row with `pass`, `fail`, `inconclusive` or `not-run` and the reason | M6.G2, M6.O3, M6.P2b, **M4.T3** (start, status, stop), **M5.C1**, M4.T2 | Gate tests; a shell-model test against M4.T3's fake endpoint and fixture instance: start, at least two polls with another read served between them, stop; the V1 run (M4.T4) started from the window by the owner (M6.O4) |
 | M6.G5 | Probe results and screenshots: rows beside the plugin's records (a click opens `inspect`); the screenshots `game.status <id>` lists (file names and paths, returned through the catalog) shown as images. The window opens only the image files at the paths `game.status` returned, as the Help tab reads the repo's docs (ADR 0007 Amendment 2: our own evidence files, not game data); it lists no folder of its own; image loading listed in ADR 0007 first. Re-run one probe and Screenshot through `game.probe` (confirmed) | M6.G4, M6.O3, **M4.T3** | Tests on a canned `game.status` envelope; a listed screenshot missing on disk is shown as `inconclusive`, never hidden |
 | M6.G6 | The ledger prefilled from probe results: rows the controller left `inconclusive` or `manual` open in the Ledger form with the row id, FormIDs and the screenshot beside it; the owner confirms each row with the existing confirmed `ledger` request | M6.G5, M6.O3, **M5.C1** (`inconclusive` in the ledger format) | A test from a canned session result to the Ledger form's fields; each row still needs its own click |
@@ -1625,7 +1631,7 @@ focused in M6.P7, `doctor` on `ALLOWLIST` in M6.G1), so nothing is re-homed. The
 | -- | ---- | ----- |
 | M6.O1 | Choose the visual direction from M6.V2's two mockups (or a mix, named per token group) | M6.V3, so all of lane V after it |
 | M6.O2 | Rule on fonts: keep the Windows system fonts (Segoe UI, Consolas; the default) or allow a compiled-in OFL font or an MIT/Apache icon font (each then listed in `ATTRIBUTION.md`). Row 7's BSL-1.0 ruling is still open beside it | M6.V4 icons (only if an icon font is wanted), M6.V3 type scale |
-| M6.O3 | Accept, amend or reject ADR 0007 Amendment 3 (the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`) | M6.G3 to M6.G6 (not M6.G1, which enables no write) |
+| M6.O3 | Accept, amend or reject ADR 0007 Amendment 3 (the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`). **Decided 2026-10-16: approved** as written (owner, in chat: "Approve Amendment 3 and ADR 0012, start lane V mockups"); ADR 0007 Amendment 3, "Owner ruling 2026-10-16" | M6.G3 to M6.G6 (not M6.G1, which enables no write); now unblocked |
 | M6.O4 | Sign-off on the release build and `KitKraft Dev`: a walkthrough of the M6 exit criteria (`ROADMAP.md` "M6: Cockpit"), the S2 start check, and the V1 run from the window once M4.T3 exists (M6.G4). Optional, if the owner wants it: the same walkthrough at 125 and 150 percent Windows scaling (performance row U1) | M6 exit |
 | M6.O5 | Confirm the dependency additions at their merges (`egui_extras` and image loaders, `glam` for M7.R1, which may merge during M6; the AccessKit adapter only if lane X's M6.X3 is picked up). Blocks only on a license outside the rule | M6.P4, M6.G5, M7.R1 merges |
 
@@ -1647,7 +1653,7 @@ focused in M6.P7, `doctor` on `ALLOWLIST` in M6.G1), so nothing is re-homed. The
 ### Ordering
 
 1. Start at once, in parallel: M6.V1 (first merge), M6.G1, M6.P1, M6.P6a, M6.P2b,
-   M6.P6b; the owner can rule on M6.O3 and M6.O2 now.
+   M6.P6b; the owner can rule on M6.O2 now (M6.O3 was decided 2026-10-16).
 2. After M6.V1: M6.V2 (then M6.O1), M6.P7, M6.P3a, M6.P4, M6.P5a, and **M7.R1**, the 3D
    placeholder (owner: "toss a 3D placeholder in there"), which merges read-only during
    M6 (M7 lane R).
@@ -1690,8 +1696,8 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 
 ### Binding constraints
 
-1. **Clean room for the interface** (ADR 0012, drafted by M7.K1, ruled by the owner in
-   M7.O1; until then AGENTS.md "Clean room" governs):
+1. **Clean room for the interface** (ADR 0012, `plan/adr/0012-ck-interface-clean-room.md`,
+   accepted by the owner 2026-10-16, M7.O1; AGENTS.md "Clean room" points to it):
    - Observe only: owner-assisted CK sittings, where a computer-use agent may drive the CK
      while the owner watches. Screenshots stay in `observe\` (gitignored).
    - Reproduce from the sittings: layout, labels, menu structure, field grouping, tab
@@ -1735,7 +1741,7 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
-| M7.K1 | Draft ADR 0012, "CK interface parity, clean room" (proposed): what may be reproduced and from what (constraint 1), the evidence for each row (sitting id, screenshot names kept local, our own description), and how a reproduced element is checked (a tour image beside the observation). It also states that the public CK wiki (a level-4 source for data facts) is not interface observation, only the owner-assisted sittings are; and that M7.O5 settles the license of the NIF-format sources before M7.S4 starts | - | The ADR file, status Proposed; AGENTS.md "Clean room" gains a pointer only after M7.O1 |
+| M7.K1 | Draft ADR 0012, "CK interface parity, clean room" (proposed): what may be reproduced and from what (constraint 1), the evidence for each row (sitting id, screenshot names kept local, our own description), and how a reproduced element is checked (a tour image beside the observation). It also states that the public CK wiki (a level-4 source for data facts) is not interface observation, only the owner-assisted sittings are; and that M7.O5 settles the license of the NIF-format sources before M7.S4 starts | - | The ADR file, status Proposed; AGENTS.md "Clean room" gains a pointer only after M7.O1. **Done 2026-10-16**: the owner approved ADR 0012 before a draft file existed, so the docs lane wrote `plan/adr/0012-ck-interface-clean-room.md` from this description with status Accepted, and AGENTS.md "Clean room" gained the pointer |
 | M7.K2 | Sitting scripts for the interface. Sitting 1: the main menu bar with every menu expanded, the Data dialog, Object Window, Cell View, Render Window camera controls (mouse and keys), Preferences, Warnings. Sitting 2: the edit dialogs of the first types (WEAP, AMMO, COBJ, LCTN, TERM, CONT, STAT, KYWD), every tab, group and field label. Combinable with the fixture sittings of STATUS rows 12 and 15 so the owner sits once | M7.K1 | `docs/ck-observations.md` gains the two scripts; each step names the `docs/ck-parity.md` rows it fills |
 | M7.K3 | `docs/ck-parity.md` "Interface parity", seeded now with `unresearched` rows (done by the roadmap lane, 2026-10-16), then filled from sitting 1: one row per window, menu item and dialog, status `observed`, the sitting id and our own description; CK shortcuts and camera controls as rows; what it maps to (a catalog id, a UI element, or `gap:` with the reason) | M7.O2 | Every item sitting 1 saw has a row; no CK text beyond the labels themselves |
 | M7.K4 | The same for sitting 2: per type, its tabs, groups and field labels, each field mapped to a schema member path (or `gap:` when the schema has no member) | M7.O3 | Rows for the eight types; unmapped fields listed in `docs/gaps.md` |
@@ -1799,7 +1805,7 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 
 | ID | Task | Gates |
 | -- | ---- | ----- |
-| M7.O1 | Rule on ADR 0012 (the interface clean-room rule) | M7.K2 onward |
+| M7.O1 | Rule on ADR 0012 (the interface clean-room rule). **Decided 2026-10-16: approved** (owner, in chat: "Approve Amendment 3 and ADR 0012, start lane V mockups"); `plan/adr/0012-ck-interface-clean-room.md` | M7.K2 onward; now unblocked |
 | M7.O2 | CK interface sitting 1, owner-assisted (a computer-use agent may drive while the owner watches); can share a sitting with STATUS rows 12 and 15 | M7.K3, so lanes M, W, S1, S2 |
 | M7.O3 | CK interface sitting 2 (the edit dialogs of the first eight types) | M7.K4, M7.W4 |
 | M7.O4 | Accept, amend or reject ADR 0007 Amendment 4 (the editor write scope) | M7.E2 to M7.E6 |

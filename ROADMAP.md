@@ -15,8 +15,9 @@ owner's next actions, among them:
 - M4.O7: the Console API tools in the **KitKraft Dev** profile (row 10), which lane C's
   session controller needs.
 - The owner-assisted CK sitting for F29 and F30 (row 12).
-- The M6 rulings that can be made now: ADR 0007 Amendment 3 (M6.O3) and fonts (M6.O2)
-  (row 16).
+- The UI rulings that can be made now: fonts (M6.O2) and the NIF and geometry sources
+  (M7.O5) (row 16). ADR 0007 Amendment 3 (M6.O3) and ADR 0012 (M7.O1) were approved on
+  2026-10-16.
 
 ## M0: scaffold
 
@@ -309,7 +310,7 @@ Themes (lanes V, P and G in the plan; lane X is deferred, see (d)):
   backend) starts once M6.V1 lands and may merge during M6, read-only; lane V puts it in
   the theme's frame later (M6.V5). It is not an M6 exit criterion.
 
-Writes: ADR 0007 Amendment 3 (**proposed**; the owner decides as M6.O3) limits the
+Writes: ADR 0007 Amendment 3 (**accepted** by the owner 2026-10-16, M6.O3) limits the
 cockpit's writes to `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`,
 `game.probe` and `game.stop`, each previewed, each confirmed per click, and nothing else.
 The gate's disjointness test enforces the list.
@@ -400,7 +401,8 @@ under ADR 0007 Amendment 4 (proposed in M7.E1):
 - build specs through `build`, with its plan as the preview;
 - undo of the last edit, computed from the engine's diff.
 
-Clean room (ADR 0012, proposed in M7.K1, owner decision M7.O1):
+Clean room (ADR 0012, `plan/adr/0012-ck-interface-clean-room.md`, accepted by the owner
+2026-10-16, M7.O1):
 
 - **Reproduced:** layout, labels, menu structure, workflows and keyboard shortcuts, from
   watching the running CK in owner-assisted sittings (`plan/STATUS.md` rows 12 and 15

@@ -4,9 +4,10 @@
   at the end: a minimal read-only developer workbench after M4's inspection APIs
   stabilize, the full authoring UI in M5). Was: Proposed. "Amendment 2" (2026-10-15):
   one permitted write, the `ledger` row in `docs/game-observations.md`, confirmed per
-  click. "Amendment 3" (**proposed** 2026-10-16, owner decision M6.O3): the M6 cockpit
-  write scope, `ledger`, `deploy --dev`, `game.session` and `game.probe`, each confirmed
-  per click, and nothing else.
+  click. "Amendment 3" (**ACCEPTED**, owner ruling 2026-10-16, M6.O3; proposed the same
+  day): the M6 cockpit write scope, `ledger`, `deploy --dev`, `deploy.rollback`,
+  `game.session`, `game.probe` and `game.stop`, each previewed and confirmed per click,
+  and nothing else.
 - Date: 2026-10-14
 - Scope: `crates/ui-egui` (L5, not created), `apps/kit` (APP, not created), a `kit ui`
   launcher in `apps/kit-cli`
@@ -294,10 +295,11 @@ without a hand edit: a row of the in-game ledger, `docs/game-observations.md`.
 Everything else in Amendment 1 stands: no `set`, `build` output, `package`, `deploy` or
 other writing command, and no form for one, until the M5 authoring UI.
 
-## Amendment 3 (proposed, owner decision M6.O3): the cockpit write scope (roadmap lane, 2026-10-16)
+## Amendment 3 (accepted 2026-10-16, owner decision M6.O3): the cockpit write scope (roadmap lane, 2026-10-16)
 
-- Status: **Proposed.** Nothing in it takes effect until the owner accepts it (M6.O3). Until
-  then Amendment 2 stands as written: the ledger is the only write.
+- Status: **ACCEPTED** (owner ruling 2026-10-16, M6.O3; see "Owner ruling 2026-10-16" at
+  the end of this amendment). Was: Proposed, and nothing in it took effect until the owner
+  accepted it; until then Amendment 2 stood as written, with the ledger as the only write.
 - Context: the owner's 2026-10-16 decisions (`ROADMAP.md`, "M6: Cockpit"). The UI is for
   "Both, cockpit first". M6 makes the workbench the human cockpit beside the agents:
   review what an agent built, diff, validate, run the in-game checks and record the
@@ -443,3 +445,32 @@ our own.
 - AGENTS.md "Layers": the `ui-egui` row ("Read-only workbench (ADR 0007 Am. 1)") becomes
   "Workbench (ADR 0007 Am. 1 to 3): reads, plus the confirmed writes of Amendment 3" when
   the owner accepts this amendment, not before.
+
+### Owner ruling 2026-10-16 (M6.O3)
+
+The owner, in chat, 2026-10-16, verbatim: "Approve Amendment 3 and ADR 0012, start lane V
+mockups".
+
+- **Accepted as written**, with no change. The cockpit may run exactly six commands in a
+  writing form: `ledger`, `deploy` (`--dev`), `deploy.rollback`, `game.session`,
+  `game.probe` and `game.stop`. Each is previewed and confirmed per click, and nothing
+  else is allowed. The window still never launches the game itself, and `testplan` stays
+  out.
+- The ruling also confirms the director's decision 3 of 2026-10-16 (`plan/execution-plan.md`
+  "M6"), which this amendment contains: rollback in, `testplan` out, and `game.stop` with
+  M4.T3's start, poll and stop split. The director's other decisions of that day are not
+  part of this ruling (`plan/STATUS.md` row 16).
+- **What changes now.** `COCKPIT_SCOPE` may grow past `["ledger"]`, one entry at a time,
+  each with the ticket that implements it. M6.G3 adds `deploy` and `deploy.rollback`, and
+  that is its first "done when". M6.G4 adds `game.session` and `game.stop`, and M6.G5
+  adds `game.probe`. An id joins only once its command is in the catalog, so the `game.*`
+  ids wait on M4.T3. Recording the ruling changes no code: until those tickets merge, the
+  ledger stays the only write the window runs.
+- **Consequences checked against the M6 tickets** (`plan/execution-plan.md` "M6", lane G,
+  2026-10-16). They match:
+  - M6.G1 (the mechanics, scope `[ledger]`) never waited on the ruling.
+  - The ruling unblocks M6.G3 to M6.G6, and each still waits on its other dependencies
+    listed there. M6.G3 needs M6.G2. M6.G4 needs M4.T3, M5.C1, M6.P2b and M4.T2. M6.G5
+    needs M6.G4 and M4.T3. M6.G6 needs M6.G5 and M5.C1.
+  - M6.G6 adds no id. It prefills the existing confirmed `ledger` request.
+  - AGENTS.md "Layers" takes the `ui-egui` row wording above, in a separate small commit.
