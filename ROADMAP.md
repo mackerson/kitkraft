@@ -200,18 +200,268 @@ Kit, and in-game claims closed by isolated, repeatable game sessions with save/r
 results. Tickets, lanes and exit criteria: `plan/execution-plan.md` "M5"; status per
 capability: `docs/foothold/gap-matrix.md`. Foothold is the benchmark, not the deliverable.
 
-## M6+: editor
+## M6 onward: the UI track (owner decisions 2026-10-16)
 
-Renumbered from "M5+" on 2026-10-15, when M5 became the milestone above; the content is
-unchanged. ADRs and decision records written before that date say "M5" for this milestone.
+The owner tested the workbench and the installer on 2026-10-16 and made these decisions.
+They replace the former "M6+: editor" (renumbered from "M5+" on 2026-10-15). Text written
+before 2026-10-16 that says "M6" or "M6+" for the full authoring UI means M6 to M8 below.
 
-- The full authoring UI in egui over the command catalog (`crates/ui-egui`, `apps/kit`),
-  growing from M4's read-only workbench (ADR 0007 Amendment 1).
-- NIF and material metadata.
+- **Audience: "Both, cockpit first".** M6 matures the workbench into the human cockpit
+  beside the agents. Agents stay the main authors through MCP. M7 and M8 grow it into an
+  editor that modders open instead of the Creation Kit, on the same engine services.
+- **Goal for the editor, in the owner's words:** "the creation kit UI sucks out loud, but
+  the ArtCraft method reproduced its UI completely and that meant that users know one,
+  know the other. That's the objective here, and then once we get there, we're going to go
+  above and beyond in the way Ol' Beth should have." M7 reproduces the CK's interface; M8
+  goes beyond it.
+- **What hurt most in the test:**
+  1. Look, feel and performance: plain egui styling, slow loads, cramped tables, window
+     and startup quirks (from a background shell the window opened minimized and did not
+     repaint), the first-run picker, no theming.
+  2. Game-loop integration: no launch-game, deploy, run-probes or screenshot flow in the
+     UI, and the ledger is filled by hand.
+
+  Navigation and the read-only wall were **not** named as top pains.
+- **Stack: keep egui and invest in it.** Pure Rust, one binary, the same license rule
+  (MIT/Apache/Zlib/BSD, plus the BSL-1.0 clipboard crates pending in `plan/STATUS.md` row
+  7). OFL fonts stay off unless the owner rules otherwise (M6.O2). No web stack.
+
+Rules that bind M6 to M8:
+
+- Every action goes through a catalog command. Layer L5 (`crates/ui-egui`) names the
+  engine only in `gate.rs` and depends on no other workspace crate. Geometry, categories
+  and cell contents reach the window as engine command results.
+- Every UI write is one catalog command with `writes: true`. It runs from a preview, then
+  an explicit confirm, and is named in an ADR 0007 amendment the owner accepted:
+  Amendment 3 for M6, Amendment 4 for M7's editor.
+- No new runtime hooks. The UI never launches the game itself; it waits for lane C's
+  engine commands (ADR 0010).
+
+Tickets: `plan/execution-plan.md`, sections "M6", "M7" and "M8 (sketch)".
+
+## M6: Cockpit
+
+Goal: make the workbench a cockpit the owner wants to keep open beside the agents. In it
+the owner reviews what an agent built (diff, validate, roundtrip), deploys it to the dev
+profile, runs the in-game checks through lane C's session controller, sees the probe
+results and screenshots, and records the ledger. All of it in a window that looks
+deliberate, starts fast, never hides itself, and stays readable at 125 and 150 percent
+scaling.
+
+Themes (lanes V, P, G and X in the plan):
+
+- **(a) Look and feel (lane V).**
+  - A KitKraft visual system for egui:
+    - a type scale and a spacing scale;
+    - color tokens for light and dark;
+    - table density (compact or comfortable);
+    - status styles that never rely on color alone (glyph, word and color).
+  - Our own icons.
+  - Consistent panels: one frame, one result header, one table style, and empty and error
+    states.
+  - A style guide, `docs/design/workbench-style.md`.
+  - The owner picks the direction from two static mockups that the workbench itself
+    renders (M6.O1).
+- **(b) Performance (lane P).** Measure first, by the protocol in
+  `docs/design/workbench-performance.md`:
+  - what to measure: startup, profile load, the 435k-record `SFBGS00D.esm`, table
+    scrolling;
+  - how: release build, the dev profile, cold and warm index cache.
+
+  Then the fixes:
+  - asynchronous loading with progress;
+  - index cache reuse, including the reverse-link index;
+  - virtualized tables;
+  - envelope preparation off the UI thread;
+  - a release build by default for `kit ui`.
+
+  Window quirks: restore and focus the window if it starts minimized, and remember its
+  size and position in `ui.json`. The first baseline (2026-10-16, CLI): a warm load of
+  the dev profile is 0.65 s and a cold one 3.5 s in the engine. `conflicts` on
+  `SFBGS00D.esm` takes 27 s and returns a 30 MB envelope for one page, which is an engine
+  request (M6.P5b).
+- **(c) Game-loop integration (lane G), strictly through engine commands:**
+  - Deploy to dev: `deploy --dev`, ADR 0009, which exists.
+  - Launch the dev profile, run probes, capture screenshots: `game.session` and
+    `game.probe` (M4.T3). These do not exist yet. Until they do, the window shows the
+    buttons disabled with the ticket id as the reason, and the UI never grows a game
+    launcher of its own.
+  - Probe results and screenshots beside the plugin.
+  - The ledger prefilled from the rows the controller left `inconclusive` or `manual`, so
+    the owner confirms each one with a click.
+  - A Coverage panel over `coverage --matrix` (lane D's support-depth matrix, M5.D1).
+  - A Review flow for an agent-built plugin: `validate`, `roundtrip --verify`, and
+    `conflicts` against its masters.
+- **(d) First run and help (lane X).**
+  - A first-run card: the dev profile preselected, `Default` shown as read-only and never
+    preselected, `doctor` findings inline.
+  - The Help tab gains "Using the workbench", the shortcuts, and a "?" link per panel.
+- **(e) Accessibility (lane X).**
+  - Keyboard navigation with a visible focus ring.
+  - Readable at 125 and 150 percent scaling and at zoom 0.8 to 1.5.
+  - No cue carried by color alone.
+  - Screen reader support through eframe's AccessKit adapter (dependency list first).
+
+Writes: ADR 0007 Amendment 3 (**proposed**; the owner decides as M6.O3) limits the
+cockpit's writes to `ledger`, `deploy --dev`, `game.session` and `game.probe`, each
+previewed, each confirmed per click, and nothing else. The gate's disjointness test
+enforces the list.
+
+Exit criteria:
+
+- `docs/design/workbench-performance.md` has the M6.P1 window baseline and the after-rows
+  of every lane P ticket. Each target there is met, or revised with the owner's agreement
+  (M6.O4).
+- Visual system: `docs/design/workbench-style.md` exists.
+  - A test finds no color literal outside the theme module.
+  - A test checks that every text and background token pair meets 4.5:1 contrast, in
+    light and dark.
+  - Every status is shown with glyph and word as well as color.
+- The window starts restored and focused from a background shell, remembers its geometry,
+  and is a release build when started by `kit ui` from `dist\KitKraft` or `bin\`.
+- Gate: the writing commands the window can run are exactly the accepted Amendment 3
+  entries whose commands exist. The extended disjointness test and the per-panel source
+  scan pass.
+- Game loop, end to end from the window, on `KitKraft Dev` with a disposable save: the
+  rename plugin is reviewed, deployed (confirmed), run through `game.session` (V1, M4.T4),
+  its probe rows and screenshot shown, and a manual row recorded in the ledger. Six
+  statuses for that run:
+  - `parse`: pass
+  - `byte_roundtrip`: pass
+  - `ck_open`: not-run (not a CK milestone)
+  - `ck_reexport`: not-run
+  - `game_runtime`: pass, cited from the controller's ledger entry started from the
+    window
+  - `save_reload`: as M5.C2 records it (`pass` or `inconclusive`, never `pass` without
+    evidence)
+
+  If M4.T3 has not landed when everything else is done, the launch, probe and screenshot
+  tickets close `blocked` on M4.T3 with their buttons disabled. M6 may close that way only
+  with the owner's agreement.
+- The owner signs a usability pass at 125 and 150 percent (M6.O4).
+- `cargo xtask ci` is green; the corpus roundtrip is still identical.
+
+Deliberately not in M6:
+
+- Editing: no `set`, `new`, `clone`, `place` or `build` output from the window. That is
+  M7, under Amendment 4.
+- The Creation Kit's window layout (M7) and the viewport (M7 lane R).
+- A game launcher, MO2 automation or Console API client inside the UI.
+- `testplan`, `package`, `deploy.rollback` and `mod.run` as UI writes. Each would need its
+  own amendment.
+- A web front end, new runtime hooks, Foothold content.
+
+## M7: CK parity
+
+Goal: a Creation Kit user opens KitKraft and is at home. The CK's windows, menus, dialogs,
+labels, workflows and keyboard shortcuts are reproduced from black-box observation, the
+way ArtCraft reproduced its target's UI ("users know one, know the other"), on KitKraft's
+engine services:
+
+- the main menu bar in the CK's order (the owner names File, Edit, View, World, NavMesh,
+  Character, Gameplay, Help, to be confirmed by observation);
+- the Data dialog;
+- the Object Window (a tree by record category, with a filter);
+- the Cell View (worldspace, cell and reference lists);
+- the per-record-type edit dialogs, with the CK's field grouping and tab names;
+- Preferences;
+- the Warnings window;
+- the Render Window as a real 3D viewport from its first ticket.
+
+**The viewport** is a GL panel on eframe's glow backend (egui `PaintCallback`; no new
+framework), built up in steps:
+
+1. grid, axes and an orbit or fly camera with the CK's controls;
+2. placed references as oriented markers from `REFR` position, rotation and scale;
+3. bounding boxes from the base object's NIF;
+4. wireframe, then flat-shaded meshes, through the engine's archive access, with a loading
+   budget.
+
+Every step is read-only. Materials, lighting and placement editing are M8. Editing comes
+through the same commands the CLI and MCP use, each gated with a preview and a confirm
+under ADR 0007 Amendment 4 (proposed in M7.E1):
+
+- field edits through `set`, with a validation preview;
+- new and duplicate through `new` and `clone`;
+- placement through `place`;
+- build specs through `build`, with its plan as the preview;
+- undo of the last edit, computed from the engine's diff.
+
+Clean room (ADR 0012, proposed in M7.K1, owner decision M7.O1):
+
+- **Reproduced:** layout, labels, menu structure, workflows and keyboard shortcuts, from
+  watching the running CK in owner-assisted sittings (`plan/STATUS.md` rows 12 and 15
+  carry the existing ones; a computer-use agent may drive the CK while the owner watches).
+- **Never copied:** CK icons, images, help text, resources or binaries.
+- **All art is ours.**
+
+The record of parity is `docs/ck-parity.md`, "Interface parity": one row per CK window,
+menu item or dialog, each with a status (`unresearched`, `observed`, `reproduced`,
+`improved`) and its observation source.
+
+Exit criteria:
+
+- Every row of `docs/ck-parity.md` "Interface parity" that the sittings observed is
+  `reproduced` or `improved`, or names a documented gap (`docs/gaps.md`) with its reason.
+  `unresearched` rows are listed with the sitting that will observe them.
+- The menu bar is rendered from the catalog's `menu_path`. A test checks that every CK
+  menu item in `docs/ck-parity.md` maps to a catalog command or a documented gap. Disabled
+  items show why (deferred, out of scope, or not in the write scope).
+- The editor's writes are exactly ADR 0007 Amendment 4's list (accepted by the owner,
+  M7.O4), each previewed and confirmed, enforced by the gate test as in M6.
+- Viewport steps 1 to 4 are drawn read-only on the dev profile. Skipped meshes show as
+  limitation lines. `docs/design/workbench-performance.md` "Viewport" rows are measured.
+- A plugin edited only through KitKraft's dialogs (one field edit, one duplicate, one
+  placement), with six statuses:
+  - `parse`: pass
+  - `byte_roundtrip`: pass
+  - `ck_open`: pass (the CK opens it in an owner-assisted sitting)
+  - `ck_reexport`: pass (the CK's saved copy has no `unexplained` difference, M5.A2)
+  - `game_runtime`: pass (through the cockpit, M6)
+  - `save_reload`: pass, or `inconclusive` with its reason
+- The owner's A/B sign-off (M7.O6): the same tasks in the CK and in KitKraft (find a
+  form, edit a field, duplicate, place, save), and "at home" in KitKraft.
+- `cargo xtask ci` is green; the corpus roundtrip is still identical.
+
+Deliberately not in M7, unless an ADR says otherwise:
+
+- Geometry editing, navmesh generation or baking, terrain, material and texture authoring
+  and lighting. The NavMesh menu is drawn, with its items disabled and the reason.
+- Copying anything from the CK beyond what an observer sees. Reading its resource files
+  to extract menus or strings is excluded too.
+- Materials and textures in the viewport (M8).
+- Editing placements in the viewport. Placement in M7 is from the Cell View and Object
+  Window through `place`; viewport editing is M8.
+
+## M8: Beyond the CK (sketch)
+
+Goal: what Bethesda should have shipped, on the parity M7 builds:
+
+- search everywhere: forms, EditorIDs, text, FormIDs, scripts;
+- inline validation and the conflict view on every record;
+- diff against masters on any record;
+- an undo history computed from the engine's diff;
+- an agent panel: what an MCP session did and is doing, read from a journal the MCP
+  server writes. The journal's design is an ADR;
+- a multi-plugin load-order view;
+- in-game probe results beside the records they cover;
+- viewport materials, textures and lighting;
+- snap-to-grid placement editing through `place`.
+
+Writes follow the same rule (a further ADR 0007 amendment). Example tickets are in
+`plan/execution-plan.md` "M8 (sketch)". It gets exit criteria when M7 is close.
+
+## Later (unscheduled)
+
+Kept from the former "M6+: editor":
+
+- NIF and material metadata beyond what the viewport needs (M7 lane R and its source
+  decision, M7.O5, come first).
 - Procedural placement, if M4's research calls for it.
-- Runtime extensions (SFSE first) where a runtime-need record justifies them (ADR 0008);
-  a KitKraft probe plugin for in-game verification (M4.T8, `skytest` pattern) if the
-  console and Papyrus channels prove insufficient.
-- In-game verification for other titles (Skyrim SE, Fallout 4): fill the lane T game
-  profiles and verify their console channels, once a title is in scope.
-- Render viewport (`crates/render`), last.
+- Runtime extensions (SFSE first) where a runtime-need record justifies them (ADR 0008).
+  A KitKraft probe plugin (M4.T8, `skytest` pattern) only if the console and Papyrus
+  channels prove insufficient.
+- In-game verification for other titles (Skyrim SE, Fallout 4): fill the lane C game
+  profiles once a title is in scope.
+- Release: an installer beyond `kit install`, signed binaries, modder documentation, and
+  publishing. Publishing and any git remote are owner decision 6 (AGENTS.md).
