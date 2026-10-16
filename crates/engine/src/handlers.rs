@@ -12,6 +12,7 @@ mod build;
 mod build_tests;
 #[cfg(test)]
 mod build_v3_tests;
+mod cell;
 mod conflicts;
 mod coverage;
 mod deploy;
@@ -33,12 +34,16 @@ mod place;
 #[cfg(test)]
 pub(crate) mod place_tests;
 mod planet;
+mod preview;
 mod profiles;
 mod query;
 mod refs;
 mod resolve;
 #[cfg(test)]
 mod resolve_tests;
+mod revert;
+#[cfg(test)]
+mod revert_tests;
 mod roundtrip;
 mod schema;
 mod scripts;
@@ -182,6 +187,9 @@ pub(crate) fn session_defaults() -> Vec<(&'static str, Box<dyn SessionHandler>)>
         ("new", Box::new(newform::run_new)),
         ("clone", Box::new(newform::run_clone)),
         ("testplan", Box::new(testplan::run)),
+        // lane D (M7.S7, M7.S3)
+        ("revert", Box::new(revert::run)),
+        ("cell", Box::new(cell::run)),
     ];
     for r in resolving() {
         table.push((r.id, Box::new(r)));

@@ -156,6 +156,8 @@ pub const WRITING: &[&str] = &[
     "deploy.rollback",
     "roundtrip",
     "ledger",
+    // lane D round 3 (M7.S7): refused in the window until M7.E1/M7.O4 rule on it.
+    "revert",
 ];
 
 /// The one write the workbench may make (ADR 0007 Amendment 2).
@@ -513,6 +515,8 @@ mod tests {
             "strings.dump",
             "deploy.status",
             "doctor",
+            // lane D round 3 (M7.S3): the Cell View (M7.W2) will use it.
+            "cell",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);

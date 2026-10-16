@@ -122,6 +122,7 @@ versions[].subrecords[].string_offset?: int | null
 versions[].subrecords[].malformed_len?: int
 versions[].subrecords[].member?: str
 versions[].subrecords[].value?: value
+versions[].subrecords[].vmad?: any
 versions[].vs_previous: object or null
 versions[].vs_previous.class: "identical-to-previous" | "deleted" | "differs"
 versions[].vs_previous.flags_differ?: bool
@@ -275,6 +276,7 @@ master: str | null
 plugin: str | null
 type: str | null
 only_conflicts: bool
+detail: "summary" | "fields" | "full"
 counts: [object]
 counts[].master: str
 counts[].plugin: str
@@ -288,13 +290,15 @@ items[].signature: str | null
 items[].editor_id: str | null
 items[].base_present: bool
 items[].versions: [str]
+items[].winner: str | null
 items[].overrides: [object]
 items[].overrides[].plugin: str
 items[].overrides[].previous: str | null
 items[].overrides[].class: "identical-to-previous" | "deleted" | "differs" | "first-version"
 items[].overrides[].resolved_by: str
 items[].overrides[].comparable: bool
-items[].overrides[].subrecords: [object]
+items[].overrides[].changes: map<map<int>>
+items[].overrides[].subrecords?: [object]
 items[].overrides[].subrecords[].signature: str
 items[].overrides[].subrecords[].occurrence: int
 items[].overrides[].subrecords[].change: "added" | "removed" | "changed"

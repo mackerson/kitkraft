@@ -64,6 +64,12 @@ fn envelopes(tag: &str) -> Vec<(String, Value)> {
         &engine,
         "conflicts",
         "conflicts",
+        json!({"count_classes": true, "detail": "full"}),
+    );
+    run(
+        &engine,
+        "conflicts summary",
+        "conflicts",
         json!({"count_classes": true}),
     );
     run(

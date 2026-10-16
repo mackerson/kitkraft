@@ -936,3 +936,70 @@ fn formid_dangling_follows_script_properties() {
     assert_eq!(edge["raw"], "00000999");
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Director addition to M5.D6: `inspect` cuts payloads at 256 bytes by default; `full`
+/// shows every byte of a QUST's long VMAD and decodes it (scripts, properties, object
+/// values as formrefs), and `max_bytes` sets the cut.
+#[test]
+fn inspect_full_decodes_a_long_vmad() {
+    let d = dir("inspect-vmad");
+    master(&d);
+    let names: Vec<String> = (0..40).map(|i| format!("SpecialCaseEntry{i:02}")).collect();
+    let mut objects: Vec<(&str, u8, Vec<u32>)> = names
+        .iter()
+        .map(|n| (n.as_str(), 1, vec![0x0000_0900]))
+        .collect();
+    objects.push(("List", 11, vec![0x0000_0900, 0x0000_0A00]));
+    let quest = record(
+        b"QUST",
+        0x0100_0A10,
+        vec![sub(b"EDID", b"KKQuest\0"), vmad(&objects)],
+    );
+    patch(&d, "Quest.esp", &["Master.esm"], vec![quest]);
+    let inspect = |extra: Value| {
+        let mut a = json!({"form": "KKQuest", "plugins": ["Master.esm", "Quest.esp"], "data_dir": d.display().to_string(), "no_cache": true});
+        for (k, v) in extra.as_object().unwrap() {
+            a[k] = v.clone();
+        }
+        execute("inspect", a).unwrap()
+    };
+    let vmad_of = |r: &Value| -> Value {
+        r["data"]["versions"][0]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == "VMAD")
+            .unwrap()
+            .clone()
+    };
+    let cut = vmad_of(&inspect(json!({})));
+    assert!(cut["size"].as_u64().unwrap() > 256);
+    assert_eq!(cut["payload_truncated"], json!(true));
+    assert_eq!(cut["payload_hex"].as_str().unwrap().len(), 512);
+    assert!(cut.get("vmad").is_none());
+    let some = vmad_of(&inspect(json!({"max_bytes": 8})));
+    assert_eq!(some["payload_hex"].as_str().unwrap().len(), 16);
+    let r = inspect(json!({"full": true}));
+    let whole = vmad_of(&r);
+    assert_eq!(whole["payload_truncated"], json!(false));
+    let script = &whole["vmad"]["scripts"][0];
+    assert_eq!(script["name"], json!("KK:Test"));
+    let props = script["properties"].as_array().unwrap();
+    assert_eq!(props.len(), 41);
+    assert_eq!(props[39]["name"], json!("SpecialCaseEntry39"));
+    assert_eq!(
+        props[39]["value"]["object"]["form"],
+        json!("Master.esm:000900")
+    );
+    assert_eq!(
+        props[40]["value"][1]["object"]["form"],
+        json!("Master.esm:000A00")
+    );
+    assert_eq!(props[40]["value"][1]["alias"], json!(-1));
+    assert!(
+        crate::shapes::check_envelope(&r).is_empty(),
+        "{:?}",
+        crate::shapes::check_envelope(&r)
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

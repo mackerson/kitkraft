@@ -40,6 +40,31 @@ pub(crate) fn formref(lo: &LoadOrder, plugin: u16, raw: u32) -> Value {
     }
 }
 
+/// [`formref`] for a FormID stored in a file outside the load order (`set`'s dry run,
+/// M7.S6), resolved through its master map; its own forms are named by `file`.
+pub(crate) fn formref_in(
+    lo: &LoadOrder,
+    map: &kitkraft_doc::MasterMap,
+    file: &str,
+    raw: u32,
+) -> Value {
+    if raw == 0 {
+        return json!({"kind": kind::FORMREF, "raw": "00000000", "form": null, "null": true});
+    }
+    match map.resolve(raw) {
+        Ok(g) if g.plugin == map.own_index => json!({
+            "kind": kind::FORMREF, "raw": format!("{raw:08X}"),
+            "form": format!("{file}:{:06X}", g.object_id)
+        }),
+        Ok(g) => {
+            json!({"kind": kind::FORMREF, "raw": format!("{raw:08X}"), "form": lo.form_label(g)})
+        }
+        Err(e) => json!({
+            "kind": kind::FORMREF, "raw": format!("{raw:08X}"), "form": null, "error": e.to_string()
+        }),
+    }
+}
+
 /// Marker names (the value of [`KIND`]).
 pub mod kind {
     /// A stored FormID value: `{kind, form, raw?, null?, error?, editor_id?}`. `form` is
@@ -408,7 +433,12 @@ const SUBRECORD_TEXT: &[Member] = &[
     opt("string_offset", NINT),
     opt("malformed_len", Int),
 ];
-const SUBRECORD_TYPED: &[Member] = &[opt("member", Str), opt("value", Shape::Value)];
+const SUBRECORD_TYPED: &[Member] = &[
+    opt("member", Str),
+    opt("value", Shape::Value),
+    // `inspect --full` (M5.D6 addition): the decoded VMAD, an open object.
+    opt("vmad", Any),
+];
 const VERSION: Shape = Obj(&[&[
     req("plugin", Str),
     req("load_index", Int),
@@ -607,6 +637,7 @@ const CONFLICTS: Shape = Obj(&[&[
     req("plugin", NSTR),
     req("type", NSTR),
     req("only_conflicts", Bool),
+    req("detail", Enum(&["summary", "fields", "full"])),
     req(
         "counts",
         List(&Obj(&[&[
@@ -626,6 +657,7 @@ const CONFLICTS: Shape = Obj(&[&[
             req("editor_id", NSTR),
             req("base_present", Bool),
             req("versions", STRS),
+            req("winner", NSTR),
             req(
                 "overrides",
                 List(&Obj(&[&[
@@ -642,7 +674,8 @@ const CONFLICTS: Shape = Obj(&[&[
                     ),
                     req("resolved_by", Str),
                     req("comparable", Bool),
-                    req("subrecords", List(&SUB_DIFF)),
+                    req("changes", Map(&Map(&Int))),
+                    opt("subrecords", List(&SUB_DIFF)),
                     req("flags_differ", Bool),
                 ]])),
             ),

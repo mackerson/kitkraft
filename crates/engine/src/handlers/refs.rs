@@ -109,6 +109,8 @@ pub(super) fn link_evidence(file: &str, record: &str, rec_offset: u64, l: &Link)
 pub(super) struct Notes {
     pub unexamined: BTreeMap<(String, &'static str), u64>,
     pub opaque_members: u64,
+    pub vmad_undecodable: u64,
+    pub vmad_unread_tails: u64,
     pub statuses: BTreeMap<&'static str, u64>,
     pub disallowed: u64,
     pub compressed: bool,
@@ -131,6 +133,10 @@ impl Notes {
             *n = n.saturating_add(1);
         }
         self.opaque_members = self.opaque_members.saturating_add(links.opaque_members);
+        self.vmad_undecodable = self.vmad_undecodable.saturating_add(links.vmad_undecodable);
+        self.vmad_unread_tails = self
+            .vmad_unread_tails
+            .saturating_add(links.vmad_unread_tails);
     }
 
     pub(super) fn add_link(&mut self, l: &Link) {
@@ -171,6 +177,21 @@ impl Notes {
             out.push(format!(
                 "{} member(s) of type `opaque` inside decoded subrecords were not scanned (unions the format cannot express yet, unnamed bytes)",
                 self.opaque_members
+            ));
+        }
+        out.push(
+            "script properties: the object values of a VMAD's script entries are links (path `VMAD.Scripts.Data.<script>.<property>`, M5.D6), with no target types (the property's declared type is in the script, not the plugin)".to_string(),
+        );
+        if self.vmad_undecodable > 0 {
+            out.push(format!(
+                "{} VMAD payload(s) whose script entries do not decode were not read for object values",
+                self.vmad_undecodable
+            ));
+        }
+        if self.vmad_unread_tails > 0 {
+            out.push(format!(
+                "{} VMAD payload(s) carry a fragment block after the script entries (quest, dialogue, package, scene, perk fragments; quest alias scripts) that is not read for object values",
+                self.vmad_unread_tails
             ));
         }
         if self.statuses.contains_key("engine_reserved") {
@@ -1168,5 +1189,40 @@ pub(crate) mod tests {
             .as_str()
             .unwrap()
             .contains("in cell Base.esm:000811"));
+
+        // M7.S3: `cell` lists the world, its cell, the interior cell and each cell's
+        // references from the same placement ranges.
+        let cell = |extra: serde_json::Value| {
+            let mut a = json!({"plugins": ["Base.esm"], "data_dir": dir.display().to_string(), "no_cache": true});
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            engine.execute("cell", a).unwrap()
+        };
+        let w = cell(json!({}));
+        assert_eq!(w["data"]["mode"], "worlds");
+        assert_eq!(w["data"]["items"][0]["form"], "Base.esm:000810");
+        assert_eq!(w["data"]["items"][0]["editor_id"], "World");
+        assert_eq!(w["data"]["items"][0]["cells"], 1);
+        assert_eq!(w["data"]["interior_cells"], 1);
+        let i = cell(json!({"interior": true}));
+        assert_eq!(i["data"]["items"][0]["editor_id"], "Room", "{i:#}");
+        let c = cell(json!({"world": "World"}));
+        assert_eq!(c["data"]["items"][0]["editor_id"], "WorldCell", "{c:#}");
+        assert!(c["data"]["items"][0]["x"].is_null());
+        let refs = cell(json!({"cell": "WorldCell"}));
+        let item = &refs["data"]["items"][0];
+        assert_eq!(item["form"], "Base.esm:000820", "{refs:#}");
+        assert_eq!(item["signature"], "REFR");
+        assert_eq!(item["base"]["form"], "Base.esm:000800");
+        assert_eq!(item["base_signature"], "STAT");
+        assert_eq!(item["base_editor_id"], "Rock");
+        assert_eq!(item["persistent"], true);
+        assert!(item["position"].is_null() && item["scale"].is_null());
+        let room = cell(json!({"cell": "Room", "limit": 1}));
+        assert_eq!(room["data"]["items"][0]["persistent"], false);
+        assert_eq!(room["data"]["total"], 1);
+        assert!(room["data"]["next_cursor"].is_null());
+        assert_eq!(room["evidence"][0]["file"], "Base.esm");
     }
 }
