@@ -14,7 +14,9 @@
 //!    replaced. The change is broadcast so new windows see it.
 //! 2. `~/.claude.json`: `mcpServers.kitkraft` points at the dist `kit.exe`; its `args`
 //!    and `env` come from the earlier `kitkraft` (or pre-rename `kitcraft`) entry, minus a
-//!    `*_DATA_DIR` variable that names the Data dir detection finds anyway; a `kitcraft`
+//!    `*_DATA_DIR` variable that names the Data dir detection finds anyway, and with its
+//!    `--profile` set to the KitKraft Dev profile (else MO2's active one, printed as a
+//!    limitation; `--profile` overrides: [`McpProfile`]), shown as a diff; a `kitcraft`
 //!    entry running a `kit.exe` is removed (and remembered). A backup copy is written next
 //!    to the file first. Every other key is kept (key order is normalized).
 //! 3. The project's `.mcp.json` (the repository holding `.mcp.json.example`, gitignored):
@@ -302,8 +304,10 @@ pub struct Options {
     pub path: bool,
     /// Edit the MCP registrations.
     pub mcp: bool,
-    /// MCP `args` when no earlier entry gives them.
-    pub default_args: Vec<String>,
+    /// The `--profile` the `kitkraft` entry gets ([`dev_or_active_profile`],
+    /// [`requested_profile`]): a registered `--profile` that names another folder is
+    /// re-pointed to it; `path: None` leaves the registered args alone.
+    pub profile: McpProfile,
     /// The Data dir detection finds: an MCP `env` entry naming it is dropped.
     pub detected_data_dir: Option<PathBuf>,
     /// Suffix of backup file names (unix seconds).
@@ -313,9 +317,9 @@ pub struct Options {
 impl Options {
     /// Options for `dist` with this machine's defaults: home `%USERPROFILE%` (else
     /// `$HOME`), the project found above `dist` (a folder with `.mcp.json.example` and
-    /// `Cargo.toml`), MCP args preloading the default MO2 instance's `Default` profile
-    /// (read-only, as before; [`default_mcp_args`]), the detected Data dir, and the
-    /// current time as the stamp. Both defaults honor `KITKRAFT_DETECT=0` and
+    /// `Cargo.toml`), the MCP `--profile` of the default MO2 instance's KitKraft Dev
+    /// profile, else its active one ([`dev_or_active_profile`]), the detected Data dir,
+    /// and the current time as the stamp. Both defaults honor `KITKRAFT_DETECT=0` and
     /// `KITKRAFT_MO2_DIR` as every command does (`crate::host`).
     pub fn detect(dist: PathBuf) -> Options {
         let home = std::env::var_os("USERPROFILE")
@@ -327,7 +331,7 @@ impl Options {
         // here too (then only `KITKRAFT_MO2_DIR` names an instance).
         let detected = crate::host::detected();
         let mo2 = crate::host::default_mo2();
-        let default_args = default_mcp_args(mo2.as_ref().map(|m| m.path.as_path()));
+        let profile = dev_or_active_profile(mo2.as_ref().map(|m| m.path.as_path()));
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs())
@@ -338,25 +342,203 @@ impl Options {
             project,
             path: true,
             mcp: true,
-            default_args,
+            profile,
             detected_data_dir: detected.data_dir.as_ref().map(|f| f.path.clone()),
             stamp,
         }
     }
+
+    /// `--profile <name-or-path>`: overrides the detected choice ([`requested_profile`]
+    /// against the default MO2 instance).
+    pub fn set_profile(&mut self, requested: &str) -> Result<(), InstallError> {
+        let mo2 = crate::host::default_mo2();
+        self.profile = requested_profile(mo2.as_ref().map(|m| m.path.as_path()), requested)?;
+        Ok(())
+    }
 }
 
-/// MCP `args` for a new entry: `mcp`, and `--profile <mo2>/profiles/Default` (read-only
-/// preload, as before) when `mo2` has that profile.
-pub fn default_mcp_args(mo2: Option<&Path>) -> Vec<String> {
-    let mut args = vec!["mcp".to_string()];
-    if let Some(m) = mo2 {
-        let profile = m.join("profiles").join("Default");
-        if profile.join("modlist.txt").is_file() {
-            args.push("--profile".to_string());
-            args.push(slashes(&profile));
+/// The `--profile` the `kitkraft` MCP entry gets, and why.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct McpProfile {
+    /// The profile folder (`None`: no `--profile` is added, and a registered one is kept).
+    pub path: Option<PathBuf>,
+    /// Which profile, and why, in one line.
+    pub why: String,
+    /// Neither the KitKraft Dev profile nor asked for: the plan prints it as a limitation.
+    pub fallback: bool,
+}
+
+impl McpProfile {
+    /// No `--profile` (registered args are kept), with the reason.
+    pub fn none(why: impl Into<String>) -> McpProfile {
+        McpProfile {
+            path: None,
+            why: why.into(),
+            fallback: true,
         }
     }
-    args
+}
+
+fn is_live(profile: &Path) -> bool {
+    profile.file_name().is_some_and(|n| {
+        n.to_string_lossy()
+            .eq_ignore_ascii_case(crate::deploy::LIVE_PROFILE)
+    })
+}
+
+/// The default MCP `--profile` in `mo2` (read-only): the KitKraft Dev profile `kit doctor`
+/// detects (its folder name matched ignoring case), else MO2's active profile (a
+/// fallback, printed as a limitation), else none.
+pub fn dev_or_active_profile(mo2: Option<&Path>) -> McpProfile {
+    use crate::host::DEV_PROFILE;
+    let Some(m) = mo2 else {
+        return McpProfile::none(
+            "no MO2 instance found (`kit doctor`): no --profile is added; pass --profile <name-or-path>",
+        );
+    };
+    let inst =
+        kitkraft_io::Instance::read(m).unwrap_or_else(|_| kitkraft_io::Instance::from_ini(m, None));
+    let names = inst.profiles().unwrap_or_default();
+    let dev = names
+        .iter()
+        .find(|n| n.as_str() == DEV_PROFILE)
+        .or_else(|| names.iter().find(|n| n.eq_ignore_ascii_case(DEV_PROFILE)));
+    if let Some(d) = dev {
+        return McpProfile {
+            path: Some(inst.profile_dir(d)),
+            why: format!(
+                "the {DEV_PROFILE} profile `{d}`, kit doctor's dev_profile, which every in-game check uses"
+            ),
+            fallback: false,
+        };
+    }
+    let active = inst.selected_profile.as_ref().filter(|a| names.contains(a));
+    match active {
+        Some(a) => {
+            let dir = inst.profile_dir(a);
+            let live = if is_live(&dir) {
+                ", the live game (loaded read-only)"
+            } else {
+                ""
+            };
+            McpProfile {
+                path: Some(dir),
+                why: format!(
+                    "MO2's active profile `{a}`{live}, because {} has no `{DEV_PROFILE}` profile; create it in MO2 (a copy of Default with profile-specific saves) and run again, or pass --profile",
+                    inst.profiles_dir.display()
+                ),
+                fallback: true,
+            }
+        }
+        None => McpProfile::none(format!(
+            "no `{DEV_PROFILE}` profile and no active profile in {}: no --profile is added; pass --profile <name-or-path>",
+            inst.profiles_dir.display()
+        )),
+    }
+}
+
+/// `--profile <name-or-path>` for the MCP entry: a folder, or a profile name of `mo2`
+/// (ASCII case ignored); it must hold a `modlist.txt`.
+pub fn requested_profile(mo2: Option<&Path>, requested: &str) -> Result<McpProfile, InstallError> {
+    let r = requested.trim();
+    let dir = crate::host::profile_dir_in(r, mo2);
+    if r.is_empty() || !dir.join("modlist.txt").is_file() {
+        return Err(InstallError::Invalid(format!(
+            "--profile {r}: not an MO2 profile ({} has no modlist.txt); pass a profile name of the MO2 instance or a profile folder",
+            dir.display()
+        )));
+    }
+    let live = if is_live(&dir) {
+        " (the live game: loaded read-only)"
+    } else {
+        ""
+    };
+    Ok(McpProfile {
+        path: Some(dir),
+        why: format!("the --profile argument `{r}`{live}"),
+        fallback: false,
+    })
+}
+
+/// The value after `--profile` (or in `--profile=<dir>`) in MCP `args`.
+pub fn profile_arg(args: &Value) -> Option<String> {
+    let words: Vec<&str> = args.as_array()?.iter().filter_map(Value::as_str).collect();
+    let mut it = words.iter();
+    while let Some(w) = it.next() {
+        if *w == "--profile" {
+            return it.next().map(|v| (*v).to_string());
+        }
+        if let Some(v) = w.strip_prefix("--profile=") {
+            return Some(v.to_string());
+        }
+    }
+    None
+}
+
+/// `args` with its `--profile` set to `profile` (appended when there is none). A registered
+/// value naming the same folder is kept as spelled.
+fn with_profile(args: &Value, profile: &Path) -> Value {
+    let want = slashes(profile);
+    let mut words: Vec<Value> = args.as_array().cloned().unwrap_or_default();
+    let same = |v: &str| same_path(&kitkraft_io::host::native_path(v), profile);
+    let mut found = false;
+    let mut after_flag = false;
+    for w in &mut words {
+        let text = w.as_str().map(str::to_string);
+        if after_flag {
+            after_flag = false;
+            if !text.as_deref().is_some_and(same) {
+                *w = json!(want);
+            }
+            continue;
+        }
+        match text.as_deref() {
+            Some("--profile") => {
+                found = true;
+                after_flag = true;
+            }
+            Some(t) if t.starts_with("--profile=") => {
+                found = true;
+                if !t.get("--profile=".len()..).is_some_and(same) {
+                    *w = json!(format!("--profile={want}"));
+                }
+            }
+            _ => {}
+        }
+    }
+    if after_flag {
+        // `--profile` was the last word.
+        words.push(json!(want));
+    } else if !found {
+        words.push(json!("--profile"));
+        words.push(json!(want));
+    }
+    Value::Array(words)
+}
+
+/// The lines showing how an MCP entry changes: `- key: old` / `+ key: new` per key that
+/// differs (every key, `+`, for a new entry).
+fn entry_diff(old: Option<&Value>, new: &Value) -> Vec<String> {
+    let empty = Map::new();
+    let a = old.and_then(Value::as_object).unwrap_or(&empty);
+    let b = new.as_object().unwrap_or(&empty);
+    let mut keys: Vec<&String> = a.keys().chain(b.keys()).collect();
+    keys.sort();
+    keys.dedup();
+    let mut out = Vec::new();
+    for k in keys {
+        let (x, y) = (a.get(k), b.get(k));
+        if x == y {
+            continue;
+        }
+        if let Some(x) = x {
+            out.push(format!("  - {k}: {x}"));
+        }
+        if let Some(y) = y {
+            out.push(format!("  + {k}: {y}"));
+        }
+    }
+    out
 }
 
 /// The repository above `start` (a folder holding `.mcp.json.example` and `Cargo.toml`).
@@ -428,6 +610,9 @@ pub struct Plan {
     pub steps: Vec<Step>,
     /// Notes (things not done, and why).
     pub notes: Vec<String>,
+    /// Limitations: a default that is a fallback (the MCP `--profile` when there is no
+    /// KitKraft Dev profile), and why.
+    pub limitations: Vec<String>,
 }
 
 impl Plan {
@@ -458,6 +643,9 @@ impl Plan {
         }
         for n in &self.notes {
             out.push_str(&format!("note: {n}\n"));
+        }
+        for l in &self.limitations {
+            out.push_str(&format!("limitation: {l}\n"));
         }
         if !self.changes_anything() {
             out.push_str("Nothing to change.\n");
@@ -578,11 +766,24 @@ fn points_into(entry: &Value, dist: &Path) -> bool {
 /// The `kitkraft` entry for `opts`, carrying `args`/`env` from `previous`.
 fn server_entry(opts: &Options, previous: Option<&Value>) -> (Value, Vec<String>) {
     let mut notes = Vec::new();
-    let args = previous
+    let mut args = previous
         .and_then(|p| p.get("args"))
         .filter(|a| a.is_array())
         .cloned()
-        .unwrap_or_else(|| json!(opts.default_args));
+        .unwrap_or_else(|| json!(["mcp"]));
+    if let Some(profile) = &opts.profile.path {
+        let before = profile_arg(&args);
+        args = with_profile(&args, profile);
+        let after = profile_arg(&args);
+        if before.is_some() && before != after {
+            notes.push(format!(
+                "--profile re-pointed: {} -> {}; {}",
+                before.as_deref().unwrap_or("?"),
+                after.as_deref().unwrap_or("?"),
+                opts.profile.why
+            ));
+        }
+    }
     let mut env = previous
         .and_then(|p| p.get("env"))
         .and_then(Value::as_object)
@@ -682,13 +883,10 @@ fn plan_mcp_file(
             lines.extend(notes);
             if current.as_ref() != Some(&entry) {
                 lines.push(format!(
-                    "set mcpServers.{SERVER}: command {}, args {}",
-                    command_of(&entry).unwrap_or("?"),
-                    entry.get("args").map_or_else(String::new, Value::to_string)
+                    "{} mcpServers.{SERVER} (- before, + after):",
+                    if current.is_some() { "change" } else { "add" }
                 ));
-                if let Some(c) = &current {
-                    lines.push(format!("  (was: command {})", command_of(c).unwrap_or("?")));
-                }
+                lines.extend(entry_diff(current.as_ref(), &entry));
             }
             set_entry = Some(entry.clone());
             servers.insert(SERVER.to_string(), entry);
@@ -925,6 +1123,19 @@ pub fn plan(opts: &Options, env: &dyn UserEnv, action: Action) -> Result<Plan, I
     }
 
     // 2. and 3. The MCP registrations.
+    let mut limitations = Vec::new();
+    if opts.mcp && action == Action::Install {
+        let p = &opts.profile;
+        let line = match &p.path {
+            Some(dir) => format!("MCP --profile {}: {}", slashes(dir), p.why),
+            None => format!("MCP --profile: {}", p.why),
+        };
+        if p.fallback {
+            limitations.push(line);
+        } else {
+            notes.push(line);
+        }
+    }
     if opts.mcp {
         let claude = opts.home.join(CLAUDE_JSON);
         let (step, rec, user_entry) = plan_mcp_file(
@@ -1010,6 +1221,7 @@ pub fn plan(opts: &Options, env: &dyn UserEnv, action: Action) -> Result<Plan, I
         action,
         steps,
         notes,
+        limitations,
     })
 }
 
@@ -1198,7 +1410,7 @@ mod tests {
             project: find_project(&root.join("repo with space").join("dist").join("KitKraft")),
             path: true,
             mcp: true,
-            default_args: vec!["mcp".into()],
+            profile: McpProfile::none("test: no MO2 instance"),
             detected_data_dir: Some(PathBuf::from(r"C:\Game\Data")),
             stamp: "1".into(),
         };
@@ -1402,17 +1614,173 @@ mod tests {
     }
 
     #[test]
-    fn default_mcp_args_preload_default_only_when_an_instance_has_it() {
+    fn default_profile_is_kitkraft_dev_else_the_active_one() {
         let f = fixture("args");
-        assert_eq!(default_mcp_args(None), ["mcp"]);
+        let none = dev_or_active_profile(None);
+        assert_eq!(none.path, None);
+        assert!(none.fallback);
         let mo2 = f.root.join("MO2");
-        assert_eq!(default_mcp_args(Some(&mo2)), ["mcp"]);
-        let profile = mo2.join("profiles").join("Default");
-        std::fs::create_dir_all(&profile).unwrap();
-        std::fs::write(profile.join("modlist.txt"), b"").unwrap();
+        let profile = |name: &str| {
+            let p = mo2.join("profiles").join(name);
+            std::fs::create_dir_all(&p).unwrap();
+            std::fs::write(p.join("modlist.txt"), b"").unwrap();
+            p
+        };
+        // Only Default, and MO2 names no active profile: no --profile.
+        let default = profile("Default");
+        assert_eq!(dev_or_active_profile(Some(&mo2)).path, None);
+        // Default active, no dev profile: the active one, as a limitation.
+        std::fs::write(
+            mo2.join("ModOrganizer.ini"),
+            "[General]\r\nselected_profile=@ByteArray(Default)\r\n",
+        )
+        .unwrap();
+        let active = dev_or_active_profile(Some(&mo2));
+        assert_eq!(active.path.as_deref(), Some(default.as_path()));
+        assert!(active.fallback);
+        assert!(
+            active.why.contains("active profile `Default`"),
+            "{}",
+            active.why
+        );
+        assert!(active.why.contains("live game"), "{}", active.why);
+        assert!(active.why.contains("KitKraft Dev"), "{}", active.why);
+        // A dev profile spelled as on the dev box (folder `Kitkraft Dev`) wins.
+        let dev = profile("Kitkraft Dev");
+        let chosen = dev_or_active_profile(Some(&mo2));
+        assert_eq!(chosen.path.as_deref(), Some(dev.as_path()));
+        assert!(!chosen.fallback);
+        assert!(chosen.why.contains("`Kitkraft Dev`"), "{}", chosen.why);
+        // --profile overrides: a name (case ignored) or a folder; anything else is refused.
+        let by_name = requested_profile(Some(&mo2), "default").unwrap();
+        assert_eq!(by_name.path.as_deref(), Some(default.as_path()));
+        assert!(by_name.why.contains("live game"), "{}", by_name.why);
+        let by_path = requested_profile(None, &dev.display().to_string()).unwrap();
+        assert_eq!(by_path.path.as_deref(), Some(dev.as_path()));
+        assert!(!by_path.fallback);
+        let err = requested_profile(Some(&mo2), "Nope").unwrap_err();
+        assert!(err.to_string().contains("not an MO2 profile"), "{err}");
+        let _ = std::fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn with_profile_sets_replaces_or_keeps_the_profile_word() {
+        let dev = Path::new(r"C:\MO2\profiles\KitKraft Dev");
+        let want = slashes(dev);
         assert_eq!(
-            default_mcp_args(Some(&mo2)),
-            ["mcp".to_string(), "--profile".into(), slashes(&profile)]
+            with_profile(&json!(["mcp"]), dev),
+            json!(["mcp", "--profile", want])
+        );
+        assert_eq!(
+            with_profile(
+                &json!(["mcp", "--profile", "C:/MO2/profiles/Default", "-v"]),
+                dev
+            ),
+            json!(["mcp", "--profile", want, "-v"])
+        );
+        assert_eq!(
+            with_profile(&json!(["mcp", "--profile=C:/MO2/profiles/Default"]), dev),
+            json!(["mcp", format!("--profile={want}")])
+        );
+        assert_eq!(
+            with_profile(&json!(["mcp", "--profile"]), dev),
+            json!(["mcp", "--profile", want])
+        );
+        // The same folder spelled another way stays as registered (no needless rewrite).
+        let spelled = json!(["mcp", "--profile", r"C:\MO2\profiles\KitKraft Dev"]);
+        assert_eq!(with_profile(&spelled, dev), spelled);
+        assert_eq!(
+            profile_arg(&json!(["mcp", "--profile=X"])).as_deref(),
+            Some("X")
+        );
+        assert_eq!(profile_arg(&json!(["mcp"])), None);
+    }
+
+    /// The dev box after the first Install.cmd: both files register `kitkraft` at the dist
+    /// `kit.exe` with the `Default` profile. A re-run re-points both to KitKraft Dev and
+    /// shows it as a diff of the entry; then nothing is left to change.
+    #[test]
+    fn a_rerun_repoints_a_default_profile_to_kitkraft_dev() {
+        let mut f = fixture("repoint");
+        let mo2 = f.root.join("MO2");
+        for p in ["Default", "Kitkraft Dev"] {
+            std::fs::create_dir_all(mo2.join("profiles").join(p)).unwrap();
+            std::fs::write(mo2.join("profiles").join(p).join("modlist.txt"), b"").unwrap();
+        }
+        std::fs::write(
+            mo2.join("ModOrganizer.ini"),
+            "[General]\r\nselected_profile=@ByteArray(Default)\r\n",
+        )
+        .unwrap();
+        let live = slashes(&mo2.join("profiles").join("Default"));
+        let dev = slashes(&mo2.join("profiles").join("Kitkraft Dev"));
+        let registered = json!({
+            "type": "stdio",
+            "command": slashes(&f.opts.dist.join(kit_exe())),
+            "args": ["mcp", "--profile", live],
+            "env": {}
+        });
+        let file = json!({"mcpServers": {SERVER: registered}});
+        let mcp = f.opts.project.as_ref().unwrap().join(MCP_JSON);
+        for path in [f.opts.home.join(CLAUDE_JSON), mcp.clone()] {
+            std::fs::write(path, serde_json::to_vec(&file).unwrap()).unwrap();
+        }
+        f.opts.path = false;
+        f.opts.profile = dev_or_active_profile(Some(&mo2));
+
+        let p = plan(&f.opts, &f.env, Action::Install).unwrap();
+        let text = p.render(false);
+        assert!(text.contains("change mcpServers.kitkraft"), "{text}");
+        assert!(
+            text.contains(&format!(r#"  - args: ["mcp","--profile","{live}"]"#)),
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!(r#"  + args: ["mcp","--profile","{dev}"]"#)),
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!("--profile re-pointed: {live} -> {dev}")),
+            "{text}"
+        );
+        assert_eq!(
+            text.matches("change mcpServers.kitkraft").count(),
+            2,
+            "{text}"
+        );
+        assert!(
+            text.contains(&format!(
+                "note: MCP --profile {dev}: the KitKraft Dev profile"
+            )),
+            "{text}"
+        );
+        assert!(!text.contains("limitation:"), "{text}");
+        apply(&p, &mut f.env).unwrap();
+        for path in [f.opts.home.join(CLAUDE_JSON), mcp.clone()] {
+            let v = read_json(&path).unwrap().unwrap();
+            assert_eq!(
+                v["mcpServers"][SERVER]["args"],
+                json!(["mcp", "--profile", dev])
+            );
+        }
+        let again = plan(&f.opts, &f.env, Action::Install).unwrap();
+        assert!(!again.changes_anything(), "{}", again.render(false));
+
+        // Without the dev profile the active one is the default, printed as a limitation.
+        std::fs::remove_dir_all(mo2.join("profiles").join("Kitkraft Dev")).unwrap();
+        f.opts.profile = dev_or_active_profile(Some(&mo2));
+        let back = plan(&f.opts, &f.env, Action::Install)
+            .unwrap()
+            .render(false);
+        assert!(
+            back.contains(&format!(
+                "limitation: MCP --profile {live}: MO2's active profile `Default`"
+            )),
+            "{back}"
+        );
+        assert!(
+            back.contains(&format!("+ args: [\"mcp\",\"--profile\",\"{live}\"]")),
+            "{back}"
         );
         let _ = std::fs::remove_dir_all(&f.root);
     }

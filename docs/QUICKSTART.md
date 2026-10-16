@@ -51,6 +51,13 @@ waits for a key press before closing when something went wrong.
      folder, replacing the pre-rename `kitcraft` entry (its arguments are kept; a backup
      copy `.claude.json.kitkraft-backup-<time>` is written first);
    - writes the same entry into the repository's `.mcp.json` (gitignored);
+   - makes the server preload the **KitKraft Dev** profile (`--profile`, read-only):
+     the profile `kit doctor` reports as `dev_profile` (folder `Kitkraft Dev` on the dev
+     box, name matched ignoring case). An entry registered with another profile, such as
+     `Default` from an earlier install, is re-pointed, and the plan shows it as a diff of
+     the entry (`- args: ...` / `+ args: ...`). Without a KitKraft Dev profile it falls
+     back to MO2's active profile and prints a `limitation:` line saying which and why.
+     `kit install --profile <name-or-path>` picks another one;
    - records what it replaced in `dist\KitKraft\install-state.json`, for `Uninstall.cmd`.
 
    What Install.cmd changes in `.claude.json` besides the entry: the file is parsed and
@@ -92,7 +99,9 @@ Defaults: --data-dir and profile names fall back to what is detected here (argum
 limitation: registry values are read through reg.exe; a path with characters outside the console code page may read wrong
 ```
 
-The two `MCP` lines are what `Install.cmd` fixes. `kit doctor --get <what>` prints one
+The two `MCP` lines are what `Install.cmd` fixes. Each also names the profile its
+registration preloads (`profile <dir>`, or `no --profile`); one preloading `Default`
+gets `FIX: live game profile; re-run Install.cmd to use KitKraft Dev`. `kit doctor --get <what>` prints one
 path alone (`game_dir`, `data_dir`, `mo2`, `active_profile`, `dev_profile`, `cache_dir`,
 `kit`), which is how the `.cmd` files ask for the MO2 folder.
 

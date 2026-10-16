@@ -86,6 +86,7 @@ key but sorts them (serde_json without key-order preservation); the backup copy 
 original. The MCP server keeps preloading `Default` read-only, as the `kitcraft` entry
 did. `C:/Modding/kitcraft/bin/kit.exe` stays on disk; nothing points at it afterwards.
 
+- Landed (fix lane P, 2026-10-16): `kit install`'s MCP `--profile` defaults to the KitKraft Dev profile `kit doctor` detects (else MO2's active one, printed as a `limitation:`; `kit install --profile <name-or-path>` overrides) and re-points a registered `Default` with a `- args`/`+ args` diff of the entry, so re-running `Install.cmd` on the dev box moves both registrations to `Kitkraft Dev`; `kit doctor`'s MCP lines name each registration's profile and FIX `Default`; `.mcp.json.example` and docs follow (the live `.mcp.json` is gitignored: re-run `Install.cmd` to update it).
 - Landed (lane F/W fix round after the Fable review, 2026-10-15): `kit install`/`uninstall --apply` refuse while `claude.exe` runs (desktop app and native CLI; `--force-while-running`, `--check-running` for `Install.cmd`); `--env-file` refuses anything but `{}`/`{"Path":...}`; the gate's `Request.confirmed` is private; `profiles`, `kit doctor`, profile names and `kit install` share one MO2 order (`KITKRAFT_MO2_DIR`, then `kitkraft_io::host`), and `kit install` honors `KITKRAFT_DETECT=0`; QUICKSTART notes the `.claude.json` normalization; `dist\KitKraft` rebuilt.
 
 ## Current milestone: M3 closing, M4 in progress

@@ -197,6 +197,12 @@ fn run_install(sub: &clap::ArgMatches, action: install::Action) -> ExitCode {
     if sub.get_flag("no-project") {
         opts.project = None;
     }
+    if let Some(profile) = sub.try_get_one::<String>("profile").ok().flatten() {
+        if let Err(err) = opts.set_profile(profile) {
+            eprintln!("kit {name}: {err}");
+            return ExitCode::from(EXIT_ERROR);
+        }
+    }
     opts.path = !sub.get_flag("no-path");
     opts.mcp = !sub.get_flag("no-mcp");
     let mut env: Box<dyn install::UserEnv> = match sub.get_one::<String>("env-file") {
@@ -385,10 +391,18 @@ fn cli() -> Command {
             "Open the read-only workbench window (kit ui [--dev | --profile DIR] [--plugins F...] [--data-dir DIR])"
                 .to_string(),
         ))
-        .subcommand(install_command(
-            "install",
-            "Put this folder on the user PATH and register it as the kitkraft MCP server (--dry-run by default; --apply)",
-        ))
+        .subcommand(
+            install_command(
+                "install",
+                "Put this folder on the user PATH and register it as the kitkraft MCP server (--dry-run by default; --apply)",
+            )
+            .arg(
+                Arg::new("profile")
+                    .long("profile")
+                    .value_name("NAME-OR-DIR")
+                    .help("MO2 profile the MCP server preloads (default: the KitKraft Dev profile, else MO2's active one)"),
+            ),
+        )
         .subcommand(install_command(
             "uninstall",
             "Undo kit install: PATH entry, MCP registrations, install record (--dry-run by default; --apply)",
