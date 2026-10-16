@@ -9,12 +9,23 @@
 #     group (inventory scans of 2026-10-14 and the round 3 typed check): every BFCB is a
 #     NUL-terminated ASCII name and every BFCE is 0 bytes.
 #
-# The component data is a union decided by the BFCB string (xEdit's record union), with
-# different layouts for the same signature in different components (BNAM is a string in
-# the animation graph component and a FormID in the world space overlay component, for
-# example). Unions decided by another subrecord are not expressible yet (defs/README.md,
-# "Not supported"), so the data stays raw subrecords (`ComponentData`) until M3.B9; see
-# docs/gaps.md.
+# The component data is upstream's record union over the component layouts (L6055-L6828):
+# each layout is a run of subrecords, and the run's first subrecord says which layout it is
+# (lane D, 2026-10-15). Four layouts are typed here as optional groups, in upstream's
+# order, each led by signatures no other upstream layout starts with in the 14 official
+# ESMs (`crates/doc/tests/components.rs` checks every official block):
+#   - `AnimationGraph` (ANAM..ENAM strings and a marker, L6079-L6087);
+#   - `ContactShadow` (FLCS, five floats, L6096-L6105);
+#   - `PlanetContentProperties` (ZNAM..NAM9, CITC and conditions, L6179-L6198): the
+#     placement properties of PKIN, PCCN, PCBN and LVLP, with FormIDs (globals, curves)
+#     and conditions, so `refs` and `validate` see them;
+#   - `Reflection` (one REFL payload, L6820-L6827): kept raw, since its layout is a helper
+#     in another upstream unit that is not an authorized source (ADR 0004).
+# Every other layout (forty-odd more upstream) stays raw subrecords in `ComponentData`, the
+# `any_until` member after the typed ones: a block whose data starts with a signature none
+# of the groups above starts with is kept as read. A component whose name and data
+# disagree is read by its data's first subrecord, as upstream's record union does; the
+# corpus test above finds no such block among the official files.
 name = "BfcbBlock"
 kind = "group"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"
@@ -30,9 +41,210 @@ type = "zstring"
 note = "component type name, for example BGSQualityUpgrade_Component"
 
 [[member]]
+group = "AnimationGraph"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6079-L6087"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 4,760 BGSAnimationGraph_Component blocks with data in records of a defined type in the 14 official ESMs (GBFM, TERM, ACTI, CONT, FURN and others) hold ANAM, BNAM, CNAM, DNAM and ENAM in this order (some left out), every string NUL-terminated and every ENAM empty; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSAnimationGraph_Component; upstream lets any member be left out"
+
+[[member.member]]
+sig = "ANAM"
+name = "RootGraph"
+type = "zstring"
+card = "optional"
+note = "root animation graph file"
+
+[[member.member]]
+sig = "BNAM"
+name = "RigFile"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "CNAM"
+name = "AnimationsPath"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "DNAM"
+name = "ResponseFile"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "ENAM"
+name = "ControlsBaseSkeleton"
+type = "empty"
+card = "optional"
+note = "a marker: present means true"
+
+[[member]]
+group = "ContactShadow"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6096-L6105"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 147,486 BGSContactShadowComponent_Component blocks in records of a defined type in the 14 official ESMs (REFR almost all, one FACT) each hold one 20-byte FLCS; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSContactShadowComponent_Component"
+
+[[member.member]]
+sig = "FLCS"
+name = "ContactShadows"
+type = "struct"
+size = 20
+field = [
+  { name = "Thickness", type = "f32" },
+  { name = "FadeLength", type = "f32" },
+  { name = "FadeStart", type = "f32" },
+  { name = "MaxDistance", type = "f32" },
+  { name = "ProximityLimit", type = "f32" },
+]
+
+[[member]]
+group = "PlanetContentProperties"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6179-L6198"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2251-L2251",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 1,272 BGSPlanetContentManagerContentProperties_Component blocks of the 14 official ESMs (PKIN 448, PCBN, PCCN, LVLP) all hold ZNAM YNAM XNAM WNAM VNAM UNAM NAM1..NAM9 CITC in this order with 0 to 9 CTDA after (YNAM, VNAM, NAM8 1 byte, the rest 4, CTDA 32); they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSPlanetContentManagerContentProperties_Component: how often and where planet content may be placed"
+
+[[member.member]]
+sig = "ZNAM"
+name = "Znam"
+type = "opaque"
+size = 4
+card = "optional"
+note = "unnamed upstream (presumed a manual days-until-reset value)"
+
+[[member.member]]
+sig = "YNAM"
+name = "DoAllBeforeRepeating"
+type = "ref:Bool8"
+card = "optional"
+
+[[member.member]]
+sig = "XNAM"
+name = "TimesAllowedGlobal"
+type = "u32"
+card = "optional"
+
+[[member.member]]
+sig = "WNAM"
+name = "TimesAllowedPerSystem"
+type = "u32"
+card = "optional"
+
+[[member.member]]
+sig = "VNAM"
+name = "SavePlacement"
+type = "ref:Bool8"
+card = "optional"
+
+[[member.member]]
+sig = "UNAM"
+name = "DaysUntilResetGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member.member]]
+sig = "NAM1"
+name = "MinimumDensityChance"
+type = "f32"
+card = "optional"
+
+[[member.member]]
+sig = "NAM2"
+name = "MinimumDensityChanceGlobal"
+type = "formid"
+targets = ["GLOB"]
+card = "optional"
+
+[[member.member]]
+sig = "NAM3"
+name = "TimesAllowedPerPlanet"
+type = "u32"
+card = "optional"
+
+[[member.member]]
+sig = "NAM4"
+name = "DebugColor"
+type = "ref:ColorRgb"
+card = "optional"
+
+[[member.member]]
+sig = "NAM5"
+name = "TimesPerRequestCurve"
+type = "formid"
+targets = ["CURV"]
+card = "optional"
+
+[[member.member]]
+sig = "NAM6"
+name = "SpawnGroupsLimitCurve"
+type = "formid"
+targets = ["CURV"]
+card = "optional"
+
+[[member.member]]
+sig = "NAM7"
+name = "SpawnGroupDistanceOverrideCurve"
+type = "formid"
+targets = ["CURV"]
+card = "optional"
+
+[[member.member]]
+sig = "NAM8"
+name = "AllowInvalidBiomeMarkers"
+type = "ref:Bool8"
+card = "optional"
+
+[[member.member]]
+sig = "NAM9"
+name = "TimesAllowedPerPlanetWorld"
+type = "u32"
+card = "optional"
+
+[[member.member]]
+sig = "CITC"
+name = "ConditionCount"
+type = "u32"
+card = "optional"
+note = "number of conditions that follow; stored, not derived"
+
+[[member.member]]
+group_ref = "Condition"
+name = "Conditions"
+card = "repeated"
+
+[[member]]
+group = "Reflection"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6820-L6827"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-15: the 8,501 blocks in records of a defined type in the 14 official ESMs whose data is one REFL (BGSLodOwner_Component 4,968, BGSEffectSequenceComponent 2,811, ReflectionProbes_Component 388, BGSMaterialPropertyComponent 177, LensFlareAttachmentFormComponent 95, LightAttachmentFormComponent 57, BGSSpacePhysicsComponent 5) decode and re-encode identically",
+]
+confidence = "corpus"
+note = "the reflection-serialized components (LOD owner, effect sequence, material property, lens flare and light attachments)"
+
+[[member.member]]
+sig = "REFL"
+name = "Data"
+type = "opaque"
+note = "reflection data; upstream reads it with a helper in another unit (not an authorized source), so it stays raw"
+
+[[member]]
 any_until = "BFCE"
 name = "ComponentData"
-note = "union decided by ComponentType; kept raw (not expressible yet)"
+note = "every other component layout (a union decided by ComponentType upstream); kept raw"
 
 [[member]]
 sig = "BFCE"

@@ -196,6 +196,25 @@ hours, radius, buys stolen / everything not in list / non-stolen; `VendorLocatio
 factions), voice, and the herd and create-group blocks. No official faction has ranks or
 conditions.
 
+Lane D check (2026-10-15) against `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11863-L11958`: order,
+widths and targets match. Filled: CRVA's unnamed slot is a 16-bit integer upstream (L11903),
+typed `u16` (was opaque); the one official component block (a contact shadow, FLCS) is typed
+through the shared block; `VendorLocation`'s value is a union by its type
+(`common/PackageLocation.toml`, L3715-L3733, `corpus`), so a vendor reference is visited.
+Open: upstream makes CRVA's fields from the steal multiplier on optional (L11908); every
+official CRVA has them, so the definition keeps one 24-byte layout (a shorter one would stay
+raw). Every official FACT decodes with nothing raw and re-encodes identically
+(`crates/doc/tests/authoring_types.rs`); typed write and reference integrity (relations,
+vendor list and location, condition FormIDs): `crates/engine/src/handlers/authoring_tests.rs`.
+
+Shared with the other types (lane D, 2026-10-15): the base form component block types four
+component layouts (`common/BfcbBlock.toml`: animation graph `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6079-L6087`,
+contact shadow `#L6096-L6105`, placement properties `#L6179-L6198`, reflection `#L6820-L6827`,
+all `corpus`, `crates/doc/tests/components.rs`), and the condition's comparison value,
+parameters and reference are unions (`common/Condition.toml`, `#L4750-L4840` with the
+deciders `#L828-L857`, `#L859-L880` and `wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5738-L5779`, `corpus`
+by `validate_corpus_official_files`). Support depth: `docs/schema/support-matrix.md`.
+
 ## Story manager
 
 Like the planet content trees, the story manager tree is linked **upwards**: every node
@@ -221,15 +240,15 @@ NNAM entries (counts are stored, not derived).
 | Member | Why it is raw | Effect |
 | ------ | ------------- | ------ |
 | VMAD after its 6-byte header (all ten types; 4,413 payloads in QUST, PACK, INFO, SCEN) | each script property's value layout is chosen by its type byte, and the fragment block differs per record type; a union by a sibling field | scripts, properties and fragments are not typed; object FormIDs in them are not visited by `refs` or `formid.dangling` |
-| CTDA comparison value, parameters 1-3, reference (every condition) | unions selected by the type byte, the function index and Run On (PLANET's `Condition`) | condition targets (globals, keywords, references) are not visited |
-| Base form component blocks (FACT 1, QUST 1, DIAL 4, INFO 6, CHAL 10) | each block's layout is chosen by its component name | CHAL's whole content (activities, their FULL/DESC string IDs, conditions, rewards) is raw |
+| CTDA parameters 1-2 of reference, actor and package parameters | the type byte's alias and packdata bits choose the layout (`common/Condition.toml`) | those parameters are not visited; the comparison value, the other parameters, parameter 3 and the reference are typed unions since lane D (2026-10-15) and visited |
+| Base form component blocks (QUST 1, DIAL 4, INFO 6, CHAL 10; FACT's one is typed since lane D) | each block's layout is chosen by its component name | CHAL's whole content (activities, their FULL/DESC string IDs, conditions, rewards) is raw |
 | SCEN action type-specific subrecords | layout chosen by the action type; the same signature means different things in different action types (HNAM marker/float/alias, SNAM phase/time, DATA topic) | topics, packages, scenes, references and keywords named by actions are not visited |
-| PACK data-input CNAM, PTDA target, PLDT/PLVD value, PDTO data | unions selected by the input type text or a type field | the targets are not visited |
+| PACK data-input CNAM, PTDA target, PDTO data | unions selected by the input type text or a type field | the targets are not visited (PLDT/PLVD values are typed unions since lane D, 2026-10-15) |
 | INFO TRDA emotion | a KYWD FormID or the sentinel 0xFFFFFFFF (53,844 response lines of Starfield.esm); a FormID member would report every sentinel as `formid.dangling` | emotion keywords are not visited |
 | INFO ENAM flags | two flag sets, chosen by the record's InfoGroup header flag | kept as a 16-bit number |
 | QUST ALFG | a float upstream, but every official value is 0 or the bit pattern 0x00000002 | kept as 4 raw bytes until the CK settles it |
 | QUST create-matching ALCA | 6 bytes upstream, 4 in all 13 official occurrences | raw |
-| Unnamed upstream: QUST ALAM, INFO INTV and NAM9 (text hash), SCEN VNAM, FACT CRVA slot | no name or meaning in the sources | raw, named after the signature |
+| Unnamed upstream: QUST ALAM, INFO INTV and NAM9 (text hash), SCEN VNAM | no name or meaning in the sources | raw, named after the signature |
 
 The DIAL subtype table (183 values) and the condition function table are not transcribed;
 they stay numbers. PACK general flags stay a number (their names are in an upstream

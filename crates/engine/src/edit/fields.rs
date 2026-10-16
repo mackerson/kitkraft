@@ -1689,7 +1689,9 @@ mod tests {
 
     /// Planet schema lane request to lane E: layouts resolve by position. PNDT's two CNAM,
     /// FNAM and GNAM each get their own member's layout (no "different layouts" error), and
-    /// a VNAM inside a PKIN component block is opaque, not the top-level `Version`.
+    /// a VNAM inside a PKIN component block is not the top-level `Version`: the placement
+    /// properties' `SavePlacement` since lane D types that component, and opaque inside a
+    /// component layout the block keeps raw.
     #[test]
     fn layouts_resolve_by_position() {
         let pndt = [
@@ -1706,9 +1708,14 @@ mod tests {
             assert_eq!(all[inner].as_ref(), Some(&b));
         }
         let pkin = [*b"EDID", *b"BFCB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM"];
-        assert_eq!(layout_at(*b"PKIN", &pkin, 2), None);
+        let save = layout_at(*b"PKIN", &pkin, 2).unwrap();
         let version = layout_at(*b"PKIN", &pkin, 5).unwrap();
         assert!(!version.ty.is_opaque());
+        assert_ne!(save.ty, version.ty);
+        let raw = [
+            *b"EDID", *b"BFCB", *b"ATCP", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
+        ];
+        assert_eq!(layout_at(*b"PKIN", &raw, 3), None);
     }
 
     /// M3.E6 operators: `min` raises to at least, `max` lowers to at most, `clamp` both;

@@ -56,11 +56,11 @@ pub fn resolve(schema: &Schema, record: [u8; 4], path: &FieldPath) -> Result<Res
             label: format!("{rtext}.{stext}"),
         });
     };
-    let leaves: Vec<(String, &kitkraft_schema::SubrecordDef)> = def
-        .leaf_subrecords()
-        .into_iter()
-        .filter(|(_, s)| s.signature.as_bytes() == path.signature)
-        .collect();
+    // By signature alone: the record's own member, before one inside a component layout.
+    let leaves: Vec<(String, &kitkraft_schema::SubrecordDef)> =
+        Signature::from_bytes(path.signature)
+            .map(|sig| def.leaves_for(sig))
+            .unwrap_or_default();
     let Some((name, first)) = leaves.first() else {
         let fallback = LSTRING_FALLBACK.contains(&&path.signature)
             || lstrings::class(record, path.signature) == lstrings::Class::LString;
@@ -181,7 +181,9 @@ pub struct Numeric {
 }
 
 /// Every typed numeric member of record type `record` (integers and floats; not enums,
-/// flags or FormIDs), one per subrecord signature, in definition order.
+/// flags or FormIDs), one per subrecord signature, in definition order. The component
+/// layouts of the base form component block are the shared block's, not the record's
+/// members, and are left out.
 pub fn numeric_members(schema: &Schema, record: [u8; 4]) -> Vec<Numeric> {
     let Some(def) = definition(schema, record) else {
         return Vec::new();
@@ -190,6 +192,9 @@ pub fn numeric_members(schema: &Schema, record: [u8; 4]) -> Vec<Numeric> {
     let mut out = Vec::new();
     let mut seen: Vec<[u8; 4]> = Vec::new();
     for (name, s) in def.leaf_subrecords() {
+        if kitkraft_schema::in_component_layout(&name) {
+            continue;
+        }
         let sig = s.signature.as_bytes();
         if seen.contains(&sig) {
             continue;

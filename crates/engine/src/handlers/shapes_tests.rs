@@ -258,7 +258,7 @@ fn values_carry_explicit_markers() {
         .iter()
         .find(|s| s["signature"] == "CTDA")
         .unwrap();
-    let p1 = &ctda["value"]["Parameter1"];
+    let p1 = &ctda["value"]["Unused1"];
     assert_eq!(p1[KIND], kind::OPAQUE, "{ctda}");
     assert_eq!(
         p1["opaque"]["file_offset"].as_u64().unwrap(),

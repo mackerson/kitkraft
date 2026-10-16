@@ -95,8 +95,9 @@ placement is saved, a days-until-reset global, minimum density chance (value and
 debug colour, per-request, spawn-group-limit and spawn-group-distance curves, whether
 invalid biome markers are allowed, and its own CITC/CTDA conditions. A content node's
 `IOVR` marker (93 nodes, always together with this block) makes the node's properties and
-conditions replace those of the content it places. This block is kept as raw bytes today
-(see "Opaque members").
+conditions replace those of the content it places. Since lane D (2026-10-15) the block is
+typed in the shared `BfcbBlock` (`PlanetContentProperties`; ZNAM, unnamed upstream, stays 4
+raw bytes), with its conditions, so `refs` and `validate` see its globals and curves.
 
 ## How pack-ins instantiate
 
@@ -195,12 +196,33 @@ components; SFBK uses block editor metadata (585).
   row-major arrays of 256 cells) with a rotation per cell; **RSGD** gives vein parameters
   per resource for seven rarity tiers on the surface and seven in cells.
 
+## PKIN (lane D, 2026-10-15)
+
+Checked member by member against `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15981-L16045`: order (both
+OPDS slots), widths, targets, record flags and FNAM bits match; nothing to fill at the
+record's level. Its components are typed now: the placement properties (448 records, with
+their globals, curves and 0 to 9 conditions), the LOD owner, effect sequence, space physics
+and lens flare components (one REFL each, kept as bytes) and the animation graph (2). Every
+official PKIN decodes with nothing raw and re-encodes identically
+(`crates/doc/tests/authoring_types.rs`); typed write and reference integrity (the pack-in
+cell, the placement properties' globals, conditions): `crates/engine/src/handlers/authoring_tests.rs`.
+A PKIN with placement properties has two VNAM (the component's `SavePlacement` first, then
+`Version`): name one by occurrence (`VNAM[1]`); a bare `VNAM` path is ambiguous, not a guess.
+
+Shared with the other types (lane D, 2026-10-15): the base form component block types four
+component layouts (`common/BfcbBlock.toml`: animation graph `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6079-L6087`,
+contact shadow `#L6096-L6105`, placement properties `#L6179-L6198`, reflection `#L6820-L6827`,
+all `corpus`, `crates/doc/tests/components.rs`), and the condition's comparison value,
+parameters and reference are unions (`common/Condition.toml`, `#L4750-L4840` with the
+deciders `#L828-L857`, `#L859-L880` and `wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5738-L5779`, `corpus`
+by `validate_corpus_official_files`). Support depth: `docs/schema/support-matrix.md`.
+
 ## Opaque members, and why
 
 | What | Where | Why |
 | ---- | ----- | --- |
-| Base form component blocks (BFCB..BFCE) | every type that has them | Upstream reads each block by its component name: a union decided by a string in another subrecord, which the format cannot express yet. Kept as raw subrecords (lossless). FULL, keywords, models, properties and the placement properties inside them are therefore not typed, and the FormID and lstring visitors do not see them |
-| Condition comparison value, parameters 1-3, reference | `Condition` (CTDA) | Unions chosen by the type byte, the function index or Run On; 4 raw bytes each. Type, function index and Run On are typed |
+| Base form component blocks (BFCB..BFCE) | every type that has them | Upstream reads the block's data as a record union. Lane D (2026-10-15) types four layouts in the shared block by the data's first subrecord (animation graph, contact shadow, placement properties, reflection); the others (FULL, keywords, models, properties components, ...) stay raw subrecords (lossless) and their FormIDs and lstrings are not visited |
+| Condition parameters 1-2 of reference, actor and package parameters | `Condition` (CTDA) | Chosen by the type byte's alias and packdata bits; 4 raw bytes. The comparison value, the other parameters, parameter 3 and the reference are typed unions since lane D (2026-10-15) |
 | VMAD | LVLP, PKIN, GBFM, TRAV | Script property values are unions by property type |
 | OBTS property values | GBFM | The item is typed through `ObteBlock` since M4.BX1; its property values are struct-field unions by value type, typed since lane B round 4 |
 | NVNM | GBFM | Large nested navmesh geometry; kept raw until navmesh work |

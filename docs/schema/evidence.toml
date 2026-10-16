@@ -1,0 +1,130 @@
+# Support-depth evidence (lane D, 2026-10-15): what the `coverage --matrix` command reads
+# for the four statuses it cannot measure on the corpus itself. See
+# docs/schema/support-matrix.md for what each status means and how to add a row.
+#
+# One [[entry]] per (record type, status):
+#   type     = the record signature ("WEAP")
+#   status   = "typed-writable" | "ck-differential-tested" | "game-runtime-tested"
+#              | "save-reload-verified"
+#   result   = "pass" | "fail" | "inconclusive" (AGENTS.md "Reporting")
+#   evidence = pointers to the proof, each one of
+#              "test: <file>::<fn name>"     a test in this repository
+#              "doc: <file>#<section>"       a Markdown heading, or a line starting with **
+#              "ledger: <entry id>"          docs/game-observations.md or ck-observations.md
+#   note     = optional, our words
+#
+# A type and status with no entry is `not-run`. A `pass` whose pointers do not all resolve
+# is shown `inconclusive`; `crates/engine/src/handlers/matrix.rs`
+# (every_evidence_pointer_resolves) fails the gate when one does not resolve. Never
+# record a status the evidence does not show: schema presence, a typed member or a passing
+# unit test is not game-runtime support (owner ruling 2026-10-15).
+
+# Typed-writable: a test writes the type through `new`/`set`/`build`, re-reads it, and
+# `validate` passes.
+
+[[entry]]
+type = "LCTN"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::lctn_new_sets_every_typed_member_and_reads_back"]
+
+[[entry]]
+type = "TERM"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::term_new_sets_every_typed_member_and_reads_back"]
+
+[[entry]]
+type = "PKIN"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::pkin_new_sets_every_typed_member_and_reads_back"]
+
+[[entry]]
+type = "FACT"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::fact_new_sets_every_typed_member_and_reads_back"]
+
+[[entry]]
+type = "GLOB"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/src/handlers/newform_tests.rs::a_new_global_gets_a_formid_its_editor_id_and_its_fields"]
+note = "a new global with its value, validated, round-trips identically"
+
+[[entry]]
+type = "WEAP"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/tests/overhaul_build.rs::the_overhaul_spec_plans_and_builds_on_the_real_records"]
+note = "typed overrides of real records (corpus test): built, validated, rebuilt identically, round-tripped"
+
+[[entry]]
+type = "AMDL"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/tests/overhaul_build.rs::the_overhaul_spec_plans_and_builds_on_the_real_records"]
+
+[[entry]]
+type = "OMOD"
+status = "typed-writable"
+result = "pass"
+evidence = ["test: crates/engine/tests/overhaul_build.rs::the_overhaul_spec_plans_and_builds_on_the_real_records"]
+
+# CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
+
+# Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.
+
+[[entry]]
+type = "WEAP"
+status = "game-runtime-tested"
+result = "pass"
+evidence = [
+  "ledger: game-20261014-01",
+  "doc: plan/STATUS.md#M3.O5 result",
+]
+note = "the rename override (M2.O6) and gun overhaul build 2 (M3.O5, rows C1-C7, C9-C14)"
+
+[[entry]]
+type = "AMDL"
+status = "game-runtime-tested"
+result = "pass"
+evidence = [
+  "doc: plan/STATUS.md#M3.O5 result",
+  "doc: docs/overhaul/build-2.md#Per row",
+]
+note = "overhaul build 2 overrides 4 aim models; rows C3, C7 and C11 (recoil) passed"
+
+[[entry]]
+type = "OMOD"
+status = "game-runtime-tested"
+result = "pass"
+evidence = [
+  "doc: plan/STATUS.md#M3.O5 result",
+  "doc: docs/overhaul/build-2.md#Per row",
+]
+note = "overhaul build 2 overrides 4 object mods; rows C3, C6, C10 and C11 passed"
+
+[[entry]]
+type = "CELL"
+status = "game-runtime-tested"
+result = "pass"
+evidence = [
+  "doc: plan/STATUS.md#M4.O2 result",
+  "doc: docs/poi/first-poi.md#First POI",
+]
+note = "the first POI carries its interior cell; the owner reached the crate in it (M4.O2)"
+
+[[entry]]
+type = "REFR"
+status = "game-runtime-tested"
+result = "pass"
+evidence = [
+  "doc: plan/STATUS.md#M4.O2 result",
+  "doc: docs/poi/first-poi.md#First POI",
+]
+note = "the POI's new persistent reference (base STAT) was found with player.moveto (M4.O2)"
+
+# Save/reload-verified: none. The M4.O2 save/quit/reload row and the O5-15 persistence row
+# are pending the owner.

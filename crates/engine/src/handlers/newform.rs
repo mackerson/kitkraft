@@ -97,21 +97,45 @@ fn check_edid(
     Ok(())
 }
 
-/// Top-level subrecord members of `sig` in schema order (groups flattened).
-fn member_order(sig: [u8; 4]) -> Vec<([u8; 4], Cardinality, FieldType)> {
-    fn walk(members: &[Member], out: &mut Vec<([u8; 4], Cardinality, FieldType)>) {
+/// One subrecord slot of a record type, in schema member order (groups flattened).
+#[derive(Debug, Clone)]
+struct Slot {
+    sig: [u8; 4],
+    /// Required at the record's level (a group's members never are on their own).
+    card: Cardinality,
+    ty: FieldType,
+    /// Repeated: the slot takes any number of consecutive occurrences.
+    repeated: bool,
+    /// Inside a component layout of the base form component block
+    /// (`kitkraft_schema::in_component_layout`).
+    component: bool,
+}
+
+/// Every subrecord slot of `sig` in schema order (groups flattened).
+fn member_order(sig: [u8; 4]) -> Vec<Slot> {
+    fn walk(members: &[Member], prefix: &str, repeated: bool, out: &mut Vec<Slot>) {
         for m in members {
+            let path = if prefix.is_empty() {
+                m.name().to_string()
+            } else {
+                format!("{prefix}.{}", m.name())
+            };
             match m {
-                Member::Subrecord(s) => {
-                    out.push((s.signature.as_bytes(), s.cardinality, s.ty.clone()))
-                }
+                Member::Subrecord(s) => out.push(Slot {
+                    sig: s.signature.as_bytes(),
+                    card: s.cardinality,
+                    ty: s.ty.clone(),
+                    repeated: repeated || s.cardinality == Cardinality::Repeated,
+                    component: kitkraft_schema::in_component_layout(&path),
+                }),
                 Member::Group(g) => {
                     // A group's members are required only inside the group, which may
                     // itself be absent: never added on their own.
                     let start = out.len();
-                    walk(&g.members, out);
+                    let again = repeated || g.cardinality == Cardinality::Repeated;
+                    walk(&g.members, &path, again, out);
                     for e in out.iter_mut().skip(start) {
-                        e.1 = Cardinality::Optional;
+                        e.card = Cardinality::Optional;
                     }
                 }
                 Member::AnyUntil(_) => {}
@@ -123,9 +147,49 @@ fn member_order(sig: [u8; 4]) -> Vec<([u8; 4], Cardinality, FieldType)> {
         .ok()
         .and_then(|s| s.record(kitkraft_schema::Signature::from_bytes(sig)?))
     {
-        walk(&def.members, &mut out);
+        walk(&def.members, "", false, &mut out);
     }
     out
+}
+
+/// Where occurrence `k` of signature `s` goes when a new record has `n` of them: its slot's
+/// position in [`member_order`]. One occurrence takes the record's own member (before a
+/// member of the same signature inside a component layout: PKIN `VNAM` is `Version`);
+/// several take the slots in schema order, `k`-th to `k`-th, the last slot taking the rest
+/// when it repeats. `None` when there is no slot for it.
+fn slot_of(order: &[Slot], s: [u8; 4], k: usize, n: usize) -> Option<usize> {
+    let slots: Vec<usize> = order
+        .iter()
+        .enumerate()
+        .filter(|(_, e)| e.sig == s)
+        .map(|(i, _)| i)
+        .collect();
+    if n <= 1 {
+        return order
+            .iter()
+            .position(|e| e.sig == s && !e.component)
+            .or_else(|| slots.first().copied());
+    }
+    match slots.get(k) {
+        Some(i) => Some(*i),
+        None => slots
+            .last()
+            .copied()
+            .filter(|i| order.get(*i).is_some_and(|e| e.repeated)),
+    }
+}
+
+/// The bytes a created subrecord in a slot of layout `ty` starts with: zeros of its fixed
+/// size, or an empty string.
+fn slot_placeholder(ty: &FieldType, whole_value: bool) -> Option<Vec<u8>> {
+    if let Some(n) = ty.fixed_size(Some(RecordStamps::default().form_version)) {
+        return Some(vec![0; usize::try_from(n).ok()?]);
+    }
+    match ty {
+        FieldType::ZString | FieldType::LString => Some(vec![0]),
+        _ if whole_value => Some(Vec::new()),
+        _ => None,
+    }
 }
 
 /// The bytes a created subrecord starts with: zeros of its fixed size, or an empty string.
@@ -179,61 +243,102 @@ pub(crate) fn plan_new(
     }
     masters.sort_by_key(|(i, _)| *i);
     let order = member_order(sig);
-    let rank = |s: [u8; 4]| {
-        order
-            .iter()
-            .position(|(m, _, _)| *m == s)
-            .unwrap_or(usize::MAX)
-    };
+    // How many occurrences of each signature the fields name (`PRPS[1]` makes two).
+    let mut wanted: std::collections::BTreeMap<[u8; 4], usize> = std::collections::BTreeMap::new();
+    for edit in &req.edits {
+        let n = wanted.entry(edit.path.signature).or_insert(0);
+        *n = (*n).max(edit.path.occurrence.saturating_add(1));
+    }
     let mut edid = req.edid.as_bytes().to_vec();
     edid.push(0);
-    let mut subs: Vec<Subrecord<'static>> = vec![Subrecord::new(Signature(*b"EDID"), edid)];
+    // Each subrecord with the position of its slot; EDID first.
+    let edid_slot = slot_of(&order, *b"EDID", 0, 1).unwrap_or(0);
+    let mut subs: Vec<(usize, Subrecord<'static>)> =
+        vec![(edid_slot, Subrecord::new(Signature(*b"EDID"), edid))];
     let mut limitations = Vec::new();
     let mut defaulted: Vec<String> = Vec::new();
-    for (m, card, _) in &order {
-        if *card == Cardinality::Required
-            && m != b"EDID"
-            && !subs.iter().any(|s| s.signature().0 == *m)
-            && !req.edits.iter().any(|e| e.path.signature == *m)
+    for (i, slot) in order.iter().enumerate() {
+        let m = slot.sig;
+        if slot.card == Cardinality::Required
+            && m != *b"EDID"
+            && !subs.iter().any(|(_, s)| s.signature().0 == m)
+            && !wanted.contains_key(&m)
         {
-            match placeholder(sig, *m, false) {
+            match placeholder(sig, m, false) {
                 Some(bytes) => {
-                    defaulted.push(String::from_utf8_lossy(m).into_owned());
-                    subs.push(Subrecord::new(Signature(*m), bytes));
+                    defaulted.push(String::from_utf8_lossy(&m).into_owned());
+                    subs.push((i, Subrecord::new(Signature(m), bytes)));
                 }
                 None => limitations.push(format!(
                     "{at}: the schema requires {} on a {text}, which has no fixed size; give it in `fields` as hex:",
-                    String::from_utf8_lossy(m)
+                    String::from_utf8_lossy(&m)
                 )),
             }
         }
     }
     for edit in &req.edits {
-        let s = edit.path.signature;
-        if edit.path.occurrence != 0 {
-            return Err(failed(command, format!("new.occurrence: {at}: `{}`: a new record has one subrecord of each signature here", edit.path.text)));
-        }
-        if s == *b"EDID" {
+        if edit.path.signature == *b"EDID" {
             return Err(failed(
                 command,
                 format!("new.edid-field: {at}: give the EditorID as `edid`, not in fields"),
             ));
         }
-        if subs.iter().any(|x| x.signature().0 == s) {
-            continue;
-        }
-        let bytes = placeholder(sig, s, edit.path.steps.is_empty()).ok_or_else(|| {
-            failed(
-                command,
-                format!(
-                    "new.unknown-member: {at}: `{}` is not a member of {text} with a layout a new subrecord can start from (give the whole subrecord as hex:)",
-                    edit.path.text
-                ),
-            )
-        })?;
-        subs.push(Subrecord::new(Signature(s), bytes));
     }
-    subs.sort_by_key(|s| rank(s.signature().0));
+    for (s, n) in &wanted {
+        for k in 0..*n {
+            // A whole value for this occurrence (no member steps): a variable layout may
+            // start empty.
+            let whole = req.edits.iter().any(|e| {
+                e.path.signature == *s && e.path.occurrence == k && e.path.steps.is_empty()
+            });
+            let shown = req
+                .edits
+                .iter()
+                .find(|e| e.path.signature == *s && e.path.occurrence == k)
+                .map_or_else(
+                    || format!("{}[{k}]", String::from_utf8_lossy(s)),
+                    |e| e.path.text.clone(),
+                );
+            // A signature the definition has no slot for (the FULL/DESC and corpus lstring
+            // fallbacks) goes last, one occurrence only.
+            let slot = match slot_of(&order, *s, k, *n) {
+                Some(slot) => slot,
+                None if *n <= 1 => usize::MAX,
+                None => {
+                    return Err(failed(
+                        command,
+                        format!(
+                            "new.occurrence: {at}: `{shown}`: {text} has no slot for occurrence {k} of {} (the schema lists {}, none repeating)",
+                            String::from_utf8_lossy(s),
+                            order.iter().filter(|e| e.sig == *s).count()
+                        ),
+                    ))
+                }
+            };
+            // One occurrence: the record's own member's layout, as `set` resolves it
+            // after `EDID`; several: each slot's own layout.
+            // A member that cannot follow EDID alone (the BFCE that ends a component)
+            // starts from its slot's layout too.
+            let from_slot = || order.get(slot).and_then(|e| slot_placeholder(&e.ty, whole));
+            let bytes = if *n <= 1 {
+                placeholder(sig, *s, whole).or_else(from_slot)
+            } else {
+                from_slot()
+            };
+            let bytes = bytes.ok_or_else(|| {
+                failed(
+                    command,
+                    format!(
+                        "new.unknown-member: {at}: `{shown}` is not a member of {text} with a layout a new subrecord can start from (give the whole subrecord as hex:)"
+                    ),
+                )
+            })?;
+            subs.push((slot, Subrecord::new(Signature(*s), bytes)));
+        }
+    }
+    // Stable: occurrences of one repeating slot keep their order.
+    subs.sort_by_key(|(slot, _)| *slot);
+    let subs: Vec<Subrecord<'static>> = subs.into_iter().map(|(_, s)| s).collect();
     if !defaulted.is_empty() {
         limitations.push(format!(
             "{at}: members the schema requires were written as zeros (or an empty string) unless given in fields: {}",

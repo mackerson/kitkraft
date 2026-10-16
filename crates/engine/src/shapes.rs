@@ -1080,6 +1080,7 @@ const COVERAGE_DATA: Shape = Obj(&[&[
                     req("count", Int),
                     req("class", Enum(&["typed", "opaque", "unknown"])),
                     req("failed", Int),
+                    req("outside_components", Int),
                     req("confidence", NSTR),
                     req("members", STRS),
                     req("first_record", Str),

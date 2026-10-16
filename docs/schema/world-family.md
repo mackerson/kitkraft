@@ -99,6 +99,25 @@ to a master's location), `LC..` (the location's own) and `RC..` (removed). Then 
 keywords, properties (`PRPS`, at two positions), ownership and encounter levels (`DATA`),
 parent location, crime faction, world marker and radius, star and planet IDs.
 
+Lane D check (2026-10-15), member by member against `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13376-L13587`:
+the definition matches upstream's order, widths, FormID targets and flags; nothing to fill.
+The 4 unnamed bytes of each persistent and special reference entry (`Bytes12`, `Bytes16`;
+`wbUnknown(4)` upstream, L13407, L13416, L13463, L13473) and `NAM0` (unused upstream,
+L13569) stay opaque; `VMAD`, the component blocks and the `RC..` lists are `reference` (no
+official LCTN has them). Every official LCTN decodes through the definition with nothing
+raw and re-encodes identically (`crates/doc/tests/authoring_types.rs`); typed-writable:
+`crates/engine/src/handlers/authoring_tests.rs` (`lctn_new_sets_every_typed_member_and_reads_back`,
+`lctn_dangling_link_is_reported`). The reference lists are written whole (`hex:`): `set`
+paths do not address elements of a payload that is itself an array.
+
+Shared with the other types (lane D, 2026-10-15): the base form component block types four
+component layouts (`common/BfcbBlock.toml`: animation graph `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6079-L6087`,
+contact shadow `#L6096-L6105`, placement properties `#L6179-L6198`, reflection `#L6820-L6827`,
+all `corpus`, `crates/doc/tests/components.rs`), and the condition's comparison value,
+parameters and reference are unions (`common/Condition.toml`, `#L4750-L4840` with the
+deciders `#L828-L857`, `#L859-L880` and `wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5738-L5779`, `corpus`
+by `validate_corpus_official_files`). Support depth: `docs/schema/support-matrix.md`.
+
 ### LCRT: location reference type
 
 A colour, the keyword type (`TNAM`, kept as its u32 value), the unknown `FNAM`, and members
@@ -108,7 +127,7 @@ no official LCRT has (notes, name, attraction rule, Flash linkage name).
 
 | Member | Why it is raw |
 | ------ | ------------- |
-| BFCB..BFCE blocks (every type) | Component data; the block body is kept as raw subrecords (shared `BfcbBlock`) |
+| BFCB..BFCE blocks (every type) | Component data other than the four layouts the shared `BfcbBlock` types (animation graph, contact shadow, placement properties, reflection) is kept as raw subrecords |
 | `VMAD` (all) | Script data; xEdit builds it from unions chosen by deciders the schema cannot express |
 | NAVM `NVNM` | Nested counted arrays and version-gated parts |
 | NAVM `MNAM`, REFR `XSL1` | Lists whose entries carry their own counted lists; an array element cannot hold a counted array |

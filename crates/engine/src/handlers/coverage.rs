@@ -172,6 +172,9 @@ struct SubStats {
     count: u64,
     /// Occurrences of a typed signature whose payload did not decode.
     failed: u64,
+    /// Occurrences of a signature the definition names only inside the component layouts
+    /// of the base form component block, outside any component: counted as unknown.
+    outside: u64,
     /// FormID of the first record holding this signature.
     first_form: u32,
 }
@@ -192,6 +195,13 @@ struct TypeStats {
     /// Decoded (typed, not failed) occurrences by the confidence of the member each one is
     /// placed in (`kitkraft_doc::typed::placements`).
     decoded_confidence: BTreeMap<Confidence, u64>,
+    /// Compressed records whose body did not decompress.
+    decode_failed: u64,
+    /// Subrecord payload bytes examined, and those a layout types (the support matrix,
+    /// [`Walk::bytes`]): a decoded payload less its opaque fields; opaque members, unknown
+    /// and failed subrecords and raw bodies type none.
+    payload_bytes: u64,
+    typed_bytes: u64,
 }
 
 /// One subrecord where a definition and the bytes disagree (listed in `typed_failures`).
@@ -219,7 +229,7 @@ impl TypedFailure {
 }
 
 #[derive(Debug, Default)]
-struct Walk {
+pub(super) struct Walk {
     types: BTreeMap<[u8; 4], TypeStats>,
     groups: u64,
     records: u64,
@@ -232,6 +242,11 @@ struct Walk {
     typed_failure_count: u64,
     /// The first [`MAX_LISTED_TYPED`] of them.
     typed_failures: Vec<TypedFailure>,
+    /// Only these record types are examined (the support matrix's `types`); `None`: all.
+    filter: Option<BTreeSet<[u8; 4]>>,
+    /// Count typed payload bytes (decodes each typed payload a second time, through the
+    /// schema reader, to find its opaque fields).
+    bytes: bool,
 }
 
 /// What decoding one record through its definition showed.
@@ -300,6 +315,13 @@ impl Walk {
             self.localized = kitkraft_esm::tes4::Tes4::new(r).is_localized();
         }
         self.records = self.records.saturating_add(1);
+        if self
+            .filter
+            .as_ref()
+            .is_some_and(|f| !f.contains(&h.signature.bytes()))
+        {
+            return;
+        }
         let offset = r.offset().unwrap_or(0);
         let length = r
             .data_size_as_read()
@@ -318,6 +340,9 @@ impl Walk {
                 first: (offset, length, h.form_id),
                 subs: BTreeMap::new(),
                 decoded_confidence: BTreeMap::new(),
+                decode_failed: 0,
+                payload_bytes: 0,
+                typed_bytes: 0,
             });
         stats.records = stats.records.saturating_add(1);
 
@@ -339,6 +364,7 @@ impl Walk {
                     }
                     Ok(None) => &[],
                     Err(e) => {
+                        stats.decode_failed = stats.decode_failed.saturating_add(1);
                         self.decode_failures.push(format!(
                             "{} {:08X} @{offset}: compressed body not examined ({e})",
                             h.signature, h.form_id
@@ -366,14 +392,40 @@ impl Walk {
             _ => None,
         };
         let mut failures = Vec::new();
+        let edid_first = subs
+            .iter()
+            .find(|s| s.signature().bytes() == *b"EDID")
+            .and_then(|s| s.data().first().copied());
+        let reader_ctx = kitkraft_doc::typed::Ctx {
+            form_version: h.form_version,
+            localized: self.localized,
+            edid_first,
+        };
         for (index, s) in subs.iter().enumerate() {
             let signature = s.signature().bytes();
             let class = stats.schema.class(signature);
+            let len = u64::try_from(s.data().len()).unwrap_or(u64::MAX);
+            stats.payload_bytes = stats.payload_bytes.saturating_add(len);
+            // A signature the definition knows only inside a component layout (WEAP `DNAM`
+            // is the animation graph's response file there) is not a member where no
+            // component holds it: unknown, not a failed typed member.
+            let outside = class == Class::Typed
+                && matches!(
+                    placed.as_ref().and_then(|p| p.get(index)),
+                    Some(Placement::Unplaced)
+                )
+                && stats.schema.known.get(&signature).is_some_and(|k| {
+                    !k.members.is_empty()
+                        && k.members
+                            .iter()
+                            .all(|m| kitkraft_schema::in_component_layout(m))
+                });
             let failed = class == Class::Typed
+                && !outside
                 && typed
                     .as_ref()
                     .is_some_and(|t| t.not_decoded.contains(&index));
-            if class == Class::Typed && !failed {
+            if class == Class::Typed && !failed && !outside {
                 let member = match placed.as_ref().and_then(|p| p.get(index)) {
                     Some(Placement::Member { def, .. }) => Some(def.provenance.confidence),
                     // Inside an any_until body, or not placed: the signature's weakest.
@@ -386,13 +438,25 @@ impl Walk {
                 if let Some(c) = member {
                     add_confidence(&mut stats.decoded_confidence, c, 1);
                 }
+                if self.bytes {
+                    if let Some(Placement::Member { def, .. }) =
+                        placed.as_ref().and_then(|p| p.get(index))
+                    {
+                        let typed_here = typed_payload_bytes(&def.ty, s.data(), &reader_ctx);
+                        stats.typed_bytes = stats.typed_bytes.saturating_add(typed_here);
+                    }
+                }
             }
             let sub = stats.subs.entry(signature).or_insert(SubStats {
                 count: 0,
                 failed: 0,
+                outside: 0,
                 first_form: h.form_id,
             });
             sub.count = sub.count.saturating_add(1);
+            if outside {
+                sub.outside = sub.outside.saturating_add(1);
+            }
             if failed {
                 sub.failed = sub.failed.saturating_add(1);
                 failures.push((index, "not_decoded"));
@@ -413,6 +477,112 @@ impl Walk {
                 kind,
             });
         }
+    }
+}
+
+/// The bytes of `data` (a payload laid out as `ty`) that the layout types: all of them
+/// less the opaque fields of the decoded value (`kitkraft_doc::typed`); 0 when the reader
+/// does not decode it.
+fn typed_payload_bytes(ty: &FieldType, data: &[u8], ctx: &kitkraft_doc::typed::Ctx) -> u64 {
+    fn opaque(v: &kitkraft_doc::typed::Decoded, depth: usize) -> usize {
+        use kitkraft_doc::typed::Decoded;
+        match v {
+            Decoded::Opaque { len, .. } => *len,
+            Decoded::Struct(fields) if depth < 64 => fields.iter().fold(0usize, |n, (_, f)| {
+                n.saturating_add(opaque(f, depth.saturating_add(1)))
+            }),
+            Decoded::Array(items) if depth < 64 => items.iter().fold(0usize, |n, f| {
+                n.saturating_add(opaque(f, depth.saturating_add(1)))
+            }),
+            _ => 0,
+        }
+    }
+    match kitkraft_doc::typed::decode(ty, data, ctx) {
+        Ok(v) => u64::try_from(data.len().saturating_sub(opaque(&v, 0))).unwrap_or(0),
+        Err(_) => 0,
+    }
+}
+
+/// One record type's totals over every file a [`Walk`] examined (the support matrix).
+#[derive(Debug, Clone, Default)]
+pub(super) struct TypeTotals {
+    pub signature: [u8; 4],
+    pub definition: Option<String>,
+    pub records: u64,
+    pub compressed: u64,
+    pub compressed_examined: u64,
+    pub decode_failed: u64,
+    pub typed_records: u64,
+    pub typed: u64,
+    pub failed: u64,
+    pub opaque: u64,
+    pub unknown: u64,
+    pub reencode_conflicts: u64,
+    pub payload_bytes: u64,
+    pub typed_bytes: u64,
+}
+
+impl Walk {
+    /// A walk over the record types in `filter` (all when `None`), counting typed payload
+    /// bytes when `bytes` is set.
+    pub(super) fn for_matrix(filter: Option<BTreeSet<[u8; 4]>>, bytes: bool) -> Walk {
+        Walk {
+            filter,
+            bytes,
+            ..Walk::default()
+        }
+    }
+
+    /// Streams one plugin into the walk (every record of the types it examines); the TES4
+    /// localized flag is read again for each file.
+    pub(super) fn file(&mut self, path: &Path, schema: &Schema) -> Result<(), String> {
+        let limits = DecodeLimits::default();
+        self.localized = false;
+        let mut first = true;
+        visit_file(path, &ParseOptions::default(), |entry| {
+            if first {
+                first = false;
+                if let Entry::Record(r) = entry {
+                    if r.header.signature.bytes() == *b"TES4" {
+                        self.localized = kitkraft_esm::tes4::Tes4::new(r).is_localized();
+                    }
+                }
+            }
+            self.entry(entry, Some(schema), Some(&limits));
+            Ok(())
+        })
+        .map_err(|e| format!("{}: {e}", path.display()))
+    }
+
+    /// Per record type totals, by signature.
+    pub(super) fn totals(&self) -> Vec<TypeTotals> {
+        self.types
+            .iter()
+            .map(|(sig, stats)| {
+                let mut occ = Occurrences::default();
+                for (sub_sig, sub) in &stats.subs {
+                    let class = stats.schema.class(*sub_sig);
+                    occ.add(class, sub.count.saturating_sub(sub.outside), sub.failed);
+                    occ.add(Class::Unknown, sub.outside, 0);
+                }
+                TypeTotals {
+                    signature: *sig,
+                    definition: stats.schema.definition.clone(),
+                    records: stats.records,
+                    compressed: stats.compressed,
+                    compressed_examined: stats.compressed_examined,
+                    decode_failed: stats.decode_failed,
+                    typed_records: stats.typed_records,
+                    typed: occ.typed,
+                    failed: occ.failed,
+                    opaque: occ.opaque,
+                    unknown: occ.unknown,
+                    reencode_conflicts: stats.reencode_conflicts,
+                    payload_bytes: stats.payload_bytes,
+                    typed_bytes: stats.typed_bytes,
+                }
+            })
+            .collect()
     }
 }
 
@@ -504,8 +674,17 @@ fn add_confidence(into: &mut BTreeMap<Confidence, u64>, c: Confidence, n: u64) {
     *slot = slot.saturating_add(n);
 }
 
-/// The handler.
+/// The handler. With `matrix: true`, the support-depth matrix (`super::matrix`).
 pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
+    if args.get("matrix").and_then(Value::as_bool) == Some(true) {
+        return super::matrix::run(args);
+    }
+    if args.get("plugin").is_none() {
+        return Err(failed(
+            ID,
+            "give a plugin (or `matrix: true` for the support-depth matrix over the official files)",
+        ));
+    }
     let plugin = str_arg(ID, args, "plugin")?;
     let decode = args.get("decode").and_then(Value::as_bool).unwrap_or(true);
     let listing = Listing {
@@ -577,14 +756,24 @@ fn outcome(
             let class = stats.schema.class(*sub_sig);
             let known = stats.schema.known.get(sub_sig);
             let confidence = known.and_then(|k| k.confidence);
-            distinct.add(class, 1);
-            type_occurrences.add(class, sub.count, sub.failed);
+            // Every occurrence outside the components that alone name it: unknown here.
+            let shown = if sub.count > 0 && sub.outside == sub.count {
+                Class::Unknown
+            } else {
+                class
+            };
+            distinct.add(shown, 1);
+            type_occurrences.add(class, sub.count.saturating_sub(sub.outside), sub.failed);
+            type_occurrences.add(Class::Unknown, sub.outside, 0);
             subs.push(json!({
                 "signature": Signature(*sub_sig).to_string(),
                 "count": sub.count,
-                "class": class.as_str(),
+                "class": shown.as_str(),
                 "failed": sub.failed,
-                "confidence": confidence.map(Confidence::as_str),
+                "outside_components": sub.outside,
+                "confidence": confidence
+                    .filter(|_| shown != Class::Unknown)
+                    .map(Confidence::as_str),
                 "members": known.map(|k| k.members.clone()).unwrap_or_default(),
                 "first_record": format!("{signature}:{:08X}", sub.first_form),
             }));
@@ -801,9 +990,16 @@ mod tests {
         assert_eq!(find(&weap["signatures"], "EDID")["count"], 2);
         assert_eq!(find(&weap["signatures"], "EDID")["class"], "typed");
         assert_eq!(find(&weap["signatures"], "MODL")["class"], "typed");
+        // WEAP has no DNAM of its own: the schema names DNAM only inside a component
+        // layout (the animation graph's response file), and this one is outside any
+        // component, so it is unknown here.
         let dnam = find(&weap["signatures"], "DNAM");
         assert_eq!(dnam["class"], "unknown");
-        assert_eq!(dnam["members"], json!([]));
+        assert_eq!(dnam["outside_components"], 1);
+        assert_eq!(
+            dnam["members"],
+            json!(["BfcbBlock.AnimationGraph.ResponseFile"])
+        );
         assert_eq!(
             find(&weap["signatures"], "DATA")["first_record"],
             format!("WEAP:{:08X}", testdata::PACKED)

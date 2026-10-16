@@ -727,6 +727,7 @@ record_types[].signatures[].signature: str
 record_types[].signatures[].count: int
 record_types[].signatures[].class: "typed" | "opaque" | "unknown"
 record_types[].signatures[].failed: int
+record_types[].signatures[].outside_components: int
 record_types[].signatures[].confidence: str | null
 record_types[].signatures[].members: [str]
 record_types[].signatures[].first_record: str

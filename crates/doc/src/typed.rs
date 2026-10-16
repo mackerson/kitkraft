@@ -856,29 +856,47 @@ mod tests {
 
     /// Planet schema lane request to lane D: a VNAM inside a PKIN base form component
     /// (the 1-byte VNAM of `Starfield.esm PKIN:0000B065`) is not the top-level `Version`.
+    /// Since lane D types the placement-properties component (2026-10-15) it is that
+    /// component's `SavePlacement`; a component layout the block does not type stays raw.
     #[test]
-    fn pkin_vnam_inside_a_component_is_raw() {
+    fn pkin_vnam_inside_a_component_is_its_own_member() {
         let schema = kitkraft_schema::builtin().unwrap();
         let subs = [
             *b"EDID", *b"BFCB", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM", *b"FNAM",
         ];
         let placed = placements(schema, *b"PKIN", &subs).unwrap();
-        assert!(matches!(&placed[2], Placement::Raw { .. }), "{placed:?}");
-        let inner = layout_at(schema, *b"PKIN", &subs, 2).unwrap_err();
         assert!(
-            matches!(inner, LayoutError::Raw { index: 2, .. }),
-            "{inner}"
+            matches!(&placed[2], Placement::Member { path, .. }
+                if path == "BfcbBlock.PlanetContentProperties.SavePlacement"),
+            "{placed:?}"
         );
+        let inner = layout_at(schema, *b"PKIN", &subs, 2).unwrap().unwrap();
+        assert_eq!(inner.name, "SavePlacement");
         let top = layout_at(schema, *b"PKIN", &subs, 5).unwrap().unwrap();
         assert_eq!(top.name, "Version");
-        // A path naming VNAM selects the top-level member only.
-        let (layout, chosen) = path_layout(schema, *b"PKIN", &subs, &[2, 5], false)
+        // A path naming both occurrences is ambiguous: name one.
+        assert!(matches!(
+            path_layout(schema, *b"PKIN", &subs, &[2, 5], false),
+            Err(LayoutError::Ambiguous { .. })
+        ));
+        let (layout, chosen) = path_layout(schema, *b"PKIN", &subs, &[5], true)
             .unwrap()
             .unwrap();
         assert_eq!((layout.name, chosen), ("Version", vec![5]));
-        // Naming the component's occurrence explicitly is an error, not a guess.
+        // A component whose data starts with a signature no typed layout starts with is
+        // kept raw, whatever follows; a path naming the raw occurrence explicitly is an
+        // error, not a guess.
+        let raw = [
+            *b"EDID", *b"BFCB", *b"ATCP", *b"VNAM", *b"BFCE", *b"CNAM", *b"VNAM",
+        ];
+        let placed = placements(schema, *b"PKIN", &raw).unwrap();
+        assert!(matches!(&placed[3], Placement::Raw { .. }), "{placed:?}");
+        let (layout, chosen) = path_layout(schema, *b"PKIN", &raw, &[3, 6], false)
+            .unwrap()
+            .unwrap();
+        assert_eq!((layout.name, chosen), ("Version", vec![6]));
         assert!(matches!(
-            path_layout(schema, *b"PKIN", &subs, &[2], true),
+            path_layout(schema, *b"PKIN", &raw, &[3], true),
             Err(LayoutError::Raw { .. })
         ));
     }

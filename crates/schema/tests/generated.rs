@@ -714,7 +714,7 @@ fn seed_weap_typed_shape() {
         b"FLLD", b"WTRM",
     ];
     // Well-formed payloads for a localized plugin (lane B round 3 layouts); the component
-    // data inside the BFCB block stays raw.
+    // data inside the BFCB block is the reflection layout (its REFL kept as bytes).
     let kwda = [7u32.to_le_bytes(), 0x0100_0009u32.to_le_bytes()].concat();
     // A template item with no includes or properties and one keyword (22 bytes).
     let mut obts = vec![0u8; 15];
@@ -748,7 +748,8 @@ fn seed_weap_typed_shape() {
     let rec = WeapRecord::decode(&raws, localized);
     assert!(rec.extra.is_empty(), "{:?}", rec.extra);
     assert_eq!(rec.bfcb_block.len(), 1);
-    assert_eq!(rec.bfcb_block[0].component_data.len(), 1);
+    assert!(rec.bfcb_block[0].component_data.is_empty());
+    assert!(rec.bfcb_block[0].reflection.is_some());
     assert_eq!(rec.bfcb_block[0].component_type.as_ref().unwrap().0, b"T");
     assert_eq!(rec.editor_id.as_ref().unwrap().0, b"Gun");
     assert_eq!(**rec.name.as_ref().unwrap(), seed::LString::Id(0x0100_0006));
@@ -798,11 +799,12 @@ fn seed_weap_typed_shape() {
 #[test]
 fn seed_glob_gmst_kywd_inventory_shapes() {
     use seed::{Ctx, GlobRecord, GmstRecord, KywdRecord};
-    // GLOB "EDID BFCB FLCS BFCE FLTV" and "FLTV" shapes.
+    // GLOB "EDID BFCB QUPA BFCE FLTV" and "FLTV" shapes (QUPA: a component layout the
+    // block keeps raw).
     let glob = vec![
         s(b"EDID", b"Gv\0"),
         s(b"BFCB", b"Type\0"),
-        s(b"FLCS", &[1, 2]),
+        s(b"QUPA", &[1, 2]),
         s(b"BFCE", &[]),
         s(b"FLTV", &1.0f32.to_le_bytes()),
     ];

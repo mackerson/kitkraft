@@ -2516,3 +2516,14 @@ Agents append here when they need a change in a crate they do not own.
   `testplan` names references by EditorID, has the owner click the object to read its ID,
   and labels every numeric ID `confirmed-by-save` or predicted with its assumptions;
   `docs/poi/first-poi.md` regenerated (`04001000`, confirmed by `Exitsave0` `000052`).
+- **Lane D landed (2026-10-15, authoring; owner priority D):** the support-depth matrix
+  (`kit coverage --matrix`, MCP `coverage` with `matrix`; six statuses per record type;
+  `docs/schema/support-matrix.md`, evidence in `docs/schema/evidence.toml`, every pointer
+  checked by `every_evidence_pointer_resolves`). LCTN, TERM, PKIN, FACT: typed-readable on
+  every official record (`crates/doc/tests/authoring_types.rs`), typed-writable and
+  dangling-link tests (`crates/engine/src/handlers/authoring_tests.rs`); four base form
+  component layouts typed in `common/BfcbBlock.toml` (`crates/doc/tests/components.rs`),
+  the condition and package-location value unions typed (`validate_corpus` reserved pins
+  updated: CTDA Reference 0x14, actor values 0x2BC/0x2BD/0x3B6). `docs/record-parity.md`
+  not regenerated: run `cargo xtask parity` at the integration. Also fixed the
+  `profiles` CommandSpec the lane W/F merge broke (engine did not compile on `main`).

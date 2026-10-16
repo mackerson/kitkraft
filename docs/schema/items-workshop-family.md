@@ -28,7 +28,7 @@ files contain (our own scan), **D** is a hypothesis to test in the CK or in game
 | ACTI | 1,940 | 5 | VMAD, component blocks, NVNM, CTDA unions | DEFL, RADR |
 | FURN | 1,045 | 8 | VMAD, component blocks, NNAM | NTRM, WTFM, container items, NAM1 |
 | MSTT | 2,134 | 8 | VMAD, component blocks | second PTT2 slot |
-| TERM | 501 | 5 | VMAD, component blocks, WBDT | OPDS, SNBH, DEFL, XALG, destruction, NTRM, ALSH, ACSH, WTFM, ATTX, RADR, conditions, STRV, object template |
+| TERM | 501 | 5 | VMAD, REFL (effect sequence component), WBDT | OPDS, SNBH, DEFL, XALG, destruction, NTRM, ALSH, ACSH, WTFM, ATTX, RADR, conditions, STRV, object template |
 | TMLM | 974 | 5 | VMAD, CTDA unions, ISET/XLOC padding | - |
 | ARMO | 1,168 | 5 | VMAD, component blocks, Wwise GUIDs | MO2S, MLM4, MO4S, destruction, ETYP, BIDS |
 | IDLE | 1,302 | 5 | CTDA unions | - |
@@ -193,14 +193,37 @@ PKIN (planet family, typed). Ownership of the outpost, power, cargo links and cr
 assignments is script and keyword behaviour (`LinkOutpost*`, `CrewFurniture_*`,
 `WorkshopStartPoweredOn`), not covered here.
 
+## TERM (lane D, 2026-10-15)
+
+Checked member by member against `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L18155-L18249`: order,
+widths, FormID targets, the FNAM and MNAM bits and the condition block match. Gaps filled:
+the component data of every official terminal is typed now (the animation graph ANAM, BNAM,
+CNAM strings, `#L6079-L6087`; the effect sequence's REFL kept as bytes, `#L6820-L6827`), and
+condition parameters are typed through the shared `Condition` unions. Still opaque: VMAD
+(fragmented script data, `wbVMADFragmentedPERK`) and WBDT (unused and zero-length
+upstream, one zero byte in every official record). Every official TERM decodes with
+nothing raw and re-encodes identically (`crates/doc/tests/authoring_types.rs`); typed
+write and reference integrity (the terminal menu DNAM, condition FormIDs):
+`crates/engine/src/handlers/authoring_tests.rs`. A TERM with an animation graph component
+has two DNAM, the component's response file first: name the terminal menu `DNAM[1]` when
+both are present.
+
+Shared with the other types (lane D, 2026-10-15): the base form component block types four
+component layouts (`common/BfcbBlock.toml`: animation graph `xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6079-L6087`,
+contact shadow `#L6096-L6105`, placement properties `#L6179-L6198`, reflection `#L6820-L6827`,
+all `corpus`, `crates/doc/tests/components.rs`), and the condition's comparison value,
+parameters and reference are unions (`common/Condition.toml`, `#L4750-L4840` with the
+deciders `#L828-L857`, `#L859-L880` and `wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5738-L5779`, `corpus`
+by `validate_corpus_official_files`). Support depth: `docs/schema/support-matrix.md`.
+
 ## Opaque members, and why
 
 | What | Where | Why |
 | ---- | ----- | --- |
 | VMAD (script data) | every type that has it | Property values are unions by property type; TERM and TMLM use fragment variants. Kept raw. |
-| Base form component blocks (BFCB..BFCE) | STAT, MISC, CONT, ACTI, FURN, MSTT, TERM, ARMO, ANIO | Each component has its own layout, chosen by the name in BFCB; kept as raw subrecords (as in the planet family). A STAT's keywords live here. |
+| Base form component blocks (BFCB..BFCE) | STAT, MISC, CONT, ACTI, FURN, MSTT, ARMO, ANIO | Each component has its own layout, chosen by the name in BFCB. Since lane D (2026-10-15) the animation graph, contact shadow, placement properties and reflection layouts are typed in the shared block (the reflection's REFL stays raw); the others are kept as raw subrecords. A STAT's keywords live here. |
 | NVNM (navmesh geometry) | STAT, ACTI | Large nested geometry; kept raw. |
-| CTDA comparison value, parameters, reference | ACTI, TMLM, IDLE, CPTH | Unions selected by the type byte, the function or Run On (`common/Condition.toml`). |
+| CTDA parameters 1 and 2 of reference, actor and package parameters | ACTI, TMLM, IDLE, CPTH, TERM | Selected by the type byte's alias and packdata bits (`common/Condition.toml`); the comparison value, the other parameters and the reference are typed unions since lane D (2026-10-15). |
 | COED middle slot | CONT (never seen) | A global FormID or a faction rank depending on the owner's type. |
 | OBTS property values (object template item) | ARMO (CONT, TERM never) | The item is typed through `ObteBlock` since M4.BX1; since lane B round 4 each property's function type and values are struct-field unions by value type (`common/ObjectModProperty.toml`), typed. |
 | NNAM (marker files) | FURN | Pairs of NUL-terminated strings, which an array element cannot hold. |

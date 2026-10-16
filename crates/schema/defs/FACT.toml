@@ -127,7 +127,7 @@ field = [
   { name = "Assault", type = "u16" },
   { name = "Trespass", type = "u16" },
   { name = "Pickpocket", type = "u16" },
-  { name = "Unnamed", type = "opaque", size = 2, note = "an unnamed 16-bit value upstream" },
+  { name = "Unnamed", type = "u16", note = "an unnamed 16-bit integer upstream (L11903); typed since lane D (2026-10-15), was opaque" },
   { name = "StealMultiplier", type = "f32" },
   { name = "Escape", type = "u16" },
   { name = "Piracy", type = "u16" },
