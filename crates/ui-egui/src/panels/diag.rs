@@ -300,7 +300,7 @@ impl DiagTab {
             if view.findings.is_empty() && view.validate_summary.is_some() {
                 theme::status(ui, Status::Pass, "no master or FormID finding");
             }
-            findings_grid(ui, "diag-findings", view.findings.iter());
+            findings_grid(ui, "diag-findings", &view.findings);
         });
     }
 }

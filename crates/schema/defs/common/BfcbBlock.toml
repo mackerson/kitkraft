@@ -11,17 +11,22 @@
 #
 # The component data is upstream's record union over the component layouts (L6055-L6828):
 # each layout is a run of subrecords, and the run's first subrecord says which layout it is
-# (lane D, 2026-10-15). Four layouts are typed here as optional groups, in upstream's
+# (lane D, 2026-10-15). Eight layouts are typed here as optional groups, in upstream's
 # order, each led by signatures no other upstream layout starts with in the 14 official
 # ESMs (`crates/doc/tests/components.rs` checks every official block):
 #   - `AnimationGraph` (ANAM..ENAM strings and a marker, L6079-L6087);
 #   - `ContactShadow` (FLCS, five floats, L6096-L6105);
+#   - `DisplayCase` (DCSD slot templates and DCED exclusivity lists, L6122-L6139; lane D
+#     round 4, 2026-10-16, for CONT);
 #   - `PlanetContentProperties` (ZNAM..NAM9, CITC and conditions, L6179-L6198): the
 #     placement properties of PKIN, PCCN, PCBN and LVLP, with FormIDs (globals, curves)
 #     and conditions, so `refs` and `validate` see them;
-#   - `Reflection` (one REFL payload, L6820-L6827): kept raw, since its layout is a helper
-#     in another upstream unit that is not an authorized source (ADR 0004).
-# Every other layout (forty-odd more upstream) stays raw subrecords in `ComponentData`, the
+#   - `QualityUpgrade` (QUPA, OMOD FormIDs, L6203-L6206) and `SoundTag` (STCP, an STAG
+#     FormID, L6207-L6210 with L5675; both round 4, for WEAP);
+#   - `ParticleSystem` (one PTCL payload, L6607-L6610; round 4) and `Reflection` (one REFL
+#     payload, L6820-L6827): kept raw (opaque), since their layout is a helper in another
+#     upstream unit that is not an authorized source (ADR 0004).
+# Every other layout (about forty more upstream) stays raw subrecords in `ComponentData`, the
 # `any_until` member after the typed ones: a block whose data starts with a signature none
 # of the groups above starts with is kept as read. A component whose name and data
 # disagree is read by its data's first subrecord, as upstream's record union does; the
@@ -104,6 +109,44 @@ field = [
   { name = "MaxDistance", type = "f32" },
   { name = "ProximityLimit", type = "f32" },
 ]
+
+[[member]]
+group = "DisplayCase"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6122-L6139"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-16: the 156 BGSDisplayCase blocks of the 14 official ESMs (all in CONT) hold one DCSD and one DCED in this order; every DCSD is a whole number of 16-byte slots, every DCED holds as many count-prefixed slot lists as its DCSD has slots, read to the last byte; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSDisplayCase: the display slots of a display case container and which slots exclude each other"
+
+[[member.member]]
+sig = "DCSD"
+name = "SlotTemplates"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "DisplayFilter", type = "formid", targets = ["FLST"] },
+  { name = "ExclusionFilter", type = "formid", targets = ["FLST", "KYWD"], note = "0 when none" },
+  { name = "DisplaySlot", type = "u32" },
+  { name = "Number", type = "u32" },
+]
+note = "one entry per display slot; the order is significant (DCED follows it)"
+
+[[member.member]]
+sig = "DCED"
+name = "Exclusivity"
+type = "array"
+count = "rest"
+element = "struct"
+card = "optional"
+field = [
+  { name = "Count", type = "u32" },
+  { name = "ExclusiveSlots", type = "array", element = "u32", count_from = "Count" },
+]
+note = "per DCSD slot, in the same order: the display slots it excludes"
 
 [[member]]
 group = "PlanetContentProperties"
@@ -224,6 +267,60 @@ note = "number of conditions that follow; stored, not derived"
 group_ref = "Condition"
 name = "Conditions"
 card = "repeated"
+
+[[member]]
+group = "QualityUpgrade"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6203-L6206"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-16: the 216 BGSQualityUpgrade_Component blocks of the 14 official ESMs (WEAP, ARMO) each hold one QUPA, a whole number of 4-byte FormIDs; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSQualityUpgrade_Component: the object mods that raise the item's quality tier"
+
+[[member.member]]
+sig = "QUPA"
+name = "QualityUpgrades"
+type = "array"
+count = "rest"
+element = "formid"
+targets = ["OMOD"]
+card = "optional"
+
+[[member]]
+group = "SoundTag"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6207-L6210"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5675-L5675",
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-16: the 966 BGSSoundTag_Component blocks of the 14 official ESMs each hold one 4-byte STCP; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "BGSSoundTag_Component"
+
+[[member.member]]
+sig = "STCP"
+name = "AnimationSound"
+type = "formid"
+targets = ["STAG"]
+card = "optional"
+
+[[member]]
+group = "ParticleSystem"
+card = "optional"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L6607-L6610"
+evidence = [
+  "corpus: kitkraft-doc tests/components.rs (component_layouts_full), 2026-10-16: the 1,545 ParticleSystem_Component blocks of the 14 official ESMs each hold one PTCL; they decode and re-encode identically",
+]
+confidence = "corpus"
+note = "ParticleSystem_Component"
+
+[[member.member]]
+sig = "PTCL"
+name = "Data"
+type = "opaque"
+card = "optional"
+note = "reflection data, as REFL: upstream reads it with a helper in another unit (not an authorized source), so it stays raw"
 
 [[member]]
 group = "Reflection"

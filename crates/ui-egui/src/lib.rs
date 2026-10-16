@@ -11,11 +11,15 @@
 //!   the CLI.
 //! - [`md`]: plain Markdown for the Help tab, which shows the owner's QA material from the
 //!   repo's docs at runtime ([`panels::help`]).
+//! - `prepare`: each reply's view-model and raw JSON lines, built on the worker thread
+//!   (M6.P5a), so the frame that receives a big envelope only draws it.
 //! - [`prefs`]: the per-user UI prefs file (`%LOCALAPPDATA%\kitkraft\ui.json`), the only
 //!   file the workbench writes on its own; UI state, never game data.
 //! - [`theme`]: the visual tokens (type, spacing, sizes, radii, density, light and dark
 //!   palettes) and the one function that applies them to egui; `workbench` by default,
 //!   other presets by `--theme`, `ui.json` or the Start tab's picker.
+//! - [`perf`]: the `KITKRAFT_WORKBENCH_PERF=1` trace (stderr `perf:` lines) and the
+//!   window bench of `docs/design/workbench-performance.md` (M6.P1).
 //! - [`run`]: opens the window (eframe, OpenGL backend).
 //! - [`viewport`]: the 3D viewport of the Render Window tab (M7 lane R), drawn with GL
 //!   through an egui paint callback.
@@ -31,7 +35,9 @@ pub mod envelope;
 pub mod gate;
 pub mod md;
 pub mod panels;
+pub mod perf;
 pub mod prefs;
+mod prepare;
 pub mod shots;
 pub mod theme;
 pub mod viewport;

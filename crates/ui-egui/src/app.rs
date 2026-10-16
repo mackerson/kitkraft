@@ -5,43 +5,39 @@
 //! returned; a tab's clicks come back as [`Action`]s and are applied here after the
 //! frame. Colors, sizes and spacing are `crate::theme`'s.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, FontData, FontDefinitions, FontFamily, ScrollArea};
 use serde_json::{Map, Value};
 
 use crate::cmdline::{mcp_call, result_line, session_args};
-use crate::envelope::Prepared;
-use crate::gate::{Request, RunError};
+use crate::gate::Request;
 use crate::panels::common::{Action, Shown, Slot, SlotKey, TabCtx};
-use crate::panels::diag::{self, DiagTab, DiagView};
-use crate::panels::diff::{DiffMode, DiffTab, DiffView};
+use crate::panels::diag::{self, DiagTab};
+use crate::panels::diff::{DiffMode, DiffTab};
 use crate::panels::help::{self, HelpTab};
-use crate::panels::ledger::{ledger_path, template_row, LedgerForm, LedgerTab, LedgerView};
-use crate::panels::links::{LinksForm, LinksTab, LinksView};
+use crate::panels::ledger::{ledger_path, template_row, LedgerForm, LedgerTab};
+use crate::panels::links::{LinksForm, LinksTab};
 use crate::panels::load::{list_profiles, LoadForm, LoadTab, LoadView};
-use crate::panels::planet::{PlanetTab, PlanetView};
-use crate::panels::records::{
-    coverage_request, inspect_request, schema_request, types_from_coverage, types_from_schema,
-    QueryView, RecordView, RecordsTab,
-};
+use crate::panels::planet::PlanetTab;
+use crate::panels::records::{coverage_request, inspect_request, schema_request, RecordsTab};
 use crate::panels::render::RenderTab;
-use crate::panels::schema::{SchemaTab, SchemaView};
-use crate::panels::start::{
-    instance_of_profile, profiles_request, StartProfile, StartTab, StartView,
-};
-use crate::panels::validate::{RoundtripView, ValidateTab, ValidateView};
+use crate::panels::schema::SchemaTab;
+use crate::panels::start::{instance_of_profile, profiles_request, StartProfile, StartTab};
+use crate::panels::validate::ValidateTab;
 // Lane G (M6).
 use crate::panels::cockpit::{CockpitEnv, CockpitTab};
-use crate::panels::coverage::{CoverageTab, MatrixView};
-use crate::prefs::{self, Prefs};
-use crate::theme::{self, ThemeChoice};
+use crate::panels::coverage::CoverageTab;
+use crate::perf::{self, Frames, Wheel};
+use crate::prefs::{self, Prefs, WindowPrefs};
+use crate::prepare::{build, prepare, Built, View};
+use crate::theme::{self, Field, ThemeChoice};
 use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Tab {
     Start,
     Load,
@@ -77,6 +73,149 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Render, "Render Window"),
 ];
 
+impl Tab {
+    fn name(self) -> &'static str {
+        TABS.iter()
+            .find(|(t, _)| *t == self)
+            .map_or("?", |(_, label)| label)
+    }
+
+    /// The tab that draws `slot`'s result.
+    fn of_slot(slot: Slot) -> Tab {
+        match slot {
+            Slot::Profiles => Tab::Start,
+            Slot::Load => Tab::Load,
+            Slot::Types | Slot::Query | Slot::Inspect | Slot::InspectSchema => Tab::Records,
+            Slot::Links => Tab::Links,
+            Slot::Planet => Tab::Planet,
+            Slot::Diff => Tab::Diff,
+            Slot::DiagInspect | Slot::DiagValidate => Tab::Diagnostics,
+            Slot::Validate | Slot::Roundtrip => Tab::Validate,
+            Slot::Schema => Tab::Schema,
+            Slot::Ledger => Tab::Ledger,
+            Slot::CockpitStatus
+            | Slot::CockpitValidate
+            | Slot::CockpitRoundtrip
+            | Slot::CockpitMasters
+            | Slot::CockpitDeploy
+            | Slot::CockpitRollback => Tab::Cockpit,
+            Slot::Coverage => Tab::Coverage,
+        }
+    }
+}
+
+/// The perf trace's state (`crate::perf`; empty and unused without it).
+#[derive(Default)]
+struct PerfState {
+    frames: Frames,
+    first_frame: bool,
+    painted: BTreeSet<Tab>,
+    /// Submit time per ticket.
+    queued: BTreeMap<u64, Instant>,
+    /// Results received and not yet drawn: (tab, ticket, command, submit time).
+    to_draw: Vec<(Tab, u64, String, Instant)>,
+    /// Drawn this frame; their frame time is reported on the next one.
+    drawn: Vec<String>,
+    bench: Option<Bench>,
+    wheel: Wheel,
+}
+
+/// The window bench (`crate::perf::BENCH_ENV`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Bench {
+    WaitLoad,
+    WaitQuery,
+    Settle(Instant, Tab),
+    Scroll(Instant, Tab),
+    WaitDiff,
+    Done,
+}
+
+/// Bench timings: settle before scrolling, scroll down, then up.
+const BENCH_SETTLE: Duration = Duration::from_secs(1);
+const BENCH_DOWN: Duration = Duration::from_secs(3);
+const BENCH_UP: Duration = Duration::from_secs(2);
+/// Points per frame of the bench's wheel.
+const BENCH_STEP: f32 = 60.0;
+
+/// The names the bench finds its scroll targets by.
+pub(crate) const PERF_TARGET_RECORDS: &str = "records-query";
+const PERF_TARGET_CENTRAL: &str = "central";
+
+/// Remembers `rect` as the bench's scroll target `name` (the Records query table, the
+/// central panel); nothing without the bench.
+pub(crate) fn note_perf_target(ctx: &egui::Context, name: &str, rect: egui::Rect) {
+    if perf::bench_requested() {
+        ctx.data_mut(|d| d.insert_temp(egui::Id::new(("perf-target", name)), rect));
+    }
+}
+
+fn perf_target(ctx: &egui::Context, name: &str) -> Option<egui::Rect> {
+    ctx.data(|d| d.get_temp(egui::Id::new(("perf-target", name))))
+}
+
+/// How long after start a minimized window is restored (M6.P7): a window started
+/// minimized from a background shell is brought back; one the user minimizes later is
+/// left alone.
+const RESTORE_GRACE: Duration = Duration::from_secs(10);
+/// A moved or resized window is remembered once it has been still this long.
+const WINDOW_SETTLE: Duration = Duration::from_secs(1);
+
+/// The window's state the shell follows (M6.P7).
+struct WindowState {
+    started: Instant,
+    /// Focus asked for once at start.
+    focus_asked: bool,
+    /// Focus last seen (the trace logs each change).
+    focused: Option<bool>,
+    /// The saved place was clamped to the monitor present.
+    clamped: bool,
+    /// The place last seen, and when it changed (not yet saved).
+    last: Option<WindowPrefs>,
+    changed_at: Option<Instant>,
+    /// Native pixels per point last seen (a DPI change between monitors).
+    ppp: Option<f32>,
+    /// Whether the place is remembered (not during the tour or the bench).
+    remember: bool,
+}
+
+/// Whether `request` (a `load`) names the load order `held` holds: the same profile,
+/// plugins and Data dir, compared without trailing separators and, on Windows, without
+/// case. A `no_cache` load always runs (it asks to read the plugins again) (M6.P3a).
+pub(crate) fn same_load(request: &Request, held: Option<&Map<String, Value>>) -> bool {
+    let Some(held) = held else { return false };
+    if request.args.get("no_cache").and_then(Value::as_bool) == Some(true) {
+        return false;
+    }
+    fn norm(v: &Value) -> Value {
+        match v {
+            Value::String(s) => {
+                let t = s.trim().trim_end_matches(['\\', '/']).replace('/', "\\");
+                Value::String(if cfg!(windows) { t.to_lowercase() } else { t })
+            }
+            Value::Array(a) => Value::Array(a.iter().map(norm).collect()),
+            other => other.clone(),
+        }
+    }
+    let norm_map = |m: &Map<String, Value>| -> Vec<(String, Value)> {
+        m.iter().map(|(k, v)| (k.clone(), norm(v))).collect()
+    };
+    norm_map(&session_args(&request.args)) == norm_map(held)
+}
+
+/// The profile (or the plugin count) a `load` request names, for a notice.
+fn load_label(request: &Request) -> String {
+    if let Some(p) = request.args.get("profile").and_then(Value::as_str) {
+        return p.to_string();
+    }
+    let n = request
+        .args
+        .get("plugins")
+        .and_then(Value::as_array)
+        .map_or(0, Vec::len);
+    format!("{n} plugin(s)")
+}
+
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
 /// save one image per tab and close.
 struct Tour {
@@ -96,13 +235,19 @@ enum TourStep {
 
 struct App {
     tour: Option<Tour>,
+    perf: PerfState,
     /// The preset and mode in use, and where the choice came from (`--theme`, `ui.json`,
     /// the Start tab's picker, or the default).
     theme: ThemeChoice,
     theme_source: &'static str,
     /// The picker changed the theme: apply it before the next frame.
     theme_changed: bool,
-    worker: Worker,
+    worker: Worker<Built>,
+    /// Load-order arguments of the `load` queued or running, if any (M6.P3a).
+    loading: Option<Map<String, Value>>,
+    /// An information line under the tabs (not an error).
+    info: Option<String>,
+    window: WindowState,
     tab: Tab,
     slots: BTreeMap<u64, Slot>,
     notice: Option<String>,
@@ -136,14 +281,34 @@ struct App {
 /// Opens the window and blocks until it closes.
 pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
     let fonts = fonts()?;
+    perf::line("fonts read", "");
+    // The tour and the bench run at a fixed size; otherwise the window opens where it
+    // was (`ui.json`, M6.P7), clamped to the monitor once it is known.
+    let fixed = std::env::var_os(crate::shots::SHOTS_ENV).is_some() || perf::bench_requested();
+    let saved = if fixed {
+        None
+    } else {
+        prefs::default_path()
+            .as_deref()
+            .map(Prefs::load)
+            .and_then(|p| p.window)
+    };
+    let mut viewport = egui::ViewportBuilder::default()
+        .with_title("KitKraft Workbench (read-only)")
+        .with_active(true)
+        .with_inner_size(match saved {
+            Some(w) => [w.width, w.height],
+            None if fixed => crate::shots::TOUR_SIZE,
+            None => theme::WINDOW,
+        });
+    if let Some(w) = saved {
+        if let (Some(x), Some(y)) = (w.x, w.y) {
+            viewport = viewport.with_position(egui::pos2(x, y));
+        }
+        viewport = viewport.with_maximized(w.maximized);
+    }
     let native = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_title("KitKraft Workbench (read-only)")
-            .with_inner_size(if std::env::var_os(crate::shots::SHOTS_ENV).is_some() {
-                crate::shots::TOUR_SIZE
-            } else {
-                theme::WINDOW
-            }),
+        viewport,
         // A depth buffer for the Render Window's viewport (M7.R1); egui draws without one.
         depth_buffer: 24,
         ..Default::default()
@@ -152,10 +317,11 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
         "KitKraft Workbench",
         native,
         Box::new(move |cc| {
+            perf::line("window created", "");
             cc.egui_ctx.set_fonts(fonts);
             let ctx = cc.egui_ctx.clone();
             let wake: Wake = std::sync::Arc::new(move || ctx.request_repaint());
-            let worker = Worker::spawn(Some(wake))?;
+            let worker = Worker::<Built>::spawn(Some(wake))?;
             let app = App::new(worker, opts);
             theme::apply(&cc.egui_ctx, &app.theme.preset.theme(), app.theme.mode);
             Ok(Box::new(app))
@@ -206,7 +372,7 @@ fn fonts() -> Result<FontDefinitions, UiError> {
 }
 
 impl App {
-    fn new(worker: Worker, opts: LaunchOptions) -> Self {
+    fn new(worker: Worker<Built>, opts: LaunchOptions) -> Self {
         let load_form = LoadForm {
             profile: opts.profile.clone().unwrap_or_default(),
             plugins: opts.plugins.join("\n"),
@@ -257,6 +423,19 @@ impl App {
             tab: if first_run { Tab::Start } else { Tab::Load },
             slots: BTreeMap::new(),
             notice: None,
+            loading: None,
+            info: None,
+            window: WindowState {
+                started: Instant::now(),
+                focus_asked: false,
+                focused: None,
+                clamped: false,
+                last: None,
+                changed_at: None,
+                ppp: None,
+                remember: std::env::var_os(crate::shots::SHOTS_ENV).is_none()
+                    && !perf::bench_requested(),
+            },
             results: BTreeMap::new(),
             session: None,
             prefs,
@@ -287,6 +466,10 @@ impl App {
             cockpit: CockpitTab::default(),
             coverage: CoverageTab::default(),
             tour: None,
+            perf: PerfState {
+                bench: perf::bench_requested().then_some(Bench::WaitLoad),
+                ..PerfState::default()
+            },
             render: RenderTab::default(),
         };
         let mut shots_refused = None;
@@ -324,58 +507,111 @@ impl App {
     }
 
     fn submit(&mut self, slot: Slot, request: Request) {
-        match self.worker.submit(request) {
+        // M6.P3a: the session already holds (or is loading) this order: no second load.
+        if slot == Slot::Load
+            && (same_load(&request, self.session.as_ref())
+                || same_load(&request, self.loading.as_ref()))
+        {
+            self.info = Some(format!(
+                "{}: already loaded in this session; the views use it (tick \"no cache\" to read the plugins again)",
+                load_label(&request)
+            ));
+            perf::line("request load reused", "");
+            self.tab = Tab::Load;
+            return;
+        }
+        let id = request.id.clone();
+        // The Diagnostics view resolves plugin names through the load view.
+        let load = (slot == Slot::DiagInspect)
+            .then(|| self.load.view.clone())
+            .flatten();
+        let load_args = (slot == Slot::Load).then(|| session_args(&request.args));
+        match self.worker.submit_with(request, Some(prepare(slot, load))) {
             Ok(ticket) => {
+                if perf::enabled() {
+                    perf::line(&format!("request {id} queued"), &format!("ticket={ticket}"));
+                    self.perf.queued.insert(ticket, Instant::now());
+                }
+                if let Some(args) = load_args {
+                    self.loading = Some(args);
+                }
                 self.slots.insert(ticket, slot);
                 self.notice = None;
+                self.info = None;
             }
             Err(e) => self.notice = Some(e.to_string()),
         }
     }
 
-    fn receive(&mut self, reply: Reply) {
+    fn receive(&mut self, reply: Reply<Built>) {
         let Some(slot) = self.slots.remove(&reply.ticket) else {
             return;
         };
+        let received = Instant::now();
+        if perf::enabled() {
+            perf::line(
+                &format!("request {} done", reply.request.id),
+                &format!(
+                    "ticket={} wait_ms={} run_ms={} first_progress_ms={} bytes={}",
+                    reply.ticket,
+                    perf::ms(reply.waited),
+                    perf::ms(reply.elapsed),
+                    reply
+                        .first_progress
+                        .map_or_else(|| "-".to_string(), perf::ms),
+                    reply
+                        .bytes
+                        .map_or_else(|| "-".to_string(), |b| b.to_string()),
+                ),
+            );
+        }
+        let ticket = reply.ticket;
+        let command = reply.request.id.clone();
+        if slot == Slot::Load {
+            self.loading = None;
+        }
+        let on_worker = reply.built.is_some();
+        let Built { prepared, view } = match reply.built {
+            Some(b) => b,
+            None => build(slot, &reply.request, &reply.result, self.load.view.as_ref()),
+        };
         if let Ok(env) = &reply.result {
-            match slot {
-                Slot::Profiles => {
-                    let view = StartView::from_envelope(env);
+            match view {
+                View::Start(view) => {
                     if self.start.instance.trim().is_empty() {
                         self.start.instance = view.instance.clone().unwrap_or_default();
                     }
                     self.start.view = Some(view);
                 }
-                Slot::Load => {
-                    self.load.view = Some(LoadView::from_envelope(env));
+                View::Load(view) => {
+                    self.load.view = Some(view);
                     self.session = Some(session_args(&reply.request.args));
                 }
-                Slot::Types => {
-                    self.records.type_rows = if reply.request.id == "coverage" {
-                        types_from_coverage(env)
-                    } else {
-                        types_from_schema(env)
-                    };
+                View::Types(rows) => self.records.type_rows = rows,
+                View::Query(view) => {
+                    let old = self.records.query_view.replace(view);
+                    self.worker.dispose(old);
                 }
-                Slot::Query => self.records.query_view = Some(QueryView::from_envelope(env)),
-                Slot::Inspect => {
-                    let view = RecordView::from_envelope(env);
+                View::Record(view) => {
                     if !view.signature.is_empty() {
                         let req = schema_request(&view.signature);
                         self.submit(Slot::InspectSchema, req);
                     }
                     self.records.record_view = Some(view);
                 }
-                Slot::InspectSchema => {
-                    if let Some(view) = &mut self.records.record_view {
-                        view.join_schema(env);
-                    }
+                View::Links(view) => {
+                    let old = self.links.view.replace(view);
+                    self.worker.dispose(old);
                 }
-                Slot::Links => self.links.view = Some(LinksView::from_envelope(env)),
-                Slot::Planet => self.planet.view = Some(PlanetView::from_envelope(env)),
-                Slot::Diff => self.diff.view = Some(DiffView::from_envelope(env)),
-                Slot::DiagInspect => {
-                    let view = DiagView::from_inspect(env, self.load.view.as_ref());
+                View::Planet(view) => {
+                    let old = self.planet.view.replace(view);
+                    self.worker.dispose(old);
+                }
+                View::Diff(view) => {
+                    let old = self.diff.view.replace(view);
+                    self.worker.dispose(old);
+                }
+                View::Diag(view) => {
                     if self.diag.validate_plugin.trim().is_empty() {
                         self.diag.validate_plugin = self
                             .load
@@ -385,18 +621,13 @@ impl App {
                     }
                     self.diag.view = Some(view);
                 }
-                Slot::DiagValidate => {
-                    if let Some(view) = &mut self.diag.view {
-                        view.with_validate(env);
-                    }
+                View::Validate(view) => {
+                    let old = self.validate.view.replace(view);
+                    self.worker.dispose(old);
                 }
-                Slot::Validate => self.validate.view = Some(ValidateView::from_envelope(env)),
-                Slot::Roundtrip => {
-                    self.validate.roundtrip = Some(RoundtripView::from_envelope(env));
-                }
-                Slot::Schema => self.schema.view = Some(SchemaView::from_envelope(env)),
-                Slot::Ledger => {
-                    let view = LedgerView::from_envelope(env);
+                View::Roundtrip(view) => self.validate.roundtrip = Some(view),
+                View::Schema(view) => self.schema.view = Some(view),
+                View::Ledger(view) => {
                     if view.appended {
                         // One row per confirmed click: the note does not carry over.
                         self.ledger.form.note.clear();
@@ -404,17 +635,31 @@ impl App {
                     }
                     self.ledger.view = Some(view);
                 }
-                Slot::CockpitStatus
-                | Slot::CockpitValidate
-                | Slot::CockpitRoundtrip
-                | Slot::CockpitMasters
-                | Slot::CockpitDeploy
-                | Slot::CockpitRollback => {
-                    for (s, r) in self.cockpit.receive(slot, &reply.request, env) {
-                        self.submit(s, r);
+                View::Coverage(view) => self.coverage.view = Some(view),
+                // Replies joined into state the window holds (small, on the UI thread).
+                View::None => match slot {
+                    Slot::InspectSchema => {
+                        if let Some(view) = &mut self.records.record_view {
+                            view.join_schema(env);
+                        }
                     }
-                }
-                Slot::Coverage => self.coverage.view = Some(MatrixView::from_envelope(env)),
+                    Slot::DiagValidate => {
+                        if let Some(view) = &mut self.diag.view {
+                            view.with_validate(env);
+                        }
+                    }
+                    Slot::CockpitStatus
+                    | Slot::CockpitValidate
+                    | Slot::CockpitRoundtrip
+                    | Slot::CockpitMasters
+                    | Slot::CockpitDeploy
+                    | Slot::CockpitRollback => {
+                        for (s, r) in self.cockpit.receive(slot, &reply.request, env) {
+                            self.submit(s, r);
+                        }
+                    }
+                    _ => {}
+                },
             }
         }
         // Replies arrive in submission order, so the session now is the one this
@@ -425,17 +670,9 @@ impl App {
             self.session.as_ref(),
         );
         let mcp = mcp_call(&reply.request.id, &reply.request.args);
-        let (prepared, error) = match reply.result {
-            Ok(env) => (Prepared::new(Some(&env), None), None),
-            Err(err) => {
-                let json = match &err {
-                    RunError::Failed { json, .. } => Some(json),
-                    RunError::Refused(_) => None,
-                };
-                (Prepared::new(None, json), Some(err))
-            }
-        };
-        self.results.insert(
+        let error = reply.result.err();
+        // The result this one replaces is freed on the engine thread (M6.P5a).
+        let replaced = self.results.insert(
             slot.into(),
             Shown {
                 request: reply.request,
@@ -446,6 +683,24 @@ impl App {
                 mcp,
             },
         );
+        if let Some(old) = replaced {
+            self.worker.dispose(old);
+        }
+        if perf::enabled() {
+            perf::line(
+                &format!("request {command} prepared"),
+                &format!(
+                    "ticket={ticket} prep_ms={} on={} apply_ms={}",
+                    perf::ms(reply.prep),
+                    if on_worker { "worker" } else { "ui" },
+                    perf::ms(received.elapsed())
+                ),
+            );
+            let queued_at = self.perf.queued.remove(&ticket).unwrap_or(received);
+            self.perf
+                .to_draw
+                .push((Tab::of_slot(slot), ticket, command, queued_at));
+        }
     }
 
     /// Drops every queued request by restarting the engine thread; the new one has an
@@ -455,6 +710,7 @@ impl App {
             Ok(n) => {
                 self.slots.clear();
                 self.session = None;
+                self.loading = None;
                 self.load.view = None;
                 self.results.remove(&Slot::Load.into());
                 self.notice = Some(format!(
@@ -628,6 +884,9 @@ impl App {
             if let Some(n) = &self.notice {
                 ui.colored_label(theme::bad(ui), n);
             }
+            if let Some(i) = &self.info {
+                ui.label(i);
+            }
         });
     }
 
@@ -643,10 +902,32 @@ impl App {
                     if busy {
                         ui.spinner();
                         let pending = self.worker.pending();
-                        ui.label(format!(
-                            "running: {}",
-                            pending.first().copied().unwrap_or_default()
-                        ));
+                        let command = pending.first().copied().unwrap_or_default();
+                        // M6.P2a: the running command's stage and progress.
+                        match self.worker.running() {
+                            Some(r) => {
+                                let secs = r.started.elapsed().as_secs_f32();
+                                match &r.progress {
+                                    Some(p) => {
+                                        if let Some(total) = p.total.filter(|t| *t > 0) {
+                                            let share = (p.done as f32 / total as f32).clamp(0.0, 1.0);
+                                            ui.add(
+                                                egui::ProgressBar::new(share)
+                                                    .desired_width(theme::width(ui, Field::Short))
+                                                    .show_percentage(),
+                                            );
+                                        }
+                                        ui.label(format!("{} ({secs:.1} s)", p.line()));
+                                    }
+                                    None => {
+                                        ui.label(format!("running: {command} ({secs:.1} s)"));
+                                    }
+                                }
+                            }
+                            None => {
+                                ui.label(format!("running: {command}"));
+                            }
+                        }
                         let queued = self.worker.queued();
                         if queued > 0 {
                             ui.label(format!("queued {queued}"));
@@ -655,7 +936,9 @@ impl App {
                             .small_button("drop pending")
                             .on_hover_text(
                                 "restart the engine: queued requests are dropped, the running one's \
-                                 reply is discarded, and the session is emptied (load again)",
+                                 reply is discarded, and the session is emptied (load again). The \
+                                 engine cannot stop a command midway, so the running one finishes \
+                                 in the background",
                             )
                             .clicked();
                     } else {
@@ -681,7 +964,29 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        self.perf.wheel.inject(raw_input);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.perf.frames.print_all();
+        if self.window.remember {
+            if let Some(w) = self.window.last {
+                if self.prefs.window != Some(w) {
+                    self.prefs.window = Some(w);
+                    self.save_prefs();
+                }
+            }
+        }
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let frame_start = Instant::now();
+        // egui may run a frame in more than one pass; eframe times the whole frame.
+        if perf::enabled() && ui.ctx().current_pass_index() == 0 {
+            self.perf_frame_start(frame.info().cpu_usage);
+        }
+        self.window_frame(ui.ctx());
         if self.theme_changed {
             self.theme_changed = false;
             theme::apply(ui.ctx(), &self.theme.preset.theme(), self.theme.mode);
@@ -711,7 +1016,7 @@ impl eframe::App for App {
             prefs_path: self.prefs_path.as_deref(),
         };
         let central = theme::central_frame(ui);
-        egui::CentralPanel::default_margins()
+        let central_out = egui::CentralPanel::default_margins()
             .frame(central)
             .show(ui, |ui| {
                 if tab == Tab::Records {
@@ -761,6 +1066,7 @@ impl eframe::App for App {
                         Tab::Render => {}
                     });
             });
+        note_perf_target(ui.ctx(), PERF_TARGET_CENTRAL, central_out.response.rect);
         let actions = ctx.actions;
         self.apply(actions);
         if let Some(share) = self.records.split_changed.take() {
@@ -769,6 +1075,275 @@ impl eframe::App for App {
         }
         if self.tour.is_some() {
             self.drive_tour(ui.ctx());
+        }
+        if perf::enabled() {
+            self.perf_frame_end(ui.ctx(), frame_start.elapsed());
+        }
+        if self.perf.bench.is_some() {
+            self.drive_bench(ui.ctx());
+        }
+    }
+}
+
+impl App {
+    /// Window quirks, once per frame (M6.P7): a window that starts minimized is restored
+    /// and focused; the saved place is clamped to the monitor present; a DPI change
+    /// repaints; the place is remembered in `ui.json` once it settles.
+    fn window_frame(&mut self, ctx: &egui::Context) {
+        let (minimized, focused, inner, outer, maximized, monitor, ppp) = ctx.input(|i| {
+            let v = i.viewport();
+            (
+                v.minimized,
+                v.focused,
+                v.inner_rect,
+                v.outer_rect,
+                v.maximized,
+                v.monitor_size,
+                v.native_pixels_per_point,
+            )
+        });
+        let w = &mut self.window;
+        if minimized == Some(true) && (w.started.elapsed() < RESTORE_GRACE || self.tour.is_some()) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
+            ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            perf::line("window restored", "it was minimized");
+        }
+        if !w.focus_asked {
+            w.focus_asked = true;
+            if focused != Some(true) {
+                ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+            }
+        }
+        if focused != w.focused {
+            perf::line(
+                "window focus",
+                &format!("focused={focused:?} minimized={minimized:?}"),
+            );
+            w.focused = focused;
+        }
+        if !w.clamped && w.remember {
+            if let Some(m) = monitor {
+                w.clamped = true;
+                if let Some(saved) = self.prefs.window {
+                    let c = saved.clamp(Some([m.x, m.y]));
+                    if (c.width, c.height) != (saved.width, saved.height) {
+                        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(
+                            c.width, c.height,
+                        )));
+                    }
+                    if saved.x.is_some() && c.x.is_none() {
+                        let x = ((m.x - c.width) / 2.0).max(0.0);
+                        let y = ((m.y - c.height) / 2.0).max(0.0);
+                        ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(
+                            x, y,
+                        )));
+                    }
+                }
+            }
+        }
+        if ppp != w.ppp {
+            if w.ppp.is_some() {
+                perf::line("dpi changed", &format!("pixels_per_point={ppp:?}"));
+                ctx.request_repaint();
+            }
+            w.ppp = ppp;
+        }
+        if !w.remember || minimized == Some(true) {
+            return;
+        }
+        let Some(inner) = inner else { return };
+        let maximized = maximized == Some(true);
+        let previous = w.last.or(self.prefs.window);
+        // Maximized: keep the normal size and place to come back to.
+        let now = match (maximized, previous) {
+            (true, Some(p)) => WindowPrefs {
+                maximized: true,
+                monitor: monitor.map(|m| [m.x, m.y]).or(p.monitor),
+                ..p
+            },
+            _ => WindowPrefs {
+                width: inner.width(),
+                height: inner.height(),
+                x: outer.map(|r| r.min.x),
+                y: outer.map(|r| r.min.y),
+                maximized,
+                monitor: monitor.map(|m| [m.x, m.y]),
+            },
+        };
+        if w.last != Some(now) {
+            w.last = Some(now);
+            w.changed_at = Some(Instant::now());
+            ctx.request_repaint_after(WINDOW_SETTLE);
+        } else if w.changed_at.is_some_and(|t| t.elapsed() >= WINDOW_SETTLE) {
+            w.changed_at = None;
+            if self.prefs.window != Some(now) {
+                self.prefs.window = Some(now);
+                self.save_prefs();
+            }
+        }
+    }
+
+    /// The phase a frame's time is counted in: the bench's scroll phase, else the tab.
+    fn perf_phase(&self) -> String {
+        match self.perf.bench {
+            Some(Bench::Scroll(_, tab)) => format!("bench-scroll-{}", tab.name()),
+            _ => self.tab.name().to_string(),
+        }
+    }
+
+    /// Records the previous frame's time (eframe measures a frame after painting it,
+    /// without the vsync wait) and reports the results drawn in it.
+    fn perf_frame_start(&mut self, last_frame_secs: Option<f32>) {
+        let Some(secs) = last_frame_secs else { return };
+        let ms = secs * 1000.0;
+        let phase = self.perf_phase();
+        self.perf.frames.record(&phase, ms);
+        for event in std::mem::take(&mut self.perf.drawn) {
+            perf::line(&event, &format!("frame_ms={ms:.2}"));
+        }
+    }
+
+    /// First frame, each tab's first paint, and results drawn this frame.
+    fn perf_frame_end(&mut self, ctx: &egui::Context, ui_time: Duration) {
+        let ui_ms = perf::ms(ui_time);
+        if !self.perf.first_frame {
+            self.perf.first_frame = true;
+            let state = ctx.input(|i| {
+                let v = i.viewport();
+                format!(
+                    "minimized={:?} focused={:?} inner={:?}",
+                    v.minimized,
+                    v.focused,
+                    v.inner_rect.map(|r| r.size())
+                )
+            });
+            perf::line("first-frame", &format!("ui_ms={ui_ms} {state}"));
+            self.perf.drawn.push("first-frame painted".to_string());
+        }
+        if self.perf.painted.insert(self.tab) {
+            perf::line(
+                &format!("tab {} first-paint", self.tab.name()),
+                &format!("ui_ms={ui_ms}"),
+            );
+            self.perf
+                .drawn
+                .push(format!("tab {} first-paint painted", self.tab.name()));
+        }
+        let tab = self.tab;
+        let (now, later): (Vec<_>, Vec<_>) = std::mem::take(&mut self.perf.to_draw)
+            .into_iter()
+            .partition(|(t, ..)| *t == tab);
+        self.perf.to_draw = later;
+        for (_, ticket, command, queued) in now {
+            perf::line(
+                &format!("request {command} drawn"),
+                &format!(
+                    "ticket={ticket} total_ms={} ui_ms={ui_ms}",
+                    perf::ms(queued.elapsed())
+                ),
+            );
+            self.perf
+                .drawn
+                .push(format!("request {command} painted ticket={ticket}"));
+        }
+    }
+
+    /// One step of the window bench (`crate::perf::BENCH_ENV`).
+    fn drive_bench(&mut self, ctx: &egui::Context) {
+        ctx.request_repaint();
+        let busy = self.worker.is_busy();
+        let Some(step) = self.perf.bench else { return };
+        // This tab's results are drawn and their frame reported.
+        let drawn =
+            !self.perf.to_draw.iter().any(|(t, ..)| *t == self.tab) && self.perf.drawn.is_empty();
+        match step {
+            Bench::WaitLoad if !busy && self.load.view.is_some() && drawn => {
+                let q = &mut self.records.query_form;
+                q.record_type = "REFR".into();
+                q.where_text.clear();
+                q.limit = 1000;
+                self.tab = Tab::Records;
+                self.apply(vec![Action::QueryPage(None)]);
+                self.perf.bench = Some(Bench::WaitQuery);
+            }
+            Bench::WaitQuery if !busy && drawn && self.records.query_view.is_some() => {
+                self.perf.bench = Some(Bench::Settle(Instant::now(), Tab::Records));
+            }
+            Bench::WaitDiff if !busy && drawn && self.diff.view.is_some() => {
+                self.perf.bench = Some(Bench::Settle(Instant::now(), Tab::Diff));
+            }
+            Bench::Settle(at, tab) if at.elapsed() >= BENCH_SETTLE => {
+                let target = if tab == Tab::Records {
+                    PERF_TARGET_RECORDS
+                } else {
+                    PERF_TARGET_CENTRAL
+                };
+                self.perf.wheel = Wheel {
+                    target: perf_target(ctx, target),
+                    step: -BENCH_STEP,
+                };
+                if self.perf.wheel.target.is_none() {
+                    perf::line("bench", &format!("no scroll target {target}"));
+                }
+                self.perf.bench = Some(Bench::Scroll(Instant::now(), tab));
+            }
+            Bench::Scroll(at, tab) => {
+                let t = at.elapsed();
+                if t >= BENCH_DOWN.saturating_add(BENCH_UP) {
+                    self.perf.wheel = Wheel::default();
+                    let phase = self.perf_phase();
+                    self.perf.frames.flush(&phase);
+                    if tab == Tab::Records {
+                        self.bench_diff();
+                    } else {
+                        self.perf.bench = Some(Bench::Done);
+                    }
+                } else if t >= BENCH_DOWN {
+                    self.perf.wheel.step = BENCH_STEP;
+                }
+            }
+            Bench::Done => {
+                perf::line("bench done", "");
+                self.perf.bench = None;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            _ => {}
+        }
+    }
+
+    /// The bench's Diff request: the plugin `KITKRAFT_WORKBENCH_PERF_DIFF` names, else
+    /// the tour's (the biggest plugin the profile activates), against its masters.
+    fn bench_diff(&mut self) {
+        let chosen = std::env::var(perf::BENCH_DIFF_ENV)
+            .ok()
+            .filter(|p| !p.trim().is_empty());
+        let plugin = chosen.or_else(|| {
+            self.load.view.as_ref().and_then(|l| {
+                l.plugins
+                    .iter()
+                    .filter(|p| p.active == "plugins.txt")
+                    .max_by_key(|p| p.records.unwrap_or(0))
+                    .map(|p| p.name.clone())
+            })
+        });
+        let Some(name) = plugin else {
+            perf::line("bench", "no plugin activated by plugins.txt: Diff skipped");
+            self.perf.bench = Some(Bench::Done);
+            return;
+        };
+        perf::line("bench diff", &format!("plugin={name}"));
+        self.diff.form.mode = DiffMode::VsMasters;
+        self.diff.form.a = name;
+        self.tab = Tab::Diff;
+        match self.diff.form.request(None) {
+            Ok(req) => {
+                self.submit(Slot::Diff, req);
+                self.perf.bench = Some(Bench::WaitDiff);
+            }
+            Err(e) => {
+                perf::line("bench", &format!("diff request: {e}"));
+                self.perf.bench = Some(Bench::Done);
+            }
         }
     }
 
@@ -905,10 +1480,19 @@ impl App {
             tour.frames = 0;
             return;
         }
+        // A minimized window paints nothing, so a screenshot would never arrive: wait
+        // for the restore (`window_frame`) before counting (the tour used to hang here).
+        if ctx.input(|i| i.viewport().minimized) == Some(true) {
+            tour.frames = 0;
+            return;
+        }
         tour.frames = tour.frames.saturating_add(1);
-        // A few frames for the tab to lay out, then one request (frame 5 only).
+        // A few frames for the tab to lay out, then one request (frame 5), asked again
+        // if no image came back within a second or so.
         if tour.frames == 5 {
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+        } else if tour.frames >= 60 {
+            tour.frames = 0;
         }
     }
 }
@@ -959,5 +1543,47 @@ impl App {
         if let Ok(req) = self.coverage.form.request() {
             self.submit(Slot::Coverage, req);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// M6.P3a: a second `load` of the order the session holds is answered from the
+    /// session; another order, or a `no_cache` load, runs.
+    #[test]
+    fn a_repeated_load_is_answered_from_the_session() {
+        let held = session_args(&json!({"profile": r"C:\MO2\profiles\Kitkraft Dev"}));
+        let same = Request::new("load", json!({"profile": "c:/mo2/profiles/kitkraft dev/"}));
+        let other = Request::new("load", json!({"profile": r"C:\MO2\profiles\Other"}));
+        let fresh = Request::new(
+            "load",
+            json!({"profile": r"C:\MO2\profiles\Kitkraft Dev", "no_cache": true}),
+        );
+        let data_dir = Request::new(
+            "load",
+            json!({"profile": r"C:\MO2\profiles\Kitkraft Dev", "data_dir": "D"}),
+        );
+        assert_eq!(same_load(&same, Some(&held)), cfg!(windows));
+        assert!(same_load(
+            &Request::new("load", json!({"profile": r"C:\MO2\profiles\Kitkraft Dev"})),
+            Some(&held)
+        ));
+        assert!(!same_load(&other, Some(&held)));
+        assert!(!same_load(&fresh, Some(&held)));
+        assert!(!same_load(&data_dir, Some(&held)));
+        assert!(!same_load(&same, None));
+        let plugins = session_args(&json!({"plugins": ["A.esm", "B.esp"]}));
+        assert!(same_load(
+            &Request::new("load", json!({"plugins": ["A.esm", "B.esp"]})),
+            Some(&plugins)
+        ));
+        assert!(!same_load(
+            &Request::new("load", json!({"plugins": ["B.esp", "A.esm"]})),
+            Some(&plugins)
+        ));
+        assert_eq!(load_label(&other), r"C:\MO2\profiles\Other");
     }
 }
