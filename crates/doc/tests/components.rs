@@ -65,7 +65,11 @@ fn allowed(layout: &str) -> &'static [&'static str] {
     match layout {
         "AnimationGraph" => &["BGSAnimationGraph_Component"],
         "ContactShadow" => &["BGSContactShadowComponent_Component"],
+        "DisplayCase" => &["BGSDisplayCase"],
         "PlanetContentProperties" => &["BGSPlanetContentManagerContentProperties_Component"],
+        "QualityUpgrade" => &["BGSQualityUpgrade_Component"],
+        "SoundTag" => &["BGSSoundTag_Component"],
+        "ParticleSystem" => &["ParticleSystem_Component"],
         // Upstream lists five names on the REFL layout; the corpus has the same one-REFL
         // body under two more names (ReflectionProbes, SpacePhysics).
         "Reflection" => &[
@@ -245,15 +249,19 @@ fn component_layouts_full() {
         return;
     };
     let t = scan(&dir, &ALL);
-    // The counts common/BfcbBlock.toml cites (2026-10-15).
+    // The counts common/BfcbBlock.toml cites (2026-10-15; round 4 layouts 2026-10-16).
     let blocks: Vec<(&str, u64)> = t.blocks.iter().map(|(k, v)| (k.as_str(), *v)).collect();
     assert_eq!(
         blocks,
         [
             ("AnimationGraph", 4_760),
             ("ContactShadow", 147_486),
+            ("DisplayCase", 156),
+            ("ParticleSystem", 1_545),
             ("PlanetContentProperties", 1_272),
+            ("QualityUpgrade", 216),
             ("Reflection", 8_501),
+            ("SoundTag", 966),
         ]
     );
 }

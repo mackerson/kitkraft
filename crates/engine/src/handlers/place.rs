@@ -22,6 +22,11 @@
 //!   advanced) and is placed by `kitkraft_esm::cells::placement`.
 //! - An EditorID must be letters, digits and `_`, and must not exist in the load order or
 //!   the target.
+//! - `fields` (lane D round 4) are written on the new reference as `set` writes them, after
+//!   it is composed: each subrecord they name that the composed record lacks is created at
+//!   its slot in schema member order (zero bytes, or an empty string), as `new` does.
+//!   `NAME`, `DATA` and `EDID` come from `base`, `position`/`rotation` and `edid`; a field
+//!   may still overwrite them.
 //!
 //! As `set`: the write goes to a staged copy of `into`, `validate` runs on it, and `into`
 //! is replaced only when the records written pass. Refusals are `failed` errors whose
@@ -767,6 +772,7 @@ pub(crate) fn plan(
             allow_reference: req.allow_reference.clone(),
             label: at.clone(),
             scripts: Vec::new(),
+            edits: Vec::new(),
         },
         info,
         evidence,
@@ -1051,6 +1057,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     // Scripts to attach to the new reference (M4.E9).
     let scripts = super::scripts::from_args(ID, args, loaded, &into)?;
     planned.new_ref.scripts = scripts.scripts;
+    // Field values on the new reference (lane D round 4), as `set` takes them.
+    planned.new_ref.edits = super::newform::fields_arg(ID, args)?;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, planned.limitations.clone());
     extend_once(&mut limitations, scripts.limitations);

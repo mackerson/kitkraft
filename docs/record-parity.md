@@ -17,21 +17,21 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 
 | Family          | Record types | Definitions |   Records |      Typed |    Opaque |   Unknown |
 | --------------- | -----------: | ----------: | --------: | ---------: | --------: | --------: |
-| weapons         |           10 |          10 |    15,986 |    188,843 |       231 |       627 |
-| world           |            7 |           7 | 6,880,278 | 40,388,166 | 2,008,530 |   163,460 |
-| planet          |           15 |          15 |    26,290 |    487,284 |     4,942 |   320,235 |
+| weapons         |           10 |          10 |    15,986 |    188,928 |       525 |       248 |
+| world           |            7 |           7 | 6,880,278 | 40,388,166 | 2,008,569 |   163,421 |
+| planet          |           15 |          15 |    26,290 |    488,082 |     4,942 |   319,437 |
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
-| actor           |            9 |           9 |    13,350 |  1,211,460 |     2,833 |       157 |
-| items           |           12 |          12 |    33,939 |    377,672 |     9,366 |    23,101 |
-| container/other |          123 |          33 |   252,710 |     80,110 |   466,857 |   532,872 |
-| **Total**       |          186 |          96 | 7,490,102 | 46,634,139 | 2,542,866 | 1,242,556 |
+| actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
+| items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
+| container/other |          123 |          33 |   252,710 |     80,112 |   466,918 |   532,809 |
+| **Total**       |          186 |          96 | 7,490,102 | 46,635,633 | 2,544,411 | 1,239,517 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 96 record definitions, defs hash `fnv1a64:0f868fd5ee887c93` (the hash named in
+- Schema: 96 record definitions, defs hash `fnv1a64:558dbeed43b011fa` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -56,26 +56,26 @@ Columns:
 
 | Record        | Schema                  |   Records | Compressed |  Seen | Typed | Opaque | Unknown |
 | ------------- | ----------------------- | --------: | ---------: | ----: | ----: | -----: | ------: |
-| `REFR`        | PlacedObject            | 6,719,725 |          0 |   119 |   102 |      8 |       9 |
+| `REFR`        | PlacedObject            | 6,719,725 |          0 |   119 |   102 |      9 |       8 |
 | `RFGP`        | ReferenceGroup          |   169,006 |          0 |    10 |     3 |      5 |       2 |
 | `INFO`        | DialogResponse          |   162,028 |          0 |    48 |    47 |      1 |       0 |
 | `NAVM`        | Navmesh                 |    92,893 |     92,764 |     6 |     2 |      4 |       0 |
 | `DIAL`        | DialogTopic             |    87,031 |          0 |    15 |    14 |      0 |       1 |
 | `CELL`        | Cell                    |    40,251 |     32,230 |    34 |    31 |      2 |       1 |
-| `STAT`        | Static                  |    22,296 |          0 |    32 |    24 |      2 |       6 |
+| `STAT`        | Static                  |    22,296 |          0 |    32 |    24 |      3 |       5 |
 | `LMSW`        | -                       |    17,410 |          0 |     9 |     0 |      0 |       9 |
 | `PKIN`        | PackIn                  |    15,128 |          0 |    41 |    38 |      3 |       0 |
 | `ACHR`        | PlacedNpc               |    14,731 |          0 |    29 |    24 |      2 |       3 |
 | `LAYR`        | Layer                   |    10,424 |          0 |     7 |     4 |      3 |       0 |
 | `SCEN`        | Scene                   |     9,673 |          0 |    89 |    40 |      1 |      48 |
-| `NPC_`        | Npc                     |     8,447 |      8,447 |    92 |    89 |      1 |       2 |
+| `NPC_`        | Npc                     |     8,447 |      8,447 |    92 |    90 |      1 |       1 |
 | `LCTN`        | Location                |     7,316 |          0 |    29 |    29 |      0 |       0 |
 | `KYWD`        | Keyword                 |     6,965 |          0 |    12 |     9 |      1 |       2 |
 | `LVLI`        | LeveledItem             |     6,543 |          0 |    22 |    21 |      1 |       0 |
 | `AVMD`        | -                       |     6,530 |          0 |    15 |     0 |      0 |      15 |
 | `LCRT`        | LocationRefType         |     4,779 |          0 |     8 |     5 |      1 |       2 |
 | `PACK`        | Package                 |     4,578 |          0 |    34 |    34 |      0 |       0 |
-| `GBFM`        | GenericBaseForm         |     3,903 |          0 |    64 |    19 |      2 |      43 |
+| `GBFM`        | GenericBaseForm         |     3,903 |          0 |    64 |    20 |      2 |      42 |
 | `COBJ`        | ConstructibleObject     |     3,518 |          0 |    23 |    21 |      0 |       2 |
 | `OMOD`        | ObjectModification      |     3,330 |          0 |    15 |    13 |      0 |       2 |
 | `GLOB`        | Global                  |     3,319 |          0 |     5 |     5 |      0 |       0 |
@@ -84,8 +84,8 @@ Columns:
 | `PGRE`        | PlacedProjectile        |     2,599 |          0 |    10 |     0 |     10 |       0 |
 | `GMST`        | GameSetting             |     2,418 |          0 |     3 |     3 |      0 |       0 |
 | `PCCN`        | PlanetContentNode       |     2,148 |          0 |    25 |    24 |      1 |       0 |
-| `MSTT`        | MoveableStatic          |     2,134 |          0 |    40 |    35 |      2 |       3 |
-| `ACTI`        | Activator               |     1,940 |          0 |    48 |    43 |      3 |       2 |
+| `MSTT`        | MoveableStatic          |     2,134 |          0 |    40 |    35 |      3 |       2 |
+| `ACTI`        | Activator               |     1,940 |          0 |    48 |    44 |      4 |       0 |
 | `SFBK`        | SurfaceBlock            |     1,877 |          0 |    21 |    19 |      0 |       2 |
 | `PNDT`        | Planet                  |     1,786 |      1,786 |    31 |    21 |      0 |      10 |
 | `LIGH`        | Light                   |     1,723 |          0 |    24 |     8 |     14 |       2 |
@@ -99,17 +99,17 @@ Columns:
 | `DFOB`        | -                       |     1,273 |          0 |     3 |     0 |      0 |       3 |
 | `AVIF`        | ActorValueInformation   |     1,267 |          0 |     9 |     3 |      0 |       6 |
 | `ARMA`        | -                       |     1,238 |          0 |    39 |     0 |      0 |      39 |
-| `ARMO`        | Armor                   |     1,168 |          0 |    41 |    38 |      2 |       1 |
+| `ARMO`        | Armor                   |     1,168 |          0 |    41 |    39 |      2 |       0 |
 | `MRPH`        | -                       |     1,145 |          0 |     4 |     0 |      0 |       4 |
 | `SOUN`        | SoundMarker             |     1,133 |          0 |     8 |     3 |      5 |       0 |
 | `CNDF`        | -                       |     1,055 |          0 |     6 |     0 |      0 |       6 |
-| `FURN`        | Furniture               |     1,045 |          0 |    50 |    40 |      3 |       7 |
+| `FURN`        | Furniture               |     1,045 |          0 |    50 |    40 |      4 |       6 |
 | `MGEF`        | MagicEffect             |       989 |          0 |    12 |    10 |      2 |       0 |
 | `TMLM`        | TerminalMenu            |       974 |          0 |    22 |    21 |      1 |       0 |
 | `FACT`        | Faction                 |       953 |          0 |    20 |    20 |      0 |       0 |
 | `VTYP`        | -                       |       915 |          0 |     4 |     0 |      0 |       4 |
 | `MTPT`        | -                       |       906 |          0 |     2 |     0 |      0 |       2 |
-| `CONT`        | Container               |       866 |          0 |    39 |    34 |      2 |       3 |
+| `CONT`        | Container               |       866 |          0 |    39 |    36 |      3 |       0 |
 | `ASPC`        | -                       |       814 |          0 |    16 |     0 |      0 |      16 |
 | `TRNS`        | -                       |       733 |          0 |     4 |     0 |      0 |       4 |
 | `PDCL`        | -                       |       732 |          0 |    13 |     0 |      0 |      13 |
@@ -126,13 +126,13 @@ Columns:
 | `TERM`        | Terminal                |       501 |          0 |    34 |    31 |      3 |       0 |
 | `FFKW`        | -                       |       493 |          0 |     2 |     0 |      0 |       2 |
 | `SMQN`        | StoryManagerQuestNode   |       471 |          0 |    12 |    12 |      0 |       0 |
-| `WEAP`        | Weapon                  |       452 |          0 |    54 |    50 |      1 |       3 |
+| `WEAP`        | Weapon                  |       452 |          0 |    54 |    52 |      2 |       0 |
 | `PHZD`        | PlacedHazard            |       450 |          0 |    11 |     1 |     10 |       0 |
 | `BIOM`        | Biome                   |       434 |          0 |    45 |    44 |      1 |       0 |
 | `LTEX`        | -                       |       429 |          0 |     5 |     0 |      0 |       5 |
 | `LSCR`        | LoadScreen              |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode |       379 |          0 |    23 |    22 |      1 |       0 |
-| `DOOR`        | Door                    |       376 |          0 |    32 |    10 |     19 |       3 |
+| `DOOR`        | Door                    |       376 |          0 |    32 |    11 |     19 |       2 |
 | `LVLB`        | -                       |       373 |          0 |    12 |     0 |      0 |      12 |
 | `AMBS`        | -                       |       369 |          0 |     5 |     0 |      0 |       5 |
 | `ALCH`        | Ingestible              |       365 |          0 |    32 |     4 |      0 |      28 |
@@ -142,7 +142,7 @@ Columns:
 | `IRES`        | Resource                |       333 |          0 |    14 |     5 |      9 |       0 |
 | `IMGS`        | -                       |       303 |          0 |     4 |     0 |      0 |       4 |
 | `FLOR`        | Flora                   |       302 |          0 |    39 |     3 |      0 |      36 |
-| `PROJ`        | Projectile              |       299 |          0 |    24 |    22 |      1 |       1 |
+| `PROJ`        | Projectile              |       299 |          0 |    24 |    22 |      2 |       0 |
 | `LVLN`        | LeveledNpc              |       298 |          0 |    15 |    14 |      1 |       0 |
 | `MUST`        | -                       |       279 |          0 |    10 |     0 |      0 |      10 |
 | `CAMS`        | -                       |       276 |          0 |     9 |     0 |      0 |       9 |
@@ -151,7 +151,7 @@ Columns:
 | `HDPT`        | HeadPart                |       236 |          0 |    14 |     2 |      0 |      12 |
 | `IMAD`        | -                       |       224 |          0 |     2 |     0 |      0 |       2 |
 | `AACT`        | -                       |       222 |          0 |     5 |     0 |      0 |       5 |
-| `ARTO`        | ArtObject               |       212 |          0 |    21 |     9 |     10 |       2 |
+| `ARTO`        | ArtObject               |       212 |          0 |    21 |     9 |     11 |       1 |
 | `SPCH`        | -                       |       197 |          0 |    10 |     0 |      0 |      10 |
 | `GRAS`        | -                       |       193 |          0 |    10 |     0 |      0 |      10 |
 | `WTHS`        | -                       |       187 |          0 |     4 |     0 |      0 |       4 |
@@ -185,7 +185,7 @@ Columns:
 | `LVLP`        | LeveledPackIn           |        52 |          0 |    32 |    31 |      1 |       0 |
 | `CLMT`        | -                       |        48 |          0 |     4 |     0 |      0 |       4 |
 | `PTST`        | -                       |        47 |          0 |     1 |     0 |      0 |       1 |
-| `RACE`        | Race                    |        47 |          0 |    82 |    79 |      2 |       1 |
+| `RACE`        | Race                    |        47 |          0 |    82 |    80 |      2 |       0 |
 | `VOLI`        | -                       |        44 |          0 |     2 |     0 |      0 |       2 |
 | `MOVT`        | -                       |        43 |          0 |     7 |     0 |      0 |       7 |
 | `REVB`        | -                       |        41 |          0 |     3 |     0 |      0 |       3 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 96 defined              | 7,490,102 |    136,741 | 2,797 | 1,626 |    185 |     986 |
+| **186 types** | 96 defined              | 7,490,102 |    136,741 | 2,797 | 1,636 |    194 |     967 |
 
-Subrecord occurrences: 50,419,561 in total; 46,634,139 typed (0 of them failed to decode), 2,542,866 opaque, 1,242,556 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,635,633 typed (0 of them failed to decode), 2,544,411 opaque, 1,239,517 unknown.
 
 ## Decoded through the definitions
 
@@ -269,13 +269,13 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ACHR`    | PlacedNpc               |        14,731 |     85,331 |      0 |         0 |         0 |                   0 |     85,331 |       0 |        0 |
 | `LAYR`    | Layer                   |        10,424 |     10,430 |      0 |         0 |         0 |                   0 |     10,430 |       0 |        0 |
 | `SCEN`    | Scene                   |         9,673 |    872,488 |      0 |         0 |         0 |                   0 |    872,488 |       0 |        0 |
-| `NPC_`    | Npc                     |         8,447 |  1,121,103 |      0 |         0 |         0 |                   0 |  1,121,103 |       0 |        0 |
+| `NPC_`    | Npc                     |         8,447 |  1,121,250 |      0 |         0 |         0 |                   0 |  1,121,250 |       0 |        0 |
 | `LCTN`    | Location                |         7,316 |     78,402 |      0 |         0 |         0 |                   0 |     78,402 |       0 |        0 |
 | `KYWD`    | Keyword                 |         6,965 |     22,948 |      0 |         0 |         0 |                   0 |     22,948 |       0 |        0 |
 | `LVLI`    | LeveledItem             |         6,543 |     80,308 |      0 |         0 |         0 |                   0 |     80,308 |       0 |        0 |
 | `LCRT`    | LocationRefType         |         4,779 |     14,349 |      0 |         0 |         0 |                   0 |     14,349 |       0 |        0 |
 | `PACK`    | Package                 |         4,578 |    225,093 |      0 |         0 |         3 |                   0 |    225,090 |       0 |        0 |
-| `GBFM`    | GenericBaseForm         |         3,903 |    151,687 |      0 |         0 |         0 |                   0 |    151,687 |       0 |        0 |
+| `GBFM`    | GenericBaseForm         |         3,903 |    152,485 |      0 |         0 |         0 |                   0 |    152,485 |       0 |        0 |
 | `COBJ`    | ConstructibleObject     |         3,518 |     45,206 |      0 |         0 |         0 |                   0 |     45,206 |       0 |        0 |
 | `OMOD`    | ObjectModification      |         3,330 |     20,261 |      0 |         0 |         0 |                   0 |     20,261 |       0 |        0 |
 | `GLOB`    | Global                  |         3,319 |      6,638 |      0 |         0 |         0 |                   0 |      6,638 |       0 |        0 |
@@ -285,7 +285,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `GMST`    | GameSetting             |         2,418 |      4,858 |      0 |         0 |         0 |                   0 |      4,858 |       0 |        0 |
 | `PCCN`    | PlanetContentNode       |         2,148 |     10,277 |      0 |         0 |         0 |                   0 |     10,277 |       0 |        0 |
 | `MSTT`    | MoveableStatic          |         2,134 |     20,592 |      0 |         0 |       290 |                   0 |     20,302 |       0 |        0 |
-| `ACTI`    | Activator               |         1,940 |     24,184 |      0 |         0 |       384 |                   0 |     23,800 |       0 |        0 |
+| `ACTI`    | Activator               |         1,940 |     24,186 |      0 |         0 |       384 |                   0 |     23,802 |       0 |        0 |
 | `SFBK`    | SurfaceBlock            |         1,877 |     32,400 |      0 |         0 |         0 |                   0 |     32,400 |       0 |        0 |
 | `PNDT`    | Planet                  |         1,786 |     55,229 |      0 |         0 |         0 |                   0 |     55,229 |       0 |        0 |
 | `LIGH`    | Light                   |         1,723 |      7,393 |      0 |         0 |         0 |                   0 |      7,393 |       0 |        0 |
@@ -295,13 +295,13 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `BOOK`    | Book                    |         1,368 |      4,858 |      0 |         0 |         0 |                   0 |      4,858 |       0 |        0 |
 | `IDLE`    | IdleAnimation           |         1,302 |      7,626 |      0 |         0 |         0 |                   0 |      7,626 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
-| `ARMO`    | Armor                   |         1,168 |     30,215 |      0 |         0 |         0 |                   0 |     30,215 |       0 |        0 |
+| `ARMO`    | Armor                   |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
 | `SOUN`    | SoundMarker             |         1,133 |      1,135 |      0 |         0 |         0 |                   0 |      1,135 |       0 |        0 |
 | `FURN`    | Furniture               |         1,045 |     23,136 |      0 |         0 |         4 |                   0 |     23,132 |       0 |        0 |
 | `MGEF`    | MagicEffect             |           989 |      5,196 |      0 |         0 |         0 |                   0 |      5,196 |       0 |        0 |
 | `TMLM`    | TerminalMenu            |           974 |     27,043 |      0 |         0 |         0 |                   0 |     27,043 |       0 |        0 |
 | `FACT`    | Faction                 |           953 |      6,131 |      0 |         0 |         0 |                   0 |      6,131 |       0 |        0 |
-| `CONT`    | Container               |           866 |     17,878 |      0 |         0 |         0 |                   0 |     17,878 |       0 |        0 |
+| `CONT`    | Container               |           866 |     18,190 |      0 |         0 |         0 |                   0 |     18,190 |       0 |        0 |
 | `OTFT`    | Outfit                  |           698 |      1,396 |      0 |         0 |         0 |                   0 |      1,396 |       0 |        0 |
 | `WWED`    | WwiseEventData          |           681 |        681 |      0 |         0 |         0 |                   0 |        681 |       0 |        0 |
 | `SPEL`    | Spell                   |           662 |     13,305 |      0 |         0 |         0 |                   0 |     13,305 |       0 |        0 |
@@ -309,12 +309,12 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `WRLD`    | Worldspace              |           583 |     25,644 |      0 |         0 |         0 |                   0 |     25,644 |       0 |        0 |
 | `TERM`    | Terminal                |           501 |     13,106 |      0 |         0 |         0 |                   0 |     13,106 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode   |           471 |      6,754 |      0 |         0 |         0 |                   0 |      6,754 |       0 |        0 |
-| `WEAP`    | Weapon                  |           452 |     18,347 |      0 |         0 |         0 |                   0 |     18,347 |       0 |        0 |
+| `WEAP`    | Weapon                  |           452 |     18,432 |      0 |         0 |         0 |                   0 |     18,432 |       0 |        0 |
 | `PHZD`    | PlacedHazard            |           450 |         24 |      0 |         0 |         0 |                   0 |         24 |       0 |        0 |
 | `BIOM`    | Biome                   |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
 | `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
-| `DOOR`    | Door                    |           376 |      3,400 |      0 |         0 |         0 |                   0 |      3,400 |       0 |        0 |
+| `DOOR`    | Door                    |           376 |      3,402 |      0 |         0 |         0 |                   0 |      3,402 |       0 |        0 |
 | `ALCH`    | Ingestible              |           365 |      1,459 |      0 |         0 |         0 |                   0 |      1,459 |       0 |        0 |
 | `EXPL`    | Explosion               |           359 |        406 |      0 |         0 |         0 |                   0 |        406 |       0 |        0 |
 | `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
@@ -339,7 +339,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ANIO`    | AnimatedObject          |            66 |        239 |      0 |         0 |         0 |                   0 |        239 |       0 |        0 |
 | `SUNP`    | SunPreset               |            53 |         99 |      0 |         0 |         0 |                   0 |         99 |       0 |        0 |
 | `LVLP`    | LeveledPackIn           |            52 |      1,072 |      0 |         0 |         0 |                   0 |      1,072 |       0 |        0 |
-| `RACE`    | Race                    |            47 |     12,976 |      0 |         0 |         0 |                   0 |     12,976 |       0 |        0 |
+| `RACE`    | Race                    |            47 |     12,980 |      0 |         0 |         0 |                   0 |     12,980 |       0 |        0 |
 | `RSGD`    | ResourceGenerationData  |            32 |        168 |      0 |         0 |         0 |                   0 |        168 |       0 |        0 |
 | `FXPD`    | FacialExpression        |            31 |         62 |      0 |         0 |         0 |                   0 |         62 |       0 |        0 |
 | `GPOF`    | GameplayOption          |            31 |        381 |      0 |         0 |         0 |                   0 |        381 |       0 |        0 |
@@ -354,7 +354,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,444,869 | 46,634,139 |      0 |         0 |       685 |                   0 | 46,633,454 |       0 |        0 |
+| **Total** |                         |     7,444,869 | 46,635,633 |      0 |         0 |       685 |                   0 | 46,634,948 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -369,150 +369,144 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 
 | Record    | Schema                  | Subrecord defs | Typed | Opaque | reference | container-reference | corpus | ck-diff | verified |
 | --------- | ----------------------- | -------------: | ----: | -----: | --------: | ------------------: | -----: | ------: | -------: |
-| `ACHR`    | PlacedNpc               |             71 |    66 |      5 |        11 |                   0 |     60 |       0 |        0 |
-| `ACTI`    | Activator               |             73 |    69 |      4 |         9 |                   0 |     64 |       0 |        0 |
+| `ACHR`    | PlacedNpc               |             76 |    70 |      6 |        11 |                   0 |     65 |       0 |        0 |
+| `ACTI`    | Activator               |             78 |    73 |      5 |         9 |                   0 |     69 |       0 |        0 |
 | `AFFE`    | AffinityEvent           |             11 |    11 |      0 |         0 |                   0 |     11 |       0 |        0 |
 | `ALCH`    | Ingestible              |              4 |     4 |      0 |         0 |                   0 |      4 |       0 |        0 |
-| `AMDL`    | AimModel                |             30 |    28 |      2 |         0 |                   0 |     30 |       0 |        0 |
-| `AMMO`    | Ammunition              |             62 |    59 |      3 |        12 |                   0 |     50 |       0 |        0 |
-| `ANIO`    | AnimatedObject          |             36 |    33 |      3 |         2 |                   0 |     34 |       0 |        0 |
-| `ARMO`    | Armor                   |             80 |    77 |      3 |        11 |                   0 |     69 |       0 |        0 |
-| `ARTO`    | ArtObject               |             42 |    29 |     13 |         0 |                   0 |     42 |       0 |        0 |
+| `AMDL`    | AimModel                |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
+| `AMMO`    | Ammunition              |             67 |    63 |      4 |        12 |                   0 |     55 |       0 |        0 |
+| `ANIO`    | AnimatedObject          |             41 |    37 |      4 |         2 |                   0 |     39 |       0 |        0 |
+| `ARMO`    | Armor                   |             85 |    81 |      4 |        11 |                   0 |     74 |       0 |        0 |
+| `ARTO`    | ArtObject               |             47 |    33 |     14 |         0 |                   0 |     47 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `BIOM`    | Biome                   |             48 |    47 |      1 |         1 |                   0 |     47 |       0 |        0 |
 | `BOOK`    | Book                    |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `BPTD`    | BodyPartData            |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `CELL`    | Cell                    |             61 |    57 |      4 |         4 |                   0 |     57 |       0 |        0 |
-| `CHAL`    | Challenge               |             29 |    27 |      2 |         0 |                   0 |     29 |       0 |        0 |
-| `CLAS`    | Class                   |             35 |    31 |      4 |         2 |                   0 |     33 |       0 |        0 |
-| `COBJ`    | ConstructibleObject     |             56 |    53 |      3 |         7 |                   0 |     49 |       0 |        0 |
-| `CONT`    | Container               |             70 |    67 |      3 |         8 |                   0 |     62 |       0 |        0 |
+| `CELL`    | Cell                    |             66 |    61 |      5 |         4 |                   0 |     62 |       0 |        0 |
+| `CHAL`    | Challenge               |             34 |    31 |      3 |         0 |                   0 |     34 |       0 |        0 |
+| `CLAS`    | Class                   |             40 |    35 |      5 |         2 |                   0 |     38 |       0 |        0 |
+| `COBJ`    | ConstructibleObject     |             61 |    57 |      4 |         7 |                   0 |     54 |       0 |        0 |
+| `CONT`    | Container               |             75 |    71 |      4 |         8 |                   0 |     67 |       0 |        0 |
 | `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
-| `DIAL`    | DialogTopic             |             39 |    37 |      2 |         0 |                   0 |     39 |       0 |        0 |
+| `DIAL`    | DialogTopic             |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `DOOR`    | Door                    |             52 |    30 |     22 |         0 |                   0 |     52 |       0 |        0 |
+| `DOOR`    | Door                    |             57 |    34 |     23 |         0 |                   0 |     57 |       0 |        0 |
 | `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `FACT`    | Faction                 |             54 |    52 |      2 |         6 |                   0 |     48 |       0 |        0 |
+| `FACT`    | Faction                 |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
 | `FLOR`    | Flora                   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
-| `FLST`    | FormIdList              |             37 |    35 |      2 |         0 |                   0 |     37 |       0 |        0 |
-| `FURN`    | Furniture               |             77 |    73 |      4 |        11 |                   0 |     66 |       0 |        0 |
+| `FLST`    | FormIdList              |             42 |    39 |      3 |         0 |                   0 |     42 |       0 |        0 |
+| `FURN`    | Furniture               |             82 |    77 |      5 |        11 |                   0 |     71 |       0 |        0 |
 | `FXPD`    | FacialExpression        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `GBFM`    | GenericBaseForm         |             43 |    39 |      4 |         0 |                   0 |     43 |       0 |        0 |
-| `GLOB`    | Global                  |             30 |    28 |      2 |         0 |                   0 |     30 |       0 |        0 |
+| `GBFM`    | GenericBaseForm         |             48 |    43 |      5 |         0 |                   0 |     48 |       0 |        0 |
+| `GLOB`    | Global                  |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
 | `GMST`    | GameSetting             |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
 | `GPOF`    | GameplayOption          |              5 |     5 |      0 |         0 |                   0 |      5 |       0 |        0 |
 | `HAZD`    | Hazard                  |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `HDPT`    | HeadPart                |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `IDLE`    | IdleAnimation           |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
-| `INFO`    | DialogResponse          |             85 |    80 |      5 |         7 |                   0 |     78 |       0 |        0 |
-| `INNR`    | InstanceNamingRules     |             37 |    34 |      3 |         1 |                   0 |     36 |       0 |        0 |
+| `INFO`    | DialogResponse          |             90 |    84 |      6 |         7 |                   0 |     83 |       0 |        0 |
+| `INNR`    | InstanceNamingRules     |             42 |    38 |      4 |         1 |                   0 |     41 |       0 |        0 |
 | `IRES`    | Resource                |             14 |     5 |      9 |         0 |                   0 |     14 |       0 |        0 |
 | `KEYM`    | Key                     |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `KYWD`    | Keyword                 |             37 |    33 |      4 |         1 |                   0 |     36 |       0 |        0 |
-| `LAYR`    | Layer                   |             32 |    27 |      5 |         0 |                   0 |     32 |       0 |        0 |
-| `LCRT`    | LocationRefType         |             37 |    33 |      4 |         5 |                   0 |     32 |       0 |        0 |
-| `LCTN`    | Location                |             66 |    62 |      4 |         8 |                   0 |     58 |       0 |        0 |
-| `LIGH`    | Light                   |             44 |    29 |     15 |         0 |                   0 |     44 |       0 |        0 |
+| `KYWD`    | Keyword                 |             42 |    37 |      5 |         1 |                   0 |     41 |       0 |        0 |
+| `LAYR`    | Layer                   |             37 |    31 |      6 |         0 |                   0 |     37 |       0 |        0 |
+| `LCRT`    | LocationRefType         |             42 |    37 |      5 |         5 |                   0 |     37 |       0 |        0 |
+| `LCTN`    | Location                |             71 |    66 |      5 |         8 |                   0 |     63 |       0 |        0 |
+| `LIGH`    | Light                   |             49 |    33 |     16 |         0 |                   0 |     49 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
-| `LVLI`    | LeveledItem             |             63 |    60 |      3 |         9 |                   0 |     54 |       0 |        0 |
-| `LVLN`    | LeveledNpc              |             55 |    51 |      4 |         7 |                   0 |     48 |       0 |        0 |
-| `LVLP`    | LeveledPackIn           |             53 |    50 |      3 |         4 |                   0 |     49 |       0 |        0 |
+| `LVLI`    | LeveledItem             |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
+| `LVLN`    | LeveledNpc              |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
+| `LVLP`    | LeveledPackIn           |             58 |    54 |      4 |         4 |                   0 |     54 |       0 |        0 |
 | `MESG`    | Message                 |             13 |     5 |      8 |         0 |                   0 |     13 |       0 |        0 |
-| `MGEF`    | MagicEffect             |             41 |    38 |      3 |         2 |                   0 |     39 |       0 |        0 |
-| `MISC`    | MiscItem                |             63 |    60 |      3 |        10 |                   0 |     53 |       0 |        0 |
-| `MSTT`    | MoveableStatic          |             60 |    57 |      3 |         8 |                   0 |     52 |       0 |        0 |
-| `NAVM`    | Navmesh                 |             32 |    27 |      5 |         1 |                   0 |     31 |       0 |        0 |
-| `NPC_`    | Npc                     |            142 |   138 |      4 |        16 |                   0 |    126 |       0 |        0 |
-| `OMOD`    | ObjectModification      |             46 |    42 |      4 |         6 |                   0 |     40 |       0 |        0 |
-| `OTFT`    | Outfit                  |             31 |    28 |      3 |         1 |                   0 |     30 |       0 |        0 |
-| `PACK`    | Package                 |             79 |    76 |      3 |         1 |                   0 |     78 |       0 |        0 |
-| `PCBN`    | PlanetContentBranchNode |             42 |    40 |      2 |         1 |                   0 |     41 |       0 |        0 |
-| `PCCN`    | PlanetContentNode       |             34 |    32 |      2 |         0 |                   0 |     34 |       0 |        0 |
-| `PCMT`    | PlanetContentTree       |             38 |    36 |      2 |         2 |                   0 |     36 |       0 |        0 |
+| `MGEF`    | MagicEffect             |             46 |    42 |      4 |         2 |                   0 |     44 |       0 |        0 |
+| `MISC`    | MiscItem                |             68 |    64 |      4 |        10 |                   0 |     58 |       0 |        0 |
+| `MSTT`    | MoveableStatic          |             65 |    61 |      4 |         8 |                   0 |     57 |       0 |        0 |
+| `NAVM`    | Navmesh                 |             37 |    31 |      6 |         1 |                   0 |     36 |       0 |        0 |
+| `NPC_`    | Npc                     |            147 |   142 |      5 |        16 |                   0 |    131 |       0 |        0 |
+| `OMOD`    | ObjectModification      |             51 |    46 |      5 |         6 |                   0 |     45 |       0 |        0 |
+| `OTFT`    | Outfit                  |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
+| `PACK`    | Package                 |             84 |    80 |      4 |         1 |                   0 |     83 |       0 |        0 |
+| `PCBN`    | PlanetContentBranchNode |             47 |    44 |      3 |         1 |                   0 |     46 |       0 |        0 |
+| `PCCN`    | PlanetContentNode       |             39 |    36 |      3 |         0 |                   0 |     39 |       0 |        0 |
+| `PCMT`    | PlanetContentTree       |             43 |    40 |      3 |         2 |                   0 |     41 |       0 |        0 |
 | `PERK`    | Perk                    |             40 |    36 |      4 |         0 |                   0 |     40 |       0 |        0 |
 | `PGRE`    | PlacedProjectile        |             10 |     0 |     10 |         0 |                   0 |     10 |       0 |        0 |
 | `PHZD`    | PlacedHazard            |             11 |     1 |     10 |         0 |                   0 |     11 |       0 |        0 |
-| `PKIN`    | PackIn                  |             49 |    46 |      3 |         0 |                   0 |     49 |       0 |        0 |
+| `PKIN`    | PackIn                  |             54 |    50 |      4 |         0 |                   0 |     54 |       0 |        0 |
 | `PMFT`    | PhotoModeFeature        |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `PNDT`    | Planet                  |             51 |    49 |      2 |         1 |                   0 |     50 |       0 |        0 |
-| `PROJ`    | Projectile              |             62 |    59 |      3 |        13 |                   0 |     49 |       0 |        0 |
-| `QUST`    | Quest                   |            210 |   202 |      8 |         3 |                   0 |    207 |       0 |        0 |
-| `RACE`    | Race                    |            151 |   143 |      8 |         7 |                   0 |    144 |       0 |        0 |
-| `REFR`    | PlacedObject            |            126 |   117 |      9 |         5 |                   0 |    121 |       0 |        0 |
-| `RFGP`    | ReferenceGroup          |             33 |    26 |      7 |         0 |                   0 |     33 |       0 |        0 |
-| `RSGD`    | ResourceGenerationData  |             31 |    29 |      2 |         0 |                   0 |     31 |       0 |        0 |
-| `RSPJ`    | ResearchProject         |             43 |    41 |      2 |         0 |                   0 |     43 |       0 |        0 |
+| `PNDT`    | Planet                  |             56 |    53 |      3 |         1 |                   0 |     55 |       0 |        0 |
+| `PROJ`    | Projectile              |             67 |    63 |      4 |        13 |                   0 |     54 |       0 |        0 |
+| `QUST`    | Quest                   |            215 |   206 |      9 |         3 |                   0 |    212 |       0 |        0 |
+| `RACE`    | Race                    |            156 |   147 |      9 |         7 |                   0 |    149 |       0 |        0 |
+| `REFR`    | PlacedObject            |            131 |   121 |     10 |         5 |                   0 |    126 |       0 |        0 |
+| `RFGP`    | ReferenceGroup          |             38 |    30 |      8 |         0 |                   0 |     38 |       0 |        0 |
+| `RSGD`    | ResourceGenerationData  |             36 |    33 |      3 |         0 |                   0 |     36 |       0 |        0 |
+| `RSPJ`    | ResearchProject         |             48 |    45 |      3 |         0 |                   0 |     48 |       0 |        0 |
 | `SCEN`    | Scene                   |             56 |    55 |      1 |         0 |                   0 |     56 |       0 |        0 |
-| `SFBK`    | SurfaceBlock            |             45 |    43 |      2 |         0 |                   0 |     45 |       0 |        0 |
-| `SFPT`    | SurfacePattern          |             36 |    34 |      2 |         3 |                   0 |     33 |       0 |        0 |
+| `SFBK`    | SurfaceBlock            |             50 |    47 |      3 |         0 |                   0 |     50 |       0 |        0 |
+| `SFPT`    | SurfacePattern          |             41 |    38 |      3 |         3 |                   0 |     38 |       0 |        0 |
 | `SMBN`    | StoryManagerBranchNode  |              9 |     9 |      0 |         0 |                   0 |      9 |       0 |        0 |
 | `SMEN`    | StoryManagerEventNode   |             10 |    10 |      0 |         0 |                   0 |     10 |       0 |        0 |
 | `SMQN`    | StoryManagerQuestNode   |             14 |    14 |      0 |         0 |                   0 |     14 |       0 |        0 |
 | `SOUN`    | SoundMarker             |              8 |     3 |      5 |         0 |                   0 |      8 |       0 |        0 |
-| `SPEL`    | Spell                   |             51 |    48 |      3 |         2 |                   0 |     49 |       0 |        0 |
-| `STAT`    | Static                  |             49 |    45 |      4 |         2 |                   0 |     47 |       0 |        0 |
-| `STDT`    | Star                    |             40 |    36 |      4 |         4 |                   0 |     36 |       0 |        0 |
+| `SPEL`    | Spell                   |             56 |    52 |      4 |         2 |                   0 |     54 |       0 |        0 |
+| `STAT`    | Static                  |             54 |    49 |      5 |         2 |                   0 |     52 |       0 |        0 |
+| `STDT`    | Star                    |             45 |    40 |      5 |         4 |                   0 |     41 |       0 |        0 |
 | `SUNP`    | SunPreset               |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
-| `TERM`    | Terminal                |             85 |    81 |      4 |        19 |                   0 |     66 |       0 |        0 |
+| `TERM`    | Terminal                |             90 |    85 |      5 |        19 |                   0 |     71 |       0 |        0 |
 | `TES4`    | PluginHeader            |             11 |     8 |      3 |         0 |                   2 |      9 |       0 |        0 |
 | `TMLM`    | TerminalMenu            |             25 |    24 |      1 |         0 |                   0 |     25 |       0 |        0 |
-| `TRAV`    | Traversal               |             31 |    28 |      3 |         1 |                   0 |     30 |       0 |        0 |
+| `TRAV`    | Traversal               |             36 |    32 |      4 |         1 |                   0 |     35 |       0 |        0 |
 | `TXST`    | TextureSet              |             12 |     1 |     11 |         0 |                   0 |     12 |       0 |        0 |
 | `WATR`    | Water                   |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `WEAP`    | Weapon                  |             90 |    86 |      4 |         9 |                   0 |     81 |       0 |        0 |
+| `WEAP`    | Weapon                  |             95 |    90 |      5 |         9 |                   0 |     86 |       0 |        0 |
 | `WKMF`    | WwiseKeywordMapping     |              6 |     1 |      5 |         0 |                   0 |      6 |       0 |        0 |
-| `WRLD`    | Worldspace              |             66 |    62 |      4 |         7 |                   0 |     59 |       0 |        0 |
+| `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
-| `ZOOM`    | Zoom                    |             30 |    28 |      2 |         0 |                   0 |     30 |       0 |        0 |
-| **Total** |                         |          3,743 | 3,421 |    322 |       250 |                   2 |  3,491 |       0 |        0 |
+| `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
+| **Total** |                         |          4,038 | 3,657 |    381 |       250 |                   2 |  3,786 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
 Signatures seen in records of a defined type that its definition does not name
 (occurrences in parentheses):
 
-- `REFR`: `FLTR` (60), `INTV` (60), `KSIZ` (66,461), `KWDA` (66,461), `OPDS` (5,080), `PNAM` (2), `PTCL` (39), `SNAM` (2), `VLMS` (23,157)
+- `REFR`: `FLTR` (60), `INTV` (60), `KSIZ` (66,461), `KWDA` (66,461), `OPDS` (5,080), `PNAM` (2), `SNAM` (2), `VLMS` (23,157)
 - `RFGP`: `KSIZ` (1), `KWDA` (1)
 - `DIAL`: `OPDS` (1)
 - `CELL`: `MOD2` (4)
-- `STAT`: `FLTR` (116), `INTV` (116), `KSIZ` (10,587), `KWDA` (10,587), `PTCL` (749), `VLMS` (2)
+- `STAT`: `FLTR` (116), `INTV` (116), `KSIZ` (10,587), `KWDA` (10,587), `VLMS` (2)
 - `ACHR`: `KSIZ` (262), `KWDA` (262), `OPDS` (1,024)
 - `SCEN`: `ACBS` (1,183), `AIDT` (13), `ALLA` (413), `ATAC` (804), `ATTR` (1,183), `ATXT` (20), `BIPL` (159), `BNAM` (804), `BTXT` (179), `CITC` (1,032), `CNAM` (30), `DATA` (33,478), `DMAX` (32,323), `DMIN` (32,323), `DOFT` (6), `DTGT` (6,689), `ESCE` (26,088), `ESCS` (26,088), `FLAV` (804), `FLMV` (1,347), `HTID` (28,171), `INTT` (1,032), `LCEP` (1,032), `LVCR` (833), `LVLO` (159), `MPCD` (3), `NVCI` (25), `OCOR` (52), `PAPI` (57), `PAPN` (60), `PASP` (57), `PLRL` (34), `PNST` (69), `PPST` (42), `QUAL` (744), `REPL` (572), `SHRT` (8), `SOFT` (9), `SPOR` (4), `SSPN` (479), `STRV` (411), `UNAM` (1), `VCLR` (1,376), `VENC` (238), `VNML` (384), `VTXT` (5), `WED0` (1,178), `WED1` (1)
-- `NPC_`: `FLTR` (6), `STCP` (147)
+- `NPC_`: `FLTR` (6)
 - `KYWD`: `WAIM` (19), `WFIR` (19)
 - `LCRT`: `FLTR` (3), `INTV` (3)
-- `GBFM`: `APPR` (2,396), `BLUF` (2,030), `BODC` (63,974), `BODM` (2,030), `BODS` (70,644), `BODV` (70,644), `BOID` (2,030), `BUO4` (2,030), `CDND` (24), `CDNS` (24), `CNTO` (154), `COCT` (83), `DEST` (2,149), `DMDL` (51), `DSTD` (2,188), `DSTF` (2,188), `ESSF` (2,030), `EXAC` (2,030), `EXAS` (3,767), `EXBS` (2,030), `EXCI` (16,597), `EXCN` (16,597), `EXDC` (2,030), `EXDZ` (2,030), `FCTF` (2,030), `FLFM` (3,987), `FLKW` (3,987), `FLLD` (2,084), `FLTV` (46), `FTYP` (14), `HULL` (134), `INAM` (1,701), `INTV` (200), `ITMC` (2,334), `KSIZ` (3,826), `KWDA` (3,826), `MODL` (2,032), `PRPS` (2,110), `SAIA` (2,030), `SHWB` (2,030), `SODA` (4), `STCP` (798), `STRD` (1,258)
+- `GBFM`: `APPR` (2,396), `BLUF` (2,030), `BODC` (63,974), `BODM` (2,030), `BODS` (70,644), `BODV` (70,644), `BOID` (2,030), `BUO4` (2,030), `CDND` (24), `CDNS` (24), `CNTO` (154), `COCT` (83), `DEST` (2,149), `DMDL` (51), `DSTD` (2,188), `DSTF` (2,188), `ESSF` (2,030), `EXAC` (2,030), `EXAS` (3,767), `EXBS` (2,030), `EXCI` (16,597), `EXCN` (16,597), `EXDC` (2,030), `EXDZ` (2,030), `FCTF` (2,030), `FLFM` (3,987), `FLKW` (3,987), `FLLD` (2,084), `FLTV` (46), `FTYP` (14), `HULL` (134), `INAM` (1,701), `INTV` (200), `ITMC` (2,334), `KSIZ` (3,826), `KWDA` (3,826), `MODL` (2,032), `PRPS` (2,110), `SAIA` (2,030), `SHWB` (2,030), `SODA` (4), `STRD` (1,258)
 - `COBJ`: `FLTR` (77), `INTV` (77)
 - `OMOD`: `KSIZ` (3), `KWDA` (3)
 - `QUST`: `FLLD` (1)
-- `MSTT`: `INAM` (1), `PTCL` (369), `SODA` (71)
-- `ACTI`: `PTCL` (27), `STCP` (2)
+- `MSTT`: `INAM` (1), `SODA` (71)
 - `SFBK`: `DAT2` (585), `DATA` (2)
 - `PNDT`: `FLLD` (3,479), `FULL` (1,786), `KSIZ` (1,706), `KWDA` (1,706), `MCQP` (113), `MODL` (1,736), `PCCC` (1,704), `XLMS` (113), `XMPM` (1,704), `XMSP` (113)
 - `LIGH`: `FLTR` (1,053), `INTV` (1,053)
 - `FLST`: `FLTR` (44), `INTV` (44)
 - `BOOK`: `BFCB` (810), `BFCE` (810), `CNAM` (1,368), `DATA` (1,368), `DNAM` (1,368), `FLLD` (1,368), `GNAM` (187), `INAM` (1,020), `KSIZ` (1,351), `KWDA` (1,351), `MODL` (1,365), `MOLM` (127), `OBND` (1,368), `ODTY` (1,368), `PDSH` (1,062), `PTT2` (1,341), `PUSH` (1,063), `REFL` (810), `VMAD` (218), `XALG` (1,263), `XFLG` (134)
 - `AVIF`: `AVFL` (1,267), `NAM0` (1,267), `NAM1` (1,185), `NAM2` (35), `NAM3` (35), `NLDT` (387)
-- `ARMO`: `QUPA` (144)
-- `FURN`: `PTCL` (2), `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
-- `CONT`: `DCED` (156), `DCSD` (156), `PTCL` (4)
+- `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
 - `WRLD`: `SNAM` (580)
-- `WEAP`: `PTCL` (26), `QUPA` (72), `STCP` (13)
-- `DOOR`: `FLTR` (1), `INTV` (1), `STCP` (2)
+- `DOOR`: `FLTR` (1), `INTV` (1)
 - `ALCH`: `BFCB` (7), `BFCE` (7), `CDIX` (17), `CTDA` (380), `CUSH` (317), `CVPA` (96), `DATA` (365), `EFID` (1,491), `EFIF` (1,491), `EFIT` (1,491), `ENIT` (365), `FLLD` (365), `KSIZ` (364), `KWDA` (364), `MNAM` (951), `MODL` (356), `MOLM` (6), `MUID` (1,491), `OBND` (365), `ODTY` (365), `OPDS` (1), `PDSH` (356), `PTT2` (356), `PUSH` (356), `REFL` (7), `XALG` (2), `XFLG` (8), `ZNAM` (1,111)
 - `EXPL`: `ANAM` (1), `BFCB` (443), `BFCE` (443), `BNAM` (1), `DAMA` (130), `DEFL` (1), `EITM` (36), `ENAM` (359), `FLLD` (359), `MNAM` (188), `MODL` (356), `OBND` (359), `ODTY` (359), `OPDS` (27), `PTCL` (169), `REFL` (207), `XALG` (155)
 - `KEYM`: `DATA` (343), `FLAG` (277), `FLLD` (343), `KSIZ` (336), `KWDA` (336), `MODL` (338), `MOLM` (1), `OBND` (343), `ODTY` (343), `PTT2` (337), `VMAD` (12), `XALG` (317), `XFLG` (1)
 - `FLOR`: `ANAM` (40), `APPR` (261), `BFCB` (98), `BFCE` (98), `BNAM` (302), `DEST` (2), `DSTD` (1), `DSTF` (1), `FHLS` (125), `FLLD` (302), `FLXP` (92), `FMAG` (220), `FMAH` (302), `FMIG` (299), `FMIH` (302), `FNAM` (302), `JNAM` (302), `KSIZ` (297), `KWDA` (297), `MODL` (302), `MOLM` (40), `OBND` (302), `OBTE` (263), `OBTF` (173), `OBTS` (263), `ODTY` (302), `OPDS` (302), `PFHS` (259), `PFIG` (299), `PFPC` (302), `PNAM` (302), `PRPS` (296), `PTCL` (6), `STOP` (302), `VMAD` (4), `XFLG` (80)
-- `PROJ`: `PTCL` (268)
 - `SFPT`: `DAT2` (255), `DATA` (76)
 - `HDPT`: `BFCB` (2), `BFCE` (2), `DATA` (236), `FLLD` (236), `HNAM` (30), `MNAM` (202), `MODL` (231), `NAM2` (147), `NAM3` (140), `PNAM` (236), `RNAM` (236), `TNAM` (1)
-- `ARTO`: `MNAM` (1), `PTCL` (61)
+- `ARTO`: `MNAM` (1)
 - `ENCH`: `BFCB` (1), `BFCE` (1), `CTDA` (140), `EFID` (286), `EFIF` (286), `EFIT` (286), `ENIT` (135), `MNAM` (12), `MUID` (286), `OBND` (135), `ODTY` (135), `PTCL` (1)
 - `STDT`: `DATA` (246), `FLLD` (244), `FULL` (123), `MODL` (121), `PCCC` (121), `XMPM` (121)
 - `HAZD`: `ANAM` (4), `BFCB` (46), `BFCE` (46), `BNAM` (4), `CTDA` (27), `DNAM` (87), `FLLD` (87), `MNAM` (4), `MODL` (87), `OBND` (87), `ODTY` (87), `PTCL` (26), `REFL` (7), `XALG` (8)
 - `PMFT`: `FNAM` (75), `HNAM` (37), `INAM` (38)
-- `RACE`: `STCP` (4)
 - `FXPD`: `MNAM` (871), `MWGT` (871)
 - `GPOF`: `GPOD` (31), `TNAM` (31), `VNAM` (31), `VORN` (144), `VORV` (144), `WNAM` (31)
 - `BPTD`: `BPD2` (233), `BPNN` (233), `BPNT` (233), `DNAM` (233), `ENAM` (233), `FLLD` (27), `FNAM` (233), `INAM` (7), `MODL` (27), `NAM4` (233)

@@ -256,6 +256,10 @@ pub struct NewRef {
     pub label: String,
     /// Scripts to attach (M4.E9).
     pub scripts: Vec<vmad::Attach>,
+    /// Field values to write on the composed reference (`place`'s `fields`, lane D round
+    /// 4): the subrecords they name are added at their schema slots, then written as `set`
+    /// writes them.
+    pub edits: Vec<Edit>,
 }
 
 /// What the writer did for one [`NewRef`].
@@ -405,6 +409,30 @@ fn is_interior_cell(placed: &Placed) -> bool {
             .path
             .first()
             .is_some_and(|g| g.group_type == 0 && g.label == *b"CELL")
+}
+
+/// The group path of a new interior `CELL` (`new`, lane D round 4) with FormID `form_id`:
+/// the top-level `CELL` group, then the interior block and sub-block the FormID computes
+/// ([`kitkraft_esm::cells::interior_block`], lane A's corpus rule). Refused unless its
+/// `DATA` flags have `Interior` (bit 0x1): a new exterior cell needs a world and a grid.
+fn new_interior_cell_path(
+    record: &Record<'_>,
+    form_id: u32,
+    edid: &str,
+) -> Result<Vec<GroupHeader>, PatchError> {
+    let flags = record
+        .subrecords()
+        .and_then(|subs| subs.iter().find(|s| s.signature() == Signature(*b"DATA")))
+        .and_then(|s| s.data().get(..4))
+        .and_then(|b| <[u8; 4]>::try_from(b).ok())
+        .map(u32::from_le_bytes);
+    if flags.is_none_or(|f| f & 0x1 == 0) {
+        return Err(refused(format!(
+            "new.cell-exterior: {edid}: a new CELL is written only as an interior cell; its DATA flags must keep Interior (0x1)"
+        )));
+    }
+    kitkraft_esm::cells::cell_path(&CellPlace::INTERIOR, form_id, &PlacementStyle::OFFICIAL)
+        .map_err(|e| refused(format!("{edid}: {e}")))
 }
 
 /// Refuses a copy whose FormIDs use scale classes (Fable review round 2, finding 3): its
@@ -830,6 +858,9 @@ pub fn write_patch_with(
                     "{edid}: FormID {form_id:08X} allocated twice"
                 )));
             }
+            if p.record.header.signature == Signature(*b"CELL") {
+                p.path = new_interior_cell_path(&p.record, form_id, edid)?;
+            }
             r.source = format!("new ({})", r.formref);
             r.formref = format!("{target_name}:{:08X}", form_id & 0x00FF_FFFF);
             r.form_id = form_id;
@@ -889,6 +920,31 @@ pub fn write_patch_with(
             let mut at = composed
                 .placed(place, cell, &PlacementStyle::OFFICIAL)
                 .map_err(|e| refused(format!("{}: {e}", new.label)))?;
+            let mut changes = Vec::new();
+            if !new.edits.is_empty() {
+                super::scaffold::add_slots(&mut at.record, &new.edits)
+                    .map_err(|e| refused(format!("{}: fields: {e}", new.label)))?;
+                let target_masters = masters.clone();
+                let own = |plugin: &str, id: u32| -> Result<u32, String> {
+                    formref_in(plugin, id, &target_masters, &target_name, &flag_of)
+                };
+                let ctx = ValueCtx {
+                    localized_target: false,
+                    localized_source: false,
+                    form_version: at.record.header.form_version,
+                    formref: &own,
+                };
+                for edit in &new.edits {
+                    let op = resolve_local_forms(&edit.op, &local, &target_name)
+                        .map_err(|m| refused(format!("{}: {}: {m}", new.label, edit.path.text)))?;
+                    let change =
+                        apply_field(&mut at.record, &edit.path, &op, &ctx, &options.limits)?;
+                    for note in &change.notes {
+                        push_once(&mut limitations, note.clone());
+                    }
+                    changes.push(change);
+                }
+            }
             // The cell's own group path where it is observed (the target, else the
             // carried copy's source), not recomputed: a cell may sit in a block the
             // formula does not predict. The computed children groups follow it.
@@ -963,7 +1019,7 @@ pub fn write_patch_with(
                 source: format!("new ({})", new.label),
                 outcome: "inserted",
                 parent: false,
-                changes: Vec::new(),
+                changes,
                 inlined: Vec::new(),
                 offset: None,
                 length: None,

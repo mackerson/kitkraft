@@ -26,7 +26,7 @@ Every cell is `pass`, `fail`, `inconclusive` or `not-run` (AGENTS.md, "Reporting
 | ------ | ---------------- | ------------ |
 | parsed | measured on the examined plugins | every instance parses: record header, subrecords, a compressed body that decompresses |
 | typed-readable | measured | the type has a definition and every instance decodes through it with no unknown-bytes fallback: no subrecord the definition does not name, none that fails its layout, and every record re-encodes byte for byte. The share of payload bytes a layout types is shown beside it (opaque members and opaque fields type none) |
-| typed-writable | evidence file | a test writes the type through `new`, `set` or `build`, reads it back, and `validate` passes |
+| typed-writable | evidence file | a test writes the type through `new`, `set` or `build` (a reference: `place` with `fields`), reads it back, and `validate` passes |
 | CK-differential-tested | evidence file | a Creation Kit differential observation (`docs/ck-observations.md`) |
 | game-runtime-tested | evidence file | an in-game observation on the KitKraft Dev profile (`docs/game-observations.md`, or an owner result in `plan/STATUS.md`) |
 | save-reload-verified | evidence file | the in-game state survived a save, quit and reload |
@@ -98,3 +98,60 @@ an array (LCTN's reference lists, FACT's `PRIS`): such a member is written whole
 parameter is a reference, an actor or a package stay raw bytes (the type byte's alias and
 packdata bits decide them; `common/Condition.toml`). `VMAD` object properties are not yet
 followed by `refs` or `formid.dangling` (M5.D6).
+
+## COBJ, STAT, REFR, ACHR, CELL, WEAP, CONT (lane D round 4, 2026-10-16)
+
+Over the 14 official files (`kit coverage --matrix --types COBJ --types STAT --types REFR
+--types ACHR --types CELL --types WEAP --types CONT`, release build); before is `main` at
+`97dc5ee`:
+
+| Type | Records | typed-readable before | after | typed-writable before | after |
+| ---- | ------: | --------------------- | ----- | --------------------- | ----- |
+| ACHR | 14,731 | fail, 88.6 % | fail, 88.6 % (1,548 unknown: `KSIZ`, `KWDA`, `OPDS`) | not-run | pass |
+| CELL | 40,251 | fail, 0.4 % | fail, 0.4 % (4 unknown: `MOD2`) | not-run | pass |
+| COBJ | 3,518 | fail, 84.5 % | fail, 84.5 % (154 unknown: `FLTR`, `INTV`) | not-run | pass |
+| CONT | 866 | fail, 69.8 % | **pass**, 72.2 % | not-run | not-run |
+| REFR | 6,719,725 | fail, 92.5 % | fail, 92.5 % (161,283 unknown) | not-run | pass |
+| STAT | 22,296 | fail, 56.3 % | fail, 56.3 % (21,408 unknown) | not-run | pass |
+| WEAP | 452 | fail, 68.5 % | **pass**, 68.8 % | pass | pass |
+
+Parsed is `pass` for all seven before and after; CK-differential, game-runtime and
+save/reload are unchanged (game `pass` for CELL, REFR and WEAP, the rest `not-run`).
+
+Typed-readable: WEAP kept 111 subrecords raw (`PTCL` 26, `QUPA` 72, `STCP` 13) and CONT
+316 (`DCED` 156, `DCSD` 156, `PTCL` 4), all inside base form component blocks. Four
+component layouts were added to `common/BfcbBlock.toml` from the pinned
+`wbDefinitionsSF1.pas`: `DisplayCase` (L6122-L6139: `DCSD`, 16-byte slot templates;
+`DCED`, a count-prefixed list of exclusive slots per template), `QualityUpgrade`
+(L6203-L6206: `QUPA`, OMOD FormIDs), `SoundTag` (L6207-L6210 with L5675: `STCP`, an STAG
+FormID) and `ParticleSystem` (L6607-L6610: `PTCL`). `PTCL` stays opaque, as `REFL` does:
+upstream reads both with a helper in a unit that is not an authorized source (ADR 0004).
+`crates/doc/tests/components.rs` (`component_layouts_full`) checks every official block of
+the eight layouts (156 display case, 216 quality upgrade, 966 sound tag, 1,545 particle
+system blocks) against its component name and for identical re-encoding;
+`crates/doc/tests/authoring_types.rs` (`authoring_types_full`) now decodes every WEAP and
+CONT record with nothing raw. The other five types still keep raw component data or
+top-level signatures no definition names (`docs/record-parity.md`).
+
+Typed-writable, in the pattern of the LCTN to FACT tests above:
+
+- `crates/engine/src/handlers/authoring_tests.rs`: `cobj_new_sets_every_typed_member_and_reads_back`
+  and `stat_new_sets_every_typed_member_and_reads_back` (`new`); `cobj_dangling_link_is_reported`
+  (`CNAM`, `BNAM`, `JNAM`) and `stat_dangling_link_is_reported` (`SNTP`, `SNBH`, `DEFL`).
+- `crates/engine/src/handlers/authoring_world_tests.rs`, on the `place` tests' synthetic
+  master: `refr_place_sets_every_typed_member_and_reads_back` and
+  `achr_place_sets_every_typed_member_and_reads_back` (`place` with `fields`, new this
+  round: the subrecords the fields name are added at their schema slots, then written as
+  `set` writes them; `NAME` is `place`'s base, and an ACHR keeps `place`'s `DATA` so its
+  position stays in its exterior cell's grid); `cell_new_sets_every_typed_member_and_reads_back`
+  and `build_new_writes_an_interior_cell` (`new` and `[[new]]` of a `CELL`, new this round:
+  an interior cell, `DATA` flag `Interior` unless given, in the interior block and
+  sub-block its FormID gives, `INCC` counted; `a_new_exterior_cell_is_refused`); one
+  dangling-link test per type (`XLCN`, `XEZN`, `XLYR`; `LTMP`, `XLCN`, `XCWT`).
+
+Every write test checks that each planned member is placed, nothing is kept raw, the
+record re-encodes byte for byte, the field values read back, and `validate` returns no
+finding of any rule (so no `layout.undecoded`) with only the whole-opaque members
+unchecked. Known limits: a new cell has no references and cannot be named by a `[[place]]`
+of the same build; a new exterior cell is refused; what the Creation Kit writes for a new
+interior cell is not observed (CK-differential `not-run`).

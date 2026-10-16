@@ -1,7 +1,9 @@
 //! `new` and `clone` (M4.E1): new base forms in a patch plugin.
 //!
 //! - `new {type, edid, fields?, masters?, into}`: a record of a type the schema defines and
-//!   that lives in its top-level group, with its `EDID`, the members the schema marks
+//!   that lives in its top-level group, or a new interior `CELL` (lane D round 4: `DATA`
+//!   flags `Interior` unless given, placed by the writer in the interior block and sub-block
+//!   its FormID gives, no references), with its `EDID`, the members the schema marks
 //!   required written as zero bytes (an empty string for a string), and `fields` applied
 //!   (each field's subrecord is created in schema member order first, zero bytes or an
 //!   empty string, then written as `set` writes it). `masters` names the plugins its
@@ -25,7 +27,7 @@ use kitkraft_esm::bridge::has_definition;
 use kitkraft_esm::cells::{CELL_CHILD_TYPES, QUEST_CHILD_TYPES};
 use kitkraft_esm::refs::RecordStamps;
 use kitkraft_esm::{Body, DecodeLimits, GroupHeader, Record, RecordHeader, Signature, Subrecord};
-use kitkraft_schema::{Cardinality, FieldType, Member};
+use kitkraft_schema::Cardinality;
 use serde_json::{json, Value};
 
 use super::load::{acquire, Loaded};
@@ -35,8 +37,8 @@ use super::set::{
     validate_json, winning_copy, write_with, Origin,
 };
 use super::{failed, str_arg};
-use crate::edit::fields;
 use crate::edit::patch::{Copy, Edit};
+use crate::edit::scaffold::{member_order, placeholder, slot_of, slot_placeholder};
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
 use crate::exec::EngineError;
@@ -64,13 +66,24 @@ pub(crate) struct CloneRequest {
 }
 
 /// Record types that never live in their own top-level group (cell, world and quest
-/// children) or that `new` does not create (cells and worlds: their groups are built by
-/// `place`'s carried copies only).
+/// children) or that `clone` does not copy (cells and worlds: their groups are built by
+/// `place`'s carried copies).
 fn nested_or_world(sig: [u8; 4]) -> bool {
     let s = Signature(sig);
     CELL_CHILD_TYPES.contains(&s)
         || QUEST_CHILD_TYPES.contains(&s)
         || matches!(&sig, b"INFO" | b"CELL" | b"WRLD" | b"TES4" | b"LAND")
+}
+
+/// The `DATA` flag of an interior cell (`CELL.toml`, `Flags.Interior`).
+pub(crate) const CELL_INTERIOR: u32 = 0x1;
+
+/// Record types `new` refuses: [`nested_or_world`] less `CELL`. A new `CELL` is an
+/// interior cell (lane D round 4): the writer puts it in the interior block and sub-block
+/// its FormID computes (`kitkraft_esm::cells::interior_block`), with no children; a new
+/// exterior cell (a world and a grid) is not written.
+fn new_refused(sig: [u8; 4]) -> bool {
+    &sig != b"CELL" && nested_or_world(sig)
 }
 
 fn check_edid(
@@ -97,117 +110,6 @@ fn check_edid(
     Ok(())
 }
 
-/// One subrecord slot of a record type, in schema member order (groups flattened).
-#[derive(Debug, Clone)]
-struct Slot {
-    sig: [u8; 4],
-    /// Required at the record's level (a group's members never are on their own).
-    card: Cardinality,
-    ty: FieldType,
-    /// Repeated: the slot takes any number of consecutive occurrences.
-    repeated: bool,
-    /// Inside a component layout of the base form component block
-    /// (`kitkraft_schema::in_component_layout`).
-    component: bool,
-}
-
-/// Every subrecord slot of `sig` in schema order (groups flattened).
-fn member_order(sig: [u8; 4]) -> Vec<Slot> {
-    fn walk(members: &[Member], prefix: &str, repeated: bool, out: &mut Vec<Slot>) {
-        for m in members {
-            let path = if prefix.is_empty() {
-                m.name().to_string()
-            } else {
-                format!("{prefix}.{}", m.name())
-            };
-            match m {
-                Member::Subrecord(s) => out.push(Slot {
-                    sig: s.signature.as_bytes(),
-                    card: s.cardinality,
-                    ty: s.ty.clone(),
-                    repeated: repeated || s.cardinality == Cardinality::Repeated,
-                    component: kitkraft_schema::in_component_layout(&path),
-                }),
-                Member::Group(g) => {
-                    // A group's members are required only inside the group, which may
-                    // itself be absent: never added on their own.
-                    let start = out.len();
-                    let again = repeated || g.cardinality == Cardinality::Repeated;
-                    walk(&g.members, &path, again, out);
-                    for e in out.iter_mut().skip(start) {
-                        e.card = Cardinality::Optional;
-                    }
-                }
-                Member::AnyUntil(_) => {}
-            }
-        }
-    }
-    let mut out = Vec::new();
-    if let Some(def) = kitkraft_schema::builtin()
-        .ok()
-        .and_then(|s| s.record(kitkraft_schema::Signature::from_bytes(sig)?))
-    {
-        walk(&def.members, "", false, &mut out);
-    }
-    out
-}
-
-/// Where occurrence `k` of signature `s` goes when a new record has `n` of them: its slot's
-/// position in [`member_order`]. One occurrence takes the record's own member (before a
-/// member of the same signature inside a component layout: PKIN `VNAM` is `Version`);
-/// several take the slots in schema order, `k`-th to `k`-th, the last slot taking the rest
-/// when it repeats. `None` when there is no slot for it.
-fn slot_of(order: &[Slot], s: [u8; 4], k: usize, n: usize) -> Option<usize> {
-    let slots: Vec<usize> = order
-        .iter()
-        .enumerate()
-        .filter(|(_, e)| e.sig == s)
-        .map(|(i, _)| i)
-        .collect();
-    if n <= 1 {
-        return order
-            .iter()
-            .position(|e| e.sig == s && !e.component)
-            .or_else(|| slots.first().copied());
-    }
-    match slots.get(k) {
-        Some(i) => Some(*i),
-        None => slots
-            .last()
-            .copied()
-            .filter(|i| order.get(*i).is_some_and(|e| e.repeated)),
-    }
-}
-
-/// The bytes a created subrecord in a slot of layout `ty` starts with: zeros of its fixed
-/// size, or an empty string.
-fn slot_placeholder(ty: &FieldType, whole_value: bool) -> Option<Vec<u8>> {
-    if let Some(n) = ty.fixed_size(Some(RecordStamps::default().form_version)) {
-        return Some(vec![0; usize::try_from(n).ok()?]);
-    }
-    match ty {
-        FieldType::ZString | FieldType::LString => Some(vec![0]),
-        _ if whole_value => Some(Vec::new()),
-        _ => None,
-    }
-}
-
-/// The bytes a created subrecord starts with: zeros of its fixed size, or an empty string.
-fn placeholder(record: [u8; 4], sub: [u8; 4], whole_value: bool) -> Option<Vec<u8>> {
-    let layout = fields::layout_at(record, &[*b"EDID", sub], 1)?;
-    if let Some(n) = layout
-        .ty
-        .fixed_size(Some(RecordStamps::default().form_version))
-    {
-        return Some(vec![0; usize::try_from(n).ok()?]);
-    }
-    match layout.ty {
-        FieldType::ZString | FieldType::LString => Some(vec![0]),
-        _ if whole_value => Some(Vec::new()),
-        _ => None,
-    }
-}
-
 /// The patch-writer copy for a `new` request.
 pub(crate) fn plan_new(
     command: &str,
@@ -220,8 +122,8 @@ pub(crate) fn plan_new(
     if !has_definition(Signature(sig)) {
         return Err(failed(command, format!("new.untyped: {at}: {text} has no record definition in the schema; a new form is written only for a typed type")));
     }
-    if nested_or_world(sig) {
-        return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group")));
+    if new_refused(sig) {
+        return Err(failed(command, format!("new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use `place` for references); `new` writes records of their own top-level group, and interior cells")));
     }
     check_edid(command, "new", loaded, at, &req.edid)?;
     let mut masters: Vec<(u16, String)> = Vec::new();
@@ -275,6 +177,21 @@ pub(crate) fn plan_new(
                 )),
             }
         }
+    }
+    // A new cell is interior: its DATA flags start with Interior unless `fields` give DATA
+    // (the writer refuses one that clears it).
+    if &sig == b"CELL" && !wanted.contains_key(b"DATA") {
+        if let Some(slot) = slot_of(&order, *b"DATA", 0, 1) {
+            subs.push((
+                slot,
+                Subrecord::new(Signature(*b"DATA"), CELL_INTERIOR.to_le_bytes().to_vec()),
+            ));
+        }
+    }
+    if &sig == b"CELL" {
+        limitations.push(format!(
+            "{at}: a new CELL is an interior cell (DATA flag Interior), written in the interior block and sub-block its FormID gives, with no references; what the Creation Kit writes for a new interior cell (its default members and stamps) is not observed"
+        ));
     }
     for edit in &req.edits {
         if edit.path.signature == *b"EDID" {
@@ -412,7 +329,7 @@ pub(crate) fn plan_clone(
     Ok((copy, origin, form, unrelated))
 }
 
-fn fields_arg(command: &str, args: &Value) -> Result<Vec<Edit>, EngineError> {
+pub(crate) fn fields_arg(command: &str, args: &Value) -> Result<Vec<Edit>, EngineError> {
     match args.get("fields").and_then(Value::as_object) {
         Some(f) if !f.is_empty() => edits(command, "/fields", f),
         _ => Ok(Vec::new()),

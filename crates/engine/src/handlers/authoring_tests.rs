@@ -1,5 +1,7 @@
-//! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15;
-//! `docs/schema/support-matrix.md`, the typed-writable evidence of `docs/schema/evidence.toml`).
+//! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
+//! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
+//! `authoring_world_tests.rs`) (`docs/schema/support-matrix.md`, the typed-writable evidence
+//! of `docs/schema/evidence.toml`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
 //! from scratch with `new` on the synthetic load order of the `set` tests (`Source.esm`
@@ -9,8 +11,9 @@
 //! through `set`'s field paths (`DATA.MinLevel`, `CTDA.Parameter1.Faction`, ...). The
 //! written plugin is read back: every member is placed where the definition puts it,
 //! nothing is left raw (`extra`), the record re-encodes byte for byte, the field values
-//! read back as written, and `validate` passes with no finding and no unchecked subrecord
-//! beyond the whole-opaque members written (upstream gives them no layout).
+//! read back as written, and `validate` passes with no finding of any rule (so no
+//! `layout.undecoded`) and no unchecked subrecord beyond the whole-opaque members written
+//! (upstream gives them no layout).
 //!
 //! Each `*_dangling_link_is_reported` test writes the same record with FormIDs naming a
 //! form the master lacks (`Source.esm:000FFF`) in the members reference integrity covers
@@ -34,10 +37,9 @@ use super::set_tests::data;
 use crate::edit::patch_tests::dir;
 use crate::execute;
 
-/// `Source.esm:000800` (OldRifle) as `New.esp` stores it: Source.esm is master 0.
-const FORM: u32 = 0x0000_0800;
-/// What member-level edits write into FormID fields.
-const FORM2: &str = "Source.esm:000801";
+/// `Source.esm:000800` (OldRifle) as `New.esp` stores it: Source.esm is master 0 (in the
+/// world fixture `World.esm:000800`, the static `KC_Crate`).
+pub(super) const FORM: u32 = 0x0000_0800;
 /// A form `Source.esm` does not have.
 const MISSING: &str = "Source.esm:000FFF";
 /// The form version `new` stamps (RecordStamps::default).
@@ -46,12 +48,14 @@ const FORM_VERSION: u16 = 582;
 /// A record plan: the `new` fields, the member paths written, the field edits to read
 /// back, the whole-opaque members written.
 #[derive(Default)]
-struct Plan {
-    fields: Map<String, Value>,
-    paths: BTreeSet<String>,
+pub(super) struct Plan {
+    /// The master FormID edits name (`<master>:000801`); `Source.esm` when empty.
+    pub(super) master: &'static str,
+    pub(super) fields: Map<String, Value>,
+    pub(super) paths: BTreeSet<String>,
     /// (signature, member path inside the payload, expected value).
-    edits: Vec<([u8; 4], Vec<String>, Decoded)>,
-    opaque: usize,
+    pub(super) edits: Vec<([u8; 4], Vec<String>, Decoded)>,
+    pub(super) opaque: usize,
     occurrences: BTreeMap<[u8; 4], usize>,
 }
 
@@ -172,11 +176,11 @@ fn deref(ty: &FieldType) -> &FieldType {
 
 /// A typed JSON value for a whole scalar, FormID or string subrecord (what `set` takes),
 /// and the decoded value it reads back as.
-fn typed_value(ty: &FieldType) -> Option<(Value, Decoded)> {
+fn typed_value(ty: &FieldType, form2: &str) -> Option<(Value, Decoded)> {
     match deref(ty) {
         FieldType::Scalar(s) if s.is_integer() => Some((json!(1), Decoded::Int(1))),
         FieldType::Scalar(_) => Some((json!(1.5), Decoded::Float(1.5))),
-        FieldType::FormId { .. } => Some((json!(FORM2), Decoded::Form(0x0000_0801))),
+        FieldType::FormId { .. } => Some((json!(form2), Decoded::Form(0x0000_0801))),
         FieldType::ZString | FieldType::LString => {
             Some((json!("Typed"), Decoded::Text("Typed".into())))
         }
@@ -190,6 +194,16 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 impl Plan {
+    /// What member-level edits write into FormID fields: `<master>:000801`.
+    fn form2(&self) -> String {
+        let master = if self.master.is_empty() {
+            "Source.esm"
+        } else {
+            self.master
+        };
+        format!("{master}:000801")
+    }
+
     /// The field key of the next occurrence of `sig`.
     fn key(&mut self, sig: [u8; 4]) -> (String, usize) {
         let n = self.occurrences.entry(sig).or_insert(0);
@@ -217,7 +231,7 @@ impl Plan {
         // A whole scalar, FormID or string: its typed value (occurrence 0 only, so the
         // read-back finds it by signature).
         if k == 0 {
-            if let Some((v, d)) = typed_value(&sub.ty) {
+            if let Some((v, d)) = typed_value(&sub.ty, &self.form2()) {
                 self.fields.insert(key, v);
                 self.edits.push((sig, Vec::new(), d));
                 return;
@@ -247,7 +261,7 @@ impl Plan {
                 let (v, d) = match deref(&f.ty) {
                     FieldType::Scalar(s) if s.is_integer() => (json!(2), Decoded::Int(2)),
                     FieldType::Scalar(_) => (json!(2.5), Decoded::Float(2.5)),
-                    FieldType::FormId { .. } => (json!(FORM2), Decoded::Form(0x0000_0801)),
+                    FieldType::FormId { .. } => (json!(self.form2()), Decoded::Form(0x0000_0801)),
                     _ => continue,
                 };
                 self.fields.insert(format!("{key}.{}", f.name), v);
@@ -287,11 +301,19 @@ impl Plan {
 }
 
 fn plan(sig: &str, layout: &str, component: &str) -> Plan {
+    plan_in("Source.esm", sig, layout, component)
+}
+
+/// The plan for `sig` whose FormID edits name forms of `master`.
+pub(super) fn plan_in(master: &'static str, sig: &str, layout: &str, component: &str) -> Plan {
     let schema = kitkraft_schema::builtin().unwrap();
     let def = schema
         .record(kitkraft_schema::Signature::parse(sig).unwrap())
         .unwrap();
-    let mut p = Plan::default();
+    let mut p = Plan {
+        master,
+        ..Plan::default()
+    };
     p.members(&def.members, "", layout, component);
     // EDID is the request's `edid`, not a field.
     p.fields.remove("EDID");
@@ -314,11 +336,15 @@ fn new_record(d: &Path, sig: &str, edid: &str, fields: &Map<String, Value>) -> V
 }
 
 fn validate(d: &Path) -> Value {
-    let data = d.join("Data");
+    validate_at(&d.join("New.esp"), &d.join("Data"))
+}
+
+/// `validate` on `plugin` with `data` as the Data dir.
+pub(super) fn validate_at(plugin: &Path, data: &Path) -> Value {
     execute(
         "validate",
         json!({
-            "plugin": d.join("New.esp").display().to_string(),
+            "plugin": plugin.display().to_string(),
             "data_dir": data.display().to_string(),
         }),
     )
@@ -327,7 +353,7 @@ fn validate(d: &Path) -> Value {
 }
 
 /// The first record of type `sig` in `entries`, groups searched.
-fn find_record<'a>(entries: &'a [Entry<'a>], sig: &str) -> Option<&'a Record<'a>> {
+pub(super) fn find_record<'a>(entries: &'a [Entry<'a>], sig: &str) -> Option<&'a Record<'a>> {
     entries.iter().find_map(|e| match e {
         Entry::Record(r) if r.header.signature.to_string() == sig => Some(r),
         Entry::Record(_) => None,
@@ -347,7 +373,15 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
         r["data"]["validate"]
     );
 
-    let bytes = std::fs::read(d.join("New.esp")).unwrap();
+    check_written(sig, &d.join("New.esp"), &d.join("Data"), &p);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Reads record `sig` back from `written` and checks it against plan `p` (module docs):
+/// every member placed, nothing raw, identical re-encoding, the field values, and
+/// `validate` (Data dir `data`) with no finding and only the opaque members unchecked.
+pub(super) fn check_written(sig: &str, written: &Path, data: &Path, p: &Plan) {
+    let bytes = std::fs::read(written).unwrap();
     let plugin = Plugin::parse(&bytes).unwrap();
     let record = find_record(plugin.entries(), sig).unwrap();
     let subs = record.subrecords().unwrap();
@@ -424,10 +458,12 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
             members.join(".")
         );
     }
-    // validate: no finding, and only the whole-opaque members unchecked.
-    let v = validate(&d);
+    // validate: no finding of any rule (layout.undecoded included), and only the
+    // whole-opaque members unchecked.
+    let v = validate_at(written, data);
     assert_eq!(v["errors"], json!(0), "{v:#}");
     assert_eq!(v["warnings"], json!(0), "{v:#}");
+    assert_eq!(v["findings"], json!([]), "{sig}: {v:#}");
     assert_eq!(v["unchecked_subrecords"], json!(p.opaque), "{sig}: {v:#}");
     eprintln!(
         "{sig}: {} members, {} field edits, {} opaque, {} subrecords written",
@@ -436,7 +472,6 @@ fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
         p.opaque,
         subs.len()
     );
-    let _ = std::fs::remove_dir_all(&d);
 }
 
 #[test]
@@ -451,6 +486,16 @@ fn lctn_new_sets_every_typed_member_and_reads_back() {
 #[test]
 fn term_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back("TERM", "AnimationGraph", "BGSAnimationGraph_Component");
+}
+
+#[test]
+fn cobj_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("COBJ", "SoundTag", "BGSSoundTag_Component");
+}
+
+#[test]
+fn stat_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back("STAT", "DisplayCase", "BGSDisplayCase");
 }
 
 #[test]
@@ -567,6 +612,38 @@ fn term_dangling_link_is_reported() {
             ("CTDA.Parameter1.Faction", json!(MISSING)),
         ],
         &["DNAM", "Parameter1"],
+    );
+}
+
+#[test]
+fn cobj_dangling_link_is_reported() {
+    // The created object, the workbench keyword and the build-count global.
+    dangling(
+        "COBJ",
+        "SoundTag",
+        "BGSSoundTag_Component",
+        &[
+            ("CNAM", json!(MISSING)),
+            ("BNAM", json!(MISSING)),
+            ("JNAM", json!(MISSING)),
+        ],
+        &["CNAM", "BNAM", "JNAM"],
+    );
+}
+
+#[test]
+fn stat_dangling_link_is_reported() {
+    // The snap template, the snap behavior and the default layer.
+    dangling(
+        "STAT",
+        "DisplayCase",
+        "BGSDisplayCase",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+        ],
+        &["SNTP", "SNBH", "DEFL"],
     );
 }
 
