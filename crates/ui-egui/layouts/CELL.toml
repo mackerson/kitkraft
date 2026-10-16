@@ -1,0 +1,47 @@
+# Edit-dialog layout for CELL (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
+# Tabs, groups and field order are KitKraft's own arrangement in the style of the
+# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
+# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
+# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
+# Fields are subrecord signatures from the record schema (a test checks each one);
+# a subrecord the layout does not place shows on an "Other" tab. Read-only until
+# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+type = "CELL"
+parity = "Edit dialog: CELL"
+observed = false
+
+[[tab]]
+name = "Basic"
+[[tab.group]]
+name = "Identity"
+fields = ["EDID", "FULL", "DATA", "XCLC"]
+[[tab.group]]
+name = "Location and ownership"
+fields = ["XLCN", "XOWN", "XRNK", "XILL"]
+[[tab.group]]
+name = "Audio"
+fields = ["XCMO", "XCAS"]
+
+[[tab]]
+name = "Lighting"
+[[tab.group]]
+name = "Lighting"
+fields = ["XCLL", "LTMP", "TODD", "XCIM", "XEMP"]
+[[tab.group]]
+name = "Sky"
+fields = ["XCCM"]
+
+[[tab]]
+name = "Water"
+[[tab.group]]
+name = "Water"
+fields = ["XCLW", "XCWT", "XCWM", "XWEM", "XWCN", "XWCU"]
+
+[[tab]]
+name = "Height and Links"
+[[tab.group]]
+name = "Height and links"
+fields = ["MHDT", "XILS", "XBPS", "XLKR", "XLKT"]
+[[tab.group]]
+name = "Scripts"
+fields = ["VMAD"]

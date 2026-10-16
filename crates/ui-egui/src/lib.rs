@@ -23,6 +23,9 @@
 //! - [`run`]: opens the window (eframe, OpenGL backend).
 //! - [`viewport`]: the 3D viewport of the Render Window tab (M7 lane R), drawn with GL
 //!   through an egui paint callback.
+//! - [`menu`], [`windows`], [`dialogs`]: the CK-style shell (M7 lane M): the menu bar from
+//!   the catalog, floating windows (Warnings, Use Info, any tab), and the read-only
+//!   edit dialog with its per-type layouts (`layouts/<TYPE>.toml`).
 //!
 //! The crate depends on `kitkraft-engine` alone among workspace crates (xtask
 //! `INTERNAL_ONLY`), so the UI toolkit can be swapped without touching anything below.
@@ -31,9 +34,11 @@
 
 mod app;
 pub mod cmdline;
+pub mod dialogs;
 pub mod envelope;
 pub mod gate;
 pub mod md;
+pub mod menu;
 pub mod panels;
 pub mod perf;
 pub mod prefs;
@@ -41,6 +46,7 @@ mod prepare;
 pub mod shots;
 pub mod theme;
 pub mod viewport;
+pub mod windows;
 pub mod worker;
 
 /// What the launcher (`kit-ui`, `kit ui`) passes in: the same load-order arguments as

@@ -36,6 +36,9 @@ use crate::prepare::{build, prepare, Built, View};
 use crate::theme::{self, Field, ThemeChoice};
 use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
+// Lane M (M7): the CK-style shell's glue, a child module so it reaches the tabs.
+#[path = "windows/shell.rs"]
+mod ck_shell;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Tab {
@@ -278,6 +281,7 @@ struct App {
     cockpit: CockpitTab,
     coverage: CoverageTab,
     render: RenderTab,
+    shell: crate::windows::Shell,
 }
 
 /// Opens the window and blocks until it closes.
@@ -474,6 +478,7 @@ impl App {
                 ..PerfState::default()
             },
             render: RenderTab::default(),
+            shell: crate::windows::Shell::default(),
         };
         let mut shots_refused = None;
         if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
@@ -548,6 +553,7 @@ impl App {
 
     fn receive(&mut self, reply: Reply<Built>) {
         let Some(slot) = self.slots.remove(&reply.ticket) else {
+            self.ck_receive(reply);
             return;
         };
         let received = Instant::now();
@@ -1017,7 +1023,9 @@ impl eframe::App for App {
         if busy {
             ui.ctx().request_repaint_after(Duration::from_millis(250));
         }
+        self.ck_menu_bar(ui);
         self.top_bar(ui);
+        self.ck_after_top_bar();
         self.status_line(ui, busy);
         let plugins = self.loaded_plugins();
         let tab = self.tab;
@@ -1088,6 +1096,7 @@ impl eframe::App for App {
         note_perf_target(ui.ctx(), PERF_TARGET_CENTRAL, central_out.response.rect);
         let actions = ctx.actions;
         self.apply(actions);
+        self.ck_windows(ui.ctx());
         if let Some(share) = self.records.split_changed.take() {
             self.prefs.records_split = Some(share);
             self.save_prefs();
@@ -1466,6 +1475,9 @@ impl App {
     }
 
     fn shoot(&mut self, ctx: &egui::Context) {
+        if self.tour.as_ref().is_some_and(|t| t.tab >= TABS.len()) && self.ck_tour(ctx) {
+            return;
+        }
         let Some(tour) = &mut self.tour else { return };
         let Some((tab, label)) = TABS.get(tour.tab) else {
             tour.step = TourStep::Done;

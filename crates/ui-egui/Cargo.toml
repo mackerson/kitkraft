@@ -19,6 +19,9 @@ eframe.workspace = true
 image.workspace = true
 # Camera and transform math of the 3D viewport (`src/viewport/`, M7.R1).
 glam.workspace = true
+# The edit-dialog layouts (`layouts/<TYPE>.toml`, M7.W3); already in the tree for
+# kitkraft-schema, so no new package.
+toml.workspace = true
 
 [features]
 # Compile egui's bundled fonts in (OFL-1.1 and Ubuntu Font Licence: an owner decision

@@ -44,8 +44,11 @@ pub(crate) use kitkraft_engine::shapes::{check_shape, data_shape};
 pub use kitkraft_engine::shapes::{kind as marker, KIND};
 /// A progress event from a long command (M6.P2b), for the worker's status line (M6.P2a).
 pub use kitkraft_engine::Progress;
+/// The catalog itself, read by the menu bar (M7.M1, `crate::menu`): ids, labels,
+/// `menu_path`, shortcuts, `writes` and status. Reading it runs nothing.
+pub use kitkraft_engine::{catalog, CommandSpec, Status as CommandStatus};
 #[cfg(test)]
-pub(crate) use kitkraft_engine::{catalog, parse_line, Invocation};
+pub(crate) use kitkraft_engine::{parse_line, Invocation};
 
 /// One command the workbench may run, with the arguments that would make it write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

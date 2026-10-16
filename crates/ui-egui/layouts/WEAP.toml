@@ -1,0 +1,87 @@
+# Edit-dialog layout for WEAP (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
+# Tabs, groups and field order are KitKraft's own arrangement in the style of the
+# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
+# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
+# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
+# Fields are subrecord signatures from the record schema (a test checks each one);
+# a subrecord the layout does not place shows on an "Other" tab. A signature in two
+# groups (FULL in an object-template block) follows the block it sits in. Read-only until
+# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+type = "WEAP"
+parity = "Edit dialog: WEAP (tabs, groups, labels)"
+observed = false
+
+[[tab]]
+name = "Object"
+[[tab.group]]
+name = "Identity"
+fields = ["EDID", "FULL", "WABB", "DESC", "INRD"]
+[[tab.group]]
+name = "Bounds and placement"
+fields = ["OBND", "ODTY", "OPDS", "PTT2", "XALG"]
+[[tab.group]]
+name = "Equipping"
+fields = ["ETYP", "BIDS", "BAMT", "EITM", "EAMT"]
+
+[[tab]]
+name = "Combat"
+[[tab.group]]
+name = "Ammunition"
+fields = ["WAM2"]
+[[tab.group]]
+name = "Damage"
+fields = ["WDMG", "DAMA"]
+[[tab.group]]
+name = "Firing"
+fields = ["WFIR", "WCHG", "QNAM", "WRLO", "WVAR"]
+[[tab.group]]
+name = "Aim"
+fields = ["WAIM"]
+[[tab.group]]
+name = "Melee"
+fields = ["WMEL"]
+
+[[tab]]
+name = "General"
+[[tab.group]]
+name = "Flags"
+fields = ["WFLG"]
+[[tab.group]]
+name = "General"
+fields = ["WGEN"]
+[[tab.group]]
+name = "Turret and ship"
+fields = ["WTUR", "WTRM"]
+
+[[tab]]
+name = "Art and Sound"
+[[tab.group]]
+name = "Model"
+fields = ["MODL", "MOLM", "FLLD", "MODC", "XFLG"]
+[[tab.group]]
+name = "First-person model"
+fields = ["MOD4", "MO4C", "MO4S"]
+[[tab.group]]
+name = "Visuals"
+fields = ["WVIS"]
+[[tab.group]]
+name = "Sounds"
+fields = ["PUSH", "PDSH", "WAUD"]
+
+[[tab]]
+name = "Keywords and Mods"
+[[tab.group]]
+name = "Keywords"
+fields = ["KSIZ", "KWDA", "APPR"]
+[[tab.group]]
+name = "Embedded mod"
+fields = ["NNAM", "BNAM"]
+[[tab.group]]
+name = "Object templates"
+fields = ["OBTE", "FULL", "OBTF", "OBTS", "STOP"]
+
+[[tab]]
+name = "Scripts"
+[[tab.group]]
+name = "Scripts"
+fields = ["VMAD"]

@@ -76,6 +76,10 @@ Status, one of:
 - `observed`: seen in a sitting, with the sitting id in "Source".
 - `reproduced`: KitKraft has it as observed, with the tour image or test in "Evidence".
 - `improved`: KitKraft has it and does more; "Evidence" says what more.
+- `reproduced (layout unobserved)`: KitKraft has the element (a window, dialog or menu
+  bar), but its layout, order and labels are KitKraft's own until a sitting observes the
+  CK's; then the row becomes `observed` and the element is redone from it (director,
+  2026-10-16, M7 lane M; the M7.K5 check counts it as `reproduced` for its evidence).
 
 "Maps to" is a catalog command id, a UI element, or `gap:` with the reason (and a
 `docs/gaps.md` row when the gap is KitKraft's). The test of M7.K5 checks that every
@@ -86,7 +90,7 @@ fills the menus and windows, sitting 2 (M7.O3) the edit dialogs.
 
 | Kind | CK element (as named in the CK) | Maps to | Status | Source | Evidence |
 | ---- | ------------------------------- | ------- | ------ | ------ | -------- |
-| menu | Main menu bar, order (the owner recalls File, Edit, View, World, NavMesh, Character, Gameplay, Help) | menu bar rendered from `menu_path` (M7.M1) | unresearched | owner, 2026-10-16 (recollection) | - |
+| menu | Main menu bar, order (the owner recalls File, Edit, View, World, NavMesh, Character, Gameplay, Help) | menu bar rendered from `menu_path` (M7.M1): these menus in this order (`crates/ui-egui/src/menu.rs` `CK_MENU_ORDER`), KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) before Help; a CK menu without a command shows a disabled line | reproduced (layout unobserved) | owner, 2026-10-16 (recollection) | tests `menu::tests::ck_menus_come_first_in_the_recorded_order_and_kitkraft_menus_before_help`, `menu::tests::every_ck_menu_row_in_the_parity_doc_maps_to_the_bar`; tour `ck-menu-file.png`, `ck-menu-navmesh.png` (kept local) |
 | menu | File menu, every item | per item | unresearched | - | - |
 | menu | Edit menu, every item (incl. undo, as far as offered) | per item; undo M7.E6 | unresearched | - | - |
 | menu | View menu, every item | per item | unresearched | - | - |
@@ -101,16 +105,23 @@ fills the menus and windows, sitting 2 (M7.O3) the edit dialogs.
 | window | Render Window | 3D viewport (M7.R1..R4), read-only. M7.R1 (2026-10-16): the workbench's "Render Window" tab with a grid, world axes, a horizon tint, one placeholder box and a stats overlay; no game data yet | unresearched | - | - |
 | control | Render Window camera: orbit, pan, zoom, fly (mouse and keys) | M7.R1 bindings, **unobserved against the CK** (to be checked in sitting 1, M7.O2): orbit on right-drag, pan on middle-drag, zoom on the mouse wheel, fly with W A S D while the viewport has focus (Shift faster); `crates/ui-egui/src/viewport/mod.rs` `BINDINGS` | unresearched | - | - |
 | dialog | Preferences | `ui.json` settings (M7.M3) | unresearched | - | - |
-| window | Warnings window | `validate` findings and `load` limitations (M7.M4) | unresearched | - | - |
-| window | Use Info (references to a form) | `refs --incoming` (M7.W5) | unresearched | - | - |
-| dialog | Edit dialog: WEAP (tabs, groups, labels) | M7.W4, member paths per field | unresearched | - | - |
+| window | Warnings window | `validate` findings and `load` problems and limitations (M7.M4): View > Warnings, a floating window; severity as glyph and word, filter, copy, double-click inspects | reproduced (layout unobserved) | - | test `windows::warnings::tests::rows_come_from_load_problems_limitations_and_findings`; tour `ck-warnings.png` (kept local) |
+| window | Use Info (references to a form) | `refs --incoming` (M7.W5): View > Use Info, a floating window that follows the inspected record; double-click inspects the referrer | reproduced (layout unobserved) | - | test `windows::use_info::tests::it_follows_the_selection_once_and_reads_referrers`; tour `ck-use-info.png` (kept local) |
+| dialog | Edit dialog: WEAP (tabs, groups, labels) | M7.W4, member paths per field; M7.W3 read-only dialog with KitKraft's own tab and group names, `crates/ui-egui/layouts/WEAP.toml` | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row`; tour `ck-edit-weap.png` (kept local) |
 | dialog | Edit dialog: AMMO | M7.W4 | unresearched | - | - |
 | dialog | Edit dialog: COBJ | M7.W4 | unresearched | - | - |
-| dialog | Edit dialog: LCTN | M7.W4 | unresearched | - | - |
-| dialog | Edit dialog: TERM | M7.W4 | unresearched | - | - |
+| dialog | Edit dialog: LCTN | M7.W4; M7.W3 read-only dialog, `crates/ui-egui/layouts/LCTN.toml` (names ours) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
+| dialog | Edit dialog: TERM | M7.W4; M7.W3 read-only dialog, `crates/ui-egui/layouts/TERM.toml` (names ours) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
 | dialog | Edit dialog: CONT | M7.W4 | unresearched | - | - |
 | dialog | Edit dialog: STAT | M7.W4 | unresearched | - | - |
 | dialog | Edit dialog: KYWD | M7.W4 | unresearched | - | - |
+| dialog | Edit dialog: ACTI | M7.W3 read-only dialog, `crates/ui-egui/layouts/ACTI.toml` (names ours; not in sitting 2's first eight types) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
+| dialog | Edit dialog: FACT | M7.W3 read-only dialog, `crates/ui-egui/layouts/FACT.toml` (names ours; not in sitting 2's first eight types) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
+| dialog | Edit dialog: PKIN | M7.W3 read-only dialog, `crates/ui-egui/layouts/PKIN.toml` (names ours; not in sitting 2's first eight types) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
+| dialog | Edit dialog: CELL | M7.W3 read-only dialog, `crates/ui-egui/layouts/CELL.toml` (names ours; not in sitting 2's first eight types) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
+| dialog | Edit dialog: REFR | M7.W3 read-only dialog, `crates/ui-egui/layouts/REFR.toml` (names ours; not in sitting 2's first eight types) | reproduced (layout unobserved) | - | test `dialogs::tests::every_layout_field_exists_in_the_schema_and_every_layout_cites_a_parity_row` |
+| dialog | Edit dialog of any other type | M7.W3 default layout built from `schema` (one group per schema group) | reproduced (layout unobserved) | - | test `dialogs::tests::a_type_without_a_file_gets_a_default_layout_from_its_schema`; tour `ck-edit-default.png` (kept local) |
+| window | Window arrangement (floating or docked windows) | M7.M0: floating `egui::Window`s in the main window, each toggled from View and remembered in `ui.json` (`ck_windows`); every workbench tab can float too (View > Workbench tabs as windows); a dock layout only if a sitting shows the CK's docks | reproduced (layout unobserved) | director assumption 2026-10-16, pending the owner | test `windows::tests::the_layout_round_trips_and_ignores_damage`; tour `ck-layout.png` (kept local) |
 | shortcut | Keyboard shortcuts, every one observed | M7.M5 | unresearched | - | - |
 | workflow | New form, duplicate form | `new`, `clone` (M7.E3) | unresearched | - | - |
 | workflow | Place an object into a cell | `place` (M7.E4) | unresearched | - | - |

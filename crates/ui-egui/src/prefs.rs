@@ -5,12 +5,13 @@
 //! `ledger` command, ADR 0007 Amendment 2). It is UI state, not game data: the MO2
 //! instance and profile last loaded from the start screen, the checkout whose docs the
 //! Help and Ledger tabs read, the visual theme (`theme`), the Records split
-//! (`records_split`) and the window's place (`window`: size, position, maximized, and
-//! the monitor it was on; M6.P7). It is written only when a start-screen button, the
-//! Start tab's theme picker, the Help tab's "use this checkout", the end of a drag of the
-//! Records inspector's edge, or a move or resize of the window (once it has settled, and
-//! at close) asks for it, and never names or touches a plugin, a profile's files or the
-//! game.
+//! (`records_split`), the window's place (`window`: size, position, maximized, and the
+//! monitor it was on; M6.P7) and the CK-style windows' layout (`ck_windows`, M7.M0). It
+//! is written only when a start-screen button, the Start tab's theme picker, the Help
+//! tab's "use this checkout", the end of a drag of the Records inspector's edge, a move
+//! or resize of the window (once it has settled, and at close), or a CK-style window
+//! opened, closed, moved or resized asks for it, and never names or touches a plugin, a
+//! profile's files or the game.
 
 use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
@@ -40,6 +41,9 @@ pub struct Prefs {
     pub records_split: Option<f32>,
     /// Where the window was when it last moved, resized or closed (M6.P7).
     pub window: Option<WindowPrefs>,
+    /// The CK-style windows (M7.M0): open or closed, position and size, per window and
+    /// per floating tab (`crate::windows`, which reads and writes the object).
+    pub ck_windows: Option<Value>,
 }
 
 /// The window's place, in points (egui's logical pixels, so a DPI change does not
@@ -167,6 +171,7 @@ impl Prefs {
             theme: get("theme"),
             records_split,
             window: map.get("window").and_then(WindowPrefs::from_value),
+            ck_windows: map.get("ck_windows").filter(|v| v.is_object()).cloned(),
         }
     }
 
@@ -191,6 +196,9 @@ impl Prefs {
         }
         if let Some(w) = self.window {
             map.insert("window".into(), w.to_value());
+        }
+        if let Some(w) = &self.ck_windows {
+            map.insert("ck_windows".into(), w.clone());
         }
         serde_json::to_string_pretty(&Value::Object(map)).unwrap_or_else(|_| "{}".to_string())
     }
@@ -251,6 +259,7 @@ mod tests {
                 maximized: false,
                 monitor: Some([1920.0, 1080.0]),
             }),
+            ck_windows: Some(serde_json::json!({"Warnings": {"open": true}})),
         };
         prefs.save(&path).unwrap();
         assert_eq!(Prefs::load(&path), prefs);
