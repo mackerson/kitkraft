@@ -178,6 +178,8 @@ pub const WRITING: &[&str] = &[
     "game.session",
     "game.probe",
     "game.stop",
+    // lane D round 3 (M7.S7): refused in the window until M7.E1/M7.O4 rule on it.
+    "revert",
 ];
 
 /// What tells a permitted write's preview from its writing form.
@@ -877,6 +879,8 @@ mod tests {
             "strings.dump",
             // Lane C (M4.T3); M6.G2/G4 use it.
             "game.status",
+            // lane D round 3 (M7.S3): the Cell View (M7.W2) will use it.
+            "cell",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);

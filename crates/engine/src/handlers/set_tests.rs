@@ -190,6 +190,87 @@ fn the_winning_override_is_copied_and_other_records_stay() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// M7.S6: `dry_run` writes nothing (`into` absent stays absent, an existing `into` stays
+/// byte-identical) and returns the record before and after in `inspect`'s version shape,
+/// the paths changed and the validate findings of the staged write.
+#[test]
+fn a_dry_run_previews_the_edit_and_writes_nothing() {
+    let d = dir("set-dry");
+    let data = data(&d);
+    let target = d.join("out").join("Patch.esm");
+    let preview = |fields: Value| {
+        execute(
+            "set",
+            json!({
+                "form": "Source.esm:000800", "fields": fields,
+                "into": target.display().to_string(), "dry_run": true,
+                "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+                "no_cache": true,
+            }),
+        )
+        .unwrap()
+    };
+    let r = preview(json!({"FULL": "Old Soviet Marksman Rifle"}));
+    assert!(!target.exists() && !d.join("out").exists());
+    let data_ = &r["data"];
+    assert_eq!(data_["dry_run"], json!(true));
+    assert_eq!(data_["would_write"], json!(true));
+    assert_eq!(data_["validate"]["passed"], json!(true), "{data_:#}");
+    assert_eq!(
+        data_["changed"],
+        json!([{"form": "Source.esm:000800", "path": "FULL", "before": {"string_id": "0x0002E469"}, "after": "Old Soviet Marksman Rifle"}])
+    );
+    let full = |v: &Value| -> Value {
+        v["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == "FULL")
+            .unwrap()["text"]
+            .clone()
+    };
+    assert_eq!(data_["before"]["plugin"], json!("Source.esm"));
+    assert_eq!(data_["before"]["load_index"], json!(0));
+    assert_eq!(full(&data_["before"]), json!("Old Earth Hunting Rifle"));
+    let after = &data_["after"][0];
+    assert_eq!(after["plugin"], json!("Patch.esm"));
+    assert!(after["load_index"].is_null());
+    assert_eq!(full(after), json!("Old Soviet Marksman Rifle"));
+    assert!(r["limitations"].as_array().unwrap().iter().any(|l| l
+        .as_str()
+        .unwrap()
+        .starts_with("dry run: nothing was written")));
+
+    // An existing target stays byte-identical.
+    set(
+        &data,
+        "Source.esm:000800",
+        json!({"FULL": "First"}),
+        &target,
+    );
+    let bytes = std::fs::read(&target).unwrap();
+    let r = preview(json!({"FULL": "Second"}));
+    assert_eq!(std::fs::read(&target).unwrap(), bytes);
+    assert_eq!(full(&r["data"]["after"][0]), json!("Second"));
+    assert_eq!(r["data"]["changed"][0]["after"], json!("Second"));
+
+    // `new` previews its form the same way: no `before`, the new record `after`.
+    let into = d.join("New.esp");
+    let n = execute(
+        "new",
+        json!({"type": "glob", "edid": "KC_Dry", "fields": {"FLTV": 2.5}, "masters": ["Source.esm"],
+               "into": into.display().to_string(), "dry_run": true,
+               "plugins": ["Source.esm", "Override.esp"], "data_dir": data.display().to_string(),
+               "no_cache": true}),
+    )
+    .unwrap();
+    assert!(!into.exists());
+    assert!(n["data"]["before"].is_null());
+    assert_eq!(n["data"]["new_forms"][0]["form"], json!("New.esp:00001000"));
+    assert_eq!(n["data"]["after"][0]["record"]["signature"], json!("GLOB"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 #[test]
 fn set_errors() {
     let d = dir("set-errors");

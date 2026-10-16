@@ -3,8 +3,9 @@
 //! A front end that wants to show progress passes a [`ProgressSink`] to
 //! [`crate::Engine::execute_with_progress`] (or [`crate::execute_with_progress`]); the
 //! commands that take long call it with typed [`Progress`] events while they run. Without
-//! a sink nothing is emitted, and the sink never changes the result: the envelope is the
-//! same, byte for byte, with or without one (a test checks it).
+//! a sink nothing is emitted, and the sink never changes the result: the envelope is
+//! identical with or without one except timings (the `*_ms` members and the `summary` text
+//! that quotes them differ from run to run; a test compares the rest).
 //!
 //! What emits:
 //!

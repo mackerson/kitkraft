@@ -34,7 +34,7 @@ use kitkraft_doc::flags::RECORD_FLAG_DELETED;
 use kitkraft_doc::lstring::is_lstring;
 use kitkraft_doc::strings::StringTables;
 use kitkraft_doc::typed::{self, Decoded};
-use kitkraft_doc::{FormRef, GlobalForm, LoadedRecord, RecordReader, Version};
+use kitkraft_doc::{FormRef, GlobalForm, LoadedRecord, MasterMap, RecordReader, Version};
 
 use super::load::{acquire, has_runtime_note, lstring_json, runtime_note, schema_of, Loaded};
 use super::{failed, file_name, str_arg};
@@ -61,8 +61,9 @@ pub(crate) const COMPRESSED_OFFSETS: &str = "record is compressed: subrecord off
      relative to its decompressed data; evidence covers the compressed body in the file";
 
 /// Stated when a payload was cut.
-pub(crate) const PAYLOAD_CUT: &str =
-    "payload_hex shows at most the first 256 bytes of each subrecord (see payload_truncated)";
+pub(crate) const PAYLOAD_CUT: &str = "payload_hex shows at most the first 256 bytes (or \
+     max_bytes) of each subrecord (see payload_truncated); pass full for every byte and the \
+     decoded VMAD";
 
 /// Marks the deliberate early stop of `visit_file` once the record is found.
 #[derive(Debug)]
@@ -171,7 +172,14 @@ fn run_single(args: &Value) -> Result<Outcome, EngineError> {
             ))
         }
     };
-    Ok(outcome(plugin, &file_name(path), form, matched_by, &hit))
+    Ok(outcome(
+        plugin,
+        &file_name(path),
+        form,
+        matched_by,
+        &hit,
+        payload_cap(args),
+    ))
 }
 
 /// One pass over the file; stops early at the decisive match.
@@ -279,7 +287,14 @@ fn hex(data: &[u8]) -> String {
     out
 }
 
-fn outcome(plugin: &str, file: &str, form: &str, matched_by: &str, hit: &Hit) -> Outcome {
+fn outcome(
+    plugin: &str,
+    file: &str,
+    form: &str,
+    matched_by: &str,
+    hit: &Hit,
+    cap: usize,
+) -> Outcome {
     let r = &hit.record;
     let h = &r.header;
     let record_id = format!("{}:{:08X}", h.signature, h.form_id);
@@ -308,7 +323,7 @@ fn outcome(plugin: &str, file: &str, form: &str, matched_by: &str, hit: &Hit) ->
         let data = s.data();
         let size = data.len() as u64;
         let data_offset = at.saturating_add(s.encoded_len().saturating_sub(size));
-        let shown = data.get(..PAYLOAD_CAP).unwrap_or(data);
+        let shown = data.get(..cap).unwrap_or(data);
         let truncated = shown.len() < data.len();
         any_cut |= truncated;
         list.push(json!({
@@ -474,6 +489,180 @@ struct VersionCtx<'a> {
     file: &'a str,
     localized: bool,
     edid_first: Option<u8>,
+    /// A version read from a file outside the load order (`set`'s dry run, M7.S6): its
+    /// FormIDs resolve through this master map, and its own forms are named by `file`.
+    outside: Option<&'a MasterMap>,
+    /// Payload bytes shown per subrecord (`max_bytes`; `full` shows every byte).
+    cap: usize,
+    /// `full`: also decode each `VMAD` (scripts, properties, object values).
+    full: bool,
+}
+
+/// The payload bytes `inspect` shows per subrecord: every byte with `full`, else
+/// `max_bytes`, else [`PAYLOAD_CAP`].
+fn payload_cap(args: &Value) -> usize {
+    if args.get("full").and_then(Value::as_bool) == Some(true) {
+        return usize::MAX;
+    }
+    args.get("max_bytes")
+        .and_then(Value::as_u64)
+        .and_then(|n| usize::try_from(n).ok())
+        .unwrap_or(PAYLOAD_CAP)
+}
+
+/// A decoded `VMAD` payload as JSON (`inspect --full`): every script with its properties,
+/// object values as `formref`s with their alias, and the size of the fragment block that
+/// follows the scripts (not decoded).
+fn vmad_json(data: &[u8], vc: &VersionCtx<'_>) -> Value {
+    use kitkraft_doc::vmad::{decode, Property, Value as V};
+    fn object(o: &kitkraft_doc::vmad::Object, vc: &VersionCtx<'_>) -> Value {
+        let form = match vc.outside {
+            Some(map) => shapes::formref_in(vc.lo, map, vc.file, o.form_id),
+            None => shapes::formref(vc.lo, vc.plugin, o.form_id),
+        };
+        json!({"object": form, "alias": o.alias})
+    }
+    fn float(bits: u32) -> Value {
+        serde_json::Number::from_f64(f64::from(f32::from_bits(bits)))
+            .map_or_else(|| json!(format!("0x{bits:08X}")), Value::Number)
+    }
+    fn text(b: &[u8]) -> Value {
+        json!(String::from_utf8_lossy(b))
+    }
+    fn props(list: &[Property], vc: &VersionCtx<'_>, depth: usize) -> Value {
+        Value::Array(list.iter().map(|p| prop(p, vc, depth)).collect())
+    }
+    fn prop(p: &Property, vc: &VersionCtx<'_>, depth: usize) -> Value {
+        let next = depth.saturating_add(1);
+        let value = if depth > 16 {
+            Value::Null
+        } else {
+            match &p.value {
+                V::None | V::Variable => Value::Null,
+                V::Object(o) => object(o, vc),
+                V::String(b) => text(b),
+                V::Int(i) => json!(i),
+                V::Float(f) => float(*f),
+                V::Bool(b) => json!(*b != 0),
+                V::Struct(m) => props(m, vc, next),
+                V::Objects(v) => Value::Array(v.iter().map(|o| object(o, vc)).collect()),
+                V::Strings(v) => Value::Array(v.iter().map(|b| text(b)).collect()),
+                V::Ints(v) => json!(v),
+                V::Floats(v) => Value::Array(v.iter().map(|f| float(*f)).collect()),
+                V::Bools(v) => Value::Array(v.iter().map(|b| json!(*b != 0)).collect()),
+                V::Variables(n) => json!({"variables": n}),
+                V::Structs(v) => Value::Array(v.iter().map(|m| props(m, vc, next)).collect()),
+            }
+        };
+        json!({"name": text(&p.name), "type": p.ty, "flags": p.flags, "value": value})
+    }
+    match decode(data) {
+        Ok(v) => json!({
+            "version": v.version,
+            "object_format": v.object_format,
+            "scripts": v.scripts.iter().map(|s| json!({
+                "name": s.name_text(),
+                "flags": s.flags,
+                "properties": props(&s.properties, vc, 0),
+            })).collect::<Vec<_>>(),
+            "fragment_bytes": v.rest.len(),
+        }),
+        Err(e) => json!({"error": e}),
+    }
+}
+
+/// Where a version handed to [`version_entry`] comes from.
+pub(super) enum VersionAt<'a> {
+    /// A version of the load order.
+    LoadOrder(Version),
+    /// A plugin outside the load order (a staged write): its file name, whether it is
+    /// localized, and how its FormIDs resolve (`own_index` past the load order's plugins).
+    Outside {
+        file: &'a str,
+        localized: bool,
+        map: &'a MasterMap,
+    },
+}
+
+/// One version of a record in the shape of `inspect`'s `versions[]` entries (M7.S6: the
+/// `before` and `after` of a dry run). An outside version has `load_index: null`.
+pub(super) fn version_entry(
+    loaded: &mut Loaded,
+    schema: Option<&kitkraft_schema::Schema>,
+    rec: &LoadedRecord,
+    at: &VersionAt<'_>,
+    evidence: &mut Vec<Evidence>,
+    notes: &mut Vec<String>,
+) -> Value {
+    let lo = &loaded.lo;
+    let (file, localized, plugin, outside, load_index, basis) = match at {
+        VersionAt::LoadOrder(v) => {
+            let p = lo.plugin(v.plugin);
+            (
+                p.map_or_else(String::new, |p| p.name.clone()),
+                p.and_then(|p| p.header())
+                    .is_some_and(|h| h.flags.localized()),
+                v.plugin,
+                None,
+                json!(v.plugin),
+                v.basis.as_str(),
+            )
+        }
+        VersionAt::Outside {
+            file,
+            localized,
+            map,
+        } => (
+            (*file).to_string(),
+            *localized,
+            map.own_index,
+            Some(*map),
+            Value::Null,
+            "direct",
+        ),
+    };
+    let vc = VersionCtx {
+        lo,
+        schema,
+        plugin,
+        file: &file,
+        localized,
+        edid_first: kitkraft_doc::compare::edid_first(rec),
+        outside,
+        cap: PAYLOAD_CAP,
+        full: false,
+    };
+    let mut reference = Vec::new();
+    let (subs, _, _) = version_subrecords(
+        &mut loaded.strings,
+        &vc,
+        rec,
+        evidence,
+        notes,
+        &mut reference,
+    );
+    let h = &rec.record.header;
+    json!({
+        "plugin": file,
+        "load_index": load_index,
+        "winner": true,
+        "deleted": h.flags & RECORD_FLAG_DELETED != 0,
+        "resolved_by": basis,
+        "raw_form_id": format!("{:08X}", h.form_id),
+        "record": {
+            "signature": h.signature.to_string(),
+            "flags": format!("0x{:08X}", h.flags),
+            "compressed": rec.compressed,
+            "offset": rec.offset(),
+            "data_size": rec.data_size(),
+            "timestamp": h.timestamp,
+            "version_control": h.version_control,
+            "form_version": h.form_version,
+            "unknown": h.unknown,
+        },
+        "subrecord_offsets": if rec.compressed { "decompressed" } else { "file" },
+        "subrecords": subs,
+    })
 }
 
 /// A decoded schema value as JSON, with a `kind` marker on every object that is not a
@@ -486,7 +675,10 @@ fn decoded_json(v: &Decoded, vc: &VersionCtx<'_>, payload_at: Option<u64>) -> Va
         Decoded::Float(f) => {
             serde_json::Number::from_f64(*f).map_or_else(|| json!(f.to_string()), Value::Number)
         }
-        Decoded::Form(raw) => shapes::formref(vc.lo, vc.plugin, *raw),
+        Decoded::Form(raw) => match vc.outside {
+            Some(map) => shapes::formref_in(vc.lo, map, vc.file, *raw),
+            None => shapes::formref(vc.lo, vc.plugin, *raw),
+        },
         Decoded::Sig(s) => json!(String::from_utf8_lossy(s)),
         Decoded::Text(t) => json!(t),
         Decoded::LStringId(id) => {
@@ -544,7 +736,7 @@ fn version_subrecords(
     for (index, (s, span)) in rec.subs.iter().zip(spans(rec)).enumerate() {
         let data = s.data();
         let sig = s.signature().to_string();
-        let shown = data.get(..PAYLOAD_CAP).unwrap_or(data);
+        let shown = data.get(..vc.cap).unwrap_or(data);
         let truncated = shown.len() < data.len();
         cut |= truncated;
         let header_len = s.encoded_len().saturating_sub(data.len() as u64);
@@ -564,6 +756,11 @@ fn version_subrecords(
             "payload_hex": hex(shown),
             "payload_truncated": truncated,
         });
+        if vc.full && sig == "VMAD" {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.insert("vmad".into(), vmad_json(data, vc));
+            }
+        }
         if is_lstring(&sig) {
             let resolved = lstring_json(
                 strings,
@@ -668,6 +865,8 @@ fn run_load_order(
 ) -> Result<Outcome, EngineError> {
     let form_arg = str_arg(ID, args, "form")?;
     let plugin = args.get("plugin").and_then(Value::as_str);
+    let cap = payload_cap(args);
+    let full = args.get("full").and_then(Value::as_bool) == Some(true);
     let lo = &loaded.lo;
     let (form, matched_by) = find_form(ID, loaded, form_arg, plugin)?;
     let versions: Vec<Version> = lo.forms.versions(form).to_vec();
@@ -721,6 +920,9 @@ fn run_load_order(
                 .record(v.plugin, v.record)
                 .and_then(|l| lo.edid(v.plugin, l))
                 .and_then(|e| e.bytes().next()),
+            outside: None,
+            cap,
+            full,
         };
         let (subs, cut, typed_here) = version_subrecords(
             &mut loaded.strings,

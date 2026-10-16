@@ -35,6 +35,7 @@ pub mod subject;
 #[cfg(test)]
 pub(crate) mod testdata;
 pub mod typed;
+pub mod vmad;
 
 pub use cache::{CacheUse, IndexCache};
 pub use error::{DocError, Result};

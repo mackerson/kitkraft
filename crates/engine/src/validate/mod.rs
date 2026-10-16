@@ -101,7 +101,7 @@ pub const RULES: &[RuleInfo] = &[
         id: "formid.dangling",
         severity: Severity::Error,
         input: Input::Plugin,
-        summary: "A FormID (record header or typed member) names no master slot, or a form of the plugin itself it lacks (error); a form its master lacks (warning)",
+        summary: "A FormID (record header, typed member, or VMAD script property object) names no master slot, or a form of the plugin itself it lacks (error); a form its master lacks (warning)",
     },
     RuleInfo {
         id: "lstring.copied-id",
@@ -893,6 +893,44 @@ fn check_record(
                         false,
                     );
                 }
+                // M5.D6: the object values of `VMAD` script properties (the schema keeps
+                // the payload opaque; `kitkraft_doc::vmad` reads the script entries). A
+                // `VMAD` that does not decode stays unchecked.
+                let mut vmad_read: Vec<usize> = Vec::new();
+                for (i, s) in subs.iter().enumerate() {
+                    if s.signature().0 != kitkraft_doc::vmad::VMAD {
+                        continue;
+                    }
+                    let Ok(scan) = kitkraft_doc::vmad::object_refs(s.data()) else {
+                        continue;
+                    };
+                    vmad_read.push(i);
+                    for o in scan.objects {
+                        let raw = o.object.form_id;
+                        let member = format!("VMAD.{}", o.path);
+                        cells::named_by(pass, &id, r.header.signature, &member, raw);
+                        if !pass.on("formid.dangling") {
+                            continue;
+                        }
+                        let offset = if compressed {
+                            at
+                        } else {
+                            s.data_offset().map(|d| d.saturating_add(o.at as u64))
+                        };
+                        let target = pass.space.resolve(raw);
+                        check_form_id(
+                            pass,
+                            findings,
+                            report,
+                            &id,
+                            Some(member),
+                            offset,
+                            raw,
+                            &target,
+                            false,
+                        );
+                    }
+                }
                 let extra: Vec<usize> = typed.extra().iter().map(|(i, _)| *i).collect();
                 let mut unchecked = extra.len() as u64;
                 let dctx = kitkraft_doc::typed::Ctx {
@@ -904,7 +942,7 @@ fn check_record(
                         .and_then(|s| s.data().first().copied()),
                 };
                 for (i, s) in subs.iter().enumerate() {
-                    if extra.contains(&i) {
+                    if extra.contains(&i) || vmad_read.contains(&i) {
                         continue;
                     }
                     // Unknown layout, or untyped bytes in a known one that could hold a
@@ -1205,10 +1243,18 @@ pub fn is_reserved(owner: &str, object_id: u32) -> bool {
 /// The reserved object IDs the 14 official files name from typed members (lane B round 4,
 /// `validate_corpus_official_files` pins them per member path): the player reference
 /// 0x14, the story manager root 0x5B, the reference base 0x1FB, and the built-in actor
-/// values 0x2D0..=0x3AC. A reserved ID outside this set is still skipped by
-/// `formid.dangling`, with a warning, until a CK observation settles the reading.
-pub const NAMED_RESERVED_OBJECT_IDS: &[(u32, u32)] =
-    &[(0x14, 0x14), (0x5B, 0x5B), (0x1FB, 0x1FB), (0x2D0, 0x3AC)];
+/// values 0x2D0..=0x3AC; and, since script properties are followed (M5.D6), the actor
+/// values 0x2BC, 0x2BD and 0x2C1 that `VMAD` object values name in Starfield.esm and three
+/// DLC files (conditions name 0x2BC and 0x2BD too). A reserved ID outside this set is still
+/// skipped by `formid.dangling`, with a warning, until a CK observation settles the reading.
+pub const NAMED_RESERVED_OBJECT_IDS: &[(u32, u32)] = &[
+    (0x14, 0x14),
+    (0x5B, 0x5B),
+    (0x1FB, 0x1FB),
+    (0x2BC, 0x2BD),
+    (0x2C1, 0x2C1),
+    (0x2D0, 0x3AC),
+];
 
 /// Whether `object_id` is in [`NAMED_RESERVED_OBJECT_IDS`].
 pub fn is_named_reserved(object_id: u32) -> bool {
@@ -1272,11 +1318,17 @@ fn check_form_id(
             let note_reserved = |report: &mut Report, findings: &mut Vec<Finding>| {
                 report.reserved_form_ids = report.reserved_form_ids.saturating_add(1);
                 // Keyed by record type and member path: a shared type's path
-                // (`PropertyValue.ActorValue`) is the same in every record type.
+                // (`PropertyValue.ActorValue`) is the same in every record type. Script
+                // property values (`VMAD.<script>.<property>`) share one key, `VMAD`.
+                let path = member.as_deref().unwrap_or_default();
                 let key = format!(
                     "{} {}",
                     record.get(..4).unwrap_or(record),
-                    member.as_deref().unwrap_or_default()
+                    if path.starts_with("VMAD.") {
+                        "VMAD"
+                    } else {
+                        path
+                    }
                 );
                 let count = report.reserved_by_member.entry(key.clone()).or_default();
                 *count = count.saturating_add(1);
@@ -1295,7 +1347,7 @@ fn check_form_id(
                         record: Some(record.to_string()),
                         subrecord: member.clone(),
                         offset,
-                        message: format!("{what} names {owner}:{object_id:06X}, an object ID below 0x800 that {owner} does not define, but not one the official files name (0x14, 0x5B, 0x1FB, 0x2D0..=0x3AC): treated as engine-reserved only until a CK observation (ADR 0005 Amendment 4)"),
+                        message: format!("{what} names {owner}:{object_id:06X}, an object ID below 0x800 that {owner} does not define, but not one the official files name (0x14, 0x5B, 0x1FB, 0x2BC, 0x2BD, 0x2C1, 0x2D0..=0x3AC): treated as engine-reserved only until a CK observation (ADR 0005 Amendment 4)"),
                     });
                 }
             };

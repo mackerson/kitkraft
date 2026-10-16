@@ -333,7 +333,7 @@ impl Server {
             .map(|t| t.name)
             .collect();
         let mut text = format!(
-            "KitKraft: clean-room Starfield plugin tooling ({} catalog commands). Call `execute` with {{command, args}} (each command and its arguments is listed in its description and in the kitkraft://commands resource) or `command_line` with a kit command line; {} are shortcuts. Every result is the evidence envelope {{command, data, coverage, limitations, evidence}}: report unknown as unknown and cite evidence offsets. A load order loaded with `execute` `load` stays loaded for this server process (resource kitkraft://load-order). record_schema shows which fields a record type has, with sources and confidence; kitkraft://validate-rules lists what `validate` checks.",
+            "KitKraft: clean-room Starfield plugin tooling ({} catalog commands). Call `execute` with {{command, args}} (each command and its arguments is listed in its description and in the kitkraft://commands resource) or `command_line` with a kit command line; {} are shortcuts. Every result is the evidence envelope {{command, data, coverage, limitations, evidence, build}} (`build` names the KitKraft build that produced it): report unknown as unknown and cite evidence offsets. A load order loaded with `execute` `load` stays loaded for this server process (resource kitkraft://load-order). record_schema shows which fields a record type has, with sources and confidence; kitkraft://validate-rules lists what `validate` checks.",
             self.backend.command_count(),
             shortcuts.join(", ")
         );
@@ -630,6 +630,19 @@ mod tests {
 
     fn legacy(id: i64, method: &str, params: Value) -> Value {
         json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params})
+    }
+
+    /// The instructions list the envelope by its members, and that list is exactly the
+    /// members the envelope shape requires, so the prose cannot fall behind the shape.
+    #[test]
+    fn instructions_name_every_envelope_member() {
+        let text = server().instructions();
+        let (_, after) = text.split_once("evidence envelope {").unwrap();
+        let (list, _) = after.split_once('}').unwrap();
+        let named: Vec<&str> = list.split(',').map(str::trim).collect();
+        let required = kitkraft_engine::shapes::envelope_members();
+        assert!(required.contains(&"build"), "{required:?}");
+        assert_eq!(named, required);
     }
 
     #[test]

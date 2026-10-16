@@ -596,6 +596,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .get("allow_untyped_lstrings")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let dry_run = super::preview::requested(args);
+    let schema = super::load::schema_of(session);
     let loaded = acquire(session, args, ID)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
@@ -627,6 +629,31 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .iter()
         .filter(|f| f.severity == Severity::Error)
         .partition(|f| f.record.as_ref().is_none_or(|r| written.contains(r)));
+    if dry_run {
+        // M7.S6: the same write and validation, reported without installing it.
+        let mut notes = Vec::new();
+        let mut before_evidence = Vec::new();
+        let before = super::preview::before(schema, loaded, g, &mut before_evidence, &mut notes);
+        let after = super::preview::after(schema, loaded, &staged, &report, &into, &mut notes);
+        report.target = into.clone();
+        let mut result = outcome(&report, &[origin], limitations);
+        result.evidence.extend(before_evidence);
+        super::preview::attach(
+            &mut result,
+            before,
+            after,
+            &report,
+            &checked,
+            &blocking,
+            notes,
+        );
+        if let Some(obj) = result.data.as_object_mut() {
+            if !scripts.reports.is_empty() {
+                obj.insert("scripts".into(), Value::Array(scripts.reports));
+            }
+        }
+        return Ok(result);
+    }
     if !blocking.is_empty() {
         return Err(failed(
             ID,

@@ -5,6 +5,7 @@
 //! type has a definition with a `formid` member is read (inflated when compressed) and
 //! decoded by the generated decoder (`kitkraft_esm::generated::records::Record`), and every
 //! value its `form_ids()` visitor yields is entered as `(raw value, record index)`. The
+//! object values of `VMAD` script properties (`crate::vmad`, M5.D6) are entered too. The
 //! null value `00000000` and "none" (`FFFFFFFF`) are not entered. Raw values are kept as
 //! stored: resolving them needs the load order (`crate::form`), so a query turns the target
 //! form into the raw values each plugin would store for it ([`raw_candidates`]).
@@ -50,8 +51,8 @@ use crate::hash::Fnv;
 use crate::index::file_stamp;
 use crate::load_order::LoadOrder;
 
-/// Bump when the layout or the meaning of an entry changes.
-pub const FORMAT_VERSION: u32 = 1;
+/// Bump when the layout or the meaning of an entry changes (2: `VMAD` object values, M5.D6).
+pub const FORMAT_VERSION: u32 = 2;
 
 const MAGIC: &[u8; 8] = b"KCLNK\0\r\n";
 
@@ -163,11 +164,20 @@ fn type_has_any_until(schema: &Schema, sig: [u8; 4]) -> bool {
         .is_some_and(|def| members_have_any_until(&def.members, 0))
 }
 
-/// Whether records of `sig` can hold typed FormIDs (their definition has a `formid`).
+fn members_have_vmad(members: &[Member], depth: usize) -> bool {
+    members.iter().any(|m| match m {
+        Member::Subrecord(s) => s.signature.as_bytes() == crate::vmad::VMAD,
+        Member::Group(g) => depth < 64 && members_have_vmad(&g.members, depth.saturating_add(1)),
+        Member::AnyUntil(_) => false,
+    })
+}
+
+/// Whether records of `sig` can hold typed FormIDs (their definition has a `formid`, or a
+/// `VMAD` whose script properties may name objects: M5.D6).
 pub fn type_has_links(schema: &Schema, sig: [u8; 4]) -> bool {
     kitkraft_schema::Signature::from_bytes(sig)
         .and_then(|s| schema.record(s))
-        .is_some_and(|def| members_have_form(&def.members, 0))
+        .is_some_and(|def| members_have_form(&def.members, 0) || members_have_vmad(&def.members, 0))
 }
 
 /// A read-ahead window over a file that is read mostly in order (`read_record_at` seeks
@@ -354,13 +364,29 @@ impl PluginBackrefs {
                             .any(|x| matches!(x, crate::typed::Placement::Raw { .. }))
                     })
                 };
-            if !typed.extra().is_empty() || raw_body {
-                stats.with_raw_subrecords = stats.with_raw_subrecords.saturating_add(1);
-            }
+            let mut raw_vmad = false;
             for (_, f) in typed.form_ids() {
                 if f.0 != 0 && f.0 != crate::links::NONE_FORM_ID {
                     out.entries.push((f.0, record));
                 }
+            }
+            // M5.D6: object values of script properties (`crate::vmad`); a payload whose
+            // script entries do not decode counts as a raw subrecord.
+            for s in subs.iter().filter(|s| s.signature().0 == crate::vmad::VMAD) {
+                match crate::vmad::object_refs(s.data()) {
+                    Ok(scan) => {
+                        for o in scan.objects {
+                            let raw = o.object.form_id;
+                            if raw != 0 && raw != crate::links::NONE_FORM_ID {
+                                out.entries.push((raw, record));
+                            }
+                        }
+                    }
+                    Err(_) => raw_vmad = true,
+                }
+            }
+            if !typed.extra().is_empty() || raw_body || raw_vmad {
+                stats.with_raw_subrecords = stats.with_raw_subrecords.saturating_add(1);
             }
         }
         if let Some((_, r)) = current.take() {
@@ -399,6 +425,21 @@ impl PluginBackrefs {
     /// Whether there are no entries.
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
+    }
+
+    /// Every run of records inside one cell children group, with where they sit (M7.S3:
+    /// the `cell` command lists a cell's references from these).
+    pub fn placements(&self) -> impl Iterator<Item = (std::ops::Range<u32>, Placement)> + '_ {
+        self.ranges.iter().map(|r| {
+            (
+                r.first..r.end,
+                Placement {
+                    cell_raw: r.cell,
+                    world_raw: (r.world != 0).then_some(r.world),
+                    group_type: i32::from(r.group_type),
+                },
+            )
+        })
     }
 
     /// Where record `record` sits, when it is inside a cell children group.
