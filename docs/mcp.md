@@ -211,7 +211,9 @@ Rules:
   of the input only.
 - Progress (M6.P2b) never enters the envelope: a front end that passes a progress sink
   (`Engine::execute_with_progress`; the CLI's `--progress`, which prints to stderr) gets
-  the same envelope as one that does not. MCP does not send progress notifications yet.
+  an envelope identical to one without a sink except timings (the `*_ms` members, and a
+  `summary` that quotes them, differ from run to run either way). MCP does not send
+  progress notifications yet.
 - `coverage.status` is `complete`, `partial`, or `unknown`. `complete` only when every byte
   of every examined record was decoded. `decoded_subrecords` / `opaque_subrecords` are
   `null` when the command did not count them (never `0` for "not counted").

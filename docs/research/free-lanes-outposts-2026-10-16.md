@@ -25,7 +25,7 @@ unknown, not absent.
 
 | Key | Command (read only) |
 | --- | ------------------- |
-| Q-ALL | `kit --json query <TYPE> --scope all --where "@plugin == 'SFBGS00D.esm' or @plugin == 'SFBGS050.esm'" <LO>`: every version the two files hold. A result whose form names its own plugin is an addition; one that names an earlier plugin is an override |
+| Q-ALL | `kit --json query <TYPE> --scope all --where "@plugin == 'SFBGS00D.esm' or @plugin == 'SFBGS050.esm'" --limit 1000 <LO>`: every version the two files hold (`--limit 1000`: the default page is 50, and `COBJ` alone has 356; every type below fits one page, `next_cursor` null). A result whose form names its own plugin is an addition; one that names an earlier plugin is an override |
 | Q-OP | as Q-ALL, `and (@edid ~ 'Outpost' or @edid ~ 'Workshop' or @edid ~ 'Workbench')` |
 | C-T | `kit --json conflicts --plugin <SFBGS00D.esm or SFBGS050.esm> --type <TYPE> --count-classes --limit 1000 <LO>`: each override classed against the version before it |
 | I | `kit --json inspect <form> <LO>`: `BNAM`, `CNAM`, `FNAM`, `JNAM`, `KWDA` of a version |
@@ -33,6 +33,8 @@ unknown, not absent.
 | R | `kit refs <form> --incoming <LO>`: records and placed references that name a form |
 
 Every query below reported `unknown: 0`, meaning every candidate record was decided.
+Rechecked 2026-10-16 (fix round W1) with the same binary and `--limit 1000` on Q-ALL and
+Q-OP for every type in the table: every count below was reproduced unchanged.
 
 ## Counts per type (Q-ALL, C-T)
 

@@ -261,8 +261,8 @@ impl Engine {
     }
 
     /// As [`Engine::execute`], sending [`crate::Progress`] events to `sink` while the command
-    /// runs (`crate::progress` lists which commands emit). The result is the same as
-    /// without a sink.
+    /// runs (`crate::progress` lists which commands emit). The result is identical to the
+    /// one without a sink except timings (`*_ms` members and a `summary` that quotes them).
     pub fn execute_with_progress(
         &self,
         id: &str,
