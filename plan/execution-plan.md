@@ -1128,7 +1128,7 @@ acceptance column.
 | ----- | ---- | ---------- | ---------- |
 | M4.T1 | *(research)* Session facts, each graded (ADR 0005 Am. 3) and recorded in `docs/game-observations.md` (entry `game-<date>-T1`) and `docs/load-order.md`: (a) the MO2 command line that launches a named executable on a named profile (`ModOrganizer.exe --help`, MO2 2.5.2, black box); (b) **V0**: Console API 2.17.0 answers `GetSFSEVersion` over HTTP on `Starfield.exe` 1.16.244 with SFSE 0.2.21; (c) `bAlwaysActive=1` keeps the game running unfocused; (d) the console `load <save>` command from the main menu and from the world; (e) where `bat <name>` looks for its file (closes the O2-04 question without the owner); (f) the runtime IDs the game prints for the dev load order against `runtime-slots-by-scale` and `masters-load-first` (closes M3.D5's in-game half); (g) Console Command Runner's `{Form:…}` replacement as a cross-check of (f); (h) the Papyrus log path and whether the profile INI, not `My Games`, controls it under MO2 | M4.O7 for (b)..(h); (a) needs neither the game nor M4.O7 and starts at once (M5 review fix round, 2026-10-15) | Every fact has an observation with its grade; (b) is V0: pass or the lane stops and reports which plugin failed |
 | M4.T2 | `testplan` emits `probes.toml` beside `checklist.md`: one probe per checklist row (same row ids), each a console command or short batch, a matcher (`contains`, `regex`, `number within tolerance`, `papyrus-log contains`), and the expected value derived from the plugin's own records (`FULL` text for `help <name> 4`; `getpos` against the `REFR` position; `GetStage`; `IsDisabled`), plus the persistence protocol as `save`/`load`/`coc` steps; rows with no console or Papyrus getter are emitted with `matcher = "manual"` and the reason | M4.E6 (done) | Deterministic; tests on the rename, first POI, ownership, actors and overhaul plugins; every row of `docs/game-observations.md`'s templates O2 and O4 maps to a probe or a `manual` row |
-| M4.T3 | Session controller: new L3 crate `crates/game` (ADR 0002 row in the same commit) and engine commands `game.session`, `game.probe`, `game.status` (catalog: writing): preflight refusals of ADR 0010 §1, launch through MO2, wait for the endpoint and the loaded save, run `probes.toml`, capture HTTP responses, the console output log, `Papyrus.0.log` and screenshots into `observe\<date>-T<nn>\`, append the ledger entry with every row filled (`pass`, `fail`, `not run (reason)`), terminate the game, verify profile hashes; `--dry-run` prints the plan and writes nothing; a per-game profile file (`crates/game/profiles/starfield.toml`) holds the executable name, port, log paths and commands | M4.T1, M4.T2, M4.O6 | Each refusal has a test on a fixture MO2 instance; the probe runner is tested against a local fake of the `/console` endpoint; the ledger writer is tested for the format; `cargo xtask layers` passes; no write outside `observe\`, the ledger and `KitKraftSession-*` saves (test asserts the profile hashes) |
+| M4.T3 | Session controller: new L3 crate `crates/game` (ADR 0002 row in the same commit) and engine commands `game.session`, `game.probe`, `game.stop` (catalog: writing) and `game.status` (catalog: not writing): preflight refusals of ADR 0010 §1, launch through MO2, wait for the endpoint and the loaded save, run `probes.toml`, capture HTTP responses, the console output log, `Papyrus.0.log` and screenshots into `observe\<date>-T<nn>\`, append the ledger entry with every row filled (`pass`, `fail`, `not run (reason)`), terminate the game, verify profile hashes; `--dry-run` prints the plan and writes nothing; a per-game profile file (`crates/game/profiles/starfield.toml`) holds the executable name, port, log paths and commands | M4.T1, M4.T2, M4.O6 | Each refusal has a test on a fixture MO2 instance; the probe runner is tested against a local fake of the `/console` endpoint; the ledger writer is tested for the format; `cargo xtask layers` passes; no write outside `observe\`, the ledger and `KitKraftSession-*` saves (test asserts the profile hashes); `game.session` exposes start, poll and stop, so a long-lived front end (the window, MCP) follows a session through the catalog without holding its one engine worker for minutes: `game.session --start` returns a session id at once and the session runs on a thread the engine's `Session` owns, `game.status <id>` returns its state, the probe rows so far and the screenshots taken (file names and paths under `observe\<session>\`), and `game.stop <id>` (with `--dry-run`) ends it (terminate, ledger entry, profile hashes); the synchronous form (no `--start`) stays for the one-shot CLI; tests for start, status and stop against the fake endpoint (added 2026-10-16 for M6.G4) |
 | M4.T4 | **V1**: the rename plugin unattended: deploy (ADR 0009), session, `help "Old Soviet Marksman Rifle" 4` and `player.additem` + inventory screenshot; compare with the owner's `game-20261014-01` | M4.T3 | Ledger entry with `pass` on the `help` probe; the first agent-closed row in `docs/game-observations.md` |
 | M4.T5 | **V2**: the first POI, template O2 rows O2-04..O2-11 and the persistence protocol steps 1-4 by console `save`/`load`; the `help KitKraftFirstPOICrate 4` and `getpos` probes; screenshots for O2-07 | M4.T3, M4.E6, the POI package | Every O2 row filled by the controller, `fail`s filed as Requests; `PS-02`, `PS-09`, `PS-26` graded from the entry |
 | M4.T6 | **V3**: overhaul build 2 and the recipes (templates O4, O5): every row with a console or Papyrus getter (`getav`, `GetWeaponDamage`-class getters where they exist, `CGF` on Cassiopeia functions, the scripts recipe's `Debug.Trace` line in the Papyrus log); rows without one listed as runtime-need candidates (ADR 0008 §5), not silently skipped | M4.T3, M3.E9, M4.E7..E9 | Ledger entries; a list of unprobeable rows with the getter that is missing |
@@ -1490,6 +1490,28 @@ full authoring UI "M6" or "M6+: editor" now means M6 to M8.
 Planned 2026-10-16 while M5 runs. M6 tickets that need nothing from M5 can start once
 their M6 dependencies are met. The game-loop tickets wait on lane C, by ticket id.
 
+### Decisions taken by the director 2026-10-16, pending owner
+
+Open questions from the review of this plan, answered so the lanes can proceed. Each
+stands until the owner overrules it (`plan/STATUS.md` row 16).
+
+1. **`crates/nif` stays behind the engine.** The window gets bounds and geometry only
+   from engine commands; `INTERNAL_ONLY` is unchanged and there is no L5 -> L0 edge. ADR
+   0002 Amendment 1 records this and retires the L2 `render` slot: the viewport is L5
+   view code in `crates/ui-egui/src/viewport/`.
+2. **Geometry encoding (M7.S5):** `mesh.geometry` returns base64 little-endian `f32`
+   (positions, normals) and `u32` (indices) buffers inside the JSON envelope. The engine
+   produces them, so the CLI and MCP get identical results; the cost is about 1.33x the
+   raw bytes. M7.R4 measures it as V4, and an ADR for another channel is written only if
+   V4 fails.
+3. **Cockpit write scope (ADR 0007 Amendment 3):** `deploy.rollback` is in, as a safety
+   control (what the cockpit deploys, it can take back); `testplan` stays out (file
+   output, not a safety control). `game.stop` joins with M4.T3's start, poll and stop
+   split (M6.G4).
+4. **CK menu order** stays `unresearched` until CK interface sitting 1 (M7.O2). The
+   order written in `docs/ck-parity.md` and `ROADMAP.md` is a recollection, not
+   evidence; M7.M1 waits on M7.K3 and builds nothing on it before then.
+
 ### Binding constraints (owner, 2026-10-16)
 
 1. **Keep egui.** Pure Rust, one binary. The license rule is unchanged: MIT, Apache, Zlib
@@ -1501,30 +1523,38 @@ their M6 dependencies are met. The game-loop tickets wait on lane C, by ticket i
    data no command returns gets it from the lane that owns that command, as a request
    ticket (marked "engine" below).
 3. **Writes:** only ADR 0007 Amendment 3's list, once the owner accepts it (M6.O3):
-   `ledger`, `deploy --dev`, `game.session`, `game.probe`. Each is previewed and confirmed
-   per click and enforced by the gate test. Until M6.O3, M6.G3 to M6.G5 merge with their
-   buttons disabled.
-4. **No game launcher in the UI.** `game.session` and `game.probe` are lane C's (M4.T3).
-   Until they are `Implemented` in the catalog, their buttons are disabled with the ticket
-   id. No process spawning, MO2 command line or Console API call in `crates/ui-egui`.
+   `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`.
+   Each is previewed and confirmed per click and enforced by the gate test. M6.G1 (the
+   mechanics, scope `[ledger]`) needs no ruling; M6.G3 to M6.G6 wait on M6.O3.
+4. **No game launcher in the UI.** `game.session`, `game.status`, `game.probe` and
+   `game.stop` are lane C's (M4.T3). Until they are `Implemented` in the catalog, their
+   buttons are disabled with the ticket id. No process spawning, MO2 command line or
+   Console API call in `crates/ui-egui`. The window follows a running session by polling
+   `game.status <id>` through the catalog; it never grows a second engine worker.
 5. **Measure first.** No performance ticket merges without before-and-after rows in
    `docs/design/workbench-performance.md` "Results".
-6. No Foothold content, no new runtime hooks, no change to the layer table.
+6. No Foothold content, no new runtime hooks, and no layer change beyond ADR 0002
+   Amendment 1 (2026-10-16: the viewport is L5 view code in `crates/ui-egui`, the L2
+   `render` slot is retired, `crates/nif` stays behind the engine).
 
 ### Lanes (ownership)
 
 All four lanes edit `crates/ui-egui` (and `apps/kit` for P6 and P7), so they share files.
 M6.V1 goes first: it moves each tab's drawing out of `app.rs` (2,705 lines) into its
 `panels/` file and adds an empty theme module, so the lanes after it touch different
-files. "engine" rows belong to the lane that owns the engine code named (lane D or F per
-M5's table). Their writer works in the engine, not in `ui-egui`.
+files. "engine" rows belong to the lane that owns the engine code named, by M5's lane
+letters: lane D for `conflicts` and the reverse-link index (M6.P3b, M6.P5b), lane C for
+`game.*`. M6.P2b and M6.P6b touch **engine core** (`crates/engine/src/lib.rs`,
+`apps/kit-cli`, `crates/mcp`): M4's lane F owned it, M5's table gives it no letter (M5's
+lane F is documentation), and the director names its writer. Their writer works in the
+engine, not in `ui-egui`.
 
 | Lane | Name | Owns |
 | ---- | ---- | ---- |
 | V | visual system | `crates/ui-egui/src/theme.rs` (new), panel frames and tables, `docs/design/workbench-style.md` (new) |
 | P | performance | `crates/ui-egui/src/{worker,envelope}.rs`, the perf trace, `apps/kit` (launch, window), `docs/design/workbench-performance.md`; engine requests P2b, P3b, P5b, P6b through their lanes |
 | G | game loop in the UI | `crates/ui-egui/src/gate.rs` (with the Amendment 3 tests), `panels/{cockpit,ledger,coverage,review}.rs` |
-| X | accessibility and first run | keyboard and focus handling, scaling, AccessKit, `panels/{start,help}.rs`, the Help sections in `docs/workbench.md` |
+| X | accessibility and first run (**DEFER**, 2026-10-16; see "Lane X") | keyboard and focus handling, scaling, AccessKit, `panels/{start,help}.rs`, the Help sections in `docs/workbench.md` |
 | O | owner | decisions, sign-offs |
 
 ### Lane V: visual system
@@ -1535,7 +1565,7 @@ M5's table). Their writer works in the engine, not in `ui-egui`.
 | M6.V2 | Two static mockups, rendered by the workbench itself: two theme presets (for example a dense dark-first and a calmer light-first one; each with its type scale, spacing, palette and table density) applied to Start, Records, Diff, Validate and Ledger; screenshot tour images in light and dark at 100 percent, kept outside the repo; a one-page comparison in `docs/design/workbench-style.md` (draft) | M6.V1 | 2 presets x 5 tabs x 2 modes captured; the owner has them for M6.O1 |
 | M6.V3 | The token system for the chosen direction: type scale, 4 px spacing scale, color tokens (surface, raised, text, muted, accent, border, selection, focus, and status good, warn, bad, unknown, inconclusive) for light and dark, table density (compact, comfortable); light, dark or system, saved in `ui.json` | M6.O1 | A test scans the crate and finds no `Color32` literal outside `theme.rs`; a unit test computes the contrast of every text and background pair (4.5:1 for text, 3:1 for borders and the focus ring) in both modes |
 | M6.V4 | Status is never color-only: one status component (glyph, word, color) for pass, fail, warn, unknown, inconclusive, not-run, the confidence levels and resolved or unresolved FormIDs, used by every panel; our own glyphs drawn with egui's painter (no icon font unless M6.O2 allows one) | M6.V3 | A test finds no status text colored outside the component; the tour shows each status in light and dark |
-| M6.V5 | Consistent panels: one panel frame (title, action bar, the envelope header from `docs/workbench.md` "Every result looks the same"), one table style (sticky header, zebra rows, numbers right-aligned, FormIDs monospace, column resize), and empty, busy and error states; all 11 tabs moved onto it | M6.V3, M6.V4, M6.P4 (tables) | Every tab uses the frame and the table style (a review checklist in the PR); tour images for all tabs |
+| M6.V5 | Consistent panels: one panel frame (title, action bar, the envelope header from `docs/workbench.md` "Every result looks the same"), one table style (sticky header, zebra rows, numbers right-aligned, FormIDs monospace, column resize), and empty, busy and error states; all 11 tabs moved onto it, and M7.R1's viewport panel (toolbar, status line) when it has merged | M6.V3, M6.V4, M6.P4 (tables) | Every tab uses the frame and the table style (a review checklist in the PR); tour images for all tabs |
 | M6.V6 | `docs/design/workbench-style.md`: tokens, components, spacing and density rules, do and don't, with tour images referenced (kept outside the repo) | M6.V5 | A doc-sync test: every token the doc names exists in `theme.rs` and every token in `theme.rs` is in the doc |
 
 ### Lane P: performance
@@ -1544,14 +1574,14 @@ M5's table). Their writer works in the engine, not in `ui-egui`.
 | -- | ---- | ---------- | --------- |
 | M6.P1 | **Measure first.** The `KITKRAFT_WORKBENCH_PERF=1` trace to stderr (first frame; each request's queued, started, finished, prepared and first-drawn times; envelope bytes; frame times per tab, p50, p95 and max), then the protocol of `docs/design/workbench-performance.md` on the release build and the dev profile, cold and warm | - | Every row S1 to U1 has a window number with the build's SHA-256 and commit; each target is marked confirmed or revised; P2 to P7 re-ordered by what the numbers show |
 | M6.P2a | Progress in the window for long commands: the per-plugin progress P2b emits, as a progress line on the Load tab and the top bar; the window stays responsive (T3) | M6.P1, M6.P2b | L4 and T3 measured before and after; the first progress is under 0.5 s on a cold load |
-| M6.P2b | *(engine, lane F)* An optional progress sink on `Engine::execute`, used by `load` (one event per plugin indexed) and the reverse-link index build; `kit --progress` prints to stderr; MCP sends progress notifications when the client asks for them | - | Tests: events in order, none when no sink is given; the result envelopes are unchanged (shape tests) |
+| M6.P2b | *(engine core)* An optional progress sink on `Engine::execute`, used by `load` (one event per plugin indexed) and the reverse-link index build; `kit --progress` prints to stderr; MCP sends progress notifications when the client asks for them | - | Tests: events in order, none when no sink is given; the result envelopes are unchanged (shape tests) |
 | M6.P3a | Index cache reuse in the window: no second `load` for the same profile and arguments; the start screen's last profile loads from the cache at start (when one was used before); cache hits shown on the Load tab | M6.P1 | L2 before and after; a test through the shell model checks that a repeated load request is answered from the session |
 | M6.P3b | *(engine, lane D)* The reverse-link index (`refs --incoming`) kept on disk beside the index cache, invalidated by the same plugin stamps | M6.P1 | I4 cold under 21 s and warm under 1 s across process restarts; the cache tests extended |
 | M6.P4 | Virtualized tables: every table that can pass 200 rows (load, query, links, diff, conflicts, findings, schema) draws only the visible rows (`ScrollArea::show_rows`, or `egui_extras` tables once listed in ADR 0007); paging kept | M6.P1 | T1 p95 under 16 ms on a 10,000-row table in release; a test on a canned 100,000-row envelope checks that the view-model indexes rows without copying them |
 | M6.P5a | Envelopes prepared off the UI thread: the worker builds each panel's view-model (and formats the raw JSON lazily, by visible range) before handing it to the UI | M6.P1 | T3 and I2 (window) before and after; no frame over 50 ms while a 30 MB envelope arrives |
-| M6.P5b | *(engine, lane D)* `conflicts` gets a `detail` argument (`summary` by default: classes and changed signatures; `fields` and `evidence` on request); the 50-row page of `SFBGS00D.esm` drops from 29.8 MB and 26.7 s | M6.P1 | I2 under 3 s and 2 MB at `summary`; the shape test and `docs/shapes.md` updated; CLI and MCP get the same argument |
+| M6.P5b | *(engine, lane D)* `conflicts` gets a `detail` argument (`summary` by default: classes and changed signatures; `fields` and `evidence` on request); the 50-row page of `SFBGS00D.esm` drops from 29.8 MB and 26.7 to 41.6 s (`docs/design/workbench-performance.md`) | M6.P1 | I2 under 3 s and 2 MB at `summary`; the shape test and `docs/shapes.md` updated; CLI and MCP get the same argument |
 | M6.P6a | Release by default: `cargo xtask ui` builds release and starts the window; `bin\` and `dist\KitKraft` both carry `kit-ui.exe` beside `kit.exe` (`bin\kit.exe ui` exits 2 today: "kit-ui.exe is not next to kit"); a debug build says so in the title bar as well as on the console; measure whether `[profile.dev.package."*"] opt-level = 2` for the egui tree makes debug runs usable, and adopt it only if the CI time cost is under 10 percent | - | `kit ui` from `bin\` and `dist\KitKraft` starts a release window; xtask test; the opt-level decision recorded with numbers |
-| M6.P6b | *(engine, lane F)* `kit --version` and the window's About line name the commit and whether the tree was dirty (from an env var `cargo xtask dist` sets at build time; no `build.rs`) | - | `kit --version` prints `kit 0.0.0 (<commit>)`; the performance doc's "Build identity" uses it |
+| M6.P6b | *(engine core)* `kit --version` and the window's About line name the commit and whether the tree was dirty (from an env var `cargo xtask dist` sets at build time; no `build.rs`) | - | `kit --version` prints `kit 0.0.0 (<commit>)`; the performance doc's "Build identity" uses it |
 | M6.P7 | Window quirks: at start, if the viewport is minimized, restore it and take focus (`ViewportCommand`); size, position, maximized state and monitor saved in `ui.json` and clamped to the monitors present at the next start; the screenshot tour no longer waits on a minimized window | M6.V1 | S2 passes from a background shell (owner check in M6.O4); a unit test for the clamp; `ui.json` stays UI state only (ADR 0007 Amendment 3) |
 
 ### Lane G: game loop in the UI
@@ -1560,16 +1590,25 @@ Lane C (M5) owns every game command. These tickets show and confirm them, nothin
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
-| M6.G1 | Gate mechanics of ADR 0007 Amendment 3, enabling no new write: `PERMITTED_WRITE` becomes `PERMITTED_WRITES` (id, preview test, the one panel file allowed to confirm, why); `COCKPIT_SCOPE` in the test; the source scan generalized per entry; `deploy.status` and `doctor` move from "unused read-only" to `ALLOWLIST` | M6.O3 | The extended disjointness test passes with `PERMITTED_WRITES = [ledger]`; adding a non-scope id in a scratch test fails it; `docs/workbench.md` "What it can run" rewritten |
-| M6.G2 | The Cockpit tab: the plugin under review (from `out\` or a path), its dev deployment (`deploy.status`), the dev profile, the session readiness (`game.status` when the catalog has it), and the buttons Deploy, Launch and run probes, Re-run probe, Screenshot. Each button's state is read from the catalog: present and `Implemented` turns it on; otherwise it is disabled with the ticket id (M4.T3) | M6.G1, M6.V5 | A shell-model test with a catalog lacking `game.*` shows the buttons disabled with "M4.T3"; with a fake `Implemented` spec they turn on |
-| M6.G3 | Deploy to dev: `deploy` with `dev: true`, `mo2` set to the loaded profile's instance and `profile` to the loaded dev profile; Preview runs `dry_run: true` and lists every path; the confirm box shows that list; the confirm button builds the one confirmed request; `Default` refused by the gate before the engine | M6.G2, M6.O3 | Gate tests per Amendment 3; a shell-model test deploys to a synthetic MO2 instance and reads it back with `deploy.status`; nothing written without the click |
-| M6.G4 | Launch the dev profile and run probes: `game.session` (preview with its `dry_run`, confirm), the session's state while it runs (`game.status` or the progress sink), and its result envelope: every probe row with `pass`, `fail`, `inconclusive` or `not-run` and the reason | M6.G2, M6.O3, **M4.T3**, **M5.C1**, M4.T2 | Gate tests; a shell-model test against M4.T3's fake endpoint and fixture instance; the V1 run (M4.T4) started from the window by the owner (M6.O4) |
-| M6.G5 | Probe results and screenshots: rows beside the plugin's records (a click opens `inspect`); screenshots from `observe\<session>\` shown as images (read only; image loading listed in ADR 0007 first); Re-run one probe and Screenshot through `game.probe` (confirmed) | M6.G4, **M4.T3** | Tests on a canned session envelope; a missing screenshot is shown as `inconclusive`, never hidden |
-| M6.G6 | The ledger prefilled from probe results: rows the controller left `inconclusive` or `manual` open in the Ledger form with the row id, FormIDs and the screenshot beside it; the owner confirms each row with the existing confirmed `ledger` request | M6.G5, **M5.C1** (`inconclusive` in the ledger format) | A test from a canned session result to the Ledger form's fields; each row still needs its own click |
+| M6.G1 | Gate mechanics of ADR 0007 Amendment 3, enabling no new write and needing no ruling: `PERMITTED_WRITE` becomes `PERMITTED_WRITES` (id, preview test, the one panel file allowed to confirm, why); `COCKPIT_SCOPE = ["ledger"]` in the test (Amendment 2's scope; it grows only with M6.G3 to M6.G5 after M6.O3); the source scan generalized per entry; `deploy.status` and `doctor` move from "unused read-only" to `ALLOWLIST` | - | The extended disjointness test passes with `PERMITTED_WRITES = [ledger]`; adding a non-scope id in a scratch test fails it; `docs/workbench.md` "What it can run" rewritten |
+| M6.G2 | The Cockpit tab: the plugin under review (from `out\` or a path), its dev deployment (`deploy.status`), the dev profile, the session readiness (`game.status` when the catalog has it), and the buttons Deploy, Roll back, Launch and run probes, Stop, Re-run probe, Screenshot. Each button's state is read from the catalog: present and `Implemented` turns it on; otherwise it is disabled with the ticket id (M4.T3) | M6.G1, M6.V5 | A shell-model test with a catalog lacking `game.*` shows the buttons disabled with "M4.T3"; with a fake `Implemented` spec they turn on |
+| M6.G3 | Deploy to dev and roll back: `deploy` and `deploy.rollback` with `dev: true`. The panel fills `mo2` and `profile` from the loaded dev profile (and, for rollback, `mod` and `to` from `deploy.status`) and keeps the confirm box closed when they differ from it; the gate checks only `dev: true`, the writing form and `profile` not `Default` (ADR 0007 Amendment 3, "What the gate checks"); the engine refuses `Default` on its own. Preview runs `dry_run: true` and lists every path; the confirm box shows that list; the confirm button builds the one confirmed request | M6.G2, M6.O3 | Gate tests per Amendment 3 for both ids; a shell-model test deploys to a synthetic MO2 instance, reads it back with `deploy.status`, rolls it back and reads it again; nothing written without the click; a profile mismatch keeps the confirm box closed |
+| M6.G4 | Launch the dev profile and run probes: `game.session` with `start: true` (preview with its `dry_run`, confirm) returns a session id at once, with M6.P2b's progress events for its own steps; the window then follows the session by polling `game.status <id>` through the catalog on a timer, each poll a short read on the one engine worker (no second worker, no process of its own); Stop through `game.stop <id>` (preview, confirm); the result: every probe row with `pass`, `fail`, `inconclusive` or `not-run` and the reason | M6.G2, M6.O3, M6.P2b, **M4.T3** (start, status, stop), **M5.C1**, M4.T2 | Gate tests; a shell-model test against M4.T3's fake endpoint and fixture instance: start, at least two polls with another read served between them, stop; the V1 run (M4.T4) started from the window by the owner (M6.O4) |
+| M6.G5 | Probe results and screenshots: rows beside the plugin's records (a click opens `inspect`); the screenshots `game.status <id>` lists (file names and paths, returned through the catalog) shown as images. The window opens only the image files at the paths `game.status` returned, as the Help tab reads the repo's docs (ADR 0007 Amendment 2: our own evidence files, not game data); it lists no folder of its own; image loading listed in ADR 0007 first. Re-run one probe and Screenshot through `game.probe` (confirmed) | M6.G4, M6.O3, **M4.T3** | Tests on a canned `game.status` envelope; a listed screenshot missing on disk is shown as `inconclusive`, never hidden |
+| M6.G6 | The ledger prefilled from probe results: rows the controller left `inconclusive` or `manual` open in the Ledger form with the row id, FormIDs and the screenshot beside it; the owner confirms each row with the existing confirmed `ledger` request | M6.G5, M6.O3, **M5.C1** (`inconclusive` in the ledger format) | A test from a canned session result to the Ledger form's fields; each row still needs its own click |
 | M6.G7 | The Coverage panel: `coverage --matrix` (read-only, already allowed), one row per record type with the six statuses, each cell linking to its evidence (test name, ledger entry, fixture) | M6.V4, **M5.D1** (the matrix; on `main` as `kit coverage --matrix`) | A view-model test on the engine's matrix shape; statuses shown with the status component |
 | M6.G8 | Review an agent-built plugin: pick a plugin under `out\`; one fixed sequence of `validate`, `roundtrip --verify` and `conflicts --plugin` (against its masters); a summary with the six statuses filled from what ran (`parse`, `byte_roundtrip`) and the rest `not-run` | M6.V5 | Shell-model test on a fixture plugin; nothing written |
 
-### Lane X: accessibility and first run
+### Lane X: accessibility and first run (priority DEFER)
+
+**Deferred 2026-10-16.** The owner's top pains were "look, feel, performance" and "game
+loop integration"; navigation was not selected and accessibility was not named. Lane X
+therefore leaves M6's exit path. Its tickets stay here with priority DEFER and may be
+picked up as P2 once M6's exit criteria are met, or when the owner asks. No V, P or G
+ticket depends on a lane X ticket: what they need already lives in their own tickets
+(the focus-ring token in M6.V3, no color-only status in M6.V4, the window restored and
+focused in M6.P7, `doctor` on `ALLOWLIST` in M6.G1), so nothing is re-homed. The check at
+125 and 150 percent is an optional part of M6.O4. M7.M5 no longer depends on M6.X1.
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
@@ -1586,14 +1625,15 @@ Lane C (M5) owns every game command. These tickets show and confirm them, nothin
 | -- | ---- | ----- |
 | M6.O1 | Choose the visual direction from M6.V2's two mockups (or a mix, named per token group) | M6.V3, so all of lane V after it |
 | M6.O2 | Rule on fonts: keep the Windows system fonts (Segoe UI, Consolas; the default) or allow a compiled-in OFL font or an MIT/Apache icon font (each then listed in `ATTRIBUTION.md`). Row 7's BSL-1.0 ruling is still open beside it | M6.V4 icons (only if an icon font is wanted), M6.V3 type scale |
-| M6.O3 | Accept, amend or reject ADR 0007 Amendment 3 (the cockpit write scope: `ledger`, `deploy --dev`, `game.session`, `game.probe`) | M6.G1, so M6.G3 to M6.G6 |
-| M6.O4 | Usability sign-off at 125 and 150 percent on the release build and `KitKraft Dev` (M6.X6's script), the S2 start check, Narrator on three screens (M6.X3), and the V1 run from the window once M4.T3 exists (M6.G4) | M6 exit |
-| M6.O5 | Confirm the dependency additions at their merges (`egui_extras` and image loaders, the AccessKit adapter, `glam` in M7). Blocks only on a license outside the rule | M6.P4, M6.G5, M6.X3 merges |
+| M6.O3 | Accept, amend or reject ADR 0007 Amendment 3 (the cockpit write scope: `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`) | M6.G3 to M6.G6 (not M6.G1, which enables no write) |
+| M6.O4 | Sign-off on the release build and `KitKraft Dev`: a walkthrough of the M6 exit criteria (`ROADMAP.md` "M6: Cockpit"), the S2 start check, and the V1 run from the window once M4.T3 exists (M6.G4). Optional, if the owner wants it: the same walkthrough at 125 and 150 percent Windows scaling (performance row U1) | M6 exit |
+| M6.O5 | Confirm the dependency additions at their merges (`egui_extras` and image loaders, `glam` for M7.R1, which may merge during M6; the AccessKit adapter only if lane X's M6.X3 is picked up). Blocks only on a license outside the rule | M6.P4, M6.G5, M7.R1 merges |
 
 ### Dependencies on M5
 
 - **Lane C (runtime; M4.T1 to T10, M5.C1, M5.C2):**
-  - M6.G4 and M6.G5 need M4.T3 (`game.session`, `game.probe`, `game.status`) and M5.C1.
+  - M6.G4 and M6.G5 need M4.T3 (`game.session` with `--start`, `game.status`,
+    `game.probe`, `game.stop`) and M5.C1.
   - M6.G6 needs M5.C1 (`inconclusive` in the ledger format).
   - Real sessions need M4.O7 (the owner's installs).
   - M6's end-to-end exit row is M4.T4 (V1) started from the window.
@@ -1601,24 +1641,27 @@ Lane C (M5) owns every game command. These tickets show and confirm them, nothin
 - **Lane D:** M6.G7 reads M5.D1's matrix (`kit coverage --matrix`, landed). M6.P3b and
   M6.P5b are lane D engine changes, scheduled with lane D's M5 work so they do not
   collide with M5.D2 to M5.D7 in `handlers/`.
-- **Lane F (engine core):** M6.P2b and M6.P6b.
+- **Engine core** (M4 lane F's area; no M5 letter, see "Lanes"): M6.P2b and M6.P6b.
 - Nothing in M6 waits on lanes A, B, E or H, or on a CK sitting.
 
 ### Ordering
 
-1. Start at once, in parallel: M6.V1 (first merge), M6.P1, M6.P6a, M6.P2b, M6.P6b; the
-   owner can rule on M6.O3 and M6.O2 now.
-2. After M6.V1: M6.V2 (then M6.O1), M6.P7, M6.P3a, M6.P4, M6.P5a.
-3. After M6.O1: M6.V3, then M6.V4, M6.X1 and M6.X3, then M6.V5, M6.X2 and M6.X4, then
-   M6.V6, M6.X5 and M6.X6.
-4. After M6.O3: M6.G1, M6.G2, M6.G3, M6.G7 and M6.G8. M6.G4 to M6.G6 when lane C lands
-   M4.T3 and M5.C1.
-5. M6.O4 last.
+1. Start at once, in parallel: M6.V1 (first merge), M6.G1, M6.P1, M6.P6a, M6.P2b,
+   M6.P6b; the owner can rule on M6.O3 and M6.O2 now.
+2. After M6.V1: M6.V2 (then M6.O1), M6.P7, M6.P3a, M6.P4, M6.P5a, and **M7.R1**, the 3D
+   placeholder (owner: "toss a 3D placeholder in there"), which merges read-only during
+   M6 (M7 lane R).
+3. After M6.O1: M6.V3, then M6.V4, then M6.V5 (which also frames M7.R1's panel when it
+   has merged), then M6.V6.
+4. After M6.G1: M6.G2 (with M6.V5), M6.G7 (with M6.V4), M6.G8 (with M6.V5). After
+   M6.O3: M6.G3. M6.G4 to M6.G6 when lane C lands M4.T3 and M5.C1 (M6.G4 also needs
+   M6.P2b).
+5. M6.O4 last. Lane X (DEFER) only if picked up as P2.
 
 Merge order: M6.V1 first. Then theme and token changes (lane V) before the panels that
 use them. `gate.rs` changes (lane G) in their own commits. Engine requests through their
-owning lane's review. 36 tickets (V 6, P 11 including 4 engine, G 8, X 6, O 5, counted
-with the owner rows).
+owning lane's review. 36 tickets (V 6, P 11 including 4 engine, G 8, X 6 deferred, O 5,
+counted with the owner rows); 30 on M6's exit path.
 
 ### M6 is done when
 
@@ -1628,9 +1671,10 @@ and M4's.
 ## Not in M6
 
 - Editing (`set`, `new`, `clone`, `place`, `build` output): M7, under ADR 0007 Amendment 4.
-- The Creation Kit's layout, menus and dialogs, and the viewport: M7.
-- A game launcher, MO2 automation or Console API client in the UI; `testplan`,
-  `package`, `deploy.rollback` or `mod.run` as UI writes.
+- The Creation Kit's layout, menus and dialogs: M7. The viewport is M7 lane R, but its
+  placeholder M7.R1 may merge during M6, read-only.
+- A game launcher, MO2 automation or Console API client in the UI; `testplan` (file
+  output, ADR 0007 Amendment 3), `package` or `mod.run` as UI writes.
 - Web front ends, new runtime hooks, Foothold content.
 
 ## M7: CK parity
@@ -1639,7 +1683,8 @@ Goal and exit criteria: `ROADMAP.md` "M7: CK parity". The Creation Kit's windows
 dialogs, labels, workflows and keyboard shortcuts are reproduced from black-box
 observation, so that a CK user is at home. Editing goes through the same catalog
 commands, gated like M6. The Render Window is a 3D viewport, read-only, from its first
-ticket. Exit criteria come from `docs/ck-parity.md` "Interface parity": one row per CK
+ticket, and that ticket (M7.R1, the owner's "3D placeholder") starts once M6.V1 lands and
+may merge during M6. Exit criteria come from `docs/ck-parity.md` "Interface parity": one row per CK
 window, menu item and dialog, with status `unresearched`, `observed`, `reproduced` or
 `improved` and its observation source.
 
@@ -1654,14 +1699,17 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
      `docs/ck-parity.md`.
    - Never copy CK icons, images, help text, resources or binaries.
    - Never read the CK's resource files to extract menus or strings.
+   - The public CK wiki is a level-4 source for data facts (AGENTS.md "Clean room"), not
+     interface observation: no interface row is filled from it.
    - All art is ours.
 2. **Everything through catalog commands**, as in M6. The window gets the following only
    as engine command results, never by reading plugins or archives itself:
    - categories, cell contents, bounds and geometry (lane S tickets);
    - viewport geometry, through engine commands (M7.S4, M7.S5).
 
-   `INTERNAL_ONLY` keeps `kitkraft-ui-egui` on `kitkraft-engine` alone. Depending on the
-   L0 `nif` crate directly would need an ADR 0002 change; this plan does not propose one.
+   `INTERNAL_ONLY` keeps `kitkraft-ui-egui` on `kitkraft-engine` alone. ADR 0002
+   Amendment 1 (2026-10-16) makes the viewport L5 view code, retires the L2 `render`
+   slot and keeps `crates/nif` behind the engine: there is no L5 -> L0 edge.
 3. **Writes:** only ADR 0007 Amendment 4's list once the owner accepts it (M7.O4). Before
    that the dialogs are read-only. Each write has a preview and a confirm and is enforced
    by the gate test, as in M6.
@@ -1680,14 +1728,14 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 | W | windows and dialogs | Object Window, Cell View, Use Info, the edit-dialog framework and layouts (`crates/ui-egui/src/dialogs/`, data files under `crates/ui-egui/dialogs/`) |
 | E | editing | ADR 0007 Amendment 4, the write panels and their gate entries |
 | R | render | the viewport panel (`crates/ui-egui/src/viewport/`), its camera and drawing; `docs/design/workbench-performance.md` "Viewport" |
-| S | engine surface (requests to the owning lanes) | `menu_path` updates and categories (lane F), `cell` (lane D), NIF bounds and geometry (lane G: `crates/nif`, `crates/ba2`, engine `handlers/mesh*`) |
+| S | engine surface (requests to the owning lanes, by M5's letters) | `menu_path` and categories (engine core, as M6 "Lanes" defines it; category data through lane BX), `cell`, the `set` preview and `revert` (lane D), NIF bounds and geometry (lane B: `crates/nif`, `crates/ba2`, engine `handlers/mesh*`). M5's table gives `crates/nif` and `crates/ba2` to no lane; M7 assigns them to lane B, M5's format-crate lane (it owns `crates/pex`), as M4's lane G held `ba2`, `pex` and `strings` together |
 | O | owner | sittings, rulings, sign-off |
 
 ### Lane K: CK interface observation
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
-| M7.K1 | Draft ADR 0012, "CK interface parity, clean room" (proposed): what may be reproduced and from what (constraint 1), the evidence for each row (sitting id, screenshot names kept local, our own description), and how a reproduced element is checked (a tour image beside the observation) | - | The ADR file, status Proposed; AGENTS.md "Clean room" gains a pointer only after M7.O1 |
+| M7.K1 | Draft ADR 0012, "CK interface parity, clean room" (proposed): what may be reproduced and from what (constraint 1), the evidence for each row (sitting id, screenshot names kept local, our own description), and how a reproduced element is checked (a tour image beside the observation). It also states that the public CK wiki (a level-4 source for data facts) is not interface observation, only the owner-assisted sittings are; and that M7.O5 settles the license of the NIF-format sources before M7.S4 starts | - | The ADR file, status Proposed; AGENTS.md "Clean room" gains a pointer only after M7.O1 |
 | M7.K2 | Sitting scripts for the interface. Sitting 1: the main menu bar with every menu expanded, the Data dialog, Object Window, Cell View, Render Window camera controls (mouse and keys), Preferences, Warnings. Sitting 2: the edit dialogs of the first types (WEAP, AMMO, COBJ, LCTN, TERM, CONT, STAT, KYWD), every tab, group and field label. Combinable with the fixture sittings of STATUS rows 12 and 15 so the owner sits once | M7.K1 | `docs/ck-observations.md` gains the two scripts; each step names the `docs/ck-parity.md` rows it fills |
 | M7.K3 | `docs/ck-parity.md` "Interface parity", seeded now with `unresearched` rows (done by the roadmap lane, 2026-10-16), then filled from sitting 1: one row per window, menu item and dialog, status `observed`, the sitting id and our own description; CK shortcuts and camera controls as rows; what it maps to (a catalog id, a UI element, or `gap:` with the reason) | M7.O2 | Every item sitting 1 saw has a row; no CK text beyond the labels themselves |
 | M7.K4 | The same for sitting 2: per type, its tabs, groups and field labels, each field mapped to a schema member path (or `gap:` when the schema has no member) | M7.O3 | Rows for the eight types; unmapped fields listed in `docs/gaps.md` |
@@ -1702,7 +1750,7 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 | M7.M2 | The Data dialog over `load`: the plugin list with check boxes, "set as active file" (UI state: the target `into` for the M7 writes), a details pane (author, description, masters, dates; from `load` and `inspect` of `TES4`), layout and labels as observed | M7.M1, M7.K3 | Shell-model tests; `Default` still read-only; the active file is never an official master (refused in the UI and by the engine's output guard) |
 | M7.M3 | Preferences: the UI preferences (theme, density, zoom, paths, shortcuts) laid out as the CK's dialog where the settings correspond; stored only in `ui.json` | M7.M1, M7.K3 | Rows in `docs/ck-parity.md` updated to `reproduced` or `improved` with tour images |
 | M7.M4 | The Warnings window: `validate` findings and the `load` limitations as a CK-style list (severity, record, message), filter, double-click opens the record | M7.M1 | Shell-model test on canned findings |
-| M7.M5 | Keyboard shortcuts as the CK binds them (from K3); clashes with M6's bindings resolved in a table in `docs/ck-parity.md`; unobserved shortcuts marked so | M7.K3, M6.X1 | A test: every observed CK shortcut is bound or listed as a gap |
+| M7.M5 | Keyboard shortcuts as the CK binds them (from K3); clashes with M6's bindings resolved in a table in `docs/ck-parity.md`; unobserved shortcuts marked so | M7.K3 (M6.X1's bindings if lane X ran it; otherwise M7.M5 adds the binding table itself) | A test: every observed CK shortcut is bound or listed as a gap |
 
 ### Lane W: windows and dialogs
 
@@ -1718,18 +1766,18 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
-| M7.E1 | Draft ADR 0007 Amendment 4 (proposed): the editor's write scope. `set`, `new`, `clone`, `place` and `build` (output), only into the active file, never an official master, never under the game's Data folder or MO2 (the engine's output guard), each with a preview and a confirmed request built by one dialog file; the disjointness test's scope constant extended. Also decided there: whether edits collect in the dialog and are written on the CK's OK or Save, or one `set` per OK | M6.G1 | The amendment drafted; M7.O4 can rule |
-| M7.E2 | Field editing: the dialog's typed fields become editable; OK runs the `set` preview and then `validate` on the result (the validation preview); confirm writes. Needs a `set` dry run from lane D if it has none | M7.E1, M7.O4, M7.W4 | Gate tests; a shell-model test edits a field of a fixture and reads it back with `inspect` |
+| M7.E1 | Draft ADR 0007 Amendment 4 (proposed): the editor's write scope. `set`, `new`, `clone`, `place`, `build` (output) and `revert` (M7.S7), only into the active file, never an official master, never under the game's Data folder or MO2 (the engine's output guard), each with a preview and a confirmed request built by one dialog file; the disjointness test's scope constant extended. Also decided there: whether edits collect in the dialog and are written on the CK's OK or Save, or one `set` per OK | M6.G1 | The amendment drafted; M7.O4 can rule |
+| M7.E2 | Field editing: the dialog's typed fields become editable; OK runs the `set` preview (M7.S6's dry run) and then `validate` on the result (the validation preview); confirm writes | M7.E1, M7.O4, M7.W4, M7.S6 | Gate tests; a shell-model test edits a field of a fixture and reads it back with `inspect` |
 | M7.E3 | New and Duplicate in the Object Window through `new` and `clone`, with the CK's labels | M7.E1, M7.O4, M7.W1 | As M7.E2 |
 | M7.E4 | Placement: from the Object Window into the Cell View's cell through `place` (position typed or taken from the viewport's cursor, read-only), preview and confirm | M7.E1, M7.O4, M7.W2, M7.R2 | As M7.E2; the placed reference shows in Cell View and the viewport after the write |
 | M7.E5 | Build spec editing: a form for `build` specs (v3) with `build plan: true` as the preview (first opened in the gate as `GUARDED` with `plan` required, M4.W6's note) and the confirmed build | M7.E1, M7.O4 | Gate tests for the plan-only and the confirmed forms |
-| M7.E6 | Undo the last edit, as far as the CK's Edit menu offers it (observed): the inverse is computed by the engine from its diff (an engine `revert` or `set` arguments derived by `diff`, lane D), previewed and confirmed like any write | M7.E2 | A test: edit, undo, `diff` against the original shows no change |
+| M7.E6 | Undo the last edit, as far as the CK's Edit menu offers it (observed): the inverse is computed by the engine from its diff (M7.S7's `revert`), previewed with its `dry_run` and confirmed like any write | M7.E2, M7.S7 | A test: edit, undo, `diff` against the original shows no change |
 
 ### Lane R: render (the 3D viewport)
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
-| M7.R1 | A GL viewport panel through eframe's glow backend (an egui `PaintCallback` with `eframe::glow`; no new framework): grid, axes, an orbit and a fly camera whose controls follow the CK's as sitting 1 observed them (unobserved controls marked so in `docs/ck-parity.md`); `glam` for the math, its license recorded in ADR 0007 Amendment 3's table before the merge; chrome from the M6 theme | M6.V3 (can start before M7.K3 with the controls marked unobserved) | Camera math unit-tested without a window; tour image; V1 measured; `cargo xtask layers` passes |
+| M7.R1 | A GL viewport panel through eframe's glow backend (an egui `PaintCallback` with `eframe::glow`; no new framework): grid, axes, an orbit and a fly camera whose controls follow the CK's as sitting 1 observed them (unobserved controls marked so in `docs/ck-parity.md`); `glam` for the math, its license recorded in ADR 0007 Amendment 3's table before the merge; chrome from the `theme.rs` tokens that exist when it merges, the themed frame applied later by M6.V5 (lane V) | M6.V1 only (it waits on neither M6.O1 nor the sittings: controls not yet observed are marked so) | Camera math unit-tested without a window; tour image; V1 measured; `cargo xtask layers` passes. May merge during M6, read-only (grid, axes and camera; no game data); the same commit removes `kitkraft-render` from xtask's `LAYER_TABLE`, the AGENTS.md layer table and `docs/architecture.md` (ADR 0002 Amendment 1) |
 | M7.R2 | Placed references of the selected cell as oriented markers from the `REFR`'s position, rotation and scale (from M7.S3), colored by base record type with a shape per type as well (not color-only); click to select, synced with the Cell View list | M7.R1, M7.S3, M7.W2 | Picking unit-tested; V2 measured; selection sync tested in the shell model |
 | M7.R3 | Bounding boxes from the base object's NIF (a bound stored in the file, or computed from vertices; which one, per M7.S4's sources) through the engine's `mesh.bounds`; no materials | M7.R2, M7.S4 | Boxes for a cell of the first POI; V3 measured; a base without a readable bound shows as a limitation, not as a box |
 | M7.R4 | Wireframe, then flat-shaded meshes from the geometry `mesh.geometry` returns (loose and packed assets both, through the engine's archive access), under a loading budget; each skipped mesh is a limitation line | M7.R3, M7.S5 | V4 and V5 measured; a test on a canned geometry envelope; nothing read by the window itself |
@@ -1739,11 +1787,13 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
 
 | ID | Task | Depends on | Done when |
 | -- | ---- | ---------- | --------- |
-| M7.S1 | *(lane F)* `menu_path` of every catalog command aligned with the CK's menus where a parity row maps it (KitKraft-only commands keep their own menus); `docs/ck-parity.md` cited in the commit | M7.K3 | The catalog test that every command has a `menu_path` still passes; M7.K5 passes |
-| M7.S2 | *(lane B or F)* The Object Window category of every record type as data (from parity rows; unobserved types in "Other", marked so), returned by `schema` | M7.K3 | A test: every defined type has one category; the categories' order matches the parity rows |
+| M7.S1 | *(engine core)* `menu_path` of every catalog command aligned with the CK's menus where a parity row maps it (KitKraft-only commands keep their own menus); `docs/ck-parity.md` cited in the commit | M7.K3 | The catalog test that every command has a `menu_path` still passes; M7.K5 passes |
+| M7.S2 | *(engine core; the category data through lane BX)* The Object Window category of every record type as data (from parity rows; unobserved types in "Other", marked so), returned by `schema` | M7.K3 | A test: every defined type has one category; the categories' order matches the parity rows |
 | M7.S3 | *(lane D)* A read-only `cell` command: worldspaces, cells (interior and exterior with grid coordinates) and the references of one cell (base, EditorID, position, rotation, scale, flags), paged, with evidence like `query` | - | Shape test; CLI and MCP; tested on the first POI's cell and an exterior cell of `Starfield.esm` |
-| M7.S4 | *(lane G, with M7.O5)* NIF sources and bounds: the source decision for Starfield NIF and geometry layout (graded per ADR 0005, recorded in `docs/source-registry.md`), then `kitkraft-nif` reads a model's bound, and an engine `mesh.bounds` command finds the base object's model and reads it from loose files or a BA2 | M7.O5 | Tests on corpus models (skipped without the game); unknown layouts reported as unknown |
-| M7.S5 | *(lane G)* Geometry: `mesh.geometry` returns positions, indices and normals for a model (Starfield may keep geometry outside the `.nif`; S4's sources settle where), from loose files or BA2s, with a size budget and a limitation per skipped mesh | M7.S4 | Tests on corpus models; the envelope size measured (V4); if JSON is too slow, an ADR for an engine-produced side channel comes before any workaround |
+| M7.S4 | *(lane B, with M7.O5)* NIF sources and bounds: the source decision for Starfield NIF and geometry layout (graded per ADR 0005, recorded in `docs/source-registry.md`), then `kitkraft-nif` reads a model's bound, and an engine `mesh.bounds` command finds the base object's model and reads it from loose files or a BA2 | M7.O5 | Tests on corpus models (skipped without the game); unknown layouts reported as unknown |
+| M7.S5 | *(lane B)* Geometry: `mesh.geometry` returns positions, indices and normals for a model (Starfield may keep geometry outside the `.nif`; S4's sources settle where), from loose files or BA2s, with a size budget and a limitation per skipped mesh. Encoding (director decision 2026-10-16): base64 little-endian `f32` (positions, normals) and `u32` (indices) buffers inside the JSON envelope, produced by the engine so the CLI and MCP get identical results (about 1.33x the raw bytes) | M7.S4 | Tests on corpus models; the envelope size and time measured as V4; only if V4 fails with this encoding, an ADR for an engine-produced side channel comes before any workaround |
+| M7.S6 | *(lane D)* A `set` preview: `dry_run: true` returns the record before and after, the member paths changed and the `validate` findings on the result, and writes nothing (`set` has no `dry_run` today) | - | Shape test; CLI and MCP; a dry run leaves `into` byte-identical, or absent when it did not exist |
+| M7.S7 | *(lane D)* An engine `revert` command (catalog: writing): the inverse of one edit to the active file, computed from `diff` against the file's state before the edit, with `dry_run: true` as its preview | M7.S6 | A test: `set`, then `revert`, then `diff` against the original shows no change; CLI and MCP |
 
 ### Owner (lane O)
 
@@ -1762,9 +1812,10 @@ window, menu item and dialog, with status `unresearched`, `observed`, `reproduce
   mechanics (M6.G1). The game-runtime exit row runs through M6's cockpit.
 - On M5: lane A's CK differential (M5.A2) for the `ck_reexport` exit row, and the
   owner-assisted sittings it already schedules.
-- Lane R starts with M7.R1 as soon as M6.V3 lands; it does not wait on the sittings.
+- Lane R starts with M7.R1 as soon as M6.V1 lands and may merge it during M6; it waits
+  on neither the sittings nor the visual direction (M6.O1).
 
-38 tickets (K 5, M 6, W 5, E 6, R 5, S 5, O 6, counted with the owner rows).
+40 tickets (K 5, M 6, W 5, E 6, R 5, S 7, O 6, counted with the owner rows).
 
 ### M7 is done when
 
