@@ -1162,7 +1162,7 @@ on no critical path, and interrupts no running lane. The full authoring UI is M5
 | M4.O3 | **owner decision**: whether SFSE-dependent features may be planned. Default **no**: KitKraft's output is plugins, archives and Papyrus; nothing it builds requires SFSE; CommonLibSF stays unread (GPL). A yes needs an ADR (distribution terms, Steam-only runtime) and lands in M5 at the earliest. **Decided 2026-10-14: default overturned** (ADR 0008): SFSE, native runtime extensions and analogous frameworks are supported where technically justified; core crates never depend on them; runtime components live behind `runtime/` (or an `RT` crate); CommonLibSF is not read or linked until its license exceptions are quoted and reviewed; SFSE binaries are never bundled; PC-first; first component M5 at the earliest | any task that finds a needed hook missing (M4.E7, M4.E9): it writes a runtime-need record (ADR 0008 §5) |
 | M4.O4 | **owner**: in-game session 2 on a disposable save: the M4.E7, M4.E8 and M4.E9 recipes (outpost object, fabricator recipe, cell ownership, placed NPC, script event) and the M4.E10 experiment | M4 exit (P0 and P1 deliverables) |
 | M4.O5 | **owner decision**: whether `package` may install into MO2's `mods\` directly. Default **no**: it writes a folder (and an optional zip) elsewhere and the owner installs it. **Decided 2026-10-14: default approved with an exception** (ADR 0009): `package` stays target-independent; a separate, explicitly invoked `kit deploy --dev` (M4.E11) writes one isolated `KitKraft Dev - <plugin>` mod with path validation, a hashed manifest, safe replacement, diagnostics and rollback, and never touches profiles, load orders or other mods | M4.E5, M4.E11 |
-| M4.O6 | **owner decision** (added 2026-10-15): rule on ADR 0010, agent-driven game sessions on `KitKraft Dev`. Default until decided: **no** (the agent cannot launch the game; every in-game row stays the owner's). A yes accepts the preflight refusals, the text-only channel, and the write limits of ADR 0010 §1-3, and answers: screenshots and desktop input injection in scope for M4.T5 or deferred; whether `crates/game` may add an HTTP client and a process crate (MIT/Apache-2.0) before the list is reviewed | lane T (M4.T1..T9); AGENTS.md "Agent-driven sessions" paragraph |
+| M4.O6 | **owner decision** (added 2026-10-15): rule on ADR 0010, agent-driven game sessions on `KitKraft Dev`. **Decided 2026-10-15: approved in principle** (ADR 0010 Amendment 1, with conditions; lane T continues as M5 lane C). Default until decided: **no** (the agent cannot launch the game; every in-game row stays the owner's). A yes accepts the preflight refusals, the text-only channel, and the write limits of ADR 0010 §1-3, and answers: screenshots and desktop input injection in scope for M4.T5 or deferred; whether `crates/game` may add an HTTP client and a process crate (MIT/Apache-2.0) before the list is reviewed | lane T (M4.T1..T9); AGENTS.md "Agent-driven sessions" paragraph |
 | M4.O7 | **owner** (after a yes on M4.O6): install into the `KitKraft Dev` profile only, through MO2, the run-only tools Console API and Web Application (Nexus 4280, v2.17.0), Console Command Runner Updated (Nexus 7318, v1.11.0) and, optionally, Console Output To File (Nexus 3142, v1.21); add to the profile's `StarfieldCustom.ini` `[General] bAlwaysActive=1` and `[Papyrus] bEnableLogging=1 bEnableTrace=1 bLoadDebugInformation=1`; set the profile's `StarfieldPrefs.ini` to windowed; create and name a disposable base save (`KitKraftBase`) on the dev profile in a quiet interior cell; record the versions in `docs/source-registry.md` rows CONSOLE-API, CCR-UPDATED, CONSOLE-OUTPUT-FILE. Agents do not download these (Nexus requires the owner's login) | M4.T1 (V0) |
 
 Unchanged and still open: owner decision 5 (Sim Settlements 2: **later**; rung 3 needs
@@ -1269,3 +1269,195 @@ NPC uses a vanilla cell that has one); the `ONAM` rule for edited vanilla refere
   writing save files stays out even then (sessions use the game's `save` and `load`).
 - Oracles beyond SF1Edit and Spriggit; changing the xEdit pin; revisiting decided
   licensing.
+
+## M5: CK-backed world authoring and automated runtime testing
+
+Goal (owner, 2026-10-15, `docs/foothold/owner-decisions-2026-10-15.md`): KitKraft's world
+authoring is checked against the Creation Kit, and its in-game claims are closed by
+repeatable, isolated, automated game sessions that record save/reload results. Every
+capability carries six separate statuses (parsed, typed-readable, typed-writable,
+CK-differential-tested, game-runtime-tested, save/reload-verified); where each stands
+today is `docs/foothold/gap-matrix.md`. Foothold is the benchmark, not the deliverable
+(ADR 0011): `FTH-EXP-nn` tickets are experiments built from general capabilities, and no
+Foothold narrative, balance, asset or content work is in M5.
+
+This section extends the scope line at the top of this file to M5. M5 starts on
+2026-10-15 while M4 closes: M4 tasks keep their ids, owners and exit criteria, and the
+lane T tasks M4.T1..T10 become lane C below under their M4 ids. `ROADMAP.md`'s "M5+:
+editor" (the full authoring UI) moves after this milestone; it is not re-planned here.
+The dependency graph is `docs/foothold/dependency-graph.md`; the sprint that starts now is
+`docs/foothold/next-sprint.md`. Reporting follows AGENTS.md "Reporting".
+
+### Binding constraints (owner rulings 2026-10-15)
+
+1. **Schema presence is not feature support.** A cell of the gap matrix moves only with
+   the test, fixture or ledger entry that proves it.
+2. **Statuses stay apart.** Validation is `not-run`, `pass`, `fail` or `inconclusive`;
+   missing observational evidence is `inconclusive`, never `pass` (ADR 0010 Amendment 1).
+3. **CK work is owner-assisted until proven otherwise** (addendum item 5). No task assumes
+   an unattended CK operation works; M5.A4 is the experiment that may change that.
+4. **Fixtures prefer `Starfield.esm` as their only master**; no paid DLC is a mandatory
+   dependency (ADR 0011 §3).
+5. **No refactor, no new crate** except `crates/game` (ADR 0010 rule 5), no layer change,
+   no licensing revisit. Prototypes go to `prototypes/` and use `kit` only (ADR 0011 §2).
+6. **CK sources stay local** under `C:\Modding\tools` (ADR 0011 §4); facts from them are
+   cited as `corpus:` without quoting.
+
+### Lanes (ownership)
+
+M5 lanes are lettered after the owner's priorities A to F. They replace the M4 lane
+letters for M5 tickets only; the crate ownership below decides who edits what.
+
+| Lane | Name | Owns |
+| ---- | ---- | ---- |
+| A | CK oracle | The `oracle ck` subcommand in `xtask`; `docs/ck-observations.md` session scripts and ledger; `docs/ck-parity.md` |
+| B | Papyrus | `crates/pex`; engine `handlers/papyrus*`; `docs/recipes/scripts*`; the CK rows of `docs/source-registry.md` |
+| C | runtime (was M4 lane T) | As lane T: `crates/game` (L3), engine `handlers/game/`, the `probes.toml` half of `handlers/testplan.rs`, `docs/game-sessions.md`, `observe/` layout; plus the `inconclusive` change to `docs/game-observations.md`'s format |
+| D | authoring | Engine `edit/`, `validate/`, `build/`, `handlers/{new,clone,place,set,build}*`; `docs/recipes/` (general recipes); for M5 only, the `defs/` files of `LCTN`, `TERM`, `TMLM`, `PKIN`, `FACT` (family lane rules; generated output through BX) |
+| E | persistence and workshop experiments | `prototypes/foothold/`; `docs/design/persistence.md`; the FTH-EXP rows of both ledgers |
+| F | documentation | `docs/engine-limitations.md` (new), `docs/compatibility.md` (new), `docs/foothold/` (except the owner's verbatim files) |
+| H | research | `docs/research/hostile-encounters.md` (new) |
+| BX | schema integrator (role of the M4 lane F) | as M4.BX1, for every M5 `defs/` change |
+| O | owner | decisions, installs, CK sessions, game sessions the controller cannot close |
+
+### Lane A: CK oracle
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M5.A1 | CK session script for the golden fixtures, owner-assisted. **F29**: the first POI authored in the CK (base `Starfield.esm:1E4FBD`, cell `Starfield.esm:21966F`, the POI's position and rotation, persistent, EditorID `KitKraftFirstPOICrate`), saved with `Starfield.esm` as its only master. **F30**: the CK opens `KitKraftFirstPOI.esm` and saves it unchanged under a new name (the re-export half of Gate K0). Then F21, F20 and F06 from the existing matrices. Each with its `fixture.toml` (`cargo xtask observe new <id>`), the CK build (1.16.244.0), the masters' SHA-256 and steps a person, or a computer-use agent watched by the owner, can follow | - | Appended to `docs/ck-observations.md`; F29's `kit_equivalent` is `docs/poi/first-poi.toml`; no step assumes unattended CK operation |
+| M5.A2 | `cargo xtask oracle ck <fixture-dir>...`: per fixture `roundtrip --verify` and `--decode`, `validate`, `coverage`, the `kit_equivalent` build, byte runs and `kit diff` against it; each difference classed `identical`, `explained` (an allow-list entry that cites a ledger finding, such as record header stamps) or `unexplained`; non-zero exit on `unexplained`; report in the fixture folder and one summary line for the ledger. Builds on `cargo xtask observe` (M3.H2) | M3.H2 (done) | Tests on synthetic fixture folders (identical, explained, unexplained) with a fake `kit`; nothing written outside the fixture folder; `docs/oracles.md` section |
+| M5.A3 | Golden run: F29 and F30 through M5.A2; ledger entries; members the differential confirms raised to `ck-diff` confidence (a request to the family lane, merged by BX); the `docs/gaps.md` rows on header stamps and new-plugin group order closed or restated | M5.A2, M5.O1 | F29 roundtrips byte-identical through KitKraft; F29 against `KitKraftFirstPOI.esm` and F30 against its input show no `unexplained` difference; the gap matrix's CK-diff cells for `TES4`, `GRUP`, `CELL`, `REFR` filled |
+| M5.A4 | *(experiment)* Unattended CK: whether a CK command line or a computer-use agent saves F29 reproducibly with no person at the keyboard (black box only, ADR 0001) | M5.A3 | A result in `docs/ck-observations.md` either way; CK fixtures stay owner-assisted until it passes |
+| M5.A5 | The remaining fixtures F20..F28 (M4.O1's matrix) through M5.A2 as the owner records them; M4.A1..A6's rules raised to `ck-diff` where they agree | M5.A2, later M5.O1 sittings | One ledger entry per fixture; M4.H2's findings filed |
+
+### Lane B: Papyrus
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M5.B1 | Provenance of the local CK sources: check `C:\Modding\tools\ck-sources\` against `ContentResources.zip` (file list and per-file SHA-256 kept outside the repo; counts and the list's hash in the registry row); `papyrus.events` gives the same index from the folder and from the zip | - | Row CK-CONTENT-RESOURCES complete (who extracted, when, complete or not); a test, ignored without the install, compares the two indexes |
+| M5.B2 | PEX differential: `kit papyrus compile` against the official compiler run as the CK runs it (the flags and imports the CK uses, observed black box), for `KitKraft:HelloOnLoad` and a seeded sample of 50 base-game sources; normalized semantic comparison through `papyrus disasm --json` (compile time, user and machine stripped; functions, states, properties, instructions and string tables compared); raw bytes reported separately | M5.B1 | `docs/research/pex-differential.md` with a result per script; every semantic difference explained (flags) or filed; no source text quoted |
+| M5.B3 | The scripted activator in game: `docs/recipes/scripts.md` "In game" closed by the owner (M4.O4, row O4-07) or by lane C (M4.T6); then a variant that fires on `OnActivate` on a placed `ACTI` reference, the wording of Gate K0 | M4.O4 or M4.T6 | Ledger entry: loads, fires once per expected event, `Times` read from `VMAD` (two notifications); save/reload row filled |
+
+### Lane C: runtime (M4 lane T)
+
+M4.T1..T10 keep their ids, text and acceptance (M4, "Lane T"), with ADR 0010 Amendment 1
+added to every one. New tickets:
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M5.C1 | Amendment 1 in the controller, delivered with M4.T3: backups and restore-only rollback of the profile's list files and INIs; the authorized-path list asserted by a test; session and per-probe timeouts; `inconclusive` with its rules; the reproducible-setup header in each ledger entry; `docs/game-observations.md`'s result column gains `inconclusive` | M4.T3 | Tests on a fixture MO2 instance: a changed `plugins.txt` is restored and the session marked `inconclusive`; a missing log or screenshot makes its row `inconclusive`; a write outside the list fails the test |
+| M5.C2 | First unattended save/reload: M4.T5 cut to rows O2-06, O2-07 and O2-08 on the first POI (persistence protocol steps 1 to 4 by console `save KitKraftSession-<date>-<nn>` and `load`) | M4.T3, M5.C1, M4.O7 | The controller writes a ledger entry with O2-08 `pass`, `fail` or `inconclusive` and its evidence; compared with the owner's M4.O2 persistence row when that exists |
+
+### Lane D: authoring (support depth, typed write, reference integrity)
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M5.D1 | Support-depth matrix generated: `cargo xtask parity` derives Parsed and Typed-readable per type from coverage, and reads Typed-writable, CK-diff, Game and Save/reload from a checked-in evidence table (`docs/support-evidence.toml`: type, status, citation), producing the family table of `docs/foothold/gap-matrix.md` | - | `parity --check` fails on a stale matrix; a test checks that every cited test name, file or ledger id exists |
+| M5.D2 | `LCTN` typed write: `new` and `clone` of a location (parent, keywords, persistent-reference lists, marker data where typed); the 8 `reference` members raised to `corpus` or left refused with the reason; integrity: every FormID member resolves, and an added-persistent-reference entry names a persistent reference of the plugin or its masters (a new `validate` warning until a CK fixture or game row confirms it) | BX for the `defs/` change | Tests through `execute`; a corpus test: cloning a seeded sample of official locations re-encodes identically apart from FormID and EditorID; recipe `docs/recipes/location.md` |
+| M5.D3 | `TERM` typed write: `clone` of a vanilla terminal and its `TMLM` menu, menu items naming new forms with `new:`; conditions copied as bytes; integrity of the menu and its targets | BX | As M5.D2; recipe `docs/recipes/terminal.md` |
+| M5.D4 | `PKIN` typed write: `clone` of a pack-in with its content list; component bodies copied as stored; integrity of the references the typed members expose; the `VNAM` misread by signature lookup fixed or refused | BX | As M5.D2 |
+| M5.D5 | `FACT` typed write: `new` faction with relations and ranks (the rank group raised from `reference` or refused); the ownership recipe gains a new-faction variant | BX | As M5.D2 |
+| M5.D6 | Reference integrity across the four types: `refs` and `formid.dangling` follow `VMAD` object property values (the lane E request in STATUS) and count what they cannot see | M5.D2..D5 | Corpus run with newly visited FormIDs per type in STATUS; no new unexplained error on the official files |
+| M5.D7 | Gate K0 mini-plugin, a general recipe (`docs/recipes/mini-site.toml`): a new `LCTN`, a placed `ACTI` reference with the M4.E9 script, a `TERM` clone and a `KYWD`, linked to each other, `Starfield.esm` only | M5.D2, M5.D3 | `validate` 0/0 with no dangling reference; roundtrip identical; testplan and probes written; game and save/reload rows by lane C or the owner |
+
+### Lane E: persistence and workshop experiments (Foothold)
+
+The engineering surface's EXP-01..EXP-12 (section J) as `FTH-EXP-nn`. Every status is the
+owner's vocabulary; all are `not-run` today unless the row says otherwise. Each produces
+a prototype under `prototypes/foothold/` and ledger rows; a failure is a result and goes
+to `docs/engine-limitations.md`.
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| FTH-EXP-01 | Authored-POI workshop (not-run): an authored exterior location with `LocTypeOutpost`, marker and beacon; place, power, move, reload | M5.D2, M5.D4, M5.D7, M5.A5 (a CK twin of the beacon setup), M5.C2 | Ledger rows for place, move and reload, each with a status; the CK twin's differential |
+| FTH-EXP-02 | Interior decorator (not-run): a connected interior with a decoration activator | FTH-EXP-01 | As FTH-EXP-01, interior |
+| FTH-EXP-03 | Stable claim (not-run): scripted claim terminal, owned location; theft, trespass and ownership through travel and save. Inputs: the ownership recipe (O4-01, O4-02), PS-39 (O4-21) | M5.D3, M5.D5, M5.B3, M5.C2 | Rows per scope (reference, cell, location) |
+| FTH-EXP-04 | Restoration stages (not-run): enable and disable groups across three stages; PS-12 (O4-13); the initially-disabled flag is at `reference` confidence today | M5.C2, M5.A5 | Stage state after reload per stage |
+| FTH-EXP-05 | Site-dependent resource (not-run): a scripted producer that only its linked node feeds | M5.B3, M5.D7 | No production elsewhere, no duplicates on load |
+| FTH-EXP-06 | Instance identity (not-run): two generated locations from one POI template; PS-32 (O4-20); builds on M4.E10 | M4.E10, M5.C2 | A go/no-go for procedural claims with its evidence |
+| FTH-EXP-07 | Reset protection (not-run): PS-23, PS-24, PS-26..PS-28 (O4-18, O4-19) and the long absence of O2-09 | M5.C2 | Rows per reference kind after more than 168 in-game hours |
+| FTH-EXP-08 | Crew and navigation (not-run): the actors recipe (O4-03, O4-04); navmesh only from the CK (F22) | M5.A5 (F22), M5.C2 | Route and assignment rows |
+| FTH-EXP-09 | Free Lanes interoperability (not-run): `SFBGS00D.esm` shared outpost storage; an optional fixture (ADR 0011 §3) | FTH-EXP-01, M5.F3 | Rows with and without the shared container |
+| FTH-EXP-10 | Master-aware roundtrip (partial: decode with full, medium and small masters passes on the corpus; new forms in small or medium plugins refused; `FE`/`FD` runtime IDs not-run) | M5.A5 (F11, F26), M5.C2 | xEdit or CK and a game row agree on every identity |
+| FTH-EXP-11 | Packaging, loose against BA2 (not-run in game; `package` writes both) | M5.C2 | The same probes pass on both installs |
+| FTH-EXP-12 | Update and uninstall (not-run) | FTH-EXP-03, M5.C2 | Migration or a documented refusal; no silent loss |
+
+### Lane F: documentation
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M5.F1 | Engine limitation register `docs/engine-limitations.md`: experiment, exact API or CK behaviour, game build, workaround tried, observed failure, hook rationale (ADR 0008 §5 records link to it); seeded from evidence only (navmesh is CK-only, component blocks raw, `CTDA` raw, new forms in small or medium plugins refused, no save-file reading) | - | Every row cites a test, a `docs/gaps.md` row or a ledger entry; nothing from the brief without evidence |
+| M5.F2 | Keep `docs/foothold/gap-matrix.md` current after every M5 merge until M5.D1 generates it | each merge | The matrix names the commit it was checked at |
+| M5.F3 | Installed-version and DLC compatibility matrix `docs/compatibility.md`: game, CK, SFSE, Papyrus compiler, xEdit; every official master with SHA-256 (`corpus/manifest.toml`), scale and masters, and the product that ships it (the owner's mapping checked against the Steam install manifests, read only) | - | The owner's DLC mapping confirmed or corrected with evidence; ADR 0011 §3 points to it |
+| M5.F4 | Ledger transcription: the owner's M3.O5 and M4.O2 results into `docs/game-observations.md` as entries with the plugins' hashes; rows the owner did not report stay `not-run` | - | Two entries; the gap matrix's G-OVH and G-POI cite them |
+
+### Lane H: research
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M5.H1 | *(research)* Hostile encounters before hooks (addendum item 3): from the corpus and our docs (`kit query`, `refs`, `papyrus events`), how vanilla starts, runs and ends hostile encounters at outposts and in the Starborn and Armillary content (story manager event nodes, quests and their script events, encounter zones, leveled actors, cooldown globals), and what prior-art attack managers do (their published documentation only; no GPL source read); each fact sourced and graded (ADR 0005 Am. 3); then a proposal for one generic fixture and its probes, or a runtime-need record (ADR 0008 §5) if no data or Papyrus path exists | - | `docs/research/hostile-encounters.md`; no runtime hook proposed before it; no Foothold attack design |
+| M5.H2 | *(backlog)* The generic hostile-encounter fixture M5.H1 proposes: configurable trigger, actors, faction, spawn location and cooldown; deterministic test trigger; cancel and cleanup; save/reload; attended and unattended | M5.H1, M5.C2, M5.D7 | Not scheduled in M5 |
+
+### Owner (lane O)
+
+| ID | Task | Gates |
+| -- | ---- | ----- |
+| M4.O7 | Unchanged (M4): install the Console API, Console Command Runner Updated and optionally Console Output To File into `KitKraft Dev` through MO2; the INI switches; the base save `KitKraftBase` (its name and SHA-256 recorded). Agents do not download or install them | M4.T1, so all of lane C |
+| M5.O1 | Owner-assisted CK sitting 1, from M5.A1's script: F29 (place one crate and save) and F30 (open `KitKraftFirstPOI.esm`, save a copy), screenshots, files into `observe\<date>-F29\` and `-F30\`; a computer-use agent may drive the CK while the owner watches | M5.A3, so path (a) below |
+| M5.O2 | Confirm `crates/game`'s dependency list at the M4.T3 merge (ADR 0010 Amendment 1 (c)); blocks only if a license is not MIT or Apache-2.0 | M4.T3 merge |
+| M5.O3 | M4.O4 rows not closed by lane C (the scripted activator O4-07 included) and the M4.O2 persistence row stay the owner's; lane C may close them first | M5.B3, FTH-EXP rows |
+
+### The shortest validated path
+
+From `main` at `fcb443a` to (a) a CK-authored golden fixture round-tripping through KitKraft
+with a clean differential, and (b) one unattended game session recording a save/reload
+result. Owner actions in bold.
+
+(a) CK golden fixture:
+
+1. M5.A1: the F29/F30 session script (agent). In parallel, M5.A2: `cargo xtask oracle ck`
+   (agent).
+2. **M5.O1: the owner-assisted CK sitting for F29 and F30** (CK fixture authoring is
+   owner-assisted at first; addendum item 5).
+3. M5.A3: F29 roundtrips byte-identical and shows no `unexplained` difference against
+   `KitKraftFirstPOI.esm`; F30 against its input likewise. (a) is reached.
+
+(b) Unattended save/reload:
+
+1. **M4.O7: the owner installs the Nexus console plugins into `KitKraft Dev`, sets the INI
+   switches and makes `KitKraftBase`** (agents cannot download from Nexus). In parallel:
+   M4.T2 (`probes.toml`, agent), and the parts of M4.T3 + M5.C1 that need no game
+   (preflight, backups and rollback, probe runner against a fake endpoint, ledger writer).
+2. M4.T1: session facts and V0 (`GetSFSEVersion` over HTTP), after M4.O7.
+3. M4.T3 + M5.C1 finished with M4.T1's launch facts; **M5.O2: the owner confirms the
+   dependency list at the merge**.
+4. M5.C2: the controller loads `KitKraftBase`, checks the first POI, saves
+   `KitKraftSession-*`, reloads and records O2-08 as `pass`, `fail` or `inconclusive`.
+   (b) is reached.
+
+Neither path needs lane D, E or H. Gate K0's other two open items (the mini-plugin in game
+and the scripted activator firing) follow from M5.D7 and M5.B3 once (b) exists.
+
+### M5 is done when
+
+- Paths (a) and (b) are reached, and M5.A5 has run every fixture the owner recorded.
+- `LCTN`, `TERM`, `PKIN` and `FACT` are typed-writable with reference integrity (M5.D2..D6),
+  and the K0 mini-plugin (M5.D7) has game and save/reload rows.
+- Gate K0 is met: the scripted activator fires in game (M5.B3) and the CK re-export
+  differential is clean (M5.A3).
+- The PEX differential (M5.B2) is recorded; the CK sources' provenance is complete (M5.B1).
+- Every FTH-EXP ticket has a status with evidence (`not-run` with its reason counts).
+- `docs/engine-limitations.md`, `docs/compatibility.md` and a generated gap matrix exist;
+  `docs/research/hostile-encounters.md` exists.
+- `cargo xtask ci` is green; the full corpus roundtrip is still identical.
+
+## Not in M5
+
+- Foothold narrative, quests, balance, asset polish, release readiness, and the full
+  Foothold attack system (ADR 0011).
+- The full authoring UI (`ROADMAP.md` "M5+: editor"), navmesh generation, terrain, mesh
+  and material authoring.
+- Unattended CK operation as an assumption (M5.A4 decides it); desktop input injection
+  into the game (ADR 0010 Amendment 1 (b)).
+- Reading or writing save files (sessions use the game's own `save` and `load`).
+- A paid DLC as a mandatory dependency; Sim Settlements 2 content.

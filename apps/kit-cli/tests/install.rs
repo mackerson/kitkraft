@@ -6,7 +6,8 @@
     clippy::expect_used,
     clippy::unwrap_used,
     clippy::indexing_slicing,
-    clippy::arithmetic_side_effects
+    clippy::arithmetic_side_effects,
+    clippy::panic
 )]
 
 use std::path::{Path, PathBuf};
@@ -44,8 +45,17 @@ impl Sandbox {
         self.root.join("my repo").join("dist").join("KitKraft")
     }
 
-    /// Runs the copied `kit.exe` (so its own folder is the dist folder).
+    /// Runs the copied `kit.exe` (so its own folder is the dist folder). The temp home is
+    /// not the one a running Claude Code rewrites, so the running check is skipped
+    /// (`--force-while-running`); [`Sandbox::kit_unforced`] keeps it.
     fn kit(&self, args: &[&str]) -> Output {
+        let mut all: Vec<&str> = args.to_vec();
+        all.push("--force-while-running");
+        self.kit_unforced(&all, &[])
+    }
+
+    /// [`Sandbox::kit`] without `--force-while-running`, with extra variables.
+    fn kit_unforced(&self, args: &[&str], vars: &[(&str, &str)]) -> Output {
         let home = self.root.join("home");
         let env = self.root.join("env.json");
         let mut all: Vec<&str> = args.to_vec();
@@ -55,10 +65,12 @@ impl Sandbox {
             "--env-file",
             env.to_str().unwrap(),
         ]);
-        Command::new(self.dist().join("kit.exe"))
-            .args(&all)
-            .output()
-            .expect("run kit")
+        let mut cmd = Command::new(self.dist().join("kit.exe"));
+        cmd.args(&all).env_remove("KITKRAFT_MO2_DIR");
+        for (k, v) in vars {
+            cmd.env(k, v);
+        }
+        cmd.output().expect("run kit")
     }
 
     fn json(&self, path: &Path) -> Value {
@@ -127,6 +139,44 @@ fn dry_run_then_apply_then_uninstall() {
     assert!(!s.root.join("home").join(".claude.json").exists());
     assert!(!s.root.join("my repo").join(".mcp.json").exists());
     assert!(!s.dist().join("install-state.json").exists());
+    let _ = std::fs::remove_dir_all(&s.root);
+}
+
+/// Black box on this machine: when `tasklist` shows Claude Code (as it does when the gate
+/// runs under it), `--apply` stops before anything changes and says so in one line.
+#[test]
+fn apply_stops_while_claude_code_runs() {
+    let s = Sandbox::new("running");
+    let env_before = std::fs::read(s.root.join("env.json")).unwrap();
+    let check = s.kit_unforced(&["install", "--check-running"], &[]);
+    let said = text(&check);
+    match check.status.code() {
+        Some(0) => {
+            assert!(said.contains("not running"), "{said}");
+            eprintln!("Claude Code is not running here; the refusal is covered by the unit test");
+        }
+        Some(1) => {
+            assert!(said.contains("Claude Code is running"), "{said}");
+            let o = s.kit_unforced(&["install", "--apply"], &[]);
+            assert_eq!(o.status.code(), Some(2), "{}", text(&o));
+            assert!(text(&o).contains(said.trim()), "{}", text(&o));
+            assert!(text(&o).contains("nothing was changed"), "{}", text(&o));
+            assert!(!s.root.join("home").join(".claude.json").exists());
+            assert_eq!(std::fs::read(s.root.join("env.json")).unwrap(), env_before);
+        }
+        other => panic!("--check-running exited {other:?}: {said}"),
+    }
+    let _ = std::fs::remove_dir_all(&s.root);
+}
+
+/// `KITKRAFT_DETECT=0` turns detection off for the default MCP args too: no `--profile`
+/// of a detected instance (the dev box has one at C:\Modding\MO2-Starfield).
+#[test]
+fn detection_off_gives_plain_mcp_args() {
+    let s = Sandbox::new("nodetect");
+    let o = s.kit_unforced(&["install"], &[("KITKRAFT_DETECT", "0")]);
+    assert!(o.status.success(), "{}", text(&o));
+    assert!(text(&o).contains(r#"args ["mcp"]"#), "{}", text(&o));
     let _ = std::fs::remove_dir_all(&s.root);
 }
 

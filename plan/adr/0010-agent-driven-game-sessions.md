@@ -1,7 +1,9 @@
 # ADR 0010: Agent-driven game sessions on the dev profile
 
-- Status: **Proposed** (drafted 2026-10-15 at the owner's request; becomes binding when the
-  owner records a ruling under `plan/execution-plan.md` M4.O6)
+- Status: **Approved in principle** (owner ruling 2026-10-15, decisions item 6 and addendum
+  item 5; decides `plan/execution-plan.md` M4.O6). Drafted 2026-10-15 as Proposed; the
+  ruling's conditions and the answers to the open sub-questions are Amendment 1 below,
+  which wins over the text above it where they differ
 - Date: 2026-10-15
 - Scope: policy and design constraints for an agent launching Starfield on the MO2 profile
   `KitKraft Dev`, driving it through a console channel, and recording what it observes.
@@ -171,3 +173,81 @@ is proven game-agnostic without implementing them.
 - Open for the owner in M4.O6: (a) accept, amend or reject this ADR; (b) whether
   screenshots and desktop input injection are in scope for M4.T5 or deferred; (c) whether
   `crates/game` may add its two dependencies before the owner has seen the list.
+
+## Amendment 1: owner ruling 2026-10-15 (M4.O6), approved in principle
+
+Recorded from `docs/foothold/owner-decisions-2026-10-15.md` (decision 6) and
+`docs/foothold/owner-addendum-2026-10-15.md` (item 5), quoted verbatim:
+
+> **ADR 0010 automation:** APPROVED IN PRINCIPLE. Build an unattended runtime experiment lane
+> using isolated game profiles, disposable saves, explicit authorized paths, backups,
+> reproducible setup, logs, screenshots, timeout handling, and rollback. Never run tests
+> against personal saves or unrelated mod installations. Treat missing observational evidence
+> as inconclusive, not passed. Retain manual acceptance where automated evidence is
+> insufficient.
+
+> CK fixture creation may initially be owner-assisted. Do not assume unattended CK operations
+> work until proven. Automated runtime experiments must retain distinct not-run, pass, fail, and
+> inconclusive statuses, with reproducible evidence.
+
+The lane is renamed in the plan: lane T's tasks M4.T1..T10 keep their ids and become
+M5 lane C ("runtime"; `plan/execution-plan.md`, M5). The decision and rules 1 to 6 above
+stand, with these conditions, which are binding on every session the controller runs:
+
+1. **Isolated profile only.** The controller runs on the dev profile `KitKraft Dev` (MO2
+   folder `Kitkraft Dev`) and nothing else; `Default` and any profile not named in the call
+   is a refusal (rule 1 already). "Unrelated mod installations" means any other MO2
+   instance or game folder: the controller names one MO2 instance and refuses a second.
+2. **Disposable saves only.** It loads only the owner's base save named in the call
+   (`KitKraftBase` by default, made under M4.O7) and saves only `KitKraftSession-*`;
+   personal saves are never loaded, even read-only. A base save that the controller cannot
+   prove is the named one (name and SHA-256 recorded at M4.O7) is a refusal.
+3. **Explicit authorized paths.** The controller writes only the paths on this list, and a
+   test asserts it (M5.C1): `observe\<yyyy-mm-dd>-T<nn>\` (outputs, copied logs,
+   screenshots, backups); `docs/game-observations.md` (one appended entry); the dev
+   profile's `saves\KitKraftSession-*.sfs` (made by the game on the controller's console
+   command); and, for rollback only, the files named in condition 4, restored byte for
+   byte from its own backup. The game itself writes its logs and settings as it always
+   does; the controller does not write them.
+4. **Backups and rollback.** Before launch the controller copies the dev profile's
+   `modlist.txt`, `plugins.txt`, `loadorder.txt`, `lockedorder.txt`, its INIs and the base
+   save into `observe\<session>\backup\` with their SHA-256. After the game exits it
+   compares hashes (rule 2); on a difference it restores the backup copy, records the
+   difference as a finding (`plan/STATUS.md`, "Requests") and marks the session
+   `inconclusive`. The plugin under test is rolled back with `deploy.rollback` (ADR 0009),
+   never by hand.
+5. **Reproducible setup.** Each ledger entry names the game build, SFSE build, the
+   Console API and Console Command Runner versions, the base save's SHA-256, every
+   KitKraft plugin's SHA-256 and the `probes.toml` hash, so the session can be rerun
+   (`cargo xtask game-regress`, M4.T7).
+6. **Timeouts.** A wall-clock budget per session and a per-probe timeout; a probe that
+   times out is `inconclusive (timeout)`, the remaining rows are `not-run (timeout at row
+   X)`, and the game is terminated (rule 2).
+7. **Statuses.** Every probe row is exactly one of `not-run`, `pass`, `fail`,
+   `inconclusive`, with the reason for every status but `pass`. **Missing observational
+   evidence is `inconclusive`, never `pass`:** a matcher with no output to match, a log
+   that was not written, a screenshot that was not taken where the row asks for one. The
+   ledger format (`docs/game-observations.md`) gains `inconclusive` (M5.C1).
+8. **Logs and screenshots.** Both are in scope. Screenshots are evidence attached to a
+   row, never its verdict (Decision 3 stands); a row whose matcher is `manual` and has only
+   a screenshot is `inconclusive` until the owner looks at it.
+9. **Manual acceptance retained.** The owner's sessions keep the last word; a row the
+   controller cannot close stays the owner's, and `plan/STATUS.md` names it.
+
+Answers to the open sub-questions ("Consequences", last bullet), as the ruling implies
+them:
+
+- (a) Accepted in principle, with conditions 1 to 9.
+- (b) Screenshots: **in scope** (the ruling lists them). Desktop input injection
+  (keystrokes or clicks sent to the game window): **deferred**; the ruling names none and
+  the console channel covers every planned probe. A task that finds it needs input
+  injection writes the need into `plan/STATUS.md` "Requests" and waits for the owner.
+- (c) `crates/game`'s HTTP client and process crate: allowed under MIT or Apache-2.0
+  only, listed in this ADR before the first merge (rule 5); the owner confirms the list at
+  that merge, as for the workbench's list (ADR 0007, "Dependency list"). A crate under any
+  other license waits for the owner.
+
+**Still the owner's:** M4.O7, installing the Console API, Console Command Runner Updated
+and (optionally) Console Output To File into `KitKraft Dev` through MO2, setting the INI
+switches and creating `KitKraftBase`. Nexus downloads need the owner's login; no agent
+downloads or installs them. Lane C's sessions (M4.T1 onward) start only after M4.O7.

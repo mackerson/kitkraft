@@ -208,6 +208,41 @@ gate is the CI.
 - Read `plan/STATUS.md`, then `plan/execution-plan.md`, before starting. Update STATUS when
   you finish a task.
 
+## Reporting (binding; owner decision 4, 2026-10-15)
+
+Tickets and their dependencies live in `plan/execution-plan.md` (M5 onward) and
+`docs/foothold/`, not here. General KitKraft tickets are `M5.<lane><n>`; Foothold
+experiments are `FTH-EXP-nn` (ADR 0011). Every ticket hand-off (at most 40 lines) ends with
+this block:
+
+```yaml
+id: M5.D2            # or FTH-EXP-01
+priority: P0         # P0 | P1 | P2 | EXP | DEFER
+owner: <agent-or-lane>
+requires: [<ticket-ids>]
+output: <source files, fixture ids, plugin SHA-256>
+source_provenance: [<xedit:...@sha#Lx-Ly | corpus:... | ck-diff:... | game:<entry>/<row>>]
+validation:
+  parse: pass|fail|not-run|inconclusive
+  byte_roundtrip: pass|fail|not-run|inconclusive
+  ck_open: pass|fail|not-run|inconclusive
+  ck_reexport: pass|fail|not-run|inconclusive
+  game_runtime: pass|fail|not-run|inconclusive
+  save_reload: pass|fail|not-run|inconclusive
+limits: [<known unsupported behaviour>]
+result: proven|partial|blocked|hypothesis
+```
+
+- **Capability statuses are six, never collapsed into one flag:** parsed, typed-readable,
+  typed-writable, CK-differential-tested, game-runtime-tested, save/reload-verified
+  (`docs/foothold/gap-matrix.md` defines each and holds the current state).
+- **Schema presence is not feature support.** A definition, a typed member or a passing
+  unit test does not make a capability game-runtime-tested.
+- **Every successful experiment links reproducible evidence**: a test name, a ledger
+  entry (`docs/game-observations.md`, `docs/ck-observations.md`), a commit, and the inputs'
+  hashes. A row with no observation is `not-run`; a run whose evidence is missing or
+  ambiguous is `inconclusive`, never `pass`.
+
 ## Owner decisions
 
 Don't stop to ask unless the decision is one of these. Everything else: decide and record it.
@@ -254,8 +289,9 @@ for every lane and every command:
   (once ADR 0010 is accepted) the game itself while a `kit game session` runs it on the
   dev profile: session saves named `KitKraftSession-*` and the logs the game writes.
 
-**Agent-driven sessions (ADR 0010, proposed 2026-10-15; binding when the owner rules on
-M4.O6).** The sentence "the agent cannot launch the game" no longer holds for the dev
+**Agent-driven sessions (ADR 0010, approved in principle 2026-10-15; its Amendment 1
+conditions bind: isolated profile, disposable saves, authorized paths, backups and
+rollback, timeouts, `inconclusive` for missing evidence).** The sentence "the agent cannot launch the game" no longer holds for the dev
 profile. An agent may launch Starfield **only** through the lane T session controller
 (`kit game session`), which: refuses to start when MO2's selected profile is `Default` or
 is not the dev profile, when `Starfield.exe`, `CreationKit.exe` or `ModOrganizer.exe` is
@@ -301,3 +337,5 @@ where the two disagree.
 | `docs/gaps.md`           | Known gaps; check before claiming something works             |
 | `docs/xedit-reference.md`| Pinned xEdit revision, license, coverage, Pascal-to-TOML map  |
 | `docs/corpus.md`         | Roundtrip corpus: which files, where, how it is used          |
+| `docs/foothold/`         | Owner's Foothold documents (verbatim), gap matrix, sprint plan |
+| `prototypes/<name>/`     | Exportable prototypes and test mods, used through `kit` only (ADR 0011) |

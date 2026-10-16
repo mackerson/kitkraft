@@ -244,7 +244,10 @@ fn installer(verb: &str, intro: &str, done: &str) -> String {
     format!(
         r#"title KitKraft: {verb}
 {intro}
-echo Close Claude Code first: it rewrites .claude.json while it runs.
+echo.
+"%KIT%" {verb} --check-running
+if errorlevel 2 goto failed
+if errorlevel 1 goto running
 echo.
 echo What would change:
 echo.
@@ -261,6 +264,11 @@ echo.
 {done}
 pause
 exit /b 0
+
+:running
+echo Nothing was changed. Close the Claude app and every claude session, then run this again.
+pause
+exit /b 1
 
 :cancelled
 echo Cancelled; nothing was changed.
@@ -299,6 +307,8 @@ This folder is everything you need day to day. Double-click a file:
                            terminal) and registers kit.exe as the "kitkraft" MCP
                            server for Claude Code. Shows every change first and asks.
                            Backups are made first. Running it twice is harmless.
+                           It stops while Claude Code runs (close the Claude app
+                           and every claude session first).
   Uninstall.cmd            Undoes Install.cmd.
   Finish Move.cmd          One time only: renames C:\Modding\kitcraft to
                            C:\Modding\kitkraft. Close every Claude Code session first.
@@ -538,7 +548,12 @@ mod tests {
         // found where NoDefaultCurrentDirectoryInExePath is set (seen under Claude Code).
         assert!(deploy.contains("('.\\kit.exe doctor --get mo2')"));
         assert!(get("KitKraft Workbench.cmd").contains("\"%KIT%\" ui --dev"));
-        assert!(get("Install.cmd").contains("\"%KIT%\" install --dry-run"));
+        let install = get("Install.cmd");
+        let check = install.find("\"%KIT%\" install --check-running").unwrap();
+        let dry = install.find("\"%KIT%\" install --dry-run").unwrap();
+        assert!(check < dry, "the running check comes before the dry run");
+        assert!(install.contains("goto running"));
+        assert!(get("Uninstall.cmd").contains("\"%KIT%\" uninstall --check-running"));
         assert!(get("Uninstall.cmd").contains("\"%KIT%\" uninstall --apply"));
         assert!(get("Finish Move.cmd").contains("finish_kitkraft_move.ps1"));
         assert!(get("KitKraft Shell.cmd").contains("kit doctor"));

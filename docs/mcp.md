@@ -1003,9 +1003,11 @@ Dev`), `load_order_source`, `load_index`, `appended`, `runtime_id_basis`
 
 Read-only. `profiles {instance?, data_dir?}`: the MO2 instance and its profiles, for the
 workbench's start screen. Without `instance` it looks, in order, at `KITKRAFT_MO2_DIR`,
-every instance under `%LOCALAPPDATA%\ModOrganizer` whose `gameName` is Starfield, and
-`C:\Modding\MO2-Starfield` (the dev box's portable instance); the first that holds a
-`ModOrganizer.ini` wins. `data`: `instance` (`root`, `found_by`, `game_name`, `game_dir`,
+then the instances `kit doctor` detects in its order (`C:\Modding\MO2-Starfield`, MO2's
+registry `CurrentInstance`, the other Starfield instances under
+`%LOCALAPPDATA%\ModOrganizer`; one implementation, `kitkraft_io::host`, so both name the
+same default, and like `kit doctor` it detects even with `KITKRAFT_DETECT=0`); the first
+that holds a `ModOrganizer.ini` wins. `data`: `instance` (`root`, `found_by`, `game_name`, `game_dir`,
 `profiles_dir`, `mods_dir`, `selected_profile`; `null` when none was found), `searched[]`
 (`path`, `source`, `found`), `profiles[]` (`name`, `path`, `live` for `Default`, the owner's
 live game, `dev` for `KitKraft Dev`, `selected`, `plugins_txt`), `data_dir` (`path`,

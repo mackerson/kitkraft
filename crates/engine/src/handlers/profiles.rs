@@ -1,17 +1,20 @@
 //! `profiles` (lane W, the workbench's first-run screen): read-only. The MO2 instance (the
-//! one given, else the first one found), its profiles with the owner's live game marked,
-//! and the Data folder a profile `load` would use.
+//! one given, else the default one), its profiles with the owner's live game marked, and
+//! the Data folder a profile `load` would use.
 //!
 //! Where an instance is looked for, in order: the `instance` argument (only it, when
-//! given); `KITKRAFT_MO2_DIR`; each instance folder under `%LOCALAPPDATA%\ModOrganizer`
-//! whose `gameName` is Starfield (MO2's global instances); `C:\Modding\MO2-Starfield`
-//! (the dev box's portable instance, AGENTS.md). Every place is listed in
-//! `data.searched` with whether it held an instance. Nothing is written, created or
-//! followed (`kitkraft_io::Instance`).
+//! given); `KITKRAFT_MO2_DIR`; then the instances `kit doctor` detects, in its order
+//! ([`kitkraft_io::host::Host::mo2_instances`]: `C:\Modding\MO2-Starfield`, MO2's
+//! `CurrentInstance`, the other Starfield instances under `%LOCALAPPDATA%\ModOrganizer`).
+//! One implementation ([`crate::host`]), so the start screen and `kit doctor` name the
+//! same default instance; like `kit doctor`, it detects even when `KITKRAFT_DETECT=0`.
+//! Every place is listed in `data.searched` with whether it held an instance. Nothing is
+//! written, created or followed (`kitkraft_io::Instance`).
 
 use std::ffi::OsString;
 use std::path::PathBuf;
 
+use kitkraft_io::host::{same_path, Host};
 use kitkraft_io::Instance;
 use serde_json::{json, Value};
 
@@ -19,69 +22,43 @@ use super::testplan::DEV_PROFILE;
 use super::{env_var_os, DATA_DIR_ENV};
 use crate::envelope::{Coverage, CoverageStatus, Outcome};
 use crate::exec::EngineError;
-
-/// Names an MO2 instance root when `instance` is not given.
-pub(crate) const MO2_DIR_ENV: &str = "KITKRAFT_MO2_DIR";
+use crate::host::mo2_from_env;
 
 /// The owner's live-game profile (AGENTS.md): read-only input, never a test target.
 const LIVE_PROFILE: &str = "Default";
-
-/// The dev box's portable instance (AGENTS.md, "Windows specifics").
-fn dev_box_instance() -> PathBuf {
-    PathBuf::from(format!("C:{}", std::path::MAIN_SEPARATOR))
-        .join("Modding")
-        .join("MO2-Starfield")
-}
 
 /// One place an instance was looked for.
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct Candidate {
     path: PathBuf,
-    source: &'static str,
+    source: String,
 }
 
-/// The places to look, in order. `instance` alone when given.
-fn candidates(
-    instance: Option<&str>,
-    env: Option<OsString>,
-    local_app_data: Option<PathBuf>,
-) -> Vec<Candidate> {
+/// The places to look, in order: `instance` alone when given; else `KITKRAFT_MO2_DIR`,
+/// the instances `host` detects (`kit doctor`'s order), then `host`'s fixed candidates
+/// detection skipped (listed so `searched` shows them).
+fn candidates(instance: Option<&str>, host: &Host) -> Vec<Candidate> {
     if let Some(i) = instance {
         return vec![Candidate {
             path: PathBuf::from(i),
-            source: "argument",
+            source: "argument".to_string(),
         }];
     }
-    let mut out = Vec::new();
-    if let Some(e) = env.filter(|e| !e.is_empty()) {
-        out.push(Candidate {
-            path: PathBuf::from(e),
-            source: MO2_DIR_ENV,
-        });
-    }
-    if let Some(root) = local_app_data.map(|l| l.join("ModOrganizer")) {
-        let mut global: Vec<PathBuf> = std::fs::read_dir(&root)
-            .map(|rd| rd.flatten().map(|e| e.path()).collect())
-            .unwrap_or_default();
-        global.sort();
-        for path in global.into_iter().take(64) {
-            let starfield = Instance::read(&path).is_ok_and(|i| {
-                i.game_name
-                    .as_deref()
-                    .is_some_and(|g| g.eq_ignore_ascii_case("Starfield"))
-            });
-            if starfield {
-                out.push(Candidate {
-                    path,
-                    source: "LOCALAPPDATA\\ModOrganizer",
-                });
-            }
+    let mut out: Vec<Candidate> = Vec::new();
+    let mut push = |path: PathBuf, source: String| {
+        if !out.iter().any(|c| same_path(&c.path, &path)) {
+            out.push(Candidate { path, source });
         }
+    };
+    if let Some(f) = mo2_from_env(&*host.env) {
+        push(f.path, f.how);
     }
-    out.push(Candidate {
-        path: dev_box_instance(),
-        source: "dev box default",
-    });
+    for f in host.mo2_instances() {
+        push(f.path, f.how);
+    }
+    for c in &host.mo2_candidates {
+        push(c.clone(), "default location".to_string());
+    }
     out
 }
 
@@ -122,18 +99,14 @@ fn profile_rows(instance: &Instance) -> Result<Vec<Value>, String> {
         .collect())
 }
 
-/// `profiles` with the environment passed in (tests run it without the process's).
-fn report(
-    args: &Value,
-    mo2_env: Option<OsString>,
-    local_app_data: Option<PathBuf>,
-    data_env: Option<OsString>,
-) -> Outcome {
+/// `profiles` with the host and the environment passed in (tests run it without the
+/// process's).
+fn report(args: &Value, host: &Host, data_env: Option<OsString>) -> Outcome {
     let arg = |n: &str| args.get(n).and_then(Value::as_str);
     let mut limitations = Vec::new();
     let mut searched = Vec::new();
-    let mut found: Option<(Instance, &'static str)> = None;
-    for c in candidates(arg("instance"), mo2_env, local_app_data) {
+    let mut found: Option<(Instance, String)> = None;
+    for c in candidates(arg("instance"), host) {
         let read = if found.is_none() {
             Instance::read(&c.path).ok()
         } else {
@@ -243,12 +216,7 @@ fn report(
 
 /// `profiles`.
 pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
-    Ok(report(
-        args,
-        env_var_os(MO2_DIR_ENV),
-        std::env::var_os("LOCALAPPDATA").map(PathBuf::from),
-        env_var_os(DATA_DIR_ENV),
-    ))
+    Ok(report(args, &Host::system(), env_var_os(DATA_DIR_ENV)))
 }
 
 /// Whether `dir` holds an instance (for the tests' fixtures).
@@ -293,8 +261,7 @@ mod tests {
         assert!(is_instance(&mo2));
         let out = report(
             &json!({"instance": mo2.display().to_string()}),
-            Some(OsString::from("Z:/ignored")),
-            None,
+            &host(Some(PathBuf::from("Z:/ignored")), Vec::new(), None, None),
             None,
         );
         let d = &out.data;
@@ -324,41 +291,115 @@ mod tests {
         let _ = std::fs::remove_dir_all(&base);
     }
 
-    #[test]
-    fn detection_order_env_then_global_instances_then_the_dev_box() {
-        let base = fixture("detect");
-        let mo2 = base.join("MO2");
-        // A global instance folder of another game is skipped.
-        let local = base.join("Local");
-        let other = local.join("ModOrganizer").join("Skyrim");
-        std::fs::create_dir_all(&other).unwrap();
+    /// A host with `KITKRAFT_MO2_DIR` = `env_mo2`, the fixed candidates `portable`, the
+    /// `%LOCALAPPDATA%` `local` and MO2's `CurrentInstance` = `current`.
+    fn host(
+        env_mo2: Option<PathBuf>,
+        portable: Vec<PathBuf>,
+        local: Option<PathBuf>,
+        current: Option<&str>,
+    ) -> Host {
+        let registry = kitkraft_io::host::FixedRegistry(
+            current
+                .map(|c| {
+                    vec![(
+                        kitkraft_io::host::MO2_KEY.to_string(),
+                        kitkraft_io::host::MO2_VALUE.to_string(),
+                        c.to_string(),
+                    )]
+                })
+                .unwrap_or_default(),
+        );
+        Host {
+            registry: Box::new(registry),
+            env: Box::new(move |name| match name {
+                crate::host::MO2_DIR_ENV => env_mo2.clone().map(PathBuf::into_os_string),
+                "LOCALAPPDATA" => local.clone().map(PathBuf::into_os_string),
+                _ => None,
+            }),
+            game_candidates: Vec::new(),
+            mo2_candidates: portable,
+            tool_dirs: Vec::new(),
+        }
+    }
+
+    fn ini(dir: &Path, game: &str) {
+        std::fs::create_dir_all(dir).unwrap();
         std::fs::write(
-            other.join("ModOrganizer.ini"),
-            "[General]\ngameName=Skyrim Special Edition\n",
+            dir.join("ModOrganizer.ini"),
+            format!("[General]\ngameName={game}\n"),
         )
         .unwrap();
-        let list = candidates(
-            None,
-            Some(mo2.clone().into_os_string()),
-            Some(local.clone()),
-        );
-        let sources: Vec<&str> = list.iter().map(|c| c.source).collect();
-        assert_eq!(sources, [MO2_DIR_ENV, "dev box default"]);
+    }
 
-        let out = report(
-            &json!({}),
-            Some(mo2.clone().into_os_string()),
-            Some(local),
+    #[test]
+    fn detection_is_kit_doctors_after_the_variable() {
+        let base = fixture("detect");
+        let mo2 = base.join("MO2");
+        // Global instances: the registry's current one, another Starfield one, and one
+        // of another game (skipped).
+        let local = base.join("Local");
+        let global = local.join("ModOrganizer");
+        ini(&global.join("Current"), "Starfield");
+        ini(&global.join("Another"), "Starfield");
+        ini(&global.join("Skyrim"), "Skyrim Special Edition");
+        let missing = base.join("Missing");
+        let h = host(
             None,
+            vec![mo2.clone(), missing.clone()],
+            Some(local.clone()),
+            Some("Current"),
         );
-        assert_eq!(out.data["instance"]["found_by"], MO2_DIR_ENV);
-        assert_eq!(out.data["searched"][0]["found"], true);
+        let list = candidates(None, &h);
+        let paths: Vec<&Path> = list.iter().map(|c| c.path.as_path()).collect();
+        assert_eq!(
+            paths,
+            [
+                mo2.as_path(),
+                global.join("Current").as_path(),
+                global.join("Another").as_path(),
+                missing.as_path()
+            ],
+            "the portable instance first, as kit doctor"
+        );
+        // The start screen and kit doctor name the same default instance.
+        let out = report(&json!({}), &h, None);
+        let doctor = crate::host::detect(&h);
+        assert_eq!(
+            out.data["instance"]["root"],
+            json!(doctor.mo2_root().unwrap().path.display().to_string())
+        );
+        assert_eq!(out.data["instance"]["found_by"], "default location");
+        let found: Vec<bool> = out.data["searched"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|s| s["found"].as_bool().unwrap())
+            .collect();
+        assert_eq!(found, [true, true, true, false]);
+
+        // KITKRAFT_MO2_DIR goes first.
+        let h = host(
+            Some(global.join("Another")),
+            vec![mo2.clone()],
+            Some(local),
+            Some("Current"),
+        );
+        let out = report(&json!({}), &h, None);
+        assert_eq!(
+            out.data["instance"]["root"],
+            json!(global.join("Another").display().to_string())
+        );
+        assert_eq!(
+            out.data["instance"]["found_by"],
+            format!("environment variable {}", crate::host::MO2_DIR_ENV)
+        );
+        assert_eq!(out.data["searched"].as_array().unwrap().len(), 3);
 
         // Nothing found: the places are listed and the data dir comes from the env.
         let none = report(
             &json!({"instance": base.join("nothing").display().to_string()}),
-            None,
-            None,
+            &host(None, Vec::new(), None, None),
             Some(OsString::from(base.join("Game").join("Data"))),
         );
         assert_eq!(none.data["instance"], Value::Null);

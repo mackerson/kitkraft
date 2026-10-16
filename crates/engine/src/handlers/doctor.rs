@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use super::failed;
 use crate::envelope::{Coverage, CoverageStatus, Outcome};
 use crate::exec::EngineError;
-use crate::host::{detect, Detected, DEV_PROFILE};
+use crate::host::{detect, mo2_from_env, Detected, DEV_PROFILE};
 use crate::install::{command_of, kit_servers, CLAUDE_JSON, LEGACY_SERVERS, MCP_JSON, SERVER};
 use kitkraft_io::host::{dir_size, native_path, pe_file_version, same_path, Found, Host};
 use kitkraft_io::Instance;
@@ -263,12 +263,13 @@ fn checks(args: &Value, host: &Host, detected: &Detected) -> (Vec<Check>, Value)
         ),
     }
 
-    // MO2 instance: argument, else detected.
+    // MO2 instance: argument, else KITKRAFT_MO2_DIR, else detected (as `profiles`).
     let mo2: Option<Found> = str_opt(args, "mo2")
         .map(|m| Found {
             path: PathBuf::from(m),
             how: "the --mo2 argument".to_string(),
         })
+        .or_else(|| mo2_from_env(&*host.env))
         .or_else(|| detected.mo2_root().cloned());
     let instance = mo2.as_ref().and_then(|m| Instance::read(&m.path).ok());
     match (&mo2, &instance) {
