@@ -15,11 +15,13 @@ with ours (dossier gate G3, ADR 0005 Amendment 2 §2a and Amendment 3 §4). The 
   evidence), or *version skew* (the tool targets another build or revision). It is never
   called corruption without our own byte evidence, and "theirs" says what the bytes show,
   not why the tool does it.
-- Only the oracles named in `plan/execution-plan.md` M3 are run: Spriggit and SF1Edit.
+- Only the oracles named in `plan/execution-plan.md` M3 are run: Spriggit and SF1Edit;
+  and, by the owner's priority B (`docs/foothold/owner-decisions-2026-10-15.md`), Bethesda's
+  Papyrus compiler.
 
 The harness is `cargo xtask oracle` (M3.H4, `xtask/src/oracle.rs` for Spriggit,
-`xtask/src/sf1edit.rs` for SF1Edit); its reports go to `observe\oracle\` (gitignored) and
-are summarised here in our own words.
+`xtask/src/sf1edit.rs` for SF1Edit, `xtask/src/papyrus.rs` for the Papyrus compiler); its
+reports go to `observe\oracle\` (gitignored) and are summarised here in our own words.
 
 ## Spriggit
 
@@ -368,3 +370,88 @@ member we decode except one lossy lstring of ours (X8), and its error check find
 in our written plugins beyond X6 and X7, both traced to its age with our byte evidence.
 It is too old to judge GPOG/GPOF, light masters or the newer WEAP components (X1, X3,
 X7); a build at the pin would narrow those (owner decision 2: the pinned revision).
+
+## Papyrus compiler oracle
+
+Owner priority B (2026-10-15): compare KitKraft-generated `.pex` with the official
+compiler, by normalized semantics, not only bytes. `kit papyrus compile` is not a compiler
+of its own: it runs Bethesda's `PapyrusCompiler.exe` as a black box (M2.G7, ADR 0006;
+`plan/execution-plan.md` rules out any other compiler). What this oracle checks is
+therefore everything KitKraft adds around that call (how it names the script, which
+folders it imports and in what order, the flags file, the working directory, the switches,
+the sources it extracts from `Tools\ContentResources.zip` into its cache) against the
+compiler run by hand, plus our disassembler's reading of both outputs.
+
+### Method
+
+| Item | Value |
+| ---- | ----- |
+| Tool | `PapyrusCompiler.exe` 4.7.0.5 (`docs/source-registry.md`, PAPYRUS-COMPILER, hashes there), Creation Kit 1.16.244.0. Switches from its own `-?` output only |
+| Official run | From an empty working directory: `<Ns:Name> -f=<sources>\Starfield_Papyrus_Flags.flg -i=<script root>;<sources> -o=<temp>`, plus `-op` with `--optimize`; never `-release`/`-final`. `<sources>` is the owner-approved extraction `C:\Modding\tools\ck-sources\Scripts\Source` (CK-CONTENT-RESOURCES) |
+| KitKraft run | `kit papyrus compile <path>\KitKraft\<Name>.psc <temp> --sources-zip <Tools\ContentResources.zip>` (the recipe's form; `--import <sources>` when the zip is not found), `--optimize` likewise |
+| Comparison | Both `.pex` through `kit papyrus disasm --format json` (which now also carries the string table and the debug block's line tables, property groups and struct member orders). **identical**: equal bytes. **equivalent**: equal after normalization: compile time, user and machine names, the source's folder and case, the debug modification time, every byte offset and object size dropped; the string table, user flags, debug tables, and each object's variables, properties, property functions, guards, structs (and members), states (and their functions) compared as sets keyed by name. Everything else is compared as is: object, parent, auto state, property types, flags, user flags and backing variables, variable types, values and const flags, function signatures, flags, locals and every instruction's opcode and operands (string operands by text). **different**: the first divergence (JSON path, both values, the byte offset of the nearest enclosing element in each file) and the first differing byte |
+| Scripts | Ours, under `docs/recipes/scripts/KitKraft/`: `HelloOnLoad` (the M4.E9 recipe), `OracleProperties` (auto, const, conditional, mandatory, hidden and full properties, getter-only, groups with a flag), `OracleEvents` (events, an auto state, `GoToState`, `OnBeginState`), `OracleNatives` (global and member native calls, default arguments, casts, a global function), `OracleStrings` (escapes, concatenation, casts), `OracleFloats` (float and int arithmetic, compound assignment, negation, modulo, casts), `OracleArrays` (`new`, index get/set, `Length`, `Add`, `Find`, `RFind`, `Remove`, `Clear`), `OracleControl` (`If`/`ElseIf`/`Else`, `&&`/`||`/`!`, nested `While`, a struct, a guard with `LockGuard`) |
+| Run | 2026-10-15, debug `kit`, once without and once with `--optimize` |
+
+```powershell
+$env:KITKRAFT_PAPYRUS_COMPILER = '...\Tools\Papyrus Compiler\PapyrusCompiler.exe'  # optional: kit doctor finds it
+cargo xtask oracle papyrus                      # default script list, C:\Modding\tools\ck-sources\Scripts\Source
+cargo xtask oracle papyrus --optimize --out observe\oracle\papyrus-op
+cargo xtask oracle papyrus my\Ns\Script.psc --sources D:\extracted\Scripts\Source
+```
+
+### Results (2026-10-15)
+
+All eight scripts: **semantically equivalent** in both modes, same length on both sides;
+no script is byte-identical, because the compile time differs on every run and the
+compiler orders several tables differently on every run (below).
+
+| Script | Instructions (plain / `-op`) | Bytes (plain / `-op`) | Normalized differences (plain run) |
+| ------ | ---------------------------- | --------------------- | ---------------------------------- |
+| `KitKraft:HelloOnLoad` | 7 / 6 | 911 / 889 | compile time; order of the string table and user flags |
+| `KitKraft:OracleProperties` | 7 / 7 | 1,060 / 1,060 | compile time; order of the properties, variables, string table and user flags (and so the offsets of properties, variables and property functions) |
+| `KitKraft:OracleEvents` | 15 / 13 | 1,180 / 1,136 | compile time; order of the string table and user flags |
+| `KitKraft:OracleNatives` | 40 / 31 | 1,527 / 1,354 | compile time; order of the string table and user flags |
+| `KitKraft:OracleStrings` | 30 / 24 | 924 / 857 | compile time |
+| `KitKraft:OracleFloats` | 35 / 23 | 934 / 808 | compile time |
+| `KitKraft:OracleArrays` | 34 / 27 | 1,038 / 923 | compile time |
+| `KitKraft:OracleControl` | 63 / 55 | 1,558 / 1,430 | compile time; order of the string table and user flags |
+
+Observations about the compiler (black box, grade A: reproducible runs of the tool):
+
+- **Its table order is not deterministic.** Four compiles of `OracleProperties` in a row,
+  same arguments, gave four orders of the user-flag table and of the property table
+  (and so of the backing variables and the string table). Nothing else changed. A byte
+  comparison of two compiles of one source is therefore meaningless; the oracle compares
+  these tables as sets, which is what they are to a reader that looks names up.
+- It writes `<SUPPRESSED>` for the user and machine names outside release mode, the
+  source file name without its folder, and the source's modification time in the debug
+  block (equal on both sides here: the same file).
+- `-op` shortens the code (e.g. `HelloOnLoad` 7 to 6 instructions) without changing
+  tables. `kit papyrus compile` defaults to no `-op` (`optimize = false`), as the compiler
+  does; the Creation Kit's own choice is not observed (no CK session was run).
+- `Conditional` lands on an auto property's backing variable, `Mandatory` and `Hidden` on
+  the property, a group's `CollapsedOnRef` on the group
+  (`crates/pex/tests/official_compiler.rs` pins these on committed output of our sources).
+
+### Disagreements found and fixed in `kit papyrus compile`
+
+Before the fixes, three of KitKraft's choices made it disagree with the compiler run by
+hand. Each could compile a different script than the one asked for, or none:
+
+| # | What KitKraft did | Effect | Fix (2026-10-15) | Test |
+| - | ----------------- | ------ | ---------------- | ---- |
+| P1 | Ran the compiler in `out_dir` without `-ignorecwd`. The compiler treats its working directory as the first import | A `.psc` lying in `out_dir` (a stale copy of the source) shadowed the requested one: a decoy with another property compiled instead (observed on the official compiler; wrong properties in the `.pex`, which `VMAD` checks and `validate` then trust) | `-ignorecwd` is always passed; only the listed imports are searched | `base_game_script_compiles_from_the_zip_alone` (decoy in `out_dir`), `argument_builder` |
+| P2 | Passed relative import (and flags, output, compiler) paths as given | The compiler resolved them against `out_dir`: `--imports docs\recipes\scripts` failed with "Cannot use import folder ...\out\recipes\Scripts\docs\recipes\scripts" (lane E request, M4.E9) | Every path is made absolute against the caller's working directory first; an import entry may list several folders with `;`, as the compiler's `-i=` does; the CLI takes `--import` (repeatable) as well as `--imports` | `imports_split_and_become_absolute`, cmdline `subcommands_aliases_and_dotted_ids` |
+| P3 | Compiled a `.psc` path under its file stem with its own folder imported | A namespaced script (`ScriptName KitKraft:HelloOnLoad` in `KitKraft\HelloOnLoad.psc`) compiled as `HelloOnLoad` and was refused (lane E request, M4.E9) | The name comes from the `ScriptName` statement (`kitkraft_pex::psc`), and the folder above the namespace folders is imported first; a file whose stem or folders do not spell the name is refused with a clear error | `psc_path_names_its_namespace_root`; the oracle compiles every script by its path |
+
+The equivalent results above are with these fixes.
+
+### Differences left as documented
+
+- Compile time, and the order of the string table, user flags, properties and backing
+  variables: they differ between any two compiles (above), so there is nothing to fix.
+- The flags file: KitKraft picks `Starfield_Papyrus_Flags.flg` from the first import that
+  has it (with `--sources-zip`, its cache extraction of the same zip); the hand run names
+  CK-CONTENT-RESOURCES' copy. Same table, no difference in the output.
+- `-op`: off by default on both; see above.

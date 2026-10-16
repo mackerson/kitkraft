@@ -7,8 +7,8 @@
 //! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
 //! - `cargo xtask dist [--out DIR]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
-//! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit) run as oracles (lane H,
-//!   [`oracle`], [`sf1edit`]).
+//! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit, the Papyrus compiler) run as
+//!   oracles (lane H, [`oracle`], [`sf1edit`], [`papyrus`]).
 //!
 //! The layer check has three parts.
 //!
@@ -36,6 +36,7 @@ mod evidence;
 mod graph;
 mod observe;
 mod oracle;
+mod papyrus;
 mod parity;
 mod sf1edit;
 mod smuggle;
@@ -177,7 +178,9 @@ fn print_help() {
     println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
     println!("           round trips compared with kit (YAML never read; lane H);");
     println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");
-    println!("           decoded view (its console dumper) compared with kit inspect");
+    println!("           decoded view (its console dumper) compared with kit inspect;");
+    println!("           `oracle papyrus [<psc>...] [--sources DIR] [--optimize]`: the official");
+    println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).
