@@ -1568,6 +1568,23 @@ engine, not in `ui-egui`.
 | M6.V5 | Consistent panels: one panel frame (title, action bar, the envelope header from `docs/workbench.md` "Every result looks the same"), one table style (sticky header, zebra rows, numbers right-aligned, FormIDs monospace, column resize), and empty, busy and error states; all 11 tabs moved onto it, and M7.R1's viewport panel (toolbar, status line) when it has merged | M6.V3, M6.V4, M6.P4 (tables) | Every tab uses the frame and the table style (a review checklist in the PR); tour images for all tabs |
 | M6.V6 | `docs/design/workbench-style.md`: tokens, components, spacing and density rules, do and don't, with tour images referenced (kept outside the repo) | M6.V5 | A doc-sync test: every token the doc names exists in `theme.rs` and every token in `theme.rs` is in the doc |
 
+Lane V notes (2026-10-16, lane V, on the director's brief of the same day, which scoped V1
+and V2 differently from the rows above):
+
+- **M6.V1 as delivered:** the token set, not the `app.rs` split. `crates/ui-egui/src/theme/`
+  (`tokens.rs` data, `mod.rs` with `apply(ctx, &Theme, Mode)`), three presets (`classic` =
+  today's look and the default, `workbench`, `studio`), the status component and table
+  style, today's `WARN`/`BAD`/`GOOD`/`CODE` moved into `classic`, the AA contrast test, and
+  `docs/design/workbench-visual-system.md`. **Still open from the row:** moving each tab's
+  drawing out of `app.rs` (now about 2,790 lines) into `panels/`; the theme is reached
+  through `theme::*` helpers, so that move does not touch the tokens.
+- **M6.V2 as delivered:** 2 presets x 3 screens (Start, Records with the inspector,
+  Validate) x 2 modes, 12 PNGs committed under `docs/design/mockups/2026-10-16/` (3.6 MB,
+  the director asked for them in the repo) with a one-page comparison README; Diff and
+  Ledger were not captured. `kit ui --theme <preset>` and `ui.json` `theme` select a
+  preset. The tour now writes PNG (`image`, already in the tree; ADR 0007 Amendment 3
+  table).
+
 ### Lane P: performance
 
 | ID | Task | Depends on | Done when |
