@@ -231,6 +231,42 @@ fn plan<R: Read + std::io::Seek>(
     Ok((plan, skipped, key.finish()))
 }
 
+/// The file `name` of `zip_path`'s `Scripts/Source` (the flags file), written once into
+/// the cache under `papyrus-flags\<key>` without extracting the sources: `papyrus.compile`
+/// compiles with the official flags file even when the caller imports an extraction of
+/// its own (Fable review of lane B, finding 2). `None` when the zip has no such file.
+pub(crate) fn cached_file(
+    zip_path: &Path,
+    cache_root: &Path,
+    name: &str,
+) -> Result<Option<PathBuf>, String> {
+    let mut sources = ZipSources::open(zip_path)?;
+    let dir = cache_root
+        .join("papyrus-flags")
+        .join(format!("{:016x}", sources.key));
+    let path = dir.join(name);
+    if path.is_file() {
+        return Ok(Some(path));
+    }
+    let Some(bytes) = sources.read(name)? else {
+        return Ok(None);
+    };
+    fs::create_dir_all(&dir).map_err(|e| format!("`{}`: {e}", dir.display()))?;
+    let tmp = dir.join(format!("{name}.tmp-{}", std::process::id()));
+    fs::write(&tmp, &bytes).map_err(|e| format!("`{}`: {e}", tmp.display()))?;
+    match rename_with_retry(&tmp, &path) {
+        Ok(()) => Ok(Some(path)),
+        Err(_) if path.is_file() => {
+            let _ = fs::remove_file(&tmp);
+            Ok(Some(path))
+        }
+        Err(e) => {
+            let _ = fs::remove_file(&tmp);
+            Err(format!("`{}`: {e}", path.display()))
+        }
+    }
+}
+
 /// The checked `Scripts/Source` entries of a zip, read in memory without extracting
 /// anything (`papyrus.events`, M4.G2). Names, sizes and the key are checked and computed
 /// exactly as for [`extract_sources`].
