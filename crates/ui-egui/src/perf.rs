@@ -18,8 +18,9 @@
 //!
 //! `KITKRAFT_WORKBENCH_PERF_BENCH=1` (with a `--profile` launch) also runs the protocol's
 //! window bench once and closes (the shell's `drive_bench`): a 1000-row `query REFR` on
-//! Records (first paint), five seconds of wheel scrolling over its table (T1), the Diff
-//! tour request (first paint) and three seconds of scrolling the Diff tab.
+//! Records (first paint), five seconds of wheel scrolling over its table (T1), a Diff of
+//! one plugin against its masters (first paint; `KITKRAFT_WORKBENCH_PERF_DIFF` names the
+//! plugin, else the tour's) and five seconds of scrolling the Diff tab.
 
 use std::collections::BTreeMap;
 use std::io::Write;
@@ -31,6 +32,9 @@ use std::time::{Duration, Instant};
 pub const PERF_ENV: &str = "KITKRAFT_WORKBENCH_PERF";
 /// Runs the window bench (`1`) and closes; implies the trace.
 pub const BENCH_ENV: &str = "KITKRAFT_WORKBENCH_PERF_BENCH";
+/// The plugin the bench's Diff step diffs against its masters (default: the biggest
+/// plugin the profile activates, as the screenshot tour picks).
+pub const BENCH_DIFF_ENV: &str = "KITKRAFT_WORKBENCH_PERF_DIFF";
 
 static START: OnceLock<Instant> = OnceLock::new();
 static ON: OnceLock<bool> = OnceLock::new();

@@ -990,15 +990,20 @@ impl App {
         }
     }
 
-    /// The bench's Diff request, the tour's: the biggest plugin the profile activates,
-    /// against its masters.
+    /// The bench's Diff request: the plugin `KITKRAFT_WORKBENCH_PERF_DIFF` names, else
+    /// the tour's (the biggest plugin the profile activates), against its masters.
     fn bench_diff(&mut self) {
-        let plugin = self.load.view.as_ref().and_then(|l| {
-            l.plugins
-                .iter()
-                .filter(|p| p.active == "plugins.txt")
-                .max_by_key(|p| p.records.unwrap_or(0))
-                .map(|p| p.name.clone())
+        let chosen = std::env::var(perf::BENCH_DIFF_ENV)
+            .ok()
+            .filter(|p| !p.trim().is_empty());
+        let plugin = chosen.or_else(|| {
+            self.load.view.as_ref().and_then(|l| {
+                l.plugins
+                    .iter()
+                    .filter(|p| p.active == "plugins.txt")
+                    .max_by_key(|p| p.records.unwrap_or(0))
+                    .map(|p| p.name.clone())
+            })
         });
         let Some(name) = plugin else {
             perf::line("bench", "no plugin activated by plugins.txt: Diff skipped");
