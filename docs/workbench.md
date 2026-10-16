@@ -78,35 +78,61 @@ temp file; the next start removes it.
 ## What it can run (and what it cannot)
 
 `crates/ui-egui/src/gate.rs` is the only module that holds the `Engine`. Every request is
-checked against its allowlist by canonical id, so an alias cannot get around it:
+checked by canonical id, so an alias cannot get around it (ADR 0007 Amendments 1 to 3;
+M6.G1 and M6.G3):
 
-- **Allowed:** `load`, `inspect`, `query`, `diff`, `conflicts`, `validate`, `coverage`,
-  `schema`, `refs`, `planet` and `profiles`, none of which the catalog marks `writes`.
-  (`refs --incoming` fills the engine's reverse-link cache, as `load` fills the index
-  cache.)
+- **Allowed:** `load`, `inspect`, `query`, `diff`, `conflicts`, `validate`, `coverage`
+  (with `matrix`, the Coverage tab), `schema`, `refs`, `planet`, `profiles`,
+  `deploy.status` and `doctor`, none of which the catalog marks `writes`. (`refs
+  --incoming` fills the engine's reverse-link cache, as `load` fills the index cache.)
 - **Guarded:** `roundtrip`, which writes with `out`, runs only with `verify: true`, and never
   with `out` or `overwrite`.
-- **The one permitted write** (`gate::PERMITTED_WRITE`, ADR 0007 Amendment 2): `ledger`.
-  Without `confirm` it is a preview and passes like a read. With `confirm: true` it passes
-  only as a request built by `Request::confirmed`, which only the Ledger tab's confirm
-  button makes, one per click. The engine itself refuses any file but
-  `<checkout>\docs\game-observations.md` and the `Default` profile.
+- **The permitted writes** (`gate::PERMITTED_WRITES`, inside `gate::COCKPIT_SCOPE`, the six
+  commands ADR 0007 Amendment 3 names: `ledger`, `deploy`, `deploy.rollback`,
+  `game.session`, `game.probe`, `game.stop`). Today three of them are permitted, each
+  with a preview that passes like a read and a writing form that passes only as a request
+  built by `Request::confirmed`, which one panel file per command makes, once per
+  confirm click:
+
+  | Command | Preview (writes nothing) | Writing form | Panel |
+  | ------- | ------------------------ | ------------ | ----- |
+  | `ledger` | `confirm` absent or false | `confirm: true`, confirmed | Ledger (`panels/ledger.rs`) |
+  | `deploy` (`--dev`) | `dry_run: true` | `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit.rs`) |
+  | `deploy.rollback` | `dry_run: true` | as `deploy` | Cockpit |
+
+  For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
+  refuses `profile` = `Default` (any case) in every form, and requires `profile` in the
+  writing form. The Cockpit fills `mo2` and `profile` from the profile the session
+  loaded and keeps its confirm box closed when they differ from it, when the loaded
+  profile is `Default`, or when the dry run is missing, refused, says nothing would
+  change, or ran with other arguments. The engine refuses `Default` on its own, from
+  MO2's active profile, whatever the arguments say. The engine itself refuses any ledger
+  file but `<checkout>\docs\game-observations.md`.
+  `game.session`, `game.probe` and `game.stop` are in the catalog (M4.T3) but not yet
+  permitted: their Cockpit buttons stay disabled with M6.G4 or M6.G5 as the reason.
 - **Refused before the engine sees the request:** every other catalog command and alias.
   That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
-  `package`, `deploy*`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*` and
-  `papyrus.*`.
+  `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*`,
+  `game.*` and (M7, ADR 0007 Amendment 4, proposed) the editor's writes.
 
-Tests enforce this in five ways:
+Tests enforce this in six ways:
 
 - Each catalog command must be classified as allowed, writing, or unused read-only.
 - The allowlist must hold no command the catalog marks `writes`, the gate's writing list
   must equal the catalog's `writes` set, and a guarded command must refuse its writing
-  arguments. The writing commands the workbench can run unguarded must be exactly
-  `{ledger}`.
-- Every refused id and alias is tried, and each must be refused (`ledger` in its writing
-  form, unconfirmed). A confirmed request for any other command is refused.
-- A scan of the crate's sources allows `Request::confirmed` only in `gate.rs` and the
-  Ledger panel (`panels/ledger.rs`).
+  arguments. The writing commands the window can run in a writing form must be exactly
+  the ids of `PERMITTED_WRITES`; each must be in `COCKPIT_SCOPE`, in the catalog,
+  `writes` and `Implemented`; `COCKPIT_SCOPE` is pinned to Amendment 3's six ids. A
+  scratch test adds `testplan`, `set`, `package` and `revert` and checks that each fails
+  the rule.
+- Every refused id and alias is tried, and each must be refused (a permitted write in its
+  writing form, unconfirmed). A confirmed request for any other command is refused.
+- A scan of the crate's sources allows `Request::confirmed("<id>", ..)` only in `gate.rs`
+  and the panel file of that id's `PERMITTED_WRITES` entry, with the id a string literal.
+- Per permitted write: the preview passes unconfirmed, the writing form is refused
+  unconfirmed and passes confirmed, `dev` and `Default` are checked, and the confirmed
+  deploy and rollback reach the engine on a synthetic MO2 instance, where the engine
+  refuses on its own when MO2's active profile is `Default`.
 - A scan of every source file and integration test except `gate.rs` denies the engine
   crate's name (`kitkraft_engine`), so a renamed import (`use ... {execute as go}`) or a
   glob import cannot reach the engine around the gate, as well as `Engine` and the
@@ -123,9 +149,32 @@ What the workbench writes, all of it:
   state, not game data: no plugin, profile file or game folder is named or touched. Delete
   it to forget the choices.
 - **The ledger row**, written by the engine's `ledger` command on a confirm click (above).
+- **The dev deployment**, written by the engine's `deploy --dev` or `deploy.rollback` on a
+  Cockpit confirm click: one isolated `KitKraft Dev - <plugin>` mod folder (and its
+  `.previous`) in the loaded profile's MO2 instance, never a profile, `plugins.txt` or
+  another mod (ADR 0009).
 - **Screenshots**, only when you set the tour's environment variable (below).
 
 `load` still fills the engine's own index cache, as it does for the CLI and MCP.
+
+### Cockpit and Coverage (M6.G2, M6.G3, M6.G7, M6.G8)
+
+- **Cockpit**: pick the plugin under review from the checkout's `out\` (or type a path).
+  **Review** runs `validate`, `roundtrip --verify`, then the plugin against its masters
+  (`conflicts --plugin` when the plugin is in the loaded order, with `detail: fields`
+  once the engine has it; otherwise a `diff` of each master `validate` found against the
+  plugin, which leaves the session's load order alone). Each step shows `not-run` until
+  its reply arrives; the "validation" block fills AGENTS.md's six rows from what ran
+  (`parse`, `byte_roundtrip`) and leaves the CK and game rows `not-run`. **Status** reads
+  the dev mod (`deploy.status`); **Preview deploy** and **Preview roll back** are dry runs
+  listing every path; **Deploy...** and **Roll back...** open the confirm box (closed for
+  the reasons above), whose button sends the one confirmed request; after a write the
+  panel reads the dev mod back. The ledger entries naming the plugin's file (or the
+  SHA-256 the deploy preview reports) are listed. The game buttons (Launch and run
+  probes, Stop, Re-run probe, Screenshot) take their state from the catalog and the gate.
+- **Coverage**: `coverage --matrix` with optional record types, plugin and evidence file;
+  one row per type with the six statuses as status components, a filter by type, and a
+  click on a type lists each cell's evidence pointers and whether they resolve.
 
 ## Every result looks the same
 
@@ -324,12 +373,17 @@ runs these read-only requests:
 6. `profiles` for the profile's instance (the Start tab, as at every start).
 7. A `ledger` preview of `C3` with the template's FormIDs, and the confirm box open. The
    tour never clicks it: nothing is written.
+8. The Cockpit's review of the first plugin under the checkout's `out\`, `deploy.status`
+   for its dev mod and a `deploy --dev --dry-run` against the loaded profile (dry run:
+   nothing is written; on an MO2 whose active profile is `Default` the engine refuses it,
+   and the panel shows the refusal).
+9. `coverage --matrix --types WEAP AMMO OMOD` over the official files (the Coverage tab).
 
 A minimized window does not repaint, so the tour waits until it is restored (seen
 2026-10-15: started from a background shell, the window opened minimized; started with
 PowerShell's `Start-Process -WindowStyle Normal` it opens restored, 2026-10-16). The Help
 tab shows the docs as read at start. It then saves `<dir>/<tab>.png` for each tab
-(`start`, `load`, ..., `ledger`, `help`) and closes. The tour's window is the usual 1400 x
+(`start`, `load`, ..., `ledger`, `help`, `cockpit`, `coverage`) and closes. The tour's window is the usual 1400 x
 900 points; the Records tab folds "Record types", so the query table and the selected
 record's inspector (the right pane) are in one image, and the scroll is not animated. Add
 `--theme <preset>` to capture a preset (the M6.V2 mockups were made so; they were removed
