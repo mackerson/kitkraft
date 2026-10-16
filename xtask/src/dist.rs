@@ -1,6 +1,14 @@
-//! `cargo xtask dist [--out DIR]`: release-build `kit.exe` and `kit-ui.exe` and write
-//! `<out>\KitKraft\` (default `<root>\dist`, gitignored): the two programs, double-click
-//! `.cmd` files for the common tasks, and `README.txt` (docs/QUICKSTART.md).
+//! `cargo xtask dist [--out DIR] [--sync-bin]`: release-build `kit.exe` and `kit-ui.exe`
+//! and write `<out>\KitKraft\` (default `<root>\dist`, gitignored): the two programs,
+//! double-click `.cmd` files for the common tasks, and `README.txt` (docs/QUICKSTART.md).
+//! `--sync-bin` (opt-in, so a lane build never replaces the main checkout's programs
+//! unasked) also refreshes the main checkout's gitignored `bin\kit.exe` and
+//! `bin\kit-ui.exe`.
+//!
+//! A program that is running (the MCP server, the workbench) cannot be overwritten on
+//! Windows but can be renamed: it is renamed aside to `<name>.stale-<unix-seconds>` and the
+//! new build copied in ([`place`]); old copies are deleted on later runs once nothing runs
+//! them. No process is stopped.
 //!
 //! The `.cmd` files hold no logic of their own beyond prompting: detection is
 //! `kit doctor`, the PATH and MCP edits are `kit install`. Every one quotes its paths
@@ -326,6 +334,12 @@ Where things live
                            repository.
   Built plugins            out\ in the repository.
 
+Rebuilding while KitKraft runs
+  "cargo xtask dist" works while Claude Code or the workbench uses kit.exe: a running
+  program is renamed aside to kit.exe.stale-<number> and the new build is copied in.
+  After rebuilding, restart Claude Code or the workbench to pick up the new build;
+  stale copies are cleaned on the next run.
+
 More: docs\QUICKSTART.md in the repository.
 "#;
 
@@ -363,31 +377,156 @@ fn crlf(text: &str) -> String {
     text.replace("\r\n", "\n").replace('\n', "\r\n")
 }
 
-/// Writes the folder at `dest` from the programs in `release` (the cargo release dir).
-pub(crate) fn write_folder(dest: &Path, release: &Path) -> Result<Vec<PathBuf>> {
-    fs::create_dir_all(dest).with_context(|| format!("creating {}", dest.display()))?;
-    let mut written = Vec::new();
-    for program in PROGRAMS {
-        let from = release.join(program);
-        let to = dest.join(program);
-        fs::copy(&from, &to).map_err(|e| {
-            if e.kind() == std::io::ErrorKind::PermissionDenied || e.raw_os_error() == Some(32) {
-                anyhow::anyhow!(
-                    "{} is in use (a running MCP server or workbench): close Claude Code sessions and the workbench that use it, then run `cargo xtask dist` again",
-                    to.display()
-                )
-            } else {
-                anyhow::anyhow!("copying {} to {}: {e}", from.display(), to.display())
-            }
-        })?;
-        written.push(to);
+/// What [`place`] did with one program.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum Placed {
+    /// Copied over the old file (or into an empty place).
+    Copied,
+    /// The old file was in use: renamed aside to this path, then the new one copied in.
+    Swapped(PathBuf),
+}
+
+/// The programs placed in one folder by [`sync_programs`].
+#[derive(Debug, Default)]
+pub(crate) struct Synced {
+    /// The programs written.
+    pub(crate) written: Vec<PathBuf>,
+    /// `(program, old copy)` for every program that was in use.
+    pub(crate) swapped: Vec<(PathBuf, PathBuf)>,
+    /// `*.stale-*` files still in the folder after the sweep (their programs still run).
+    pub(crate) stale_left: usize,
+}
+
+/// A copy refused because the destination is open elsewhere: access denied (a running
+/// image), or ERROR_SHARING_VIOLATION (32) / ERROR_LOCK_VIOLATION (33).
+fn in_use(e: &std::io::Error) -> bool {
+    e.kind() == std::io::ErrorKind::PermissionDenied || matches!(e.raw_os_error(), Some(32 | 33))
+}
+
+/// `<to>.stale-<unix-seconds>` in the same folder, with `-<n>` added when that name is
+/// taken (two runs within a second).
+fn stale_name(to: &Path) -> Result<PathBuf> {
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let name = to
+        .file_name()
+        .with_context(|| format!("{} has no file name", to.display()))?
+        .to_string_lossy()
+        .into_owned();
+    let base = to.with_file_name(format!("{name}.stale-{secs}"));
+    if !base.exists() {
+        return Ok(base);
     }
+    for n in 1..1000u32 {
+        let next = to.with_file_name(format!("{name}.stale-{secs}-{n}"));
+        if !next.exists() {
+            return Ok(next);
+        }
+    }
+    bail!("no free stale name for {}", to.display())
+}
+
+/// Copies `from` to `to`. Windows refuses to overwrite a running program but lets it be
+/// renamed, so when `to` is in use it is renamed aside ([`stale_name`]) and the new file
+/// copied in; the running process keeps the old copy. No process is stopped.
+pub(crate) fn place(from: &Path, to: &Path) -> Result<Placed> {
+    let first = match fs::copy(from, to) {
+        Ok(_) => return Ok(Placed::Copied),
+        Err(e) => e,
+    };
+    if !in_use(&first) {
+        bail!("copying {} to {}: {first}", from.display(), to.display());
+    }
+    let aside = stale_name(to)?;
+    fs::rename(to, &aside).map_err(|e| {
+        anyhow::anyhow!(
+            "{} is in use ({first}) and could not be renamed aside ({e}): close the program that holds it, then run `cargo xtask dist` again",
+            to.display()
+        )
+    })?;
+    if let Err(e) = fs::copy(from, to) {
+        // Put the old copy back so the folder still has a working program.
+        let _ = fs::remove_file(to);
+        let _ = fs::rename(&aside, to);
+        bail!(
+            "copying {} to {} after renaming the old copy aside: {e}",
+            from.display(),
+            to.display()
+        );
+    }
+    Ok(Placed::Swapped(aside))
+}
+
+/// Deletes every `*.stale-*` file in `dir`, skipping the ones still locked (their
+/// programs still run); returns how many are left.
+pub(crate) fn sweep_stale(dir: &Path) -> usize {
+    let Ok(entries) = fs::read_dir(dir) else {
+        return 0;
+    };
+    let mut left = 0usize;
+    for entry in entries.flatten() {
+        let is_stale = entry.file_name().to_string_lossy().contains(".stale-");
+        if is_stale && entry.path().is_file() && fs::remove_file(entry.path()).is_err() {
+            left = left.saturating_add(1);
+        }
+    }
+    left
+}
+
+/// Places [`PROGRAMS`] from `release` into `dest` ([`place`]), then sweeps old copies.
+pub(crate) fn sync_programs(dest: &Path, release: &Path) -> Result<Synced> {
+    fs::create_dir_all(dest).with_context(|| format!("creating {}", dest.display()))?;
+    let mut synced = Synced::default();
+    for program in PROGRAMS {
+        let to = dest.join(program);
+        if let Placed::Swapped(aside) = place(&release.join(program), &to)? {
+            synced.swapped.push((to.clone(), aside));
+        }
+        synced.written.push(to);
+    }
+    synced.stale_left = sweep_stale(dest);
+    Ok(synced)
+}
+
+/// Prints one line per swap and the count of old copies left in `dest`.
+fn report(synced: &Synced, dest: &Path) {
+    let name = |p: &Path| {
+        p.file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    };
+    for (to, aside) in &synced.swapped {
+        println!(
+            "xtask dist: {} was in use: the old copy is {}; running servers keep the old build until restarted, new ones get this build",
+            name(to),
+            name(aside)
+        );
+    }
+    let left = synced.stale_left;
+    println!(
+        "xtask dist: {left} stale cop{} left in {}{}",
+        if left == 1 { "y" } else { "ies" },
+        dest.display(),
+        if left == 0 {
+            ""
+        } else {
+            " (still running; removed by a later run)"
+        }
+    );
+}
+
+/// Writes the folder at `dest` from the programs in `release` (the cargo release dir).
+pub(crate) fn write_folder(dest: &Path, release: &Path) -> Result<(Vec<PathBuf>, Synced)> {
+    let synced = sync_programs(dest, release)?;
+    let mut written = synced.written.clone();
     for (name, text) in files() {
         let to = dest.join(name);
         fs::write(&to, crlf(&text)).with_context(|| format!("writing {}", to.display()))?;
         written.push(to);
     }
-    Ok(written)
+    Ok((written, synced))
 }
 
 /// The target directory cargo builds into (honours `CARGO_TARGET_DIR`).
@@ -411,18 +550,55 @@ fn target_dir(root: &Path) -> Result<PathBuf> {
         .context("cargo metadata has no target_directory")
 }
 
-/// `--out DIR` from the task's arguments (default `<root>\dist`).
-fn out_dir(root: &Path, args: &[String]) -> Result<PathBuf> {
-    match args {
-        [] => Ok(root.join("dist")),
-        [flag, dir] if flag == "--out" => Ok(PathBuf::from(dir)),
-        _ => bail!("dist: expected `cargo xtask dist [--out DIR]`"),
+/// The task's options: `--out DIR` (default `<root>\dist`) and `--sync-bin`.
+#[derive(Debug, PartialEq, Eq)]
+struct Opts {
+    out: PathBuf,
+    sync_bin: bool,
+}
+
+const USAGE: &str = "dist: expected `cargo xtask dist [--out DIR] [--sync-bin]`";
+
+fn opts(root: &Path, args: &[String]) -> Result<Opts> {
+    let mut out = None;
+    let mut sync_bin = false;
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        match a.as_str() {
+            "--out" => match it.next() {
+                Some(dir) if out.is_none() => out = Some(PathBuf::from(dir)),
+                _ => bail!(USAGE),
+            },
+            "--sync-bin" if !sync_bin => sync_bin = true,
+            _ => bail!(USAGE),
+        }
     }
+    Ok(Opts {
+        out: out.unwrap_or_else(|| root.join("dist")),
+        sync_bin,
+    })
+}
+
+/// `bin\` of the main checkout (gitignored; the path older docs and the pre-rename MCP
+/// registration use). From a lane worktree that is the shared repository's `bin\`, found
+/// through `git rev-parse --git-common-dir`; `<root>\bin` when git cannot say.
+fn bin_dir(root: &Path) -> PathBuf {
+    let common = Command::new("git")
+        .args(["rev-parse", "--path-format=absolute", "--git-common-dir"])
+        .current_dir(root)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| PathBuf::from(String::from_utf8_lossy(&o.stdout).trim()));
+    common
+        .as_deref()
+        .and_then(Path::parent)
+        .map_or_else(|| root.join("bin"), |main| main.join("bin"))
 }
 
 /// The task.
 pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
-    let out = out_dir(root, args)?;
+    let Opts { out, sync_bin } = opts(root, args)?;
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     println!("xtask dist: cargo build --release -p kit-cli -p kit");
     let status = Command::new(&cargo)
@@ -435,7 +611,7 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     }
     let release = target_dir(root)?.join("release");
     let dest = out.join(FOLDER);
-    let written = write_folder(&dest, &release)?;
+    let (written, synced) = write_folder(&dest, &release)?;
     println!(
         "xtask dist: wrote {} files to {}",
         written.len(),
@@ -443,6 +619,13 @@ pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     );
     for w in &written {
         println!("  {}", w.display());
+    }
+    report(&synced, &dest);
+    if sync_bin {
+        let bin = bin_dir(root);
+        let synced = sync_programs(&bin, &release)?;
+        println!("xtask dist: --sync-bin refreshed {}", bin.display());
+        report(&synced, &bin);
     }
     println!(
         "xtask dist: next, double-click \"{}\" (or run `kit install --dry-run` there)",
@@ -569,19 +752,118 @@ mod tests {
             fs::write(release.join(p), b"MZ").unwrap();
         }
         let dest = root.join("out dir (x86)").join(FOLDER);
-        let written = write_folder(&dest, &release).unwrap();
+        let (written, synced) = write_folder(&dest, &release).unwrap();
         assert_eq!(written.len(), PROGRAMS.len() + files().len());
+        assert!(synced.swapped.is_empty() && synced.stale_left == 0);
         let cmd = fs::read_to_string(dest.join("Install.cmd")).unwrap();
         assert!(cmd.contains("\r\n") && !cmd.replace("\r\n", "").contains('\n'));
         assert_eq!(fs::read(dest.join("kit.exe")).unwrap(), b"MZ");
-        // Again over an existing folder.
-        write_folder(&dest, &release).unwrap();
-        // Bad arguments.
-        assert!(out_dir(&root, &["--out".into()]).is_err());
+        // Again over an existing folder: plain copies, nothing renamed.
+        let (_, synced) = write_folder(&dest, &release).unwrap();
+        assert!(synced.swapped.is_empty());
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn options() {
+        let root = Path::new("R");
+        let o = |a: &[&str]| opts(root, &a.iter().map(|s| s.to_string()).collect::<Vec<_>>());
         assert_eq!(
-            out_dir(&root, &["--out".into(), "D".into()]).unwrap(),
-            PathBuf::from("D")
+            o(&[]).unwrap(),
+            Opts {
+                out: root.join("dist"),
+                sync_bin: false
+            }
         );
+        assert_eq!(
+            o(&["--sync-bin", "--out", "D"]).unwrap(),
+            Opts {
+                out: PathBuf::from("D"),
+                sync_bin: true
+            }
+        );
+        assert!(o(&["--out"]).is_err());
+        assert!(o(&["--out", "D", "--out", "E"]).is_err());
+        assert!(o(&["--bogus"]).is_err());
+    }
+
+    #[test]
+    fn readme_tells_to_restart_after_rebuilding() {
+        assert!(README.contains("restart Claude Code or the workbench to pick up the new build"));
+        assert!(README.contains("stale copies are cleaned on the next run"));
+    }
+
+    /// A destination held open without write sharing makes the copy fail as a running
+    /// program does; with delete sharing (as a running image allows) it can still be
+    /// renamed, so the old copy goes aside and the new file lands. Once the handle is
+    /// closed the next sweep deletes the old copy.
+    #[cfg(windows)]
+    #[test]
+    fn an_in_use_destination_is_renamed_aside_and_swept_later() {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_SHARE_READ: u32 = 1;
+        const FILE_SHARE_DELETE: u32 = 4;
+
+        let root = std::env::temp_dir().join(format!("kitkraft-xtask-swap-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        let release = root.join("release");
+        let dest = root.join("dest");
+        fs::create_dir_all(&release).unwrap();
+        fs::create_dir_all(&dest).unwrap();
+        for p in PROGRAMS {
+            fs::write(release.join(p), b"NEW").unwrap();
+            fs::write(dest.join(p), b"OLD").unwrap();
+        }
+        let held = dest.join("kit.exe");
+        let handle = fs::OpenOptions::new()
+            .write(true)
+            .share_mode(FILE_SHARE_READ | FILE_SHARE_DELETE)
+            .open(&held)
+            .unwrap();
+        // The plain copy is refused while the handle is open.
+        let refused = fs::copy(release.join("kit.exe"), &held).unwrap_err();
+        assert!(in_use(&refused), "{refused:?}");
+
+        let synced = sync_programs(&dest, &release).unwrap();
+        assert_eq!(synced.swapped.len(), 1, "{synced:?}");
+        let (to, aside) = &synced.swapped[0];
+        assert_eq!(to, &held);
+        let aside_name = aside.file_name().unwrap().to_string_lossy().into_owned();
+        assert!(aside_name.starts_with("kit.exe.stale-"), "{aside_name}");
+        assert_eq!(aside.parent(), Some(dest.as_path()));
+        assert_eq!(fs::read(&held).unwrap(), b"NEW");
+        assert_eq!(fs::read(dest.join("kit-ui.exe")).unwrap(), b"NEW");
+        drop(handle);
+
+        // An old copy still locked (held without delete sharing) is skipped and counted.
+        let locked = dest.join("kit-ui.exe.stale-1");
+        fs::write(&locked, b"OLD").unwrap();
+        let lock = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(&locked)
+            .unwrap();
+        assert_eq!(sweep_stale(&dest), 1);
+        assert!(locked.exists());
+        assert!(!aside.exists(), "the released old copy is deleted");
+        drop(lock);
+        assert_eq!(sweep_stale(&dest), 0);
+        assert!(!locked.exists());
+
+        // A destination that cannot even be renamed (no delete sharing) is an error,
+        // and the old file stays.
+        let pinned = fs::OpenOptions::new()
+            .write(true)
+            .share_mode(0)
+            .open(&held)
+            .unwrap();
+        let err = place(&release.join("kit.exe"), &held)
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("could not be renamed aside"), "{err}");
+        drop(pinned);
+        assert_eq!(fs::read(&held).unwrap(), b"NEW");
+        assert_eq!(sweep_stale(&dest), 0);
         let _ = fs::remove_dir_all(&root);
     }
 }
