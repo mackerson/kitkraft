@@ -251,3 +251,12 @@ them:
 and (optionally) Console Output To File into `KitKraft Dev` through MO2, setting the INI
 switches and creating `KitKraftBase`. Nexus downloads need the owner's login; no agent
 downloads or installs them. Lane C's sessions (M4.T1 onward) start only after M4.O7.
+
+## Dependency list (lane C, M4.T3, 2026-10-16)
+
+For the owner's confirmation at the merge (Amendment 1 (c), M5.O2): **`crates/game` adds no
+third-party crate.** The console client is HTTP/1.1 over `std::net::TcpStream` (loopback
+only), and processes go through `std::process` with Windows' own `tasklist`, `taskkill`
+and PowerShell (screen capture). Its dependencies are workspace crates already in
+`Cargo.lock`: `serde`, `serde_json`, `toml`, `thiserror`, `regex` (all MIT OR Apache-2.0).
+A later HTTP or process crate is listed here first.

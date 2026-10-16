@@ -6,12 +6,17 @@
 //! [`ALLOWLIST`] (by canonical id, so an alias cannot slip past) and each entry's argument
 //! guard before the engine sees it.
 //!
-//! ADR 0007 Amendment 2: one write is permitted, [`PERMITTED_WRITE`], the engine's
-//! `ledger` command appending a row to the repo doc `docs/game-observations.md`. Its
-//! writing form (`confirm: true`) passes only in a request built by
-//! [`Request::confirmed`], which the Ledger panel makes once per click on its confirm
-//! button; its preview (`confirm` false or absent) writes nothing and needs no
-//! confirmation. No other request may be confirmed.
+//! ADR 0007 Amendments 2 and 3: the writes the window may make are [`PERMITTED_WRITES`],
+//! a subset of [`COCKPIT_SCOPE`] (the six commands Amendment 3 names: `ledger`, `deploy`
+//! `--dev`, `deploy.rollback`, `game.session`, `game.probe`, `game.stop`). Each entry
+//! has a preview form that writes nothing and passes like a read (`ledger` without
+//! `confirm`, `deploy*` with `dry_run: true`), and a writing form that passes only in a
+//! request built by [`Request::confirmed`], which one panel file per entry makes once per
+//! confirm click (a source scan holds it). No other request may be confirmed. For
+//! `deploy` and `deploy.rollback` the gate also checks what it can from the arguments
+//! alone: `dev: true`, and `profile` present (writing form) and never `Default`. The
+//! panel compares `mo2` and `profile` with the loaded dev profile; the engine refuses
+//! `Default` on its own, from MO2's active profile.
 //!
 //! This is also the only file of the crate that names the engine crate at all: a test
 //! scans every other source file (and the integration tests) for the token, so neither a
@@ -24,7 +29,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use kitkraft_engine::{Engine, EngineError};
-use serde_json::{json, Value};
+use serde_json::{json, Map, Value};
 
 pub use kitkraft_engine::cmdline::command_words;
 pub use kitkraft_engine::find_command;
@@ -127,6 +132,18 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads an MO2 instance's ModOrganizer.ini and lists its profile folders (the start screen)",
     },
+    Allowed {
+        id: "deploy.status",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads the KitKraft dev mods of an MO2 instance, their manifests and previous deployments (the Cockpit tab, M6.G1)",
+    },
+    Allowed {
+        id: "doctor",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads where the game, Data dir, MO2 instance and profiles, tools and cache are (M6.G1; first run, M6.X4)",
+    },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that
@@ -159,27 +176,90 @@ pub const WRITING: &[&str] = &[
     "deploy.rollback",
     "roundtrip",
     "ledger",
+    // Lane C (M4.T3): classified only, so the catalog and this list agree; the window may
+    // not run them until M6.G4/G5 add them with their confirmations.
+    "game.session",
+    "game.probe",
+    "game.stop",
+    // lane D round 3 (M7.S7): refused in the window until M7.E1/M7.O4 rule on it.
+    "revert",
 ];
 
-/// The one write the workbench may make (ADR 0007 Amendment 2).
+/// What tells a permitted write's preview from its writing form.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Preview {
+    /// The command writes when this boolean argument is given and not `false`
+    /// (`ledger`'s `confirm`); absent or `false` is the preview.
+    WritesWhen(&'static str),
+    /// The command writes unless this boolean argument is `true` (`deploy`'s `dry_run`);
+    /// `true` is the preview.
+    PreviewWhen(&'static str),
+}
+
+/// One write the window may make (ADR 0007 Amendments 2 and 3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct PermittedWrite {
-    /// Canonical catalog id.
+    /// Canonical catalog id; also in [`COCKPIT_SCOPE`] and [`WRITING`].
     pub id: &'static str,
-    /// The boolean argument that makes it write; `true` needs a confirmed request.
-    pub write_arg: &'static str,
+    /// The argument test that tells its preview from its writing form.
+    pub preview: Preview,
+    /// The one panel file (under `src/`) allowed to build its confirmed request.
+    pub panel: &'static str,
+    /// `dev: true` required in every form, `profile` required in the writing form and
+    /// refused as `Default` in any form (`deploy`, `deploy.rollback`: Amendment 3, "What
+    /// the gate checks").
+    pub dev_profile: bool,
     /// What it writes, and why it is allowed.
     pub why: &'static str,
 }
 
-/// The single permitted write: `ledger` appends one row to the repo doc
-/// `docs/game-observations.md` (the engine refuses every other path), confirmed per click.
-/// Also in [`WRITING`]; never on [`ALLOWLIST`] or [`GUARDED`] (a test holds this).
-pub const PERMITTED_WRITE: PermittedWrite = PermittedWrite {
-    id: "ledger",
-    write_arg: "confirm",
-    why: "appends one dated row to docs/game-observations.md, a repo doc (not game data); the engine refuses any other path; one confirm click per row",
-};
+/// The cockpit write scope of ADR 0007 Amendment 3 (accepted by the owner 2026-10-16,
+/// M6.O3): the only ids [`PERMITTED_WRITES`] may hold. It changes only with an accepted
+/// amendment to ADR 0007 (M7's editor writes are Amendment 4, M7.E1); the gate test
+/// fails on a permitted id outside it.
+pub const COCKPIT_SCOPE: &[&str] = &[
+    "ledger",
+    "deploy",
+    "deploy.rollback",
+    "game.session",
+    "game.probe",
+    "game.stop",
+];
+
+/// The MO2 profile that is the owner's live game: never a target (AGENTS.md).
+pub const LIVE_PROFILE: &str = "Default";
+
+/// The writes the window may make, each confirmed per click. They grow entry by entry
+/// with the ticket that implements them (M6.G3: `deploy`, `deploy.rollback`; M6.G4:
+/// `game.session`, `game.stop`; M6.G5: `game.probe`), always inside [`COCKPIT_SCOPE`].
+pub const PERMITTED_WRITES: &[PermittedWrite] = &[
+    PermittedWrite {
+        id: "ledger",
+        preview: Preview::WritesWhen("confirm"),
+        panel: "panels/ledger.rs",
+        dev_profile: false,
+        why: "appends one dated row to docs/game-observations.md, a repo doc (not game data); the engine refuses any other path; one confirm click per row (Amendment 2)",
+    },
+    PermittedWrite {
+        id: "deploy",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "panels/cockpit.rs",
+        dev_profile: true,
+        why: "copies one plugin or package into the isolated MO2 mod `KitKraft Dev - <plugin>` (ADR 0009); the engine refuses Default, profiles, plugins.txt and every other mod (Amendment 3, M6.G3)",
+    },
+    PermittedWrite {
+        id: "deploy.rollback",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "panels/cockpit.rs",
+        dev_profile: true,
+        why: "swaps one dev mod's `.previous` deployment back in, keeping the replaced one as the new previous: the way back from a deploy (Amendment 3, M6.G3)",
+    },
+];
+
+/// The permitted write for canonical id `id`.
+pub fn permitted(id: &str) -> Option<&'static PermittedWrite> {
+    PERMITTED_WRITES.iter().find(|p| p.id == id)
+}
 
 /// Refuses `dir` as a place the workbench writes into (its screenshot tour) when it is,
 /// or is inside, the game's Data folder, the user Data folder, an MO2 instance or
@@ -197,10 +277,11 @@ pub struct Request {
     pub id: String,
     /// The arguments object.
     pub args: Value,
-    /// Made by a confirm click ([`Request::confirmed`]): the only way the
-    /// [`PERMITTED_WRITE`] runs in its writing form. Private, so outside this module it
-    /// is set only through that constructor (read it with [`Request::is_confirmed`]); a
-    /// source scan keeps the constructor to the Ledger panel.
+    /// Made by a confirm click ([`Request::confirmed`]): the only way a
+    /// [`PERMITTED_WRITES`] entry runs in its writing form. Private, so outside this
+    /// module it is set only through that constructor (read it with
+    /// [`Request::is_confirmed`]); a source scan keeps the constructor, per id, to that
+    /// entry's panel file.
     confirmed: bool,
 }
 
@@ -214,8 +295,9 @@ impl Request {
         }
     }
 
-    /// A request the user confirmed with a click on the Ledger panel's confirm button,
-    /// one per click. The gate takes it for [`PERMITTED_WRITE`] only.
+    /// A request the user confirmed with a click on a confirm button, one per click. The
+    /// gate takes it for [`PERMITTED_WRITES`] only; outside this file `id` is a string
+    /// literal naming the command (the source scan reads it).
     pub fn confirmed(id: &str, args: Value) -> Self {
         Self {
             confirmed: true,
@@ -274,35 +356,82 @@ impl RunError {
     }
 }
 
-/// Checks `request` against [`ALLOWLIST`], [`GUARDED`] and [`PERMITTED_WRITE`] without
+/// Whether boolean argument `name` is given and not `false` (`null` counts as absent).
+fn on(args: Option<&Map<String, Value>>, name: &str) -> bool {
+    args.and_then(|m| m.get(name))
+        .is_some_and(|v| !v.is_null() && v != &Value::Bool(false))
+}
+
+/// The arguments as an object (`None` for `null`), or the refusal.
+fn object(args: &Value) -> Result<Option<&Map<String, Value>>, RunError> {
+    match args {
+        Value::Null => Ok(None),
+        Value::Object(m) => Ok(Some(m)),
+        _ => Err(RunError::Refused(
+            "arguments must be a JSON object".to_string(),
+        )),
+    }
+}
+
+/// The check of one [`PERMITTED_WRITES`] entry: its preview passes like a read, its
+/// writing form only confirmed; `deploy*` also need `dev: true` and a profile that is not
+/// `Default`.
+fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError> {
+    let args = object(&request.args)?;
+    let writes = match p.preview {
+        Preview::WritesWhen(arg) => on(args, arg),
+        Preview::PreviewWhen(arg) => args.and_then(|m| m.get(arg)) != Some(&Value::Bool(true)),
+    };
+    if p.dev_profile {
+        if args.and_then(|m| m.get("dev")) != Some(&Value::Bool(true)) {
+            return Err(RunError::Refused(format!(
+                "`{}` runs here only with `dev: true` (ADR 0009: development deployment is opt-in on every call)",
+                p.id
+            )));
+        }
+        match args.and_then(|m| m.get("profile")) {
+            Some(Value::String(name)) if name.trim().eq_ignore_ascii_case(LIVE_PROFILE) => {
+                return Err(RunError::Refused(format!(
+                    "`{}`: `{LIVE_PROFILE}` is the owner's live game and never a target; use the dev profile",
+                    p.id
+                )));
+            }
+            Some(Value::String(name)) if !name.trim().is_empty() => {}
+            None | Some(Value::Null) if !writes => {}
+            _ => {
+                return Err(RunError::Refused(format!(
+                    "`{}` writes only with `profile` naming the dev profile (ADR 0007 Amendment 3)",
+                    p.id
+                )));
+            }
+        }
+    }
+    if writes && !request.confirmed {
+        return Err(RunError::Refused(format!(
+            "`{}` in its writing form is sent only from its panel's confirm button ({}; ADR 0007 Amendment 3)",
+            p.id, p.panel
+        )));
+    }
+    Ok(())
+}
+
+/// Checks `request` against [`ALLOWLIST`], [`GUARDED`] and [`PERMITTED_WRITES`] without
 /// running it.
 pub fn check(request: &Request) -> Result<(), RunError> {
     let spec = find_command(&request.id)
         .ok_or_else(|| RunError::Refused(format!("`{}` is not a catalog command", request.id)))?;
-    if spec.id == PERMITTED_WRITE.id {
-        let writes = match &request.args {
-            Value::Null => false,
-            Value::Object(m) => m
-                .get(PERMITTED_WRITE.write_arg)
-                .is_some_and(|v| !v.is_null() && v != &Value::Bool(false)),
-            _ => {
-                return Err(RunError::Refused(
-                    "arguments must be a JSON object".to_string(),
-                ))
-            }
-        };
-        if writes && !request.confirmed {
-            return Err(RunError::Refused(format!(
-                "`{}` with `{}` writes docs/game-observations.md; the workbench sends it only from the Ledger panel's confirm button (ADR 0007 Amendment 2)",
-                spec.id, PERMITTED_WRITE.write_arg
-            )));
-        }
-        return Ok(());
+    if let Some(p) = permitted(spec.id) {
+        return check_permitted(p, request);
     }
     if request.confirmed {
         return Err(RunError::Refused(format!(
-            "`{}`: only `{}` takes a confirmed write; nothing else in the workbench writes",
-            spec.id, PERMITTED_WRITE.id
+            "`{}`: only {} take a confirmed write; nothing else in the workbench writes",
+            spec.id,
+            PERMITTED_WRITES
+                .iter()
+                .map(|p| format!("`{}`", p.id))
+                .collect::<Vec<_>>()
+                .join(", ")
         )));
     }
     let entry = ALLOWLIST
@@ -315,22 +444,11 @@ pub fn check(request: &Request) -> Result<(), RunError> {
                 spec.id
             ))
         })?;
-    let args = match &request.args {
-        Value::Null => None,
-        Value::Object(map) => Some(map),
-        _ => {
-            return Err(RunError::Refused(
-                "arguments must be a JSON object".to_string(),
-            ))
-        }
-    };
+    let args = object(&request.args)?;
     for name in entry.refuse_args {
-        let given = args
-            .and_then(|m| m.get(*name))
-            .is_some_and(|v| !v.is_null() && v != &Value::Bool(false));
-        if given {
+        if on(args, name) {
             return Err(RunError::Refused(format!(
-                "`{}` with `{name}` would write a file; the workbench writes nothing but the ledger row",
+                "`{}` with `{name}` would write a file; the workbench writes only its confirmed writes",
                 spec.id
             )));
         }
@@ -399,10 +517,49 @@ impl ReadOnlyEngine {
 mod tests {
     use super::*;
     use std::collections::BTreeSet;
+    use std::path::Path;
+
+    /// Why `permitted` (the ids of a `PERMITTED_WRITES`) breaks the rule of ADR 0007
+    /// Amendment 3, "The test that enforces it": every id inside `scope`
+    /// ([`COCKPIT_SCOPE`]), in the catalog, marked `writes` and `Implemented`, listed
+    /// once, and neither allowed outright nor guarded.
+    fn scope_violations(permitted: &[&str], scope: &[&str]) -> Vec<String> {
+        let mut out = Vec::new();
+        let mut seen = BTreeSet::new();
+        for id in permitted {
+            if !seen.insert(*id) {
+                out.push(format!("{id}: listed twice"));
+            }
+            if !scope.contains(id) {
+                out.push(format!(
+                    "{id}: not in COCKPIT_SCOPE; a new write needs an accepted amendment to ADR 0007"
+                ));
+            }
+            match find_command(id) {
+                Some(spec) if spec.id != *id => out.push(format!("{id}: not the canonical id")),
+                Some(spec) if !spec.writes => {
+                    out.push(format!("{id}: the catalog does not mark it writes"))
+                }
+                Some(spec) if spec.status != kitkraft_engine::Status::Implemented => {
+                    out.push(format!("{id}: not Implemented"))
+                }
+                Some(_) => {}
+                None => out.push(format!(
+                    "{id}: not in the catalog (listed only once it exists)"
+                )),
+            }
+            if ALLOWLIST.iter().chain(GUARDED).any(|a| a.id == *id) {
+                out.push(format!("{id}: also allowed or guarded"));
+            }
+        }
+        out
+    }
 
     /// The lists here are a second entry for the catalog's `writes` flag: the allowlist
-    /// holds no writing command, `WRITING` is exactly the writing set, and a guarded
-    /// entry is a writing command with its writing arguments refused.
+    /// holds no writing command, `WRITING` is exactly the writing set, a guarded entry is
+    /// a writing command with its writing arguments refused, and the writing commands
+    /// the window can run in a writing form are exactly the ids of `PERMITTED_WRITES`,
+    /// all inside `COCKPIT_SCOPE` (ADR 0007 Amendment 3).
     #[test]
     fn allowlist_is_disjoint_from_writes_and_writing_equals_it() {
         let writes: BTreeSet<&str> = catalog()
@@ -432,34 +589,98 @@ mod tests {
             );
             assert!(!ALLOWLIST.iter().any(|a| a.id == g.id), "{}", g.id);
         }
-        // Amendment 2: exactly one writing command may run in its writing form, the
-        // ledger, and it is neither allowed outright nor guarded.
-        let p = PERMITTED_WRITE.id;
-        assert_eq!(p, "ledger");
-        assert!(
-            writes.contains(p),
-            "{p}: permitted write the catalog does not mark"
+        // The scope is Amendment 3's six commands, and changes only with an amendment.
+        assert_eq!(
+            COCKPIT_SCOPE,
+            [
+                "ledger",
+                "deploy",
+                "deploy.rollback",
+                "game.session",
+                "game.probe",
+                "game.stop"
+            ]
         );
-        assert!(!ALLOWLIST.iter().chain(GUARDED).any(|a| a.id == p), "{p}");
-        let unguarded_writes: BTreeSet<&str> = writes
+        let ids: Vec<&str> = PERMITTED_WRITES.iter().map(|p| p.id).collect();
+        let bad = scope_violations(&ids, COCKPIT_SCOPE);
+        assert!(bad.is_empty(), "{bad:#?}");
+        // What the window can run in a writing form: an allowed id that writes (none),
+        // or a permitted one.
+        let runnable_writes: BTreeSet<&str> = writes
             .iter()
             .copied()
-            .filter(|w| ALLOWLIST.iter().any(|a| a.id == *w) || *w == p)
+            .filter(|w| ALLOWLIST.iter().any(|a| a.id == *w) || permitted(w).is_some())
             .collect();
-        assert_eq!(unguarded_writes, BTreeSet::from(["ledger"]));
+        let permitted_ids: BTreeSet<&str> = ids.iter().copied().collect();
+        assert_eq!(runnable_writes, permitted_ids);
+        // M6.G3: the ledger and the dev deployment and its rollback; the game.* ids join
+        // with M6.G4 and M6.G5.
+        assert_eq!(ids, ["ledger", "deploy", "deploy.rollback"]);
+        for p in PERMITTED_WRITES {
+            assert!(
+                Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("src")
+                    .join(p.panel)
+                    .is_file(),
+                "{}: panel file {} missing",
+                p.id,
+                p.panel
+            );
+        }
     }
 
-    /// Only the Ledger panel builds a confirmed request (its confirm button calls
-    /// `LedgerForm::append_request`); a scan of the crate's sources holds it.
+    /// The test above fails when a permitted id is outside the scope: `revert` (M7,
+    /// Amendment 4), `testplan` (kept out by Amendment 3) or an id the catalog lacks.
     #[test]
-    fn only_the_ledger_panel_builds_a_confirmed_request() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
-        let allowed = [
-            root.join("src").join("gate.rs"),
-            root.join("src").join("panels").join("ledger.rs"),
-        ];
+    fn a_permitted_write_outside_the_scope_fails_the_rule() {
+        let mut ids: Vec<&str> = PERMITTED_WRITES.iter().map(|p| p.id).collect();
+        assert!(scope_violations(&ids, COCKPIT_SCOPE).is_empty());
+        for extra in ["testplan", "set", "package", "revert"] {
+            ids.push(extra);
+            let bad = scope_violations(&ids, COCKPIT_SCOPE);
+            assert!(
+                bad.iter()
+                    .any(|b| b.starts_with(extra) && b.contains("COCKPIT_SCOPE")),
+                "{extra}: {bad:?}"
+            );
+            ids.pop();
+        }
+        // In scope but read-only, or twice: refused too.
+        assert!(!scope_violations(&["ledger", "ledger"], COCKPIT_SCOPE).is_empty());
+        assert!(!scope_violations(&["schema"], &["schema"]).is_empty());
+        assert!(!scope_violations(&["no.such"], &["no.such"]).is_empty());
+    }
+
+    /// Where `text` builds a confirmed request: each `Request::confirmed(` with the id
+    /// it names (`None` when the id is not a string literal), and any other way of
+    /// setting the flag.
+    fn confirmed_calls(text: &str) -> Vec<Option<String>> {
+        let mut out = Vec::new();
+        for (at, _) in text.match_indices("Request::confirmed(") {
+            let rest = &text[at + "Request::confirmed(".len()..];
+            let rest = rest.trim_start();
+            let id = rest
+                .strip_prefix('"')
+                .and_then(|r| r.split_once('"'))
+                .map(|(id, _)| id.to_string());
+            out.push(id);
+        }
+        if text.contains("confirmed: true") || text.contains(".confirmed =") {
+            out.push(None);
+        }
+        out
+    }
+
+    /// Each permitted write's confirmed request is built only in `gate.rs` and that
+    /// entry's panel file (ADR 0007 Amendment 3, the per-entry source scan); a confirmed
+    /// request for any other id, or with an id that is not a string literal, is found.
+    #[test]
+    fn only_each_permitted_writes_panel_builds_its_confirmed_request() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let gate = root.join("src").join("gate.rs");
         let mut stack = vec![root.join("src"), root.join("tests")];
         let mut found = Vec::new();
+        let mut builders = BTreeSet::new();
         while let Some(dir) = stack.pop() {
             let Ok(entries) = std::fs::read_dir(&dir) else {
                 continue;
@@ -468,28 +689,40 @@ mod tests {
                 let path = entry.unwrap().path();
                 if path.is_dir() {
                     stack.push(path);
-                } else if path.extension().and_then(|e| e.to_str()) == Some("rs")
-                    && !allowed.contains(&path)
-                {
-                    let text = std::fs::read_to_string(&path).unwrap();
-                    // The field is private (only gate.rs can set it); the constructor
-                    // and any spelling of a set are refused outside the two files.
-                    if text.contains("Request::confirmed")
-                        || text.contains("confirmed: true")
-                        || text.contains(".confirmed =")
-                    {
-                        found.push(path.display().to_string());
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) != Some("rs") || path == gate {
+                    continue;
+                }
+                let text = std::fs::read_to_string(&path).unwrap();
+                for call in confirmed_calls(&text) {
+                    let ok = call.as_deref().is_some_and(|id| {
+                        permitted(id).is_some_and(|p| path == root.join("src").join(p.panel))
+                    });
+                    if ok {
+                        builders.insert(call.unwrap_or_default());
+                    } else {
+                        found.push(format!("{}: {call:?}", path.display()));
                     }
                 }
             }
         }
-        assert!(found.is_empty(), "{found:?}");
+        assert!(found.is_empty(), "{found:#?}");
+        // Every permitted write has its one builder.
+        let ids: BTreeSet<String> = PERMITTED_WRITES.iter().map(|p| p.id.to_string()).collect();
+        assert_eq!(builders, ids);
+        // The scan reads ids, and catches the other spellings.
+        assert_eq!(
+            confirmed_calls("Request::confirmed( \"deploy\", a); Request::confirmed(id, a)"),
+            [Some("deploy".to_string()), None]
+        );
+        assert_eq!(confirmed_calls("r.confirmed = true;"), [None]);
     }
 
     /// The ledger previews without a confirmation and writes only from a confirmed
-    /// request; no other command takes a confirmed request.
+    /// request; a command outside `PERMITTED_WRITES` takes no confirmed request.
     #[test]
-    fn the_ledger_is_the_one_write_and_needs_a_confirmed_request() {
+    fn the_ledger_is_one_write_and_needs_a_confirmed_request() {
         let args = json!({"row": "C3", "result": "pass", "confirm": true});
         let refused = check(&Request::new("ledger", args.clone()));
         assert!(
@@ -512,10 +745,143 @@ mod tests {
             ("schema", json!({})),
             ("set", json!({"form": "x", "fields": {}, "into": "y.esp"})),
             ("roundtrip", json!({"plugin": "x.esm", "verify": true})),
+            ("testplan", json!({})),
+            (
+                "game.session",
+                json!({"mo2": "m", "probes": "p", "dry_run": true}),
+            ),
+            ("game.stop", json!({"id": "x", "dry_run": true})),
         ] {
             let e = check(&Request::confirmed(id, a));
             assert!(matches!(e, Err(RunError::Refused(_))), "{id}: {e:?}");
         }
+    }
+
+    /// `deploy` and `deploy.rollback` (ADR 0007 Amendment 3, "What the gate checks"): the
+    /// dry run passes unconfirmed; the writing form only confirmed; `dev: true` always;
+    /// `profile` present for the writing form and never `Default` (any case).
+    #[test]
+    fn deploy_and_rollback_preview_unconfirmed_and_write_only_confirmed() {
+        for (id, base) in [
+            (
+                "deploy",
+                json!({"source": "x.esm", "mo2": "m", "dev": true}),
+            ),
+            (
+                "deploy.rollback",
+                json!({"mo2": "m", "mod": "X", "dev": true, "to": "1-a"}),
+            ),
+        ] {
+            let with = |extra: Value| {
+                let mut a = base.clone();
+                for (k, v) in extra.as_object().unwrap() {
+                    a[k] = v.clone();
+                }
+                a
+            };
+            let dev = json!({"profile": "KitKraft Dev"});
+            // Preview: dry run, with or without a profile.
+            assert!(check(&Request::new(id, with(json!({"dry_run": true})))).is_ok());
+            assert!(check(&Request::new(
+                id,
+                with(json!({"dry_run": true, "profile": "KitKraft Dev"}))
+            ))
+            .is_ok());
+            // Writing form: refused unconfirmed (dry_run absent or false).
+            for w in [
+                dev.clone(),
+                json!({"profile": "KitKraft Dev", "dry_run": false}),
+            ] {
+                let e = check(&Request::new(id, with(w.clone())));
+                assert!(
+                    matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button")),
+                    "{id}: {e:?}"
+                );
+                assert!(check(&Request::confirmed(id, with(w))).is_ok(), "{id}");
+            }
+            // `dev` must be true, in every form.
+            for bad in [
+                json!({"dev": false}),
+                json!({"dev": null}),
+                json!({"dev": "true"}),
+            ] {
+                let mut a = with(json!({"dry_run": true}));
+                a["dev"] = bad["dev"].clone();
+                assert!(check(&Request::confirmed(id, a)).is_err(), "{id}: {bad}");
+            }
+            let mut no_dev = with(json!({"dry_run": true}));
+            no_dev.as_object_mut().unwrap().remove("dev");
+            assert!(check(&Request::new(id, no_dev)).is_err());
+            // The writing form needs a profile; Default is refused in any form.
+            assert!(
+                check(&Request::confirmed(id, base.clone())).is_err(),
+                "{id}"
+            );
+            assert!(check(&Request::confirmed(id, with(json!({"profile": " "})))).is_err());
+            for d in ["Default", "default", " DEFAULT "] {
+                for extra in [
+                    json!({"profile": d}),
+                    json!({"profile": d, "dry_run": true}),
+                ] {
+                    let e = check(&Request::confirmed(id, with(extra)));
+                    assert!(
+                        matches!(&e, Err(RunError::Refused(m)) if m.contains("live game")),
+                        "{id} {d}: {e:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):
+    /// the preview writes nothing, the confirmed deploy and rollback write, and the
+    /// engine refuses on its own when MO2's active profile is `Default`, whatever the
+    /// `profile` argument says.
+    #[test]
+    fn deploy_reaches_the_engine_only_confirmed_and_the_engine_refuses_default() {
+        use crate::panels::cockpit::fake_mo2::FakeMo2;
+        let mo2 = FakeMo2::new("gate");
+        let engine = ReadOnlyEngine::new();
+        let args = json!({"source": mo2.plugin("v1"), "mo2": mo2.instance(), "dev": true,
+                          "profile": "KitKraft Dev"});
+        let mut preview = args.clone();
+        preview["dry_run"] = json!(true);
+        let before = mo2.snapshot();
+        let plan = engine.run(&Request::new("deploy", preview)).unwrap();
+        assert_eq!(plan["data"]["outcome"], "plan", "{plan}");
+        assert_eq!(mo2.snapshot(), before, "a preview wrote");
+        assert!(engine.run(&Request::new("deploy", args.clone())).is_err());
+        assert_eq!(mo2.snapshot(), before, "an unconfirmed request wrote");
+        let done = engine
+            .run(&Request::confirmed("deploy", args.clone()))
+            .unwrap();
+        assert_eq!(done["data"]["outcome"], "deployed", "{done}");
+        assert!(mo2.mod_dir().join("MyMod.esm").is_file());
+        // A second deploy makes a previous; roll back to it, confirmed.
+        let mut v2 = args.clone();
+        v2["source"] = json!(mo2.plugin("v2"));
+        engine.run(&Request::confirmed("deploy", v2)).unwrap();
+        let rb = json!({"mo2": mo2.instance(), "mod": "MyMod", "dev": true,
+                        "profile": "KitKraft Dev"});
+        assert!(engine
+            .run(&Request::new("deploy.rollback", rb.clone()))
+            .is_err());
+        let back = engine
+            .run(&Request::confirmed("deploy.rollback", rb))
+            .unwrap();
+        assert_eq!(back["data"]["outcome"], "rolled back", "{back}");
+        assert_eq!(
+            std::fs::read(mo2.mod_dir().join("MyMod.esm")).unwrap(),
+            b"TES4 v1"
+        );
+        // MO2 on Default: the gate lets the dev profile argument through, the engine
+        // refuses.
+        mo2.select("Default");
+        let refused = engine.run(&Request::confirmed("deploy", args)).unwrap_err();
+        assert!(
+            matches!(&refused, RunError::Failed { message, .. } if message.contains("Default")),
+            "{refused:?}"
+        );
     }
 
     #[test]
@@ -526,8 +892,10 @@ mod tests {
             "papyrus.disasm",
             "papyrus.events",
             "strings.dump",
-            "deploy.status",
-            "doctor",
+            // Lane C (M4.T3); M6.G2/G4 use it.
+            "game.status",
+            // lane D round 3 (M7.S3): the Cell View (M7.W2) will use it.
+            "cell",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);
@@ -552,11 +920,14 @@ mod tests {
             .iter()
             .filter(|s| !ALLOWLIST.iter().any(|a| a.id == s.id))
         {
-            // The ledger's writing form is what is refused (its preview runs).
-            let args = if spec.id == PERMITTED_WRITE.id {
-                json!({"row": "C1", "result": "pass", "confirm": true})
-            } else {
-                json!({})
+            // A permitted write's writing form is what is refused (its preview runs).
+            let args = match spec.id {
+                "ledger" => json!({"row": "C1", "result": "pass", "confirm": true}),
+                "deploy" => json!({"source": "x.esm", "mo2": "m", "dev": true,
+                                   "profile": "KitKraft Dev"}),
+                "deploy.rollback" => json!({"mo2": "m", "mod": "X", "dev": true,
+                                            "profile": "KitKraft Dev"}),
+                _ => json!({}),
             };
             for name in std::iter::once(&spec.id).chain(spec.aliases.iter()) {
                 let err = engine.run(&Request::new(name, args.clone())).unwrap_err();

@@ -82,7 +82,7 @@ status = "game-runtime-tested"
 result = "pass"
 evidence = [
   "ledger: game-20261014-01",
-  "doc: plan/STATUS.md#M3.O5 result",
+  "ledger: game-20261015-02",
 ]
 note = "the rename override (M2.O6) and gun overhaul build 2 (M3.O5, rows C1-C7, C9-C14)"
 
@@ -91,7 +91,7 @@ type = "AMDL"
 status = "game-runtime-tested"
 result = "pass"
 evidence = [
-  "doc: plan/STATUS.md#M3.O5 result",
+  "ledger: game-20261015-02",
   "doc: docs/overhaul/build-2.md#Per row",
 ]
 note = "overhaul build 2 overrides 4 aim models; rows C3, C7 and C11 (recoil) passed"
@@ -101,7 +101,7 @@ type = "OMOD"
 status = "game-runtime-tested"
 result = "pass"
 evidence = [
-  "doc: plan/STATUS.md#M3.O5 result",
+  "ledger: game-20261015-02",
   "doc: docs/overhaul/build-2.md#Per row",
 ]
 note = "overhaul build 2 overrides 4 object mods; rows C3, C6, C10 and C11 passed"
@@ -111,7 +111,7 @@ type = "CELL"
 status = "game-runtime-tested"
 result = "pass"
 evidence = [
-  "doc: plan/STATUS.md#M4.O2 result",
+  "ledger: game-20261015-03",
   "doc: docs/poi/first-poi.md#First POI",
 ]
 note = "the first POI carries its interior cell; the owner reached the crate in it (M4.O2)"
@@ -121,7 +121,7 @@ type = "REFR"
 status = "game-runtime-tested"
 result = "pass"
 evidence = [
-  "doc: plan/STATUS.md#M4.O2 result",
+  "ledger: game-20261015-03",
   "doc: docs/poi/first-poi.md#First POI",
 ]
 note = "the POI's new persistent reference (base STAT) was found with player.moveto (M4.O2)"

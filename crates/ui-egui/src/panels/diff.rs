@@ -63,6 +63,9 @@ impl DiffForm {
                 if self.only_conflicts {
                     args.insert("only_conflicts".into(), json!(true));
                 }
+                // The panel shows per-field rows: `conflicts` defaults to `summary`
+                // (lane D round 3), so ask for `fields` (not `full`: no byte ranges).
+                args.insert("detail".into(), json!("fields"));
                 args.insert("limit".into(), json!(50));
                 if let Some(c) = cursor {
                     args.insert("cursor".into(), json!(c));
@@ -446,7 +449,7 @@ mod tests {
         assert_eq!(req.id, "conflicts");
         assert_eq!(
             req.args,
-            json!({"plugin": "A.esm", "type": "WEAP", "only_conflicts": true, "limit": 50, "cursor": "c1"})
+            json!({"plugin": "A.esm", "type": "WEAP", "only_conflicts": true, "detail": "fields", "limit": 50, "cursor": "c1"})
         );
         assert!(DiffForm::default().request(None).is_err());
     }

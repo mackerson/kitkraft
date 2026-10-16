@@ -39,6 +39,14 @@ pub(crate) enum Slot {
     Roundtrip,
     Schema,
     Ledger,
+    // Lane G (M6.G2, M6.G3, M6.G7, M6.G8): the Cockpit and Coverage tabs.
+    CockpitStatus,
+    CockpitValidate,
+    CockpitRoundtrip,
+    CockpitMasters,
+    CockpitDeploy,
+    CockpitRollback,
+    Coverage,
 }
 
 /// `Slot` as a map key.
@@ -341,7 +349,12 @@ pub(crate) fn plugin_combo(
 /// Validate findings as a table: severity as a status, then rule, record, subrecord,
 /// offset and message (the Validate and Diagnostics tabs); every finding, laid out only
 /// where scrolled into view.
-pub(crate) fn findings_grid(ui: &mut egui::Ui, id: &str, findings: &[FindingRow]) {
+pub(crate) fn findings_grid<'a>(
+    ui: &mut egui::Ui,
+    id: &str,
+    findings: impl IntoIterator<Item = &'a FindingRow>,
+) {
+    let findings: Vec<&FindingRow> = findings.into_iter().collect();
     let header = [
         "severity",
         "rule",

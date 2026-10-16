@@ -24,6 +24,9 @@ pub mod records;
 pub mod schema;
 pub mod start;
 pub mod validate;
+// Lane G (M6): the Cockpit and Coverage tabs.
+pub mod cockpit;
+pub mod coverage;
 
 use serde_json::{Map, Value};
 

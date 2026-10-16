@@ -227,8 +227,8 @@ impl Plan {
         // object format 2, as the engine's attach writes one.
         if sub.signature.as_str() == "VMAD" {
             self.fields.insert(key, json!("hex:060002000000"));
-            // Its script list stays raw bytes in the layout: unchecked by validate.
-            self.opaque += 1;
+            // Its script list decodes (M5.D6: validate reads VMAD object values), so it is
+            // checked, not counted as unchecked.
             return;
         }
         let bytes = sample(&sub.ty, None);

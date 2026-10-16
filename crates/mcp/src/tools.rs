@@ -154,7 +154,7 @@ pub fn description(tool: &Tool) -> Result<String, EngineError> {
     match tool.target {
         Target::Execute => {
             let mut text = String::from(
-                "Run any KitKraft catalog command by id with JSON args; returns the evidence envelope {command, data, coverage, limitations, evidence}. Commands (`?` = optional):",
+                "Run any KitKraft catalog command by id with JSON args; returns the evidence envelope {command, data, coverage, limitations, evidence, build}. Commands (`?` = optional):",
             );
             for spec in catalog() {
                 text.push_str(&format!("\n- {} {}: {}", spec.id, signature(spec)?, summary(spec)));
@@ -275,6 +275,20 @@ mod tests {
     use super::{catalog_json, definitions, description, find_tool, input_schema, Target, TOOLS};
     use kitkraft_engine::{catalog, find_command, Status};
     use serde_json::Value;
+
+    /// `execute`'s description lists exactly the members the envelope shape requires.
+    #[test]
+    fn execute_description_names_every_envelope_member() {
+        let tool = TOOLS
+            .iter()
+            .find(|t| matches!(t.target, Target::Execute))
+            .unwrap();
+        let text = description(tool).unwrap();
+        let (_, after) = text.split_once("evidence envelope {").unwrap();
+        let (list, _) = after.split_once('}').unwrap();
+        let named: Vec<&str> = list.split(',').map(str::trim).collect();
+        assert_eq!(named, kitkraft_engine::shapes::envelope_members());
+    }
 
     #[test]
     fn tool_names_are_unique_and_well_formed() {

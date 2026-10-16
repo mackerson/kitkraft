@@ -52,6 +52,9 @@ struct Stats {
     with_rest: u64,
     /// Object values whose unused bytes are not zero.
     unused_nonzero: u64,
+    /// M5.D6: object values that name a form (not 0, not FFFFFFFF) per record type: the
+    /// FormIDs `refs` and `formid.dangling` now visit.
+    named_per_type: BTreeMap<String, u64>,
     objects: u64,
     failures: Vec<String>,
 }
@@ -107,6 +110,31 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
         for s in &v.scripts {
             s.properties.iter().for_each(|p| count_types(p, stats));
         }
+        // M5.D6: `object_refs` lists the same objects, each at its FormID's bytes.
+        match kitkraft_doc::vmad::object_refs(s.data()) {
+            Ok(scan) => {
+                for o in &scan.objects {
+                    let bytes = s.data().get(o.at..o.at + 4).unwrap_or_default();
+                    if bytes != o.object.form_id.to_le_bytes() {
+                        stats
+                            .failures
+                            .push(format!("{at}: {} is not at {}", o.path, o.at));
+                    }
+                    if o.object.form_id != 0 && o.object.form_id != u32::MAX {
+                        *stats
+                            .named_per_type
+                            .entry(record.header.signature.to_string())
+                            .or_default() += 1;
+                    }
+                }
+                if scan.objects.len() != vmad::objects(&v).len() {
+                    stats
+                        .failures
+                        .push(format!("{at}: object_refs differs from objects"));
+                }
+            }
+            Err(e) => stats.failures.push(format!("{at}: object_refs: {e}")),
+        }
         for (_, o) in vmad::objects(&v) {
             stats.objects += 1;
             if o.unused != 0 {
@@ -149,6 +177,11 @@ fn every_official_vmad_roundtrips() {
     }
     let total: u64 = stats.per_type.values().sum();
     println!("VMAD payloads: {total} by record type {:?}", stats.per_type);
+    println!(
+        "object values naming a form (M5.D6: now visited by refs and formid.dangling): {} by record type {:?}",
+        stats.named_per_type.values().sum::<u64>(),
+        stats.named_per_type
+    );
     println!(
         "formats {:?}; scripts {}; with a fragment block {}; property types {:?}; objects {} ({} with non-zero unused bytes)",
         stats.formats,

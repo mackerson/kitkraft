@@ -1,0 +1,95 @@
+# Starfield game profile for the session controller (ADR 0010 rule 6; format in
+# docs/game-sessions.md). A fact with an empty `evidence` is unverified: the controller
+# refuses a live session until `launch`, `console` and `saves` each name the ledger entry
+# that observed them (docs/game-observations.md). Nothing here comes from a game binary.
+
+[game]
+id = "starfield"
+name = "Starfield"
+status = "partial"
+note = "game 1.16.244, SFSE 0.2.21, MO2 2.5.2 (portable C:\\Modding\\MO2-Starfield); the console tools are the owner's to install (M4.O7)"
+
+[executables]
+game = "Starfield.exe"
+script_extender = "sfse_loader.exe"
+editor = "CreationKit.exe"
+mod_manager = "ModOrganizer.exe"
+# MO2's virtual file system helpers (file names in the MO2 folder, observed 2026-10-16).
+helpers = ["usvfs_proxy_x64.exe", "usvfs_proxy_x86.exe"]
+
+[launch]
+# The MO2 executable entry: `[customExecutables] 1\title=SFSE` in ModOrganizer.ini
+# (observed 2026-10-16). The command line itself is grade D.
+mo2_executable = "SFSE"
+args = ["-p", "{profile}", "moshortcut://:{executable}"]
+evidence = ""
+pending = "M4.T1 (a): the MO2 2.5.2 command line that starts a named executable on a named profile, black box (`ModOrganizer.exe --help`); not run on 2026-10-16 because the owner's MO2 was running (game-20261016-T1, row a)"
+
+[console]
+# Console API (stonegdi, Nexus 4280, v2.17.0): POST the command as the body, the answer
+# is the console output (docs/research/in-game-agent-testing-2026-10-15.md). Run-only tool.
+url = "http://127.0.0.1:55555/console"
+ready_command = "GetSFSEVersion"
+ready_expect = ""
+mod_names = ["Console API"]
+evidence = ""
+pending = "M4.T1 (b): V0, Console API 2.17.0 answers GetSFSEVersion over HTTP on 1.16.244 with SFSE 0.2.21 (needs M4.O7)"
+
+[saves]
+dir = "saves"
+extension = "sfs"
+load_command = "load {save}"
+save_command = "save {save}"
+base_default = "KitKraftBase"
+session_prefix = "KitKraftSession-"
+evidence = ""
+pending = "M4.T1 (d): the console `load <save>` from the main menu and from the world (needs M4.O7)"
+
+[mo2]
+local_settings = true
+local_saves = true
+
+# The switches the owner sets once in the dev profile (M4.O7; ADR 0010 section 1).
+[[ini]]
+file = "StarfieldCustom.ini"
+section = "General"
+key = "bAlwaysActive"
+value = "1"
+
+[[ini]]
+file = "StarfieldCustom.ini"
+section = "Papyrus"
+key = "bEnableLogging"
+value = "1"
+
+[[ini]]
+file = "StarfieldCustom.ini"
+section = "Papyrus"
+key = "bEnableTrace"
+value = "1"
+
+[[ini]]
+file = "StarfieldCustom.ini"
+section = "Papyrus"
+key = "bLoadDebugInformation"
+value = "1"
+
+[[log]]
+name = "papyrus"
+path = "{documents}/My Games/Starfield/Logs/Script/Papyrus.0.log"
+evidence = ""
+pending = "M4.T1 (h): the Papyrus log path, and whether the profile INI controls it under MO2"
+
+[[log]]
+name = "console-history"
+# Present on the dev box (2026-10-16, listing only; contents not read).
+path = "{documents}/My Games/Starfield/StarfieldConsoleHistory.log"
+evidence = ""
+pending = "M4.T1 (b..h): that a session's commands appear in it"
+
+[timeouts]
+session_secs = 1800
+probe_secs = 60
+ready_secs = 300
+load_secs = 180
+exit_secs = 60

@@ -253,6 +253,16 @@ confirms it.
 
 ## M5.A4: an unattended route into the CK? (grade: static strings, unverified)
 
+> **Method pending owner ruling: static strings of the binary are outside the black-box
+> rule; not to be repeated or cited until ruled.** AGENTS.md "Clean room" allows the CK
+> only "run and observed as a black box", and ADR 0005 §3 ("Forbidden sources") forbids
+> disassembly, decompilation, debugging and memory inspection of `CreationKit.exe`; a
+> strings scan of the binary is neither, so it sits between the two. Director decision
+> 2026-10-16: no further static analysis of the CK binary; this entry is retained as
+> written but is not cited (no switch name below is evidence for any ticket) until the
+> owner rules (`plan/STATUS.md` "Director assumptions pending owner" and "Owner next
+> actions": an ADR 0005 amendment or an AGENTS.md clarification).
+
 Research only, 2026-10-16. Question: does the CK have a command line or INI route that
 loads plugins and saves (re-exports) without a person at the keyboard? Method: the
 printable ASCII and UTF-16 strings of `CreationKit.exe` 1.16.244.0 (239,885,664 bytes,

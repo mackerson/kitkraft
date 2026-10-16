@@ -798,3 +798,208 @@ fn argument_errors() {
     let err = execute("validate", json!({"plugin": "no/such.esp"})).unwrap_err();
     assert_eq!(err.kind(), "failed");
 }
+
+/// A `VMAD` with one script whose properties are `objects` (property name, type byte,
+/// value): an object (1), an object array (11) or a struct (7) of one object member.
+fn vmad(objects: &[(&str, u8, Vec<u32>)]) -> Subrecord<'static> {
+    use kitkraft_doc::vmad::{encode, Object, Property, Script, Value, Vmad};
+    let object = |form_id: u32| Object {
+        form_id,
+        alias: -1,
+        unused: 0,
+    };
+    let prop = |name: &str, ty: u8, value: Value| Property {
+        name: name.as_bytes().to_vec(),
+        ty,
+        flags: 1,
+        value,
+    };
+    let properties = objects
+        .iter()
+        .map(|(name, ty, ids)| {
+            let value = match ty {
+                1 => Value::Object(object(ids[0])),
+                11 => Value::Objects(ids.iter().map(|i| object(*i)).collect()),
+                _ => Value::Struct(vec![prop("Ref", 1, Value::Object(object(ids[0])))]),
+            };
+            prop(name, *ty, value)
+        })
+        .collect();
+    let v = Vmad {
+        scripts: vec![Script {
+            name: b"KK:Test".to_vec(),
+            flags: 0,
+            properties,
+        }],
+        ..Vmad::new()
+    };
+    sub(b"VMAD", &encode(&v).unwrap())
+}
+
+/// M5.D6: `formid.dangling` and `refs` follow the object values of script properties on
+/// the four authoring types (LCTN, TERM, PKIN, FACT): a form the master has passes, one it
+/// lacks is a warning, a missing form of the plugin itself and a master slot past the list
+/// are errors, each named by its property path; `refs` lists the script property as a link
+/// both ways.
+#[test]
+fn formid_dangling_follows_script_properties() {
+    let d = dir("validate-vmad");
+    master(&d);
+    let with = |sig: &[u8; 4], id: u32, objects: &[(&str, u8, Vec<u32>)]| {
+        record(
+            sig,
+            id,
+            vec![
+                sub(b"EDID", format!("KK{id:X}\0").as_bytes()),
+                vmad(objects),
+            ],
+        )
+    };
+    let records = vec![
+        with(b"LCTN", 0x0100_0A01, &[("Target", 1, vec![0x0000_0900])]),
+        with(b"TERM", 0x0100_0A02, &[("Target", 1, vec![0x0000_0999])]),
+        with(
+            b"PKIN",
+            0x0100_0A03,
+            &[("Items", 11, vec![0x0000_0900, 0x0100_0999])],
+        ),
+        with(b"FACT", 0x0100_0A04, &[("Pair", 7, vec![0x0500_0001])]),
+    ];
+    let p = patch(&d, "Scripts.esp", &["Master.esm"], records);
+    let data = check(&p, &["formid.dangling"]);
+    let mut got: Vec<(String, String, String)> = data["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| {
+            (
+                f["record"].as_str().unwrap().to_string(),
+                f["subrecord"].as_str().unwrap().to_string(),
+                f["severity"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+    got.sort();
+    let row = |r: &str, m: &str, s: &str| (r.to_string(), m.to_string(), s.to_string());
+    assert_eq!(
+        got,
+        [
+            row("FACT:01000A04", "VMAD.KK:Test.Pair.Ref", "error"),
+            row("PKIN:01000A03", "VMAD.KK:Test.Items[1]", "error"),
+            row("TERM:01000A02", "VMAD.KK:Test.Target", "warning"),
+        ],
+        "{data:#}"
+    );
+    // Every VMAD decoded, so none is left unchecked; the header FormIDs and the five
+    // object values were checked.
+    assert_eq!(data["unchecked_subrecords"], json!(0), "{data:#}");
+    assert!(data["checked_form_ids"].as_u64().unwrap() >= 9, "{data:#}");
+    // The finding's offset is the FormID's four bytes in the file.
+    let bytes = std::fs::read(&p).unwrap();
+    let term = data["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["record"] == "TERM:01000A02")
+        .unwrap();
+    let at = usize::try_from(term["offset"].as_u64().unwrap()).unwrap();
+    assert_eq!(bytes[at..at + 4], 0x0000_0999u32.to_le_bytes());
+
+    // refs: incoming lists the location and the pack-in through their script properties;
+    // outgoing lists the property as a link with its status.
+    let lo = json!({"plugins": ["Master.esm", "Scripts.esp"], "data_dir": d.display().to_string(), "no_cache": true});
+    let mut incoming = lo.clone();
+    incoming["form"] = json!("Master.esm:000900");
+    incoming["incoming"] = json!(true);
+    let r = execute("refs", incoming).unwrap();
+    let mut paths: Vec<&str> = r["data"]["edges"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|e| e["path"].as_str())
+        .collect();
+    paths.sort_unstable();
+    assert_eq!(
+        paths,
+        [
+            "VMAD.Scripts.Data.KK:Test.Items[0]",
+            "VMAD.Scripts.Data.KK:Test.Target"
+        ],
+        "{r:#}"
+    );
+    let mut outgoing = lo;
+    outgoing["form"] = json!("KK1000A02");
+    let r = execute("refs", outgoing).unwrap();
+    let edge = &r["data"]["edges"][0];
+    assert_eq!(edge["path"], "VMAD.Scripts.Data.KK:Test.Target", "{r:#}");
+    assert_eq!(edge["status"], "missing");
+    assert_eq!(edge["raw"], "00000999");
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Director addition to M5.D6: `inspect` cuts payloads at 256 bytes by default; `full`
+/// shows every byte of a QUST's long VMAD and decodes it (scripts, properties, object
+/// values as formrefs), and `max_bytes` sets the cut.
+#[test]
+fn inspect_full_decodes_a_long_vmad() {
+    let d = dir("inspect-vmad");
+    master(&d);
+    let names: Vec<String> = (0..40).map(|i| format!("SpecialCaseEntry{i:02}")).collect();
+    let mut objects: Vec<(&str, u8, Vec<u32>)> = names
+        .iter()
+        .map(|n| (n.as_str(), 1, vec![0x0000_0900]))
+        .collect();
+    objects.push(("List", 11, vec![0x0000_0900, 0x0000_0A00]));
+    let quest = record(
+        b"QUST",
+        0x0100_0A10,
+        vec![sub(b"EDID", b"KKQuest\0"), vmad(&objects)],
+    );
+    patch(&d, "Quest.esp", &["Master.esm"], vec![quest]);
+    let inspect = |extra: Value| {
+        let mut a = json!({"form": "KKQuest", "plugins": ["Master.esm", "Quest.esp"], "data_dir": d.display().to_string(), "no_cache": true});
+        for (k, v) in extra.as_object().unwrap() {
+            a[k] = v.clone();
+        }
+        execute("inspect", a).unwrap()
+    };
+    let vmad_of = |r: &Value| -> Value {
+        r["data"]["versions"][0]["subrecords"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|s| s["signature"] == "VMAD")
+            .unwrap()
+            .clone()
+    };
+    let cut = vmad_of(&inspect(json!({})));
+    assert!(cut["size"].as_u64().unwrap() > 256);
+    assert_eq!(cut["payload_truncated"], json!(true));
+    assert_eq!(cut["payload_hex"].as_str().unwrap().len(), 512);
+    assert!(cut.get("vmad").is_none());
+    let some = vmad_of(&inspect(json!({"max_bytes": 8})));
+    assert_eq!(some["payload_hex"].as_str().unwrap().len(), 16);
+    let r = inspect(json!({"full": true}));
+    let whole = vmad_of(&r);
+    assert_eq!(whole["payload_truncated"], json!(false));
+    let script = &whole["vmad"]["scripts"][0];
+    assert_eq!(script["name"], json!("KK:Test"));
+    let props = script["properties"].as_array().unwrap();
+    assert_eq!(props.len(), 41);
+    assert_eq!(props[39]["name"], json!("SpecialCaseEntry39"));
+    assert_eq!(
+        props[39]["value"]["object"]["form"],
+        json!("Master.esm:000900")
+    );
+    assert_eq!(
+        props[40]["value"][1]["object"]["form"],
+        json!("Master.esm:000A00")
+    );
+    assert_eq!(props[40]["value"][1]["alias"], json!(-1));
+    assert!(
+        crate::shapes::check_envelope(&r).is_empty(),
+        "{:?}",
+        crate::shapes::check_envelope(&r)
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}

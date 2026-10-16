@@ -12,6 +12,7 @@ use serde_json::Value;
 use crate::envelope::Prepared;
 use crate::gate::{Request, RunError};
 use crate::panels::common::Slot;
+use crate::panels::coverage::MatrixView;
 use crate::panels::diag::DiagView;
 use crate::panels::diff::DiffView;
 use crate::panels::ledger::LedgerView;
@@ -45,6 +46,7 @@ pub(crate) enum View {
     Roundtrip(RoundtripView),
     Schema(SchemaView),
     Ledger(LedgerView),
+    Coverage(MatrixView),
 }
 
 /// Everything the window needs from one reply.
@@ -92,23 +94,29 @@ pub(crate) fn build(
             Slot::Roundtrip => View::Roundtrip(RoundtripView::from_envelope(env)),
             Slot::Schema => View::Schema(SchemaView::from_envelope(env)),
             Slot::Ledger => View::Ledger(LedgerView::from_envelope(env)),
-            Slot::InspectSchema | Slot::DiagValidate => View::None,
+            Slot::Coverage => View::Coverage(MatrixView::from_envelope(env)),
+            // Joined by the shell into state it holds (the cockpit's review, the
+            // inspector's schema, the diagnostics' validate).
+            Slot::InspectSchema
+            | Slot::DiagValidate
+            | Slot::CockpitStatus
+            | Slot::CockpitValidate
+            | Slot::CockpitRoundtrip
+            | Slot::CockpitMasters
+            | Slot::CockpitDeploy
+            | Slot::CockpitRollback => View::None,
         },
     };
     Built { prepared, view }
-}
-
-/// Whether the shell reads the envelope itself for `slot` (a reply joined into a view it
-/// holds); for every other slot the envelope is freed on the worker once built.
-fn keeps_envelope(slot: Slot) -> bool {
-    matches!(slot, Slot::InspectSchema | Slot::DiagValidate)
 }
 
 /// The [`Prepare`] the shell sends with a request for `slot`.
 pub(crate) fn prepare(slot: Slot, load: Option<LoadView>) -> Prepare<Built> {
     Box::new(move |request, result| {
         let built = build(slot, request, result, load.as_ref());
-        if !keeps_envelope(slot) {
+        // The shell reads the envelope itself only where no view was built (a reply it
+        // joins into state it holds); otherwise the envelope is freed here.
+        if !matches!(built.view, View::None) {
             if let Ok(env) = result {
                 drop(std::mem::take(env));
             }

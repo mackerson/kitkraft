@@ -1,6 +1,14 @@
 //! `conflicts` (M2.D13, port of our `esmscan.py`): records that plugins override from a
 //! master, counted per plugin and record type as `esmscan.py` prints them, and listed a page
 //! at a time with each override classed against the version before it (M2.D6).
+//!
+//! `detail` (M6.P5b) sets how much of each override a page carries. `summary`, the
+//! default, gives the class, the winner and the differing subrecord signatures with their
+//! counts (`changes`), and one evidence range per override (its record header): a page of
+//! `SFBGS00D.esm`'s overrides was 28.7 MB at `full` (122,934 subrecord differences, most
+//! of them navmesh `NVMI` entries; `docs/design/workbench-performance.md`, I2). `fields`
+//! adds every differing subrecord with its member-level changes; `full` also adds the
+//! byte range of each differing payload to the evidence (the output before M6.P5b).
 
 use std::collections::BTreeMap;
 
@@ -24,6 +32,56 @@ const ID: &str = "conflicts";
 const DEFAULT_LIMIT: usize = 50;
 /// Largest page size.
 const MAX_LIMIT: usize = 1000;
+
+/// How much of each override a page carries (`detail`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Detail {
+    /// Class, winner, changed signatures with counts; record-header evidence.
+    Summary,
+    /// Also every differing subrecord with its member-level changes.
+    Fields,
+    /// Also the byte range of every differing payload as evidence.
+    Full,
+}
+
+impl Detail {
+    fn parse(args: &Value) -> Result<Detail, EngineError> {
+        match args.get("detail").and_then(Value::as_str) {
+            None | Some("summary") => Ok(Detail::Summary),
+            Some("fields") => Ok(Detail::Fields),
+            Some("full") => Ok(Detail::Full),
+            Some(other) => Err(failed(
+                ID,
+                format!("detail `{other}`: expected summary, fields or full"),
+            )),
+        }
+    }
+
+    fn as_str(self) -> &'static str {
+        match self {
+            Detail::Summary => "summary",
+            Detail::Fields => "fields",
+            Detail::Full => "full",
+        }
+    }
+}
+
+/// The differing subrecords of a `differs` class, counted by change and signature:
+/// `{"changed": {"NVMI": 2311}, "added": {"KWDA": 1}}`.
+fn change_counts(class: Option<&OverrideClass>) -> BTreeMap<&'static str, BTreeMap<String, u64>> {
+    let mut out: BTreeMap<&'static str, BTreeMap<String, u64>> = BTreeMap::new();
+    if let Some(OverrideClass::Differs { subrecords, .. }) = class {
+        for d in subrecords {
+            let n = out
+                .entry(d.change.as_str())
+                .or_default()
+                .entry(d.signature.clone())
+                .or_insert(0);
+            *n = n.saturating_add(1);
+        }
+    }
+    out
+}
 
 /// The handler.
 pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
@@ -66,6 +124,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
         only_conflicts: args.get("only_conflicts").and_then(Value::as_bool) == Some(true),
     };
     let count_classes = args.get("count_classes").and_then(Value::as_bool) == Some(true);
+    let detail = Detail::parse(args)?;
     let limit = args
         .get("limit")
         .and_then(Value::as_u64)
@@ -148,22 +207,34 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
             if !o.comparable {
                 incomparable = incomparable.saturating_add(1);
             }
-            push_evidence(loaded, &o.version, o.class.as_ref(), &mut evidence);
-            overrides.push(json!({
+            push_evidence(
+                loaded,
+                &o.version,
+                o.class.as_ref().filter(|_| detail == Detail::Full),
+                &mut evidence,
+            );
+            let mut entry = json!({
                 "plugin": name(o.version.plugin),
                 "previous": o.previous.map(|p| name(p.plugin)),
                 "class": label,
                 "resolved_by": o.version.basis.as_str(),
                 "comparable": o.comparable,
-                "subrecords": match &o.class {
+                "changes": change_counts(o.class.as_ref()),
+                "flags_differ": matches!(o.class, Some(OverrideClass::Differs { flags: true, .. })),
+            });
+            if detail != Detail::Summary {
+                let subs: Vec<Value> = match &o.class {
                     Some(OverrideClass::Differs { subrecords, .. }) => subrecords
                         .iter()
                         .map(|d| super::diff::sub_diff_json(d, false))
-                        .collect::<Vec<_>>(),
+                        .collect(),
                     _ => Vec::new(),
-                },
-                "flags_differ": matches!(o.class, Some(OverrideClass::Differs { flags: true, .. })),
-            }));
+                };
+                if let Some(obj) = entry.as_object_mut() {
+                    obj.insert("subrecords".into(), Value::Array(subs));
+                }
+            }
+            overrides.push(entry);
         }
         items.push(json!({
             "form": lo.form_label(c.form),
@@ -171,6 +242,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
             "editor_id": edid,
             "base_present": c.base_present,
             "versions": run.iter().map(|v| name(v.plugin)).collect::<Vec<_>>(),
+            "winner": run.last().map(|v| name(v.plugin)),
             "overrides": overrides,
         }));
     }
@@ -202,6 +274,20 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
              FormIDs differently, so a difference inside an opaque payload may be encoding only"
         ));
     }
+    match detail {
+        Detail::Summary => limitations.push(
+            "detail summary: each override's differing subrecords are counted by signature \
+             (`changes`), not listed, and the evidence is each override's record header; pass \
+             detail fields for the member-level changes, or full for their byte ranges too"
+                .to_string(),
+        ),
+        Detail::Fields => limitations.push(
+            "detail fields: the evidence is each override's record header; pass detail full \
+             for the byte range of every differing payload"
+                .to_string(),
+        ),
+        Detail::Full => {}
+    }
     if !count_classes {
         limitations.push(
             "class_counts cover this page only; pass count_classes for every matching form"
@@ -228,6 +314,7 @@ fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
         "plugin": plugin.map(name),
         "type": signature.map(|s| sig_text(Some(s))),
         "only_conflicts": filter.only_conflicts,
+        "detail": detail.as_str(),
         "counts": counts_json,
         "override_records": total,
         "forms": forms.len(),
@@ -302,6 +389,35 @@ mod tests {
         let dir = fixture("conflicts");
         let mut args = plugins_args(&dir);
         args["master"] = json!("Base.esm");
+        // M6.P5b: `summary` (the default) counts the differing subrecords by signature,
+        // lists none, and gives only record headers as evidence.
+        let s = execute("conflicts", args.clone()).unwrap();
+        assert_eq!(s["data"]["detail"], "summary");
+        let o = &s["data"]["items"][0]["overrides"][0];
+        assert_eq!(o["changes"], json!({"changed": {"FULL": 1}}));
+        assert!(o.get("subrecords").is_none(), "{o:#}");
+        assert_eq!(s["data"]["items"][0]["winner"], "Patch.esm");
+        assert!(s["evidence"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|e| e["subrecord"].is_null()));
+        let mut fields = args.clone();
+        fields["detail"] = json!("fields");
+        let f = execute("conflicts", fields).unwrap();
+        assert_eq!(
+            f["data"]["items"][0]["overrides"][0]["subrecords"][0]["fields"][0]["path"],
+            "FULL.Name"
+        );
+        assert_eq!(f["evidence"], s["evidence"]);
+        let mut bad = args.clone();
+        bad["detail"] = json!("everything");
+        assert_eq!(
+            execute("conflicts", bad).unwrap_err().kind(),
+            "invalid_args"
+        );
+
+        args["detail"] = json!("full");
         let r = execute("conflicts", args.clone()).unwrap();
         let data = &r["data"];
         assert_eq!(
