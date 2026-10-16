@@ -1477,3 +1477,312 @@ and the scripted activator firing) follow from M5.D7 and M5.B3 once (b) exists.
   into the game (ADR 0010 Amendment 1 (b)).
 - Reading or writing save files (sessions use the game's own `save` and `load`).
 - A paid DLC as a mandatory dependency; Sim Settlements 2 content.
+
+## M6: Cockpit
+
+Goal and exit criteria: `ROADMAP.md` "M6: Cockpit" (owner decisions 2026-10-16). In
+short, the workbench becomes the human cockpit beside the agents: it looks deliberate,
+starts fast, and runs the game loop (deploy, session, probes, screenshots, ledger) through
+engine commands only. Agents stay the main authors through MCP. This section extends the
+scope line at the top of this file to M6. Text written before 2026-10-16 that calls the
+full authoring UI "M6" or "M6+: editor" now means M6 to M8.
+
+Planned 2026-10-16 while M5 runs. M6 tickets that need nothing from M5 can start once
+their M6 dependencies are met. The game-loop tickets wait on lane C, by ticket id.
+
+### Binding constraints (owner, 2026-10-16)
+
+1. **Keep egui.** Pure Rust, one binary. The license rule is unchanged: MIT, Apache, Zlib
+   or BSD-style, plus the BSL-1.0 clipboard crates pending in STATUS row 7. A new crate is
+   listed in ADR 0007 (Amendment 3's dependency table) before its merge. OFL fonts stay
+   off unless the owner rules otherwise (M6.O2). No web stack.
+2. **Everything through catalog commands.** `crates/ui-egui` names the engine only in
+   `gate.rs` and depends on no other workspace crate (`INTERNAL_ONLY`). A view that needs
+   data no command returns gets it from the lane that owns that command, as a request
+   ticket (marked "engine" below).
+3. **Writes:** only ADR 0007 Amendment 3's list, once the owner accepts it (M6.O3):
+   `ledger`, `deploy --dev`, `game.session`, `game.probe`. Each is previewed and confirmed
+   per click and enforced by the gate test. Until M6.O3, M6.G3 to M6.G5 merge with their
+   buttons disabled.
+4. **No game launcher in the UI.** `game.session` and `game.probe` are lane C's (M4.T3).
+   Until they are `Implemented` in the catalog, their buttons are disabled with the ticket
+   id. No process spawning, MO2 command line or Console API call in `crates/ui-egui`.
+5. **Measure first.** No performance ticket merges without before-and-after rows in
+   `docs/design/workbench-performance.md` "Results".
+6. No Foothold content, no new runtime hooks, no change to the layer table.
+
+### Lanes (ownership)
+
+All four lanes edit `crates/ui-egui` (and `apps/kit` for P6 and P7), so they share files.
+M6.V1 goes first: it moves each tab's drawing out of `app.rs` (2,705 lines) into its
+`panels/` file and adds an empty theme module, so the lanes after it touch different
+files. "engine" rows belong to the lane that owns the engine code named (lane D or F per
+M5's table). Their writer works in the engine, not in `ui-egui`.
+
+| Lane | Name | Owns |
+| ---- | ---- | ---- |
+| V | visual system | `crates/ui-egui/src/theme.rs` (new), panel frames and tables, `docs/design/workbench-style.md` (new) |
+| P | performance | `crates/ui-egui/src/{worker,envelope}.rs`, the perf trace, `apps/kit` (launch, window), `docs/design/workbench-performance.md`; engine requests P2b, P3b, P5b, P6b through their lanes |
+| G | game loop in the UI | `crates/ui-egui/src/gate.rs` (with the Amendment 3 tests), `panels/{cockpit,ledger,coverage,review}.rs` |
+| X | accessibility and first run | keyboard and focus handling, scaling, AccessKit, `panels/{start,help}.rs`, the Help sections in `docs/workbench.md` |
+| O | owner | decisions, sign-offs |
+
+### Lane V: visual system
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M6.V1 | Make room for parallel work, with no visible change: each tab's drawing moves from `app.rs` into its `panels/` file; a `theme.rs` holds today's colors (`WARN`, `BAD`, `GOOD`, `CODE`) and spacing as named tokens | - | `app.rs` holds the shell only (under 900 lines); the screenshot tour's images show the same content before and after; the gate tests are unchanged and pass |
+| M6.V2 | Two static mockups, rendered by the workbench itself: two theme presets (for example a dense dark-first and a calmer light-first one; each with its type scale, spacing, palette and table density) applied to Start, Records, Diff, Validate and Ledger; screenshot tour images in light and dark at 100 percent, kept outside the repo; a one-page comparison in `docs/design/workbench-style.md` (draft) | M6.V1 | 2 presets x 5 tabs x 2 modes captured; the owner has them for M6.O1 |
+| M6.V3 | The token system for the chosen direction: type scale, 4 px spacing scale, color tokens (surface, raised, text, muted, accent, border, selection, focus, and status good, warn, bad, unknown, inconclusive) for light and dark, table density (compact, comfortable); light, dark or system, saved in `ui.json` | M6.O1 | A test scans the crate and finds no `Color32` literal outside `theme.rs`; a unit test computes the contrast of every text and background pair (4.5:1 for text, 3:1 for borders and the focus ring) in both modes |
+| M6.V4 | Status is never color-only: one status component (glyph, word, color) for pass, fail, warn, unknown, inconclusive, not-run, the confidence levels and resolved or unresolved FormIDs, used by every panel; our own glyphs drawn with egui's painter (no icon font unless M6.O2 allows one) | M6.V3 | A test finds no status text colored outside the component; the tour shows each status in light and dark |
+| M6.V5 | Consistent panels: one panel frame (title, action bar, the envelope header from `docs/workbench.md` "Every result looks the same"), one table style (sticky header, zebra rows, numbers right-aligned, FormIDs monospace, column resize), and empty, busy and error states; all 11 tabs moved onto it | M6.V3, M6.V4, M6.P4 (tables) | Every tab uses the frame and the table style (a review checklist in the PR); tour images for all tabs |
+| M6.V6 | `docs/design/workbench-style.md`: tokens, components, spacing and density rules, do and don't, with tour images referenced (kept outside the repo) | M6.V5 | A doc-sync test: every token the doc names exists in `theme.rs` and every token in `theme.rs` is in the doc |
+
+### Lane P: performance
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M6.P1 | **Measure first.** The `KITKRAFT_WORKBENCH_PERF=1` trace to stderr (first frame; each request's queued, started, finished, prepared and first-drawn times; envelope bytes; frame times per tab, p50, p95 and max), then the protocol of `docs/design/workbench-performance.md` on the release build and the dev profile, cold and warm | - | Every row S1 to U1 has a window number with the build's SHA-256 and commit; each target is marked confirmed or revised; P2 to P7 re-ordered by what the numbers show |
+| M6.P2a | Progress in the window for long commands: the per-plugin progress P2b emits, as a progress line on the Load tab and the top bar; the window stays responsive (T3) | M6.P1, M6.P2b | L4 and T3 measured before and after; the first progress is under 0.5 s on a cold load |
+| M6.P2b | *(engine, lane F)* An optional progress sink on `Engine::execute`, used by `load` (one event per plugin indexed) and the reverse-link index build; `kit --progress` prints to stderr; MCP sends progress notifications when the client asks for them | - | Tests: events in order, none when no sink is given; the result envelopes are unchanged (shape tests) |
+| M6.P3a | Index cache reuse in the window: no second `load` for the same profile and arguments; the start screen's last profile loads from the cache at start (when one was used before); cache hits shown on the Load tab | M6.P1 | L2 before and after; a test through the shell model checks that a repeated load request is answered from the session |
+| M6.P3b | *(engine, lane D)* The reverse-link index (`refs --incoming`) kept on disk beside the index cache, invalidated by the same plugin stamps | M6.P1 | I4 cold under 21 s and warm under 1 s across process restarts; the cache tests extended |
+| M6.P4 | Virtualized tables: every table that can pass 200 rows (load, query, links, diff, conflicts, findings, schema) draws only the visible rows (`ScrollArea::show_rows`, or `egui_extras` tables once listed in ADR 0007); paging kept | M6.P1 | T1 p95 under 16 ms on a 10,000-row table in release; a test on a canned 100,000-row envelope checks that the view-model indexes rows without copying them |
+| M6.P5a | Envelopes prepared off the UI thread: the worker builds each panel's view-model (and formats the raw JSON lazily, by visible range) before handing it to the UI | M6.P1 | T3 and I2 (window) before and after; no frame over 50 ms while a 30 MB envelope arrives |
+| M6.P5b | *(engine, lane D)* `conflicts` gets a `detail` argument (`summary` by default: classes and changed signatures; `fields` and `evidence` on request); the 50-row page of `SFBGS00D.esm` drops from 29.8 MB and 26.7 s | M6.P1 | I2 under 3 s and 2 MB at `summary`; the shape test and `docs/shapes.md` updated; CLI and MCP get the same argument |
+| M6.P6a | Release by default: `cargo xtask ui` builds release and starts the window; `bin\` and `dist\KitKraft` both carry `kit-ui.exe` beside `kit.exe` (`bin\kit.exe ui` exits 2 today: "kit-ui.exe is not next to kit"); a debug build says so in the title bar as well as on the console; measure whether `[profile.dev.package."*"] opt-level = 2` for the egui tree makes debug runs usable, and adopt it only if the CI time cost is under 10 percent | - | `kit ui` from `bin\` and `dist\KitKraft` starts a release window; xtask test; the opt-level decision recorded with numbers |
+| M6.P6b | *(engine, lane F)* `kit --version` and the window's About line name the commit and whether the tree was dirty (from an env var `cargo xtask dist` sets at build time; no `build.rs`) | - | `kit --version` prints `kit 0.0.0 (<commit>)`; the performance doc's "Build identity" uses it |
+| M6.P7 | Window quirks: at start, if the viewport is minimized, restore it and take focus (`ViewportCommand`); size, position, maximized state and monitor saved in `ui.json` and clamped to the monitors present at the next start; the screenshot tour no longer waits on a minimized window | M6.V1 | S2 passes from a background shell (owner check in M6.O4); a unit test for the clamp; `ui.json` stays UI state only (ADR 0007 Amendment 3) |
+
+### Lane G: game loop in the UI
+
+Lane C (M5) owns every game command. These tickets show and confirm them, nothing more.
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M6.G1 | Gate mechanics of ADR 0007 Amendment 3, enabling no new write: `PERMITTED_WRITE` becomes `PERMITTED_WRITES` (id, preview test, the one panel file allowed to confirm, why); `COCKPIT_SCOPE` in the test; the source scan generalized per entry; `deploy.status` and `doctor` move from "unused read-only" to `ALLOWLIST` | M6.O3 | The extended disjointness test passes with `PERMITTED_WRITES = [ledger]`; adding a non-scope id in a scratch test fails it; `docs/workbench.md` "What it can run" rewritten |
+| M6.G2 | The Cockpit tab: the plugin under review (from `out\` or a path), its dev deployment (`deploy.status`), the dev profile, the session readiness (`game.status` when the catalog has it), and the buttons Deploy, Launch and run probes, Re-run probe, Screenshot. Each button's state is read from the catalog: present and `Implemented` turns it on; otherwise it is disabled with the ticket id (M4.T3) | M6.G1, M6.V5 | A shell-model test with a catalog lacking `game.*` shows the buttons disabled with "M4.T3"; with a fake `Implemented` spec they turn on |
+| M6.G3 | Deploy to dev: `deploy` with `dev: true`, `mo2` set to the loaded profile's instance and `profile` to the loaded dev profile; Preview runs `dry_run: true` and lists every path; the confirm box shows that list; the confirm button builds the one confirmed request; `Default` refused by the gate before the engine | M6.G2, M6.O3 | Gate tests per Amendment 3; a shell-model test deploys to a synthetic MO2 instance and reads it back with `deploy.status`; nothing written without the click |
+| M6.G4 | Launch the dev profile and run probes: `game.session` (preview with its `dry_run`, confirm), the session's state while it runs (`game.status` or the progress sink), and its result envelope: every probe row with `pass`, `fail`, `inconclusive` or `not-run` and the reason | M6.G2, M6.O3, **M4.T3**, **M5.C1**, M4.T2 | Gate tests; a shell-model test against M4.T3's fake endpoint and fixture instance; the V1 run (M4.T4) started from the window by the owner (M6.O4) |
+| M6.G5 | Probe results and screenshots: rows beside the plugin's records (a click opens `inspect`); screenshots from `observe\<session>\` shown as images (read only; image loading listed in ADR 0007 first); Re-run one probe and Screenshot through `game.probe` (confirmed) | M6.G4, **M4.T3** | Tests on a canned session envelope; a missing screenshot is shown as `inconclusive`, never hidden |
+| M6.G6 | The ledger prefilled from probe results: rows the controller left `inconclusive` or `manual` open in the Ledger form with the row id, FormIDs and the screenshot beside it; the owner confirms each row with the existing confirmed `ledger` request | M6.G5, **M5.C1** (`inconclusive` in the ledger format) | A test from a canned session result to the Ledger form's fields; each row still needs its own click |
+| M6.G7 | The Coverage panel: `coverage --matrix` (read-only, already allowed), one row per record type with the six statuses, each cell linking to its evidence (test name, ledger entry, fixture) | M6.V4, **M5.D1** (the matrix; on `main` as `kit coverage --matrix`) | A view-model test on the engine's matrix shape; statuses shown with the status component |
+| M6.G8 | Review an agent-built plugin: pick a plugin under `out\`; one fixed sequence of `validate`, `roundtrip --verify` and `conflicts --plugin` (against its masters); a summary with the six statuses filled from what ran (`parse`, `byte_roundtrip`) and the rest `not-run` | M6.V5 | Shell-model test on a fixture plugin; nothing written |
+
+### Lane X: accessibility and first run
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M6.X1 | Keyboard navigation: Ctrl+1..9 for tabs, Ctrl+F to the panel's filter, Enter runs the panel's command, Esc closes a confirm box (never confirms), arrow keys in tables, a visible focus ring (theme token); the catalog's `shortcut` honored where a command has one; the shortcuts listed in Help | M6.V3 | A shell-model test per binding; every interactive control reachable by Tab in the tour's order (checked on Start, Records, Ledger, Cockpit) |
+| M6.X2 | Scaling: readable at 125 and 150 percent Windows scaling and at zoom 0.8 to 1.5 (Ctrl +, Ctrl -, Ctrl 0, saved in `ui.json`); no clipped labels or overlapping columns; the tour takes a `pixels_per_point` override so it captures each scale | M6.V5 | Tour images at 100, 125 and 150 percent for every tab, reviewed in M6.O4 |
+| M6.X3 | Screen reader: eframe's `accesskit` feature on (platform adapter; the transitive dependency list and licenses in ADR 0007 before the merge); labels on every icon-only button; status components expose their word | M6.V4 | Narrator reads the Start tab, a Records row and the Ledger confirm box (owner check in M6.O4); `cargo xtask layers` passes |
+| M6.X4 | First run: with no `ui.json` and no arguments, the Start tab shows a first-run card (what the window does, the read-only promise and the confirmed writes, the dev profile preselected when found, `Default` shown read-only and never preselected), `doctor` findings inline (read-only), remembered after the first load | M6.G1 (`doctor` allowed), M6.V5 | Shell-model tests for found, not found, and only `Default` present |
+| M6.X5 | Help: "Using the workbench" (from `docs/workbench.md`), the shortcuts, and a "?" per panel opening its section | M6.X1 | The doc-sync test extended to the new sections |
+| M6.X6 | The usability script for M6.O4: about 15 minutes of tasks (start, load the dev profile, find a weapon, diff a plugin, review an agent build, deploy (preview only unless the owner chooses), record a ledger row) at 125 and 150 percent, with what to note | M6.V5, M6.X2 | `docs/workbench.md` "Usability pass" section |
+
+### Owner (lane O)
+
+| ID | Task | Gates |
+| -- | ---- | ----- |
+| M6.O1 | Choose the visual direction from M6.V2's two mockups (or a mix, named per token group) | M6.V3, so all of lane V after it |
+| M6.O2 | Rule on fonts: keep the Windows system fonts (Segoe UI, Consolas; the default) or allow a compiled-in OFL font or an MIT/Apache icon font (each then listed in `ATTRIBUTION.md`). Row 7's BSL-1.0 ruling is still open beside it | M6.V4 icons (only if an icon font is wanted), M6.V3 type scale |
+| M6.O3 | Accept, amend or reject ADR 0007 Amendment 3 (the cockpit write scope: `ledger`, `deploy --dev`, `game.session`, `game.probe`) | M6.G1, so M6.G3 to M6.G6 |
+| M6.O4 | Usability sign-off at 125 and 150 percent on the release build and `KitKraft Dev` (M6.X6's script), the S2 start check, Narrator on three screens (M6.X3), and the V1 run from the window once M4.T3 exists (M6.G4) | M6 exit |
+| M6.O5 | Confirm the dependency additions at their merges (`egui_extras` and image loaders, the AccessKit adapter, `glam` in M7). Blocks only on a license outside the rule | M6.P4, M6.G5, M6.X3 merges |
+
+### Dependencies on M5
+
+- **Lane C (runtime; M4.T1 to T10, M5.C1, M5.C2):**
+  - M6.G4 and M6.G5 need M4.T3 (`game.session`, `game.probe`, `game.status`) and M5.C1.
+  - M6.G6 needs M5.C1 (`inconclusive` in the ledger format).
+  - Real sessions need M4.O7 (the owner's installs).
+  - M6's end-to-end exit row is M4.T4 (V1) started from the window.
+  - Until then the buttons are disabled with the ticket id. Nothing in M6 starts a game.
+- **Lane D:** M6.G7 reads M5.D1's matrix (`kit coverage --matrix`, landed). M6.P3b and
+  M6.P5b are lane D engine changes, scheduled with lane D's M5 work so they do not
+  collide with M5.D2 to M5.D7 in `handlers/`.
+- **Lane F (engine core):** M6.P2b and M6.P6b.
+- Nothing in M6 waits on lanes A, B, E or H, or on a CK sitting.
+
+### Ordering
+
+1. Start at once, in parallel: M6.V1 (first merge), M6.P1, M6.P6a, M6.P2b, M6.P6b; the
+   owner can rule on M6.O3 and M6.O2 now.
+2. After M6.V1: M6.V2 (then M6.O1), M6.P7, M6.P3a, M6.P4, M6.P5a.
+3. After M6.O1: M6.V3, then M6.V4, M6.X1 and M6.X3, then M6.V5, M6.X2 and M6.X4, then
+   M6.V6, M6.X5 and M6.X6.
+4. After M6.O3: M6.G1, M6.G2, M6.G3, M6.G7 and M6.G8. M6.G4 to M6.G6 when lane C lands
+   M4.T3 and M5.C1.
+5. M6.O4 last.
+
+Merge order: M6.V1 first. Then theme and token changes (lane V) before the panels that
+use them. `gate.rs` changes (lane G) in their own commits. Engine requests through their
+owning lane's review. 36 tickets (V 6, P 11 including 4 engine, G 8, X 6, O 5, counted
+with the owner rows).
+
+### M6 is done when
+
+The exit criteria of `ROADMAP.md` "M6: Cockpit", checked in `plan/STATUS.md` like M3's
+and M4's.
+
+## Not in M6
+
+- Editing (`set`, `new`, `clone`, `place`, `build` output): M7, under ADR 0007 Amendment 4.
+- The Creation Kit's layout, menus and dialogs, and the viewport: M7.
+- A game launcher, MO2 automation or Console API client in the UI; `testplan`,
+  `package`, `deploy.rollback` or `mod.run` as UI writes.
+- Web front ends, new runtime hooks, Foothold content.
+
+## M7: CK parity
+
+Goal and exit criteria: `ROADMAP.md` "M7: CK parity". The Creation Kit's windows, menus,
+dialogs, labels, workflows and keyboard shortcuts are reproduced from black-box
+observation, so that a CK user is at home. Editing goes through the same catalog
+commands, gated like M6. The Render Window is a 3D viewport, read-only, from its first
+ticket. Exit criteria come from `docs/ck-parity.md` "Interface parity": one row per CK
+window, menu item and dialog, with status `unresearched`, `observed`, `reproduced` or
+`improved` and its observation source.
+
+### Binding constraints
+
+1. **Clean room for the interface** (ADR 0012, drafted by M7.K1, ruled by the owner in
+   M7.O1; until then AGENTS.md "Clean room" governs):
+   - Observe only: owner-assisted CK sittings, where a computer-use agent may drive the CK
+     while the owner watches. Screenshots stay in `observe\` (gitignored).
+   - Reproduce from the sittings: layout, labels, menu structure, field grouping, tab
+     names, workflows and shortcuts. Describe each in our own words in
+     `docs/ck-parity.md`.
+   - Never copy CK icons, images, help text, resources or binaries.
+   - Never read the CK's resource files to extract menus or strings.
+   - All art is ours.
+2. **Everything through catalog commands**, as in M6. The window gets the following only
+   as engine command results, never by reading plugins or archives itself:
+   - categories, cell contents, bounds and geometry (lane S tickets);
+   - viewport geometry, through engine commands (M7.S4, M7.S5).
+
+   `INTERNAL_ONLY` keeps `kitkraft-ui-egui` on `kitkraft-engine` alone. Depending on the
+   L0 `nif` crate directly would need an ADR 0002 change; this plan does not propose one.
+3. **Writes:** only ADR 0007 Amendment 4's list once the owner accepts it (M7.O4). Before
+   that the dialogs are read-only. Each write has a preview and a confirm and is enforced
+   by the gate test, as in M6.
+4. **The viewport never writes** in M7. Materials, lighting and editing placements in the
+   viewport are M8.
+5. Out of scope unless an ADR says otherwise: geometry editing, navmesh generation or
+   baking, terrain, materials. The CK menus that hold them are drawn, with the items
+   disabled and the reason.
+
+### Lanes (ownership)
+
+| Lane | Name | Owns |
+| ---- | ---- | ---- |
+| K | CK interface observation | `docs/ck-parity.md` "Interface parity", the sitting scripts in `docs/ck-observations.md`, ADR 0012; shares `docs/ck-parity.md` with M5 lane A in small separate commits |
+| M | menus and shell | the menu bar, window layout, Data dialog, Preferences, Warnings window, shortcuts (`crates/ui-egui`) |
+| W | windows and dialogs | Object Window, Cell View, Use Info, the edit-dialog framework and layouts (`crates/ui-egui/src/dialogs/`, data files under `crates/ui-egui/dialogs/`) |
+| E | editing | ADR 0007 Amendment 4, the write panels and their gate entries |
+| R | render | the viewport panel (`crates/ui-egui/src/viewport/`), its camera and drawing; `docs/design/workbench-performance.md` "Viewport" |
+| S | engine surface (requests to the owning lanes) | `menu_path` updates and categories (lane F), `cell` (lane D), NIF bounds and geometry (lane G: `crates/nif`, `crates/ba2`, engine `handlers/mesh*`) |
+| O | owner | sittings, rulings, sign-off |
+
+### Lane K: CK interface observation
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M7.K1 | Draft ADR 0012, "CK interface parity, clean room" (proposed): what may be reproduced and from what (constraint 1), the evidence for each row (sitting id, screenshot names kept local, our own description), and how a reproduced element is checked (a tour image beside the observation) | - | The ADR file, status Proposed; AGENTS.md "Clean room" gains a pointer only after M7.O1 |
+| M7.K2 | Sitting scripts for the interface. Sitting 1: the main menu bar with every menu expanded, the Data dialog, Object Window, Cell View, Render Window camera controls (mouse and keys), Preferences, Warnings. Sitting 2: the edit dialogs of the first types (WEAP, AMMO, COBJ, LCTN, TERM, CONT, STAT, KYWD), every tab, group and field label. Combinable with the fixture sittings of STATUS rows 12 and 15 so the owner sits once | M7.K1 | `docs/ck-observations.md` gains the two scripts; each step names the `docs/ck-parity.md` rows it fills |
+| M7.K3 | `docs/ck-parity.md` "Interface parity", seeded now with `unresearched` rows (done by the roadmap lane, 2026-10-16), then filled from sitting 1: one row per window, menu item and dialog, status `observed`, the sitting id and our own description; CK shortcuts and camera controls as rows; what it maps to (a catalog id, a UI element, or `gap:` with the reason) | M7.O2 | Every item sitting 1 saw has a row; no CK text beyond the labels themselves |
+| M7.K4 | The same for sitting 2: per type, its tabs, groups and field labels, each field mapped to a schema member path (or `gap:` when the schema has no member) | M7.O3 | Rows for the eight types; unmapped fields listed in `docs/gaps.md` |
+| M7.K5 | The parity check: a test (in `crates/ui-egui`, reading `docs/ck-parity.md` as the Help tab reads docs) that every `menu item` row maps to a catalog id that exists, or to `gap:`, and that every `reproduced` or `improved` row names the tour image or test that shows it | M7.M1, M7.K3 | The test fails on a row with an unknown id or no evidence |
+
+### Lane M: menus and shell
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M7.M0 | Window model decision: CK-style floating or docked windows beside M6's cockpit tabs (a "CK layout" and a "Cockpit" workspace); egui's own `Window`s or a docking crate (`egui_dock`, listed in ADR 0007 if chosen); a short design note with the choice and why | M6.V5 | `docs/design/workbench-style.md` section; prototype screenshots of both workspaces |
+| M7.M1 | The menu bar rendered from the catalog: menus from `menu_path`, in the CK's order (from K3; KitKraft-only menus such as Archive, Papyrus and Strings after the CK's), shortcuts shown; `Deferred` and `Planned` commands disabled with their reason; writing commands disabled with "not in the write scope" until Amendment 4 allows them; a menu item opens the panel or dialog for its command | M7.M0, M7.S1 | Shell-model test: every catalog command appears exactly once; the disabled reasons are shown; no menu item runs a command the gate would refuse |
+| M7.M2 | The Data dialog over `load`: the plugin list with check boxes, "set as active file" (UI state: the target `into` for the M7 writes), a details pane (author, description, masters, dates; from `load` and `inspect` of `TES4`), layout and labels as observed | M7.M1, M7.K3 | Shell-model tests; `Default` still read-only; the active file is never an official master (refused in the UI and by the engine's output guard) |
+| M7.M3 | Preferences: the UI preferences (theme, density, zoom, paths, shortcuts) laid out as the CK's dialog where the settings correspond; stored only in `ui.json` | M7.M1, M7.K3 | Rows in `docs/ck-parity.md` updated to `reproduced` or `improved` with tour images |
+| M7.M4 | The Warnings window: `validate` findings and the `load` limitations as a CK-style list (severity, record, message), filter, double-click opens the record | M7.M1 | Shell-model test on canned findings |
+| M7.M5 | Keyboard shortcuts as the CK binds them (from K3); clashes with M6's bindings resolved in a table in `docs/ck-parity.md`; unobserved shortcuts marked so | M7.K3, M6.X1 | A test: every observed CK shortcut is bound or listed as a gap |
+
+### Lane W: windows and dialogs
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M7.W1 | Object Window: a category tree (from M7.S2) and a virtualized list (EditorID, FormID, count, users), a filter box, double-click opens the edit dialog; read-only | M7.S2, M7.M1, M6.P4 | Shell-model test; T1 measured on the largest category |
+| M7.W2 | Cell View: worldspace selector, the cell list (interior, and exterior with grid coordinates), the selected cell's references (from M7.S3); selection shared with the viewport (M7.R2) | M7.S3, M7.M1 | Shell-model test on canned `cell` envelopes |
+| M7.W3 | The edit-dialog framework: a layout per record type as data (`crates/ui-egui/dialogs/<TYPE>.toml`: tabs, groups, labels, member paths, widget kind, the `docs/ck-parity.md` row it reproduces), rendered read-only from `inspect` and `schema --deep`; a type without a layout gets a generic one marked "unobserved" | M7.M0 | A test: every member path in every layout exists in the schema, and every layout cites a parity row |
+| M7.W4 | Layouts for the eight types of sitting 2 | M7.W3, M7.K4 | The eight types open in their dialogs; parity rows `reproduced` with tour images |
+| M7.W5 | The Use Info window (CK-style) over `refs --incoming` | M7.M1 | Shell-model test |
+
+### Lane E: editing (ADR 0007 Amendment 4)
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M7.E1 | Draft ADR 0007 Amendment 4 (proposed): the editor's write scope. `set`, `new`, `clone`, `place` and `build` (output), only into the active file, never an official master, never under the game's Data folder or MO2 (the engine's output guard), each with a preview and a confirmed request built by one dialog file; the disjointness test's scope constant extended. Also decided there: whether edits collect in the dialog and are written on the CK's OK or Save, or one `set` per OK | M6.G1 | The amendment drafted; M7.O4 can rule |
+| M7.E2 | Field editing: the dialog's typed fields become editable; OK runs the `set` preview and then `validate` on the result (the validation preview); confirm writes. Needs a `set` dry run from lane D if it has none | M7.E1, M7.O4, M7.W4 | Gate tests; a shell-model test edits a field of a fixture and reads it back with `inspect` |
+| M7.E3 | New and Duplicate in the Object Window through `new` and `clone`, with the CK's labels | M7.E1, M7.O4, M7.W1 | As M7.E2 |
+| M7.E4 | Placement: from the Object Window into the Cell View's cell through `place` (position typed or taken from the viewport's cursor, read-only), preview and confirm | M7.E1, M7.O4, M7.W2, M7.R2 | As M7.E2; the placed reference shows in Cell View and the viewport after the write |
+| M7.E5 | Build spec editing: a form for `build` specs (v3) with `build plan: true` as the preview (first opened in the gate as `GUARDED` with `plan` required, M4.W6's note) and the confirmed build | M7.E1, M7.O4 | Gate tests for the plan-only and the confirmed forms |
+| M7.E6 | Undo the last edit, as far as the CK's Edit menu offers it (observed): the inverse is computed by the engine from its diff (an engine `revert` or `set` arguments derived by `diff`, lane D), previewed and confirmed like any write | M7.E2 | A test: edit, undo, `diff` against the original shows no change |
+
+### Lane R: render (the 3D viewport)
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M7.R1 | A GL viewport panel through eframe's glow backend (an egui `PaintCallback` with `eframe::glow`; no new framework): grid, axes, an orbit and a fly camera whose controls follow the CK's as sitting 1 observed them (unobserved controls marked so in `docs/ck-parity.md`); `glam` for the math, its license recorded in ADR 0007 Amendment 3's table before the merge; chrome from the M6 theme | M6.V3 (can start before M7.K3 with the controls marked unobserved) | Camera math unit-tested without a window; tour image; V1 measured; `cargo xtask layers` passes |
+| M7.R2 | Placed references of the selected cell as oriented markers from the `REFR`'s position, rotation and scale (from M7.S3), colored by base record type with a shape per type as well (not color-only); click to select, synced with the Cell View list | M7.R1, M7.S3, M7.W2 | Picking unit-tested; V2 measured; selection sync tested in the shell model |
+| M7.R3 | Bounding boxes from the base object's NIF (a bound stored in the file, or computed from vertices; which one, per M7.S4's sources) through the engine's `mesh.bounds`; no materials | M7.R2, M7.S4 | Boxes for a cell of the first POI; V3 measured; a base without a readable bound shows as a limitation, not as a box |
+| M7.R4 | Wireframe, then flat-shaded meshes from the geometry `mesh.geometry` returns (loose and packed assets both, through the engine's archive access), under a loading budget; each skipped mesh is a limitation line | M7.R3, M7.S5 | V4 and V5 measured; a test on a canned geometry envelope; nothing read by the window itself |
+| M7.R5 | Mesh loading performance: measure V1 to V5 first, then a geometry cache per base object, a per-frame upload budget, and level of detail or skipping for distant references | M7.R4 | `docs/design/workbench-performance.md` "Viewport" rows with before and after |
+
+### Lane S: engine surface (owned by the lanes named)
+
+| ID | Task | Depends on | Done when |
+| -- | ---- | ---------- | --------- |
+| M7.S1 | *(lane F)* `menu_path` of every catalog command aligned with the CK's menus where a parity row maps it (KitKraft-only commands keep their own menus); `docs/ck-parity.md` cited in the commit | M7.K3 | The catalog test that every command has a `menu_path` still passes; M7.K5 passes |
+| M7.S2 | *(lane B or F)* The Object Window category of every record type as data (from parity rows; unobserved types in "Other", marked so), returned by `schema` | M7.K3 | A test: every defined type has one category; the categories' order matches the parity rows |
+| M7.S3 | *(lane D)* A read-only `cell` command: worldspaces, cells (interior and exterior with grid coordinates) and the references of one cell (base, EditorID, position, rotation, scale, flags), paged, with evidence like `query` | - | Shape test; CLI and MCP; tested on the first POI's cell and an exterior cell of `Starfield.esm` |
+| M7.S4 | *(lane G, with M7.O5)* NIF sources and bounds: the source decision for Starfield NIF and geometry layout (graded per ADR 0005, recorded in `docs/source-registry.md`), then `kitkraft-nif` reads a model's bound, and an engine `mesh.bounds` command finds the base object's model and reads it from loose files or a BA2 | M7.O5 | Tests on corpus models (skipped without the game); unknown layouts reported as unknown |
+| M7.S5 | *(lane G)* Geometry: `mesh.geometry` returns positions, indices and normals for a model (Starfield may keep geometry outside the `.nif`; S4's sources settle where), from loose files or BA2s, with a size budget and a limitation per skipped mesh | M7.S4 | Tests on corpus models; the envelope size measured (V4); if JSON is too slow, an ADR for an engine-produced side channel comes before any workaround |
+
+### Owner (lane O)
+
+| ID | Task | Gates |
+| -- | ---- | ----- |
+| M7.O1 | Rule on ADR 0012 (the interface clean-room rule) | M7.K2 onward |
+| M7.O2 | CK interface sitting 1, owner-assisted (a computer-use agent may drive while the owner watches); can share a sitting with STATUS rows 12 and 15 | M7.K3, so lanes M, W, S1, S2 |
+| M7.O3 | CK interface sitting 2 (the edit dialogs of the first eight types) | M7.K4, M7.W4 |
+| M7.O4 | Accept, amend or reject ADR 0007 Amendment 4 (the editor write scope) | M7.E2 to M7.E6 |
+| M7.O5 | Rule on the sources for Starfield NIF and geometry layout (which documentation or tools, under which license category; ADR 0004 and ADR 0006 apply by analogy) | M7.S4, so M7.R3 to M7.R5 |
+| M7.O6 | A/B sign-off: the same tasks in the CK and in KitKraft (find a form, edit a field, duplicate, place, save), and the CK open and re-export of the result (the M7 exit row) | M7 exit |
+
+### Dependencies
+
+- On M6: the theme and panels (M6.V3, M6.V5), virtualized tables (M6.P4) and the gate
+  mechanics (M6.G1). The game-runtime exit row runs through M6's cockpit.
+- On M5: lane A's CK differential (M5.A2) for the `ck_reexport` exit row, and the
+  owner-assisted sittings it already schedules.
+- Lane R starts with M7.R1 as soon as M6.V3 lands; it does not wait on the sittings.
+
+38 tickets (K 5, M 6, W 5, E 6, R 5, S 5, O 6, counted with the owner rows).
+
+### M7 is done when
+
+The exit criteria of `ROADMAP.md` "M7: CK parity", read off `docs/ck-parity.md`
+"Interface parity" and checked in `plan/STATUS.md`.
+
+## M8 (sketch): Beyond the CK
+
+Goals: `ROADMAP.md` "M8: Beyond the CK". Example tickets, not a plan. Each write needs a
+further ADR 0007 amendment, and the agent panel needs an ADR for the MCP journal.
+
+| ID | Task (example) |
+| -- | -------------- |
+| M8.1 | Search everywhere: one box over EditorIDs, FormIDs, names, text and script names, through `query` and a new engine search index, with results grouped by type |
+| M8.2 | Inline validation and conflicts: every record view shows its `validate` findings and its override chain (`conflicts`) without leaving the dialog |
+| M8.3 | An undo history panel computed from the engine's diff (every confirmed write in the session, each revertible with a preview) |
+| M8.4 | The agent panel: what an MCP session ran and wrote, read from a journal the MCP server keeps (an ADR decides its place and format), with "open in the cockpit" per step |
+| M8.5 | In-game probe results beside records: the last ledger and session rows for a form, shown in its dialog |
+| M8.6 | Viewport materials, textures and lighting, after a source decision for Starfield materials |
+| M8.7 | Snap-to-grid placement editing in the viewport through `place` (gated like M7.E4) |
+| M8.8 | A multi-plugin load-order view: plugins as columns, forms as rows, winners and conflicts at a glance |
