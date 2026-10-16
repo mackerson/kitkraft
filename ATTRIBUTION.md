@@ -16,6 +16,13 @@ Rules:
 | ----- | ------------ | ------------ | ------ | ------- | ----- | ----- |
 | Compiled Papyrus test fixtures (`HelloOnLoad.pex`, `OracleProperties.pex`, `OracleControl.pex`) | `crates/pex/tests/fixtures/` | Compiled locally by Bethesda's `PapyrusCompiler.exe` 4.7.0.5 (not release) from our own `.psc` beside each | KitKraft | MIT OR Apache-2.0 (our sources) | 2026-10-15 | Listed because a Bethesda tool produced them: they hold only our code, names and text plus engine type, function and flag names; no Bethesda source, script or binary (`docs/oracles.md`, "Papyrus compiler oracle") |
 
+Code dependency note (lane C, 2026-10-16; for the owner's confirmation at the M4.T3 merge,
+M5.O2): `crates/game` (`kitkraft-game`, ADR 0010) adds **no** third-party crate: no HTTP
+client and no process crate. It uses `std::net` and `std::process` plus workspace
+dependencies already present (`serde`, `serde_json`, `toml`, `thiserror`, `regex`, all MIT
+OR Apache-2.0). The third-party game plugins it talks to (Console API and the others in
+`docs/source-registry.md`) are run-only tools installed by the owner, never bundled.
+
 ## Reference sources (not assets)
 
 Sources that inform our own work without any of their content being committed:

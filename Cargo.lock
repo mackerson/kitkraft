@@ -1225,6 +1225,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "kitkraft-game"
+version = "0.0.0"
+dependencies = [
+ "regex",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+ "toml",
+]
+
+[[package]]
 name = "kitkraft-io"
 version = "0.0.0"
 dependencies = [
