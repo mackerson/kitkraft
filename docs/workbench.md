@@ -325,13 +325,16 @@ Owner decisions of 2026-10-16 (`ROADMAP.md`, "M6 onward"; tickets in
   KitKraft visual system (tokens for light and dark, statuses that are not color-only,
   `docs/design/workbench-style.md`). It gets measured performance work
   (`docs/design/workbench-performance.md`), fixes to the window quirks (restored if it
-  starts minimized, geometry kept in `ui.json`), a release build by default, accessibility
-  at 125 and 150 percent, and first-run help. It also gets the game loop through engine
-  commands only: deploy to dev, then launch, probes and screenshots through lane C's
-  `game.session` and `game.probe`, which are disabled with "M4.T3" until they exist, then
-  a prefilled ledger. Its writes are limited to `ledger`, `deploy --dev`, `game.session`
-  and `game.probe` by ADR 0007 Amendment 3, which is **proposed** and awaits the owner
-  (M6.O3). Until then this page's "What it can run" is unchanged.
+  starts minimized, geometry kept in `ui.json`) and a release build by default
+  (accessibility, scaling and first-run help are deferred, lane X). It also gets the game
+  loop through engine commands only: deploy to dev and roll back, then launch, probes and
+  screenshots through lane C's `game.session --start`, `game.status <id>` (polled through
+  the catalog, so the one engine worker is never held for a whole session), `game.probe`
+  and `game.stop`, which are disabled with "M4.T3" until they exist, then a prefilled
+  ledger. Its writes are limited to `ledger`, `deploy --dev`, `deploy.rollback`,
+  `game.session`, `game.probe` and `game.stop` by ADR 0007 Amendment 3, which is
+  **proposed** and awaits the owner (M6.O3). Until then this page's "What it can run" is
+  unchanged. A read-only 3D placeholder (M7.R1) may arrive during M6.
 - **M7, CK parity.** The Creation Kit's menus, Data dialog, Object Window, Cell View, edit
   dialogs, Preferences and Warnings window, reproduced from black-box observation and
   recorded in `docs/ck-parity.md` "Interface parity". The Render Window is a read-only 3D

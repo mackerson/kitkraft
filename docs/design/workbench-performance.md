@@ -6,9 +6,10 @@ in the workbench, how, and which numbers count as good enough. The targets are
 **hypotheses**: M6.P1 measures first and confirms or revises them, and no performance
 ticket (M6.P2..P7) merges without a before-and-after row in "Results" below.
 
-Why: the owner's 2026-10-16 test ranked "look, feel and performance" as the top pain
-(slow loads, cramped tables, the window opening minimized from a background shell and not
-repainting). This document turns "slow" into numbers we can check.
+Why: on 2026-10-16 the owner chose "look, feel, performance" as one of the two top
+pains. The director's brief details it (slow loads, cramped tables, the window opening
+minimized from a background shell and not repainting). This document turns "slow" into
+numbers we can check.
 
 ## Rules
 
@@ -54,7 +55,7 @@ repainting). This document turns "slow" into numbers we can check.
 | L3 | Profile load, cold cache: CLI engine time | `kit load --profile <dev> --no-cache --json` | baseline below |
 | L4 | Profile load, cold cache: click to table drawn, with a progress line | `perf:` as L2, plus the time to the first progress event | L3 + 1.0 s; first progress under 0.5 s (M6.P2) |
 | L5 | Memory after a warm load | Task Manager, private working set of `kit-ui.exe` | under 1.5 GB |
-| I1 | The 435k-record plugin: `SFBGS00D.esm` (434,991 records on 2026-10-16; the owner's "435k-record index") through `coverage` | CLI time, then window click to drawn | engine baseline below; window + 0.5 s |
+| I1 | The largest DLC master: `SFBGS00D.esm`, 434,991 records (`docs/corpus.md`), through `coverage` | CLI time, then window click to drawn | engine baseline below; window + 0.5 s |
 | I2 | `SFBGS00D.esm` through `conflicts --plugin` (one page of 50) | CLI time and envelope size, then the window | under 3 s and under 2 MB (needs the engine request M6.P5b) |
 | I3 | `query REFR` with a page of 500, winner scope, on the profile | CLI time, window click to drawn | engine baseline below; window + 0.3 s |
 | I4 | `refs --incoming` on the first rifle, reverse index cold and warm | CLI and window | cold baseline 21 s (84 plugins, `docs/workbench.md`); warm under 1 s |
@@ -62,7 +63,7 @@ repainting). This document turns "slow" into numbers we can check.
 | T2 | Scrolling the raw `data` JSON of the I2 envelope | as T1 | as T1 |
 | T3 | Frame time while a long command runs (the engine is on its worker) | as T1, during L4 | no frame over 50 ms |
 | T4 | Switching tabs with large results held (L2 + I2 + I3 loaded) | `perf: frame` on each switch | under 50 ms |
-| U1 | Startup and frames at 125 % and 150 % Windows scaling | S1 and T1 again at each scale | no worse than 1.2x the 100 % numbers |
+| U1 | *(optional, with M6.O4's optional scaling check; lane X is deferred)* Startup and frames at 125 % and 150 % Windows scaling | S1 and T1 again at each scale | no worse than 1.2x the 100 % numbers |
 
 ## First baseline (engine side, 2026-10-16)
 
@@ -75,14 +76,16 @@ Measured by the roadmap lane in under 10 minutes, CLI only (no window), all read
   SHA-256 `6cd592e6fc930113ac688f773b5ed3103a4c7f85ee9981945bf479546652e5af` (not run).
 - Profile: `Kitkraft Dev`, 16 plugins, 7,490,111 records. `ModOrganizer.exe` was running;
   `Starfield.exe` and `CreationKit.exe` were not.
-- Single runs, so these are indications, not medians.
+- Single runs, so these are indications, not medians: this baseline did not apply the
+  three-run rule above. A review re-ran it on the same `kit.exe` (SHA-256 `a25ab516...`)
+  the same day; its runs are in "Results" and widen the `conflicts` row to a range.
 
 | Id | Command | Result |
 | -- | ------- | ------ |
 | L1 | `kit load --profile <dev> --json`, warm (14 of 16 hits; the 2 misses are KitKraft's own `out\` builds) | 0.65 to 0.73 s wall; `elapsed_ms` 652 (`index_ms` 298, `table_ms` 287) |
 | L3 | `kit load --profile <dev> --no-cache --json` | 3.50 and 3.53 s wall; `index_ms` 3,095 and 3,183 |
-| I1 | `kit coverage SFBGS00D.esm` | 2.67 s wall; 434,991 records of 100 types; envelope 0.63 MB |
-| I2 | `kit conflicts --profile <dev> --plugin SFBGS00D.esm` (first page, 50 rows) | **26.7 s wall; envelope 29.8 MB** (`data.items` about 9 MB of JSON for 50 rows; 36,811 evidence ranges) |
+| I1 | `kit coverage SFBGS00D.esm` | 2.67 s wall (the review: 2.91 s); 434,991 records of 100 types; envelope 0.63 MB |
+| I2 | `kit conflicts --profile <dev> --plugin SFBGS00D.esm` (first page, 50 rows) | **26.7 to 41.6 s wall** across runs under different load (this lane 26.7 s; the review 38.6 s alone, 41.6 s beside other work; the solo run is 1.45x this lane's); **envelope 29,788,408 bytes (29.8 MB)** in every run (`data.items` about 9 MB of JSON for 50 rows; 36,811 evidence ranges) |
 | I3 | `kit query REFR --profile <dev> --limit 500` | 1.73 s wall (825 ms in the engine; 6,713,081 winners) |
 | -- | `kit query WEAP --profile <dev> --where "FULL ~ 'Rifle'"` | 2.27 s wall (7 matches) |
 
@@ -93,7 +96,8 @@ What it suggests (to be confirmed by M6.P1 in the window):
    not in indexing. The 10 to 12 s in `docs/workbench.md` were measured with 84 plugins.
 2. A cold load is about 3.5 s for this profile, long enough to need a progress line
    (M6.P2) but not a redesign.
-3. The large cost is `conflicts` on a big DLC master: a 30 MB envelope for one page. No
+3. The large cost is `conflicts` on a big DLC master: a 30 MB envelope for one page, and
+   26.7 to 41.6 s depending on what else the machine is doing. No
    UI change fixes that. M6.P5b asks the engine owner for a smaller default (evidence and
    field detail on request), and M6.P5a moves envelope preparation off the UI thread so
    the window stays responsive meanwhile.
@@ -115,9 +119,11 @@ lands. M7.R5 measures them first, under the rules above.
 | V5 | Meshes skipped for the budget | each one shown as a limitation line, never dropped silently |
 
 Geometry comes through engine commands (M7.S4, M7.S5), never read by the window itself.
-If V3 or V4 shows that a JSON envelope is too slow for vertex data, the remedy is an ADR
-for a typed side channel that is still produced by the engine. The window must not start
-reading archives itself.
+It travels as base64 little-endian `f32` and `u32` buffers inside the JSON envelope, made
+by the engine so the CLI and MCP get identical results, at about 1.33x the raw bytes
+(director decision 2026-10-16, `plan/execution-plan.md` "M6"). V4 measures that
+encoding. Only if V4 fails with it is the remedy an ADR for a typed side channel that is
+still produced by the engine. The window must not start reading archives itself.
 
 ## Results
 
@@ -129,5 +135,12 @@ a before-and-after row for the measures it targets.
 | 2026-10-16 | roadmap | kit `a25ab516...` (CLI only), main `27cff47` | Kitkraft Dev (16, 7,490,111) | warm | L1 | 0.65 s | 0.73 s | engine 652 ms |
 | 2026-10-16 | roadmap | as above | as above | cold | L3 | 3.50 s | 3.53 s | `--no-cache` |
 | 2026-10-16 | roadmap | as above | as above | warm | I1 | 2.67 s | - | single run |
-| 2026-10-16 | roadmap | as above | as above | warm | I2 | 26.7 s | - | 29.8 MB envelope; single run |
+| 2026-10-16 | roadmap | as above | as above | warm | I2 | 26.7 s | - | 29.8 MB envelope; single run; with the review's runs the range is 26.7 to 41.6 s |
 | 2026-10-16 | roadmap | as above | as above | warm | I3 | 1.73 s | - | single run |
+| 2026-10-16 | review re-run | kit `a25ab516...` (same file, CLI only) | as above | warm | L1 | 0.70 and 0.73 s (two runs) | - | engine 625 ms; reproduces the roadmap row |
+| 2026-10-16 | review re-run | as above | as above | cold | L3 | 3.64 s | - | `index_ms` 3,202; single run; reproduces |
+| 2026-10-16 | review re-run | as above | as above | warm | I1 | 2.91 s | - | 434,991 records; single run; reproduces |
+| 2026-10-16 | review re-run | as above | as above | warm | I2 | 38.6 s alone; 41.6 s under concurrent load | - | envelope 29,788,408 bytes, as the roadmap run; the solo run is 1.45x the roadmap's 26.7 s |
+
+Neither the roadmap baseline nor the review re-run applied the three-run rule; M6.P1's
+rows are the first that must.

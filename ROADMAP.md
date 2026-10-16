@@ -3,18 +3,20 @@
 Milestones are gated by evidence, not dates. A milestone is done when its exit criteria pass
 in `cargo xtask ci` (or in a documented corpus run), not when the code exists.
 
-## Where we are (2026-10-15, `main` at `01c77d8`)
+## Where we are (2026-10-16, `main` at `ba9c7cd`)
 
-M0, M1 and M2 are done. M3 is closing and M4 is in progress. `plan/STATUS.md` checks
-every exit criterion and lists the owner's next actions:
+M0, M1 and M2 are done. M3 is closing: the in-game overhaul check passed on 2026-10-15
+(M3.O5) and the CK session is deferred. M4 is in progress, M5 runs, and the UI track (M6
+to M8, below) is planned. `plan/STATUS.md` checks every exit criterion and lists the
+owner's next actions, among them:
 
-- In-game checks on the **KitKraft Dev** profile. The rename is done (PASS). Next are the
-  first POI (`coc CityNewAtlantisApartmentTEMPLATE`, then
-  `player.moveto KitKraftFirstPOICrate`) and overhaul build 2 once it lands.
-- Answers to brief rows B8, B11 and B12.
-- `C:\Modding\scripts\finish_kitkraft_move.ps1`, run after closing every Claude Code
-  session.
-- When to start the workbench (lane W).
+- `Finish Move.cmd` after closing every Claude Code session (row 5), then the install
+  (row 11).
+- M4.O7: the Console API tools in the **KitKraft Dev** profile (row 10), which lane C's
+  session controller needs.
+- The owner-assisted CK sitting for F29 and F30 (row 12).
+- The M6 rulings that can be made now: ADR 0007 Amendment 3 (M6.O3) and fonts (M6.O2)
+  (row 16).
 
 ## M0: scaffold
 
@@ -202,9 +204,10 @@ capability: `docs/foothold/gap-matrix.md`. Foothold is the benchmark, not the de
 
 ## M6 onward: the UI track (owner decisions 2026-10-16)
 
-The owner tested the workbench and the installer on 2026-10-16 and made these decisions.
-They replace the former "M6+: editor" (renumbered from "M5+" on 2026-10-15). Text written
-before 2026-10-16 that says "M6" or "M6+" for the full authoring UI means M6 to M8 below.
+The owner made these decisions on 2026-10-16; the quoted words are the owner's, and
+detail added by the director's brief is marked so. They replace the former "M6+: editor"
+(renumbered from "M5+" on 2026-10-15). Text written before 2026-10-16 that says "M6" or
+"M6+" for the full authoring UI means M6 to M8 below.
 
 - **Audience: "Both, cockpit first".** M6 matures the workbench into the human cockpit
   beside the agents. Agents stay the main authors through MCP. M7 and M8 grow it into an
@@ -214,14 +217,14 @@ before 2026-10-16 that says "M6" or "M6+" for the full authoring UI means M6 to 
   know the other. That's the objective here, and then once we get there, we're going to go
   above and beyond in the way Ol' Beth should have." M7 reproduces the CK's interface; M8
   goes beyond it.
-- **What hurt most in the test:**
+- **Top pains, as the owner chose them:** "look, feel, performance" and "game loop
+  integration". Navigation and the read-only wall were **not** selected. The director's
+  brief (2026-10-16), not the owner, details them:
   1. Look, feel and performance: plain egui styling, slow loads, cramped tables, window
      and startup quirks (from a background shell the window opened minimized and did not
      repaint), the first-run picker, no theming.
   2. Game-loop integration: no launch-game, deploy, run-probes or screenshot flow in the
      UI, and the ledger is filled by hand.
-
-  Navigation and the read-only wall were **not** named as top pains.
 - **Stack: keep egui and invest in it.** Pure Rust, one binary, the same license rule
   (MIT/Apache/Zlib/BSD, plus the BSL-1.0 clipboard crates pending in `plan/STATUS.md` row
   7). OFL fonts stay off unless the owner rules otherwise (M6.O2). No web stack.
@@ -245,10 +248,9 @@ Goal: make the workbench a cockpit the owner wants to keep open beside the agent
 the owner reviews what an agent built (diff, validate, roundtrip), deploys it to the dev
 profile, runs the in-game checks through lane C's session controller, sees the probe
 results and screenshots, and records the ledger. All of it in a window that looks
-deliberate, starts fast, never hides itself, and stays readable at 125 and 150 percent
-scaling.
+deliberate, starts fast and never hides itself.
 
-Themes (lanes V, P, G and X in the plan):
+Themes (lanes V, P and G in the plan; lane X is deferred, see (d)):
 
 - **(a) Look and feel (lane V).**
   - A KitKraft visual system for egui:
@@ -277,35 +279,40 @@ Themes (lanes V, P, G and X in the plan):
 
   Window quirks: restore and focus the window if it starts minimized, and remember its
   size and position in `ui.json`. The first baseline (2026-10-16, CLI): a warm load of
-  the dev profile is 0.65 s and a cold one 3.5 s in the engine. `conflicts` on
-  `SFBGS00D.esm` takes 27 s and returns a 30 MB envelope for one page, which is an engine
-  request (M6.P5b).
+  the dev profile is 0.65 to 0.73 s and a cold one 3.5 to 3.6 s, wall clock (two
+  measurers). `conflicts` on `SFBGS00D.esm` takes 26.7 to 41.6 s depending on load and
+  returns a 29.8 MB envelope for one page, which is an engine request (M6.P5b).
 - **(c) Game-loop integration (lane G), strictly through engine commands:**
-  - Deploy to dev: `deploy --dev`, ADR 0009, which exists.
-  - Launch the dev profile, run probes, capture screenshots: `game.session` and
-    `game.probe` (M4.T3). These do not exist yet. Until they do, the window shows the
-    buttons disabled with the ticket id as the reason, and the UI never grows a game
-    launcher of its own.
+  - Deploy to dev and roll back: `deploy --dev` and `deploy.rollback`, ADR 0009, which
+    exist.
+  - Launch the dev profile, run probes, capture screenshots: `game.session --start`
+    (returns a session id at once), `game.status <id>` (polled through the catalog while
+    the session runs, so the window's one engine worker is never held for minutes),
+    `game.probe` and `game.stop <id>` (M4.T3). These do not exist yet. Until they do, the
+    window shows the buttons disabled with the ticket id as the reason, and the UI never
+    grows a game launcher or a second worker of its own.
   - Probe results and screenshots beside the plugin.
   - The ledger prefilled from the rows the controller left `inconclusive` or `manual`, so
     the owner confirms each one with a click.
   - A Coverage panel over `coverage --matrix` (lane D's support-depth matrix, M5.D1).
   - A Review flow for an agent-built plugin: `validate`, `roundtrip --verify`, and
     `conflicts` against its masters.
-- **(d) First run and help (lane X).**
-  - A first-run card: the dev profile preselected, `Default` shown as read-only and never
-    preselected, `doctor` findings inline.
-  - The Help tab gains "Using the workbench", the shortcuts, and a "?" link per panel.
-- **(e) Accessibility (lane X).**
-  - Keyboard navigation with a visible focus ring.
-  - Readable at 125 and 150 percent scaling and at zoom 0.8 to 1.5.
-  - No cue carried by color alone.
-  - Screen reader support through eframe's AccessKit adapter (dependency list first).
+- **(d) Deferred (lane X, priority DEFER):** a first-run card, Help additions, keyboard
+  navigation, scaling at 125 and 150 percent and zoom, and screen reader support. The
+  owner did not select navigation or name accessibility, so these leave M6's exit path;
+  they may be picked up as P2 later. What the chosen themes need stays in them: a visible
+  focus ring is a theme token (a), no cue is carried by color alone (a), and the window
+  restores itself (b).
+- **(e) A 3D placeholder (M7.R1, during M6).** The owner: "Can we toss a 3D placeholder
+  in there instead? that'll get us started on some of the rendering prims and I've got to
+  imagine that's in the library." M7.R1 (grid, axes and a camera on eframe's glow
+  backend) starts once M6.V1 lands and may merge during M6, read-only; lane V puts it in
+  the theme's frame later (M6.V5). It is not an M6 exit criterion.
 
 Writes: ADR 0007 Amendment 3 (**proposed**; the owner decides as M6.O3) limits the
-cockpit's writes to `ledger`, `deploy --dev`, `game.session` and `game.probe`, each
-previewed, each confirmed per click, and nothing else. The gate's disjointness test
-enforces the list.
+cockpit's writes to `ledger`, `deploy --dev`, `deploy.rollback`, `game.session`,
+`game.probe` and `game.stop`, each previewed, each confirmed per click, and nothing else.
+The gate's disjointness test enforces the list.
 
 Exit criteria:
 
@@ -323,9 +330,10 @@ Exit criteria:
   entries whose commands exist. The extended disjointness test and the per-panel source
   scan pass.
 - Game loop, end to end from the window, on `KitKraft Dev` with a disposable save: the
-  rename plugin is reviewed, deployed (confirmed), run through `game.session` (V1, M4.T4),
-  its probe rows and screenshot shown, and a manual row recorded in the ledger. Six
-  statuses for that run:
+  rename plugin is reviewed, deployed (confirmed), run through `game.session --start`
+  (V1, M4.T4), followed by `game.status <id>` polls and ended by the session or
+  `game.stop`, its probe rows and screenshot shown, and a manual row recorded in the
+  ledger. Six statuses for that run:
   - `parse`: pass
   - `byte_roundtrip`: pass
   - `ck_open`: not-run (not a CK milestone)
@@ -338,17 +346,20 @@ Exit criteria:
   If M4.T3 has not landed when everything else is done, the launch, probe and screenshot
   tickets close `blocked` on M4.T3 with their buttons disabled. M6 may close that way only
   with the owner's agreement.
-- The owner signs a usability pass at 125 and 150 percent (M6.O4).
+- The owner signs off the cockpit (M6.O4): a walkthrough of these criteria on the
+  release build and `KitKraft Dev`. Repeating it at 125 and 150 percent scaling is
+  optional.
 - `cargo xtask ci` is green; the corpus roundtrip is still identical.
 
 Deliberately not in M6:
 
 - Editing: no `set`, `new`, `clone`, `place` or `build` output from the window. That is
   M7, under Amendment 4.
-- The Creation Kit's window layout (M7) and the viewport (M7 lane R).
+- The Creation Kit's window layout (M7). The viewport is M7 lane R; only its read-only
+  placeholder, M7.R1, may merge during M6.
 - A game launcher, MO2 automation or Console API client inside the UI.
-- `testplan`, `package`, `deploy.rollback` and `mod.run` as UI writes. Each would need its
-  own amendment.
+- `testplan` (file output, not a safety control), `package` and `mod.run` as UI writes.
+  Each would need its own amendment.
 - A web front end, new runtime hooks, Foothold content.
 
 ## M7: CK parity
@@ -359,7 +370,7 @@ way ArtCraft reproduced its target's UI ("users know one, know the other"), on K
 engine services:
 
 - the main menu bar in the CK's order (the owner names File, Edit, View, World, NavMesh,
-  Character, Gameplay, Help, to be confirmed by observation);
+  Character, Gameplay, Help; the order stays `unresearched` until sitting 1, M7.O2);
 - the Data dialog;
 - the Object Window (a tree by record category, with a filter);
 - the Cell View (worldspace, cell and reference lists);
@@ -369,7 +380,9 @@ engine services:
 - the Render Window as a real 3D viewport from its first ticket.
 
 **The viewport** is a GL panel on eframe's glow backend (egui `PaintCallback`; no new
-framework), built up in steps:
+framework), L5 view code in `crates/ui-egui` fed only by engine commands (ADR 0002
+Amendment 1). Its first step is the owner's "3D placeholder": it starts once M6.V1 lands
+and may merge during M6 (see M6 (e)). It is built up in steps:
 
 1. grid, axes and an orbit or fly camera with the CK's controls;
 2. placed references as oriented markers from `REFR` position, rotation and scale;
@@ -392,6 +405,8 @@ Clean room (ADR 0012, proposed in M7.K1, owner decision M7.O1):
 - **Reproduced:** layout, labels, menu structure, workflows and keyboard shortcuts, from
   watching the running CK in owner-assisted sittings (`plan/STATUS.md` rows 12 and 15
   carry the existing ones; a computer-use agent may drive the CK while the owner watches).
+- **Not interface observation:** the public CK wiki. It is a level-4 source for data
+  facts (AGENTS.md "Clean room"); no interface row is filled from it.
 - **Never copied:** CK icons, images, help text, resources or binaries.
 - **All art is ours.**
 

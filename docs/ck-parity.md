@@ -63,7 +63,10 @@ in M7.K1):
 
 The only observation source is the owner-assisted CK sittings (`plan/STATUS.md` rows 12
 and 15, M7.O2, M7.O3). A computer-use agent may drive the CK while the owner watches.
-Screenshots stay in `observe\` (gitignored).
+Screenshots stay in `observe\` (gitignored). The public CK wiki is a level-4 source for
+data facts (AGENTS.md "Clean room"), not interface observation: no row here moves to
+`observed` on its word. The menu order in the first row stays `unresearched` until
+sitting 1 (director decision 2026-10-16, `plan/execution-plan.md` "M6").
 
 Status, one of:
 
