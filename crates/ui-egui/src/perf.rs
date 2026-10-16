@@ -22,7 +22,9 @@
 //! tour request (first paint) and three seconds of scrolling the Diff tab.
 
 use std::collections::BTreeMap;
-use std::sync::OnceLock;
+use std::io::Write;
+use std::sync::mpsc::{channel, Sender};
+use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
 /// Turns the trace on (`1`).
@@ -32,6 +34,39 @@ pub const BENCH_ENV: &str = "KITKRAFT_WORKBENCH_PERF_BENCH";
 
 static START: OnceLock<Instant> = OnceLock::new();
 static ON: OnceLock<bool> = OnceLock::new();
+/// The printer: a write to a redirected stderr takes milliseconds on Windows, so lines
+/// are stamped where they happen and written by a thread of their own (trace only).
+static PRINTER: OnceLock<Option<Mutex<Sender<Msg>>>> = OnceLock::new();
+
+enum Msg {
+    Line(String),
+    Flush(Sender<()>),
+}
+
+fn printer() -> Option<&'static Mutex<Sender<Msg>>> {
+    PRINTER
+        .get_or_init(|| {
+            let (tx, rx) = channel::<Msg>();
+            std::thread::Builder::new()
+                .name("kitkraft-perf".to_string())
+                .spawn(move || {
+                    let mut err = std::io::stderr();
+                    while let Ok(msg) = rx.recv() {
+                        match msg {
+                            Msg::Line(l) => {
+                                let _ = writeln!(err, "{l}");
+                            }
+                            Msg::Flush(done) => {
+                                let _ = done.send(());
+                            }
+                        }
+                    }
+                })
+                .ok()
+                .map(|_| Mutex::new(tx))
+        })
+        .as_ref()
+}
 
 /// Marks the process start; the launcher calls it first thing (else the first use does).
 pub fn mark_start() {
@@ -65,10 +100,37 @@ pub fn ms(d: Duration) -> String {
     format!("{:.1}", d.as_secs_f64() * 1000.0)
 }
 
-/// Prints `perf: t=<ms> <event> <fields>` when the trace is on.
+/// Prints `perf: t=<ms> <event> <fields>` when the trace is on (stamped now, written by
+/// the printer thread).
 pub fn line(event: &str, fields: &str) {
-    if enabled() {
-        eprintln!("{}", format_line(since_start(), event, fields));
+    if !enabled() {
+        return;
+    }
+    let text = format_line(since_start(), event, fields);
+    match printer().and_then(|p| p.lock().ok()) {
+        Some(tx) => {
+            if let Err(e) = tx.send(Msg::Line(text)) {
+                if let Msg::Line(t) = e.0 {
+                    eprintln!("{t}");
+                }
+            }
+        }
+        None => eprintln!("{text}"),
+    }
+}
+
+/// Waits (up to a second) until every line sent so far is written; the launcher calls it
+/// before the process exits.
+pub fn flush() {
+    if !enabled() {
+        return;
+    }
+    let (done_tx, done_rx) = channel();
+    let sent = printer()
+        .and_then(|p| p.lock().ok())
+        .is_some_and(|tx| tx.send(Msg::Flush(done_tx)).is_ok());
+    if sent {
+        let _ = done_rx.recv_timeout(Duration::from_secs(1));
     }
 }
 

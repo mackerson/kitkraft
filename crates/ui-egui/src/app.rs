@@ -198,6 +198,7 @@ struct App {
 /// Opens the window and blocks until it closes.
 pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
     let fonts = fonts()?;
+    perf::line("fonts read", "");
     let native = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("KitKraft Workbench (read-only)")
@@ -212,6 +213,7 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
         "KitKraft Workbench",
         native,
         Box::new(move |cc| {
+            perf::line("window created", "");
             cc.egui_ctx.set_fonts(fonts);
             let ctx = cc.egui_ctx.clone();
             let wake: Wake = std::sync::Arc::new(move || ctx.request_repaint());
@@ -779,7 +781,8 @@ impl eframe::App for App {
 
     fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
         let frame_start = Instant::now();
-        if perf::enabled() {
+        // egui may run a frame in more than one pass; eframe times the whole frame.
+        if perf::enabled() && ui.ctx().current_pass_index() == 0 {
             self.perf_frame_start(frame.info().cpu_usage);
         }
         if self.theme_changed {
@@ -850,7 +853,7 @@ impl eframe::App for App {
             self.drive_tour(ui.ctx());
         }
         if perf::enabled() {
-            self.perf_frame_end(frame_start.elapsed());
+            self.perf_frame_end(ui.ctx(), frame_start.elapsed());
         }
         if self.perf.bench.is_some() {
             self.drive_bench(ui.ctx());
@@ -880,17 +883,30 @@ impl App {
     }
 
     /// First frame, each tab's first paint, and results drawn this frame.
-    fn perf_frame_end(&mut self, ui_time: Duration) {
+    fn perf_frame_end(&mut self, ctx: &egui::Context, ui_time: Duration) {
         let ui_ms = perf::ms(ui_time);
         if !self.perf.first_frame {
             self.perf.first_frame = true;
-            perf::line("first-frame", &format!("ui_ms={ui_ms}"));
+            let state = ctx.input(|i| {
+                let v = i.viewport();
+                format!(
+                    "minimized={:?} focused={:?} inner={:?}",
+                    v.minimized,
+                    v.focused,
+                    v.inner_rect.map(|r| r.size())
+                )
+            });
+            perf::line("first-frame", &format!("ui_ms={ui_ms} {state}"));
+            self.perf.drawn.push("first-frame painted".to_string());
         }
         if self.perf.painted.insert(self.tab) {
             perf::line(
                 &format!("tab {} first-paint", self.tab.name()),
                 &format!("ui_ms={ui_ms}"),
             );
+            self.perf
+                .drawn
+                .push(format!("tab {} first-paint painted", self.tab.name()));
         }
         let tab = self.tab;
         let (now, later): (Vec<_>, Vec<_>) = std::mem::take(&mut self.perf.to_draw)
@@ -916,7 +932,9 @@ impl App {
         ctx.request_repaint();
         let busy = self.worker.is_busy();
         let Some(step) = self.perf.bench else { return };
-        let drawn = self.perf.to_draw.is_empty() && self.perf.drawn.is_empty();
+        // This tab's results are drawn and their frame reported.
+        let drawn =
+            !self.perf.to_draw.iter().any(|(t, ..)| *t == self.tab) && self.perf.drawn.is_empty();
         match step {
             Bench::WaitLoad if !busy && self.load.view.is_some() && drawn => {
                 let q = &mut self.records.query_form;
