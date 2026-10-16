@@ -47,7 +47,7 @@ marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from 
 | L3    | `crates/io`      | `kitkraft-io`      | MO2 profile reader, `plugins.txt`, Creations manifests             |
 | L4    | `crates/engine`  | `kitkraft-engine`  | `CommandSpec` catalog, sessions, undo, validation rules            |
 | L5    | `crates/mcp`     | `kitkraft-mcp`     | MCP server: `server.rs`, `tools.rs`, `backend.rs`                  |
-| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | Read-only workbench (ADR 0007 Am. 1); swappable; engine only       |
+| L5    | `crates/ui-egui` | `kitkraft-ui-egui` | Workbench (ADR 0007 Am. 1 to 3): reads, plus the confirmed writes of Amendment 3; swappable; engine only |
 | APP   | `apps/kit-cli`   | `kit-cli`          | `kit` binary, one `main.rs`                                        |
 | APP   | `apps/kit`       | `kit`              | `kit-ui` binary: the workbench window (`kit ui` starts it)         |
 | TOOL  | `xtask`          | `xtask`            | `cargo xtask ci`, `cargo xtask layers`                             |
@@ -145,6 +145,11 @@ catalog command (read-only), and what it detects is every command's default
   memory-dump, or point a reverse-engineering tool (Ghidra, IDA, REA, x64dbg) at it or at
   Starfield.exe. Never extract or ship its assets. Observations stay local in `observe/`
   (gitignored).
+- **The CK's interface** (M7; ADR 0012, accepted 2026-10-16) is reproduced only from
+  owner-assisted CK sittings: layout, labels, menus, workflows and shortcuts, described in
+  our own words in `docs/ck-parity.md`. CK icons, images, help text, resource files and
+  binaries are never copied or read for it. The CK wiki is not interface observation, and
+  all art is ours. ADR 0012 section 4 says what evidence each parity status needs.
 - **Never read Mutagen or Spriggit source**, or any other GPL/LGPL/AGPL code that handles
   Bethesda formats. Not to "check one thing", not via a search result snippet. If you have
   seen such code, say so and do not implement that area.
@@ -280,7 +285,10 @@ Owner policies decided 2026-10-14 (follow them; they are not open):
 - **Developer workbench** (ADR 0007 Amendment 1): a read-only egui workbench over
   `Engine::execute` only (M4 lane W, after the inspection APIs are stable); no logic of its
   own; the full authoring UI is M6 (`ROADMAP.md`; renumbered 2026-10-15, M5 is CK-backed
-  world authoring).
+  world authoring). Its writes are only those ADR 0007 Amendments 2 and 3 allow (Amendment
+  3 accepted 2026-10-16, M6.O3): `ledger`, `deploy --dev`, `deploy.rollback`,
+  `game.session`, `game.probe` and `game.stop`. Each is previewed and confirmed per click,
+  and each enters the gate with its M6 ticket.
 
 ## Owner's live game is off limits (2026-10-14)
 
