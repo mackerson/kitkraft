@@ -81,6 +81,8 @@ key but sorts them (serde_json without key-order preservation); the backup copy 
 original. The MCP server keeps preloading `Default` read-only, as the `kitcraft` entry
 did. `C:/Modding/kitcraft/bin/kit.exe` stays on disk; nothing points at it afterwards.
 
+- Landed (lane F/W fix round after the Fable review, 2026-10-15): `kit install`/`uninstall --apply` refuse while `claude.exe` runs (desktop app and native CLI; `--force-while-running`, `--check-running` for `Install.cmd`); `--env-file` refuses anything but `{}`/`{"Path":...}`; the gate's `Request.confirmed` is private; `profiles`, `kit doctor`, profile names and `kit install` share one MO2 order (`KITKRAFT_MO2_DIR`, then `kitkraft_io::host`), and `kit install` honors `KITKRAFT_DETECT=0`; QUICKSTART notes the `.claude.json` normalization; `dist\KitKraft` rebuilt.
+
 ## Current milestone: M3 closing, M4 in progress
 
 M0, M1 and M2 are done. M2 closed on 2026-10-14: M2.F7 and M2.O6 both passed. M3 cannot
