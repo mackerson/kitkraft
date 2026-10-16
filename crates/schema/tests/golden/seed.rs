@@ -1582,6 +1582,198 @@ impl BfcbBlockContactShadow {
 
 impl Visit for BfcbBlockContactShadow {}
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockDisplayCaseSlotTemplatesItem {
+    pub display_filter: FormId,
+    pub exclusion_filter: FormId,
+    pub display_slot: u32,
+    pub number: u32,
+}
+
+impl Field for BfcbBlockDisplayCaseSlotTemplatesItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = Field::read(r, "BfcbBlock.DisplayCase.DCSD.DisplayFilter", ctx)?;
+        let f1 = Field::read(r, "BfcbBlock.DisplayCase.DCSD.ExclusionFilter", ctx)?;
+        let f2 = u32::read(r, "BfcbBlock.DisplayCase.DCSD.DisplaySlot", ctx)?;
+        let f3 = u32::read(r, "BfcbBlock.DisplayCase.DCSD.Number", ctx)?;
+        Ok(Self {
+            display_filter: f0,
+            exclusion_filter: f1,
+            display_slot: f2,
+            number: f3,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.display_filter.write(out);
+        self.exclusion_filter.write(out);
+        self.display_slot.write(out);
+        self.number.write(out);
+    }
+}
+
+impl Visit for BfcbBlockDisplayCaseSlotTemplatesItem {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(
+            &self.display_filter,
+            "BfcbBlock.DisplayCase.DCSD.DisplayFilter",
+            out,
+        );
+        visit_form_ids(
+            &self.exclusion_filter,
+            "BfcbBlock.DisplayCase.DCSD.ExclusionFilter",
+            out,
+        );
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.display_filter,
+            "BfcbBlock.DisplayCase.DCSD.DisplayFilter",
+            out,
+        );
+        visit_form_ids_mut(
+            &mut self.exclusion_filter,
+            "BfcbBlock.DisplayCase.DCSD.ExclusionFilter",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockDisplayCaseSlotTemplates(pub Vec<BfcbBlockDisplayCaseSlotTemplatesItem>);
+
+impl Field for BfcbBlockDisplayCaseSlotTemplates {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockDisplayCaseSlotTemplates {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockDisplayCaseExclusivityItem {
+    pub count: u32,
+    pub exclusive_slots: Vec<u32>,
+}
+
+impl Field for BfcbBlockDisplayCaseExclusivityItem {
+    fn read(r: &mut Reader<'_>, _field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        let f0 = u32::read(r, "BfcbBlock.DisplayCase.DCED.Count", ctx)?;
+        let n1 = count(
+            f0,
+            "BfcbBlock.DisplayCase.DCED.ExclusiveSlots",
+            r.position(),
+        )?;
+        let f1 = read_array(r, n1, "BfcbBlock.DisplayCase.DCED.ExclusiveSlots", ctx)?;
+        Ok(Self {
+            count: f0,
+            exclusive_slots: f1,
+        })
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        count_value(self.exclusive_slots.len(), u32::MAX).write(out);
+        write_counted(&self.exclusive_slots, u32::MAX, out);
+    }
+}
+
+impl Visit for BfcbBlockDisplayCaseExclusivityItem {}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockDisplayCaseExclusivity(pub Vec<BfcbBlockDisplayCaseExclusivityItem>);
+
+impl Field for BfcbBlockDisplayCaseExclusivity {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockDisplayCaseExclusivity {}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockDisplayCase {
+    /// `DCSD`, optional.
+    pub slot_templates: Option<Sub<BfcbBlockDisplayCaseSlotTemplates>>,
+    /// `DCED`, optional.
+    pub exclusivity: Option<Sub<BfcbBlockDisplayCaseExclusivity>>,
+}
+
+impl BfcbBlockDisplayCase {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[
+        MemberDesc::Sub {
+            sig: *b"DCSD",
+            card: Card::Optional,
+        },
+        MemberDesc::Sub {
+            sig: *b"DCED",
+            card: Card::Optional,
+        },
+    ];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.slot_templates,
+                    subs,
+                    *index,
+                    "BfcbBlock.DisplayCase.DCSD",
+                    ctx,
+                    extra,
+                ),
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.exclusivity,
+                    subs,
+                    *index,
+                    "BfcbBlock.DisplayCase.DCED",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"DCSD", self.slot_templates.as_ref());
+        emit(out, *b"DCED", self.exclusivity.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockDisplayCase {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.slot_templates, "BfcbBlock.DisplayCase.DCSD", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.slot_templates, "BfcbBlock.DisplayCase.DCSD", out);
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Bool8 {
     False,
@@ -3068,6 +3260,175 @@ impl Visit for BfcbBlockPlanetContentProperties {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct BfcbBlockQualityUpgradeQualityUpgrades(pub Vec<FormId>);
+
+impl Field for BfcbBlockQualityUpgradeQualityUpgrades {
+    fn read(r: &mut Reader<'_>, field: &'static str, ctx: Ctx) -> Result<Self, DecodeError> {
+        Field::read(r, field, ctx).map(Self)
+    }
+
+    fn write(&self, out: &mut Vec<u8>) {
+        self.0.write(out);
+    }
+}
+
+impl Visit for BfcbBlockQualityUpgradeQualityUpgrades {
+    fn visit_form_ids<'a>(&'a self, path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.0, path, out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.0, path, out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockQualityUpgrade {
+    /// `QUPA`, optional.
+    pub quality_upgrades: Option<Sub<BfcbBlockQualityUpgradeQualityUpgrades>>,
+}
+
+impl BfcbBlockQualityUpgrade {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"QUPA",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.quality_upgrades,
+                    subs,
+                    *index,
+                    "BfcbBlock.QualityUpgrade.QUPA",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"QUPA", self.quality_upgrades.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockQualityUpgrade {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.quality_upgrades, "BfcbBlock.QualityUpgrade.QUPA", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(
+            &mut self.quality_upgrades,
+            "BfcbBlock.QualityUpgrade.QUPA",
+            out,
+        );
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockSoundTag {
+    /// `STCP`, optional.
+    pub animation_sound: Option<Sub<FormId>>,
+}
+
+impl BfcbBlockSoundTag {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"STCP",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.animation_sound,
+                    subs,
+                    *index,
+                    "BfcbBlock.SoundTag.STCP",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"STCP", self.animation_sound.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockSoundTag {
+    fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.animation_sound, "BfcbBlock.SoundTag.STCP", out);
+    }
+
+    fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.animation_sound, "BfcbBlock.SoundTag.STCP", out);
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct BfcbBlockParticleSystem {
+    /// `PTCL`, optional.
+    pub data: Option<Sub<Bytes>>,
+}
+
+impl BfcbBlockParticleSystem {
+    /// Members in on-disk order.
+    pub const MEMBERS: &'static [MemberDesc] = &[MemberDesc::Sub {
+        sig: *b"PTCL",
+        card: Card::Optional,
+    }];
+
+    fn fill(
+        &mut self,
+        hits: &[Hit],
+        subs: &[RawSub<'_>],
+        ctx: Ctx,
+        extra: &mut Vec<(usize, OwnedSub)>,
+    ) {
+        for hit in hits {
+            match hit {
+                Hit::Sub { member: 0, index } => put(
+                    &mut self.data,
+                    subs,
+                    *index,
+                    "BfcbBlock.ParticleSystem.PTCL",
+                    ctx,
+                    extra,
+                ),
+                _ => unmatched(hit, subs, extra),
+            }
+        }
+    }
+
+    fn emit(&self, out: &mut Vec<OwnedSub>) {
+        emit(out, *b"PTCL", self.data.as_ref());
+    }
+}
+
+impl Visit for BfcbBlockParticleSystem {}
+
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct BfcbBlockReflection {
     /// `REFL`, required.
@@ -3118,8 +3479,16 @@ pub struct BfcbBlock {
     pub animation_graph: Option<BfcbBlockAnimationGraph>,
     /// Group `ContactShadow`, optional.
     pub contact_shadow: Option<BfcbBlockContactShadow>,
+    /// Group `DisplayCase`, optional.
+    pub display_case: Option<BfcbBlockDisplayCase>,
     /// Group `PlanetContentProperties`, optional.
     pub planet_content_properties: Option<BfcbBlockPlanetContentProperties>,
+    /// Group `QualityUpgrade`, optional.
+    pub quality_upgrade: Option<BfcbBlockQualityUpgrade>,
+    /// Group `SoundTag`, optional.
+    pub sound_tag: Option<BfcbBlockSoundTag>,
+    /// Group `ParticleSystem`, optional.
+    pub particle_system: Option<BfcbBlockParticleSystem>,
     /// Group `Reflection`, optional.
     pub reflection: Option<BfcbBlockReflection>,
     /// Raw subrecords up to `BFCE`, in order.
@@ -3145,7 +3514,23 @@ impl BfcbBlock {
         },
         MemberDesc::Group {
             card: Card::Optional,
+            members: BfcbBlockDisplayCase::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
             members: BfcbBlockPlanetContentProperties::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockQualityUpgrade::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockSoundTag::MEMBERS,
+        },
+        MemberDesc::Group {
+            card: Card::Optional,
+            members: BfcbBlockParticleSystem::MEMBERS,
         },
         MemberDesc::Group {
             card: Card::Optional,
@@ -3185,18 +3570,38 @@ impl BfcbBlock {
                     group.fill(hits, subs, ctx, extra);
                     self.contact_shadow = Some(group);
                 }
-                Hit::Group { member: 3, hits } if self.planet_content_properties.is_none() => {
+                Hit::Group { member: 3, hits } if self.display_case.is_none() => {
+                    let mut group = BfcbBlockDisplayCase::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.display_case = Some(group);
+                }
+                Hit::Group { member: 4, hits } if self.planet_content_properties.is_none() => {
                     let mut group = BfcbBlockPlanetContentProperties::default();
                     group.fill(hits, subs, ctx, extra);
                     self.planet_content_properties = Some(group);
                 }
-                Hit::Group { member: 4, hits } if self.reflection.is_none() => {
+                Hit::Group { member: 5, hits } if self.quality_upgrade.is_none() => {
+                    let mut group = BfcbBlockQualityUpgrade::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.quality_upgrade = Some(group);
+                }
+                Hit::Group { member: 6, hits } if self.sound_tag.is_none() => {
+                    let mut group = BfcbBlockSoundTag::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.sound_tag = Some(group);
+                }
+                Hit::Group { member: 7, hits } if self.particle_system.is_none() => {
+                    let mut group = BfcbBlockParticleSystem::default();
+                    group.fill(hits, subs, ctx, extra);
+                    self.particle_system = Some(group);
+                }
+                Hit::Group { member: 8, hits } if self.reflection.is_none() => {
                     let mut group = BfcbBlockReflection::default();
                     group.fill(hits, subs, ctx, extra);
                     self.reflection = Some(group);
                 }
-                Hit::Sub { member: 5, index } => push_raw(&mut self.component_data, subs, *index),
-                Hit::Sub { member: 6, index } => put(
+                Hit::Sub { member: 9, index } => push_raw(&mut self.component_data, subs, *index),
+                Hit::Sub { member: 10, index } => put(
                     &mut self.end_marker,
                     subs,
                     *index,
@@ -3217,7 +3622,19 @@ impl BfcbBlock {
         if let Some(group) = &self.contact_shadow {
             group.emit(out);
         }
+        if let Some(group) = &self.display_case {
+            group.emit(out);
+        }
         if let Some(group) = &self.planet_content_properties {
+            group.emit(out);
+        }
+        if let Some(group) = &self.quality_upgrade {
+            group.emit(out);
+        }
+        if let Some(group) = &self.sound_tag {
+            group.emit(out);
+        }
+        if let Some(group) = &self.particle_system {
             group.emit(out);
         }
         if let Some(group) = &self.reflection {
@@ -3230,19 +3647,25 @@ impl BfcbBlock {
 
 impl Visit for BfcbBlock {
     fn visit_form_ids<'a>(&'a self, _path: &'static str, out: &mut FormIds<'a>) {
+        visit_form_ids(&self.display_case, "BfcbBlock.DisplayCase", out);
         visit_form_ids(
             &self.planet_content_properties,
             "BfcbBlock.PlanetContentProperties",
             out,
         );
+        visit_form_ids(&self.quality_upgrade, "BfcbBlock.QualityUpgrade", out);
+        visit_form_ids(&self.sound_tag, "BfcbBlock.SoundTag", out);
     }
 
     fn visit_form_ids_mut<'a>(&'a mut self, _path: &'static str, out: &mut FormIdsMut<'a>) {
+        visit_form_ids_mut(&mut self.display_case, "BfcbBlock.DisplayCase", out);
         visit_form_ids_mut(
             &mut self.planet_content_properties,
             "BfcbBlock.PlanetContentProperties",
             out,
         );
+        visit_form_ids_mut(&mut self.quality_upgrade, "BfcbBlock.QualityUpgrade", out);
+        visit_form_ids_mut(&mut self.sound_tag, "BfcbBlock.SoundTag", out);
     }
 }
 
