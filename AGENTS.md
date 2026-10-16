@@ -233,6 +233,16 @@ limits: [<known unsupported behaviour>]
 result: proven|partial|blocked|hypothesis
 ```
 
+`result` is read off `validation`, never chosen beside it, one line each:
+
+- `proven`: every validation row is `pass`.
+- `partial`: some rows are `pass`, none is `fail`.
+- `blocked`: a dependency or an owner action is missing (named in `requires`).
+- `hypothesis`: nothing was run (every row `not-run`).
+
+A ticket with a `fail` row is none of these until fixed: it is handed off `blocked` on the
+ticket that fixes the failure, with the failing row kept as `fail`.
+
 - **Capability statuses are six, never collapsed into one flag:** parsed, typed-readable,
   typed-writable, CK-differential-tested, game-runtime-tested, save/reload-verified
   (`docs/foothold/gap-matrix.md` defines each and holds the current state).
@@ -269,7 +279,8 @@ Owner policies decided 2026-10-14 (follow them; they are not open):
   mod, never into profiles, `plugins.txt`/`loadorder.txt` or another mod.
 - **Developer workbench** (ADR 0007 Amendment 1): a read-only egui workbench over
   `Engine::execute` only (M4 lane W, after the inspection APIs are stable); no logic of its
-  own; the full authoring UI is M5.
+  own; the full authoring UI is M6 (`ROADMAP.md`; renumbered 2026-10-15, M5 is CK-backed
+  world authoring).
 
 ## Owner's live game is off limits (2026-10-14)
 
