@@ -3,8 +3,8 @@
 //! This file is the only thing the workbench writes on its own (the screenshot tour
 //! writes images only when asked, and the ledger row is written by the engine's
 //! `ledger` command, ADR 0007 Amendment 2). It is UI state, not game data: the MO2
-//! instance and profile last loaded from the start screen, and the checkout whose docs
-//! the Help and Ledger tabs read. It is written only when a start-screen button or the
+//! instance and profile last loaded from the start screen, the checkout whose docs the
+//! Help and Ledger tabs read, and the visual theme (`theme`, read but not changed). It is written only when a start-screen button or the
 //! Help tab's "use this checkout" is clicked, and never names or touches a plugin, a
 //! profile's files or the game.
 
@@ -27,6 +27,10 @@ pub struct Prefs {
     pub profile: Option<String>,
     /// KitKraft checkout whose docs the Help and Ledger tabs read.
     pub repo_dir: Option<String>,
+    /// The visual preset (`classic`, `workbench`, `studio`, each with an optional
+    /// `-light` or `-dark`); `--theme` overrides it. The window reads it and keeps it on
+    /// save; nothing in the window changes it yet (the owner picks a direction, M6.O1).
+    pub theme: Option<String>,
 }
 
 /// `<local_app_data>\kitkraft\ui.json`, or `None` without `%LOCALAPPDATA%`.
@@ -59,6 +63,7 @@ impl Prefs {
             instance: get("instance"),
             profile: get("profile"),
             repo_dir: get("repo_dir"),
+            theme: get("theme"),
         }
     }
 
@@ -69,6 +74,7 @@ impl Prefs {
             ("instance", &self.instance),
             ("profile", &self.profile),
             ("repo_dir", &self.repo_dir),
+            ("theme", &self.theme),
         ] {
             if let Some(v) = v {
                 map.insert(k.into(), Value::String(v.clone()));
@@ -123,6 +129,7 @@ mod tests {
             instance: Some(r"C:\Modding\MO2-Starfield".into()),
             profile: Some(r"C:\Modding\MO2-Starfield\profiles\KitKraft Dev".into()),
             repo_dir: None,
+            theme: Some("studio-dark".into()),
         };
         prefs.save(&path).unwrap();
         assert_eq!(Prefs::load(&path), prefs);

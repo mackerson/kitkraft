@@ -424,6 +424,7 @@ variable and refuses a folder that `guard_output_dir` rejects. The performance t
 | Crate | Used by | License | State |
 | ----- | ------- | ------- | ----- |
 | `glow` 0.17.0 | M7.R1, the GL viewport through egui's `PaintCallback` on eframe's glow backend (reached as `eframe::glow`; no new framework) | MIT OR Apache-2.0 OR Zlib (checked 2026-10-16 in the local registry copy) | already in the tree through `eframe`'s `glow` feature |
+| `image` 0.25.10, `png` feature only | M6.V2, the screenshot tour writes PNG instead of BMP (`crates/ui-egui/src/shots.rs`; the mockups are 3.6 MB as PNG, about 70 MB as BMP) | MIT OR Apache-2.0 (checked 2026-10-16 in the local registry copy; `png` 0.18.1 and its deflate crates are MIT OR Apache-2.0) | already in the tree through `eframe` and `arboard` with the `png` feature: a direct dependency, no new package in `Cargo.lock` (lane V, 2026-10-16) |
 | `glam` | M7.R1 camera and transform math (M7.R1 may merge during M6) | MIT OR Apache-2.0 (to be checked with `cargo tree` and the crate's manifest at the merge) | new |
 | `egui_extras` (tables; image loaders only if M6.G5 needs them) | M6.P4 virtualized tables, M6.G5 screenshots | MIT OR Apache-2.0 (egui's own repository; to be checked at the merge with its transitive tree, e.g. `image` and its codecs) | new |
 | eframe's `accesskit` feature (`accesskit_winit` and the platform crates) | M6.X3 screen reader support (deferred with lane X, 2026-10-16) | expected MIT OR Apache-2.0; the full transitive list goes here before the merge | new feature |

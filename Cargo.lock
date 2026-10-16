@@ -1273,6 +1273,7 @@ name = "kitkraft-ui-egui"
 version = "0.0.0"
 dependencies = [
  "eframe",
+ "image",
  "kitkraft-engine",
  "serde_json",
  "thiserror 2.0.21",

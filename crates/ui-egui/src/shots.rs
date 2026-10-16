@@ -1,10 +1,16 @@
 //! Development aid: with `KITKRAFT_WORKBENCH_SHOTS=<dir>` set, the window fills each tab
-//! from a startup `load` with a fixed tour of read-only requests, saves one image per tab
+//! from a startup `load` with a fixed tour of read-only requests, saves one PNG per tab
 //! into `<dir>` and closes (how `docs/workbench.md` was checked). Nothing else in the
 //! workbench writes a file, and this writes only the images, only when asked.
 
 /// The environment variable naming the output directory.
 pub const SHOTS_ENV: &str = "KITKRAFT_WORKBENCH_SHOTS";
+
+/// The window's inner size during the tour, in points (pixels at 100 percent scaling):
+/// taller than the usual 1400 x 900 so the Records image holds the query table and the
+/// selected record's inspector together, and still inside a 1920 x 1200 screen with the
+/// taskbar.
+pub const TOUR_SIZE: [f32; 2] = [1400.0, 1100.0];
 
 /// The tour's output directory from [`SHOTS_ENV`]'s value, or why it is refused: the
 /// game's Data folder, the user Data folder (`My Games\Starfield\Data`), an MO2 instance
@@ -20,43 +26,33 @@ pub fn shots_dir(value: &std::ffi::OsStr) -> Result<std::path::PathBuf, String> 
     Ok(dir)
 }
 
-/// A 32-bit top-down BMP of `width` x `height` RGBA pixels (row by row). `None` when the
-/// sizes do not fit the format or `rgba` has the wrong length.
-pub fn bmp(width: usize, height: usize, rgba: &[[u8; 4]]) -> Option<Vec<u8>> {
-    const HEADER: usize = 54; // file header 14 + BITMAPINFOHEADER 40
+/// A PNG of `width` x `height` RGBA pixels (row by row), written as 8-bit RGB (a window
+/// is opaque) at the encoder's best compression, through the `image` crate eframe
+/// already builds (ADR 0007 Amendment 3, dependency table). `None` when the sizes do not
+/// fit or `rgba` has the wrong length.
+pub fn png(width: usize, height: usize, rgba: &[[u8; 4]]) -> Option<Vec<u8>> {
+    use image::codecs::png::{CompressionType, FilterType, PngEncoder};
+    use image::ImageEncoder;
     let pixels = width.checked_mul(height)?;
     if rgba.len() != pixels {
         return None;
     }
-    let data_len = pixels.checked_mul(4)?;
-    let file_len = u32::try_from(data_len.checked_add(HEADER)?).ok()?;
-    let w = i32::try_from(width).ok()?;
-    let h = i32::try_from(height).ok()?.checked_neg()?;
-    let mut out = Vec::with_capacity(data_len.checked_add(HEADER)?);
-    out.extend_from_slice(b"BM");
-    out.extend_from_slice(&file_len.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
-    out.extend_from_slice(&54u32.to_le_bytes());
-    out.extend_from_slice(&40u32.to_le_bytes());
-    out.extend_from_slice(&w.to_le_bytes());
-    out.extend_from_slice(&h.to_le_bytes());
-    out.extend_from_slice(&1u16.to_le_bytes());
-    out.extend_from_slice(&32u16.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
-    out.extend_from_slice(&u32::try_from(data_len).ok()?.to_le_bytes());
-    out.extend_from_slice(&2835u32.to_le_bytes());
-    out.extend_from_slice(&2835u32.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
-    out.extend_from_slice(&0u32.to_le_bytes());
-    for [r, g, b, a] in rgba {
-        out.extend_from_slice(&[*b, *g, *r, *a]);
-    }
+    let rgb: Vec<u8> = rgba.iter().flat_map(|[r, g, b, _]| [*r, *g, *b]).collect();
+    let mut out = Vec::new();
+    PngEncoder::new_with_quality(&mut out, CompressionType::Best, FilterType::Adaptive)
+        .write_image(
+            &rgb,
+            u32::try_from(width).ok()?,
+            u32::try_from(height).ok()?,
+            image::ExtendedColorType::Rgb8,
+        )
+        .ok()?;
     Some(out)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{bmp, shots_dir};
+    use super::{png, shots_dir};
 
     #[test]
     fn the_tour_refuses_mo2_and_both_data_folders() {
@@ -92,13 +88,18 @@ mod tests {
     }
 
     #[test]
-    fn header_and_pixel_order() {
-        let img = bmp(2, 1, &[[1, 2, 3, 255], [4, 5, 6, 255]]).unwrap();
-        assert_eq!(img.len(), 54 + 8);
-        assert_eq!(&img[..2], b"BM");
-        assert_eq!(u32::from_le_bytes(img[2..6].try_into().unwrap()), 62);
-        assert_eq!(i32::from_le_bytes(img[22..26].try_into().unwrap()), -1);
-        assert_eq!(&img[54..58], &[3, 2, 1, 255]);
-        assert!(bmp(2, 2, &[[0; 4]]).is_none());
+    fn png_signature_size_and_pixels_read_back() {
+        let img = png(2, 1, &[[1, 2, 3, 255], [4, 5, 6, 255]]).unwrap();
+        assert_eq!(&img[..8], b"\x89PNG\r\n\x1a\n");
+        // IHDR: width 2, height 1, 8 bits, color type 2 (RGB).
+        assert_eq!(&img[12..16], b"IHDR");
+        assert_eq!(u32::from_be_bytes(img[16..20].try_into().unwrap()), 2);
+        assert_eq!(u32::from_be_bytes(img[20..24].try_into().unwrap()), 1);
+        assert_eq!((img[24], img[25]), (8, 2));
+        let back = image::load_from_memory_with_format(&img, image::ImageFormat::Png)
+            .unwrap()
+            .to_rgb8();
+        assert_eq!(back.as_raw(), &[1, 2, 3, 4, 5, 6]);
+        assert!(png(2, 2, &[[0; 4]]).is_none());
     }
 }

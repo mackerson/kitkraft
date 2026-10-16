@@ -52,6 +52,10 @@ zip = { version = "9", default-features = false, features = ["deflate-flate2-zli
 # crate is not optional), web or Linux display features (ui-egui adds x11/wayland on Linux
 # only): the smallest native tree that builds on Windows.
 eframe = { version = "0.36", default-features = false, features = ["glow"] }
+# PNG output of the workbench's screenshot tour (crates/ui-egui `shots.rs`, M6.V2). Already
+# in the tree through eframe (and arboard) with the `png` feature: no new package, MIT OR
+# Apache-2.0 (ADR 0007 Amendment 3, dependency table).
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

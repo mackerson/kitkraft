@@ -13,10 +13,11 @@
 //! `kit mcp [--profile DIR]` serves MCP on stdio until stdin closes (exit 0; 2 on an I/O
 //! error); a failed `--profile` preload is reported on stderr and in the server's
 //! instructions, and the server starts with an empty session.
-//! `kit ui [--dev | --profile DIR] [--plugins FILE...] [--data-dir DIR]` starts the read-only
-//! workbench window (`kit-ui`, built from `apps/kit`, next to this binary) with those
-//! arguments and returns its exit code; 2 when `kit-ui` is not there. `--dev` opens the
-//! KitKraft Dev profile `kit doctor` finds (else the window's profile picker).
+//! `kit ui [--dev | --profile DIR] [--plugins FILE...] [--data-dir DIR] [--theme PRESET]`
+//! starts the read-only workbench window (`kit-ui`, built from `apps/kit`, next to this
+//! binary) with those arguments and returns its exit code; 2 when `kit-ui` is not there.
+//! `--dev` opens the KitKraft Dev profile `kit doctor` finds (else the window's profile
+//! picker); `--theme` picks the visual preset (`kit-ui --help`).
 //! `kit install` / `kit uninstall [--dry-run | --apply] [--home DIR] ...` print, and with
 //! `--apply` make, the PATH and MCP registration changes of `kitkraft_engine::install`
 //! (front-end setup like `mcp` and `ui`, so no `CommandSpec` and not reachable over MCP);
@@ -388,7 +389,7 @@ fn cli() -> Command {
         )
         .subcommand(passthrough(
             "ui",
-            "Open the read-only workbench window (kit ui [--dev | --profile DIR] [--plugins F...] [--data-dir DIR])"
+            "Open the read-only workbench window (kit ui [--dev | --profile DIR] [--plugins F...] [--data-dir DIR] [--theme PRESET])"
                 .to_string(),
         ))
         .subcommand(
@@ -622,7 +623,7 @@ fn print_catalog_help() {
         "mcp"
     );
     println!(
-        "  {:<18} Open the read-only workbench window (kit ui [--dev | --profile DIR] [--plugins F...])",
+        "  {:<18} Open the read-only workbench window (kit ui [--dev | --profile DIR] [--theme PRESET])",
         "ui"
     );
     println!(
