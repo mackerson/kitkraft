@@ -11,6 +11,8 @@
 //!   the CLI.
 //! - [`md`]: plain Markdown for the Help tab, which shows the owner's QA material from the
 //!   repo's docs at runtime ([`panels::help`]).
+//! - `prepare`: each reply's view-model and raw JSON lines, built on the worker thread
+//!   (M6.P5a), so the frame that receives a big envelope only draws it.
 //! - [`prefs`]: the per-user UI prefs file (`%LOCALAPPDATA%\kitkraft\ui.json`), the only
 //!   file the workbench writes on its own; UI state, never game data.
 //! - [`theme`]: the visual tokens (type, spacing, sizes, radii, density, light and dark
@@ -33,6 +35,7 @@ pub mod md;
 pub mod panels;
 pub mod perf;
 pub mod prefs;
+mod prepare;
 pub mod shots;
 pub mod theme;
 pub mod worker;
