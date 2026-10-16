@@ -28,6 +28,12 @@ Dev profile took 53 s and about 2 GB of memory in a debug build (the 10 to 12 s 
 "Panels" below were warm-cache loads). A debug `kit-ui` prints a one-line warning saying
 so when it starts.
 
+`--theme <preset>` picks the visual preset: `classic` (today's look, the default),
+`workbench` or `studio`, each optionally `-light` or `-dark` (otherwise the window follows
+Windows). Without it, `"theme"` in `%LOCALAPPDATA%\kitkraft\ui.json` is used. The Start
+tab names the active preset. The presets and their tokens are in
+`docs/design/workbench-visual-system.md`; the owner picks a direction in M6.O1.
+
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
 also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The
 arguments are the same as for `kit mcp`. When they are given, the window opens with a
@@ -296,9 +302,14 @@ runs these read-only requests:
    tour never clicks it: nothing is written.
 
 A minimized window does not repaint, so the tour waits until it is restored (seen
-2026-10-15: started from a background shell, the window opened minimized). The Help tab
-shows the docs as read at start. It then saves `<dir>/<tab>.bmp` for each
-tab (`start`, `load`, ..., `ledger`, `help`) and closes. Keep the images outside the repo.
+2026-10-15: started from a background shell, the window opened minimized; started with
+PowerShell's `Start-Process -WindowStyle Normal` it opens restored, 2026-10-16). The Help
+tab shows the docs as read at start. It then saves `<dir>/<tab>.png` for each tab
+(`start`, `load`, ..., `ledger`, `help`) and closes. For the tour the window is 1400 x
+1100 points instead of 1400 x 900, the Records tab folds "Record types" and scrolls to the
+query table, so the table and the selected record's inspector are in one image, and the
+scroll is not animated. Add `--theme <preset>` to capture a preset (the M6.V2 mockups,
+`docs/design/mockups/2026-10-16/`, were made so). Keep other tour images outside the repo.
 The tour refuses a `<dir>` that is, or is inside, the game's Data folder, the user Data
 folder (`Documents\My Games\Starfield\Data`), an MO2 instance or profile, or that passes
 through a link (the engine's own output guard); the window then says why and runs no tour.
