@@ -32,6 +32,9 @@ use crate::panels::start::{
     instance_of_profile, profiles_request, StartProfile, StartTab, StartView,
 };
 use crate::panels::validate::{RoundtripView, ValidateTab, ValidateView};
+// Lane G (M6).
+use crate::panels::cockpit::{CockpitEnv, CockpitTab};
+use crate::panels::coverage::{CoverageTab, MatrixView};
 use crate::prefs::{self, Prefs};
 use crate::theme::{self, ThemeChoice};
 use crate::worker::{Reply, Wake, Worker};
@@ -50,6 +53,9 @@ enum Tab {
     Schema,
     Ledger,
     Help,
+    // Lane G (M6.G2, M6.G7).
+    Cockpit,
+    Coverage,
 }
 
 const TABS: &[(Tab, &str)] = &[
@@ -64,6 +70,8 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Schema, "Schema"),
     (Tab::Ledger, "Ledger"),
     (Tab::Help, "Help"),
+    (Tab::Cockpit, "Cockpit"),
+    (Tab::Coverage, "Coverage"),
 ];
 
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
@@ -117,6 +125,8 @@ struct App {
     schema: SchemaTab,
     ledger: LedgerTab,
     help: HelpTab,
+    cockpit: CockpitTab,
+    coverage: CoverageTab,
 }
 
 /// Opens the window and blocks until it closes.
@@ -268,6 +278,8 @@ impl App {
             schema: SchemaTab::default(),
             ledger: LedgerTab::default(),
             help: HelpTab::default(),
+            cockpit: CockpitTab::default(),
+            coverage: CoverageTab::default(),
             tour: None,
         };
         let mut shots_refused = None;
@@ -385,6 +397,17 @@ impl App {
                     }
                     self.ledger.view = Some(view);
                 }
+                Slot::CockpitStatus
+                | Slot::CockpitValidate
+                | Slot::CockpitRoundtrip
+                | Slot::CockpitMasters
+                | Slot::CockpitDeploy
+                | Slot::CockpitRollback => {
+                    for (s, r) in self.cockpit.receive(slot, &reply.request, env) {
+                        self.submit(s, r);
+                    }
+                }
+                Slot::Coverage => self.coverage.view = Some(MatrixView::from_envelope(env)),
             }
         }
         // Replies arrive in submission order, so the session now is the one this
@@ -707,6 +730,22 @@ impl eframe::App for App {
                         Tab::Schema => self.schema.ui(ui, &mut ctx),
                         Tab::Ledger => self.ledger.ui(ui, &mut ctx),
                         Tab::Help => self.help.ui(ui, &mut ctx),
+                        Tab::Cockpit => {
+                            let env = CockpitEnv {
+                                loaded_profile: self
+                                    .session
+                                    .as_ref()
+                                    .and_then(|s| s.get("profile"))
+                                    .and_then(Value::as_str),
+                                checkout: self.help.checkout.as_ref().map(|(p, _)| p.as_path()),
+                                ledger: self.ledger.observations.as_deref(),
+                            };
+                            self.cockpit.ui(ui, &mut ctx, &env);
+                        }
+                        Tab::Coverage => {
+                            let checkout = self.help.checkout.as_ref().map(|(p, _)| p.as_path());
+                            self.coverage.ui(ui, &mut ctx, checkout);
+                        }
                     });
             });
         let actions = ctx.actions;
@@ -800,6 +839,7 @@ impl App {
                 self.set_step(TourStep::Seeded(2));
             }
             TourStep::Seeded(2) if !busy => {
+                self.seed_lane_g_tour();
                 if let Ok(req) = diag::validate_request(&self.diag.validate_plugin) {
                     self.submit(Slot::DiagValidate, req);
                 }
@@ -848,6 +888,55 @@ impl App {
         // A few frames for the tab to lay out, then one request (frame 5 only).
         if tour.frames == 5 {
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+        }
+    }
+}
+
+// Lane G (M6.G2, M6.G7, M6.G8): the screenshot tour's reads for the Cockpit and Coverage
+// tabs. Dry runs only: nothing is written.
+impl App {
+    fn seed_lane_g_tour(&mut self) {
+        use crate::panels::cockpit::{dev_target, plugins_under, WriteKind, OUT_DIR};
+        let checkout = self.help.checkout.as_ref().map(|(p, _)| p.clone());
+        let found = checkout
+            .as_deref()
+            .map(|r| plugins_under(&r.join(OUT_DIR)))
+            .unwrap_or_default();
+        let plugins = self.loaded_plugins();
+        if let Some(p) = found.first() {
+            self.cockpit.plugin.clone_from(p);
+            if let Ok(reqs) = self.cockpit.start_review(&plugins) {
+                for (slot, req) in reqs {
+                    self.submit(slot, req);
+                }
+            }
+        }
+        let loaded = self
+            .session
+            .as_ref()
+            .and_then(|s| s.get("profile"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        if let Ok(t) = dev_target(loaded.as_deref()) {
+            self.cockpit.form.fill(&t);
+            if let Ok(req) = self.cockpit.form.status_request() {
+                self.submit(Slot::CockpitStatus, req);
+            }
+            if let Ok(req) = self.cockpit.form.preview_request(WriteKind::Deploy, None) {
+                self.submit(Slot::CockpitDeploy, req);
+            }
+        }
+        self.coverage.form.types = "WEAP AMMO OMOD".into();
+        if let Some(root) = &checkout {
+            self.coverage.form.evidence = root
+                .join("docs")
+                .join("schema")
+                .join("evidence.toml")
+                .display()
+                .to_string();
+        }
+        if let Ok(req) = self.coverage.form.request() {
+            self.submit(Slot::Coverage, req);
         }
     }
 }
