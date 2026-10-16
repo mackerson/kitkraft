@@ -14,6 +14,7 @@ Rules:
 
 | Asset | Path in repo | Source (URL) | Author | License | Added | Notes |
 | ----- | ------------ | ------------ | ------ | ------- | ----- | ----- |
+| Compiled Papyrus test fixtures (`HelloOnLoad.pex`, `OracleProperties.pex`, `OracleControl.pex`) | `crates/pex/tests/fixtures/` | Compiled locally by Bethesda's `PapyrusCompiler.exe` 4.7.0.5 (not release) from our own `.psc` beside each | KitKraft | MIT OR Apache-2.0 (our sources) | 2026-10-15 | Listed because a Bethesda tool produced them: they hold only our code, names and text plus engine type, function and flag names; no Bethesda source, script or binary (`docs/oracles.md`, "Papyrus compiler oracle") |
 
 ## Reference sources (not assets)
 
