@@ -128,7 +128,7 @@ pub const LOCAL_FORM: &str = "local_form";
 pub fn names_local_form(op: &Op) -> bool {
     fn has(v: &Value) -> bool {
         match v {
-            Value::Object(m) => m.contains_key(LOCAL_FORM),
+            Value::Object(m) => m.contains_key(LOCAL_FORM) || m.values().any(has),
             Value::Array(items) => items.iter().any(has),
             _ => false,
         }
@@ -147,7 +147,12 @@ fn resolve_local_forms(op: &Op, local: &[(String, u32)], target: &str) -> Result
                     .find(|(e, _)| e.eq_ignore_ascii_case(edid))
                     .map(|(_, f)| Value::String(format!("{target}:{:08X}", f & 0x00FF_FFFF)))
                     .ok_or_else(|| format!("no new form `{edid}` is written in this call")),
-                None => Ok(v.clone()),
+                // A struct element of an array value: its members may name new forms.
+                None => m
+                    .iter()
+                    .map(|(k, x)| walk(x, local, target).map(|x| (k.clone(), x)))
+                    .collect::<Result<serde_json::Map<_, _>, _>>()
+                    .map(Value::Object),
             },
             Value::Array(items) => items
                 .iter()
@@ -727,6 +732,15 @@ pub fn write_patch_with(
         let mut changes = Vec::new();
         let mut written: BTreeSet<usize> = BTreeSet::new();
         let mut deferred: Vec<Edit> = Vec::new();
+        // A subrecord the edits name that the record lacks is added at its schema slot
+        // first (lane D round 5: `set`, `clone`, `[[set]]`), deferred edits' included, so
+        // no index moves once edits apply; refused only where the type has no slot for it.
+        if !copy.edits.is_empty() {
+            record
+                .decompress(&options.limits)
+                .map_err(|e| PatchError::Io(format!("{}: {e}", copy.formref)))?;
+            super::scaffold::add_slots(&mut record, &copy.edits, false)?;
+        }
         for edit in &copy.edits {
             if names_local_form(&edit.op) {
                 deferred.push(edit.clone());
@@ -867,6 +881,37 @@ pub fn write_patch_with(
             r.editor_id = Some(edid.clone());
             local.push((edid.clone(), form_id));
         }
+        // Every new reference's FormID before any is written (lane D round 5), in the same
+        // order as before, so a field may name a reference placed later in the call (a
+        // location its map marker, a beacon its centre marker): by its EditorID, or by its
+        // label when it has none (`build` names a `[[place]]` so).
+        let mut ref_ids: Vec<u32> = Vec::with_capacity(new_refs.len());
+        for new in &new_refs {
+            let form_id = allocator
+                .allocate()
+                .map_err(|e| refused(format!("{}: {e}", new.label)))?;
+            if let Some(edid) = &new.editor_id {
+                local.push((edid.clone(), form_id));
+            }
+            local.push((new.label.clone(), form_id));
+            ref_ids.push(form_id);
+        }
+        let local_masters = masters.clone();
+        let local_formref = |plugin: &str, id: u32| -> Result<u32, String> {
+            let own = plugin
+                .eq_ignore_ascii_case(&target_name)
+                .then(|| {
+                    local
+                        .iter()
+                        .find(|(_, f)| f & 0x00FF_FFFF == id)
+                        .map(|(_, f)| *f)
+                })
+                .flatten();
+            match own {
+                Some(f) => Ok(f),
+                None => formref_in(plugin, id, &local_masters, &target_name, &flag_of),
+            }
+        };
         let target_masters = masters.clone();
         let stored = |form: &FormName| -> Result<u32, PatchError> {
             formref_in(
@@ -878,7 +923,7 @@ pub fn write_patch_with(
             )
             .map_err(|m| refused(format!("{}: {m}", form.label())))
         };
-        for new in new_refs {
+        for (new, form_id) in new_refs.into_iter().zip(ref_ids) {
             let base = match &new.base_local {
                 Some(edid) => local
                     .iter()
@@ -907,9 +952,6 @@ pub fn write_patch_with(
                     )))
                 }
             };
-            let form_id = allocator
-                .allocate()
-                .map_err(|e| refused(format!("{}: {e}", new.label)))?;
             let mut spec = RefSpec::new(new.signature, form_id, base, new.position, new.rotation);
             spec.persistent = new.persistent;
             spec.initially_disabled = new.initially_disabled;
@@ -922,17 +964,13 @@ pub fn write_patch_with(
                 .map_err(|e| refused(format!("{}: {e}", new.label)))?;
             let mut changes = Vec::new();
             if !new.edits.is_empty() {
-                super::scaffold::add_slots(&mut at.record, &new.edits)
+                super::scaffold::add_slots(&mut at.record, &new.edits, true)
                     .map_err(|e| refused(format!("{}: fields: {e}", new.label)))?;
-                let target_masters = masters.clone();
-                let own = |plugin: &str, id: u32| -> Result<u32, String> {
-                    formref_in(plugin, id, &target_masters, &target_name, &flag_of)
-                };
                 let ctx = ValueCtx {
                     localized_target: false,
                     localized_source: false,
                     form_version: at.record.header.form_version,
-                    formref: &own,
+                    formref: &local_formref,
                 };
                 for edit in &new.edits {
                     let op = resolve_local_forms(&edit.op, &local, &target_name)
