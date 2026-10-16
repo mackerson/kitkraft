@@ -32,6 +32,8 @@ use glam::{Vec2, Vec3};
 use camera::OrbitCamera;
 use scene::{Marker, SceneColors};
 
+/// Deletes every GL object of the viewports; `App::on_exit` calls it (gl.rs, "Lifetime").
+pub(crate) use gl::release as release_gl;
 pub use gl::DrawStats;
 
 /// The controls, as shown in the tab and in `docs/ck-parity.md`. None of them has been

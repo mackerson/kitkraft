@@ -771,6 +771,14 @@ impl eframe::App for App {
             self.drive_tour(ui.ctx());
         }
     }
+
+    /// Deletes the viewport's GL objects while the context is still current (eframe
+    /// calls this before it destroys the painter).
+    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        if let Some(gl) = gl {
+            crate::viewport::release_gl(gl);
+        }
+    }
 }
 
 impl App {
