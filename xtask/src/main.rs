@@ -40,6 +40,7 @@ mod papyrus;
 mod parity;
 mod sf1edit;
 mod smuggle;
+mod ui;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -147,6 +148,10 @@ fn run() -> Result<()> {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             dist::run(&workspace_root()?, &rest)
         }
+        Some("ui") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            ui::run(&workspace_root()?, &rest)
+        }
         Some("oracle") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             oracle::run(&workspace_root()?, &rest)
@@ -177,6 +182,9 @@ fn print_help() {
     println!("           with the double-click .cmd files and README.txt; [--out DIR]");
     println!("           [--sync-bin] (also refresh the main checkout's bin\\); running programs");
     println!("           are renamed aside to *.stale-<secs>, never stopped");
+    println!("  ui       release-build kit and kit-ui, then open the window with `kit ui --dev`");
+    println!("           (the KitKraft Dev profile) unless the arguments name --profile or");
+    println!("           --plugins; other arguments pass to `kit ui`; --no-dev opens the picker");
     println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
     println!("           round trips compared with kit (YAML never read; lane H);");
     println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");

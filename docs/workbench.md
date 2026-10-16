@@ -21,12 +21,31 @@ kit ui --plugins Starfield.esm --plugins MyPatch.esp [--data-dir <Data>]
 ```
 
 The Data dir defaults to the detected game install (argument > `KITKRAFT_DATA_DIR` >
-detected). Without the dist folder: `cargo build --release -p kit -p kit-cli`.
+detected).
 
-Build with `--release`. A debug build works but is slow and large: loading the KitKraft
+From a checkout, **`cargo xtask ui`** is the one step (M6.P6a): it builds `kit` and
+`kit-ui` with `--release`, stamped with the commit and date (below), and starts
+`kit ui --dev` from cargo's `release` folder, so the window opens on the KitKraft Dev
+profile. Arguments pass through to `kit ui` (`cargo xtask ui --theme studio`); with
+`--profile` or `--plugins` the `--dev` is left out, and `--no-dev` opens the profile
+picker instead. `cargo xtask dist` (with `--sync-bin` to refresh the main checkout's
+`bin\` as well) builds the same release programs into `dist\KitKraft\`.
+
+Use a release build. A debug build works but is slow and large: loading the KitKraft
 Dev profile took 53 s and about 2 GB of memory in a debug build (the 10 to 12 s under
-"Panels" below were warm-cache loads). A debug `kit-ui` prints a one-line warning saying
-so when it starts.
+"Panels" below were warm-cache loads). So a debug `kit` (`cargo run -p kit-cli -- ui`)
+does not start the debug window silently: it starts a release `kit-ui` when it finds one
+(cargo's `release` folder beside its `debug` folder, else `bin\` or `dist\KitKraft\` in a
+folder above it) and says which on the console; when there is none it prints where it
+looked and how to get one (`cargo xtask ui`, `cargo xtask dist`) and exits 2.
+`kit ui --allow-debug` runs the debug window beside it anyway. A debug `kit-ui` prints a
+one-line warning saying so when it starts.
+
+Which build is running: `kit --version` prints `kit 0.0.0 (<commit>, <date>, <profile>)`,
+and every result envelope carries the same as `build` (`docs/mcp.md`, "Result
+envelope"). The commit (`-dirty` when the tree had changes) and the date are set by
+`cargo xtask ui` and `cargo xtask dist`; any other build says `unknown` for both, and the
+profile is `debug` or `release` either way.
 
 `--theme <preset>` picks the visual preset: `classic` (today's look, the default),
 `workbench` or `studio`, each optionally `-light` or `-dark` (otherwise the window follows
@@ -354,6 +373,6 @@ Owner decisions of 2026-10-16 (`ROADMAP.md`, "M6 onward"; tickets in
 - **M8, Beyond the CK.** Search everywhere, inline validation and conflicts, undo
   history, an agent panel, and probe results beside records.
 
-Known today (2026-10-16): `C:\Modding\kitcraft\bin` holds `kit.exe` but not
-`kit-ui.exe`, so `kit ui` started from there exits 2. Use `dist\KitKraft` until M6.P6a
-fixes the layout.
+Known today (2026-10-16): `C:\Modding\kitcraft\bin` may still hold `kit.exe` without
+`kit-ui.exe` from an older build, so `kit ui` started from there exits 2 and says how to
+get one: `cargo xtask dist --sync-bin` puts both programs in `bin\` (M6.P6a).

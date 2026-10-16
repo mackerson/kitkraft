@@ -530,7 +530,7 @@ pub(crate) fn write_folder(dest: &Path, release: &Path) -> Result<(Vec<PathBuf>,
 }
 
 /// The target directory cargo builds into (honours `CARGO_TARGET_DIR`).
-fn target_dir(root: &Path) -> Result<PathBuf> {
+pub(crate) fn target_dir(root: &Path) -> Result<PathBuf> {
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let out = Command::new(&cargo)
         .args(["metadata", "--format-version", "1", "--no-deps"])
@@ -600,9 +600,18 @@ fn bin_dir(root: &Path) -> PathBuf {
 pub(crate) fn run(root: &Path, args: &[String]) -> Result<()> {
     let Opts { out, sync_bin } = opts(root, args)?;
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    println!("xtask dist: cargo build --release -p kit-cli -p kit");
+    // The build identity (M6.P6b): `kit --version` and every envelope name the commit.
+    let env = crate::ui::build_env(root);
+    println!(
+        "xtask dist: cargo build --release -p kit-cli -p kit ({})",
+        env.iter()
+            .map(|(k, v)| format!("{k}={v}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    );
     let status = Command::new(&cargo)
         .args(["build", "--release", "-p", "kit-cli", "-p", "kit"])
+        .envs(env.iter().map(|(k, v)| (*k, v.as_str())))
         .current_dir(root)
         .status()
         .with_context(|| format!("could not start `{cargo}`"))?;
