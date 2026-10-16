@@ -16,6 +16,8 @@
 //! - [`theme`]: the visual tokens (type, spacing, sizes, radii, density, light and dark
 //!   palettes) and the one function that applies them to egui; `workbench` by default,
 //!   other presets by `--theme`, `ui.json` or the Start tab's picker.
+//! - [`perf`]: the `KITKRAFT_WORKBENCH_PERF=1` trace (stderr `perf:` lines) and the
+//!   window bench of `docs/design/workbench-performance.md` (M6.P1).
 //! - [`run`]: opens the window (eframe, OpenGL backend).
 //!
 //! The crate depends on `kitkraft-engine` alone among workspace crates (xtask
@@ -29,6 +31,7 @@ pub mod envelope;
 pub mod gate;
 pub mod md;
 pub mod panels;
+pub mod perf;
 pub mod prefs;
 pub mod shots;
 pub mod theme;

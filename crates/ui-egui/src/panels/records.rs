@@ -671,7 +671,7 @@ impl RecordsTab {
                         theme::status(ui, Status::Unknown, &format!("undecided {form}: {reasons}"));
                     }
                     let selected = self.record_view.as_ref().map(|r| r.global.as_str());
-                    ScrollArea::vertical()
+                    let rows_out = ScrollArea::vertical()
                         .id_salt("query-rows")
                         .max_height(theme::view_height(ui, View::Medium))
                         .show(ui, |ui| {
@@ -717,6 +717,11 @@ impl RecordsTab {
                                 }
                             });
                         });
+                    crate::app::note_perf_target(
+                        ui.ctx(),
+                        crate::app::PERF_TARGET_RECORDS,
+                        rows_out.inner_rect,
+                    );
                 });
             });
     }

@@ -11,6 +11,7 @@ use clap::{Arg, ArgAction, Command};
 use kitkraft_ui_egui::theme::ThemeChoice;
 
 fn main() -> ExitCode {
+    kitkraft_ui_egui::perf::mark_start();
     let matches = match cli().try_get_matches() {
         Ok(m) => m,
         Err(err) => {

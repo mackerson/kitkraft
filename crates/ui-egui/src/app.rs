@@ -5,9 +5,9 @@
 //! returned; a tab's clicks come back as [`Action`]s and are applied here after the
 //! frame. Colors, sizes and spacing are `crate::theme`'s.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, FontData, FontDefinitions, FontFamily, ScrollArea};
 use serde_json::{Map, Value};
@@ -32,12 +32,13 @@ use crate::panels::start::{
     instance_of_profile, profiles_request, StartProfile, StartTab, StartView,
 };
 use crate::panels::validate::{RoundtripView, ValidateTab, ValidateView};
+use crate::perf::{self, Frames, Wheel};
 use crate::prefs::{self, Prefs};
 use crate::theme::{self, ThemeChoice};
 use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Tab {
     Start,
     Load,
@@ -66,6 +67,80 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Help, "Help"),
 ];
 
+impl Tab {
+    fn name(self) -> &'static str {
+        TABS.iter()
+            .find(|(t, _)| *t == self)
+            .map_or("?", |(_, label)| label)
+    }
+
+    /// The tab that draws `slot`'s result.
+    fn of_slot(slot: Slot) -> Tab {
+        match slot {
+            Slot::Profiles => Tab::Start,
+            Slot::Load => Tab::Load,
+            Slot::Types | Slot::Query | Slot::Inspect | Slot::InspectSchema => Tab::Records,
+            Slot::Links => Tab::Links,
+            Slot::Planet => Tab::Planet,
+            Slot::Diff => Tab::Diff,
+            Slot::DiagInspect | Slot::DiagValidate => Tab::Diagnostics,
+            Slot::Validate | Slot::Roundtrip => Tab::Validate,
+            Slot::Schema => Tab::Schema,
+            Slot::Ledger => Tab::Ledger,
+        }
+    }
+}
+
+/// The perf trace's state (`crate::perf`; empty and unused without it).
+#[derive(Default)]
+struct PerfState {
+    frames: Frames,
+    first_frame: bool,
+    painted: BTreeSet<Tab>,
+    /// Submit time per ticket.
+    queued: BTreeMap<u64, Instant>,
+    /// Results received and not yet drawn: (tab, ticket, command, submit time).
+    to_draw: Vec<(Tab, u64, String, Instant)>,
+    /// Drawn this frame; their frame time is reported on the next one.
+    drawn: Vec<String>,
+    bench: Option<Bench>,
+    wheel: Wheel,
+}
+
+/// The window bench (`crate::perf::BENCH_ENV`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Bench {
+    WaitLoad,
+    WaitQuery,
+    Settle(Instant, Tab),
+    Scroll(Instant, Tab),
+    WaitDiff,
+    Done,
+}
+
+/// Bench timings: settle before scrolling, scroll down, then up.
+const BENCH_SETTLE: Duration = Duration::from_secs(1);
+const BENCH_DOWN: Duration = Duration::from_secs(3);
+const BENCH_UP: Duration = Duration::from_secs(2);
+/// Points per frame of the bench's wheel.
+const BENCH_STEP: f32 = 60.0;
+
+/// The names the bench finds its scroll targets by.
+pub(crate) const PERF_TARGET_RECORDS: &str = "records-query";
+const PERF_TARGET_CENTRAL: &str = "central";
+
+/// Remembers `rect` as the bench's scroll target `name` (the Records query table, the
+/// central panel); nothing without the bench.
+pub(crate) fn note_perf_target(ctx: &egui::Context, name: &str, rect: egui::Rect) {
+    if perf::bench_requested() {
+        ctx.data_mut(|d| d.insert_temp(egui::Id::new(("perf-target", name)), rect));
+    }
+}
+
+fn perf_target(ctx: &egui::Context, name: &str) -> Option<egui::Rect> {
+    ctx.data(|d| d.get_temp(egui::Id::new(("perf-target", name))))
+}
+
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
 /// save one image per tab and close.
 struct Tour {
@@ -85,6 +160,7 @@ enum TourStep {
 
 struct App {
     tour: Option<Tour>,
+    perf: PerfState,
     /// The preset and mode in use, and where the choice came from (`--theme`, `ui.json`,
     /// the Start tab's picker, or the default).
     theme: ThemeChoice,
@@ -269,6 +345,10 @@ impl App {
             ledger: LedgerTab::default(),
             help: HelpTab::default(),
             tour: None,
+            perf: PerfState {
+                bench: perf::bench_requested().then_some(Bench::WaitLoad),
+                ..PerfState::default()
+            },
         };
         let mut shots_refused = None;
         if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
@@ -305,8 +385,13 @@ impl App {
     }
 
     fn submit(&mut self, slot: Slot, request: Request) {
+        let id = request.id.clone();
         match self.worker.submit(request) {
             Ok(ticket) => {
+                if perf::enabled() {
+                    perf::line(&format!("request {id} queued"), &format!("ticket={ticket}"));
+                    self.perf.queued.insert(ticket, Instant::now());
+                }
                 self.slots.insert(ticket, slot);
                 self.notice = None;
             }
@@ -318,6 +403,26 @@ impl App {
         let Some(slot) = self.slots.remove(&reply.ticket) else {
             return;
         };
+        let received = Instant::now();
+        if perf::enabled() {
+            perf::line(
+                &format!("request {} done", reply.request.id),
+                &format!(
+                    "ticket={} wait_ms={} run_ms={} first_progress_ms={} bytes={}",
+                    reply.ticket,
+                    perf::ms(reply.waited),
+                    perf::ms(reply.elapsed),
+                    reply
+                        .first_progress
+                        .map_or_else(|| "-".to_string(), perf::ms),
+                    reply
+                        .bytes
+                        .map_or_else(|| "-".to_string(), |b| b.to_string()),
+                ),
+            );
+        }
+        let ticket = reply.ticket;
+        let command = reply.request.id.clone();
         if let Ok(env) = &reply.result {
             match slot {
                 Slot::Profiles => {
@@ -416,6 +521,19 @@ impl App {
                 mcp,
             },
         );
+        if perf::enabled() {
+            perf::line(
+                &format!("request {command} prepared"),
+                &format!(
+                    "ticket={ticket} prep_ms={} on=ui",
+                    perf::ms(received.elapsed())
+                ),
+            );
+            let queued_at = self.perf.queued.remove(&ticket).unwrap_or(received);
+            self.perf
+                .to_draw
+                .push((Tab::of_slot(slot), ticket, command, queued_at));
+        }
     }
 
     /// Drops every queued request by restarting the engine thread; the new one has an
@@ -651,7 +769,19 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        self.perf.wheel.inject(raw_input);
+    }
+
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        self.perf.frames.print_all();
+    }
+
+    fn ui(&mut self, ui: &mut egui::Ui, frame: &mut eframe::Frame) {
+        let frame_start = Instant::now();
+        if perf::enabled() {
+            self.perf_frame_start(frame.info().cpu_usage);
+        }
         if self.theme_changed {
             self.theme_changed = false;
             theme::apply(ui.ctx(), &self.theme.preset.theme(), self.theme.mode);
@@ -681,7 +811,7 @@ impl eframe::App for App {
             prefs_path: self.prefs_path.as_deref(),
         };
         let central = theme::central_frame(ui);
-        egui::CentralPanel::default_margins()
+        let central_out = egui::CentralPanel::default_margins()
             .frame(central)
             .show(ui, |ui| {
                 if tab == Tab::Records {
@@ -709,6 +839,7 @@ impl eframe::App for App {
                         Tab::Help => self.help.ui(ui, &mut ctx),
                     });
             });
+        note_perf_target(ui.ctx(), PERF_TARGET_CENTRAL, central_out.response.rect);
         let actions = ctx.actions;
         self.apply(actions);
         if let Some(share) = self.records.split_changed.take() {
@@ -717,6 +848,158 @@ impl eframe::App for App {
         }
         if self.tour.is_some() {
             self.drive_tour(ui.ctx());
+        }
+        if perf::enabled() {
+            self.perf_frame_end(frame_start.elapsed());
+        }
+        if self.perf.bench.is_some() {
+            self.drive_bench(ui.ctx());
+        }
+    }
+}
+
+impl App {
+    /// The phase a frame's time is counted in: the bench's scroll phase, else the tab.
+    fn perf_phase(&self) -> String {
+        match self.perf.bench {
+            Some(Bench::Scroll(_, tab)) => format!("bench-scroll-{}", tab.name()),
+            _ => self.tab.name().to_string(),
+        }
+    }
+
+    /// Records the previous frame's time (eframe measures a frame after painting it,
+    /// without the vsync wait) and reports the results drawn in it.
+    fn perf_frame_start(&mut self, last_frame_secs: Option<f32>) {
+        let Some(secs) = last_frame_secs else { return };
+        let ms = secs * 1000.0;
+        let phase = self.perf_phase();
+        self.perf.frames.record(&phase, ms);
+        for event in std::mem::take(&mut self.perf.drawn) {
+            perf::line(&event, &format!("frame_ms={ms:.2}"));
+        }
+    }
+
+    /// First frame, each tab's first paint, and results drawn this frame.
+    fn perf_frame_end(&mut self, ui_time: Duration) {
+        let ui_ms = perf::ms(ui_time);
+        if !self.perf.first_frame {
+            self.perf.first_frame = true;
+            perf::line("first-frame", &format!("ui_ms={ui_ms}"));
+        }
+        if self.perf.painted.insert(self.tab) {
+            perf::line(
+                &format!("tab {} first-paint", self.tab.name()),
+                &format!("ui_ms={ui_ms}"),
+            );
+        }
+        let tab = self.tab;
+        let (now, later): (Vec<_>, Vec<_>) = std::mem::take(&mut self.perf.to_draw)
+            .into_iter()
+            .partition(|(t, ..)| *t == tab);
+        self.perf.to_draw = later;
+        for (_, ticket, command, queued) in now {
+            perf::line(
+                &format!("request {command} drawn"),
+                &format!(
+                    "ticket={ticket} total_ms={} ui_ms={ui_ms}",
+                    perf::ms(queued.elapsed())
+                ),
+            );
+            self.perf
+                .drawn
+                .push(format!("request {command} painted ticket={ticket}"));
+        }
+    }
+
+    /// One step of the window bench (`crate::perf::BENCH_ENV`).
+    fn drive_bench(&mut self, ctx: &egui::Context) {
+        ctx.request_repaint();
+        let busy = self.worker.is_busy();
+        let Some(step) = self.perf.bench else { return };
+        let drawn = self.perf.to_draw.is_empty() && self.perf.drawn.is_empty();
+        match step {
+            Bench::WaitLoad if !busy && self.load.view.is_some() && drawn => {
+                let q = &mut self.records.query_form;
+                q.record_type = "REFR".into();
+                q.where_text.clear();
+                q.limit = 1000;
+                self.tab = Tab::Records;
+                self.apply(vec![Action::QueryPage(None)]);
+                self.perf.bench = Some(Bench::WaitQuery);
+            }
+            Bench::WaitQuery if !busy && drawn && self.records.query_view.is_some() => {
+                self.perf.bench = Some(Bench::Settle(Instant::now(), Tab::Records));
+            }
+            Bench::WaitDiff if !busy && drawn && self.diff.view.is_some() => {
+                self.perf.bench = Some(Bench::Settle(Instant::now(), Tab::Diff));
+            }
+            Bench::Settle(at, tab) if at.elapsed() >= BENCH_SETTLE => {
+                let target = if tab == Tab::Records {
+                    PERF_TARGET_RECORDS
+                } else {
+                    PERF_TARGET_CENTRAL
+                };
+                self.perf.wheel = Wheel {
+                    target: perf_target(ctx, target),
+                    step: -BENCH_STEP,
+                };
+                if self.perf.wheel.target.is_none() {
+                    perf::line("bench", &format!("no scroll target {target}"));
+                }
+                self.perf.bench = Some(Bench::Scroll(Instant::now(), tab));
+            }
+            Bench::Scroll(at, tab) => {
+                let t = at.elapsed();
+                if t >= BENCH_DOWN.saturating_add(BENCH_UP) {
+                    self.perf.wheel = Wheel::default();
+                    let phase = self.perf_phase();
+                    self.perf.frames.flush(&phase);
+                    if tab == Tab::Records {
+                        self.bench_diff();
+                    } else {
+                        self.perf.bench = Some(Bench::Done);
+                    }
+                } else if t >= BENCH_DOWN {
+                    self.perf.wheel.step = BENCH_STEP;
+                }
+            }
+            Bench::Done => {
+                perf::line("bench done", "");
+                self.perf.bench = None;
+                ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            }
+            _ => {}
+        }
+    }
+
+    /// The bench's Diff request, the tour's: the biggest plugin the profile activates,
+    /// against its masters.
+    fn bench_diff(&mut self) {
+        let plugin = self.load.view.as_ref().and_then(|l| {
+            l.plugins
+                .iter()
+                .filter(|p| p.active == "plugins.txt")
+                .max_by_key(|p| p.records.unwrap_or(0))
+                .map(|p| p.name.clone())
+        });
+        let Some(name) = plugin else {
+            perf::line("bench", "no plugin activated by plugins.txt: Diff skipped");
+            self.perf.bench = Some(Bench::Done);
+            return;
+        };
+        perf::line("bench diff", &format!("plugin={name}"));
+        self.diff.form.mode = DiffMode::VsMasters;
+        self.diff.form.a = name;
+        self.tab = Tab::Diff;
+        match self.diff.form.request(None) {
+            Ok(req) => {
+                self.submit(Slot::Diff, req);
+                self.perf.bench = Some(Bench::WaitDiff);
+            }
+            Err(e) => {
+                perf::line("bench", &format!("diff request: {e}"));
+                self.perf.bench = Some(Bench::Done);
+            }
         }
     }
 }

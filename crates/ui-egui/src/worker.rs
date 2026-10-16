@@ -9,7 +9,7 @@
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
@@ -31,11 +31,18 @@ pub struct Reply {
     pub result: Result<Value, RunError>,
     /// Wall time on the worker thread.
     pub elapsed: Duration,
+    /// Time from submit to the start of the run (queued behind other commands).
+    pub waited: Duration,
+    /// Time from the start of the run to the engine's first progress event, if any.
+    pub first_progress: Option<Duration>,
+    /// The envelope's size as compact JSON (only with the perf trace on, `crate::perf`).
+    pub bytes: Option<usize>,
 }
 
 struct Job {
     ticket: u64,
     request: Request,
+    queued_at: Instant,
 }
 
 /// A handle to the engine thread.
@@ -84,12 +91,30 @@ impl Worker {
                         break;
                     }
                     let start = Instant::now();
-                    let result = engine.run(&job.request);
+                    let waited = start.saturating_duration_since(job.queued_at);
+                    let first = Arc::new(OnceLock::<Duration>::new());
+                    let seen = Arc::clone(&first);
+                    let result = engine.run_with_progress(&job.request, move |_| {
+                        let _ = seen.get_or_init(|| start.elapsed());
+                    });
+                    let elapsed = start.elapsed();
+                    let bytes = if crate::perf::enabled() {
+                        result
+                            .as_ref()
+                            .ok()
+                            .and_then(|env| serde_json::to_vec(env).ok())
+                            .map(|b| b.len())
+                    } else {
+                        None
+                    };
                     let reply = Reply {
                         ticket: job.ticket,
                         request: job.request,
                         result,
-                        elapsed: start.elapsed(),
+                        elapsed,
+                        waited,
+                        first_progress: first.get().copied(),
+                        bytes,
                     };
                     if reply_tx.send(reply).is_err() {
                         break;
@@ -120,7 +145,11 @@ impl Worker {
         self.jobs
             .as_ref()
             .ok_or_else(|| RunError::Refused("the engine thread has stopped".to_string()))?
-            .send(Job { ticket, request })
+            .send(Job {
+                ticket,
+                request,
+                queued_at: Instant::now(),
+            })
             .map_err(|_| RunError::Refused("the engine thread has stopped".to_string()))?;
         self.pending.push((ticket, label));
         Ok(ticket)
