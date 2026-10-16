@@ -326,9 +326,12 @@ fn collect_placements(v: &Value, path: &str, out: &mut Vec<PlacementRow>, depth:
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
+use eframe::egui::{self, CollapsingHeader, TextEdit};
 
-use crate::panels::common::{envelope_block, link, record_actions, Action, Slot, TabCtx};
+use crate::panels::common::{
+    action_bar, envelope_block, link, panel_head, record_actions, virtual_table, Action, Slot,
+    TabCtx,
+};
 use crate::theme::{self, Field, Status, View};
 
 /// The Planet tab's state: the form, the last `planet` page and its cursor.
@@ -343,20 +346,25 @@ impl PlanetTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
-        ui.heading("Planet");
-        ui.label("The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("form");
-            ui.add(
-                TextEdit::singleline(&mut self.form.form)
-                    .desired_width(theme::width(ui, Field::Medium))
-                    .hint_text("PCM_QuestRequest, Plugin.esm:XXXXXX"),
-            );
-            ui.label("nodes per page");
-            ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
-            if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
-                actions.push(Action::PlanetPage(None));
-            }
+        panel_head(
+            ui,
+            "Planet",
+            "The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("form");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.form)
+                        .desired_width(theme::width(ui, Field::Medium))
+                        .hint_text("PCM_QuestRequest, Plugin.esm:XXXXXX"),
+                );
+                ui.label("nodes per page");
+                ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
+                if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
+                    actions.push(Action::PlanetPage(None));
+                }
+            })
         });
         envelope_block(ui, ctx.results.get(&Slot::Planet.into()), |ui| {
             let Some(view) = &self.view else {
@@ -404,52 +412,51 @@ impl PlanetTab {
                     continue;
                 }
                 ui.strong(format!("{title} ({})", rows.len()));
-                ScrollArea::vertical()
-                    .id_salt(("planet-rows", title))
-                    .max_height(theme::view_height(ui, View::Tall))
-                    .show(ui, |ui| {
-                        theme::table(ui, ("planet-grid", title)).show(ui, |ui| {
-                            for h in ["node", "", "order", "selection", "conditions", "content"] {
-                                ui.strong(h);
-                            }
-                            ui.end_row();
-                            for n in rows {
-                                let indent =
-                                    "    ".repeat(usize::try_from(n.depth.min(12)).unwrap_or(0));
-                                if link(ui, !busy, format!("{indent}{} {}", n.form, n.label))
-                                    .on_hover_text("planet chain of this node")
-                                    .clicked()
-                                {
-                                    actions.push(Action::Planet(n.form.clone()));
-                                }
-                                record_actions(ui, busy, &n.form, actions);
-                                if n.unreadable {
-                                    theme::status(ui, Status::Fail, "not readable");
-                                } else {
-                                    ui.label(&n.order);
-                                }
-                                ui.label(&n.selection);
-                                ui.label(n.conditions.to_string());
-                                match &n.content {
-                                    Some((text, Some(to))) => {
-                                        if link(ui, !busy, text)
-                                            .on_hover_text("inspect the content")
-                                            .clicked()
-                                        {
-                                            actions.push(Action::Inspect(to.clone()));
-                                        }
-                                    }
-                                    Some((text, None)) => {
-                                        theme::status(ui, Status::Fail, text);
-                                    }
-                                    None => {
-                                        ui.label("");
-                                    }
-                                }
-                                ui.end_row();
+                virtual_table(
+                    ui,
+                    ("planet-grid", title),
+                    &["node", "", "order", "selection", "conditions", "content"],
+                    rows.len(),
+                    View::Tall,
+                    |row, i| {
+                        let Some(n) = rows.get(i) else { return };
+                        let indent = "    ".repeat(usize::try_from(n.depth.min(12)).unwrap_or(0));
+                        row.cell(|ui| {
+                            if link(ui, !busy, format!("{indent}{} {}", n.form, n.label))
+                                .on_hover_text("planet chain of this node")
+                                .clicked()
+                            {
+                                actions.push(Action::Planet(n.form.clone()));
                             }
                         });
-                    });
+                        row.cell(|ui| record_actions(ui, busy, &n.form, actions));
+                        row.cell(|ui| {
+                            if n.unreadable {
+                                theme::status(ui, Status::Fail, "not readable")
+                            } else {
+                                ui.label(&n.order)
+                            }
+                        });
+                        row.cell(|ui| ui.label(&n.selection));
+                        row.cell(|ui| ui.label(n.conditions.to_string()));
+                        row.cell(|ui| match &n.content {
+                            Some((text, Some(to))) => {
+                                if link(ui, !busy, text)
+                                    .on_hover_text("inspect the content")
+                                    .clicked()
+                                {
+                                    actions.push(Action::Inspect(to.clone()));
+                                }
+                            }
+                            Some((text, None)) => {
+                                theme::status(ui, Status::Fail, text);
+                            }
+                            None => {
+                                ui.label("");
+                            }
+                        });
+                    },
+                );
             }
             if !view.placements.is_empty() {
                 ui.strong(format!(

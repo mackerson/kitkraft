@@ -140,7 +140,7 @@ pub fn load(root: &Path) -> Vec<HelpDoc> {
 use eframe::egui::{self, CollapsingHeader, RichText, ScrollArea, TextEdit};
 
 use crate::md::Inline;
-use crate::panels::common::{Action, TabCtx};
+use crate::panels::common::{action_bar, panel_head, Action, TabCtx};
 use crate::theme::{self, Field, Status};
 
 /// The Help tab's state: the checkout whose docs it shows and how it was found, the
@@ -154,24 +154,30 @@ pub(crate) struct HelpTab {
 
 impl HelpTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
-        ui.heading("Help");
-        ui.label("The owner's QA material, read from the checkout's own docs when the window opens or Reload is clicked. Click any code to copy it. In-game steps run only on the MO2 profile KitKraft Dev with a disposable save, never on Default.");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("Checkout");
-            ui.add(
-                TextEdit::singleline(&mut self.field).desired_width(theme::width(ui, Field::Long)),
-            );
-            if ui
-                .button("Use this checkout")
-                .on_hover_text("remembered in the UI prefs file")
-                .clicked()
-            {
-                ctx.actions
-                    .push(Action::UseCheckout(self.field.trim().to_string()));
-            }
-            if ui.button("Reload").clicked() {
-                ctx.actions.push(Action::ReloadHelp);
-            }
+        panel_head(
+            ui,
+            "Help",
+            "The owner's QA material, read from the checkout's own docs when the window opens or Reload is clicked. Click any code to copy it. In-game steps run only on the MO2 profile KitKraft Dev with a disposable save, never on Default.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("Checkout");
+                ui.add(
+                    TextEdit::singleline(&mut self.field)
+                        .desired_width(theme::width(ui, Field::Long)),
+                );
+                if ui
+                    .button("Use this checkout")
+                    .on_hover_text("remembered in the UI prefs file")
+                    .clicked()
+                {
+                    ctx.actions
+                        .push(Action::UseCheckout(self.field.trim().to_string()));
+                }
+                if ui.button("Reload").clicked() {
+                    ctx.actions.push(Action::ReloadHelp);
+                }
+            })
         });
         match &self.checkout {
             Some((root, how)) => {

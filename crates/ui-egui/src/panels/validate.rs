@@ -208,9 +208,11 @@ fn n_of(v: &Value, k: &str) -> String {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, CollapsingHeader, RichText, TextEdit};
+use eframe::egui::{self, CollapsingHeader, TextEdit};
 
-use crate::panels::common::{envelope_block, findings_grid, plugin_combo, Action, Slot, TabCtx};
+use crate::panels::common::{
+    action_bar, envelope_block, findings_grid, panel_head, plugin_combo, Action, Slot, TabCtx,
+};
 use crate::theme::{self, Field, Status};
 
 /// The Validate tab's state: the form, and the last `validate` and `roundtrip --verify`
@@ -227,40 +229,46 @@ impl ValidateTab {
         let busy = ctx.busy;
         let plugins = ctx.plugins;
         let actions = &mut ctx.actions;
-        ui.heading("Validate");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("plugin");
-            ui.add(
-                TextEdit::singleline(&mut self.form.plugin)
-                    .desired_width(theme::width(ui, Field::Long)),
-            );
-            plugin_combo(ui, "val-plugin", &mut self.form.plugin, plugins, false);
-            ui.label("rules (empty: all)");
-            ui.add(
-                TextEdit::singleline(&mut self.form.rules)
-                    .desired_width(theme::width(ui, Field::Medium)),
-            );
-        });
-        ui.horizontal_wrapped(|ui| {
-            if ui
-                .add_enabled(!busy, egui::Button::new("validate"))
-                .clicked()
-            {
-                match self.form.request() {
-                    Ok(req) => actions.push(Action::Submit(Slot::Validate, req)),
-                    Err(e) => *ctx.notice = Some(e),
+        panel_head(
+            ui,
+            "Validate",
+            "The validate rules on one plugin (`validate`; kitkraft://validate-rules lists them), and a byte roundtrip that rewrites it in memory and compares (`roundtrip --verify`; nothing is written).",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("plugin");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.plugin)
+                        .desired_width(theme::width(ui, Field::Long)),
+                );
+                plugin_combo(ui, "val-plugin", &mut self.form.plugin, plugins, false);
+                ui.label("rules (empty: all)");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.rules)
+                        .desired_width(theme::width(ui, Field::Medium)),
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add_enabled(!busy, egui::Button::new("validate"))
+                    .clicked()
+                {
+                    match self.form.request() {
+                        Ok(req) => actions.push(Action::Submit(Slot::Validate, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
-            if ui
-                .add_enabled(!busy, egui::Button::new("roundtrip --verify"))
-                .clicked()
-            {
-                match self.form.roundtrip_request() {
-                    Ok(req) => actions.push(Action::Submit(Slot::Roundtrip, req)),
-                    Err(e) => *ctx.notice = Some(e),
+                if ui
+                    .add_enabled(!busy, egui::Button::new("roundtrip --verify"))
+                    .clicked()
+                {
+                    match self.form.roundtrip_request() {
+                        Ok(req) => actions.push(Action::Submit(Slot::Roundtrip, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
-            ui.weak("build --plan is not offered yet (the gate refuses build)");
+                ui.weak("build --plan is not offered yet (the gate refuses build)");
+            });
         });
         envelope_block(ui, ctx.results.get(&Slot::Validate.into()), |ui| {
             let Some(view) = &self.view else {
@@ -278,24 +286,21 @@ impl ValidateTab {
                 } else {
                     Status::Pass
                 };
-                let color = theme::color(theme::palette(ui).status.of(status));
-                // The header is plain text: the status word leads it when the theme
-                // shows status glyphs (status is never color-only).
-                let word = if theme::active(ui.ctx()).status_glyphs {
-                    format!("{} {}  ", status.glyph_char(), status.word().to_uppercase())
-                } else {
-                    String::new()
-                };
-                let title = RichText::new(format!(
-                    "{word}{}: {} error(s), {} warning(s)",
-                    g.rule, g.errors, g.warnings
-                ))
-                .color(color);
+                // The header takes one styled text: the status component's plain-text
+                // form (glyph character and word lead it; status is never color-only).
+                let title = theme::status_header(
+                    ui,
+                    status,
+                    &format!(
+                        "{}: {} error(s), {} warning(s)",
+                        g.rule, g.errors, g.warnings
+                    ),
+                );
                 CollapsingHeader::new(title)
                     .id_salt(("rule", g.rule.as_str()))
                     .default_open(!g.findings.is_empty() && g.findings.len() < 50)
                     .show(ui, |ui| {
-                        findings_grid(ui, &g.rule, g.findings.iter());
+                        findings_grid(ui, &g.rule, &g.findings);
                     });
             }
         });

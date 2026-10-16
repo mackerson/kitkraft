@@ -162,7 +162,10 @@ impl StartView {
 
 use eframe::egui::{self, CollapsingHeader, ComboBox, TextEdit};
 
-use crate::panels::common::{envelope_block, Action, Slot, TabCtx};
+use crate::envelope::BuildInfo;
+use crate::panels::common::{
+    action_bar, build_of, envelope_block, panel_head, Action, Slot, TabCtx,
+};
 use crate::theme::{self, Field, Mode, Preset, Status, ThemeChoice};
 
 /// The Start tab's state: the instance field and the last `profiles` result.
@@ -175,26 +178,35 @@ pub(crate) struct StartTab {
 impl StartTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
-        ui.heading("Start");
+        panel_head(
+            ui,
+            "Start",
+            "The MO2 instance, its profiles and the Data folder, as the engine's `profiles` command reads them. Each button loads a profile read-only; `Default` is the owner's live game and is only ever read. In-game checks run on `KitKraft Dev`.",
+        );
+        about_line(ui, build_of(ctx.results));
         theme_line(ui, ctx);
-        ui.label("The MO2 instance, its profiles and the Data folder, as the engine's `profiles` command reads them. Each button loads a profile read-only; `Default` is the owner's live game and is only ever read. In-game checks run on `KitKraft Dev`.");
+        theme::gap(ui);
         let actions = &mut ctx.actions;
-        ui.horizontal(|ui| {
-            ui.label("MO2 instance");
-            ui.add(
-                TextEdit::singleline(&mut self.instance)
-                    .desired_width(theme::width(ui, Field::Long)),
-            )
-            .on_hover_text("the folder holding ModOrganizer.ini; empty: the engine looks for one");
-            if ui
-                .add_enabled(!busy, egui::Button::new("Look again"))
-                .clicked()
-            {
-                actions.push(Action::Submit(
-                    Slot::Profiles,
-                    profiles_request(Some(&self.instance)),
-                ));
-            }
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("MO2 instance");
+                ui.add(
+                    TextEdit::singleline(&mut self.instance)
+                        .desired_width(theme::width(ui, Field::Long)),
+                )
+                .on_hover_text(
+                    "the folder holding ModOrganizer.ini; empty: the engine looks for one",
+                );
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Look again"))
+                    .clicked()
+                {
+                    actions.push(Action::Submit(
+                        Slot::Profiles,
+                        profiles_request(Some(&self.instance)),
+                    ));
+                }
+            })
         });
         let last = ctx.last_profile;
         let prefs_path = ctx.prefs_path;
@@ -301,6 +313,31 @@ impl StartTab {
             };
         });
     }
+}
+
+/// The About line: which build this is, from the envelope's `build` member (version,
+/// commit, date, profile; M6.P6b), with a warning on a debug build. Before the first
+/// result it says the build is not known yet.
+fn about_line(ui: &mut egui::Ui, build: Option<&BuildInfo>) {
+    ui.horizontal_wrapped(|ui| {
+        ui.strong("About");
+        match build {
+            Some(b) => {
+                ui.monospace(format!("KitKraft {}", b.line()))
+                    .on_hover_text("the `build` member of every result envelope; `kit --version` prints the same");
+                if b.is_debug() {
+                    theme::status(
+                        ui,
+                        Status::Warn,
+                        "debug build: a profile load is about 5x slower; `cargo xtask ui` builds release",
+                    );
+                }
+            }
+            None => {
+                ui.weak("build not known yet: every result envelope names it (`build`)");
+            }
+        }
+    });
 }
 
 /// The preset's name in the picker (`Classic` is marked legacy).

@@ -63,6 +63,9 @@ impl DiffForm {
                 if self.only_conflicts {
                     args.insert("only_conflicts".into(), json!(true));
                 }
+                // The panel shows per-field rows: `conflicts` defaults to `summary`
+                // (lane D round 3), so ask for `fields` (not `full`: no byte ranges).
+                args.insert("detail".into(), json!("fields"));
                 args.insert("limit".into(), json!(50));
                 if let Some(c) = cursor {
                     args.insert("cursor".into(), json!(c));
@@ -299,9 +302,10 @@ fn span(v: Option<&Value>) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    envelope_block, link, plugin_combo, record_actions, Action, Slot, TabCtx,
+    action_bar, envelope_block, link, panel_head, plugin_combo, record_actions, virtual_table,
+    Action, Slot, TabCtx,
 };
-use crate::theme::{self, Field};
+use crate::theme::{self, Field, View};
 
 /// The Diff tab's state: the form and the last `diff` or `conflicts` page.
 #[derive(Default)]
@@ -315,55 +319,61 @@ impl DiffTab {
         let busy = ctx.busy;
         let plugins = ctx.plugins;
         let actions = &mut ctx.actions;
-        ui.heading("Diff");
-        ui.horizontal_wrapped(|ui| {
-            ui.radio_value(
-                &mut self.form.mode,
-                DiffMode::TwoPlugins,
-                "two plugins (diff)",
-            );
-            ui.radio_value(
-                &mut self.form.mode,
-                DiffMode::VsMasters,
-                "a plugin vs the versions before it (conflicts; needs a load)",
-            );
-        });
-        ui.horizontal_wrapped(|ui| {
-            let path = theme::width(ui, Field::Long);
-            match self.form.mode {
-                DiffMode::TwoPlugins => {
-                    ui.label("a");
-                    ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
-                    plugin_combo(ui, "diff-a", &mut self.form.a, plugins, false);
-                    ui.label("b");
-                    ui.add(TextEdit::singleline(&mut self.form.b).desired_width(path));
-                    plugin_combo(ui, "diff-b", &mut self.form.b, plugins, false);
-                    ui.label("form");
+        panel_head(
+            ui,
+            "Diff",
+            "Two plugins record by record (`diff`), or one plugin against the versions before it in the session's load order (`conflicts`). Every changed record links to its inspector.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.radio_value(
+                    &mut self.form.mode,
+                    DiffMode::TwoPlugins,
+                    "two plugins (diff)",
+                );
+                ui.radio_value(
+                    &mut self.form.mode,
+                    DiffMode::VsMasters,
+                    "a plugin vs the versions before it (conflicts; needs a load)",
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                let path = theme::width(ui, Field::Long);
+                match self.form.mode {
+                    DiffMode::TwoPlugins => {
+                        ui.label("a");
+                        ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
+                        plugin_combo(ui, "diff-a", &mut self.form.a, plugins, false);
+                        ui.label("b");
+                        ui.add(TextEdit::singleline(&mut self.form.b).desired_width(path));
+                        plugin_combo(ui, "diff-b", &mut self.form.b, plugins, false);
+                        ui.label("form");
+                    }
+                    DiffMode::VsMasters => {
+                        ui.label("plugin");
+                        ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
+                        plugin_combo(ui, "diff-p", &mut self.form.a, plugins, true);
+                        ui.checkbox(
+                            &mut self.form.only_conflicts,
+                            "only forms 2+ plugins override",
+                        );
+                        ui.label("type");
+                    }
                 }
-                DiffMode::VsMasters => {
-                    ui.label("plugin");
-                    ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
-                    plugin_combo(ui, "diff-p", &mut self.form.a, plugins, true);
-                    ui.checkbox(
-                        &mut self.form.only_conflicts,
-                        "only forms 2+ plugins override",
-                    );
-                    ui.label("type");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.filter)
+                        .desired_width(theme::width(ui, Field::Short)),
+                );
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Compare"))
+                    .clicked()
+                {
+                    match self.form.request(None) {
+                        Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
-            ui.add(
-                TextEdit::singleline(&mut self.form.filter)
-                    .desired_width(theme::width(ui, Field::Short)),
-            );
-            if ui
-                .add_enabled(!busy, egui::Button::new("Compare"))
-                .clicked()
-            {
-                match self.form.request(None) {
-                    Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
-                    Err(e) => *ctx.notice = Some(e),
-                }
-            }
+            });
         });
         envelope_block(ui, ctx.results.get(&Slot::Diff.into()), |ui| {
             let Some(view) = &self.view else { return };
@@ -403,20 +413,21 @@ impl DiffTab {
                             }
                             record_actions(ui, busy, &r.form, actions);
                         });
-                        theme::table(ui, ("diff-grid", i)).show(ui, |ui| {
-                            for h in ["subrecord", "change", "path", "before", "after"] {
-                                ui.strong(h);
-                            }
-                            ui.end_row();
-                            for f in &r.rows {
-                                ui.monospace(&f.subrecord);
-                                ui.label(&f.change);
-                                ui.monospace(&f.path);
-                                ui.label(&f.before);
-                                ui.label(&f.after);
-                                ui.end_row();
-                            }
-                        });
+                        virtual_table(
+                            ui,
+                            ("diff-grid", i),
+                            &["subrecord", "change", "path", "before", "after"],
+                            r.rows.len(),
+                            View::Medium,
+                            |row, j| {
+                                let Some(f) = r.rows.get(j) else { return };
+                                row.cell(|ui| ui.monospace(&f.subrecord));
+                                row.cell(|ui| ui.label(&f.change));
+                                row.cell(|ui| ui.monospace(&f.path));
+                                row.cell(|ui| ui.label(&f.before));
+                                row.cell(|ui| ui.label(&f.after));
+                            },
+                        );
                     });
             }
         });
@@ -445,7 +456,7 @@ mod tests {
         assert_eq!(req.id, "conflicts");
         assert_eq!(
             req.args,
-            json!({"plugin": "A.esm", "type": "WEAP", "only_conflicts": true, "limit": 50, "cursor": "c1"})
+            json!({"plugin": "A.esm", "type": "WEAP", "only_conflicts": true, "detail": "fields", "limit": 50, "cursor": "c1"})
         );
         assert!(DiffForm::default().request(None).is_err());
     }

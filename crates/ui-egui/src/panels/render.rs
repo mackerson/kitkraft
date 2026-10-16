@@ -19,11 +19,11 @@
 use eframe::egui::{self, Color32, Rect, TextEdit};
 use serde_json::{json, Map, Value};
 
-use crate::gate::Request;
 use std::ops::{Add, Sub};
 
-use crate::panels::common::{link, Action, Slot, SlotKey, TabCtx};
-use crate::theme::{self, Field, Palette};
+use crate::gate::Request;
+use crate::panels::common::{action_bar, link, panel_head, Action, Slot, SlotKey, TabCtx};
+use crate::theme::{self, Field, Palette, Status};
 use crate::viewport::camera::OrbitCamera;
 use crate::viewport::cell::{self, Category, CellPage, CellRef};
 use crate::viewport::scene::{self, Marker, Shape};
@@ -315,8 +315,8 @@ impl RenderTab {
 
     /// A page arrived: keep its references; the next page's request while the cell has
     /// more and the cap is not reached, else the markers are built and framed.
-    pub(crate) fn receive(&mut self, env: &Value) -> Option<Request> {
-        let page = cell::parse_page(env);
+    /// The page is read on the engine thread (`crate::prepare`).
+    pub(crate) fn receive_page(&mut self, page: CellPage) -> Option<Request> {
         let next = page.next_cursor.clone();
         match &mut self.page {
             Some(p) if p.cell == page.cell => {
@@ -417,13 +417,10 @@ impl RenderTab {
         }
         let stats = self.viewport.stats();
         if let Some(err) = &stats.error {
-            overlay(
-                ui,
-                response.rect,
-                egui::Align2::LEFT_TOP,
-                &[format!("viewport: {err}")],
-                theme::bad(ui),
-            );
+            // The status component for painted text (M6.V4): glyph and word lead it.
+            let (line, color) =
+                theme::status_painted(ui, Status::Fail, &format!("viewport: {err}"));
+            overlay(ui, response.rect, egui::Align2::LEFT_TOP, &[line], color);
             return;
         }
         if self.stats {
@@ -480,52 +477,56 @@ impl RenderTab {
 
     fn toolbar(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx) {
         let busy = ctx.busy;
-        ui.horizontal_wrapped(|ui| {
-            ui.label(theme::subheading(ui, "Render Window"));
-            ui.separator();
-            ui.label("cell");
-            let edit = ui.add(
+        // The panel frame (M6.V5): title, then the toolbar as the action bar.
+        panel_head(ui, "Render Window", "");
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("cell");
+                let edit = ui.add(
                 TextEdit::singleline(&mut self.pick_text)
                     .desired_width(theme::width(ui, Field::Long))
                     .hint_text(
                         "CityNewAtlantisApartmentTEMPLATE, Starfield.esm:21966F, NewAtlantis 2,1",
                     ),
             );
-            let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
-            let load = ui
-                .add_enabled(!busy && !self.loading, egui::Button::new("Load"))
-                .on_hover_text("cell --with-bounds: the cell's references and their bases' OBND")
-                .clicked();
-            if (load || enter) && !self.loading {
-                match parse_pick(&self.pick_text) {
-                    Ok(p) => {
-                        let req = self.start(p);
-                        ctx.actions.push(Action::Submit(Slot::RenderCell, req));
+                let enter = edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter));
+                let load = ui
+                    .add_enabled(!busy && !self.loading, egui::Button::new("Load"))
+                    .on_hover_text(
+                        "cell --with-bounds: the cell's references and their bases' OBND",
+                    )
+                    .clicked();
+                if (load || enter) && !self.loading {
+                    match parse_pick(&self.pick_text) {
+                        Ok(p) => {
+                            let req = self.start(p);
+                            ctx.actions.push(Action::Submit(Slot::RenderCell, req));
+                        }
+                        Err(e) => self.error = Some(e),
                     }
-                    Err(e) => self.error = Some(e),
                 }
-            }
-            ui.separator();
-            for mode in FaceMode::ALL {
-                ui.selectable_value(&mut self.viewport.faces, mode, mode.label());
-            }
-            ui.separator();
-            if ui
-                .add_enabled(self.page.is_some(), egui::Button::new("Frame cell"))
-                .clicked()
-            {
-                self.viewport.frame_all();
-            }
-            if ui
-                .button("Reset view")
-                .on_hover_text("Back to the default view of the origin")
-                .clicked()
-            {
-                self.viewport.reset_camera();
-            }
-            ui.checkbox(&mut self.stats, "Stats");
-            ui.checkbox(&mut self.legend, "Legend");
-            ui.weak("controls").on_hover_text(controls_text());
+                ui.separator();
+                for mode in FaceMode::ALL {
+                    ui.selectable_value(&mut self.viewport.faces, mode, mode.label());
+                }
+                ui.separator();
+                if ui
+                    .add_enabled(self.page.is_some(), egui::Button::new("Frame cell"))
+                    .clicked()
+                {
+                    self.viewport.frame_all();
+                }
+                if ui
+                    .button("Reset view")
+                    .on_hover_text("Back to the default view of the origin")
+                    .clicked()
+                {
+                    self.viewport.reset_camera();
+                }
+                ui.checkbox(&mut self.stats, "Stats");
+                ui.checkbox(&mut self.legend, "Legend");
+                ui.weak("controls").on_hover_text(controls_text());
+            })
         });
         self.status(ui, ctx);
     }
@@ -868,22 +869,22 @@ mod tests {
         let first = tab.start(parse_pick(&tab.pick_text).unwrap());
         assert_eq!(first.args["cell"], "TestRoom");
         let next = tab
-            .receive(&page_env(
+            .receive_page(cell::parse_page(&page_env(
                 &[
                     item("Test.esm:000901", [0.0, 0.0, 0.0], "STAT"),
                     item("Test.esm:000902", [40.0, 0.0, 0.0], "CONT"),
                 ],
                 Some("cur"),
-            ))
+            )))
             .expect("a second page");
         assert_eq!(next.args["cell"], "Test.esm:000900");
         assert_eq!(next.args["cursor"], "cur");
         assert!(tab.loading);
         assert!(tab
-            .receive(&page_env(
+            .receive_page(cell::parse_page(&page_env(
                 &[item("Test.esm:000903", [80.0, 0.0, 0.0], "LIGH")],
                 None
-            ))
+            )))
             .is_none());
         assert!(!tab.loading);
         // The first frame builds the markers and frames the cell.
@@ -942,7 +943,10 @@ mod tests {
             ],
             Some("cur"),
         );
-        assert!(tab.receive(&env).is_none(), "the cap is reached");
+        assert!(
+            tab.receive_page(cell::parse_page(&env)).is_none(),
+            "the cap is reached"
+        );
         let pal = *crate::theme::tokens::workbench().palette(true);
         tab.rebuild(&pal, true);
         assert_eq!(tab.viewport.markers().len(), 1);

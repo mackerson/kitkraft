@@ -3,7 +3,7 @@
 //! draw with: the active palette's colors, the status component ([`status`]), the table
 //! style ([`table`]), the frames, and the named sizes ([`width`], [`view_height`],
 //! [`gap`]). No panel holds a color, a font size, a spacing edit or a size of its own (a
-//! test scans the crate). `docs/design/workbench-visual-system.md` documents the tokens
+//! test scans the crate). `docs/design/workbench-style.md` documents the tokens
 //! and the rules; `--theme` on `kit ui`, `theme` in `ui.json`, or the Start tab's picker
 //! chooses a preset. `Workbench` is the default (owner decision M6.O1, 2026-10-16).
 
@@ -205,19 +205,12 @@ pub fn color(c: Rgb) -> Color32 {
     Color32::from_rgb(c.0, c.1, c.2)
 }
 
-/// Caution text (limitations, unknowns, unconfirmed facts): the warning status color.
-pub fn warn(ui: &egui::Ui) -> Color32 {
-    color(palette(ui).status.warn)
-}
-
-/// Error text: the fail status color.
-pub fn bad(ui: &egui::Ui) -> Color32 {
-    color(palette(ui).status.fail)
-}
-
-/// Positive text (a found profile badge): the pass status color.
-pub fn good(ui: &egui::Ui) -> Color32 {
-    color(palette(ui).status.pass)
+/// A status's color in the active palette. Private (M6.V4): a status color reaches the
+/// screen only with its glyph and word, through [`status`], [`status_line`],
+/// [`status_header`] or [`status_painted`]; a test scans the crate for status colors
+/// used anywhere else.
+fn status_color(ui: &egui::Ui, status: Status) -> Color32 {
+    color(palette(ui).status.of(status))
 }
 
 /// Code in the Help tab.
@@ -261,6 +254,83 @@ pub fn status_line(ui: &mut egui::Ui, status: Status, text: &str) -> egui::Respo
         ui.colored_label(c, text);
     })
     .response
+    .on_hover_text(format!("{} {}", status.glyph_char(), status.word()))
+}
+
+/// The status component as plain text, for a widget that takes one styled text (a
+/// collapsing header): the glyph's character and the status word lead `text`, all in
+/// the status color (`PASS ...`, `FAIL ...`). `Classic` leaves the word out, as before.
+pub fn status_header(ui: &egui::Ui, status: Status, text: &str) -> egui::RichText {
+    let lead = if active(ui.ctx()).status_glyphs {
+        format!("{} {}  ", status.glyph_char(), status.word().to_uppercase())
+    } else {
+        String::new()
+    };
+    egui::RichText::new(format!("{lead}{text}")).color(status_color(ui, status))
+}
+
+/// The status component for text a panel paints itself (an overlay over the 3D
+/// viewport): the line with the glyph's character and the status word in front, and the
+/// color to paint it in.
+pub fn status_painted(ui: &egui::Ui, status: Status, text: &str) -> (String, Color32) {
+    (
+        format!(
+            "{} {}: {text}",
+            status.glyph_char(),
+            status.word().to_uppercase()
+        ),
+        status_color(ui, status),
+    )
+}
+
+/// The action bar's frame (M6.V5): the tab's form and buttons on the raised surface,
+/// outlined, with the item gaps as its margin.
+pub fn bar_frame(ui: &egui::Ui) -> Frame {
+    let theme = active(ui.ctx());
+    if !theme.restyle {
+        return Frame::group(ui.style());
+    }
+    let pal = theme.palette(ui.visuals().dark_mode);
+    Frame::new()
+        .fill(color(pal.surface.raised))
+        .stroke(Stroke::new(1.0, color(pal.border)))
+        .corner_radius(radius(theme.radii.control))
+        .inner_margin(Margin::symmetric(
+            to_i8(theme.spacing.item_x),
+            to_i8(theme.spacing.item_y.max(theme.spacing.button_y)),
+        ))
+}
+
+/// Inside a bar or strip frame: as wide as the panel, but no wider than the part of it on
+/// screen, so a frame inside a pane that scrolls sideways (Records) wraps its text at
+/// the pane's visible edge instead of past it.
+pub fn fill_visible_width(ui: &mut egui::Ui) {
+    let theme = active(ui.ctx());
+    let margin = if theme.restyle {
+        theme.spacing.item_x
+    } else {
+        ui.spacing().item_spacing.x
+    };
+    let visible = ui.clip_rect().max.x - ui.max_rect().min.x - margin;
+    ui.set_width(ui.available_width().min(visible).max(0.0));
+}
+
+/// The limitations strip's frame (M6.V5): the sunken surface, outlined, under the
+/// result header and above the panel's body.
+pub fn strip_frame(ui: &egui::Ui) -> Frame {
+    let theme = active(ui.ctx());
+    if !theme.restyle {
+        return Frame::group(ui.style());
+    }
+    let pal = theme.palette(ui.visuals().dark_mode);
+    Frame::new()
+        .fill(color(pal.surface.sunken))
+        .stroke(Stroke::new(1.0, color(pal.border)))
+        .corner_radius(radius(theme.radii.control))
+        .inner_margin(Margin::symmetric(
+            to_i8(theme.spacing.item_x),
+            to_i8(theme.spacing.item_y),
+        ))
 }
 
 /// A status glyph, painted (no icon font), as tall as the body text.
@@ -660,5 +730,274 @@ mod tests {
         assert_eq!(dark.visuals.faint_bg_color, default.visuals.faint_bg_color);
         assert_eq!(dark.spacing.item_spacing, default.spacing.item_spacing);
         assert_eq!(dark.text_styles, default.text_styles);
+    }
+
+    /// What a line of code outside `theme/` may not hold (M6.V4): text colored by hand
+    /// (`colored_label`), a status color taken from the palette, egui's own warning and
+    /// error colors, or the status component's parts (its glyph character, the glyph
+    /// switch) used to build a status of its own. Returns why, or `None`.
+    fn status_outside_the_component(line: &str) -> Option<&'static str> {
+        let code = line.split("//").next().unwrap_or("");
+        for (needle, why) in [
+            (
+                "colored_label(",
+                "colored text outside the status component",
+            ),
+            ("theme::warn(", "the warning color without the component"),
+            ("theme::bad(", "the fail color without the component"),
+            ("theme::good(", "the pass color without the component"),
+            (".status.of(", "a status color from the palette"),
+            (".status.pass", "a status color from the palette"),
+            (".status.fail", "a status color from the palette"),
+            (".status.warn", "a status color from the palette"),
+            (".status.not_run", "a status color from the palette"),
+            (".status.inconclusive", "a status color from the palette"),
+            (".status.unknown", "a status color from the palette"),
+            ("warn_fg_color", "egui's warning color"),
+            ("error_fg_color", "egui's error color"),
+            ("glyph_char(", "a hand-made status (use status_header)"),
+            ("status_glyphs", "a hand-made status (use status_header)"),
+        ] {
+            if code.contains(needle) {
+                return Some(why);
+            }
+        }
+        None
+    }
+
+    /// Every `.rs` file under `src/` outside `theme/`, with its text.
+    fn sources_outside_the_theme() -> Vec<(std::path::PathBuf, String)> {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let theme_dir = root.join("theme");
+        let mut stack = vec![root];
+        let mut out = Vec::new();
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    if path != theme_dir {
+                        stack.push(path);
+                    }
+                } else if path.extension().and_then(|e| e.to_str()) == Some("rs") {
+                    let text = std::fs::read_to_string(&path).unwrap();
+                    out.push((path, text));
+                }
+            }
+        }
+        out
+    }
+
+    #[test]
+    fn the_status_scan_catches_what_it_should() {
+        for bad in [
+            "ui.colored_label(c, \"unknown\");",
+            "let c = theme::warn(ui);",
+            "theme::bad(ui),",
+            "let c = theme::color(theme::palette(ui).status.of(status));",
+            "let c = color(pal.status.fail);",
+            "ui.visuals().warn_fg_color",
+            "format!(\"{} {}\", s.glyph_char(), s.word())",
+            "if theme::active(ui.ctx()).status_glyphs {",
+        ] {
+            assert!(status_outside_the_component(bad).is_some(), "{bad}");
+        }
+        for good in [
+            "theme::status(ui, Status::Fail, &e.status);",
+            "theme::status_line(ui, Status::Warn, w);",
+            "let title = theme::status_header(ui, status, &text);",
+            "let first = tab.status.as_ref().unwrap();",
+            "// ui.colored_label(c, x) was here",
+            "RichText::new(code).monospace().color(theme::code(ui))",
+        ] {
+            assert!(status_outside_the_component(good).is_none(), "{good}");
+        }
+    }
+
+    /// M6.V4: status is never color-only. Outside `theme/`, no text is drawn in a status
+    /// color except through the status component (`status`, `status_line`,
+    /// `status_header`, `status_painted`), which adds the glyph and the word.
+    #[test]
+    fn no_status_text_is_colored_outside_the_status_component() {
+        let sources = sources_outside_the_theme();
+        assert!(sources.len() >= 20, "scanned {} files", sources.len());
+        let mut problems = Vec::new();
+        for (path, text) in &sources {
+            for (n, line) in text.lines().enumerate() {
+                if let Some(why) = status_outside_the_component(line) {
+                    problems.push(format!(
+                        "{}:{}: {why}: {}",
+                        path.display(),
+                        n + 1,
+                        line.trim()
+                    ));
+                }
+            }
+        }
+        assert!(problems.is_empty(), "{problems:#?}");
+    }
+
+    /// Every shape painted by one frame of `ctx`, flattened.
+    fn shapes_of(out: &egui::FullOutput) -> Vec<egui::Shape> {
+        fn flat(s: &egui::Shape, into: &mut Vec<egui::Shape>) {
+            match s {
+                egui::Shape::Vec(v) => v.iter().for_each(|s| flat(s, into)),
+                other => into.push(other.clone()),
+            }
+        }
+        let mut v = Vec::new();
+        for c in &out.shapes {
+            flat(&c.shape, &mut v);
+        }
+        v
+    }
+
+    /// M6.V4: the component draws the glyph (a painted shape, no font) and the word, both
+    /// in the status color, for every status in both modes of both token presets; the
+    /// plain-text forms lead with the glyph's character and the word.
+    #[test]
+    fn the_status_component_draws_glyph_word_and_color() {
+        for preset in [Preset::Workbench, Preset::Studio] {
+            for mode in [Mode::Light, Mode::Dark] {
+                let ctx = egui::Context::default();
+                apply(&ctx, &preset.theme(), mode);
+                for s in Status::ALL {
+                    let mut header = None;
+                    let mut painted = None;
+                    let mut out = ctx.run_ui(egui::RawInput::default(), |ui| {
+                        status(ui, s, "");
+                        header = Some(status_header(ui, s, "rule").text().to_string());
+                        painted = Some(status_painted(ui, s, "viewport"));
+                    });
+                    let want = color(preset.theme().palette(mode == Mode::Dark).status.of(s));
+                    let shapes = shapes_of(&out);
+                    let word = shapes.iter().any(|sh| match sh {
+                        egui::Shape::Text(t) => t.galley.text() == s.word(),
+                        _ => false,
+                    });
+                    let glyph = shapes.iter().any(|sh| match sh {
+                        egui::Shape::Circle(c) => c.fill == want || c.stroke.color == want,
+                        egui::Shape::LineSegment { stroke, .. } => stroke.color == want,
+                        egui::Shape::Path(p) => {
+                            p.fill == want || p.stroke.color == egui::epaint::ColorMode::Solid(want)
+                        }
+                        egui::Shape::Rect(r) => r.stroke.color == want,
+                        _ => false,
+                    });
+                    assert!(word, "{preset:?} {mode:?} {s:?}: no word");
+                    assert!(
+                        glyph,
+                        "{preset:?} {mode:?} {s:?}: no glyph in the status color"
+                    );
+                    let lead = format!("{} {}", s.glyph_char(), s.word().to_uppercase());
+                    assert!(header.unwrap().starts_with(&lead));
+                    let (line, c) = painted.unwrap();
+                    assert!(line.starts_with(&lead), "{line}");
+                    assert_eq!(c, want);
+                    out.textures_delta.clear();
+                }
+            }
+        }
+    }
+
+    /// The tokens `tokens.rs` defines, as the style guide names them: each field of the
+    /// token structs as `group.field`, and the palette's own colors bare (`accent`).
+    fn defined_tokens() -> std::collections::BTreeSet<String> {
+        let src = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("src")
+                .join("theme")
+                .join("tokens.rs"),
+        )
+        .unwrap();
+        let groups = [
+            ("TypeScale", "type_scale."),
+            ("Spacing", "spacing."),
+            ("Sizes", "sizes."),
+            ("Radii", "radii."),
+            ("Density", "density."),
+            ("Surfaces", "surface."),
+            ("TextLevels", "text."),
+            ("StatusColors", "status."),
+            ("Palette", ""),
+        ];
+        let mut out = std::collections::BTreeSet::new();
+        for (name, prefix) in groups {
+            let start = src
+                .find(&format!("pub struct {name} {{"))
+                .unwrap_or_else(|| panic!("no struct {name}"));
+            let body = &src[start..];
+            let body = &body[..body.find("\n}").unwrap()];
+            for line in body.lines().skip(1) {
+                let Some(field) = line.trim().strip_prefix("pub ") else {
+                    continue;
+                };
+                let Some((field, ty)) = field.split_once(':') else {
+                    continue;
+                };
+                // The palette's own colors only; its groups are listed above.
+                if prefix.is_empty() && ty.trim().trim_end_matches(',') != "Rgb" {
+                    continue;
+                }
+                out.insert(format!("{prefix}{}", field.trim()));
+            }
+        }
+        out
+    }
+
+    /// M6.V6: `docs/design/workbench-style.md` names every token `tokens.rs` defines (in
+    /// backticks), and every `group.name` it names in a token group exists.
+    #[test]
+    fn the_style_guide_names_every_token_and_only_tokens() {
+        let doc = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("..")
+                .join("..")
+                .join("docs")
+                .join("design")
+                .join("workbench-style.md"),
+        )
+        .unwrap();
+        let defined = defined_tokens();
+        assert!(defined.len() >= 50, "{defined:?}");
+        for t in [
+            "type_scale.mono",
+            "status.not_run",
+            "accent",
+            "control_border",
+        ] {
+            assert!(defined.contains(t), "{t} not read from tokens.rs");
+        }
+        let named: Vec<&str> = doc.split('`').skip(1).step_by(2).map(str::trim).collect();
+        let missing: Vec<&String> = defined
+            .iter()
+            .filter(|t| !named.contains(&t.as_str()))
+            .collect();
+        assert!(
+            missing.is_empty(),
+            "tokens the style guide does not name: {missing:?}"
+        );
+        let groups = [
+            "type_scale.",
+            "spacing.",
+            "sizes.",
+            "radii.",
+            "density.",
+            "surface.",
+            "text.",
+            "status.",
+        ];
+        let unknown: Vec<&&str> = named
+            .iter()
+            .filter(|n| {
+                groups.iter().any(|g| n.starts_with(g))
+                    && n.chars()
+                        .all(|c| c.is_ascii_lowercase() || c == '_' || c == '.')
+                    && !defined.contains(**n)
+            })
+            .collect();
+        assert!(
+            unknown.is_empty(),
+            "the style guide names tokens tokens.rs does not define: {unknown:?}"
+        );
     }
 }

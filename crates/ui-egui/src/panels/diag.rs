@@ -151,10 +151,11 @@ impl DiagView {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, ScrollArea, TextEdit};
+use eframe::egui::{self, TextEdit};
 
 use crate::panels::common::{
-    envelope_block, findings_grid, link, record_actions, Action, Slot, TabCtx,
+    action_bar, envelope_block, findings_grid, formid_status, link, panel_head, record_actions,
+    virtual_table, Action, Slot, TabCtx,
 };
 use crate::panels::records::inspect_request;
 use crate::theme::{self, Field, Status, View};
@@ -173,30 +174,35 @@ impl DiagTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
-        ui.heading("FormID and reference diagnostics");
-        ui.label("Raw stored FormIDs beside master-aware identities (`inspect`), then `validate`'s master and FormID rules. \"use info\" lists the records that name a form (`refs --incoming`, Links tab).");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("form");
-            ui.add(
-                TextEdit::singleline(&mut self.form)
-                    .desired_width(theme::width(ui, Field::Medium))
-                    .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX, hex"),
-            );
-            ui.label("plugin (for a hex FormID)");
-            ui.add(
-                TextEdit::singleline(&mut self.plugin)
-                    .desired_width(theme::width(ui, Field::Short)),
-            );
-            if ui
-                .add_enabled(!busy, egui::Button::new("Resolve"))
-                .clicked()
-            {
-                self.validate_plugin.clear();
-                match inspect_request(&self.form, Some(&self.plugin)) {
-                    Ok(req) => actions.push(Action::Submit(Slot::DiagInspect, req)),
-                    Err(e) => *ctx.notice = Some(e),
+        panel_head(
+            ui,
+            "FormID and reference diagnostics",
+            "Raw stored FormIDs beside master-aware identities (`inspect`), then `validate`'s master and FormID rules. \"use info\" lists the records that name a form (`refs --incoming`, Links tab).",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("form");
+                ui.add(
+                    TextEdit::singleline(&mut self.form)
+                        .desired_width(theme::width(ui, Field::Medium))
+                        .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX, hex"),
+                );
+                ui.label("plugin (for a hex FormID)");
+                ui.add(
+                    TextEdit::singleline(&mut self.plugin)
+                        .desired_width(theme::width(ui, Field::Short)),
+                );
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Resolve"))
+                    .clicked()
+                {
+                    self.validate_plugin.clear();
+                    match inspect_request(&self.form, Some(&self.plugin)) {
+                        Ok(req) => actions.push(Action::Submit(Slot::DiagInspect, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
+            })
         });
         envelope_block(ui, ctx.results.get(&Slot::DiagInspect.into()), |ui| {
             let Some(view) = &self.view else { return };
@@ -249,58 +255,57 @@ impl DiagTab {
                 "FormIDs the winner stores ({}; typed members only)",
                 view.references.len()
             ));
-            ScrollArea::vertical()
-                .id_salt("diag-refs")
-                .max_height(theme::view_height(ui, View::Medium))
-                .show(ui, |ui| {
-                    theme::table(ui, "diag-refs-grid").show(ui, |ui| {
-                        for h in ["at", "raw", "resolved", ""] {
-                            ui.strong(h);
-                        }
-                        ui.end_row();
-                        for r in &view.references {
-                            ui.monospace(&r.at);
-                            ui.monospace(&r.raw);
-                            if r.resolved == "unresolved" {
-                                theme::status(ui, Status::Fail, &r.resolved);
-                                ui.label("");
-                            } else if r.resolved == "NULL" {
-                                ui.label(&r.resolved);
-                                ui.label("");
-                            } else {
-                                if link(ui, !busy, &r.resolved).clicked() {
-                                    actions.push(Action::Diagnose(r.resolved.clone()));
-                                }
-                                record_actions(ui, busy, &r.resolved, actions);
+            virtual_table(
+                ui,
+                "diag-refs-grid",
+                &["at", "raw", "resolved", ""],
+                view.references.len(),
+                View::Medium,
+                |row, i| {
+                    let Some(r) = view.references.get(i) else {
+                        return;
+                    };
+                    row.cell(|ui| ui.monospace(&r.at));
+                    row.cell(|ui| ui.monospace(&r.raw));
+                    if r.resolved == "unresolved" || r.resolved == "NULL" {
+                        row.cell(|ui| formid_status(ui, &r.resolved));
+                        row.cell(|ui| ui.label(""));
+                    } else {
+                        row.cell(|ui| {
+                            if link(ui, !busy, &r.resolved).clicked() {
+                                actions.push(Action::Diagnose(r.resolved.clone()));
                             }
-                            ui.end_row();
-                        }
-                    });
-                });
-        });
-        ui.separator();
-        ui.horizontal_wrapped(|ui| {
-            ui.label("check references of plugin");
-            ui.add(
-                TextEdit::singleline(&mut self.validate_plugin)
-                    .desired_width(theme::width(ui, Field::Long)),
+                        });
+                        row.cell(|ui| record_actions(ui, busy, &r.resolved, actions));
+                    }
+                },
             );
-            if ui
-                .add_enabled(!busy, egui::Button::new("validate masters + FormIDs"))
-                .clicked()
-            {
-                match validate_request(&self.validate_plugin) {
-                    Ok(req) => actions.push(Action::Submit(Slot::DiagValidate, req)),
-                    Err(e) => *ctx.notice = Some(e),
+        });
+        theme::gap(ui);
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("check references of plugin");
+                ui.add(
+                    TextEdit::singleline(&mut self.validate_plugin)
+                        .desired_width(theme::width(ui, Field::Long)),
+                );
+                if ui
+                    .add_enabled(!busy, egui::Button::new("validate masters + FormIDs"))
+                    .clicked()
+                {
+                    match validate_request(&self.validate_plugin) {
+                        Ok(req) => actions.push(Action::Submit(Slot::DiagValidate, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
+            })
         });
         envelope_block(ui, ctx.results.get(&Slot::DiagValidate.into()), |ui| {
             let Some(view) = &self.view else { return };
             if view.findings.is_empty() && view.validate_summary.is_some() {
                 theme::status(ui, Status::Pass, "no master or FormID finding");
             }
-            findings_grid(ui, "diag-findings", view.findings.iter());
+            findings_grid(ui, "diag-findings", &view.findings);
         });
     }
 }

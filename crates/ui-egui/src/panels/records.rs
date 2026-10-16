@@ -438,7 +438,8 @@ fn subrecord(s: &Value) -> SubRow {
 use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    conf_label, envelope_block, link, plugin_combo, record_actions, Action, Slot, TabCtx,
+    action_bar, conf_label, envelope_block, link, panel_head, plugin_combo, record_actions,
+    virtual_table, Action, Slot, TabCtx,
 };
 use crate::panels::planet::PLANET_TYPES;
 use crate::theme::{self, Field, Status, View};
@@ -470,7 +471,11 @@ impl RecordsTab {
     /// to resize; the inspector's share of the width is kept in `ui.json` when the drag
     /// ends.
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
-        ui.heading("Records");
+        panel_head(
+            ui,
+            "Records",
+            "Record types (`schema`, or `coverage` of a plugin), a query over the session (`query`), and the record inspector (`inspect`) beside it; drag the line between the panes to resize.",
+        );
         let rect = ui.available_rect_before_wrap();
         let (pane_min, default) = theme::split(ui);
         let handle = theme::split_handle(ui);
@@ -539,83 +544,81 @@ impl RecordsTab {
             .default_open(true)
             .open(ctx.tour.then_some(false))
             .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    if ui
-                        .add_enabled(!busy, egui::Button::new("Defined types (schema)"))
-                        .clicked()
-                    {
-                        actions.push(Action::Submit(
-                            Slot::Types,
-                            Request::new("schema", Value::Object(Map::new())),
-                        ));
-                    }
-                    ui.label("or types in");
-                    plugin_combo(ui, "cov-plugin", &mut self.coverage_plugin, plugins, false);
-                    if ui
-                        .add_enabled(
-                            !busy && !self.coverage_plugin.is_empty(),
-                            egui::Button::new("Count (coverage)"),
-                        )
-                        .clicked()
-                    {
-                        actions.push(Action::Submit(
-                            Slot::Types,
-                            coverage_request(&self.coverage_plugin),
-                        ));
-                    }
-                    ui.label("filter");
-                    ui.add(
-                        TextEdit::singleline(&mut self.type_filter)
-                            .desired_width(theme::width(ui, Field::Tiny)),
-                    );
+                action_bar(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        if ui
+                            .add_enabled(!busy, egui::Button::new("Defined types (schema)"))
+                            .clicked()
+                        {
+                            actions.push(Action::Submit(
+                                Slot::Types,
+                                Request::new("schema", Value::Object(Map::new())),
+                            ));
+                        }
+                        ui.label("or types in");
+                        plugin_combo(ui, "cov-plugin", &mut self.coverage_plugin, plugins, false);
+                        if ui
+                            .add_enabled(
+                                !busy && !self.coverage_plugin.is_empty(),
+                                egui::Button::new("Count (coverage)"),
+                            )
+                            .clicked()
+                        {
+                            actions.push(Action::Submit(
+                                Slot::Types,
+                                coverage_request(&self.coverage_plugin),
+                            ));
+                        }
+                        ui.label("filter");
+                        ui.add(
+                            TextEdit::singleline(&mut self.type_filter)
+                                .desired_width(theme::width(ui, Field::Tiny)),
+                        );
+                    })
                 });
                 envelope_block(ui, ctx.results.get(&Slot::Types.into()), |ui| {
                     let filter = self.type_filter.trim().to_ascii_uppercase();
-                    ScrollArea::vertical()
-                        .id_salt("types-rows")
-                        .max_height(theme::view_height(ui, View::Short))
-                        .show(ui, |ui| {
-                            theme::table(ui, "types-grid").show(ui, |ui| {
-                                for h in
-                                    ["type", "definition", "records", "confidence / occurrences"]
+                    let shown: Vec<_> = self
+                        .type_rows
+                        .iter()
+                        .filter(|t| filter.is_empty() || t.signature.contains(&filter))
+                        .collect();
+                    virtual_table(
+                        ui,
+                        "types-grid",
+                        &["type", "definition", "records", "confidence / occurrences"],
+                        shown.len(),
+                        View::Short,
+                        |row, i| {
+                            let Some(t) = shown.get(i) else { return };
+                            row.cell(|ui| {
+                                if link(ui, !busy, &t.signature)
+                                    .on_hover_text("query this type")
+                                    .clicked()
                                 {
-                                    ui.strong(h);
-                                }
-                                ui.end_row();
-                                for t in self
-                                    .type_rows
-                                    .iter()
-                                    .filter(|t| filter.is_empty() || t.signature.contains(&filter))
-                                {
-                                    if link(ui, !busy, &t.signature)
-                                        .on_hover_text("query this type")
-                                        .clicked()
-                                    {
-                                        actions.push(Action::PickType(t.signature.clone()));
-                                    }
-                                    match &t.definition {
-                                        Some(d) => {
-                                            ui.label(d);
-                                        }
-                                        None => {
-                                            theme::status(
-                                                ui,
-                                                Status::Unknown,
-                                                "no definition (subrecords unknown)",
-                                            );
-                                        }
-                                    }
-                                    ui.label(t.records.map_or_else(String::new, |n| n.to_string()));
-                                    ui.label(
-                                        t.occurrences
-                                            .clone()
-                                            .or_else(|| t.confidence.clone())
-                                            .unwrap_or_default(),
-                                    );
-                                    ui.end_row();
+                                    actions.push(Action::PickType(t.signature.clone()));
                                 }
                             });
-                        });
+                            row.cell(|ui| match &t.definition {
+                                Some(d) => ui.label(d),
+                                None => theme::status(
+                                    ui,
+                                    Status::Unknown,
+                                    "no definition (subrecords unknown)",
+                                ),
+                            });
+                            row.num(t.records.map_or_else(String::new, |n| n.to_string()));
+                            row.cell(|ui| match (&t.occurrences, &t.confidence) {
+                                (Some(o), _) => {
+                                    ui.label(o);
+                                }
+                                (None, Some(c)) => conf_label(ui, c),
+                                (None, None) => {
+                                    ui.label("");
+                                }
+                            });
+                        },
+                    );
                 });
             });
     }
@@ -627,22 +630,24 @@ impl RecordsTab {
             .id_salt("query")
             .default_open(true)
             .show(ui, |ui| {
-                ui.horizontal_wrapped(|ui| {
-                    ui.label("type");
-                    ui.add(
-                        TextEdit::singleline(&mut self.query_form.record_type)
-                            .desired_width(theme::width(ui, Field::Tiny)),
-                    );
-                    ui.label("where");
-                    ui.add(
-                        TextEdit::singleline(&mut self.query_form.where_text)
-                            .desired_width(theme::width(ui, Field::Long))
-                            .hint_text("FULL ~ \"Rifle\" and not has KWDA"),
-                    );
-                    ui.checkbox(&mut self.query_form.all_versions, "all versions");
-                    if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
-                        actions.push(Action::QueryPage(None));
-                    }
+                action_bar(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("type");
+                        ui.add(
+                            TextEdit::singleline(&mut self.query_form.record_type)
+                                .desired_width(theme::width(ui, Field::Tiny)),
+                        );
+                        ui.label("where");
+                        ui.add(
+                            TextEdit::singleline(&mut self.query_form.where_text)
+                                .desired_width(theme::width(ui, Field::Long))
+                                .hint_text("FULL ~ \"Rifle\" and not has KWDA"),
+                        );
+                        ui.checkbox(&mut self.query_form.all_versions, "all versions");
+                        if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
+                            actions.push(Action::QueryPage(None));
+                        }
+                    })
                 });
                 envelope_block(ui, ctx.results.get(&Slot::Query.into()), |ui| {
                     let Some(view) = &self.query_view else { return };
@@ -671,52 +676,55 @@ impl RecordsTab {
                         theme::status(ui, Status::Unknown, &format!("undecided {form}: {reasons}"));
                     }
                     let selected = self.record_view.as_ref().map(|r| r.global.as_str());
-                    ScrollArea::vertical()
-                        .id_salt("query-rows")
-                        .max_height(theme::view_height(ui, View::Medium))
-                        .show(ui, |ui| {
-                            theme::table(ui, "query-grid").show(ui, |ui| {
-                                for h in [
-                                    "form",
-                                    "",
-                                    "editor id",
-                                    "name",
-                                    "plugin",
-                                    "raw FormID",
-                                    "runtime ID",
-                                    "",
-                                ] {
-                                    ui.strong(h);
-                                }
-                                ui.end_row();
-                                for r in &view.rows {
-                                    let picked = selected == Some(r.form.as_str());
-                                    let text = if picked {
-                                        egui::RichText::new(&r.form).strong()
-                                    } else {
-                                        egui::RichText::new(&r.form)
-                                    };
-                                    if link(ui, !busy, text).on_hover_text("inspect").clicked() {
-                                        actions.push(Action::Inspect(r.form.clone()));
-                                    }
-                                    record_actions(ui, busy, &r.form, actions);
-                                    ui.label(&r.editor_id);
-                                    ui.label(&r.full);
-                                    ui.label(&r.plugin);
-                                    ui.monospace(&r.raw_form_id);
-                                    ui.monospace(&r.runtime_id);
-                                    let mut tags = Vec::new();
-                                    if r.winner {
-                                        tags.push("winner");
-                                    }
-                                    if r.deleted {
-                                        tags.push("deleted");
-                                    }
-                                    ui.label(tags.join(", "));
-                                    ui.end_row();
+                    let rows_rect = virtual_table(
+                        ui,
+                        "query-grid",
+                        &[
+                            "form",
+                            "",
+                            "editor id",
+                            "name",
+                            "plugin",
+                            "raw FormID",
+                            "runtime ID",
+                            "",
+                        ],
+                        view.rows.len(),
+                        View::Medium,
+                        |row, i| {
+                            let Some(r) = view.rows.get(i) else { return };
+                            let picked = selected == Some(r.form.as_str());
+                            let text = if picked {
+                                egui::RichText::new(&r.form).strong()
+                            } else {
+                                egui::RichText::new(&r.form)
+                            };
+                            row.cell(|ui| {
+                                if link(ui, !busy, text).on_hover_text("inspect").clicked() {
+                                    actions.push(Action::Inspect(r.form.clone()));
                                 }
                             });
-                        });
+                            row.cell(|ui| record_actions(ui, busy, &r.form, actions));
+                            row.cell(|ui| ui.label(&r.editor_id));
+                            row.cell(|ui| ui.label(&r.full));
+                            row.cell(|ui| ui.label(&r.plugin));
+                            row.cell(|ui| ui.monospace(&r.raw_form_id));
+                            row.cell(|ui| ui.monospace(&r.runtime_id));
+                            let mut tags = Vec::new();
+                            if r.winner {
+                                tags.push("winner");
+                            }
+                            if r.deleted {
+                                tags.push("deleted");
+                            }
+                            row.cell(|ui| ui.label(tags.join(", ")));
+                        },
+                    );
+                    crate::app::note_perf_target(
+                        ui.ctx(),
+                        crate::app::PERF_TARGET_RECORDS,
+                        rows_rect,
+                    );
                 });
             });
     }
@@ -726,27 +734,29 @@ impl RecordsTab {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
         ui.strong("Record");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("form");
-            ui.add(
-                TextEdit::singleline(&mut self.record_form)
-                    .desired_width(theme::width(ui, Field::Medium))
-                    .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX"),
-            );
-            ui.label("plugin (hex FormID numbering)");
-            ui.add(
-                TextEdit::singleline(&mut self.record_plugin)
-                    .desired_width(theme::width(ui, Field::Short)),
-            );
-            if ui
-                .add_enabled(!busy, egui::Button::new("Inspect"))
-                .clicked()
-            {
-                match inspect_request(&self.record_form, Some(&self.record_plugin)) {
-                    Ok(req) => actions.push(Action::Submit(Slot::Inspect, req)),
-                    Err(e) => *ctx.notice = Some(e),
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("form");
+                ui.add(
+                    TextEdit::singleline(&mut self.record_form)
+                        .desired_width(theme::width(ui, Field::Medium))
+                        .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX"),
+                );
+                ui.label("plugin (hex FormID numbering)");
+                ui.add(
+                    TextEdit::singleline(&mut self.record_plugin)
+                        .desired_width(theme::width(ui, Field::Short)),
+                );
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Inspect"))
+                    .clicked()
+                {
+                    match inspect_request(&self.record_form, Some(&self.record_plugin)) {
+                        Ok(req) => actions.push(Action::Submit(Slot::Inspect, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
+            })
         });
         if ctx.results.get(&Slot::Inspect.into()).is_none() {
             ui.weak("pick a form in the query table, or type one above");

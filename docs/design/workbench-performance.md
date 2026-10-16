@@ -1,6 +1,7 @@
 # Workbench performance: measurement protocol (M6 lane P)
 
-**Status: protocol, with a first engine-side baseline.** Written 2026-10-16 for M6
+**Status: protocol, with an engine-side baseline and the first window measurements
+(M6.P1, "Window measurements" at the end).** Written 2026-10-16 for M6
 "Cockpit" (`ROADMAP.md`, `plan/execution-plan.md` "M6", lane P). It says what to measure
 in the workbench, how, and which numbers count as good enough. The targets are
 **hypotheses**: M6.P1 measures first and confirms or revises them, and no performance
@@ -155,6 +156,9 @@ a before-and-after row for the measures it targets.
 | 2026-10-16 | M7.R2 | kit-ui `344caf4b...` (release), lane R round 2 branch | Kitkraft Dev (16) | warm | V2 | 0.06 ms CPU, 0.23 ms GPU at 20,000 markers | 1.30 ms (the upload frame) | instanced (one call per shape for faces and edges, 9 draws in all), see-through faces, 1384 x 764 px, RTX 4090; markers tiled from `CityNewAtlantisApartmentTEMPLATE` with `KITKRAFT_VIEWPORT_STRESS` (the screenshot tour's frames, 4 per run, single runs). Beyond the cap: 100,000 markers 0.09 ms CPU / 1.20 ms GPU (upload frame 9.0 ms); 300,000 0.08 / 3.36 (18.3); 1,000,000 0.03 / 13.9 (45.7). GPU time grows about 14 us per 1,000 markers, so 60 fps holds to about 1,000,000 on this GPU; V2's target (p95 under 16 ms with 5,000) holds with room |
 | 2026-10-16 | M7.R2 | as above | as above | warm | draw cap | 20,000 references | - | `DRAW_CAP` in `panels/render.rs`: set by fetching, not drawing (above). A page of 1,000 references with `with_bounds` costs about 0.1 s in the engine once the reverse index is warm (`cell --world akilacity --x 1 --y 1 --limit 1000`, three CLI runs: `elapsed_ms` 283, 303, 285 with bounds, 273 to 282 without, of which 172 to 188 ms loading the reverse index from disk); the largest cell met (akilacity 1,1, 8,824 references) is 9 pages, 20,000 would be 20. A larger cell shows a limitation line and the first 20,000 |
 | 2026-10-16 | M7.R3 | as above | as above | warm / cold | V3 (OBND variant) | about 0.1 s engine time per 1,000 references warm in a session; 0.28 s per CLI process | - | the bounds come from `OBND` through `cell --with-bounds` (each distinct base read once), not from `mesh.bounds` (blocked on M7.O5). Cold, the first `cell` of a load order builds the reverse index (`CityNewAtlantisApartmentTEMPLATE` on Starfield.esm alone: 23.6 s of a 23.7 s call, as I4 cold) |
+| 2026-10-16 | M6.P1 before (window) | kit-ui `ddd8e1c4...`, `753eeb9` (main `54fddac` + the trace) | Kitkraft Dev (16, 7,490,111) | warm / cold | see "Window measurements" | | | three runs each; the window table below |
+| 2026-10-16 | M6.P2a..P7 after (window) | kit-ui `96b544c1...`, `36848f7` | as above | warm / cold | see "Window measurements" | | | three runs each, same bench, same machine state |
+| 2026-10-16 | after, merged with main | kit-ui `eb21a11a...`, `0e664d7` | as above | warm / cold | see "Window measurements" | | | Diff now asks `conflicts` for `detail: fields` (9.0 MB instead of 13.5 MB) |
 
 Neither the roadmap baseline nor the review re-run applied the three-run rule; M6.P1's
 rows are the first that must. The lane D round 3 rows are medians of three CLI runs
@@ -164,3 +168,76 @@ used the 2026-10-15 `bin\kit.exe` and may have printed to a console, so the engi
 was never the 30 s. `detail: summary` meets I2's target (under 3 s and 2 MB). I4's warm
 target (under 1 s) holds in the engine (174 ms) and in a session (1 ms); a whole CLI
 process with the profile load is 1.0 s.
+
+## Window measurements (M6.P1, lane P window side, 2026-10-16)
+
+**How.** `KITKRAFT_WORKBENCH_PERF=1` prints `perf:` lines to stderr (`crates/ui-egui/src/perf.rs`
+lists them): time since process start, request queued, done (wait, engine run, first
+progress event, envelope bytes), prepared (where and how long), drawn (click to the first
+frame that drew it) and the frame time of that frame, and frame-time p50/p95/max per tab or
+bench phase. Frame time is eframe's per-frame CPU time (layout, tessellation, painting;
+without the vsync wait), counted once per frame. `KITKRAFT_WORKBENCH_PERF_BENCH=1` with
+`--profile` runs one scripted pass and closes: after the startup `load`, `query REFR` with
+1000 rows on Records, 1 s still, 3 s wheel-scrolling down and 2 s up over the query table
+(T1), then `conflicts --plugin SFBGS00D.esm` on Diff (`KITKRAFT_WORKBENCH_PERF_DIFF`
+picks the plugin) and 5 s of scrolling the Diff tab. S1 and S3 come from a launch without
+arguments, killed after 6 s. The scripts are not in the repo (`observe\laneP\`, ignored);
+they set `KITKRAFT_CACHE_DIR` to a lane folder (warm: warmed once by `kit load`; cold: a
+new empty folder per run, deleted afterwards).
+
+**Machine and builds.** The dev box; `ModOrganizer.exe` running, `Starfield.exe` and
+`CreationKit.exe` not; other lanes were compiling at the same time (6 to 13 `cargo` and
+`rustc` processes), which explains the spread of some maxima. Release builds stamped with
+`KITKRAFT_BUILD_COMMIT`/`KITKRAFT_BUILD_DATE` as `cargo xtask ui` does: before
+`kit 0.0.0 (753eeb9, 2026-10-16, release)`, kit-ui SHA-256
+`ddd8e1c40f6e12c8512802d00b11e788bc828a6361f1cd71f523e8aa898a5278`, kit
+`434d20aa8d5db2ccedf0ac2ab87c4f9673369500dd070e7ba0e0c4286b4d9c87`; after
+`kit 0.0.0 (36848f7, 2026-10-16, release)`, kit-ui
+`96b544c199fc016329672b5f3c5e238e792f5ecfbcf37857c78a822b7e5c3522`, kit
+`a3715d98fb4c85fd3401996a432ce75e70a6f3ef3e5aface36824a31f0b70bbd`; merged
+`kit 0.0.0 (0e664d7, 2026-10-16, release)`, kit-ui
+`eb21a11af84869e2ae156bc50a3f96e6f8cdd5ec166a93a7f10b202a44346212`. Profile Kitkraft Dev,
+16 plugins, 7,490,111 records. Not the first run after a reboot.
+
+Medians of three runs (max in brackets when over 1.5x the median):
+
+| Id | Measure | Before (`753eeb9`) | After (`36848f7`) | Merged (`0e664d7`) | Target |
+| -- | ------- | ------------------ | ----------------- | ------------------ | ------ |
+| S1 | Process start to first frame painted (Start tab) | 0.38 s | 0.35 s | 0.40 s (0.88 s) | under 1.0 s: **confirmed**; about 0.3 s of it is eframe and OpenGL creating the window, before any workbench code |
+| S2 | Window state from a background shell | not minimized, **not focused** (all runs) | not minimized; not focused at the first frame | not minimized; **focused 65 to 90 ms after the first frame** (all runs; the start-up `Focus` request) | visible, restored, focused: **met** (owner check stays M6.O4) |
+| S3 | `profiles` on the Start tab, queued to drawn | 84 ms | 77 ms | 80 ms | under 0.3 s: **confirmed** |
+| L1 | Warm load, CLI engine time (`elapsed_ms`) | 781 ms (wall 0.89 s) | 651 ms (0.73 s) | 615 ms (0.71 s) | baseline (0.65 s): reproduces |
+| L2 | Warm load, launch queue to Load table drawn | 0.96 s | 0.75 s | 0.75 s | L1 + 0.5 s: **confirmed** (the window adds about 0.1 s: the load waits behind `schema` and `profiles`, about 55 ms, and the first frame) |
+| L3 | Cold load, CLI engine time | 3.99 s | 3.81 s | 3.60 s (6.13 s) | baseline (3.5 s): reproduces under load |
+| L4 | Cold load, queued to drawn; first progress event | 4.44 s (7.25 s); first progress 48 ms | 4.41 s; 43 ms | 6.52 s (load from other lanes; fastest 4.01 s); 91 ms (one run 2.7 s) | L3 + 1.0 s and first progress under 0.5 s: **confirmed**; the progress is now on screen (M6.P2a) |
+| T1 | Scrolling the 1000-row `query REFR` table (the engine's page maximum; no table in the window reaches 10,000 rows), frame time p50 / p95 / max, warm | 13.1 / 19.7 (51.3) / 90.3 ms | **0.7 / 0.9 / 1.7 ms** | 1.2 / 1.4 / 1.7 ms | p95 under 16 ms, max under 50 ms: **failed before, met after** (M6.P4) |
+| T1 | as above, cold-cache session | 11.1 (51.4) / 21.3 (75.1) / 85.0 ms | 0.7 / 0.9 / 1.7 ms | 1.1 / 1.4 / 4.4 ms | as above |
+| T3 | Longest frame on the Load tab while the load runs, warm / cold | 68 / 64 ms | 48 / 48 ms (warm run 1: 470 ms, its first frame) | 69 (506) / 66 ms | no frame over 50 ms: **revised**: every maximum is the window's first frame (shader and font atlas set-up, 50 to 500 ms), not a frame during the load; the Load tab's frame p95 stays under 7 ms |
+| R1 | Records first paint: the frame that receives the 1000-row query (0.36 MB), warm / cold | 44 / 61 (284) ms | **1.6 / 1.9 ms** | 1.8 / 2.6 ms | new row (M6.P5a): under 16 ms |
+| R2 | Records query, click to drawn, warm | 1.30 s | 1.05 s | 0.97 s | the engine's 0.9 to 1.4 s dominates |
+| D1 | Diff first paint: the frame that receives `conflicts --plugin SFBGS00D.esm` (13.5 MB; 9.0 MB at `detail: fields`), warm / cold | 351 (632) / 466 ms | **4.6 / 4.5 ms** | 6.4 / 6.6 ms | new row (M6.P5a): no frame over 50 ms while a big envelope arrives: **failed before, met after** |
+| D2 | Diff, click to drawn, warm / cold | 1.74 (3.72) / 2.79 s | 1.86 / 1.92 s | 2.82 / 2.11 s | the engine (1.4 to 2.2 s here) dominates; the view and raw lines now take 0.26 s on the worker instead of the UI thread |
+| T2 | Scrolling the Diff tab after D1, p95 / max, warm | 1.4 / 3.3 ms | 1.3 / 2.1 ms | 1.9 / 2.3 ms | as T1: met before and after (the raw JSON was already virtualized; the record grids now are too) |
+
+What the numbers say, and what changed because of them:
+
+1. The window adds little to the engine on a warm load (L2 - L1 is about 0.1 s): nothing
+   to fix there beyond showing progress on a cold load (M6.P2a; the first event comes
+   about 45 ms after the load starts).
+2. The cost was in the frames: the 1000-row query table laid out every row each frame
+   (T1 p95 20 ms, maxima near 100 ms), and the frame that received a reply built its
+   view-model, pretty-printed the raw JSON and dropped the envelope on the UI thread (the
+   Diff frame 350 to 470 ms, the query frame 44 to 61 ms). M6.P4 and M6.P5a fixed those;
+   after them no measured frame except the very first exceeds 10 ms.
+3. P3a (no second `load` of the same order) saves a whole L2 or L4 per repeated click;
+   it is tested in the shell model (`app::tests`), not timed here.
+4. Not measured yet (still open in M6.P1): L5 (memory), I1, I3 and I4 in the window, T4
+   (tab switches with large results held), U1 (scaling, optional). The bench and the
+   trace cover them once someone drives those requests.
+
+Window quirks (M6.P7), checked in the trace: `--profile` and argument-less launches from a
+background shell (`Start-Process`, also with `-WindowStyle Minimized`) never opened
+minimized on this box; the screenshot tour launched that way finished all 13 tabs. If a
+window does open minimized it is restored within the first 10 s, and the tour waits for
+the restore instead of hanging. The window asks for focus once; Windows granted it in
+every run (`window focus focused=Some(true)`).

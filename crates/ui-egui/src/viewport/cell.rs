@@ -369,11 +369,11 @@ mod tests {
         assert_eq!((m.len(), index.as_slice()), (2, &[0, 1][..]));
         assert_eq!(m[0].shape, Shape::Box);
         assert_eq!(m[0].position, Vec3::new(4.0, 0.5, 4.5));
-        assert_eq!(m[0].color, rgba(pal.status.not_run));
+        assert_eq!(m[0].color, rgba(Category::Static.color(&pal)));
         // A light without bounds: its group's shape, at the unit size, scaled.
         assert_eq!(m[1].shape, Shape::Pyramid);
         assert_eq!(m[1].scale, 2.0);
-        assert_eq!(m[1].color, rgba(pal.status.unknown));
+        assert_eq!(m[1].color, rgba(Category::Light.color(&pal)));
         let (capped, index) = markers(&p.refs, &pal, 1);
         assert_eq!((capped.len(), index.as_slice()), (1, &[0][..]));
         assert_eq!(

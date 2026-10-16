@@ -1,7 +1,8 @@
-//! LCTN, TERM, PKIN and FACT through the typed path on the official files (lane D,
-//! 2026-10-15; `KITKRAFT_DATA_DIR`, skips when unset).
+//! LCTN, TERM, PKIN and FACT (lane D, 2026-10-15), WEAP and CONT (lane D round 4,
+//! 2026-10-16) through the typed path on the official files (`KITKRAFT_DATA_DIR`, skips
+//! when unset).
 //!
-//! Every record of the four types is decoded through its generated definition and encoded
+//! Every record of the six types is decoded through its generated definition and encoded
 //! again. Checks: the generated decoder keeps no subrecord raw (`extra` is empty), no
 //! subrecord sits in a raw `any_until` body (every base form component's data is one of the
 //! typed layouts), and the encoding reproduces the record subrecord by subrecord. So the
@@ -28,7 +29,7 @@ use kitkraft_esm::driver::visit_file;
 use kitkraft_esm::generated::records::Record as Generated;
 use kitkraft_esm::{DecodeLimits, Entry, ParseOptions, Record, Signature, Subrecord};
 
-const TYPES: [&str; 4] = ["LCTN", "TERM", "PKIN", "FACT"];
+const TYPES: [&str; 6] = ["LCTN", "TERM", "PKIN", "FACT", "WEAP", "CONT"];
 
 const SMALL: [&str; 5] = [
     "Constellation.esm",
@@ -169,10 +170,12 @@ fn authoring_types_full() {
     assert_eq!(
         records,
         [
+            ("CONT", 866),
             ("FACT", 953),
             ("LCTN", 7_316),
             ("PKIN", 15_128),
-            ("TERM", 501)
+            ("TERM", 501),
+            ("WEAP", 452)
         ]
     );
 }

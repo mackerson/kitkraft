@@ -7,11 +7,18 @@
 //!
 //! - the context egui_glow paints with, current on this thread for the whole callback
 //!   (egui_glow invokes [`paint`] from its paint pass);
-//! - only objects this file created on that same context, never deleted while in use
-//!   (they live as long as the window: the tab is never dropped before the context);
+//! - only objects this file created on that same context, never deleted while in use;
 //! - buffer data from owned Rust slices whose length GL is told, and draw and instance
 //!   counts taken from those lengths, so GL never reads past what was uploaded;
 //! - no pointers, no mapped buffers, no raw handles from outside.
+//!
+//! Lifetime of the GL objects. Every object a [`GlScene`] makes is recorded as it is
+//! made ([`GlObject`]), and deleted with that same context, never by `Drop` (which has
+//! no context), at one of three points: everything made so far, when a later step of
+//! [`GlScene::new`] fails; a scene whose tab was dropped (its [`GlShared`] moves it to a
+//! retired list), at the next paint of any viewport; and every scene still alive or
+//! retired at shutdown, in [`release`], which the app calls from `eframe::App::on_exit`
+//! while the context is still current. So none outlives the window.
 //!
 //! Every state this file changes that egui_glow does not reset after a callback (depth
 //! mask, polygon offset, the bound vertex array and program) is restored before
@@ -21,7 +28,7 @@
 #![allow(unsafe_code)]
 
 use std::collections::VecDeque;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::time::{Duration, Instant};
 
 use eframe::egui_glow::{self, ShaderVersion};
@@ -65,10 +72,89 @@ pub struct GlShared {
 /// Frames kept in [`GlShared::history`].
 pub const HISTORY: usize = 240;
 
+/// Scenes whose tab was dropped, waiting for a context to be deleted with (module docs,
+/// "Lifetime").
+static RETIRED: Mutex<Vec<GlScene>> = Mutex::new(Vec::new());
+/// Every viewport that has painted, so [`release`] reaches the scenes still alive.
+static LIVE: Mutex<Vec<Weak<Mutex<GlShared>>>> = Mutex::new(Vec::new());
+
+impl Drop for GlShared {
+    /// Hands the scene to [`RETIRED`]: deleting it needs the GL context, which `Drop`
+    /// does not have.
+    fn drop(&mut self) {
+        if let Some(scene) = self.scene.take() {
+            if let Ok(mut retired) = RETIRED.lock() {
+                retired.push(scene);
+            }
+        }
+    }
+}
+
+/// Deletes the scenes on [`RETIRED`] with `gl`.
+fn delete_retired(gl: &glow::Context) {
+    let retired = match RETIRED.lock() {
+        Ok(mut r) => std::mem::take(&mut *r),
+        Err(_) => return,
+    };
+    for scene in &retired {
+        scene.destroy(gl);
+    }
+}
+
+/// Deletes every GL object the viewports made, live or retired; the app calls it from
+/// `eframe::App::on_exit` with the context they were made on. A viewport that painted
+/// afterwards would build its scene again.
+pub fn release(gl: &glow::Context) {
+    delete_retired(gl);
+    let live = match LIVE.lock() {
+        Ok(mut l) => std::mem::take(&mut *l),
+        Err(_) => return,
+    };
+    for shared in live.iter().filter_map(Weak::upgrade) {
+        if let Ok(mut state) = shared.lock() {
+            if let Some(scene) = state.scene.take() {
+                scene.destroy(gl);
+            }
+        }
+    }
+}
+
+/// One GL object a scene made, recorded so it can be deleted.
+#[derive(Debug, Clone, Copy)]
+enum GlObject {
+    Program(glow::Program),
+    Array(glow::VertexArray),
+    Buffer(glow::Buffer),
+    Query(glow::Query),
+}
+
+/// Deletes `objects` (made on `gl`, no longer drawn with).
+fn delete_all(gl: &glow::Context, objects: &[GlObject]) {
+    for o in objects {
+        // SAFETY: see the module docs; each object was made on `gl` and is not used
+        // after this.
+        unsafe {
+            match *o {
+                GlObject::Program(p) => gl.delete_program(p),
+                GlObject::Array(a) => gl.delete_vertex_array(a),
+                GlObject::Buffer(b) => gl.delete_buffer(b),
+                GlObject::Query(q) => gl.delete_query(q),
+            }
+        }
+    }
+}
+
 /// The paint callback for one frame: builds the GL objects on first use, then draws
-/// `frame`.
+/// `frame`. It first deletes any retired scene.
 pub fn callback(shared: Arc<Mutex<GlShared>>, frame: Frame) -> egui_glow::CallbackFn {
+    if let Ok(mut live) = LIVE.lock() {
+        live.retain(|w| w.strong_count() > 0);
+        if !live.iter().any(|w| w.as_ptr() == Arc::as_ptr(&shared)) {
+            live.push(Arc::downgrade(&shared));
+        }
+    }
     egui_glow::CallbackFn::new(move |info, painter| {
+        delete_retired(painter.gl());
         let Ok(mut state) = shared.lock() else {
             return;
         };
@@ -127,7 +213,20 @@ struct Program {
 }
 
 impl Program {
-    fn new(gl: &glow::Context, src: &ProgramSrc, header: &str) -> Result<Self, String> {
+    /// Compiles and links `src`, recording the program in `made`; on a failure it deletes
+    /// what it made itself.
+    fn new(
+        gl: &glow::Context,
+        made: &mut Vec<GlObject>,
+        src: &ProgramSrc,
+        header: &str,
+    ) -> Result<Self, String> {
+        let p = Self::link(gl, src, header)?;
+        made.push(GlObject::Program(p.program));
+        Ok(p)
+    }
+
+    fn link(gl: &glow::Context, src: &ProgramSrc, header: &str) -> Result<Self, String> {
         // SAFETY: see the module docs; every object is created and used on `gl`.
         unsafe {
             let program = gl.create_program()?;
@@ -136,7 +235,16 @@ impl Program {
                 (glow::VERTEX_SHADER, src.vertex, "vertex"),
                 (glow::FRAGMENT_SHADER, src.fragment, "fragment"),
             ] {
-                let shader = gl.create_shader(kind)?;
+                let shader = match gl.create_shader(kind) {
+                    Ok(shader) => shader,
+                    Err(e) => {
+                        for s in stages {
+                            gl.delete_shader(s);
+                        }
+                        gl.delete_program(program);
+                        return Err(e);
+                    }
+                };
                 gl.shader_source(shader, &format!("{header}{body}"));
                 gl.compile_shader(shader);
                 if !gl.get_shader_compile_status(shader) {
@@ -236,8 +344,14 @@ struct Mesh {
 }
 
 impl Mesh {
-    /// `layout`: the component count of each attribute, in location order.
-    fn new(gl: &glow::Context, layout: &[i32], floats: &[f32]) -> Result<Self, String> {
+    /// `layout`: the component count of each attribute, in location order. Each object
+    /// is recorded in `made` as it is made.
+    fn new(
+        gl: &glow::Context,
+        made: &mut Vec<GlObject>,
+        layout: &[i32],
+        floats: &[f32],
+    ) -> Result<Self, String> {
         let stride_floats = layout
             .iter()
             .try_fold(0usize, |acc, n| acc.checked_add(usize::try_from(*n).ok()?))
@@ -245,7 +359,9 @@ impl Mesh {
         // SAFETY: see the module docs; the array and buffer are bound before pointing.
         let (vao, vbo) = unsafe {
             let vao = gl.create_vertex_array()?;
+            made.push(GlObject::Array(vao));
             let vbo = gl.create_buffer()?;
+            made.push(GlObject::Buffer(vbo));
             gl.bind_vertex_array(Some(vao));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
             let pointed = point_attributes(gl, 0, layout, false);
@@ -299,7 +415,7 @@ struct ShapeGeometry {
 }
 
 impl ShapeGeometry {
-    fn new(gl: &glow::Context, shape: Shape) -> Result<Self, String> {
+    fn new(gl: &glow::Context, made: &mut Vec<GlObject>, shape: Shape) -> Result<Self, String> {
         let faces = scene::solid_floats(&shape.faces());
         let edges: Vec<f32> = shape.edges().into_iter().flatten().collect();
         let count = |n: usize, per: usize| {
@@ -310,9 +426,11 @@ impl ShapeGeometry {
         // SAFETY: see the module docs; owned slices, copied by GL.
         unsafe {
             let fb = gl.create_buffer()?;
+            made.push(GlObject::Buffer(fb));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(fb));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes(&faces), glow::STATIC_DRAW);
             let eb = gl.create_buffer()?;
+            made.push(GlObject::Buffer(eb));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(eb));
             gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes(&edges), glow::STATIC_DRAW);
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
@@ -340,18 +458,25 @@ struct Instances {
 }
 
 impl Instances {
-    fn new(gl: &glow::Context, geometry: &ShapeGeometry) -> Result<Self, String> {
+    fn new(
+        gl: &glow::Context,
+        made: &mut Vec<GlObject>,
+        geometry: &ShapeGeometry,
+    ) -> Result<Self, String> {
         // SAFETY: see the module docs; each array is bound while its attributes are
         // pointed, and unbound after.
         unsafe {
             let buffer = gl.create_buffer()?;
+            made.push(GlObject::Buffer(buffer));
             let faces = gl.create_vertex_array()?;
+            made.push(GlObject::Array(faces));
             gl.bind_vertex_array(Some(faces));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(geometry.faces));
             let mut pointed = point_attributes(gl, 0, &scene::SOLID_LAYOUT, false);
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
             pointed = pointed.and_then(|()| point_attributes(gl, 2, &INSTANCE_LAYOUT, true));
             let edges = gl.create_vertex_array()?;
+            made.push(GlObject::Array(edges));
             gl.bind_vertex_array(Some(edges));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(geometry.edges));
             pointed = pointed.and_then(|()| point_attributes(gl, 0, &[3], false));
@@ -413,6 +538,8 @@ struct GlScene {
     /// The colors the line meshes were built with (rebuilt when the theme changes).
     colors: SceneColors,
     timer: Option<GpuTimer>,
+    /// Every object made, for [`GlScene::destroy`].
+    objects: Vec<GlObject>,
 }
 
 impl GlScene {
@@ -432,41 +559,80 @@ impl GlScene {
             ));
         }
         let header = shaders::header(version.version_declaration(), version.is_embedded());
+        // Every object is recorded as it is made; on a failure all of them are deleted.
+        let mut made = Vec::new();
+        let built = Self::build(gl, colors, &header, !v.is_embedded, &mut made).and_then(|s| {
+            // SAFETY: see the module docs.
+            let error = unsafe { gl.get_error() };
+            if error == glow::NO_ERROR {
+                Ok(s)
+            } else {
+                Err(format!(
+                    "OpenGL error 0x{error:04x} while building the scene"
+                ))
+            }
+        });
+        match built {
+            Ok(mut scene) => {
+                scene.objects = made;
+                Ok(scene)
+            }
+            Err(e) => {
+                delete_all(gl, &made);
+                Err(e)
+            }
+        }
+    }
+
+    /// Makes the shapes, the timer, the programs and the meshes, recording each object
+    /// in `made`.
+    fn build(
+        gl: &glow::Context,
+        colors: &SceneColors,
+        header: &str,
+        timed: bool,
+        made: &mut Vec<GlObject>,
+    ) -> Result<Self, String> {
         let mut shapes = Vec::new();
         for shape in Shape::ALL {
-            let geometry = ShapeGeometry::new(gl, shape)?;
-            let all = Instances::new(gl, &geometry)?;
-            let selected = Instances::new(gl, &geometry)?;
+            let geometry = ShapeGeometry::new(gl, made, shape)?;
+            let all = Instances::new(gl, made, &geometry)?;
+            let selected = Instances::new(gl, made, &geometry)?;
             shapes.push(ShapeGl {
                 geometry,
                 all,
                 selected,
             });
         }
-        let timer = if v.is_embedded {
-            None
-        } else {
+        let timer = if timed {
             // SAFETY: see the module docs.
-            unsafe { gl.create_query() }.ok().map(|query| GpuTimer {
-                query,
-                pending: false,
-                last: None,
+            unsafe { gl.create_query() }.ok().map(|query| {
+                made.push(GlObject::Query(query));
+                GpuTimer {
+                    query,
+                    pending: false,
+                    last: None,
+                }
             })
+        } else {
+            None
         };
-        let scene = Self {
-            sky: Program::new(gl, &shaders::SKY, &header)?,
-            lines: Program::new(gl, &shaders::LINES, &header)?,
-            faces: Program::new(gl, &shaders::MARKER_FACES, &header)?,
-            edges: Program::new(gl, &shaders::MARKER_EDGES, &header)?,
+        Ok(Self {
+            sky: Program::new(gl, made, &shaders::SKY, header)?,
+            lines: Program::new(gl, made, &shaders::LINES, header)?,
+            faces: Program::new(gl, made, &shaders::MARKER_FACES, header)?,
+            edges: Program::new(gl, made, &shaders::MARKER_EDGES, header)?,
             // One triangle that covers the viewport.
-            sky_mesh: Mesh::new(gl, &[2], &[-1.0, -1.0, 3.0, -1.0, -1.0, 3.0])?,
+            sky_mesh: Mesh::new(gl, made, &[2], &[-1.0, -1.0, 3.0, -1.0, -1.0, 3.0])?,
             grid: Mesh::new(
                 gl,
+                made,
                 &LINE_LAYOUT,
                 &scene::line_floats(&scene::grid_lines(colors)),
             )?,
             axes: Mesh::new(
                 gl,
+                made,
                 &LINE_LAYOUT,
                 &scene::line_floats(&scene::axis_lines(colors)),
             )?,
@@ -475,15 +641,13 @@ impl GlScene {
             selected: None,
             colors: *colors,
             timer,
-        };
-        // SAFETY: see the module docs.
-        let error = unsafe { gl.get_error() };
-        if error != glow::NO_ERROR {
-            return Err(format!(
-                "OpenGL error 0x{error:04x} while building the scene"
-            ));
-        }
-        Ok(scene)
+            objects: Vec::new(),
+        })
+    }
+
+    /// Deletes every object the scene made; `self` is not drawn with afterwards.
+    fn destroy(&self, gl: &glow::Context) {
+        delete_all(gl, &self.objects);
     }
 
     /// Uploads what changed since the last frame: the line colors, the markers (by
