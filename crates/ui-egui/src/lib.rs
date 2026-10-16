@@ -12,6 +12,8 @@
 //!   repo's docs at runtime ([`panels::help`]).
 //! - [`prefs`]: the per-user UI prefs file (`%LOCALAPPDATA%\kitkraft\ui.json`), the only
 //!   file the workbench writes on its own; UI state, never game data.
+//! - [`theme`]: the visual tokens (type, spacing, radii, density, light and dark
+//!   palettes) and the one function that applies them to egui; presets by `--theme`.
 //! - [`run`]: opens the window (eframe, OpenGL backend).
 //!
 //! The crate depends on `kitkraft-engine` alone among workspace crates (xtask
@@ -27,6 +29,7 @@ pub mod md;
 pub mod panels;
 pub mod prefs;
 pub mod shots;
+pub mod theme;
 pub mod worker;
 
 /// What the launcher (`kit-ui`, `kit ui`) passes in: the same load-order arguments as
@@ -39,6 +42,9 @@ pub struct LaunchOptions {
     pub plugins: Vec<String>,
     /// Game Data dir.
     pub data_dir: Option<String>,
+    /// `--theme`: the visual preset and mode; `None` reads `theme` from `ui.json`, else
+    /// today's look (`classic`).
+    pub theme: Option<theme::ThemeChoice>,
 }
 
 /// Why the window could not run.

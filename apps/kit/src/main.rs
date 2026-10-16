@@ -8,6 +8,7 @@
 use std::process::ExitCode;
 
 use clap::{Arg, ArgAction, Command};
+use kitkraft_ui_egui::theme::ThemeChoice;
 
 fn main() -> ExitCode {
     let matches = match cli().try_get_matches() {
@@ -33,6 +34,7 @@ fn main() -> ExitCode {
             .cloned()
             .collect(),
         data_dir: matches.get_one::<String>("data-dir").cloned(),
+        theme: matches.get_one::<ThemeChoice>("theme").copied(),
     };
     match kitkraft_ui_egui::run(opts) {
         Ok(()) => ExitCode::SUCCESS,
@@ -74,6 +76,16 @@ fn cli() -> Command {
                 .value_name("DIR")
                 .help("Game Data dir (default KITKRAFT_DATA_DIR)"),
         )
+        .arg(
+            Arg::new("theme")
+                .long("theme")
+                .value_name("PRESET")
+                .value_parser(|s: &str| ThemeChoice::parse(s))
+                .help(format!(
+                    "Visual preset: {} (default: `theme` in ui.json, else classic)",
+                    ThemeChoice::HELP
+                )),
+        )
 }
 
 #[cfg(test)]
@@ -107,6 +119,24 @@ mod tests {
         assert_eq!(m.get_one::<String>("data-dir").unwrap(), "D");
         assert!(cli()
             .try_get_matches_from(["kit-ui", "--set", "x"])
+            .is_err());
+    }
+
+    #[test]
+    fn theme_takes_a_preset_and_refuses_unknown_names() {
+        use kitkraft_ui_egui::theme::{Mode, Preset, ThemeChoice};
+        let m = cli()
+            .try_get_matches_from(["kit-ui", "--theme", "studio-dark"])
+            .unwrap();
+        let t = m.get_one::<ThemeChoice>("theme").unwrap();
+        assert_eq!((t.preset, t.mode), (Preset::Studio, Mode::Dark));
+        assert!(cli()
+            .try_get_matches_from(["kit-ui"])
+            .unwrap()
+            .get_one::<ThemeChoice>("theme")
+            .is_none());
+        assert!(cli()
+            .try_get_matches_from(["kit-ui", "--theme", "neon"])
             .is_err());
     }
 }

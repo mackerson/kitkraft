@@ -31,6 +31,7 @@ use crate::panels::schema::{SchemaForm, SchemaView};
 use crate::panels::start::{instance_of_profile, profiles_request, StartProfile, StartView};
 use crate::panels::validate::{RoundtripView, ValidateForm, ValidateView};
 use crate::prefs::{self, Prefs};
+use crate::theme::{self, Status, ThemeChoice};
 use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
 
@@ -39,12 +40,7 @@ const EVIDENCE_ROWS: usize = 300;
 /// Characters of a limitation shown on its line (the full text is on hover).
 const LIMITATION_CHARS: usize = 200;
 
-const WARN: Color32 = Color32::from_rgb(230, 170, 60);
-const BAD: Color32 = Color32::from_rgb(230, 90, 80);
-const GOOD: Color32 = Color32::from_rgb(110, 190, 110);
-const CODE: Color32 = Color32::from_rgb(140, 190, 235);
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Tab {
     Start,
     Load,
@@ -145,6 +141,10 @@ enum TourStep {
 
 struct App {
     tour: Option<Tour>,
+    /// The preset and mode in use, and where the choice came from (`--theme`, `ui.json`
+    /// or the default).
+    theme: ThemeChoice,
+    theme_source: &'static str,
     worker: Worker,
     tab: Tab,
     slots: BTreeMap<u64, Slot>,
@@ -229,7 +229,11 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
     let native = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_title("KitKraft Workbench (read-only)")
-            .with_inner_size([1400.0, 900.0]),
+            .with_inner_size(if std::env::var_os(crate::shots::SHOTS_ENV).is_some() {
+                crate::shots::TOUR_SIZE
+            } else {
+                [1400.0, 900.0]
+            }),
         ..Default::default()
     };
     eframe::run_native(
@@ -240,7 +244,9 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
             let ctx = cc.egui_ctx.clone();
             let wake: Wake = std::sync::Arc::new(move || ctx.request_repaint());
             let worker = Worker::spawn(Some(wake))?;
-            Ok(Box::new(App::new(worker, opts)))
+            let app = App::new(worker, opts);
+            theme::apply(&cc.egui_ctx, &app.theme.preset.theme(), app.theme.mode);
+            Ok(Box::new(app))
         }),
     )
     .map_err(|e| UiError::Window(e.to_string()))
@@ -313,7 +319,23 @@ impl App {
             .and_then(instance_of_profile)
             .or_else(|| prefs.instance.clone())
             .unwrap_or_default();
+        // `--theme` wins over `ui.json`; an unknown name in the file falls back to the
+        // default with a notice (the window always opens).
+        let mut theme_notice = None;
+        let (theme, theme_source) = match (opts.theme, prefs.theme.as_deref()) {
+            (Some(choice), _) => (choice, "--theme"),
+            (None, Some(name)) => match ThemeChoice::parse(name) {
+                Ok(choice) => (choice, "ui.json"),
+                Err(why) => {
+                    theme_notice = Some(format!("ui.json: {why}; using the default"));
+                    (ThemeChoice::default(), "default")
+                }
+            },
+            (None, None) => (ThemeChoice::default(), "default"),
+        };
         let mut app = Self {
+            theme,
+            theme_source,
             worker,
             tab: if first_run { Tab::Start } else { Tab::Load },
             slots: BTreeMap::new(),
@@ -395,6 +417,8 @@ impl App {
         app.reload_help();
         if shots_refused.is_some() {
             app.notice = shots_refused;
+        } else if theme_notice.is_some() {
+            app.notice = theme_notice;
         }
         app
     }
@@ -664,7 +688,8 @@ impl eframe::App for App {
         if busy {
             ui.ctx().request_repaint_after(Duration::from_millis(250));
         }
-        egui::Panel::top("kitkraft-tabs").show(ui, |ui| {
+        let top = theme::top_frame(ui);
+        egui::Panel::top("kitkraft-tabs").frame(top).show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.strong("KitKraft Workbench");
                 ui.weak("read-only: every view is one engine command");
@@ -708,28 +733,34 @@ impl eframe::App for App {
                 };
             });
             if let Some(n) = &self.notice {
-                ui.colored_label(BAD, n);
+                ui.colored_label(theme::bad(ui), n);
             }
         });
         let mut actions = Vec::new();
-        egui::CentralPanel::default_margins().show(ui, |ui| {
-            ScrollArea::vertical()
-                .id_salt("tab-scroll")
-                .auto_shrink([false, false])
-                .show(ui, |ui| match self.tab {
-                    Tab::Start => self.tab_start(ui, busy, &mut actions),
-                    Tab::Load => self.tab_load(ui, busy, &mut actions),
-                    Tab::Records => self.tab_records(ui, busy, &mut actions),
-                    Tab::Links => self.tab_links(ui, busy, &mut actions),
-                    Tab::Planet => self.tab_planet(ui, busy, &mut actions),
-                    Tab::Diff => self.tab_diff(ui, busy, &mut actions),
-                    Tab::Diagnostics => self.tab_diag(ui, busy, &mut actions),
-                    Tab::Validate => self.tab_validate(ui, busy, &mut actions),
-                    Tab::Schema => self.tab_schema(ui, busy, &mut actions),
-                    Tab::Ledger => self.tab_ledger(ui, busy, &mut actions),
-                    Tab::Help => self.tab_help(ui),
-                });
-        });
+        let central = theme::central_frame(ui);
+        egui::CentralPanel::default_margins()
+            .frame(central)
+            .show(ui, |ui| {
+                ScrollArea::vertical()
+                    .id_salt(("tab-scroll", self.tab))
+                    // The tour scrolls Records in one step (an animated scroll restarted
+                    // every frame never arrives).
+                    .animated(self.tour.is_none())
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| match self.tab {
+                        Tab::Start => self.tab_start(ui, busy, &mut actions),
+                        Tab::Load => self.tab_load(ui, busy, &mut actions),
+                        Tab::Records => self.tab_records(ui, busy, &mut actions),
+                        Tab::Links => self.tab_links(ui, busy, &mut actions),
+                        Tab::Planet => self.tab_planet(ui, busy, &mut actions),
+                        Tab::Diff => self.tab_diff(ui, busy, &mut actions),
+                        Tab::Diagnostics => self.tab_diag(ui, busy, &mut actions),
+                        Tab::Validate => self.tab_validate(ui, busy, &mut actions),
+                        Tab::Schema => self.tab_schema(ui, busy, &mut actions),
+                        Tab::Ledger => self.tab_ledger(ui, busy, &mut actions),
+                        Tab::Help => self.tab_help(ui),
+                    });
+            });
         self.apply(actions);
         if self.tour.is_some() {
             self.drive_tour(ui.ctx());
@@ -848,8 +879,8 @@ impl App {
         if let Some(image) = image {
             let [w, h] = image.size;
             let rgba: Vec<[u8; 4]> = image.pixels.iter().map(|c| c.to_array()).collect();
-            let path = tour.dir.join(format!("{}.bmp", label.to_ascii_lowercase()));
-            match crate::shots::bmp(w, h, &rgba).map(|b| std::fs::write(&path, b)) {
+            let path = tour.dir.join(format!("{}.png", label.to_ascii_lowercase()));
+            match crate::shots::png(w, h, &rgba).map(|b| std::fs::write(&path, b)) {
                 Some(Ok(())) => {}
                 other => self.notice = Some(format!("screenshot {}: {other:?}", path.display())),
             }
@@ -868,8 +899,35 @@ impl App {
 // ---- tabs -----------------------------------------------------------------------------
 
 impl App {
+    /// The Start tab's theme line: the active preset and mode, where the choice came
+    /// from, and the five statuses as the preset draws them.
+    fn theme_line(&self, ui: &mut egui::Ui) {
+        let active = self.theme.preset.theme();
+        ui.horizontal_wrapped(|ui| {
+            ui.strong(format!("Theme: {}", active.name));
+            let mode = match self.theme.mode {
+                theme::Mode::System => "system light/dark",
+                theme::Mode::Light => "light",
+                theme::Mode::Dark => "dark",
+            };
+            ui.weak(format!(
+                "({mode}, from {}): {}. Other presets: `kit ui --theme <name>`, {}",
+                self.theme_source,
+                active.summary,
+                ThemeChoice::HELP
+            ));
+        });
+        ui.horizontal_wrapped(|ui| {
+            ui.weak("statuses:");
+            for s in Status::ALL {
+                theme::status(ui, s, "");
+            }
+        });
+    }
+
     fn tab_start(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
         ui.heading("Start");
+        self.theme_line(ui);
         ui.label("The MO2 instance, its profiles and the Data folder, as the engine's `profiles` command reads them. Each button loads a profile read-only; `Default` is the owner's live game and is only ever read. In-game checks run on `KitKraft Dev`.");
         ui.horizontal(|ui| {
             ui.label("MO2 instance");
@@ -908,7 +966,7 @@ impl App {
                         }
                     )),
                     None => ui.colored_label(
-                        BAD,
+                        theme::bad(ui),
                         "none found: type the folder holding ModOrganizer.ini above",
                     ),
                 };
@@ -917,7 +975,7 @@ impl App {
                 if view.data_ok {
                     ui.label(&view.data_dir);
                 } else {
-                    ui.colored_label(WARN, &view.data_dir);
+                    ui.colored_label(theme::warn(ui), &view.data_dir);
                 }
                 ui.end_row();
             });
@@ -934,11 +992,11 @@ impl App {
             ui.add_space(6.0);
             if view.profiles.is_empty() && view.instance.is_some() {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     "the instance has no profiles (folders with a modlist.txt)",
                 );
             }
-            Grid::new("start-profiles").striped(true).show(ui, |ui| {
+            theme::table(ui, "start-profiles").show(ui, |ui| {
                 for p in &view.profiles {
                     let label = if p.live {
                         format!("Load {} (read-only)", p.name)
@@ -950,10 +1008,10 @@ impl App {
                     }
                     match p.badge() {
                         Some(b) if p.live => {
-                            ui.colored_label(WARN, b);
+                            ui.colored_label(theme::warn(ui), b);
                         }
                         Some(b) => {
-                            ui.colored_label(GOOD, b);
+                            ui.colored_label(theme::good(ui), b);
                         }
                         None => {
                             ui.label("");
@@ -1000,7 +1058,10 @@ impl App {
                     actions.push(Action::UseProfile(p.path.clone()));
                 }
                 if p.live {
-                    ui.colored_label(WARN, "owner's live game: loading it only reads it");
+                    ui.colored_label(
+                        theme::warn(ui),
+                        "owner's live game: loading it only reads it",
+                    );
                 }
             });
         }
@@ -1036,14 +1097,14 @@ impl App {
                 ("Active but missing", &view.missing_active),
             ] {
                 if !list.is_empty() {
-                    ui.colored_label(WARN, format!("{label}: {}", list.join(", ")));
+                    ui.colored_label(theme::warn(ui), format!("{label}: {}", list.join(", ")));
                 }
             }
             ScrollArea::vertical()
                 .id_salt("load-rows")
                 .max_height(420.0)
                 .show(ui, |ui| {
-                    Grid::new("load-grid").striped(true).show(ui, |ui| {
+                    theme::table(ui, "load-grid").show(ui, |ui| {
                         for h in [
                             "#", "plugin", "scale", "flags", "records", "slot", "active",
                             "provider", "cache", "problems",
@@ -1055,7 +1116,7 @@ impl App {
                             ui.label(p.index.to_string());
                             ui.label(&p.name);
                             if p.scale == "unknown" {
-                                ui.colored_label(WARN, "unknown");
+                                ui.colored_label(theme::warn(ui), "unknown");
                             } else {
                                 ui.label(&p.scale);
                             }
@@ -1082,7 +1143,7 @@ impl App {
                             if problems.is_empty() {
                                 ui.label("");
                             } else {
-                                ui.colored_label(BAD, problems.join("; "));
+                                ui.colored_label(theme::bad(ui), problems.join("; "));
                             }
                             ui.end_row();
                         }
@@ -1094,9 +1155,14 @@ impl App {
     fn tab_records(&mut self, ui: &mut egui::Ui, busy: bool, actions: &mut Vec<Action>) {
         ui.heading("Records");
         let plugins = self.loaded_plugins();
+        let tour = self.tour.is_some();
+        // The screenshot tour folds the type list so the query table and the selected
+        // record's inspector both fit in one image.
+        let types_open = tour.then_some(false);
         CollapsingHeader::new("Record types")
             .id_salt("types")
             .default_open(true)
+            .open(types_open)
             .show(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui
@@ -1131,7 +1197,7 @@ impl App {
                         .id_salt("types-rows")
                         .max_height(220.0)
                         .show(ui, |ui| {
-                            Grid::new("types-grid").striped(true).show(ui, |ui| {
+                            theme::table(ui, "types-grid").show(ui, |ui| {
                                 for h in
                                     ["type", "definition", "records", "confidence / occurrences"]
                                 {
@@ -1152,7 +1218,7 @@ impl App {
                                     match &t.definition {
                                         Some(d) => ui.label(d),
                                         None => ui.colored_label(
-                                            WARN,
+                                            theme::warn(ui),
                                             "no definition (subrecords unknown)",
                                         ),
                                     };
@@ -1191,6 +1257,10 @@ impl App {
                 });
                 envelope_block(ui, self.results.get(&Slot::Query.into()), |ui| {
                     let Some(view) = &self.query_view else { return };
+                    if tour {
+                        // Table on top, the inspector below it, in one image.
+                        ui.scroll_to_cursor(Some(egui::Align::TOP));
+                    }
                     ui.horizontal(|ui| {
                         ui.label(format!(
                             "{} matched, {} undecided on this page",
@@ -1213,13 +1283,13 @@ impl App {
                         }
                     });
                     for (form, reasons) in &view.unknown_records {
-                        ui.colored_label(WARN, format!("undecided {form}: {reasons}"));
+                        ui.colored_label(theme::warn(ui), format!("undecided {form}: {reasons}"));
                     }
                     ScrollArea::vertical()
                         .id_salt("query-rows")
                         .max_height(300.0)
                         .show(ui, |ui| {
-                            Grid::new("query-grid").striped(true).show(ui, |ui| {
+                            theme::table(ui, "query-grid").show(ui, |ui| {
                                 for h in [
                                     "form",
                                     "",
@@ -1335,11 +1405,14 @@ impl App {
                 view.counts
             ));
             if view.truncated {
-                ui.colored_label(WARN, "the walk stopped at its cap: lower the depth");
+                ui.colored_label(
+                    theme::warn(ui),
+                    "the walk stopped at its cap: lower the depth",
+                );
             }
             if view.unrecognized > 0 {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     format!(
                         "{} edge(s) with a marker this view does not know (raw JSON below)",
                         view.unrecognized
@@ -1382,7 +1455,7 @@ impl App {
                 .id_salt("links-rows")
                 .max_height(420.0)
                 .show(ui, |ui| {
-                    Grid::new("links-grid").striped(true).show(ui, |ui| {
+                    theme::table(ui, "links-grid").show(ui, |ui| {
                         let heads: &[&str] = if incoming {
                             &[
                                 "hop", "referrer", "", "path", "raw", "status", "plugin", "placed",
@@ -1410,7 +1483,7 @@ impl App {
                             ui.monospace(&e.path);
                             ui.monospace(&e.raw);
                             if e.problem() {
-                                ui.colored_label(BAD, &e.status);
+                                ui.colored_label(theme::bad(ui), &e.status);
                             } else {
                                 ui.label(&e.status);
                             }
@@ -1419,7 +1492,7 @@ impl App {
                                 ui.label(e.placed.as_deref().unwrap_or(""));
                             } else {
                                 if e.problem() {
-                                    ui.colored_label(BAD, &e.to_label);
+                                    ui.colored_label(theme::bad(ui), &e.to_label);
                                 } else {
                                     form_cell(ui, busy, e.to.as_deref(), &e.to_label, actions);
                                 }
@@ -1431,7 +1504,7 @@ impl App {
                                 }
                                 if e.target_mismatch {
                                     ui.colored_label(
-                                        WARN,
+                                        theme::warn(ui),
                                         format!("{} (target type not listed)", e.plugin),
                                     );
                                 } else {
@@ -1483,7 +1556,7 @@ impl App {
                 ui.label(c);
             }
             for u in &view.unresolved {
-                ui.colored_label(BAD, format!("unresolved: {u}"));
+                ui.colored_label(theme::bad(ui), format!("unresolved: {u}"));
             }
             ui.horizontal(|ui| {
                 if self.planet_cursor.is_some()
@@ -1511,50 +1584,47 @@ impl App {
                     .id_salt(("planet-rows", title))
                     .max_height(380.0)
                     .show(ui, |ui| {
-                        Grid::new(("planet-grid", title))
-                            .striped(true)
-                            .show(ui, |ui| {
-                                for h in ["node", "", "order", "selection", "conditions", "content"]
+                        theme::table(ui, ("planet-grid", title)).show(ui, |ui| {
+                            for h in ["node", "", "order", "selection", "conditions", "content"] {
+                                ui.strong(h);
+                            }
+                            ui.end_row();
+                            for n in rows {
+                                let indent =
+                                    "    ".repeat(usize::try_from(n.depth.min(12)).unwrap_or(0));
+                                if link(ui, !busy, format!("{indent}{} {}", n.form, n.label))
+                                    .on_hover_text("planet chain of this node")
+                                    .clicked()
                                 {
-                                    ui.strong(h);
+                                    actions.push(Action::Planet(n.form.clone()));
+                                }
+                                record_actions(ui, busy, &n.form, actions);
+                                if n.unreadable {
+                                    ui.colored_label(theme::bad(ui), "not readable");
+                                } else {
+                                    ui.label(&n.order);
+                                }
+                                ui.label(&n.selection);
+                                ui.label(n.conditions.to_string());
+                                match &n.content {
+                                    Some((text, Some(to))) => {
+                                        if link(ui, !busy, text)
+                                            .on_hover_text("inspect the content")
+                                            .clicked()
+                                        {
+                                            actions.push(Action::Inspect(to.clone()));
+                                        }
+                                    }
+                                    Some((text, None)) => {
+                                        ui.colored_label(theme::bad(ui), text);
+                                    }
+                                    None => {
+                                        ui.label("");
+                                    }
                                 }
                                 ui.end_row();
-                                for n in rows {
-                                    let indent = "    "
-                                        .repeat(usize::try_from(n.depth.min(12)).unwrap_or(0));
-                                    if link(ui, !busy, format!("{indent}{} {}", n.form, n.label))
-                                        .on_hover_text("planet chain of this node")
-                                        .clicked()
-                                    {
-                                        actions.push(Action::Planet(n.form.clone()));
-                                    }
-                                    record_actions(ui, busy, &n.form, actions);
-                                    if n.unreadable {
-                                        ui.colored_label(BAD, "not readable");
-                                    } else {
-                                        ui.label(&n.order);
-                                    }
-                                    ui.label(&n.selection);
-                                    ui.label(n.conditions.to_string());
-                                    match &n.content {
-                                        Some((text, Some(to))) => {
-                                            if link(ui, !busy, text)
-                                                .on_hover_text("inspect the content")
-                                                .clicked()
-                                            {
-                                                actions.push(Action::Inspect(to.clone()));
-                                            }
-                                        }
-                                        Some((text, None)) => {
-                                            ui.colored_label(BAD, text);
-                                        }
-                                        None => {
-                                            ui.label("");
-                                        }
-                                    }
-                                    ui.end_row();
-                                }
-                            });
+                            }
+                        });
                     });
             }
             if !view.placements.is_empty() {
@@ -1562,7 +1632,7 @@ impl App {
                     "placed by {} content node(s)",
                     view.placements.len()
                 ));
-                Grid::new("planet-placements").striped(true).show(ui, |ui| {
+                theme::table(ui, "planet-placements").show(ui, |ui| {
                     for h in ["at", "content node", "tree", "chain (nearest first)"] {
                         ui.strong(h);
                     }
@@ -1589,7 +1659,7 @@ impl App {
                 .id_salt("planet-links")
                 .default_open(view.nodes.is_empty() && view.placements.is_empty())
                 .show(ui, |ui| {
-                    Grid::new("planet-links-grid").striped(true).show(ui, |ui| {
+                    theme::table(ui, "planet-links-grid").show(ui, |ui| {
                         for h in ["where", "link", ""] {
                             ui.strong(h);
                         }
@@ -1605,7 +1675,11 @@ impl App {
                                 }
                                 _ => {
                                     ui.colored_label(
-                                        if l.problem { BAD } else { Color32::GRAY },
+                                        if l.problem {
+                                            theme::bad(ui)
+                                        } else {
+                                            Color32::GRAY
+                                        },
                                         &l.text,
                                     );
                                     ui.label("");
@@ -1704,7 +1778,7 @@ impl App {
                             }
                             record_actions(ui, busy, &r.form, actions);
                         });
-                        Grid::new(("diff-grid", i)).striped(true).show(ui, |ui| {
+                        theme::table(ui, ("diff-grid", i)).show(ui, |ui| {
                             for h in ["subrecord", "change", "path", "before", "after"] {
                                 ui.strong(h);
                             }
@@ -1766,7 +1840,7 @@ impl App {
                 record_actions(ui, busy, &view.global, actions);
             }
             ui.label("Versions: the FormID each plugin stores, and how it resolved");
-            Grid::new("diag-versions").striped(true).show(ui, |ui| {
+            theme::table(ui, "diag-versions").show(ui, |ui| {
                 for h in ["plugin", "scale", "raw FormID", "resolved by", ""] {
                     ui.strong(h);
                 }
@@ -1774,7 +1848,7 @@ impl App {
                 for r in &view.identities {
                     ui.label(&r.plugin);
                     if r.scale == "unknown" {
-                        ui.colored_label(WARN, "unknown");
+                        ui.colored_label(theme::warn(ui), "unknown");
                     } else {
                         ui.label(&r.scale);
                     }
@@ -1782,7 +1856,7 @@ impl App {
                     if r.resolved_by == "direct" {
                         ui.label(&r.resolved_by);
                     } else {
-                        ui.colored_label(WARN, &r.resolved_by);
+                        ui.colored_label(theme::warn(ui), &r.resolved_by);
                     }
                     ui.label(match (r.winner, r.deleted) {
                         (true, true) => "winner, deleted",
@@ -1801,7 +1875,7 @@ impl App {
                 .id_salt("diag-refs")
                 .max_height(260.0)
                 .show(ui, |ui| {
-                    Grid::new("diag-refs-grid").striped(true).show(ui, |ui| {
+                    theme::table(ui, "diag-refs-grid").show(ui, |ui| {
                         for h in ["at", "raw", "resolved", ""] {
                             ui.strong(h);
                         }
@@ -1810,7 +1884,7 @@ impl App {
                             ui.monospace(&r.at);
                             ui.monospace(&r.raw);
                             if r.resolved == "unresolved" {
-                                ui.colored_label(BAD, &r.resolved);
+                                theme::status(ui, Status::Fail, &r.resolved);
                                 ui.label("");
                             } else if r.resolved == "NULL" {
                                 ui.label(&r.resolved);
@@ -1843,7 +1917,7 @@ impl App {
         envelope_block(ui, self.results.get(&Slot::DiagValidate.into()), |ui| {
             let Some(view) = &self.diag_view else { return };
             if view.findings.is_empty() && view.validate_summary.is_some() {
-                ui.colored_label(GOOD, "no master or FormID finding");
+                theme::status(ui, Status::Pass, "no master or FormID finding");
             }
             findings_grid(ui, "diag-findings", view.findings.iter());
         });
@@ -1895,15 +1969,23 @@ impl App {
                 view.errors, view.warnings, view.findings_total, view.checked_line
             ));
             for g in &view.groups {
-                let color = if g.errors > 0 {
-                    BAD
+                let status = if g.errors > 0 {
+                    Status::Fail
                 } else if g.warnings > 0 {
-                    WARN
+                    Status::Warn
                 } else {
-                    GOOD
+                    Status::Pass
+                };
+                let color = theme::color(theme::palette(ui).status.of(status));
+                // The header is plain text: the status word leads it when the theme
+                // shows status glyphs (status is never color-only).
+                let word = if theme::active(ui.ctx()).status_glyphs {
+                    format!("{} {}  ", status.glyph_char(), status.word().to_uppercase())
+                } else {
+                    String::new()
                 };
                 let title = RichText::new(format!(
-                    "{}: {} error(s), {} warning(s)",
+                    "{word}{}: {} error(s), {} warning(s)",
                     g.rule, g.errors, g.warnings
                 ))
                 .color(color);
@@ -1921,7 +2003,7 @@ impl App {
             };
             ui.label(&view.counts);
             if let Some(m) = &view.mismatch {
-                ui.colored_label(BAD, format!("first mismatch {m}"));
+                theme::status(ui, Status::Fail, &format!("first mismatch {m}"));
             }
         });
     }
@@ -2002,7 +2084,7 @@ impl App {
             }
             None if self.observations.is_none() => {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     "the ledger was not read: no checkout found (see the Help tab)",
                 );
             }
@@ -2035,7 +2117,7 @@ impl App {
         if let Some(p) = &self.ledger_pending {
             egui::Frame::group(ui.style()).show(ui, |ui| {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     format!("Append this row to {}? This is the workbench's only write; one row per click.", p.file),
                 );
                 ui.monospace(format!(
@@ -2070,10 +2152,13 @@ impl App {
         envelope_block(ui, self.results.get(&Slot::Ledger.into()), |ui| {
             let Some(v) = &self.ledger_view else { return };
             if v.appended {
-                ui.colored_label(GOOD, format!("appended to {} in {}", v.entry, v.file));
+                ui.colored_label(
+                    theme::good(ui),
+                    format!("appended to {} in {}", v.entry, v.file),
+                );
             } else {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     format!(
                         "preview only (nothing written): it would go into {}{}",
                         v.entry,
@@ -2106,7 +2191,7 @@ impl App {
         match &self.checkout {
             Some((root, how)) => ui.weak(format!("docs from {} (found {how})", root.display())),
             None => ui.colored_label(
-                BAD,
+                theme::bad(ui),
                 format!(
                     "no KitKraft checkout found (a folder with AGENTS.md and docs): set {} or type it above",
                     help::REPO_ENV
@@ -2141,7 +2226,7 @@ impl App {
                     match &doc.blocks {
                         Ok(blocks) => md_blocks(ui, i, blocks),
                         Err(e) => {
-                            ui.colored_label(BAD, e);
+                            ui.colored_label(theme::bad(ui), e);
                         }
                     }
                 });
@@ -2170,7 +2255,7 @@ impl App {
             };
             if view.defined == Some(false) {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     "no definition: its subrecords are unknown to the schema (not absent)",
                 );
             }
@@ -2182,7 +2267,7 @@ impl App {
                 ui.weak(&view.source);
             }
             if !view.definitions.is_empty() {
-                Grid::new("schema-defs").striped(true).show(ui, |ui| {
+                theme::table(ui, "schema-defs").show(ui, |ui| {
                     for (ty, name, conf) in &view.definitions {
                         if link(ui, !busy, ty).clicked() {
                             let mut form = self.schema_form.clone();
@@ -2196,7 +2281,7 @@ impl App {
                     }
                 });
             }
-            Grid::new("schema-members").striped(true).show(ui, |ui| {
+            theme::table(ui, "schema-members").show(ui, |ui| {
                 for h in [
                     "member",
                     "signature",
@@ -2288,12 +2373,12 @@ fn form_cell(
 
 fn conf_label(ui: &mut egui::Ui, confidence: &str) {
     if confidence == "reference" {
-        ui.colored_label(WARN, "reference (unconfirmed)")
+        ui.colored_label(theme::warn(ui), "reference (unconfirmed)")
             .on_hover_text(
                 "documented in the pinned xEdit file; not yet confirmed by the corpus or the CK",
             );
     } else if confidence == "container-reference" {
-        ui.colored_label(WARN, "container-reference (unconfirmed)")
+        ui.colored_label(theme::warn(ui), "container-reference (unconfirmed)")
             .on_hover_text("a container fact from UESP's Skyrim pages that no official file shows");
     } else {
         ui.label(confidence);
@@ -2328,7 +2413,7 @@ fn findings_grid<'a>(
     id: &str,
     findings: impl Iterator<Item = &'a crate::panels::validate::FindingRow>,
 ) {
-    Grid::new(("findings", id)).striped(true).show(ui, |ui| {
+    theme::table(ui, ("findings", id)).show(ui, |ui| {
         for h in [
             "severity",
             "rule",
@@ -2342,9 +2427,9 @@ fn findings_grid<'a>(
         ui.end_row();
         for f in findings.take(1000) {
             if f.severity == "error" {
-                ui.colored_label(BAD, &f.severity);
+                theme::status(ui, Status::Fail, &f.severity);
             } else {
-                ui.colored_label(WARN, &f.severity);
+                theme::status(ui, Status::Warn, &f.severity);
             }
             ui.monospace(&f.rule);
             ui.monospace(&f.record);
@@ -2386,7 +2471,7 @@ fn record_view(ui: &mut egui::Ui, view: &RecordView, busy: bool, actions: &mut V
     let unconfirmed = view.unconfirmed();
     if !unconfirmed.is_empty() {
         ui.colored_label(
-            WARN,
+            theme::warn(ui),
             format!(
                 "reference-confidence members (unconfirmed): {}",
                 unconfirmed.join(", ")
@@ -2418,7 +2503,7 @@ fn record_view(ui: &mut egui::Ui, view: &RecordView, busy: bool, actions: &mut V
                     ui.label(format!("vs previous: {}", v.changes.join(", ")));
                 }
                 ui.weak(format!("record flags {}", v.flags));
-                Grid::new(("subs", i)).striped(true).show(ui, |ui| {
+                theme::table(ui, ("subs", i)).show(ui, |ui| {
                     for h in [
                         "sig",
                         "member",
@@ -2473,7 +2558,7 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
             });
             if !line.exact {
                 ui.colored_label(
-                    WARN,
+                    theme::warn(ui),
                     "a value holds both quote characters: the line above is not exact; use the MCP form",
                 );
             }
@@ -2496,7 +2581,7 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
         ui.monospace(&shown.mcp);
     });
     if let Some(err) = &shown.error {
-        ui.colored_label(BAD, err.to_string());
+        ui.colored_label(theme::bad(ui), err.to_string());
         raw_lines(ui, id, "error JSON", &shown.prepared, true);
         return;
     }
@@ -2506,10 +2591,10 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
     ui.horizontal_wrapped(|ui| {
         match view.passed {
             Some(true) => {
-                ui.colored_label(GOOD, "PASSED");
+                theme::status(ui, Status::Pass, "PASSED");
             }
             Some(false) => {
-                ui.colored_label(BAD, "FAILED");
+                theme::status(ui, Status::Fail, "FAILED");
             }
             None => {}
         }
@@ -2526,16 +2611,19 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
     if view.limitations.is_empty() {
         ui.weak("limitations: none claimed");
     } else {
-        ui.colored_label(WARN, format!("limitations ({})", view.limitations.len()));
+        ui.colored_label(
+            theme::warn(ui),
+            format!("limitations ({})", view.limitations.len()),
+        );
         // Every limitation stays on screen; a long one shows its first line's worth and
         // the rest on hover.
         for l in &view.limitations {
             if l.chars().count() > LIMITATION_CHARS {
                 let head: String = l.chars().take(LIMITATION_CHARS).collect();
-                ui.colored_label(WARN, format!("  - {head}... (hover for all)"))
+                ui.colored_label(theme::warn(ui), format!("  - {head}... (hover for all)"))
                     .on_hover_text(l);
             } else {
-                ui.colored_label(WARN, format!("  - {l}"));
+                ui.colored_label(theme::warn(ui), format!("  - {l}"));
             }
         }
     }
@@ -2544,7 +2632,7 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
         .id_salt(("evidence", id))
         .show(ui, |ui| {
             ScrollArea::vertical().id_salt(("evidence-rows", id)).max_height(260.0).show(ui, |ui| {
-                Grid::new(("evidence-grid", id)).striped(true).show(ui, |ui| {
+                theme::table(ui, ("evidence-grid", id)).show(ui, |ui| {
                     for h in ["file", "offset", "length", "record", "subrecord"] {
                         ui.strong(h);
                     }
@@ -2570,7 +2658,7 @@ fn envelope_block(ui: &mut egui::Ui, shown: Option<&Shown>, content: impl FnOnce
 fn copy_code(ui: &mut egui::Ui, code: &str) {
     let r = ui
         .add(
-            egui::Label::new(RichText::new(code).monospace().color(CODE))
+            egui::Label::new(RichText::new(code).monospace().color(theme::code(ui)))
                 .sense(egui::Sense::click()),
         )
         .on_hover_text("click to copy");
@@ -2645,20 +2733,18 @@ fn md_blocks(ui: &mut egui::Ui, doc: usize, blocks: &[Block]) {
                 ScrollArea::horizontal()
                     .id_salt(("md-table-scroll", doc, i))
                     .show(ui, |ui| {
-                        Grid::new(("md-table", doc, i))
-                            .striped(true)
-                            .show(ui, |ui| {
-                                for c in header {
-                                    md_cell(ui, c, width, true);
+                        theme::table(ui, ("md-table", doc, i)).show(ui, |ui| {
+                            for c in header {
+                                md_cell(ui, c, width, true);
+                            }
+                            ui.end_row();
+                            for row in rows {
+                                for c in row {
+                                    md_cell(ui, c, width, false);
                                 }
                                 ui.end_row();
-                                for row in rows {
-                                    for c in row {
-                                        md_cell(ui, c, width, false);
-                                    }
-                                    ui.end_row();
-                                }
-                            });
+                            }
+                        });
                     });
             }
             Block::Code(lines) => {
