@@ -121,6 +121,27 @@ pub fn apply_field(
     let mut next = payload.get(..at.start).unwrap_or_default().to_vec();
     next.extend_from_slice(&new);
     next.extend_from_slice(payload.get(end..).unwrap_or_default());
+    // The edited payload must still decode as the schema's layout (Fable review of lane D,
+    // finding 1): a whole subrecord given as hex: always, any other edit when the payload
+    // decoded before it (an array whose length is not a multiple of its element size, a
+    // count that disagrees with its array). `validate`'s `layout.undecoded` flags the same.
+    if let Some(layout) = layout.as_ref().filter(|l| l.fallback.is_none()) {
+        let dctx = kitkraft_doc::typed::Ctx {
+            form_version: ctx.form_version,
+            localized: ctx.localized_target,
+            edid_first,
+        };
+        let sig_text = path.signature_str();
+        let whole_hex = path.steps.is_empty()
+            && matches!(op, Op::Set(Value::String(t)) if t.starts_with("hex:"));
+        let checked = !layout.ty.is_opaque()
+            && (whole_hex || kitkraft_doc::typed::decode(ty, &payload, &dctx).is_ok());
+        if checked {
+            if let Some(why) = fields::undecoded(&sig_text, ty, &next, &dctx) {
+                return Err(FieldError::new(text, "range", why));
+            }
+        }
+    }
     let changed = record
         .set_subrecord(index, next, limits)
         .map_err(payload_err)?;

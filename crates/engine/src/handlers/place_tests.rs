@@ -130,7 +130,7 @@ pub(crate) fn world_master(dir: &Path) -> PathBuf {
             b"CELL",
             FLAG_PERSISTENT,
             PERSISTENT_CELL,
-            vec![sub(b"DATA", &[0, 0])],
+            vec![sub(b"DATA", &[0, 0, 0, 0])],
         ),
         Parent::CellAt(pcell),
     );

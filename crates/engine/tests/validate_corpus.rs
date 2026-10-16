@@ -623,6 +623,18 @@ fn validate_corpus_official_files() {
         for (kind, example) in &examples {
             println!("    {kind}: e.g. {example}");
         }
+        // Every subrecord the schema places decodes under its layout (Fable review of lane
+        // D, finding 1; 2026-10-15: 0 on all 14 files, so `UNDECODED_IN_CORPUS` is empty).
+        let undecoded = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "layout.undecoded")
+            .count();
+        if undecoded != 0 {
+            println!("    layout.undecoded: {undecoded} findings, expected 0");
+            failures.push(name);
+        }
         let mut unexplained = 0u64;
         for f in data["findings"].as_array().unwrap() {
             if f["severity"] != json!("error") {

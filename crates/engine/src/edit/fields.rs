@@ -27,7 +27,10 @@
 //! | opaque, structs, arrays | only `hex:0A0B...` raw bytes (or a member path)          |
 //!
 //! `hex:` is accepted for any type; for a fixed-size type the byte count must match, and a
-//! zstring or (non-localized) lstring must still be one NUL-terminated string. An object
+//! zstring or (non-localized) lstring must still be one NUL-terminated string. A whole
+//! subrecord given as `hex:` (and any edit of a payload that decoded) must still decode
+//! as the subrecord's layout ([`undecoded`]): an array takes whole elements, and a count
+//! field must agree with its array. An object
 //! `{"mul": x}` or `{"add": x}` scales or offsets the current value of a typed number
 //! (integers are rounded to the nearest value, ties away from zero, then range-checked; an
 //! integral `add` is exact on 64-bit fields, while `mul` and a fractional `add` go through
@@ -1269,6 +1272,88 @@ pub fn text_of(bytes: &[u8]) -> Option<String> {
         return None;
     }
     String::from_utf8(body.to_vec()).ok()
+}
+
+/// An array inside a layout: its member label, element size (`None`: variable) and what
+/// sets its count.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ArrayShape {
+    /// `.Swaps`, or empty for a payload that is itself an array.
+    pub member: String,
+    /// Bytes per element, when fixed.
+    pub element_size: Option<usize>,
+    /// `to the end of the payload`, `count from Count`, or `exactly N`.
+    pub count: String,
+}
+
+/// Every array in `ty` (struct members searched depth first, not array elements).
+pub fn array_shapes(ty: &FieldType, form_version: u16) -> Vec<ArrayShape> {
+    fn walk(ty: &FieldType, member: &str, form_version: u16, out: &mut Vec<ArrayShape>) {
+        match deref(ty) {
+            FieldType::Array { element, count } => out.push(ArrayShape {
+                member: member.to_string(),
+                element_size: element
+                    .fixed_size(Some(form_version))
+                    .and_then(|s| usize::try_from(s).ok()),
+                count: match count {
+                    ArrayCount::Rest => "to the end of the payload".into(),
+                    ArrayCount::From(name) => format!("count from `{name}`"),
+                    ArrayCount::Fixed(n) => format!("exactly {n}"),
+                },
+            }),
+            FieldType::Struct { fields } => {
+                for f in fields.iter().filter(|f| f.present_in(Some(form_version))) {
+                    walk(&f.ty, &format!("{member}.{}", f.name), form_version, out);
+                }
+            }
+            _ => {}
+        }
+    }
+    let mut out = Vec::new();
+    walk(ty, "", form_version, &mut out);
+    out
+}
+
+/// Why a whole subrecord payload does not decode as its layout `ty`
+/// (`kitkraft_doc::typed::decode`), naming the element size of every array in it; `None`
+/// when it decodes. `sig` labels the subrecord in the message.
+pub fn undecoded(
+    sig: &str,
+    ty: &FieldType,
+    payload: &[u8],
+    ctx: &kitkraft_doc::typed::Ctx,
+) -> Option<String> {
+    let err = kitkraft_doc::typed::decode(ty, payload, ctx).err()?;
+    let len = payload.len();
+    let shapes = array_shapes(ty, ctx.form_version);
+    // A payload that is one array of fixed-size elements to its end: say it plainly.
+    if let (FieldType::Array { .. }, [shape]) = (deref(ty), shapes.as_slice()) {
+        if let Some(size) = shape.element_size.filter(|s| *s > 0) {
+            if shape.count.starts_with("to the end") && len.checked_rem(size) != Some(0) {
+                return Some(format!(
+                    "{sig} is an array of {size}-byte elements to the end of the payload; {len} bytes is not a multiple of {size} ({} whole elements and {} bytes over)",
+                    len.checked_div(size).unwrap_or(0),
+                    len.checked_rem(size).unwrap_or(0),
+                ));
+            }
+        }
+    }
+    let mut message = format!("{sig}'s {len} bytes do not decode as its layout ({err})");
+    for shape in &shapes {
+        let what = if shape.member.is_empty() {
+            sig.to_string()
+        } else {
+            format!("{sig}{}", shape.member)
+        };
+        let size = shape
+            .element_size
+            .map_or_else(|| "variable-size".to_string(), |s| format!("{s}-byte"));
+        message.push_str(&format!(
+            "; {what} is an array of {size} elements, {}",
+            shape.count
+        ));
+    }
+    Some(message)
 }
 
 /// Uppercase hex.
