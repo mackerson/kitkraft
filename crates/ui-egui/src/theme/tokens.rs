@@ -3,7 +3,7 @@
 //! owner's chosen direction (M6.O1, 2026-10-16) and the default. Nothing here names the toolkit;
 //! [`super::apply`] turns a [`Theme`] into egui's `Style`. The rules that bind the values
 //! (status never color-only, AA contrast, density) are in
-//! `docs/design/workbench-visual-system.md`.
+//! `docs/design/workbench-style.md` (a test keeps it naming every token here).
 
 /// An sRGB color, 8 bits per channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

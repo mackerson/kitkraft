@@ -52,7 +52,8 @@ M6.O1), `studio`, or `classic` (legacy, the look before the tokens), each option
 `-light` or `-dark` (otherwise the window follows Windows). Without it, `"theme"` in
 `%LOCALAPPDATA%\kitkraft\ui.json` is used. The Start tab's theme line has a picker (preset;
 system, light or dark) that applies at once and writes `ui.json`. The presets and their
-tokens are in `docs/design/workbench-visual-system.md`.
+tokens are in `docs/design/workbench-style.md`. The Start tab's About line names the build
+(from the envelopes' `build`), and a debug build says so in the title bar.
 
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
 also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The
@@ -372,6 +373,50 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
+## CK-style windows (M7.M0, M7.M1, M7.M4, M7.W3, M7.W5)
+
+**Decision (M7.M0, lane M, 2026-10-16; director assumption pending the owner):** the
+Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
+window, not as a dock layout and not as separate OS windows. Each is toggled from the
+View menu and remembers whether it is open, its position and its size in `ui.json`
+(`ck_windows`, written when one opens, closes, moves or resizes; never by the tour). The
+existing tabs stay as they are and each can also float as such a window (View >
+Workbench tabs as windows); a floating tab is drawn only in its window, and the central
+panel falls back to the last docked tab. Why: egui's own windows need no new crate (a
+docking crate such as `egui_dock` would be a new dependency for ADR 0007 to list), they
+keep the cockpit tabs intact, and no CK sitting has yet shown whether the CK docks its
+windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Code:
+`crates/ui-egui/src/menu.rs`, `src/windows/` (the glue `shell.rs` is a child module of
+`app.rs`, which calls it through one-line hooks), `src/dialogs/`, and the layout files in
+`crates/ui-egui/layouts/`.
+
+- **Menu bar (M7.M1)**, above the tabs, built from the catalog: one item per command, in
+  the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
+  (bound by M7.M5). The CK's menus come first in the order `docs/ck-parity.md` records,
+  which is a recollection, `unresearched` until sitting 1 (each such menu says so in its
+  first line); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) come
+  before Help; a CK menu with no command yet (World, NavMesh, Character, Gameplay) shows a
+  disabled line saying why. An item opens the tab or window that runs its command and
+  runs nothing itself. Disabled items carry a word beside them and the reason on hover:
+  `writes` (outside ADR 0007 Amendment 3's scope, or in it but not yet permitted),
+  `deferred` or `planned`, or `kit / MCP` (a read the window does not offer).
+- **Warnings (M7.M4)**: the load order's problems (missing or late masters, plugins that
+  did not load, active plugins with no file), the `load` limitations, and the Validate
+  tab's last `validate` findings, one list with severity as glyph and word, a text filter,
+  severity toggles, copy (tab-separated) and a Validate button over the loaded plugins;
+  double-click a finding to inspect its record.
+- **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
+  selection while open (one request per new selection), paged; limitations folded under
+  one line; double-click a referrer to inspect it.
+- **Edit dialog (M7.W3)**: the inspected record's winning version, read-only, its typed
+  fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
+  LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout
+  built from its `schema` (one group per schema group). Every tab and group name is
+  KitKraft's own and marked "layout unobserved" until sitting 2 (M7.O3); labels are the
+  schema's member names with the signature beside them; a subrecord the layout does not
+  place shows on an "Other" tab. OK stays disabled until M7.E2 (after the owner rules on
+  ADR 0007 Amendment 4, M7.O4).
+
 ## Screenshot tour (development aid)
 
 Set `KITKRAFT_WORKBENCH_SHOTS=<dir>` and start `kit-ui` with a profile. The tour then
@@ -396,7 +441,7 @@ A minimized window does not repaint, so the tour waits until it is restored (see
 2026-10-15: started from a background shell, the window opened minimized; started with
 PowerShell's `Start-Process -WindowStyle Normal` it opens restored, 2026-10-16). The Help
 tab shows the docs as read at start. It then saves `<dir>/<tab>.png` for each tab
-(`start`, `load`, ..., `ledger`, `help`, `cockpit`, `coverage`, `render window`) and closes. The tour's window is the usual 1400 x
+(`start`, `load`, ..., `ledger`, `help`, `cockpit`, `coverage`, `render window`), then the CK-style shell's images (`ck-menu-file`, `ck-menu-view`, `ck-menu-record`, `ck-menu-navmesh`, `ck-warnings`, `ck-use-info`, `ck-edit-weap`, `ck-edit-default` for `Starfield.esm:000007`, and `ck-layout` with every window open and the Schema tab floating), and closes. The tour's window is the usual 1400 x
 900 points; the Records tab folds "Record types", so the query table and the selected
 record's inspector (the right pane) are in one image, and the scroll is not animated. Add
 `--theme <preset>` to capture a preset (the M6.V2 mockups were made so; they were removed

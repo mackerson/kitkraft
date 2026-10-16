@@ -1,0 +1,47 @@
+# Edit-dialog layout for FACT (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
+# Tabs, groups and field order are KitKraft's own arrangement in the style of the
+# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
+# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
+# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
+# Fields are subrecord signatures from the record schema (a test checks each one);
+# a subrecord the layout does not place shows on an "Other" tab. Read-only until
+# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+type = "FACT"
+parity = "Edit dialog: FACT"
+observed = false
+
+[[tab]]
+name = "Faction"
+[[tab.group]]
+name = "Identity"
+fields = ["EDID", "FULL", "DNAM", "DATA"]
+[[tab.group]]
+name = "Relations"
+fields = ["XNAM"]
+[[tab.group]]
+name = "Ranks"
+fields = ["RNAM", "MNAM", "FNAM", "INAM"]
+
+[[tab]]
+name = "Crime"
+[[tab.group]]
+name = "Crime"
+fields = ["CRGR", "CRVA", "PRIS"]
+
+[[tab]]
+name = "Vendor"
+[[tab.group]]
+name = "Vendor"
+fields = ["VEND", "VENC", "VENV", "PLVD"]
+[[tab.group]]
+name = "Vendor conditions"
+fields = ["CITC", "CTDA", "CIS1", "CIS2"]
+
+[[tab]]
+name = "Voice and Groups"
+[[tab.group]]
+name = "Voice and groups"
+fields = ["VTCK", "CRHR", "HERD", "CRGP", "GRPH"]
+[[tab.group]]
+name = "Scripts"
+fields = ["VMAD"]

@@ -36,6 +36,9 @@ use crate::prepare::{build, prepare, Built, View};
 use crate::theme::{self, Field, ThemeChoice};
 use crate::worker::{Reply, Wake, Worker};
 use crate::{LaunchOptions, UiError};
+// Lane M (M7): the CK-style shell's glue, a child module so it reaches the tabs.
+#[path = "windows/shell.rs"]
+mod ck_shell;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 enum Tab {
@@ -240,6 +243,8 @@ struct App {
     /// the Start tab's picker, or the default).
     theme: ThemeChoice,
     theme_source: &'static str,
+    /// The title bar was checked against the first envelope's `build` (M6.P6a).
+    titled: bool,
     /// The picker changed the theme: apply it before the next frame.
     theme_changed: bool,
     worker: Worker<Built>,
@@ -276,6 +281,7 @@ struct App {
     cockpit: CockpitTab,
     coverage: CoverageTab,
     render: RenderTab,
+    shell: crate::windows::Shell,
 }
 
 /// Opens the window and blocks until it closes.
@@ -294,7 +300,7 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
             .and_then(|p| p.window)
     };
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("KitKraft Workbench (read-only)")
+        .with_title(crate::panels::common::WINDOW_TITLE)
         .with_active(true)
         .with_inner_size(match saved {
             Some(w) => [w.width, w.height],
@@ -418,6 +424,7 @@ impl App {
         let mut app = Self {
             theme,
             theme_source,
+            titled: false,
             theme_changed: false,
             worker,
             tab: if first_run { Tab::Start } else { Tab::Load },
@@ -471,6 +478,7 @@ impl App {
                 ..PerfState::default()
             },
             render: RenderTab::default(),
+            shell: crate::windows::Shell::default(),
         };
         let mut shots_refused = None;
         if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
@@ -545,6 +553,7 @@ impl App {
 
     fn receive(&mut self, reply: Reply<Built>) {
         let Some(slot) = self.slots.remove(&reply.ticket) else {
+            self.ck_receive(reply);
             return;
         };
         let received = Instant::now();
@@ -882,7 +891,7 @@ impl App {
                 }
             });
             if let Some(n) = &self.notice {
-                ui.colored_label(theme::bad(ui), n);
+                theme::status_line(ui, theme::Status::Fail, n);
             }
             if let Some(i) = &self.info {
                 ui.label(i);
@@ -968,7 +977,12 @@ impl eframe::App for App {
         self.perf.wheel.inject(raw_input);
     }
 
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        // The viewport's GL objects, while the context is still current (eframe calls
+        // this before it destroys the painter).
+        if let Some(gl) = gl {
+            crate::viewport::release_gl(gl);
+        }
         self.perf.frames.print_all();
         if self.window.remember {
             if let Some(w) = self.window.last {
@@ -994,11 +1008,24 @@ impl eframe::App for App {
         for reply in self.worker.poll() {
             self.receive(reply);
         }
+        if !self.titled {
+            // M6.P6a: a debug build says so in the title bar, from the first envelope's
+            // `build` member.
+            if let Some(b) = crate::panels::common::build_of(&self.results) {
+                self.titled = true;
+                if let Some(title) = crate::panels::common::debug_title(b) {
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Title(title));
+                }
+            }
+        }
         let busy = self.worker.is_busy();
         if busy {
             ui.ctx().request_repaint_after(Duration::from_millis(250));
         }
+        self.ck_menu_bar(ui);
         self.top_bar(ui);
+        self.ck_after_top_bar();
         self.status_line(ui, busy);
         let plugins = self.loaded_plugins();
         let tab = self.tab;
@@ -1069,6 +1096,7 @@ impl eframe::App for App {
         note_perf_target(ui.ctx(), PERF_TARGET_CENTRAL, central_out.response.rect);
         let actions = ctx.actions;
         self.apply(actions);
+        self.ck_windows(ui.ctx());
         if let Some(share) = self.records.split_changed.take() {
             self.prefs.records_split = Some(share);
             self.save_prefs();
@@ -1447,6 +1475,9 @@ impl App {
     }
 
     fn shoot(&mut self, ctx: &egui::Context) {
+        if self.tour.as_ref().is_some_and(|t| t.tab >= TABS.len()) && self.ck_tour(ctx) {
+            return;
+        }
         let Some(tour) = &mut self.tour else { return };
         let Some((tab, label)) = TABS.get(tour.tab) else {
             tour.step = TourStep::Done;

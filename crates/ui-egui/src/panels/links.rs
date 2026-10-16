@@ -343,7 +343,8 @@ fn placed_text(p: &Value) -> Option<String> {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    envelope_block, form_cell, record_actions, virtual_table, Action, Slot, TabCtx,
+    action_bar, envelope_block, form_cell, formid_status, panel_head, record_actions,
+    virtual_table, Action, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -359,31 +360,36 @@ impl LinksTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
-        ui.heading("Links");
-        ui.label("A form's typed FormID links (`refs`), or the records that name it (`refs --incoming`, the CK's Use Info). Every row comes from a `link` or `referrer` marker; a status other than resolved or null is shown as a failure.");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("form");
-            ui.add(
-                TextEdit::singleline(&mut self.form.form)
-                    .desired_width(theme::width(ui, Field::Medium))
-                    .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX"),
-            );
-            ui.radio_value(&mut self.form.incoming, false, "outgoing links");
-            ui.radio_value(&mut self.form.incoming, true, "use info (incoming)");
-            ui.label("depth");
-            ui.add(egui::DragValue::new(&mut self.form.depth).range(1..=MAX_DEPTH));
-            if self.form.incoming {
-                ui.checkbox(&mut self.form.all_versions, "every version");
-            }
-            ui.label("types");
-            ui.add(
-                TextEdit::singleline(&mut self.form.types)
-                    .desired_width(theme::width(ui, Field::Short))
-                    .hint_text("WEAP, LVLI"),
-            );
-            if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
-                actions.push(Action::LinksPage(None));
-            }
+        panel_head(
+            ui,
+            "Links",
+            "A form's typed FormID links (`refs`), or the records that name it (`refs --incoming`, the CK's Use Info). Every row comes from a `link` or `referrer` marker; a status other than resolved or null is shown as a failure.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("form");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.form)
+                        .desired_width(theme::width(ui, Field::Medium))
+                        .hint_text("Plugin.esm:XXXXXX, EditorID, runtime:XXXXXXXX"),
+                );
+                ui.radio_value(&mut self.form.incoming, false, "outgoing links");
+                ui.radio_value(&mut self.form.incoming, true, "use info (incoming)");
+                ui.label("depth");
+                ui.add(egui::DragValue::new(&mut self.form.depth).range(1..=MAX_DEPTH));
+                if self.form.incoming {
+                    ui.checkbox(&mut self.form.all_versions, "every version");
+                }
+                ui.label("types");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.types)
+                        .desired_width(theme::width(ui, Field::Short))
+                        .hint_text("WEAP, LVLI"),
+                );
+                if ui.add_enabled(!busy, egui::Button::new("Run")).clicked() {
+                    actions.push(Action::LinksPage(None));
+                }
+            })
         });
         envelope_block(ui, ctx.results.get(&Slot::Links.into()), |ui| {
             let Some(view) = &self.view else { return };
@@ -478,7 +484,7 @@ impl LinksTab {
                         if e.problem() {
                             theme::status(ui, Status::Fail, &e.status)
                         } else {
-                            ui.label(&e.status)
+                            formid_status(ui, &e.status)
                         }
                     });
                     if incoming {
@@ -487,7 +493,7 @@ impl LinksTab {
                     } else {
                         row.cell(|ui| {
                             if e.problem() {
-                                ui.colored_label(theme::bad(ui), &e.to_label);
+                                theme::status(ui, Status::Fail, &e.to_label);
                             } else {
                                 form_cell(ui, busy, e.to.as_deref(), &e.to_label, actions);
                             }

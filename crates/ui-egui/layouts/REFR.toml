@@ -1,0 +1,65 @@
+# Edit-dialog layout for REFR (M7.W3; crates/ui-egui/src/dialogs/mod.rs reads it).
+# Tabs, groups and field order are KitKraft's own arrangement in the style of the
+# Creation Kit's edit dialogs. They are UNOBSERVED: no CK sitting has shown this
+# dialog yet (M7.O3, sitting 2), so every name below is ours, not the CK's, and
+# M7.W4 replaces them with what the sitting records in docs/ck-parity.md.
+# Fields are subrecord signatures from the record schema (a test checks each one);
+# a subrecord the layout does not place shows on an "Other" tab. Read-only until
+# M7.E2 and the owner's ruling on ADR 0007 Amendment 4 (M7.O4).
+type = "REFR"
+parity = "Edit dialog: REFR"
+observed = false
+
+[[tab]]
+name = "Reference"
+[[tab.group]]
+name = "Base and placement"
+fields = ["NAME", "EDID", "DATA", "XSCL"]
+[[tab.group]]
+name = "Enable parent"
+fields = ["XESP"]
+[[tab.group]]
+name = "Ownership"
+fields = ["XOWN", "XRNK"]
+[[tab.group]]
+name = "Layer and group"
+fields = ["XLYR", "XRFG", "XPCS"]
+
+[[tab]]
+name = "Location"
+[[tab.group]]
+name = "Location"
+fields = ["XLCN", "XLRT", "XEZN", "XLRL"]
+[[tab.group]]
+name = "Map marker"
+fields = ["XMRK", "FNAM", "FULL", "TNAM", "VNAM", "UNAM", "VISI"]
+
+[[tab]]
+name = "Teleport and Lock"
+[[tab.group]]
+name = "Teleport"
+fields = ["XTEL", "XTNM", "XNDP"]
+[[tab.group]]
+name = "Lock"
+fields = ["XLOC"]
+
+[[tab]]
+name = "Light"
+[[tab.group]]
+name = "Light"
+fields = ["XRDS", "XLIG", "XLCD", "XLFD", "XEMI", "XALD"]
+
+[[tab]]
+name = "Links"
+[[tab.group]]
+name = "Linked references"
+fields = ["XLKR", "XLKT"]
+[[tab.group]]
+name = "Activation and power"
+fields = ["XACT", "XATR", "XPLK"]
+
+[[tab]]
+name = "Scripts"
+[[tab.group]]
+name = "Scripts and properties"
+fields = ["VMAD", "XPPS", "MNAM"]

@@ -302,7 +302,8 @@ fn span(v: Option<&Value>) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    envelope_block, link, plugin_combo, record_actions, virtual_table, Action, Slot, TabCtx,
+    action_bar, envelope_block, link, panel_head, plugin_combo, record_actions, virtual_table,
+    Action, Slot, TabCtx,
 };
 use crate::theme::{self, Field, View};
 
@@ -318,55 +319,61 @@ impl DiffTab {
         let busy = ctx.busy;
         let plugins = ctx.plugins;
         let actions = &mut ctx.actions;
-        ui.heading("Diff");
-        ui.horizontal_wrapped(|ui| {
-            ui.radio_value(
-                &mut self.form.mode,
-                DiffMode::TwoPlugins,
-                "two plugins (diff)",
-            );
-            ui.radio_value(
-                &mut self.form.mode,
-                DiffMode::VsMasters,
-                "a plugin vs the versions before it (conflicts; needs a load)",
-            );
-        });
-        ui.horizontal_wrapped(|ui| {
-            let path = theme::width(ui, Field::Long);
-            match self.form.mode {
-                DiffMode::TwoPlugins => {
-                    ui.label("a");
-                    ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
-                    plugin_combo(ui, "diff-a", &mut self.form.a, plugins, false);
-                    ui.label("b");
-                    ui.add(TextEdit::singleline(&mut self.form.b).desired_width(path));
-                    plugin_combo(ui, "diff-b", &mut self.form.b, plugins, false);
-                    ui.label("form");
+        panel_head(
+            ui,
+            "Diff",
+            "Two plugins record by record (`diff`), or one plugin against the versions before it in the session's load order (`conflicts`). Every changed record links to its inspector.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.radio_value(
+                    &mut self.form.mode,
+                    DiffMode::TwoPlugins,
+                    "two plugins (diff)",
+                );
+                ui.radio_value(
+                    &mut self.form.mode,
+                    DiffMode::VsMasters,
+                    "a plugin vs the versions before it (conflicts; needs a load)",
+                );
+            });
+            ui.horizontal_wrapped(|ui| {
+                let path = theme::width(ui, Field::Long);
+                match self.form.mode {
+                    DiffMode::TwoPlugins => {
+                        ui.label("a");
+                        ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
+                        plugin_combo(ui, "diff-a", &mut self.form.a, plugins, false);
+                        ui.label("b");
+                        ui.add(TextEdit::singleline(&mut self.form.b).desired_width(path));
+                        plugin_combo(ui, "diff-b", &mut self.form.b, plugins, false);
+                        ui.label("form");
+                    }
+                    DiffMode::VsMasters => {
+                        ui.label("plugin");
+                        ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
+                        plugin_combo(ui, "diff-p", &mut self.form.a, plugins, true);
+                        ui.checkbox(
+                            &mut self.form.only_conflicts,
+                            "only forms 2+ plugins override",
+                        );
+                        ui.label("type");
+                    }
                 }
-                DiffMode::VsMasters => {
-                    ui.label("plugin");
-                    ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
-                    plugin_combo(ui, "diff-p", &mut self.form.a, plugins, true);
-                    ui.checkbox(
-                        &mut self.form.only_conflicts,
-                        "only forms 2+ plugins override",
-                    );
-                    ui.label("type");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.filter)
+                        .desired_width(theme::width(ui, Field::Short)),
+                );
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Compare"))
+                    .clicked()
+                {
+                    match self.form.request(None) {
+                        Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
+                        Err(e) => *ctx.notice = Some(e),
+                    }
                 }
-            }
-            ui.add(
-                TextEdit::singleline(&mut self.form.filter)
-                    .desired_width(theme::width(ui, Field::Short)),
-            );
-            if ui
-                .add_enabled(!busy, egui::Button::new("Compare"))
-                .clicked()
-            {
-                match self.form.request(None) {
-                    Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
-                    Err(e) => *ctx.notice = Some(e),
-                }
-            }
+            });
         });
         envelope_block(ui, ctx.results.get(&Slot::Diff.into()), |ui| {
             let Some(view) = &self.view else { return };

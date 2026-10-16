@@ -428,7 +428,8 @@ variable and refuses a folder that `guard_output_dir` rejects. The performance t
 | `glam` 0.34.1, `default-features = false`, `std` only | M7.R1 camera and transform math (`crates/ui-egui/src/viewport/`) | MIT OR Apache-2.0 (checked 2026-10-16 in the crate's manifest and its `LICENSE-MIT` and `LICENSE-APACHE`; with these features it has no dependencies, so `Cargo.lock` gains this one package) | added by M7.R1 (lane R, 2026-10-16); also listed in `ATTRIBUTION.md` |
 | `egui_extras` (tables; image loaders only if M6.G5 needs them) | M6.P4 virtualized tables, M6.G5 screenshots | MIT OR Apache-2.0 (egui's own repository; to be checked at the merge with its transitive tree, e.g. `image` and its codecs) | new |
 | eframe's `accesskit` feature (`accesskit_winit` and the platform crates) | M6.X3 screen reader support (deferred with lane X, 2026-10-16) | expected MIT OR Apache-2.0; the full transitive list goes here before the merge | new feature |
-| A docking crate (for example `egui_dock`) | M7.M0 decides whether the CK-style window layout needs one | to be listed if chosen | not chosen |
+| A docking crate (for example `egui_dock`) | M7.M0 decides whether the CK-style window layout needs one | to be listed if chosen | not chosen: M7.M0 (lane M, 2026-10-16) uses egui's own `Window`s (`docs/workbench.md` "CK-style windows") |
+| `toml` 0.8.23 | M7.W3, the edit-dialog layouts `crates/ui-egui/layouts/<TYPE>.toml` (`crates/ui-egui/src/dialogs/mod.rs`) | MIT OR Apache-2.0 (checked 2026-10-16 in the local registry copy) | already in the tree for `kitkraft-schema`: a direct dependency of `kitkraft-ui-egui`, no new package in `Cargo.lock` (lane M, 2026-10-16) |
 
 Any license outside MIT/Apache/Zlib/BSD-style goes to the owner. That includes the
 BSL-1.0 clipboard crates already pending (`plan/STATUS.md`, owner row 7) and any OFL font
@@ -497,18 +498,22 @@ active file, never under the game's Data folder, the user Data folder or an MO2 
 
 | Command | Writes | Preview (writes nothing) | Writing form (confirmed only) | Exists |
 | ------- | ------ | ------------------------ | ----------------------------- | ------ |
-| `set` | Field values of one record into the active file (`into`) | `dry_run: true` (M7.S6: before and after, member paths, `validate` findings on the result) | `dry_run` absent or false | `set` yes; its `dry_run` is M7.S6 |
-| `new` | One new record into the active file | its dry run (to be added beside M7.S6 if `new` lacks one; until then it stays out) | as `set` | yes |
-| `clone` | One copy of a record into the active file | as `new` | as `set` | yes |
-| `place` | One placed reference into a cell of the active file | as `new` | as `set` | yes |
+| `set` | Field values of one record into the active file (`into`) | `dry_run: true` (M7.S6: before and after, member paths, `validate` findings on the result) | `dry_run` absent or false | yes, with `dry_run` (M7.S6, done) |
+| `new` | One new record into the active file | `dry_run: true` (M7.S6) | as `set` | yes, with `dry_run` (M7.S6, done) |
+| `clone` | One copy of a record into the active file | `dry_run: true` (M7.S6) | as `set` | yes, with `dry_run` (M7.S6, done) |
+| `place` | One placed reference into a cell of the active file | `dry_run: true`, once it exists | as `set` | yes, but **no preview**: `place` has no `dry_run` (`crates/engine/src/lib.rs`, its catalog entry), so it cannot join until M7.S6b adds one |
 | `build` (output) | The plugin a build spec describes, written to its `out` (the active file or a new one) | `plan: true` (already exists; the gate has kept `build` refused in every mode, M4.W6's note) | `plan` absent or false, `out` the active file | yes |
-| `revert` | The inverse of one edit to the active file (M7.S7) | `dry_run: true` | as `set` | **no**: M7.S7 (lane D) |
+| `revert` | The inverse of one edit to the active file, named by `plugin` (M7.S7) | `dry_run: true` | as `set` | yes, `Implemented` with `dry_run` (M7.S7, done) |
 
 Each id joins `PERMITTED_WRITES` only with the M7.E ticket that implements its dialog
 (M7.E2 `set`, M7.E3 `new` and `clone`, M7.E4 `place`, M7.E5 `build`, M7.E6 `revert`) and
 only once its command is in the catalog, `Implemented` and has its preview: the same
 five-point rule as Amendment 3 ("The rule for adding a write"). A command without a
 preview form that writes nothing does not join.
+
+Ticket note (M7.S6b, lane D): `place` needs the `dry_run` preview M7.S6 gave `set`,
+`new` and `clone` (the placed reference before and after, the paths changed, the
+`validate` findings on a staged copy; `into` untouched) before M7.E4 can add it.
 
 Not in this scope: `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.merge`,
 `papyrus.compile`, `mod.run`, any write into MO2 beyond Amendment 3's `deploy --dev`, and
@@ -520,8 +525,8 @@ The gate (`gate.rs`) stays a const table and a pure check over id, arguments and
 confirmation:
 
 - the preview form passes like a read; the writing form passes only confirmed;
-- the writing form names its output (`into` for `set`, `new`, `clone`, `place`, `revert`;
-  `out` for `build`), and that output is not an official master by name (`Starfield.esm`,
+- the writing form names its output (`into` for `set`, `new`, `clone`, `place`;
+  `plugin` for `revert`; `out` for `build`), and that output is not an official master by name (`Starfield.esm`,
   `Constellation.esm`, `OldMars.esm`, `BlueprintShips-*.esm`, `SFBGS*.esm`, the list the
   engine's official order holds) and has a plugin extension;
 - `overwrite` and similar flags that would replace a file other than the active file are
