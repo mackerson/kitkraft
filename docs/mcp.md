@@ -1013,8 +1013,10 @@ a limitation says so and names each carried record whose winner there is another
 ### `place` (M4.E2)
 
 `place {base, position, into, cell? | world?, rotation?, persistent = false,
-initially_disabled = false, edid?, allow_reference?, plugin?, allow_untyped_lstrings,
-scripts?}` (`scripts` as `set`'s, attached to the new reference) plus
+initially_disabled = false, edid?, fields?, allow_reference?, plugin?, allow_untyped_lstrings,
+scripts?}` (`scripts` as `set`'s, attached to the new reference; `fields` as `set`'s,
+written on the new reference after it is composed, each subrecord they name added at its
+schema slot first, as `new` does; lane D round 4) plus
 the load-order arguments; CLI `kit place <base> --position "[x,y,z]" <into> --cell <CELL>`
 (or `--world <WRLD>`). A new `REFR` (`ACHR` for an `NPC_` base) with a new FormID (the
 `HEDR` next object ID advanced; full-scale plugins with full-scale masters only), in the
@@ -1049,10 +1051,13 @@ winning records, and every written record.
 <into> --fields '{"FLTV": 1.0}' --masters Starfield.esm`, `kit clone <form> KC_Copy
 <into>`. A new base form (a type the schema defines that lives in its own top-level
 group; the schema's required members written as zeros or an empty string, each field's
-subrecord created first) or a copy of a top-level winner, with a new FormID from lane A's
+subrecord created first; a `CELL` is a new interior cell, its `DATA` flags `Interior` by
+default, written in the interior block and sub-block its FormID gives with no references,
+and refused with `new.cell-exterior` when its `DATA` clears `Interior`; lane D round 4)
+or a copy of a top-level winner, with a new FormID from lane A's
 allocator (full-scale targets and masters only) and the EditorID given; written as `set`
 writes (staged, validated, moved). Refusals: `failed` with `new.<code>:` or
-`clone.<code>:` (`untyped`, `not-top-level`, `edid-invalid`, `edid-clash`, `no-master`,
+`clone.<code>:` (`untyped`, `not-top-level`, `cell-exterior`, `edid-invalid`, `edid-clash`, `no-master`,
 `edid-field`, `occurrence`, `unknown-member`, `no-form`, `fails-validate`). `data` is
 `set`'s plus `new_forms[]` (`form`, `form_id`, `signature`, `editor_id`, `from`, `offset`,
 `length`), `next_object_id` and `validate`. Spec v3 `[[new]]` and `[[clone]]` take the

@@ -9,6 +9,7 @@ pub mod lstrings;
 pub mod patch;
 #[cfg(test)]
 pub(crate) mod patch_tests;
+pub(crate) mod scaffold;
 pub mod source;
 pub mod strings;
 pub mod vmad;
