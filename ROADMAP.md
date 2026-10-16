@@ -97,8 +97,8 @@ clarifications bind every task.
 - Hardening from `docs/gaps.md` and the open cross-lane requests.
 - UI: an ADR 0007 proposal (egui shell over the command catalog) as an owner decision; no
   implementation unless the owner opts in. Decided 2026-10-14: accepted with scope (a
-  read-only developer workbench in M4, the full authoring UI in M5); nothing is built in
-  M3.
+  read-only developer workbench in M4, the full authoring UI then planned as M5, now M6
+  after the 2026-10-15 renumbering); nothing is built in M3.
 - CK session deferred (owner, 2026-10-14) until the developer workbench exists, so the CK
   can be compared side by side with KitKraft's inspection views; the `ck` write style and
   `ck-diff` confidence wait for it, and M3's CK exit criteria are carried until then.
@@ -192,7 +192,18 @@ Exit criteria:
   corpus files, every member sourced; the builder passes the cell rebuild gate.
 - `cargo xtask ci` is green and the full corpus roundtrip is still byte-identical.
 
-## M5+: editor
+## M5: CK-backed world authoring and automated runtime testing
+
+Planned 2026-10-15 from the owner's rulings (`docs/foothold/owner-decisions-2026-10-15.md`,
+`owner-addendum-2026-10-15.md`; ADR 0011): world authoring checked against the Creation
+Kit, and in-game claims closed by isolated, repeatable game sessions with save/reload
+results. Tickets, lanes and exit criteria: `plan/execution-plan.md` "M5"; status per
+capability: `docs/foothold/gap-matrix.md`. Foothold is the benchmark, not the deliverable.
+
+## M6+: editor
+
+Renumbered from "M5+" on 2026-10-15, when M5 became the milestone above; the content is
+unchanged. ADRs and decision records written before that date say "M5" for this milestone.
 
 - The full authoring UI in egui over the command catalog (`crates/ui-egui`, `apps/kit`),
   growing from M4's read-only workbench (ADR 0007 Amendment 1).

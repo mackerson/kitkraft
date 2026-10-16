@@ -226,7 +226,7 @@ in this repository.
   isolated KitKraft-managed mod, never into profiles or other mods.
 - **Developer workbench** ([ADR 0007](plan/adr/0007-egui-shell-over-the-catalog.md),
   Amendment 1): a read-only egui workbench over the same commands as the CLI comes once
-  the inspection APIs are stable; the full authoring UI is M5.
+  the inspection APIs are stable; the full authoring UI is M6 (ROADMAP.md).
 
 > [!IMPORTANT]
 > **Status: pre-alpha.** KitKraft has built real, working mods and checked them in game, but

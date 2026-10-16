@@ -3,7 +3,7 @@
 The workbench is a read-only egui window over `Engine::execute` (ADR 0007 Amendment 1,
 plan M4 lane W). It is a way to look at the data, not a second implementation of anything.
 Each view runs one engine command, or a fixed sequence of commands, and shows the result
-envelope. The full authoring UI is M5. One write is permitted (Amendment 2): the Ledger
+envelope. The full authoring UI is M6 (`ROADMAP.md`, renumbered from M5 on 2026-10-15). One write is permitted (Amendment 2): the Ledger
 tab appends the owner's in-game result as a row of `docs/game-observations.md`, a repo
 doc, one confirm click per row.
 
