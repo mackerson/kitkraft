@@ -576,14 +576,26 @@ pub(crate) fn normalize(script: &Value) -> Value {
     v
 }
 
+/// Whether `m` is a float value (`{type: "float", value, text, bits}`, `kit papyrus disasm
+/// --format json`): compared by its `bits`, never by `value` (a JSON number equates -0.0
+/// with 0.0 and every NaN is null), so a float operand or default whose stored bits differ
+/// is a divergence (Fable review of lane B, finding 5).
+fn is_float_value(m: &serde_json::Map<String, Value>) -> bool {
+    m.get("type").and_then(Value::as_str) == Some("float") && m.contains_key("bits")
+}
+
 fn strip(v: &Value) -> Value {
     match v {
-        Value::Object(m) => Value::Object(
-            m.iter()
-                .filter(|(k, _)| !VOLATILE_KEYS.contains(&k.as_str()))
-                .map(|(k, v)| (k.clone(), strip(v)))
-                .collect(),
-        ),
+        Value::Object(m) => {
+            let float = is_float_value(m);
+            Value::Object(
+                m.iter()
+                    .filter(|(k, _)| !VOLATILE_KEYS.contains(&k.as_str()))
+                    .filter(|(k, _)| !(float && k.as_str() == "value"))
+                    .map(|(k, v)| (k.clone(), strip(v)))
+                    .collect(),
+            )
+        }
         Value::Array(a) => Value::Array(a.iter().map(strip).collect()),
         other => other.clone(),
     }
@@ -843,6 +855,39 @@ mod tests {
         let d = compare(&a, &extra).divergence.unwrap();
         assert_eq!(d["path"], "string_table[1]");
         assert_eq!(d["kit_offset"], 40);
+    }
+
+    /// Floats compare by their stored bits: -0.0 and 0.0, or two NaN payloads, are equal
+    /// as JSON numbers (NaN is null) but differ in the .pex (Fable review, finding 5).
+    #[test]
+    fn floats_compare_by_their_bits() {
+        let with_float = |value: Value, bits: &str| {
+            let mut s = script(1, &["a"], "fadd");
+            s["objects"][0]["states"][0]["functions"][0]["instructions"][0]["args"] =
+                json!([{"type": "float", "value": value, "text": "0.0", "bits": bits}]);
+            s
+        };
+        let zero = with_float(json!(0.0), "0x00000000");
+        let minus_zero = with_float(json!(-0.0), "0x80000000");
+        let d = compare(&zero, &minus_zero).divergence.unwrap();
+        assert_eq!(
+            d["path"],
+            "objects[0].states[0].functions[0].instructions[0].args[0].bits"
+        );
+        assert_eq!(d["official"], "0x00000000");
+        assert_eq!(d["kit"], "0x80000000");
+        let nan = with_float(Value::Null, "0x7FC00000");
+        let other_nan = with_float(Value::Null, "0x7FC00001");
+        assert!(compare(&nan, &other_nan).divergence.is_some());
+        assert!(compare(&nan, &nan.clone()).divergence.is_none());
+        // Equal bits: no divergence and no `value` left to compare.
+        assert!(compare(&zero, &zero.clone()).divergence.is_none());
+        assert!(
+            normalize(&zero)["objects"][0]["states"][0]["functions"][0]["instructions"][0]["args"]
+                [0]
+            .get("value")
+            .is_none()
+        );
     }
 
     #[test]
