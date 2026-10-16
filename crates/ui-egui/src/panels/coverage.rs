@@ -220,9 +220,11 @@ impl MatrixView {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, ScrollArea, TextEdit};
+use eframe::egui::{self, TextEdit};
 
-use crate::panels::common::{envelope_block, Action, Slot, TabCtx};
+use crate::panels::common::{
+    action_bar, envelope_block, panel_head, virtual_table, Action, Slot, TabCtx,
+};
 use crate::theme::{self, Field, View};
 
 /// The Coverage tab's state.
@@ -243,8 +245,11 @@ impl CoverageTab {
         checkout: Option<&std::path::Path>,
     ) {
         let busy = ctx.busy;
-        ui.heading("Coverage");
-        ui.label("The support-depth matrix (coverage --matrix, read-only): one row per record type, six statuses never collapsed into one. parsed and typed-readable are measured on the examined plugins; the other four come from docs/schema/evidence.toml and are not-run where it names nothing. Schema presence is not support.");
+        panel_head(
+            ui,
+            "Coverage",
+            "The support-depth matrix (coverage --matrix, read-only): one row per record type, six statuses never collapsed into one. parsed and typed-readable are measured on the examined plugins; the other four come from docs/schema/evidence.toml and are not-run where it names nothing. Schema presence is not support.",
+        );
         if self.form.evidence.trim().is_empty() {
             if let Some(root) = checkout {
                 self.form.evidence = root
@@ -255,172 +260,189 @@ impl CoverageTab {
                     .to_string();
             }
         }
-        theme::form_grid(ui, "coverage-form").show(ui, |ui| {
-            ui.label("record types");
-            ui.add(
-                TextEdit::singleline(&mut self.form.types)
-                    .desired_width(theme::width(ui, Field::Medium))
-                    .hint_text("WEAP AMMO (empty: every type; slower)"),
-            );
-            ui.end_row();
-            ui.label("plugin");
-            ui.add(
-                TextEdit::singleline(&mut self.form.plugin)
-                    .desired_width(theme::width(ui, Field::Long))
-                    .hint_text("empty: the official files in the Data dir"),
-            );
-            ui.end_row();
-            ui.label("evidence file");
-            ui.add(
-                TextEdit::singleline(&mut self.form.evidence)
-                    .desired_width(theme::width(ui, Field::Long)),
-            );
-            ui.end_row();
-        });
-        ui.horizontal_wrapped(|ui| {
-            if ui
-                .add_enabled(!busy, egui::Button::new("coverage --matrix"))
-                .clicked()
-            {
-                match self.form.request() {
-                    Ok(r) => ctx.actions.push(Action::Submit(Slot::Coverage, r)),
-                    Err(e) => *ctx.notice = Some(e),
-                }
-            }
-            ui.label("filter by type");
-            ui.add(
-                TextEdit::singleline(&mut self.filter)
-                    .desired_width(theme::width(ui, Field::Short))
-                    .hint_text("WEAP, weapon"),
-            );
-        });
-        let Some(view) = &self.view else {
-            envelope_block(ui, ctx.results.get(&Slot::Coverage.into()), |_| {});
-            return;
-        };
-        ui.label(format!(
-            "{} file(s) examined ({}): {}",
-            view.files.len(),
-            view.source,
-            view.files.join(", ")
-        ));
-        match &view.evidence_file {
-            Some(f) => ui.weak(format!("evidence: {f}")),
-            None => ui.colored_label(
-                theme::warn(ui),
-                "no evidence file: the four evidence statuses are unknown",
-            ),
-        };
-        theme::table(ui, "coverage-counts").show(ui, |ui| {
-            for (s, line) in &view.counts {
-                ui.label(s);
-                ui.label(line);
+        let form = &mut self.form;
+        let filter = &mut self.filter;
+        action_bar(ui, |ui| {
+            theme::form_grid(ui, "coverage-form").show(ui, |ui| {
+                ui.label("record types");
+                ui.add(
+                    TextEdit::singleline(&mut form.types)
+                        .desired_width(theme::width(ui, Field::Medium))
+                        .hint_text("WEAP AMMO (empty: every type; slower)"),
+                );
                 ui.end_row();
-            }
-        });
-        theme::gap(ui);
-        let mut pick = None;
-        let shown = view.filtered(&self.filter).count();
-        ui.weak(format!(
-            "{shown} of {} type(s); click a type for its evidence",
-            view.rows.len()
-        ));
-        ScrollArea::both()
-            .id_salt("coverage-rows")
-            .max_height(theme::view_height(ui, View::Tall))
-            .show(ui, |ui| {
-                theme::table(ui, "coverage-grid").show(ui, |ui| {
-                    ui.strong("type");
-                    ui.strong("records");
-                    for (_, title) in COLUMNS {
-                        ui.strong(title);
+                ui.label("plugin");
+                ui.add(
+                    TextEdit::singleline(&mut form.plugin)
+                        .desired_width(theme::width(ui, Field::Long))
+                        .hint_text("empty: the official files in the Data dir"),
+                );
+                ui.end_row();
+                ui.label("evidence file");
+                ui.add(
+                    TextEdit::singleline(&mut form.evidence)
+                        .desired_width(theme::width(ui, Field::Long)),
+                );
+                ui.end_row();
+            });
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .add_enabled(!busy, egui::Button::new("coverage --matrix"))
+                    .clicked()
+                {
+                    match form.request() {
+                        Ok(r) => ctx.actions.push(Action::Submit(Slot::Coverage, r)),
+                        Err(e) => *ctx.notice = Some(e),
                     }
-                    ui.end_row();
-                    for r in view.filtered(&self.filter) {
-                        let sel = self.selected.as_deref() == Some(r.ty.as_str());
-                        if ui
-                            .selectable_label(sel, egui::RichText::new(&r.ty).monospace())
-                            .on_hover_text(&r.definition)
-                            .clicked()
-                        {
-                            pick = Some(r.ty.clone());
-                        }
-                        ui.monospace(r.records.to_string());
-                        for c in &r.cells {
-                            let mut hover = c.detail.clone();
-                            for p in &c.evidence {
-                                hover.push_str(&format!(
-                                    "\n{} {}",
-                                    if p.resolves {
-                                        "resolves:"
-                                    } else {
-                                        "DOES NOT RESOLVE:"
-                                    },
-                                    p.pointer
-                                ));
-                            }
-                            let resp = theme::status(ui, status_of(&c.status), &c.status);
-                            if !hover.trim().is_empty() {
-                                resp.on_hover_text(hover.trim());
-                            }
-                        }
-                        ui.end_row();
+                }
+                ui.label("filter by type");
+                ui.add(
+                    TextEdit::singleline(filter)
+                        .desired_width(theme::width(ui, Field::Short))
+                        .hint_text("WEAP, weapon"),
+                );
+            });
+        });
+        let view = &self.view;
+        let filter = &self.filter;
+        let selected = &mut self.selected;
+        envelope_block(ui, ctx.results.get(&Slot::Coverage.into()), |ui| {
+            let Some(view) = view else { return };
+            matrix_ui(ui, view, filter, selected);
+        });
+    }
+}
+
+/// The matrix: what was examined, the counts per status, the rows (a virtual table: every
+/// record type, laid out only where scrolled into view), and the selected row's evidence.
+fn matrix_ui(ui: &mut egui::Ui, view: &MatrixView, filter: &str, selected: &mut Option<String>) {
+    ui.label(format!(
+        "{} file(s) examined ({}): {}",
+        view.files.len(),
+        view.source,
+        view.files.join(", ")
+    ));
+    match &view.evidence_file {
+        Some(f) => {
+            ui.weak(format!("evidence: {f}"));
+        }
+        None => {
+            theme::status_line(
+                ui,
+                Status::Unknown,
+                "no evidence file: the four evidence statuses are unknown",
+            );
+        }
+    }
+    theme::table(ui, "coverage-counts").show(ui, |ui| {
+        for (s, line) in &view.counts {
+            ui.label(s);
+            ui.label(line);
+            ui.end_row();
+        }
+    });
+    theme::gap(ui);
+    let rows: Vec<&MatrixRow> = view.filtered(filter).collect();
+    ui.weak(format!(
+        "{} of {} type(s); click a type for its evidence",
+        rows.len(),
+        view.rows.len()
+    ));
+    let mut header = vec!["type", "records"];
+    header.extend(COLUMNS.iter().map(|(_, title)| *title));
+    let mut pick = None;
+    virtual_table(
+        ui,
+        "coverage-grid",
+        &header,
+        rows.len(),
+        View::Tall,
+        |row, i| {
+            let Some(r) = rows.get(i) else { return };
+            let sel = selected.as_deref() == Some(r.ty.as_str());
+            row.cell(|ui| {
+                if ui
+                    .selectable_label(sel, egui::RichText::new(&r.ty).monospace())
+                    .on_hover_text(&r.definition)
+                    .clicked()
+                {
+                    pick = Some(r.ty.clone());
+                }
+            });
+            row.num(r.records.to_string());
+            for c in &r.cells {
+                row.cell(|ui| {
+                    let mut hover = c.detail.clone();
+                    for p in &c.evidence {
+                        hover.push_str(&format!(
+                            "\n{} {}",
+                            if p.resolves {
+                                "resolves:"
+                            } else {
+                                "DOES NOT RESOLVE:"
+                            },
+                            p.pointer
+                        ));
+                    }
+                    let resp = theme::status(ui, status_of(&c.status), &c.status);
+                    if !hover.trim().is_empty() {
+                        resp.on_hover_text(hover.trim());
                     }
                 });
-            });
-        if let Some(p) = pick {
-            self.selected = if self.selected.as_deref() == Some(p.as_str()) {
-                None
-            } else {
-                Some(p)
-            };
-        }
-        if let Some(row) = self
-            .selected
-            .as_deref()
-            .and_then(|t| view.rows.iter().find(|r| r.ty == t))
-        {
-            theme::gap(ui);
-            ui.label(theme::subheading(
-                ui,
-                format!("{} ({}): evidence", row.ty, row.definition),
-            ));
-            theme::table(ui, "coverage-evidence").show(ui, |ui| {
-                for h in ["status", "result", "detail", "evidence"] {
-                    ui.strong(h);
-                }
+            }
+        },
+    );
+    if let Some(p) = pick {
+        *selected = if selected.as_deref() == Some(p.as_str()) {
+            None
+        } else {
+            Some(p)
+        };
+    }
+    if let Some(row) = selected
+        .as_deref()
+        .and_then(|t| view.rows.iter().find(|r| r.ty == t))
+    {
+        theme::gap(ui);
+        ui.label(theme::subheading(
+            ui,
+            format!("{} ({}): evidence", row.ty, row.definition),
+        ));
+        // Six fixed rows with several pointers per cell: the grid table style.
+        theme::table(ui, "coverage-evidence").show(ui, |ui| {
+            for h in ["status", "result", "detail", "evidence"] {
+                ui.strong(h);
+            }
+            ui.end_row();
+            for ((_, title), c) in COLUMNS.iter().zip(&row.cells) {
+                ui.label(*title);
+                theme::status(ui, status_of(&c.status), &c.status);
+                ui.label(&c.detail);
+                ui.vertical(|ui| {
+                    if c.evidence.is_empty() {
+                        ui.weak("none");
+                    }
+                    for p in &c.evidence {
+                        if p.resolves {
+                            theme::status(ui, Status::Pass, &p.pointer);
+                        } else {
+                            theme::status(
+                                ui,
+                                Status::Inconclusive,
+                                &format!(
+                                    "{} (does not resolve{})",
+                                    p.pointer,
+                                    p.error
+                                        .as_deref()
+                                        .map_or_else(String::new, |e| format!(": {e}"))
+                                ),
+                            );
+                        }
+                    }
+                });
                 ui.end_row();
-                for ((_, title), c) in COLUMNS.iter().zip(&row.cells) {
-                    ui.label(*title);
-                    theme::status(ui, status_of(&c.status), &c.status);
-                    ui.label(&c.detail);
-                    ui.vertical(|ui| {
-                        if c.evidence.is_empty() {
-                            ui.weak("none");
-                        }
-                        for p in &c.evidence {
-                            if p.resolves {
-                                theme::status(ui, Status::Pass, &p.pointer);
-                            } else {
-                                theme::status(
-                                    ui,
-                                    Status::Inconclusive,
-                                    &format!(
-                                        "{} (does not resolve{})",
-                                        p.pointer,
-                                        p.error
-                                            .as_deref()
-                                            .map_or_else(String::new, |e| format!(": {e}"))
-                                    ),
-                                );
-                            }
-                        }
-                    });
-                    ui.end_row();
-                }
-            });
-        }
-        envelope_block(ui, ctx.results.get(&Slot::Coverage.into()), |_| {});
+            }
+        });
     }
 }
 

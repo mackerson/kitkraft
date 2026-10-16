@@ -52,7 +52,8 @@ M6.O1), `studio`, or `classic` (legacy, the look before the tokens), each option
 `-light` or `-dark` (otherwise the window follows Windows). Without it, `"theme"` in
 `%LOCALAPPDATA%\kitkraft\ui.json` is used. The Start tab's theme line has a picker (preset;
 system, light or dark) that applies at once and writes `ui.json`. The presets and their
-tokens are in `docs/design/workbench-visual-system.md`.
+tokens are in `docs/design/workbench-style.md`. The Start tab's About line names the build
+(from the envelopes' `build`), and a debug build says so in the title bar.
 
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
 also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The

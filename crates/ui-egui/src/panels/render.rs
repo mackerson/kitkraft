@@ -9,8 +9,8 @@
 
 use eframe::egui::{self, Color32, Rect};
 
-use crate::panels::common::TabCtx;
-use crate::theme;
+use crate::panels::common::{action_bar, panel_head, TabCtx};
+use crate::theme::{self, Status};
 use crate::viewport::camera::OrbitCamera;
 use crate::viewport::{Stats, Viewport, BINDINGS};
 
@@ -73,32 +73,31 @@ impl Default for RenderTab {
 
 impl RenderTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, _ctx: &mut TabCtx) {
-        ui.horizontal_wrapped(|ui| {
-            ui.label(theme::subheading(ui, "Render Window"));
-            ui.separator();
-            if ui
-                .button("Reset view")
-                .on_hover_text("Back to the default view of the origin")
-                .clicked()
-            {
-                self.viewport.reset_camera();
-            }
-            ui.checkbox(&mut self.stats, "Stats");
-            ui.separator();
-            ui.weak("controls").on_hover_text(controls_text());
-            ui.separator();
-            ui.weak("placeholder: grid, axes and one box at the origin; no game data yet");
+        // The panel frame (M6.V5): title, then the toolbar as the action bar.
+        panel_head(ui, "Render Window", "");
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                if ui
+                    .button("Reset view")
+                    .on_hover_text("Back to the default view of the origin")
+                    .clicked()
+                {
+                    self.viewport.reset_camera();
+                }
+                ui.checkbox(&mut self.stats, "Stats");
+                ui.separator();
+                ui.weak("controls").on_hover_text(controls_text());
+                ui.separator();
+                ui.weak("placeholder: grid, axes and one box at the origin; no game data yet");
+            })
         });
-        theme::gap(ui);
         let response = self.viewport.show(ui);
         let stats = self.viewport.stats();
         if let Some(err) = &stats.error {
-            overlay(
-                ui,
-                response.rect,
-                &[format!("viewport: {err}")],
-                theme::bad(ui),
-            );
+            // The status component for painted text (M6.V4): glyph and word lead it.
+            let (line, color) =
+                theme::status_painted(ui, Status::Fail, &format!("viewport: {err}"));
+            overlay(ui, response.rect, &[line], color);
         } else if self.stats {
             let lines = stats_lines(&stats, &self.viewport.camera);
             overlay(ui, response.rect, &lines, ui.visuals().strong_text_color());

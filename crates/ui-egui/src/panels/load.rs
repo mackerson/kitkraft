@@ -216,7 +216,9 @@ pub fn list_profiles(profiles_dir: &Path) -> Vec<ProfileEntry> {
 
 use eframe::egui::{self, TextEdit};
 
-use crate::panels::common::{envelope_block, virtual_table, Action, Slot, TabCtx};
+use crate::panels::common::{
+    action_bar, envelope_block, panel_head, virtual_table, Action, Slot, TabCtx,
+};
 use crate::theme::{self, Field, Status, View};
 
 /// The Load tab's state: the form, the profiles folder and its listing, and the last
@@ -233,58 +235,63 @@ impl LoadTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
-        ui.heading("Load");
-        ui.label("Loads a profile or plugin list into the session (`load`). Profiles are read, never changed; `Default` is the owner's live game and is only ever read.");
-        ui.horizontal(|ui| {
-            ui.label("MO2 profiles folder");
-            ui.add(
-                TextEdit::singleline(&mut self.profiles_dir)
-                    .desired_width(theme::width(ui, Field::Long)),
-            );
-            if ui.button("List").clicked() {
-                self.profiles = list_profiles(Path::new(self.profiles_dir.trim()));
-            }
-        });
-        for p in &self.profiles {
+        panel_head(
+            ui,
+            "Load",
+            "Loads a profile or plugin list into the session (`load`). Profiles are read, never changed; `Default` is the owner's live game and is only ever read.",
+        );
+        action_bar(ui, |ui| {
             ui.horizontal(|ui| {
-                if ui.link(&p.name).clicked() {
-                    actions.push(Action::UseProfile(p.path.clone()));
-                }
-                if p.live {
-                    theme::status(
-                        ui,
-                        Status::Warn,
-                        "owner's live game: loading it only reads it",
-                    );
+                ui.label("MO2 profiles folder");
+                ui.add(
+                    TextEdit::singleline(&mut self.profiles_dir)
+                        .desired_width(theme::width(ui, Field::Long)),
+                );
+                if ui.button("List").clicked() {
+                    self.profiles = list_profiles(Path::new(self.profiles_dir.trim()));
                 }
             });
-        }
-        let wide = theme::width(ui, Field::Wide);
-        theme::form_grid(ui, "load-form").show(ui, |ui| {
-            ui.label("Profile");
-            ui.add(TextEdit::singleline(&mut self.form.profile).desired_width(wide));
-            ui.end_row();
-            ui.label("or plugins (one per line)");
-            ui.add(
-                TextEdit::multiline(&mut self.form.plugins)
-                    .desired_rows(3)
-                    .desired_width(wide),
-            );
-            ui.end_row();
-            ui.label("Data dir (optional)");
-            ui.add(TextEdit::singleline(&mut self.form.data_dir).desired_width(wide));
-            ui.end_row();
-        });
-        ui.checkbox(
-            &mut self.form.no_cache,
-            "no cache (index every plugin from its file)",
-        );
-        if ui.add_enabled(!busy, egui::Button::new("Load")).clicked() {
-            match self.form.request() {
-                Ok(req) => actions.push(Action::Submit(Slot::Load, req)),
-                Err(e) => *ctx.notice = Some(e),
+            for p in &self.profiles {
+                ui.horizontal(|ui| {
+                    if ui.link(&p.name).clicked() {
+                        actions.push(Action::UseProfile(p.path.clone()));
+                    }
+                    if p.live {
+                        theme::status(
+                            ui,
+                            Status::Warn,
+                            "owner's live game: loading it only reads it",
+                        );
+                    }
+                });
             }
-        }
+            let wide = theme::width(ui, Field::Wide);
+            theme::form_grid(ui, "load-form").show(ui, |ui| {
+                ui.label("Profile");
+                ui.add(TextEdit::singleline(&mut self.form.profile).desired_width(wide));
+                ui.end_row();
+                ui.label("or plugins (one per line)");
+                ui.add(
+                    TextEdit::multiline(&mut self.form.plugins)
+                        .desired_rows(3)
+                        .desired_width(wide),
+                );
+                ui.end_row();
+                ui.label("Data dir (optional)");
+                ui.add(TextEdit::singleline(&mut self.form.data_dir).desired_width(wide));
+                ui.end_row();
+            });
+            ui.checkbox(
+                &mut self.form.no_cache,
+                "no cache (index every plugin from its file)",
+            );
+            if ui.add_enabled(!busy, egui::Button::new("Load")).clicked() {
+                match self.form.request() {
+                    Ok(req) => actions.push(Action::Submit(Slot::Load, req)),
+                    Err(e) => *ctx.notice = Some(e),
+                }
+            }
+        });
         envelope_block(ui, ctx.results.get(&Slot::Load.into()), |ui| {
             let Some(view) = &self.view else { return };
             for (label, list) in [
@@ -292,7 +299,7 @@ impl LoadTab {
                 ("Active but missing", &view.missing_active),
             ] {
                 if !list.is_empty() {
-                    ui.colored_label(theme::warn(ui), format!("{label}: {}", list.join(", ")));
+                    theme::status_line(ui, Status::Warn, &format!("{label}: {}", list.join(", ")));
                 }
             }
             virtual_table(
@@ -306,7 +313,7 @@ impl LoadTab {
                 View::Tall,
                 |row, i| {
                     let Some(p) = view.plugins.get(i) else { return };
-                    row.cell(|ui| ui.label(p.index.to_string()));
+                    row.num(p.index.to_string());
                     row.cell(|ui| ui.label(&p.name));
                     row.cell(|ui| {
                         if p.scale == "unknown" {
@@ -316,9 +323,7 @@ impl LoadTab {
                         }
                     });
                     row.cell(|ui| ui.label(&p.flags));
-                    row.cell(|ui| {
-                        ui.label(p.records.map_or_else(|| "?".to_string(), |n| n.to_string()))
-                    });
+                    row.num(p.records.map_or_else(|| "?".to_string(), |n| n.to_string()));
                     row.cell(|ui| ui.label(&p.runtime_slot));
                     row.cell(|ui| ui.label(&p.active));
                     row.cell(|ui| ui.label(&p.provider));

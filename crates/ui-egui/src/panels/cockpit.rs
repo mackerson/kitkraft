@@ -792,7 +792,10 @@ pub fn game_buttons() -> Vec<ButtonState> {
 
 use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea, TextEdit};
 
-use crate::panels::common::{envelope_block, findings_grid, Action, Shown, Slot, SlotKey, TabCtx};
+use crate::panels::common::{
+    action_bar, envelope_block, findings_grid, panel_head, virtual_table, Action, Shown, Slot,
+    SlotKey, TabCtx,
+};
 use crate::theme::{self, Field, Status, View};
 
 /// What the shell hands the Cockpit besides the frame's context: the profile the
@@ -1039,12 +1042,13 @@ impl CockpitTab {
 
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
         let busy = ctx.busy;
-        ui.heading("Cockpit");
-        ui.label("The plugin under review: its validate summary, byte roundtrip and its records against its masters (reads), its dev deployment (deploy --dev and roll back, each previewed and confirmed per click: ADR 0007 Amendment 3), and the ledger entries that name it. Every value comes from an engine command.");
-        theme::gap(ui);
+        panel_head(
+            ui,
+            "Cockpit",
+            "The plugin under review: its validate summary, byte roundtrip and its records against its masters (reads), its dev deployment (deploy --dev and roll back, each previewed and confirmed per click: ADR 0007 Amendment 3), and the ledger entries that name it. Every value comes from an engine command.",
+        );
 
-        // -- the plugin under review
-        ui.label(theme::subheading(ui, "Plugin under review"));
+        // -- the action bar: the plugin under review and the game session's buttons
         if self.found_in.is_none() {
             if let Some(root) = env.checkout {
                 let out = root.join(OUT_DIR);
@@ -1052,42 +1056,43 @@ impl CockpitTab {
                 self.found_in = Some(out);
             }
         }
-        ui.horizontal_wrapped(|ui| {
-            ui.label("plugin");
-            let edit = ui.add(
-                TextEdit::singleline(&mut self.plugin)
-                    .desired_width(theme::width(ui, Field::Long))
-                    .hint_text(r"out\built\MyPlugin.esm, or any path"),
-            );
-            if edit.lost_focus() {
-                self.form.source.clone_from(&self.plugin);
-            }
-            let mut picked = None;
-            ComboBox::from_id_salt("cockpit-out")
-                .selected_text(format!("{OUT_DIR}\\... ({})", self.found.len()))
-                .width(theme::combo_width(ui))
-                .show_ui(ui, |ui| {
-                    let base = self.found_in.clone().unwrap_or_default();
-                    for p in &self.found {
-                        let shown = Path::new(p)
-                            .strip_prefix(&base)
-                            .map_or_else(|_| p.clone(), |r| r.display().to_string());
-                        if ui.selectable_label(*p == self.plugin, shown).clicked() {
-                            picked = Some(p.clone());
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(theme::subheading(ui, "Plugin under review"));
+                let edit = ui.add(
+                    TextEdit::singleline(&mut self.plugin)
+                        .desired_width(theme::width(ui, Field::Long))
+                        .hint_text(r"out\built\MyPlugin.esm, or any path"),
+                );
+                if edit.lost_focus() {
+                    self.form.source.clone_from(&self.plugin);
+                }
+                let mut picked = None;
+                ComboBox::from_id_salt("cockpit-out")
+                    .selected_text(format!("{OUT_DIR}\\... ({})", self.found.len()))
+                    .width(theme::combo_width(ui))
+                    .show_ui(ui, |ui| {
+                        let base = self.found_in.clone().unwrap_or_default();
+                        for p in &self.found {
+                            let shown = Path::new(p)
+                                .strip_prefix(&base)
+                                .map_or_else(|_| p.clone(), |r| r.display().to_string());
+                            if ui.selectable_label(*p == self.plugin, shown).clicked() {
+                                picked = Some(p.clone());
+                            }
                         }
-                    }
-                });
-            if let Some(p) = picked {
-                self.pick(&p);
-            }
-            if ui
-                .small_button("rescan")
-                .on_hover_text("list the plugins under the checkout's out folder again")
-                .clicked()
-            {
-                self.found_in = None;
-            }
-            if ui
+                    });
+                if let Some(p) = picked {
+                    self.pick(&p);
+                }
+                if ui
+                    .small_button("rescan")
+                    .on_hover_text("list the plugins under the checkout's out folder again")
+                    .clicked()
+                {
+                    self.found_in = None;
+                }
+                if ui
                 .add_enabled(
                     !busy && !self.plugin.trim().is_empty(),
                     egui::Button::new("Review"),
@@ -1104,36 +1109,35 @@ impl CockpitTab {
                     Err(e) => *ctx.notice = Some(e),
                 }
             }
-        });
-        if env.checkout.is_none() {
-            ui.weak("no checkout found (Help tab): out\\ is not listed; type a path");
-        }
-        theme::gap(ui);
-
-        // -- the action bar's game buttons (M6.G4 to M6.G6)
-        ui.horizontal_wrapped(|ui| {
-            ui.label(theme::subheading(ui, "Game session"));
-            for b in game_buttons() {
-                let r = ui
-                    .add_enabled(b.enabled && !busy, egui::Button::new(b.label))
-                    .on_hover_text(&b.reason)
-                    .on_disabled_hover_text(&b.reason);
-                if r.clicked() {
-                    *ctx.notice = Some(format!("{}: not wired in this window yet", b.id));
+            });
+            if env.checkout.is_none() {
+                ui.weak("no checkout found (Help tab): out\\ is not listed; type a path");
+            }
+            ui.separator();
+            // the game buttons (M6.G4 to M6.G6)
+            ui.horizontal_wrapped(|ui| {
+                ui.label(theme::subheading(ui, "Game session"));
+                for b in game_buttons() {
+                    let r = ui
+                        .add_enabled(b.enabled && !busy, egui::Button::new(b.label))
+                        .on_hover_text(&b.reason)
+                        .on_disabled_hover_text(&b.reason);
+                    if r.clicked() {
+                        *ctx.notice = Some(format!("{}: not wired in this window yet", b.id));
+                    }
+                }
+            });
+            let mut reasons: Vec<String> = Vec::new();
+            for b in game_buttons().into_iter().filter(|b| !b.enabled) {
+                if !reasons.contains(&b.reason) {
+                    reasons.push(b.reason);
                 }
             }
-        });
-        let mut reasons: Vec<String> = Vec::new();
-        for b in game_buttons().into_iter().filter(|b| !b.enabled) {
-            if !reasons.contains(&b.reason) {
-                reasons.push(b.reason);
+            for r in reasons {
+                ui.weak(r);
             }
-        }
-        for r in reasons {
-            ui.weak(r);
-        }
-        ui.weak("no session started: the window starts one with game.session --start and follows it with game.status (M6.G4)");
-        theme::gap(ui);
+            ui.weak("no session started: the window starts one with game.session --start and follows it with game.status (M6.G4)");
+        });
 
         // -- the review summary
         let name = file_name(&self.plugin);
@@ -1252,20 +1256,30 @@ impl CockpitTab {
                                     .join(", ")
                             ));
                         }
-                        theme::table(ui, ("cockpit-master", master.as_str())).show(ui, |ui| {
-                            for h in ["record", "class", "sides", "fields"] {
-                                ui.strong(h);
-                            }
-                            ui.end_row();
-                            for r in view.records.iter().take(100) {
-                                if ui
-                                    .link(format!("{} {}", r.signature, r.form))
-                                    .on_hover_text("inspect")
-                                    .clicked()
-                                {
-                                    ctx.actions.push(Action::Inspect(r.form.clone()));
-                                }
-                                ui.label(&r.class);
+                        // Every changed record, laid out only where scrolled into view.
+                        virtual_table(
+                            ui,
+                            ("cockpit-master", master.as_str()),
+                            &["record", "class", "sides", "fields"],
+                            view.records.len(),
+                            View::Medium,
+                            |row, i| {
+                                let Some(r) = view.records.get(i) else {
+                                    return;
+                                };
+                                row.cell(|ui| {
+                                    if ui
+                                        .add_enabled(
+                                            !busy,
+                                            egui::Link::new(format!("{} {}", r.signature, r.form)),
+                                        )
+                                        .on_hover_text("inspect")
+                                        .clicked()
+                                    {
+                                        ctx.actions.push(Action::Inspect(r.form.clone()));
+                                    }
+                                });
+                                row.cell(|ui| ui.label(&r.class));
                                 let sides: Vec<String> = r
                                     .sides
                                     .split(" -> ")
@@ -1278,7 +1292,7 @@ impl CockpitTab {
                                         }
                                     })
                                     .collect();
-                                ui.label(sides.join(" -> ")).on_hover_text(&r.sides);
+                                row.cell(|ui| ui.label(sides.join(" -> ")).on_hover_text(&r.sides));
                                 let all: Vec<String> = r
                                     .rows
                                     .iter()
@@ -1291,10 +1305,9 @@ impl CockpitTab {
                                 } else {
                                     first
                                 };
-                                ui.label(shown).on_hover_text(all.join("\n"));
-                                ui.end_row();
-                            }
-                        });
+                                row.cell(|ui| ui.label(shown).on_hover_text(all.join("\n")));
+                            },
+                        );
                     }
                 });
         }
@@ -1319,24 +1332,27 @@ impl CockpitTab {
         if hits.is_empty() {
             ui.weak("none");
         } else {
-            theme::table(ui, "cockpit-ledger").show(ui, |ui| {
-                for h in ["entry", "names", "line"] {
-                    ui.strong(h);
-                }
-                ui.end_row();
-                for hit in &hits {
-                    ui.label(&hit.entry);
-                    if hit.names_hash {
-                        theme::status(ui, Status::Pass, "this SHA-256");
-                    } else if hash.is_some() {
-                        theme::status(ui, Status::Warn, "the file name only");
-                    } else {
-                        theme::status(ui, Status::Unknown, "the file name");
-                    }
-                    ui.label(&hit.line);
-                    ui.end_row();
-                }
-            });
+            virtual_table(
+                ui,
+                "cockpit-ledger",
+                &["entry", "names", "line"],
+                hits.len(),
+                View::Medium,
+                |row, i| {
+                    let Some(hit) = hits.get(i) else { return };
+                    row.cell(|ui| ui.label(&hit.entry));
+                    row.cell(|ui| {
+                        if hit.names_hash {
+                            theme::status(ui, Status::Pass, "this SHA-256")
+                        } else if hash.is_some() {
+                            theme::status(ui, Status::Warn, "the file name only")
+                        } else {
+                            theme::status(ui, Status::Unknown, "the file name")
+                        }
+                    });
+                    row.cell(|ui| ui.label(&hit.line));
+                },
+            );
         }
     }
 
