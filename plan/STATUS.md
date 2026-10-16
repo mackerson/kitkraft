@@ -2,6 +2,23 @@
 
 Updated: 2026-10-15 (reconciled against `main` at `01c77d8`); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started)
 
+## Director goal (2026-10-16)
+
+The goal is to drive every agent-executable ticket in M5, M6 and M7 to done under the
+director protocol. Opus writes in isolated worktrees, Fable reviews, and the director
+merges on a green gate and pushes `main`. Where the owner would be asked, the director
+takes a reasonable default decision and records it as an assumption pending the owner (the
+table below). Only owner-gated work stays in the owner table: CK sittings, Nexus installs,
+in-game sessions and license rulings.
+
+### Director assumptions pending owner
+
+| Item | Assumption taken | What it unblocks or holds | Owner may |
+| ---- | ---------------- | ------------------------- | --------- |
+| M6.O2 (fonts) | Keep the Windows system fonts; no font is compiled in | M6.V3's type scale and M6.V4 proceed on system fonts | choose a compiled-in OFL font or an MIT/Apache icon font instead (row 16) |
+| M7.O5 (NIF and geometry sources) | No NIF source is adopted until the owner rules | M7.R3 and later (the 3D viewport chain) wait; M7.S4 waits | name the permitted sources |
+| M5.O2 (`crates/game` dependency licenses) | The director confirms the dependency list at the M4.T3 merge if every license is MIT or Apache-2.0. Anything else stops the merge for the owner | M4.T3 + M5.C1 merge (path b) | review the list after the merge |
+
 ## Owner next actions
 
 In-game checks use only the MO2 profile **KitKraft Dev**, each on a disposable save. Never
@@ -2564,3 +2581,4 @@ Agents append here when they need a change in a crate they do not own.
     D. Finding: `C:\Modding\kitcraft\bin` lacks `kit-ui.exe`, so `kit ui` there exits 2
     (M6.P6a).
 - **Lane H landed (2026-10-16, M5.H1 research, docs only; result hypothesis):** `docs/research/hostile-encounters-2026-10-16.md`. Vanilla outpost attacks are story-manager script events (`SQ_OutpostAttackBranch` `349C9F`, keywords `04643E`/`349C9E`/`346518`) sent by `SQ_ParentScript.CheckForAttack` only while the beacon is loaded, with 7-day per-planet actor-value cooldowns; the Starborn attack is gated on the Armillary (`MQ_ArmillaryResourceAV`, MQ204 stage 620); Terran Armada adds a node instead of overriding; vanilla's only unattended branch destroys unloaded outpost objects (`SQ_OutpostAttackHumansScript`), against addendum item 4. All six mechanics: no native hook needed (one weak candidate, not opened). M5.H2 fixture proposed (stage-triggered Starborn spawn at the first POI, 12 probes); it needs QUST stage writes and object script properties. Request to lane D: `inspect` shows `VMAD` only to 256 bytes, so `SQ_Parent`'s special-case array is unread; a full-payload view. Registry row `PRIOR-ART-ATTACKS`.
+- **Lane F (M5 documentation) landed (2026-10-16, docs only):** M5.F4 ledger entries `game-20261015-02` (M3.O5) and `-03` (M4.O2) in `docs/game-observations.md`, graded owner report, with hashes recovered from the installed files and game 1.16.244.0 from the session saves. M5.F1 `docs/engine-limitations.md` (11 observed rows, 5 unobserved, 12 hypotheses). M5.F3 `docs/compatibility.md`: versions, all 14 masters, and the DLC mapping (Terran Armada confirmed from Steam depot 3763700; Free Lanes and Moon Jumper ship in the base depots and their records name them). ADR 0011 §3 now points to it. M5.F5 `docs/research/free-lanes-outposts-2026-10-16.md`: neither DLC changes a vanilla outpost record in substance; both add records (shared container, X-Tech extractors, faction workbenches and outposts). M5.F2 gap matrix checked at `5d03d01`. Request to lane D: point `docs/schema/evidence.toml`'s game entries at the two ledger ids and add typed-writable tests for `COBJ`, `STAT`, `REFR`, `ACHR`, `CELL` (the gap matrix's MX key lists where the two disagree).

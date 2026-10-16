@@ -180,3 +180,86 @@ weapon is added with `player.additem <FormID> 1` (runtime ID = FormID, since
 
 Finding: the first in-game confirmation of `set`/`validate`/`build` and of inline UTF-8
 lstrings in a non-localized override of a localized master (already in `plan/STATUS.md`).
+
+### game-20261015-02: gun overhaul build 2 (M3.O5), transcribed from the owner's report
+
+Transcribed by lane F (M5.F4, 2026-10-16) from the owner's report in `plan/STATUS.md`
+("M3.O5 result (2026-10-15)"). Grade: **owner report**. The owner gave a verdict per check,
+not the values seen, so the Seen column holds only what was reported. The hashes were
+recovered from the files afterwards; the owner did not report them.
+
+| Field | Content |
+| ----- | ------- |
+| Session | O5 (M3.O5) |
+| Date | 2026-10-15 |
+| Game build | 1.16.244.0. Source: the headers of the profile's saves written during the sitting, `Autosave2_..._000051_20261015205716` and `Exitsave0_..._000052_20261015205905` (`kit load --profile "Kitkraft Dev" --from-save <save>`: `confirmed`, `game_version` 1.16.244.0). `kit doctor` reads the same `Starfield.exe` file version on 2026-10-16 |
+| MO2 profile | `Kitkraft Dev` (the owner: "the vanilla `KitKraft Dev` profile") |
+| Save | Not named by the owner. The profile's saves `..._000051` and `..._000052` (2026-10-15, 16:57 and 16:59 local time) are the first to list `KitKraftGunOverhaul.esm`; both are disposable dev-profile saves |
+| Plugins | `KitKraftGunOverhaul.esm`, 45,271 bytes, SHA-256 `5e2f84e7b1dfd6a7876664a3bf203c3bbeff8679907bccd240c6ecb148f982d1`: the installed copy in `C:\Modding\MO2-Starfield\mods\KitKraftGunOverhaul\` and the build output `out\overhaul\KitKraftGunOverhaul.esm` both have it, and the package manifest `out\overhaul\package\KitKraftGunOverhaul\kitkraft-manifest.json` (SHA-256 `73527bcc...4891`) names it. The mod folder's `kitkraft-manifest.json` is byte-identical to that manifest, and MO2's `meta.ini` names `installationFile=KitKraftGunOverhaul-0.2.0.zip` (package SHA-256 `ec9ab1b3...5703`, as in the template). Runtime slot `05`, confirmed by save `..._000052`, after `KitKraftFirstPOI.esm` (`04`) |
+| Other changes | `KitKraftFirstPOI.esm` also enabled (game-20261015-03). `OldSovietMarksmanRifle.esm` is not in the profile's `plugins.txt` (checked 2026-10-16) |
+| Screenshots | None recorded (`observe\` has no folder for this session) |
+
+| Row | Check | Forms | Expected (build 2) | Seen | Result |
+| --- | ----- | ----- | ------------------ | ---- | ------ |
+| O5-01 | C1 | WEAP `Starfield.esm:26D96C`, `Starfield.esm:24561C` | as the template | owner: pass | **pass** (owner report) |
+| O5-02 | C2 | WEAP `Starfield.esm:21BBCD` | "Old Earth Marksman Rifle" | owner: the rifle shows "Old Earth Marksman Rifle" | **pass** (owner report) |
+| O5-03 | C3 | WEAP `Starfield.esm:2984DF`; AMDL `Starfield.esm:1B01CA`; OMOD `Starfield.esm:077F13` | as the template | owner: pass | **pass** (owner report) |
+| O5-04 | C4 | WEAP `Starfield.esm:21FEB4` | as the template | owner: pass | **pass** (owner report) |
+| O5-05 | C5 | WEAP `Starfield.esm:26D96D` | as the template | owner: pass | **pass** (owner report) |
+| O5-06 | C6 | WEAP `Starfield.esm:02D7F4`; OMOD `Starfield.esm:057555` | as the template | owner: pass | **pass** (owner report) |
+| O5-07 | C7 | WEAP `Starfield.esm:02EB36`; AMDL `Starfield.esm:11287A` | as the template | owner: pass | **pass** (owner report) |
+| O5-08 | C8 | - | dropped by the owner | - | n/a |
+| O5-09 | C9 | WEAP `Starfield.esm:04716C` | as the template | owner: pass | **pass** (owner report) |
+| O5-10 | C10 | WEAP `Starfield.esm:0546CC`; OMOD `Starfield.esm:12D03F` | as the template | owner: pass | **pass** (owner report) |
+| O5-11 | C11 | WEAP `Starfield.esm:18DE2C`; AMDL `Starfield.esm:179DBD`, `Starfield.esm:2BF29F`; OMOD `Starfield.esm:04A750` | as the template | owner: pass | **pass** (owner report) |
+| O5-12 | C12 | WEAP `Starfield.esm:26D960`; OMOD `Starfield.esm:132C4A`, `132C49`, `132C48` | as the template | owner: pass | **pass** (owner report) |
+| O5-13 | C13 | WEAP `Starfield.esm:0547A3` | as the template | owner: pass | **pass** (owner report) |
+| O5-14 | C14 | WEAP `Starfield.esm:0546CD` | as the template | owner: pass | **pass** (owner report) |
+| O5-15 | Persistence: save, quit, reload with the weapons | the weapons | as the template | not reported | not run (not reported) |
+| O5-16 | Drop the plugin, load the O5-15 save | the weapons | as the template | not reported | not run (not reported) |
+
+Findings: none new. The overhaul's game cells in `docs/foothold/gap-matrix.md` (`WEAP`,
+`AMDL`, `OMOD`, targeted edits) cite this entry. Their save/reload cells stay `not-run`
+(O5-15).
+
+### game-20261015-03: first POI found in game (M4.O2), transcribed from the owner's report
+
+Transcribed by lane F (M5.F4, 2026-10-16) from the owner's report in `plan/STATUS.md`
+("M4.O2 result (2026-10-15)") and commit `a5f08c9`. Grade: **owner report**. The hash was
+recovered from the files afterwards.
+
+| Field | Content |
+| ----- | ------- |
+| Session | O2 (M4.O2), first part: the crate only |
+| Date | 2026-10-15 |
+| Game build | 1.16.244.0 (save headers, as in game-20261015-02) |
+| MO2 profile | `Kitkraft Dev` |
+| Save | Not named by the owner. Every modded save of the profile from that day lists `KitKraftFirstPOI.esm`: `Autosave1_..._000039_20261015204005` (16:40 local time, before the overhaul was added), `..._000051` and `..._000052` |
+| Plugins | `KitKraftFirstPOI.esm`, 1,821 bytes, SHA-256 `13c22b482dd0067a741ebd2d2d57a4824623253492cbe38833768cfa3757b5f1`: the installed copy in `C:\Modding\MO2-Starfield\mods\Kitkraft POI dev\` (file time 2026-10-14 21:18, before the session), the build output `out\poi\KitKraftFirstPOI.esm` and the template above agree. **Not installed from a package**: the mod folder was made by hand (its `meta.ini` names no installation file), it holds no `kitkraft-manifest.json`, and `out\poi` holds no package, so no manifest check was possible. Runtime slot `04`, confirmed by saves `..._000051` and `..._000052` (`docs/poi/first-poi-investigation.md`) |
+| Other changes | `KitKraftGunOverhaul.esm` added later the same day (game-20261015-02). The rename package was not installed |
+| Screenshots | None recorded |
+
+| Row | Step | Forms | Expected | Seen | Result |
+| --- | ---- | ----- | -------- | ---- | ------ |
+| O2-02 | Install the rename package, manifest check | `OldSovietMarksmanRifle.esm` | as the template | not reported | not run (not reported) |
+| O2-03 | Install the POI package, manifest check | `KitKraftFirstPOI.esm` | as the template | installed by hand, not from a package | not run (no package used) |
+| O2-04 | `bat kitkraft-test` | - | as the template | not reported | not run (not reported) |
+| O2-05 | `coc CityNewAtlantisApartmentTEMPLATE` | CELL `Starfield.esm:21966F` | The player stands in the apartment | owner: used it to reach the cell | **pass** (owner report) |
+| O2-06 | `player.moveto 04001000` (the runtime ID, not the EditorID form) | REFR `KitKraftFirstPOI.esm:001000`, runtime `04001000` | The player is moved to the crate | owner: reached the crate. Clicking the crate to read its ID was not reported | **pass** (owner report) |
+| O2-07 | `prid`, `getpos`, screenshot | base STAT `Starfield.esm:1E4FBD` | crate at (-17.0, -4.0, 4.63) | not reported | not run (not reported) |
+| O2-08 | Persistence, protocol steps 1-4 | the crate | The crate is where it was, once | "pending owner confirmation" | not run (pending owner) |
+| O2-09 | Persistence, step 5 | the crate | as the template | not reported | not run (not reported) |
+| O2-10 | `player.placeatme 1E4FBD 1`, persistence | base `Starfield.esm:1E4FBD` | unknown (PS-09) | not reported | not run (not reported) |
+| O2-11 | `help KitKraftFirstPOICrate 4` | the crate | as the template | not reported | not run (not reported) |
+| O2-12 | The apartment's location | - | informational (PS-04) | not reported | not run (not reported) |
+| O2-13 | Archive naming | - | `n/a` for these packages | - | n/a |
+
+Findings: (1) The first in-game sighting of a new form that KitKraft wrote: a persistent
+`REFR` placed in a carried copy of a vanilla interior cell loads and is found at runtime ID
+`04001000`, the full slot the saves give. That supports the slot rule
+`runtime-slots-by-scale` for one full slot (`docs/load-order.md`); no `FE` or `FD` ID was
+checked. (2) An earlier sitting the same day tried `02001000`, which was the wrong ID, and
+`28001000` was the testplan's wrong prediction; `docs/poi/first-poi-investigation.md`
+records that sitting, and it has no entry here. The POI cells of
+`docs/foothold/gap-matrix.md` (`TES4`, `GRUP`, `CELL`, `REFR`, master scales, new forms)
+cite this entry; every save/reload cell stays `not-run` (O2-08).
