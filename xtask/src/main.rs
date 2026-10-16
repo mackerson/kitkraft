@@ -5,7 +5,7 @@
 //! - `cargo xtask layers`: the layer check alone. Compiles nothing; runs `cargo metadata`.
 //! - `cargo xtask codegen [--check]`: typed records from the schema ([`codegen`]).
 //! - `cargo xtask parity [--check]`: `docs/record-parity.md` from the corpus ([`parity`]).
-//! - `cargo xtask dist [--out DIR]`: the double-click distribution folder ([`dist`]).
+//! - `cargo xtask dist [--out DIR] [--sync-bin]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit, the Papyrus compiler) run as
 //!   oracles (lane H, [`oracle`], [`sf1edit`], [`papyrus`]).
@@ -175,6 +175,8 @@ fn print_help() {
         "  dist     release-build kit.exe and kit-ui.exe into <out>\\KitKraft\\ (default dist\\)"
     );
     println!("           with the double-click .cmd files and README.txt; [--out DIR]");
+    println!("           [--sync-bin] (also refresh the main checkout's bin\\); running programs");
+    println!("           are renamed aside to *.stale-<secs>, never stopped");
     println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
     println!("           round trips compared with kit (YAML never read; lane H);");
     println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");

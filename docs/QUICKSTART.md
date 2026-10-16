@@ -18,9 +18,17 @@ This release-builds `kit.exe` and `kit-ui.exe` and writes
 folder move): the two programs, the double-click files below and a `README.txt`.
 `--out <dir>` writes somewhere else. The `dist\` folder is not committed.
 
-Close Claude Code and the workbench before rebuilding: Windows does not let the build
-replace a `kit.exe` that is running (the MCP server is one). The build says so when that
-happens.
+Rebuilding works while Claude Code or the workbench runs. Windows does not let a running
+`kit.exe` (the MCP server is one) be overwritten, but lets it be renamed, so the build
+renames it aside to `kit.exe.stale-<unix-seconds>` in the same folder, copies the new
+build in, and prints one line per swap and how many stale copies are left (the same for
+`kit-ui.exe`). No process is stopped. After rebuilding, restart Claude Code or the
+workbench to pick up the new build; stale copies are cleaned on the next run.
+
+`--sync-bin` also refreshes `bin\kit.exe` and `bin\kit-ui.exe` in the main checkout
+(`C:\Modding\kitcraft\bin\`, gitignored; the path older docs and the pre-rename MCP
+registration use), with the same rename rule. It is opt-in so that a build from a lane
+worktree never replaces those programs unasked.
 
 | File | What it does |
 | ---- | ------------ |
