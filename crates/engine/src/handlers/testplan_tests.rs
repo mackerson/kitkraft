@@ -130,7 +130,7 @@ fn a_placed_reference_gets_coc_moveto_and_prid() {
         .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
         .collect();
     names.sort();
-    assert_eq!(names, ["checklist.md", "kitkraft-test.txt"]);
+    assert_eq!(names, ["checklist.md", "kitkraft-test.txt", "probes.toml"]);
     // Already in the load order: kept where it is.
     let r = testplan(
         &data,

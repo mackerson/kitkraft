@@ -488,6 +488,51 @@ static CATALOG: &[CommandSpec] = &[
         writes: true,
         status: Status::Implemented,
     },
+    // Lane C (runtime, M4.T3 and M5.C1; ADR 0010): agent-driven game sessions.
+    CommandSpec {
+        id: "game.session",
+        label: "Run Game Session...",
+        menu_path: "Game/Run Session...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Agent-driven game session on the dev profile (ADR 0010): preflight refusals (Default, MO2 or the game running, INI switches, console plugin, base save SHA-256, deploy --dev, unverified game profile), backups, launch through MO2, the probes.toml rows over the loopback console, screenshots and logs into observe/<date>-T<nn>/, restore-only rollback, one ledger entry; start returns a session id at once; dry_run prints the plan and writes nothing",
+        args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); one instance per call"},"probes":{"type":"string","description":"The probes.toml kit testplan wrote; its plugin is the plugin under test (installed with deploy --dev)"},"profile":{"type":"string","description":"The dev profile, matched ignoring case (default KitKraft Dev); Default is refused"},"game":{"type":"string","description":"Game profile: starfield (default), skyrimse, fallout4 (stubs, refused), or a .toml file"},"base_save":{"type":"string","description":"The disposable base save in the profile's saves folder, without extension (default KitKraftBase)"},"base_save_sha256":{"type":"string","description":"The base save's SHA-256 recorded at M4.O7; a live session is refused without it"},"observe":{"type":"string","description":"The observe folder (default observe under the working directory); the session writes only observe/<yyyy-mm-dd>-T<nn>/ there"},"ledger":{"type":"string","description":"<checkout>/docs/game-observations.md (default docs/game-observations.md under the working directory)"},"start":{"type":"boolean","default":false,"description":"Return the session id at once and run on a thread; follow with game.status, re-run rows with game.probe, end with game.stop"},"dry_run":{"type":"boolean","default":false,"description":"Report the plan and every refusal; write nothing"}},"required":["mo2","probes"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "game.status",
+        label: "Game Session Status",
+        menu_path: "Game/Session Status",
+        shortcut: None,
+        aliases: &[],
+        summary: "Read-only: a started game session's phase, the row running, the probe rows so far, re-runs, the screenshots taken (file names and paths under observe/<session>/), events, and the report once it has finished",
+        args_schema: r#"{"type":"object","properties":{"id":{"type":"string","description":"The session id game.session --start returned (yyyy-mm-dd-T<nn>)"}},"required":["id"],"additionalProperties":false}"#,
+        writes: false,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "game.probe",
+        label: "Re-run Probe",
+        menu_path: "Game/Re-run Probe...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Re-run one probes.toml row in a game session started with start, once its probes are done; optionally with a screenshot into observe/<session>/",
+        args_schema: r#"{"type":"object","properties":{"id":{"type":"string","description":"The session id"},"row":{"type":"string","description":"The row (T-03)"},"screenshot":{"type":"boolean","default":false,"description":"Take a screenshot as the row's evidence"}},"required":["id","row"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "game.stop",
+        label: "Stop Game Session",
+        menu_path: "Game/Stop Session",
+        shortcut: None,
+        aliases: &[],
+        summary: "End a started game session: remaining rows not-run, the game ended, logs copied, profile files verified and restored if changed, one ledger entry; dry_run says what it would do",
+        args_schema: r#"{"type":"object","properties":{"id":{"type":"string","description":"The session id"},"dry_run":{"type":"boolean","default":false,"description":"Report what stopping would do; change nothing"}},"required":["id"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
 ];
 
 #[cfg(test)]
@@ -588,6 +633,10 @@ mod tests {
             "deploy",
             "deploy.rollback",
             "ledger",
+            // Lane C (M4.T3).
+            "game.session",
+            "game.probe",
+            "game.stop",
         ]
         .into_iter()
         .collect();

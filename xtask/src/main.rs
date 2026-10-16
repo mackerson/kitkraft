@@ -64,6 +64,7 @@ const LAYER_TABLE: &[(&str, Layer)] = &[
     ("kitkraft-doc", Layer::L(1)),
     ("kitkraft-render", Layer::L(2)),
     ("kitkraft-io", Layer::L(3)),
+    ("kitkraft-game", Layer::L(3)),
     ("kitkraft-engine", Layer::L(4)),
     ("kitkraft-mcp", Layer::L(5)),
     ("kitkraft-ui-egui", Layer::L(5)),

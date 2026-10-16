@@ -15,7 +15,7 @@ Rules that bind every entry (AGENTS.md, "Owner's live game is off limits"):
 - Screenshots stay in `C:\Modding\kitkraft\observe\<yyyy-mm-dd>-<session>\` (gitignored);
   an entry names the files, it does not embed them.
 - **A step that could not run is a result.** Write what happened (the console's message,
-  the batch file not found) and mark it `not run`; never leave a row blank without a
+  the batch file not found) and mark it `not-run` (older entries write `not run`); never leave a row blank without a
   reason.
 - Runtime IDs depend on the load order. The IDs below are what `kit testplan` printed for
   the owner's order on 2026-10-14 (`docs/load-order.md`, assumption
@@ -49,7 +49,20 @@ Steps: the rows of the session template below, each filled with what was seen.
 | Forms | FormID as `Plugin.esm:XXXXXX`, EditorID, runtime ID used |
 | Expected | Copied from the template |
 | Seen | What the game showed, in words; console output copied as text |
-| Result | `pass`, `fail`, `not run` (with the reason) or `n/a` |
+| Result | `pass`, `fail`, `inconclusive` (with the reason), `not-run` (with the reason; older entries write `not run`) or `n/a` |
+
+`inconclusive` (ADR 0010 Amendment 1 condition 7, M5.C1) means the row ran but its
+evidence is missing or ambiguous. Examples: no console output to match, no number in it, a
+log that was not written, a screenshot the row asks for that was not taken, or a timeout.
+Missing evidence is never `pass`. A `manual` row that has only a screenshot stays
+`inconclusive` until the owner looks at it.
+
+Entries written by `kit game session` (`docs/game-sessions.md`) use the same tables. The
+header adds what Amendment 1 condition 5 needs to rerun the session: the game and script
+extender builds, the console tools' versions, the base save's SHA-256, every plugin's
+SHA-256 and the `probes.toml` hash. The step table adds an Evidence column (screenshot
+file names). A `Finding:` line names every profile file that changed during the session.
+The controller restores each one from its backup, and the session is then `inconclusive`.
 | Evidence | Screenshot file names |
 
 A `fail` or a surprise becomes a finding: one line under the entry naming the lane it goes
@@ -263,3 +276,32 @@ checked. (2) An earlier sitting the same day tried `02001000`, which was the wro
 records that sitting, and it has no entry here. The POI cells of
 `docs/foothold/gap-matrix.md` (`TES4`, `GRUP`, `CELL`, `REFR`, master scales, new forms)
 cite this entry; every save/reload cell stays `not-run` (O2-08).
+
+### game-20261016-T1: session facts (M4.T1), research; fact (a) attempted, (b) to (h) wait on M4.O7
+
+| Field | Content |
+| ----- | ------- |
+| Session | M4.T1 (lane C), research by an agent; the game was not launched and nothing was written under `C:\Modding\MO2-Starfield` |
+| Date | 2026-10-16 |
+| Game build | not involved |
+| MO2 | 2.5.2 revision 9c130cbf, usvfs 0.5.6.1 (`logs\mo_interface.log` line 2, written by MO2 on 2026-10-15) |
+| MO2 profile | none used; `Kitkraft Dev` and `ModOrganizer.ini` read only |
+| Screenshots | none |
+
+| Row | Fact | Observation | Grade | Result |
+| --- | ---- | ----------- | ----- | ------ |
+| a | The MO2 command line that starts a named executable on a named profile | `ModOrganizer.exe --help` was **not run**. `tasklist` showed `ModOrganizer.exe` (pid 8784) running: the owner's instance. ADR 0010 section 1 treats a second MO2 on the instance as unsafe, and starting the binary could write into the instance. Observed instead, from files MO2 wrote: version 2.5.2, a portable instance, and the executable titles `1 SFSE` (`sfse_loader.exe`), `2 Starfield`, `3 Explore Virtual Folder`, `4 CreationKit`, `5 Creation Kit` (`[customExecutables]`). Candidate command line: `ModOrganizer.exe -p "<profile>" "moshortcut://:SFSE"` | A for the version and the titles; D for the candidate | not-run (the owner's MO2 was running) |
+| b | V0: Console API 2.17.0 answers `GetSFSEVersion` over HTTP | Console API is not installed in `Kitkraft Dev` | - | not-run (needs M4.O7) |
+| c..h | `bAlwaysActive`, `load <save>`, `bat`, runtime IDs, `{Form:...}`, the Papyrus log path | - | - | not-run (needs M4.O7) |
+
+Finding (for the owner, M4.O7): `Kitkraft Dev\settings.ini` has `LocalSettings=false`
+(`LocalSaves=true`). The profile's `StarfieldCustom.ini` has only `[Archive]` keys and an
+empty `[General]`, so none of the session switches are set. Turn on profile-specific game
+INI files for the profile in MO2 before setting the switches there, or the game reads the
+INIs under `My Games` instead. `kit game session` refuses this state (`profile-settings`,
+`ini-switch`).
+
+To close (a): with MO2 closed, run `ModOrganizer.exe --help` from
+`C:\Modding\MO2-Starfield` and copy its output into this row. Then set `[launch] evidence`
+in `crates/game/profiles/starfield.toml` to `game-20261016-T1/a`, or correct the
+command line there first if the help text shows a different one.

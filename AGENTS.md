@@ -45,6 +45,7 @@ marker in `src/lib.rs` (or `src/main.rs`), from a scan of its sources, and from 
 | L1    | `crates/doc`     | `kitkraft-doc`     | Load order, FormID resolution across masters, overrides, conflicts |
 | L2    | `crates/render`  | `kitkraft-render`  | Viewport (later, not created yet)                                  |
 | L3    | `crates/io`      | `kitkraft-io`      | MO2 profile reader, `plugins.txt`, Creations manifests             |
+| L3    | `crates/game`    | `kitkraft-game`    | Game sessions on the dev profile (ADR 0010): preflight, loopback console, probes, backups, ledger; depends on no workspace crate |
 | L4    | `crates/engine`  | `kitkraft-engine`  | `CommandSpec` catalog, sessions, undo, validation rules            |
 | L5    | `crates/mcp`     | `kitkraft-mcp`     | MCP server: `server.rs`, `tools.rs`, `backend.rs`                  |
 | L5    | `crates/ui-egui` | `kitkraft-ui-egui` | Workbench (ADR 0007 Am. 1 to 3): reads, plus the confirmed writes of Amendment 3; swappable; engine only |

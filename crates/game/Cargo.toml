@@ -1,0 +1,19 @@
+[package]
+name = "kitkraft-game"
+description = "L3: agent-driven game sessions on the dev profile (ADR 0010): preflight, console over loopback HTTP, probes, backups, ledger"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+# No third-party HTTP or process crate (ADR 0010 Amendment 1 (c)): the console client is
+# std TCP and processes go through std::process, so the list for M5.O2 is empty.
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+toml.workspace = true
+regex.workspace = true

@@ -1,0 +1,48 @@
+# Fallout 4: a STUB (M4.T9), unverified. It names the known equivalents so the profile
+# format is shown to be game-agnostic; nothing in it has been observed, and the controller
+# refuses it, naming what is missing (docs/game-sessions.md).
+
+[game]
+id = "fallout4"
+name = "Fallout 4"
+status = "unverified"
+note = "stub: no console channel chosen, no command line observed, no session run"
+
+[executables]
+game = "Fallout4.exe"
+script_extender = "f4se_loader.exe"
+editor = "CreationKit.exe"
+mod_manager = "ModOrganizer.exe"
+helpers = ["usvfs_proxy_x64.exe", "usvfs_proxy_x86.exe"]
+
+[launch]
+mo2_executable = "F4SE"
+args = ["-p", "{profile}", "moshortcut://:{executable}"]
+pending = "unverified: the MO2 command line as M4.T1 (a) records it for Starfield, not observed for this game"
+
+[console]
+url = ""
+candidates = [
+    "a ConsoleUtil-class F4SE plugin (Papyrus ExecuteCommand; no HTTP endpoint of its own)",
+    "the game's AutoTest console commands",
+    "a skytest-style probe plugin (commands.jsonl / trace.jsonl)",
+]
+pending = "unverified: no channel chosen"
+
+[saves]
+dir = "saves"
+extension = "fos"
+load_command = "load {save}"
+save_command = "save {save}"
+pending = "unverified"
+
+[[ini]]
+file = "Fallout4Custom.ini"
+section = "Papyrus"
+key = "bEnableLogging"
+value = "1"
+
+[[log]]
+name = "papyrus"
+path = "{documents}/My Games/Fallout4/Logs/Script/Papyrus.0.log"
+pending = "unverified"

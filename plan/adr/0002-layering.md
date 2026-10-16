@@ -16,7 +16,7 @@ everything. The craft suite solves this with a fixed layer stack checked in CI.
 | L0    | Formats: bytes in, bytes out, no policy         | schema, esm, ba2, pex, strings, nif |
 | L1    | Document model across a load order              | doc                                 |
 | L2    | Rendering (retired by Amendment 1, 2026-10-16)  | render (none; see Amendment 1)      |
-| L3    | Outside-world I/O (MO2, plugins.txt, manifests) | io                                  |
+| L3    | Outside-world I/O (MO2, plugins.txt, manifests; game sessions, ADR 0010) | io, game                            |
 | L4    | Commands, sessions, undo, validation            | engine                              |
 | L5    | Front-end adapters                              | mcp, ui-egui (later)                |
 | APP   | Binaries                                        | kit-cli, kit (later)                |
@@ -98,3 +98,12 @@ Decision:
    commit). Until then the entry names a crate that does not exist and constrains nothing.
 
 The "Consequences" bullets above about `render` (L2) are superseded by this amendment.
+
+## Row added 2026-10-16 (lane C, M4.T3): `crates/game` at L3
+
+ADR 0010 rule 5 places the session controller (`kitkraft-game`) at L3 beside `io`, depending
+on L0 and L1 only; it uses no workspace crate at all. The engine (L4) reads MO2 through
+`kitkraft-io` and passes plain facts to it, so there is no same-layer `game -> io` edge and
+`SAME_LAYER_ALLOWED` is unchanged. Its external dependencies are `serde`, `serde_json`,
+`toml`, `thiserror` and `regex`, all already in the workspace; no HTTP or process crate
+(ADR 0010, "Dependency list").
