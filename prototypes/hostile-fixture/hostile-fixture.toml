@@ -1,0 +1,65 @@
+# M5.H2 (first half), prototype: the generic hostile-encounter fixture that
+# docs/research/hostile-encounters-2026-10-16.md section 4 proposes, built with what the
+# engine writes today. Not a Foothold attack system. README.md in this folder says how to
+# compile, build and check it.
+#
+# kit papyrus compile prototypes/hostile-fixture/scripts/KitKraft/HostileFixtureController.psc out/prototypes/hostile-fixture/Scripts --sources-zip "<Starfield>/Tools/ContentResources.zip"
+# kit build prototypes/hostile-fixture/hostile-fixture.toml out/prototypes/hostile-fixture/KitKraftHostileFixture.esm
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# The quest: two stages and nothing else (no fragments, aliases, objectives or log
+# entries; the stage group's INDX alone, as vanilla City_NA_Landing_ShipTechs
+# Starfield.esm:252335 has its stages). Stage 10 spawns, stage 20 cleans up; the
+# reaction is the controller script's remote OnStageSet, not a fragment.
+name = "quest"
+type = "QUST"
+edid = "KitKraftHostileFixtureQuest"
+fields = { FULL = "KitKraft Hostile Fixture", "INDX.StageIndex" = 10, "INDX[1].StageIndex" = 20 }
+brief = "M5.H2"
+
+[[new]]
+# Telemetry: the number of actors the fixture holds now (the probes read it).
+name = "spawned"
+type = "GLOB"
+edid = "KitKraftHostileFixtureSpawned"
+fields = { FLTV = 0.0 }
+brief = "M5.H2"
+
+[[new]]
+# Cooldown: the game time (days) before which a spawn is refused; 0, so the first fires.
+name = "cooldown"
+type = "GLOB"
+edid = "KitKraftHostileFixtureNextDay"
+fields = { FLTV = 0.0 }
+brief = "M5.H2"
+
+[[new]]
+# The research's G1 fallback trigger, kept beside the quest: `set
+# KitKraftHostileFixtureTrigger to 1` spawns, 2 cleans up (polled once a second while the
+# controller is loaded).
+name = "trigger"
+type = "GLOB"
+edid = "KitKraftHostileFixtureTrigger"
+fields = { FLTV = 0.0 }
+brief = "M5.H2"
+
+[[place]]
+# The controller: ActivatorSwitch01 (the scripts recipe's base) at the first POI,
+# CityNewAtlantisApartmentTEMPLATE, two units east of the first POI's crate (-17, -4).
+name = "controller"
+base = "Starfield.esm:03CCF4"
+cell = "Starfield.esm:21966F"
+position = [-15.0, -4.0, 4.63]
+persistent = true
+edid = "KitKraftHostileFixtureController"
+brief = "M5.H2"
+# LvlStarborn_Aggro (Starfield.esm:27025D), the NPC_ whose template (TPLT) is
+# LCharStarborn (LVLN Starfield.esm:270261): PlaceActorAtMe takes an ActorBase, not a
+# leveled list.
+scripts = [
+  { name = "KitKraft:HostileFixtureController", properties = { FixtureQuest = "new:quest", SpawnStage = 10, CleanupStage = 20, SpawnBase = "Starfield.esm:27025D", SpawnCount = 2, SpawnedGlobal = "new:spawned", NextDayGlobal = "new:cooldown", TriggerGlobal = "new:trigger", CooldownDays = 0.0 } },
+]
