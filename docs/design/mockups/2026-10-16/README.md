@@ -1,3 +1,5 @@
+> **Owner decision (M6.O1, 2026-10-16): Workbench.** Owner: "Workbench, themes look great only keep the mocks if there's a good reason." The twelve screenshots were moved out of the repository to the ignored folder out/mockups/2026-10-16/ (the plan's rule: tour images stay outside git); regenerate them with the screenshot tour (docs/workbench.md) if needed. The token table below remains the record of the two directions.
+
 # Workbench mockups for M6.O1: Workbench or Studio (2026-10-16)
 
 Two directions for the workbench's look, each the same window with a different token
