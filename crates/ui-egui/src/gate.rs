@@ -12,7 +12,9 @@
 //! has a preview form that writes nothing and passes like a read (`ledger` without
 //! `confirm`, `deploy*` with `dry_run: true`), and a writing form that passes only in a
 //! request built by [`Request::confirmed`], which one panel file per entry makes once per
-//! confirm click (a source scan holds it). No other request may be confirmed. For
+//! confirm click (a source scan holds it); the confirmation is bound to that request's id
+//! and arguments, so changing either afterwards voids it. No other request may be
+//! confirmed. For
 //! `deploy` and `deploy.rollback` the gate also checks what it can from the arguments
 //! alone: `dev: true`, and `profile` present (writing form) and never `Default`. The
 //! panel compares `mo2` and `profile` with the loaded dev profile; the engine refuses
@@ -279,12 +281,13 @@ pub struct Request {
     pub id: String,
     /// The arguments object.
     pub args: Value,
-    /// Made by a confirm click ([`Request::confirmed`]): the only way a
-    /// [`PERMITTED_WRITES`] entry runs in its writing form. Private, so outside this
-    /// module it is set only through that constructor (read it with
-    /// [`Request::is_confirmed`]); a source scan keeps the constructor, per id, to that
-    /// entry's panel file.
-    confirmed: bool,
+    /// Made by a confirm click ([`Request::confirmed`]): the id and arguments the user
+    /// confirmed, the only way a [`PERMITTED_WRITES`] entry runs in its writing form.
+    /// Private, so outside this module it is set only through that constructor (read it
+    /// with [`Request::is_confirmed`]); a source scan keeps the constructor, per id, to
+    /// that entry's panel file. Bound to the id and arguments: [`check`] refuses a
+    /// confirmed request whose public `id` or `args` were changed after the click.
+    confirmed_for: Option<(String, Value)>,
 }
 
 impl Request {
@@ -293,7 +296,7 @@ impl Request {
         Self {
             id: id.to_string(),
             args,
-            confirmed: false,
+            confirmed_for: None,
         }
     }
 
@@ -302,14 +305,17 @@ impl Request {
     /// literal naming the command (the source scan reads it).
     pub fn confirmed(id: &str, args: Value) -> Self {
         Self {
-            confirmed: true,
+            confirmed_for: Some((id.to_string(), args.clone())),
             ..Self::new(id, args)
         }
     }
 
-    /// Whether the request came from [`Request::confirmed`].
+    /// Whether the request came from [`Request::confirmed`] and still carries the id and
+    /// arguments that were confirmed.
     pub fn is_confirmed(&self) -> bool {
-        self.confirmed
+        self.confirmed_for
+            .as_ref()
+            .is_some_and(|(id, args)| *id == self.id && *args == self.args)
     }
 }
 
@@ -408,7 +414,7 @@ fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError
             }
         }
     }
-    if writes && !request.confirmed {
+    if writes && !request.is_confirmed() {
         return Err(RunError::Refused(format!(
             "`{}` in its writing form is sent only from its panel's confirm button ({}; ADR 0007 Amendment 3)",
             p.id, p.panel
@@ -420,12 +426,18 @@ fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError
 /// Checks `request` against [`ALLOWLIST`], [`GUARDED`] and [`PERMITTED_WRITES`] without
 /// running it.
 pub fn check(request: &Request) -> Result<(), RunError> {
+    if request.confirmed_for.is_some() && !request.is_confirmed() {
+        return Err(RunError::Refused(format!(
+            "`{}`: the request was changed after its confirm click; a confirmation covers only the id and arguments it was made for",
+            request.id
+        )));
+    }
     let spec = find_command(&request.id)
         .ok_or_else(|| RunError::Refused(format!("`{}` is not a catalog command", request.id)))?;
     if let Some(p) = permitted(spec.id) {
         return check_permitted(p, request);
     }
-    if request.confirmed {
+    if request.confirmed_for.is_some() {
         return Err(RunError::Refused(format!(
             "`{}`: only {} take a confirmed write; nothing else in the workbench writes",
             spec.id,
@@ -667,7 +679,10 @@ mod tests {
                 .map(|(id, _)| id.to_string());
             out.push(id);
         }
-        if text.contains("confirmed: true") || text.contains(".confirmed =") {
+        if text.contains("confirmed: true")
+            || text.contains(".confirmed =")
+            || text.contains("confirmed_for")
+        {
             out.push(None);
         }
         out
@@ -719,6 +734,36 @@ mod tests {
             [Some("deploy".to_string()), None]
         );
         assert_eq!(confirmed_calls("r.confirmed = true;"), [None]);
+        assert_eq!(confirmed_calls("r.confirmed_for = x;"), [None]);
+    }
+
+    /// A confirmation covers the id and arguments it was made for: changing a confirmed
+    /// request's public `id` or `args` afterwards makes `check` refuse it, so a panel
+    /// allowed to confirm one write cannot turn its request into another.
+    #[test]
+    fn a_confirmed_request_changed_after_the_click_is_refused() {
+        let ledger = json!({"row": "C3", "result": "pass", "confirm": true});
+        assert!(check(&Request::confirmed("ledger", ledger.clone())).is_ok());
+        let deploy = json!({"plugin": "X.esp", "dev": true, "profile": "KitKraft Dev"});
+        // The id changed: a confirmed ledger request turned into a deploy.
+        let mut r = Request::confirmed("ledger", ledger.clone());
+        r.id = "deploy".to_string();
+        assert!(!r.is_confirmed());
+        let e = check(&r);
+        assert!(
+            matches!(&e, Err(RunError::Refused(m)) if m.contains("changed after")),
+            "{e:?}"
+        );
+        r.args = deploy.clone();
+        assert!(matches!(check(&r), Err(RunError::Refused(_))));
+        // The arguments changed, id kept.
+        let mut r = Request::confirmed("ledger", ledger);
+        r.args = json!({"row": "C4", "result": "fail", "confirm": true});
+        assert!(matches!(check(&r), Err(RunError::Refused(_))));
+        // A confirmed deploy whose arguments were swapped.
+        let mut r = Request::confirmed("deploy", deploy);
+        r.args = json!({"plugin": "Y.esp", "dev": true, "profile": "KitKraft Dev"});
+        assert!(matches!(check(&r), Err(RunError::Refused(_))));
     }
 
     /// The ledger previews without a confirmation and writes only from a confirmed

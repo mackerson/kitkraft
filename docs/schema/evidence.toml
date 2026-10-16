@@ -19,8 +19,8 @@
 # record a status the evidence does not show: schema presence, a typed member or a passing
 # unit test is not game-runtime support (owner ruling 2026-10-15).
 
-# Typed-writable: a test writes the type through `new`/`set`/`build`, re-reads it, and
-# `validate` passes.
+# Typed-writable: a test writes the type through `new`/`set`/`build` (or `place` with
+# `fields`, for a reference), re-reads it, and `validate` passes.
 
 [[entry]]
 type = "LCTN"
@@ -45,6 +45,57 @@ type = "FACT"
 status = "typed-writable"
 result = "pass"
 evidence = ["test: crates/engine/src/handlers/authoring_tests.rs::fact_new_sets_every_typed_member_and_reads_back"]
+
+[[entry]]
+type = "COBJ"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::cobj_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::cobj_dangling_link_is_reported",
+]
+note = "lane D round 4: new with every typed leaf member, read back identically, validate with no finding; dangling CNAM, BNAM, JNAM reported"
+
+[[entry]]
+type = "STAT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::stat_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::stat_dangling_link_is_reported",
+]
+note = "lane D round 4: new with every typed leaf member (the display case component layout), validate with no finding; dangling SNTP, SNBH, DEFL reported"
+
+[[entry]]
+type = "REFR"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::refr_place_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::refr_dangling_link_is_reported",
+]
+note = "lane D round 4: place with fields for every typed leaf member but NAME (place's base), validate with no finding; dangling XLCN, XEZN, XLYR reported"
+
+[[entry]]
+type = "ACHR"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::achr_place_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::achr_dangling_link_is_reported",
+]
+note = "lane D round 4: place in an exterior cell with a navmesh, fields for every typed leaf member but NAME and DATA (place's base and position), validate with no finding; dangling XLCN, XEZN, XLYR reported"
+
+[[entry]]
+type = "CELL"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::cell_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::build_new_writes_an_interior_cell",
+  "test: crates/engine/src/handlers/authoring_world_tests.rs::cell_dangling_link_is_reported",
+]
+note = "lane D round 4: a new interior cell (new and build [[new]]) with every typed leaf member, in the interior block its FormID gives, INCC counted, validate with no finding; dangling LTMP, XLCN, XCWT reported. New exterior cells are refused"
 
 [[entry]]
 type = "GLOB"

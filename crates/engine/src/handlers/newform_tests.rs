@@ -197,7 +197,7 @@ fn new_and_clone_refusals_are_typed() {
         ),
         (
             "new",
-            json!({"type": "CELL", "edid": "KC_A"}),
+            json!({"type": "WRLD", "edid": "KC_A"}),
             "new.not-top-level",
         ),
         (
