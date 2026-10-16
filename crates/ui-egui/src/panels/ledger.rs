@@ -248,7 +248,7 @@ mod tests {
             ..LedgerForm::default()
         };
         let p = form.preview_request().unwrap();
-        assert!(!p.confirmed);
+        assert!(!p.is_confirmed());
         assert_eq!(
             p.args,
             json!({"file": r"C:\kk\docs\game-observations.md", "row": "C3", "result": "pass",
@@ -257,7 +257,7 @@ mod tests {
         );
         crate::gate::check(&p).unwrap();
         let a = form.append_request().unwrap();
-        assert!(a.confirmed);
+        assert!(a.is_confirmed());
         assert_eq!(a.args["confirm"], true);
         crate::gate::check(&a).unwrap();
         // The same arguments without the confirm click are refused.
