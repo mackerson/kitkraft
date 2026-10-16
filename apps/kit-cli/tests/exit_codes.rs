@@ -42,9 +42,37 @@ fn help_and_version_exit_0() {
         assert!(text.contains("ba2 extract"), "{args:?}");
         assert!(text.contains("mcp"), "{args:?}");
     }
-    let out = kit(&["--version"]);
-    assert_eq!(out.status.code(), Some(0));
-    assert!(stdout(&out).starts_with("kit "));
+    // M6.P6b: version, commit, build date and profile, as the envelope's `build` says.
+    for flag in ["--version", "-V"] {
+        let out = kit(&[flag]);
+        assert_eq!(out.status.code(), Some(0));
+        let id = kitkraft_engine::build_identity();
+        assert_eq!(stdout(&out).trim(), format!("kit {}", id.line()));
+        assert!(stdout(&out).starts_with(&format!("kit {} (", env!("CARGO_PKG_VERSION"))));
+    }
+}
+
+/// M6.P2b: `--progress` prints progress lines on stderr and leaves stdout as it was.
+#[test]
+fn progress_goes_to_stderr_and_leaves_the_result_alone() {
+    let path = temp_plugin("progress", &synthetic_plugin());
+    let p = path.to_str().expect("utf-8 temp path");
+    let plain = kit(&["roundtrip", p, "--json"]);
+    for args in [
+        &["--progress", "roundtrip", p, "--json"][..],
+        &["roundtrip", p, "--json", "--progress"],
+    ] {
+        let out = kit(args);
+        assert_eq!(out.status.code(), Some(0), "{args:?}: {}", stderr(&out));
+        let err = stderr(&out);
+        assert!(err.contains("progress: roundtrip: roundtrip 0/1 "), "{err}");
+        assert!(err.contains("progress: roundtrip: roundtrip 1/1 "), "{err}");
+        let got: Value = serde_json::from_str(&stdout(&out)).expect("stdout is JSON");
+        let want: Value = serde_json::from_str(&stdout(&plain)).expect("stdout is JSON");
+        assert_eq!(without_timing(got), without_timing(want), "{args:?}");
+    }
+    assert!(!stderr(&plain).contains("progress:"));
+    std::fs::remove_file(&path).expect("cleanup");
 }
 
 #[test]

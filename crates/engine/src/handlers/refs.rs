@@ -252,7 +252,9 @@ fn types_arg(args: &Value) -> Result<Option<Vec<[u8; 4]>>, EngineError> {
 pub(super) fn backrefs<'l>(loaded: &'l Loaded, schema: &Schema) -> &'l Backrefs {
     loaded.backrefs.get_or_init(|| {
         let cache = loaded.cache_dir.as_ref().map(BackrefCache::new);
-        Backrefs::build(&loaded.lo, schema, cache.as_ref(), 0)
+        let reporter = crate::progress::current();
+        let on_built = crate::progress::per_plugin(reporter.as_ref(), "reverse-index");
+        Backrefs::build_with_progress(&loaded.lo, schema, cache.as_ref(), 0, &on_built)
     })
 }
 

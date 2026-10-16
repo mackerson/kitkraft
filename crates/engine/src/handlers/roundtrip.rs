@@ -63,6 +63,8 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     };
 
     let start = Instant::now();
+    let name = file_name(path);
+    crate::progress::emit("roundtrip", 0, Some(1), Some(&name));
     let report = match out {
         None => roundtrip_file_to(path, &options, None),
         Some(out) => {
@@ -85,10 +87,11 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
     }
     .map_err(|e| failed(ID, format!("{plugin}: {e}")))?;
     let elapsed_ms = u64::try_from(start.elapsed().as_millis()).unwrap_or(u64::MAX);
+    crate::progress::emit("roundtrip", 1, Some(1), Some(&name));
 
     Ok(outcome(
         plugin,
-        &file_name(path),
+        &name,
         Checks { verify, decode },
         out,
         &report,
@@ -341,7 +344,8 @@ mod tests {
                 },
                 "limitations": [CONTAINER_ONLY],
                 "evidence": [{"kind": "evidence", "file": file, "offset": 0, "length": bytes.len(),
-                              "record": null, "subrecord": null}]
+                              "record": null, "subrecord": null}],
+                "build": crate::build_identity(),
             })
         );
         std::fs::remove_file(&path).unwrap();

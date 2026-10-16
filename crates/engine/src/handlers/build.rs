@@ -572,7 +572,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     // Classes: winning records of one type matching `where`.
     let mut class_forms: Vec<Vec<GlobalForm>> = Vec::new();
     let mut classes_json = Vec::new();
-    for class in &spec.classes {
+    for (i, class) in spec.classes.iter().enumerate() {
+        crate::progress::emit("classes", i, Some(spec.classes.len()), Some(&class.key));
         let (forms, unknown) = matches(loaded, class.signature, class.query.as_ref(), &class.key)?;
         if unknown > 0 {
             limitations.push(format!(
@@ -597,7 +598,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     let mut cache = HashMap::new();
     let mut reader = RecordReader::new();
     let mut rules_json = Vec::new();
-    for rule in &spec.rules {
+    for (i, rule) in spec.rules.iter().enumerate() {
+        crate::progress::emit("rules", i, Some(spec.rules.len()), Some(&rule.key));
         let class = spec
             .classes
             .get(rule.class)
@@ -920,6 +922,8 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     );
     let scripts_json = std::mem::take(&mut entry_scripts.reports);
     let staged = stage(ID, &out, false)?;
+    let out_name = super::file_name(&out);
+    crate::progress::emit("write", 0, Some(1), Some(&out_name));
     let mut report = write_with(ID, loaded, &staged.path, copies, new_refs, allow_untyped)?;
     let spec_dir = spec_path
         .parent()
@@ -941,6 +945,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         &mut report,
         &limits,
     )?;
+    crate::progress::emit("validate", 0, Some(1), Some(&out_name));
     let checked = check(ID, loaded, &staged)?;
     // Carried records (parents, and placed references' cells a rule or set edits) against
     // their winners, read from the staged plugin before it moves.

@@ -674,10 +674,25 @@ impl Backrefs {
         cache: Option<&BackrefCache>,
         threads: usize,
     ) -> Backrefs {
+        Self::build_with_progress(lo, schema, cache, threads, &|_| {})
+    }
+
+    /// As [`Backrefs::build`], calling `on_built` once per loaded plugin as its reverse
+    /// index is read from the cache or built ([`crate::load_order::OnPluginDone`];
+    /// `total` counts the plugins that loaded).
+    pub fn build_with_progress(
+        lo: &LoadOrder,
+        schema: &Schema,
+        cache: Option<&BackrefCache>,
+        threads: usize,
+        on_built: crate::load_order::OnPluginDone<'_>,
+    ) -> Backrefs {
         let started = std::time::Instant::now();
         let n = lo.plugins.len();
         let results: Mutex<Vec<Option<Built>>> = Mutex::new(vec![None; n]);
         let next = AtomicUsize::new(0);
+        let done = AtomicUsize::new(0);
+        let total = lo.plugins.iter().filter(|p| p.index.is_some()).count();
         let workers = if threads == 0 {
             std::thread::available_parallelism()
                 .map_or(1, std::num::NonZeroUsize::get)
@@ -716,6 +731,12 @@ impl Backrefs {
                         if let Some(slot) = all.get_mut(i) {
                             *slot = Some(result);
                         }
+                        let n = done.fetch_add(1, Ordering::SeqCst).saturating_add(1);
+                        on_built(crate::load_order::PluginDone {
+                            done: n,
+                            total,
+                            plugin: &p.name,
+                        });
                     }
                 });
             }

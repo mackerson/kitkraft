@@ -706,7 +706,14 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         .len();
     let limits = DecodeLimits::default();
     let mut walk = Walk::default();
+    let reporter = crate::progress::current();
+    let mut groups = 0usize;
     visit_file(path, &ParseOptions::default(), |entry| {
+        if let (Some(r), Entry::Group(g)) = (&reporter, entry) {
+            groups = groups.saturating_add(1);
+            let sig = g.header.label_signature().to_string();
+            r.emit("records", groups, None, Some(&sig));
+        }
         walk.entry(entry, Some(schema), decode.then_some(&limits));
         Ok(())
     })

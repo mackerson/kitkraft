@@ -152,7 +152,14 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         options.indexed = indexes(&loaded.lo);
         limitations.extend(loaded.limitations.iter().cloned());
     }
+    let target = options
+        .plugin
+        .as_ref()
+        .and_then(|p| p.file_name())
+        .map(|n| n.to_string_lossy().into_owned());
+    crate::progress::emit("validate", 0, Some(1), target.as_deref());
     let report = validate::validate(&options).map_err(|m| failed(ID, m))?;
+    crate::progress::emit("validate", 1, Some(1), target.as_deref());
     let mut out = outcome(&options, &report);
     for l in limitations {
         if !out.limitations.contains(&l) {

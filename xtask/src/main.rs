@@ -8,7 +8,8 @@
 //! - `cargo xtask dist [--out DIR] [--sync-bin]`: the double-click distribution folder ([`dist`]).
 //! - `cargo xtask observe`: CK observation fixtures to reports (lane H, [`observe`]).
 //! - `cargo xtask oracle`: external tools (Spriggit, SF1Edit, the Papyrus compiler) run as
-//!   oracles (lane H, [`oracle`], [`sf1edit`], [`papyrus`]).
+//!   oracles (lane H, [`oracle`], [`sf1edit`], [`papyrus`]); `oracle ck` compares our plugin
+//!   with the Creation Kit's export of it (lane A, [`ckoracle`]).
 //!
 //! The layer check has three parts.
 //!
@@ -30,6 +31,7 @@
 //!
 //! LAYER: TOOL
 
+mod ckoracle;
 mod codegen;
 mod dist;
 mod evidence;
@@ -40,6 +42,7 @@ mod papyrus;
 mod parity;
 mod sf1edit;
 mod smuggle;
+mod ui;
 
 use std::collections::BTreeMap;
 use std::fmt;
@@ -147,6 +150,10 @@ fn run() -> Result<()> {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             dist::run(&workspace_root()?, &rest)
         }
+        Some("ui") => {
+            let rest: Vec<String> = std::env::args().skip(2).collect();
+            ui::run(&workspace_root()?, &rest)
+        }
         Some("oracle") => {
             let rest: Vec<String> = std::env::args().skip(2).collect();
             oracle::run(&workspace_root()?, &rest)
@@ -177,12 +184,17 @@ fn print_help() {
     println!("           with the double-click .cmd files and README.txt; [--out DIR]");
     println!("           [--sync-bin] (also refresh the main checkout's bin\\); running programs");
     println!("           are renamed aside to *.stale-<secs>, never stopped");
+    println!("  ui       release-build kit and kit-ui, then open the window with `kit ui --dev`");
+    println!("           (the KitKraft Dev profile) unless the arguments name --profile or");
+    println!("           --plugins; other arguments pass to `kit ui`; --no-dev opens the picker");
     println!("  oracle   `oracle spriggit [--official] [--synthetic] [<plugin>...]`: Spriggit");
     println!("           round trips compared with kit (YAML never read; lane H);");
     println!("           `oracle sf1edit [--official] [<plugin>...] [--types ..]`: xEdit's");
     println!("           decoded view (its console dumper) compared with kit inspect;");
     println!("           `oracle papyrus [<psc>...] [--sources DIR] [--optimize]`: the official");
-    println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff");
+    println!("           Papyrus compiler vs kit papyrus compile, normalized disassembly diff;");
+    println!("           `oracle ck <fixture-dir>... [--out DIR] [--check]`: kitkraft.esm vs the");
+    println!("           CK's ck.esm, every difference classed (lane A, M5.A2)");
 }
 
 /// The optional `--check` argument of `task` (`cargo xtask <task> [--check]`).

@@ -193,13 +193,25 @@ Every successful tool result is one JSON object:
   "evidence": [
     { "kind": "evidence", "file": "Starfield.esm", "offset": 123456789, "length": 38,
       "record": "WEAP:0001A2B3", "subrecord": "FULL" }
-  ]
+  ],
+  "build": { "version": "0.0.0", "commit": "5d03d01", "date": "2026-10-16",
+             "profile": "release" }
 }
 ```
 
 Rules:
 
-- The five members are always present, in every result of every command.
+- The six members are always present, in every result of every command.
+- `build` names the program that produced the result (M6.P6b; `kit --version` prints the
+  same): the workspace `version`, the short `commit` (`-dirty` appended when the tree had
+  changes), the UTC build `date`, and the `profile` (`debug` or `release`). `commit` and
+  `date` are set by `cargo xtask dist` and `cargo xtask ui` when they build
+  (`KITKRAFT_BUILD_COMMIT`, `KITKRAFT_BUILD_DATE`); any other build says `unknown` for
+  them. It is provenance of the tool, kept apart from `evidence`, which holds byte ranges
+  of the input only.
+- Progress (M6.P2b) never enters the envelope: a front end that passes a progress sink
+  (`Engine::execute_with_progress`; the CLI's `--progress`, which prints to stderr) gets
+  the same envelope as one that does not. MCP does not send progress notifications yet.
 - `coverage.status` is `complete`, `partial`, or `unknown`. `complete` only when every byte
   of every examined record was decoded. `decoded_subrecords` / `opaque_subrecords` are
   `null` when the command did not count them (never `0` for "not counted").

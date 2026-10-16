@@ -306,7 +306,8 @@ fn the_checker_reports_unmarked_values_and_undocumented_members() {
         json!({"command": "diff", "data": data, "coverage": {"status": "complete",
             "decoded_subrecords": null, "opaque_subrecords": null, "not_examined": []},
             "limitations": [], "evidence": [{"file": "A.esm", "offset": 0, "length": 4,
-            "record": null, "subrecord": null}]})
+            "record": null, "subrecord": null}],
+            "build": {"version": "0.0.0", "commit": "unknown", "date": "unknown", "profile": "debug"}})
     };
     let field = |before: Value| {
         json!({"a": "A.esm", "b": "B.esm", "form": null, "keyed_by": "name",

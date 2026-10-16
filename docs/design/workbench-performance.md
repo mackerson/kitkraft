@@ -20,9 +20,15 @@ numbers we can check.
   Never `Default` (AGENTS.md, "Owner's live game is off limits"). Record its plugin count
   and record count with each run, because the profile changes (84 plugins on 2026-10-15,
   16 on 2026-10-16).
-- **Build identity.** Record the SHA-256 of `kit.exe` and `kit-ui.exe` and the commit they
-  were built from. `kit --version` prints `0.0.0` today and no commit, so record the commit
-  by hand until M6.P6 adds it to `kit --version` and the window's title bar.
+- **Build identity.** Record the SHA-256 of `kit.exe` and `kit-ui.exe` and the output of
+  `kit --version`: `kit 0.0.0 (<commit>, <date>, <profile>)` since M6.P6b, with `-dirty`
+  after a commit built from a tree with changes. Build with `cargo xtask ui` or
+  `cargo xtask dist`, which set the commit and date; another build says `unknown` and is
+  not measured. Every envelope carries the same as `build`. The window's About line will
+  read it too (lane V).
+- **Progress.** `kit --progress` prints one stderr line per progress event (M6.P2b:
+  `load` sends one per plugin indexed, after a first `index 0/N` before indexing starts);
+  L4's "first progress" is the time to the first such line.
 - **Cold and warm index cache, kept apart.**
   - *Warm*: the engine's index cache (`%LOCALAPPDATA%\kitkraft\cache`, `docs/load-order.md`
     "Index cache") already holds every plugin. Run once to warm, then measure.

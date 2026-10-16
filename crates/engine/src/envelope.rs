@@ -103,10 +103,12 @@ impl Outcome {
 /// The limitation string a stub handler reports.
 pub const NOT_IMPLEMENTED: &str = "not implemented";
 
-/// The serialized envelope: `{command, data, coverage, limitations, evidence}`.
+/// The serialized envelope: `{command, data, coverage, limitations, evidence, build}`.
 #[derive(Debug, Serialize)]
 pub(crate) struct Envelope<'a> {
     pub command: &'a str,
     #[serde(flatten)]
     pub outcome: Outcome,
+    /// The build that produced it (M6.P6b).
+    pub build: crate::identity::BuildIdentity,
 }

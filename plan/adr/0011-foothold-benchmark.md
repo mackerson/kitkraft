@@ -64,7 +64,11 @@ settlement mod would need; the ruling says which part of that is this project's 
      `SFBGS00D.esm`.
 
    The files do not say which store product ships each one; M5.F3 records that from the
-   install. Rules:
+   install. (*Follow-up 2026-10-16, M5.F3:* `docs/compatibility.md` checks the mapping
+   against Steam's install manifest and app cache. Terran Armada is confirmed, since DLC app
+   3763700's depot is exactly `SFBGS050*` plus `BlueprintShips-SFBGS050.esm`. Free Lanes
+   and Moon Jumper ship in the base game depots, and their own records name them. The
+   page also lists every master's version and hash.) Rules:
    - Fixtures prefer `Starfield.esm` as their only master.
    - Fixtures for Free Lanes or other content are allowed, are named as optional, and
      record their extra masters.

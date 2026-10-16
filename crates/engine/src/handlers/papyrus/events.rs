@@ -242,10 +242,16 @@ fn script_entry(file: &str, s: &Script) -> ScriptEntry {
 /// Parses every source of an open zip into an index.
 fn build(sources: &mut ZipSources) -> Result<Index, String> {
     let files = sources.read_all_psc()?;
+    Ok(build_from(&files, sources.key))
+}
+
+/// Parses `(path below Scripts/Source with '/', bytes)` pairs into an index keyed `key`
+/// (the zip's; M5.B1's test feeds the extracted folder through the same code).
+pub(crate) fn build_from(files: &[(String, Vec<u8>)], key: u64) -> Index {
     let mut scripts = Vec::with_capacity(files.len());
     let mut failures = Vec::new();
     let mut diagnostics = 0usize;
-    for (path, bytes) in &files {
+    for (path, bytes) in files {
         match psc::parse(bytes) {
             Ok(s) => {
                 diagnostics = diagnostics.saturating_add(s.diagnostics.len());
@@ -259,14 +265,14 @@ fn build(sources: &mut ZipSources) -> Result<Index, String> {
             .to_ascii_lowercase()
             .cmp(&b.name.to_ascii_lowercase())
     });
-    Ok(Index {
+    Index {
         format: FORMAT,
-        key: format!("{:016x}", sources.key),
+        key: format!("{key:016x}"),
         files: files.len(),
         scripts,
         failures,
         diagnostics,
-    })
+    }
 }
 
 /// The index for `zip`: from `cache_root` when present and current, else built (and

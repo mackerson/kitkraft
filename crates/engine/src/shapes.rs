@@ -299,6 +299,14 @@ const ENVELOPE: Shape = Obj(&[&[
     req("coverage", COVERAGE),
     req("limitations", STRS),
     req("evidence", List(&Marker(kind::EVIDENCE))),
+    req("build", BUILD),
+]]);
+/// The build that produced the envelope (M6.P6b, `crate::identity`).
+const BUILD: Shape = Obj(&[&[
+    req("version", Str),
+    req("commit", Str),
+    req("date", Str),
+    req("profile", Enum(&["debug", "release"])),
 ]]);
 
 // ---- load ------------------------------------------------------------------------------

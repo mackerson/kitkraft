@@ -9,7 +9,8 @@
 //! [`execute`] resolves an id or alias, validates the arguments against the command's
 //! `args_schema` (the subset documented in [`args`]), dispatches to the registered
 //! [`CommandHandler`], and returns the result envelope from `docs/mcp.md`:
-//! `{command, data, coverage, limitations, evidence}`.
+//! `{command, data, coverage, limitations, evidence, build}`. A caller that wants progress
+//! events from long commands passes a sink to [`execute_with_progress`] ([`progress`]).
 //!
 //! An [`Engine`] owns a [`Session`] (the loaded load order and caches) that
 //! [`SessionHandler`]s read and change; the free [`execute`] runs on a fresh session.
@@ -26,8 +27,10 @@ mod envelope;
 mod exec;
 mod handlers;
 mod host;
+pub mod identity;
 pub mod install;
 mod params;
+pub mod progress;
 mod session;
 pub mod shapes;
 pub mod validate;
@@ -35,8 +38,13 @@ pub mod validate;
 pub use args::Violation;
 pub use cmdline::{parse_line, parse_words, Invocation};
 pub use envelope::{Coverage, CoverageStatus, Evidence, Outcome, NOT_IMPLEMENTED};
-pub use exec::{execute, prepare_args, CommandHandler, Engine, EngineError, SessionHandler};
+pub use exec::{
+    execute, execute_with_progress, prepare_args, CommandHandler, Engine, EngineError,
+    SessionHandler,
+};
+pub use identity::{build_identity, BuildIdentity};
 pub use params::{params, Param, ParamKind};
+pub use progress::{Progress, ProgressSink};
 pub use session::Session;
 
 /// Whether a catalog entry does anything yet.
@@ -730,7 +738,8 @@ mod execute_tests {
                     "not_examined": []
                 },
                 "limitations": ["not implemented"],
-                "evidence": []
+                "evidence": [],
+                "build": crate::build_identity(),
             })
         );
     }
