@@ -219,7 +219,9 @@ pub fn provenance(env: &Value) -> BTreeMap<String, Provenance> {
 
 use eframe::egui::{self, TextEdit};
 
-use crate::panels::common::{conf_label, envelope_block, link, Action, Slot, TabCtx};
+use crate::panels::common::{
+    action_bar, conf_label, envelope_block, link, panel_head, Action, Slot, TabCtx,
+};
 use crate::theme::{self, Field, Status};
 
 /// The Schema tab's state: the form and the last `schema` result.
@@ -233,23 +235,29 @@ impl SchemaTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
-        ui.heading("Schema and provenance");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("type");
-            ui.add(
-                TextEdit::singleline(&mut self.form.record_type)
-                    .desired_width(theme::width(ui, Field::Tiny))
-                    .hint_text("WEAP"),
-            );
-            ui.label("member");
-            ui.add(
-                TextEdit::singleline(&mut self.form.member)
-                    .desired_width(theme::width(ui, Field::Short)),
-            );
-            ui.checkbox(&mut self.form.deep, "deep");
-            if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
-                actions.push(Action::Submit(Slot::Schema, self.form.request()));
-            }
+        panel_head(
+            ui,
+            "Schema and provenance",
+            "What the schema says a record type holds (`schema`): each member's signature, kind and type, with its confidence and its source. A type without a definition has unknown subrecords, not absent ones.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("type");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.record_type)
+                        .desired_width(theme::width(ui, Field::Tiny))
+                        .hint_text("WEAP"),
+                );
+                ui.label("member");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.member)
+                        .desired_width(theme::width(ui, Field::Short)),
+                );
+                ui.checkbox(&mut self.form.deep, "deep");
+                if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
+                    actions.push(Action::Submit(Slot::Schema, self.form.request()));
+                }
+            })
         });
         envelope_block(ui, ctx.results.get(&Slot::Schema.into()), |ui| {
             let Some(view) = &self.view else {
@@ -263,10 +271,11 @@ impl SchemaTab {
                 );
             }
             if !view.name.is_empty() {
-                ui.label(format!(
-                    "{} [{}]  {}",
-                    view.name, view.confidence, view.confidence_counts
-                ));
+                ui.horizontal_wrapped(|ui| {
+                    ui.label(&view.name);
+                    conf_label(ui, &view.confidence);
+                    ui.label(&view.confidence_counts);
+                });
                 ui.weak(&view.source);
             }
             if !view.definitions.is_empty() {

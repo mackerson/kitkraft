@@ -240,6 +240,8 @@ struct App {
     /// the Start tab's picker, or the default).
     theme: ThemeChoice,
     theme_source: &'static str,
+    /// The title bar was checked against the first envelope's `build` (M6.P6a).
+    titled: bool,
     /// The picker changed the theme: apply it before the next frame.
     theme_changed: bool,
     worker: Worker<Built>,
@@ -294,7 +296,7 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
             .and_then(|p| p.window)
     };
     let mut viewport = egui::ViewportBuilder::default()
-        .with_title("KitKraft Workbench (read-only)")
+        .with_title(crate::panels::common::WINDOW_TITLE)
         .with_active(true)
         .with_inner_size(match saved {
             Some(w) => [w.width, w.height],
@@ -418,6 +420,7 @@ impl App {
         let mut app = Self {
             theme,
             theme_source,
+            titled: false,
             theme_changed: false,
             worker,
             tab: if first_run { Tab::Start } else { Tab::Load },
@@ -882,7 +885,7 @@ impl App {
                 }
             });
             if let Some(n) = &self.notice {
-                ui.colored_label(theme::bad(ui), n);
+                theme::status_line(ui, theme::Status::Fail, n);
             }
             if let Some(i) = &self.info {
                 ui.label(i);
@@ -993,6 +996,17 @@ impl eframe::App for App {
         }
         for reply in self.worker.poll() {
             self.receive(reply);
+        }
+        if !self.titled {
+            // M6.P6a: a debug build says so in the title bar, from the first envelope's
+            // `build` member.
+            if let Some(b) = crate::panels::common::build_of(&self.results) {
+                self.titled = true;
+                if let Some(title) = crate::panels::common::debug_title(b) {
+                    ui.ctx()
+                        .send_viewport_cmd(egui::ViewportCommand::Title(title));
+                }
+            }
         }
         let busy = self.worker.is_busy();
         if busy {

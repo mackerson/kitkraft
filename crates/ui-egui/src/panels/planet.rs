@@ -329,7 +329,8 @@ fn collect_placements(v: &Value, path: &str, out: &mut Vec<PlacementRow>, depth:
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    envelope_block, link, record_actions, virtual_table, Action, Slot, TabCtx,
+    action_bar, envelope_block, link, panel_head, record_actions, virtual_table, Action, Slot,
+    TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -345,20 +346,25 @@ impl PlanetTab {
     pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
         let busy = ctx.busy;
         let actions = &mut ctx.actions;
-        ui.heading("Planet");
-        ui.label("The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.");
-        ui.horizontal_wrapped(|ui| {
-            ui.label("form");
-            ui.add(
-                TextEdit::singleline(&mut self.form.form)
-                    .desired_width(theme::width(ui, Field::Medium))
-                    .hint_text("PCM_QuestRequest, Plugin.esm:XXXXXX"),
-            );
-            ui.label("nodes per page");
-            ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
-            if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
-                actions.push(Action::PlanetPage(None));
-            }
+        panel_head(
+            ui,
+            "Planet",
+            "The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.",
+        );
+        action_bar(ui, |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.label("form");
+                ui.add(
+                    TextEdit::singleline(&mut self.form.form)
+                        .desired_width(theme::width(ui, Field::Medium))
+                        .hint_text("PCM_QuestRequest, Plugin.esm:XXXXXX"),
+                );
+                ui.label("nodes per page");
+                ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
+                if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
+                    actions.push(Action::PlanetPage(None));
+                }
+            })
         });
         envelope_block(ui, ctx.results.get(&Slot::Planet.into()), |ui| {
             let Some(view) = &self.view else {

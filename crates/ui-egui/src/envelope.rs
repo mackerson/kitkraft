@@ -19,6 +19,52 @@ pub struct EvidenceRow {
     pub subrecord: String,
 }
 
+/// The envelope's `build` member (M6.P6b): which build of the engine produced it. The
+/// window and the engine are one process, so it names the window's build too.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BuildInfo {
+    /// The workspace version.
+    pub version: String,
+    /// Short commit hash (`-dirty` for a tree with changes), or `unknown`.
+    pub commit: String,
+    /// Build date (UTC), or `unknown`.
+    pub date: String,
+    /// `debug` or `release`.
+    pub profile: String,
+}
+
+impl BuildInfo {
+    /// Reads `env.build`; `None` when the envelope has no such object. A missing member
+    /// reads as `unknown`, never as a guess.
+    pub fn from_envelope(env: &Value) -> Option<Self> {
+        let b = env.get("build").filter(|b| b.is_object())?;
+        let known = |k: &str| {
+            text(b, k)
+                .filter(|v| !v.trim().is_empty())
+                .unwrap_or_else(|| "unknown".to_string())
+        };
+        Some(Self {
+            version: known("version"),
+            commit: known("commit"),
+            date: known("date"),
+            profile: known("profile"),
+        })
+    }
+
+    /// `0.0.0 (5d03d01, 2026-10-16, release)`, as `kit --version` prints it after `kit `.
+    pub fn line(&self) -> String {
+        format!(
+            "{} ({}, {}, {})",
+            self.version, self.commit, self.date, self.profile
+        )
+    }
+
+    /// A debug build (far slower than release; `cargo xtask ui` builds release).
+    pub fn is_debug(&self) -> bool {
+        self.profile == "debug"
+    }
+}
+
 /// The common view of one envelope.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EnvelopeView {
@@ -40,6 +86,8 @@ pub struct EnvelopeView {
     pub limitations: Vec<String>,
     /// Evidence ranges, in order.
     pub evidence: Vec<EvidenceRow>,
+    /// The build that produced it (`None`: the envelope does not say).
+    pub build: Option<BuildInfo>,
 }
 
 /// `v[key]` as text, if it is a string.
@@ -106,6 +154,7 @@ impl EnvelopeView {
             not_examined: strings(coverage, "not_examined"),
             limitations: strings(env, "limitations"),
             evidence,
+            build: BuildInfo::from_envelope(env),
         }
     }
 
@@ -233,6 +282,40 @@ mod tests {
         assert_eq!(v.evidence.len(), 1);
         assert_eq!(v.evidence[0].record, "GLOB:00000800");
         assert_eq!(v.evidence[0].subrecord, "");
+    }
+
+    /// M6.V5 / M6.P6a: the About line and the title bar read the envelope's `build`
+    /// member; the engine's own envelope (through the gate) carries it.
+    #[test]
+    fn the_build_member_is_read_from_the_engines_envelope() {
+        let engine = crate::gate::ReadOnlyEngine::new();
+        let env = engine
+            .run(&crate::gate::Request::new("schema", json!({})))
+            .unwrap();
+        let b = EnvelopeView::from_value(&env)
+            .build
+            .expect("a build member");
+        assert_eq!(
+            b.profile,
+            if cfg!(debug_assertions) {
+                "debug"
+            } else {
+                "release"
+            }
+        );
+        assert_eq!(b.is_debug(), cfg!(debug_assertions));
+        assert!(
+            b.line().starts_with(&format!("{} (", b.version)),
+            "{}",
+            b.line()
+        );
+        let partial =
+            BuildInfo::from_envelope(&json!({"build": {"version": "1.2.3", "profile": "release"}}))
+                .unwrap();
+        assert_eq!(partial.line(), "1.2.3 (unknown, unknown, release)");
+        assert!(!partial.is_debug());
+        assert_eq!(BuildInfo::from_envelope(&json!({"build": "x"})), None);
+        assert_eq!(EnvelopeView::from_value(&json!({})).build, None);
     }
 
     #[test]

@@ -11,7 +11,7 @@ use std::time::Duration;
 use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea};
 
 use crate::cmdline::ResultLine;
-use crate::envelope::Prepared;
+use crate::envelope::{BuildInfo, Prepared};
 use crate::gate::{Request, RunError};
 use crate::panels::ledger::LedgerForm;
 use crate::panels::start::StartProfile;
@@ -20,6 +20,8 @@ use crate::theme::{self, Status, ThemeChoice, View};
 
 /// Characters of a limitation shown on its line (the full text is on hover).
 const LIMITATION_CHARS: usize = 200;
+/// A multi-line summary's text table is shown open up to this many lines, folded beyond.
+const SUMMARY_OPEN_LINES: usize = 12;
 
 /// Where a reply goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -118,6 +120,25 @@ pub(crate) struct TabCtx<'a> {
     pub prefs_path: Option<&'a Path>,
 }
 
+/// The window's title (the OS title bar).
+pub(crate) const WINDOW_TITLE: &str = "KitKraft Workbench (read-only)";
+
+/// The build the results name (M6.P6b's `build` member; the window and the engine are
+/// one process, so any envelope names the window's build).
+pub(crate) fn build_of(results: &BTreeMap<SlotKey, Shown>) -> Option<&BuildInfo> {
+    results
+        .values()
+        .find_map(|s| s.prepared.view.as_ref()?.build.as_ref())
+}
+
+/// The title bar of a debug build (M6.P6a): the title with a "debug build" note; `None`
+/// for a release build, whose title stays [`WINDOW_TITLE`].
+pub(crate) fn debug_title(build: &BuildInfo) -> Option<String> {
+    build
+        .is_debug()
+        .then(|| format!("{WINDOW_TITLE} - debug build (slow; `cargo xtask ui` builds release)"))
+}
+
 /// One row of a [`virtual_table`]: its cells, added left to right with [`TableRow::cell`].
 pub(crate) struct TableRow<'a> {
     ui: &'a mut egui::Ui,
@@ -135,6 +156,16 @@ impl TableRow<'_> {
     /// far (columns only grow, so they do not jump while scrolling); content is never
     /// wrapped, and what does not fit is clipped until the column grows on the next frame.
     pub(crate) fn cell<R>(&mut self, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+        self.cell_aligned(false, add)
+    }
+
+    /// Adds a number cell (M6.V5 table style): monospace, right-aligned in its column.
+    pub(crate) fn num(&mut self, text: impl Into<String>) -> egui::Response {
+        let text = text.into();
+        self.cell_aligned(true, |ui| ui.monospace(text))
+    }
+
+    fn cell_aligned<R>(&mut self, right: bool, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
         let col = self.col;
         self.col = self.col.saturating_add(1);
         if self.widths.len() <= col {
@@ -143,13 +174,19 @@ impl TableRow<'_> {
         let width = self.widths.get(col).copied().unwrap_or(0.0);
         let cell =
             egui::Rect::from_min_size(egui::pos2(self.x, self.top), egui::vec2(width, self.height));
-        // Unbounded to the right, so nothing wraps; clipped to the cell.
-        let room = egui::Rect::from_min_max(cell.min, egui::pos2(f32::INFINITY, cell.max.y));
-        let mut child = self.ui.new_child(
-            egui::UiBuilder::new()
-                .max_rect(room)
-                .layout(egui::Layout::left_to_right(egui::Align::Center)),
-        );
+        // Unbounded to the right, so nothing wraps; clipped to the cell. A right-aligned
+        // cell is laid out from the column's right edge once the column has a width.
+        let (room, layout) = if right && width > 0.0 {
+            (cell, egui::Layout::right_to_left(egui::Align::Center))
+        } else {
+            (
+                egui::Rect::from_min_max(cell.min, egui::pos2(f32::INFINITY, cell.max.y)),
+                egui::Layout::left_to_right(egui::Align::Center),
+            )
+        };
+        let mut child = self
+            .ui
+            .new_child(egui::UiBuilder::new().max_rect(room).layout(layout));
         child.set_clip_rect(cell.intersect(self.ui.clip_rect()));
         let out = add(&mut child);
         let used = child.min_rect().width();
@@ -256,6 +293,81 @@ pub(crate) fn virtual_table(
     rect
 }
 
+// ---- the panel frame (M6.V5) -------------------------------------------------------------
+//
+// Every tab is drawn in the same four parts, top to bottom:
+//
+// 1. [`panel_head`]: the tab's title and one paragraph on what it shows;
+// 2. [`action_bar`]: its form and buttons, in one outlined strip on the raised surface;
+// 3. per result, [`envelope_block`]'s header (the `kit` line and the MCP call, both
+//    copyable; PASSED or FAILED; coverage) and the envelope's limitations strip
+//    ([`limitations_strip`], never hidden);
+// 4. the body: the panel's own tables (a [`virtual_table`] for anything that can grow,
+//    `theme::table` for a few fixed rows), then the evidence ranges and the raw JSON.
+//
+// A test (`every_tab_is_drawn_in_the_panel_frame`) holds that each tab file calls the
+// first two and draws no heading of its own.
+
+/// The panel frame's head: the tab's title (the heading style) and what it shows.
+pub(crate) fn panel_head(ui: &mut egui::Ui, title: &str, about: &str) {
+    ui.heading(title);
+    if !about.is_empty() {
+        ui.label(about);
+    }
+    theme::gap(ui);
+}
+
+/// The panel frame's action bar: `add` draws the tab's form and buttons inside one
+/// outlined strip as wide as the panel.
+pub(crate) fn action_bar<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    let out = theme::bar_frame(ui)
+        .show(ui, |ui| {
+            theme::fill_visible_width(ui);
+            add(ui)
+        })
+        .inner;
+    theme::gap(ui);
+    out
+}
+
+/// The envelope's limitations, in a strip of their own: a warning status with their
+/// count, then each limitation as body text (a long one shows its first
+/// [`LIMITATION_CHARS`] characters and the rest on hover). None claimed is said so.
+pub(crate) fn limitations_strip(ui: &mut egui::Ui, limitations: &[String]) {
+    if limitations.is_empty() {
+        ui.weak("limitations: none claimed");
+        return;
+    }
+    theme::strip_frame(ui).show(ui, |ui| {
+        theme::fill_visible_width(ui);
+        theme::status(
+            ui,
+            Status::Warn,
+            &format!("limitations ({})", limitations.len()),
+        );
+        for l in limitations {
+            if l.chars().count() > LIMITATION_CHARS {
+                let head: String = l.chars().take(LIMITATION_CHARS).collect();
+                ui.label(format!("- {head}... (hover for all)"))
+                    .on_hover_text(l);
+            } else {
+                ui.label(format!("- {l}"));
+            }
+        }
+    });
+}
+
+/// A FormID's resolution as a status (M6.V4): `resolved` passes; `null` (the null
+/// FormID, a value and not a failure) is plain text; anything else (`unresolved`,
+/// `unresolvable`, a missing master) fails, with the engine's word.
+pub(crate) fn formid_status(ui: &mut egui::Ui, word: &str) -> egui::Response {
+    match word {
+        "resolved" => theme::status(ui, Status::Pass, word),
+        "null" | "NULL" | "" => ui.label(word),
+        _ => theme::status(ui, Status::Fail, word),
+    }
+}
+
 /// A link that submits a request: disabled while the engine is busy, so clicks do not
 /// pile up a queue behind a long command (the status line can drop one).
 pub(crate) fn link(
@@ -309,18 +421,48 @@ pub(crate) fn form_cell(
     }
 }
 
-/// A schema confidence: the unconfirmed levels as a warning status, the rest as text.
-pub(crate) fn conf_label(ui: &mut egui::Ui, confidence: &str) {
-    if confidence == "reference" {
-        theme::status(ui, Status::Warn, "reference (unconfirmed)").on_hover_text(
-            "documented in the pinned xEdit file; not yet confirmed by the corpus or the CK",
-        );
-    } else if confidence == "container-reference" {
-        theme::status(ui, Status::Warn, "container-reference (unconfirmed)")
-            .on_hover_text("a container fact from UESP's Skyrim pages that no official file shows");
-    } else {
-        ui.label(confidence);
+/// The status a schema confidence level is drawn with (M6.V4): the confirmed levels
+/// (`corpus`, `ck-diff`, `verified`) pass, the unconfirmed ones (`reference`,
+/// `container-reference`) warn, and a level this window does not know is unknown.
+pub(crate) fn conf_status(confidence: &str) -> Status {
+    match confidence {
+        "corpus" | "ck-diff" | "verified" => Status::Pass,
+        "reference" | "container-reference" => Status::Warn,
+        _ => Status::Unknown,
     }
+}
+
+/// A schema confidence as the status component: its level as the word (the unconfirmed
+/// levels say so), its meaning on hover.
+pub(crate) fn conf_label(ui: &mut egui::Ui, confidence: &str) {
+    if confidence.is_empty() {
+        ui.label("");
+        return;
+    }
+    let (word, hover) = match confidence {
+        "reference" => (
+            "reference (unconfirmed)".to_string(),
+            "documented in the pinned xEdit file; not yet confirmed by the corpus or the CK",
+        ),
+        "container-reference" => (
+            "container-reference (unconfirmed)".to_string(),
+            "a container fact from UESP's Skyrim pages that no official file shows",
+        ),
+        "corpus" => (
+            confidence.to_string(),
+            "confirmed by statistics over the official files",
+        ),
+        "ck-diff" => (
+            confidence.to_string(),
+            "confirmed by a Creation Kit differential",
+        ),
+        "verified" => (confidence.to_string(), "verified end to end"),
+        _ => (
+            confidence.to_string(),
+            "a confidence level this window does not know",
+        ),
+    };
+    theme::status(ui, conf_status(confidence), &word).on_hover_text(hover);
 }
 
 /// A picker over the loaded plugins: sets `value` to the plugin's path, or its name when
@@ -381,12 +523,10 @@ pub(crate) fn findings_grid<'a>(
             r.cell(|ui| ui.monospace(&f.rule));
             r.cell(|ui| ui.monospace(&f.record));
             r.cell(|ui| ui.monospace(&f.subrecord));
-            r.cell(|ui| {
-                ui.monospace(
-                    f.offset
-                        .map_or_else(|| "?".to_string(), |o| format!("{o} (0x{o:X})")),
-                )
-            });
+            r.num(
+                f.offset
+                    .map_or_else(|| "?".to_string(), |o| format!("{o} (0x{o:X})")),
+            );
             r.cell(|ui| ui.label(&f.message));
         },
     );
@@ -417,8 +557,9 @@ pub(crate) fn envelope_block(
                 ui.monospace(&line.text);
             });
             if !line.exact {
-                ui.colored_label(
-                    theme::warn(ui),
+                theme::status_line(
+                    ui,
+                    Status::Warn,
                     "a value holds both quote characters: the line above is not exact; use the MCP form",
                 );
             }
@@ -448,6 +589,16 @@ pub(crate) fn envelope_block(
     let Some(view) = &shown.prepared.view else {
         return;
     };
+    // A multi-line summary is a text table (`schema`, `planet`, `coverage --matrix`): its
+    // first line heads the result, the rest (columns kept) follows the limitations strip,
+    // folded when long, so the strip and the panel's own tables stay near the top.
+    let (first, rest) = match view.summary.as_deref() {
+        Some(s) => match s.split_once('\n') {
+            Some((head, tail)) => (Some(head), Some(tail)),
+            None => (Some(s), None),
+        },
+        None => (None, None),
+    };
     ui.horizontal_wrapped(|ui| {
         match view.passed {
             Some(true) => {
@@ -458,34 +609,27 @@ pub(crate) fn envelope_block(
             }
             None => {}
         }
-        if let Some(s) = &view.summary {
-            // A multi-line summary is a text table (`schema`): keep its columns.
-            if s.contains('\n') {
-                ui.monospace(s);
-            } else {
-                ui.label(s);
-            }
+        if let Some(s) = first {
+            ui.label(s);
         }
     });
-    ui.label(format!("coverage {}", view.coverage_line()));
-    if view.limitations.is_empty() {
-        ui.weak("limitations: none claimed");
+    let coverage = format!("coverage {}", view.coverage_line());
+    if coverage.chars().count() > LIMITATION_CHARS {
+        let head: String = coverage.chars().take(LIMITATION_CHARS).collect();
+        ui.label(format!("{head}... (hover for all)"))
+            .on_hover_text(coverage);
     } else {
-        ui.colored_label(
-            theme::warn(ui),
-            format!("limitations ({})", view.limitations.len()),
-        );
-        // Every limitation stays on screen; a long one shows its first line's worth and
-        // the rest on hover.
-        for l in &view.limitations {
-            if l.chars().count() > LIMITATION_CHARS {
-                let head: String = l.chars().take(LIMITATION_CHARS).collect();
-                ui.colored_label(theme::warn(ui), format!("  - {head}... (hover for all)"))
-                    .on_hover_text(l);
-            } else {
-                ui.colored_label(theme::warn(ui), format!("  - {l}"));
-            }
-        }
+        ui.label(coverage);
+    }
+    limitations_strip(ui, &view.limitations);
+    if let Some(rest) = rest {
+        let lines = rest.lines().count();
+        CollapsingHeader::new(format!("summary ({lines} more lines)"))
+            .id_salt(("summary", id))
+            .default_open(lines <= SUMMARY_OPEN_LINES)
+            .show(ui, |ui| {
+                ui.monospace(rest);
+            });
     }
     content(ui);
     CollapsingHeader::new(format!("evidence ({} ranges)", view.evidence.len()))
@@ -502,8 +646,8 @@ pub(crate) fn envelope_block(
                         return;
                     };
                     r.cell(|ui| ui.label(&e.file));
-                    r.cell(|ui| ui.monospace(format!("{} (0x{:X})", e.offset, e.offset)));
-                    r.cell(|ui| ui.monospace(e.length.to_string()));
+                    r.num(format!("{} (0x{:X})", e.offset, e.offset));
+                    r.num(e.length.to_string());
                     r.cell(|ui| ui.monospace(&e.record));
                     r.cell(|ui| ui.monospace(&e.subrecord));
                 },
@@ -546,6 +690,67 @@ fn raw_lines(ui: &mut egui::Ui, id: &str, title: &str, prepared: &Prepared, open
 mod tests {
     use super::*;
     use crate::theme::{Mode, Preset};
+
+    /// M6.V5: every tab (one file per tab under `panels/`, lane G's Cockpit and Coverage
+    /// and the Render Window included) is drawn in the panel frame: its drawing calls
+    /// `panel_head` and `action_bar` and draws no heading of its own; the frame's parts
+    /// are this file's.
+    #[test]
+    fn every_tab_is_drawn_in_the_panel_frame() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("src")
+            .join("panels");
+        let mut tabs = Vec::new();
+        let mut problems = Vec::new();
+        for entry in std::fs::read_dir(&dir).unwrap() {
+            let path = entry.unwrap().path();
+            let name = path.file_name().unwrap().to_string_lossy().to_string();
+            if !name.ends_with(".rs") || name == "common.rs" || name == "mod.rs" {
+                continue;
+            }
+            let text = std::fs::read_to_string(&path).unwrap();
+            let drawing = text
+                .split("// ---- drawing")
+                .nth(1)
+                .unwrap_or_else(|| panic!("{name}: no `// ---- drawing` part"));
+            let drawing = drawing.split("#[cfg(test)]").next().unwrap();
+            for call in ["panel_head(", "action_bar("] {
+                if !drawing.contains(call) {
+                    problems.push(format!("{name}: no {call}..)"));
+                }
+            }
+            if drawing.matches("panel_head(").count() > 1 {
+                problems.push(format!("{name}: more than one panel_head"));
+            }
+            if drawing.contains("ui.heading(") {
+                problems.push(format!("{name}: a heading of its own"));
+            }
+            tabs.push(name);
+        }
+        assert!(tabs.len() >= 14, "{tabs:?}");
+        for t in ["cockpit.rs", "coverage.rs", "render.rs", "start.rs"] {
+            assert!(tabs.iter().any(|n| n == t), "{t} missing from {tabs:?}");
+        }
+        assert!(problems.is_empty(), "{problems:#?}");
+    }
+
+    /// The About line's and the title bar's source (M6.P6a, M6.P6b): a debug build's
+    /// title says so; a release build keeps the plain title.
+    #[test]
+    fn a_debug_build_says_so_in_the_title() {
+        let b = |profile: &str| BuildInfo {
+            version: "0.0.0".into(),
+            commit: "abc1234".into(),
+            date: "2026-10-16".into(),
+            profile: profile.into(),
+        };
+        let t = debug_title(&b("debug")).unwrap();
+        assert!(
+            t.starts_with(WINDOW_TITLE) && t.contains("debug build"),
+            "{t}"
+        );
+        assert_eq!(debug_title(&b("release")), None);
+    }
 
     /// M6.P4: a 100,000-row table lays out about a screenful of rows per frame, from the
     /// top, and the header's columns only grow.
