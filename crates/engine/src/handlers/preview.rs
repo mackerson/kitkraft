@@ -1,4 +1,5 @@
-//! Dry runs of the writing commands (M7.S6): `set`, `new` and `clone` with `dry_run: true`
+//! Dry runs of the writing commands (M7.S6): `set`, `new`, `clone` and (lane D round 5)
+//! `place` with `dry_run: true`
 //! write into the staged copy of `into` (OS temp dir) exactly as a real call does, run
 //! `validate` on it, and return what the write would do without installing it, so `into`
 //! stays byte-identical (or absent when it did not exist).

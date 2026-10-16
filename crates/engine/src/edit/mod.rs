@@ -72,7 +72,7 @@ pub fn apply_field(
             text,
             "no-subrecord",
             format!(
-                "the record has {count} {} subrecord(s); adding subrecords is not supported",
+                "the record has {count} {} subrecord(s); the writer adds a missing one at its schema slot first (`scaffold::add_slots`)",
                 path.signature_str()
             ),
         ));
@@ -122,6 +122,23 @@ pub fn apply_field(
     let mut next = payload.get(..at.start).unwrap_or_default().to_vec();
     next.extend_from_slice(&new);
     next.extend_from_slice(payload.get(end..).unwrap_or_default());
+    // A whole array value: its count follows it (lane D round 5). A `count_from` member
+    // before it in the same struct is rewritten here; the count subrecord before a whole
+    // array subrecord (KSIZ before KWDA) after the write below.
+    let count = matches!(op, Op::Set(_))
+        .then(|| fields::element_count(at.ty, op, &new, ctx.form_version))
+        .flatten();
+    if let Some(n) = count {
+        fields::recount_sibling(
+            text,
+            ty,
+            &payload,
+            &path.steps,
+            ctx.form_version,
+            n,
+            &mut next,
+        )?;
+    }
     // The edited payload must still decode as the schema's layout (Fable review of lane D,
     // finding 1): a whole subrecord given as hex: always, any other edit when the payload
     // decoded before it (an array whose length is not a multiple of its element size, a
@@ -133,19 +150,23 @@ pub fn apply_field(
             edid_first,
         };
         let sig_text = path.signature_str();
-        let whole_hex = path.steps.is_empty()
-            && matches!(op, Op::Set(Value::String(t)) if t.starts_with("hex:"));
+        let whole_value = (path.steps.is_empty()
+            && matches!(op, Op::Set(Value::String(t)) if t.starts_with("hex:")))
+            || matches!(op, Op::Set(Value::Array(_) | Value::Object(_)));
         let checked = !layout.ty.is_opaque()
-            && (whole_hex || kitkraft_doc::typed::decode(ty, &payload, &dctx).is_ok());
+            && (whole_value || kitkraft_doc::typed::decode(ty, &payload, &dctx).is_ok());
         if checked {
             if let Some(why) = fields::undecoded(&sig_text, ty, &next, &dctx) {
                 return Err(FieldError::new(text, "range", why));
             }
         }
     }
-    let changed = record
+    let mut changed = record
         .set_subrecord(index, next, limits)
         .map_err(payload_err)?;
+    if let (Some(n), true) = (count, path.steps.is_empty()) {
+        changed |= recount_subrecord(record, index, path, n, limits)?;
+    }
     Ok(FieldChange {
         path: path.text.clone(),
         subrecord_index: index,
@@ -155,6 +176,45 @@ pub fn apply_field(
         notes,
         lstring,
     })
+}
+
+/// After the whole array subrecord at `index` was written with `count` elements, writes
+/// `count` into the count subrecord just before it (`KSIZ` before `KWDA`,
+/// [`scaffold::count_slot`]) when the record has one there; a record that keeps its array
+/// without that count (PCBN and PCCN `KWDA`) is left as it is. Returns whether bytes
+/// changed.
+fn recount_subrecord(
+    record: &mut Record<'_>,
+    index: usize,
+    path: &FieldPath,
+    count: usize,
+    limits: &DecodeLimits,
+) -> Result<bool, FieldError> {
+    let Some(before) = index.checked_sub(1) else {
+        return Ok(false);
+    };
+    let order = scaffold::member_order(record.header.signature.0);
+    let Some((sig, ty)) = scaffold::count_slot(&order, path.signature) else {
+        return Ok(false);
+    };
+    let there = record
+        .subrecords()
+        .and_then(|s| s.get(before))
+        .map(|s| s.signature().0);
+    if there != Some(sig) {
+        return Ok(false);
+    }
+    let shown = String::from_utf8_lossy(&sig).into_owned();
+    let bytes = fields::count_bytes(&ty, count).ok_or_else(|| {
+        FieldError::new(
+            &path.text,
+            "range",
+            format!("{count} elements do not fit the count subrecord {shown}"),
+        )
+    })?;
+    record
+        .set_subrecord(before, bytes, limits)
+        .map_err(|e| FieldError::new(&path.text, "payload", e.to_string()))
 }
 
 /// The limitation for inline lstring text with bytes >= 0x80 at `at` (`FULL[0]`): the
@@ -304,6 +364,98 @@ mod tests {
         let mut r = gmst(b"qOdd\0", vec![0; 4]);
         let err = apply_field(&mut r, &path, &Op::Set(json!(1)), &ctx(), &limits).unwrap_err();
         assert_eq!(err.rule, "opaque");
+    }
+
+    fn activator(subs: Vec<Subrecord<'static>>) -> Record<'static> {
+        Record::new(
+            RecordHeader {
+                signature: Signature(*b"ACTI"),
+                form_id: 0x0003_CCF4,
+                form_version: 582,
+                ..RecordHeader::default()
+            },
+            Body::Raw(subs),
+        )
+    }
+
+    fn sigs(r: &Record<'_>) -> Vec<String> {
+        r.subrecords()
+            .unwrap()
+            .iter()
+            .map(|s| s.signature().to_string())
+            .collect()
+    }
+
+    /// Lane D round 5 (gaps 1 to 3): a record that lacks `KWDA` gains it with its `KSIZ`
+    /// at their schema slots; a whole typed array (or hex:) keeps `KSIZ` equal to its
+    /// element count; a wrong length is still refused by the layout check.
+    #[test]
+    fn keywords_are_added_and_counted() {
+        let limits = DecodeLimits::default();
+        let edid = Subrecord::new(Signature(*b"EDID"), b"Switch\0".to_vec());
+        let pnam = Subrecord::new(Signature(*b"PNAM"), vec![0; 4]);
+        let mut r = activator(vec![edid.clone(), pnam.clone()]);
+        let edit = |p: &str, v: Value| patch::Edit {
+            path: parse_path(p).unwrap(),
+            op: Op::Set(v),
+        };
+        let kwda = edit(
+            "KWDA",
+            json!(["Starfield.esm:0234F1", "Starfield.esm:000801"]),
+        );
+        scaffold::add_slots(&mut r, std::slice::from_ref(&kwda), false).unwrap();
+        assert_eq!(sigs(&r), ["EDID", "KSIZ", "KWDA", "PNAM"]);
+        let change = apply_field(&mut r, &kwda.path, &kwda.op, &ctx(), &limits).unwrap();
+        assert!(change.changed);
+        assert_eq!(change.subrecord_index, 2);
+        let subs = r.subrecords().unwrap();
+        assert_eq!(subs[1].data(), 2u32.to_le_bytes());
+        assert_eq!(subs[2].data(), [0xF1, 0x34, 0x02, 0, 0x01, 0x08, 0, 0]);
+        // hex: of whole elements recounts too; a partial element is refused as before.
+        let path = parse_path("KWDA").unwrap();
+        apply_field(
+            &mut r,
+            &path,
+            &Op::Set(json!("hex:F1340200")),
+            &ctx(),
+            &limits,
+        )
+        .unwrap();
+        assert_eq!(r.subrecords().unwrap()[1].data(), 1u32.to_le_bytes());
+        let err = apply_field(
+            &mut r,
+            &path,
+            &Op::Set(json!("hex:F134020000")),
+            &ctx(),
+            &limits,
+        )
+        .unwrap_err();
+        assert_eq!(err.rule, "range");
+        assert!(err.message.contains("4-byte elements"), "{err}");
+        assert_eq!(r.subrecords().unwrap()[1].data(), 1u32.to_le_bytes());
+
+        // A record that has nothing to add is not touched; a signature the type has no
+        // slot for is refused naming the field; an occurrence past the next is refused
+        // rather than inventing the ones between.
+        let mut plain = activator(vec![edid.clone(), pnam.clone()]);
+        scaffold::add_slots(&mut plain, &[edit("PNAM", json!("00000001"))], false).unwrap();
+        assert_eq!(sigs(&plain), ["EDID", "PNAM"]);
+        let err =
+            scaffold::add_slots(&mut plain, &[edit("XLCN", json!("00000001"))], false).unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("XLCN", "no-subrecord"));
+        assert!(err.message.contains("no slot"), "{err}");
+        let err = scaffold::add_slots(&mut plain, &[edit("PNAM[2]", json!("00000001"))], false)
+            .unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("PNAM[2]", "no-subrecord"));
+        // KWDA already present without KSIZ (as PCBN keeps it): no KSIZ is added, and the
+        // count is left alone.
+        let mut bare = activator(vec![
+            edid,
+            Subrecord::new(Signature(*b"KWDA"), vec![1, 0, 0, 0]),
+            pnam,
+        ]);
+        scaffold::add_slots(&mut bare, std::slice::from_ref(&kwda), false).unwrap();
+        assert_eq!(sigs(&bare), ["EDID", "KWDA", "PNAM"]);
     }
 
     #[test]

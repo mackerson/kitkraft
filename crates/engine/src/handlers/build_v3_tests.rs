@@ -429,7 +429,8 @@ fn the_plan_text_of_a_v3_spec_lists_places_new_forms_imports_and_carried() {
 
 /// M4.E7: a field value `new:<name>` names a form a `[[new]]` or `[[clone]]` of the same
 /// build writes (a recipe's created object): the FormID member holds the new form's
-/// FormID in the built plugin. A name no entry has, or a `[[place]]`'s, is a spec error.
+/// FormID in the built plugin. A name no entry has, or a `[[place]]` as a base, is a spec
+/// error.
 #[test]
 fn field_values_name_new_forms_of_the_build() {
     let d = dir("build-v3-local");
@@ -461,7 +462,9 @@ fields = { CNAM = \"new:crate\" }\n";
     assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
         .unwrap()
         .identical());
-    // Unknown names and placed references are spec errors naming the key.
+    // Unknown names, and a placed reference as a base, are spec errors naming the key (a
+    // field value may name a [[place]] since lane D round 5:
+    // `place_fields_and_values_name_placed_references`).
     let fails = |name: &str, body: &str| -> String {
         let spec = spec_v3(&d, name, &data, body);
         build(&spec, &d.join("E.esm"), json!({}))
@@ -479,8 +482,122 @@ fields = { CNAM = \"new:crate\" }\n";
     let e = fails(
         "l2.toml",
         "[[place]]\nname = \"spot\"\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [0, 0, 0]\n\
-[[new]]\ntype = \"COBJ\"\nedid = \"KC_R\"\nmasters = [\"World.esm\"]\nfields = { CNAM = \"new:spot\" }\n",
+[[place]]\nbase = \"new:spot\"\ncell = \"TestInterior\"\nposition = [1, 0, 0]\n",
     );
-    assert!(e.contains("is a [[place]]"), "{e}");
+    assert!(
+        e.contains("place[1].base") && e.contains("not a placed reference"),
+        "{e}"
+    );
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// The FormID a written record's field holds after the build (`records[].fields`).
+fn field_after(r: &Value, edid: &str, path: &str) -> Value {
+    let rec = r["data"]["records"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|x| x["editor_id"] == json!(edid))
+        .unwrap_or_else(|| panic!("no record {edid}"));
+    rec["fields"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|f| f["path"] == json!(path))
+        .unwrap_or_else(|| panic!("{edid}: no field {path} in {rec:#}"))["after"]
+        .clone()
+}
+
+/// Lane D round 5 (gaps 1, 2 and 4): a location names its marker (`MNAM`) and lists it
+/// (`LCPR`, a whole array of struct entries), the cell gains `XLCN` naming the location (a
+/// `[[set]]` adding a subrecord the cell lacks), and a `[[place]]` carries `fields` that
+/// link it to a reference placed after it (`XLKR`): every FormID is allocated before
+/// anything is written, so entry order does not matter. `validate` passes, the plugin
+/// round-trips, and a second build is identical.
+#[test]
+fn place_fields_and_values_name_placed_references() {
+    let d = dir("build-v3-place-links");
+    let data = world_master(&d);
+    let body = "[[new]]\nname = \"site\"\ntype = \"LCTN\"\nedid = \"KC_Site\"\nmasters = [\"World.esm\"]\n\
+fields = { MNAM = \"new:marker\", LCPR = [{ Ref = \"new:marker\", WorldOrCell = \"World.esm:000900\", \
+GridY = 0, GridX = 0, Bytes12 = \"hex:00000000\" }] }\n\n\
+[[set]]\nform = \"TestInterior\"\nfields = { XLCN = \"new:site\" }\n\n\
+[[place]]\nname = \"beacon\"\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [0, 0, 0]\n\
+persistent = true\nedid = \"KC_Beacon\"\nfields = { \"XLKR.Keyword\" = \"00000000\", \"XLKR.Ref\" = \"new:marker\" }\n\n\
+[[place]]\nname = \"marker\"\nbase = \"KC_Crate\"\ncell = \"TestInterior\"\nposition = [1, 0, 0]\npersistent = true\n";
+    let spec = spec_v3(&d, "links.toml", &data, body);
+    let out = d.join("Links.esm");
+    let r = build(&spec, &out, json!({})).unwrap();
+    assert_eq!(r["data"]["passed"], json!(true), "{:#}", r["data"]);
+    assert_eq!(
+        r["data"]["validate"]["warnings"],
+        json!(0),
+        "{:#}",
+        r["data"]
+    );
+    // The location is 0x1000; the beacon 0x1001; the marker (no EditorID) 0x1002.
+    assert_eq!(field_after(&r, "KC_Site", "MNAM"), json!("01001002"));
+    assert_eq!(field_after(&r, "KC_Beacon", "XLKR.Ref"), json!("01001002"));
+    assert_eq!(field_after(&r, "TestInterior", "XLCN"), json!("01001000"));
+    let bytes = std::fs::read(&out).unwrap();
+    let find = |sig: &[u8; 4], payload: &[u8]| {
+        let mut want = sig.to_vec();
+        want.extend(u16::try_from(payload.len()).unwrap().to_le_bytes());
+        want.extend_from_slice(payload);
+        bytes.windows(want.len()).any(|w| w == want)
+    };
+    let mut lcpr = 0x0100_1002u32.to_le_bytes().to_vec();
+    lcpr.extend(0x0000_0900u32.to_le_bytes());
+    lcpr.extend([0u8; 8]);
+    assert!(find(b"LCPR", &lcpr), "LCPR entry not on disk");
+    assert!(find(b"XLCN", &0x0100_1000u32.to_le_bytes()), "cell XLCN");
+    let mut xlkr = 0u32.to_le_bytes().to_vec();
+    xlkr.extend(0x0100_1002u32.to_le_bytes());
+    assert!(find(b"XLKR", &xlkr), "beacon XLKR");
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    build(&spec, &out, json!({"overwrite": true})).unwrap();
+    assert_eq!(std::fs::read(&out).unwrap(), bytes);
+    // A field naming a placed reference that is not in the spec is still an unknown name.
+    let bad = spec_v3(
+        &d,
+        "bad.toml",
+        &data,
+        "[[set]]\nform = \"TestInterior\"\nfields = { XLCN = \"new:nowhere\" }\n",
+    );
+    let e = build(&bad, &d.join("Bad.esm"), json!({}))
+        .unwrap_err()
+        .to_string();
+    assert!(
+        e.contains("set[0].fields.XLCN") && e.contains("unknown name `nowhere`"),
+        "{e}"
+    );
+    // A field the record type has no slot for is refused naming it: by the spec's member
+    // check in `build`, by the writer in `set` (rule `no-subrecord`).
+    let bad = spec_v3(
+        &d,
+        "slot.toml",
+        &data,
+        "[[set]]\nform = \"KC_Crate\"\nfields = { XLCN = \"World.esm:000900\" }\n",
+    );
+    let e = build(&bad, &d.join("Slot.esm"), json!({}))
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("STAT has no subrecord XLCN"), "{e}");
+    let e = execute(
+        "set",
+        json!({"form": "KC_Crate", "fields": {"XLCN": "World.esm:000900"},
+               "into": d.join("Slot.esp").display().to_string(), "plugins": ["World.esm"],
+               "data_dir": data.display().to_string(), "no_cache": true}),
+    )
+    .unwrap_err();
+    assert_eq!(e.kind(), "invalid_args");
+    let e = e.to_string();
+    assert!(
+        e.contains("no-subrecord") && e.contains("STAT has no slot"),
+        "{e}"
+    );
+    assert!(!d.join("Slot.esp").exists());
     let _ = std::fs::remove_dir_all(&d);
 }

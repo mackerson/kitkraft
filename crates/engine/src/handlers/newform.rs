@@ -38,7 +38,7 @@ use super::set::{
 };
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit};
-use crate::edit::scaffold::{member_order, placeholder, slot_of, slot_placeholder};
+use crate::edit::scaffold::{member_order, placeholder, slot_of, slot_placeholder, wanted_slots};
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
 use crate::exec::EngineError;
@@ -145,12 +145,9 @@ pub(crate) fn plan_new(
     }
     masters.sort_by_key(|(i, _)| *i);
     let order = member_order(sig);
-    // How many occurrences of each signature the fields name (`PRPS[1]` makes two).
-    let mut wanted: std::collections::BTreeMap<[u8; 4], usize> = std::collections::BTreeMap::new();
-    for edit in &req.edits {
-        let n = wanted.entry(edit.path.signature).or_insert(0);
-        *n = (*n).max(edit.path.occurrence.saturating_add(1));
-    }
+    // How many occurrences of each signature the fields name (`PRPS[1]` makes two), and the
+    // count subrecord of a whole counted array (`KWDA` brings `KSIZ`; lane D round 5).
+    let wanted = wanted_slots(&order, &req.edits, &std::collections::BTreeMap::new());
     let mut edid = req.edid.as_bytes().to_vec();
     edid.push(0);
     // Each subrecord with the position of its slot; EDID first.

@@ -14,6 +14,7 @@
 //! persistent = true                   # optional
 //! edid = "KC_PoiMarker"               # optional, unique in the load order and the spec
 //! allow_reference = ["flag.initially_disabled"]   # members below corpus, by name
+//! fields = { "XLKR.Keyword" = "Starfield.esm:038C0B", "XLKR.Ref" = "new:centre" }
 //!
 //! [[import]]                          # every NAVM of a Creation Kit plugin, unchanged
 //! from = "KC_POI_navmesh.esm"         # relative to the spec; same masters required
@@ -31,11 +32,15 @@
 //! edid = "KC_Crate"
 //! ```
 //!
-//! A `[[place]]` base may be `new:<name>` of a `[[new]]` or `[[clone]]`. Classes and rules
-//! work over any typed record type, the world family's included (a rule over `REFR` writes
-//! overrides of placed references; the writer lists those in temporary children in
-//! `ONAM`). Names are unique; a placed reference, a new cell or world, and a clone of a
-//! form of the same build cannot be named.
+//! A `[[place]]` base may be `new:<name>` of a `[[new]]` or `[[clone]]`. A field value
+//! (any entry's `fields`, inside array and struct values too) may name any `[[new]]`,
+//! `[[clone]]` or `[[place]]` (lane D round 5: the placed reference's FormID; every FormID
+//! is allocated before anything is written, so the order of entries does not matter).
+//! Classes and rules work over any typed record type, the world family's included (a rule
+//! over `REFR` writes overrides of placed references; the writer lists those in temporary
+//! children in `ONAM`). Names are unique; a placed reference cannot be a base, cell or
+//! world, no entry makes a new cell or world for a `[[place]]`, and a clone cannot copy a
+//! form of the same build.
 //!
 //! ```toml
 //! version = 2                         # 1 is still accepted, with M2's meaning
@@ -185,6 +190,9 @@ pub struct PlaceEntry {
     pub brief: Option<String>,
     /// Scripts to attach to the new reference (M4.E9).
     pub scripts: Option<Value>,
+    /// Field values written on the new reference, as `kit place` takes `fields` (lane D
+    /// round 5); a `new:<name>` value may name any `[[new]]`, `[[clone]]` or `[[place]]`.
+    pub edits: Vec<Edit>,
 }
 
 /// A `[[new]]` entry (version 3): a new base form, as `kit new` takes it.
@@ -336,6 +344,7 @@ fn places(root: &toml::Table) -> Result<Vec<PlaceEntry>, SpecError> {
                 "brief",
                 "note",
                 "scripts",
+                "fields",
             ],
         )?;
         optional_string(t, "note", &at)?;
@@ -376,6 +385,11 @@ fn places(root: &toml::Table) -> Result<Vec<PlaceEntry>, SpecError> {
             allow_reference,
             brief: optional_string(t, "brief", &at)?,
             scripts: t.get("scripts").map(to_json),
+            edits: if t.contains_key("fields") {
+                fields(t, &at)?
+            } else {
+                Vec::new()
+            },
         });
     }
     Ok(out)
@@ -405,10 +419,10 @@ pub fn local_ref(text: &str) -> Option<&str> {
 
 /// Checks the spec-local names: unique across `[[new]]`, `[[clone]]` and `[[place]]`, and
 /// every `new:<name>` known and usable: a `[[place]]` base may name a `[[new]]` or
-/// `[[clone]]` (a base form written by the same build); nothing may name a `[[place]]` (a
-/// placed reference is never a base, cell or world), a cell or world may not be new (no
-/// entry creates one), and a `[[clone]]` may not copy a form of the same build (its own
-/// name is a cycle).
+/// `[[clone]]` (a base form written by the same build); a base, cell or world may not name
+/// a `[[place]]` (a placed reference is never one; field values may, `build`'s
+/// `local_form_values`), a cell or world may not be new (no entry creates one), and a
+/// `[[clone]]` may not copy a form of the same build (its own name is a cycle).
 fn check_names(
     news: &[NewEntry],
     clones: &[CloneEntry],

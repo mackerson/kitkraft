@@ -24,7 +24,17 @@
 //! | zstring         | text (no NUL), written NUL-terminated                           |
 //! | lstring         | text, written as an inline zstring (patches are non-localized)  |
 //! | wstring/bstring | text, written with its length prefix                            |
-//! | opaque, structs, arrays | only `hex:0A0B...` raw bytes (or a member path)          |
+//! | arrays          | a JSON array of element values (lane D round 5), or `hex:`      |
+//! | structs         | a JSON object of member values inside an array value, or `hex:` |
+//! | opaque          | only `hex:0A0B...` raw bytes (or a member path)                  |
+//!
+//! A whole array given as a JSON array (`KWDA = ["Starfield.esm:0234F1", "new:kw"]`,
+//! `PRIS = [{PrisonDoorMarker = ..., ...}]`) takes each element as its type takes a value:
+//! FormIDs, integers, floats, strings, and structs as objects of every member (an integer
+//! that counts a later array member may be left out). Counts follow the value: a
+//! `count_from` member before the array is rewritten ([`recount_sibling`]), and
+//! `apply_field` rewrites the count subrecord just before a whole array subrecord (`KSIZ`
+//! before `KWDA`, `crate::edit::scaffold::count_slot`), for `hex:` values too.
 //!
 //! `hex:` is accepted for any type; for a fixed-size type the byte count must match, and a
 //! zstring or (non-localized) lstring must still be one NUL-terminated string. A whole
@@ -965,17 +975,251 @@ pub fn encode_value(
             "opaque",
             "no variant of this union applies to the record (its EditorID prefix); set it as hex:",
         )),
-        FieldType::Struct { .. } | FieldType::Array { .. } | FieldType::Ref { .. } => {
-            Err(FieldError::new(
+        FieldType::Array { element, count } => match op {
+            Op::Set(Value::Array(items)) => encode_array(path, element, count, items, ctx),
+            _ => Err(FieldError::new(
+                path,
+                "type",
+                "an array is set whole as a JSON array of its elements or as hex: (an array member of a struct also element by element, `SIG.Member[n]`)".to_string(),
+            )),
+        },
+        FieldType::Struct { fields } => match op {
+            Op::Set(Value::Object(members)) => encode_struct(path, fields, members, ctx),
+            _ => Err(FieldError::new(
                 path,
                 "type",
                 format!(
-                    "a {} is set member by member (`{path}.Member`) or whole as hex:",
-                    type_name(ty)
+                    "a struct is set member by member (`{path}.Member`), as a JSON object of its members inside an array value, or whole as hex:"
                 ),
-            ))
+            )),
+        },
+        FieldType::Ref { .. } => Err(FieldError::new(
+            path,
+            "type",
+            format!(
+                "a {} is set member by member (`{path}.Member`) or whole as hex:",
+                type_name(ty)
+            ),
+        )),
+    }
+}
+
+/// Most elements a typed whole-array value may have (it bounds the work a hostile value
+/// can ask for; the largest official arrays hold a few thousand).
+pub const MAX_ARRAY_ELEMENTS: usize = 65_536;
+
+/// A whole array from a JSON array: each element encoded as its type takes a value (a
+/// struct element as a JSON object of its members), in order. An array of exactly `N`
+/// elements takes exactly `N`; a count kept elsewhere (a `count_from` member before it, a
+/// `KSIZ` subrecord) is the caller's to update ([`recount_sibling`], `apply_field`).
+fn encode_array(
+    path: &str,
+    element: &FieldType,
+    count: &ArrayCount,
+    items: &[Value],
+    ctx: &ValueCtx<'_>,
+) -> Result<Vec<u8>, FieldError> {
+    if items.len() > MAX_ARRAY_ELEMENTS {
+        return Err(FieldError::new(
+            path,
+            "range",
+            format!(
+                "{} elements; an array value takes at most {MAX_ARRAY_ELEMENTS}",
+                items.len()
+            ),
+        ));
+    }
+    if let ArrayCount::Fixed(n) = count {
+        if usize::try_from(*n).ok() != Some(items.len()) {
+            return Err(FieldError::new(
+                path,
+                "range",
+                format!(
+                    "this array has exactly {n} elements; the value has {}",
+                    items.len()
+                ),
+            ));
         }
     }
+    let mut out = Vec::new();
+    for (i, item) in items.iter().enumerate() {
+        let at = format!("{path}[{i}]");
+        let operator = matches!(item, Value::Object(m)
+            if m.len() == 1 && m.keys().any(|k| OPERATORS.contains(&k.as_str())));
+        if operator {
+            return Err(FieldError::new(
+                &at,
+                "type",
+                "operators apply to one typed number (`SIG.Member[n]`), not inside an array value",
+            ));
+        }
+        let bytes = encode_value(&at, element, &[], &Op::Set(item.clone()), ctx)?;
+        out.extend_from_slice(&bytes);
+    }
+    Ok(out)
+}
+
+/// A whole struct from a JSON object of its members (ASCII case-insensitive names), in
+/// schema order. Every member present at the record's form version is given, except a
+/// trailing optional one (`if_remaining`: left out when not given) and an integer that
+/// counts a later array member given as a JSON array (filled with its length; a given
+/// count must agree).
+fn encode_struct(
+    path: &str,
+    fields: &[FieldDef],
+    members: &serde_json::Map<String, Value>,
+    ctx: &ValueCtx<'_>,
+) -> Result<Vec<u8>, FieldError> {
+    let present: Vec<&FieldDef> = fields
+        .iter()
+        .filter(|f| f.present_in(Some(ctx.form_version)))
+        .collect();
+    let names = || {
+        present
+            .iter()
+            .map(|f| f.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    for key in members.keys() {
+        if !present.iter().any(|f| f.name.eq_ignore_ascii_case(key)) {
+            return Err(FieldError::new(
+                &format!("{path}.{key}"),
+                "no-member",
+                format!("no member `{key}`; members: {}", names()),
+            ));
+        }
+    }
+    let given = |name: &str| {
+        members
+            .iter()
+            .find(|(k, _)| k.eq_ignore_ascii_case(name))
+            .map(|(_, v)| v)
+    };
+    // The length of the array a later member counts from `name`, when given as an array.
+    let counted = |name: &str| {
+        present.iter().find_map(|g| match deref(&g.ty) {
+            FieldType::Array {
+                count: ArrayCount::From(from),
+                ..
+            } if from.eq_ignore_ascii_case(name) => {
+                given(&g.name).and_then(Value::as_array).map(Vec::len)
+            }
+            _ => None,
+        })
+    };
+    let mut out = Vec::new();
+    for f in &present {
+        let at = format!("{path}.{}", f.name);
+        let value = match (given(&f.name), counted(&f.name)) {
+            (Some(v), Some(len)) => {
+                if parse_int(v).and_then(|n| usize::try_from(n).ok()) != Some(len) {
+                    return Err(FieldError::new(
+                        &at,
+                        "range",
+                        format!("counts an array member given with {len} element(s); give {len} or leave it out"),
+                    ));
+                }
+                v.clone()
+            }
+            (Some(v), None) => v.clone(),
+            (None, Some(len)) => json!(len),
+            (None, None) if f.if_remaining => continue,
+            (None, None) => {
+                return Err(FieldError::new(
+                    &at,
+                    "no-member",
+                    format!(
+                        "a struct value gives every member ({}); `{}` is missing",
+                        names(),
+                        f.name
+                    ),
+                ))
+            }
+        };
+        let bytes = encode_value(&at, &f.ty, &[], &Op::Set(value), ctx)?;
+        out.extend_from_slice(&bytes);
+    }
+    Ok(out)
+}
+
+/// The element count of a whole-array value `new` written for an array of type `ty`: the
+/// JSON array's length, else the bytes over its fixed element size (`None` when the size
+/// does not divide them: the layout check refuses that value).
+pub fn element_count(ty: &FieldType, op: &Op, new: &[u8], form_version: u16) -> Option<usize> {
+    let FieldType::Array { element, .. } = deref(ty) else {
+        return None;
+    };
+    if let Op::Set(Value::Array(items)) = op {
+        return Some(items.len());
+    }
+    let size = element
+        .fixed_size(Some(form_version))
+        .and_then(|s| usize::try_from(s).ok())
+        .filter(|s| *s > 0)?;
+    new.len()
+        .is_multiple_of(size)
+        .then(|| new.len().checked_div(size))
+        .flatten()
+}
+
+/// After the whole array at `steps` (a struct member counted by an earlier sibling,
+/// `count_from`) was replaced in `next` with `count` elements, writes `count` into that
+/// sibling and returns its name. The sibling comes before the array, so its offset in
+/// `payload` (the bytes before the edit) is its offset in `next`. `None` for an array no
+/// sibling counts.
+pub fn recount_sibling(
+    path: &str,
+    ty: &FieldType,
+    payload: &[u8],
+    steps: &[Step],
+    form_version: u16,
+    count: usize,
+    next: &mut [u8],
+) -> Result<Option<String>, FieldError> {
+    let Some((Step::Member(_), parent)) = steps.split_last() else {
+        return Ok(None);
+    };
+    let at = locate(path, ty, payload, steps, form_version)?;
+    let FieldType::Array {
+        count: ArrayCount::From(name),
+        ..
+    } = deref(at.ty)
+    else {
+        return Ok(None);
+    };
+    let mut sibling = parent.to_vec();
+    sibling.push(Step::Member(name.clone()));
+    let counter = locate(path, ty, payload, &sibling, form_version)?;
+    let base = int_base(counter.ty).ok_or_else(|| {
+        FieldError::new(path, "layout", format!("count `{name}` is not an integer"))
+    })?;
+    let bytes = i128::try_from(count)
+        .ok()
+        .and_then(|n| encode_int(base, n))
+        .ok_or_else(|| {
+            FieldError::new(
+                path,
+                "range",
+                format!(
+                    "{count} elements do not fit the count `{name}` ({})",
+                    base.as_str()
+                ),
+            )
+        })?;
+    let end = counter.start.saturating_add(counter.len);
+    let slot = next
+        .get_mut(counter.start..end)
+        .filter(|s| s.len() == bytes.len())
+        .ok_or_else(|| FieldError::new(path, "payload", "the count member is out of place"))?;
+    slot.copy_from_slice(&bytes);
+    Ok(Some(name.clone()))
+}
+
+/// `count` encoded as the integer type `ty` (a count subrecord such as `KSIZ`).
+pub fn count_bytes(ty: &FieldType, count: usize) -> Option<Vec<u8>> {
+    let base = int_base(ty)?;
+    encode_int(base, i128::try_from(count).ok()?)
 }
 
 fn text_value<'v>(path: &str, op: &'v Op) -> Result<&'v str, FieldError> {
@@ -1735,6 +1979,110 @@ mod tests {
         // A payload shorter than the layout says.
         let err = locate("X", &ty, &payload[..8], &steps("DATA.Speed"), 582).unwrap_err();
         assert_eq!(err.rule, "payload");
+    }
+
+    /// Lane D round 5 (gap 2): a whole array takes a JSON array of element values, FormIDs,
+    /// integers, floats, strings and structs (as objects of their members), and a struct's
+    /// count member follows the array it counts; `hex:` still works.
+    #[test]
+    fn typed_whole_arrays() {
+        let array = |element: FieldType, count: ArrayCount| FieldType::Array {
+            element: Box::new(element),
+            count,
+        };
+        let forms = array(FieldType::FormId { targets: vec![] }, ArrayCount::Rest);
+        let bytes = set(&forms, json!(["Starfield.esm:0234F1", "00000801", null])).unwrap();
+        assert_eq!(bytes, [0xF1, 0x34, 0x02, 0, 0x01, 0x08, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(set(&forms, json!([])).unwrap(), Vec::<u8>::new());
+        let err = set(&forms, json!(["Other.esm:000001"])).unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("X[0]", "formref"));
+        let ints = array(FieldType::Scalar(Scalar::I16), ArrayCount::Rest);
+        assert_eq!(set(&ints, json!([1, "-2"])).unwrap(), [1, 0, 0xFE, 0xFF]);
+        let err = set(&ints, json!([1, 70000])).unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("X[1]", "range"));
+        let floats = array(FieldType::Scalar(Scalar::F32), ArrayCount::Fixed(2));
+        let bytes = set(&floats, json!([1.5, "2"])).unwrap();
+        assert_eq!(bytes, [1.5f32.to_le_bytes(), 2.0f32.to_le_bytes()].concat());
+        let err = set(&floats, json!([1.5])).unwrap_err();
+        assert_eq!(err.rule, "range");
+        assert!(err.message.contains("exactly 2"), "{err}");
+        let strings = array(FieldType::ZString, ArrayCount::Rest);
+        assert_eq!(set(&strings, json!(["ab", ""])).unwrap(), b"ab\0\0");
+        // Operators apply to one number, not inside an array.
+        let err = set(&ints, json!([{"mul": 2}])).unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("X[0]", "type"));
+        // Not an array value: the message names the three ways.
+        let err = set(&ints, json!(7)).unwrap_err();
+        assert!(err.message.contains("JSON array"), "{err}");
+        // hex: still sets the whole array.
+        assert_eq!(set(&ints, json!("hex:0100")).unwrap(), [1, 0]);
+
+        // Struct elements (FACT PRIS-like): every member, by name, any case.
+        let entry = FieldType::Struct {
+            fields: vec![
+                field("Door", FieldType::FormId { targets: vec![] }),
+                field("Grid", FieldType::Scalar(Scalar::I16)),
+                field("Pad", FieldType::Opaque { size: Some(2) }),
+            ],
+        };
+        let entries = array(entry, ArrayCount::Rest);
+        let bytes = set(
+            &entries,
+            json!([{"door": "Starfield.esm:000034", "Grid": -1, "Pad": "hex:0000"}]),
+        )
+        .unwrap();
+        assert_eq!(bytes, [0x34, 0, 0, 0, 0xFF, 0xFF, 0, 0]);
+        let err = set(&entries, json!([{"Door": "00000001", "Grid": 0}])).unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("X[0].Pad", "no-member"));
+        assert!(err.message.contains("Door, Grid, Pad"), "{err}");
+        let err = set(
+            &entries,
+            json!([{"Door": "00000001", "Grid": 0, "Pad": "hex:0000", "Extra": 1}]),
+        )
+        .unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("X[0].Extra", "no-member"));
+        // A struct counting its own array: the count follows the array when left out.
+        let counted = FieldType::Struct {
+            fields: vec![
+                field("Count", FieldType::Scalar(Scalar::U16)),
+                field(
+                    "Swaps",
+                    array(
+                        FieldType::FormId { targets: vec![] },
+                        ArrayCount::From("Count".into()),
+                    ),
+                ),
+            ],
+        };
+        let list = array(counted.clone(), ArrayCount::Rest);
+        let bytes = set(&list, json!([{"Swaps": ["00000001", "00000002"]}])).unwrap();
+        assert_eq!(bytes, [2, 0, 1, 0, 0, 0, 2, 0, 0, 0]);
+        let err = set(&list, json!([{"Count": 3, "Swaps": ["00000001"]}])).unwrap_err();
+        assert_eq!((err.path.as_str(), err.rule), ("X[0].Count", "range"));
+
+        // recount_sibling: replacing `Swaps` inside a payload rewrites `Count`.
+        let payload = [1u8, 0, 9, 0, 0, 0];
+        let steps = parse_path("MO2S.Swaps").unwrap().steps;
+        let mut next = vec![1u8, 0, 9, 0, 0, 0, 8, 0, 0, 0];
+        let named =
+            recount_sibling("MO2S.Swaps", &counted, &payload, &steps, 582, 2, &mut next).unwrap();
+        assert_eq!(named.as_deref(), Some("Count"));
+        assert_eq!(next, [2, 0, 9, 0, 0, 0, 8, 0, 0, 0]);
+        // Nothing counts a Rest array from inside.
+        let none = recount_sibling("X", &forms, &[], &[], 582, 3, &mut []).unwrap();
+        assert!(none.is_none());
+        assert_eq!(
+            element_count(&ints, &Op::Set(json!("hex:010002")), &[1, 0, 2], 582),
+            None
+        );
+        assert_eq!(
+            element_count(&ints, &Op::Set(json!("hex:01000200")), &[1, 0, 2, 0], 582),
+            Some(2)
+        );
+        assert_eq!(
+            count_bytes(&FieldType::Scalar(Scalar::U32), 3).unwrap(),
+            [3, 0, 0, 0]
+        );
     }
 
     #[test]

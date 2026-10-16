@@ -758,3 +758,72 @@ fn the_result_counts_versions_and_names_a_reverted_override() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Lane D round 5 (gap 5): `place` with `dry_run` previews the reference, its cell and
+/// group path and the carried cell without writing `into` (absent or existing), and says
+/// what a real call would refuse; the CLI spells it `--dry-run`.
+#[test]
+fn a_dry_run_previews_the_reference_and_its_cell_and_writes_nothing() {
+    let d = dir("place-dry-run");
+    let data = world_master(&d);
+    let into = d.join("KC_Dry.esm");
+    let extra = json!({"cell": "TestInterior", "edid": "KC_DryMarker", "dry_run": true,
+                       "fields": {"XLKR.Keyword": "00000000", "XLKR.Ref": "World.esm:000901"}});
+    let r = place(&data, &into, extra.clone()).unwrap();
+    assert!(!into.exists(), "a dry run wrote {}", into.display());
+    let data_out = &r["data"];
+    assert_eq!(data_out["dry_run"], json!(true));
+    assert_eq!(data_out["would_write"], json!(true));
+    assert_eq!(data_out["before"], Value::Null);
+    let placed = &data_out["placed"][0];
+    assert_eq!(placed["form_id"], json!("01001000"));
+    assert_eq!(placed["cell"]["editor_id"], json!("TestInterior"));
+    let path: Vec<i64> = placed["group_path"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["type"].as_i64().unwrap())
+        .collect();
+    assert_eq!(path, [0, 2, 3, 6, 9]);
+    assert_eq!(data_out["carried"][0]["signature"], json!("CELL"));
+    let after = data_out["after"].as_array().unwrap();
+    assert_eq!(after.len(), 1, "{after:#?}");
+    assert_eq!(after[0]["record"]["signature"], json!("REFR"));
+    let subs: Vec<&str> = after[0]["subrecords"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|s| s["signature"].as_str().unwrap())
+        .collect();
+    assert!(subs.contains(&"XLKR") && subs.contains(&"NAME"), "{subs:?}");
+    let changed = data_out["changed"].as_array().unwrap();
+    assert!(
+        changed.iter().any(|c| c["path"] == json!("XLKR.Ref")),
+        "{changed:#?}"
+    );
+    assert_eq!(data_out["validate"]["errors"], json!(0));
+    assert!(r["limitations"].as_array().unwrap().iter().any(|l| l
+        .as_str()
+        .unwrap()
+        .starts_with("dry run: nothing was written")));
+    // An existing target is left byte-identical.
+    place(&data, &into, json!({"cell": "TestInterior"})).unwrap();
+    let before = std::fs::read(&into).unwrap();
+    let r = place(&data, &into, extra).unwrap();
+    assert_eq!(r["data"]["placed"][0]["form_id"], json!("01001001"));
+    assert_eq!(std::fs::read(&into).unwrap(), before);
+    // The CLI form.
+    let line = format!(
+        r#"place KC_Crate --position "[1.0, 2.0, 3.0]" --into "{}" --cell TestInterior --plugins World.esm --data-dir "{}" --no-cache --dry-run"#,
+        into.display(),
+        data.display()
+    );
+    let Invocation::Run { command, args } = parse_line(&line).unwrap() else {
+        panic!("not a run line")
+    };
+    assert_eq!(args["dry_run"], json!(true));
+    let r = execute(command.id, args).unwrap();
+    assert_eq!(r["data"]["dry_run"], json!(true));
+    assert_eq!(std::fs::read(&into).unwrap(), before);
+    let _ = std::fs::remove_dir_all(&d);
+}

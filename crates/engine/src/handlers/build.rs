@@ -386,11 +386,13 @@ fn import_navmeshes(
     Ok(out)
 }
 
-/// Field values `new:<name>` (spec version 3) name a `[[new]]` or `[[clone]]` of the same
-/// build: a FormID member then holds that new form (M4.E7: a recipe's `CNAM` naming the
-/// object a `[[clone]]` writes). They become `{"local_form": <EditorID>}`, which the patch
-/// writer resolves once the form has its FormID. A name of a `[[place]]`, or one no entry
-/// has, is a spec error.
+/// Field values `new:<name>` (spec version 3) name a `[[new]]`, `[[clone]]` or `[[place]]`
+/// of the same build: a FormID member then holds that new form (M4.E7: a recipe's `CNAM`
+/// naming the object a `[[clone]]` writes) or that placed reference (lane D round 5: a
+/// location's map marker, a beacon's linked centre marker), inside array and struct
+/// values too. They become `{"local_form": <key>}` (the EditorID; a `[[place]]` without
+/// one by its entry key, `place[2]`), which the patch writer resolves once every new form
+/// and reference has its FormID. A name no entry has is a spec error.
 fn local_form_values(spec: &mut Spec) -> Result<(), EngineError> {
     let names: Vec<(String, String)> = spec
         .news
@@ -401,27 +403,26 @@ fn local_form_values(spec: &mut Spec) -> Result<(), EngineError> {
                 .iter()
                 .filter_map(|c| Some((c.name.clone()?, c.edid.clone()))),
         )
+        .chain(spec.places.iter().filter_map(|p| {
+            Some((
+                p.name.clone()?,
+                p.edid.clone().unwrap_or_else(|| p.key.clone()),
+            ))
+        }))
         .collect();
-    let places: Vec<String> = spec.places.iter().filter_map(|p| p.name.clone()).collect();
     let convert = |v: &Value, key: &str| -> Result<Value, EngineError> {
-        fn walk(
-            v: &Value,
-            key: &str,
-            names: &[(String, String)],
-            places: &[String],
-        ) -> Result<Value, EngineError> {
+        fn walk(v: &Value, key: &str, names: &[(String, String)]) -> Result<Value, EngineError> {
             match v {
                 Value::String(s) => match spec::local_ref(s) {
                     None => Ok(v.clone()),
                     Some(name) => {
-                        if let Some((_, edid)) =
+                        if let Some((_, local)) =
                             names.iter().find(|(n, _)| n.eq_ignore_ascii_case(name))
                         {
-                            return Ok(json!({ crate::edit::patch::LOCAL_FORM: edid }));
+                            return Ok(json!({ crate::edit::patch::LOCAL_FORM: local }));
                         }
-                        let why = if places.iter().any(|p| p.eq_ignore_ascii_case(name)) {
-                            format!("`{name}` is a [[place]]; a field names a base form a [[new]] or [[clone]] writes")
-                        } else {
+                        Err(spec_error(
+                            key,
                             format!(
                                 "unknown name `{name}` (names: {})",
                                 if names.is_empty() {
@@ -433,20 +434,24 @@ fn local_form_values(spec: &mut Spec) -> Result<(), EngineError> {
                                         .collect::<Vec<_>>()
                                         .join(", ")
                                 }
-                            )
-                        };
-                        Err(spec_error(key, why))
+                            ),
+                        ))
                     }
                 },
                 Value::Array(items) => items
                     .iter()
-                    .map(|i| walk(i, key, names, places))
+                    .map(|i| walk(i, key, names))
                     .collect::<Result<Vec<_>, _>>()
                     .map(Value::Array),
+                Value::Object(m) => m
+                    .iter()
+                    .map(|(k, x)| walk(x, key, names).map(|x| (k.clone(), x)))
+                    .collect::<Result<serde_json::Map<_, _>, _>>()
+                    .map(Value::Object),
                 _ => Ok(v.clone()),
             }
         }
-        walk(v, key, &names, &places)
+        walk(v, key, &names)
     };
     let fix = |edits: &mut Vec<Edit>, key: &str| -> Result<(), EngineError> {
         for e in edits {
@@ -472,6 +477,10 @@ fn local_form_values(spec: &mut Spec) -> Result<(), EngineError> {
     for c in &mut spec.clones {
         let key = c.key.clone();
         fix(&mut c.edits, &key)?;
+    }
+    for p in &mut spec.places {
+        let key = p.key.clone();
+        fix(&mut p.edits, &key)?;
     }
     Ok(())
 }
@@ -871,6 +880,25 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     for (req, entry) in place_reqs.iter().zip(&spec.places) {
         let mut planned = place::plan(ID, loaded, req, &limits)?;
         planned.new_ref.scripts = entry_scripts.get(&entry.key, entry.scripts.as_ref(), loaded)?;
+        // Fields on the new reference (lane D round 5), gated as a [[set]]'s are: a
+        // reference-only member is written only when `allow_reference` names its path.
+        for edit in &entry.edits {
+            let allowed = entry
+                .allow_reference
+                .iter()
+                .any(|a| a.eq_ignore_ascii_case(&edit.path.text));
+            gate(
+                schema,
+                planned.new_ref.signature.0,
+                &entry.key,
+                std::slice::from_ref(edit),
+                allowed,
+                true,
+                &mut cache,
+                &mut limitations,
+            )?;
+        }
+        planned.new_ref.edits = entry.edits.clone();
         super::set::extend_once(&mut limitations, planned.limitations);
         let cell = planned.new_ref.place.cell();
         let key = loaded.lo.find(&cell.plugin).map(|p| {

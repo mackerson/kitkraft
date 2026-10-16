@@ -86,8 +86,9 @@ behaviour rows of the research note (H2-03 to H2-11), adapted to what was built:
   `setstage` starts such a quest and fires a remote `OnStageSet` is grade D. The trigger
   global is the fallback that needs no quest at all.
 - **Not authored:** fragments, aliases, objectives and stage log entries (none needed);
-  a link from the controller to a location (a reference cannot be put in a location
-  today, `docs/recipes/mini-site.md` "Limits"); a navmesh (the cell has none).
+  a link from the controller to a location (authorable since lane D round 5, as
+  `docs/recipes/mini-site.md` lists its references in its location's `LCPR`, but the
+  fixture needs no location, so the plugin is unchanged); a navmesh (the cell has none).
 - **Blockers for the full fixture:** the scripts recipe in game (owner row 14, O4-07, or
   M5.B3); lane C's live sessions (M4.T1, M4.O7) to run the probes; probe rows for
   scripted behaviour (the table above) in `testplan`; PS-09 (whether `PlaceActorAtMe`

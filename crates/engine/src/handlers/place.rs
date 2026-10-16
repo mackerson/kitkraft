@@ -27,6 +27,10 @@
 //!   its slot in schema member order (zero bytes, or an empty string), as `new` does.
 //!   `NAME`, `DATA` and `EDID` come from `base`, `position`/`rotation` and `edid`; a field
 //!   may still overwrite them.
+//! - `dry_run` (lane D round 5) writes and validates the staged copy only and returns the
+//!   same `placed` (FormID, cell, group path), `carried` (the cell and world against their
+//!   winners) and `next_object_id`, plus `super::preview`'s `after` (the new reference as
+//!   it would be written), `changed`, `would_write` and `validate`; `into` is not touched.
 //!
 //! As `set`: the write goes to a staged copy of `into`, `validate` runs on it, and `into`
 //! is replaced only when the records written pass. Refusals are `failed` errors whose
@@ -1044,6 +1048,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .get("allow_untyped_lstrings")
         .and_then(Value::as_bool)
         .unwrap_or(false);
+    let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let prior = take_prior(session, args);
     if let Err(e) = acquire(session, args, ID) {
         restore_prior(session, prior);
@@ -1083,7 +1088,14 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         .iter()
         .filter(|f| f.severity == Severity::Error)
         .partition(|f| f.record.as_ref().is_none_or(|r| written.contains(r)));
-    if !blocking.is_empty() {
+    // A dry run (lane D round 5, for ADR 0007 Amendment 4's previews): the same write and
+    // validation on the staged copy, reported without installing it.
+    let mut preview = None;
+    if let Some(schema) = dry_run {
+        let mut notes = Vec::new();
+        let after = super::preview::after(schema, loaded, &staged, &report, &into, &mut notes);
+        preview = Some((after, notes));
+    } else if !blocking.is_empty() {
         return Err(refuse(
             ID,
             "fails-validate",
@@ -1102,12 +1114,17 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
             describe(&other)
         ));
     }
-    install(ID, &staged, &into)?;
+    // The carried records against their winners, read from the file that holds them.
+    let carried = if dry_run.is_some() {
+        carried_json(loaded, &report, &staged.path)
+    } else {
+        install(ID, &staged, &into)?;
+        carried_json(loaded, &report, &into)
+    };
     report.target = into.clone();
     let mut result = outcome(&report, &[], limitations);
     result.evidence.extend(planned.evidence);
     let placed = placed_json(&report, &[(planned.info, &req)]);
-    let carried = carried_json(loaded, &report, &into);
     extend_once(
         &mut result.limitations,
         order_notes(loaded, prior.as_ref(), &carried),
@@ -1131,6 +1148,17 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         if !scripts.reports.is_empty() {
             obj.insert("scripts".into(), Value::Array(scripts.reports));
         }
+    }
+    if let Some((after, notes)) = preview {
+        super::preview::attach(
+            &mut result,
+            None,
+            after,
+            &report,
+            &checked,
+            &blocking,
+            notes,
+        );
     }
     Ok(result)
 }

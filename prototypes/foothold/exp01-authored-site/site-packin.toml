@@ -20,7 +20,8 @@ brief = "FTH-EXP-01"
 
 [new.fields]
 FULL = "KitKraft Foothold Site (pack-in)"
-# KWDA as raw bytes (the new-record path takes it only as hex): FormID 000234F1, LocTypeOutpost.
+# KWDA as raw bytes, as first built: FormID 000234F1, LocTypeOutpost (since lane D round 5
+# `KWDA = ["Starfield.esm:0234F1"]` writes the same bytes and KSIZ with them).
 KSIZ = 1
 KWDA = "hex:F1340200"
 "DATA.LevelFlags" = 16
