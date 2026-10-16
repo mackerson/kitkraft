@@ -428,7 +428,8 @@ variable and refuses a folder that `guard_output_dir` rejects. The performance t
 | `glam` 0.34.1, `default-features = false`, `std` only | M7.R1 camera and transform math (`crates/ui-egui/src/viewport/`) | MIT OR Apache-2.0 (checked 2026-10-16 in the crate's manifest and its `LICENSE-MIT` and `LICENSE-APACHE`; with these features it has no dependencies, so `Cargo.lock` gains this one package) | added by M7.R1 (lane R, 2026-10-16); also listed in `ATTRIBUTION.md` |
 | `egui_extras` (tables; image loaders only if M6.G5 needs them) | M6.P4 virtualized tables, M6.G5 screenshots | MIT OR Apache-2.0 (egui's own repository; to be checked at the merge with its transitive tree, e.g. `image` and its codecs) | new |
 | eframe's `accesskit` feature (`accesskit_winit` and the platform crates) | M6.X3 screen reader support (deferred with lane X, 2026-10-16) | expected MIT OR Apache-2.0; the full transitive list goes here before the merge | new feature |
-| A docking crate (for example `egui_dock`) | M7.M0 decides whether the CK-style window layout needs one | to be listed if chosen | not chosen |
+| A docking crate (for example `egui_dock`) | M7.M0 decides whether the CK-style window layout needs one | to be listed if chosen | not chosen: M7.M0 (lane M, 2026-10-16) uses egui's own `Window`s (`docs/workbench.md` "CK-style windows") |
+| `toml` 0.8.23 | M7.W3, the edit-dialog layouts `crates/ui-egui/layouts/<TYPE>.toml` (`crates/ui-egui/src/dialogs/mod.rs`) | MIT OR Apache-2.0 (checked 2026-10-16 in the local registry copy) | already in the tree for `kitkraft-schema`: a direct dependency of `kitkraft-ui-egui`, no new package in `Cargo.lock` (lane M, 2026-10-16) |
 
 Any license outside MIT/Apache/Zlib/BSD-style goes to the owner. That includes the
 BSL-1.0 clipboard crates already pending (`plan/STATUS.md`, owner row 7) and any OFL font
