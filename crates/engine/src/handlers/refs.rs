@@ -1197,7 +1197,10 @@ pub(crate) mod tests {
             for (k, v) in extra.as_object().unwrap() {
                 a[k] = v.clone();
             }
-            engine.execute("cell", a).unwrap()
+            let r = engine.execute("cell", a).unwrap();
+            let problems = crate::shapes::check_envelope(&r);
+            assert!(problems.is_empty(), "{problems:#?}");
+            r
         };
         let w = cell(json!({}));
         assert_eq!(w["data"]["mode"], "worlds");

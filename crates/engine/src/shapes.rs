@@ -105,6 +105,7 @@ pub const INSPECTION_COMMANDS: &[&str] = &[
     "coverage",
     "schema",
     "validate",
+    "cell",
 ];
 
 /// A JSON type in a documented shape.
@@ -685,6 +686,47 @@ const CONFLICTS: Shape = Obj(&[&[
     req("class_counts_all", Nullable(&CLASS_COUNTS)),
     req("next_cursor", NSTR),
     req("summary", Str),
+]]);
+
+// ---- cell (M7.S3) -----------------------------------------------------------------------
+
+/// One `cell` item: a world, an interior or exterior cell, or a reference (by `mode`).
+const CELL_ITEM: Shape = Obj(&[&[
+    req("form", Str),
+    opt("signature", NSTR),
+    opt("editor_id", NSTR),
+    opt("cells", Int),
+    opt("child_records", Int),
+    req("versions", Int),
+    opt("x", NINT),
+    opt("y", NINT),
+    opt("base", Nullable(&Marker(kind::FORMREF))),
+    opt("base_signature", NSTR),
+    opt("base_editor_id", NSTR),
+    opt("position", Nullable(&List(&Nullable(&Num)))),
+    opt("rotation", Nullable(&List(&Nullable(&Num)))),
+    opt("scale", Nullable(&Num)),
+    opt("persistent", Bool),
+    opt("group", Enum(&["persistent", "temporary"])),
+    opt("flags", Str),
+    opt("deleted", Bool),
+    opt("plugin", Str),
+]]);
+const CELL: Shape = Obj(&[&[
+    req("mode", Enum(&["worlds", "interior", "world", "cell"])),
+    req("total", Int),
+    req("items", List(&CELL_ITEM)),
+    opt("interior_cells", Int),
+    opt("world", NSTR),
+    opt("world_editor_id", NSTR),
+    opt("cell", Str),
+    opt("cell_signature", NSTR),
+    opt("cell_editor_id", NSTR),
+    opt("moved_out", Int),
+    req("next_cursor", NSTR),
+    req("summary", Str),
+    req("elapsed_ms", Int),
+    req("index_ms", Int),
 ]]);
 
 // ---- refs ------------------------------------------------------------------------------
@@ -1297,6 +1339,7 @@ pub fn data_shape(command: &str) -> Option<&'static Shape> {
         "coverage" => Some(&COVERAGE_DATA),
         "schema" => Some(&SCHEMA),
         "validate" => Some(&VALIDATE),
+        "cell" => Some(&CELL),
         _ => None,
     }
 }

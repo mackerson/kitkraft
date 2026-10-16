@@ -860,3 +860,41 @@ unchecked_subrecords: int
 scripts_checked: int
 summary: str
 ```
+
+## `cell`
+
+```text
+mode: "worlds" | "interior" | "world" | "cell"
+total: int
+items: [object]
+items[].form: str
+items[].signature?: str | null
+items[].editor_id?: str | null
+items[].cells?: int
+items[].child_records?: int
+items[].versions: int
+items[].x?: int | null
+items[].y?: int | null
+items[].base?: <formref> | null
+items[].base_signature?: str | null
+items[].base_editor_id?: str | null
+items[].position?: [number | null] | null
+items[].rotation?: [number | null] | null
+items[].scale?: number | null
+items[].persistent?: bool
+items[].group?: "persistent" | "temporary"
+items[].flags?: str
+items[].deleted?: bool
+items[].plugin?: str
+interior_cells?: int
+world?: str | null
+world_editor_id?: str | null
+cell?: str
+cell_signature?: str | null
+cell_editor_id?: str | null
+moved_out?: int
+next_cursor: str | null
+summary: str
+elapsed_ms: int
+index_ms: int
+```
