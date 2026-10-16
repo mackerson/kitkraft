@@ -2201,7 +2201,14 @@ mod tests {
         assert!(missing.is_empty());
         assert_eq!(reqs[0].id, "conflicts");
         assert_eq!(reqs[0].args["plugin"], "My.esm");
-        assert_eq!(reqs[0].args.get("detail").is_some(), conflicts_has_detail());
+        // Read off the catalog's own schema, not through `conflicts_has_detail`.
+        let schema: Value =
+            serde_json::from_str(gate::find_command("conflicts").unwrap().args_schema).unwrap();
+        if schema.pointer("/properties/detail").is_some() {
+            assert_eq!(reqs[0].args["detail"], "fields");
+        } else {
+            assert!(reqs[0].args.get("detail").is_none());
+        }
         check(&reqs[0]).unwrap();
         let (reqs, missing) = masters_requests(
             "p.esp",

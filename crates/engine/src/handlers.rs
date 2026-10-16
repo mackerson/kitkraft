@@ -6,6 +6,8 @@
 
 #[cfg(test)]
 mod authoring_tests;
+#[cfg(test)]
+mod authoring_world_tests;
 mod ba2;
 mod build;
 #[cfg(test)]

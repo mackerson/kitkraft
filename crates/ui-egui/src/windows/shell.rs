@@ -155,7 +155,7 @@ impl App {
     }
 
     /// Hook: the replies to the windows' own requests (any ticket the tabs did not send).
-    pub(super) fn ck_receive(&mut self, reply: Reply) {
+    pub(super) fn ck_receive<B>(&mut self, reply: Reply<B>) {
         let result = reply.result.as_ref().map_err(ToString::to_string);
         match self.shell.tickets.remove(&reply.ticket) {
             Some(Pending::UseInfo) => self.shell.use_info.receive(result),

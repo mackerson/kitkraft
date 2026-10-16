@@ -498,18 +498,22 @@ active file, never under the game's Data folder, the user Data folder or an MO2 
 
 | Command | Writes | Preview (writes nothing) | Writing form (confirmed only) | Exists |
 | ------- | ------ | ------------------------ | ----------------------------- | ------ |
-| `set` | Field values of one record into the active file (`into`) | `dry_run: true` (M7.S6: before and after, member paths, `validate` findings on the result) | `dry_run` absent or false | `set` yes; its `dry_run` is M7.S6 |
-| `new` | One new record into the active file | its dry run (to be added beside M7.S6 if `new` lacks one; until then it stays out) | as `set` | yes |
-| `clone` | One copy of a record into the active file | as `new` | as `set` | yes |
-| `place` | One placed reference into a cell of the active file | as `new` | as `set` | yes |
+| `set` | Field values of one record into the active file (`into`) | `dry_run: true` (M7.S6: before and after, member paths, `validate` findings on the result) | `dry_run` absent or false | yes, with `dry_run` (M7.S6, done) |
+| `new` | One new record into the active file | `dry_run: true` (M7.S6) | as `set` | yes, with `dry_run` (M7.S6, done) |
+| `clone` | One copy of a record into the active file | `dry_run: true` (M7.S6) | as `set` | yes, with `dry_run` (M7.S6, done) |
+| `place` | One placed reference into a cell of the active file | `dry_run: true`, once it exists | as `set` | yes, but **no preview**: `place` has no `dry_run` (`crates/engine/src/lib.rs`, its catalog entry), so it cannot join until M7.S6b adds one |
 | `build` (output) | The plugin a build spec describes, written to its `out` (the active file or a new one) | `plan: true` (already exists; the gate has kept `build` refused in every mode, M4.W6's note) | `plan` absent or false, `out` the active file | yes |
-| `revert` | The inverse of one edit to the active file (M7.S7) | `dry_run: true` | as `set` | **no**: M7.S7 (lane D) |
+| `revert` | The inverse of one edit to the active file, named by `plugin` (M7.S7) | `dry_run: true` | as `set` | yes, `Implemented` with `dry_run` (M7.S7, done) |
 
 Each id joins `PERMITTED_WRITES` only with the M7.E ticket that implements its dialog
 (M7.E2 `set`, M7.E3 `new` and `clone`, M7.E4 `place`, M7.E5 `build`, M7.E6 `revert`) and
 only once its command is in the catalog, `Implemented` and has its preview: the same
 five-point rule as Amendment 3 ("The rule for adding a write"). A command without a
 preview form that writes nothing does not join.
+
+Ticket note (M7.S6b, lane D): `place` needs the `dry_run` preview M7.S6 gave `set`,
+`new` and `clone` (the placed reference before and after, the paths changed, the
+`validate` findings on a staged copy; `into` untouched) before M7.E4 can add it.
 
 Not in this scope: `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.merge`,
 `papyrus.compile`, `mod.run`, any write into MO2 beyond Amendment 3's `deploy --dev`, and
@@ -521,8 +525,8 @@ The gate (`gate.rs`) stays a const table and a pure check over id, arguments and
 confirmation:
 
 - the preview form passes like a read; the writing form passes only confirmed;
-- the writing form names its output (`into` for `set`, `new`, `clone`, `place`, `revert`;
-  `out` for `build`), and that output is not an official master by name (`Starfield.esm`,
+- the writing form names its output (`into` for `set`, `new`, `clone`, `place`;
+  `plugin` for `revert`; `out` for `build`), and that output is not an official master by name (`Starfield.esm`,
   `Constellation.esm`, `OldMars.esm`, `BlueprintShips-*.esm`, `SFBGS*.esm`, the list the
   engine's official order holds) and has a plugin extension;
 - `overwrite` and similar flags that would replace a file other than the active file are

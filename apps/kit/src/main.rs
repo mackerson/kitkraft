@@ -11,6 +11,7 @@ use clap::{Arg, ArgAction, Command};
 use kitkraft_ui_egui::theme::ThemeChoice;
 
 fn main() -> ExitCode {
+    kitkraft_ui_egui::perf::mark_start();
     let matches = match cli().try_get_matches() {
         Ok(m) => m,
         Err(err) => {
@@ -36,7 +37,9 @@ fn main() -> ExitCode {
         data_dir: matches.get_one::<String>("data-dir").cloned(),
         theme: matches.get_one::<ThemeChoice>("theme").copied(),
     };
-    match kitkraft_ui_egui::run(opts) {
+    let result = kitkraft_ui_egui::run(opts);
+    kitkraft_ui_egui::perf::flush();
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("kit-ui: {err}");

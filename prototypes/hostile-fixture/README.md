@@ -106,7 +106,22 @@ How this fixture keeps to them: the encounter fires only on an explicit trigger 
 global), never on its own; the cooldown is a global anyone can set; nothing runs while
 the controller is unloaded; cleanup deletes only the actors the fixture placed.
 
-## Hand-off status
+## Report
 
-`validation`: parse pass, byte_roundtrip pass, ck_open not-run, ck_reexport not-run,
-game_runtime not-run, save_reload not-run; `result: partial`.
+```yaml
+id: M5.H2
+priority: DEFER          # backlog, not scheduled in M5; first half built as a prototype
+owner: lane H2
+requires: [M5.H1, M5.C2, M5.D7]
+output: prototypes/hostile-fixture/{hostile-fixture.toml, scripts/KitKraft/HostileFixtureController.psc}; KitKraftHostileFixture.esm 614beeaa7f368be27266b606cc4ab68009df1a3a8eaf93ca3d476c095fb26107; HostileFixtureController.pex b3a81cbb185bc65a00c643fe0329a5e887e2e6c8fd7db68d2b0ede1bf40ee78e
+source_provenance: [corpus:Starfield.esm QUST 252335, ACTI 03CCF4, CELL 21966F, NPC_ 27025D, LVLN 270261]
+validation:
+  parse: pass            # kit validate: 0 errors, 0 warnings, 2026-10-16
+  byte_roundtrip: pass   # kit roundtrip --verify: identical
+  ck_open: not-run
+  ck_reexport: not-run
+  game_runtime: not-run  # probes H2-03 to H2-11 above, waiting on live sessions
+  save_reload: not-run   # H2-10; PS-09
+limits: [quest written with bare stages, untested in game; no fragments, aliases, objectives, location link or navmesh; M5.H2 second half not started]
+result: partial
+```

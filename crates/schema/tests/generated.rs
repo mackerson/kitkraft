@@ -799,12 +799,12 @@ fn seed_weap_typed_shape() {
 #[test]
 fn seed_glob_gmst_kywd_inventory_shapes() {
     use seed::{Ctx, GlobRecord, GmstRecord, KywdRecord};
-    // GLOB "EDID BFCB QUPA BFCE FLTV" and "FLTV" shapes (QUPA: a component layout the
-    // block keeps raw).
+    // GLOB "EDID BFCB SODA BFCE FLTV" and "FLTV" shapes (SODA: a component layout the
+    // block keeps raw; QUPA, the earlier example, is typed since lane D round 4).
     let glob = vec![
         s(b"EDID", b"Gv\0"),
         s(b"BFCB", b"Type\0"),
-        s(b"QUPA", &[1, 2]),
+        s(b"SODA", &[1, 2]),
         s(b"BFCE", &[]),
         s(b"FLTV", &1.0f32.to_le_bytes()),
     ];

@@ -340,9 +340,11 @@ fn placed_text(p: &Value) -> Option<String> {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
+use eframe::egui::{self, CollapsingHeader, TextEdit};
 
-use crate::panels::common::{envelope_block, form_cell, record_actions, Action, Slot, TabCtx};
+use crate::panels::common::{
+    envelope_block, form_cell, record_actions, virtual_table, Action, Slot, TabCtx,
+};
 use crate::theme::{self, Field, Status, View};
 
 /// The Links tab's state: the form, the last `refs` page and its cursor.
@@ -445,71 +447,71 @@ impl LinksTab {
                     }
                 });
             }
-            ScrollArea::vertical()
-                .id_salt("links-rows")
-                .max_height(theme::view_height(ui, View::Tall))
-                .show(ui, |ui| {
-                    theme::table(ui, "links-grid").show(ui, |ui| {
-                        let heads: &[&str] = if incoming {
-                            &[
-                                "hop", "referrer", "", "path", "raw", "status", "plugin", "placed",
-                            ]
+            let heads: &[&str] = if incoming {
+                &[
+                    "hop", "referrer", "", "path", "raw", "status", "plugin", "placed",
+                ]
+            } else {
+                &["hop", "from", "path", "raw", "status", "to", "", "plugin"]
+            };
+            virtual_table(
+                ui,
+                "links-grid",
+                heads,
+                view.edges.len(),
+                View::Tall,
+                |row, i| {
+                    let Some(e) = view.edges.get(i) else { return };
+                    row.cell(|ui| ui.label(e.depth.to_string()));
+                    row.cell(|ui| form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions));
+                    if incoming {
+                        row.cell(|ui| match e.from.as_deref() {
+                            Some(f) => record_actions(ui, busy, f, actions),
+                            None => {
+                                ui.label("");
+                            }
+                        });
+                    }
+                    row.cell(|ui| ui.monospace(&e.path));
+                    row.cell(|ui| ui.monospace(&e.raw));
+                    row.cell(|ui| {
+                        if e.problem() {
+                            theme::status(ui, Status::Fail, &e.status)
                         } else {
-                            &["hop", "from", "path", "raw", "status", "to", "", "plugin"]
-                        };
-                        for h in heads {
-                            ui.strong(*h);
-                        }
-                        ui.end_row();
-                        for e in &view.edges {
-                            ui.label(e.depth.to_string());
-                            if incoming {
-                                form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions);
-                                match e.from.as_deref() {
-                                    Some(f) => record_actions(ui, busy, f, actions),
-                                    None => {
-                                        ui.label("");
-                                    }
-                                }
-                            } else {
-                                form_cell(ui, busy, e.from.as_deref(), &e.from_label, actions);
-                            }
-                            ui.monospace(&e.path);
-                            ui.monospace(&e.raw);
-                            if e.problem() {
-                                theme::status(ui, Status::Fail, &e.status);
-                            } else {
-                                ui.label(&e.status);
-                            }
-                            if incoming {
-                                ui.label(&e.plugin);
-                                ui.label(e.placed.as_deref().unwrap_or(""));
-                            } else {
-                                if e.problem() {
-                                    ui.colored_label(theme::bad(ui), &e.to_label);
-                                } else {
-                                    form_cell(ui, busy, e.to.as_deref(), &e.to_label, actions);
-                                }
-                                match e.to.as_deref() {
-                                    Some(f) => record_actions(ui, busy, f, actions),
-                                    None => {
-                                        ui.label("");
-                                    }
-                                }
-                                if e.target_mismatch {
-                                    theme::status(
-                                        ui,
-                                        Status::Warn,
-                                        &format!("{} (target type not listed)", e.plugin),
-                                    );
-                                } else {
-                                    ui.label(&e.plugin);
-                                }
-                            }
-                            ui.end_row();
+                            ui.label(&e.status)
                         }
                     });
-                });
+                    if incoming {
+                        row.cell(|ui| ui.label(&e.plugin));
+                        row.cell(|ui| ui.label(e.placed.as_deref().unwrap_or("")));
+                    } else {
+                        row.cell(|ui| {
+                            if e.problem() {
+                                ui.colored_label(theme::bad(ui), &e.to_label);
+                            } else {
+                                form_cell(ui, busy, e.to.as_deref(), &e.to_label, actions);
+                            }
+                        });
+                        row.cell(|ui| match e.to.as_deref() {
+                            Some(f) => record_actions(ui, busy, f, actions),
+                            None => {
+                                ui.label("");
+                            }
+                        });
+                        row.cell(|ui| {
+                            if e.target_mismatch {
+                                theme::status(
+                                    ui,
+                                    Status::Warn,
+                                    &format!("{} (target type not listed)", e.plugin),
+                                );
+                            } else {
+                                ui.label(&e.plugin);
+                            }
+                        });
+                    }
+                },
+            );
         });
     }
 }
