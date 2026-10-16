@@ -149,6 +149,14 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads where the game, Data dir, MO2 instance and profiles, tools and cache are (M6.G1; first run, M6.X4)",
     },
+    // Lane R round 2 (M7.R2, M7.R3): the Render Window's cell picker; the Cell View
+    // (M7.W2) will use it as well.
+    Allowed {
+        id: "cell",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads worldspaces, cells and one cell's references (with their bases' OBND)",
+    },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that
@@ -944,8 +952,6 @@ mod tests {
             "strings.dump",
             // Lane C (M4.T3); M6.G2/G4 use it.
             "game.status",
-            // lane D round 3 (M7.S3): the Cell View (M7.W2) will use it.
-            "cell",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);

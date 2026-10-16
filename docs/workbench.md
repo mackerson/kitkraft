@@ -360,11 +360,21 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     `target`), the folders above the working directory. A test fails when a doc loses one
     of these sections.
 
-- **Render Window** (no command yet; M7.R1, 2026-10-16)
-  - A 3D viewport drawn with OpenGL through eframe's glow backend: a ground grid (lines
-    every 256 units, major every 4,096, out to 8,192), the world axes (+X red, +Y green,
-    +Z blue; Z up, game units), a horizon tint, and one placeholder box at the origin. No
-    game data: M7.R2 adds the selected cell's references as markers from `cell`.
+- **Render Window** (`cell --with-bounds`; M7.R1, M7.R2, M7.R3, 2026-10-16)
+  - A 3D viewport drawn with OpenGL through eframe's glow backend: a metric ground grid
+    (Starfield positions are meters; the line spacing is a power of ten that follows the
+    zoom, major every ten lines), the world axes (+X red, +Y green, +Z blue; Z up), a
+    horizon tint, and a placeholder box at the origin until a cell is loaded.
+  - The cell picker takes a cell (`CityNewAtlantisApartmentTEMPLATE`,
+    `Starfield.esm:21966F`) or a world and a grid (`NewAtlantis 2,1`) and loads it with
+    `cell --with-bounds`, 1,000 references a page, up to the draw cap (20,000). Each
+    reference is its base's `OBND` box placed by its position, rotation and scale, or, when
+    the base has none the schema reads, a small shape for its type (box, diamond,
+    pyramid); colored by base type from the palette tokens, with a legend. Faces are
+    solid, see-through (default) or wire. The camera frames the cell when it loads.
+  - A click selects the reference under the cursor (the smallest box): an overlay shows
+    its EditorID, FormID, base and placement, and the Records inspector shows it (the
+    shared selection); a reference of the cell inspected in Records is selected here.
   - Camera: orbit on right-drag, pan on middle-drag, zoom on the wheel, W A S D to fly
     once the viewport has focus (click it; Shift is faster); "Reset view" goes back to
     the origin. These bindings are not observed against the CK (`docs/ck-parity.md`).

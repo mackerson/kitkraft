@@ -23,8 +23,20 @@ pub struct ProgramSrc {
 pub const A_POS: &str = "a_pos";
 /// Attribute: line color (location 1 of [`LINES`]).
 pub const A_COLOR: &str = "a_color";
-/// Attribute: face normal (location 1 of [`SOLID`]).
+/// Attribute: face normal (location 1 of [`MARKER_FACES`]).
 pub const A_NORMAL: &str = "a_normal";
+/// Per-instance attributes of the marker programs: the model matrix's four columns and
+/// the fill color (`super::scene::INSTANCE_FLOATS`).
+pub const I_MODEL: [&str; 4] = ["i_model0", "i_model1", "i_model2", "i_model3"];
+/// See [`I_MODEL`].
+pub const I_COLOR: &str = "i_color";
+/// Uniform: face opacity (1 solid, below 1 see-through).
+pub const U_ALPHA: &str = "u_alpha";
+/// Uniforms: the outline color and how much of it replaces the instance's own color
+/// (1: the outline color only; 0: the instance's color).
+pub const U_EDGE: &str = "u_edge";
+/// See [`U_EDGE`].
+pub const U_MIX: &str = "u_mix";
 
 /// Uniform: world to clip space.
 pub const U_VIEW_PROJ: &str = "u_view_proj";
@@ -36,8 +48,6 @@ pub const U_MODEL: &str = "u_model";
 pub const U_EYE: &str = "u_eye";
 /// Uniform: distances where line fading starts and ends.
 pub const U_FADE: &str = "u_fade";
-/// Uniform: fill color.
-pub const U_COLOR: &str = "u_color";
 /// Uniform: unit direction toward the light.
 pub const U_LIGHT: &str = "u_light";
 /// Uniforms: the sky straight up, at the horizon, and the ground tint below it.
@@ -112,36 +122,83 @@ void main() {
     uniforms: &[U_VIEW_PROJ, U_MODEL, U_EYE, U_FADE],
 };
 
-/// Flat-lit faces (marker boxes): one color, ambient plus diffuse light.
-pub const SOLID: ProgramSrc = ProgramSrc {
-    name: "solid",
+/// Flat-lit marker faces, one instance per marker (its model matrix and color are
+/// per-instance attributes): ambient plus diffuse light, at the opacity `u_alpha`. The
+/// normal goes through the model's 3x3 part, which keeps a box face's normal on its axis
+/// under rotation and non-uniform scale (renormalized).
+pub const MARKER_FACES: ProgramSrc = ProgramSrc {
+    name: "marker faces",
     vertex: "
 uniform mat4 u_view_proj;
-uniform mat4 u_model;
 in vec3 a_pos;
 in vec3 a_normal;
+in vec4 i_model0;
+in vec4 i_model1;
+in vec4 i_model2;
+in vec4 i_model3;
+in vec4 i_color;
 out vec3 v_normal;
+out vec4 v_color;
 void main() {
-    v_normal = mat3(u_model) * a_normal;
-    gl_Position = u_view_proj * u_model * vec4(a_pos, 1.0);
+    mat4 model = mat4(i_model0, i_model1, i_model2, i_model3);
+    v_normal = mat3(model) * a_normal;
+    v_color = i_color;
+    gl_Position = u_view_proj * model * vec4(a_pos, 1.0);
 }
 ",
     fragment: "
-uniform vec4 u_color;
 uniform vec3 u_light;
+uniform float u_alpha;
 in vec3 v_normal;
+in vec4 v_color;
 out vec4 o_color;
 void main() {
     float light = 0.35 + 0.65 * max(dot(normalize(v_normal), u_light), 0.0);
-    o_color = vec4(u_color.rgb * light, u_color.a);
+    o_color = vec4(v_color.rgb * light, v_color.a * u_alpha);
 }
 ",
-    attributes: &[A_POS, A_NORMAL],
-    uniforms: &[U_VIEW_PROJ, U_MODEL, U_COLOR, U_LIGHT],
+    attributes: &[
+        A_POS, A_NORMAL, I_MODEL[0], I_MODEL[1], I_MODEL[2], I_MODEL[3], I_COLOR,
+    ],
+    uniforms: &[U_VIEW_PROJ, U_LIGHT, U_ALPHA],
+};
+
+/// Marker outlines, one instance per marker: the instance's color mixed toward `u_edge`
+/// by `u_mix`.
+pub const MARKER_EDGES: ProgramSrc = ProgramSrc {
+    name: "marker edges",
+    vertex: "
+uniform mat4 u_view_proj;
+uniform vec4 u_edge;
+uniform float u_mix;
+in vec3 a_pos;
+in vec4 i_model0;
+in vec4 i_model1;
+in vec4 i_model2;
+in vec4 i_model3;
+in vec4 i_color;
+out vec4 v_color;
+void main() {
+    mat4 model = mat4(i_model0, i_model1, i_model2, i_model3);
+    v_color = mix(i_color, u_edge, u_mix);
+    gl_Position = u_view_proj * model * vec4(a_pos, 1.0);
+}
+",
+    fragment: "
+in vec4 v_color;
+out vec4 o_color;
+void main() {
+    o_color = v_color;
+}
+",
+    attributes: &[
+        A_POS, I_MODEL[0], I_MODEL[1], I_MODEL[2], I_MODEL[3], I_COLOR,
+    ],
+    uniforms: &[U_VIEW_PROJ, U_EDGE, U_MIX],
 };
 
 /// Every program the viewport builds.
-pub const PROGRAMS: [ProgramSrc; 3] = [SKY, LINES, SOLID];
+pub const PROGRAMS: [ProgramSrc; 4] = [SKY, LINES, MARKER_FACES, MARKER_EDGES];
 
 /// The text put before every stage: the context's `#version` line, and a default float
 /// precision on OpenGL ES (which requires one in fragment shaders).

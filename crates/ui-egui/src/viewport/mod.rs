@@ -3,21 +3,26 @@
 //! inside the workbench's own window and GL context.
 //!
 //! - [`camera`]: the orbit camera, pure math (unit-tested without a window).
-//! - [`scene`]: what is drawn, as data: grid, axes, the unit box, [`scene::Marker`]s,
-//!   colors.
+//! - [`scene`]: what is drawn, as data: grid, axes, the marker shapes, [`scene::Marker`]s
+//!   (placement and picking), colors.
+//! - [`cell`]: a `cell` envelope's references as markers, by base record type (M7.R2,
+//!   M7.R3).
 //! - [`shaders`]: the GLSL, with a test that parses its declarations.
 //! - `gl`: the GL calls (the one file of the workspace allowed `unsafe`, ADR 0013).
-//! - [`Viewport`]: the widget: mouse and keys to camera, one paint callback per frame.
+//! - [`Viewport`]: the widget: mouse and keys to camera, a click to pick, one paint
+//!   callback per frame.
 //!
-//! No game data reaches it yet. M7.R2 adds markers from the engine's `cell` command
-//! through the tab (as every tab gets its data, from an envelope), never by reading a
+//! Game data reaches it only as markers the Render Window tab builds from the engine's
+//! `cell` command (as every tab gets its data, from an envelope), never by reading a
 //! plugin here.
 //!
 //! Frame budget: the viewport draws only when egui repaints, which it does on input. It
 //! asks for more frames only while a fly key is held, or once after
-//! [`Viewport::request_repaint`]; it never animates on its own.
+//! [`Viewport::request_repaint`]; it never animates on its own. Markers are uploaded to
+//! the GPU once per change ([`Viewport::set_markers`]), not per frame.
 
 pub mod camera;
+pub mod cell;
 mod gl;
 pub mod scene;
 pub mod shaders;
@@ -27,14 +32,70 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use eframe::egui::{self, Key, PointerButton, Sense};
-use glam::{Vec2, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 
 use camera::OrbitCamera;
-use scene::{Marker, SceneColors};
+use scene::{Marker, SceneColors, Shape, INSTANCE_FLOATS};
 
 /// Deletes every GL object of the viewports; `App::on_exit` calls it (gl.rs, "Lifetime").
 pub(crate) use gl::release as release_gl;
 pub use gl::DrawStats;
+
+/// How marker faces are drawn.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum FaceMode {
+    /// Opaque faces with dark outlines.
+    Solid,
+    /// Faint faces over outlines in each marker's color: what is inside a box shows.
+    #[default]
+    SeeThrough,
+    /// Outlines only.
+    Wire,
+}
+
+impl FaceMode {
+    pub const ALL: [FaceMode; 3] = [FaceMode::Solid, FaceMode::SeeThrough, FaceMode::Wire];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            FaceMode::Solid => "solid",
+            FaceMode::SeeThrough => "see-through",
+            FaceMode::Wire => "wire",
+        }
+    }
+
+    /// Face opacity and how far outlines take the outline color over the marker's.
+    fn alpha_and_mix(self) -> (f32, f32) {
+        match self {
+            FaceMode::Solid => (1.0, 1.0),
+            FaceMode::SeeThrough => (0.22, 0.0),
+            FaceMode::Wire => (0.0, 0.0),
+        }
+    }
+}
+
+/// The markers as uploaded: instance floats per shape ([`Shape::index`]), with the
+/// generation that tells the GL side when to upload again.
+#[derive(Debug, Default)]
+pub(crate) struct Instances {
+    pub generation: u64,
+    pub per_shape: [Vec<f32>; 3],
+}
+
+impl Instances {
+    fn of(markers: &[Marker], generation: u64) -> Self {
+        let mut per_shape: [Vec<f32>; 3] = Default::default();
+        for m in markers {
+            if let Some(v) = per_shape.get_mut(m.shape.index()) {
+                v.extend_from_slice(&m.instance());
+            }
+        }
+        Self {
+            generation,
+            per_shape,
+        }
+    }
+}
 
 /// The controls, as shown in the tab and in `docs/ck-parity.md`. None of them has been
 /// observed against the CK's Render Window yet (M7.O2, sitting 1).
@@ -58,14 +119,28 @@ pub(crate) struct Frame {
     /// Distances from the eye where the grid starts and finishes fading out.
     pub grid_fade: [f32; 2],
     pub colors: SceneColors,
-    /// Each marker's model matrix and fill color.
-    pub markers: Vec<([f32; 16], [f32; 4])>,
+    /// The grid's model matrix (scaled to the camera, under its target) and the axes'.
+    pub grid_model: [f32; 16],
+    pub axes_model: [f32; 16],
+    /// Every marker, as instance data (shared, uploaded when its generation changes).
+    pub markers: Arc<Instances>,
+    /// The selected marker's shape and instance data.
+    pub selected: Option<(Shape, [f32; INSTANCE_FLOATS])>,
+    /// Face opacity and outline color mix ([`FaceMode`]).
+    pub face_alpha: f32,
+    pub edge_mix: f32,
     /// CPU time spent preparing this frame before painting (input, camera, matrices).
     pub prep: Duration,
 }
 
 impl Frame {
-    fn new(cam: &OrbitCamera, aspect: f32, colors: SceneColors, markers: &[Marker]) -> Self {
+    fn new(
+        cam: &OrbitCamera,
+        aspect: f32,
+        colors: SceneColors,
+        markers: Arc<Instances>,
+        floor: f32,
+    ) -> Self {
         let vp = cam.view_proj(aspect);
         let light = cam
             .up()
@@ -73,9 +148,11 @@ impl Frame {
             .sub(cam.forward().mul(0.5))
             .sub(cam.right().mul(0.3))
             .normalize_or(Vec3::Z);
-        // Fade the grid out from a few orbit distances away (at least 2,000 units), so
-        // its far lines do not alias toward the horizon.
-        let start = (cam.distance * 3.0).max(2_000.0);
+        // Fade the grid out from a few orbit distances away, so its far lines do not
+        // alias toward the horizon.
+        let start = (cam.distance * 3.0).max(1.0);
+        let step = scene::grid_step_for(cam.distance);
+        let (face_alpha, edge_mix) = FaceMode::default().alpha_and_mix();
         Self {
             view_proj: vp.to_cols_array(),
             inv_view_proj: vp.inverse().to_cols_array(),
@@ -83,13 +160,25 @@ impl Frame {
             light: light.to_array(),
             grid_fade: [start, start * 2.5],
             colors,
-            markers: markers
-                .iter()
-                .map(|m| (m.model().to_cols_array(), m.color))
-                .collect(),
+            grid_model: scene::grid_model(step, cam.target, floor).to_cols_array(),
+            axes_model: Mat4::from_scale(Vec3::splat(step)).to_cols_array(),
+            markers,
+            selected: None,
+            face_alpha,
+            edge_mix,
             prep: Duration::ZERO,
         }
     }
+}
+
+/// A point of the viewport `rect` in normalized device coordinates (x right, y up).
+pub fn to_ndc(rect: egui::Rect, p: egui::Pos2) -> Vec2 {
+    let w = rect.width().max(1.0);
+    let h = rect.height().max(1.0);
+    Vec2::new(
+        (p.x - rect.min.x) / w * 2.0 - 1.0,
+        1.0 - (p.y - rect.min.y) / h * 2.0,
+    )
 }
 
 /// The input of one frame that moves the camera, gathered from egui (toolkit-free, so
@@ -146,11 +235,23 @@ fn axis(plus: bool, minus: bool) -> f32 {
     }
 }
 
-/// The viewport widget's state: camera, markers, the repaint request and the GL side.
+/// The viewport widget's state: camera, markers and the selection, the repaint request
+/// and the GL side.
 pub struct Viewport {
     pub camera: OrbitCamera,
-    /// What is drawn besides the grid and the axes.
-    pub markers: Vec<Marker>,
+    /// What is drawn besides the grid and the axes ([`Viewport::set_markers`]).
+    markers: Vec<Marker>,
+    instances: Arc<Instances>,
+    /// The selected marker (an index into the markers).
+    selected: Option<usize>,
+    /// What the last click picked: `Some(None)` for empty space; taken by the tab.
+    picked: Option<Option<usize>>,
+    pub faces: FaceMode,
+    /// The grid's height: the lowest marker's bottom (0 for the placeholder).
+    floor: f32,
+    /// The viewport's last width over height, and where it was laid out.
+    aspect: f32,
+    rect: Option<egui::Rect>,
     repaint: bool,
     gl: Arc<Mutex<gl::GlShared>>,
     /// CPU time of the last [`Viewport::show`] (input, camera, frame preparation).
@@ -159,9 +260,17 @@ pub struct Viewport {
 
 impl Default for Viewport {
     fn default() -> Self {
+        let markers = vec![Marker::placeholder()];
         Self {
             camera: OrbitCamera::default(),
-            markers: vec![Marker::placeholder()],
+            instances: Arc::new(Instances::of(&markers, 0)),
+            markers,
+            selected: None,
+            picked: None,
+            faces: FaceMode::default(),
+            floor: 0.0,
+            aspect: 16.0 / 9.0,
+            rect: None,
             repaint: false,
             gl: Arc::default(),
             last_ui: Duration::ZERO,
@@ -221,6 +330,68 @@ impl Viewport {
     /// Back to the default view of the origin.
     pub fn reset_camera(&mut self) {
         self.camera = OrbitCamera::default();
+    }
+
+    /// Replaces the markers (uploaded once, on the next frame), clears the selection and
+    /// puts the grid under the lowest one. An empty list shows the placeholder again.
+    pub fn set_markers(&mut self, markers: Vec<Marker>) {
+        self.markers = if markers.is_empty() {
+            vec![Marker::placeholder()]
+        } else {
+            markers
+        };
+        let generation = self.instances.generation.wrapping_add(1);
+        self.instances = Arc::new(Instances::of(&self.markers, generation));
+        self.selected = None;
+        self.floor = scene::bounds_of(&self.markers).map_or(0.0, |(lo, _)| lo.z);
+        self.request_repaint();
+    }
+
+    /// The markers drawn.
+    /// Where the viewport was last laid out.
+    pub fn rect(&self) -> Option<egui::Rect> {
+        self.rect
+    }
+
+    pub fn markers(&self) -> &[Marker] {
+        &self.markers
+    }
+
+    /// Frames every marker.
+    pub fn frame_all(&mut self) {
+        if let Some((lo, hi)) = scene::bounds_of(&self.markers) {
+            self.camera.frame_box(lo, hi, self.aspect);
+            self.request_repaint();
+        }
+    }
+
+    /// Frames the selected marker, if any.
+    pub fn frame_selected(&mut self) {
+        let one = self.selected.and_then(|i| self.markers.get(i)).copied();
+        if let Some((lo, hi)) = one.and_then(|m| scene::bounds_of(&[m])) {
+            self.camera.frame_box(lo, hi, self.aspect);
+            self.request_repaint();
+        }
+    }
+
+    /// The selected marker's index.
+    pub fn selected(&self) -> Option<usize> {
+        self.selected
+    }
+
+    /// Selects a marker (or none) from outside the viewport (the Records inspector).
+    pub fn select(&mut self, index: Option<usize>) {
+        let index = index.filter(|i| *i < self.markers.len());
+        if index != self.selected {
+            self.selected = index;
+            self.request_repaint();
+        }
+    }
+
+    /// What the last click in the viewport picked, once: `Some(Some(i))` a marker,
+    /// `Some(None)` empty space, `None` no click.
+    pub fn take_pick(&mut self) -> Option<Option<usize>> {
+        self.picked.take()
     }
 
     /// The last frame's numbers, for the overlay.
@@ -312,12 +483,30 @@ impl Viewport {
         } else {
             1.0
         };
+        self.aspect = aspect;
+        self.rect = Some(rect);
+        // A left click (not a drag) picks the smallest marker box under the cursor.
+        if response.clicked() {
+            if let Some(p) = response.interact_pointer_pos() {
+                let (origin, dir) = self.camera.ray(aspect, to_ndc(rect, p));
+                let hit = scene::pick(&self.markers, origin, dir);
+                self.selected = hit;
+                self.picked = Some(hit);
+                ui.ctx().request_repaint();
+            }
+        }
         let mut frame = Frame::new(
             &self.camera,
             aspect,
             SceneColors::for_mode(ui.visuals().dark_mode),
-            &self.markers,
+            Arc::clone(&self.instances),
+            self.floor,
         );
+        (frame.face_alpha, frame.edge_mix) = self.faces.alpha_and_mix();
+        frame.selected = self
+            .selected
+            .and_then(|i| self.markers.get(i))
+            .map(|m| (m.shape, m.instance()));
         frame.prep = start.elapsed();
         ui.painter().add(egui::PaintCallback {
             rect,
@@ -412,12 +601,30 @@ mod tests {
     #[test]
     fn the_frame_carries_finite_matrices_for_every_marker() {
         let cam = OrbitCamera::default();
-        let f = Frame::new(&cam, 1.5, SceneColors::DARK, &[Marker::placeholder()]);
-        assert_eq!(f.markers.len(), 1);
+        let markers = [
+            Marker::placeholder(),
+            Marker {
+                shape: Shape::Pyramid,
+                ..Marker::placeholder()
+            },
+        ];
+        let f = Frame::new(
+            &cam,
+            1.5,
+            SceneColors::DARK,
+            Arc::new(Instances::of(&markers, 7)),
+            0.0,
+        );
+        assert_eq!(f.markers.generation, 7);
+        assert_eq!(f.markers.per_shape[0].len(), INSTANCE_FLOATS);
+        assert!(f.markers.per_shape[1].is_empty());
+        assert_eq!(f.markers.per_shape[2].len(), INSTANCE_FLOATS);
         assert!(f
             .view_proj
             .iter()
             .chain(&f.inv_view_proj)
+            .chain(&f.grid_model)
+            .chain(&f.axes_model)
             .all(|v| v.is_finite()));
         assert!(f.grid_fade[0] < f.grid_fade[1]);
         assert!((Vec3::from(f.light).length() - 1.0).abs() < 1e-5);
@@ -575,6 +782,55 @@ mod tests {
         assert_eq!(frame(&ctx, &mut vp, Vec::new()), Duration::ZERO);
         let settled = (0..3).map(|_| frame(&ctx, &mut vp, Vec::new())).last();
         assert_eq!(settled, Some(Duration::MAX));
+    }
+
+    /// A click through egui's real input handling picks the marker under the cursor;
+    /// a click on empty space picks nothing; framing brings every marker into view.
+    #[test]
+    fn a_click_picks_the_marker_under_the_cursor() {
+        let ctx = egui::Context::default();
+        let mut vp = Viewport::default();
+        let far = Marker {
+            position: Vec3::new(250.0, 150.0, 200.0),
+            ..Marker::placeholder()
+        };
+        vp.set_markers(vec![Marker::placeholder(), far]);
+        assert_eq!(vp.markers().len(), 2);
+        let click = |ctx: &egui::Context, vp: &mut Viewport, p: egui::Pos2| {
+            frame(ctx, vp, vec![egui::Event::PointerMoved(p)]);
+            frame(ctx, vp, vec![button(p, PointerButton::Primary, true)]);
+            frame(ctx, vp, vec![button(p, PointerButton::Primary, false)]);
+            vp.take_pick()
+        };
+        // The default camera looks at the origin, where the first marker stands.
+        assert_eq!(click(&ctx, &mut vp, at(400.0, 300.0)), Some(Some(0)));
+        assert_eq!(vp.selected(), Some(0));
+        assert_eq!(vp.take_pick(), None, "taken once");
+        assert_eq!(click(&ctx, &mut vp, at(5.0, 5.0)), Some(None));
+        assert_eq!(vp.selected(), None);
+        vp.select(Some(1));
+        vp.frame_selected();
+        assert_eq!(vp.camera.target, far.position);
+        assert_eq!(click(&ctx, &mut vp, at(400.0, 300.0)), Some(Some(1)));
+        vp.frame_all();
+        for m in vp.markers().to_vec() {
+            for c in m.corners() {
+                let ndc = vp.camera.to_ndc(800.0 / 600.0, c).unwrap();
+                assert!(ndc.x.abs() < 1.0 && ndc.y.abs() < 1.0);
+            }
+        }
+        vp.select(Some(9));
+        assert_eq!(vp.selected(), None, "out of range");
+        vp.set_markers(Vec::new());
+        assert_eq!(vp.markers(), &[Marker::placeholder()]);
+    }
+
+    #[test]
+    fn ndc_maps_the_rect_corners() {
+        let r = egui::Rect::from_min_size(at(100.0, 50.0), egui::Vec2::new(200.0, 100.0));
+        assert_eq!(to_ndc(r, at(100.0, 50.0)), Vec2::new(-1.0, 1.0));
+        assert_eq!(to_ndc(r, at(300.0, 150.0)), Vec2::new(1.0, -1.0));
+        assert_eq!(to_ndc(r, at(200.0, 100.0)), Vec2::ZERO);
     }
 
     #[test]

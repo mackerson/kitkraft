@@ -698,6 +698,8 @@ const CONFLICTS: Shape = Obj(&[&[
 
 // ---- cell (M7.S3) -----------------------------------------------------------------------
 
+/// A reference's base bounds (`with_bounds`, M7.R3): `OBND`'s two corners as stored.
+const CELL_BOUNDS: Shape = Obj(&[&[req("min", List(&Num)), req("max", List(&Num))]]);
 /// One `cell` item: a world, an interior or exterior cell, or a reference (by `mode`).
 const CELL_ITEM: Shape = Obj(&[&[
     req("form", Str),
@@ -719,6 +721,7 @@ const CELL_ITEM: Shape = Obj(&[&[
     opt("flags", Str),
     opt("deleted", Bool),
     opt("plugin", Str),
+    opt("bounds", Nullable(&CELL_BOUNDS)),
 ]]);
 const CELL: Shape = Obj(&[&[
     req("mode", Enum(&["worlds", "interior", "world", "cell"])),
@@ -735,6 +738,16 @@ const CELL: Shape = Obj(&[&[
     req("summary", Str),
     req("elapsed_ms", Int),
     req("index_ms", Int),
+    opt(
+        "bounds",
+        Obj(&[&[
+            req("bases", Int),
+            req("bases_with_bounds", Int),
+            req("references_without", Int),
+            req("without_by_base_signature", Map(&Int)),
+            req("opaque_by_base_signature", Map(&Int)),
+        ]]),
+    ),
 ]]);
 
 // ---- refs ------------------------------------------------------------------------------

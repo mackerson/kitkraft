@@ -886,6 +886,9 @@ items[].group?: "persistent" | "temporary"
 items[].flags?: str
 items[].deleted?: bool
 items[].plugin?: str
+items[].bounds?: object or null
+items[].bounds.min: [number]
+items[].bounds.max: [number]
 interior_cells?: int
 world?: str | null
 world_editor_id?: str | null
@@ -897,4 +900,10 @@ next_cursor: str | null
 summary: str
 elapsed_ms: int
 index_ms: int
+bounds?: object
+bounds.bases: int
+bounds.bases_with_bounds: int
+bounds.references_without: int
+bounds.without_by_base_signature: map<int>
+bounds.opaque_by_base_signature: map<int>
 ```

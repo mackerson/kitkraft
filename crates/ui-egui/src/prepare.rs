@@ -47,6 +47,8 @@ pub(crate) enum View {
     Schema(SchemaView),
     Ledger(LedgerView),
     Coverage(MatrixView),
+    // Lane R (M7.R2): one page of the Render Window's cell.
+    Cell(crate::viewport::cell::CellPage),
 }
 
 /// Everything the window needs from one reply.
@@ -95,6 +97,7 @@ pub(crate) fn build(
             Slot::Schema => View::Schema(SchemaView::from_envelope(env)),
             Slot::Ledger => View::Ledger(LedgerView::from_envelope(env)),
             Slot::Coverage => View::Coverage(MatrixView::from_envelope(env)),
+            Slot::RenderCell => View::Cell(crate::viewport::cell::parse_page(env)),
             // Joined by the shell into state it holds (the cockpit's review, the
             // inspector's schema, the diagnostics' validate).
             Slot::InspectSchema

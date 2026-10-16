@@ -49,6 +49,8 @@ pub(crate) enum Slot {
     CockpitDeploy,
     CockpitRollback,
     Coverage,
+    // Lane R (M7.R2): the Render Window's cell, a page at a time.
+    RenderCell,
 }
 
 /// `Slot` as a map key.
@@ -99,6 +101,9 @@ pub(crate) enum Action {
     UseCheckout(String),
     /// The Help tab's "Reload".
     ReloadHelp,
+    /// Lane R (M7.R2): a reference picked in the Render Window becomes the Records
+    /// inspector's record (inspected there) without leaving the tab.
+    Select(String),
 }
 
 /// What a tab's `ui` gets each frame besides its own state: whether the engine is busy,
