@@ -968,7 +968,12 @@ impl eframe::App for App {
         self.perf.wheel.inject(raw_input);
     }
 
-    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
+        // The viewport's GL objects, while the context is still current (eframe calls
+        // this before it destroys the painter).
+        if let Some(gl) = gl {
+            crate::viewport::release_gl(gl);
+        }
         self.perf.frames.print_all();
         if self.window.remember {
             if let Some(w) = self.window.last {
@@ -1344,14 +1349,6 @@ impl App {
                 perf::line("bench", &format!("diff request: {e}"));
                 self.perf.bench = Some(Bench::Done);
             }
-        }
-    }
-
-    /// Deletes the viewport's GL objects while the context is still current (eframe
-    /// calls this before it destroys the painter).
-    fn on_exit(&mut self, gl: Option<&eframe::glow::Context>) {
-        if let Some(gl) = gl {
-            crate::viewport::release_gl(gl);
         }
     }
 }
