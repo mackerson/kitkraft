@@ -415,7 +415,15 @@ impl App {
                     }
                 }
                 Slot::Coverage => self.coverage.view = Some(MatrixView::from_envelope(env)),
+                // Lane R (M7.R2): the next page of the cell, until the draw cap.
+                Slot::RenderCell => {
+                    if let Some(req) = self.render.receive(env) {
+                        self.submit(Slot::RenderCell, req);
+                    }
+                }
             }
+        } else if slot == Slot::RenderCell {
+            self.render.failed();
         }
         // Replies arrive in submission order, so the session now is the one this
         // request ran against.
@@ -563,6 +571,13 @@ impl App {
                     }
                 }
                 Action::ReloadHelp => self.reload_help(),
+                // Lane R (M7.R2): the shared selection, without leaving the tab.
+                Action::Select(form) => {
+                    self.records.record_form.clone_from(&form);
+                    if let Ok(req) = inspect_request(&form, None) {
+                        self.submit(Slot::Inspect, req);
+                    }
+                }
             }
         }
     }
@@ -720,7 +735,10 @@ impl eframe::App for App {
                     return;
                 }
                 if tab == Tab::Render {
-                    // The viewport fills the tab and takes the wheel: no scroll area.
+                    // The viewport fills the tab and takes the wheel: no scroll area. The
+                    // Records inspector's record is the shared selection (M7.R2).
+                    self.render.inspected =
+                        self.records.record_view.as_ref().map(|v| v.global.clone());
                     self.render.ui(ui, &mut ctx);
                     return;
                 }
@@ -853,6 +871,9 @@ impl App {
             }
             TourStep::Seeded(2) if !busy => {
                 self.seed_lane_g_tour();
+                // Lane R (M7.R2): a cell in the Render Window, when the tour names one.
+                let render = self.render.tour_seed();
+                self.apply(render);
                 if let Ok(req) = diag::validate_request(&self.diag.validate_plugin) {
                     self.submit(Slot::DiagValidate, req);
                 }

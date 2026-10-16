@@ -20,7 +20,9 @@ pub const FOV_Y: f32 = std::f32::consts::FRAC_PI_3;
 /// Pitch is kept inside +-89 degrees, so the view direction is never parallel to world up.
 pub const PITCH_LIMIT: f32 = 1.553_343;
 /// Closest and farthest orbit distance, in game units.
-pub const MIN_DISTANCE: f32 = 10.0;
+pub const MIN_DISTANCE: f32 = 0.25;
+/// The default orbit distance, in game units (meters in Starfield).
+pub const DEFAULT_DISTANCE: f32 = 15.0;
 /// See [`MIN_DISTANCE`].
 pub const MAX_DISTANCE: f32 = 500_000.0;
 /// Radians of orbit per point of right-drag.
@@ -42,14 +44,14 @@ pub struct OrbitCamera {
 }
 
 impl Default for OrbitCamera {
-    /// Looking north-east and 30 degrees down at the origin from 1,500 units: +X runs to
+    /// Looking north-east and 30 degrees down at the origin from 15 m: +X runs to
     /// the right, +Y away from the viewer, +Z up.
     fn default() -> Self {
         Self {
             target: Vec3::ZERO,
             yaw: 60f32.to_radians(),
             pitch: 30f32.to_radians(),
-            distance: 1_500.0,
+            distance: DEFAULT_DISTANCE,
         }
     }
 }
@@ -90,8 +92,8 @@ impl OrbitCamera {
     /// Near and far clip distances, scaled with the orbit distance so the depth buffer
     /// keeps its precision near the target at any zoom.
     pub fn clip(&self) -> (f32, f32) {
-        let near = (self.distance * 0.002).clamp(0.5, 100.0);
-        let far = (self.distance * 100.0).max(50_000.0);
+        let near = (self.distance * 0.01).clamp(0.01, 100.0);
+        let far = (self.distance * 100.0).max(1_000.0);
         (near, far)
     }
 
@@ -189,6 +191,37 @@ impl OrbitCamera {
             .normalize_or_zero();
         self.target = self.target.add(step.mul(speed * dt.min(0.25)));
     }
+
+    /// Frames the box `min`..`max` in a viewport of `aspect`: the target moves to its
+    /// center and the distance becomes the closest at which all eight corners are in
+    /// view, with a little margin; the view direction is kept.
+    /// Non-finite corners change nothing.
+    pub fn frame_box(&mut self, min: Vec3, max: Vec3, aspect: f32) {
+        if !(min.is_finite() && max.is_finite()) {
+            return;
+        }
+        let center = min.add(max).mul(0.5);
+        let ty = (FOV_Y * 0.5).tan();
+        let tx = ty * sane_aspect(aspect);
+        let (fwd, right, up) = (self.forward(), self.right(), self.up());
+        // The closest eye distance that keeps each corner inside the view: a corner
+        // `v` from the center sits `d + v.fwd` ahead of the eye and must be within
+        // `tan(half angle)` of that sideways and up.
+        let mut need = 0.0f32;
+        for i in 0..8u8 {
+            let pick = |bit: u8, a: f32, b: f32| if i & bit == 0 { a } else { b };
+            let v = Vec3::new(
+                pick(1, min.x, max.x),
+                pick(2, min.y, max.y),
+                pick(4, min.z, max.z),
+            )
+            .sub(center);
+            let side = (v.dot(right).abs() / tx).max(v.dot(up).abs() / ty);
+            need = need.max(side - v.dot(fwd));
+        }
+        self.target = center;
+        self.distance = (need * 1.08).clamp(MIN_DISTANCE, MAX_DISTANCE);
+    }
 }
 
 #[cfg(test)]
@@ -252,9 +285,9 @@ mod tests {
     fn world_axes_point_the_right_way_on_screen() {
         let cam = OrbitCamera::default();
         let o = cam.to_ndc(ASPECT, Vec3::ZERO).unwrap();
-        let x = cam.to_ndc(ASPECT, Vec3::X * 100.0).unwrap();
-        let z = cam.to_ndc(ASPECT, Vec3::Z * 100.0).unwrap();
-        let y = cam.to_ndc(ASPECT, Vec3::Y * 100.0).unwrap();
+        let x = cam.to_ndc(ASPECT, Vec3::X * 2.0).unwrap();
+        let z = cam.to_ndc(ASPECT, Vec3::Z * 2.0).unwrap();
+        let y = cam.to_ndc(ASPECT, Vec3::Y * 2.0).unwrap();
         assert!(x.x > o.x, "+X should go right: {x:?}");
         assert!(z.y > o.y, "+Z should go up: {z:?}");
         assert!(y.z > o.z, "+Y should go away from the viewer: {y:?}");
@@ -316,7 +349,7 @@ mod tests {
     #[test]
     fn orbit_turns_the_scene_with_the_mouse() {
         let mut cam = OrbitCamera::default();
-        let p = cam.target - cam.forward() * 500.0;
+        let p = cam.target - cam.forward() * (cam.distance / 3.0);
         let before = cam.to_ndc(ASPECT, p).unwrap();
         cam.orbit(Vec2::new(10.0, 0.0));
         let after = cam.to_ndc(ASPECT, p).unwrap();
@@ -356,9 +389,9 @@ mod tests {
         let mut cam = OrbitCamera::default();
         let (target, fwd) = (cam.target, cam.forward());
         cam.zoom(120.0);
-        assert!(cam.distance < 1_500.0);
+        assert!(cam.distance < DEFAULT_DISTANCE);
         cam.zoom(-240.0);
-        assert!(cam.distance > 1_500.0);
+        assert!(cam.distance > DEFAULT_DISTANCE);
         cam.zoom(1e9);
         assert_eq!(cam.distance, MIN_DISTANCE);
         cam.zoom(-1e9);
@@ -387,6 +420,39 @@ mod tests {
         cam.fly(1.0, 1.0, -1.0, false);
         cam.fly(f32::NAN, 0.0, 0.1, false);
         assert_eq!(cam.target, at);
+    }
+
+    #[test]
+    fn framing_a_box_shows_all_its_corners() {
+        let (min, max) = (
+            Vec3::new(200.0, 100.0, 160.0),
+            Vec3::new(300.0, 200.0, 385.0),
+        );
+        for aspect in [ASPECT, 0.5, 1.0] {
+            for mut cam in cameras() {
+                let fwd = cam.forward();
+                cam.frame_box(min, max, aspect);
+                assert_eq!(cam.target, (min + max) / 2.0);
+                assert_eq!(cam.forward(), fwd);
+                for i in 0..8u8 {
+                    let pick = |bit: u8, a: f32, b: f32| if i & bit == 0 { a } else { b };
+                    let c = Vec3::new(
+                        pick(1, min.x, max.x),
+                        pick(2, min.y, max.y),
+                        pick(4, min.z, max.z),
+                    );
+                    let ndc = cam.to_ndc(aspect, c).unwrap();
+                    assert!(ndc.x.abs() < 1.0 && ndc.y.abs() < 1.0, "{aspect} {c} {ndc}");
+                }
+            }
+        }
+        // A point frames at the closest distance; a hostile box changes nothing.
+        let mut cam = OrbitCamera::default();
+        cam.frame_box(Vec3::ONE, Vec3::ONE, ASPECT);
+        assert_eq!((cam.target, cam.distance), (Vec3::ONE, MIN_DISTANCE));
+        let before = cam;
+        cam.frame_box(Vec3::splat(f32::NAN), Vec3::ONE, ASPECT);
+        assert_eq!(cam, before);
     }
 
     #[test]

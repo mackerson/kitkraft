@@ -9,15 +9,15 @@
 //!   (egui_glow invokes [`paint`] from its paint pass);
 //! - only objects this file created on that same context, never deleted while in use
 //!   (they live as long as the window: the tab is never dropped before the context);
-//! - buffer data from owned Rust slices whose length GL is told, and draw counts taken
-//!   from those lengths, so GL never reads past what was uploaded;
+//! - buffer data from owned Rust slices whose length GL is told, and draw and instance
+//!   counts taken from those lengths, so GL never reads past what was uploaded;
 //! - no pointers, no mapped buffers, no raw handles from outside.
 //!
 //! Every state this file changes that egui_glow does not reset after a callback (depth
 //! mask, polygon offset, the bound vertex array and program) is restored before
-//! returning. Nothing here reads plugin data: in R1 the scene is the grid, the axes and
-//! one placeholder box; later markers arrive already as finite matrices
-//! (`super::scene::Marker::model`).
+//! returning. Nothing here reads plugin data: markers arrive as finite instance data
+//! (`super::scene::Marker::instance`), uploaded only when they change (M7.R2), and drawn
+//! with one instanced call per shape for the faces and one for the outlines.
 #![allow(unsafe_code)]
 
 use std::collections::VecDeque;
@@ -27,7 +27,7 @@ use std::time::{Duration, Instant};
 use eframe::egui_glow::{self, ShaderVersion};
 use eframe::glow::{self, HasContext};
 
-use super::scene::{self, LineVertex, SceneColors, LINE_LAYOUT, SOLID_LAYOUT};
+use super::scene::{self, SceneColors, Shape, INSTANCE_FLOATS, LINE_LAYOUT};
 use super::shaders::{self, ProgramSrc};
 use super::Frame;
 
@@ -36,8 +36,13 @@ use super::Frame;
 pub struct DrawStats {
     /// GL draw calls in the last frame.
     pub draw_calls: u32,
+    /// Marker instances drawn in the last frame.
+    pub instances: u32,
     /// CPU time spent issuing them (not GPU time).
     pub submit: Duration,
+    /// GPU time of the last measured frame (a timer query read one frame later; `None`
+    /// on OpenGL ES or before a result is in).
+    pub gpu: Option<Duration>,
     /// Frames drawn since the window opened.
     pub frames: u64,
     /// The viewport in physical pixels.
@@ -93,7 +98,13 @@ fn paint(
         return;
     };
     let start = Instant::now();
-    let draw_calls = scene.draw(gl, frame);
+    let (draw_calls, instances) = match scene.draw(gl, frame) {
+        Ok(n) => n,
+        Err(e) => {
+            state.error = Some(e);
+            return;
+        }
+    };
     let submit = start.elapsed();
     if state.history.len() >= HISTORY {
         state.history.pop_front();
@@ -101,7 +112,9 @@ fn paint(
     state.history.push_back(frame.prep.saturating_add(submit));
     state.stats = DrawStats {
         draw_calls,
+        instances,
         submit,
+        gpu: scene.timer.as_ref().and_then(|t| t.last),
         frames: state.stats.frames.saturating_add(1),
         size_px: [viewport.width_px, viewport.height_px],
     };
@@ -169,6 +182,49 @@ impl Program {
     }
 }
 
+const TOO_LARGE: &str = "vertex layout too large";
+
+/// Bytes per float.
+const F32: i32 = 4;
+
+/// Points the vertex attributes from `first` on at the buffer bound to `ARRAY_BUFFER`:
+/// one attribute per entry of `layout` (its component count), interleaved; per instance
+/// when `instanced`.
+///
+/// SAFETY (for the caller): a vertex array and the buffer are bound on `gl`.
+unsafe fn point_attributes(
+    gl: &glow::Context,
+    first: u32,
+    layout: &[i32],
+    instanced: bool,
+) -> Result<(), String> {
+    let stride_floats = layout
+        .iter()
+        .try_fold(0i32, |acc, n| acc.checked_add(*n))
+        .ok_or(TOO_LARGE)?;
+    let stride = stride_floats.checked_mul(F32).ok_or(TOO_LARGE)?;
+    let mut offset: i32 = 0;
+    for (location, size) in (first..).zip(layout) {
+        // SAFETY: see the function docs; the offsets stay inside `stride`.
+        unsafe {
+            gl.enable_vertex_attrib_array(location);
+            gl.vertex_attrib_pointer_f32(location, *size, glow::FLOAT, false, stride, offset);
+            if instanced {
+                gl.vertex_attrib_divisor(location, 1);
+            }
+        }
+        offset = offset
+            .checked_add(size.checked_mul(F32).ok_or(TOO_LARGE)?)
+            .ok_or(TOO_LARGE)?;
+    }
+    Ok(())
+}
+
+/// Floats as the bytes GL copies.
+fn bytes(floats: &[f32]) -> Vec<u8> {
+    floats.iter().flat_map(|f| f.to_ne_bytes()).collect()
+}
+
 /// A vertex array with one interleaved float buffer.
 struct Mesh {
     vao: glow::VertexArray,
@@ -182,31 +238,20 @@ struct Mesh {
 impl Mesh {
     /// `layout`: the component count of each attribute, in location order.
     fn new(gl: &glow::Context, layout: &[i32], floats: &[f32]) -> Result<Self, String> {
-        const TOO_LARGE: &str = "vertex layout too large";
         let stride_floats = layout
             .iter()
             .try_fold(0usize, |acc, n| acc.checked_add(usize::try_from(*n).ok()?))
             .ok_or(TOO_LARGE)?;
-        let stride = stride_floats
-            .checked_mul(4)
-            .and_then(|b| i32::try_from(b).ok())
-            .ok_or(TOO_LARGE)?;
-        // SAFETY: see the module docs. The attribute offsets stay inside `stride`.
+        // SAFETY: see the module docs; the array and buffer are bound before pointing.
         let (vao, vbo) = unsafe {
             let vao = gl.create_vertex_array()?;
             let vbo = gl.create_buffer()?;
             gl.bind_vertex_array(Some(vao));
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(vbo));
-            let mut offset: i32 = 0;
-            for (location, size) in (0u32..).zip(layout) {
-                gl.enable_vertex_attrib_array(location);
-                gl.vertex_attrib_pointer_f32(location, *size, glow::FLOAT, false, stride, offset);
-                offset = offset
-                    .checked_add(size.checked_mul(4).ok_or(TOO_LARGE)?)
-                    .ok_or(TOO_LARGE)?;
-            }
+            let pointed = point_attributes(gl, 0, layout, false);
             gl.bind_vertex_array(None);
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            pointed?;
             (vao, vbo)
         };
         let mut mesh = Self {
@@ -226,11 +271,10 @@ impl Mesh {
             .checked_div(self.stride_floats)
             .ok_or("empty vertex layout")?;
         self.count = i32::try_from(vertices).map_err(|_| "too many vertices".to_string())?;
-        let bytes: Vec<u8> = floats.iter().flat_map(|f| f.to_ne_bytes()).collect();
-        // SAFETY: see the module docs; `bytes` is an owned slice and GL copies it.
+        // SAFETY: see the module docs; the bytes are an owned slice and GL copies them.
         unsafe {
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
-            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes, glow::STATIC_DRAW);
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes(floats), glow::STATIC_DRAW);
             gl.bind_buffer(glow::ARRAY_BUFFER, None);
         }
         Ok(())
@@ -246,29 +290,129 @@ impl Mesh {
     }
 }
 
+/// One shape's geometry: its faces (position, normal) and its edges (position).
+struct ShapeGeometry {
+    faces: glow::Buffer,
+    faces_count: i32,
+    edges: glow::Buffer,
+    edges_count: i32,
+}
+
+impl ShapeGeometry {
+    fn new(gl: &glow::Context, shape: Shape) -> Result<Self, String> {
+        let faces = scene::solid_floats(&shape.faces());
+        let edges: Vec<f32> = shape.edges().into_iter().flatten().collect();
+        let count = |n: usize, per: usize| {
+            n.checked_div(per)
+                .and_then(|v| i32::try_from(v).ok())
+                .ok_or_else(|| "shape too large".to_string())
+        };
+        // SAFETY: see the module docs; owned slices, copied by GL.
+        unsafe {
+            let fb = gl.create_buffer()?;
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(fb));
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes(&faces), glow::STATIC_DRAW);
+            let eb = gl.create_buffer()?;
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(eb));
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes(&edges), glow::STATIC_DRAW);
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            Ok(Self {
+                faces: fb,
+                faces_count: count(faces.len(), scene::SOLID_FLOATS)?,
+                edges: eb,
+                edges_count: count(edges.len(), 3)?,
+            })
+        }
+    }
+}
+
+/// The instance attributes after the vertex ones: the model matrix's four columns, then
+/// the color (`scene::INSTANCE_FLOATS`).
+const INSTANCE_LAYOUT: [i32; 5] = [4, 4, 4, 4, 4];
+
+/// A set of marker instances of one shape: their buffer and a vertex array each for the
+/// faces and the edges programs.
+struct Instances {
+    buffer: glow::Buffer,
+    count: i32,
+    faces: glow::VertexArray,
+    edges: glow::VertexArray,
+}
+
+impl Instances {
+    fn new(gl: &glow::Context, geometry: &ShapeGeometry) -> Result<Self, String> {
+        // SAFETY: see the module docs; each array is bound while its attributes are
+        // pointed, and unbound after.
+        unsafe {
+            let buffer = gl.create_buffer()?;
+            let faces = gl.create_vertex_array()?;
+            gl.bind_vertex_array(Some(faces));
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(geometry.faces));
+            let mut pointed = point_attributes(gl, 0, &scene::SOLID_LAYOUT, false);
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
+            pointed = pointed.and_then(|()| point_attributes(gl, 2, &INSTANCE_LAYOUT, true));
+            let edges = gl.create_vertex_array()?;
+            gl.bind_vertex_array(Some(edges));
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(geometry.edges));
+            pointed = pointed.and_then(|()| point_attributes(gl, 0, &[3], false));
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(buffer));
+            pointed = pointed.and_then(|()| point_attributes(gl, 1, &INSTANCE_LAYOUT, true));
+            gl.bind_vertex_array(None);
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
+            pointed?;
+            Ok(Self {
+                buffer,
+                count: 0,
+                faces,
+                edges,
+            })
+        }
+    }
+
+    fn upload(&mut self, gl: &glow::Context, floats: &[f32]) -> Result<(), String> {
+        let n = floats.len().checked_div(INSTANCE_FLOATS).unwrap_or(0);
+        self.count = i32::try_from(n).map_err(|_| "too many markers".to_string())?;
+        // SAFETY: see the module docs; the bytes are an owned slice and GL copies them.
+        unsafe {
+            gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.buffer));
+            gl.buffer_data_u8_slice(glow::ARRAY_BUFFER, &bytes(floats), glow::DYNAMIC_DRAW);
+            gl.bind_buffer(glow::ARRAY_BUFFER, None);
+        }
+        Ok(())
+    }
+}
+
+/// One shape: its geometry, every marker of it, and the selected one (when of it).
+struct ShapeGl {
+    geometry: ShapeGeometry,
+    all: Instances,
+    selected: Instances,
+}
+
+/// GPU time of a frame through a `TIME_ELAPSED` query (desktop OpenGL 3.3 and later):
+/// begun when no result is pending, read when available, never waited on.
+struct GpuTimer {
+    query: glow::Query,
+    pending: bool,
+    last: Option<Duration>,
+}
+
 /// Every GL object the viewport draws with.
 struct GlScene {
     sky: Program,
     lines: Program,
-    solid: Program,
+    faces: Program,
+    edges: Program,
     sky_mesh: Mesh,
     grid: Mesh,
     axes: Mesh,
-    box_faces: Mesh,
-    box_edges: Mesh,
+    shapes: Vec<ShapeGl>,
+    /// The generation of the markers uploaded, and of the selection.
+    uploaded: Option<u64>,
+    selected: Option<(Shape, [f32; INSTANCE_FLOATS])>,
     /// The colors the line meshes were built with (rebuilt when the theme changes).
     colors: SceneColors,
-}
-
-/// Line vertices for the marker outlines, in `colors.edge`.
-fn edge_lines(colors: &SceneColors) -> Vec<LineVertex> {
-    scene::unit_box_edges()
-        .into_iter()
-        .map(|pos| LineVertex {
-            pos,
-            color: colors.edge,
-        })
-        .collect()
+    timer: Option<GpuTimer>,
 }
 
 impl GlScene {
@@ -279,32 +423,58 @@ impl GlScene {
                 "the viewport needs OpenGL 3 or OpenGL ES 3 shaders; this context offers {version:?}"
             ));
         }
+        let v = gl.version();
+        // Instanced attributes (`glVertexAttribDivisor`) are core in OpenGL 3.3 and ES 3.0.
+        if !v.is_embedded && (v.major, v.minor) < (3, 3) {
+            return Err(format!(
+                "the viewport needs OpenGL 3.3 (instanced drawing); this context is {}.{}",
+                v.major, v.minor
+            ));
+        }
         let header = shaders::header(version.version_declaration(), version.is_embedded());
-        let line_layout = LINE_LAYOUT;
-        let solid_layout = SOLID_LAYOUT;
+        let mut shapes = Vec::new();
+        for shape in Shape::ALL {
+            let geometry = ShapeGeometry::new(gl, shape)?;
+            let all = Instances::new(gl, &geometry)?;
+            let selected = Instances::new(gl, &geometry)?;
+            shapes.push(ShapeGl {
+                geometry,
+                all,
+                selected,
+            });
+        }
+        let timer = if v.is_embedded {
+            None
+        } else {
+            // SAFETY: see the module docs.
+            unsafe { gl.create_query() }.ok().map(|query| GpuTimer {
+                query,
+                pending: false,
+                last: None,
+            })
+        };
         let scene = Self {
             sky: Program::new(gl, &shaders::SKY, &header)?,
             lines: Program::new(gl, &shaders::LINES, &header)?,
-            solid: Program::new(gl, &shaders::SOLID, &header)?,
+            faces: Program::new(gl, &shaders::MARKER_FACES, &header)?,
+            edges: Program::new(gl, &shaders::MARKER_EDGES, &header)?,
             // One triangle that covers the viewport.
             sky_mesh: Mesh::new(gl, &[2], &[-1.0, -1.0, 3.0, -1.0, -1.0, 3.0])?,
             grid: Mesh::new(
                 gl,
-                &line_layout,
+                &LINE_LAYOUT,
                 &scene::line_floats(&scene::grid_lines(colors)),
             )?,
             axes: Mesh::new(
                 gl,
-                &line_layout,
+                &LINE_LAYOUT,
                 &scene::line_floats(&scene::axis_lines(colors)),
             )?,
-            box_faces: Mesh::new(
-                gl,
-                &solid_layout,
-                &scene::solid_floats(&scene::unit_box_faces()),
-            )?,
-            box_edges: Mesh::new(gl, &line_layout, &scene::line_floats(&edge_lines(colors)))?,
+            shapes,
+            uploaded: None,
+            selected: None,
             colors: *colors,
+            timer,
         };
         // SAFETY: see the module docs.
         let error = unsafe { gl.get_error() };
@@ -316,29 +486,67 @@ impl GlScene {
         Ok(scene)
     }
 
-    /// Draws one frame; returns the number of draw calls.
-    fn draw(&mut self, gl: &glow::Context, frame: &Frame) -> u32 {
+    /// Uploads what changed since the last frame: the line colors, the markers (by
+    /// generation) and the selection.
+    fn update(&mut self, gl: &glow::Context, frame: &Frame) -> Result<(), String> {
         if frame.colors != self.colors {
-            let rebuilt = self
-                .grid
-                .upload(gl, &scene::line_floats(&scene::grid_lines(&frame.colors)))
-                .and_then(|()| {
-                    self.axes
-                        .upload(gl, &scene::line_floats(&scene::axis_lines(&frame.colors)))
-                })
-                .and_then(|()| {
-                    self.box_edges
-                        .upload(gl, &scene::line_floats(&edge_lines(&frame.colors)))
-                });
-            if rebuilt.is_ok() {
-                self.colors = frame.colors;
-            }
+            self.grid
+                .upload(gl, &scene::line_floats(&scene::grid_lines(&frame.colors)))?;
+            self.axes
+                .upload(gl, &scene::line_floats(&scene::axis_lines(&frame.colors)))?;
+            self.colors = frame.colors;
         }
+        if self.uploaded != Some(frame.markers.generation) {
+            for (shape, gl_shape) in Shape::ALL.iter().zip(&mut self.shapes) {
+                let floats = frame
+                    .markers
+                    .per_shape
+                    .get(shape.index())
+                    .map_or(&[][..], Vec::as_slice);
+                gl_shape.all.upload(gl, floats)?;
+            }
+            self.uploaded = Some(frame.markers.generation);
+        }
+        if frame.selected != self.selected {
+            for (shape, gl_shape) in Shape::ALL.iter().zip(&mut self.shapes) {
+                let one = match &frame.selected {
+                    Some((s, inst)) if s == shape => &inst[..],
+                    _ => &[][..],
+                };
+                gl_shape.selected.upload(gl, one)?;
+            }
+            self.selected = frame.selected;
+        }
+        Ok(())
+    }
+
+    /// Draws one frame; returns the number of draw calls and of marker instances.
+    fn draw(&mut self, gl: &glow::Context, frame: &Frame) -> Result<(u32, u32), String> {
+        self.update(gl, frame)?;
         let c = &frame.colors;
         let mut calls: u32 = 0;
+        let mut instances: u32 = 0;
         // SAFETY: see the module docs; uniforms are set on the program in use, with
-        // slices of the length their GLSL type needs.
+        // slices of the length their GLSL type needs; instance counts are the uploaded
+        // ones.
         unsafe {
+            let timing = match &mut self.timer {
+                Some(t) if t.pending => {
+                    if gl.get_query_parameter_u32(t.query, glow::QUERY_RESULT_AVAILABLE) != 0 {
+                        let ns = gl.get_query_parameter_u64(t.query, glow::QUERY_RESULT);
+                        t.last = Some(Duration::from_nanos(ns));
+                        t.pending = false;
+                    }
+                    false
+                }
+                Some(t) => {
+                    gl.begin_query(glow::TIME_ELAPSED, t.query);
+                    t.pending = true;
+                    true
+                }
+                None => false,
+            };
+
             // The depth buffer is shared with egui's whole window: clear it inside this
             // viewport only (egui_glow left the scissor at the clip rectangle).
             gl.depth_mask(true);
@@ -361,34 +569,25 @@ impl GlScene {
             self.sky_mesh.draw(gl, glow::TRIANGLES);
             calls = calls.saturating_add(1);
 
-            // 2. Marker faces, depth-tested, back faces culled, pushed back a little so
-            //    their outlines win the depth test.
+            // 2. Opaque marker faces, depth-tested, back faces culled, pushed back a
+            //    little so their outlines win the depth test.
             gl.enable(glow::DEPTH_TEST);
             gl.depth_func(glow::LEQUAL);
-            gl.depth_mask(true);
             gl.enable(glow::CULL_FACE);
             gl.cull_face(glow::BACK);
             gl.front_face(glow::CCW);
             gl.enable(glow::POLYGON_OFFSET_FILL);
             gl.polygon_offset(1.0, 1.0);
-            gl.use_program(Some(self.solid.program));
-            gl.uniform_matrix_4_f32_slice(
-                self.solid.at(shaders::U_VIEW_PROJ),
-                false,
-                &frame.view_proj,
-            );
-            gl.uniform_3_f32_slice(self.solid.at(shaders::U_LIGHT), &frame.light);
-            for (model, color) in &frame.markers {
-                gl.uniform_matrix_4_f32_slice(self.solid.at(shaders::U_MODEL), false, model);
-                gl.uniform_4_f32_slice(self.solid.at(shaders::U_COLOR), color);
-                self.box_faces.draw(gl, glow::TRIANGLES);
-                calls = calls.saturating_add(1);
+            let solid = frame.face_alpha >= 1.0;
+            if solid {
+                gl.depth_mask(true);
+                calls = calls.saturating_add(self.draw_faces(gl, frame, &mut instances));
             }
             gl.disable(glow::POLYGON_OFFSET_FILL);
             gl.disable(glow::CULL_FACE);
 
             // 3. Lines, blended: the grid (fading out with distance, not writing depth),
-            //    the axes, the marker outlines.
+            //    the axes.
             gl.enable(glow::BLEND);
             gl.blend_func(glow::SRC_ALPHA, glow::ONE_MINUS_SRC_ALPHA);
             gl.use_program(Some(self.lines.program));
@@ -397,32 +596,125 @@ impl GlScene {
                 false,
                 &frame.view_proj,
             );
-            gl.uniform_matrix_4_f32_slice(self.lines.at(shaders::U_MODEL), false, &IDENTITY);
+            gl.uniform_matrix_4_f32_slice(
+                self.lines.at(shaders::U_MODEL),
+                false,
+                &frame.grid_model,
+            );
             gl.uniform_3_f32_slice(self.lines.at(shaders::U_EYE), &frame.eye);
             gl.uniform_2_f32_slice(self.lines.at(shaders::U_FADE), &frame.grid_fade);
             gl.depth_mask(false);
             self.grid.draw(gl, glow::LINES);
-            gl.depth_mask(true);
+            gl.uniform_matrix_4_f32_slice(
+                self.lines.at(shaders::U_MODEL),
+                false,
+                &frame.axes_model,
+            );
             gl.uniform_2_f32_slice(self.lines.at(shaders::U_FADE), &NO_FADE);
+            gl.depth_mask(true);
             self.axes.draw(gl, glow::LINES);
             calls = calls.saturating_add(2);
-            for (model, _) in &frame.markers {
-                gl.uniform_matrix_4_f32_slice(self.lines.at(shaders::U_MODEL), false, model);
-                self.box_edges.draw(gl, glow::LINES);
-                calls = calls.saturating_add(1);
+
+            // 4. Marker outlines (dark in the solid mode, each marker's color otherwise),
+            //    then the see-through faces over them without writing depth.
+            gl.use_program(Some(self.edges.program));
+            gl.uniform_matrix_4_f32_slice(
+                self.edges.at(shaders::U_VIEW_PROJ),
+                false,
+                &frame.view_proj,
+            );
+            gl.uniform_4_f32_slice(self.edges.at(shaders::U_EDGE), &c.edge);
+            gl.uniform_1_f32(self.edges.at(shaders::U_MIX), frame.edge_mix);
+            for s in &self.shapes {
+                if s.all.count > 0 {
+                    gl.bind_vertex_array(Some(s.all.edges));
+                    gl.draw_arrays_instanced(glow::LINES, 0, s.geometry.edges_count, s.all.count);
+                    calls = calls.saturating_add(1);
+                }
+            }
+            if !solid && frame.face_alpha > 0.0 {
+                gl.depth_mask(false);
+                calls = calls.saturating_add(self.draw_faces(gl, frame, &mut instances));
+                gl.depth_mask(true);
+            } else if !solid {
+                instances = self.shapes.iter().fold(0u32, |n, s| {
+                    n.saturating_add(u32::try_from(s.all.count).unwrap_or(0))
+                });
+            }
+
+            // 5. The selected marker's outline, over everything (seen through walls).
+            gl.disable(glow::DEPTH_TEST);
+            gl.use_program(Some(self.edges.program));
+            gl.uniform_4_f32_slice(self.edges.at(shaders::U_EDGE), &c.select);
+            gl.uniform_1_f32(self.edges.at(shaders::U_MIX), 1.0);
+            for s in &self.shapes {
+                if s.selected.count > 0 {
+                    gl.bind_vertex_array(Some(s.selected.edges));
+                    gl.draw_arrays_instanced(
+                        glow::LINES,
+                        0,
+                        s.geometry.edges_count,
+                        s.selected.count,
+                    );
+                    calls = calls.saturating_add(1);
+                }
             }
 
             // Leave what egui_glow does not reset as GL's defaults.
+            gl.enable(glow::DEPTH_TEST);
             gl.depth_mask(true);
             gl.bind_vertex_array(None);
             gl.use_program(None);
+            if timing {
+                gl.end_query(glow::TIME_ELAPSED);
+            }
+        }
+        Ok((calls, instances))
+    }
+
+    /// The marker faces, one instanced call per shape; returns the draw calls and adds
+    /// the instances drawn to `instances`.
+    fn draw_faces(&self, gl: &glow::Context, frame: &Frame, instances: &mut u32) -> u32 {
+        let mut calls = 0u32;
+        // SAFETY: see the module docs; instance counts are the uploaded ones.
+        unsafe {
+            gl.use_program(Some(self.faces.program));
+            gl.uniform_matrix_4_f32_slice(
+                self.faces.at(shaders::U_VIEW_PROJ),
+                false,
+                &frame.view_proj,
+            );
+            gl.uniform_3_f32_slice(self.faces.at(shaders::U_LIGHT), &frame.light);
+            gl.uniform_1_f32(self.faces.at(shaders::U_ALPHA), frame.face_alpha);
+            for s in &self.shapes {
+                if s.all.count > 0 {
+                    gl.bind_vertex_array(Some(s.all.faces));
+                    gl.draw_arrays_instanced(
+                        glow::TRIANGLES,
+                        0,
+                        s.geometry.faces_count,
+                        s.all.count,
+                    );
+                    calls = calls.saturating_add(1);
+                    *instances = instances.saturating_add(u32::try_from(s.all.count).unwrap_or(0));
+                }
+            }
         }
         calls
     }
 }
 
-const IDENTITY: [f32; 16] = [
-    1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-];
 /// A fade range no line reaches.
 const NO_FADE: [f32; 2] = [1.0e9, 2.0e9];
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn instance_layout_covers_the_instance_floats() {
+        let n: i32 = INSTANCE_LAYOUT.iter().sum();
+        assert_eq!(usize::try_from(n).ok(), Some(INSTANCE_FLOATS));
+        assert_eq!(bytes(&[1.0, 2.0]).len(), 8);
+    }
+}
