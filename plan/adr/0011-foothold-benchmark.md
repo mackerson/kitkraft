@@ -101,10 +101,15 @@ settlement mod would need; the ruling says which part of that is this project's 
    the Foothold attack system (addendum item 3). First a research ticket (M5.H1):
    Starborn and Armillary encounters, vanilla outpost assaults and prior-art attack
    managers, in the corpus and in our docs, before any new runtime hook is proposed (ADR
-   0008 §5 governs any hook). Then, only if the research finds a data and Papyrus path,
-   one generic fixture (M5.H2): configurable trigger, actors, faction, spawn location and
-   cooldown; deterministic test triggering; cancel and cleanup; save/reload; attended and
-   unattended runs.
+   0008 §5 governs any hook), covering two of the addendum's bullets in its words:
+   "Combat behavior, settlement defenses, damage, and recovery." and "Compatibility with
+   vanilla outpost assaults and current DLC behavior." Then, only if the research finds a
+   data and Papyrus path, one generic fixture (M5.H2): configurable trigger, actors,
+   faction, spawn location and cooldown; deterministic test triggering; combat behavior,
+   settlement defenses, damage and recovery; cancel and cleanup; save/reload; attended and
+   unattended runs; compatibility with vanilla outpost assaults and current DLC behavior.
+   (Corrected in the M5 review fix round, 2026-10-15, before any ticket ran: the first
+   text omitted those two bullets of addendum item 3.)
 9. **Tickets.** General KitKraft capability tickets are `M5.<lane><n>`; Foothold
    experiments are `FTH-EXP-nn` (the engineering surface's EXP-01..EXP-12, then later
    ones). Detailed tickets and their dependencies live in versioned Markdown
