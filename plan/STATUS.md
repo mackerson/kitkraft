@@ -1790,6 +1790,10 @@ Agents append here when they need a change in a crate they do not own.
   `HelloOnLoad` and the compiler refuses the name mismatch; deriving the namespace from
   the folders below an import (or reading the `ScriptName` line) would let the path form
   work. Workaround used in `docs/recipes/scripts.md`: the name plus an absolute import.
+  **Landed 2026-10-15 (lane B, M5.B2; papyrus oracle P1..P3, `docs/oracles.md`):** both
+  done (paths absolute, `;` lists and `--import`; the `.psc` path compiles as its declared
+  name), plus `-ignorecwd`; `cargo xtask oracle papyrus` finds all eight of our scripts
+  semantically equivalent to the official compiler run by hand.
 - **Lane E (M4.E9) -> lane B / lane D (FYI).** Object values inside `VMAD` (43,246 in the
   official files) are now readable through `kitkraft_engine::edit::vmad::objects`;
   `refs` and `formid.dangling` still skip them (the schema keeps `ScriptAttachment.Data`
