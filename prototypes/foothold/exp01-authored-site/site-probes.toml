@@ -1,0 +1,66 @@
+format = 1
+plugin = "KitKraftFootholdSite.esm"
+sha256 = "8695a529c83a6074e0a7dbf23050658a402369d8513d9113663b9b1c6ea1e306"
+generated_by = "hand-written for FTH-EXP-01 arm A (prototypes/foothold/exp01-authored-site/README.md); run after the rows of the generated probes.toml"
+profile = "KitKraft Dev"
+runtime_id_basis = "inferred:runtime-slots-by-scale+masters-load-first"
+notes = [
+  "Every form is named by its EditorID, so no row depends on the load-order slot.",
+  "What the console prints for getav on a placed activator is grade D until a session observes it; a matcher with no output or no number is inconclusive, never pass.",
+  "Rows W-02 to W-07 are the experiment's verdict (engineering-surface J, EXP-01: place, power, move, reload) and are UI: manual until input injection exists (ADR 0010 Amendment 1).",
+  "sha256 is the plugin built from site.toml at the commit named in README.md; rebuild and update it if the spec changes.",
+]
+
+[[probe]]
+row = "W-01"
+title = "the beacon reference carries the vanilla build radius (PRPS OutpostBuildAreaRadius 150)"
+forms = ["KitKraftFootholdSite.esm:001002", "KitKraftFootholdBeaconRef", "Starfield.esm:063FC5"]
+
+[[probe.step]]
+command = "player.moveto KitKraftFootholdBeaconRef"
+
+[[probe.step]]
+command = "prid KitKraftFootholdBeaconRef"
+
+[[probe.step]]
+command = "getav OutpostBuildAreaRadius"
+matcher = "number"
+expected = "150"
+tolerance = 0.5
+why = "the cloned ACTI keeps OutpostBeaconActivator's PRPS OutpostBuildAreaRadius = 150"
+
+[[probe]]
+row = "W-02"
+title = "activating the beacon opens outpost build mode at the site"
+matcher = "manual"
+reason = "build mode is UI. Activate KitKraftFootholdBeaconRef; screenshot what opens (build mode, a prompt, or nothing). Nothing is a result: the first suspects are the location link and the map marker data this arm does not author (README.md, N1 to N5)"
+
+[[probe]]
+row = "W-03"
+title = "a vanilla object places inside the 150-unit radius and is refused outside it"
+matcher = "manual"
+reason = "placement is UI: in build mode place one vanilla structure near the beacon and try one beyond 150 units; screenshot both"
+
+[[probe]]
+row = "W-04"
+title = "power: a generator powers a consumer at the site"
+matcher = "manual"
+reason = "power links are UI: build a vanilla generator and a powered light, connect them, screenshot the light on"
+
+[[probe]]
+row = "W-05"
+title = "move: a placed object moves in build mode and stays where it was put"
+matcher = "manual"
+reason = "moving is UI: move the structure from W-03, leave build mode, screenshot it"
+
+[[probe]]
+row = "W-06"
+title = "reload: everything built persists through leave, save and reload"
+matcher = "manual"
+reason = "leave (coc CityNewAtlantisLodgeInt), save, quit to menu, load, return with player.moveto KitKraftFootholdBeaconRef; screenshot; note anything vanished, moved or doubled, and the time away"
+
+[[probe]]
+row = "W-07"
+title = "the map marker and the location name: what the map and HUD show at the site"
+matcher = "manual"
+reason = "map and HUD are UI: screenshot the map near the Crucible landing area and the location name the HUD shows at the beacon (KitKraft Foothold Site, Crucible, or Charybdis III)"

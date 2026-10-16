@@ -1,0 +1,40 @@
+# FTH-EXP-01 prototype, arm B: the same site, with vanilla's own beacon pack-in placed
+# instead of arm A's three references. OutpostBeacon_Packin (Starfield.esm:29A8C6) holds the
+# vanilla beacon with its WorkshopLinkCenter link, its centre marker, its configured map
+# marker (OutpostMapMarker001) and its collision markers, so every link and every marker
+# value arm A cannot write comes along by reference. Whether the game expands a pack-in
+# reference that a plugin places is unobserved (README.md, U5).
+# kit build prototypes/foothold/exp01-authored-site/site-packin.toml out/prototypes/foothold/exp01b/KitKraftFootholdSitePackin.esm
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# As arm A (site.toml): the values of OutpostOverlayTemplateLocation (Starfield.esm:2A39CC).
+name = "site_location"
+type = "LCTN"
+edid = "KitKraftFootholdPackinSiteLocation"
+masters = ["Starfield.esm"]
+brief = "FTH-EXP-01"
+
+[new.fields]
+FULL = "KitKraft Foothold Site (pack-in)"
+# KWDA as raw bytes (the new-record path takes it only as hex): FormID 000234F1, LocTypeOutpost.
+KSIZ = 1
+KWDA = "hex:F1340200"
+"DATA.LevelFlags" = 16
+PNAM = "Starfield.esm:01B38B"
+RNAM = 0.0
+ANAM = 1.0
+TNAM = 60.0
+
+[[place]]
+# OutpostBeacon_Packin (PKIN, CNAM PackInOutpostBeaconPackinStorageCell 29A8A6, FNAM 6).
+# The vanilla pack-in references of this world (CrucibleExt03, CrucibleExt06) are temporary,
+# so this one is too; it lands in the exterior cell (1, -2), Starfield.esm:127392.
+base = "Starfield.esm:29A8C6"
+world = "Starfield.esm:29B000"
+position = [155.0, -110.0, 8.0]
+edid = "KitKraftFootholdBeaconPackinRef"
+brief = "FTH-EXP-01"

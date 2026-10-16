@@ -1,0 +1,89 @@
+# FTH-EXP-01 prototype, arm A (authored-POI workshop): an authored exterior site with a
+# LocTypeOutpost location, an outpost-beacon-style activator, its centre marker and its map
+# marker, on a fixed vanilla planet surface (the Crucible's world on Charybdis III).
+# kit build prototypes/foothold/exp01-authored-site/site.toml out/prototypes/foothold/exp01/KitKraftFootholdSite.esm
+# Every value is copied from a vanilla outpost record (README.md, "Evidence"); what `build`
+# cannot write yet (linked refs, map marker data, location ref lists) is README.md,
+# "Not authored".
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# The values of OutpostOverlayTemplateLocation (Starfield.esm:2A39CC), the only LCTN of
+# Starfield.esm with LocTypeOutpost: KWDA [LocTypeOutpost 0234F1], DATA LevelFlags 16
+# (UseParentsLockedLevel) with owner none and levels 0, RNAM 0, ANAM 1.0, TNAM 60. Its FULL
+# ("Outpost") is ours here. It has no PNAM; ours names the planet surface location that the
+# Crucible's own location (SettleCrucibleLocation 299F69) names as its parent. A `[[new]]`,
+# not a `[[clone]]`: a clone cannot add the PNAM subrecord the template lacks.
+name = "site_location"
+type = "LCTN"
+edid = "KitKraftFootholdSiteLocation"
+masters = ["Starfield.esm"]
+brief = "FTH-EXP-01"
+
+[new.fields]
+FULL = "KitKraft Foothold Site"
+# KWDA as raw bytes (the new-record path takes it only as hex): FormID 000234F1, LocTypeOutpost.
+KSIZ = 1
+KWDA = "hex:F1340200"
+"DATA.LevelFlags" = 16
+PNAM = "Starfield.esm:01B38B"
+RNAM = 0.0
+ANAM = 1.0
+TNAM = 60.0
+
+[[clone]]
+# OutpostBeaconActivator ("Outpost Beacon"): model, snap template and behaviour, animation
+# graph, the 19 keywords (MustPersist, WorkshopKeyword, the OutpostCategory* build menu
+# categories, WorkshopNoStackingOn), PRPS OutpostBuildAreaRadius 150 (the build radius) and
+# OutpostMainPackinItem 1, FTYP OutpostBeacon_RefType, and VMAD outpostbeaconscript with
+# OutpostSurveyBoost. The clone keeps all of it and renames it.
+name = "beacon"
+form = "Starfield.esm:2C60E9"
+edid = "KitKraftFootholdBeacon"
+fields = { FULL = "KitKraft Foothold Beacon" }
+brief = "FTH-EXP-01"
+
+[[place]]
+# The beacon. Vanilla's own beacon reference (Starfield.esm:29A8C8, in the pack-in
+# OutpostBeacon_Packin's storage cell) is persistent at the pack-in origin.
+# SettleCrucibleWorld, cell (1, -2) (Starfield.esm:127392): 5 references (a fern and four
+# rocks at its north edge), next to the landing cell (1, -1) whose ship landing marker
+# Starfield.esm:12A0DD stands at (157.96, -57.40, 4.92); z from the rocks at y -101..-103
+# (z 7.2 to 9.7): unobserved terrain height, see README.md.
+base = "new:beacon"
+world = "Starfield.esm:29B000"
+position = [155.0, -110.0, 8.0]
+persistent = true
+edid = "KitKraftFootholdBeaconRef"
+brief = "FTH-EXP-01"
+
+[[place]]
+# The beacon's centre marker: vanilla 29A8C7, an XMarkerHeading (Starfield.esm:000034) at
+# (0, -1.5, 0) from the beacon, rotated 4.712389 about z, persistent; the beacon links to it
+# with WorkshopLinkCenter and the map marker links to it (not authored, README.md).
+base = "Starfield.esm:000034"
+world = "Starfield.esm:29B000"
+position = [155.0, -111.5, 8.0]
+rotation = [0.0, 0.0, 4.712389]
+persistent = true
+edid = "KitKraftFootholdBeaconCenter"
+brief = "FTH-EXP-01"
+
+[[place]]
+# The map marker: vanilla OutpostMapMarker001 (Starfield.esm:295918), a MapMarker_LongRange
+# (Starfield.esm:254244) at (0, -0.0679, 0) from the beacon, persistent. Its marker data
+# (XMRK, FNAM 51, FULL "Outpost", TNAM 12, VNAM 2, VISI 0, XRDS 150) is not authored
+# (README.md).
+base = "Starfield.esm:254244"
+world = "Starfield.esm:29B000"
+position = [155.0, -110.0679, 8.0]
+persistent = true
+edid = "KitKraftFootholdMapMarker"
+brief = "FTH-EXP-01"
+
+# Not written: the site's cell (Starfield.esm:127392) naming the site's location with XLCN.
+# The cell has no XLCN (it inherits SettleCrucibleLocation from the world), and `set`
+# cannot add a subrecord a record lacks (README.md, "Not authored", N4).
