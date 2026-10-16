@@ -74,6 +74,9 @@ pub enum InstallError {
     /// The options make no sense (no `kit.exe` in the dist folder, ...).
     #[error("{0}")]
     Invalid(String),
+    /// Claude Code is running and the plan rewrites `.claude.json` ([`refuse_while_running`]).
+    #[error("{0}")]
+    ClaudeRunning(String),
 }
 
 fn io_err(path: &Path) -> impl FnOnce(std::io::Error) -> InstallError + '_ {
@@ -123,7 +126,9 @@ pub trait UserEnv {
 }
 
 /// A JSON file standing in for `HKCU\Environment`: `{"Path": {"kind": "REG_EXPAND_SZ",
-/// "value": "..."}}` (`{}` or no file: no PATH). For tests and safe dry runs.
+/// "value": "..."}}` (`{}` or no file: no PATH). For tests and safe dry runs. Any other
+/// file (another top level, or a key besides `Path`) is refused rather than read as "no
+/// PATH": `--apply` replaces the whole file, so a wrong `--env-file` would be lost.
 #[derive(Debug, Clone)]
 pub struct FileEnv {
     /// The file.
@@ -135,6 +140,20 @@ impl UserEnv for FileEnv {
         let Some(v) = read_json(&self.path)? else {
             return Ok(None);
         };
+        let refuse = |why: String| {
+            InstallError::Json {
+            path: self.path.clone(),
+            message: format!(
+                "{why}; an --env-file holds `{{}}` or `{{\"Path\": ...}}` only (--apply replaces it whole)"
+            ),
+        }
+        };
+        let Some(obj) = v.as_object() else {
+            return Err(refuse("the top level is not an object".to_string()));
+        };
+        if let Some(other) = obj.keys().find(|k| k.as_str() != "Path") {
+            return Err(refuse(format!("it has a key `{other}` besides `Path`")));
+        }
         match v.get("Path") {
             None | Some(Value::Null) => Ok(None),
             Some(p) => {
@@ -294,23 +313,21 @@ pub struct Options {
 impl Options {
     /// Options for `dist` with this machine's defaults: home `%USERPROFILE%` (else
     /// `$HOME`), the project found above `dist` (a folder with `.mcp.json.example` and
-    /// `Cargo.toml`), MCP args preloading the detected MO2 instance's `Default` profile
-    /// (read-only, as before), the detected Data dir, and the current time as the stamp.
+    /// `Cargo.toml`), MCP args preloading the default MO2 instance's `Default` profile
+    /// (read-only, as before; [`default_mcp_args`]), the detected Data dir, and the
+    /// current time as the stamp. Both defaults honor `KITKRAFT_DETECT=0` and
+    /// `KITKRAFT_MO2_DIR` as every command does (`crate::host`).
     pub fn detect(dist: PathBuf) -> Options {
         let home = std::env::var_os("USERPROFILE")
             .or_else(|| std::env::var_os("HOME"))
             .filter(|h| !h.is_empty())
             .map_or_else(|| PathBuf::from("."), PathBuf::from);
         let project = find_project(&dist);
-        let detected = crate::host::detect(&kitkraft_io::host::Host::system());
-        let mut default_args = vec!["mcp".to_string()];
-        if let Some(m) = detected.mo2_root() {
-            let profile = m.path.join("profiles").join("Default");
-            if profile.join("modlist.txt").is_file() {
-                default_args.push("--profile".to_string());
-                default_args.push(slashes(&profile));
-            }
-        }
+        // The same defaults every command uses: `KITKRAFT_DETECT=0` turns detection off
+        // here too (then only `KITKRAFT_MO2_DIR` names an instance).
+        let detected = crate::host::detected();
+        let mo2 = crate::host::default_mo2();
+        let default_args = default_mcp_args(mo2.as_ref().map(|m| m.path.as_path()));
         let stamp = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map_or(0, |d| d.as_secs())
@@ -322,10 +339,24 @@ impl Options {
             path: true,
             mcp: true,
             default_args,
-            detected_data_dir: detected.data_dir.map(|f| f.path),
+            detected_data_dir: detected.data_dir.as_ref().map(|f| f.path.clone()),
             stamp,
         }
     }
+}
+
+/// MCP `args` for a new entry: `mcp`, and `--profile <mo2>/profiles/Default` (read-only
+/// preload, as before) when `mo2` has that profile.
+pub fn default_mcp_args(mo2: Option<&Path>) -> Vec<String> {
+    let mut args = vec!["mcp".to_string()];
+    if let Some(m) = mo2 {
+        let profile = m.join("profiles").join("Default");
+        if profile.join("modlist.txt").is_file() {
+            args.push("--profile".to_string());
+            args.push(slashes(&profile));
+        }
+    }
+    args
 }
 
 /// The repository above `start` (a folder holding `.mcp.json.example` and `Cargo.toml`).
@@ -982,6 +1013,96 @@ pub fn plan(opts: &Options, env: &dyn UserEnv, action: Action) -> Result<Plan, I
     })
 }
 
+/// Image names Claude Code runs as on Windows, as `tasklist` showed them on the dev box
+/// (2026-10-15): the desktop app (`...\WindowsApps\Claude_<version>_x64__...\app\claude.exe`)
+/// and the native CLI (`%APPDATA%\Claude\claude-code\<version>\...\claude.exe`) are both
+/// `claude.exe` (ASCII case ignored). A CLI installed through npm runs as `node.exe` and
+/// cannot be told apart by name, so it is not detected.
+pub const CLAUDE_PROCESSES: &[&str] = &["claude.exe"];
+
+/// The image names in `tasklist /fo csv /nh` output (the first field of each row).
+pub fn parse_tasklist(out: &str) -> Vec<String> {
+    out.lines()
+        .filter_map(|line| {
+            let first = line.trim().strip_prefix('"')?;
+            let (name, _) = first.split_once('"')?;
+            (!name.is_empty()).then(|| name.to_string())
+        })
+        .collect()
+}
+
+/// This machine's running image names, through `tasklist` (read-only; nothing is
+/// stopped). Windows only: elsewhere the list is empty.
+pub fn system_processes() -> Result<Vec<String>, InstallError> {
+    if !cfg!(windows) {
+        return Ok(Vec::new());
+    }
+    let out = std::process::Command::new("tasklist")
+        .args(["/fo", "csv", "/nh"])
+        .output()
+        .map_err(|e| {
+            InstallError::Env(format!(
+                "could not start tasklist to see whether Claude Code is running: {e}"
+            ))
+        })?;
+    if !out.status.success() {
+        return Err(InstallError::Env(format!(
+            "tasklist failed ({}); close Claude Code and pass --force-while-running",
+            String::from_utf8_lossy(&out.stderr).trim()
+        )));
+    }
+    Ok(parse_tasklist(&String::from_utf8_lossy(&out.stdout)))
+}
+
+/// The one-line refusal when `processes` include Claude Code, else `None`.
+pub fn claude_running(processes: &[String]) -> Option<String> {
+    let mut names: Vec<&str> = Vec::new();
+    let mut count: usize = 0;
+    for p in processes {
+        if let Some(n) = CLAUDE_PROCESSES
+            .iter()
+            .find(|n| p.trim().eq_ignore_ascii_case(n))
+        {
+            count = count.saturating_add(1);
+            if !names.contains(n) {
+                names.push(n);
+            }
+        }
+    }
+    (count > 0).then(|| {
+        format!(
+            "Claude Code is running ({count} {} process(es)): it rewrites .claude.json from memory and would drop the {SERVER} entry; close the Claude app and every claude session, then run this again (--force-while-running skips this check)",
+            names.join("/")
+        )
+    })
+}
+
+/// Whether `plan` writes or deletes the `.claude.json` in `opts.home`.
+pub fn touches_claude_json(plan: &Plan, opts: &Options) -> bool {
+    let claude = opts.home.join(CLAUDE_JSON);
+    plan.steps.iter().any(|s| match &s.change {
+        Some(Change::Write { path, .. } | Change::Delete { path, .. }) => same_path(path, &claude),
+        _ => false,
+    })
+}
+
+/// Stops `--apply` before anything changes when the plan rewrites `.claude.json` while
+/// Claude Code runs (`processes`: the running image names, [`system_processes`]): it keeps
+/// that file in memory and writes it back, dropping the new entry. Nothing is stopped.
+pub fn refuse_while_running(
+    plan: &Plan,
+    opts: &Options,
+    processes: &[String],
+) -> Result<(), InstallError> {
+    if !touches_claude_json(plan, opts) {
+        return Ok(());
+    }
+    match claude_running(processes) {
+        Some(message) => Err(InstallError::ClaudeRunning(message)),
+        None => Ok(()),
+    }
+}
+
 /// Applies `plan`: backups first, then each change in order. A file that changed since
 /// the plan stops it ([`InstallError::Changed`]); the steps before it stay applied (each
 /// is printed). Returns one line per change made.
@@ -1241,6 +1362,91 @@ mod tests {
         std::fs::remove_file(f.opts.dist.join(kit_exe())).unwrap();
         let err = plan(&f.opts, &f.env, Action::Install).unwrap_err();
         assert!(err.to_string().contains("cargo xtask dist"), "{err}");
+        let _ = std::fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn a_running_claude_code_stops_a_plan_that_rewrites_claude_json() {
+        let mut f = fixture("running");
+        let listed = parse_tasklist(
+            "\"System Idle Process\",\"0\",\"Services\",\"0\",\"8 K\"\r\n\
+             \"Claude.exe\",\"4120\",\"Console\",\"1\",\"123,456 K\"\r\n\
+             \"claude.exe\",\"9000\",\"Console\",\"1\",\"80,000 K\"\r\n",
+        );
+        assert_eq!(listed, ["System Idle Process", "Claude.exe", "claude.exe"]);
+        let quiet: Vec<String> = vec!["explorer.exe".into(), "claude-helper.exe".into()];
+        assert_eq!(claude_running(&quiet), None);
+        let message = claude_running(&listed).unwrap();
+        assert!(message.contains("2 claude.exe process(es)"), "{message}");
+        assert!(message.contains("--force-while-running"), "{message}");
+        assert!(!message.contains('\n'), "one line: {message}");
+
+        // The plan rewrites .claude.json: refused, and nothing was written.
+        let p = plan(&f.opts, &f.env, Action::Install).unwrap();
+        assert!(touches_claude_json(&p, &f.opts));
+        let err = refuse_while_running(&p, &f.opts, &listed).unwrap_err();
+        assert!(matches!(err, InstallError::ClaudeRunning(_)), "{err}");
+        assert_eq!(err.to_string(), message);
+        assert!(!f.opts.home.join(CLAUDE_JSON).exists());
+        refuse_while_running(&p, &f.opts, &quiet).unwrap();
+
+        // Once installed, a plan that leaves .claude.json alone is not stopped.
+        apply(&p, &mut f.env).unwrap();
+        let again = plan(&f.opts, &f.env, Action::Install).unwrap();
+        assert!(!touches_claude_json(&again, &f.opts));
+        refuse_while_running(&again, &f.opts, &listed).unwrap();
+        // Uninstall rewrites it again: stopped.
+        let u = plan(&f.opts, &f.env, Action::Uninstall).unwrap();
+        assert!(refuse_while_running(&u, &f.opts, &listed).is_err());
+        let _ = std::fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn default_mcp_args_preload_default_only_when_an_instance_has_it() {
+        let f = fixture("args");
+        assert_eq!(default_mcp_args(None), ["mcp"]);
+        let mo2 = f.root.join("MO2");
+        assert_eq!(default_mcp_args(Some(&mo2)), ["mcp"]);
+        let profile = mo2.join("profiles").join("Default");
+        std::fs::create_dir_all(&profile).unwrap();
+        std::fs::write(profile.join("modlist.txt"), b"").unwrap();
+        assert_eq!(
+            default_mcp_args(Some(&mo2)),
+            ["mcp".to_string(), "--profile".into(), slashes(&profile)]
+        );
+        let _ = std::fs::remove_dir_all(&f.root);
+    }
+
+    #[test]
+    fn an_env_file_other_than_a_path_stand_in_is_refused() {
+        let mut f = fixture("envfile");
+        // No file, an empty file and `{}` read as no PATH.
+        assert_eq!(f.env.read_path().unwrap(), None);
+        std::fs::write(&f.env.path, b"").unwrap();
+        assert_eq!(f.env.read_path().unwrap(), None);
+        std::fs::write(&f.env.path, b"{}").unwrap();
+        assert_eq!(f.env.read_path().unwrap(), None);
+        // Any other JSON is refused at plan time and left as it was.
+        let others: [&[u8]; 4] = [
+            br#"{"Other": 1}"#,
+            br#"{"Path": {"kind": "REG_SZ", "value": "C:\\x"}, "keep": true}"#,
+            b"[]",
+            br#""Path""#,
+        ];
+        for text in others {
+            std::fs::write(&f.env.path, text).unwrap();
+            let err = plan(&f.opts, &f.env, Action::Install).unwrap_err();
+            assert!(err.to_string().contains("--env-file"), "{err}");
+            assert_eq!(std::fs::read(&f.env.path).unwrap(), text);
+        }
+        // The stand-in proper still reads and writes.
+        f.env
+            .write_path(&EnvValue {
+                kind: EnvKind::String,
+                value: r"C:\x".into(),
+            })
+            .unwrap();
+        assert_eq!(f.env.read_path().unwrap().unwrap().value, r"C:\x");
         let _ = std::fs::remove_dir_all(&f.root);
     }
 

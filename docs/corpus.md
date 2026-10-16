@@ -29,7 +29,8 @@ with no `data_dir` argument and no variable, the Data dir is the one `kit doctor
 detects (Steam's registry and libraries, the common install folders, then the MO2
 instance's `gamePath`; `crates/engine/src/host.rs`, `crates/io/src/host.rs`). Precedence:
 **argument > environment variable > detected**. A bare `profile` name (`KitKraft Dev`)
-is that profile of the detected MO2 instance. `KITKRAFT_DETECT=0` (or `off`) turns the
+is that profile of the default MO2 instance (`KITKRAFT_MO2_DIR`, else the detected one;
+the same for `kit doctor`, `profiles` and `kit install`). `KITKRAFT_DETECT=0` (or `off`) turns the
 detected defaults off; tests that need "no Data dir" set it. The **corpus tests** are
 unchanged: they still read the official files only through `KITKRAFT_DATA_DIR` and skip
 without it, so `cargo xtask ci` behaves the same on every machine.

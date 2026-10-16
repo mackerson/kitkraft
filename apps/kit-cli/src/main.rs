@@ -20,7 +20,9 @@
 //! `kit install` / `kit uninstall [--dry-run | --apply] [--home DIR] ...` print, and with
 //! `--apply` make, the PATH and MCP registration changes of `kitkraft_engine::install`
 //! (front-end setup like `mcp` and `ui`, so no `CommandSpec` and not reachable over MCP);
-//! exit 0, or 2 on an error.
+//! exit 0, or 2 on an error. `--apply` stops (exit 2, nothing changed) when the plan
+//! rewrites `.claude.json` while Claude Code runs, unless `--force-while-running`;
+//! `--check-running` only says whether it runs (exit 1 when it does).
 //!
 //! Text output prints `data.summary` when the command provides one, otherwise `data` as
 //! JSON, then one `limitation:` line per limitation. `--json` prints the envelope as is.
@@ -164,6 +166,23 @@ fn run_install(sub: &clap::ArgMatches, action: install::Action) -> ExitCode {
                 .ok()
                 .and_then(|e| e.parent().map(std::path::Path::to_path_buf))
         });
+    if sub.get_flag("check-running") {
+        // For Install.cmd: the same one-line message `--apply` stops with, before it asks.
+        return match install::system_processes().map(|p| install::claude_running(&p)) {
+            Ok(Some(message)) => {
+                println!("{message}");
+                ExitCode::from(EXIT_NEGATIVE)
+            }
+            Ok(None) => {
+                println!("Claude Code is not running.");
+                ExitCode::SUCCESS
+            }
+            Err(err) => {
+                eprintln!("kit {name}: {err}");
+                ExitCode::from(EXIT_ERROR)
+            }
+        };
+    }
     let Some(dist) = dist else {
         eprintln!("kit {name}: cannot tell where kit.exe is; pass --dist <folder>");
         return ExitCode::from(EXIT_ERROR);
@@ -200,6 +219,17 @@ fn run_install(sub: &clap::ArgMatches, action: install::Action) -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
+    // Claude Code keeps .claude.json in memory and writes it back: stop before anything
+    // changes while it runs (nothing is stopped or killed).
+    if !sub.get_flag("force-while-running") && install::touches_claude_json(&plan, &opts) {
+        let check = install::system_processes()
+            .and_then(|p| install::refuse_while_running(&plan, &opts, &p));
+        if let Err(err) = check {
+            eprintln!("kit {name}: {err}");
+            eprintln!("kit {name}: nothing was changed");
+            return ExitCode::from(EXIT_ERROR);
+        }
+    }
     print!("{}", plan.render(true));
     match install::apply(&plan, env.as_mut()) {
         Ok(done) => {
@@ -235,6 +265,19 @@ fn install_command(name: &'static str, about: &'static str) -> Command {
                 .long("apply")
                 .action(ArgAction::SetTrue)
                 .help("Make the changes (backups first)"),
+        )
+        .arg(
+            Arg::new("force-while-running")
+                .long("force-while-running")
+                .action(ArgAction::SetTrue)
+                .help("Apply even though Claude Code is running (it may write .claude.json back and drop the entry)"),
+        )
+        .arg(
+            Arg::new("check-running")
+                .long("check-running")
+                .action(ArgAction::SetTrue)
+                .conflicts_with_all(["apply", "dry-run"])
+                .help("Only say whether Claude Code is running (exit 1 when it is); used by Install.cmd"),
         )
         .arg(
             Arg::new("home")
@@ -595,6 +638,10 @@ fn print_catalog_help() {
     println!(
         "  {:<18} order, next to the plugin, then there. A profile uses MO2's gamePath first.",
         ""
+    );
+    println!(
+        "  {:<18} MO2 instance folder; the default before the detected one",
+        "KITKRAFT_MO2_DIR"
     );
     println!(
         "  {:<18} 0 turns the detected defaults off (arguments and variables still apply)",

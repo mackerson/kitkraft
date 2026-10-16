@@ -195,8 +195,10 @@ pub struct Request {
     /// The arguments object.
     pub args: Value,
     /// Made by a confirm click ([`Request::confirmed`]): the only way the
-    /// [`PERMITTED_WRITE`] runs in its writing form.
-    pub confirmed: bool,
+    /// [`PERMITTED_WRITE`] runs in its writing form. Private, so outside this module it
+    /// is set only through that constructor (read it with [`Request::is_confirmed`]); a
+    /// source scan keeps the constructor to the Ledger panel.
+    confirmed: bool,
 }
 
 impl Request {
@@ -216,6 +218,11 @@ impl Request {
             confirmed: true,
             ..Self::new(id, args)
         }
+    }
+
+    /// Whether the request came from [`Request::confirmed`].
+    pub fn is_confirmed(&self) -> bool {
+        self.confirmed
     }
 }
 
@@ -450,7 +457,12 @@ mod tests {
                     && !allowed.contains(&path)
                 {
                     let text = std::fs::read_to_string(&path).unwrap();
-                    if text.contains("Request::confirmed") || text.contains("confirmed: true") {
+                    // The field is private (only gate.rs can set it); the constructor
+                    // and any spelling of a set are refused outside the two files.
+                    if text.contains("Request::confirmed")
+                        || text.contains("confirmed: true")
+                        || text.contains(".confirmed =")
+                    {
                         found.push(path.display().to_string());
                     }
                 }
