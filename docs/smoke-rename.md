@@ -82,7 +82,7 @@ table (`docs/validate.md`) adds: its 8 inlined lstrings are the schema's.
 
 ## In game (owner, M2.O6)
 
-The agent cannot launch the game; these steps are the owner's. Use a disposable save.
+These steps are run by the owner, or by `kit game session` on `KitKraft Dev` (ADR 0010, `docs/game-sessions.md`) once its launch facts are observed (M4.T1) and the console tools are installed (M4.O7). Use a disposable save.
 
 1. In MO2 (`C:\Modding\MO2-Starfield`), create an empty mod (right-click the mod list >
    *Create empty mod*), name it `Old Soviet Marksman Rifle (kitkraft smoke test)`.

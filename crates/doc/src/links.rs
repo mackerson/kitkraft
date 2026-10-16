@@ -171,8 +171,15 @@ pub struct RecordLinks {
     pub links: Vec<Link>,
     /// Subrecords not scanned: `(signature, position, why)`.
     pub unexamined: Vec<([u8; 4], usize, Unexamined)>,
-    /// Members of type `opaque` inside decoded subrecords (bytes not scanned).
+    /// Members of type `opaque` inside decoded subrecords (bytes not scanned). A `VMAD`
+    /// whose script entries decode is not counted: its object values are links (M5.D6).
     pub opaque_members: u64,
+    /// `VMAD` payloads whose script entries do not decode (their object values are not
+    /// read; each is also counted in `opaque_members`).
+    pub vmad_undecodable: u64,
+    /// `VMAD` payloads with bytes after the script entries (fragment blocks; on `QUST` they
+    /// hold alias scripts whose object values are not read).
+    pub vmad_unread_tails: u64,
     /// The version is deleted (record flag 0x20): its payload is not the form's data, and
     /// nothing was scanned.
     pub deleted: bool,
@@ -391,8 +398,48 @@ pub fn record_links(
         };
         let mut chain = vec![layout.name.to_string()];
         walk.walk(layout.ty, &decoded, &base, &mut chain);
-        out.opaque_members = out.opaque_members.saturating_add(walk.opaque);
         let span = spans.get(index);
+        // M5.D6: the object values of a `VMAD`'s script entries (the schema keeps its
+        // `Data` opaque; `crate::vmad` reads it). A payload that does not decode stays
+        // counted as an opaque member; a fragment block after the scripts is counted in
+        // `vmad_unread_tails`.
+        if sig == crate::vmad::VMAD {
+            match crate::vmad::object_refs(s.data()) {
+                Ok(scan) => {
+                    walk.opaque = walk.opaque.saturating_sub(1);
+                    if scan.unread_tail > 0 {
+                        out.vmad_unread_tails = out.vmad_unread_tails.saturating_add(1);
+                    }
+                    for o in scan.objects {
+                        let raw = o.object.form_id;
+                        let (status, form, basis, target_signature, error) =
+                            classify(lo, plugin, raw);
+                        out.links.push(Link {
+                            subrecord: sig,
+                            sub_index: index,
+                            occurrence,
+                            path: format!("{base}.Data.{}", o.path),
+                            chain: vec![layout.name.to_string(), "Data".to_string()],
+                            raw,
+                            targets: Vec::new(),
+                            status,
+                            form,
+                            basis,
+                            target_signature,
+                            error,
+                            file_offset: span
+                                .and_then(|s| s.file_offset)
+                                .map(|f| f.saturating_add(o.at as u64)),
+                            body_offset: span
+                                .map_or(0, |s| s.body_offset)
+                                .saturating_add(o.at as u64),
+                        });
+                    }
+                }
+                Err(_) => out.vmad_undecodable = out.vmad_undecodable.saturating_add(1),
+            }
+        }
+        out.opaque_members = out.opaque_members.saturating_add(walk.opaque);
         for (leaf, at) in walk.leaves.into_iter().zip(offsets) {
             let (status, form, basis, target_signature, error) = classify(lo, plugin, leaf.raw);
             let at = at as u64;

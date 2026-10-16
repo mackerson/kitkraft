@@ -40,6 +40,31 @@ pub(crate) fn formref(lo: &LoadOrder, plugin: u16, raw: u32) -> Value {
     }
 }
 
+/// [`formref`] for a FormID stored in a file outside the load order (`set`'s dry run,
+/// M7.S6), resolved through its master map; its own forms are named by `file`.
+pub(crate) fn formref_in(
+    lo: &LoadOrder,
+    map: &kitkraft_doc::MasterMap,
+    file: &str,
+    raw: u32,
+) -> Value {
+    if raw == 0 {
+        return json!({"kind": kind::FORMREF, "raw": "00000000", "form": null, "null": true});
+    }
+    match map.resolve(raw) {
+        Ok(g) if g.plugin == map.own_index => json!({
+            "kind": kind::FORMREF, "raw": format!("{raw:08X}"),
+            "form": format!("{file}:{:06X}", g.object_id)
+        }),
+        Ok(g) => {
+            json!({"kind": kind::FORMREF, "raw": format!("{raw:08X}"), "form": lo.form_label(g)})
+        }
+        Err(e) => json!({
+            "kind": kind::FORMREF, "raw": format!("{raw:08X}"), "form": null, "error": e.to_string()
+        }),
+    }
+}
+
 /// Marker names (the value of [`KIND`]).
 pub mod kind {
     /// A stored FormID value: `{kind, form, raw?, null?, error?, editor_id?}`. `form` is
@@ -80,6 +105,7 @@ pub const INSPECTION_COMMANDS: &[&str] = &[
     "coverage",
     "schema",
     "validate",
+    "cell",
 ];
 
 /// A JSON type in a documented shape.
@@ -416,7 +442,12 @@ const SUBRECORD_TEXT: &[Member] = &[
     opt("string_offset", NINT),
     opt("malformed_len", Int),
 ];
-const SUBRECORD_TYPED: &[Member] = &[opt("member", Str), opt("value", Shape::Value)];
+const SUBRECORD_TYPED: &[Member] = &[
+    opt("member", Str),
+    opt("value", Shape::Value),
+    // `inspect --full` (M5.D6 addition): the decoded VMAD, an open object.
+    opt("vmad", Any),
+];
 const VERSION: Shape = Obj(&[&[
     req("plugin", Str),
     req("load_index", Int),
@@ -615,6 +646,7 @@ const CONFLICTS: Shape = Obj(&[&[
     req("plugin", NSTR),
     req("type", NSTR),
     req("only_conflicts", Bool),
+    req("detail", Enum(&["summary", "fields", "full"])),
     req(
         "counts",
         List(&Obj(&[&[
@@ -634,6 +666,7 @@ const CONFLICTS: Shape = Obj(&[&[
             req("editor_id", NSTR),
             req("base_present", Bool),
             req("versions", STRS),
+            req("winner", NSTR),
             req(
                 "overrides",
                 List(&Obj(&[&[
@@ -650,7 +683,8 @@ const CONFLICTS: Shape = Obj(&[&[
                     ),
                     req("resolved_by", Str),
                     req("comparable", Bool),
-                    req("subrecords", List(&SUB_DIFF)),
+                    req("changes", Map(&Map(&Int))),
+                    opt("subrecords", List(&SUB_DIFF)),
                     req("flags_differ", Bool),
                 ]])),
             ),
@@ -660,6 +694,47 @@ const CONFLICTS: Shape = Obj(&[&[
     req("class_counts_all", Nullable(&CLASS_COUNTS)),
     req("next_cursor", NSTR),
     req("summary", Str),
+]]);
+
+// ---- cell (M7.S3) -----------------------------------------------------------------------
+
+/// One `cell` item: a world, an interior or exterior cell, or a reference (by `mode`).
+const CELL_ITEM: Shape = Obj(&[&[
+    req("form", Str),
+    opt("signature", NSTR),
+    opt("editor_id", NSTR),
+    opt("cells", Int),
+    opt("child_records", Int),
+    req("versions", Int),
+    opt("x", NINT),
+    opt("y", NINT),
+    opt("base", Nullable(&Marker(kind::FORMREF))),
+    opt("base_signature", NSTR),
+    opt("base_editor_id", NSTR),
+    opt("position", Nullable(&List(&Nullable(&Num)))),
+    opt("rotation", Nullable(&List(&Nullable(&Num)))),
+    opt("scale", Nullable(&Num)),
+    opt("persistent", Bool),
+    opt("group", Enum(&["persistent", "temporary"])),
+    opt("flags", Str),
+    opt("deleted", Bool),
+    opt("plugin", Str),
+]]);
+const CELL: Shape = Obj(&[&[
+    req("mode", Enum(&["worlds", "interior", "world", "cell"])),
+    req("total", Int),
+    req("items", List(&CELL_ITEM)),
+    opt("interior_cells", Int),
+    opt("world", NSTR),
+    opt("world_editor_id", NSTR),
+    opt("cell", Str),
+    opt("cell_signature", NSTR),
+    opt("cell_editor_id", NSTR),
+    opt("moved_out", Int),
+    req("next_cursor", NSTR),
+    req("summary", Str),
+    req("elapsed_ms", Int),
+    req("index_ms", Int),
 ]]);
 
 // ---- refs ------------------------------------------------------------------------------
@@ -1272,12 +1347,27 @@ pub fn data_shape(command: &str) -> Option<&'static Shape> {
         "coverage" => Some(&COVERAGE_DATA),
         "schema" => Some(&SCHEMA),
         "validate" => Some(&VALIDATE),
+        "cell" => Some(&CELL),
         _ => None,
     }
 }
 
 /// Deepest nesting the checks follow (the engine's own values are far shallower).
 const MAX_DEPTH: u16 = 64;
+
+/// The envelope's required member names in order (`command`, `data`, ..., `build`): what
+/// a front end describing the envelope in prose must name.
+pub fn envelope_members() -> Vec<&'static str> {
+    match ENVELOPE {
+        Obj(groups) | Open(groups) => groups
+            .iter()
+            .flat_map(|g| g.iter())
+            .filter(|m| m.required)
+            .map(|m| m.name)
+            .collect(),
+        _ => Vec::new(),
+    }
+}
 
 /// Every place `env` differs from the envelope and its command's documented data shape,
 /// and every marker problem anywhere in `data` (a marker object off its shape, an

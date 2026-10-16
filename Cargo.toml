@@ -21,6 +21,7 @@ kitkraft-strings = { path = "crates/strings" }
 kitkraft-nif = { path = "crates/nif" }
 kitkraft-doc = { path = "crates/doc" }
 kitkraft-io = { path = "crates/io" }
+kitkraft-game = { path = "crates/game" }
 kitkraft-engine = { path = "crates/engine" }
 kitkraft-mcp = { path = "crates/mcp" }
 kitkraft-ui-egui = { path = "crates/ui-egui" }

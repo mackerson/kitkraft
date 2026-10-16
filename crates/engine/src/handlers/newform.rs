@@ -419,7 +419,9 @@ fn fields_arg(command: &str, args: &Value) -> Result<Vec<Edit>, EngineError> {
     }
 }
 
-/// Stage, write, validate, install: the tail `new` and `clone` share.
+/// Stage, write, validate, install: the tail `new` and `clone` share. With `dry_run`
+/// (the schema for the preview), nothing is installed (M7.S6, `super::preview`).
+#[allow(clippy::too_many_arguments)]
 fn commit(
     command: &str,
     loaded: &mut Loaded,
@@ -428,6 +430,7 @@ fn commit(
     allow_untyped: bool,
     mut limitations: Vec<String>,
     origins: &[Origin],
+    dry_run: Option<Option<&kitkraft_schema::Schema>>,
 ) -> Result<Outcome, EngineError> {
     let staged = stage(command, into, true)?;
     let mut report = write_with(
@@ -449,15 +452,24 @@ fn commit(
         .iter()
         .filter(|f| f.severity == Severity::Error)
         .partition(|f| f.record.as_ref().is_none_or(|r| written.contains(r)));
-    if !blocking.is_empty() {
-        return Err(failed(
-            command,
-            format!(
-                "{command}.fails-validate: the written record fails validate, so {} was not changed: {}",
-                into.display(),
-                describe(&blocking)
-            ),
-        ));
+    let mut preview = None;
+    if let Some(schema) = dry_run {
+        // M7.S6: the same write and validation, reported without installing it.
+        let mut notes = Vec::new();
+        let after = super::preview::after(schema, loaded, &staged, &report, into, &mut notes);
+        preview = Some((after, notes));
+    } else {
+        if !blocking.is_empty() {
+            return Err(failed(
+                command,
+                format!(
+                    "{command}.fails-validate: the written record fails validate, so {} was not changed: {}",
+                    into.display(),
+                    describe(&blocking)
+                ),
+            ));
+        }
+        install(command, &staged, into)?;
     }
     if !other.is_empty() {
         limitations.push(format!(
@@ -467,7 +479,6 @@ fn commit(
             describe(&other)
         ));
     }
-    install(command, &staged, into)?;
     report.target = into.to_path_buf();
     let mut result = outcome(&report, origins, limitations);
     let new_forms: Vec<Value> = report
@@ -489,6 +500,17 @@ fn commit(
             json!(report.next_object_id.map(|n| format!("{n:08X}"))),
         );
         obj.insert("validate".into(), validate_json(&checked));
+    }
+    if let Some((after, notes)) = preview {
+        super::preview::attach(
+            &mut result,
+            None,
+            after,
+            &report,
+            &checked,
+            &blocking,
+            notes,
+        );
     }
     Ok(result)
 }
@@ -539,6 +561,7 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
             })
             .unwrap_or_default(),
     };
+    let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let loaded = acquire(session, args, ID)?;
     guard(ID, loaded, &into)?;
     let (mut copy, notes) = plan_new(ID, loaded, &req)?;
@@ -549,7 +572,16 @@ pub(super) fn run_new(session: &mut Session, args: &Value) -> Result<Outcome, En
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, notes);
     extend_once(&mut limitations, scripts.limitations);
-    let mut result = commit(ID, loaded, &into, vec![copy], false, limitations, &[])?;
+    let mut result = commit(
+        ID,
+        loaded,
+        &into,
+        vec![copy],
+        false,
+        limitations,
+        &[],
+        dry_run,
+    )?;
     if let Some(obj) = result.data.as_object_mut() {
         if !scripts.reports.is_empty() {
             obj.insert("scripts".into(), Value::Array(scripts.reports));
@@ -576,6 +608,7 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
         edid: edid_arg(ID, args)?,
         edits: fields_arg(ID, args)?,
     };
+    let dry_run = super::preview::requested(args).then(|| super::load::schema_of(session));
     let loaded = acquire(session, args, ID)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
@@ -591,5 +624,6 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
         allow_untyped,
         limitations,
         &[origin],
+        dry_run,
     )
 }

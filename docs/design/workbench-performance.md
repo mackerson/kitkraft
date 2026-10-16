@@ -148,5 +148,16 @@ a before-and-after row for the measures it targets.
 | 2026-10-16 | review re-run | as above | as above | warm | I1 | 2.91 s | - | 434,991 records; single run; reproduces |
 | 2026-10-16 | review re-run | as above | as above | warm | I2 | 38.6 s alone; 41.6 s under concurrent load | - | envelope 29,788,408 bytes, as the roadmap run; the solo run is 1.45x the roadmap's 26.7 s |
 
+| 2026-10-16 | M6.P5b before | kit `c980c786...` (CLI only, release), branch of `5d03d01` | Kitkraft Dev (16, 7,490,111) | warm | I2 | 2.06 s | 2.49 s | `conflicts --plugin SFBGS00D.esm`, stdout to a file; envelope 28,749,976 bytes (122,934 subrecord differences on the page, 36,811 evidence ranges); `ModOrganizer.exe` running |
+| 2026-10-16 | M6.P5b after | kit `59314faf...` (CLI only, release), lane D round 3 | as above | warm | I2 | 1.60 s | 1.93 s | `detail: summary` (the new default): envelope 51,717 bytes; `detail: fields` 22,148,397 bytes in 2.56 s; `detail: full` 28,758,276 bytes in 2.81 s (single runs) |
+| 2026-10-16 | M6.P3b before | kit `c980c786...` | as above | cold / warm | I4 | 34.5 s cold; 1.52 s warm | - | `refs Starfield.esm:02EB36 --incoming` (Tombstone, 14 referrers); cold = fresh cache dir (record index and reverse index built: index 28.8 s); warm = the next two processes (reverse index from disk, 257 ms) |
+| 2026-10-16 | M6.P3b after | kit `59314faf...` | as above | cold / warm / session | I4 | 31.9 s cold; 1.04 s warm; 1 ms second call in one session | - | as above, reverse index format 2 (VMAD objects, M5.D6): cold index 26.8 s, warm 174 ms from disk; in one session (`Engine`, MCP, the window) the index is kept with the load order and the second call takes 1 ms (`tests/lane_d3_corpus.rs`, Starfield.esm alone: first 220 ms from the disk cache, second 1 ms) |
+
 Neither the roadmap baseline nor the review re-run applied the three-run rule; M6.P1's
-rows are the first that must.
+rows are the first that must. The lane D round 3 rows are medians of three CLI runs
+(stdout to a file). The 26.7 to 41.6 s I2 of the first baseline did not reproduce on
+this build and profile (2.0 to 2.5 s for the same 28.7 MB envelope); the earlier runs
+used the 2026-10-15 `bin\kit.exe` and may have printed to a console, so the engine time
+was never the 30 s. `detail: summary` meets I2's target (under 3 s and 2 MB). I4's warm
+target (under 1 s) holds in the engine (174 ms) and in a session (1 ms); a whole CLI
+process with the profile load is 1.0 s.

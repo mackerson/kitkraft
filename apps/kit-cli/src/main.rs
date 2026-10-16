@@ -484,7 +484,7 @@ fn cli() -> Command {
                 .long("progress")
                 .global(true)
                 .action(ArgAction::SetTrue)
-                .help("Print progress lines of long commands to stderr (the result is unchanged)"),
+                .help("Print progress lines of long commands to stderr (the result is the same except timings)"),
         )
         .arg(
             Arg::new("version")

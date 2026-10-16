@@ -156,6 +156,13 @@ pub const WRITING: &[&str] = &[
     "deploy.rollback",
     "roundtrip",
     "ledger",
+    // Lane C (M4.T3): classified only, so the catalog and this list agree; the window may
+    // not run them until M6.G4/G5 add them with their confirmations.
+    "game.session",
+    "game.probe",
+    "game.stop",
+    // lane D round 3 (M7.S7): refused in the window until M7.E1/M7.O4 rule on it.
+    "revert",
 ];
 
 /// The one write the workbench may make (ADR 0007 Amendment 2).
@@ -513,6 +520,10 @@ mod tests {
             "strings.dump",
             "deploy.status",
             "doctor",
+            // Lane C (M4.T3); M6.G2/G4 use it.
+            "game.status",
+            // lane D round 3 (M7.S3): the Cell View (M7.W2) will use it.
+            "cell",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);
