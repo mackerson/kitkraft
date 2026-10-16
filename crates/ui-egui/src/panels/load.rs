@@ -214,9 +214,9 @@ pub fn list_profiles(profiles_dir: &Path) -> Vec<ProfileEntry> {
 
 // ---- drawing ---------------------------------------------------------------------------
 
-use eframe::egui::{self, ScrollArea, TextEdit};
+use eframe::egui::{self, TextEdit};
 
-use crate::panels::common::{envelope_block, Action, Slot, TabCtx};
+use crate::panels::common::{envelope_block, virtual_table, Action, Slot, TabCtx};
 use crate::theme::{self, Field, Status, View};
 
 /// The Load tab's state: the form, the profiles folder and its listing, and the last
@@ -295,55 +295,53 @@ impl LoadTab {
                     ui.colored_label(theme::warn(ui), format!("{label}: {}", list.join(", ")));
                 }
             }
-            ScrollArea::vertical()
-                .id_salt("load-rows")
-                .max_height(theme::view_height(ui, View::Tall))
-                .show(ui, |ui| {
-                    theme::table(ui, "load-grid").show(ui, |ui| {
-                        for h in [
-                            "#", "plugin", "scale", "flags", "records", "slot", "active",
-                            "provider", "cache", "problems",
-                        ] {
-                            ui.strong(h);
-                        }
-                        ui.end_row();
-                        for p in &view.plugins {
-                            ui.label(p.index.to_string());
-                            ui.label(&p.name);
-                            if p.scale == "unknown" {
-                                theme::status(ui, Status::Unknown, "unknown");
-                            } else {
-                                ui.label(&p.scale);
-                            }
-                            ui.label(&p.flags);
-                            ui.label(p.records.map_or_else(|| "?".to_string(), |n| n.to_string()));
-                            ui.label(&p.runtime_slot);
-                            ui.label(&p.active);
-                            ui.label(&p.provider);
-                            ui.label(&p.cache);
-                            let mut problems = Vec::new();
-                            if !p.missing_masters.is_empty() {
-                                problems.push(format!(
-                                    "missing masters: {}",
-                                    p.missing_masters.join(", ")
-                                ));
-                            }
-                            if !p.late_masters.is_empty() {
-                                problems
-                                    .push(format!("late masters: {}", p.late_masters.join(", ")));
-                            }
-                            if let Some(e) = &p.error {
-                                problems.push(e.clone());
-                            }
-                            if problems.is_empty() {
-                                ui.label("");
-                            } else {
-                                theme::status(ui, Status::Fail, &problems.join("; "));
-                            }
-                            ui.end_row();
+            virtual_table(
+                ui,
+                "load-grid",
+                &[
+                    "#", "plugin", "scale", "flags", "records", "slot", "active", "provider",
+                    "cache", "problems",
+                ],
+                view.plugins.len(),
+                View::Tall,
+                |row, i| {
+                    let Some(p) = view.plugins.get(i) else { return };
+                    row.cell(|ui| ui.label(p.index.to_string()));
+                    row.cell(|ui| ui.label(&p.name));
+                    row.cell(|ui| {
+                        if p.scale == "unknown" {
+                            theme::status(ui, Status::Unknown, "unknown")
+                        } else {
+                            ui.label(&p.scale)
                         }
                     });
-                });
+                    row.cell(|ui| ui.label(&p.flags));
+                    row.cell(|ui| {
+                        ui.label(p.records.map_or_else(|| "?".to_string(), |n| n.to_string()))
+                    });
+                    row.cell(|ui| ui.label(&p.runtime_slot));
+                    row.cell(|ui| ui.label(&p.active));
+                    row.cell(|ui| ui.label(&p.provider));
+                    row.cell(|ui| ui.label(&p.cache));
+                    let mut problems = Vec::new();
+                    if !p.missing_masters.is_empty() {
+                        problems.push(format!("missing masters: {}", p.missing_masters.join(", ")));
+                    }
+                    if !p.late_masters.is_empty() {
+                        problems.push(format!("late masters: {}", p.late_masters.join(", ")));
+                    }
+                    if let Some(e) = &p.error {
+                        problems.push(e.clone());
+                    }
+                    row.cell(|ui| {
+                        if problems.is_empty() {
+                            ui.label("")
+                        } else {
+                            theme::status(ui, Status::Fail, &problems.join("; "))
+                        }
+                    });
+                },
+            );
         });
     }
 }

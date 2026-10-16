@@ -438,7 +438,8 @@ fn subrecord(s: &Value) -> SubRow {
 use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    conf_label, envelope_block, link, plugin_combo, record_actions, Action, Slot, TabCtx,
+    conf_label, envelope_block, link, plugin_combo, record_actions, virtual_table, Action, Slot,
+    TabCtx,
 };
 use crate::panels::planet::PLANET_TYPES;
 use crate::theme::{self, Field, Status, View};
@@ -571,51 +572,48 @@ impl RecordsTab {
                 });
                 envelope_block(ui, ctx.results.get(&Slot::Types.into()), |ui| {
                     let filter = self.type_filter.trim().to_ascii_uppercase();
-                    ScrollArea::vertical()
-                        .id_salt("types-rows")
-                        .max_height(theme::view_height(ui, View::Short))
-                        .show(ui, |ui| {
-                            theme::table(ui, "types-grid").show(ui, |ui| {
-                                for h in
-                                    ["type", "definition", "records", "confidence / occurrences"]
+                    let shown: Vec<_> = self
+                        .type_rows
+                        .iter()
+                        .filter(|t| filter.is_empty() || t.signature.contains(&filter))
+                        .collect();
+                    virtual_table(
+                        ui,
+                        "types-grid",
+                        &["type", "definition", "records", "confidence / occurrences"],
+                        shown.len(),
+                        View::Short,
+                        |row, i| {
+                            let Some(t) = shown.get(i) else { return };
+                            row.cell(|ui| {
+                                if link(ui, !busy, &t.signature)
+                                    .on_hover_text("query this type")
+                                    .clicked()
                                 {
-                                    ui.strong(h);
-                                }
-                                ui.end_row();
-                                for t in self
-                                    .type_rows
-                                    .iter()
-                                    .filter(|t| filter.is_empty() || t.signature.contains(&filter))
-                                {
-                                    if link(ui, !busy, &t.signature)
-                                        .on_hover_text("query this type")
-                                        .clicked()
-                                    {
-                                        actions.push(Action::PickType(t.signature.clone()));
-                                    }
-                                    match &t.definition {
-                                        Some(d) => {
-                                            ui.label(d);
-                                        }
-                                        None => {
-                                            theme::status(
-                                                ui,
-                                                Status::Unknown,
-                                                "no definition (subrecords unknown)",
-                                            );
-                                        }
-                                    }
-                                    ui.label(t.records.map_or_else(String::new, |n| n.to_string()));
-                                    ui.label(
-                                        t.occurrences
-                                            .clone()
-                                            .or_else(|| t.confidence.clone())
-                                            .unwrap_or_default(),
-                                    );
-                                    ui.end_row();
+                                    actions.push(Action::PickType(t.signature.clone()));
                                 }
                             });
-                        });
+                            row.cell(|ui| match &t.definition {
+                                Some(d) => ui.label(d),
+                                None => theme::status(
+                                    ui,
+                                    Status::Unknown,
+                                    "no definition (subrecords unknown)",
+                                ),
+                            });
+                            row.cell(|ui| {
+                                ui.label(t.records.map_or_else(String::new, |n| n.to_string()))
+                            });
+                            row.cell(|ui| {
+                                ui.label(
+                                    t.occurrences
+                                        .clone()
+                                        .or_else(|| t.confidence.clone())
+                                        .unwrap_or_default(),
+                                )
+                            });
+                        },
+                    );
                 });
             });
     }
@@ -671,56 +669,54 @@ impl RecordsTab {
                         theme::status(ui, Status::Unknown, &format!("undecided {form}: {reasons}"));
                     }
                     let selected = self.record_view.as_ref().map(|r| r.global.as_str());
-                    let rows_out = ScrollArea::vertical()
-                        .id_salt("query-rows")
-                        .max_height(theme::view_height(ui, View::Medium))
-                        .show(ui, |ui| {
-                            theme::table(ui, "query-grid").show(ui, |ui| {
-                                for h in [
-                                    "form",
-                                    "",
-                                    "editor id",
-                                    "name",
-                                    "plugin",
-                                    "raw FormID",
-                                    "runtime ID",
-                                    "",
-                                ] {
-                                    ui.strong(h);
-                                }
-                                ui.end_row();
-                                for r in &view.rows {
-                                    let picked = selected == Some(r.form.as_str());
-                                    let text = if picked {
-                                        egui::RichText::new(&r.form).strong()
-                                    } else {
-                                        egui::RichText::new(&r.form)
-                                    };
-                                    if link(ui, !busy, text).on_hover_text("inspect").clicked() {
-                                        actions.push(Action::Inspect(r.form.clone()));
-                                    }
-                                    record_actions(ui, busy, &r.form, actions);
-                                    ui.label(&r.editor_id);
-                                    ui.label(&r.full);
-                                    ui.label(&r.plugin);
-                                    ui.monospace(&r.raw_form_id);
-                                    ui.monospace(&r.runtime_id);
-                                    let mut tags = Vec::new();
-                                    if r.winner {
-                                        tags.push("winner");
-                                    }
-                                    if r.deleted {
-                                        tags.push("deleted");
-                                    }
-                                    ui.label(tags.join(", "));
-                                    ui.end_row();
+                    let rows_rect = virtual_table(
+                        ui,
+                        "query-grid",
+                        &[
+                            "form",
+                            "",
+                            "editor id",
+                            "name",
+                            "plugin",
+                            "raw FormID",
+                            "runtime ID",
+                            "",
+                        ],
+                        view.rows.len(),
+                        View::Medium,
+                        |row, i| {
+                            let Some(r) = view.rows.get(i) else { return };
+                            let picked = selected == Some(r.form.as_str());
+                            let text = if picked {
+                                egui::RichText::new(&r.form).strong()
+                            } else {
+                                egui::RichText::new(&r.form)
+                            };
+                            row.cell(|ui| {
+                                if link(ui, !busy, text).on_hover_text("inspect").clicked() {
+                                    actions.push(Action::Inspect(r.form.clone()));
                                 }
                             });
-                        });
+                            row.cell(|ui| record_actions(ui, busy, &r.form, actions));
+                            row.cell(|ui| ui.label(&r.editor_id));
+                            row.cell(|ui| ui.label(&r.full));
+                            row.cell(|ui| ui.label(&r.plugin));
+                            row.cell(|ui| ui.monospace(&r.raw_form_id));
+                            row.cell(|ui| ui.monospace(&r.runtime_id));
+                            let mut tags = Vec::new();
+                            if r.winner {
+                                tags.push("winner");
+                            }
+                            if r.deleted {
+                                tags.push("deleted");
+                            }
+                            row.cell(|ui| ui.label(tags.join(", ")));
+                        },
+                    );
                     crate::app::note_perf_target(
                         ui.ctx(),
                         crate::app::PERF_TARGET_RECORDS,
-                        rows_out.inner_rect,
+                        rows_rect,
                     );
                 });
             });

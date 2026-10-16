@@ -18,8 +18,6 @@ use crate::panels::start::StartProfile;
 use crate::panels::validate::FindingRow;
 use crate::theme::{self, Status, ThemeChoice, View};
 
-/// Rows of evidence shown per result; the raw JSON has the rest.
-const EVIDENCE_ROWS: usize = 300;
 /// Characters of a limitation shown on its line (the full text is on hover).
 const LIMITATION_CHARS: usize = 200;
 
@@ -110,6 +108,144 @@ pub(crate) struct TabCtx<'a> {
     /// The profile last loaded from the start screen (`ui.json`).
     pub last_profile: Option<&'a str>,
     pub prefs_path: Option<&'a Path>,
+}
+
+/// One row of a [`virtual_table`]: its cells, added left to right with [`TableRow::cell`].
+pub(crate) struct TableRow<'a> {
+    ui: &'a mut egui::Ui,
+    widths: &'a mut Vec<f32>,
+    grew: &'a mut bool,
+    x: f32,
+    top: f32,
+    height: f32,
+    gap: f32,
+    col: usize,
+}
+
+impl TableRow<'_> {
+    /// Adds one cell. The cell is as wide as the widest content its column has shown so
+    /// far (columns only grow, so they do not jump while scrolling); content is never
+    /// wrapped, and what does not fit is clipped until the column grows on the next frame.
+    pub(crate) fn cell<R>(&mut self, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+        let col = self.col;
+        self.col = self.col.saturating_add(1);
+        if self.widths.len() <= col {
+            self.widths.resize(col.saturating_add(1), 0.0);
+        }
+        let width = self.widths.get(col).copied().unwrap_or(0.0);
+        let cell =
+            egui::Rect::from_min_size(egui::pos2(self.x, self.top), egui::vec2(width, self.height));
+        // Unbounded to the right, so nothing wraps; clipped to the cell.
+        let room = egui::Rect::from_min_max(cell.min, egui::pos2(f32::INFINITY, cell.max.y));
+        let mut child = self.ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(room)
+                .layout(egui::Layout::left_to_right(egui::Align::Center)),
+        );
+        child.set_clip_rect(cell.intersect(self.ui.clip_rect()));
+        let out = add(&mut child);
+        let used = child.min_rect().width();
+        if used > width {
+            if let Some(w) = self.widths.get_mut(col) {
+                *w = used;
+            }
+            *self.grew = true;
+        }
+        self.x += width + self.gap;
+        out
+    }
+}
+
+/// The row height and column gap of every [`virtual_table`]: the theme's density
+/// (`row_height`, `cell_x`), never less than a control's height.
+fn table_metrics(ui: &egui::Ui) -> (f32, f32) {
+    let theme = theme::active(ui.ctx());
+    let control = ui.spacing().interact_size.y;
+    if theme.restyle {
+        (theme.density.row_height.max(control), theme.density.cell_x)
+    } else {
+        (control, ui.spacing().item_spacing.x)
+    }
+}
+
+/// Draws one row of a [`virtual_table`] at the next place in `ui`.
+fn table_row(
+    ui: &mut egui::Ui,
+    widths: &mut Vec<f32>,
+    grew: &mut bool,
+    zebra: bool,
+    add: impl FnOnce(&mut TableRow<'_>),
+) {
+    let (height, gap) = table_metrics(ui);
+    let total: f32 = widths.iter().map(|w| w + gap).sum();
+    let (rect, _) = ui.allocate_exact_size(
+        egui::vec2(total.max(ui.available_width()), height),
+        egui::Sense::hover(),
+    );
+    if zebra {
+        ui.painter()
+            .rect_filled(rect, 0.0, ui.visuals().faint_bg_color);
+    }
+    let mut row = TableRow {
+        ui,
+        widths,
+        grew,
+        x: rect.min.x,
+        top: rect.min.y,
+        height,
+        gap,
+        col: 0,
+    };
+    add(&mut row);
+}
+
+/// A table that lays out only the rows scrolled into view (M6.P4), so a page of 1000
+/// query rows or 30,000 evidence ranges costs a screenful per frame. The header stays at
+/// the top; every row has the theme's row height; zebra rows when the density asks for
+/// them; the scroll position is kept per `id`, and selection is the caller's state, so
+/// both survive a repaint. `row(r, i)` adds row `i`'s cells, one per header column.
+/// Returns the rectangle of the rows' scroll area.
+pub(crate) fn virtual_table(
+    ui: &mut egui::Ui,
+    id: impl std::hash::Hash + std::fmt::Debug,
+    header: &[&str],
+    rows: usize,
+    view: View,
+    mut row: impl FnMut(&mut TableRow<'_>, usize),
+) -> egui::Rect {
+    let id = ui.make_persistent_id(("virtual-table", id));
+    let mut widths: Vec<f32> = ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
+    let mut grew = false;
+    let zebra = theme::active(ui.ctx()).density.zebra;
+    let (height, _) = table_metrics(ui);
+    let max_height = theme::view_height(ui, view);
+    let rect = ScrollArea::horizontal()
+        .id_salt((id, "h"))
+        .auto_shrink([false, true])
+        .show(ui, |ui| {
+            table_row(ui, &mut widths, &mut grew, false, |r| {
+                for h in header {
+                    r.cell(|ui| ui.strong(*h));
+                }
+            });
+            ScrollArea::vertical()
+                .id_salt((id, "v"))
+                .max_height(max_height)
+                .auto_shrink([false, true])
+                .show_rows(ui, height, rows, |ui, range| {
+                    for i in range {
+                        let stripe = zebra && i & 1 == 1;
+                        table_row(ui, &mut widths, &mut grew, stripe, |r| row(r, i));
+                    }
+                })
+                .inner_rect
+        })
+        .inner;
+    ui.data_mut(|d| d.insert_temp(id, widths));
+    if grew {
+        ui.ctx().request_repaint();
+    }
+    rect
 }
 
 /// A link that submits a request: disabled while the engine is busy, so clicks do not
@@ -203,41 +339,44 @@ pub(crate) fn plugin_combo(
 }
 
 /// Validate findings as a table: severity as a status, then rule, record, subrecord,
-/// offset and message (the Validate and Diagnostics tabs).
-pub(crate) fn findings_grid<'a>(
-    ui: &mut egui::Ui,
-    id: &str,
-    findings: impl Iterator<Item = &'a FindingRow>,
-) {
-    theme::table(ui, ("findings", id)).show(ui, |ui| {
-        for h in [
-            "severity",
-            "rule",
-            "record",
-            "subrecord",
-            "offset",
-            "message",
-        ] {
-            ui.strong(h);
-        }
-        ui.end_row();
-        for f in findings.take(1000) {
-            if f.severity == "error" {
-                theme::status(ui, Status::Fail, &f.severity);
-            } else {
-                theme::status(ui, Status::Warn, &f.severity);
-            }
-            ui.monospace(&f.rule);
-            ui.monospace(&f.record);
-            ui.monospace(&f.subrecord);
-            ui.monospace(
-                f.offset
-                    .map_or_else(|| "?".to_string(), |o| format!("{o} (0x{o:X})")),
-            );
-            ui.label(&f.message);
-            ui.end_row();
-        }
-    });
+/// offset and message (the Validate and Diagnostics tabs); every finding, laid out only
+/// where scrolled into view.
+pub(crate) fn findings_grid(ui: &mut egui::Ui, id: &str, findings: &[FindingRow]) {
+    let header = [
+        "severity",
+        "rule",
+        "record",
+        "subrecord",
+        "offset",
+        "message",
+    ];
+    virtual_table(
+        ui,
+        ("findings", id),
+        &header,
+        findings.len(),
+        View::Medium,
+        |r, i| {
+            let Some(f) = findings.get(i) else { return };
+            r.cell(|ui| {
+                if f.severity == "error" {
+                    theme::status(ui, Status::Fail, &f.severity);
+                } else {
+                    theme::status(ui, Status::Warn, &f.severity);
+                }
+            });
+            r.cell(|ui| ui.monospace(&f.rule));
+            r.cell(|ui| ui.monospace(&f.record));
+            r.cell(|ui| ui.monospace(&f.subrecord));
+            r.cell(|ui| {
+                ui.monospace(
+                    f.offset
+                        .map_or_else(|| "?".to_string(), |o| format!("{o} (0x{o:X})")),
+                )
+            });
+            r.cell(|ui| ui.label(&f.message));
+        },
+    );
 }
 
 /// The common frame around one result: the command line and MCP call that produce it
@@ -339,30 +478,23 @@ pub(crate) fn envelope_block(
     CollapsingHeader::new(format!("evidence ({} ranges)", view.evidence.len()))
         .id_salt(("evidence", id))
         .show(ui, |ui| {
-            ScrollArea::vertical()
-                .id_salt(("evidence-rows", id))
-                .max_height(theme::view_height(ui, View::Medium))
-                .show(ui, |ui| {
-                    theme::table(ui, ("evidence-grid", id)).show(ui, |ui| {
-                        for h in ["file", "offset", "length", "record", "subrecord"] {
-                            ui.strong(h);
-                        }
-                        ui.end_row();
-                        for e in view.evidence.iter().take(EVIDENCE_ROWS) {
-                            ui.label(&e.file);
-                            ui.monospace(format!("{} (0x{:X})", e.offset, e.offset));
-                            ui.monospace(e.length.to_string());
-                            ui.monospace(&e.record);
-                            ui.monospace(&e.subrecord);
-                            ui.end_row();
-                        }
-                    });
-                    if view.evidence.len() > EVIDENCE_ROWS {
-                        ui.weak(format!(
-                            "first {EVIDENCE_ROWS} shown; the raw JSON (MCP or `kit --json`) has all"
-                        ));
-                    }
-                });
+            virtual_table(
+                ui,
+                ("evidence-grid", id),
+                &["file", "offset", "length", "record", "subrecord"],
+                view.evidence.len(),
+                View::Medium,
+                |r, i| {
+                    let Some(e) = view.evidence.get(i) else {
+                        return;
+                    };
+                    r.cell(|ui| ui.label(&e.file));
+                    r.cell(|ui| ui.monospace(format!("{} (0x{:X})", e.offset, e.offset)));
+                    r.cell(|ui| ui.monospace(e.length.to_string()));
+                    r.cell(|ui| ui.monospace(&e.record));
+                    r.cell(|ui| ui.monospace(&e.subrecord));
+                },
+            );
         });
     raw_lines(ui, id, "raw data (JSON)", &shown.prepared, false);
 }
@@ -394,4 +526,41 @@ fn raw_lines(ui: &mut egui::Ui, id: &str, title: &str, prepared: &Prepared, open
                     }
                 });
         });
+}
+
+#[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
+mod tests {
+    use super::*;
+    use crate::theme::{Mode, Preset};
+
+    /// M6.P4: a 100,000-row table lays out about a screenful of rows per frame, from the
+    /// top, and the header's columns only grow.
+    #[test]
+    fn a_virtual_table_lays_out_only_the_visible_rows() {
+        let ctx = egui::Context::default();
+        theme::apply(&ctx, &Preset::Workbench.theme(), Mode::Light);
+        let raw = || egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::Vec2::from(theme::WINDOW),
+            )),
+            ..Default::default()
+        };
+        let mut seen = Vec::new();
+        for _ in 0..3 {
+            seen.clear();
+            let mut out = ctx.run_ui(raw(), |ui| {
+                virtual_table(ui, "t", &["a", "b"], 100_000, View::Medium, |r, i| {
+                    seen.push(i);
+                    r.cell(|ui| ui.label(format!("row {i}")));
+                    r.cell(|ui| ui.monospace("x".repeat(i % 7)));
+                });
+            });
+            out.textures_delta.clear();
+        }
+        assert!(!seen.is_empty(), "no row drawn");
+        assert!(seen.len() < 200, "{} rows laid out", seen.len());
+        assert_eq!(seen.first(), Some(&0));
+    }
 }

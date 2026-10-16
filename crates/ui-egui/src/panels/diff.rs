@@ -299,9 +299,9 @@ fn span(v: Option<&Value>) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    envelope_block, link, plugin_combo, record_actions, Action, Slot, TabCtx,
+    envelope_block, link, plugin_combo, record_actions, virtual_table, Action, Slot, TabCtx,
 };
-use crate::theme::{self, Field};
+use crate::theme::{self, Field, View};
 
 /// The Diff tab's state: the form and the last `diff` or `conflicts` page.
 #[derive(Default)]
@@ -403,20 +403,21 @@ impl DiffTab {
                             }
                             record_actions(ui, busy, &r.form, actions);
                         });
-                        theme::table(ui, ("diff-grid", i)).show(ui, |ui| {
-                            for h in ["subrecord", "change", "path", "before", "after"] {
-                                ui.strong(h);
-                            }
-                            ui.end_row();
-                            for f in &r.rows {
-                                ui.monospace(&f.subrecord);
-                                ui.label(&f.change);
-                                ui.monospace(&f.path);
-                                ui.label(&f.before);
-                                ui.label(&f.after);
-                                ui.end_row();
-                            }
-                        });
+                        virtual_table(
+                            ui,
+                            ("diff-grid", i),
+                            &["subrecord", "change", "path", "before", "after"],
+                            r.rows.len(),
+                            View::Medium,
+                            |row, j| {
+                                let Some(f) = r.rows.get(j) else { return };
+                                row.cell(|ui| ui.monospace(&f.subrecord));
+                                row.cell(|ui| ui.label(&f.change));
+                                row.cell(|ui| ui.monospace(&f.path));
+                                row.cell(|ui| ui.label(&f.before));
+                                row.cell(|ui| ui.label(&f.after));
+                            },
+                        );
                     });
             }
         });
