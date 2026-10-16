@@ -40,6 +40,7 @@ fn sig_text(s: Option<[u8; 4]>) -> String {
 
 fn run_on(loaded: &Loaded, args: &Value) -> Result<Outcome, EngineError> {
     let lo = &loaded.lo;
+    crate::progress::emit("scan", 0, None, None);
     let plugin_arg = |name: &str| -> Result<Option<u16>, EngineError> {
         match args.get(name).and_then(Value::as_str) {
             None => Ok(None),

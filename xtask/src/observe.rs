@@ -636,7 +636,7 @@ fn new_fixture(root: &Path, id: &str, date: &str) -> Result<PathBuf> {
 }
 
 /// Today's UTC date as `yyyy-mm-dd` (civil-from-days).
-fn today() -> Option<String> {
+pub(crate) fn today() -> Option<String> {
     let secs = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?

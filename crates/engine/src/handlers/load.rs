@@ -530,8 +530,14 @@ pub(crate) fn load(
         IndexCache::default_location()
     };
     let cache_dir = cache.as_ref().map(|c| c.dir().display().to_string());
-    let mut lo = LoadOrder::load(specs, &LoadOptions { cache, threads: 0 })
-        .map_err(|e| failed(command, e.to_string()))?;
+    let reporter = crate::progress::current();
+    if let Some(r) = &reporter {
+        r.emit("index", 0, Some(specs.len()), None);
+    }
+    let on_indexed = crate::progress::per_plugin(reporter.as_ref(), "index");
+    let mut lo =
+        LoadOrder::load_with_progress(specs, &LoadOptions { cache, threads: 0 }, &on_indexed)
+            .map_err(|e| failed(command, e.to_string()))?;
     for w in &warnings {
         limitations.push(format!("profile: {w}"));
     }
@@ -964,6 +970,65 @@ pub(crate) mod tests {
         let listing = engine.with_session(|s| s.load_order().cloned()).unwrap();
         assert_eq!(listing["plugins"].as_array().unwrap().len(), 2);
         assert!(engine.with_session(|s| s.get::<Loaded>().is_some()));
+    }
+
+    /// M6.P2b: `load` of two plugins sends a start event and one event per plugin, with
+    /// `done` counting up; nothing reaches a sink when none is given; and the envelope is
+    /// the same with and without one (timings aside).
+    #[test]
+    fn load_reports_progress_per_plugin_and_the_envelope_is_unchanged() {
+        use crate::progress::Progress;
+        use std::sync::{Arc, Mutex};
+        let dir = fixture("progress");
+        let seen: Arc<Mutex<Vec<Progress>>> = Arc::new(Mutex::new(Vec::new()));
+        let log = Arc::clone(&seen);
+        let with = crate::execute_with_progress(
+            "load",
+            plugins_args(&dir),
+            Arc::new(move |p: &Progress| log.lock().unwrap().push(p.clone())),
+        )
+        .unwrap();
+        let events = seen.lock().unwrap().clone();
+        assert_eq!(events.len(), 3, "{events:?}");
+        assert!(events
+            .iter()
+            .all(|e| e.command == "load" && e.stage == "index" && e.total == Some(2)));
+        let done: Vec<u64> = events.iter().map(|e| e.done).collect();
+        assert_eq!(done, [0, 1, 2], "in order");
+        assert_eq!(events[0].item, None);
+        let mut plugins: Vec<&str> = events[1..]
+            .iter()
+            .filter_map(|e| e.item.as_deref())
+            .collect();
+        plugins.sort_unstable();
+        assert_eq!(plugins, ["Base.esm", "Patch.esm"]);
+        assert_eq!(
+            events[1].line().split(' ').take(3).collect::<Vec<_>>(),
+            ["load:", "index", "1/2"]
+        );
+
+        // No sink: nothing is emitted (a sink installed elsewhere is not this thread's).
+        assert!(crate::progress::current().is_none());
+        let without = crate::execute("load", plugins_args(&dir)).unwrap();
+        assert_eq!(seen.lock().unwrap().len(), 3);
+        assert_eq!(untimed(with), untimed(without));
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// `v` without its timings (`*_ms` members, and the summary that quotes them).
+    fn untimed(mut v: Value) -> Value {
+        fn strip(v: &mut Value) {
+            match v {
+                Value::Object(map) => {
+                    map.retain(|k, _| !k.ends_with("_ms") && k != "summary");
+                    map.values_mut().for_each(strip);
+                }
+                Value::Array(list) => list.iter_mut().for_each(strip),
+                _ => {}
+            }
+        }
+        strip(&mut v);
+        v
     }
 
     #[test]
