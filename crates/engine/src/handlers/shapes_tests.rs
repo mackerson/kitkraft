@@ -64,6 +64,14 @@ fn envelopes(tag: &str) -> Vec<(String, Value)> {
         &engine,
         "conflicts",
         "conflicts",
+        json!({"count_classes": true, "detail": "full"}),
+    );
+    run(&engine, "cell worlds", "cell", json!({}));
+    run(&engine, "cell interior", "cell", json!({"interior": true}));
+    run(
+        &engine,
+        "conflicts summary",
+        "conflicts",
         json!({"count_classes": true}),
     );
     run(

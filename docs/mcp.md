@@ -446,6 +446,14 @@ record, the compressed body). Coverage is `partial`; every subrecord counts as o
 Limitations always say that single-plugin mode lists raw payloads (schema-typed values
 are shown in load-order mode) and that overrides in other plugins are not considered.
 
+**Payload size (M5.D6 addition).** Both modes show the first 256 bytes of each payload by
+default. `max_bytes: n` sets the cut; `full: true` shows every byte and, in load-order
+mode, adds `vmad` to each `VMAD` subrecord: `{version, object_format, scripts[] {name,
+flags, properties[] {name, type, flags, value}}, fragment_bytes}`, where an object value
+is `{object: formref, alias}`, arrays are lists, structs are lists of member properties,
+and `fragment_bytes` counts the fragment block after the scripts (not decoded). Use it to
+read a long script property list (a quest's special-case entries); envelopes grow with it.
+
 ### `query` (M2.D10, M2.D11)
 
 Arguments `{type, where?, scope = "winner" | "all", limit = 50 (max 1000), cursor?}` plus
@@ -541,8 +549,8 @@ Evidence: both sides of every listed record and differing payload.
 
 ### `conflicts` (M2.D13, port of `esmscan.py`)
 
-Arguments `{master?, plugin?, type?, only_conflicts = false, count_classes = false, limit =
-50 (max 1000), cursor?}` plus the load-order arguments; CLI `kit conflicts --master
+Arguments `{master?, plugin?, type?, only_conflicts = false, count_classes = false, detail =
+"summary", limit = 50 (max 1000), cursor?}` plus the load-order arguments; CLI `kit conflicts --master
 Starfield.esm --profile <dir>` (alias `esmscan`).
 
 `data`: `counts[]` (`master`, `plugin`, `total`, `types {SIG: n}`: override records of
@@ -557,6 +565,14 @@ the same forms is `identical-to-previous`; M3.D2), `flags_differ`), `class_count
 `class_counts_all` (every matching form, with `count_classes`), `next_cursor`, `summary`.
 Evidence: each override's record header and its differing payloads.
 `only_conflicts` keeps forms that two or more plugins override.
+
+`detail` (M6.P5b) sets how much of each override a page carries: `summary` (the default)
+gives each item's `winner` and each override's `changes` (`{change: {SIG: n}}`, the
+differing subrecords counted by signature) without `subrecords[]`, and only record headers
+as evidence; `fields` adds `subrecords[]` with the member-level `fields[]`; `full` also
+adds each differing payload's byte range to the evidence (the output before M6.P5b).
+`data.detail` echoes it. A page of `SFBGS00D.esm`'s overrides is 28.7 MB at `full` and
+52 KB at `summary` (`docs/design/workbench-performance.md`, I2).
 
 Checked 2026-10-14 against `esmscan.py` run read-only on the owner's Default profile
 (master `Starfield.esm`, the other 83 plugins): the same 59 plugins and identical per-type
@@ -853,6 +869,45 @@ yet (with the header subrecords deliberately not written), a master list extende
 FormIDs remapped, lstrings typed by the corpus table, inline text with bytes >= 0x80,
 subrecords copied under `allow_untyped_lstrings`, validate errors on records the call did
 not write.
+
+**Dry run (M7.S6).** `set`, `new` and `clone` take `dry_run: true`: the plugin is written
+to the staged copy and validated exactly as for a real call, nothing is installed (`into`
+stays byte-identical, or absent), and the envelope adds `dry_run`, `before` (the version
+the edit starts from in `inspect`'s `versions[]` shape; `null` for `new` and `clone`),
+`after[]` (each written record read back from the staged plugin, same shape, named by
+`into`'s file name with `load_index: null`), `changed[]` (`{form, path, before, after}`),
+`would_write` (false when the written records fail `validate`; a real call refuses them)
+and `validate`. Evidence offsets name the bytes `into` would hold.
+
+### `revert` (M7.S7)
+
+Arguments `{plugin, form, to = "remove", dry_run = false}` plus the load-order arguments
+(the plugin's masters; `plugin` itself is never a load-order plugin, the game's Data
+folder or MO2, as for `set`). `form` is a formref, an EditorID or a hex FormID as stored in
+`plugin`. `to: "remove"` drops the plugin's override (the version before it in the load
+order wins again; groups left empty go too, carried parent records stay); `to:
+"previous"` replaces the override with a copy of that version (FormIDs remapped, lstrings
+inlined, as `set` copies). A form the plugin defines is refused (`revert.own-form`): it
+has no earlier version. The change is staged and validated like `set`'s; `dry_run`
+installs nothing. `data`: `plugin`, `file`, `form`, `raw_form_id`, `to`, `dry_run`,
+`written`, `would_write`, `diff` (the `diff` command's data for the file before and after),
+`validate`, `summary`. Evidence: the record's header in the plugin, then the diff's.
+
+### `cell` (M7.S3; CLI `kit cell`, alias `cells`)
+
+Arguments `{world?, x?, y?, cell?, interior = false, plugin?, limit = 100 (max 1000),
+cursor?}` plus the load-order arguments; read-only. With none of them: the worldspaces
+(`items[] {form, editor_id, cells, child_records, versions}`, `interior_cells`). With
+`interior: true`: the interior cells. With `world`: its exterior cells with their grid
+(`x`, `y` from `XCLC`), or, with `x` and `y`, the references of the cell at that grid.
+With `cell`: its references, `items[] {form, signature, editor_id, base (formref),
+base_signature, base_editor_id, position [x, y, z], rotation [x, y, z] (radians),
+scale (null without XSCL), persistent, group, flags, deleted, plugin, versions}`, and
+`moved_out` (references placed here whose winning version sits in another cell). Every
+mode has `mode`, `total`, `next_cursor`, `summary`, `elapsed_ms` and `index_ms`. Cells
+come from the reverse index's placement ranges (built once per load order, cached on
+disk), so a cell with no child record is not listed (a limitation says so). Evidence:
+the winning version's record header of each listed cell or reference.
 
 ### `validate` (M2.E6, M2.E7, M2.E8)
 

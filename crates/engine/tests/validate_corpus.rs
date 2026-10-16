@@ -91,6 +91,14 @@ const STALE_PROPERTIES: &str = "VMAD (M4.E9) of the file's own records sets prop
     SFBGS00D:SFBGS00DRandomEnableOnLoadScript.KeywordArray; the game logs and skips them. \
     An override that carries such a property unchanged gets a warning, not an error";
 
+const HUNT_REWARD: &str = "VMAD script properties (M5.D6: formid.dangling follows object \
+    values, kitkraft_doc::vmad): ShatteredSpace.esm QUST:010D2626 \
+    (SFBGS001_MB_Hunt01Local_00) and QUST:010D262B set \
+    missionhuntquestscript.RewardAmountGlobalActual to 0112A294 and 0112A290, forms of \
+    ShatteredSpace.esm the file does not contain (kit inspect --plugin ShatteredSpace.esm: \
+    no record 0112A290..0112A295); the payloads decode and re-encode identically, so these \
+    are dangling values the game resolves to none, not a layout error";
+
 /// A papyrus rule's known errors in one official file (member `VMAD`, any value).
 const fn papyrus(plugin: &'static str, rule: &'static str, count: u64) -> Known {
     Known {
@@ -159,6 +167,20 @@ const KNOWN_ERRORS: &[Known] = &[
         Some(0x0057_7823),
         1,
         RDSA_STALE,
+    ),
+    dangling(
+        "ShatteredSpace.esm",
+        "VMAD.missionhuntquestscript.RewardAmountGlobalActual",
+        Some(0x0112_A294),
+        1,
+        HUNT_REWARD,
+    ),
+    dangling(
+        "ShatteredSpace.esm",
+        "VMAD.missionhuntquestscript.RewardAmountGlobalActual",
+        Some(0x0112_A290),
+        1,
+        HUNT_REWARD,
     ),
 ];
 
@@ -495,6 +517,31 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
         9,
         "14",
     ),
+    // M5.D6: object values of VMAD script properties (one key per record type, `VMAD`):
+    // actor values, mostly Aggression 0x2BC, Confidence 0x2BD and Assistance 0x2C1 (lane E's
+    // note in plan/STATUS.md), and the player reference 0x14.
+    ("Starfield.esm", "ACTI VMAD", 2, "309-30A"),
+    ("Starfield.esm", "CONT VMAD", 1, "2BC"),
+    ("Starfield.esm", "NPC_ VMAD", 41, "2BC,2C1,32E"),
+    (
+        "Starfield.esm",
+        "QUST VMAD",
+        305,
+        "2BC-2BD,2C1,2EC,313,342,34F,3A6-3A8",
+    ),
+    ("Starfield.esm", "REFR VMAD", 4, "2BC"),
+    ("Starfield.esm", "TMLM VMAD", 2, "2BC"),
+    ("SFBGS003.esm", "QUST VMAD", 8, "2BC"),
+    ("SFBGS00D.esm", "INFO VMAD", 3, "307"),
+    ("SFBGS00D.esm", "NPC_ VMAD", 2, "2BC,2C1"),
+    ("SFBGS00D.esm", "QUST VMAD", 38, "2BC-2BD,2EC"),
+    ("SFBGS050.esm", "QUST VMAD", 13, "2BC-2BD,2EC"),
+    ("ShatteredSpace.esm", "ACHR VMAD", 5, "2BC"),
+    ("ShatteredSpace.esm", "INFO VMAD", 3, "301"),
+    ("ShatteredSpace.esm", "NPC_ VMAD", 4, "2BC,2C1"),
+    ("ShatteredSpace.esm", "QUST VMAD", 15, "2BC-2BD,2EC"),
+    ("ShatteredSpace.esm", "REFR VMAD", 4, "14,2BC"),
+    ("ShatteredSpace.esm", "TMLM VMAD", 1, "2BC"),
 ];
 /// Reserved IDs outside `validate::NAMED_RESERVED_OBJECT_IDS` that an official file names
 /// (each is skipped by `formid.dangling` with a warning until a CK observation): lane B
@@ -504,25 +551,12 @@ const RESERVED: &[(&str, &str, u64, &str)] = &[
 /// condition parameters: parameter 1 of the actor-value functions (GetValue and its kin)
 /// names actor values 0x2BC, 0x2BD (below that run) and 0x3B6 (past it) in INFO, MGEF,
 /// PACK, PERK and QUST conditions; and the condition Reference (run on a reference) and
-/// the package location value name the player reference 0x14 throughout.
+/// the package location value name the player reference 0x14 throughout. Lane D (M5.D6,
+/// 2026-10-16): script properties name 0x2BC, 0x2BD and 0x2C1 as well, in every DLC, so
+/// those three joined `validate::NAMED_RESERVED_OBJECT_IDS`; 0x3B6 and 0x3B7 stay here.
 const UNNAMED_RESERVED: &[(&str, &str, u32)] = &[
-    ("Starfield.esm", "INFO Condition.CTDA.Parameter1", 0x2BD),
-    ("Starfield.esm", "MGEF Condition.CTDA.Parameter1", 0x2BD),
-    ("Starfield.esm", "PACK Condition.CTDA.Parameter1", 0x2BC),
-    ("SFBGS003.esm", "INFO Condition.CTDA.Parameter1", 0x2BD),
-    ("SFBGS00D.esm", "MGEF Condition.CTDA.Parameter1", 0x2BD),
     ("SFBGS00D.esm", "OMOD ObjectModProperty.Value1", 0x3B7),
     ("SFBGS00D.esm", "PERK Condition.CTDA.Parameter1", 0x3B6),
-    (
-        "ShatteredSpace.esm",
-        "INFO Condition.CTDA.Parameter1",
-        0x2BD,
-    ),
-    (
-        "ShatteredSpace.esm",
-        "QUST Condition.CTDA.Parameter1",
-        0x2BC,
-    ),
 ];
 
 /// Sorted object IDs as compact hex runs: `14`, `2D0-2D2,2F1`.
