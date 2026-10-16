@@ -1,0 +1,80 @@
+# FTH-EXP-03 prototype (stable claim): a claim terminal and a claim activator in the first
+# POI's cell, a global that records the claim, and a faction that owns the claimed site.
+# Compile the script first (README.md, "Build"), so that
+# out/prototypes/foothold/exp03/Scripts/KitKraft/SiteClaim.pex sits next to the plugin; then
+# kit build prototypes/foothold/exp03-claim-terminal/claim.toml out/prototypes/foothold/exp03/KitKraftFootholdClaim.esm
+# Evidence for every choice: README.md in this folder.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# The claim state the probes read: 0 unclaimed, 1 claimed. Only the script writes it.
+name = "claimed"
+type = "GLOB"
+edid = "KitKraftSiteClaimed"
+fields = { FLTV = 0.0 }
+masters = ["Starfield.esm"]
+brief = "FTH-EXP-03"
+
+[[clone]]
+# FC05_FurnitureOwnershipFaction: a vanilla faction that exists only to own things (no
+# relations, no ranks, no vendor; DATA flags 0). The clone keeps all of it.
+name = "owners"
+form = "Starfield.esm:1EF91D"
+edid = "KitKraftFootholdOwnerFaction"
+brief = "FTH-EXP-03"
+
+[[clone]]
+# RL048LabTerminal_Desktop: a terminal menu with one body text and no items, conditions or
+# script. The clone's title and body are ours (written inline: the plugin is not localized).
+name = "claim_menu"
+form = "Starfield.esm:181AF7"
+edid = "KitKraftClaimTerminal_Menu"
+fields = { FULL = "KitKraft Site Claim", BTXT = "This site can be claimed. Use the claim switch beside this terminal to claim it for KitKraft. Claiming twice changes nothing." }
+brief = "FTH-EXP-03"
+
+[[clone]]
+# RL048LabTerminal ("Computer"): a standing terminal whose DNAM names the menu above; it
+# keeps its model, keywords, furniture marker and the vanilla TerminalScript (no properties).
+name = "claim_terminal"
+form = "Starfield.esm:181B08"
+edid = "KitKraftClaimTerminal"
+fields = { FULL = "KitKraft Claim Terminal", DNAM = "new:claim_menu" }
+brief = "FTH-EXP-03"
+
+[[clone]]
+# ActivatorSwitch01 ("Switch"), the scripts recipe's base: an ACTI with a model and no
+# script of its own. The clone only renames it.
+name = "claim_switch"
+form = "Starfield.esm:03CCF4"
+edid = "KitKraftClaimSwitch"
+fields = { FULL = "KitKraft Claim Switch" }
+brief = "FTH-EXP-03"
+
+[[place]]
+# The terminal, on the floor of the first POI's cell, two units from the first POI crate
+# (-17, -4, 4.63) and facing it.
+base = "new:claim_terminal"
+# CityNewAtlantisApartmentTEMPLATE ("Player House Apartment"): the first POI cell; no XOWN.
+cell = "Starfield.esm:21966F"
+position = [-15.0, -2.0, 4.63]
+rotation = [0.0, 0.0, 3.14]
+persistent = true
+edid = "KitKraftClaimTerminalRef"
+brief = "FTH-EXP-03"
+
+[[place]]
+# The claim switch, beside the terminal, with the claim controller attached as the scripts
+# recipe attaches HelloOnLoad: by VMAD on the reference, properties checked against the .pex.
+base = "new:claim_switch"
+cell = "Starfield.esm:21966F"
+position = [-14.0, -2.0, 4.63]
+rotation = [0.0, 0.0, 3.14]
+persistent = true
+edid = "KitKraftClaimSwitchRef"
+brief = "FTH-EXP-03"
+scripts = [
+  { name = "KitKraft:SiteClaim", properties = { Claimed = "new:claimed", OwnerFaction = "new:owners", Label = "KitKraft first POI site" } },
+]

@@ -1,0 +1,149 @@
+format = 1
+plugin = "KitKraftFootholdClaim.esm"
+sha256 = "f9a58d82cfcb833f00e71348b4e3f87ebfd1796ffbfa0c0b346a65af1c14481f"
+generated_by = "hand-written for FTH-EXP-03 (prototypes/foothold/exp03-claim-terminal/README.md); run after the rows of the generated probes.toml"
+profile = "KitKraft Dev"
+runtime_id_basis = "inferred:runtime-slots-by-scale+masters-load-first"
+notes = [
+  "Every form is named by its EditorID, so no row depends on the load-order slot.",
+  "What the console prints for getglobalvalue, getinfaction and activate is grade D until a session observes it; a matcher with no output or no number is inconclusive, never pass.",
+  "The papyrus-log steps need the [Papyrus] logging keys of the KitKraft Dev profile (STATUS owner row 10, M4.O7).",
+  "sha256 is the plugin built from claim.toml at the commit named in README.md; rebuild and update it if the spec changes.",
+]
+
+[[probe]]
+row = "C-01"
+title = "before the claim: KitKraftSiteClaimed is 0 and the player is not in KitKraftFootholdOwnerFaction"
+forms = ["KitKraftFootholdClaim.esm:001004", "KitKraftSiteClaimed", "KitKraftFootholdClaim.esm:001000", "KitKraftFootholdOwnerFaction"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+
+[[probe.step]]
+command = "getglobalvalue KitKraftSiteClaimed"
+matcher = "number"
+expected = "0"
+tolerance = 0.001
+why = "the GLOB's FLTV in the plugin is 0.0; nothing has activated the switch"
+
+[[probe.step]]
+command = "player.getinfaction KitKraftFootholdOwnerFaction"
+matcher = "number"
+expected = "0"
+tolerance = 0.001
+why = "the faction is new; only the claim adds the player"
+
+[[probe]]
+row = "C-02"
+title = "first activation of KitKraftClaimSwitchRef by the player claims the site"
+forms = ["KitKraftFootholdClaim.esm:001006", "KitKraftClaimSwitchRef", "KitKraftSiteClaimed"]
+screenshot = true
+
+[[probe.step]]
+command = "player.moveto KitKraftClaimSwitchRef"
+
+[[probe.step]]
+command = "prid KitKraftClaimSwitchRef"
+
+[[probe.step]]
+command = "activate player"
+
+[[probe.step]]
+command = "getglobalvalue KitKraftSiteClaimed"
+matcher = "number"
+expected = "1"
+tolerance = 0.001
+why = "KitKraft:SiteClaim state Unclaimed sets Claimed to 1.0 on the player's first activation"
+
+[[probe.step]]
+command = "player.getinfaction KitKraftFootholdOwnerFaction"
+matcher = "number"
+expected = "1"
+tolerance = 0.001
+why = "the claim adds the player to OwnerFaction"
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KitKraftSiteClaim: KitKraft first POI site claimed"
+why = "the Debug.Trace line of the claim (Label from VMAD, not the script default)"
+
+[[probe]]
+row = "C-03"
+title = "second activation changes nothing (idempotent)"
+forms = ["KitKraftClaimSwitchRef", "KitKraftSiteClaimed"]
+
+[[probe.step]]
+command = "prid KitKraftClaimSwitchRef"
+
+[[probe.step]]
+command = "activate player"
+
+[[probe.step]]
+command = "getglobalvalue KitKraftSiteClaimed"
+matcher = "number"
+expected = "1"
+tolerance = 0.001
+why = "state Claimed only traces; the global stays 1"
+
+[[probe.step]]
+command = ""
+matcher = "papyrus-log"
+expected = "KitKraftSiteClaim: KitKraft first POI site already claimed, nothing changed"
+why = "the Debug.Trace line of state Claimed"
+
+[[probe]]
+row = "C-04"
+title = "the claim survives leave, save and reload; a third activation still changes nothing"
+forms = ["KitKraftClaimSwitchRef", "KitKraftSiteClaimed", "KitKraftFootholdOwnerFaction"]
+
+[[probe.step]]
+command = "coc CityNewAtlantisLodgeInt"
+
+[[probe.step]]
+command = "save {save}"
+
+[[probe.step]]
+command = "load {save}"
+
+[[probe.step]]
+command = "getglobalvalue KitKraftSiteClaimed"
+matcher = "number"
+expected = "1"
+tolerance = 0.001
+why = "a global's value is kept in the save (grade D until observed)"
+
+[[probe.step]]
+command = "coc CityNewAtlantisApartmentTEMPLATE"
+
+[[probe.step]]
+command = "prid KitKraftClaimSwitchRef"
+
+[[probe.step]]
+command = "activate player"
+
+[[probe.step]]
+command = "getglobalvalue KitKraftSiteClaimed"
+matcher = "number"
+expected = "1"
+tolerance = 0.001
+why = "the script's state (Claimed) and the global both persist"
+
+[[probe.step]]
+command = "player.getinfaction KitKraftFootholdOwnerFaction"
+matcher = "number"
+expected = "1"
+tolerance = 0.001
+why = "faction membership is kept in the save (grade D until observed)"
+
+[[probe]]
+row = "C-05"
+title = "ownership effect: items in the claimed cell show Take, not Steal (reference, cell and location scope, engineering-surface C2)"
+matcher = "manual"
+reason = "the Take/Steal prompt is UI; no console command reports it. Owner or a screenshot row: before C-02 and after C-02, look at a loose item in CityNewAtlantisApartmentTEMPLATE (the cell has no XOWN in Starfield.esm), and record which owner the prompt names"
+
+[[probe]]
+row = "C-06"
+title = "the claim terminal opens its menu with the KitKraft body text"
+matcher = "manual"
+reason = "the terminal menu is UI: activate KitKraftClaimTerminalRef and screenshot that it shows 'KitKraft Site Claim' and the body text of KitKraftClaimTerminal_Menu"
