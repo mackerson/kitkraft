@@ -215,6 +215,114 @@ pub fn provenance(env: &Value) -> BTreeMap<String, Provenance> {
     out
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, TextEdit};
+
+use crate::panels::common::{conf_label, envelope_block, link, Action, Slot, TabCtx};
+use crate::theme::{self, Field, Status};
+
+/// The Schema tab's state: the form and the last `schema` result.
+#[derive(Default)]
+pub(crate) struct SchemaTab {
+    pub form: SchemaForm,
+    pub view: Option<SchemaView>,
+}
+
+impl SchemaTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        let busy = ctx.busy;
+        let actions = &mut ctx.actions;
+        ui.heading("Schema and provenance");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("type");
+            ui.add(
+                TextEdit::singleline(&mut self.form.record_type)
+                    .desired_width(theme::width(ui, Field::Tiny))
+                    .hint_text("WEAP"),
+            );
+            ui.label("member");
+            ui.add(
+                TextEdit::singleline(&mut self.form.member)
+                    .desired_width(theme::width(ui, Field::Short)),
+            );
+            ui.checkbox(&mut self.form.deep, "deep");
+            if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
+                actions.push(Action::Submit(Slot::Schema, self.form.request()));
+            }
+        });
+        envelope_block(ui, ctx.results.get(&Slot::Schema.into()), |ui| {
+            let Some(view) = &self.view else {
+                return;
+            };
+            if view.defined == Some(false) {
+                theme::status(
+                    ui,
+                    Status::Unknown,
+                    "no definition: its subrecords are unknown to the schema (not absent)",
+                );
+            }
+            if !view.name.is_empty() {
+                ui.label(format!(
+                    "{} [{}]  {}",
+                    view.name, view.confidence, view.confidence_counts
+                ));
+                ui.weak(&view.source);
+            }
+            if !view.definitions.is_empty() {
+                theme::table(ui, "schema-defs").show(ui, |ui| {
+                    for (ty, name, conf) in &view.definitions {
+                        if link(ui, !busy, ty).clicked() {
+                            let mut form = self.form.clone();
+                            form.record_type.clone_from(ty);
+                            form.member.clear();
+                            actions.push(Action::Submit(Slot::Schema, form.request()));
+                        }
+                        ui.label(name);
+                        conf_label(ui, conf);
+                        ui.end_row();
+                    }
+                });
+            }
+            theme::table(ui, "schema-members").show(ui, |ui| {
+                for h in [
+                    "member",
+                    "signature",
+                    "kind",
+                    "card",
+                    "type",
+                    "confidence",
+                    "source",
+                ] {
+                    ui.strong(h);
+                }
+                ui.end_row();
+                for m in &view.members {
+                    let indent = "    ".repeat(m.depth.min(8));
+                    let name = format!("{indent}{}", m.name);
+                    let resp = ui.label(name);
+                    let mut tip = String::new();
+                    for e in &m.evidence {
+                        tip.push_str(e);
+                        tip.push('\n');
+                    }
+                    tip.push_str(&m.note);
+                    if !tip.trim().is_empty() {
+                        resp.on_hover_text(tip);
+                    }
+                    ui.monospace(&m.signature);
+                    ui.label(&m.kind);
+                    ui.label(&m.card);
+                    ui.monospace(&m.ty);
+                    conf_label(ui, &m.confidence);
+                    ui.weak(&m.source);
+                    ui.end_row();
+                }
+            });
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

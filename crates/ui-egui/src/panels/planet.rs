@@ -324,6 +324,196 @@ fn collect_placements(v: &Value, path: &str, out: &mut Vec<PlacementRow>, depth:
     }
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
+
+use crate::panels::common::{envelope_block, link, record_actions, Action, Slot, TabCtx};
+use crate::theme::{self, Field, Status, View};
+
+/// The Planet tab's state: the form, the last `planet` page and its cursor.
+#[derive(Default)]
+pub(crate) struct PlanetTab {
+    pub form: PlanetForm,
+    pub view: Option<PlanetView>,
+    pub cursor: Option<String>,
+}
+
+impl PlanetTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        let busy = ctx.busy;
+        let actions = &mut ctx.actions;
+        ui.heading("Planet");
+        ui.label("The Planet Content Manager chain of one record (`planet`): a tree, branch or content node shows its subtree; a planet, star, biome, location, worldspace or pack-in the content nodes that place it. Conditions are shown as stored and never evaluated.");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("form");
+            ui.add(
+                TextEdit::singleline(&mut self.form.form)
+                    .desired_width(theme::width(ui, Field::Medium))
+                    .hint_text("PCM_QuestRequest, Plugin.esm:XXXXXX"),
+            );
+            ui.label("nodes per page");
+            ui.add(egui::DragValue::new(&mut self.form.limit).range(1..=5000));
+            if ui.add_enabled(!busy, egui::Button::new("Show")).clicked() {
+                actions.push(Action::PlanetPage(None));
+            }
+        });
+        envelope_block(ui, ctx.results.get(&Slot::Planet.into()), |ui| {
+            let Some(view) = &self.view else {
+                return;
+            };
+            ui.horizontal(|ui| {
+                ui.strong(format!("{} {}  [{}]", view.global, view.label, view.kind));
+                record_actions(ui, busy, &view.global, actions);
+            });
+            if let Some(tree) = &view.tree {
+                ui.horizontal(|ui| {
+                    ui.label("tree");
+                    if tree != &view.global && link(ui, !busy, tree).clicked() {
+                        actions.push(Action::Planet(tree.clone()));
+                    } else if tree == &view.global {
+                        ui.monospace(tree);
+                    }
+                });
+            }
+            if let Some(c) = &view.counts {
+                ui.label(c);
+            }
+            for u in &view.unresolved {
+                theme::status(ui, Status::Fail, &format!("unresolved: {u}"));
+            }
+            ui.horizontal(|ui| {
+                if self.cursor.is_some()
+                    && ui
+                        .add_enabled(!busy, egui::Button::new("First page"))
+                        .clicked()
+                {
+                    actions.push(Action::PlanetPage(None));
+                }
+                if let Some(next) = &view.next_cursor {
+                    if ui
+                        .add_enabled(!busy, egui::Button::new("Next page"))
+                        .clicked()
+                    {
+                        actions.push(Action::PlanetPage(Some(next.clone())));
+                    }
+                }
+            });
+            for (title, rows) in [("ancestors", &view.ancestors), ("nodes", &view.nodes)] {
+                if rows.is_empty() {
+                    continue;
+                }
+                ui.strong(format!("{title} ({})", rows.len()));
+                ScrollArea::vertical()
+                    .id_salt(("planet-rows", title))
+                    .max_height(theme::view_height(ui, View::Tall))
+                    .show(ui, |ui| {
+                        theme::table(ui, ("planet-grid", title)).show(ui, |ui| {
+                            for h in ["node", "", "order", "selection", "conditions", "content"] {
+                                ui.strong(h);
+                            }
+                            ui.end_row();
+                            for n in rows {
+                                let indent =
+                                    "    ".repeat(usize::try_from(n.depth.min(12)).unwrap_or(0));
+                                if link(ui, !busy, format!("{indent}{} {}", n.form, n.label))
+                                    .on_hover_text("planet chain of this node")
+                                    .clicked()
+                                {
+                                    actions.push(Action::Planet(n.form.clone()));
+                                }
+                                record_actions(ui, busy, &n.form, actions);
+                                if n.unreadable {
+                                    theme::status(ui, Status::Fail, "not readable");
+                                } else {
+                                    ui.label(&n.order);
+                                }
+                                ui.label(&n.selection);
+                                ui.label(n.conditions.to_string());
+                                match &n.content {
+                                    Some((text, Some(to))) => {
+                                        if link(ui, !busy, text)
+                                            .on_hover_text("inspect the content")
+                                            .clicked()
+                                        {
+                                            actions.push(Action::Inspect(to.clone()));
+                                        }
+                                    }
+                                    Some((text, None)) => {
+                                        theme::status(ui, Status::Fail, text);
+                                    }
+                                    None => {
+                                        ui.label("");
+                                    }
+                                }
+                                ui.end_row();
+                            }
+                        });
+                    });
+            }
+            if !view.placements.is_empty() {
+                ui.strong(format!(
+                    "placed by {} content node(s)",
+                    view.placements.len()
+                ));
+                theme::table(ui, "planet-placements").show(ui, |ui| {
+                    for h in ["at", "content node", "tree", "chain (nearest first)"] {
+                        ui.strong(h);
+                    }
+                    ui.end_row();
+                    for p in &view.placements {
+                        ui.weak(&p.at);
+                        if link(ui, !busy, format!("{} {}", p.node, p.editor_id))
+                            .on_hover_text("planet chain of this node")
+                            .clicked()
+                        {
+                            actions.push(Action::Planet(p.node.clone()));
+                        }
+                        if p.tree.is_empty() {
+                            ui.label("");
+                        } else if link(ui, !busy, &p.tree).clicked() {
+                            actions.push(Action::Planet(p.tree.clone()));
+                        }
+                        ui.label(p.chain.join(" <- "));
+                        ui.end_row();
+                    }
+                });
+            }
+            CollapsingHeader::new(format!("every typed link ({})", view.links.len()))
+                .id_salt("planet-links")
+                .default_open(view.nodes.is_empty() && view.placements.is_empty())
+                .show(ui, |ui| {
+                    theme::table(ui, "planet-links-grid").show(ui, |ui| {
+                        for h in ["where", "link", ""] {
+                            ui.strong(h);
+                        }
+                        ui.end_row();
+                        for l in &view.links {
+                            ui.weak(&l.at);
+                            match (&l.to, l.problem) {
+                                (Some(to), false) => {
+                                    if link(ui, !busy, &l.text).clicked() {
+                                        actions.push(Action::Inspect(to.clone()));
+                                    }
+                                    record_actions(ui, busy, to, actions);
+                                }
+                                _ => {
+                                    if l.problem {
+                                        theme::status(ui, Status::Fail, &l.text);
+                                    } else {
+                                        ui.weak(&l.text);
+                                    }
+                                    ui.label("");
+                                }
+                            }
+                            ui.end_row();
+                        }
+                    });
+                });
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

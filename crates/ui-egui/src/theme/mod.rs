@@ -1,8 +1,11 @@
-//! The KitKraft visual system (M6.V1): [`tokens`] holds the values as data, this module
-//! applies them to egui in one place ([`apply`]) and gives the panels what they draw
-//! with: the active palette's colors, the status component ([`status`]) and the table
-//! style ([`table`]). `docs/design/workbench-visual-system.md` documents the tokens and
-//! the rules; `--theme` on `kit ui` (or `theme` in `ui.json`) picks a preset.
+//! The KitKraft visual system (M6.V1, M6.V3): [`tokens`] holds the values as data, this
+//! module applies them to egui in one place ([`apply`]) and gives the panels what they
+//! draw with: the active palette's colors, the status component ([`status`]), the table
+//! style ([`table`]), the frames, and the named sizes ([`width`], [`view_height`],
+//! [`gap`]). No panel holds a color, a font size, a spacing edit or a size of its own (a
+//! test scans the crate). `docs/design/workbench-visual-system.md` documents the tokens
+//! and the rules; `--theme` on `kit ui`, `theme` in `ui.json`, or the Start tab's picker
+//! chooses a preset. `Workbench` is the default (owner decision M6.O1, 2026-10-16).
 
 pub mod tokens;
 
@@ -23,10 +26,10 @@ pub struct ThemeChoice {
 }
 
 impl Default for ThemeChoice {
-    /// Today's look, following the system's light or dark setting.
+    /// Workbench (M6.O1), following the system's light or dark setting.
     fn default() -> Self {
         Self {
-            preset: Preset::Classic,
+            preset: Preset::Workbench,
             mode: Mode::System,
         }
     }
@@ -35,7 +38,7 @@ impl Default for ThemeChoice {
 impl ThemeChoice {
     /// Every accepted spelling, for help texts.
     pub const HELP: &'static str =
-        "classic (default), workbench or studio; add -light or -dark to fix the mode";
+        "workbench (default), studio or classic (legacy); add -light or -dark to fix the mode";
 
     /// Parses `preset` or `preset-light` / `preset-dark` (case-insensitive).
     pub fn parse(text: &str) -> Result<Self, String> {
@@ -67,6 +70,101 @@ impl ThemeChoice {
 /// Where the active theme is kept in egui's memory, so free drawing functions find it.
 fn key() -> egui::Id {
     egui::Id::new("kitkraft-theme")
+}
+
+/// A text field's width, by role.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Field {
+    /// A record signature.
+    Tiny,
+    /// A filter, a member name.
+    Short,
+    /// A form, a plugin name.
+    Medium,
+    /// A path, a `where` clause.
+    Long,
+    /// The Load and Ledger forms.
+    Wide,
+}
+
+/// A scrolling table's height, by role (a number of table rows).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum View {
+    Short,
+    Medium,
+    Tall,
+}
+
+/// The width of a text field of role `field`.
+pub fn width(ui: &egui::Ui, field: Field) -> f32 {
+    let z = active(ui.ctx()).sizes;
+    match field {
+        Field::Tiny => z.field_tiny,
+        Field::Short => z.field_short,
+        Field::Medium => z.field_medium,
+        Field::Long => z.field_long,
+        Field::Wide => z.field_wide,
+    }
+}
+
+/// The width of the "loaded..." plugin picker.
+pub fn combo_width(ui: &egui::Ui) -> f32 {
+    active(ui.ctx()).sizes.combo
+}
+
+/// The height of a scrolling table of role `view`: its rows at the density's row pitch.
+pub fn view_height(ui: &egui::Ui, view: View) -> f32 {
+    let t = active(ui.ctx());
+    let rows = match view {
+        View::Short => t.sizes.view_short_rows,
+        View::Medium => t.sizes.view_medium_rows,
+        View::Tall => t.sizes.view_tall_rows,
+    };
+    rows * (t.density.row_height + t.density.cell_y)
+}
+
+/// The space between two blocks of a panel.
+pub fn gap(ui: &mut egui::Ui) {
+    let block = active(ui.ctx()).spacing.block;
+    ui.add_space(block);
+}
+
+/// The space before a heading in a document (Help).
+pub fn heading_gap(ui: &mut egui::Ui) {
+    let s = active(ui.ctx()).spacing.item_y;
+    ui.add_space(s);
+}
+
+/// The indent of a list item at `depth` in a document (Help).
+pub fn list_indent(ui: &mut egui::Ui, depth: u8) {
+    let s = active(ui.ctx()).spacing;
+    ui.add_space(f32::from(depth) * s.indent + s.item_y);
+}
+
+/// A row of inline runs with no gap between them (Markdown text in Help).
+pub fn inline_row<R>(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    ui.horizontal_wrapped(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
+        add(ui)
+    })
+    .inner
+}
+
+/// The width of a Help table cell in a table of `columns` columns.
+pub fn doc_cell(ui: &egui::Ui, columns: usize) -> f32 {
+    let z = active(ui.ctx()).sizes;
+    match columns {
+        0..=2 => z.doc_cell_wide,
+        3..=4 => z.doc_cell_mid,
+        _ => z.doc_cell_narrow,
+    }
+}
+
+/// A section title inside a tab (a level-3 heading in Help).
+pub fn subheading(ui: &egui::Ui, text: impl Into<String>) -> egui::RichText {
+    egui::RichText::new(text)
+        .strong()
+        .size(active(ui.ctx()).type_scale.subheading)
 }
 
 /// Applies `theme` in `mode` to the context: the style of both egui themes (so a system
@@ -150,6 +248,21 @@ pub fn status(ui: &mut egui::Ui, status: Status, label: &str) -> egui::Response 
     .on_hover_text(format!("{} {}", status.glyph_char(), status.word()))
 }
 
+/// The status component for a long line outside a table (an error, a confirm question):
+/// the same glyph, word and color, with the text wrapping at the panel's edge.
+pub fn status_line(ui: &mut egui::Ui, status: Status, text: &str) -> egui::Response {
+    let theme = active(ui.ctx());
+    let c = color(theme.palette(ui.visuals().dark_mode).status.of(status));
+    if !theme.status_glyphs {
+        return ui.colored_label(c, text);
+    }
+    ui.horizontal_wrapped(|ui| {
+        glyph(ui, status.glyph(), c);
+        ui.colored_label(c, text);
+    })
+    .response
+}
+
 /// A status glyph, painted (no icon font), as tall as the body text.
 fn glyph(ui: &mut egui::Ui, glyph: tokens::Glyph, c: Color32) {
     use tokens::Glyph;
@@ -189,6 +302,11 @@ fn glyph(ui: &mut egui::Ui, glyph: tokens::Glyph, c: Color32) {
             p.add(egui::Shape::closed_line(pts, stroke));
             p.circle_filled(center, stroke.width * 0.6, c);
         }
+        Glyph::Square => {
+            let half = r * 0.9;
+            let sq = egui::Rect::from_center_size(center, egui::vec2(half * 2.0, half * 2.0));
+            p.rect_stroke(sq, 0.0, stroke, egui::StrokeKind::Middle);
+        }
     }
 }
 
@@ -209,6 +327,17 @@ pub fn table(ui: &egui::Ui, id: impl egui::AsIdSalt) -> Grid {
     }
 }
 
+/// A form's label and field columns: no zebra, the item gap between rows.
+pub fn form_grid(ui: &egui::Ui, id: impl egui::AsIdSalt) -> Grid {
+    let t = active(ui.ctx());
+    let grid = Grid::new(id).num_columns(2).striped(false);
+    if t.restyle {
+        grid.spacing(egui::vec2(t.spacing.item_x, t.spacing.item_y))
+    } else {
+        grid
+    }
+}
+
 /// The central panel's frame: the panel margin token on the base surface.
 pub fn central_frame(ui: &egui::Ui) -> Frame {
     let theme = active(ui.ctx());
@@ -220,7 +349,7 @@ pub fn central_frame(ui: &egui::Ui) -> Frame {
     }
 }
 
-/// The top bar's frame.
+/// The top bar's frame (title and tabs) and the status line's (engine state, session).
 pub fn top_frame(ui: &egui::Ui) -> Frame {
     let theme = active(ui.ctx());
     let frame = Frame::side_top_panel(ui.style());
@@ -237,6 +366,27 @@ pub fn top_frame(ui: &egui::Ui) -> Frame {
         frame
     }
 }
+
+/// The Records split: the narrowest pane, and the inspector's share of the tab before
+/// the owner drags the line between them.
+pub fn split(ui: &egui::Ui) -> (f32, f32) {
+    let z = active(ui.ctx()).sizes;
+    (z.pane_min, z.split_default)
+}
+
+/// The width of the grab area around the line between two panes.
+pub fn split_handle(ui: &egui::Ui) -> f32 {
+    active(ui.ctx()).spacing.item_x
+}
+
+/// The line between two panes: the border color, the accent while hovered or dragged.
+pub fn split_stroke(ui: &egui::Ui, hot: bool) -> Stroke {
+    let pal = palette(ui);
+    Stroke::new(1.0, color(if hot { pal.accent } else { pal.border }))
+}
+
+/// The window's size at start.
+pub const WINDOW: [f32; 2] = tokens::WINDOW;
 
 fn to_i8(v: f32) -> i8 {
     // Token values are small whole points (0 to 32); anything else is clamped.
@@ -307,13 +457,15 @@ fn restyle(style: &mut egui::Style, theme: &Theme, pal: &Palette) {
     v.weak_text_color = Some(color(pal.text.muted));
     v.override_text_color = None;
     v.selection.bg_fill = color(su.selection);
-    v.selection.stroke = Stroke::new(1.0, color(pal.text.strong));
+    // Also the focused text field's outline: the focus token (3:1 on every surface).
+    v.selection.stroke = Stroke::new(1.0, color(pal.focus));
     v.window_stroke = Stroke::new(1.0, color(pal.border));
     v.window_corner_radius = radius(theme.radii.panel);
     v.menu_corner_radius = radius(theme.radii.panel);
 
     let control = radius(theme.radii.control);
     let border = Stroke::new(1.0, color(pal.border));
+    let outline = Stroke::new(1.0, color(pal.control_border));
     let w = &mut v.widgets;
     w.noninteractive.bg_fill = color(su.base);
     w.noninteractive.weak_bg_fill = color(su.base);
@@ -322,7 +474,7 @@ fn restyle(style: &mut egui::Style, theme: &Theme, pal: &Palette) {
     w.noninteractive.corner_radius = control;
     w.inactive.bg_fill = color(su.raised);
     w.inactive.weak_bg_fill = color(su.raised);
-    w.inactive.bg_stroke = border;
+    w.inactive.bg_stroke = outline;
     w.inactive.fg_stroke = Stroke::new(1.0, color(pal.text.body));
     w.inactive.corner_radius = control;
     w.hovered.bg_fill = color(su.hover);
@@ -332,17 +484,19 @@ fn restyle(style: &mut egui::Style, theme: &Theme, pal: &Palette) {
     w.hovered.corner_radius = control;
     w.active.bg_fill = color(su.selection);
     w.active.weak_bg_fill = color(su.selection);
-    w.active.bg_stroke = Stroke::new(1.0, color(pal.accent));
+    // Pressed, or holding keyboard focus: the focus ring.
+    w.active.bg_stroke = Stroke::new(1.0, color(pal.focus));
     w.active.fg_stroke = Stroke::new(2.0, color(pal.text.strong));
     w.active.corner_radius = control;
     w.open.bg_fill = color(su.raised);
     w.open.weak_bg_fill = color(su.hover);
-    w.open.bg_stroke = border;
+    w.open.bg_stroke = outline;
     w.open.fg_stroke = Stroke::new(1.0, color(pal.text.strong));
     w.open.corner_radius = control;
 }
 
 #[cfg(test)]
+#[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
 
@@ -362,7 +516,116 @@ mod tests {
             let e = ThemeChoice::parse(bad).unwrap_err();
             assert!(e.contains("workbench") && e.contains("studio"), "{e}");
         }
-        assert_eq!(ThemeChoice::default().preset, Preset::Classic);
+        assert_eq!(ThemeChoice::default().preset, Preset::Workbench);
+        assert_eq!(ThemeChoice::default().mode, Mode::System);
+    }
+
+    /// What a line of panel code may not hold: a color literal, a font size, a spacing
+    /// edit, or a size given as a number (M6.V3). Returns why, or `None`.
+    fn hard_coded(line: &str) -> Option<&'static str> {
+        let code = line.split("//").next().unwrap_or("");
+        for (needle, why) in [
+            ("Color32::", "a Color32 constant or constructor"),
+            ("from_rgb", "a color literal"),
+            ("from_gray", "a color literal"),
+            ("spacing_mut()", "a spacing edit"),
+            ("style_mut()", "a style edit"),
+            ("FontId::", "a font size"),
+            ("Margin::", "a margin"),
+            ("Stroke::new(", "a stroke width"),
+        ] {
+            if code.contains(needle) {
+                return Some(why);
+            }
+        }
+        // A sizing call whose argument starts with a number.
+        for call in [
+            ".size(",
+            "add_space(",
+            "desired_width(",
+            "max_height(",
+            "min_height(",
+            "max_width(",
+            "set_max_width(",
+            ".width(",
+            "default_size(",
+            "inner_margin(",
+            "vec2(",
+        ] {
+            let mut rest = code;
+            while let Some(i) = rest.find(call) {
+                rest = rest.get(i + call.len()..).unwrap_or("");
+                let arg = rest.trim_start();
+                if arg.starts_with(|c: char| c.is_ascii_digit() || c == '-') {
+                    return Some("a size given as a number");
+                }
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn the_scan_catches_what_it_should() {
+        for bad in [
+            "ui.colored_label(Color32::GRAY, x);",
+            "let c = egui::Color32::from_rgb(1, 2, 3);",
+            "ui.spacing_mut().item_spacing.x = 0.0;",
+            "RichText::new(t).strong().size(16.0)",
+            "TextEdit::singleline(&mut s).desired_width(420.0)",
+            "ScrollArea::vertical().max_height( 300.0)",
+            "ui.add_space(6.0);",
+            "ComboBox::from_id_salt(id).width(110.0)",
+        ] {
+            assert!(hard_coded(bad).is_some(), "{bad}");
+        }
+        for good in [
+            "TextEdit::singleline(&mut s).desired_width(theme::width(ui, Field::Long))",
+            "ui.add_space(f32::from(d) * s.indent);",
+            "fn color(c: Rgb) -> egui::Color32 {",
+            "// Color32::GRAY was here",
+            "theme::gap(ui);",
+        ] {
+            assert!(hard_coded(good).is_none(), "{good}");
+        }
+    }
+
+    /// M6.V3: no hard-coded color, font size, spacing edit or size outside `theme/` (every
+    /// `.rs` file under `src/`, tests included).
+    #[test]
+    fn no_color_size_or_spacing_literal_outside_the_theme() {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let theme_dir = root.join("theme");
+        let mut stack = vec![root];
+        let mut problems = Vec::new();
+        let mut scanned = 0;
+        while let Some(dir) = stack.pop() {
+            for entry in std::fs::read_dir(&dir).unwrap() {
+                let path = entry.unwrap().path();
+                if path.is_dir() {
+                    if path != theme_dir {
+                        stack.push(path);
+                    }
+                    continue;
+                }
+                if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                    continue;
+                }
+                scanned += 1;
+                let text = std::fs::read_to_string(&path).unwrap();
+                for (n, line) in text.lines().enumerate() {
+                    if let Some(why) = hard_coded(line) {
+                        problems.push(format!(
+                            "{}:{}: {why}: {}",
+                            path.display(),
+                            n + 1,
+                            line.trim()
+                        ));
+                    }
+                }
+            }
+        }
+        assert!(scanned >= 20, "scanned {scanned} files");
+        assert!(problems.is_empty(), "{problems:#?}");
     }
 
     #[test]

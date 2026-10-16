@@ -47,11 +47,12 @@ envelope"). The commit (`-dirty` when the tree had changes) and the date are set
 `cargo xtask ui` and `cargo xtask dist`; any other build says `unknown` for both, and the
 profile is `debug` or `release` either way.
 
-`--theme <preset>` picks the visual preset: `classic` (today's look, the default),
-`workbench` or `studio`, each optionally `-light` or `-dark` (otherwise the window follows
-Windows). Without it, `"theme"` in `%LOCALAPPDATA%\kitkraft\ui.json` is used. The Start
-tab names the active preset. The presets and their tokens are in
-`docs/design/workbench-visual-system.md`; the owner picks a direction in M6.O1.
+`--theme <preset>` picks the visual preset: `workbench` (the default, the owner's choice
+M6.O1), `studio`, or `classic` (legacy, the look before the tokens), each optionally
+`-light` or `-dark` (otherwise the window follows Windows). Without it, `"theme"` in
+`%LOCALAPPDATA%\kitkraft\ui.json` is used. The Start tab's theme line has a picker (preset;
+system, light or dark) that applies at once and writes `ui.json`. The presets and their
+tokens are in `docs/design/workbench-visual-system.md`.
 
 `kit ui` starts `kit-ui.exe` from the same folder and passes the arguments through. You can
 also run `kit-ui` directly, or use `cargo run --release -p kit -- --profile <dir>`. The
@@ -65,8 +66,9 @@ console window next to the workbench. That window shows the debug-build warning 
 startup error (for example a missing font); closing it closes the workbench. Started from
 a terminal, it uses that terminal.
 
-The engine runs on its own thread and handles one command at a time. The top bar shows the
-command running and how many are queued behind it. Buttons and links that run a command
+The engine runs on its own thread and handles one command at a time. The status line at
+the bottom of the window shows the command running and how many are queued behind it, then
+the session (the profile loaded and its plugin count); the top bar holds the tabs. Buttons and links that run a command
 are disabled while one runs. **Drop pending** restarts the engine thread: queued requests
 are dropped, the running command's reply is discarded (a command cannot be interrupted;
 the old thread finishes it in the background), and the session is emptied, so load again.
@@ -202,8 +204,11 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     occurrences per type. Types with no definition are marked "subrecords unknown".
   - Clicking a type runs `query` for it, with a `where` box, winner or all scope, and
     paging.
+  - The tab has two panes: types and the query on the left, the record inspector on the
+    right, each scrolling on its own; drag the line between them to resize (the share is
+    kept in `ui.json` as `records_split`).
   - Clicking a form runs `inspect` and then `schema --deep` for the same type. The record
-    view shows each version in load order with its raw FormID, its class against the
+    view (right pane) shows each version in load order with its raw FormID, its class against the
     previous version (`vs_previous`) and the changed subrecords. Each subrecord shows its
     signature, member, decoded value, offset, size, and the schema member's confidence and
     source. `reference` members are marked unconfirmed, and signatures the schema does not
@@ -324,11 +329,11 @@ A minimized window does not repaint, so the tour waits until it is restored (see
 2026-10-15: started from a background shell, the window opened minimized; started with
 PowerShell's `Start-Process -WindowStyle Normal` it opens restored, 2026-10-16). The Help
 tab shows the docs as read at start. It then saves `<dir>/<tab>.png` for each tab
-(`start`, `load`, ..., `ledger`, `help`) and closes. For the tour the window is 1400 x
-1100 points instead of 1400 x 900, the Records tab folds "Record types" and scrolls to the
-query table, so the table and the selected record's inspector are in one image, and the
-scroll is not animated. Add `--theme <preset>` to capture a preset (the M6.V2 mockups,
-`docs/design/mockups/2026-10-16/`, were made so). Keep other tour images outside the repo.
+(`start`, `load`, ..., `ledger`, `help`) and closes. The tour's window is the usual 1400 x
+900 points; the Records tab folds "Record types", so the query table and the selected
+record's inspector (the right pane) are in one image, and the scroll is not animated. Add
+`--theme <preset>` to capture a preset (the M6.V2 mockups were made so; they were removed
+after M6.O1 and are in the history at `48beef1`). Keep tour images outside the repo.
 The tour refuses a `<dir>` that is, or is inside, the game's Data folder, the user Data
 folder (`Documents\My Games\Starfield\Data`), an MO2 instance or profile, or that passes
 through a link (the engine's own output guard); the window then says why and runs no tour.

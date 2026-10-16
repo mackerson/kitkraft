@@ -135,6 +135,181 @@ pub fn load(root: &Path) -> Vec<HelpDoc> {
         .collect()
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, CollapsingHeader, RichText, ScrollArea, TextEdit};
+
+use crate::md::Inline;
+use crate::panels::common::{Action, TabCtx};
+use crate::theme::{self, Field, Status};
+
+/// The Help tab's state: the checkout whose docs it shows and how it was found, the
+/// checkout field, and the docs as last read.
+#[derive(Default)]
+pub(crate) struct HelpTab {
+    pub checkout: Option<(PathBuf, &'static str)>,
+    pub field: String,
+    pub docs: Vec<HelpDoc>,
+}
+
+impl HelpTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        ui.heading("Help");
+        ui.label("The owner's QA material, read from the checkout's own docs when the window opens or Reload is clicked. Click any code to copy it. In-game steps run only on the MO2 profile KitKraft Dev with a disposable save, never on Default.");
+        ui.horizontal_wrapped(|ui| {
+            ui.label("Checkout");
+            ui.add(
+                TextEdit::singleline(&mut self.field).desired_width(theme::width(ui, Field::Long)),
+            );
+            if ui
+                .button("Use this checkout")
+                .on_hover_text("remembered in the UI prefs file")
+                .clicked()
+            {
+                ctx.actions
+                    .push(Action::UseCheckout(self.field.trim().to_string()));
+            }
+            if ui.button("Reload").clicked() {
+                ctx.actions.push(Action::ReloadHelp);
+            }
+        });
+        match &self.checkout {
+            Some((root, how)) => {
+                ui.weak(format!("docs from {} (found {how})", root.display()));
+            }
+            None => {
+                theme::status_line(
+                    ui,
+                    Status::Fail,
+                    &format!(
+                        "no KitKraft checkout found (a folder with AGENTS.md and docs): set {REPO_ENV} or type it above"
+                    ),
+                );
+            }
+        }
+        for (i, doc) in self.docs.iter().enumerate() {
+            CollapsingHeader::new(doc.source.title)
+                .id_salt(("help", i))
+                .default_open(true)
+                .show(ui, |ui| {
+                    ui.weak(format!(
+                        "{} (from the heading \"{}\")",
+                        doc.path.display(),
+                        doc.source.heading
+                    ));
+                    match &doc.blocks {
+                        Ok(blocks) => md_blocks(ui, i, blocks),
+                        Err(e) => {
+                            theme::status(ui, Status::Fail, e);
+                        }
+                    }
+                });
+        }
+    }
+}
+
+/// Code in the Help tab: monospace, copied on click.
+fn copy_code(ui: &mut egui::Ui, code: &str) {
+    let r = ui
+        .add(
+            egui::Label::new(RichText::new(code).monospace().color(theme::code(ui)))
+                .sense(egui::Sense::click()),
+        )
+        .on_hover_text("click to copy");
+    if r.clicked() {
+        ui.ctx().copy_text(code.to_string());
+    }
+}
+
+/// Inline runs, laid out in a wrapping row.
+fn md_inlines(ui: &mut egui::Ui, runs: &[Inline], strong: bool) {
+    theme::inline_row(ui, |ui| {
+        for r in runs {
+            match r {
+                Inline::Text(t) if strong => {
+                    ui.label(RichText::new(t).strong());
+                }
+                Inline::Text(t) => {
+                    ui.label(t);
+                }
+                Inline::Strong(t) => {
+                    ui.label(RichText::new(t).strong());
+                }
+                Inline::Struck(t) => {
+                    ui.label(RichText::new(t).strikethrough().weak());
+                }
+                Inline::Code(c) => copy_code(ui, c),
+            }
+        }
+    });
+}
+
+/// One table cell, wrapped at `width`.
+fn md_cell(ui: &mut egui::Ui, runs: &[Inline], width: f32, strong: bool) {
+    ui.vertical(|ui| {
+        ui.set_max_width(width);
+        md_inlines(ui, runs, strong);
+    });
+}
+
+/// A parsed doc section (`crate::md`), drawn plainly.
+fn md_blocks(ui: &mut egui::Ui, doc: usize, blocks: &[Block]) {
+    for (i, b) in blocks.iter().enumerate() {
+        match b {
+            Block::Heading { level, text } => {
+                let t = crate::md::plain(text);
+                theme::heading_gap(ui);
+                match level {
+                    1 | 2 => ui.label(RichText::new(t).heading()),
+                    3 => ui.label(theme::subheading(ui, t)),
+                    _ => ui.label(RichText::new(t).strong()),
+                };
+            }
+            Block::Para(text) => md_inlines(ui, text, false),
+            Block::Item {
+                depth,
+                marker,
+                text,
+            } => {
+                ui.horizontal(|ui| {
+                    theme::list_indent(ui, *depth);
+                    ui.label(format!("{marker} "));
+                    ui.vertical(|ui| md_inlines(ui, text, false));
+                });
+            }
+            Block::Table { header, rows } => {
+                let width = theme::doc_cell(ui, header.len());
+                ScrollArea::horizontal()
+                    .id_salt(("md-table-scroll", doc, i))
+                    .show(ui, |ui| {
+                        theme::table(ui, ("md-table", doc, i)).show(ui, |ui| {
+                            for c in header {
+                                md_cell(ui, c, width, true);
+                            }
+                            ui.end_row();
+                            for row in rows {
+                                for c in row {
+                                    md_cell(ui, c, width, false);
+                                }
+                                ui.end_row();
+                            }
+                        });
+                    });
+            }
+            Block::Code(lines) => {
+                egui::Frame::group(ui.style()).show(ui, |ui| {
+                    if ui.small_button("copy all").clicked() {
+                        ui.ctx().copy_text(lines.join("\n"));
+                    }
+                    for l in lines {
+                        copy_code(ui, l);
+                    }
+                });
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

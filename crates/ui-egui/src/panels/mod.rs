@@ -1,7 +1,18 @@
-//! Panel view-models: each builds requests from its inputs and turns the envelopes the
-//! engine returns into rows. No egui types and no engine logic: every value shown comes
-//! from an envelope, and the only computation is choosing and formatting members.
+//! The workbench's tabs, one file each. A file has two parts:
+//!
+//! - its view-model, toolkit-free: building requests from the tab's inputs and turning
+//!   the envelopes the engine returns into rows (tested against canned envelopes without
+//!   a window). No engine logic: every value shown comes from an envelope, and the only
+//!   computation is choosing and formatting members;
+//! - its drawing (below a `// ---- drawing` line): the tab's state and one
+//!   `fn ui(&mut self, ui, ctx)` that lays it out with egui, reads colors, sizes and
+//!   spacing from `crate::theme` only, and returns what a click asks for as an
+//!   [`common::Action`] for the shell (`app.rs`) to apply.
+//!
+//! [`common`] holds what several tabs draw: the envelope block around every result,
+//! links, the plugin picker, the findings table.
 
+pub(crate) mod common;
 pub mod diag;
 pub mod diff;
 pub mod help;

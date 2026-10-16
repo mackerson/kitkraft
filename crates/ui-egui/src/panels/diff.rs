@@ -294,6 +294,135 @@ fn span(v: Option<&Value>) -> String {
     }
 }
 
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, CollapsingHeader, TextEdit};
+
+use crate::panels::common::{
+    envelope_block, link, plugin_combo, record_actions, Action, Slot, TabCtx,
+};
+use crate::theme::{self, Field};
+
+/// The Diff tab's state: the form and the last `diff` or `conflicts` page.
+#[derive(Default)]
+pub(crate) struct DiffTab {
+    pub form: DiffForm,
+    pub view: Option<DiffView>,
+}
+
+impl DiffTab {
+    pub(crate) fn ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>) {
+        let busy = ctx.busy;
+        let plugins = ctx.plugins;
+        let actions = &mut ctx.actions;
+        ui.heading("Diff");
+        ui.horizontal_wrapped(|ui| {
+            ui.radio_value(
+                &mut self.form.mode,
+                DiffMode::TwoPlugins,
+                "two plugins (diff)",
+            );
+            ui.radio_value(
+                &mut self.form.mode,
+                DiffMode::VsMasters,
+                "a plugin vs the versions before it (conflicts; needs a load)",
+            );
+        });
+        ui.horizontal_wrapped(|ui| {
+            let path = theme::width(ui, Field::Long);
+            match self.form.mode {
+                DiffMode::TwoPlugins => {
+                    ui.label("a");
+                    ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
+                    plugin_combo(ui, "diff-a", &mut self.form.a, plugins, false);
+                    ui.label("b");
+                    ui.add(TextEdit::singleline(&mut self.form.b).desired_width(path));
+                    plugin_combo(ui, "diff-b", &mut self.form.b, plugins, false);
+                    ui.label("form");
+                }
+                DiffMode::VsMasters => {
+                    ui.label("plugin");
+                    ui.add(TextEdit::singleline(&mut self.form.a).desired_width(path));
+                    plugin_combo(ui, "diff-p", &mut self.form.a, plugins, true);
+                    ui.checkbox(
+                        &mut self.form.only_conflicts,
+                        "only forms 2+ plugins override",
+                    );
+                    ui.label("type");
+                }
+            }
+            ui.add(
+                TextEdit::singleline(&mut self.form.filter)
+                    .desired_width(theme::width(ui, Field::Short)),
+            );
+            if ui
+                .add_enabled(!busy, egui::Button::new("Compare"))
+                .clicked()
+            {
+                match self.form.request(None) {
+                    Ok(req) => actions.push(Action::Submit(Slot::Diff, req)),
+                    Err(e) => *ctx.notice = Some(e),
+                }
+            }
+        });
+        envelope_block(ui, ctx.results.get(&Slot::Diff.into()), |ui| {
+            let Some(view) = &self.view else { return };
+            ui.label(view.counts.join("; "));
+            if !view.added.is_empty() {
+                ui.label(format!("added: {}", view.added.join(", ")));
+            }
+            if !view.removed.is_empty() {
+                ui.label(format!("removed: {}", view.removed.join(", ")));
+            }
+            if let Some(next) = &view.next_cursor {
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Next page"))
+                    .clicked()
+                {
+                    if let Ok(req) = self.form.request(Some(next)) {
+                        actions.push(Action::Submit(Slot::Diff, req));
+                    }
+                }
+            }
+            for (i, r) in view.records.iter().enumerate() {
+                let title = format!(
+                    "{} {}  {}  [{}]{}",
+                    r.signature,
+                    r.form,
+                    r.sides,
+                    r.class,
+                    if r.flags_differ { "  flags differ" } else { "" }
+                );
+                CollapsingHeader::new(title)
+                    .id_salt(("diff-rec", i))
+                    .default_open(i < 5)
+                    .show(ui, |ui| {
+                        ui.horizontal(|ui| {
+                            if link(ui, !busy, "inspect across the load order").clicked() {
+                                actions.push(Action::Inspect(r.form.clone()));
+                            }
+                            record_actions(ui, busy, &r.form, actions);
+                        });
+                        theme::table(ui, ("diff-grid", i)).show(ui, |ui| {
+                            for h in ["subrecord", "change", "path", "before", "after"] {
+                                ui.strong(h);
+                            }
+                            ui.end_row();
+                            for f in &r.rows {
+                                ui.monospace(&f.subrecord);
+                                ui.label(&f.change);
+                                ui.monospace(&f.path);
+                                ui.label(&f.before);
+                                ui.label(&f.after);
+                                ui.end_row();
+                            }
+                        });
+                    });
+            }
+        });
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
