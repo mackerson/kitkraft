@@ -16,6 +16,15 @@ Rules:
 | ----- | ------------ | ------------ | ------ | ------- | ----- | ----- |
 | Compiled Papyrus test fixtures (`HelloOnLoad.pex`, `OracleProperties.pex`, `OracleControl.pex`) | `crates/pex/tests/fixtures/` | Compiled locally by Bethesda's `PapyrusCompiler.exe` 4.7.0.5 (not release) from our own `.psc` beside each | KitKraft | MIT OR Apache-2.0 (our sources) | 2026-10-15 | Listed because a Bethesda tool produced them: they hold only our code, names and text plus engine type, function and flag names; no Bethesda source, script or binary (`docs/oracles.md`, "Papyrus compiler oracle") |
 
+## Code dependencies recorded by decision
+
+`Cargo.lock` tracks every code dependency. The ones below are also listed here because
+the decision that admitted them asked for it.
+
+| Crate | Version | Used by | Source (URL) | Author | License | Added | Decision |
+| ----- | ------- | ------- | ------------ | ------ | ------- | ----- | -------- |
+| `glam` | 0.34.1 (`std` only, no dependencies) | `crates/ui-egui/src/viewport/`: camera, projection and marker transforms of the 3D viewport | <https://github.com/bitshifter/glam-rs> | the glam-rs contributors (the crate names no author) | MIT OR Apache-2.0 | 2026-10-16 | M7.R1; ADR 0007 Amendment 3, dependency table |
+
 ## Reference sources (not assets)
 
 Sources that inform our own work without any of their content being committed:

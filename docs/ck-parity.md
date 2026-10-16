@@ -37,7 +37,7 @@ Priority: P1 needed for data work, P2 editor convenience, P3 deferred.
 | World    | Cell / worldspace editing                 | -                 | P3       | deferred | -        |
 | World    | Navmesh generation                        | -                 | P3       | deferred | -        |
 | Audio    | FaceFX / LIP generation, Wwise            | -                 | P3       | deferred | -        |
-| View     | Render window                             | -                 | P3       | deferred | -        |
+| View     | Render window                             | -                 | P3       | planned  | -        |
 
 ## Findings
 
@@ -98,8 +98,8 @@ fills the menus and windows, sitting 2 (M7.O3) the edit dialogs.
 | dialog | Data dialog (choose masters and the active file; details) | `load` (M7.M2) | unresearched | - | - |
 | window | Object Window (category tree, list, filter) | M7.W1 over `query`, categories M7.S2 | unresearched | - | - |
 | window | Cell View (worldspace, cells, references) | M7.W2 over `cell` (M7.S3) | unresearched | - | - |
-| window | Render Window | 3D viewport (M7.R1..R4), read-only | unresearched | - | - |
-| control | Render Window camera: orbit, pan, zoom, fly (mouse and keys) | M7.R1 | unresearched | - | - |
+| window | Render Window | 3D viewport (M7.R1..R4), read-only. M7.R1 (2026-10-16): the workbench's "Render Window" tab with a grid, world axes, a horizon tint, one placeholder box and a stats overlay; no game data yet | unresearched | - | - |
+| control | Render Window camera: orbit, pan, zoom, fly (mouse and keys) | M7.R1 bindings, **unobserved against the CK** (to be checked in sitting 1, M7.O2): orbit on right-drag, pan on middle-drag, zoom on the mouse wheel, fly with W A S D while the viewport has focus (Shift faster); `crates/ui-egui/src/viewport/mod.rs` `BINDINGS` | unresearched | - | - |
 | dialog | Preferences | `ui.json` settings (M7.M3) | unresearched | - | - |
 | window | Warnings window | `validate` findings and `load` limitations (M7.M4) | unresearched | - | - |
 | window | Use Info (references to a form) | `refs --incoming` (M7.W5) | unresearched | - | - |

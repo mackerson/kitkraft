@@ -310,6 +310,19 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     `target`), the folders above the working directory. A test fails when a doc loses one
     of these sections.
 
+- **Render Window** (no command yet; M7.R1, 2026-10-16)
+  - A 3D viewport drawn with OpenGL through eframe's glow backend: a ground grid (lines
+    every 256 units, major every 4,096, out to 8,192), the world axes (+X red, +Y green,
+    +Z blue; Z up, game units), a horizon tint, and one placeholder box at the origin. No
+    game data: M7.R2 adds the selected cell's references as markers from `cell`.
+  - Camera: orbit on right-drag, pan on middle-drag, zoom on the wheel, W A S D to fly
+    once the viewport has focus (click it; Shift is faster); "Reset view" goes back to
+    the origin. These bindings are not observed against the CK (`docs/ck-parity.md`).
+  - The stats overlay ("Stats") shows the viewport's CPU time per frame (last frame, and
+    p50, p95 and max over the last 240), draw calls, frames drawn and the size. The
+    viewport draws only on input (or once on request), so "frames" stays still while
+    nothing moves.
+
 ## Screenshot tour (development aid)
 
 Set `KITKRAFT_WORKBENCH_SHOTS=<dir>` and start `kit-ui` with a profile. The tour then
@@ -329,7 +342,7 @@ A minimized window does not repaint, so the tour waits until it is restored (see
 2026-10-15: started from a background shell, the window opened minimized; started with
 PowerShell's `Start-Process -WindowStyle Normal` it opens restored, 2026-10-16). The Help
 tab shows the docs as read at start. It then saves `<dir>/<tab>.png` for each tab
-(`start`, `load`, ..., `ledger`, `help`) and closes. The tour's window is the usual 1400 x
+(`start`, `load`, ..., `ledger`, `help`, `render window`) and closes. The tour's window is the usual 1400 x
 900 points; the Records tab folds "Record types", so the query table and the selected
 record's inspector (the right pane) are in one image, and the scroll is not animated. Add
 `--theme <preset>` to capture a preset (the M6.V2 mockups were made so; they were removed

@@ -27,6 +27,7 @@ use crate::panels::records::{
     coverage_request, inspect_request, schema_request, types_from_coverage, types_from_schema,
     QueryView, RecordView, RecordsTab,
 };
+use crate::panels::render::RenderTab;
 use crate::panels::schema::{SchemaTab, SchemaView};
 use crate::panels::start::{
     instance_of_profile, profiles_request, StartProfile, StartTab, StartView,
@@ -50,6 +51,7 @@ enum Tab {
     Schema,
     Ledger,
     Help,
+    Render,
 }
 
 const TABS: &[(Tab, &str)] = &[
@@ -64,6 +66,7 @@ const TABS: &[(Tab, &str)] = &[
     (Tab::Schema, "Schema"),
     (Tab::Ledger, "Ledger"),
     (Tab::Help, "Help"),
+    (Tab::Render, "Render Window"),
 ];
 
 /// The screenshot tour (`crate::shots`): seed every tab with read-only requests, then
@@ -117,6 +120,7 @@ struct App {
     schema: SchemaTab,
     ledger: LedgerTab,
     help: HelpTab,
+    render: RenderTab,
 }
 
 /// Opens the window and blocks until it closes.
@@ -130,6 +134,8 @@ pub(crate) fn run_window(opts: LaunchOptions) -> Result<(), UiError> {
             } else {
                 theme::WINDOW
             }),
+        // A depth buffer for the Render Window's viewport (M7.R1); egui draws without one.
+        depth_buffer: 24,
         ..Default::default()
     };
     eframe::run_native(
@@ -269,6 +275,7 @@ impl App {
             ledger: LedgerTab::default(),
             help: HelpTab::default(),
             tour: None,
+            render: RenderTab::default(),
         };
         let mut shots_refused = None;
         if let Some(value) = std::env::var_os(crate::shots::SHOTS_ENV) {
@@ -689,6 +696,11 @@ impl eframe::App for App {
                     self.records.ui(ui, &mut ctx);
                     return;
                 }
+                if tab == Tab::Render {
+                    // The viewport fills the tab and takes the wheel: no scroll area.
+                    self.render.ui(ui, &mut ctx);
+                    return;
+                }
                 ScrollArea::vertical()
                     .id_salt(("tab-scroll", tab))
                     // The tour shoots each tab in one step (an animated scroll restarted
@@ -707,6 +719,7 @@ impl eframe::App for App {
                         Tab::Schema => self.schema.ui(ui, &mut ctx),
                         Tab::Ledger => self.ledger.ui(ui, &mut ctx),
                         Tab::Help => self.help.ui(ui, &mut ctx),
+                        Tab::Render => {}
                     });
             });
         let actions = ctx.actions;

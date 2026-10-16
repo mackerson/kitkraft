@@ -17,6 +17,8 @@
 //!   palettes) and the one function that applies them to egui; `workbench` by default,
 //!   other presets by `--theme`, `ui.json` or the Start tab's picker.
 //! - [`run`]: opens the window (eframe, OpenGL backend).
+//! - [`viewport`]: the 3D viewport of the Render Window tab (M7 lane R), drawn with GL
+//!   through an egui paint callback.
 //!
 //! The crate depends on `kitkraft-engine` alone among workspace crates (xtask
 //! `INTERNAL_ONLY`), so the UI toolkit can be swapped without touching anything below.
@@ -32,6 +34,7 @@ pub mod panels;
 pub mod prefs;
 pub mod shots;
 pub mod theme;
+pub mod viewport;
 pub mod worker;
 
 /// What the launcher (`kit-ui`, `kit ui`) passes in: the same load-order arguments as
