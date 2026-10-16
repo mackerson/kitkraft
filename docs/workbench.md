@@ -143,9 +143,10 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
   arguments)
   - The MO2 instance, as the engine's read-only `profiles` command finds it: the launcher's
     profile names its instance, else the one last used (UI prefs), else the engine looks at
-    `KITKRAFT_MO2_DIR`, `%LOCALAPPDATA%\ModOrganizer` and `C:\Modding\MO2-Starfield`
-    ("places searched" lists each). A different instance can be typed in; "Look again"
-    reruns the command. Lane F's `kit doctor` will take over detection.
+    `KITKRAFT_MO2_DIR`, then the instances `kit doctor` detects, in its order
+    (`C:\Modding\MO2-Starfield`, MO2's `CurrentInstance`, `%LOCALAPPDATA%\ModOrganizer`;
+    "places searched" lists each). A different instance can be typed in; "Look again"
+    reruns the command.
   - A Data-dir line: the instance's `gamePath` + `Data` (else `KITKRAFT_DATA_DIR`), and
     whether `Starfield.esm` is there.
   - One button per profile, each a read-only `load`. `Default` is marked "owner's live

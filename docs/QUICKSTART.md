@@ -37,7 +37,13 @@ waits for a key press before closing when something went wrong.
 
 ## 2. Install
 
-1. Close every Claude Code session (Claude Code rewrites `.claude.json` while it runs).
+1. Close every Claude Code session, the Claude app included (Claude Code keeps
+   `.claude.json` in memory and writes it back, which would drop the new entry).
+   `Install.cmd` checks first: while a `claude.exe` process runs (the Claude desktop app
+   and the native `claude` CLI both run as `claude.exe`) it stops with a one-line message
+   and changes nothing. `kit install --apply` refuses the same way whenever the plan
+   rewrites `.claude.json`; `--force-while-running` skips the check. Nothing is stopped
+   or killed. A CLI installed through npm runs as `node.exe` and is not detected.
 2. Double-click `Install.cmd`. It prints every change first and asks `y`/`n`:
    - adds the `dist\KitKraft` folder to your user PATH (the old value is printed and
      saved in `dist\KitKraft\backups\`);
@@ -46,6 +52,11 @@ waits for a key press before closing when something went wrong.
      copy `.claude.json.kitkraft-backup-<time>` is written first);
    - writes the same entry into the repository's `.mcp.json` (gitignored);
    - records what it replaced in `dist\KitKraft\install-state.json`, for `Uninstall.cmd`.
+
+   What Install.cmd changes in `.claude.json` besides the entry: the file is parsed and
+   written back whole, so its keys come out sorted and numbers in a normalized spelling
+   (for example `1e3` becomes `1000.0`); every value is kept. The backup copy keeps the
+   original bytes.
 3. Open a new terminal (`kit help` works anywhere) and start Claude Code again. `/mcp`
    lists `kitkraft`.
 
@@ -144,7 +155,8 @@ never edits a profile or another mod (ADR 0009, `docs/deploy.md`); rollback is
 
 ## 8. Finish the folder move
 
-Once: close every Claude Code session, then double-click `Finish Move.cmd`. It warns,
+Once: run it only after closing every Claude Code session (the Claude app included),
+then double-click `Finish Move.cmd`. It warns,
 asks you to type `YES`, then runs `C:\Modding\scripts\finish_kitkraft_move.ps1` (rename,
 MCP paths, `git worktree prune`). When `Install.cmd` was run before, it then re-runs
 `kit install --apply` from the new folder so the PATH entry follows. Open new sessions on
@@ -165,7 +177,7 @@ itself stays; delete it if you like.
 | ---- | -------------------- |
 | Game install | Steam's registry (`HKCU\Software\Valve\Steam` `SteamPath`), its `libraryfolders.vdf` (the library listing Starfield, app 1716740), then the common Steam and Xbox folders |
 | Data dir | `<game>\Data`, else the MO2 instance's `gamePath` |
-| MO2 instance | `C:\Modding\MO2-Starfield`, then MO2's registry (`CurrentInstance`) and global instances in `%LOCALAPPDATA%\ModOrganizer` |
+| MO2 instance | `KITKRAFT_MO2_DIR`, then `C:\Modding\MO2-Starfield`, then MO2's registry (`CurrentInstance`) and global instances in `%LOCALAPPDATA%\ModOrganizer` (the same order for `kit doctor`, the workbench's start screen, profile names and `kit install`) |
 | Profiles | folders with `modlist.txt` in the instance's profiles folder; active = MO2's `selected_profile` |
 | xEdit, xDump64 | `KITKRAFT_SF1EDIT`, MO2's executables list, `C:\Modding\tools\xEdit` |
 | Papyrus compiler, `ContentResources.zip` | the game's `Tools` folder (Creation Kit) |
@@ -173,5 +185,6 @@ itself stays; delete it if you like.
 Precedence everywhere: **argument > environment variable > detected**. So
 `--data-dir` and `KITKRAFT_DATA_DIR` still work and win, and a bare `--profile` name
 (`--profile "KitKraft Dev"`) is that profile of the detected MO2 instance.
-`KITKRAFT_DETECT=0` turns the detected defaults off. The variables are in
+`KITKRAFT_DETECT=0` turns the detected defaults off (`kit install`'s default MCP
+arguments included; `kit doctor` and `profiles` still detect). The variables are in
 `docs/corpus.md` ("Environment").

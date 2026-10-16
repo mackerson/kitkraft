@@ -9,9 +9,13 @@
 //! the profile of that name in the detected MO2 instance.
 //!
 //! Detection runs once per process, read-only. `KITKRAFT_DETECT=0` (or `off`) turns the
-//! detected defaults off (arguments and variables still apply); `kit doctor` itself always
-//! detects.
+//! detected defaults off (arguments and variables still apply); `kit doctor` and
+//! `profiles` themselves always detect. The MO2 instance follows the same rule: an
+//! argument, else `KITKRAFT_MO2_DIR`, else the first instance
+//! [`kitkraft_io::host::Host::mo2_instances`] finds (one implementation for `kit doctor`,
+//! `profiles`, profile names and `kit install`).
 
+use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
@@ -112,9 +116,27 @@ pub(crate) fn profile_dir_in(arg: &str, mo2: Option<&Path>) -> PathBuf {
         .map_or(given, |n| inst.profile_dir(n))
 }
 
-/// [`profile_dir_in`] with the detected MO2 instance.
+/// [`profile_dir_in`] with the default MO2 instance ([`default_mo2`]).
 pub(crate) fn profile_dir(arg: &str) -> PathBuf {
-    profile_dir_in(arg, detected().mo2_root().map(|f| f.path.as_path()))
+    profile_dir_in(arg, default_mo2().as_ref().map(|f| f.path.as_path()))
+}
+
+/// Names the MO2 instance root ahead of detection (argument > environment > detected).
+pub(crate) const MO2_DIR_ENV: &str = "KITKRAFT_MO2_DIR";
+
+/// The MO2 instance [`MO2_DIR_ENV`] names through `env` (unset or empty: none).
+pub(crate) fn mo2_from_env(env: &dyn Fn(&str) -> Option<OsString>) -> Option<Found> {
+    env(MO2_DIR_ENV).filter(|v| !v.is_empty()).map(|v| Found {
+        path: PathBuf::from(v),
+        how: format!("environment variable {MO2_DIR_ENV}"),
+    })
+}
+
+/// The default MO2 instance every command uses (`kit doctor`, `profiles`, profile names,
+/// `kit install`'s MCP arguments): [`MO2_DIR_ENV`], else the first detected instance
+/// (none when [`DETECT_ENV`] turns detection off).
+pub(crate) fn default_mo2() -> Option<Found> {
+    mo2_from_env(&|n| std::env::var_os(n)).or_else(|| detected().mo2_root().cloned())
 }
 
 #[cfg(test)]
