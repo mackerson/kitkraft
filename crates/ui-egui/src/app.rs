@@ -559,7 +559,10 @@ impl App {
                     self.session = Some(session_args(&reply.request.args));
                 }
                 View::Types(rows) => self.records.type_rows = rows,
-                View::Query(view) => self.records.query_view = Some(view),
+                View::Query(view) => {
+                    let old = self.records.query_view.replace(view);
+                    self.worker.dispose(old);
+                }
                 View::Record(view) => {
                     if !view.signature.is_empty() {
                         let req = schema_request(&view.signature);
@@ -567,9 +570,18 @@ impl App {
                     }
                     self.records.record_view = Some(view);
                 }
-                View::Links(view) => self.links.view = Some(view),
-                View::Planet(view) => self.planet.view = Some(view),
-                View::Diff(view) => self.diff.view = Some(view),
+                View::Links(view) => {
+                    let old = self.links.view.replace(view);
+                    self.worker.dispose(old);
+                }
+                View::Planet(view) => {
+                    let old = self.planet.view.replace(view);
+                    self.worker.dispose(old);
+                }
+                View::Diff(view) => {
+                    let old = self.diff.view.replace(view);
+                    self.worker.dispose(old);
+                }
                 View::Diag(view) => {
                     if self.diag.validate_plugin.trim().is_empty() {
                         self.diag.validate_plugin = self
@@ -580,7 +592,10 @@ impl App {
                     }
                     self.diag.view = Some(view);
                 }
-                View::Validate(view) => self.validate.view = Some(view),
+                View::Validate(view) => {
+                    let old = self.validate.view.replace(view);
+                    self.worker.dispose(old);
+                }
                 View::Roundtrip(view) => self.validate.roundtrip = Some(view),
                 View::Schema(view) => self.schema.view = Some(view),
                 View::Ledger(view) => {
@@ -616,7 +631,8 @@ impl App {
         );
         let mcp = mcp_call(&reply.request.id, &reply.request.args);
         let error = reply.result.err();
-        self.results.insert(
+        // The result this one replaces is freed on the engine thread (M6.P5a).
+        let replaced = self.results.insert(
             slot.into(),
             Shown {
                 request: reply.request,
@@ -627,6 +643,9 @@ impl App {
                 mcp,
             },
         );
+        if let Some(old) = replaced {
+            self.worker.dispose(old);
+        }
         if perf::enabled() {
             perf::line(
                 &format!("request {command} prepared"),

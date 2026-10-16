@@ -98,9 +98,23 @@ pub(crate) fn build(
     Built { prepared, view }
 }
 
+/// Whether the shell reads the envelope itself for `slot` (a reply joined into a view it
+/// holds); for every other slot the envelope is freed on the worker once built.
+fn keeps_envelope(slot: Slot) -> bool {
+    matches!(slot, Slot::InspectSchema | Slot::DiagValidate)
+}
+
 /// The [`Prepare`] the shell sends with a request for `slot`.
 pub(crate) fn prepare(slot: Slot, load: Option<LoadView>) -> Prepare<Built> {
-    Box::new(move |request, result| build(slot, request, result, load.as_ref()))
+    Box::new(move |request, result| {
+        let built = build(slot, request, result, load.as_ref());
+        if !keeps_envelope(slot) {
+            if let Ok(env) = result {
+                drop(std::mem::take(env));
+            }
+        }
+        built
+    })
 }
 
 #[cfg(test)]

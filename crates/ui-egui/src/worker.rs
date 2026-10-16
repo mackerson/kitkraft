@@ -32,8 +32,10 @@ use crate::gate::{check, Progress, ReadOnlyEngine, Request, RunError};
 /// passes `request_repaint`).
 pub type Wake = Arc<dyn Fn() + Send + Sync>;
 
-/// Builds what the window shows from one reply, on the worker thread (M6.P5a).
-pub type Prepare<B> = Box<dyn FnOnce(&Request, &Result<Value, RunError>) -> B + Send>;
+/// Builds what the window shows from one reply, on the worker thread (M6.P5a). It may
+/// take the envelope out of the result (leaving `null`) when the window needs only what
+/// it built, so a big envelope is also freed on this thread.
+pub type Prepare<B> = Box<dyn FnOnce(&Request, &mut Result<Value, RunError>) -> B + Send>;
 
 /// What the worker returns for one request.
 #[derive(Debug, Clone)]
@@ -71,6 +73,13 @@ pub struct Running {
     pub progress: Option<Progress>,
 }
 
+/// What the window sends the thread: a command, or a value to free there (a replaced
+/// result can be megabytes of small allocations; [`Worker::dispose`]).
+enum Msg<B> {
+    Job(Job<B>),
+    Dispose(Box<dyn Send>),
+}
+
 struct Job<B> {
     ticket: u64,
     request: Request,
@@ -94,7 +103,7 @@ fn set_running(shared: &Shared, value: Option<Running>) {
 /// entry it was writing is left as a temp file, which the next start removes
 /// (`kitkraft-doc`'s cache sweep).
 pub struct Worker<B: Send + 'static = ()> {
-    jobs: Option<Sender<Job<B>>>,
+    jobs: Option<Sender<Msg<B>>>,
     replies: Receiver<Reply<B>>,
     next: u64,
     pending: Vec<(u64, String)>,
@@ -115,7 +124,7 @@ impl<B: Send + 'static> std::fmt::Debug for Worker<B> {
 impl<B: Send + 'static> Worker<B> {
     /// Starts the engine thread with an empty session.
     pub fn spawn(wake: Option<Wake>) -> std::io::Result<Self> {
-        let (job_tx, job_rx) = channel::<Job<B>>();
+        let (job_tx, job_rx) = channel::<Msg<B>>();
         let (reply_tx, reply_rx) = channel::<Reply<B>>();
         let stop = Arc::new(AtomicBool::new(false));
         let running: Shared = Arc::new(Mutex::new(None));
@@ -126,7 +135,14 @@ impl<B: Send + 'static> Worker<B> {
             .name("kitkraft-engine".to_string())
             .spawn(move || {
                 let engine = ReadOnlyEngine::new();
-                while let Ok(job) = job_rx.recv() {
+                while let Ok(msg) = job_rx.recv() {
+                    let job = match msg {
+                        Msg::Dispose(value) => {
+                            drop(value);
+                            continue;
+                        }
+                        Msg::Job(job) => job,
+                    };
                     // Queued jobs stay in the channel after the handle is dropped; the
                     // flag keeps them from running.
                     if thread_stop.load(Ordering::SeqCst) {
@@ -173,12 +189,12 @@ impl<B: Send + 'static> Worker<B> {
         self.jobs
             .as_ref()
             .ok_or_else(|| RunError::Refused("the engine thread has stopped".to_string()))?
-            .send(Job {
+            .send(Msg::Job(Job {
                 ticket,
                 request,
                 queued_at: Instant::now(),
                 prepare,
-            })
+            }))
             .map_err(|_| RunError::Refused("the engine thread has stopped".to_string()))?;
         self.pending.push((ticket, label));
         Ok(ticket)
@@ -218,6 +234,15 @@ impl<B: Send + 'static> Worker<B> {
     /// Commands waiting behind the one running.
     pub fn queued(&self) -> usize {
         self.pending.len().saturating_sub(1)
+    }
+
+    /// Frees `value` on the engine thread between commands instead of in the caller's
+    /// frame (a replaced view or result of a big envelope). Dropped here when the thread
+    /// has stopped.
+    pub fn dispose<T: Send + 'static>(&self, value: T) {
+        if let Some(jobs) = &self.jobs {
+            let _ = jobs.send(Msg::Dispose(Box::new(value)));
+        }
     }
 
     /// The command running now and its latest progress event (M6.P2a); `None` between
@@ -265,7 +290,7 @@ fn run_job<B>(
     let seen = Arc::clone(&first);
     let sink_running = Arc::clone(running);
     let sink_wake = wake.cloned();
-    let result = engine.run_with_progress(&job.request, move |p: &Progress| {
+    let mut result = engine.run_with_progress(&job.request, move |p: &Progress| {
         let _ = seen.get_or_init(|| start.elapsed());
         if let Some(r) = sink_running
             .lock()
@@ -294,7 +319,9 @@ fn run_job<B>(
         None
     };
     let prep_start = Instant::now();
-    let built = job.prepare.map(|prepare| prepare(&job.request, &result));
+    let built = job
+        .prepare
+        .map(|prepare| prepare(&job.request, &mut result));
     let prep = prep_start.elapsed();
     Reply {
         ticket: job.ticket,
@@ -399,6 +426,22 @@ mod tests {
         assert_eq!((last.stage, last.done, last.total), ("index", 1, Some(1)));
         assert!(reply.first_progress.is_some());
         assert!(worker.running().is_none());
+    }
+
+    /// M6.P5a: a replaced result is freed on the engine thread, not in the frame.
+    #[test]
+    fn dispose_frees_on_the_engine_thread() {
+        struct Probe(std::sync::mpsc::Sender<String>);
+        impl Drop for Probe {
+            fn drop(&mut self) {
+                let name = std::thread::current().name().unwrap_or("").to_string();
+                let _ = self.0.send(name);
+            }
+        }
+        let (tx, rx) = channel();
+        let worker = worker();
+        worker.dispose(Probe(tx));
+        assert_eq!(rx.recv_timeout(WAIT).unwrap(), "kitkraft-engine");
     }
 
     #[test]
