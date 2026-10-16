@@ -17,13 +17,16 @@ and swap the cloned vanilla forms for others of the same type.
 | ---- | ------ |
 | `LocTypeOutpost` is `KYWD` `Starfield.esm:0234F1` (colour white, type 0, `FNAM` 0); a clone keeps those three, so the site's own keyword is a location-type keyword of the same kind | `kit query KYWD --where 'EDID ~ "LocTypeOutpost"' --plugins Starfield.esm`; `kit inspect Starfield.esm:0234F1` |
 | `CityNewAtlantisLocation` is `LCTN` `Starfield.esm:01295A` ("New Atlantis"), the site location's parent (`PNAM`) | `kit query LCTN --where 'EDID ~ "NewAtlantis"' --plugins Starfield.esm` |
-| `LCTN` is typed-writable through `new` (every typed member written and read back); `KWDA` is an array, which a field value takes only as `hex:` (so a `new:` name cannot go inside it) | `crates/engine/src/handlers/authoring_tests.rs` (`lctn_new_sets_every_typed_member_and_reads_back`); `crates/engine/src/edit/fields.rs` (module docs, value table) |
+| `LCTN` is typed-writable through `new` (every typed member written and read back); an array such as `KWDA` or `LCPR` takes a typed list (lane D round 5: FormIDs, `new:` names, struct entries as tables), and `KSIZ` is written from the list's length | `crates/engine/src/handlers/authoring_tests.rs` (`lctn_new_sets_every_typed_member_and_reads_back`); `crates/engine/src/edit/fields.rs` (module docs, value table; `typed_whole_arrays`); `crates/engine/tests/lane_d5_corpus.rs` |
+| An `LCPR` entry of a reference in an interior cell names that cell, with grid 32767 x 32767 (`FF7F FF7F`) and `FFFFFFFF` after it: `DebugLocation` `001116`'s entries name the interior cell `WarehouseInteractiveObjects` `257DB4` so; a world reference's entry names the world and its cell's grid (`OEAF015Location` `00118E`: `OEAF015World` `09A9CB`, 0 x 0). In the entries of the first 60 `Starfield.esm` locations with `LCPR`, every one ends in `FFFFFFFF` and 181 have the 32767 grid | `kit query LCTN --where 'has LCPR' --plugins Starfield.esm --limit 60`, `kit inspect` of each (2026-10-16) |
+| `CityNewAtlantisApartmentTEMPLATE` has no `XLCN`; `set` (and a `[[set]]`) adds a subrecord a record lacks at its schema slot (lane D round 5), here after `XILS` | `kit set Starfield.esm:21966F --fields '{"XLCN": ...}' --dry-run`; `crates/schema/defs/CELL.toml` member order |
+| `ActivatorSwitch01` has no `KSIZ`/`KWDA`; a `[[clone]]`'s fields add them at their slots (after `FLLD`, before `PNAM`), `KSIZ` from the list | `crates/engine/tests/lane_d5_corpus.rs` (`the_review_repros_now_author`) |
 | `DefaultBlankComputer_ConsoleSitting_UsePackin` (`TERM` `Starfield.esm:00351B`, "Computer") names its menu in `DNAM` (`TerminalMenu`, `formid<TMLM>`): `DefaultBlankTerminal_Genesis` (`TMLM` `Starfield.esm:227DA9`, "Terminal", no body text, no items); the terminal carries `VMAD` `TerminalScript` with no properties | `kit inspect Starfield.esm:00351B`; `kit inspect Starfield.esm:227DA9`; `kit schema --type TERM` |
 | `SC_LD_CratesMedium02` (`PKIN` `Starfield.esm:0121EC`, no `VMAD`) names its content cell in `CNAM`: `PackInSCLDCratesMedium02StorageCell` (`Starfield.esm:01128F`); a clone keeps it | `kit query PKIN --where 'EDID ~ "Crate" and not has VMAD'`; `kit refs KitKraftMiniSitePackIn` on the built plugin |
 | `FACT` is typed-writable through `new`; the required `DATA`, `CRVA` and `VENV` are written as zeros when not given | `authoring_tests.rs` (`fact_new_sets_every_typed_member_and_reads_back`); the build's limitations |
 | `ActivatorSwitch01` (`ACTI` `Starfield.esm:03CCF4`) has a model and no `VMAD`; a `[[clone]]` takes a `scripts` list, checked against the compiled `.pex` like a `[[place]]` | the scripts recipe (`docs/recipes/scripts.md`); `crates/engine/src/handlers/scripts.rs` |
 | `CityNewAtlantisApartmentTEMPLATE` (`CELL` `Starfield.esm:21966F`) is the first POI's cell; its floor is at z 4.63 near (-17, -4), and it has no navmesh | `docs/poi/first-poi.toml`; `docs/recipes/actors.md` |
-| `build` gives `[[clone]]` entries their FormIDs first, then `[[new]]`, then `[[place]]`, each in spec order, from `0x001000` | the build's output (`KYWD :001000` ... `REFR :001009`); `crates/engine/tests/mini_site_corpus.rs` pins the order |
+| `build` gives `[[clone]]` entries their FormIDs first, then `[[new]]`, then `[[place]]`, each in spec order, from `0x001000`, all before anything is written, so a field may name any entry with `new:<name>`, a `[[place]]` too (lane D round 5) | the build's output (`KYWD :001000` ... `REFR :001009`); `crates/engine/tests/mini_site_corpus.rs` pins the order |
 
 ## What the plugin links
 
@@ -32,13 +35,16 @@ LCTN KitKraftMiniSiteLocation  --KWDA-->  KYWD LocTypeOutpost (Starfield.esm:023
                                --KWDA-->  KYWD KitKraftLocTypeMiniSite (clone of LocTypeOutpost)
                                --PNAM-->  LCTN CityNewAtlantisLocation (Starfield.esm:01295A)
                                --FNAM-->  FACT KitKraftMiniSiteFaction (new)
+                               --LCPR-->  the three REFR below, each with the cell
+CELL CityNewAtlantisApartmentTEMPLATE --XLCN--> LCTN KitKraftMiniSiteLocation (added)
 TERM KitKraftMiniSiteTerminal  --DNAM-->  TMLM KitKraftMiniSiteMenu (clone)
 ACTI KitKraftMiniSiteSwitch    --VMAD-->  KitKraft:HelloOnLoad (Text, Times = 1)
+                               --KWDA-->  KYWD KitKraftLocTypeMiniSite (added to the clone)
 PKIN KitKraftMiniSitePackIn    --CNAM-->  CELL PackInSCLDCratesMedium02StorageCell (vanilla)
 REFR KitKraftMiniSiteSwitchRef    (-19, -4, 4.63)  base ACTI above
 REFR KitKraftMiniSiteTerminalRef  (-21, -4, 4.63)  base TERM above
 REFR KitKraftMiniSitePackInRef    (-23, -4, 4.63)  base PKIN above
-     all three persistent, in CityNewAtlantisApartmentTEMPLATE (carried unchanged)
+     all three persistent, in CityNewAtlantisApartmentTEMPLATE (overridden: XLCN only)
 ```
 
 ## Compile, build, check
@@ -52,17 +58,21 @@ kit refs KitKraftMiniSiteLocation --plugins Starfield.esm --plugins out/recipes/
 kit testplan out/recipes/KitKraftMiniSite.esm out/recipes/mini-site-test --plugins Starfield.esm --spec docs/recipes/mini-site.toml
 ```
 
-2026-10-16 (release build at `97dc5ee` plus this recipe): `KitKraftMiniSite.esm` 4,927
-bytes, SHA-256 `10f22dbcbbb17acbe684138a3502da2d017f4ccbe06ab00201e5667a76c36c26`, one
-master (`Starfield.esm`), new forms `:001000` to `:001009` (KYWD, TMLM, TERM, PKIN, ACTI,
-FACT, LCTN, three REFR); `validate` 0 errors, 0 warnings (the 17 plugin rules,
-`formid.dangling` over 31 FormIDs, 5 subrecords unchecked because opaque); `roundtrip
---verify` identical (12 records, 12 groups); `refs` of every new form resolves every
-link (the terminal's one `null` is the vanilla marker keyword slot, FormID 0). Spec
-SHA-256 `c766467a83c5ca229c4dc647bea98b39bb38829d1e267724b48e7bfb7e0bed00`.
-`HelloOnLoad.pex` compiled the same day: 911 bytes, SHA-256
-`79ba706301dc8305c9d2e519b103f664e8176f23fa77126c3808c4d51879fb3f` (the compiler's output
-differs from the scripts recipe's build of 2026-10-15; its disassembly is the same).
+2026-10-16, lane D round 5 (release build of the round's branch, from `d35987a`):
+`KitKraftMiniSite.esm` 5,010 bytes, SHA-256
+`05aac03135515034e4efb8428d35bcaae3dfb9217d9a332141a802818d495d80`, one master
+(`Starfield.esm`), new forms `:001000` to `:001009` (KYWD, TMLM, TERM, PKIN, ACTI, FACT,
+LCTN, three REFR) and the cell overridden for `XLCN`; `validate` 0 errors, 0 warnings (the
+17 plugin rules, `formid.dangling` over 39 FormIDs, 6 subrecords unchecked because
+opaque); `roundtrip --verify` identical (12 records, 12 groups); `refs` of every new form
+and of the cell resolves every link (the terminal's one `null` is the vanilla marker
+keyword slot, FormID 0). Spec SHA-256
+`901195d5a6387cb51dce3cdbe4eaf1fda91e389fbcaaab3302415dc37da2278e`. `HelloOnLoad.pex`
+compiled the same day: 911 bytes, SHA-256
+`dee45aa42fe9b7a6daac5093181299f44791b959a96cdfc020a6528b73969bb4` (the compiler's output
+differs from build to build; its disassembly is the same). The first build (M5.D7, at
+`97dc5ee`: 4,927 bytes, SHA-256 `10f22dbc...76c36c26`) lacked the `LCPR`, `XLCN` and the
+switch's `KWDA`, and wrote `KWDA` as hex.
 `testplan` writes `checklist.md`, `kitkraft-test.txt` (7 commands) and `probes.toml` (21
 probes: a `help` probe per new form, the cell, `getpos` per reference, and the persistence
 protocol). `crates/engine/tests/mini_site_corpus.rs` repeats all of it through `execute`
@@ -83,18 +93,22 @@ until then, by hand:
 4. `help "KitKraft Mini Site" 4` lists the location; record the probes' results in
    `docs/game-observations.md` with the hashes above, then the save/reload rows.
 
-## Limits
+## What could not be authored
 
-- **No reference is in the location.** `[[set]]` cannot add `XLCN` to a cell that has
-  none (`no-subrecord`: adding subrecords to an existing record is not supported), and a
-  `[[new]]` field cannot name a `[[place]]` (`new:` names only `[[new]]` and `[[clone]]`),
-  so the location's persistent-reference list (`LCPR`) and marker (`MNAM`) stay empty.
-  The links run from the location outwards, not to the references.
-- **`KWDA` of a new form is hex.** The site keyword's slot is its FormID as built
-  (`01001000`), which depends on the clone staying first in the spec; the corpus test
-  fails if it moves.
-- **A clone cannot gain a subrecord** its source lacks (the switch has no `KWDA`, so it
-  cannot carry the site keyword).
+Closed in lane D round 5 (M5.D8 to M5.D11): the cell's `XLCN`, the location's `LCPR`
+naming the placed references, the location's `KWDA` as a typed list with `new:keyword`
+inside it, and the switch's `KWDA` (a subrecord its vanilla source lacks). What remains:
+
+- **No map marker.** The location's `MNAM` (`WorldLocationMarkerRef`) is authorable now
+  (`MNAM = "new:<place>"`), but the one official location that has it,
+  `CityNewAtlantisLodgeLocation` `27C8ED`, names a map marker reference (base
+  `000010`), and an apartment interior has none; the exterior prototype
+  (`prototypes/foothold/exp01-authored-site/`) writes it.
+- **No special references** (`LCSR`, `ACSR`): each names a location reference type
+  (`LCRT`) whose meaning for a site is unobserved.
+- **The `LCPR` grid and tail are copied, not understood.** 32767 x 32767 and `FFFFFFFF`
+  are what the official interior entries hold (see above); what the game reads from them
+  is not observed.
 - The `FACT` is bare: no relations or ranks (the rank group stays at `reference`
   confidence, M5.D5), and its crime values are zeros.
 - The menu has no items: menu items naming new forms are M5.D3's.

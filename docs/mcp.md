@@ -831,9 +831,15 @@ Arguments `{form, fields, into, plugin?}` plus the load-order arguments above (`
   `DNAM.Member[2]`; values are JSON numbers or text parsed by the schema type (integers by
   width, `f32`/`f64`, enums and flags by name, zstring, lstring, FormIDs as formrefs mapped
   into the patch's masters), `{"mul": x}` / `{"add": x}` on typed numbers, `hex:0A0B` for
-  opaque payloads (the only form they take). A bad path or value is `invalid_args` at
-  `/fields/<path>` with a rule id (`path-syntax`, `no-subrecord`, `no-member`, `type`,
-  `range`, `opaque`, `formref`, `layout`).
+  opaque payloads (the only form they take). An array takes a whole JSON array of its
+  element values (struct entries as objects of their members), and its counts follow
+  (a `count_from` member; the count subrecord just before it, `KSIZ` for `KWDA`); lane D
+  round 5. A subrecord the record lacks is added at its schema slot first (a whole
+  counted array brings its count subrecord); `no-subrecord` only when the record type
+  has no slot for it, or when an occurrence the fields do not name would have to be
+  invented. A bad path or value is `invalid_args` at `/fields/<path>` with a rule id
+  (`path-syntax`, `no-subrecord`, `no-member`, `type`, `range`, `opaque`, `formref`,
+  `layout`).
 - `into`: the patch, created or updated (`.esm` gets the master flag, `.esp` does not;
   `.esl` is refused). Never a plugin of the load order, never inside the game Data dir,
   the user Data dir or an MO2 instance or profile (any depth). The writer rules (masters,
@@ -872,10 +878,12 @@ FormIDs remapped, lstrings typed by the corpus table, inline text with bytes >= 
 subrecords copied under `allow_untyped_lstrings`, validate errors on records the call did
 not write.
 
-**Dry run (M7.S6).** `set`, `new` and `clone` take `dry_run: true`: the plugin is written
+**Dry run (M7.S6; `place` since lane D round 5).** `set`, `new`, `clone` and `place`
+take `dry_run: true` (`place` keeps its `placed`, `carried` and `next_object_id`): the
+plugin is written
 to the staged copy and validated exactly as for a real call, nothing is installed (`into`
 stays byte-identical, or absent), and the envelope adds `dry_run`, `before` (the version
-the edit starts from in `inspect`'s `versions[]` shape; `null` for `new` and `clone`),
+the edit starts from in `inspect`'s `versions[]` shape; `null` for `new`, `clone` and `place`),
 `after[]` (each written record read back from the staged plugin, same shape, named by
 `into`'s file name with `load_index: null`), `changed[]` (`{form, path, before, after}`),
 `would_write` (false when the written records fail `validate`; a real call refuses them)
@@ -1044,7 +1052,9 @@ there is another plugin (its override would be reverted). `data` is `set`'s plus
 (`form`, `signature`, `outcome`, `edited`, `identical_to_winner`, `winner`,
 `versions_in_load_order`, `inlined_lstrings`), `carried_from` (`plugin`, `offset`,
 `record`, `versions_in_load_order`), `next_object_id` and `validate`. Evidence: the base's and the cell's
-winning records, and every written record.
+winning records, and every written record. `dry_run: true` (lane D round 5) returns the
+same `placed`, `carried` and `next_object_id` from the staged copy plus the dry run's
+members (above, under `set`), and leaves `into` untouched.
 
 ### `new`, `clone` (M4.E1)
 
@@ -1064,9 +1074,14 @@ writes (staged, validated, moved). Refusals: `failed` with `new.<code>:` or
 `set`'s plus `new_forms[]` (`form`, `form_id`, `signature`, `editor_id`, `from`, `offset`,
 `length`), `next_object_id` and `validate`. Spec v3 `[[new]]` and `[[clone]]` take the
 same keys plus a `name`; a `[[place]]` base may be `new:<name>`, and so may a FormID
-field value of a `[[set]]`, `[[rule]]`, `[[new]]` or `[[clone]]` (`CNAM = "new:coffee"`:
-the member holds the FormID that form gets in the built plugin, M4.E7; a name no
-`[[new]]`/`[[clone]]` has, or a `[[place]]`'s, is a spec error).
+field value of a `[[set]]`, `[[rule]]`, `[[new]]`, `[[clone]]` or `[[place]]`, inside
+array and struct values too (`CNAM = "new:coffee"`: the member holds the FormID that form
+gets in the built plugin, M4.E7). Since lane D round 5 the name may be a `[[place]]`'s:
+the member holds the new reference's FormID (`MNAM = "new:map_marker"`,
+`"XLKR.Ref" = "new:centre"`); every FormID is allocated before anything is written, so
+entry order does not matter. A `[[place]]` takes `fields` (gated as a `[[set]]`'s: a
+member below `corpus` needs its path in `allow_reference`). A name no entry has is a
+spec error, and so is a `[[place]]` named as a base, cell or world.
 
 ### `testplan` (M4.E6)
 

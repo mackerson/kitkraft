@@ -5,14 +5,17 @@
 //! - `papyrus.compile` compiles the scripts recipe's `KitKraft:HelloOnLoad` next to the
 //!   plugin (skips when the game's Papyrus compiler is not installed);
 //! - `build` writes ten new forms (KYWD, TMLM, TERM, PKIN and ACTI clones, a new FACT and
-//!   LCTN, three persistent REFRs) into the carried cell
-//!   `CityNewAtlantisApartmentTEMPLATE`, `Starfield.esm` the only master, validated;
-//! - the links: the location's keywords (`LocTypeOutpost` and the clone), parent
-//!   (`CityNewAtlantisLocation`) and faction; the terminal's menu; each reference's base;
+//!   LCTN, three persistent REFRs) into the cell `CityNewAtlantisApartmentTEMPLATE`, which
+//!   it overrides to gain `XLCN` (lane D round 5), `Starfield.esm` the only master,
+//!   validated;
+//! - the links: the location's keywords (`LocTypeOutpost` and the clone, a typed list) and
+//!   persistent references (`LCPR`, the three placed references), parent
+//!   (`CityNewAtlantisLocation`) and faction; the cell's location; the switch's keyword
+//!   (a subrecord its vanilla source lacks); the terminal's menu; each reference's base;
 //!   the activator's script and its two property values; and no outgoing link of any new
 //!   form is dangling (`refs`);
 //! - `validate` 0 errors and 0 warnings; `roundtrip --verify` identical; a second build is
-//!   byte-identical;
+//!   byte-identical, and its SHA-256 is the one `docs/recipes/mini-site.md` records;
 //! - `testplan` writes `checklist.md`, `kitkraft-test.txt` and `probes.toml` with a probe
 //!   for every new form.
 //!
@@ -71,6 +74,9 @@ const FORMS: [(u32, &str, &str); 10] = [
     (0x1008, "REFR", "KitKraftMiniSiteTerminalRef"),
     (0x1009, "REFR", "KitKraftMiniSitePackInRef"),
 ];
+
+/// SHA-256 of the built plugin (lane D round 5), as `docs/recipes/mini-site.md` records it.
+const SHA256: &str = "05aac03135515034e4efb8428d35bcaae3dfb9217d9a332141a802818d495d80";
 
 fn form(id: u32) -> String {
     format!("KitKraftMiniSite.esm:{id:06X}")
@@ -197,6 +203,22 @@ fn the_mini_site_recipe_builds_and_every_claim_holds() {
         target(&location, "FNAM.UnreportedCrimeFaction"),
         json!(form(0x1005))
     );
+    // Lane D round 5: the location lists its references, the cell names the location, and
+    // the switch carries the site keyword.
+    for (i, reference) in [0x1007, 0x1008, 0x1009].into_iter().enumerate() {
+        assert_eq!(
+            target(&location, &format!("LCPR.PersistentRefs[{i}].Ref")),
+            json!(form(reference))
+        );
+        assert_eq!(
+            target(&location, &format!("LCPR.PersistentRefs[{i}].WorldOrCell")),
+            json!("Starfield.esm:21966F")
+        );
+    }
+    let cell = links(&engine, &plugins, &data, "Starfield.esm:21966F");
+    assert_eq!(target(&cell, "XLCN.Location"), json!(form(0x1006)));
+    let switch = links(&engine, &plugins, &data, &form(0x1004));
+    assert_eq!(target(&switch, "KWDA.Forms[0]"), json!(form(0x1000)));
     let terminal = links(&engine, &plugins, &data, &form(0x1002));
     assert_eq!(target(&terminal, "DNAM.TerminalMenu"), json!(form(0x1001)));
     for (reference, base) in [(0x1007, 0x1004), (0x1008, 0x1002), (0x1009, 0x1003)] {
@@ -249,7 +271,7 @@ fn the_mini_site_recipe_builds_and_every_claim_holds() {
 
     // testplan: the three files, a probe for every new form.
     let plan = out.join("test");
-    engine
+    let planned = engine
         .execute(
             "testplan",
             json!({"plugin": plugin.display().to_string(), "out": plan.display().to_string(),
@@ -260,6 +282,12 @@ fn the_mini_site_recipe_builds_and_every_claim_holds() {
     for file in ["checklist.md", "kitkraft-test.txt", "probes.toml"] {
         assert!(plan.join(file).is_file(), "{file} missing");
     }
+    // The plugin's SHA-256, as docs/recipes/mini-site.md records it.
+    assert_eq!(
+        planned["data"]["sha256"],
+        json!(SHA256),
+        "the plugin changed: record the new hash in docs/recipes/mini-site.md"
+    );
     let probes: toml::Table =
         toml::from_str(&std::fs::read_to_string(plan.join("probes.toml")).unwrap()).unwrap();
     assert_eq!(probes["plugin"].as_str(), Some("KitKraftMiniSite.esm"));

@@ -33,7 +33,7 @@ why = "the cloned ACTI keeps OutpostBeaconActivator's PRPS OutpostBuildAreaRadiu
 row = "W-02"
 title = "activating the beacon opens outpost build mode at the site"
 matcher = "manual"
-reason = "build mode is UI. Activate KitKraftFootholdBeaconRef; screenshot what opens (build mode, a prompt, or nothing). Nothing is a result: the first suspects are the location link and the map marker data this arm does not author (README.md, N1 to N5)"
+reason = "build mode is UI. Activate KitKraftFootholdBeaconRef; screenshot what opens (build mode, a prompt, or nothing). Nothing is a result: the first suspects are what arm A writes without a CK observation, the location's references and special references and the map marker's data and links (README.md, N5b, N9 and U4)"
 
 [[probe]]
 row = "W-03"

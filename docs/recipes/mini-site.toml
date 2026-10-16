@@ -1,13 +1,14 @@
-# Gate K0 mini-plugin recipe (M5.D7): a small site of new forms linked to each other and
-# placed in an existing interior, Starfield.esm the only master.
+# Gate K0 mini-plugin recipe (M5.D7, links completed in lane D round 5): a small site of
+# new forms linked to each other and placed in an existing interior, Starfield.esm the
+# only master.
 # Compile first (docs/recipes/mini-site.md), so that out/recipes/Scripts/KitKraft/
 # HelloOnLoad.pex sits next to the plugin; then:
 # kit build docs/recipes/mini-site.toml out/recipes/KitKraftMiniSite.esm
 # Evidence for every choice: docs/recipes/mini-site.md.
 #
 # FormIDs: `build` gives [[clone]] entries theirs first, then [[new]], then [[place]],
-# each in spec order, from 0x001000 (master index 01). The keyword clone is therefore
-# KitKraftMiniSite.esm:001000, which the location's KWDA below names in hex.
+# each in spec order, from 0x001000 (master index 01); every one is allocated before
+# anything is written, so a field may name any entry with `new:<name>`, a [[place]] too.
 version = 3
 
 [load_order]
@@ -45,11 +46,13 @@ edid = "KitKraftMiniSitePackIn"
 brief = "M5.D7"
 
 [[clone]]
-# ActivatorSwitch01 ("Switch"), with the scripts recipe's script on the base form.
+# ActivatorSwitch01 ("Switch"), with the scripts recipe's script on the base form. The
+# vanilla switch has no keywords; the clone gains KSIZ and KWDA (the site keyword) at
+# their schema slots, KSIZ counted from the list.
 name = "switch"
 form = "Starfield.esm:03CCF4"
 edid = "KitKraftMiniSiteSwitch"
-fields = { FULL = "KitKraft Site Switch" }
+fields = { FULL = "KitKraft Site Switch", KWDA = ["new:keyword"] }
 brief = "M5.D7"
 scripts = [
   { name = "KitKraft:HelloOnLoad", properties = { Text = "KitKraft: mini site switch loaded", Times = 1 } },
@@ -65,14 +68,31 @@ brief = "M5.D7"
 
 [[new]]
 # The site's location: parent CityNewAtlantisLocation, keywords LocTypeOutpost and the
-# site keyword, unreported-crime faction the new faction.
-# KWDA is an array, so a field value takes it only as hex (edit/fields.rs; a `new:` name
-# cannot go inside it): LocTypeOutpost Starfield.esm:0234F1 (F1340200, master index 00)
-# and the keyword clone, 01001000 (00100001). The corpus test checks both slots.
+# site keyword (a typed list; KSIZ follows it), unreported-crime faction the new faction,
+# and its persistent references (LCPR) the three placed below. An LCPR entry of a
+# reference in an interior cell names the cell, grid 32767 x 32767 and ends FFFFFFFF, as
+# the official locations' entries do (docs/recipes/mini-site.md).
 name = "location"
 type = "LCTN"
 edid = "KitKraftMiniSiteLocation"
-fields = { FULL = "KitKraft Mini Site", PNAM = "Starfield.esm:01295A", KSIZ = 2, KWDA = "hex:F134020000100001", FNAM = "new:faction" }
+brief = "M5.D7"
+
+[new.fields]
+FULL = "KitKraft Mini Site"
+PNAM = "Starfield.esm:01295A"
+KWDA = ["Starfield.esm:0234F1", "new:keyword"]
+FNAM = "new:faction"
+LCPR = [
+  { Ref = "new:switch_ref", WorldOrCell = "Starfield.esm:21966F", GridY = 32767, GridX = 32767, Bytes12 = "hex:FFFFFFFF" },
+  { Ref = "new:terminal_ref", WorldOrCell = "Starfield.esm:21966F", GridY = 32767, GridX = 32767, Bytes12 = "hex:FFFFFFFF" },
+  { Ref = "new:packin_ref", WorldOrCell = "Starfield.esm:21966F", GridY = 32767, GridX = 32767, Bytes12 = "hex:FFFFFFFF" },
+]
+
+[[set]]
+# CityNewAtlantisApartmentTEMPLATE has no XLCN; it gains one naming the site's location
+# (the [[place]] entries below carry this edited cell instead of an unchanged copy).
+form = "Starfield.esm:21966F"
+fields = { XLCN = "new:location" }
 brief = "M5.D7"
 
 # CityNewAtlantisApartmentTEMPLATE ("Player House Apartment"), the first POI's cell, on
