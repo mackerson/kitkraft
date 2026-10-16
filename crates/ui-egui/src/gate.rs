@@ -180,6 +180,8 @@ pub const WRITING: &[&str] = &[
     "game.stop",
     // lane D round 3 (M7.S7): refused in the window until M7.E1/M7.O4 rule on it.
     "revert",
+    // Lane T round 2 (M4.T10): the brief-to-mod chain writes through every stage; refused in the window.
+    "mod.run",
 ];
 
 /// What tells a permitted write's preview from its writing form.
