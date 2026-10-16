@@ -4,7 +4,9 @@
   at the end: a minimal read-only developer workbench after M4's inspection APIs
   stabilize, the full authoring UI in M5). Was: Proposed. "Amendment 2" (2026-10-15):
   one permitted write, the `ledger` row in `docs/game-observations.md`, confirmed per
-  click.
+  click. "Amendment 3" (**proposed** 2026-10-16, owner decision M6.O3): the M6 cockpit
+  write scope, `ledger`, `deploy --dev`, `game.session` and `game.probe`, each confirmed
+  per click, and nothing else.
 - Date: 2026-10-14
 - Scope: `crates/ui-egui` (L5, not created), `apps/kit` (APP, not created), a `kit ui`
   launcher in `apps/kit-cli`
@@ -286,3 +288,125 @@ without a hand edit: a row of the in-game ledger, `docs/game-observations.md`.
 
 Everything else in Amendment 1 stands: no `set`, `build` output, `package`, `deploy` or
 other writing command, and no form for one, until the M5 authoring UI.
+
+## Amendment 3 (proposed, owner decision M6.O3): the cockpit write scope (roadmap lane, 2026-10-16)
+
+- Status: **Proposed.** Nothing in it takes effect until the owner accepts it (M6.O3). Until
+  then Amendment 2 stands as written: the ledger is the only write.
+- Context: the owner's 2026-10-16 decisions (`ROADMAP.md`, "M6: Cockpit"). The UI is for
+  "Both, cockpit first". M6 makes the workbench the human cockpit beside the agents:
+  review what an agent built, diff, validate, run the in-game checks and record the
+  ledger. Agents stay the main authors through MCP. The second-largest pain was
+  game-loop integration: there is no deploy, launch, probe or screenshot flow in the
+  window, and the ledger is filled by hand. The read-only wall was **not** named as a pain,
+  so this amendment opens as little as the game loop needs and no editing.
+
+### What the cockpit may run in a writing form in M6
+
+There are exactly four commands, each an existing or planned catalog command with
+`writes: true`. The window runs each one only through `Engine::execute`, and only after a
+confirm click:
+
+| Command | Writes | Preview form (passes the gate like a read) | Writing form (confirmed request only) | Exists |
+| ------- | ------ | ------------------------------------------ | ------------------------------------- | ------ |
+| `ledger` | One row appended to `docs/game-observations.md` (Amendment 2) | `confirm` absent or false | `confirm: true` | yes |
+| `deploy` (`kit deploy --dev`, ADR 0009) | One isolated `KitKraft Dev - <plugin>` mod in the MO2 instance of the loaded dev profile | `dry_run: true` (the plan and every path it would touch) | `dry_run` absent or false, `dev: true`, `mo2` = the loaded profile's instance, `profile` = the loaded dev profile | yes |
+| `game.session` (M4.T3, ADR 0010 and its Amendment 1) | What ADR 0010 Amendment 1 condition 3 authorizes: `observe\<session>\`, one ledger entry, `KitKraftSession-*` saves, restore-only rollback | `dry_run: true` (the session plan) | `dry_run` absent or false | **no**: M4.T3 |
+| `game.probe` (M4.T3) | As `game.session`, for one probe or a screenshot in a running session | its dry-run form, if M4.T3 gives it one; otherwise none, and only the confirmed form runs | the confirmed request | **no**: M4.T3 |
+
+Everything else stays as Amendments 1 and 2 have it. That includes `deploy.rollback`,
+`testplan`, `package`, `build` output, `set`, `new`, `clone`, `place`, `mod.run`
+(M4.T10) and the other writing commands. The editor's writes are M7 and need their own
+amendment (Amendment 4, M7.E1). Read-only commands such as `deploy.status`, `doctor` and
+`game.status` (if the catalog marks it non-writing) move onto `ALLOWLIST` like any read
+and need no amendment. A `game.status` that the catalog marks writing waits for a further
+amendment.
+
+**The window never launches the game itself.** No process spawning, no MO2 command line
+and no HTTP to the Console API in `crates/ui-egui`. Until `game.session` and `game.probe`
+are `Implemented` in the catalog, the cockpit shows their buttons disabled, with the
+ticket id (`M4.T3`) as the reason. The button's state is read from the catalog
+(`find_command` and its `status`), not hard-coded, so it turns on with the engine command
+and with nothing else.
+
+### The rule for adding a write
+
+A writing command joins the cockpit's scope only when all of these hold:
+
+1. It is one catalog command with `writes: true`, `Implemented`, reachable from the CLI
+   and MCP with the same arguments (AGENTS.md "CLI / MCP / UI parity").
+2. It has a preview form that writes nothing (`dry_run`, `plan`, or `confirm` false), or
+   the amendment says why it cannot have one.
+3. The engine itself refuses `Default` and every path outside the command's own
+   authorized list. The gate checks the same things again before the engine sees the
+   request (belt and braces), but never instead of the engine.
+4. Exactly one panel file builds its confirmed request, once per click, after a confirm
+   box that shows what will be written (the preview's text).
+5. An amendment to this ADR names it, and the owner accepts the amendment. This one
+   proposes three additions (`deploy`, `game.session`, `game.probe`). M7's editor writes
+   are Amendment 4.
+
+### The test that enforces it
+
+The existing disjointness test in `crates/ui-egui/src/gate.rs`
+(`allowlist_is_disjoint_from_writes_and_writing_equals_it`) is extended. M6.G1 makes the
+change, with no new write enabled:
+
+- `PERMITTED_WRITE` becomes `PERMITTED_WRITES: &[PermittedWrite]`. Each entry has the
+  canonical id, the argument test that tells its preview from its writing form, the one
+  panel file allowed to build its confirmed request, and its `why`.
+- The assertions:
+  - `ALLOWLIST` holds no command the catalog marks `writes`.
+  - `WRITING` equals the catalog's `writes` set.
+  - Every `GUARDED` entry refuses at least one argument.
+  - **The set of writing commands the window can run in a writing form is exactly the ids
+    of `PERMITTED_WRITES`.** In M6 that is a subset of `{ledger, deploy, game.session,
+    game.probe}`: an id whose command is not yet in the catalog is listed only once it
+    exists.
+  - A second constant in the test, `COCKPIT_SCOPE = ["ledger", "deploy", "game.session",
+    "game.probe"]`, is checked against it. Adding an id to `PERMITTED_WRITES` that is not
+    in `COCKPIT_SCOPE` fails the test, and `COCKPIT_SCOPE` changes only with an amendment
+    to this ADR (the test's doc comment says so).
+- The source scan (`only_the_ledger_panel_builds_a_confirmed_request`) is generalized.
+  For each permitted write, `Request::confirmed(<id>, ..)` may appear only in `gate.rs`
+  and that entry's panel file. A confirmed request for an id outside
+  `PERMITTED_WRITES` is refused (as today for everything but `ledger`).
+- Each new entry adds its own tests:
+  - The preview passes unconfirmed.
+  - The writing form is refused unconfirmed.
+  - The confirmed writing form reaches the engine. Deploy is tested against a synthetic
+    MO2 instance; `game.*` against M4.T3's fixture instance and fake endpoint.
+  - `Default` is refused by the gate and by the engine.
+
+### UI state and development aids (unchanged in kind)
+
+The window may also write `%LOCALAPPDATA%\kitkraft\ui.json`. M6 adds the window's size,
+position, maximized state, theme, density and zoom to it (M6.P7, M6.V3). It still names no
+plugin, profile file or game folder. The screenshot tour stays opt-in by environment
+variable and refuses a folder that `guard_output_dir` rejects. The performance trace
+(M6.P1) goes to stderr only and writes no file.
+
+### Dependency additions M6 and M7 may make (each confirmed at its merge, as in "Dependency list")
+
+| Crate | Used by | License | State |
+| ----- | ------- | ------- | ----- |
+| `glow` 0.17.0 | M7.R1, the GL viewport through egui's `PaintCallback` on eframe's glow backend (reached as `eframe::glow`; no new framework) | MIT OR Apache-2.0 OR Zlib (checked 2026-10-16 in the local registry copy) | already in the tree through `eframe`'s `glow` feature |
+| `glam` | M7.R1 camera and transform math | MIT OR Apache-2.0 (to be checked with `cargo tree` and the crate's manifest at the merge) | new |
+| `egui_extras` (tables; image loaders only if M6.G5 needs them) | M6.P4 virtualized tables, M6.G5 screenshots | MIT OR Apache-2.0 (egui's own repository; to be checked at the merge with its transitive tree, e.g. `image` and its codecs) | new |
+| eframe's `accesskit` feature (`accesskit_winit` and the platform crates) | M6.X3 screen reader support | expected MIT OR Apache-2.0; the full transitive list goes here before the merge | new feature |
+| A docking crate (for example `egui_dock`) | M7.M0 decides whether the CK-style window layout needs one | to be listed if chosen | not chosen |
+
+Any license outside MIT/Apache/Zlib/BSD-style goes to the owner. That includes the
+BSL-1.0 clipboard crates already pending (`plan/STATUS.md`, owner row 7) and any OFL font
+(M6.O2: fonts stay system fonts unless the owner rules otherwise). All icons and art are
+our own.
+
+### Consequences
+
+- `plan/execution-plan.md` "M6": M6.G1 implements the mechanics, and M6.G3, M6.G4 and
+  M6.G5 each add one entry. M6.G4 and M6.G5 wait on M4.T3.
+- `docs/workbench.md` "What it can run" is rewritten when M6.G1 merges, and on each
+  addition.
+- AGENTS.md "Layers": the `ui-egui` row ("Read-only workbench (ADR 0007 Am. 1)") becomes
+  "Workbench (ADR 0007 Am. 1 to 3): reads, plus the confirmed writes of Amendment 3" when
+  the owner accepts this amendment, not before.
