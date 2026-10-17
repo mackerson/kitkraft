@@ -204,8 +204,12 @@ These are thin wrappers over `kit`, and the CLI stays the one implementation:
 
 - `scripts\launch-dev.ps1 -Probes out\<name>\testplan\probes.toml -Mo2 <mo2> [-BaseSaveSha256 <hex>]`
   prints the MO2 command line that `kit game session` would start. Until
-  `docs/game-observations.md` records the launch fact (M4.T1 (a)), it refuses to run it.
-  After that, it runs `kit game session`, the only launcher an agent may use.
+  `docs/game-observations.md` records the launch fact (M4.T1 (a)), it refuses to run it:
+  the game profile's `[launch] evidence` must name a whole ledger entry id
+  (`game-<yyyymmdd>-<nn>`) whose heading the ledger holds. After that, it runs
+  `kit game session`, the only launcher an agent may use. It runs this checkout's
+  `bin\kit.exe` (else `dist\KitKraft\kit.exe`), never whatever `kit` is on PATH, and
+  stops with exit 2 when neither exists.
 - `scripts\tail-console.ps1 (-Probes ... -Mo2 ... [-Wait] | -Session <id>)` tails the
   console history log, either the live one or the copy a session made.
 - `scripts\open-observe.ps1 [-Session <id> | -Report out\<name>\report.json]` opens a
