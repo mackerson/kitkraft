@@ -37,6 +37,13 @@ P window, D4, V3, M, R2, D5 and three fix rounds) these are stale and need one d
 "M3 and M4 exit criteria" tables in this file, and ROADMAP.md "Where we are". Then a Fable
 review of the reconciliation.
 
+**Done 2026-10-16** (reconciliation lane, `2e3c5f5`, against `main` at `81272e2`): the
+gap matrix refreshed from a release `kit coverage --matrix` and `kit schema` of that
+commit, `next-sprint.md` rewritten, the M3/M4 tables reconciled and an M5 exit table
+added below, `plan/execution-plan.md` ticket marks made consistent, ROADMAP.md "Where we
+are" rewritten. The Fable review is item 1 of `docs/foothold/next-sprint.md` "Next, in
+order".
+
 ### 3. Decisions the director took in the owner's absence (confirm or overturn)
 
 | Decision | Where recorded |
