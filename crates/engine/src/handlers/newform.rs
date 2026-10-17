@@ -39,7 +39,7 @@ use super::set::{
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit};
 use crate::edit::scaffold::{
-    first_unplaced, lead_refusal, member_order, missing_lead, placeholder, slot_of,
+    fill_groups, first_unplaced, lead_refusal, member_order, missing_lead, placeholder, slot_of,
     slot_placeholder, wanted_slots,
 };
 use crate::edit::source::SourcePlugin;
@@ -270,7 +270,21 @@ pub(crate) fn plan_new(
     }
     // Stable: occurrences of one repeating slot keep their order.
     subs.sort_by_key(|(slot, _)| *slot);
-    let subs: Vec<Subrecord<'static>> = subs.into_iter().map(|(_, s)| s).collect();
+    // A group the fields start gets the members its definition requires in it, as the
+    // record's own required members are (Fable review of the wave 3 fix round,
+    // follow-up (b)).
+    let mut all: Vec<(usize, bool, Subrecord<'static>)> =
+        subs.into_iter().map(|(slot, s)| (slot, true, s)).collect();
+    match fill_groups(sig, &order, &mut all) {
+        Ok(added) => defaulted.extend(added),
+        Err((_, why)) => {
+            return Err(failed(
+                command,
+                format!("new.group-incomplete: {at}: {why}"),
+            ))
+        }
+    }
+    let subs: Vec<Subrecord<'static>> = all.into_iter().map(|(_, _, s)| s).collect();
     let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
     if let Some((i, bad)) = first_unplaced(sig, &sigs, |_| true) {
         return Err(failed(

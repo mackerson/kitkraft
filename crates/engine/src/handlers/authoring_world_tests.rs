@@ -408,3 +408,65 @@ fn place_refuses_a_group_member_without_its_lead() {
     assert!(at(b"XPDD") < at(b"XPDO"));
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// Fable review of the wave 3 fix round, follow-up (b): `place` with fields that start a
+/// REFR `MapMarker` (its lead `XMRK`, and `FNAM`) writes the members the group requires
+/// that the fields do not give (`FULL`, `TNAM`, `VNAM`) as zeros, at their slots, names
+/// them in `limitations`, and `validate` passes with no `layout.group-incomplete`.
+#[test]
+fn place_fills_the_required_members_of_a_started_group() {
+    let d = dir("authoring-world-group-fill");
+    let data = world_master(&d);
+    let new = d.join("New.esp");
+    let r = execute(
+        "place",
+        json!({
+            "base": "KC_Crate", "edid": "KC_Marker",
+            "fields": {"FNAM": "hex:01000000", "XMRK": "hex:"},
+            "into": new.display().to_string(), "cell": "TestInterior",
+            "position": [10.0, 20.0, 30.0], "plugins": [MASTER],
+            "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap_or_else(|e| panic!("place with XMRK and FNAM: {e}"));
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let limits = r["limitations"].to_string();
+    assert!(
+        limits.contains("TNAM (MapMarker.MarkerType)") && limits.contains("VNAM"),
+        "{limits}"
+    );
+    let v = validate_at(&new, &data);
+    assert_eq!(v["errors"], json!(0), "{v:#}");
+    assert!(
+        v["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["rule"] != "layout.group-incomplete" && f["rule"] != "layout.unplaced"),
+        "{v:#}"
+    );
+    // The group in definition order: XMRK FNAM FULL TNAM VNAM, the fields' FNAM kept.
+    let bytes = std::fs::read(&new).unwrap();
+    let at = |s: &[u8]| bytes.windows(4).rposition(|w| w == s).unwrap();
+    let order = [
+        at(b"XMRK"),
+        at(b"FNAM"),
+        at(b"FULL"),
+        at(b"TNAM"),
+        at(b"VNAM"),
+    ];
+    assert!(order.windows(2).all(|w| w[0] < w[1]), "{order:?}");
+    let fnam = at(b"FNAM");
+    assert_eq!(
+        bytes.get(fnam + 4..fnam + 10),
+        Some(&[4, 0, 1, 0, 0, 0][..])
+    );
+    let tnam = at(b"TNAM");
+    assert_eq!(bytes.get(tnam + 4..tnam + 8), Some(&[2, 0, 0, 0][..]));
+    let _ = std::fs::remove_dir_all(&d);
+}

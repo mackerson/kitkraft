@@ -344,7 +344,7 @@ use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
     action_bar, envelope_block, form_cell, formid_status, panel_head, record_actions,
-    virtual_table, Action, Slot, TabCtx,
+    virtual_table_for, Action, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -354,6 +354,9 @@ pub(crate) struct LinksTab {
     pub form: LinksForm,
     pub view: Option<LinksView>,
     pub cursor: Option<String>,
+    /// Bumped each time a result replaces the table's rows, so the table scrolls back to
+    /// the top and measures its columns afresh ([`virtual_table_for`]).
+    pub data: u64,
 }
 
 impl LinksTab {
@@ -460,9 +463,10 @@ impl LinksTab {
             } else {
                 &["hop", "from", "path", "raw", "status", "to", "", "plugin"]
             };
-            virtual_table(
+            virtual_table_for(
                 ui,
                 "links-grid",
+                self.data,
                 heads,
                 view.edges.len(),
                 View::Tall,

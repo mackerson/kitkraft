@@ -461,6 +461,7 @@ impl App {
                 form: load_form,
                 profiles_dir,
                 view: None,
+                data: 0,
             },
             records,
             links: LinksTab::default(),
@@ -593,8 +594,12 @@ impl App {
                     }
                     self.start.view = Some(view);
                 }
+                // A result that replaces a table's rows bumps its data key: the table
+                // starts at the top with fresh column widths (bumped on arrival, not on
+                // submit, so the old rows keep their place while the request runs).
                 View::Load(view) => {
                     self.load.view = Some(view);
+                    self.load.data = self.load.data.wrapping_add(1);
                     self.session = Some(session_args(&reply.request.args));
                 }
                 View::Types(rows) => {
@@ -617,6 +622,7 @@ impl App {
                 }
                 View::Links(view) => {
                     let old = self.links.view.replace(view);
+                    self.links.data = self.links.data.wrapping_add(1);
                     self.worker.dispose(old);
                 }
                 View::Planet(view) => {
@@ -625,6 +631,7 @@ impl App {
                 }
                 View::Diff(view) => {
                     let old = self.diff.view.replace(view);
+                    self.diff.data = self.diff.data.wrapping_add(1);
                     self.worker.dispose(old);
                 }
                 View::Diag(view) => {
@@ -636,6 +643,7 @@ impl App {
                             .map_or_else(|| view.winner.clone(), |l| l.path_of(&view.winner));
                     }
                     self.diag.view = Some(view);
+                    self.diag.data = self.diag.data.wrapping_add(1);
                 }
                 View::Validate(view) => {
                     let old = self.validate.view.replace(view);
@@ -651,7 +659,10 @@ impl App {
                     }
                     self.ledger.view = Some(view);
                 }
-                View::Coverage(view) => self.coverage.view = Some(view),
+                View::Coverage(view) => {
+                    self.coverage.view = Some(view);
+                    self.coverage.data = self.coverage.data.wrapping_add(1);
+                }
                 // Replies joined into state the window holds (small, on the UI thread).
                 View::None => match slot {
                     Slot::InspectSchema => {

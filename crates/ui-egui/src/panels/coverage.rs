@@ -223,7 +223,7 @@ impl MatrixView {
 use eframe::egui::{self, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, panel_head, virtual_table, Action, Slot, TabCtx,
+    action_bar, envelope_block, panel_head, virtual_table_for, Action, Slot, TabCtx,
 };
 use crate::theme::{self, Field, View};
 
@@ -235,6 +235,9 @@ pub(crate) struct CoverageTab {
     pub view: Option<MatrixView>,
     /// The row whose evidence is shown.
     pub selected: Option<String>,
+    /// Bumped each time a result replaces the table's rows, so the table scrolls back to
+    /// the top and measures its columns afresh ([`virtual_table_for`]).
+    pub data: u64,
 }
 
 impl CoverageTab {
@@ -306,16 +309,23 @@ impl CoverageTab {
         let view = &self.view;
         let filter = &self.filter;
         let selected = &mut self.selected;
+        let data = self.data;
         envelope_block(ui, ctx.results.get(&Slot::Coverage.into()), |ui| {
             let Some(view) = view else { return };
-            matrix_ui(ui, view, filter, selected);
+            matrix_ui(ui, view, data, filter, selected);
         });
     }
 }
 
 /// The matrix: what was examined, the counts per status, the rows (a virtual table: every
 /// record type, laid out only where scrolled into view), and the selected row's evidence.
-fn matrix_ui(ui: &mut egui::Ui, view: &MatrixView, filter: &str, selected: &mut Option<String>) {
+fn matrix_ui(
+    ui: &mut egui::Ui,
+    view: &MatrixView,
+    data: u64,
+    filter: &str,
+    selected: &mut Option<String>,
+) {
     ui.label(format!(
         "{} file(s) examined ({}): {}",
         view.files.len(),
@@ -351,9 +361,10 @@ fn matrix_ui(ui: &mut egui::Ui, view: &MatrixView, filter: &str, selected: &mut 
     let mut header = vec!["type", "records"];
     header.extend(COLUMNS.iter().map(|(_, title)| *title));
     let mut pick = None;
-    virtual_table(
+    virtual_table_for(
         ui,
         "coverage-grid",
+        data,
         &header,
         rows.len(),
         View::Tall,

@@ -182,6 +182,12 @@ pub const RULES: &[RuleInfo] = &[
         summary: "A subrecord whose signature the record type's definition names, at a position no member accepts (a group member without its group's lead, such as a REFR XPDO without XPDD): the reader has no layout for it",
     },
     RuleInfo {
+        id: "layout.group-incomplete",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A group started by its lead that lacks a member the definition requires in it (a REFR MapMarker with XMRK and FNAM but no FULL, TNAM or VNAM): the game reads the group from its lead and finds a required member missing",
+    },
+    RuleInfo {
         id: "papyrus.missing-script",
         severity: Severity::Error,
         input: Input::Plugin,
@@ -1035,6 +1041,40 @@ fn check_record(
                     );
                 }
             }
+        }
+    }
+
+    // layout.group-incomplete: a group instance started by its lead that lacks a member the
+    // definition requires inside it (Fable review of the wave 3 fix round, follow-up (b)).
+    if pass.on("layout.group-incomplete") {
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+        let gaps = kitkraft_schema::builtin()
+            .ok()
+            .and_then(|schema| kitkraft_doc::typed::group_gaps(schema, sig, &sigs))
+            .unwrap_or_default();
+        for gap in gaps {
+            let Some(lead) = subs.get(gap.start) else {
+                continue;
+            };
+            let missing: Vec<String> = gap
+                .missing
+                .iter()
+                .map(|m| format!("{} ({})", String::from_utf8_lossy(&m.signature), m.path))
+                .collect();
+            push(
+                findings,
+                "layout.group-incomplete",
+                Severity::Error,
+                Some(lead.signature().to_string()),
+                sub_offset(lead),
+                format!(
+                    "{id} group `{}` starts at {} (subrecord {}) but lacks the member(s) its definition requires: {}",
+                    gap.path,
+                    lead.signature(),
+                    gap.start,
+                    missing.join(", ")
+                ),
+            );
         }
     }
 

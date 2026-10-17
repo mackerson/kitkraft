@@ -793,8 +793,8 @@ pub fn game_buttons() -> Vec<ButtonState> {
 use eframe::egui::{self, CollapsingHeader, ComboBox, RichText, ScrollArea, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, findings_grid, panel_head, virtual_table, Action, Shown, Slot,
-    SlotKey, TabCtx,
+    action_bar, envelope_block, findings_grid, panel_head, virtual_table, virtual_table_for,
+    Action, Shown, Slot, SlotKey, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -832,7 +832,12 @@ pub(crate) struct CockpitTab {
     pub route: Option<MastersRoute>,
     pub validate: Option<ValidateView>,
     pub roundtrip: Option<RoundtripView>,
-    pub masters: Vec<(String, DiffView)>,
+    /// Each master's comparison, with the data key its table starts over on
+    /// ([`virtual_table_for`]): a fresh one per reply, so a new review of the plugin
+    /// starts every master's table at the top with fresh column widths.
+    pub masters: Vec<(String, u64, DiffView)>,
+    /// Replies the masters step has received, the source of those keys.
+    pub masters_replies: u64,
     pub masters_missing: Vec<String>,
     pub status: Option<DeployStatus>,
     pub deploy: Option<DeployPlan>,
@@ -919,7 +924,9 @@ impl CockpitTab {
                     };
                     let name = file_name(&label);
                     let shown = if name.is_empty() { label } else { name };
-                    self.masters.push((shown, DiffView::from_envelope(env)));
+                    self.masters_replies = self.masters_replies.wrapping_add(1);
+                    self.masters
+                        .push((shown, self.masters_replies, DiffView::from_envelope(env)));
                 }
             }
             Slot::CockpitStatus => self.status = Some(DeployStatus::from_envelope(env)),
@@ -1240,7 +1247,7 @@ impl CockpitTab {
                             &format!("{m}: not found on disk; not compared"),
                         );
                     }
-                    for (master, view) in &self.masters {
+                    for (master, data, view) in &self.masters {
                         ui.label(RichText::new(master).strong());
                         ui.label(view.counts.join(", "));
                         ui.weak("removed: the master's records the plugin does not carry (expected for a plugin over a master); added: its new records; changed: its overrides");
@@ -1257,9 +1264,10 @@ impl CockpitTab {
                             ));
                         }
                         // Every changed record, laid out only where scrolled into view.
-                        virtual_table(
+                        virtual_table_for(
                             ui,
-                            ("cockpit-master", master.as_str()),
+                            ("cockpit-master", self.plugin.as_str(), master.as_str()),
+                            *data,
                             &["record", "class", "sides", "fields"],
                             view.records.len(),
                             View::Medium,
@@ -2158,7 +2166,7 @@ mod tests {
         assert_eq!(tab.step(Step::Roundtrip, &results).0, Status::Pass);
         assert_eq!(tab.step(Step::Masters, &results).0, Status::Pass);
         assert_eq!(tab.step(Step::DeployPreview, &results).0, Status::NotRun);
-        let (_, view) = tab.masters.first().unwrap();
+        let (_, _, view) = tab.masters.first().unwrap();
         assert!(
             view.counts.iter().any(|c| c == "added 1"),
             "{:?}",
@@ -2240,6 +2248,33 @@ mod tests {
             json!({"a": r"C:\A.esm", "b": "p.esp", "limit": 50})
         );
         assert_eq!(missing, ["B.esm"]);
+    }
+
+    /// Fable review of the wave 3 fix round, follow-up (a): each masters reply carries a
+    /// fresh data key, so a second review of the same plugin starts each master's table
+    /// over instead of keeping the last review's scroll and widths.
+    #[test]
+    fn each_masters_reply_has_its_own_table_key() {
+        let mut tab = CockpitTab {
+            plugin: "p.esp".into(),
+            ..CockpitTab::default()
+        };
+        let req = Request::new("diff", json!({"a": r"C:\A.esm", "b": "p.esp", "limit": 50}));
+        let env = json!({"data": {}});
+        let mut keys = Vec::new();
+        for _ in 0..2 {
+            tab.pick("p.esp");
+            tab.submitted.push((Slot::CockpitMasters, req.clone()));
+            tab.receive(Slot::CockpitMasters, &req, &env);
+            let (name, key, _) = tab.masters.first().unwrap();
+            assert_eq!(name, "A.esm");
+            keys.push(*key);
+        }
+        assert_ne!(keys[0], keys[1]);
+        // A reply nobody asked for adds no table.
+        tab.pick("p.esp");
+        tab.receive(Slot::CockpitMasters, &req, &env);
+        assert!(tab.masters.is_empty());
     }
 
     /// M6.G2: with a catalog lacking `game.*` the buttons are off with "M4.T3"; with a

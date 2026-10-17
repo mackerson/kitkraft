@@ -891,5 +891,67 @@ mod tests {
             fresh.1.get(1).is_some_and(|w| *w < wide),
             "{fresh:?} vs {wide}"
         );
+        // The same data again: the new place and widths stay (the key, not the frame,
+        // decides).
+        let again = frame(1, false, false);
+        assert_eq!(again.1, fresh.1);
+    }
+
+    /// Fable review of the wave 3 fix round, follow-up (a): every table whose rows a new
+    /// request replaces passes a data key ([`virtual_table_for`]) that its tab bumps when
+    /// the result arrives (`app.rs`, `receive`), so none keeps a stale scroll or widths.
+    #[test]
+    fn tables_over_replaced_data_pass_a_data_key() {
+        let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+        let read = |rel: &str| std::fs::read_to_string(dir.join(rel)).unwrap();
+        let tables = [
+            ("panels/records.rs", "\"types-grid\",", "self.types_data"),
+            ("panels/records.rs", "\"query-grid\",", "self.query_data"),
+            ("panels/links.rs", "\"links-grid\",", "self.data"),
+            ("panels/diag.rs", "\"diag-refs-grid\",", "self.data"),
+            ("panels/load.rs", "\"load-grid\",", "self.data"),
+            ("panels/coverage.rs", "\"coverage-grid\",", "data"),
+            (
+                "panels/cockpit.rs",
+                "(\"cockpit-master\", self.plugin.as_str(), master.as_str()),",
+                "*data",
+            ),
+            ("panels/diff.rs", "(\"diff-grid\", i),", "data"),
+        ];
+        for (file, id, key) in tables {
+            let src = read(file);
+            let at = src.find(id).unwrap_or_else(|| panic!("{file}: no {id}"));
+            let before: Vec<&str> = src.get(..at).unwrap().lines().rev().take(3).collect();
+            assert!(
+                before
+                    .iter()
+                    .any(|l| l.trim_end().ends_with("virtual_table_for(")),
+                "{file}: {id} is not a virtual_table_for"
+            );
+            let after = src.get(at + id.len()..).unwrap().trim_start();
+            assert!(
+                after.starts_with(&format!("{key},")),
+                "{file}: {id} passes no data key {key}"
+            );
+        }
+        // The keys are bumped where the result arrives, not on submit.
+        let app = read("app.rs");
+        for bump in [
+            "self.records.types_data = self.records.types_data.wrapping_add(1);",
+            "self.records.query_data = self.records.query_data.wrapping_add(1);",
+            "self.load.data = self.load.data.wrapping_add(1);",
+            "self.links.data = self.links.data.wrapping_add(1);",
+            "self.diff.data = self.diff.data.wrapping_add(1);",
+            "self.diag.data = self.diag.data.wrapping_add(1);",
+            "self.coverage.data = self.coverage.data.wrapping_add(1);",
+        ] {
+            let at = app
+                .find(bump)
+                .unwrap_or_else(|| panic!("app.rs: no {bump}"));
+            let receive = app.find("fn receive(").unwrap();
+            assert!(at > receive, "{bump} is not in receive");
+        }
+        let cockpit = read("panels/cockpit.rs");
+        assert!(cockpit.contains("self.masters_replies = self.masters_replies.wrapping_add(1);"));
     }
 }

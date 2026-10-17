@@ -217,7 +217,7 @@ pub fn list_profiles(profiles_dir: &Path) -> Vec<ProfileEntry> {
 use eframe::egui::{self, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, panel_head, virtual_table, Action, Slot, TabCtx,
+    action_bar, envelope_block, panel_head, virtual_table_for, Action, Slot, TabCtx,
 };
 use crate::theme::{self, Field, Status, View};
 
@@ -229,6 +229,9 @@ pub(crate) struct LoadTab {
     pub profiles_dir: String,
     pub profiles: Vec<ProfileEntry>,
     pub view: Option<LoadView>,
+    /// Bumped each time a result replaces the table's rows, so the table scrolls back to
+    /// the top and measures its columns afresh ([`virtual_table_for`]).
+    pub data: u64,
 }
 
 impl LoadTab {
@@ -302,9 +305,10 @@ impl LoadTab {
                     theme::status_line(ui, Status::Warn, &format!("{label}: {}", list.join(", ")));
                 }
             }
-            virtual_table(
+            virtual_table_for(
                 ui,
                 "load-grid",
+                self.data,
                 &[
                     "#", "plugin", "scale", "flags", "records", "slot", "active", "provider",
                     "cache", "problems",
