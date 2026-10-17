@@ -3,21 +3,54 @@
 Milestones are gated by evidence, not dates. A milestone is done when its exit criteria pass
 in `cargo xtask ci` (or in a documented corpus run), not when the code exists.
 
-## Where we are (2026-10-16, `main` at `ba9c7cd`)
+## Where we are (2026-10-16, evening, `main` at `81272e2`)
 
-M0, M1 and M2 are done. M3 is closing: the in-game overhaul check passed on 2026-10-15
-(M3.O5) and the CK session is deferred. M4 is in progress, M5 runs, and the UI track (M6
-to M8, below) is planned. `plan/STATUS.md` checks every exit criterion and lists the
-owner's next actions, among them:
+The owner paused the project on 2026-10-16 with every lane merged on a green `cargo xtask
+ci`. `plan/STATUS.md` checks every exit criterion ("M3 and M4 exit criteria", "M5 exit
+criteria") and lists the owner's next actions; `docs/foothold/next-sprint.md` says what a
+resuming session starts, in order; `docs/foothold/gap-matrix.md` holds the six statuses
+per record type and capability, checked at `81272e2`.
 
-- `Finish Move.cmd` after closing every Claude Code session (row 5), then the install
-  (row 11).
-- M4.O7: the Console API tools in the **KitKraft Dev** profile (row 10), which lane C's
-  session controller needs.
-- The owner-assisted CK sitting for F29 and F30 (row 12).
-- The UI rulings that can be made now: fonts (M6.O2) and the NIF and geometry sources
-  (M7.O5) (row 16). ADR 0007 Amendment 3 (M6.O3) and ADR 0012 (M7.O1) were approved on
-  2026-10-16.
+**M0 to M2: done. M3 and M4: closing, owner-gated.** The gun overhaul (build 2) and the
+first POI passed in game on 2026-10-15 (ledger `game-20261015-02`, `-03`). What is left
+is the owner's: the CK sittings (STATUS rows 12 and 15), the in-game session 2 with the
+recipes and the scripted activator (row 14), the save/reload rows, and the closing gates.
+
+**M5: partial, owner-gated.** KitKraft now writes `LCTN`, `TERM`, `PKIN`, `FACT`,
+`COBJ`, `STAT`, `REFR`, `ACHR` and new interior `CELL`s with every typed member tested
+(`kit coverage --matrix`: typed-writable `pass` for 13 types), follows script property
+references, adds missing subrecords, takes typed arrays, names its own placements with
+`new:`, previews every write and reverts one; the Gate K0 mini-site plugin builds with no
+dangling reference. The game session controller and `kit mod run` are built and tested
+against fakes only. Nothing new has been seen in the game or the CK: CK-diff is `not-run`
+for all 185 record types, game `pass` for 5 (from the owner's three sittings) and
+save/reload `not-run` everywhere. Each of M5's two paths waits on one owner action: a CK
+sitting for F29 and F30 (row 12), and the console tools in the **KitKraft Dev** profile
+(row 10). The agent work left is lane D's M5.D1 generator and the M5.D2/D3 recipes.
+
+**M6 Cockpit: built except the game loop.** The Workbench visual system (tokens, status
+never color-only, one panel frame; column resize is open), the performance work measured
+before and after on release builds, and the cockpit's confirmed writes (`ledger`, dev
+deploy and roll back, each previewed and confirmed per click) with the Review and
+Coverage views are on `main`. Launch, probes, screenshots and the ledger prefill (M6.G4
+to M6.G6) can be built against M4.T3's fakes now, but their end-to-end row (M4.T4 started
+from the window) and the sign-off M6.O4 wait on a live M4.T3 session, so on row 10 and
+M4.T1.
+
+**M7 CK parity: shell and viewport built, unobserved.** A read-only CK-style shell (a
+menu bar from the catalog, floating Warnings and Use Info windows, read-only edit dialogs
+for eight types) and a Render Window that draws a cell's references as `OBND` boxes exist,
+built before any CK interface sitting. The shell's 13 parity rows are `built,
+unobserved` (ADR 0012 Amendment 1, a director decision pending the owner), which never
+counts as parity; the other 23, the Render Window and its camera among them, are
+`unresearched`, and none is `observed`. The layouts, menu order and
+camera wait on the interface sittings (M7.O2, M7.O3), editing on ADR 0007 Amendment 4
+(M7.O4), meshes on the NIF source ruling (M7.O5).
+
+Director decisions taken in the owner's absence, to confirm or overturn: ADR 0013
+(`unsafe` in one viewport file), ADR 0012 Amendment 1, the floating-window model, `OBND`
+boxes first, the REFR rotation convention, system fonts, no NIF source, and the CK
+static-strings method (STATUS "Pause", section 3).
 
 ## M0: scaffold
 
