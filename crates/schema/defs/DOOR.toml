@@ -54,15 +54,16 @@ note = "payload not decoded (M4.BX2 inventory)"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 376 of 376 official DOOR records (376 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L11584-L11584",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "typed with the shared ObjectBounds layout the other types use (fix round W3, lane R request: references of a DOOR base draw as their bounds box); every official DOOR OBND is 24 bytes"
 
 [[member]]
 sig = "ODTY"

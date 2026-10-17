@@ -593,8 +593,13 @@ const BX2_INVENTORY: &[&str] = &[
     "WKMF", "WWED",
 ];
 
+/// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R
+/// request: the Render Window draws their references as bounds boxes).
+const BX2_TYPED_BOUNDS: &[&str] = &["DOOR", "LIGH"];
+
 /// M4.BX2: an inventory types only EDID, the corpus table's lstrings, the shared keyword
-/// list and the base form component frame; every other member is opaque, cited to the
+/// list, the base form component frame and, for [`BX2_TYPED_BOUNDS`], `OBND`; every other
+/// member is opaque, cited to the
 /// corpus scan at `corpus` confidence (with the pinned xEdit line where upstream lists it).
 #[test]
 fn bx2_inventories_type_only_edid_lstrings_and_shared_blocks() {
@@ -623,8 +628,13 @@ fn bx2_inventories_type_only_edid_lstrings_and_shared_blocks() {
             let shared = path.starts_with("Keywords.") || path.starts_with("BfcbBlock.");
             let edid = sub.signature == sig("EDID");
             let lstring = sub.ty == FieldType::LString;
+            // Fix round W3 (lane R request): DOOR and LIGH type OBND with the shared
+            // ObjectBounds layout the other types use.
+            let bounds = BX2_TYPED_BOUNDS.contains(record)
+                && sub.signature == sig("OBND")
+                && matches!(&sub.ty, FieldType::Ref { name, .. } if name == "ObjectBounds");
             assert!(
-                shared || edid || lstring || sub.ty.is_opaque(),
+                shared || edid || lstring || bounds || sub.ty.is_opaque(),
                 "{record}.{path} is typed"
             );
             if !shared {

@@ -19615,7 +19615,7 @@ pub struct DoorRecord {
     /// `VMAD`, optional.
     pub vmad: Option<Sub<Bytes>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
     pub odty: Option<Sub<Bytes>>,
     /// `XALG`, optional.
@@ -19781,9 +19781,14 @@ impl DoorRecord {
                 Hit::Sub { member: 1, index } => {
                     put(&mut self.vmad, subs, *index, "DOOR.VMAD", ctx, extra)
                 }
-                Hit::Sub { member: 2, index } => {
-                    put(&mut self.obnd, subs, *index, "DOOR.OBND", ctx, extra)
-                }
+                Hit::Sub { member: 2, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "DOOR.OBND",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 3, index } => {
                     put(&mut self.odty, subs, *index, "DOOR.ODTY", ctx, extra)
                 }
@@ -19859,7 +19864,7 @@ impl DoorRecord {
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
         emit(out, *b"VMAD", self.vmad.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
         emit(out, *b"ODTY", self.odty.as_ref());
         emit(out, *b"XALG", self.xalg.as_ref());
         for group in &self.bfcb_block {
@@ -29177,7 +29182,7 @@ pub struct LighRecord {
     /// `EDID`, required.
     pub editor_id: Option<Sub<ZString>>,
     /// `OBND`, required.
-    pub obnd: Option<Sub<Bytes>>,
+    pub object_bounds: Option<Sub<ObjectBounds>>,
     /// `ODTY`, required.
     pub odty: Option<Sub<Bytes>>,
     /// Group `BfcbBlock`, repeated.
@@ -29294,9 +29299,14 @@ impl LighRecord {
                 Hit::Sub { member: 0, index } => {
                     put(&mut self.editor_id, subs, *index, "LIGH.EDID", ctx, extra)
                 }
-                Hit::Sub { member: 1, index } => {
-                    put(&mut self.obnd, subs, *index, "LIGH.OBND", ctx, extra)
-                }
+                Hit::Sub { member: 1, index } => put(
+                    &mut self.object_bounds,
+                    subs,
+                    *index,
+                    "LIGH.OBND",
+                    ctx,
+                    extra,
+                ),
                 Hit::Sub { member: 2, index } => {
                     put(&mut self.odty, subs, *index, "LIGH.ODTY", ctx, extra)
                 }
@@ -29350,7 +29360,7 @@ impl LighRecord {
 
     fn emit(&self, out: &mut Vec<OwnedSub>) {
         emit(out, *b"EDID", self.editor_id.as_ref());
-        emit(out, *b"OBND", self.obnd.as_ref());
+        emit(out, *b"OBND", self.object_bounds.as_ref());
         emit(out, *b"ODTY", self.odty.as_ref());
         for group in &self.bfcb_block {
             group.emit(out);

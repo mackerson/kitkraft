@@ -40,15 +40,16 @@ confidence = "corpus"
 
 [[member]]
 sig = "OBND"
-name = "Obnd"
-type = "opaque"
+name = "ObjectBounds"
+type = "ref:ObjectBounds"
 card = "required"
 source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-15: in 1723 of 1723 official LIGH records (1723 occurrences), 24 bytes"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L13809-L13809",
+  "xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9348-L9365",
 ]
 confidence = "corpus"
-note = "payload not decoded (M4.BX2 inventory)"
+note = "typed with the shared ObjectBounds layout the other types use (fix round W3, lane R request: references of a LIGH base draw as their bounds box); every official LIGH OBND is 24 bytes"
 
 [[member]]
 sig = "ODTY"
