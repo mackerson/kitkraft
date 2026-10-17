@@ -1,6 +1,67 @@
 # Status
 
-Updated: 2026-10-15 (reconciled against `main` at `01c77d8`); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+Updated: 2026-10-16 (paused; see "Pause" below; `main` at 82796e2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
+
+## Pause (2026-10-16, evening): read this first when resuming
+
+The owner paused the project after the 2026-10-16 push ("bring everything down gracefully,
+get things into a good position and then push and pause"). Every lane that was running has
+been merged with a green `cargo xtask ci`, pushed to `origin/main`, and its worktree removed.
+No agent is running. The director goal ("finish every agent-executable ticket in M5, M6 and
+M7") is suspended, not met: the items below are what a resuming session picks up, in order.
+
+### 1. Apply the wave-3 review fix list (one Opus fix lane, then re-review)
+
+The Fable review of lanes P (window), T10, D4, V3 and M passed all five on code and
+returned these fixes, not yet applied:
+
+| # | Finding | Where |
+| - | ------- | ----- |
+| 1 | **MEDIUM** `place --fields` (and `new`) can write a group member without its group lead (e.g. `XPDO` without `XPDD` on a REFR); `validate` stays silent because `layout.undecoded` skips subrecords the walk gave no layout. Fix: `scaffold::add_slots` refuses (or adds the lead); `validate` flags out-of-place subrecords | `crates/engine/src/edit/scaffold.rs` ~72-92, `crates/engine/src/validate/mod.rs` ~981 |
+| 2 | **MEDIUM, governance** ADR 0012 §4 says an `unresearched` parity row cannot become `reproduced` without a sitting, yet `docs/ck-parity.md` ~79-93 uses a status `reproduced (layout unobserved)` the ADR does not define, and the menu-bar order row moved to it with Source "recollection". Director decision (pending owner): amend ADR 0012 to define **`built, unobserved`** as a status below `observed` (the thing exists in KitKraft but matches no observation), move every such row to it, keep the no-skipping rule | `plan/adr/0012-ck-interface-clean-room.md`, `docs/ck-parity.md`, `crates/ui-egui/src/menu.rs` wording |
+| 3 | LOW Playbook step 3: on the owner's box MO2 has `Default` selected, so the first `kit mod run` ends `fail` at deploy; say "select KitKraft Dev in MO2 before the run" and name the refusal | `docs/playbooks/mod-from-brief.md` ~83, ~113 |
+| 4 | LOW `virtual_table` keeps scroll offset and only-growing column widths per id across data changes; reset both on a new query or type pick | `crates/ui-egui/src/panels/common.rs` ~253-297, `app.rs` ~779-792 |
+| 5 | LOW No test exercises `run_with_progress` refusing a write; add one line to `writing_commands_and_their_aliases_are_refused_before_the_engine` | `crates/ui-egui/src/gate.rs` tests |
+| 6 | LOW (lane R request) `OBND` is opaque for DOOR and LIGH, so those references draw as type shapes; type it from the pinned xEdit lines (ObjectBounds, `wbDefinitionsCommon.pas@9fb01688#L9348-L9365`) | `crates/schema/defs/{DOOR,LIGH}.toml`, then `cargo xtask codegen` |
+| 7 | NOTE `scripts/launch-dev.ps1` always refuses today (`launch.evidence` is empty in `crates/game/profiles/starfield.toml`); `Select-String -SimpleMatch` on a short token could false-match; it runs whatever `kit` is on PATH | `scripts/launch-dev.ps1` ~43-51 |
+
+Lane D round 5 (merged after the review) also touched `scaffold.rs`; apply fix 1 on top of it.
+
+### 2. Reconcile the planning docs against `main`
+
+After the merges of 2026-10-16 (lanes H, F, P engine, A+B, V2, T, D3, G, R1, D7/H2, E, T10,
+P window, D4, V3, M, R2, D5 and three fix rounds) these are stale and need one docs lane:
+`docs/foothold/gap-matrix.md` (M5.F2: run `kit coverage --matrix` and refresh every row),
+`docs/foothold/next-sprint.md` (what landed, what is next), the "M5 exit criteria" and
+"M3 and M4 exit criteria" tables in this file, and ROADMAP.md "Where we are". Then a Fable
+review of the reconciliation.
+
+### 3. Decisions the director took in the owner's absence (confirm or overturn)
+
+| Decision | Where recorded |
+| -------- | -------------- |
+| ADR 0013: `unsafe` allowed in exactly one file (`crates/ui-egui/src/viewport/gl.rs`) for the GL viewport; the workspace lint is `deny`, and `cargo xtask layers` fails on `unsafe` anywhere else | `plan/adr/0013-scoped-unsafe-for-the-gl-viewport.md` |
+| M7.M0 window model: CK-style floating `egui::Window`s inside the main viewport; docks only if a sitting shows them | `docs/workbench.md` "CK-style windows" |
+| M7.R3 uses `OBND` for bounding boxes; the NIF-derived variant waits on M7.O5 | `plan/execution-plan.md` M7.R3 |
+| REFR rotation convention Rx(-x)·Ry(-y)·Rz(-z), pinned from corpus box-corner alignment in three cells, unobserved against the CK | `crates/ui-egui/src/viewport/cell.rs`, `docs/ck-parity.md` Render Window row |
+| CK static-strings method (M5.A4) retained but not cited or repeated until ruled | "Director assumptions pending owner" table below |
+| M6.O2 fonts: system fonts only; M7.O5: no NIF source adopted | same table |
+
+### 4. Owner-gated work (unchanged by the pause)
+
+Rows 10 (M4.O7 console mods; note the dev profile has `LocalSettings=false`, ledger
+`game-20261016-T1`), 12 (M5.O1 CK sitting; script in `docs/ck-sessions/f29-f30.md`), 14
+(M4.O4 session 2), 15 (M4.O1 sittings), 17 (static-strings ruling), and M7.O2/O3 (interface
+sittings) in "Owner next actions". Everything runtime-facing (M4.T4..T7, M5.C2, every
+FTH-EXP row, M5.B3, M5.H2's second half) stays `not-run` until row 10 or a sitting.
+
+### 5. How to resume
+
+1. Open a session on the repo (`C:\Modding\kitcraft`; the rename to `kitkraft` is still
+   optional, `C:\Modding\scripts\finish_kitkraft_move.ps1`, all sessions closed).
+2. `kit doctor`; `cargo xtask dist --sync-bin` if `kit --version` does not name `main`'s commit.
+3. Start with section 1 above as one Opus fix lane, then section 2, then the next lanes from
+   `docs/foothold/next-sprint.md`.
 
 ## Director goal (2026-10-16)
 
