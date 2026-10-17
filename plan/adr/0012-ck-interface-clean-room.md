@@ -6,6 +6,8 @@
   ("M7: CK parity") but had no file yet. This file was written at the ruling from that
   description, so it starts as Accepted and never existed as a Proposed draft (M7.K1 is
   closed by it).
+- Amended: 2026-10-16 by Amendment 1 below (the status `built, unobserved`; director
+  decision 2026-10-16, **pending owner**).
 - Date: 2026-10-16
 - Scope: how M7 reproduces the Creation Kit's interface (windows, menus, dialogs, labels,
   workflows, keyboard shortcuts, camera controls) in `crates/ui-egui`. It covers which
@@ -130,3 +132,42 @@ M7.S5 (geometry) follows M7.S4, so it waits on the same ruling.
   accepted.
 - Nothing changes for data facts. ADR 0004 and ADR 0005 and the `ck-diff` confidence
   level (CK differential observation of saved plugins) stand as they are.
+
+## Amendment 1 (2026-10-16): the status `built, unobserved`
+
+- Status: **director decision 2026-10-16, pending owner**. The owner may confirm it or
+  overturn it (`plan/STATUS.md`, "Pause", section 3); until then it is followed as
+  written.
+- Context: the Fable review of wave 3 (finding 2, `plan/STATUS.md` "Pause", section 1)
+  found that M7 lane M built CK-style elements (the menu bar, the Warnings and Use Info
+  windows, the read-only edit dialogs, the window arrangement) before any sitting, and
+  that `docs/ck-parity.md` gave their rows a status this ADR does not define,
+  `reproduced (layout unobserved)`. The main menu bar's order row moved to it with the
+  Source "recollection". That reads as a step from `unresearched` to `reproduced`, which
+  section 4 forbids.
+
+### Decision
+
+Section 4 gains one status, below `observed`:
+
+| Status | Meaning | Evidence the row must carry | Who moves it |
+| ------ | ------- | --------------------------- | ------------ |
+| `built, unobserved` | KitKraft has the element, but it matches no observation: its layout, order and labels are KitKraft's own (or a recollection's) until a sitting observes the CK's | "Evidence": the test or tour image that shows what KitKraft built. "Source" stays as it was (a recollection, a director assumption, or `-`); it is not evidence | The lane that builds it |
+
+- **Order.** `unresearched` and `built, unobserved` both sit below `observed`. A
+  `built, unobserved` row says only that something exists in KitKraft; it says nothing
+  about the CK.
+- **Moving on.** A `built, unobserved` row moves to `observed` (and then `reproduced` or
+  `improved`) only through a sitting, as an `unresearched` row does. When the sitting
+  shows something different, the element is redone from the observation before the row
+  becomes `reproduced`.
+- **Never parity.** A `built, unobserved` row is never counted as parity: not by M7.K5's
+  check, not in an exit table, not in a summary that counts `reproduced` or `improved`
+  rows. M7's exit (section 4, "Gaps") still needs every observed row to be `reproduced`,
+  `improved` or a documented gap.
+- **No skipping.** Section 4's rule stands: no row reaches `reproduced` or `improved`
+  without passing `observed`, and building something before a sitting does not change
+  that.
+- **Consequences.** Every `reproduced (layout unobserved)` row in `docs/ck-parity.md`
+  becomes `built, unobserved`, the main menu bar's order row included.
+  `crates/ui-egui/src/menu.rs` and `docs/workbench.md` use the same words.

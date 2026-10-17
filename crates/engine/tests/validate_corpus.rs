@@ -669,6 +669,18 @@ fn validate_corpus_official_files() {
             println!("    layout.undecoded: {undecoded} findings, expected 0");
             failures.push(name);
         }
+        // Every subrecord whose signature a definition names sits where the definition
+        // places it (Fable review of wave 3, finding 1: `layout.unplaced`, 0 expected).
+        let unplaced = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "layout.unplaced")
+            .count();
+        if unplaced != 0 {
+            println!("    layout.unplaced: {unplaced} findings, expected 0");
+            failures.push(name);
+        }
         let mut unexplained = 0u64;
         for f in data["findings"].as_array().unwrap() {
             if f["severity"] != json!("error") {

@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          33 |   252,710 |     80,112 |   466,918 |   532,809 |
-| **Total**       |          186 |          96 | 7,490,102 | 46,635,633 | 2,544,411 | 1,239,517 |
+| container/other |          123 |          33 |   252,710 |     82,211 |   464,819 |   532,809 |
+| **Total**       |          186 |          96 | 7,490,102 | 46,637,732 | 2,542,312 | 1,239,517 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 96 record definitions, defs hash `fnv1a64:558dbeed43b011fa` (the hash named in
+- Schema: 96 record definitions, defs hash `fnv1a64:6abfef683a5abdda` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -88,7 +88,7 @@ Columns:
 | `ACTI`        | Activator               |     1,940 |          0 |    48 |    44 |      4 |       0 |
 | `SFBK`        | SurfaceBlock            |     1,877 |          0 |    21 |    19 |      0 |       2 |
 | `PNDT`        | Planet                  |     1,786 |      1,786 |    31 |    21 |      0 |      10 |
-| `LIGH`        | Light                   |     1,723 |          0 |    24 |     8 |     14 |       2 |
+| `LIGH`        | Light                   |     1,723 |          0 |    24 |     9 |     13 |       2 |
 | `AFFE`        | AffinityEvent           |     1,593 |          0 |    11 |    11 |      0 |       0 |
 | `SFTR`        | -                       |     1,514 |      1,514 |     9 |     0 |      0 |       9 |
 | `MISC`        | MiscItem                |     1,495 |          0 |    33 |    31 |      2 |       0 |
@@ -132,7 +132,7 @@ Columns:
 | `LTEX`        | -                       |       429 |          0 |     5 |     0 |      0 |       5 |
 | `LSCR`        | LoadScreen              |       393 |          0 |     4 |     2 |      2 |       0 |
 | `PCBN`        | PlanetContentBranchNode |       379 |          0 |    23 |    22 |      1 |       0 |
-| `DOOR`        | Door                    |       376 |          0 |    32 |    11 |     19 |       2 |
+| `DOOR`        | Door                    |       376 |          0 |    32 |    12 |     18 |       2 |
 | `LVLB`        | -                       |       373 |          0 |    12 |     0 |      0 |      12 |
 | `AMBS`        | -                       |       369 |          0 |     5 |     0 |      0 |       5 |
 | `ALCH`        | Ingestible              |       365 |          0 |    32 |     4 |      0 |      28 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 96 defined              | 7,490,102 |    136,741 | 2,797 | 1,636 |    194 |     967 |
+| **186 types** | 96 defined              | 7,490,102 |    136,741 | 2,797 | 1,638 |    192 |     967 |
 
-Subrecord occurrences: 50,419,561 in total; 46,635,633 typed (0 of them failed to decode), 2,544,411 opaque, 1,239,517 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,637,732 typed (0 of them failed to decode), 2,542,312 opaque, 1,239,517 unknown.
 
 ## Decoded through the definitions
 
@@ -288,7 +288,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `ACTI`    | Activator               |         1,940 |     24,186 |      0 |         0 |       384 |                   0 |     23,802 |       0 |        0 |
 | `SFBK`    | SurfaceBlock            |         1,877 |     32,400 |      0 |         0 |         0 |                   0 |     32,400 |       0 |        0 |
 | `PNDT`    | Planet                  |         1,786 |     55,229 |      0 |         0 |         0 |                   0 |     55,229 |       0 |        0 |
-| `LIGH`    | Light                   |         1,723 |      7,393 |      0 |         0 |         0 |                   0 |      7,393 |       0 |        0 |
+| `LIGH`    | Light                   |         1,723 |      9,116 |      0 |         0 |         0 |                   0 |      9,116 |       0 |        0 |
 | `AFFE`    | AffinityEvent           |         1,593 |     24,261 |      0 |         0 |         0 |                   0 |     24,261 |       0 |        0 |
 | `MISC`    | MiscItem                |         1,495 |     19,435 |      0 |         0 |         3 |                   0 |     19,432 |       0 |        0 |
 | `FLST`    | FormIdList              |         1,415 |     14,840 |      0 |         0 |         0 |                   0 |     14,840 |       0 |        0 |
@@ -314,7 +314,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `BIOM`    | Biome                   |           434 |     81,085 |      0 |         0 |         0 |                   0 |     81,085 |       0 |        0 |
 | `LSCR`    | LoadScreen              |           393 |        786 |      0 |         0 |         0 |                   0 |        786 |       0 |        0 |
 | `PCBN`    | PlanetContentBranchNode |           379 |      7,864 |      0 |         0 |         0 |                   0 |      7,864 |       0 |        0 |
-| `DOOR`    | Door                    |           376 |      3,402 |      0 |         0 |         0 |                   0 |      3,402 |       0 |        0 |
+| `DOOR`    | Door                    |           376 |      3,778 |      0 |         0 |         0 |                   0 |      3,778 |       0 |        0 |
 | `ALCH`    | Ingestible              |           365 |      1,459 |      0 |         0 |         0 |                   0 |      1,459 |       0 |        0 |
 | `EXPL`    | Explosion               |           359 |        406 |      0 |         0 |         0 |                   0 |        406 |       0 |        0 |
 | `KEYM`    | Key                     |           343 |        682 |      0 |         0 |         0 |                   0 |        682 |       0 |        0 |
@@ -354,7 +354,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,444,869 | 46,635,633 |      0 |         0 |       685 |                   0 | 46,634,948 |       0 |        0 |
+| **Total** |                         |     7,444,869 | 46,637,732 |      0 |         0 |       685 |                   0 | 46,637,047 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -390,7 +390,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `CPTH`    | CameraPath              |              7 |     7 |      0 |         0 |                   0 |      7 |       0 |        0 |
 | `DIAL`    | DialogTopic             |             44 |    41 |      3 |         0 |                   0 |     44 |       0 |        0 |
 | `DMGT`    | DamageType              |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
-| `DOOR`    | Door                    |             57 |    34 |     23 |         0 |                   0 |     57 |       0 |        0 |
+| `DOOR`    | Door                    |             57 |    35 |     22 |         0 |                   0 |     57 |       0 |        0 |
 | `ENCH`    | Enchantment             |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `EXPL`    | Explosion               |              2 |     2 |      0 |         0 |                   0 |      2 |       0 |        0 |
 | `FACT`    | Faction                 |             59 |    56 |      3 |         6 |                   0 |     53 |       0 |        0 |
@@ -413,7 +413,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LAYR`    | Layer                   |             37 |    31 |      6 |         0 |                   0 |     37 |       0 |        0 |
 | `LCRT`    | LocationRefType         |             42 |    37 |      5 |         5 |                   0 |     37 |       0 |        0 |
 | `LCTN`    | Location                |             71 |    66 |      5 |         8 |                   0 |     63 |       0 |        0 |
-| `LIGH`    | Light                   |             49 |    33 |     16 |         0 |                   0 |     49 |       0 |        0 |
+| `LIGH`    | Light                   |             49 |    34 |     15 |         0 |                   0 |     49 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `LVLI`    | LeveledItem             |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc              |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
@@ -465,7 +465,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,038 | 3,657 |    381 |       250 |                   2 |  3,786 |       0 |        0 |
+| **Total** |                         |          4,038 | 3,659 |    379 |       250 |                   2 |  3,786 |       0 |        0 |
 
 ## Subrecords outside the definitions
 

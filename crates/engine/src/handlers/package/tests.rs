@@ -43,7 +43,7 @@ fn dds() -> Vec<u8> {
 fn inputs(dir: &Path) -> (PathBuf, PathBuf, PathBuf) {
     let plugin = dir.join("src").join("KC_Test.esm");
     fs::create_dir_all(plugin.parent().unwrap()).unwrap();
-    fs::write(&plugin, testdata::plugin()).unwrap();
+    fs::write(&plugin, testdata::placed_plugin()).unwrap();
     let loose = dir.join("loose");
     fs::create_dir_all(loose.join("Meshes").join("KC")).unwrap();
     fs::write(
@@ -151,7 +151,7 @@ fn loose_package_with_scripts_manifest_and_zip_is_deterministic() {
     assert_eq!(p["masters"], json!([]));
     assert_eq!(p["records"], testdata::RECORDS - 1);
     assert_eq!(p["record_types"], json!({"GMST": 1, "WEAP": 2}));
-    assert_eq!(p["sha256"], sha256::hex(&testdata::plugin()));
+    assert_eq!(p["sha256"], sha256::hex(&testdata::placed_plugin()));
     assert_eq!(manifest["kitkraft_version"], env!("CARGO_PKG_VERSION"));
     assert_eq!(manifest["spec"]["sha256"], sha256::hex(b"version = 3\n"));
     assert_eq!(manifest["spec"]["file"], "poi.toml");

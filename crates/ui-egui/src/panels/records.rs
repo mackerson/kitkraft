@@ -439,7 +439,7 @@ use eframe::egui::{self, CollapsingHeader, ScrollArea, TextEdit};
 
 use crate::panels::common::{
     action_bar, conf_label, envelope_block, link, panel_head, plugin_combo, record_actions,
-    virtual_table, Action, Slot, TabCtx,
+    virtual_table_for, Action, Slot, TabCtx,
 };
 use crate::panels::planet::PLANET_TYPES;
 use crate::theme::{self, Field, Status, View};
@@ -455,6 +455,11 @@ pub(crate) struct RecordsTab {
     pub query_form: QueryForm,
     pub query_view: Option<QueryView>,
     pub query_cursor: Option<String>,
+    /// Bumped each time a `query` result (a new query, a page, a type pick) or a type list
+    /// replaces the table's rows, so the table scrolls back to the top and measures its
+    /// columns afresh ([`virtual_table_for`]).
+    pub query_data: u64,
+    pub types_data: u64,
     pub record_form: String,
     pub record_plugin: String,
     pub record_view: Option<RecordView>,
@@ -583,9 +588,10 @@ impl RecordsTab {
                         .iter()
                         .filter(|t| filter.is_empty() || t.signature.contains(&filter))
                         .collect();
-                    virtual_table(
+                    virtual_table_for(
                         ui,
                         "types-grid",
+                        self.types_data,
                         &["type", "definition", "records", "confidence / occurrences"],
                         shown.len(),
                         View::Short,
@@ -676,9 +682,10 @@ impl RecordsTab {
                         theme::status(ui, Status::Unknown, &format!("undecided {form}: {reasons}"));
                     }
                     let selected = self.record_view.as_ref().map(|r| r.global.as_str());
-                    let rows_rect = virtual_table(
+                    let rows_rect = virtual_table_for(
                         ui,
                         "query-grid",
+                        self.query_data,
                         &[
                             "form",
                             "",

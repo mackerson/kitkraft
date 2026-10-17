@@ -3,8 +3,10 @@
 //! without a window), then its drawing.
 //!
 //! Top-level order: the Creation Kit's menus in the order `docs/ck-parity.md` "Interface
-//! parity" records, which is the owner's recollection and **unresearched** until CK
-//! sitting 1 (M7.O2); then KitKraft's own menus (Record, Tools, Archive, ...) in the
+//! parity" records, which is the owner's recollection, not an observation: the bar built
+//! to it is **`built, unobserved`** (ADR 0012 Amendment 1, director decision 2026-10-16,
+//! pending owner) and is never counted as parity until CK sitting 1 (M7.O2) observes the
+//! CK's order; then KitKraft's own menus (Record, Tools, Archive, ...) in the
 //! order the catalog first names them, before Help (so the CK menus keep their relative
 //! order); a CK menu no command uses yet is still drawn, with a disabled line saying so.
 //!
@@ -17,7 +19,8 @@
 use crate::gate::{self, CommandSpec, CommandStatus};
 
 /// The CK's top-level menus as `docs/ck-parity.md` records them today (first
-/// "Interface parity" row): a recollection, not an observation (`unresearched`). A test
+/// "Interface parity" row): a recollection, not an observation (the row is
+/// `built, unobserved`, ADR 0012 Amendment 1). A test
 /// holds this list equal to that row, so a sitting that changes the row changes this.
 pub const CK_MENU_ORDER: &[&str] = &[
     "File",
@@ -67,7 +70,8 @@ pub struct MenuItem {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Menu {
     pub name: String,
-    /// One of [`CK_MENU_ORDER`] (its place is the recorded, unresearched CK order).
+    /// One of [`CK_MENU_ORDER`] (its place is the recorded CK order: a recollection,
+    /// `built, unobserved`).
     pub ck: bool,
     pub items: Vec<MenuItem>,
 }
@@ -206,7 +210,9 @@ pub fn menu_bar(
                         egui::containers::menu::MenuButton::new(menu.name.as_str()).ui(ui, |ui| {
                             ui.set_min_width(theme::combo_width(ui));
                             if menu.ck {
-                                ui.weak("CK menu: place and items unresearched (sitting 1)");
+                                ui.weak(
+                                    "CK menu: built, unobserved; place and items wait on sitting 1",
+                                );
                             } else {
                                 ui.weak("KitKraft menu");
                             }

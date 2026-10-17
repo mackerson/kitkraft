@@ -176,6 +176,12 @@ pub const RULES: &[RuleInfo] = &[
         summary: "A subrecord the schema has a layout for (placed by its position) whose payload does not decode under it: an array whose length is not a multiple of its element size, a count that disagrees with its array, a payload too short or too long",
     },
     RuleInfo {
+        id: "layout.unplaced",
+        severity: Severity::Error,
+        input: Input::Plugin,
+        summary: "A subrecord whose signature the record type's definition names, at a position no member accepts (a group member without its group's lead, such as a REFR XPDO without XPDD): the reader has no layout for it",
+    },
+    RuleInfo {
         id: "papyrus.missing-script",
         severity: Severity::Error,
         input: Input::Plugin,
@@ -1002,6 +1008,32 @@ fn check_record(
                         s.data().len()
                     ),
                 );
+            }
+        }
+    }
+
+    // layout.unplaced: a subrecord the definition names at a position no member accepts
+    // (Fable review of wave 3, finding 1); `layout.undecoded` cannot see it, having no
+    // layout to decode it with.
+    if pass.on("layout.unplaced") {
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+        let schema = kitkraft_schema::builtin().ok();
+        let placed = schema.and_then(|s| kitkraft_doc::typed::placements(s, sig, &sigs));
+        if let (Some(schema), Some(placed)) = (schema, placed) {
+            for (i, s) in subs.iter().enumerate() {
+                let p = placed.get(i);
+                if let Err(e @ kitkraft_doc::typed::LayoutError::Unplaced { .. }) =
+                    kitkraft_doc::typed::layout_of(schema, sig, s.signature().0, i, p)
+                {
+                    push(
+                        findings,
+                        "layout.unplaced",
+                        Severity::Error,
+                        Some(s.signature().to_string()),
+                        sub_offset(s),
+                        format!("{id} {e}"),
+                    );
+                }
             }
         }
     }

@@ -597,9 +597,15 @@ impl App {
                     self.load.view = Some(view);
                     self.session = Some(session_args(&reply.request.args));
                 }
-                View::Types(rows) => self.records.type_rows = rows,
+                View::Types(rows) => {
+                    self.records.type_rows = rows;
+                    self.records.types_data = self.records.types_data.wrapping_add(1);
+                }
                 View::Query(view) => {
+                    // A new query, page or type pick replaces the rows: the table starts
+                    // at the top with fresh column widths.
                     let old = self.records.query_view.replace(view);
+                    self.records.query_data = self.records.query_data.wrapping_add(1);
                     self.worker.dispose(old);
                 }
                 View::Record(view) => {

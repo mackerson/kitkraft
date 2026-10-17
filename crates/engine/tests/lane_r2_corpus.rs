@@ -73,6 +73,26 @@ fn check_bounds(env: &Value) {
         .filter(|e| e["subrecord"] == "OBND")
         .count();
     assert_eq!(obnd as u64, with);
+    // Fix round W3 (lane R request): DOOR and LIGH type `OBND`, so their references get
+    // boxes and no limitation names them as bases whose `OBND` is kept opaque.
+    for t in ["DOOR", "LIGH"] {
+        let refs: Vec<&Value> = items.iter().filter(|i| i["base_signature"] == t).collect();
+        eprintln!("  {t}: {} references", refs.len());
+        assert!(
+            refs.iter().all(|i| i["bounds"].is_object()),
+            "{t}: {refs:?}"
+        );
+    }
+    let opaque = env["limitations"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(Value::as_str)
+        .find(|l| l.contains("keeps opaque"));
+    assert!(
+        opaque.is_none_or(|l| !l.contains("DOOR") && !l.contains("LIGH")),
+        "{opaque:?}"
+    );
 }
 
 #[test]

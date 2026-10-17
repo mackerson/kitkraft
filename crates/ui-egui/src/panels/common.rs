@@ -254,45 +254,75 @@ fn table_row(
 /// the top; every row has the theme's row height; zebra rows when the density asks for
 /// them; the scroll position is kept per `id`, and selection is the caller's state, so
 /// both survive a repaint. `row(r, i)` adds row `i`'s cells, one per header column.
-/// Returns the rectangle of the rows' scroll area.
+/// Returns the rectangle of the rows' scroll area. A table whose data can be replaced uses
+/// [`virtual_table_for`].
 pub(crate) fn virtual_table(
     ui: &mut egui::Ui,
     id: impl std::hash::Hash + std::fmt::Debug,
     header: &[&str],
     rows: usize,
     view: View,
+    row: impl FnMut(&mut TableRow<'_>, usize),
+) -> egui::Rect {
+    virtual_table_for(ui, id, 0, header, rows, view, row)
+}
+
+/// A [`virtual_table`] over data that a new request replaces (a new query, a type pick):
+/// `data` names the data shown (the caller bumps it when new data arrives). When it
+/// differs from the last frame's, the table starts over: scrolled to the top and the left,
+/// and its column widths, which otherwise only grow, measured afresh (Fable review of wave
+/// 3, finding 4).
+pub(crate) fn virtual_table_for(
+    ui: &mut egui::Ui,
+    id: impl std::hash::Hash + std::fmt::Debug,
+    data: u64,
+    header: &[&str],
+    rows: usize,
+    view: View,
     mut row: impl FnMut(&mut TableRow<'_>, usize),
 ) -> egui::Rect {
     let id = ui.make_persistent_id(("virtual-table", id));
-    let mut widths: Vec<f32> = ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
+    let (mut widths, last): (Vec<f32>, Option<u64>) =
+        ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
+    let replaced = last.is_some_and(|k| k != data);
+    if replaced {
+        widths.clear();
+    }
     let mut grew = false;
     let zebra = theme::active(ui.ctx()).density.zebra;
     let (height, _) = table_metrics(ui);
     let max_height = theme::view_height(ui, view);
-    let rect = ScrollArea::horizontal()
+    let mut across = ScrollArea::horizontal()
         .id_salt((id, "h"))
-        .auto_shrink([false, true])
+        .auto_shrink([false, true]);
+    if replaced {
+        across = across.horizontal_scroll_offset(0.0);
+    }
+    let rect = across
         .show(ui, |ui| {
             table_row(ui, &mut widths, &mut grew, false, |r| {
                 for h in header {
                     r.cell(|ui| ui.strong(*h));
                 }
             });
-            ScrollArea::vertical()
+            let mut down = ScrollArea::vertical()
                 .id_salt((id, "v"))
                 .max_height(max_height)
-                .auto_shrink([false, true])
-                .show_rows(ui, height, rows, |ui, range| {
-                    for i in range {
-                        let stripe = zebra && i & 1 == 1;
-                        table_row(ui, &mut widths, &mut grew, stripe, |r| row(r, i));
-                    }
-                })
-                .inner_rect
+                .auto_shrink([false, true]);
+            if replaced {
+                down = down.vertical_scroll_offset(0.0);
+            }
+            down.show_rows(ui, height, rows, |ui, range| {
+                for i in range {
+                    let stripe = zebra && i & 1 == 1;
+                    table_row(ui, &mut widths, &mut grew, stripe, |r| row(r, i));
+                }
+            })
+            .inner_rect
         })
         .inner;
-    ui.data_mut(|d| d.insert_temp(id, widths));
-    if grew {
+    ui.data_mut(|d| d.insert_temp(id, (widths, Some(data))));
+    if grew || replaced {
         ui.ctx().request_repaint();
     }
     rect
@@ -785,5 +815,81 @@ mod tests {
         assert!(!seen.is_empty(), "no row drawn");
         assert!(seen.len() < 200, "{} rows laid out", seen.len());
         assert_eq!(seen.first(), Some(&0));
+    }
+
+    /// Fable review of wave 3, finding 4: a table scrolled down whose columns grew keeps
+    /// both while its data stays the same, and starts over (top row first, widths measured
+    /// from the new rows) when new data replaces it (a new query or a type pick).
+    #[test]
+    fn a_virtual_table_starts_over_when_new_data_replaces_it() {
+        let ctx = egui::Context::default();
+        theme::apply(&ctx, &Preset::Workbench.theme(), Mode::Light);
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::Vec2::from(theme::WINDOW));
+        // One frame over `data` with wide or narrow second cells, optionally a wheel
+        // scroll over the table; returns the first row laid out and the column widths.
+        let frame = |data: u64, wide: bool, scroll: bool| -> (Option<usize>, Vec<f32>) {
+            let mut events = Vec::new();
+            if scroll {
+                events.push(egui::Event::PointerMoved(egui::pos2(100.0, 120.0)));
+                events.push(egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::Vec2::Y * -3000.0,
+                    phase: egui::TouchPhase::Move,
+                    modifiers: egui::Modifiers::NONE,
+                });
+            }
+            let raw = egui::RawInput {
+                screen_rect: Some(screen),
+                events,
+                ..Default::default()
+            };
+            let mut first = None;
+            let mut widths = Vec::new();
+            let mut out = ctx.run_ui(raw, |ui| {
+                virtual_table_for(ui, "t", data, &["a", "b"], 10_000, View::Medium, |r, i| {
+                    first.get_or_insert(i);
+                    r.cell(|ui| ui.label(format!("row {i}")));
+                    // A fixed-width cell (a test context has no fonts to measure text).
+                    let width = if wide { 300.0 } else { 20.0 };
+                    r.cell(|ui| {
+                        ui.allocate_exact_size(egui::vec2(width, 8.0), egui::Sense::hover())
+                    });
+                });
+                let id = ui.make_persistent_id(("virtual-table", "t"));
+                widths = ui
+                    .data_mut(|d| d.get_temp::<(Vec<f32>, Option<u64>)>(id))
+                    .map(|(w, _)| w)
+                    .unwrap_or_default();
+            });
+            out.textures_delta.clear();
+            (first, widths)
+        };
+        for _ in 0..3 {
+            frame(0, true, false);
+        }
+        frame(0, true, true);
+        let mut scrolled = (None, Vec::new());
+        for _ in 0..40 {
+            scrolled = frame(0, true, false);
+        }
+        assert!(
+            scrolled.0.is_some_and(|f| f > 0),
+            "not scrolled: {scrolled:?}"
+        );
+        let wide = scrolled.1.get(1).copied().unwrap();
+        // Same data, narrower rows: the place and the widths stay.
+        let same = frame(0, false, false);
+        assert!(same.0.is_some_and(|f| f > 0), "{same:?}");
+        assert_eq!(same.1.get(1).copied(), Some(wide));
+        // New data: top row first, columns measured from the new rows.
+        let mut fresh = (None, Vec::new());
+        for _ in 0..3 {
+            fresh = frame(1, false, false);
+        }
+        assert_eq!(fresh.0, Some(0), "{fresh:?}");
+        assert!(
+            fresh.1.get(1).is_some_and(|w| *w < wide),
+            "{fresh:?} vs {wide}"
+        );
     }
 }

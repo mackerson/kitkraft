@@ -988,6 +988,20 @@ mod tests {
             for name in std::iter::once(&spec.id).chain(spec.aliases.iter()) {
                 let err = engine.run(&Request::new(name, args.clone())).unwrap_err();
                 assert!(matches!(err, RunError::Refused(_)), "{name}: {err:?}");
+                // The progress path is gated the same way, and its sink never hears from
+                // the engine (Fable review of wave 3, finding 5).
+                let heard = Arc::new(std::sync::atomic::AtomicBool::new(false));
+                let flag = Arc::clone(&heard);
+                let err = engine
+                    .run_with_progress(&Request::new(name, args.clone()), move |_| {
+                        flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                    })
+                    .unwrap_err();
+                assert!(
+                    matches!(err, RunError::Refused(_)),
+                    "{name} with progress: {err:?}"
+                );
+                assert!(!heard.load(std::sync::atomic::Ordering::SeqCst), "{name}");
             }
         }
         for id in [
