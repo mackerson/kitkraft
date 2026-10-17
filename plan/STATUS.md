@@ -7,8 +7,11 @@ Updated: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix r
 The owner paused the project after the 2026-10-16 push ("bring everything down gracefully,
 get things into a good position and then push and pause"). Every lane that was running has
 been merged with a green `cargo xtask ci`, pushed to `origin/main`, and its worktree removed.
-No agent is running. The director goal ("finish every agent-executable ticket in M5, M6 and
-M7") is suspended, not met: the items below are what a resuming session picks up, in order.
+No agent is running. **Update, later the same evening:** sections 1 and 2 below were completed
+unattended after the pause (fix round W3 applied and reviewed; follow-ups a to d applied in W3b;
+planning docs reconciled at 81272e2), so the director goal ("finish every agent-executable ticket
+in M5, M6 and M7") is met as far as an agent can take it: only owner-gated work (section 4) and
+the next-sprint list remain. A resuming session starts at section 5.
 
 ### 1. Apply the wave-3 review fix list (one Opus fix lane, then re-review)
 
