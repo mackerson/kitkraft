@@ -1,7 +1,7 @@
 # ADR 0013: scoped `unsafe` for the GL viewport
 
-- Status: **Proposed by lane R (M7.R1), 2026-10-16; pending the director's confirmation
-  at the merge.** Lane R took it as the decision AGENTS.md lets a lane take ("decide,
+- Status: **Accepted by the director at the merge (f7ea7dd, 2026-10-16), pending the owner's
+  confirmation (plan/STATUS.md "Director assumptions pending owner").** Proposed by lane R (M7.R1). Lane R took it as the decision AGENTS.md lets a lane take ("decide,
   record why, keep going"); it is not on the owner's list. Rejecting it means reverting
   M7.R1's GL path, since the ticket cannot be built without it (Context).
 - Date: 2026-10-16

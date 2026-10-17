@@ -1,8 +1,11 @@
-# Next sprint (M5, from 2026-10-15)
+# Next sprint (from the 2026-10-16 pause)
 
-Which M5 tickets (`plan/execution-plan.md`, "M5") start now, which wait on the owner, and
-which model does what. Dependencies: `docs/foothold/dependency-graph.md`. Status today:
-`docs/foothold/gap-matrix.md`. Every hand-off ends with the AGENTS.md "Reporting" block.
+What landed on 2026-10-16, what a resuming session starts, in which order, what waits on
+the owner, and which director decisions wait for the owner's confirmation. Written by the
+reconciliation lane against `main` at `81272e2` (after fix round W3). Ticket text and
+"done when": `plan/execution-plan.md` (M4 lane T, M5, M6, M7). Dependencies:
+`docs/foothold/dependency-graph.md`. Status per capability: `docs/foothold/gap-matrix.md`
+(checked at `81272e2`). Every hand-off ends with the AGENTS.md "Reporting" block.
 
 ## Agent roles
 
@@ -12,83 +15,100 @@ which model does what. Dependencies: `docs/foothold/dependency-graph.md`. Status
 | Reviewer | Fable | Reviews each writer branch before the director merges it: clean-room rules, evidence behind every status cell, scope (no refactor, no Foothold content), and the six statuses kept apart |
 | Triage | Haiku | First pass over bulk output: sorts differential lines, probe results, log lines and corpus query hits into classes for the writer; never sets a status and never commits |
 
-## Starts now, in parallel
+## Landed on 2026-10-16
 
-Lanes B and D were started on 2026-10-15 before this plan existed, on briefs that match
-M5.B1 and M5.B2 and M5.D1 to M5.D3 in substance. Their branches carry no ticket ids; the
-director reconciles each merge to the ticket ids below (and records which brief became
-which ticket in the merge commit). The other tickets listed here need no owner action.
-One worktree and one `CARGO_TARGET_DIR` per writer.
+By ticket id, in merge order. Each lane's evidence is its "Landed" line in
+`plan/STATUS.md` and its ticket row in `plan/execution-plan.md`. "Partial" names what is
+open; nothing below was run in the game or the CK.
 
-| Ticket | Lane | Writer | Reviewer | Triage | Notes |
-| ------ | ---- | ------ | -------- | ------ | ----- |
-| M5.B1 CK sources provenance | B (running, pre-plan brief) | Opus | Fable | Haiku: file-list comparison of the extraction against the zip | Fills the CK-CONTENT-RESOURCES row (ADR 0011 §4); nothing from the sources enters the repo |
-| M5.B2 PEX differential | B (running, pre-plan brief) | Opus | Fable | Haiku: per-script diff classes | The harness can be built now; its CK-flags half waits on M5.B1's facts. Needs no owner step if the compiler's CK flags are read from the CK's own files, black box |
-| M5.D1 generated support matrix | D (running, pre-plan brief) | Opus | Fable | - | `xtask/src/parity.rs` and `docs/support-evidence.toml`; seed it from `docs/foothold/gap-matrix.md`. Shares `xtask/src/main.rs` with lane A (merge order below) |
-| M5.D2 `LCTN` typed write | D (running, pre-plan brief) | Opus | Fable | Haiku: corpus clone-sample mismatches | First with M5.D5: few opaque members (`kit schema`: LCTN 2, FACT 0); LCTN has 8 `reference` members, FACT 6 |
-| M5.D3 `TERM` typed write | D (running, pre-plan brief; after D2's handler changes land) | Opus | Fable | Haiku: corpus clone-sample mismatches | 19 `reference` members; `WBDT` opaque |
-| M5.D5 `FACT` typed write | D (not started) | Opus | Fable | - | Rank group at `reference` today: raise it or refuse |
-| M5.D4 `PKIN` typed write | D (not started; after D2) | Opus | Fable | - | Component bodies stay raw; the `VNAM` misread is the first fix |
-| M5.A1 CK session script | A | Opus | Fable | - | Write-only (docs): F29, F30, then F21, F20, F06. Not a prerequisite of M5.O1, which can run from STATUS row 12 now; A1 makes the ledger's session script and serves the later sittings (M5.A5) |
-| M5.A2 `cargo xtask oracle ck` | A | Opus | Fable | - | Synthetic fixture folders only until M5.O1; afterwards reruns M5.A3's fixtures and replaces the hand classing. Rebases onto M5.D1 in `xtask/src/main.rs` |
-| M4.T1 (a) MO2 command line | C | Opus | Fable | - | Needs neither the game nor M4.O7: `ModOrganizer.exe --help`, black box, nothing written into `C:\Modding\MO2-Starfield`. Facts (b)..(h) wait on M4.O7 |
-| M4.T2 `probes.toml` | C | Opus | Fable | - | Depends only on M4.E6 (done); M5.D7 needs it |
-| M4.T3 + M5.C1, game-free parts | C | Opus | Fable | - | Preflight refusals, backups and restore-only rollback, authorized-path test, timeouts, `inconclusive`, probe runner against a fake endpoint, ledger writer. The launch command waits for M4.T1 |
-| M5.F4 ledger transcription | F (first) | Opus | Fable | - | Two entries (M3.O5, M4.O2) from STATUS and the build docs, with the plugins' hashes. Until it lands, the gap matrix writes those results `pass (owner report; ledger entry pending M5.F4)` |
-| M5.F1 engine limitation register | F | Opus | Fable | Haiku: harvest candidate rows from `docs/gaps.md` and "Not in M4" | Evidence-cited rows only |
-| M5.F3 version and DLC matrix | F | Opus | Fable | - | Settles the owner's DLC mapping (ADR 0011 §3) from the install manifests |
-| M5.F5 Free Lanes and Terran Armada outpost changes | F | Opus | Fable | Haiku: first pass over `kit conflicts` and `kit diff` output | Addendum item 5: what `SFBGS050.esm` and `SFBGS00D.esm` override or add in the outpost and workshop families, read only, each row with its command; feeds FTH-EXP-09 |
-| M5.F2 gap matrix upkeep | F | Opus | Fable | - | After every M5 merge, until M5.D1 generates the matrix |
-| M5.H1 hostile-encounter research | H | Opus | Fable | Haiku: first pass over `kit query` and `papyrus events` hits | Research only; no hook, no Foothold attack design. Scope includes "Combat behavior, settlement defenses, damage, and recovery." and "Compatibility with vanilla outpost assaults and current DLC behavior." (addendum item 3) |
+| Lane | Done | Partial, or built but not run | Open from it |
+| ---- | ---- | ----------------------------- | ------------ |
+| H | - | M5.H1 research (result hypothesis) | - |
+| F | M5.F1, M5.F3, M5.F4, M5.F5 | M5.F2 (upkeep: checked at `5d03d01`, then at `81272e2` by this lane) | M5.F2 continues until M5.D1 generates the matrix |
+| P, engine side | M6.P2b, M6.P6b | M6.P6a (engine side) | MCP progress notifications (P2b) |
+| A + B | M5.A1 (F29/F30 script), M5.A2 (`oracle ck`, synthetic fixtures), M5.B1, M5.B2 (50 of 50 equivalent) | M5.A4 inconclusive (method pending the owner, row 17); M7.S4 prep memo | F21, F20, F06 session scripts (M5.A1) |
+| V, rounds 1 to 3 | M6.V1, M6.V2, M6.V3, M6.V4, M6.V6; M6.O1 recorded | M6.V5 | Column resize by drag (V5) |
+| C (runtime) | M4.T2, M4.T9 | M4.T3 + M5.C1 built and tested against fakes only; M4.T1 (a) not-run (`game-20261016-T1`) | M4.T1, then live sessions (row 10) |
+| D, round 3 | M5.D6, M6.P3b, M6.P5b, M7.S3, M7.S6, M7.S7 | - | - |
+| G | M6.G1, M6.G2, M6.G3, M6.G7, M6.G8 | M7.E1 (Amendment 4 drafted, proposed) | M6.G4 to M6.G6 |
+| R, round 1 | - | M7.R1 (ADR 0013 proposed) | V1 measured with the window driven |
+| D7 / H2 | - | M5.D7 (mini-site; game rows not-run), M5.H2 first half (prototype) | M5.H2 second half (waits on M5.C2) |
+| E | - | FTH-EXP-01 and FTH-EXP-03 agent halves | their game and CK rows |
+| T, round 2 | - | M4.T10 (stages 1 to 6 pass, the session refused) | the "done when" (M4.T1, row 10) |
+| P, window side | M6.P2a, M6.P4, M6.P5a, M6.P7 | M6.P1, M6.P3a (no start-up load) | P1 rows L5, I1, I3, I4 (window), T4, U1; P3a start-up load; P5a raw JSON by visible range |
+| D, round 4 | Typed-writable COBJ, STAT, REFR, ACHR, CELL; typed-readable WEAP, CONT (M5.D4/D5 follow-ups) | - | - |
+| M | M7.M4, M7.W5 | M7.M0, M7.M1, M7.W3 (every row `built, unobserved`) | the CK's order and labels (M7.K3, M7.K4) |
+| R, round 2 | - | M7.R2, M7.R3 (`OBND` variant) | Cell View sync (M7.W2); NIF bounds (M7.O5) |
+| D, round 5 | M5.D8, M5.D9, M5.D10, M5.D11 (which also does M7.S6b) | - | - |
+| Fix rounds | W1 (wave-1 review), X and P (dist, install), W2 (confirmations bound to their request, viewport GL objects released), W3 (the seven wave-3 items, `f758223` to `a8469e7`, marked in `34299f6`) | - | - |
+
+From 2026-10-15 and still partial: M5.D1 (`kit coverage --matrix` and
+`docs/schema/evidence.toml` exist; `cargo xtask parity --check` against this folder's
+matrix does not), M5.D2 to M5.D5 (typed write and dangling-link tests, `24ac42d`; the
+recipes `docs/recipes/location.md` and `terminal.md` and M5.D2's corpus clone-sample test
+are not written).
+
+## Next, in order
+
+Agent-executable, no owner step. One worktree and one `CARGO_TARGET_DIR` per writer;
+items 2 to 6 can run in parallel once item 1 is merged (they touch different files, see
+"Merge order").
+
+| # | Ticket(s) | Lane | Why now | Done when |
+| - | --------- | ---- | ------- | --------- |
+| 1 | Fable review of this reconciliation (`plan/STATUS.md` "Pause", section 2) | review | The planning documents are the resuming session's map; the review checks every cell against its evidence | The review's findings applied; STATUS "Pause" section 2 closed |
+| 2 | M5.D1 rest (`cargo xtask parity --check` generates the family table of `gap-matrix.md` and checks it); `docs/schema/evidence.toml` entries for the recipe-backed writes (ACTI, KYWD, TMLM, QUST, WRLD); M5.D2 and M5.D3 rest (recipes `location.md`, `terminal.md`, the clone-sample corpus test) | D | Closes the agent side of M5's exit row "typed-writable with reference integrity" and ends the hand upkeep of this matrix (M5.F2) | As the ticket rows; MX and the gap matrix agree on typed-writable |
+| 3 | M6.G4, M6.G5, M6.G6 against M4.T3's fakes | G | `game.session --start`, `game.status`, `game.probe` and `game.stop` are in the catalog; the shell-model tests their rows ask for run against the fake endpoint and fixture instance | Gate tests and shell-model tests; the live run (M6.O4, M4.T4 from the window) stays with the owner and row 10 |
+| 4 | M7.K2 (interface sitting scripts 1 and 2) and M5.A1's F21, F20, F06 scripts | K, A | Docs only. With them the owner can hold one combined sitting for rows 12 and 15 and M7.O2/M7.O3 | The scripts in `docs/ck-observations.md` and `docs/ck-sessions/`; each step names the parity rows or fixtures it fills |
+| 5 | M7.W2 Cell View, then M7.R2's selection sync | W, R | `cell` exists (M7.S3); the Render Window waits on it for its list sync | As the ticket rows; rows `built, unobserved` until a sitting |
+| 6 | Leftovers: M6.V5 column resize; M6.P1's open rows; M6.P3a start-up load; M6.P5a raw JSON by visible range; M6.P6a opt-level measurement; M6.P2b MCP progress notifications; M7.R1's V1 with the window driven | V, P, R, engine core | Small, measured, no owner step | Before-and-after rows in `docs/design/workbench-performance.md` where the ticket asks for them |
+
+Not next (blocked): M7.W1, M7.M2, M7.M3, M7.M5, M7.S1, M7.S2, M7.W4 (wait on M7.K3 or
+M7.K4, so on the sittings); M7.E2 to M7.E6 (M7.O4); M7.R3's NIF variant, M7.R4, M7.R5,
+M7.S4, M7.S5 (M7.O5); M4.T4 to M4.T8, M5.C2, M5.B3 and every FTH-EXP game row (row 10 or
+an owner sitting); M5.A3, M5.A5 (rows 12 and 15). Lane X stays DEFER.
 
 ## Waits on the owner
 
-| Ticket | Waits on | Then |
-| ------ | -------- | ---- |
-| M5.A3 golden run (path a) | **M5.O1** only: the owner-assisted CK sitting for F29 and F30, which can start now from STATUS row 12 | Opus writer with `cargo xtask observe`, `kit roundtrip --verify --decode`, `validate` and `kit diff`; Fable reviewer; Haiku triages the `unexplained` lines. M5.A2 reruns it later |
-| M5.A5 remaining fixtures | **M4.O1**: the owner's CK sittings for F20..F28 (STATUS row 15); M5.A1, M5.A2 | As M5.A3 |
-| M4.T1 (b)..(h) session facts, V0 | **M4.O7**: console plugins installed into `KitKraft Dev`, INI switches, `KitKraftBase` | Opus; the first game launch by an agent, under ADR 0010 Amendment 1 |
-| M4.T3 + M5.C1 completion | M4.T1; **M5.O2** at the merge (blocks only on a license outside MIT or Apache-2.0) | - |
-| M5.C2 first unattended save/reload (path b) | M4.T3 + M5.C1, M4.O7 | Opus writer; Haiku triages probe output; Fable reviews the ledger entry against the evidence rule |
-| M5.B3 scripted activator in game | **M4.O4** (owner, STATUS row 14) or M4.T6 (lane C) | - |
-| FTH-EXP-01..12 | M5.C2 **or M5.O4** (an owner-assisted sitting from the ticket's testplan), and the lane D, A and F tickets each row names | Not this sprint |
-| M5.A4 unattended CK | M5.A3 | Not this sprint |
-| M5.H2 encounter fixture | M5.H1, M5.C2, M5.D7 | Backlog |
+The rows of `plan/STATUS.md` "Owner next actions" that gate tickets, and M7's two
+sittings. In-game work only on `KitKraft Dev` with a disposable save.
 
-## Owner actions this sprint
+| Owner row | Action | What waits on it |
+| --------- | ------ | ---------------- |
+| 10 (M4.O7) | Install the Console API, Console Command Runner Updated (and optionally Console Output To File) into `KitKraft Dev`; the INI switches (turn on the profile's own INI files first: `LocalSettings=false` today, ledger `game-20261016-T1`); the base save `KitKraftBase`. Also, with MO2 closed, `ModOrganizer.exe --help` for M4.T1 (a) | M4.T1 (a) to (h), so a live M4.T3 session; M4.T4 to M4.T7, M5.C2 (path b), M4.T10's "done when", the live half of M6.G4 and M6.O4, M5.H2's second half, every FTH-EXP game and save/reload row |
+| 12 (M5.O1) | CK sitting 1: F29 and F30 (`docs/ck-sessions/f29-f30.md`) | M5.A3 (path a), Gate K0's CK item, every CK-diff cell, the M5.A4 experiment |
+| 14 (M4.O4) | In-game session 2, template O4, the scripts recipe in game (O4-07) | M5.B3 (unless lane C's M4.T6 closes O4-07 first), Gate K0's scripted-activator item, M5.O3 |
+| 15 (M4.O1) | CK sittings for F20 to F28, best after row 12 | M5.A5, so FTH-EXP-01, -04, -08 and -10's CK twins; M4.A1..A6's rules raised to `ck-diff` |
+| 17 | Rule on a static strings scan of `CreationKit.exe` | M5.A4 (unattended CK route); until then `docs/ck-observations.md` "M5.A4" is not cited |
+| M7.O2, M7.O3 | CK interface sittings 1 (menus, windows, camera) and 2 (edit dialogs of eight types), combinable with rows 12 and 15 once M7.K2's scripts exist | M7.K3, M7.K4, so every `built, unobserved` row reaching `observed`, the CK menu order, M7.M2, M7.M3, M7.M5, M7.S1, M7.S2, M7.W1, M7.W4 |
 
-In `plan/STATUS.md` "Owner next actions" (rows 10, 12 to 15): M4.O7 (path b), M5.O1 (path
-a; can start now), M5.O2 (at the M4.T3 merge), M4.O4 (session 2 with the scripts recipe;
-M5.B3 and M5.O3 wait on it unless lane C's M4.T6 closes it first) and M4.O1 (the F20..F28
-CK sittings; M5.A5 waits on them). The M4.O2 persistence row stays open for the owner
-(row 2 and M5.O3); lane C may close it first.
+Also the owner's, gating less: M7.O4 (ADR 0007 Amendment 4, the editor write scope; M7.E2
+to M7.E6), M7.O5 (NIF sources; M7.S4 onward), M6.O2 (fonts), row 7 (BSL-1.0), row 2's
+persistence row O2-08, row 13 (review `crates/game`'s dependency list: it adds no
+third-party crate, ADR 0010 "Dependency list"), and rows 5 and 11 (folder rename, install).
 
-## Added 2026-10-16: M6 lane V started
+## Director decisions pending the owner's confirmation
 
-The owner, in chat, 2026-10-16: "Approve Amendment 3 and ADR 0012, start lane V mockups".
-Lane V (`plan/execution-plan.md` "M6", "Lane V: visual system") runs beside the M5
-tickets above. It works in `crates/ui-egui` only, so it touches none of the M5 lanes'
-files.
+Taken during the 2026-10-16 run so lanes could proceed; each stands until the owner
+overturns it (`plan/STATUS.md` "Pause", section 3).
 
-| Ticket | Lane | Writer | Reviewer | Notes |
-| ------ | ---- | ------ | -------- | ----- |
-| M6.V1 make room for parallel work | V (in progress) | Opus | Fable | No visible change. Each tab's drawing moves from `app.rs` into its `panels/` file, and `theme.rs` holds today's colors and spacing. Merges first among the M6 lanes, since the others branch off its file layout |
-| M6.V2 two static mockups | V (in progress; after M6.V1) | Opus | Fable | Two theme presets x 5 tabs x light and dark, as screenshot tour images kept outside the repo, plus `docs/design/workbench-style.md` (draft). The owner then chooses (M6.O1), and M6.V3 onward wait on that choice |
-
-The same ruling unblocks M6.G3 (after M6.G2) and lane K's M7.K2 (the sitting scripts),
-because it accepted ADR 0007 Amendment 3 (M6.O3) and ADR 0012 (M7.O1). Neither is
-scheduled in this sprint.
+| Decision | Recorded in | If overturned |
+| -------- | ----------- | ------------- |
+| ADR 0013: `unsafe` in exactly one file (`crates/ui-egui/src/viewport/gl.rs`) for the GL viewport; lint `deny`, `cargo xtask layers` fails on `unsafe` elsewhere | `plan/adr/0013-scoped-unsafe-for-the-gl-viewport.md` (its status line still reads "pending the director's confirmation at the merge"; the director merged it and lists it as pending the owner) | M7.R1's GL path is reverted; the Render Window has no viewport |
+| ADR 0012 Amendment 1: the parity status `built, unobserved`, below `observed`, never counted as parity | `plan/adr/0012-ck-interface-clean-room.md`, `docs/ck-parity.md` (13 rows) | The 13 rows go back to `unresearched` (the elements stay, unrated) |
+| M7.M0: CK-style floating `egui::Window`s, no dock crate, docks only if a sitting shows them | `docs/workbench.md` "CK-style windows" | M7.M0 is redone with a docking crate listed in ADR 0007 |
+| M7.R3 draws `OBND` boxes first; the NIF-derived bounds wait on M7.O5 | `plan/execution-plan.md` M7.R3 | M7.R3 waits wholly on M7.O5 |
+| REFR rotation `Rx(-x)Ry(-y)Rz(-z)`, from corpus box-corner alignment in three cells, unobserved against the CK | `crates/ui-egui/src/viewport/scene.rs` (`ref_rotation`), `docs/ck-parity.md` | Re-pinned from a CK sitting (M7.O2) |
+| M6.O2: Windows system fonts only, no compiled-in font | STATUS "Director assumptions pending owner" | A font is compiled in and listed in `ATTRIBUTION.md` |
+| M7.O5: no NIF source adopted (prep memo `docs/research/nif-sources-2026-10-16.md`) | same table | M7.S4 starts on the sources the owner names |
+| CK static strings (M5.A4): no further static analysis of `CreationKit.exe`; the entry retained, not cited | same table; owner row 17 | The entry is cited (allowed) or removed (forbidden) |
 
 ## Merge order
 
-The director merges as branches pass review: lane D's handler changes first (D2 before D3
-and D4, since they share `handlers/newform.rs` and `edit/`); `defs/` changes go through BX
-(`cargo xtask codegen`, parity) one family at a time; shared files (`plan/STATUS.md`,
+The director merges as branches pass review. Lane D's `edit/`, `handlers/` and `xtask/src/parity.rs`
+changes go first (item 2), since M5.D1 rewrites the generated half of `gap-matrix.md`;
+`defs/` changes go through BX (`cargo xtask codegen`, parity) one family at a time;
+`crates/ui-egui/src/gate.rs` changes (lane G, item 3) in their own commits; lanes K and A
+(item 4) touch docs only; lanes W and R (item 5) share `crates/ui-egui/src/viewport/` and
+the shell, so W2 merges before R2's sync. Shared files (`plan/STATUS.md`,
 `plan/execution-plan.md`, `docs/source-registry.md`) in small separate commits.
-
-- `xtask`: lane D owns `xtask/src/parity.rs` for M5.D1 and lane A owns
-  `xtask/src/oracle.rs` and `xtask/src/evidence.rs` for M5.A2; they share only the
-  subcommand dispatch in `xtask/src/main.rs`. M5.D1 merges first (it is running); M5.A2
-  rebases onto it and keeps its dispatch change to its own line.
-- Lanes B and D's pre-plan branches: each merge commit names the M5 ticket ids it closes
-  (M5.B1, M5.B2, M5.D1 to M5.D3) and what of the ticket's "Done when" is still open.
