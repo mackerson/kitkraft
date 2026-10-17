@@ -144,8 +144,8 @@ fn header(ui: &mut egui::Ui, layout: &Layout, record: &RecordView) {
         if layout.observed {
             theme::status(ui, Status::Pass, "observed layout");
         } else {
-            theme::status(ui, Status::Warn, "layout unobserved").on_hover_text(
-                "tab and group names are KitKraft's until CK sitting 2 (M7.O3) records the CK's",
+            theme::status(ui, Status::Warn, "built, unobserved").on_hover_text(
+                "tab and group names are KitKraft's until CK sitting 2 (M7.O3) records the CK's (ADR 0012 Amendment 1)",
             );
         }
         ui.weak(&layout.source);

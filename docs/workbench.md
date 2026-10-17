@@ -403,8 +403,9 @@ windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Cod
 - **Menu bar (M7.M1)**, above the tabs, built from the catalog: one item per command, in
   the top-level menu of its `menu_path`, in catalog order, the catalog's shortcut shown
   (bound by M7.M5). The CK's menus come first in the order `docs/ck-parity.md` records,
-  which is a recollection, `unresearched` until sitting 1 (each such menu says so in its
-  first line); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) come
+  which is a recollection: the bar's parity row is `built, unobserved` (ADR 0012
+  Amendment 1, pending owner), never counted as parity, until sitting 1 observes the
+  CK's order (each such menu says so in its first line); KitKraft's own menus (Record, Tools, Archive, Papyrus, Strings, Game) come
   before Help; a CK menu with no command yet (World, NavMesh, Character, Gameplay) shows a
   disabled line saying why. An item opens the tab or window that runs its command and
   runs nothing itself. Disabled items carry a word beside them and the reason on hover:
@@ -422,7 +423,8 @@ windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Cod
   fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
   LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout
   built from its `schema` (one group per schema group). Every tab and group name is
-  KitKraft's own and marked "layout unobserved" until sitting 2 (M7.O3); labels are the
+  KitKraft's own and marked "built, unobserved" until sitting 2 (M7.O3) (its parity
+  row has that status, ADR 0012 Amendment 1); labels are the
   schema's member names with the signature beside them; a subrecord the layout does not
   place shows on an "Other" tab. OK stays disabled until M7.E2 (after the owner rules on
   ADR 0007 Amendment 4, M7.O4).
