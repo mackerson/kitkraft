@@ -77,7 +77,20 @@ pub(crate) fn packed_fields() -> Vec<u8> {
 }
 
 /// `TES4` + `GRUP GMST` (one GMST) + `GRUP WEAP` (an uncompressed and a compressed weapon).
+/// The rifle's 300-byte `DNAM` is a component member outside a component block, which
+/// `validate`'s `layout.unplaced` flags; tests that need a plugin `validate` passes use
+/// [`placed_plugin`].
 pub(crate) fn plugin() -> Vec<u8> {
+    build(true)
+}
+
+/// [`plugin`] without the rifle's `DNAM`: every subrecord sits where its definition
+/// places it, so `validate` passes (`package` refuses a plugin that fails it).
+pub(crate) fn placed_plugin() -> Vec<u8> {
+    build(false)
+}
+
+fn build(dnam: bool) -> Vec<u8> {
     let mut hedr = 1.0f32.to_le_bytes().to_vec();
     hedr.extend_from_slice(&3u32.to_le_bytes());
     hedr.extend_from_slice(&0x800u32.to_le_bytes());
@@ -92,7 +105,9 @@ pub(crate) fn plugin() -> Vec<u8> {
     let mut rifle = sub(b"EDID", b"TestRifle\0");
     rifle.extend(sub(b"FULL", b"Rifle\0"));
     rifle.extend(xxxx_sub(b"MODL", b"a\\b.nif\0"));
-    rifle.extend(sub(b"DNAM", &long_payload()));
+    if dnam {
+        rifle.extend(sub(b"DNAM", &long_payload()));
+    }
     let mut weapons = record(b"WEAP", 0, RIFLE, &rifle);
     let packed = kitkraft_esm::compress::deflate(&packed_fields(), 9, 0).unwrap();
     weapons.extend(record(b"WEAP", 0x0004_0000, PACKED, &packed));

@@ -38,7 +38,10 @@ use super::set::{
 };
 use super::{failed, str_arg};
 use crate::edit::patch::{Copy, Edit};
-use crate::edit::scaffold::{member_order, placeholder, slot_of, slot_placeholder, wanted_slots};
+use crate::edit::scaffold::{
+    first_unplaced, lead_refusal, member_order, missing_lead, placeholder, slot_of,
+    slot_placeholder, wanted_slots,
+};
 use crate::edit::source::SourcePlugin;
 use crate::envelope::Outcome;
 use crate::exec::EngineError;
@@ -229,6 +232,21 @@ pub(crate) fn plan_new(
                     ))
                 }
             };
+            // A group member needs its group's lead in the fields too (Fable review of
+            // wave 3, finding 1).
+            let gets = |m: [u8; 4]| {
+                wanted.get(&m).is_some_and(|n| *n > 0)
+                    || subs.iter().any(|(_, s)| s.signature().0 == m)
+            };
+            if let Some((group, leads)) = missing_lead(&order, slot, gets) {
+                return Err(failed(
+                    command,
+                    format!(
+                        "new.no-group-lead: {at}: `{shown}`: {}",
+                        lead_refusal(&shown, *s, &group, &leads)
+                    ),
+                ));
+            }
             // One occurrence: the record's own member's layout, as `set` resolves it
             // after `EDID`; several: each slot's own layout.
             // A member that cannot follow EDID alone (the BFCE that ends a component)
@@ -253,6 +271,16 @@ pub(crate) fn plan_new(
     // Stable: occurrences of one repeating slot keep their order.
     subs.sort_by_key(|(slot, _)| *slot);
     let subs: Vec<Subrecord<'static>> = subs.into_iter().map(|(_, s)| s).collect();
+    let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+    if let Some((i, bad)) = first_unplaced(sig, &sigs, |_| true) {
+        return Err(failed(
+            command,
+            format!(
+                "new.unplaced: {at}: {} (subrecord {i}) would sit where the {text} definition does not place it",
+                String::from_utf8_lossy(&bad)
+            ),
+        ));
+    }
     if !defaulted.is_empty() {
         limitations.push(format!(
             "{at}: members the schema requires were written as zeros (or an empty string) unless given in fields: {}",

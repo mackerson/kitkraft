@@ -103,7 +103,7 @@ fn a_clean_patch_passes_every_rule() {
     let data = &result["data"];
     assert_eq!(data["passed"], json!(true), "{data:#}");
     assert_eq!(found(data), Vec::<(String, String)>::new());
-    assert_eq!(data["rules"].as_array().unwrap().len(), 17);
+    assert_eq!(data["rules"].as_array().unwrap().len(), 18);
     assert_eq!(data["masters"][0]["localized"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -364,6 +364,47 @@ fn record_flags_body() {
     );
     let good = patch(&d, "Good.esp", &["Master.esm"], vec![good_weapon()]);
     assert_eq!(found(&check(&good, &["record.flags-body"])), []);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// `layout.unplaced`: a REFR `XPDO` (DecalRefs) without the `XPDD` (DecalData) that leads
+/// its group sits where the definition places nothing (Fable review of wave 3, finding 1);
+/// with its lead it is placed.
+#[test]
+fn layout_unplaced_group_member_without_its_lead() {
+    let d = dir("validate-unplaced");
+    let refr = |subs: Vec<Subrecord<'static>>| record(b"REFR", 0x0000_0801, subs);
+    let name = sub(b"NAME", &0x0000_0800u32.to_le_bytes());
+    let data = sub(b"DATA", &[0; 24]);
+    let bad = patch(
+        &d,
+        "Bad.esp",
+        &[],
+        vec![refr(vec![
+            name.clone(),
+            sub(b"XPDO", &[0; 4]),
+            data.clone(),
+        ])],
+    );
+    let found_bad = check(&bad, &["layout.unplaced"]);
+    assert_eq!(found(&found_bad), [pair("layout.unplaced", "error")]);
+    let message = found_bad["findings"][0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("XPDO") && message.contains("not where the REFR definition places it"),
+        "{message}"
+    );
+    let good = patch(
+        &d,
+        "Good.esp",
+        &[],
+        vec![refr(vec![
+            name,
+            sub(b"XPDD", &[0; 16]),
+            sub(b"XPDO", &[0; 4]),
+            data,
+        ])],
+    );
+    assert_eq!(found(&check(&good, &["layout.unplaced"])), []);
     let _ = std::fs::remove_dir_all(&d);
 }
 

@@ -356,3 +356,55 @@ fn cell_dangling_link_is_reported() {
     );
     let _ = std::fs::remove_dir_all(&d);
 }
+
+/// The Fable review of wave 3, finding 1: `place` with `fields` naming a group member
+/// whose group lead the reference lacks (`XPDO` DecalRefs without the `XPDD` DecalData
+/// that starts the ProjectedDecal group) is refused and writes nothing; with the lead in
+/// the fields too, both are written (the lead first) and `validate` passes with no
+/// `layout.unplaced` finding.
+#[test]
+fn place_refuses_a_group_member_without_its_lead() {
+    let d = dir("authoring-world-group-lead");
+    let data = world_master(&d);
+    let new = d.join("New.esp");
+    let args = |fields: Value| {
+        json!({
+            "base": "KC_Crate", "edid": "KC_Decal", "fields": fields,
+            "into": new.display().to_string(), "cell": "TestInterior",
+            "position": [10.0, 20.0, 30.0], "plugins": [MASTER],
+            "data_dir": data.display().to_string(), "no_cache": true,
+        })
+    };
+    let err = execute("place", args(json!({"XPDO": "hex:00000000"})))
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("XPDO") && err.contains("XPDD"), "{err}");
+    assert!(!new.exists(), "a refused place writes nothing");
+    let decal = format!("hex:{}", "00".repeat(16));
+    let r = execute(
+        "place",
+        args(json!({"XPDD": decal, "XPDO": "hex:00000000"})),
+    )
+    .unwrap_or_else(|e| panic!("place with XPDD and XPDO: {e}"));
+    assert_eq!(
+        r["data"]["validate"]["passed"],
+        json!(true),
+        "{:#}",
+        r["data"]["validate"]
+    );
+    let v = validate_at(&new, &data);
+    assert_eq!(v["errors"], json!(0), "{v:#}");
+    assert!(
+        v["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|f| f["rule"] != "layout.unplaced"),
+        "{v:#}"
+    );
+    // The lead comes first, at its own slot.
+    let bytes = std::fs::read(&new).unwrap();
+    let at = |s: &[u8]| bytes.windows(4).position(|w| w == s).unwrap();
+    assert!(at(b"XPDD") < at(b"XPDO"));
+    let _ = std::fs::remove_dir_all(&d);
+}

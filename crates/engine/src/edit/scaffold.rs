@@ -31,11 +31,56 @@ pub(crate) struct Slot {
     /// Inside a component layout of the base form component block
     /// (`kitkraft_schema::in_component_layout`).
     pub(crate) component: bool,
+    /// The groups this slot is inside, innermost first: each group's member path and the
+    /// signatures it can start with (its leads: its members up to and including the first
+    /// required one, as the decoder matches a group). A group is read only from a lead, so
+    /// a member written without one sits where the definition does not place it (Fable
+    /// review of wave 3, finding 1: `XPDO` without `XPDD` on a REFR).
+    pub(crate) groups: Vec<(String, Vec<[u8; 4]>)>,
+}
+
+/// Most nested groups [`member_order`] descends (the decoder's own limit).
+const MAX_GROUP_DEPTH: usize = 16;
+
+/// The signatures a group of `members` can start with: each member's own (a nested
+/// group's leads) up to and including the first required member (`kitkraft_doc::typed`'s
+/// matcher, `starts`).
+fn leads(members: &[Member], depth: usize) -> Vec<[u8; 4]> {
+    let mut out = Vec::new();
+    if depth > MAX_GROUP_DEPTH {
+        return out;
+    }
+    for m in members {
+        let required = match m {
+            Member::Subrecord(s) => {
+                out.push(s.signature.as_bytes());
+                s.cardinality == Cardinality::Required
+            }
+            Member::Group(g) => {
+                out.extend(leads(&g.members, depth.saturating_add(1)));
+                g.cardinality == Cardinality::Required
+            }
+            Member::AnyUntil(_) => false,
+        };
+        if required {
+            break;
+        }
+    }
+    out
 }
 
 /// Every subrecord slot of `sig` in schema order (groups flattened).
 pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
-    fn walk(members: &[Member], prefix: &str, repeated: bool, out: &mut Vec<Slot>) {
+    fn walk(
+        members: &[Member],
+        prefix: &str,
+        repeated: bool,
+        groups: &[(String, Vec<[u8; 4]>)],
+        out: &mut Vec<Slot>,
+    ) {
+        if groups.len() > MAX_GROUP_DEPTH {
+            return;
+        }
         for m in members {
             let path = if prefix.is_empty() {
                 m.name().to_string()
@@ -50,13 +95,17 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
                     ty: s.ty.clone(),
                     repeated: repeated || s.cardinality == Cardinality::Repeated,
                     component: kitkraft_schema::in_component_layout(&path),
+                    // Innermost first.
+                    groups: groups.iter().rev().cloned().collect(),
                 }),
                 Member::Group(g) => {
                     // A group's members are required only inside the group, which may
                     // itself be absent: never added on their own.
                     let start = out.len();
                     let again = repeated || g.cardinality == Cardinality::Repeated;
-                    walk(&g.members, &path, again, out);
+                    let mut inner = groups.to_vec();
+                    inner.push((path.clone(), leads(&g.members, groups.len())));
+                    walk(&g.members, &path, again, &inner, out);
                     for e in out.iter_mut().skip(start) {
                         e.card = Cardinality::Optional;
                     }
@@ -70,7 +119,7 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
         .ok()
         .and_then(|s| s.record(kitkraft_schema::Signature::from_bytes(sig)?))
     {
-        walk(&def.members, "", false, &mut out);
+        walk(&def.members, "", false, &[], &mut out);
     }
     out
 }
@@ -163,6 +212,63 @@ fn deref(ty: &FieldType) -> &FieldType {
         FieldType::Ref { ty, .. } => deref(ty),
         other => other,
     }
+}
+
+/// The group a subrecord added at `slot` would lack a lead for: the innermost group around
+/// it (or around a group it starts) that the subrecord does not itself start and none of
+/// whose leads `present` says the record has or gets. Returns the group's member path and
+/// its leads. A group member written without a lead sits where the definition does not
+/// place it, and the game reads it at a position no member accepts; the fields must supply
+/// the lead too, which is then added first, at its own slot (Fable review of wave 3,
+/// finding 1).
+pub(crate) fn missing_lead(
+    order: &[Slot],
+    slot: usize,
+    present: impl Fn([u8; 4]) -> bool,
+) -> Option<(String, Vec<[u8; 4]>)> {
+    let s = order.get(slot)?;
+    s.groups
+        .iter()
+        .find(|(_, leads)| !leads.contains(&s.sig) && !leads.iter().any(|l| present(*l)))
+        .cloned()
+}
+
+/// The refusal for subrecord `sub` (shown as `shown`) in group `group`, none of whose
+/// `leads` the record has or the fields give.
+pub(crate) fn lead_refusal(shown: &str, sub: [u8; 4], group: &str, leads: &[[u8; 4]]) -> String {
+    let text = |b: &[u8; 4]| String::from_utf8_lossy(b).into_owned();
+    let names: Vec<String> = leads.iter().map(text).collect();
+    let lead = match names.as_slice() {
+        [one] => one.clone(),
+        many => format!("one of {}", many.join(", ")),
+    };
+    format!(
+        "{shown} belongs to the group `{group}`, which starts with {lead}; the record has none and the fields do not give one, so {} would sit where the definition does not place it (give {lead} in the fields too)",
+        text(&sub),
+    )
+}
+
+/// The first subrecord of a record of type `record` (signatures `subs`) that sits where the
+/// definition does not place it although the definition names its signature
+/// (`kitkraft_doc::typed::LayoutError::Unplaced`, what `validate`'s `layout.unplaced`
+/// flags), among the indexes `check` accepts.
+pub(crate) fn first_unplaced(
+    record: [u8; 4],
+    subs: &[[u8; 4]],
+    check: impl Fn(usize) -> bool,
+) -> Option<(usize, [u8; 4])> {
+    let schema = kitkraft_schema::builtin().ok()?;
+    let placed = kitkraft_doc::typed::placements(schema, record, subs)?;
+    subs.iter().enumerate().find_map(|(i, sub)| {
+        if !check(i) {
+            return None;
+        }
+        let unplaced = matches!(
+            kitkraft_doc::typed::layout_of(schema, record, *sub, i, placed.get(i)),
+            Err(kitkraft_doc::typed::LayoutError::Unplaced { .. })
+        );
+        unplaced.then_some((i, *sub))
+    })
 }
 
 /// How many occurrences of each signature `edits` need in a record that has `have` of
@@ -278,6 +384,16 @@ pub(crate) fn add_slots(
                 };
                 FieldError::new(&shown, "no-subrecord", why)
             })?;
+            let gets = |m: [u8; 4]| {
+                have.get(&m).copied().unwrap_or(0) > 0 || wanted.get(&m).is_some_and(|n| *n > 0)
+            };
+            if let Some((group, leads)) = missing_lead(&order, slot, gets) {
+                return Err(FieldError::new(
+                    &shown,
+                    "no-subrecord",
+                    lead_refusal(&shown, *s, &group, &leads),
+                ));
+            }
             let from_slot = || order.get(slot).and_then(|e| slot_placeholder(&e.ty, whole));
             let bytes = if total <= 1 {
                 placeholder(sig, *s, whole).or_else(from_slot)
@@ -308,7 +424,8 @@ pub(crate) fn add_slots(
     // takes the slot of the one before it.
     let mut seen: BTreeMap<[u8; 4], usize> = BTreeMap::new();
     let mut last = 0usize;
-    let mut all: Vec<(usize, Subrecord<'static>)> = Vec::new();
+    // (slot, added here, subrecord)
+    let mut all: Vec<(usize, bool, Subrecord<'static>)> = Vec::new();
     for s in subs.drain(..) {
         let k = seen.entry(s.signature().0).or_insert(0);
         let total = wanted
@@ -320,11 +437,26 @@ pub(crate) fn add_slots(
             last = last.max(slot);
         }
         *k = k.saturating_add(1);
-        all.push((last, s.into_owned()));
+        all.push((last, false, s.into_owned()));
     }
-    all.extend(added);
+    all.extend(added.into_iter().map(|(slot, s)| (slot, true, s)));
     // Stable: equal slots keep the record's order, then the added ones.
-    all.sort_by_key(|(slot, _)| *slot);
-    subs.extend(all.into_iter().map(|(_, s)| s));
+    all.sort_by_key(|(slot, _, _)| *slot);
+    // An added subrecord the definition would not place where it landed (its group lead
+    // is elsewhere in the record): refused, and the record keeps its own subrecords.
+    let sigs: Vec<[u8; 4]> = all.iter().map(|(_, _, s)| s.signature().0).collect();
+    let fresh: Vec<bool> = all.iter().map(|(_, a, _)| *a).collect();
+    if let Some((_, bad)) = first_unplaced(sig, &sigs, |i| fresh.get(i).copied().unwrap_or(false)) {
+        let shown = String::from_utf8_lossy(&bad).into_owned();
+        subs.extend(all.into_iter().filter(|(_, a, _)| !*a).map(|(_, _, s)| s));
+        return Err(FieldError::new(
+            &shown,
+            "no-subrecord",
+            format!(
+                "an added {shown} would sit where the {type_name} definition does not place it (its group lead is missing or out of order there)"
+            ),
+        ));
+    }
+    subs.extend(all.into_iter().map(|(_, _, s)| s));
     Ok(())
 }
