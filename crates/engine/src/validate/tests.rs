@@ -103,7 +103,7 @@ fn a_clean_patch_passes_every_rule() {
     let data = &result["data"];
     assert_eq!(data["passed"], json!(true), "{data:#}");
     assert_eq!(found(data), Vec::<(String, String)>::new());
-    assert_eq!(data["rules"].as_array().unwrap().len(), 18);
+    assert_eq!(data["rules"].as_array().unwrap().len(), 19);
     assert_eq!(data["masters"][0]["localized"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }
@@ -405,6 +405,52 @@ fn layout_unplaced_group_member_without_its_lead() {
         ])],
     );
     assert_eq!(found(&check(&good, &["layout.unplaced"])), []);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// `layout.group-incomplete`: a REFR `MapMarker` started by `XMRK` with only `FNAM` lacks
+/// the `FULL`, `TNAM` and `VNAM` its definition requires (Fable review of the wave 3 fix
+/// round, follow-up (b)); the whole group, and a reference without one, pass.
+#[test]
+fn layout_group_incomplete_started_group_without_required_members() {
+    let d = dir("validate-group-incomplete");
+    let refr = |subs: Vec<Subrecord<'static>>| record(b"REFR", 0x0000_0801, subs);
+    let name = sub(b"NAME", &0x0000_0800u32.to_le_bytes());
+    let data = sub(b"DATA", &[0; 24]);
+    let marker = |whole: bool| {
+        let mut subs = vec![
+            name.clone(),
+            sub(b"XMRK", &[]),
+            sub(b"FNAM", &1u32.to_le_bytes()),
+        ];
+        if whole {
+            subs.push(sub(b"FULL", &[0]));
+            subs.push(sub(b"TNAM", &[0; 2]));
+            subs.push(sub(b"VNAM", &[0; 2]));
+        }
+        subs.push(data.clone());
+        subs
+    };
+    let rules = ["layout.group-incomplete", "layout.unplaced"];
+    let bad = patch(&d, "Bad.esp", &[], vec![refr(marker(false))]);
+    let found_bad = check(&bad, &rules);
+    assert_eq!(
+        found(&found_bad),
+        [pair("layout.group-incomplete", "error")]
+    );
+    let message = found_bad["findings"][0]["message"].as_str().unwrap();
+    assert!(
+        message.contains("MapMarker")
+            && message.contains("FULL (MapMarker.Name)")
+            && message.contains("TNAM")
+            && message.contains("VNAM"),
+        "{message}"
+    );
+    assert_eq!(found_bad["findings"][0]["subrecord"], "XMRK");
+    let good = patch(&d, "Good.esp", &[], vec![refr(marker(true))]);
+    assert_eq!(found(&check(&good, &rules)), []);
+    let plain = patch(&d, "Plain.esp", &[], vec![refr(vec![name, data])]);
+    assert_eq!(found(&check(&plain, &rules)), []);
     let _ = std::fs::remove_dir_all(&d);
 }
 

@@ -105,6 +105,8 @@ fn build(dnam: bool) -> Vec<u8> {
     let mut rifle = sub(b"EDID", b"TestRifle\0");
     rifle.extend(sub(b"FULL", b"Rifle\0"));
     rifle.extend(xxxx_sub(b"MODL", b"a\\b.nif\0"));
+    // The Model group requires FLLD after MODL (`layout.group-incomplete`).
+    rifle.extend(sub(b"FLLD", &0u32.to_le_bytes()));
     if dnam {
         rifle.extend(sub(b"DNAM", &long_payload()));
     }

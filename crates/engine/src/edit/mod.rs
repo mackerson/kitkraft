@@ -458,6 +458,64 @@ mod tests {
         assert_eq!(sigs(&bare), ["EDID", "KWDA", "PNAM"]);
     }
 
+    /// Fable review of the wave 3 fix round, follow-up (b): `set` (and `clone`, through
+    /// the same `add_slots`) giving a REFR's `MapMarker` lead `XMRK` and `FNAM` adds the
+    /// `FULL`, `TNAM` and `VNAM` the group requires, zero-filled, and returns them; a
+    /// record that already has the whole group gains nothing more.
+    #[test]
+    fn a_started_group_gets_its_required_members() {
+        let edit = |p: &str, v: Value| patch::Edit {
+            path: parse_path(p).unwrap(),
+            op: Op::Set(v),
+        };
+        let name = Subrecord::new(Signature(*b"NAME"), vec![0; 4]);
+        let data = Subrecord::new(Signature(*b"DATA"), vec![0; 24]);
+        let refr = |subs: Vec<Subrecord<'static>>| {
+            Record::new(
+                RecordHeader {
+                    signature: Signature(*b"REFR"),
+                    form_id: 0x0000_0801,
+                    form_version: 582,
+                    ..RecordHeader::default()
+                },
+                Body::Raw(subs),
+            )
+        };
+        let mut r = refr(vec![name.clone(), data.clone()]);
+        let edits = [
+            edit("XMRK", json!("hex:")),
+            edit("FNAM", json!("hex:01000000")),
+        ];
+        let added = scaffold::add_slots(&mut r, &edits, false).unwrap();
+        assert_eq!(
+            added,
+            [
+                "FULL (MapMarker.Name)",
+                "TNAM (MapMarker.MarkerType)",
+                "VNAM (MapMarker.Category)"
+            ]
+        );
+        let got = sigs(&r);
+        let at = |s: &str| got.iter().position(|g| g == s).unwrap();
+        assert!(
+            at("XMRK") < at("FNAM")
+                && at("FNAM") < at("FULL")
+                && at("FULL") < at("TNAM")
+                && at("TNAM") < at("VNAM"),
+            "{got:?}"
+        );
+        let subs = r.subrecords().unwrap();
+        assert_eq!(subs[at("TNAM")].data(), [0, 0]);
+        assert_eq!(subs[at("VNAM")].data(), [0, 0]);
+        // The whole group already there: an edit of its FNAM adds nothing.
+        let mut whole = r.clone();
+        let before = sigs(&whole);
+        let added =
+            scaffold::add_slots(&mut whole, &[edit("FNAM", json!("hex:02000000"))], false).unwrap();
+        assert!(added.is_empty());
+        assert_eq!(sigs(&whole), before);
+    }
+
     #[test]
     fn errors_name_the_path_and_rule() {
         let mut r = weapon();

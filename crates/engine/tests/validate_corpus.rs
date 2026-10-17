@@ -681,6 +681,19 @@ fn validate_corpus_official_files() {
             println!("    layout.unplaced: {unplaced} findings, expected 0");
             failures.push(name);
         }
+        // Every group a lead starts has the members its definition requires in it (Fable
+        // review of the wave 3 fix round, follow-up (b): `layout.group-incomplete`, 0
+        // expected).
+        let incomplete = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "layout.group-incomplete")
+            .count();
+        if incomplete != 0 {
+            println!("    layout.group-incomplete: {incomplete} findings, expected 0");
+            failures.push(name);
+        }
         let mut unexplained = 0u64;
         for f in data["findings"].as_array().unwrap() {
             if f["severity"] != json!("error") {

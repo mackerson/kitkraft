@@ -982,7 +982,7 @@ mod tests {
         assert_eq!(hedr["members"], json!(["Header"]));
         assert_eq!(hedr["first_record"], "TES4:00000000");
 
-        // WEAP: EDID twice (once from the compressed record), FULL and MODL typed (MODL
+        // WEAP: EDID twice (once from the compressed record), FULL, MODL and FLLD typed (MODL
         // since lane B round 3, M3.B1); DNAM and DATA are not in the definition.
         let weap = find(types, "WEAP");
         assert_eq!(weap["definition"], "Weapon");
@@ -1013,21 +1013,21 @@ mod tests {
         );
         assert_eq!(
             weap["distinct"],
-            json!({"seen": 5, "typed": 3, "opaque": 0, "unknown": 2})
+            json!({"seen": 6, "typed": 4, "opaque": 0, "unknown": 2})
         );
         assert_eq!(
             weap["occurrences"],
-            json!({"typed": 4, "failed": 0, "opaque": 0, "unknown": 2})
+            json!({"typed": 5, "failed": 0, "opaque": 0, "unknown": 2})
         );
 
         // Totals and the envelope agree with the per-type counts.
-        assert_eq!(data["subrecords"], 10);
+        assert_eq!(data["subrecords"], 11);
         assert_eq!(
             data["occurrences"],
-            json!({"typed": 8, "failed": 0, "opaque": 0, "unknown": 2})
+            json!({"typed": 9, "failed": 0, "opaque": 0, "unknown": 2})
         );
         assert_eq!(result["coverage"]["status"], "partial");
-        assert_eq!(result["coverage"]["decoded_subrecords"], 8);
+        assert_eq!(result["coverage"]["decoded_subrecords"], 9);
         assert_eq!(result["coverage"]["opaque_subrecords"], 2);
         assert_eq!(result["coverage"]["not_examined"], json!([]));
         assert_eq!(result["limitations"], json!([BY_LAYOUT]));
@@ -1054,13 +1054,13 @@ mod tests {
         .map(|c| by_confidence[c].as_u64().unwrap())
         .sum();
         // MODL is typed since lane B round 3 (M3.B1).
-        assert_eq!(sum, 8, "{by_confidence}");
+        assert_eq!(sum, 9, "{by_confidence}");
         assert_eq!(
             weap["decoded_by_confidence"]["corpus"]
                 .as_u64()
                 .unwrap()
                 .saturating_add(weap["decoded_by_confidence"]["reference"].as_u64().unwrap()),
-            4
+            5
         );
 
         // Evidence: the whole file, then the first record of each type.

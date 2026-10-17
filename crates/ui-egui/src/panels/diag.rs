@@ -155,7 +155,7 @@ use eframe::egui::{self, TextEdit};
 
 use crate::panels::common::{
     action_bar, envelope_block, findings_grid, formid_status, link, panel_head, record_actions,
-    virtual_table, Action, Slot, TabCtx,
+    virtual_table_for, Action, Slot, TabCtx,
 };
 use crate::panels::records::inspect_request;
 use crate::theme::{self, Field, Status, View};
@@ -168,6 +168,9 @@ pub(crate) struct DiagTab {
     pub plugin: String,
     pub validate_plugin: String,
     pub view: Option<DiagView>,
+    /// Bumped each time a result replaces the table's rows, so the table scrolls back to
+    /// the top and measures its columns afresh ([`virtual_table_for`]).
+    pub data: u64,
 }
 
 impl DiagTab {
@@ -255,9 +258,10 @@ impl DiagTab {
                 "FormIDs the winner stores ({}; typed members only)",
                 view.references.len()
             ));
-            virtual_table(
+            virtual_table_for(
                 ui,
                 "diag-refs-grid",
+                self.data,
                 &["at", "raw", "resolved", ""],
                 view.references.len(),
                 View::Medium,

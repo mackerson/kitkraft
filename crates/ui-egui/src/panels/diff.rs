@@ -302,7 +302,7 @@ fn span(v: Option<&Value>) -> String {
 use eframe::egui::{self, CollapsingHeader, TextEdit};
 
 use crate::panels::common::{
-    action_bar, envelope_block, link, panel_head, plugin_combo, record_actions, virtual_table,
+    action_bar, envelope_block, link, panel_head, plugin_combo, record_actions, virtual_table_for,
     Action, Slot, TabCtx,
 };
 use crate::theme::{self, Field, View};
@@ -312,6 +312,9 @@ use crate::theme::{self, Field, View};
 pub(crate) struct DiffTab {
     pub form: DiffForm,
     pub view: Option<DiffView>,
+    /// Bumped each time a result replaces the table's rows, so the table scrolls back to
+    /// the top and measures its columns afresh ([`virtual_table_for`]).
+    pub data: u64,
 }
 
 impl DiffTab {
@@ -377,6 +380,7 @@ impl DiffTab {
         });
         envelope_block(ui, ctx.results.get(&Slot::Diff.into()), |ui| {
             let Some(view) = &self.view else { return };
+            let data = self.data;
             ui.label(view.counts.join("; "));
             if !view.added.is_empty() {
                 ui.label(format!("added: {}", view.added.join(", ")));
@@ -413,9 +417,10 @@ impl DiffTab {
                             }
                             record_actions(ui, busy, &r.form, actions);
                         });
-                        virtual_table(
+                        virtual_table_for(
                             ui,
                             ("diff-grid", i),
+                            data,
                             &["subrecord", "change", "path", "before", "after"],
                             r.rows.len(),
                             View::Medium,

@@ -739,7 +739,13 @@ pub fn write_patch_with(
             record
                 .decompress(&options.limits)
                 .map_err(|e| PatchError::Io(format!("{}: {e}", copy.formref)))?;
-            super::scaffold::add_slots(&mut record, &copy.edits, false)?;
+            let defaulted = super::scaffold::add_slots(&mut record, &copy.edits, false)?;
+            if !defaulted.is_empty() {
+                push_once(
+                    &mut limitations,
+                    group_defaults_note(&copy.formref, &defaulted),
+                );
+            }
         }
         for edit in &copy.edits {
             if names_local_form(&edit.op) {
@@ -964,8 +970,14 @@ pub fn write_patch_with(
                 .map_err(|e| refused(format!("{}: {e}", new.label)))?;
             let mut changes = Vec::new();
             if !new.edits.is_empty() {
-                super::scaffold::add_slots(&mut at.record, &new.edits, true)
+                let defaulted = super::scaffold::add_slots(&mut at.record, &new.edits, true)
                     .map_err(|e| refused(format!("{}: fields: {e}", new.label)))?;
+                if !defaulted.is_empty() {
+                    push_once(
+                        &mut limitations,
+                        group_defaults_note(&new.label, &defaulted),
+                    );
+                }
                 let ctx = ValueCtx {
                     localized_target: false,
                     localized_source: false,
@@ -1683,6 +1695,15 @@ pub fn lstring_spans(
     ctx: &kitkraft_doc::typed::Ctx,
 ) -> Vec<(String, usize, usize)> {
     layout.map_or_else(Vec::new, |l| fields::lstring_spans(&l.ty, payload, ctx))
+}
+
+/// The limitation for the members a started group requires that the writer added as zeros
+/// (or an empty string) because the fields did not give them (`scaffold::fill_groups`).
+fn group_defaults_note(at: &str, defaulted: &[String]) -> String {
+    format!(
+        "{at}: members the schema requires in a group the fields start were written as zeros (or an empty string): {}",
+        defaulted.join(", ")
+    )
 }
 
 /// Writes every lstring of a localized source's record as inline text (module docs).

@@ -1147,7 +1147,7 @@ mod tests {
             .iter()
             .map(|s| s["signature"].as_str().unwrap())
             .collect();
-        assert_eq!(sigs, ["EDID", "FULL", "MODL", "DNAM"]);
+        assert_eq!(sigs, ["EDID", "FULL", "MODL", "FLLD", "DNAM"]);
         assert_eq!(subs[0]["offset"].as_u64().unwrap() as usize, rec_off + 24);
         for s in subs {
             let at = s["offset"].as_u64().unwrap() as usize;
@@ -1166,26 +1166,26 @@ mod tests {
         }
         assert_eq!(subs[1]["payload_hex"], "5269666C6500");
         assert_eq!(subs[2]["oversized"], true);
-        assert_eq!(subs[3]["size"], 300);
-        assert_eq!(subs[3]["payload_hex"].as_str().unwrap().len(), 512);
-        assert_eq!(subs[3]["payload_truncated"], true);
+        assert_eq!(subs[4]["size"], 300);
+        assert_eq!(subs[4]["payload_hex"].as_str().unwrap().len(), 512);
+        assert_eq!(subs[4]["payload_truncated"], true);
 
         assert_eq!(
             result["limitations"],
             json!([TYPED_PENDING, SINGLE_PLUGIN, PAYLOAD_CUT])
         );
         assert_eq!(result["coverage"]["status"], "partial");
-        assert_eq!(result["coverage"]["opaque_subrecords"], 4);
+        assert_eq!(result["coverage"]["opaque_subrecords"], 5);
         assert_eq!(result["coverage"]["decoded_subrecords"], 0);
         let evidence = result["evidence"].as_array().unwrap();
-        assert_eq!(evidence.len(), 1 + 4);
+        assert_eq!(evidence.len(), 1 + 5);
         assert_eq!(
             evidence[0],
             json!({"kind": "evidence", "file": file, "offset": rec_off, "length": 24,
                    "record": "WEAP:0001A2B3", "subrecord": null})
         );
-        assert_eq!(evidence[4]["subrecord"], "DNAM");
-        assert_eq!(evidence[4]["length"], 300);
+        assert_eq!(evidence[5]["subrecord"], "DNAM");
+        assert_eq!(evidence[5]["length"], 300);
         std::fs::remove_file(&path).unwrap();
     }
 

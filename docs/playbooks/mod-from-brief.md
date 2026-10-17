@@ -88,8 +88,11 @@ game; the run then ends `fail` at stage 5 with this refusal:
 refused [live-profile] C:\Modding\MO2-Starfield\ModOrganizer.ini: MO2's active profile is `Default`, the owner's live game; switch MO2 to the `KitKraft Dev` profile first
 ```
 
-(If `ModOrganizer.ini` names no profile at all, the refusal is `[live-profile-unknown]`;
-pass `--profile "KitKraft Dev"` or open MO2 on that profile once.)
+(If `ModOrganizer.ini` names no profile at all, the deploy stage accepts the dev profile
+`kit mod run` already passes it, `--dev-profile` (default `KitKraft Dev`), when that
+profile exists; only when it does not is the refusal `[live-profile-unknown]`: create the
+profile, name an existing one with `--dev-profile`, or open MO2 on it once. `--profile`
+is the load order's MO2 profile, read only, not the one deploy checks.)
 
 ```powershell
 kit mod run docs\smoke-rename.toml --name OldSovietMarksmanRifle --mo2 C:\Modding\MO2-Starfield --base-save-sha256 <hex>

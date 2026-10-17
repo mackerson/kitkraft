@@ -492,15 +492,78 @@ fn join(prefix: &str, name: &str) -> String {
     }
 }
 
+/// A member a started group instance lacks although the group's definition requires it
+/// ([`group_gaps`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MissingMember {
+    /// The member path of the subrecord to add: the missing member's own, or for a missing
+    /// nested group the first subrecord that starts it (its first required lead).
+    pub path: String,
+    /// That subrecord's signature.
+    pub signature: [u8; 4],
+}
+
+/// A group instance in a record (started by one of its leads) that lacks a member its
+/// definition requires: the game reads the group from its lead, and a required member it
+/// lacks is read from whatever follows, or not at all.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GroupGap {
+    /// The group's member path (`MapMarker`).
+    pub path: String,
+    /// Index of the instance's first subrecord among the record's subrecords.
+    pub start: usize,
+    /// One past the index of its last subrecord.
+    pub end: usize,
+    /// The required members it lacks, in definition order.
+    pub missing: Vec<MissingMember>,
+}
+
+/// The subrecord that starts a group of `members` at `prefix`: its first required
+/// subrecord reached through its leads (a nested group's included), else its first
+/// subrecord. `None` for a group with no subrecord member.
+fn starter(members: &[Member], prefix: &str, depth: usize) -> Option<MissingMember> {
+    if depth > MAX_GROUP_DEPTH {
+        return None;
+    }
+    let mut first = None;
+    for m in members {
+        let path = join(prefix, m.name());
+        let (found, required) = match m {
+            Member::Subrecord(s) => (
+                Some(MissingMember {
+                    path,
+                    signature: s.signature.as_bytes(),
+                }),
+                s.cardinality == Cardinality::Required,
+            ),
+            Member::Group(g) => (
+                starter(&g.members, &path, depth.saturating_add(1)),
+                g.cardinality == Cardinality::Required,
+            ),
+            Member::AnyUntil(_) => (None, false),
+        };
+        if required && found.is_some() {
+            return found;
+        }
+        if first.is_none() {
+            first = found;
+        }
+    }
+    first
+}
+
 /// The subrecord signatures being placed, and where each one went.
 struct Matcher<'s, 'a> {
     sigs: &'a [Option<Signature>],
     out: Vec<Placement<'s>>,
+    /// Group instances lacking a required member, as the matcher closes them.
+    gaps: Vec<GroupGap>,
 }
 
 impl<'s> Matcher<'s, '_> {
     /// One step (the generated `match_one`, over the schema model): places the subrecord at
-    /// `pos`, and for a group the run it starts.
+    /// `pos`, and for a group the run it starts. Returns the index among `members` of the
+    /// member it matched, `None` when none did.
     fn one(
         &mut self,
         pos: &mut usize,
@@ -508,18 +571,13 @@ impl<'s> Matcher<'s, '_> {
         cursor: &mut usize,
         depth: usize,
         prefix: &str,
-    ) -> bool {
-        let Some(sig) = self.sigs.get(*pos).copied() else {
-            return false;
-        };
-        let Some((index, member)) = members
+    ) -> Option<usize> {
+        let sig = self.sigs.get(*pos).copied()?;
+        let (index, member) = members
             .iter()
             .enumerate()
             .skip(*cursor)
-            .find(|(_, m)| accepts(m, sig, depth))
-        else {
-            return false;
-        };
+            .find(|(_, m)| accepts(m, sig, depth))?;
         *cursor = if member.cardinality() == Cardinality::Repeated {
             index
         } else {
@@ -530,8 +588,42 @@ impl<'s> Matcher<'s, '_> {
             Member::Group(g) => {
                 let start = *pos;
                 let mut inner = 0;
-                while self.one(pos, &g.members, &mut inner, depth.saturating_add(1), &path) {}
-                return *pos != start;
+                let mut hit: Vec<usize> = Vec::new();
+                while let Some(i) =
+                    self.one(pos, &g.members, &mut inner, depth.saturating_add(1), &path)
+                {
+                    hit.push(i);
+                }
+                if *pos == start {
+                    return None;
+                }
+                let missing: Vec<MissingMember> = g
+                    .members
+                    .iter()
+                    .enumerate()
+                    .filter(|(i, m)| m.cardinality() == Cardinality::Required && !hit.contains(i))
+                    .filter_map(|(_, m)| match m {
+                        Member::Subrecord(s) => Some(MissingMember {
+                            path: join(&path, &s.name),
+                            signature: s.signature.as_bytes(),
+                        }),
+                        Member::Group(inner) => starter(
+                            &inner.members,
+                            &join(&path, &inner.name),
+                            depth.saturating_add(1),
+                        ),
+                        Member::AnyUntil(_) => None,
+                    })
+                    .collect();
+                if !missing.is_empty() {
+                    self.gaps.push(GroupGap {
+                        path,
+                        start,
+                        end: *pos,
+                        missing,
+                    });
+                }
+                return Some(index);
             }
             Member::Subrecord(def) => Placement::Member { path, def },
             Member::AnyUntil(_) => Placement::Raw { path },
@@ -540,7 +632,7 @@ impl<'s> Matcher<'s, '_> {
             *slot = placement;
         }
         *pos = pos.saturating_add(1);
-        true
+        Some(index)
     }
 }
 
@@ -553,22 +645,43 @@ pub fn placements<'s>(
     record: [u8; 4],
     subs: &[[u8; 4]],
 ) -> Option<Vec<Placement<'s>>> {
+    matched(schema, record, subs).map(|(out, _)| out)
+}
+
+/// Every group instance in a record of type `record` (its subrecord signatures, in order)
+/// that lacks a member its definition requires, as [`placements`] places the subrecords:
+/// a group started by one of its leads (a REFR `XMRK`) whose required members (`FNAM`,
+/// `FULL`, `TNAM`, `VNAM` of `MapMarker`) are not all there. A missing required group
+/// nested in one is named by the subrecord that would start it. `None` when the schema
+/// does not define the record type.
+pub fn group_gaps(schema: &Schema, record: [u8; 4], subs: &[[u8; 4]]) -> Option<Vec<GroupGap>> {
+    matched(schema, record, subs).map(|(_, gaps)| gaps)
+}
+
+/// The matcher's run over a record: where each subrecord went, and the incomplete group
+/// instances.
+fn matched<'s>(
+    schema: &'s Schema,
+    record: [u8; 4],
+    subs: &[[u8; 4]],
+) -> Option<(Vec<Placement<'s>>, Vec<GroupGap>)> {
     let def = schema.records.get(&Signature::from_bytes(record)?)?;
     let sigs: Vec<Option<Signature>> = subs.iter().map(|s| Signature::from_bytes(*s)).collect();
     let mut m = Matcher {
         sigs: &sigs,
         out: vec![Placement::Unplaced; sigs.len()],
+        gaps: Vec::new(),
     };
     let (mut pos, mut cursor) = (0, 0);
     while pos < sigs.len() {
         let before = pos;
-        let mut placed = m.one(&mut pos, &def.members, &mut cursor, 0, "");
+        let mut placed = m.one(&mut pos, &def.members, &mut cursor, 0, "").is_some();
         // An unordered record (CELL, REFR, ACHR): when no member from the cursor on accepts
         // the subrecord, match from the first member again (the generated
         // `match_unordered`).
         if !placed && def.unordered {
             let mut wrapped = 0;
-            placed = m.one(&mut pos, &def.members, &mut wrapped, 0, "");
+            placed = m.one(&mut pos, &def.members, &mut wrapped, 0, "").is_some();
             if placed {
                 cursor = wrapped;
             }
@@ -577,7 +690,7 @@ pub fn placements<'s>(
             pos = before.saturating_add(1);
         }
     }
-    Some(m.out)
+    Some((m.out, m.gaps))
 }
 
 /// Whether the definition of `record` names subrecord signature `sub` anywhere.
@@ -921,6 +1034,45 @@ mod tests {
         assert_eq!(paths, ["Base", "Placement", "Scale", "Layer"]);
         let scale = layout_at(schema, *b"REFR", &subs, 2).unwrap().unwrap();
         assert_eq!(scale.path, "Scale");
+    }
+
+    /// Fable review of the wave 3 fix round, follow-up (b): a REFR `MapMarker` started by
+    /// its lead `XMRK` with only `FNAM` lacks the required `FULL`, `TNAM` and `VNAM`; the
+    /// whole group has no gap, and a record without the group has none either.
+    #[test]
+    fn a_started_group_missing_required_members_is_a_gap() {
+        let schema = kitkraft_schema::builtin().unwrap();
+        let partial = [*b"NAME", *b"DATA", *b"XMRK", *b"FNAM"];
+        let gaps = group_gaps(schema, *b"REFR", &partial).unwrap();
+        assert_eq!(gaps.len(), 1, "{gaps:?}");
+        let gap = gaps.first().unwrap();
+        assert_eq!((gap.path.as_str(), gap.start, gap.end), ("MapMarker", 2, 4));
+        let missing: Vec<(&str, [u8; 4])> = gap
+            .missing
+            .iter()
+            .map(|m| (m.path.as_str(), m.signature))
+            .collect();
+        assert_eq!(
+            missing,
+            [
+                ("MapMarker.Name", *b"FULL"),
+                ("MapMarker.MarkerType", *b"TNAM"),
+                ("MapMarker.Category", *b"VNAM"),
+            ]
+        );
+        let whole = [
+            *b"NAME", *b"DATA", *b"XMRK", *b"FNAM", *b"FULL", *b"TNAM", *b"VNAM",
+        ];
+        assert_eq!(group_gaps(schema, *b"REFR", &whole).unwrap(), []);
+        assert_eq!(
+            group_gaps(schema, *b"REFR", &[*b"NAME", *b"DATA"]).unwrap(),
+            []
+        );
+        // The placements are the matcher's as before.
+        assert!(placements(schema, *b"REFR", &partial)
+            .unwrap()
+            .iter()
+            .all(|p| matches!(p, Placement::Member { .. })));
     }
 
     #[test]

@@ -23,6 +23,8 @@ pub(crate) struct Slot {
     pub(crate) sig: [u8; 4],
     /// The member's schema name (`Count` for `KSIZ`).
     pub(crate) name: String,
+    /// The member path, group names included (`MapMarker.Name`).
+    pub(crate) path: String,
     /// Required at the record's level (a group's members never are on their own).
     pub(crate) card: Cardinality,
     pub(crate) ty: FieldType,
@@ -91,6 +93,7 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
                 Member::Subrecord(s) => out.push(Slot {
                     sig: s.signature.as_bytes(),
                     name: s.name.clone(),
+                    path: path.clone(),
                     card: s.cardinality,
                     ty: s.ty.clone(),
                     repeated: repeated || s.cardinality == Cardinality::Repeated,
@@ -100,7 +103,8 @@ pub(crate) fn member_order(sig: [u8; 4]) -> Vec<Slot> {
                 }),
                 Member::Group(g) => {
                     // A group's members are required only inside the group, which may
-                    // itself be absent: never added on their own.
+                    // itself be absent: never added on their own, only when the group is
+                    // started ([`fill_groups`]).
                     let start = out.len();
                     let again = repeated || g.cardinality == Cardinality::Repeated;
                     let mut inner = groups.to_vec();
@@ -271,6 +275,96 @@ pub(crate) fn first_unplaced(
     })
 }
 
+/// Most rounds [`fill_groups`] takes: each one can start a nested required group.
+const MAX_FILL_ROUNDS: usize = MAX_GROUP_DEPTH + 2;
+
+/// Adds to `subs` (each with its slot in `order`, whether it is being written, and the
+/// subrecord, sorted by slot) every member the definition requires inside a group that
+/// a subrecord being written starts or joins and that the group lacks: zeros of the
+/// member's fixed size (or an empty string), at its own slot, as `new` fills the record's
+/// own required members. A required group nested in it is started from its first
+/// required lead, then filled the same way (Fable review of the wave 3 fix round,
+/// follow-up (b): `XMRK` and `FNAM` on a REFR wrote a `MapMarker` without its `FULL`,
+/// `TNAM` and `VNAM`). Returns the members added (`TNAM (MapMarker.MarkerType)`), or
+/// the member and why it cannot be added: a required member with no fixed size to
+/// start from, which the fields must give.
+pub(crate) fn fill_groups(
+    record: [u8; 4],
+    order: &[Slot],
+    subs: &mut Vec<(usize, bool, Subrecord<'static>)>,
+) -> Result<Vec<String>, ([u8; 4], String)> {
+    let mut added: Vec<String> = Vec::new();
+    let Ok(schema) = kitkraft_schema::builtin() else {
+        return Ok(added);
+    };
+    for _ in 0..MAX_FILL_ROUNDS {
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|(_, _, s)| s.signature().0).collect();
+        let gaps = kitkraft_doc::typed::group_gaps(schema, record, &sigs).unwrap_or_default();
+        let written = |a: usize, b: usize| subs.iter().take(b).skip(a).any(|(_, w, _)| *w);
+        let gaps: Vec<_> = gaps
+            .into_iter()
+            .filter(|g| written(g.start, g.end))
+            .collect();
+        if gaps.is_empty() {
+            return Ok(added);
+        }
+        let mut more: Vec<(usize, bool, Subrecord<'static>)> = Vec::new();
+        for gap in &gaps {
+            for m in &gap.missing {
+                let text = String::from_utf8_lossy(&m.signature).into_owned();
+                let slot = order
+                    .iter()
+                    .position(|e| e.path == m.path && e.sig == m.signature)
+                    .ok_or_else(|| {
+                        (
+                            m.signature,
+                            format!(
+                                "the group `{}` requires {text} ({}), which has no slot to add it at",
+                                gap.path, m.path
+                            ),
+                        )
+                    })?;
+                let bytes = order
+                    .get(slot)
+                    .and_then(|e| slot_placeholder(&e.ty, false))
+                    .ok_or_else(|| {
+                        (
+                            m.signature,
+                            format!(
+                                "the group `{}` is started and requires {text} ({}), whose layout gives a new subrecord nothing to start from (give {text} in the fields too, as hex:)",
+                                gap.path, m.path
+                            ),
+                        )
+                    })?;
+                if !more.iter().any(|(s, _, _)| *s == slot) {
+                    added.push(format!("{text} ({})", m.path));
+                    more.push((slot, true, Subrecord::new(Signature(m.signature), bytes)));
+                }
+            }
+        }
+        subs.extend(more);
+        // Stable: equal slots keep their order, then the added ones.
+        subs.sort_by_key(|(slot, _, _)| *slot);
+    }
+    let sigs: Vec<[u8; 4]> = subs.iter().map(|(_, _, s)| s.signature().0).collect();
+    match kitkraft_doc::typed::group_gaps(schema, record, &sigs)
+        .unwrap_or_default()
+        .first()
+        .and_then(|g| Some((g, g.missing.first()?)))
+    {
+        Some((gap, m)) => Err((
+            m.signature,
+            format!(
+                "the group `{}` still lacks {} ({}) after its required members were added",
+                gap.path,
+                String::from_utf8_lossy(&m.signature),
+                m.path
+            ),
+        )),
+        None => Ok(added),
+    }
+}
+
 /// How many occurrences of each signature `edits` need in a record that has `have` of
 /// each: the occurrences the edits name, plus the count subrecord of a whole array
 /// subrecord the record lacks along with its count ([`count_slot`]).
@@ -309,11 +403,13 @@ pub(crate) fn wanted_slots(
 /// `fill_gaps` (a copied record: `set`, `clone`), every occurrence added must be one the
 /// edits name: `FULL[5]` on a record with one `FULL` is refused rather than inventing
 /// `FULL[1]` to `FULL[4]`; a composed reference (`place`) fills them as `new` does.
+/// A group an added subrecord starts or joins gets the members its definition requires
+/// in it ([`fill_groups`]); returns those, for the caller's limitations.
 pub(crate) fn add_slots(
     record: &mut Record<'static>,
     edits: &[Edit],
     fill_gaps: bool,
-) -> Result<(), FieldError> {
+) -> Result<Vec<String>, FieldError> {
     let sig = record.header.signature.0;
     let type_name = String::from_utf8_lossy(&sig).into_owned();
     let Some(current) = record.subrecords() else {
@@ -332,7 +428,7 @@ pub(crate) fn add_slots(
         .iter()
         .any(|e| have.get(&e.path.signature).copied().unwrap_or(0) <= e.path.occurrence);
     if !lacks {
-        return Ok(());
+        return Ok(Vec::new());
     }
     let order = member_order(sig);
     let wanted = wanted_slots(&order, edits, &have);
@@ -411,7 +507,7 @@ pub(crate) fn add_slots(
         }
     }
     if added.is_empty() {
-        return Ok(());
+        return Ok(Vec::new());
     }
     let Some(subs) = record.subrecords_mut() else {
         return Err(FieldError::new(
@@ -442,6 +538,15 @@ pub(crate) fn add_slots(
     all.extend(added.into_iter().map(|(slot, s)| (slot, true, s)));
     // Stable: equal slots keep the record's order, then the added ones.
     all.sort_by_key(|(slot, _, _)| *slot);
+    // The members a group an added subrecord starts or joins requires (follow-up (b)).
+    let defaulted = match fill_groups(sig, &order, &mut all) {
+        Ok(d) => d,
+        Err((member, why)) => {
+            let shown = String::from_utf8_lossy(&member).into_owned();
+            subs.extend(all.into_iter().filter(|(_, a, _)| !*a).map(|(_, _, s)| s));
+            return Err(FieldError::new(&shown, "no-subrecord", why));
+        }
+    };
     // An added subrecord the definition would not place where it landed (its group lead
     // is elsewhere in the record): refused, and the record keeps its own subrecords.
     let sigs: Vec<[u8; 4]> = all.iter().map(|(_, _, s)| s.signature().0).collect();
@@ -458,5 +563,5 @@ pub(crate) fn add_slots(
         ));
     }
     subs.extend(all.into_iter().map(|(_, _, s)| s));
-    Ok(())
+    Ok(defaulted)
 }
