@@ -49,6 +49,8 @@ pub(crate) fn weapon(form_id: u32, edid: &str, full: u32) -> Record<'static> {
             sub(b"EDID", &edid),
             sub(b"FULL", &full.to_le_bytes()),
             sub(b"MODL", b"Weapons\\a.nif\0"),
+            // The Model group requires FLLD (`layout.group-incomplete`).
+            sub(b"FLLD", &[0, 0, 0, 0]),
             sub(b"DESC", &[0, 0, 0, 0]),
             sub(b"OBTE", &[1, 0, 0, 0]),
             sub(b"FULL", &0x0002_EDD8u32.to_le_bytes()),
