@@ -79,6 +79,18 @@ kit mod run <spec> --name <Name> --dry-run        # build --plan, plus every sta
 
 ## 3. Run it
 
+**Before the first run, select the `KitKraft Dev` profile in MO2** (the profile drop-down
+at the top of its window), then close MO2 so `ModOrganizer.ini` records it. The deploy
+stage reads MO2's active profile and never deploys while it is `Default`, the owner's live
+game; the run then ends `fail` at stage 5 with this refusal:
+
+```text
+refused [live-profile] C:\Modding\MO2-Starfield\ModOrganizer.ini: MO2's active profile is `Default`, the owner's live game; switch MO2 to the `KitKraft Dev` profile first
+```
+
+(If `ModOrganizer.ini` names no profile at all, the refusal is `[live-profile-unknown]`;
+pass `--profile "KitKraft Dev"` or open MO2 on that profile once.)
+
 ```powershell
 kit mod run docs\smoke-rename.toml --name OldSovietMarksmanRifle --mo2 C:\Modding\MO2-Starfield --base-save-sha256 <hex>
 ```
@@ -110,8 +122,11 @@ The options are these:
 Rerunning the same command reuses `out\<name>\`, which is the fix loop. A folder that a mod
 run did not write is never reused.
 
-**One owner step that deploy never does.** ADR 0009 says deploy never edits a profile. So
-after the first deploy, the owner must enable `KitKraft Dev - <stem>` in the
+**One owner step that deploy never does.** ADR 0009 says deploy never edits a profile, and
+it never switches MO2's active profile either: `KitKraft Dev` must already be selected in
+MO2 before the first run (above; otherwise stage 5 ends `fail` with the
+`refused [live-profile]` refusal quoted there). So after the first
+deploy, the owner must enable `KitKraft Dev - <stem>` in the
 `KitKraft Dev` profile in MO2 and tick the plugin last. The deploy stage's `next_steps`
 list the exact clicks. Until the owner does this, preflight also refuses with
 `plugin-not-deployed`. The mod stays enabled across redeploys.
