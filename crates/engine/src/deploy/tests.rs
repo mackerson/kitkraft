@@ -300,10 +300,15 @@ fn first_deploy_redeploy_rollback_and_profiles_untouched() {
         fs::read(mo2.target().join("Scripts/MyScript.pex")).unwrap(),
         b"v2"
     );
-    assert_eq!(
-        fs::read(mo2.target().join("meta.ini")).unwrap(),
-        b"[General]\r\nnotes=mine\r\n"
+    // MO2's meta.ini keeps its own keys; version and comments name the new build
+    // (ADR 0009 Amendment 3).
+    let meta = fs::read_to_string(mo2.target().join("meta.ini")).unwrap();
+    assert!(meta.starts_with("[General]\r\nversion="), "{meta}");
+    assert!(
+        meta.contains(&format!("\r\ncomments=KitKraft dev build {id2}\r\n")),
+        "{meta}"
     );
+    assert!(meta.ends_with("\r\nnotes=mine\r\n"), "{meta}");
     assert_eq!(mo2.id(&mo2.slot(".previous")), id1);
     assert_eq!(
         fs::read(mo2.slot(".previous").join("MyMod.esm")).unwrap(),
@@ -335,10 +340,12 @@ fn first_deploy_redeploy_rollback_and_profiles_untouched() {
         fs::read(mo2.target().join("MyMod.esm")).unwrap(),
         b"TES4 v2"
     );
-    // meta.ini follows the live folder.
-    assert_eq!(
-        fs::read(mo2.target().join("meta.ini")).unwrap(),
-        b"[General]\r\nnotes=mine\r\n"
+    // meta.ini follows the live folder, MO2's keys kept, naming the restored build.
+    let meta = fs::read_to_string(mo2.target().join("meta.ini")).unwrap();
+    assert!(meta.ends_with("\r\nnotes=mine\r\n"), "{meta}");
+    assert!(
+        meta.contains(&format!("comments=KitKraft dev build {id2}")),
+        "{meta}"
     );
     let r = mo2.rollback().unwrap();
     assert_eq!(r["data"]["deployment_id"], id3.as_str());
@@ -694,6 +701,9 @@ fn deploy_with(
     hooks: Hooks,
 ) -> Result<super::Report, super::DeployError> {
     deploy(&DeployRequest {
+        category: None,
+        version: None,
+        mo2_running: false,
         source: source.to_path_buf(),
         mo2: mo2.mo2(),
         profile: None,
@@ -940,9 +950,12 @@ fn rollback_copies_meta_ini_after_the_swap() {
     let r = rollback(&req(Hooks::default())).unwrap();
     assert_eq!(r.data["recovered"]["outcome"], "rolled back");
     assert_eq!(mo2.id(&mo2.target()), id1);
-    assert_eq!(
-        fs::read(mo2.target().join("meta.ini")).unwrap(),
-        b"live notes"
+    // The live folder's meta.ini follows it, naming the restored build.
+    let meta = fs::read_to_string(mo2.target().join("meta.ini")).unwrap();
+    assert!(meta.ends_with("live notes"), "{meta}");
+    assert!(
+        meta.contains(&format!("comments=KitKraft dev build {id1}")),
+        "{meta}"
     );
     assert_eq!(
         fs::read(mo2.slot(".previous").join("meta.ini")).unwrap(),
@@ -1023,14 +1036,15 @@ fn dry_run_lists_every_path_and_writes_nothing() {
         .iter()
         .map(|t| t["path"].as_str().unwrap().to_string())
         .collect();
-    assert_eq!(would.len(), 8, "{would:?}");
+    assert_eq!(would.len(), 9, "{would:?}");
+    assert!(would.iter().any(|p| p.ends_with("meta.ini")));
     assert!(would.iter().any(|p| p.ends_with("MyScript.pex")));
     assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
     assert_eq!(mo2.protected(), before);
     assert!(r["data"]["summary"]
         .as_str()
         .unwrap()
-        .contains("would touch (8)"));
+        .contains("would touch (9)"));
 }
 
 #[test]
@@ -1202,4 +1216,32 @@ fn rfc3339_dates() {
     assert_eq!(super::rfc3339(0), "1970-01-01T00:00:00Z");
     assert_eq!(super::rfc3339(951_782_400), "2000-02-29T00:00:00Z");
     assert_eq!(super::rfc3339(1_791_936_930), "2026-10-14T00:15:30Z");
+}
+
+/// ADR 0009 Amendment 3: a first deploy writes a new meta.ini with the version and the
+/// category MO2's `categories.dat` names; an unknown category refuses before any write.
+#[test]
+fn first_deploy_writes_meta_ini_with_version_and_category() {
+    let mo2 = Mo2::new("metaini");
+    mo2.write("mo2/categories.dat", b"1|Starfield|0\r\n4|Gameplay|0\r\n");
+    let pkg = mo2.package("v1", b"TES4");
+    let args = |category: &str| {
+        json!({"source": pkg.to_str().unwrap(), "mo2": mo2.mo2().to_str().unwrap(),
+               "dev": true, "category": category, "version": "1.0.0"})
+    };
+    let before = mo2.protected();
+    let e = execute("deploy", args("Nope")).unwrap_err();
+    assert!(e.to_string().contains("[category]"), "{e}");
+    assert_eq!(mo2.mods_listing(), ["Unrelated Mod"]);
+    assert_eq!(mo2.protected(), before);
+
+    let r = execute("deploy", args("gameplay")).unwrap();
+    assert_eq!(r["data"]["outcome"], "deployed", "{r}");
+    let id = mo2.id(&mo2.target());
+    assert_eq!(
+        fs::read_to_string(mo2.target().join("meta.ini")).unwrap(),
+        format!("[General]\r\ngameName=Starfield\r\nmodid=0\r\nversion=1.0.0\r\ncomments=KitKraft dev build {id}\r\ncategory=\"4,\"\r\nnotes=\r\n")
+    );
+    assert_eq!(r["data"]["meta_ini"]["category"], 4);
+    assert_eq!(mo2.protected(), before);
 }

@@ -63,6 +63,14 @@ pub(super) fn run(args: &Value) -> Result<Outcome, EngineError> {
         profile: opt_str(args, "profile"),
         dry_run: flag(args, "dry_run"),
         hooks: Hooks::default(),
+        category: opt_str(args, "category"),
+        version: opt_str(args, "version"),
+        mo2_running: {
+            use kitkraft_game::host::Host;
+            kitkraft_game::host::SystemHost
+                .running()
+                .is_ok_and(|r| kitkraft_game::host::is_running(&r, "ModOrganizer.exe"))
+        },
     };
     deploy::deploy(&req).map(outcome).map_err(|e| err(ID, &e))
 }

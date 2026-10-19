@@ -12,6 +12,7 @@ use super::manifest::{
     check, files_under, read_journal, read_manifest, rename, to_json, write_atomic, Integrity,
     Journal, Manifest, ManifestFile, ManifestSource, JOURNAL_KIND,
 };
+use super::meta::{category_id, date_version, new_meta, update_meta, MetaFields};
 use super::source::{self, Source, SourceFile};
 use super::{
     io_error, now_unix, refused, rfc3339, sha256, DeployError, Hooks, Step, Touched, DEV_PROFILE,
@@ -31,6 +32,13 @@ pub(crate) struct DeployRequest {
     pub dry_run: bool,
     /// Test hooks.
     pub hooks: Hooks,
+    /// MO2 category name for `meta.ini` (looked up in `categories.dat`); `None` leaves it.
+    pub category: Option<String>,
+    /// Version for `meta.ini`; default the package's, else the date (`YYYY.M.D.HHMM`).
+    pub version: Option<String>,
+    /// Whether `ModOrganizer.exe` is running (a warning: it may write its own `meta.ini`
+    /// back when it exits).
+    pub mo2_running: bool,
 }
 
 /// Arguments of `deploy.rollback`.
@@ -555,7 +563,6 @@ fn deployment_id(unix: u64, seed: &str) -> String {
 fn deploy_steps(
     slots: &Slots,
     files: &[SourceFile],
-    meta_ini: bool,
     target_exists: bool,
     retire: bool,
 ) -> Vec<Touched> {
@@ -571,9 +578,7 @@ fn deploy_steps(
     for f in files {
         steps.push(t("write", &slots.staging.join(&f.rel), None));
     }
-    if meta_ini {
-        steps.push(t("write", &slots.staging.join(MO2_META), None));
-    }
+    steps.push(t("write", &slots.staging.join(MO2_META), None));
     steps.push(t("write", &slots.staging.join(MANIFEST), None));
     if retire {
         steps.push(t("rename", &slots.previous, Some(&slots.retired)));
@@ -753,12 +758,33 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         }
     }
     let unix = now_unix();
+    // MO2's meta.ini (ADR 0009 Amendment 3): the live one updated in place, else a new one.
+    let category = match req.category.as_deref() {
+        Some(c) => match category_id(&inst.root, c) {
+            Ok(id) => Some(id),
+            Err(e) => {
+                refusals.push(e);
+                None
+            }
+        },
+        None => None,
+    };
+    let version = req
+        .version
+        .clone()
+        .or_else(|| source.version.clone())
+        .unwrap_or_else(|| date_version(unix));
     let previous_id = old
         .as_ref()
         .map(|m| m.deployment_id.clone())
         .or_else(|| previous.id().map(str::to_string));
     let (profile, mut warnings) =
         profile_section(&inst, req.profile.as_deref(), &name, &source.plugin);
+    if req.mo2_running {
+        warnings.push(format!(
+            "ModOrganizer.exe is running: press F5 in MO2 so it rereads `{name}`; whether MO2 writes its cached {MO2_META} back when it exits is not observed yet"
+        ));
+    }
     if let Some(p) = inst.selected_profile.as_deref() {
         if !p.eq_ignore_ascii_case(DEV_PROFILE) && !p.eq_ignore_ascii_case(LIVE_PROFILE) {
             warnings.push(format!(
@@ -784,6 +810,7 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         "live_integrity": integrity.as_ref().map(Integrity::json),
         "previous_integrity": previous_integrity.as_ref().map(Integrity::json),
         "carried_over": if meta_ini { vec![MO2_META] } else { Vec::new() },
+        "meta_ini": {"version": version, "category": category, "updated": meta_ini},
         "recovered": recovered,
         "pending_journal": if req.dry_run { pending.as_ref().map(|j| json!({"path": slots.journal.display().to_string(), "operation": j.operation, "started_at": j.started_at})) } else { None },
         "lock": lock.as_ref().map(|l| l.path.display().to_string()),
@@ -819,13 +846,7 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
             });
         }
         if !unchanged {
-            would.extend(deploy_steps(
-                &slots,
-                &source.files,
-                meta_ini,
-                target_exists,
-                retire,
-            ));
+            would.extend(deploy_steps(&slots, &source.files, target_exists, retire));
         }
         let passed = refusals.is_empty();
         set(&mut data, "passed", json!(passed));
@@ -888,6 +909,18 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
 
     let seed: String = source.files.iter().map(|f| f.sha256.as_str()).collect();
     let id = deployment_id(unix, &seed);
+    let fields = MetaFields {
+        version: version.clone(),
+        comments: format!("KitKraft dev build {id}"),
+        category,
+    };
+    let meta_bytes = if meta_ini {
+        let from = slots.target.join(MO2_META);
+        let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
+        update_meta(&bytes, &fields)
+    } else {
+        new_meta(&fields)
+    };
     let manifest = Manifest {
         kind: MARKER.to_string(),
         format: 1,
@@ -917,6 +950,7 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
                 source: f.abs.display().to_string(),
             })
             .collect(),
+        version: Some(version.clone()),
     };
     let journal = Journal {
         kind: JOURNAL_KIND.to_string(),
@@ -934,7 +968,8 @@ pub(crate) fn deploy(req: &DeployRequest) -> Result<Report, DeployError> {
         &manifest,
         &journal,
         &stale_dirs,
-        (meta_ini, target_exists, retire),
+        &meta_bytes,
+        (target_exists, retire),
         req.hooks,
         &mut touched,
     );
@@ -1019,7 +1054,8 @@ fn run_deploy(
     manifest: &Manifest,
     journal: &Journal,
     stale_dirs: &[PathBuf],
-    (meta_ini, target_exists, retire): (bool, bool, bool),
+    meta: &[u8],
+    (target_exists, retire): (bool, bool),
     hooks: Hooks,
     touched: &mut Vec<Touched>,
 ) -> Result<(), DeployError> {
@@ -1042,11 +1078,7 @@ fn run_deploy(
             to: None,
         });
     }
-    if meta_ini {
-        let from = slots.target.join(MO2_META);
-        let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
-        write_atomic(&slots.staging.join(MO2_META), &bytes, touched)?;
-    }
+    write_atomic(&slots.staging.join(MO2_META), meta, touched)?;
     let path = slots.staging.join(MANIFEST);
     write_atomic(&path, &to_json(manifest, &path)?, touched)?;
     hooks.check(Step::Staged)?;
@@ -1165,9 +1197,7 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
     steps.push(t("write", &slots.journal, None));
     steps.push(t("rename", &slots.target, Some(&slots.staging)));
     steps.push(t("rename", &slots.previous, Some(&slots.target)));
-    if live_check.meta_ini {
-        steps.push(t("write", &slots.target.join(MO2_META), None));
-    }
+    steps.push(t("write", &slots.target.join(MO2_META), None));
     steps.push(t("rename", &slots.staging, Some(&slots.previous)));
     steps.push(t("remove-file", &slots.journal, None));
     let mut data = json!({
@@ -1258,11 +1288,23 @@ pub(crate) fn rollback(req: &RollbackRequest) -> Result<Report, DeployError> {
         // MO2's meta.ini follows the live folder: copied into the new live folder after
         // the swap, so `.previous` is never written before it is restored (a crash
         // mid-copy leaves `meta.ini.tmp` in the live folder; recovery removes it).
-        if live_check.meta_ini {
+        // Its version and comment name the restored build (ADR 0009 Amendment 3).
+        let fields = MetaFields {
+            version: prev
+                .version
+                .clone()
+                .unwrap_or_else(|| date_version(prev.deployed_at_unix)),
+            comments: format!("KitKraft dev build {}", prev.deployment_id),
+            category: None,
+        };
+        let meta = if live_check.meta_ini {
             let from = slots.staging.join(MO2_META);
             let bytes = fs::read(&from).map_err(|e| io_error(&from, "reading", &e))?;
-            write_atomic(&slots.target.join(MO2_META), &bytes, &mut touched)?;
-        }
+            update_meta(&bytes, &fields)
+        } else {
+            new_meta(&fields)
+        };
+        write_atomic(&slots.target.join(MO2_META), &meta, &mut touched)?;
         move_dir(&slots.staging, &slots.previous, &mut touched)?;
         remove_file(&slots.journal, &mut touched)
     })();

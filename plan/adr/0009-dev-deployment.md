@@ -215,3 +215,28 @@ enable runs before one. Whether MO2 keeps the edit when it next opens the profil
 black-box fact recorded in `docs/game-observations.md` (owner check), not assumed.
 Still the owner's: switching MO2's active profile, editing `Default`, or letting
 `mod.run` enable on its own.
+
+## Amendment 3 (2026-10-18): deploy writes the dev mod's `meta.ini`, owner ruling
+
+Owner ruling (Michael, 2026-10-18, in session, quoted): "Do both: deploy writes a meta.ini
+(version, category, comment) into its own dev mod", approved as planned.
+
+1. **Inside the dev mod only.** `deploy` and `deploy.rollback` write MO2's `meta.ini` in
+   the dev mod they manage, through the same staging, journal and swap as the other files.
+   It is never listed in the deployment manifest, and nothing outside the dev mod changes
+   (`categories.dat` is read, never written).
+2. **New or updated.** With no `meta.ini`, a minimal one in MO2's observed layout is
+   written. With one, only `[General]`'s `version=` and `comments=` are replaced, plus
+   `category=` when the call names a category. Missing keys are added after `[General]`,
+   and every other line, MO2's included, is kept. Rollback sets `version=` and
+   `comments=` to the restored build's values.
+3. **Where the values come from.** `version` is the argument, else the package's, else
+   the date. `category` is a name in `<mo2>\categories.dat`, and an unknown name refuses
+   the call. `comments` is `KitKraft dev build <deployment id>`. The deployment manifest
+   records the version (an optional field; older manifests have none).
+4. **MO2 open.** `deploy` still runs with MO2 open and warns that it should be
+   refreshed. Whether MO2 writes its cached copy back when it exits is a black-box fact,
+   and the owner's check is recorded in `docs/game-observations.md`.
+
+Amendment 1's point that `meta.ini` is carried over still holds; this amendment adds
+the keys above.

@@ -79,6 +79,10 @@ pub(crate) struct Manifest {
     pub source: ManifestSource,
     /// Every deployed file, sorted by path.
     pub files: Vec<ManifestFile>,
+    /// The version written to MO2's `meta.ini` (ADR 0009 Amendment 3); absent in manifests
+    /// written before it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub version: Option<String>,
 }
 
 impl Manifest {

@@ -43,6 +43,11 @@ None of the DLC's own enemy tier templates is in MEL: of 1,295 DLC `NPC_` record
 - B2 is blocked: the bounty targets win in `SFBGS003.esm`, a medium-scale plugin, and `build`
   refuses to copy a scaled plugin's records until a scale-aware remap exists (lane D).
   `mel-dlc-trackers-alliance.toml` lists the 20 skipped forms and has no entries.
+- Renamed 2026-10-18 (owner): the plugins are `MEL DLC - Shattered Space.esm` and
+  `MEL DLC - Terran Armada.esm` (MO2 mods `KitKraft Dev - MEL DLC - ...`), version 1.0.0,
+  MO2 category Gameplay:
+  `kit mod run docs\mel-dlc\mel-dlc-terran-armada.toml --name MelDlcTerranArmada --plugin "MEL DLC - Terran Armada.esm" --version 1.0.0 --category Gameplay --mo2 C:\Modding\MO2-Starfield`
+  (likewise `shattered-space` / `MelDlcShatteredSpace`). The specs are unchanged.
 - `testplan` writes no console rows for override-only level edits; the in-game checklist below
   is the check.
 

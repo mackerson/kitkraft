@@ -48,6 +48,8 @@ pub(crate) struct Source {
     pub files: Vec<SourceFile>,
     /// The package manifest and its SHA-256, when the folder has one.
     pub package_manifest: Option<(PathBuf, String)>,
+    /// The package manifest's `version`, when it has one.
+    pub version: Option<String>,
     /// What was not checked.
     pub limitations: Vec<String>,
 }
@@ -96,6 +98,7 @@ pub(crate) fn read(path: &Path) -> Result<Source, DeployError> {
                 sha256,
             }],
             package_manifest: None,
+            version: None,
             limitations: Vec::new(),
             root,
         });
@@ -136,14 +139,14 @@ pub(crate) fn read(path: &Path) -> Result<Source, DeployError> {
     // one release); the current name wins when both are present.
     let package_manifest = package_manifest.or(old_package_manifest);
     let mut limitations = Vec::new();
-    let listed_plugins = match &package_manifest {
+    let (listed_plugins, version) = match &package_manifest {
         Some((path, _)) => verify_package(path, &files, &mut limitations)?,
         None => {
             limitations.push(format!(
                 "{} has no {PACKAGE_MANIFEST}: the files were hashed as found, not checked against a package manifest",
                 root.display()
             ));
-            Vec::new()
+            (Vec::new(), None)
         }
     };
     let roots: Vec<&SourceFile> = files
@@ -182,6 +185,7 @@ pub(crate) fn read(path: &Path) -> Result<Source, DeployError> {
         plugin,
         files,
         package_manifest,
+        version,
         limitations,
         root,
     })
@@ -257,7 +261,7 @@ fn verify_package(
     path: &Path,
     files: &[SourceFile],
     limitations: &mut Vec<String>,
-) -> Result<Vec<String>, DeployError> {
+) -> Result<(Vec<String>, Option<String>), DeployError> {
     let size = fs::metadata(path)
         .map_err(|e| io_error(path, "reading", &e))?
         .len();
@@ -286,12 +290,17 @@ fn verify_package(
                 .collect()
         })
         .unwrap_or_default();
+    let version = value
+        .get("version")
+        .and_then(Value::as_str)
+        .filter(|v| !v.is_empty())
+        .map(str::to_string);
     let Some(listed) = value.get("files").and_then(Value::as_array) else {
         limitations.push(format!(
             "{}: no `files` array (shape not recognized); the package was not verified against it",
             path.display()
         ));
-        return Ok(plugins);
+        return Ok((plugins, version));
     };
     let mut expected: BTreeMap<String, (Option<u64>, String)> = BTreeMap::new();
     for entry in listed {
@@ -303,7 +312,7 @@ fn verify_package(
                 "{}: a `files` entry without `path` and `sha256` (shape not recognized); the package was not verified against it",
                 path.display()
             ));
-            return Ok(plugins);
+            return Ok((plugins, version));
         };
         expected.insert(
             p.replace('\\', "/").to_lowercase(),
@@ -345,5 +354,5 @@ fn verify_package(
             format!("lists `{missing}`, which is not in the package"),
         ));
     }
-    Ok(plugins)
+    Ok((plugins, version))
 }

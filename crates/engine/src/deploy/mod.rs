@@ -29,6 +29,7 @@ mod enable;
 mod enable_tests;
 mod instance;
 mod manifest;
+mod meta;
 mod ops;
 pub(crate) mod sha256;
 mod source;

@@ -68,9 +68,25 @@ space) is refused, never rewritten. A package with several plugins at its root n
 package manifest whose `plugins` list names the first; one plugin per dev mod.
 
 MO2 lists every folder under `mods\`, so after a redeploy it shows
-`KitKraft Dev - MyMod.previous` as a separate mod. Leave it disabled. MO2 writes its own
-`meta.ini` into a mod folder; `deploy` and `rollback` carry it over to the new live
-folder and never list it in the manifest.
+`KitKraft Dev - MyMod.previous` as a separate mod. Leave it disabled. MO2 keeps a mod's
+version, category and notes in `meta.ini` in the mod folder (ADR 0009 Amendment 3):
+
+- **First deploy:** with no `meta.ini` yet, `deploy` writes a minimal one in MO2's
+  layout: `[General]`, `gameName=Starfield`, `modid=0`, `version=`, `comments=KitKraft dev
+  build <id>`, `category="<id>,"` when `category` is given, and `notes=`. CRLF.
+- **Redeploy:** an existing `meta.ini` (MO2 adds keys of its own) is carried over to the
+  new live folder with only `version=` and `comments=` replaced in `[General]`, plus
+  `category=` when one is given. Missing keys are added after `[General]`, and every other
+  line is kept.
+- **Rollback:** sets `version=` and `comments=` to the restored build's values.
+- **`version`:** the argument, else the package manifest's `version`, else the date
+  (`YYYY.M.D.HHMM`, UTC). The deployment manifest records it.
+- **`category`:** a name MO2's `categories.dat` lists (`Gameplay`, `Ships`, ...),
+  matched ignoring case. Unknown names refuse with rule `category`, and KitKraft never
+  edits `categories.dat`.
+- **MO2 running:** `deploy` warns that you should refresh MO2 with F5. Whether MO2 writes
+  its cached `meta.ini` back when it exits is not observed yet.
+- **Manifest:** `meta.ini` is never listed in the deployment manifest.
 
 ### `kitkraft-deploy.json`
 

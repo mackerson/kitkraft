@@ -359,7 +359,7 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
         "plugin": path_text(&plugin), "out": path_text(&package_out), "name": package_name,
         "spec": path_text(&spec), "overwrite": true,
     });
-    for key in ["loose", "scripts", "ba2"] {
+    for key in ["loose", "scripts", "ba2", "version"] {
         if let (Some(v), Some(m)) = (args.get(key), package_extra.as_object_mut()) {
             m.insert(key.to_string(), v.clone());
         }
@@ -369,6 +369,9 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
     });
     if let (Some(m), Some(d)) = (deploy_args.as_object_mut(), &mo2) {
         m.insert("mo2".into(), json!(d));
+    }
+    if let (Some(m), Some(c)) = (deploy_args.as_object_mut(), args.get("category")) {
+        m.insert("category".into(), c.clone());
     }
     let mut session_args = json!({
         "probes": path_text(&probes), "profile": dev_profile,
