@@ -16,10 +16,16 @@
 //!   describes may be a string ID too, so it refuses the write unless
 //!   [`PatchOptions::allow_untyped_lstrings`] (then a limitation names it). Inline text with
 //!   bytes >= 0x80 is named in a limitation (how the game decodes it is unverified).
-//! - **Scale.** A copy whose source, or a master of the source, is small or medium (or of
-//!   unknown scale) is refused: its FormIDs address masters by scale class (and its own
-//!   records full-style-self), and a verbatim copy into a full-scale patch would change
-//!   what they mean, until a scale-aware remap exists.
+//! - **Scale** (M5.D12). FormIDs address masters by scale class (`docs/load-order.md`,
+//!   "FormIDs"): the full index skips small and medium masters. Whether a copy needs its
+//!   FormIDs remapped is decided once the target's master list is final, by resolving each
+//!   class index of the source (its masters and itself) through `kitkraft_doc::MasterMap`
+//!   and encoding the form through the target's: when every one maps to itself, the record
+//!   is copied as stored (opaque payloads included), whatever the scale of the source or
+//!   its masters. A small or medium source's `full-style-self` spelling (its own form
+//!   stored in the full class) would name the patch's own form, so a header or typed
+//!   member using it forces the remap; payloads no layout types cannot be checked for it,
+//!   and a limitation says so. A source or master of unknown scale is refused.
 //! - **Masters.** A new target gets the first source's masters in order, then the source.
 //!   A record joins a target whose master list starts with its source's masters plus the
 //!   source (FormIDs then mean the same in both). When the target's list is shorter and a
@@ -27,8 +33,8 @@
 //!   its own, whose FormIDs would change meaning). Otherwise the record's FormIDs are
 //!   remapped through the generated FormID visitors (M2.B3), which is refused when any of
 //!   its subrecords is of unknown layout ([`has_opaque`]) or has non-zero untyped bytes
-//!   inside a known layout ([`untyped_id_runs`]; a FormID could hide there), or when a
-//!   plugin involved is small or medium (scale classes are lane D's).
+//!   inside a known layout ([`untyped_id_runs`]; a FormID could hide there). The remap
+//!   resolves and re-encodes by scale class ("Scale" above).
 //! - **Header.** A new target: `HEDR` 0.96, next object ID `0xFF001000`, form version 582,
 //!   `CNAM` "DEFAULT", the masters, `INCC` (interior cells), master flag when the file name
 //!   ends in `.esm`, never localized, no `ONAM`, `SNAM`, `BNAM` or `CHGL`; the `HEDR` record
@@ -45,6 +51,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::path::{Path, PathBuf};
 
+use kitkraft_doc::{MasterMap, PluginFlags, RawRef, Scale as DocScale};
 use kitkraft_esm::bridge::Ctx;
 use kitkraft_esm::build::{set_masters, upsert_file_to_path, HeaderSpec, Placed, Upsert};
 use kitkraft_esm::cells::{CellPlace, PlacementStyle};
@@ -440,37 +447,230 @@ fn new_interior_cell_path(
         .map_err(|e| refused(format!("{edid}: {e}")))
 }
 
-/// Refuses a copy whose FormIDs use scale classes (Fable review round 2, finding 3): its
-/// source is small or medium (its own records are found by lane D's `full-style-self`
-/// assumption and its FormIDs address masters by scale class), or one of the source's
-/// masters is, or a master's scale is unknown. A verbatim copy into a full-scale patch
-/// would change what those FormIDs mean; refused until a scale-aware remap exists.
-fn refuse_scaled(copy: &Copy, flag_of: &dyn Fn(&str) -> Option<u32>) -> Result<(), PatchError> {
+/// Refuses a copy when a scale its FormIDs depend on is unknown: the source's own (both
+/// scale bits set), or a master's (its header was not read). FormIDs address masters by
+/// scale class (`docs/load-order.md`, "FormIDs"), so what they mean cannot be checked then;
+/// never guessed (Fable review round 2, finding 3).
+fn require_known_scales(
+    copy: &Copy,
+    flag_of: &dyn Fn(&str) -> Option<u32>,
+) -> Result<(), PatchError> {
     let what = format!("{} {}", copy.record.header.signature, copy.formref);
-    if copy.source.scaled() {
+    if PluginFlags(copy.source.flags).scale().is_none() {
         return Err(refused(format!(
-            "{what}: its version comes from {}, a small or medium plugin, whose FormIDs address masters by scale class; a verbatim copy into a full-scale patch would change what they mean (refused until a scale-aware remap exists, lane D)",
+            "{what}: {} sets both the small and the medium flag; no scale is known for that, so what its FormIDs mean cannot be checked",
             copy.source.name
         )));
     }
     for m in &copy.source.masters {
-        match flag_of(m) {
-            None => {
-                return Err(refused(format!(
-                    "{what}: the scale of {m}, a master of {}, is unknown (its header was not read), so what the copy's FormIDs mean cannot be checked; add it to the load order",
-                    copy.source.name
-                )))
-            }
-            Some(f) if f & (FLAG_SMALL | FLAG_MEDIUM) != 0 => {
-                return Err(refused(format!(
-                    "{what}: {} has the small or medium master {m}, so its FormIDs address masters by scale class; a verbatim copy into a full-scale patch could change what they mean (refused until a scale-aware remap exists, lane D)",
-                    copy.source.name
-                )))
-            }
-            Some(_) => {}
+        if flag_of(m).and_then(|f| PluginFlags(f).scale()).is_none() {
+            return Err(refused(format!(
+                "{what}: the scale of {m}, a master of {}, is unknown (its header was not read, or it sets both scale bits), so what the copy's FormIDs mean cannot be checked; add it to the load order",
+                copy.source.name
+            )));
         }
     }
     Ok(())
+}
+
+/// The FormID space of a plugin named `name` with TES4 flags `flags` and `masters`: its
+/// masters by scale class (`kitkraft_doc::MasterMap`; `docs/load-order.md`, "FormIDs"), each
+/// plugin numbered by its position in `names`, a table shared by the spaces one mapping
+/// compares. `Err` when a scale is unknown.
+fn form_space(
+    name: &str,
+    flags: u32,
+    masters: &[String],
+    flag_of: &dyn Fn(&str) -> Option<u32>,
+    names: &mut Vec<String>,
+) -> Result<MasterMap, String> {
+    fn number(name: &str, names: &mut Vec<String>) -> Result<u16, String> {
+        let at = match names.iter().position(|n| n.eq_ignore_ascii_case(name)) {
+            Some(at) => at,
+            None => {
+                names.push(name.to_string());
+                names.len().saturating_sub(1)
+            }
+        };
+        u16::try_from(at).map_err(|_| format!("too many plugins to number ({name})"))
+    }
+    let own_scale = PluginFlags(flags)
+        .scale()
+        .ok_or_else(|| format!("{name} sets both the small and the medium flag"))?;
+    let own = number(name, names)?;
+    let mut list = Vec::with_capacity(masters.len());
+    for m in masters {
+        let scale = flag_of(m)
+            .and_then(|f| PluginFlags(f).scale())
+            .ok_or_else(|| {
+                format!(
+                    "the scale of {m}, a master of {name}, is unknown (its header was not read, or it sets both scale bits); add it to the load order"
+                )
+            })?;
+        list.push((number(m, names)?, scale));
+    }
+    Ok(MasterMap::new(name, own, own_scale, &list))
+}
+
+/// A copy's source and target FormID spaces ([`copy_spaces`]) and the plugin names they
+/// number.
+struct CopySpaces {
+    source: MasterMap,
+    target: MasterMap,
+    names: Vec<String>,
+}
+
+/// The source's and the target's FormID spaces for `copy` going into `target_name` (a
+/// full-scale plugin) with `masters`.
+fn copy_spaces(
+    copy: &Copy,
+    target_name: &str,
+    masters: &[String],
+    flag_of: &dyn Fn(&str) -> Option<u32>,
+) -> Result<CopySpaces, PatchError> {
+    let what = format!("{} {}", copy.record.header.signature, copy.formref);
+    let mut names = Vec::new();
+    let source = form_space(
+        &copy.source.name,
+        copy.source.flags,
+        &copy.source.masters,
+        flag_of,
+        &mut names,
+    )
+    .map_err(|e| refused(format!("{what}: {e}")))?;
+    let target = form_space(target_name, 0, masters, flag_of, &mut names)
+        .map_err(|e| refused(format!("{what}: {e}")))?;
+    Ok(CopySpaces {
+        source,
+        target,
+        names,
+    })
+}
+
+impl CopySpaces {
+    /// `raw` as stored in the source, as the target stores the same form: resolved through
+    /// the source's masters by scale class, encoded through the target's. The null FormID
+    /// and the none value pass unchanged.
+    fn map(&self, raw: u32) -> Result<u32, String> {
+        if raw == 0 || raw == crate::validate::NONE_FORM_ID {
+            return Ok(raw);
+        }
+        let form = self.source.resolve(raw).map_err(|e| e.to_string())?;
+        self.target.to_raw(form).ok_or_else(|| {
+            let owner = self
+                .names
+                .get(usize::from(form.plugin))
+                .map_or("?", String::as_str);
+            format!(
+                "FormID {raw:08X}: {owner}:{:06X} cannot be stored in the target (not a master, or the object ID does not fit its scale)",
+                form.object_id
+            )
+        })
+    }
+
+    /// Whether every FormID the source stores directly means the same form when copied as
+    /// stored: each class index of its masters, and its own, maps to itself. The
+    /// `full-style-self` slot of a small or medium source is not counted here
+    /// ([`needs_full_style_self_remap`]).
+    fn identical(&self) -> bool {
+        let classes = [
+            (DocScale::Full, self.source.full.len()),
+            (DocScale::Medium, self.source.medium.len()),
+            (DocScale::Small, self.source.small.len()),
+        ];
+        classes.into_iter().all(|(class, count)| {
+            let slots = if class == self.source.own_scale {
+                count.saturating_add(1)
+            } else {
+                count
+            };
+            (0..slots).all(|i| {
+                let raw = u16::try_from(i).ok().and_then(|index| {
+                    RawRef {
+                        class,
+                        index,
+                        object_id: 1,
+                    }
+                    .encode()
+                });
+                raw.is_some_and(|raw| self.map(raw) == Ok(raw))
+            })
+        })
+    }
+
+    /// Whether `raw` resolves in the source by the `full-style-self` assumption (a small or
+    /// medium source's own form stored in the full class), which a verbatim copy into a
+    /// full-scale target would turn into one of the target's own forms.
+    fn full_style_self(&self, raw: u32) -> bool {
+        raw != 0
+            && raw != crate::validate::NONE_FORM_ID
+            && self
+                .source
+                .resolve_detailed(raw)
+                .is_ok_and(|(_, basis)| basis.assumed())
+    }
+}
+
+/// Whether a copy whose class slots map to themselves ([`CopySpaces::identical`]) still
+/// needs remapping: the header of the record or of a parent, or a typed FormID member of
+/// either, uses a small or medium source's `full-style-self` slot. Payloads no layout types
+/// cannot be read for this; when the source has some, a limitation says so.
+fn needs_full_style_self_remap(
+    copy: &Copy,
+    spaces: &CopySpaces,
+    limits: &DecodeLimits,
+    limitations: &mut Vec<String>,
+) -> bool {
+    if spaces.source.own_scale == DocScale::Full {
+        return false;
+    }
+    let mut unseen = false;
+    let records = std::iter::once(&copy.record).chain(copy.parents.iter().map(|(r, _)| r));
+    for record in records {
+        if spaces.full_style_self(record.header.form_id) {
+            return true;
+        }
+        let mut record = record.clone();
+        if record.decompress(limits).is_err() {
+            unseen = true;
+            continue;
+        }
+        let sig = record.header.signature.0;
+        let subs = record.subrecords().unwrap_or_default();
+        let sigs: Vec<[u8; 4]> = subs.iter().map(|s| s.signature().0).collect();
+        if fields::layouts(sig, &sigs)
+            .iter()
+            .any(|l| l.as_ref().is_none_or(|l| has_opaque(&l.ty)))
+        {
+            unseen = true;
+        }
+        let ctx = Ctx::for_record(&record, copy.source.localized());
+        match record.typed(ctx) {
+            Ok(mut typed) => {
+                if !typed.extra().is_empty() {
+                    unseen = true;
+                }
+                if typed
+                    .form_ids_mut()
+                    .into_iter()
+                    .any(|(_, id)| spaces.full_style_self(id.0))
+                {
+                    return true;
+                }
+            }
+            Err(_) => unseen = true,
+        }
+    }
+    if unseen {
+        push_once(
+            limitations,
+            format!(
+                "{} {}: copied from {}, a small or medium plugin, with its FormIDs as stored (they mean the same in the patch: its masters by scale class match); payloads no layout types were not checked for the full-style-self spelling (docs/load-order.md), which no official file uses in its record headers",
+                copy.record.header.signature, copy.formref, copy.source.name
+            ),
+        );
+    }
+    false
 }
 
 /// Copies `copies` into the plugin at `target` (created, or updated in place), applying
@@ -528,21 +728,28 @@ pub fn write_patch_with(
             .map(|(_, f)| *f)
     };
 
-    // Pass 1: no scaled sources, the target's master list, and which copies need FormIDs
+    // Pass 1: every scale known, the target's master list, and which copies need FormIDs
     // remapped.
     for copy in copies.iter().filter(|c| !c.source.name.is_empty()) {
-        refuse_scaled(copy, &flag_of)?;
+        require_known_scales(copy, &flag_of)?;
     }
     let original_masters: Vec<String> = existing
         .as_ref()
         .map(|(p, _)| p.masters.clone())
         .unwrap_or_default();
+    // The target's own records are stored with its full-master count as the high byte
+    // (small and medium masters take no full index); a master of unknown scale counts both
+    // ways, so a record is never missed.
     let own_records = existing.as_ref().is_some_and(|(p, index)| {
-        index
-            .records
+        let full = p
+            .masters
             .iter()
-            .skip(1)
-            .any(|r| usize::try_from(r.form_id >> 24).ok() == Some(p.masters.len()))
+            .filter(|m| flag_of(m).is_none_or(|f| f & (FLAG_SMALL | FLAG_MEDIUM) == 0))
+            .count();
+        index.records.iter().skip(1).any(|r| {
+            let high = usize::try_from(r.form_id >> 24).ok();
+            high == Some(full) || high == Some(p.masters.len())
+        })
     });
     let mut masters = original_masters.clone();
     let mut remap = vec![false; copies.len()];
@@ -617,8 +824,21 @@ pub fn write_patch_with(
             }
         }
     }
-    // Pass 2: each copy into the target's FormID space, edits, lstrings.
+    // Which copies need remapping, now that the master list is final: those whose FormIDs
+    // would mean other forms when copied as stored. FormIDs address masters by scale class
+    // (`docs/load-order.md`), so this compares the source's classes with the target's, not
+    // the plain master lists; a small or medium source whose masters keep their classes and
+    // order is copied as stored, opaque payloads included.
     let mut limitations: Vec<String> = Vec::new();
+    for (copy, needs) in copies.iter().zip(remap.iter_mut()) {
+        if copy.source.name.is_empty() {
+            continue;
+        }
+        let spaces = copy_spaces(copy, &target_name, &masters, &flag_of)?;
+        *needs = !spaces.identical()
+            || needs_full_style_self_remap(copy, &spaces, &options.limits, &mut limitations);
+    }
+    // Pass 2: each copy into the target's FormID space, edits, lstrings.
     let mut placed: Vec<Placed> = Vec::new();
     let mut reports: Vec<RecordReport> = Vec::new();
     let mut seen: BTreeSet<(u32, [u8; 4])> = BTreeSet::new();
@@ -631,16 +851,18 @@ pub fn write_patch_with(
     // `placed` and `reports`.
     let mut late: Vec<Late> = Vec::new();
     for (copy, needs_remap) in copies.into_iter().zip(remap) {
-        let source_masters = {
-            let mut m = copy.source.masters.clone();
-            m.push(copy.source.name.clone());
-            m
+        let spaces = if copy.source.name.is_empty() {
+            None
+        } else {
+            Some(copy_spaces(&copy, &target_name, &masters, &flag_of)?)
         };
-        let map = |raw: u32| -> Result<u32, String> { map_form_id(raw, &source_masters, &masters) };
+        let map = |raw: u32| -> Result<u32, String> {
+            spaces.as_ref().map_or(Ok(raw), |spaces| spaces.map(raw))
+        };
         // Parents first (unedited), unless the target or an earlier copy has them.
         for (mut record, path) in copy.parents.clone() {
             if needs_remap {
-                remap_record(&mut record, &copy.source, &map, &flag_of, &options.limits)?;
+                remap_record(&mut record, &copy.source, &map, &options.limits)?;
             }
             let key = (record.header.form_id, record.header.signature.0);
             let in_target = existing.as_ref().is_some_and(|(_, index)| {
@@ -690,7 +912,7 @@ pub fn write_patch_with(
         }
         let mut record = copy.record.clone();
         if needs_remap {
-            remap_record(&mut record, &copy.source, &map, &flag_of, &options.limits)?;
+            remap_record(&mut record, &copy.source, &map, &options.limits)?;
         }
         // A carried record (a placed reference's cell) that an earlier copy already wrote
         // as its parent (a `[[set]]` or rule on a reference of that cell) is written once:
@@ -1470,25 +1692,6 @@ pub(crate) fn first_link(path: &Path) -> Option<PathBuf> {
         .map(Path::to_path_buf)
 }
 
-/// A FormID stored by a plugin whose master list (masters, then itself) is `from`, as
-/// stored in a plugin whose masters are `to`. FormID 0 and 0xFFFFFFFF (none,
-/// `crate::validate::NONE_FORM_ID`) stay as they are.
-fn map_form_id(raw: u32, from: &[String], to: &[String]) -> Result<u32, String> {
-    if raw == 0 || raw == crate::validate::NONE_FORM_ID {
-        return Ok(raw);
-    }
-    let index = usize::try_from(raw >> 24).unwrap_or(usize::MAX);
-    let owner = from.get(index).ok_or_else(|| {
-        format!("FormID {raw:08X} names master {index}, beyond the source's list")
-    })?;
-    let at = to
-        .iter()
-        .position(|m| m.eq_ignore_ascii_case(owner))
-        .and_then(|i| u32::try_from(i).ok())
-        .ok_or_else(|| format!("FormID {raw:08X}: {owner} is not a master of the target"))?;
-    Ok((at << 24) | (raw & 0x00FF_FFFF))
-}
-
 /// A formref value as stored in the target.
 fn formref_in(
     plugin: &str,
@@ -1511,19 +1714,39 @@ fn formref_in(
                 masters.join(", ")
             )
         })?;
-    match flag_of(plugin) {
-        None => Err(format!(
-            "{plugin}'s header was not read, so its scale (full, small, medium) is unknown; add it to the load order"
-        )),
-        Some(f) if f & (FLAG_SMALL | FLAG_MEDIUM) != 0 => Err(format!(
-            "{plugin} is a small or medium plugin; FormIDs into it need lane D's scale-aware mapping"
-        )),
-        Some(_) => u32::try_from(at)
-            .ok()
-            .filter(|i| *i < 0xFD)
-            .map(|i| (i << 24) | id)
-            .ok_or_else(|| format!("{plugin}: master index {at} out of range")),
+    // The index counts only the masters of the plugin's scale class, in master-list order
+    // (`docs/load-order.md`, "FormIDs").
+    let scale_of = |name: &str| flag_of(name).and_then(|f| PluginFlags(f).scale());
+    let scale = scale_of(plugin).ok_or_else(|| {
+        format!(
+            "{plugin}'s header was not read (or it sets both scale bits), so its scale (full, small, medium) is unknown; add it to the load order"
+        )
+    })?;
+    let mut index: u16 = 0;
+    for m in masters.iter().take(at) {
+        let s = scale_of(m).ok_or_else(|| {
+            format!(
+                "the scale of {m}, a master of the target, is unknown; add it to the load order"
+            )
+        })?;
+        if s == scale {
+            index = index
+                .checked_add(1)
+                .ok_or_else(|| format!("{plugin}: master index out of range"))?;
+        }
     }
+    RawRef {
+        class: scale,
+        index,
+        object_id: id,
+    }
+    .encode()
+    .ok_or_else(|| {
+        format!(
+            "{plugin}:{id:06X}: master index {index} or object ID out of range for a {} plugin",
+            scale.as_str()
+        )
+    })
 }
 
 /// Remaps every FormID of `record` (header and typed members) with `map`; refused when a
@@ -1532,19 +1755,9 @@ fn remap_record(
     record: &mut Record<'static>,
     source: &SourcePlugin,
     map: &dyn Fn(u32) -> Result<u32, String>,
-    flag_of: &dyn Fn(&str) -> Option<u32>,
     limits: &DecodeLimits,
 ) -> Result<(), PatchError> {
     let what = format!("{} {:08X}", record.header.signature, record.header.form_id);
-    let mut involved: Vec<&str> = source.masters.iter().map(String::as_str).collect();
-    involved.push(&source.name);
-    for name in involved {
-        if flag_of(name).is_none_or(|f| f & (FLAG_SMALL | FLAG_MEDIUM) != 0) {
-            return Err(refused(format!(
-                "{what} needs its FormIDs remapped, but the scale of {name} is unknown or small/medium (lane D)"
-            )));
-        }
-    }
     record
         .decompress(limits)
         .map_err(|e| PatchError::Io(format!("{what}: {e}")))?;

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 
 use kitkraft_esm::build::HeaderSpec;
 use kitkraft_esm::driver::{roundtrip_bytes, RoundtripOptions};
-use kitkraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER};
+use kitkraft_esm::tes4::{FLAG_LOCALIZED, FLAG_MASTER, FLAG_MEDIUM, FLAG_SMALL};
 use kitkraft_esm::{
     Body, DecodeLimits, Entry, GroupHeader, Plugin, Record, RecordHeader, Signature, Subrecord,
 };
@@ -751,49 +751,312 @@ fn untyped_lstrings_of_localized_sources() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
-/// Fable review round 2, finding 3: a copy from a small or medium plugin, or from one with
-/// a small or medium master (or a master of unknown scale), is refused in pass 1.
-#[test]
-fn scaled_sources_are_refused() {
-    let d = dir("scaled");
-    let small = write_plugin(
-        &d,
-        "Small.esm",
-        &[],
-        FLAG_MASTER | kitkraft_esm::tes4::FLAG_SMALL,
-        vec![],
-    );
-    let child = write_plugin(&d, "Child.esm", &["Small.esm"], FLAG_MASTER, vec![]);
-    let plugins = index_plugins(&[small, child]).unwrap();
-    let copy = |p: &Indexed| Copy {
+/// The first record of `p` as a copy (read by position: `find_winner` resolves no scaled
+/// plugin).
+fn first_copy(p: &Indexed, formref: &str) -> Copy {
+    let (record, path) = read_copy(
+        &p.plugin.path,
+        &p.index,
+        &p.index.records[1],
+        &DecodeLimits::default(),
+    )
+    .unwrap();
+    Copy {
         source: p.plugin.clone(),
-        record: weapon(0x0000_0800, "Rifle", 0),
-        path: vec![GroupHeader::top(Signature(*b"WEAP"))],
+        record,
+        path,
         parents: Vec::new(),
         edits: Vec::new(),
-        formref: format!("{}:000800", p.plugin.name),
+        formref: formref.to_string(),
         carried: false,
         new_form: None,
         scripts: Vec::new(),
-    };
-    let target = d.join("P.esp");
+    }
+}
+
+/// `typed` with a keyword list of `keywords` (raw, as the source stores them) and, when
+/// `vmad`, an opaque VMAD (no FormID remap can see inside it).
+fn typed_with(form_id: u32, keywords: &[u32], vmad: bool) -> Record<'static> {
+    let mut r = typed(form_id);
+    let subs = r.subrecords_mut().unwrap();
+    subs[1] = sub(
+        b"KSIZ",
+        &u32::try_from(keywords.len()).unwrap().to_le_bytes(),
+    );
+    subs[2] = sub(
+        b"KWDA",
+        &keywords
+            .iter()
+            .flat_map(|k| k.to_le_bytes())
+            .collect::<Vec<u8>>(),
+    );
+    if vmad {
+        subs.insert(1, sub(b"VMAD", &[0; 4]));
+    }
+    r
+}
+
+fn keywords_of(target: &Path) -> (u32, Vec<u32>) {
+    let bytes = std::fs::read(target).unwrap();
+    assert!(roundtrip_bytes(&bytes, &RoundtripOptions::default())
+        .unwrap()
+        .identical());
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let record = first_record(&plugin, 0);
+    let kwda = record
+        .subrecords()
+        .unwrap()
+        .iter()
+        .find(|s| s.signature() == Signature(*b"KWDA"))
+        .unwrap()
+        .data()
+        .chunks(4)
+        .map(|c| u32::from_le_bytes(c.try_into().unwrap()))
+        .collect();
+    (record.header.form_id, kwda)
+}
+
+/// Lane D, scale-aware copies (docs/gaps.md): a record whose winner is a small or medium
+/// plugin, or a plugin with small or medium masters, copies as stored when the patch's
+/// masters keep their scale classes and order: opaque payloads included (the MEL DLC
+/// bounty targets, `SFBGS003.esm`, NPC_ `NAM5`). A master of unknown scale is still refused.
+#[test]
+fn scaled_sources_copy_as_stored() {
+    let d = dir("scaled");
+    let base = write_plugin(&d, "Base.esm", &[], FLAG_MASTER, vec![]);
+    let small = write_plugin(&d, "Small.esm", &[], FLAG_MASTER | FLAG_SMALL, vec![]);
+    // Medium.esm (medium; masters Base.esm full, Small.esm small): an override of
+    // Base.esm:000900 naming a keyword of each and one of its own (FD000030).
+    let medium = write_plugin(
+        &d,
+        "Medium.esm",
+        &["Base.esm", "Small.esm"],
+        FLAG_MASTER | FLAG_MEDIUM,
+        vec![typed_with(
+            0x0000_0900,
+            &[0x0000_0010, 0xFE00_0020, 0xFD00_0030],
+            true,
+        )],
+    );
+    // Child.esm (full; masters Small.esm small, Base.esm full): its own record is stored
+    // 01xxxxxx (one full master), its small master's FE000xxx.
+    let child = write_plugin(
+        &d,
+        "Child.esm",
+        &["Small.esm", "Base.esm"],
+        FLAG_MASTER,
+        vec![typed_with(0x0100_0800, &[0xFE00_0020, 0x0000_0010], true)],
+    );
+    let plugins = index_plugins(&[base, small, medium, child]).unwrap();
     let opts = options(&NoStrings, &plugins);
-    let err = write_patch(&target, vec![copy(&plugins[0])], &opts)
-        .unwrap_err()
-        .to_string();
-    assert!(err.contains("Small.esm, a small or medium plugin"), "{err}");
-    let err = write_patch(&target, vec![copy(&plugins[1])], &opts)
-        .unwrap_err()
-        .to_string();
-    assert!(err.contains("small or medium master Small.esm"), "{err}");
+
+    let target = d.join("P.esp");
+    let report = write_patch(
+        &target,
+        vec![first_copy(&plugins[2], "Base.esm:000900")],
+        &opts,
+    )
+    .unwrap();
+    assert_eq!(report.masters, ["Base.esm", "Small.esm", "Medium.esm"]);
+    assert_eq!(
+        keywords_of(&target),
+        (0x0000_0900, vec![0x0000_0010, 0xFE00_0020, 0xFD00_0030])
+    );
+    assert!(
+        report
+            .limitations
+            .iter()
+            .any(|l| l.contains("with its FormIDs as stored") && l.contains("full-style-self")),
+        "{:?}",
+        report.limitations
+    );
+    assert!(!report.limitations.iter().any(|l| l.contains("remapped")));
+
+    // An edit naming forms of small and medium masters stores them by class.
+    let mut edited = first_copy(&plugins[2], "Base.esm:000900");
+    edited.edits = vec![Edit {
+        path: parse_path("KWDA").unwrap(),
+        op: Op::Set(json!([
+            "Small.esm:000021",
+            "Medium.esm:000031",
+            "Base.esm:000011"
+        ])),
+    }];
+    let target = d.join("E.esp");
+    write_patch(&target, vec![edited], &opts).unwrap();
+    assert_eq!(
+        keywords_of(&target),
+        (0x0000_0900, vec![0xFE00_0021, 0xFD00_0031, 0x0000_0011])
+    );
+
+    let target = d.join("C.esp");
+    let report = write_patch(
+        &target,
+        vec![first_copy(&plugins[3], "Child.esm:000800")],
+        &opts,
+    )
+    .unwrap();
+    assert_eq!(report.masters, ["Small.esm", "Base.esm", "Child.esm"]);
+    assert_eq!(
+        keywords_of(&target),
+        (0x0100_0800, vec![0xFE00_0020, 0x0000_0010])
+    );
+
     // The master's header was not read: its scale is unknown, never guessed.
     let mut unknown = options(&NoStrings, &plugins);
     unknown.plugin_flags.retain(|(n, _)| n != "small.esm");
-    let err = write_patch(&target, vec![copy(&plugins[1])], &unknown)
-        .unwrap_err()
-        .to_string();
+    let target = d.join("U.esp");
+    let err = write_patch(
+        &target,
+        vec![first_copy(&plugins[3], "Child.esm:000800")],
+        &unknown,
+    )
+    .unwrap_err()
+    .to_string();
     assert!(err.contains("scale of Small.esm"), "{err}");
     assert!(!target.exists());
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// Remapping counts masters by scale class: the full index skips small and medium masters
+/// (`docs/load-order.md`, "FormIDs"). A target whose classes keep the source's order needs
+/// no remap even when the plain master lists differ; one whose full masters are in another
+/// order is remapped class by class; an opaque subrecord still refuses that remap.
+#[test]
+fn remap_counts_masters_by_scale_class() {
+    let d = dir("scaled-remap");
+    let base = write_plugin(&d, "Base.esm", &[], FLAG_MASTER, vec![]);
+    let other = write_plugin(&d, "Other.esm", &[], FLAG_MASTER, vec![]);
+    let medium = write_plugin(&d, "Med.esm", &[], FLAG_MASTER | FLAG_MEDIUM, vec![]);
+    // Source.esm (full; masters Base, Other, Med): Base:900 overridden, keywords Base:10,
+    // Other:20, Med:30.
+    let src = write_plugin(
+        &d,
+        "Source.esm",
+        &["Base.esm", "Other.esm", "Med.esm"],
+        FLAG_MASTER,
+        vec![typed_with(
+            0x0000_0900,
+            &[0x0000_0010, 0x0100_0020, 0xFD00_0030],
+            false,
+        )],
+    );
+    let plugins = index_plugins(&[base, other, medium, src]).unwrap();
+    let opts = options(&NoStrings, &plugins);
+
+    // Masters [Med, Base, Other]: another plain order, the same full order (Base, Other)
+    // and the same medium order: copied as stored (a plain-list remap would have written
+    // Base:900 as 01000900).
+    let target = write_plugin(
+        &d,
+        "Same.esp",
+        &["Med.esm", "Base.esm", "Other.esm"],
+        0,
+        vec![],
+    );
+    let report = write_patch(
+        &target,
+        vec![first_copy(&plugins[3], "Base.esm:000900")],
+        &opts,
+    )
+    .unwrap();
+    assert_eq!(
+        report.masters,
+        ["Med.esm", "Base.esm", "Other.esm", "Source.esm"]
+    );
+    assert_eq!(
+        keywords_of(&target),
+        (0x0000_0900, vec![0x0000_0010, 0x0100_0020, 0xFD00_0030])
+    );
+    assert!(!report.limitations.iter().any(|l| l.contains("remapped")));
+
+    // Masters [Med, Other, Base]: the full order differs, so every full FormID moves;
+    // the medium one stays.
+    let target = write_plugin(
+        &d,
+        "Swap.esp",
+        &["Med.esm", "Other.esm", "Base.esm"],
+        0,
+        vec![],
+    );
+    let report = write_patch(
+        &target,
+        vec![first_copy(&plugins[3], "Base.esm:000900")],
+        &opts,
+    )
+    .unwrap();
+    assert_eq!(
+        keywords_of(&target),
+        (0x0100_0900, vec![0x0100_0010, 0x0000_0020, 0xFD00_0030])
+    );
+    assert!(report.limitations.iter().any(|l| l.contains("remapped")));
+
+    // The same record with an opaque VMAD: that remap is refused, the target left alone.
+    let src2 = write_plugin(
+        &d,
+        "Source2.esm",
+        &["Base.esm", "Other.esm", "Med.esm"],
+        FLAG_MASTER,
+        vec![typed_with(0x0000_0901, &[0x0000_0010], true)],
+    );
+    let plugins = index_plugins(&[
+        d.join("Base.esm"),
+        d.join("Other.esm"),
+        d.join("Med.esm"),
+        src2,
+    ])
+    .unwrap();
+    let target = write_plugin(
+        &d,
+        "Swap2.esp",
+        &["Med.esm", "Other.esm", "Base.esm"],
+        0,
+        vec![],
+    );
+    let before = std::fs::read(&target).unwrap();
+    let err = write_patch(
+        &target,
+        vec![first_copy(&plugins[3], "Base.esm:000901")],
+        &options(&NoStrings, &plugins),
+    )
+    .unwrap_err();
+    assert!(
+        err.to_string().contains("VMAD subrecord is opaque"),
+        "{err}"
+    );
+    assert_eq!(std::fs::read(&target).unwrap(), before);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// A medium source that stores a FormID of its own in the full class (`full-style-self`,
+/// docs/load-order.md) would name the patch's own form if copied as stored: that FormID is
+/// remapped to the source's medium spelling.
+#[test]
+fn full_style_self_ids_of_a_scaled_source_are_remapped() {
+    let d = dir("scaled-fss");
+    let base = write_plugin(&d, "Base.esm", &[], FLAG_MASTER, vec![]);
+    // Hatch.esm (medium; one full master): keyword 01000010 is its own object 0010.
+    let hatch = write_plugin(
+        &d,
+        "Hatch.esm",
+        &["Base.esm"],
+        FLAG_MASTER | FLAG_MEDIUM,
+        vec![typed_with(0x0000_0900, &[0x0000_0010, 0x0100_0010], false)],
+    );
+    let plugins = index_plugins(&[base, hatch]).unwrap();
+    let target = d.join("P.esp");
+    let report = write_patch(
+        &target,
+        vec![first_copy(&plugins[1], "Base.esm:000900")],
+        &options(&NoStrings, &plugins),
+    )
+    .unwrap();
+    assert_eq!(report.masters, ["Base.esm", "Hatch.esm"]);
+    assert_eq!(
+        keywords_of(&target),
+        (0x0000_0900, vec![0x0000_0010, 0xFD00_0010])
+    );
+    assert!(report.limitations.iter().any(|l| l.contains("remapped")));
     let _ = std::fs::remove_dir_all(&d);
 }
 
