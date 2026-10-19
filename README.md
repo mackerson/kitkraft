@@ -132,8 +132,9 @@ command, `kit help <command>` its arguments, and `--json` prints the full result
 
 > [!TIP]
 > Test in-game changes on a dedicated MO2 profile (ours is **KitKraft Dev**) and a
-> disposable save. KitKraft never writes into your profiles; `kit deploy --dev` writes only
-> into one isolated, KitKraft-managed mod.
+> disposable save. `kit deploy --dev` writes only into one isolated, KitKraft-managed mod.
+> The only profile edit is `kit deploy enable` / `disable`, on the KitKraft Dev profile
+> only, with MO2 closed, when you run it (ADR 0009 Amendment 2).
 
 ## The command catalog
 

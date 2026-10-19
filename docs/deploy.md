@@ -187,14 +187,14 @@ Every refusal names its rule and the path: `refused [rule] <path>: <why>`.
 
 ## Never touched
 
-MO2 profiles and everything in them (`modlist.txt`, `plugins.txt`, `loadorder.txt`,
+`deploy`, `deploy.rollback` and `deploy.status` never write: MO2 profiles and everything in them (`modlist.txt`, `plugins.txt`, `loadorder.txt`,
 `archives.txt`, profile INIs), `ModOrganizer.ini`, `overwrite\`, `downloads\`, every other
 folder under `mods\`, the game folder. Tests check the profiles, `ModOrganizer.ini`, an
 unrelated mod, `overwrite\` and `downloads\` byte for byte before and after every
 operation, and that every touched path is one of the dev mod's own.
 
-`deploy` never enables the mod. After the first deployment, the report's `next_steps` tell
-the owner what to do in MO2:
+`deploy` never enables the mod. Either run `kit deploy enable` (next section), or, after
+the first deployment, follow the report's `next_steps` in MO2:
 
 1. Switch to the `KitKraft Dev` profile (never `Default`, the live game).
 2. Refresh MO2 (F5).
@@ -207,6 +207,46 @@ the owner what to do in MO2:
 The report also reads (never writes) the profile named by `profile`, else MO2's active
 profile, else `KitKraft Dev` (never `Default`), and warns when the mod is not enabled or
 the plugin is not active and last in its `plugins.txt`.
+
+## Enabling in the dev profile: `deploy.enable` / `deploy.disable` (ADR 0009 Amendment 2)
+
+The one explicit profile write. With MO2 and the game closed:
+
+```powershell
+kit deploy enable --dev C:\Modding\MO2-Starfield --mod "Minimum Enemy Level" --mod KitKraftMELDLC_TerranArmada --dry-run
+kit deploy enable --dev C:\Modding\MO2-Starfield --mod "Minimum Enemy Level" --mod KitKraftMELDLC_TerranArmada
+kit deploy disable --dev C:\Modding\MO2-Starfield --mod KitKraftMELDLC_TerranArmada
+```
+
+- **Profile:** `KitKraft Dev` only (any case: MO2's `Kitkraft Dev` folder counts).
+  `Default` is refused by name (`live-profile`), any other profile with `not-dev-profile`.
+- **Mods:** a `KitKraft Dev - <stem>` folder (or `<stem>`) must carry its
+  `kitkraft-deploy.json` marker, and its plugin is the manifest's. Any other mod is named
+  by its exact folder name, and its plugins are the `.esm`/`.esp`/`.esl` files at its root.
+- **`enable`:** `-<mod>` becomes `+<mod>`, or `+<mod>` is added under the header comments.
+  Each plugin moves last as `*<plugin>` in `plugins.txt` and last in `loadorder.txt`, in
+  the order the mods are named.
+- **`disable`:** `+<mod>` becomes `-<mod>`, and each plugin's `*` is dropped in place.
+- **Unchanged:** every other byte of the three files (line endings, BOM, header, final
+  newline), and every other file. A second identical call writes nothing (`unchanged`).
+- **Backup:** `%LOCALAPPDATA%\kitkraft\profile-backups\<id>\` holds the three files as they
+  were plus `backup.json` (paths and SHA-256). A failed write puts every file back.
+
+| Rule | When |
+| :--- | :--- |
+| `dev-flag-required` | `dev: true` missing |
+| `running` | MO2, the game, SFSE, the CK or MO2's helpers are running, or the process list cannot be read |
+| `live-profile` / `not-dev-profile` / `profile-missing` | the profile is `Default`, another profile, or not found |
+| `mod-missing` / `mod-name` / `rollback-copy` | no such folder under `mods\`, a forbidden name, a `.previous`/`.staging`/`.retired` copy |
+| `not-kitkraft` | a `KitKraft Dev - ` folder without its marker |
+| `journal-pending` | the dev mod has an interrupted deploy or rollback |
+| `profile-format` | a list line without a `+`/`-`/`*` prefix, a mod listed twice, mixed line endings, not UTF-8 |
+| `unmanaged-mod` | the mod's `modlist.txt` line is `*` (unmanaged) |
+| `locked-order` | `lockedorder.txt` lists plugins |
+| `backup-dir` / `backup` / `verify` | no backup folder, a backup copy that does not match, a written file that does not read back |
+
+Whether MO2 keeps the edit when it next opens the profile is checked by the owner once and
+recorded in `docs/game-observations.md`.
 
 ## Example: dry run against the owner's instance
 

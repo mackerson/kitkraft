@@ -141,6 +141,8 @@ pub(crate) fn defaults() -> Vec<(&'static str, Box<dyn CommandHandler>)> {
         ("deploy", Box::new(deploy::run)),
         ("deploy.rollback", Box::new(deploy::rollback)),
         ("deploy.status", Box::new(deploy::status)),
+        ("deploy.enable", Box::new(deploy::enable)),
+        ("deploy.disable", Box::new(deploy::disable)),
         ("papyrus.events", Box::new(papyrus::events::run)),
         ("doctor", Box::new(doctor::run)),
         ("profiles", Box::new(profiles::run)),

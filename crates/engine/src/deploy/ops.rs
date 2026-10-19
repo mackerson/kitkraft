@@ -453,7 +453,7 @@ impl Diff {
     }
 }
 
-fn combine(mut refusals: Vec<DeployError>) -> DeployError {
+pub(super) fn combine(mut refusals: Vec<DeployError>) -> DeployError {
     if refusals.len() == 1 {
         if let Some(only) = refusals.pop() {
             return only;
@@ -472,7 +472,7 @@ fn combine(mut refusals: Vec<DeployError>) -> DeployError {
     }
 }
 
-fn refusals_json(refusals: &[DeployError]) -> Value {
+pub(super) fn refusals_json(refusals: &[DeployError]) -> Value {
     Value::Array(
         refusals
             .iter()
@@ -524,7 +524,7 @@ fn profile_section(
     }
 }
 
-fn summary(head: &str, lines: &[String], touched: &[Touched], label: &str) -> String {
+pub(super) fn summary(head: &str, lines: &[String], touched: &[Touched], label: &str) -> String {
     let mut out = String::from(head);
     for l in lines {
         out.push('\n');

@@ -125,14 +125,15 @@ The options are these:
 Rerunning the same command reuses `out\<name>\`, which is the fix loop. A folder that a mod
 run did not write is never reused.
 
-**One owner step that deploy never does.** ADR 0009 says deploy never edits a profile, and
-it never switches MO2's active profile either: `KitKraft Dev` must already be selected in
-MO2 before the first run (above; otherwise stage 5 ends `fail` with the
-`refused [live-profile]` refusal quoted there). So after the first
-deploy, the owner must enable `KitKraft Dev - <stem>` in the
-`KitKraft Dev` profile in MO2 and tick the plugin last. The deploy stage's `next_steps`
-list the exact clicks. Until the owner does this, preflight also refuses with
-`plugin-not-deployed`. The mod stays enabled across redeploys.
+**Enabling the mod.** Deploy never edits a profile, and nothing switches MO2's active
+profile: `KitKraft Dev` must already be selected in MO2 before the first run (above;
+otherwise stage 5 ends `fail` with the `refused [live-profile]` refusal quoted there).
+After the first deploy, `KitKraft Dev - <stem>` must be enabled in the `KitKraft Dev`
+profile with its plugin ticked last. When the owner asks for it in the session, close MO2
+and the game and run `kit deploy enable --dev <mo2> --mod <stem>` (ADR 0009 Amendment 2,
+`docs/deploy.md`), or the owner does it in MO2 by the deploy stage's `next_steps`. Until
+then, preflight refuses with `plugin-not-deployed`. The mod stays enabled across
+redeploys.
 
 **Scripts recipe.** Compile into the run's folder before the run, so the build finds the
 `.pex` next to the plugin. Then pass the scripts to package:

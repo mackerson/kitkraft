@@ -152,8 +152,9 @@ onto `Deploy to Dev.cmd`:
 2. it asks `y`/`n`;
 3. on `y` it deploys into `C:\Modding\MO2-Starfield\mods\KitKraft Dev - <plugin>\`.
 
-The first time, enable that mod and its plugin in MO2's KitKraft Dev profile. Deploy
-never edits a profile or another mod (ADR 0009, `docs/deploy.md`); rollback is
+The first time, enable that mod and its plugin in MO2's KitKraft Dev profile, or close
+MO2 and run `kit deploy enable --dev <MO2> --mod <plugin stem>`. Deploy itself never
+edits a profile or another mod (ADR 0009, `docs/deploy.md`); rollback is
 `kit deploy rollback --dev <MO2> <mod>`.
 
 `Load Dev Profile.cmd` then reads the profile and its newest save, so the runtime IDs

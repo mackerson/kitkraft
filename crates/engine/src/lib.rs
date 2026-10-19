@@ -456,6 +456,28 @@ static CATALOG: &[CommandSpec] = &[
         status: Status::Implemented,
     },
     CommandSpec {
+        id: "deploy.enable",
+        label: "Enable in Dev Profile...",
+        menu_path: "File/Enable in Dev Profile...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Enable mods in the MO2 profile `KitKraft Dev` only (ADR 0009 Amendment 2): `+<mod>` in modlist.txt, its plugins moved last in plugins.txt (`*`) and loadorder.txt; refused while MO2, the game, SFSE or the CK runs, and for Default or any other profile; backup and hash check, every other byte kept",
+        args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); required on every call"},"mods":{"type":"array","items":{"type":"string"},"minItems":1,"description":"Folder names in the MO2 mods folder (a KitKraft dev mod may be named by its plugin stem), in the order their plugins go last"},"dev":{"type":"boolean","enum":[true],"description":"Required, always true: profile edits are opt-in on every call"},"profile":{"type":"string","description":"Only KitKraft Dev (any case) is accepted; Default and every other profile are refused by name"},"dry_run":{"type":"boolean","default":false,"description":"Report every line that would change; write nothing"}},"required":["mo2","mods","dev"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
+    CommandSpec {
+        id: "deploy.disable",
+        label: "Disable in Dev Profile...",
+        menu_path: "File/Disable in Dev Profile...",
+        shortcut: None,
+        aliases: &[],
+        summary: "Disable mods in the MO2 profile `KitKraft Dev` only (ADR 0009 Amendment 2): `-<mod>` in modlist.txt and their plugins unticked in place in plugins.txt; the same refusals, backup and hash check as deploy.enable",
+        args_schema: r#"{"type":"object","properties":{"mo2":{"type":"string","description":"The MO2 instance root (holds ModOrganizer.ini); required on every call"},"mods":{"type":"array","items":{"type":"string"},"minItems":1,"description":"Folder names in the MO2 mods folder (a KitKraft dev mod may be named by its plugin stem), in the order their plugins go last"},"dev":{"type":"boolean","enum":[true],"description":"Required, always true: profile edits are opt-in on every call"},"profile":{"type":"string","description":"Only KitKraft Dev (any case) is accepted; Default and every other profile are refused by name"},"dry_run":{"type":"boolean","default":false,"description":"Report every line that would change; write nothing"}},"required":["mo2","mods","dev"],"additionalProperties":false}"#,
+        writes: true,
+        status: Status::Implemented,
+    },
+    CommandSpec {
         id: "doctor",
         label: "Doctor (Check Setup)",
         menu_path: "Help/Doctor",
@@ -668,6 +690,9 @@ mod tests {
             "strings.merge",
             "deploy",
             "deploy.rollback",
+            // ADR 0009 Amendment 2: the dev profile's lists.
+            "deploy.enable",
+            "deploy.disable",
             "ledger",
             // Lane C (M4.T3).
             "game.session",

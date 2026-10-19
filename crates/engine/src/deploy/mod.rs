@@ -16,12 +16,17 @@
 //! `deploy.rollback` swaps `<target>.previous` back in the same way, so a rollback can be
 //! rolled back.
 //!
-//! Never touched: MO2 profiles (`modlist.txt`, `plugins.txt`, `loadorder.txt`, ...),
-//! `ModOrganizer.ini`, `overwrite\`, `downloads\`, any other folder under `mods\`, the
-//! game. The commands refuse when MO2's active profile, or the `profile` argument, is
-//! `Default` (the owner's live game, AGENTS.md). They never enable the mod: the report
-//! lists the MO2 steps instead. Rules and examples: `docs/deploy.md`.
+//! Never touched by `deploy`, `deploy.rollback` and `deploy.status`: MO2 profiles
+//! (`modlist.txt`, `plugins.txt`, `loadorder.txt`, ...), `ModOrganizer.ini`, `overwrite\`,
+//! `downloads\`, any other folder under `mods\`, the game. They refuse when MO2's active
+//! profile, or the `profile` argument, is `Default` (the owner's live game, AGENTS.md), and
+//! they never enable the mod. Enabling is the separate, explicit `deploy.enable` (ADR 0009
+//! Amendment 2, [`enable`]): the dev profile only, MO2 and the game closed. Rules and
+//! examples: `docs/deploy.md`.
 
+mod enable;
+#[cfg(test)]
+mod enable_tests;
 mod instance;
 mod manifest;
 mod ops;
@@ -35,6 +40,7 @@ use std::path::{Path, PathBuf};
 
 use serde_json::{json, Value};
 
+pub(crate) use enable::{enable, Action, EnableRequest};
 pub(crate) use ops::{
     deploy, rollback, status, DeployRequest, Report, RollbackRequest, StatusRequest,
 };

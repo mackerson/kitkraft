@@ -305,3 +305,16 @@ To close (a): with MO2 closed, run `ModOrganizer.exe --help` from
 `C:\Modding\MO2-Starfield` and copy its output into this row. Then set `[launch] evidence`
 in `crates/game/profiles/starfield.toml` to `game-20261016-T1/a`, or correct the
 command line there first if the help text shows a different one.
+
+### game-20261018-01: workbench ledger, 2026-10-18, `KitKraft Dev`
+
+| Field | Content |
+| ----- | ------- |
+| Session | Rows recorded from the workbench's Ledger panel (`kit ledger`), one per confirmed click |
+| Date | 2026-10-18 |
+| Game build | not recorded |
+| MO2 profile | `KitKraft Dev` |
+
+| Row | Step | Forms | Expected | Seen | Result |
+| --- | ---- | ----- | -------- | ---- | ------ |
+| custom | custom: ADR 0009 Am. 2: MO2 2.5.2 keeps a deploy.enable edit when it opens KitKraft Dev | `Minimum Enemy Level.esm`, `KitKraftMELDLC_ShatteredSpace.esm`, `KitKraftMELDLC_TerranArmada.esm` | - | Owner opened MO2 on Kitkraft Dev after kit deploy enable (backup 20261019T013513Z-26076): Minimum Enemy Level and KitKraft Dev - KitKraftMELDLC_ShatteredSpace / _TerranArmada enabled, their plugins ticked and last in that order. | pass |

@@ -187,6 +187,10 @@ pub const WRITING: &[&str] = &[
     "strings.merge",
     "deploy",
     "deploy.rollback",
+    // ADR 0009 Amendment 2: edits the dev profile's lists; refused in the window (not in
+    // the cockpit scope of ADR 0007 Amendment 3).
+    "deploy.enable",
+    "deploy.disable",
     "roundtrip",
     "ledger",
     // Lane C (M4.T3): classified only, so the catalog and this list agree; the window may

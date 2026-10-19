@@ -167,3 +167,51 @@ Unchanged: profiles, `ModOrganizer.ini`, other mods and the game folder are neve
 the `Default` profile is refused by name (AGENTS.md, 2026-10-14). Still open (Requests):
 the MO2 instance check lives in the engine (`deploy/instance.rs`), not yet in `crates/io`
 as the Consequences above say.
+## Amendment 2 (2026-10-18): explicit dev-profile enable, owner ruling
+
+Owner ruling (Michael, 2026-10-18, in session, quoted): "Let's amend ADR 0009 and add an
+explicit dev-profile enable command (MO2 closed, Kitkraft Dev only)", and, on the plan,
+"Approved as planned, including third-party mods by exact folder name in KitKraft Dev only."
+
+Where this amendment and the sections above (or Amendment 1's closing paragraph)
+disagree, this amendment wins. `deploy`, `deploy.rollback` and `deploy.status` are
+unchanged: they never write a profile. The one exception is a separate pair of commands.
+
+1. **`deploy.enable` and `deploy.disable`** (CLI `kit deploy enable --dev <mo2> --mod <m>
+   ...`, `kit deploy disable ...`) are the only commands that write an MO2 profile. They
+   are opt-in per call exactly as `deploy` is: `dev: true`, `mo2` and the mods are required
+   on every call, nothing supplies them by default, they carry `destructiveHint` over MCP,
+   and agents run them only when the owner asks in that session.
+2. **The dev profile only.** The profile must be `KitKraft Dev` (matched ignoring case, so
+   MO2's `Kitkraft Dev` folder counts). `Default` is refused by name (`live-profile`), and
+   every other profile is refused (`not-dev-profile`).
+3. **MO2 and the game closed.** The call is refused when `ModOrganizer.exe`, the game, the
+   script extender, the editor or MO2's helper processes are running (the Starfield game
+   profile's blocking list), and when the process list cannot be read: MO2 rewrites the
+   profile's lists while it runs and when it exits.
+4. **Three files, named lines only.** Only `modlist.txt`, `plugins.txt` and
+   `loadorder.txt` change, and only the lines for the named mods and their plugins:
+   `enable` turns `-<mod>` into `+<mod>` (or adds `+<mod>` under the header comments, where
+   MO2 lists a new mod) and moves each plugin last as `*<plugin>` in `plugins.txt` and
+   last in `loadorder.txt`; `disable` turns `+` into `-` and drops the plugin's `*` in
+   place. Every other byte is kept (line endings, BOM, header, final newline). A list the
+   editor cannot give back exactly (no prefix, mixed line endings, not UTF-8) or a
+   non-empty `lockedorder.txt` refuses the call. `ModOrganizer.ini`, the profile's INIs,
+   saves, `archives.txt` and every mod folder are never written.
+5. **Which mods.** A `KitKraft Dev - <stem>` folder must carry its `kitkraft-deploy.json`
+   marker (its plugin is the manifest's); any other mod is named by its exact folder name
+   under `mods\` (its plugins are the `.esm`/`.esp`/`.esl` files at its root). Rollback and
+   staging copies, missing folders and a dev mod with a pending deploy journal are
+   refused.
+6. **Backup, verify, restore.** Before writing, the three files are copied with their
+   SHA-256 into `%LOCALAPPDATA%\kitkraft\profile-backups\<id>\` (outside MO2, so MO2 never
+   sees stray files) with a `backup.json`; each file is replaced by temp file and rename
+   and read back; any failure writes every file back from the backup. `dry_run` lists
+   every line that would change and writes nothing. `disable` is the undo.
+
+Consequences: the manual "enable the mod in MO2" step after `deploy` becomes optional; a
+game session (ADR 0010) still verifies the profile is unchanged across a session, so the
+enable runs before one. Whether MO2 keeps the edit when it next opens the profile is a
+black-box fact recorded in `docs/game-observations.md` (owner check), not assumed.
+Still the owner's: switching MO2's active profile, editing `Default`, or letting
+`mod.run` enable on its own.

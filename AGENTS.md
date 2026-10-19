@@ -284,8 +284,11 @@ Owner policies decided 2026-10-14 (follow them; they are not open):
   `apps/*` or `xtask` depends on them; CommonLibSF is not read or linked until ADR 0008's
   license review; SFSE binaries are never bundled.
 - **Development deployment** (ADR 0009): `package` never writes into MO2; `kit deploy
-  --dev` is the only MO2 write path, opt-in per call, into one `KitKraft Dev - <plugin>`
-  mod, never into profiles, `plugins.txt`/`loadorder.txt` or another mod.
+  --dev` writes, opt-in per call, into one `KitKraft Dev - <plugin>` mod, never into
+  profiles, `plugins.txt`/`loadorder.txt` or another mod. The one profile write path is
+  `kit deploy enable` / `disable` (ADR 0009 Amendment 2, owner ruling 2026-10-18): only
+  `KitKraft Dev`, only with MO2 and the game closed, only the named mods' lines in
+  `modlist.txt`, `plugins.txt` and `loadorder.txt`, backed up first, opt-in per call.
 - **Developer workbench** (ADR 0007 Amendment 1): a read-only egui workbench over
   `Engine::execute` only (M4 lane W, after the inspection APIs are stable); no logic of its
   own; the full authoring UI is M6 (`ROADMAP.md`; renumbered 2026-10-15, M5 is CK-backed
@@ -300,15 +303,17 @@ The owner has an active Starfield playthrough on the MO2 profile `Default`. Rule
 for every lane and every command:
 
 - `Default` is read-only input for load-order resolution and never a test target. No agent
-  enables, disables, copies or deploys a plugin into it, and `deploy --dev` (ADR 0009) must
-  refuse it by name.
+  enables, disables, copies or deploys a plugin into it, and `deploy --dev` and `deploy
+  enable` / `disable` (ADR 0009) must refuse it by name.
 - In-game checks run only on the MO2 profile `KitKraft Dev` (a copy of `Default` with
   profile-specific saves) on disposable saves. Owner-run steps in STATUS name that profile.
 - Plugins that own forms are never removed from a save in progress. Built artifacts for the
   overhaul stay override-only (no new forms, no leveled-list injection, no scripts) so they
   can be removed safely; anything that owns forms says so in its build report.
 - Nothing writes under the game `Data` folder, `Documents\My Games\Starfield`, or
-  `C:\Modding\MO2-Starfield` except `deploy --dev` into its own isolated mod folder, and
+  `C:\Modding\MO2-Starfield` except `deploy --dev` into its own isolated mod folder,
+  `deploy enable` / `disable` into the `KitKraft Dev` profile's three list files (ADR 0009
+  Amendment 2), and
   (once ADR 0010 is accepted) the game itself while a `kit game session` runs it on the
   dev profile: session saves named `KitKraftSession-*` and the logs the game writes.
 
@@ -338,7 +343,9 @@ where the two disagree.
 - Starfield data: `C:\Program Files (x86)\Steam\steamapps\common\Starfield\Data` (read only;
   never write there).
 - Mod Organizer 2 (portable): `C:\Modding\MO2-Starfield`, profile
-  `C:\Modding\MO2-Starfield\profiles\Default`. Read it; never modify the profile.
+  `C:\Modding\MO2-Starfield\profiles\Default`. Read it; never modify the profile (the
+  only profile writes are `deploy enable` / `disable` on `KitKraft Dev`, ADR 0009
+  Amendment 2).
 - Existing Python tools being ported: `C:\Modding\scripts` (`ba2x.py`, `pexdis.py`,
   `esmscan.py`, `celldoors.py`, `pexgrep.py`). They are the behavioural reference for the
   `ba2`, `pex`, and `doc` crates.
