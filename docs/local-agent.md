@@ -23,15 +23,24 @@ it. Paid usage is limited to the check-ins and the review before a merge.
    overnight kitkraft KK-001 4
    ```
 
-   That runs ticket `plan/tickets/KK-001.toml` for at most 4 hours. An Opus check-in comes every
-   30 minutes and a grade every 30 minutes. The run stops early once every check passes.
+   That runs ticket `plan/tickets/KK-001.toml` for at most 4 hours, with a grade every 30 minutes.
+   Opus checks in at minutes 3, 8 and 26, while the agent is choosing its approach. After that,
+   each check-in picks when the next one comes, between 15 and 60 minutes: sooner when the agent
+   is stuck or off track. Check-ins see the agent's recent commands and their results as well as
+   its commits.
+   When every check passes, Opus does a final QA of the whole change. It looks for what a passing
+   grade misses: weakened tests, Windows behaviour changes, silent workarounds and claims the agent
+   could not verify. `VERDICT: CHANGES` sends its notes back to the agent and regrades 15 minutes
+   later, at most twice. `VERDICT: ACCEPT` ends the run. If the run ends with the checks passing
+   but no accepted QA, a last QA is written for the merge review.
 3. Check on it with `overnight status`, or stop it with `overnight stop`. The final grade still
    runs after a stop.
 4. Results land in `F:\AI\Scripts\overnight\runs\kk-KK-001-<n>\`:
    - `KK-001.bundle`: the agent's commits on branch `ticket/KK-001`.
    - `scores.jsonl`: every grade.
    - `grades\<label>\`: one log per check, plus `grade.json`.
-   - `checkins\`: the Opus notes.
+   - `checkins\`: the Opus notes. The final QA notes are `qa-<n>-min<m>.md`, ending in the
+     verdict.
    - `report.html`.
 
 ## Merge a finished ticket
@@ -45,7 +54,8 @@ git log --oneline main..ticket/KK-001
 git diff --stat main ticket/KK-001
 ```
 
-Then run `cargo xtask ci` on the branch with `KITKRAFT_DATA_DIR` set. The Linux grade cannot see
+Read the last QA note in `checkins\` first: it lists what to check by hand. Then run
+`cargo xtask ci` on the branch with `KITKRAFT_DATA_DIR` set. The Linux grade cannot see
 Windows-only behaviour, so this second gate matters. Merge only when it is green. A short Claude
 review, `/code-review` on the branch, is the cheap second opinion. After merging, rerun
 `kk_setup.sh` so the next ticket starts from the new `main`.
