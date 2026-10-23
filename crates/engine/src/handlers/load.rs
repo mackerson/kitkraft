@@ -356,11 +356,34 @@ pub(crate) fn load(
         .to_string();
     // An explicit `data_dir` wins; `KITKRAFT_DATA_DIR`, else the detected Data dir, is the
     // default for a plugin list, and for a profile only when its MO2 instance names no game.
+    // A Windows-absolute `data_dir` (a drive letter or a UNC share) naming no directory on
+    // this platform is a spec written on a Windows box: it is taken as absent, so the
+    // environment and detection decide. On Windows such a path is an ordinary one and this
+    // never fires. The fallback mirrors `super::data_dir_or` with the argument excluded
+    // (that function is not callable without it).
+    let dead_data_dir = args
+        .get("data_dir")
+        .and_then(Value::as_str)
+        .map(Path::new)
+        .filter(|d| !cfg!(windows) && kitkraft_io::windows_absolute(d) && !d.is_dir())
+        .is_some();
     let explicit_data_dir = args
         .get("data_dir")
         .and_then(Value::as_str)
-        .map(PathBuf::from);
-    let data_dir = super::data_dir_source(args);
+        .map(PathBuf::from)
+        .filter(|_| !dead_data_dir);
+    let mut data_dir = super::data_dir_source(args);
+    if dead_data_dir {
+        data_dir = super::env_var_os(super::DATA_DIR_ENV)
+            .filter(|d| !d.is_empty())
+            .map(|d| (PathBuf::from(d), super::DATA_DIR_ENV))
+            .or_else(|| {
+                crate::host::detected()
+                    .data_dir
+                    .as_ref()
+                    .map(|f| (f.path.to_path_buf(), super::DETECTED_DATA_DIR))
+            });
+    }
     let mut limitations = Vec::new();
     let mut warnings: Vec<String> = Vec::new();
     // name -> (why active, provider)

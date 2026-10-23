@@ -895,8 +895,21 @@ mod tests {
         let text = ";/ ScriptName Fake\n/;\n; comment\nscriptNAME KitKraft:Hello extends X\n";
         assert_eq!(script_name(text).as_deref(), Some("KitKraft:Hello"));
         assert_eq!(script_name("Int x\n"), None);
-        let root = script_root(Path::new(r"C:\a\b\KitKraft\Hello.psc"), "KitKraft:Hello").unwrap();
-        assert_eq!(root, PathBuf::from(r"C:\a\b"));
+        // The source tree is absolute on both platforms: `C:\...` on Windows,
+        // `/...` elsewhere, so `absolute()` leaves it untouched either way.
+        let (psc, expect) = if cfg!(windows) {
+            (
+                PathBuf::from(r"C:\a\b\KitKraft\Hello.psc"),
+                PathBuf::from(r"C:\a\b"),
+            )
+        } else {
+            (
+                PathBuf::from("/a/b/KitKraft/Hello.psc"),
+                PathBuf::from("/a/b"),
+            )
+        };
+        let root = script_root(&psc, "KitKraft:Hello").unwrap();
+        assert_eq!(root, expect);
         assert_eq!(collapse("a[1].b[22]"), "a[].b[]");
     }
 

@@ -47,13 +47,29 @@ impl Input {
     }
 }
 
-/// Whether `name` is one plain file name with no directory.
+/// Whether `name` is one plain file name with no directory. On Windows that is exactly
+/// what `Path::components` reports, so this returns it unchanged there. Elsewhere a
+/// Windows-spelled path (`Data\X.esm`, `C:\Data\X.esm`) and a drive-relative name (`C:`,
+/// `C:foo`) arrive as one plain component, but Windows parses them as paths, so they
+/// count as paths here too.
 pub(crate) fn is_bare(name: &str) -> bool {
     let mut parts = Path::new(name).components();
-    matches!(
+    if !matches!(
         (parts.next(), parts.next()),
         (Some(Component::Normal(_)), None)
-    )
+    ) {
+        return false;
+    }
+    cfg!(windows) || (!name.contains('\\') && !drive_relative(name))
+}
+
+/// A Windows drive-relative name (`C:`, `C:foo`): a letter and a `:` as its first two
+/// bytes (byte 1 is then a character boundary).
+fn drive_relative(name: &str) -> bool {
+    name.as_bytes()
+        .first()
+        .is_some_and(|c| c.is_ascii_alphabetic())
+        && name.as_bytes().get(1) == Some(&b':')
 }
 
 /// Resolves one input name (see the module docs). `argument` is the JSON pointer named in

@@ -15,6 +15,12 @@ use std::process::{Command, Output};
 
 use serde_json::{json, Value};
 
+/// The installed binary's name: `kit.exe` on Windows, `kit` elsewhere
+/// (`crates/engine/src/install.rs` spells it the same way).
+fn kit_name() -> String {
+    format!("kit{}", std::env::consts::EXE_SUFFIX)
+}
+
 struct Sandbox {
     root: PathBuf,
 }
@@ -26,7 +32,7 @@ impl Sandbox {
         let _ = std::fs::remove_dir_all(&root);
         let dist = root.join("my repo").join("dist").join("KitKraft");
         std::fs::create_dir_all(&dist).unwrap();
-        std::fs::copy(env!("CARGO_BIN_EXE_kit"), dist.join("kit.exe")).unwrap();
+        std::fs::copy(env!("CARGO_BIN_EXE_kit"), dist.join(kit_name())).unwrap();
         std::fs::write(root.join("my repo").join(".mcp.json.example"), b"{}").unwrap();
         std::fs::write(root.join("my repo").join("Cargo.toml"), b"").unwrap();
         std::fs::create_dir_all(root.join("home")).unwrap();
@@ -45,7 +51,7 @@ impl Sandbox {
         self.root.join("my repo").join("dist").join("KitKraft")
     }
 
-    /// Runs the copied `kit.exe` (so its own folder is the dist folder). The temp home is
+    /// Runs the copied binary (so its own folder is the dist folder). The temp home is
     /// not the one a running Claude Code rewrites, so the running check is skipped
     /// (`--force-while-running`); [`Sandbox::kit_unforced`] keeps it.
     fn kit(&self, args: &[&str]) -> Output {
@@ -65,12 +71,25 @@ impl Sandbox {
             "--env-file",
             env.to_str().unwrap(),
         ]);
-        let mut cmd = Command::new(self.dist().join("kit.exe"));
+        let mut cmd = Command::new(self.dist().join(kit_name()));
         cmd.args(&all).env_remove("KITKRAFT_MO2_DIR");
         for (k, v) in vars {
             cmd.env(k, v);
         }
-        cmd.output().expect("run kit")
+        // Exec'ing a file moments after it was written can fail with ETXTBSY
+        // ("Text file busy") on Linux tmpfs; the write is already done, so a
+        // retry a few ms later succeeds. Windows never returns this.
+        let mut attempt = 0usize;
+        loop {
+            match cmd.output() {
+                Ok(o) => return o,
+                Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 20 => {
+                    attempt += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Err(e) => panic!("run kit: {e:?}"),
+            }
+        }
     }
 
     fn json(&self, path: &Path) -> Value {
@@ -117,7 +136,10 @@ fn dry_run_then_apply_then_uninstall() {
     let command = claude["mcpServers"]["kitkraft"]["command"]
         .as_str()
         .unwrap();
-    assert!(command.ends_with("/dist/KitKraft/kit.exe"), "{command}");
+    assert!(
+        command.ends_with(&format!("/dist/KitKraft/{}", kit_name())),
+        "{command}"
+    );
     let project = s.json(&s.root.join("my repo").join(".mcp.json"));
     assert_eq!(
         project["mcpServers"]["kitkraft"],
@@ -208,7 +230,7 @@ fn the_dry_run_repoints_a_default_profile_to_kitkraft_dev() {
     let claude = s.root.join("home").join(".claude.json");
     let before = serde_json::to_vec(&json!({"mcpServers": {"kitkraft": {
         "type": "stdio",
-        "command": slash(s.dist().join("kit.exe")),
+        "command": slash(s.dist().join(kit_name())),
         "args": ["mcp", "--profile", live],
         "env": {}
     }}}))

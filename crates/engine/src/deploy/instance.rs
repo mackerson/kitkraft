@@ -17,6 +17,8 @@ pub(crate) const MAX_PATH_UNITS: usize = 259;
 /// An MO2 instance, as its `ModOrganizer.ini` describes it.
 #[derive(Debug, Clone)]
 pub(crate) struct Instance {
+    /// The instance as its `ModOrganizer.ini` describes it (source of the profile list).
+    pub(crate) io: kitkraft_io::Instance,
     /// The instance root (holds `ModOrganizer.ini`), absolute.
     pub root: PathBuf,
     /// `mods\` (`[Settings] mod_directory`, default `<base>\mods`), absolute.
@@ -139,8 +141,8 @@ impl Instance {
             game_dir,
             selected_profile,
             ..
-        } = mo2;
-        for (what, dir) in [("mods", &mods), ("profiles", &profiles)] {
+        } = &mo2;
+        for (what, dir) in [("mods", mods), ("profiles", profiles)] {
             if !fs::symlink_metadata(dir).is_ok_and(|m| m.is_dir()) {
                 return Err(refused(
                     "mo2-instance",
@@ -149,15 +151,15 @@ impl Instance {
                 ));
             }
         }
-        refuse_links(&mods)?;
+        refuse_links(mods)?;
         guard_location(&root).map_err(|e| refused("location", &root, e.to_string()))?;
         let mut guarded = vec![
-            ("the MO2 profiles folder", canonical(&profiles)?),
+            ("the MO2 profiles folder", canonical(profiles)?),
             ("the MO2 instance root", canonical(&root)?),
         ];
         for (what, dir) in [
-            ("MO2's overwrite folder", &overwrite),
-            ("MO2's downloads folder", &downloads),
+            ("MO2's overwrite folder", overwrite),
+            ("MO2's downloads folder", downloads),
         ] {
             if let Ok(c) = fs::canonicalize(dir) {
                 guarded.push((what, c));
@@ -169,7 +171,14 @@ impl Instance {
         {
             guarded.push(("the game's Data folder", c));
         }
+        let (mods, profiles, selected_profile, game_dir) = (
+            mods.clone(),
+            profiles.clone(),
+            selected_profile.clone(),
+            game_dir.clone(),
+        );
         let instance = Instance {
+            io: mo2,
             root,
             mods,
             profiles,
@@ -276,8 +285,19 @@ impl Instance {
             .map(|(_, p)| p))
     }
 
+    /// The profile folder for `name`: the instance's profile entry matching it
+    /// case-insensitively (MO2's `Kitkraft Dev` for `KitKraft Dev`), else the folder as
+    /// named. On Windows the two spellings resolve to the same folder, so the lookup only
+    /// changes the spelling on case-sensitive platforms.
+    fn profile_dir(&self, name: &str) -> PathBuf {
+        self.io
+            .profile_named(name)
+            .map(|p| self.io.profile_dir(&p))
+            .unwrap_or_else(|| self.profiles.join(name))
+    }
+
     /// The refusal for a `profile` argument, if any: `Default` (any case), a name Windows
-    /// forbids, or not a profile folder of this instance.
+    /// forbids, or not a profile folder of this instance (matched case-insensitively).
     pub(crate) fn check_profile_arg(&self, name: &str) -> Option<DeployError> {
         let dir = self.profiles.join(name);
         if name.trim().eq_ignore_ascii_case(LIVE_PROFILE) {
@@ -290,7 +310,7 @@ impl Instance {
             ))
         } else if let Err(m) = check_name(name) {
             Some(refused("profile-name", &dir, m))
-        } else if !dir.join("modlist.txt").is_file() {
+        } else if !self.profile_dir(name).join("modlist.txt").is_file() {
             Some(refused(
                 "profile-missing",
                 &dir,
@@ -356,8 +376,7 @@ impl Instance {
         self.accepted_profile(profile)
             .or(self.active_profile().filter(|p| !live(p)))
             .or_else(|| {
-                self.profiles
-                    .join(DEV_PROFILE)
+                self.profile_dir(DEV_PROFILE)
                     .join("modlist.txt")
                     .is_file()
                     .then_some(DEV_PROFILE)
@@ -372,7 +391,7 @@ impl Instance {
         mod_name: &str,
         plugin: &str,
     ) -> (Value, Vec<String>) {
-        let dir = self.profiles.join(profile);
+        let dir = self.profile_dir(profile);
         let options = ProfileOptions {
             data_dir: Some(
                 self.game_dir

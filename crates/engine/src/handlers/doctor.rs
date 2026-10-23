@@ -565,8 +565,12 @@ fn mcp_checks(
                 (true, false) => "exists, a different build",
             };
             let profile = entry.get("args").and_then(profile_arg);
+            // A profile folder may be spelled with Windows separators (`D:\...\Default`):
+            // both count as a separator (Windows parses them the same), else a
+            // Windows-spelled path reads as one component and `Default` is missed.
             let live = profile.as_deref().is_some_and(|p| {
-                native_path(p)
+                let s = native_path(p).to_string_lossy().replace('\\', "/");
+                Path::new(&s)
                     .file_name()
                     .is_some_and(|n| n.to_string_lossy().eq_ignore_ascii_case(LIVE_PROFILE))
             });

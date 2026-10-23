@@ -607,7 +607,8 @@ pub fn match_load_order(lo: &kitkraft_doc::LoadOrder, save: &SaveHeader) -> Save
 /// Where the game keeps a profile's saves: `<profile>\saves` when the profile's
 /// `settings.ini` has `[General] LocalSaves=true` (MO2's profile-specific saves; both
 /// owner profiles say which in that key), else `Documents\My Games\Starfield\Saves` under
-/// `USERPROFILE`. A `sLocalSavePath` in the game's INIs is not read.
+/// the user's home (`USERPROFILE` on Windows, `$HOME` elsewhere). A `sLocalSavePath` in
+/// the game's INIs is not read.
 pub fn saves_dir(profile_dir: &Path) -> Option<PathBuf> {
     let local = std::fs::read(profile_dir.join("settings.ini"))
         .ok()
@@ -617,7 +618,12 @@ pub fn saves_dir(profile_dir: &Path) -> Option<PathBuf> {
     if local {
         return Some(profile_dir.join("saves"));
     }
-    std::env::var_os("USERPROFILE").map(|home| {
+    let home = if cfg!(windows) {
+        std::env::var_os("USERPROFILE")
+    } else {
+        std::env::var_os("HOME")
+    };
+    home.map(|home| {
         PathBuf::from(home)
             .join("Documents")
             .join("My Games")

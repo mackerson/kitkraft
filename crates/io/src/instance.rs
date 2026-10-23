@@ -56,6 +56,18 @@ impl FolderState {
     }
 }
 
+/// A path spelled as a Windows absolute location: a drive letter (`X:` or `X:\...`) or a
+/// UNC share (`\\share\...`). Windows' own `Path::is_absolute` already reports these, so
+/// this only matters when the same settings are read on another platform, where the
+/// spelling still names an absolute location (it is not a directory there, and must not
+/// be joined against a root).
+pub fn windows_absolute(p: &Path) -> bool {
+    let b = p.as_os_str().as_encoded_bytes();
+    let drive = b.first().is_some_and(|c| c.is_ascii_alphabetic()) && b.get(1) == Some(&b':');
+    let unc = b.first() == Some(&b'\\') && b.get(1) == Some(&b'\\');
+    drive || unc
+}
+
 /// An MO2 instance as its `ModOrganizer.ini` describes it. Every path is as the settings
 /// spell it, made absolute against the root; none is canonicalized.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,7 +117,16 @@ impl Instance {
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         };
-        let absolute = |p: PathBuf| if p.is_absolute() { p } else { root.join(p) };
+        // A path absolute on this platform — or spelled Windows-absolute
+        // elsewhere (a drive letter or a UNC share) — stays as spelled; a
+        // relative one is taken against `root`.
+        let absolute = |p: PathBuf| {
+            if p.is_absolute() || (!cfg!(windows) && windows_absolute(&p)) {
+                p
+            } else {
+                root.join(p)
+            }
+        };
         let base_dir = get("Settings", "base_directory")
             .map_or_else(|| root.to_path_buf(), |v| absolute(PathBuf::from(v)));
         let base_text = base_dir.to_string_lossy().into_owned();
@@ -136,6 +157,17 @@ impl Instance {
     /// The folder of profile `name` (not checked).
     pub fn profile_dir(&self, name: &str) -> PathBuf {
         self.profiles_dir.join(name)
+    }
+
+    /// The name of an existing profile matching `name` ignoring case (the owner's
+    /// spelling, e.g. `Kitkraft Dev` for `KitKraft Dev`), if the profiles folder can be
+    /// read and one of its profile entries matches.
+    pub fn profile_named(&self, name: &str) -> Option<String> {
+        self.profiles()
+            .ok()
+            .into_iter()
+            .flatten()
+            .find(|p| p.eq_ignore_ascii_case(name))
     }
 
     /// The game's Data folder (`<gamePath>\Data`), when `gamePath` is set.
@@ -260,6 +292,15 @@ mod tests {
         let none = Instance::from_ini(&root, None);
         assert_eq!(none.mods_dir, root.join("mods"));
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn windows_absolute_spellings() {
+        assert!(windows_absolute(Path::new(r"C:\Games\Starfield\Data")));
+        assert!(windows_absolute(Path::new("C:")));
+        assert!(windows_absolute(Path::new(r"\\share\MO2")));
+        assert!(!windows_absolute(Path::new("/opt/kk-data")));
+        assert!(!windows_absolute(Path::new("relative/Data")));
     }
 
     #[test]
