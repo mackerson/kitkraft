@@ -448,16 +448,20 @@ mod tests {
     #[test]
     fn requests_and_instance_roots() {
         assert_eq!(profiles_request(None).args, json!({}));
-        // The instance argument is spelled with the platform's separator, so the same
-        // sample is exercised on both.
-        // Spaces at both ends, as before: both must be trimmed.
-        let mo2 = Path::new("C").join("MO2");
+        // Absolute samples on both platforms: `C:\...` on Windows (the original spelling),
+        // `/...` elsewhere. Spaces at both ends of the instance: both must be trimmed.
+        let base = if cfg!(windows) {
+            std::path::PathBuf::from(r"C:\")
+        } else {
+            std::path::PathBuf::from("/")
+        };
+        let mo2 = base.join("MO2");
         assert_eq!(
             profiles_request(Some(&format!(" {} ", mo2.display()))).args,
             json!({"instance": mo2.display().to_string()})
         );
         crate::gate::check(&profiles_request(None)).unwrap();
-        let root_path = Path::new("C").join("Modding").join("MO2-Starfield");
+        let root_path = base.join("Modding").join("MO2-Starfield");
         let profile = root_path
             .join("profiles")
             .join("KitKraft Dev")
@@ -465,7 +469,7 @@ mod tests {
             .to_string();
         let root = instance_of_profile(&profile);
         assert_eq!(root.map(std::path::PathBuf::from), Some(root_path));
-        let elsewhere = Path::new("C")
+        let elsewhere = base
             .join("elsewhere")
             .join("KitKraft Dev")
             .display()
