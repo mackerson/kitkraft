@@ -1636,7 +1636,14 @@ Against `plan/execution-plan.md` "M5 is done when", with the states above.
     `papyrus.compile`, OnLoad from `papyrus.events`) on a placed switch in the embassy:
     15,297 bytes, validate 0/0, roundtrip identical. Tests through `execute`:
     `handlers/scripts_tests.rs` (a fixture per rule, refusals, inherited warning).
-    **Owner (M4.O4):** the in-game steps in `docs/recipes/scripts.md`.
+    **Owner (M4.O4):** the in-game steps in `docs/recipes/scripts.md`.- M5.D12 scale-aware remap (lane D, 2026-10-18, branch `lane-d/scale-aware-remap`):
+  `write_patch` copies records whose winner is a small or medium plugin (or has such
+  masters) as stored when the patch's masters keep their scale classes and order, and
+  remaps by class otherwise (`kitkraft_doc::MasterMap`); the old plain-list remap is gone
+  (it mis-indexed full masters behind a small or medium one). Unblocks MEL DLC row B2: the
+  `SFBGS003.esm` bounty targets build (`kit build --plan` validate 0/0). `docs/gaps.md`
+  rows restated.
+
 ## In progress
 
 - M4.BX1 lane H merge (integrator, BX3, 2026-10-14): `cargo xtask oracle sf1edit` (xDump64
