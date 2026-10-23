@@ -1857,9 +1857,13 @@ mod tests {
     }
 
     /// The sample paths, spelled with the platform's separator (`C:\M\...` on Windows,
-    /// `C/M/...` elsewhere) so the same shapes are exercised on both.
+    /// `C/M/...` elsewhere) so the same shapes are exercised on both. The first segment is
+    /// a drive letter, which gets its `:` on Windows only.
     fn sep_path(segments: &[&str], trailing_sep: bool) -> String {
         let mut s = segments.join(std::path::MAIN_SEPARATOR_STR);
+        if cfg!(windows) {
+            s.insert(1, ':');
+        }
         if trailing_sep {
             s.push(std::path::MAIN_SEPARATOR);
         }
