@@ -56,6 +56,17 @@ impl FolderState {
     }
 }
 
+/// A path spelled as a Windows absolute location: a drive letter (`X:` or `X:\...`) or a
+/// UNC share (`\\share\...`). Windows' own `Path::is_absolute` already reports these, so
+/// this only matters when the same settings are read on another platform, where the
+/// spelling still names an absolute location and must not be joined against the root.
+fn windows_absolute(p: &Path) -> bool {
+    let b = p.as_os_str().as_encoded_bytes();
+    let drive = b.first().is_some_and(|c| c.is_ascii_alphabetic()) && b.get(1) == Some(&b':');
+    let unc = b.first() == Some(&b'\\') && b.get(1) == Some(&b'\\');
+    drive || unc
+}
+
 /// An MO2 instance as its `ModOrganizer.ini` describes it. Every path is as the settings
 /// spell it, made absolute against the root; none is canonicalized.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -105,7 +116,16 @@ impl Instance {
                 .map(|v| v.trim().to_string())
                 .filter(|v| !v.is_empty())
         };
-        let absolute = |p: PathBuf| if p.is_absolute() { p } else { root.join(p) };
+        // A path absolute on this platform — or spelled Windows-absolute
+        // elsewhere (a drive letter or a UNC share) — stays as spelled; a
+        // relative one is taken against `root`.
+        let absolute = |p: PathBuf| {
+            if p.is_absolute() || (!cfg!(windows) && windows_absolute(&p)) {
+                p
+            } else {
+                root.join(p)
+            }
+        };
         let base_dir = get("Settings", "base_directory")
             .map_or_else(|| root.to_path_buf(), |v| absolute(PathBuf::from(v)));
         let base_text = base_dir.to_string_lossy().into_owned();
