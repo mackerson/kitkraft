@@ -103,16 +103,8 @@ fn read_ini(path: &Path) -> Option<Ini> {
 /// The profile folder matching `name` ignoring case (MO2's `Kitkraft Dev` for
 /// `KitKraft Dev`), else the folder as named.
 fn profile_dir(instance: &Instance, name: &str) -> (String, PathBuf, bool) {
-    let found = instance
-        .profiles()
-        .unwrap_or_default()
-        .into_iter()
-        .find(|p| p.eq_ignore_ascii_case(name));
-    match found {
-        Some(p) => {
-            let dir = instance.profile_dir(&p);
-            (p, dir, true)
-        }
+    match instance.profile_named(name) {
+        Some(p) => (p.clone(), instance.profile_dir(&p), true),
         None => (name.to_string(), instance.profile_dir(name), false),
     }
 }

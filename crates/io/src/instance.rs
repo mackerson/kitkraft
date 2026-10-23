@@ -59,8 +59,9 @@ impl FolderState {
 /// A path spelled as a Windows absolute location: a drive letter (`X:` or `X:\...`) or a
 /// UNC share (`\\share\...`). Windows' own `Path::is_absolute` already reports these, so
 /// this only matters when the same settings are read on another platform, where the
-/// spelling still names an absolute location and must not be joined against the root.
-fn windows_absolute(p: &Path) -> bool {
+/// spelling still names an absolute location (it is not a directory there, and must not
+/// be joined against a root).
+pub fn windows_absolute(p: &Path) -> bool {
     let b = p.as_os_str().as_encoded_bytes();
     let drive = b.first().is_some_and(|c| c.is_ascii_alphabetic()) && b.get(1) == Some(&b':');
     let unc = b.first() == Some(&b'\\') && b.get(1) == Some(&b'\\');
@@ -156,6 +157,17 @@ impl Instance {
     /// The folder of profile `name` (not checked).
     pub fn profile_dir(&self, name: &str) -> PathBuf {
         self.profiles_dir.join(name)
+    }
+
+    /// The name of an existing profile matching `name` ignoring case (the owner's
+    /// spelling, e.g. `Kitkraft Dev` for `KitKraft Dev`), if the profiles folder can be
+    /// read and one of its profile entries matches.
+    pub fn profile_named(&self, name: &str) -> Option<String> {
+        self.profiles()
+            .ok()
+            .into_iter()
+            .flatten()
+            .find(|p| p.eq_ignore_ascii_case(name))
     }
 
     /// The game's Data folder (`<gamePath>\Data`), when `gamePath` is set.
@@ -280,6 +292,15 @@ mod tests {
         let none = Instance::from_ini(&root, None);
         assert_eq!(none.mods_dir, root.join("mods"));
         let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn windows_absolute_spellings() {
+        assert!(windows_absolute(Path::new(r"C:\Games\Starfield\Data")));
+        assert!(windows_absolute(Path::new("C:")));
+        assert!(windows_absolute(Path::new(r"\\share\MO2")));
+        assert!(!windows_absolute(Path::new("/opt/kk-data")));
+        assert!(!windows_absolute(Path::new("relative/Data")));
     }
 
     #[test]

@@ -22,7 +22,7 @@ mod testdata;
 pub mod text;
 
 pub use error::{IoError, Result};
-pub use instance::{FolderState, Instance};
+pub use instance::{windows_absolute, FolderState, Instance};
 pub use mo2::{ModEntry, ModState, PluginLine, Profile, ProfileOptions};
 pub use overlay::{Depth, Overlay, Provider, Resolved};
 pub use plan::{Active, LoadPlan, PlannedPlugin};
