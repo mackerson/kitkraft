@@ -879,6 +879,7 @@ mod tests {
     /// With the compiler installed and `KITKRAFT_DATA_DIR` set, a base-game script compiles
     /// by name given only `Tools\ContentResources.zip` (M3.G1).
     #[test]
+    #[cfg_attr(not(windows), ignore = "Windows-only: PapyrusCompiler.exe")]
     fn base_game_script_compiles_from_the_zip_alone() {
         let Some(data) = crate::handlers::env_var_os("KITKRAFT_DATA_DIR") else {
             println!("skipped: KITKRAFT_DATA_DIR is not set");
