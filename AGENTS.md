@@ -207,6 +207,11 @@ gate is the CI.
 
 ## Parallel agents
 
+- **Default since 2026-10-23 (ADR 0014): one ticket at a time, by the local agent** in the
+  overnight harness, graded by the gate, advised by a read-only Opus check-in
+  (`docs/local-agent.md`, tickets in `plan/tickets/`). A local agent reads its `TICKET.md`
+  instead of `plan/STATUS.md` and `plan/execution-plan.md`, and never pushes. The rules below
+  apply when the owner asks for parallel Claude lanes.
 - Each agent builds into its own target dir: `CARGO_TARGET_DIR=C:\Modding\kitkraft\.targets\<agent>`
   (PowerShell: `$env:CARGO_TARGET_DIR = "C:\Modding\kitkraft\.targets\<agent>"`). Delete it
   when you finish. `.targets/` is gitignored.

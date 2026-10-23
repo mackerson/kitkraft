@@ -1,0 +1,86 @@
+id = "KK-001"
+title = "The gate passes on Linux"
+timeout_min = 45
+owns = [
+  "apps/kit-cli/tests/",
+  "crates/engine/src/handlers/",
+  "crates/engine/src/deploy/",
+  "crates/engine/tests/",
+  "crates/io/src/",
+  "crates/mcp/src/",
+  "crates/ui-egui/src/panels/",
+  "xtask/src/",
+]
+brief = """
+KitKraft was developed on Windows. On Linux (this machine: WSL Ubuntu 24.04, Rust 1.99) the
+workspace builds and `layers`, `codegen --check`, `fmt` and `clippy` all pass, but 20 tests fail,
+so `cargo xtask ci` fails. Make every test pass on Linux **without changing behaviour on
+Windows**. The owner develops on Windows; the Windows gate must stay green (it is checked at
+merge, you cannot run it here).
+
+The failing tests (test binary, then test names) on main at a2fd508:
+
+- `kit-cli --test install`: detection_off_gives_plain_mcp_args, dry_run_then_apply_then_uninstall,
+  the_dry_run_repoints_a_default_profile_to_kitkraft_dev
+- `kitkraft-engine --lib`: handlers::doctor::tests::mcp_lines_name_the_profile_and_flag_default,
+  handlers::modrun_tests::the_chain_runs_to_a_refused_session_and_reports_partial,
+  handlers::modrun_tests::with_a_verified_profile_the_session_runs_and_each_probe_has_a_verdict,
+  handlers::papyrus::compile::tests::base_game_script_compiles_from_the_zip_alone,
+  handlers::resolve::tests::a_bare_name_resolves_in_the_data_dir_else_names_every_place,
+  handlers::resolve::tests::bare_names_are_one_plain_component
+- `kitkraft-engine --test mod_from_brief`: the_first_poi_spec_runs_to_the_refused_session,
+  the_rename_brief_runs_to_the_refused_session
+- `kitkraft-io --lib`: instance::tests::settings_keys_base_dir_and_empty_values,
+  papyrus::tests::script_names_and_roots, save::tests::newest_and_local_saves
+- `kitkraft-mcp --lib`: server::tests::tools_call_maps_errors
+- `kitkraft-ui-egui --lib`: panels::cockpit::tests::each_masters_reply_has_its_own_table_key,
+  panels::cockpit::tests::preview_is_a_dry_run_and_the_confirm_drops_it,
+  panels::cockpit::tests::the_dev_target_comes_from_the_loaded_profile_and_is_never_default,
+  panels::cockpit::tests::the_masters_step_uses_conflicts_for_a_loaded_plugin,
+  panels::start::tests::requests_and_instance_roots
+- `xtask --bin xtask`: whatever fails there (run it to see)
+
+How to fix, in order of preference:
+1. A test that hard-codes a Windows path (`C:\\...`, backslashes, drive letters) or a Windows
+   tool (`reg.exe`, `tasklist`, `PapyrusCompiler.exe`): if the code under test is genuinely
+   Windows-only (registry, MO2, the Papyrus compiler, the game), mark that one test
+   `#[cfg(windows)]` or `#[cfg_attr(not(windows), ignore = "Windows-only: <why>")]`. Prefer
+   `ignore` with a reason: it stays visible in the test count.
+2. A test that only uses a Windows path as an example string where any path would do: make the
+   path platform-neutral (build it with `Path::join`, or a `cfg!(windows)` choice of two literals).
+3. Production code that breaks on Linux for no Windows reason (for example splitting paths on
+   `\\` only): fix it so it handles both separators, keeping the Windows result identical.
+
+Do not delete tests, do not weaken an assertion on Windows, and do not change any command's
+output on Windows. Read AGENTS.md "Never panic" and "Testing and the CI gate" before editing.
+Start with `cargo test -p kitkraft-io --lib` (the smallest), then the others one binary at a
+time, then `cargo xtask ci`. Commit after each binary passes.
+"""
+
+[[accept]]
+name = "kit-cli-install"
+cmd = "cargo test -p kit-cli --test install"
+
+[[accept]]
+name = "engine-lib"
+cmd = "cargo test -p kitkraft-engine --lib"
+
+[[accept]]
+name = "engine-mod-from-brief"
+cmd = "cargo test -p kitkraft-engine --test mod_from_brief"
+
+[[accept]]
+name = "io-lib"
+cmd = "cargo test -p kitkraft-io --lib"
+
+[[accept]]
+name = "mcp-lib"
+cmd = "cargo test -p kitkraft-mcp --lib"
+
+[[accept]]
+name = "ui-egui-lib"
+cmd = "cargo test -p kitkraft-ui-egui --lib"
+
+[[accept]]
+name = "xtask-bin"
+cmd = "cargo test -p xtask --bin xtask"

@@ -2,6 +2,19 @@
 
 Updated: 2026-10-16 (paused; see "Pause" below; `main` at `81272e2`, after fix round W3; planning docs reconciled against it, "Pause" section 2); owner next actions and M5 planning added at `fcb443a` (`docs/foothold/gap-matrix.md`, `plan/execution-plan.md` "M5"); rows 12 to 15 revised in the M5 review fix round; row 16 updated 2026-10-16 (owner rulings M6.O3 and M7.O1, lane V started; M6.O1 decided)
 
+## Pivot (2026-10-23): read this first
+
+The owner resumed the project on a cheaper footing (ADR 0014): development moves to the local
+agent, one ticket per unattended run, graded by the gate, with a read-only Opus check-in. How to
+run and merge a ticket: `docs/local-agent.md`. The queue: `plan/tickets/README.md`; the first
+ticket is KK-001, "The gate passes on Linux" (20 tests assume Windows). The "Pause" note below
+still lists the owner-gated rows and the director decisions pending confirmation. The six lanes
+launched after the pause never ran; their work is the ticket queue's candidate list.
+
+Landed 2026-10-23: the other session's branches `deploy-enable-dev-profile`, `deploy-meta-ini`
+(ADR 0009 Amendments 2 and 3, MEL DLC specs) and `lane-d/scale-aware-remap` (M5.D12), merged
+at `a2fd508` with the Windows gate green.
+
 ## Pause (2026-10-16, evening): read this first when resuming
 
 The owner paused the project after the 2026-10-16 push ("bring everything down gracefully,
