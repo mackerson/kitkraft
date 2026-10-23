@@ -76,7 +76,20 @@ impl Sandbox {
         for (k, v) in vars {
             cmd.env(k, v);
         }
-        cmd.output().expect("run kit")
+        // Exec'ing a file moments after it was written can fail with ETXTBSY
+        // ("Text file busy") on Linux tmpfs; the write is already done, so a
+        // retry a few ms later succeeds. Windows never returns this.
+        let mut attempt = 0usize;
+        loop {
+            match cmd.output() {
+                Ok(o) => return o,
+                Err(e) if e.kind() == std::io::ErrorKind::ExecutableFileBusy && attempt < 20 => {
+                    attempt += 1;
+                    std::thread::sleep(std::time::Duration::from_millis(50));
+                }
+                Err(e) => panic!("run kit: {e:?}"),
+            }
+        }
     }
 
     fn json(&self, path: &Path) -> Value {

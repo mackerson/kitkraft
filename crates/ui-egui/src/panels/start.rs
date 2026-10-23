@@ -450,9 +450,10 @@ mod tests {
         assert_eq!(profiles_request(None).args, json!({}));
         // The instance argument is spelled with the platform's separator, so the same
         // sample is exercised on both.
+        // Spaces at both ends, as before: both must be trimmed.
         let mo2 = Path::new("C").join("MO2");
         assert_eq!(
-            profiles_request(Some(&format!(" {}", mo2.display()))).args,
+            profiles_request(Some(&format!(" {} ", mo2.display()))).args,
             json!({"instance": mo2.display().to_string()})
         );
         crate::gate::check(&profiles_request(None)).unwrap();

@@ -18,7 +18,7 @@ pub(crate) const MAX_PATH_UNITS: usize = 259;
 #[derive(Debug, Clone)]
 pub(crate) struct Instance {
     /// The instance as its `ModOrganizer.ini` describes it (source of the profile list).
-    pub io: kitkraft_io::Instance,
+    pub(crate) io: kitkraft_io::Instance,
     /// The instance root (holds `ModOrganizer.ini`), absolute.
     pub root: PathBuf,
     /// `mods\` (`[Settings] mod_directory`, default `<base>\mods`), absolute.
