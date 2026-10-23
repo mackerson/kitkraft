@@ -448,17 +448,28 @@ mod tests {
     #[test]
     fn requests_and_instance_roots() {
         assert_eq!(profiles_request(None).args, json!({}));
+        // The instance argument is spelled with the platform's separator, so the same
+        // sample is exercised on both.
+        let mo2 = Path::new("C").join("MO2");
         assert_eq!(
-            profiles_request(Some(r" C:\MO2 ")).args,
-            json!({"instance": r"C:\MO2"})
+            profiles_request(Some(&format!(" {}", mo2.display()))).args,
+            json!({"instance": mo2.display().to_string()})
         );
         crate::gate::check(&profiles_request(None)).unwrap();
-        let root = instance_of_profile(r"C:\Modding\MO2-Starfield\profiles\KitKraft Dev");
-        assert_eq!(
-            root.map(std::path::PathBuf::from),
-            Some(std::path::PathBuf::from(r"C:\Modding\MO2-Starfield"))
-        );
-        assert_eq!(instance_of_profile(r"C:\elsewhere\KitKraft Dev"), None);
+        let root_path = Path::new("C").join("Modding").join("MO2-Starfield");
+        let profile = root_path
+            .join("profiles")
+            .join("KitKraft Dev")
+            .display()
+            .to_string();
+        let root = instance_of_profile(&profile);
+        assert_eq!(root.map(std::path::PathBuf::from), Some(root_path));
+        let elsewhere = Path::new("C")
+            .join("elsewhere")
+            .join("KitKraft Dev")
+            .display()
+            .to_string();
+        assert_eq!(instance_of_profile(&elsewhere), None);
     }
 
     /// The canned envelope is the engine's own shape: run `profiles` on a scratch

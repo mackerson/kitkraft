@@ -1856,33 +1856,52 @@ mod tests {
         dev_target(Some(&mo2.profile("KitKraft Dev")))
     }
 
+    /// The sample paths, spelled with the platform's separator (`C:\M\...` on Windows,
+    /// `C/M/...` elsewhere) so the same shapes are exercised on both.
+    fn sep_path(segments: &[&str], trailing_sep: bool) -> String {
+        let mut s = segments.join(std::path::MAIN_SEPARATOR_STR);
+        if trailing_sep {
+            s.push(std::path::MAIN_SEPARATOR);
+        }
+        s
+    }
+
     #[test]
     fn the_dev_target_comes_from_the_loaded_profile_and_is_never_default() {
-        let t = dev_target(Some(r"C:\M\profiles\KitKraft Dev")).unwrap();
-        assert_eq!(t.mo2, r"C:\M");
+        let t = dev_target(Some(&sep_path(
+            &["C", "M", "profiles", "KitKraft Dev"],
+            false,
+        )))
+        .unwrap();
+        assert_eq!(t.mo2, sep_path(&["C", "M"], false));
         assert_eq!(t.profile, "KitKraft Dev");
-        for d in [r"C:\M\profiles\Default", r"C:\M\profiles\default\"] {
-            let e = dev_target(Some(d)).unwrap_err();
+        for d in [
+            sep_path(&["C", "M", "profiles", "Default"], false),
+            sep_path(&["C", "M", "profiles", "default"], true),
+        ] {
+            let e = dev_target(Some(&d)).unwrap_err();
             assert!(e.contains("live game"), "{e}");
         }
         assert!(dev_target(None)
             .unwrap_err()
             .contains("load the dev profile"));
-        assert!(dev_target(Some(r"C:\elsewhere\KitKraft Dev")).is_err());
+        assert!(dev_target(Some(&sep_path(&["C", "elsewhere", "KitKraft Dev"], false))).is_err());
     }
 
     #[test]
     fn preview_is_a_dry_run_and_the_confirm_drops_it() {
+        let source = sep_path(&["C", "kk", "out", "built", "My.esm"], false);
+        let mo2 = sep_path(&["C", "M"], false);
         let form = DeployForm {
-            source: r"C:\kk\out\built\My.esm".into(),
-            mo2: r"C:\M".into(),
+            source: source.clone(),
+            mo2: mo2.clone(),
             profile: "KitKraft Dev".into(),
         };
         let p = form.preview_request(WriteKind::Deploy, None).unwrap();
         assert!(!p.is_confirmed());
         assert_eq!(
             p.args,
-            json!({"source": r"C:\kk\out\built\My.esm", "mo2": r"C:\M", "dev": true,
+            json!({"source": source, "mo2": mo2, "dev": true,
                    "profile": "KitKraft Dev", "dry_run": true})
         );
         check(&p).unwrap();
@@ -2214,12 +2233,12 @@ mod tests {
 
     #[test]
     fn the_masters_step_uses_conflicts_for_a_loaded_plugin() {
+        let plugin = sep_path(&["C", "x", "My.esm"], false);
         let mut tab = CockpitTab {
-            plugin: r"C:\x\My.esm".into(),
+            plugin: plugin.clone(),
             ..CockpitTab::default()
         };
-        tab.start_review(&[("my.esm".into(), r"C:\x\My.esm".into())])
-            .unwrap();
+        tab.start_review(&[("my.esm".into(), plugin)]).unwrap();
         assert_eq!(tab.route, Some(MastersRoute::Conflicts("My.esm".into())));
         let (reqs, missing) = masters_requests(&tab.plugin, tab.route.as_ref().unwrap(), &[]);
         assert!(missing.is_empty());
@@ -2234,19 +2253,14 @@ mod tests {
             assert!(reqs[0].args.get("detail").is_none());
         }
         check(&reqs[0]).unwrap();
+        let a = sep_path(&["C", "A.esm"], false);
         let (reqs, missing) = masters_requests(
             "p.esp",
             &MastersRoute::Diffs,
-            &[
-                ("A.esm".into(), Some(r"C:\A.esm".into())),
-                ("B.esm".into(), None),
-            ],
+            &[("A.esm".into(), Some(a.clone())), ("B.esm".into(), None)],
         );
         assert_eq!(reqs.len(), 1);
-        assert_eq!(
-            reqs[0].args,
-            json!({"a": r"C:\A.esm", "b": "p.esp", "limit": 50})
-        );
+        assert_eq!(reqs[0].args, json!({"a": a, "b": "p.esp", "limit": 50}));
         assert_eq!(missing, ["B.esm"]);
     }
 
@@ -2259,7 +2273,8 @@ mod tests {
             plugin: "p.esp".into(),
             ..CockpitTab::default()
         };
-        let req = Request::new("diff", json!({"a": r"C:\A.esm", "b": "p.esp", "limit": 50}));
+        let a = sep_path(&["C", "A.esm"], false);
+        let req = Request::new("diff", json!({"a": a, "b": "p.esp", "limit": 50}));
         let env = json!({"data": {}});
         let mut keys = Vec::new();
         for _ in 0..2 {
