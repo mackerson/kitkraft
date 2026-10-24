@@ -22,21 +22,32 @@
 //!
 //! Methods: `server/discover`, `initialize`, `ping`, `tools/list`, `tools/call`,
 //! `resources/list`, `resources/read`, `resources/templates/list`; notifications are
-//! accepted and never answered. Malformed JSON is `-32700`, a non-request `-32600`, an
-//! unknown method (or one the request's era lacks) `-32601`, bad params `-32602`. A line longer than
+//! accepted and never answered, but the server sends `notifications/progress` (below).
+//! Malformed JSON is `-32700`, a non-request `-32600`, an unknown method (or one the
+//! request's era lacks) `-32601`, bad params `-32602`. A line longer than
 //! [`MAX_MESSAGE_BYTES`] is refused (`-32600`) without buffering it. Nothing here
 //! panics on input.
 //!
 //! Requests are handled one at a time, in order; `notifications/cancelled` cannot
-//! interrupt a running command and is ignored.
+//! interrupt a running command and is ignored. A `tools/call` request whose
+//! `params._meta` carries a `progressToken` (a string or an integer) gets one
+//! `notifications/progress` per progress event of the command it runs, each flushed
+//! to the output while the command is still running and before the response, with
+//! `progress` increasing by one per event and the event's line in `message` (MCP
+//! "Progress"). Any other request — including one whose token is of another type —
+//! gets no notifications, and its response is unchanged.
 
+use std::cell::RefCell;
 use std::io::{self, BufRead, Write};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 
 use serde_json::{json, Map, Value};
 
 use crate::backend::{Backend, CallError};
 use crate::tools;
-use kitkraft_engine::Engine;
+use kitkraft_engine::{Engine, Progress, ProgressSink};
 
 /// The protocol revision this server implements natively (per-request `_meta`).
 pub const PROTOCOL_VERSION: &str = "2026-07-28";
@@ -166,7 +177,7 @@ impl Server {
                     .to_string(),
                 ),
                 Frame::Line(bytes) => match std::str::from_utf8(&bytes) {
-                    Ok(text) => self.handle_line(text),
+                    Ok(text) => self.serve_line(&mut output, text)?,
                     Err(e) => Some(
                         error_response(
                             Value::Null,
@@ -182,6 +193,79 @@ impl Server {
                 output.flush()?;
             }
         }
+    }
+
+    /// Serves one line, writing whatever is due to `output`: a `tools/call` request
+    /// that carries a `progressToken` in `params._meta` runs on a worker thread with
+    /// a progress sink, and each event is written and flushed to `output` as a
+    /// `notifications/progress` line while the command is still running; the
+    /// response (the same one [`Self::handle_line`] would produce) is written last.
+    /// Every other line is answered through [`Self::handle_line`] with no
+    /// notifications.
+    fn serve_line<W: Write>(&mut self, output: &mut W, text: &str) -> io::Result<Option<String>> {
+        // The line is parsed only to look for a progress token: every line without one
+        // (a blank line, a notification, unparseable bytes) is served exactly as
+        // before, `handle_line` re-parsing it (and answering a parse failure with the
+        // `-32700` error).
+        let message = match serde_json::from_str::<Value>(text) {
+            Ok(message) => message,
+            Err(_) => return Ok(self.handle_line(text)),
+        };
+        // The owned token (a string or integer) is what the notifications carry.
+        let Some(token) = progress_token(&message).cloned() else {
+            return Ok(self.handle_line(text));
+        };
+        // The worker numbers the events through one atomic counter and hands them
+        // over an unbounded channel; the numbering and the send happen under one
+        // lock, so the numbers arrive at us strictly increasing. We drain the
+        // channel to `output` while the worker runs, then join and drain the
+        // remainder, so every notification precedes the response.
+        let (tx, rx) = mpsc::channel::<(u64, String)>();
+        let tx = Mutex::new(tx);
+        let counter = Arc::new(AtomicU64::new(0));
+        let sink: Arc<dyn ProgressSink> = Arc::new(move |event: &Progress| {
+            let tx = match tx.lock() {
+                Ok(tx) => tx,
+                Err(_) => return,
+            };
+            let progress = counter.fetch_add(1, Ordering::SeqCst).saturating_add(1);
+            let _ = tx.send((progress, event.line()));
+        });
+        std::thread::scope(|scope| {
+            let handle = scope.spawn(move || {
+                PROGRESS_SINK.with_borrow_mut(|slot| {
+                    *slot = Some(Arc::clone(&sink));
+                });
+                let reply = self.handle_message(message);
+                PROGRESS_SINK.with_borrow_mut(|slot| {
+                    *slot = None;
+                });
+                reply
+            });
+            let write_event = |output: &mut W, progress: u64, line: &str| -> io::Result<()> {
+                output.write_all(progress_notification(&token, progress, line).as_bytes())?;
+                output.write_all(b"\n")?;
+                output.flush()
+            };
+            loop {
+                match rx.recv_timeout(Duration::from_millis(5)) {
+                    Ok((progress, line)) => write_event(output, progress, &line)?,
+                    Err(mpsc::RecvTimeoutError::Timeout) => {}
+                    Err(mpsc::RecvTimeoutError::Disconnected) => break,
+                }
+                if handle.is_finished() {
+                    break;
+                }
+            }
+            let reply = match handle.join() {
+                Ok(reply) => reply,
+                Err(panic) => std::panic::resume_unwind(panic),
+            };
+            while let Ok((progress, line)) = rx.try_recv() {
+                write_event(output, progress, &line)?;
+            }
+            Ok(reply.map(|reply| reply.to_string()))
+        })
     }
 
     /// Handles one line; returns the response line, or `None` for a notification, a
@@ -371,7 +455,9 @@ impl Server {
                 ))
             }
         };
-        match self.backend.call_tool(name, arguments) {
+        // When this request opted into progress, its worker installed a sink here.
+        let sink = PROGRESS_SINK.with_borrow(|slot| slot.clone());
+        match self.backend.call_tool_with_progress(name, arguments, sink) {
             Ok(out) => Ok(json!({
                 "content": [{ "type": "text", "text": out.text }],
                 "structuredContent": out.structured,
@@ -535,6 +621,54 @@ fn valid_id(id: &Value) -> bool {
 
 fn error_response(id: Value, err: &RpcError) -> Value {
     json!({ "jsonrpc": "2.0", "id": id, "error": err.to_json() })
+}
+
+// The sink of the worker thread running a `tools/call` that opted into progress
+// (`None` everywhere else, including the thread `serve` runs on); consulted by
+// `Server::tools_call`.
+thread_local! {
+    static PROGRESS_SINK: RefCell<Option<Arc<dyn ProgressSink>>> =
+        const { RefCell::new(None) };
+}
+
+/// The `params._meta.progressToken` of a `tools/call` request that may carry one
+/// (MCP "Progress"): a request — a valid id — whose token is a string or an
+/// integer. A missing token, a message of another kind, or a token of any other
+/// type means the request did not opt in.
+fn progress_token(message: &Value) -> Option<&Value> {
+    let Value::Object(message) = message else {
+        return None;
+    };
+    if message.get("method").and_then(Value::as_str) != Some("tools/call") {
+        return None;
+    }
+    let id = message.get("id")?;
+    if !valid_id(id) {
+        return None;
+    }
+    let token = message
+        .get("params")
+        .and_then(|params| params.get("_meta"))
+        .and_then(|meta| meta.get("progressToken"));
+    match token {
+        Some(token) if token.is_string() || token.is_u64() || token.is_i64() => Some(token),
+        _ => None,
+    }
+}
+
+/// One `notifications/progress` line: the request's token, the increasing
+/// `progress` number, and the event's line in `message`.
+fn progress_notification(token: &Value, progress: u64, line: &str) -> String {
+    json!({
+        "jsonrpc": "2.0",
+        "method": "notifications/progress",
+        "params": {
+            "progressToken": token,
+            "progress": progress,
+            "message": line,
+        },
+    })
+    .to_string()
 }
 
 /// One line read from the input.
@@ -1218,5 +1352,143 @@ mod tests {
         s.serve(&b"\xff\xfe\n"[..], &mut out).unwrap();
         let reply: Value = serde_json::from_slice(out.strip_suffix(b"\n").unwrap()).unwrap();
         assert_eq!(reply["error"]["code"], -32700);
+    }
+
+    /// A header-only plugin in a private temp dir, as the engine's tests use it.
+    fn header_plugin(tag: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!("kitkraft-mcp-{tag}-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let plugin = dir.join("Header.esm");
+        let mut bytes = b"TES4".to_vec();
+        bytes.extend_from_slice(&18u32.to_le_bytes());
+        bytes.extend_from_slice(&[0; 16]);
+        bytes.extend_from_slice(b"HEDR");
+        bytes.extend_from_slice(&12u16.to_le_bytes());
+        bytes.extend_from_slice(&1.0f32.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+        bytes.extend_from_slice(&0x800u32.to_le_bytes());
+        std::fs::write(&plugin, &bytes).unwrap();
+        plugin
+    }
+
+    /// The `tools/call` message that drives the progress tests: a legacy-era
+    /// `roundtrip` over a small TES4+HEDR plugin, in a per-test dir (the tests run
+    /// in parallel within one process).
+    fn roundtrip_call(tag: &str, id: i64, token: Option<Value>) -> Value {
+        let plugin = header_plugin(tag);
+        let mut params = json!({
+            "name": "roundtrip",
+            "arguments": {"plugin": plugin.display().to_string()},
+        });
+        if let Some(token) = token {
+            params["_meta"] = json!({"progressToken": token});
+        }
+        legacy(id, "tools/call", params)
+    }
+
+    /// Serves `message` over in-memory stdio; returns the output lines in order.
+    fn serve_one(message: Value) -> Vec<Value> {
+        let mut s = server();
+        let input = format!("{}\n", message);
+        let mut out = Vec::new();
+        s.serve(input.as_bytes(), &mut out).unwrap();
+        String::from_utf8(out)
+            .unwrap()
+            .lines()
+            .map(|l| serde_json::from_str(l).unwrap())
+            .collect()
+    }
+
+    /// A `tools/call` with a `progressToken` gets one `notifications/progress` per
+    /// progress event, flushed before the response, with `progress` increasing.
+    #[test]
+    fn progress_token_gets_notifications_before_the_result() {
+        let message = roundtrip_call("with-token", 7, Some(json!("tok-1")));
+        let lines = serve_one(message);
+        assert_eq!(lines.len(), 3, "{lines:?}");
+        let mut last = 0;
+        for line in &lines[..2] {
+            assert_eq!(line["method"], "notifications/progress", "{line}");
+            assert_eq!(line["params"]["progressToken"], "tok-1", "{line}");
+            let progress = line["params"]["progress"].as_u64().unwrap();
+            assert!(progress > last, "progress must increase: {lines:?}");
+            last = progress;
+            let msg = line["params"]["message"].as_str().unwrap();
+            assert!(!msg.is_empty(), "{line}");
+            // The two events of `roundtrip`: start and end.
+            assert!(
+                msg.contains("0/1") || msg.contains("1/1"),
+                "unexpected event: {msg}"
+            );
+        }
+        assert!(lines[0]["params"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("0/1"));
+        assert!(lines[1]["params"]["message"]
+            .as_str()
+            .unwrap()
+            .contains("1/1"));
+        let response = &lines[2];
+        assert_eq!(response["id"], 7, "{response}");
+        assert_eq!(response["result"]["isError"], false, "{response}");
+        assert!(response.get("error").is_none(), "{response}");
+    }
+
+    /// The same request without a `progressToken` gets exactly one line: the
+    /// response.
+    #[test]
+    fn no_progress_notifications_without_a_token() {
+        let lines = serve_one(roundtrip_call("without-token", 7, None));
+        assert_eq!(lines.len(), 1, "{lines:?}");
+        let response = &lines[0];
+        assert_eq!(response["id"], 7, "{response}");
+        assert_eq!(response["result"]["isError"], false, "{response}");
+        assert!(response.get("method").is_none(), "{response}");
+    }
+
+    /// `v` without its timings (`*_ms` members, and the summary that quotes them).
+    fn untimed(mut v: Value) -> Value {
+        fn strip(v: &mut Value) {
+            match v {
+                Value::Object(map) => {
+                    map.retain(|k, _| !k.ends_with("_ms") && k != "summary");
+                    map.values_mut().for_each(strip);
+                }
+                Value::Array(list) => list.iter_mut().for_each(strip),
+                _ => {}
+            }
+        }
+        strip(&mut v);
+        v
+    }
+
+    /// A token changes the traffic (notifications), not the answer: the response
+    /// with a token equals the one without, ignoring timings.
+    #[test]
+    fn progress_leaves_the_result_unchanged() {
+        // One plugin dir for both runs (same thread, identical bytes written in
+        // sequence), so the envelopes differ only in what a run differs in: timings.
+        let with = serve_one(roundtrip_call("unchanged", 7, Some(json!("tok-1"))));
+        let without = serve_one(roundtrip_call("unchanged", 7, None));
+        // The with-token run carries one notification per event, then the response.
+        assert_eq!(with.len(), 3, "{with:?}");
+        assert_eq!(without.len(), 1, "{without:?}");
+        let with = with.last().unwrap();
+        let without = &without[0];
+        assert_eq!(with["id"], 7, "{with}");
+        assert_eq!(without["id"], 7, "{without}");
+        assert_eq!(with["result"]["isError"], false, "{with}");
+        // The structured content and the text block (the same envelope rendered as
+        // JSON) must match apart from the run-specific timings.
+        let text = |line: &Value| -> Value {
+            let block = line["result"]["content"][0]["text"].as_str().unwrap();
+            serde_json::from_str(block).unwrap()
+        };
+        assert_eq!(
+            untimed(with["result"]["structuredContent"].clone()),
+            untimed(without["result"]["structuredContent"].clone()),
+        );
+        assert_eq!(untimed(text(with)), untimed(text(without)));
     }
 }
