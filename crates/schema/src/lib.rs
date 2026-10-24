@@ -158,6 +158,10 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
         include_str!("../defs/common/BiomeNoiseLayer.toml"),
     ),
     (
+        "common/BipedSlots.toml",
+        include_str!("../defs/common/BipedSlots.toml"),
+    ),
+    (
         "common/Bool8.toml",
         include_str!("../defs/common/Bool8.toml"),
     ),

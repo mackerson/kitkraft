@@ -1,0 +1,81 @@
+# BipedSlots: the 64 first-person biped-object-template slots an armor or an armor
+# addon claims: which body parts it shows or hides on a first-person model (hair, head,
+# body, hat, gloves, the vis-only layer, the misc slots, and the second-set "Ss" copy
+# of each). It is the payload of the BO64 subrecord of ARMO and of ARMA.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L2474-L2541 - the slot list: 64 entries, a bit
+#     each, whose index is the bit position (the hex values printed next to some of
+#     them upstream are unreliable past bit 55, so the position is the bit, not the
+#     printed value). BO64 is that u64 (wbFirstPersonFlagsU64, L2543-L2549). Several
+#     entries are unnamed placeholders upstream and are left unnamed here, their bits
+#     preserved. Bit 63 (an upstream "FaceLights") cannot be named: its value would not
+#     fit the signed integer the bit values are read as, so it stays a raw bit (see
+#     docs/gaps.md).
+#   corpus: BO64 in the 1,168 ARMO records of the 14 official ESMs (2026-10-14 scan,
+#     ITEMS/WORKSHOP family, ARMO.toml): every payload is 8 bytes, a full u64 of slots.
+#     ARMA not yet scanned.
+name = "BipedSlots"
+kind = "type"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2474-L2541"
+evidence = [
+  "corpus: BO64 in the 1,168 ARMO records of the 14 official ESMs, 2026-10-14 scan: all 8 bytes",
+]
+confidence = "reference"
+type = "flags"
+base = "u64"
+bits = [
+  ["HideHair", 0x1],
+  ["MorphHair", 0x2],
+  ["HideHead", 0x4],
+  ["Body", 0x8],
+  ["Hat", 0x10],
+  ["Backpack", 0x20],
+  ["Gloves", 0x40],
+  ["LowerBodyVis", 0x80],
+  ["SleevesVis", 0x100],
+  ["HeadVis", 0x200],
+  ["UpperBody1Vis", 0x400],
+  ["UpperBody2Vis", 0x800],
+  ["UpperBody3Vis", 0x1000],
+  ["Misc1Vis", 0x2000],
+  ["Misc2Vis", 0x4000],
+  ["Misc3Vis", 0x8000],
+  ["Eyes", 0x10000],
+  ["Beard", 0x20000],
+  ["Neuroamp", 0x40000],
+  ["HideEar", 0x80000],
+  ["AddonRig", 0x100000],
+  ["Chronomark", 0x400000],
+  ["Chronomark1", 0x800000],
+  ["Chronomark2", 0x1000000],
+  ["Chronomark3", 0x2000000],
+  ["Eyepatch", 0x4000000],
+  ["MorphBeard", 0x8000000],
+  ["Shield", 0x20000000],
+  ["BoostPackFx", 0x40000000],
+  ["SsHideHair", 0x100000000],
+  ["SsMorphHair", 0x200000000],
+  ["SsHideHead", 0x400000000],
+  ["SsBody", 0x800000000],
+  ["SsHelmet", 0x1000000000],
+  ["SsBackpack", 0x2000000000],
+  ["SsGloves", 0x4000000000],
+  ["SsLowerBody", 0x8000000000],
+  ["SsSleeves", 0x10000000000],
+  ["SsHeadVis", 0x20000000000],
+  ["SsUpperBody1", 0x40000000000],
+  ["SsUpperBody2", 0x80000000000],
+  ["SsUpperBody3", 0x100000000000],
+  ["SsMisc1", 0x200000000000],
+  ["SsMisc2", 0x400000000000],
+  ["SsMisc3", 0x800000000000],
+  ["SsEyes", 0x1000000000000],
+  ["SsBeard", 0x2000000000000],
+  ["SsNeuroamp", 0x4000000000000],
+  ["SsHideEar", 0x8000000000000],
+  ["SsAddonRig", 0x10000000000000],
+  ["SsBackpackMisc", 0x20000000000000],
+  ["SsChronomark", 0x40000000000000],
+  ["SsMorphBeard", 0x800000000000000],
+]

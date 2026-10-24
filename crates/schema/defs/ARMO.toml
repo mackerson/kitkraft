@@ -4,10 +4,11 @@
 #
 # Sources (ADR 0005 Amendment 2):
 #   xedit: wbDefinitionsSF1.pas@9fb01688 L9707-L9775 - member order, the record flags, the
-#     two world models, BO64 (L2543-L2549, a u64 of biped slots whose bit names are
-#     L2474-L2541), ETYP (L4252), BIDS, BAMT, RNAM, DESC (L3186-L3189), INRD (L5677), the
-#     addon list (INDX, MODL), DATA, FNAM with the stagger values (L4647-L4653), APPR
-#     (L5698), the object template (L6961-L6974), STOP, AVSG, AFSG. Helpers: script data
+#     two world models, BO64 (L2543-L2549, a u64 of biped slots; the bit names,
+#     transcribed from L2474-L2541, live in the shared BipedSlots definition), ETYP
+#     (L4252), BIDS, BAMT, RNAM, DESC (L3186-L3189), INRD (L5677), the addon list
+#     (INDX, MODL), DATA, FNAM with the stagger values (L4647-L4653), APPR (L5698), the
+#     object template (L6961-L6974), STOP, AVSG, AFSG. Helpers: script data
 #     (L3407-L3411, kept opaque), object bounds (wbDefinitionsCommon.pas L9348-L9365), ODTY
 #     (L3921-L3923), PTT2 (L3965-L3978), the base form component block (L5984-L6832, kept
 #     raw), FULL (L3184), the enchantment (wbDefinitionsCommon.pas L8760-L8774), the textured
@@ -28,8 +29,9 @@
 # ignores both signatures in ARMO; the corpus places one FLLD (and sometimes an XFLG) in
 # each world model, so they are members here, laid out as the generic model's FLLD and XFLG
 # (L3818-L3823, L3801-L3804), confirmed by the corpus only. AVSG and AFSG hold two Wwise
-# GUIDs each (16 bytes per GUID from the 32-byte payload), kept raw. BO64 is kept as a plain
-# integer (64 slot bits). Record flags 0x400 and 0x8000 are unnamed upstream.
+# GUIDs each (16 bytes per GUID from the 32-byte payload), kept raw. BO64 is the 64
+# first-person biped slot bits, typed by the shared BipedSlots definition. Record flags
+# 0x400 and 0x8000 are unnamed upstream.
 signature = "ARMO"
 name = "Armor"
 source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9707-L9775"
@@ -226,12 +228,12 @@ evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3
 [[member]]
 sig = "BO64"
 name = "BipedSlots"
-type = "u64"
+type = "ref:BipedSlots"
 evidence = [
   "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2543-L2549",
-  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2474-L2541",
+  "corpus: BO64 in the 1,168 ARMO records, 2026-10-14 scan: all 8 bytes",
 ]
-note = "first-person biped slot bits (64); kept as a plain integer, the slot names are not transcribed"
+note = "first-person biped slot bits (64); the named bits live in defs/common/BipedSlots.toml"
 
 [[member]]
 group_ref = "Destructible"
