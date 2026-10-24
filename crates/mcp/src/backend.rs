@@ -20,8 +20,10 @@
 //! unless it asks for more. They are applied on every route (`execute`, `command_line`,
 //! shortcuts) and only when the caller left the argument out.
 
+use std::sync::Arc;
+
 use kitkraft_engine::{
-    args, catalog, cmdline, find_command, parse_line, Engine, EngineError, Invocation,
+    args, catalog, cmdline, find_command, parse_line, Engine, EngineError, Invocation, ProgressSink,
 };
 use serde_json::{json, Value};
 
@@ -137,6 +139,17 @@ impl Backend {
 
     /// Runs tool `name` with `arguments` (`null` means `{}`).
     pub fn call_tool(&self, name: &str, arguments: Value) -> Result<ToolOutput, CallError> {
+        self.call_tool_with_progress(name, arguments, None)
+    }
+
+    /// `call_tool`, reporting the command's progress events through `sink` when
+    /// `Some` (MCP `notifications/progress`, `docs/mcp.md` "Progress").
+    pub fn call_tool_with_progress(
+        &self,
+        name: &str,
+        arguments: Value,
+        sink: Option<Arc<dyn ProgressSink>>,
+    ) -> Result<ToolOutput, CallError> {
         let tool =
             tools::find_tool(name).ok_or_else(|| CallError::UnknownTool(name.to_string()))?;
         let arguments = if arguments.is_null() {
@@ -145,9 +158,9 @@ impl Backend {
             arguments
         };
         let result = match tool.target {
-            Target::Command(id) => self.run(id, arguments),
-            Target::Execute => self.run_execute(tool, arguments),
-            Target::CommandLine => match self.run_command_line(tool, arguments) {
+            Target::Command(id) => self.run(id, arguments, sink.as_ref()),
+            Target::Execute => self.run_execute(tool, arguments, sink.as_ref()),
+            Target::CommandLine => match self.run_command_line(tool, arguments, sink.as_ref()) {
                 Ok(Line::Help(text)) => {
                     return Ok(ToolOutput {
                         is_error: false,
@@ -179,7 +192,12 @@ impl Backend {
         }
     }
 
-    fn run_execute(&self, tool: &Tool, mut arguments: Value) -> Result<Value, EngineError> {
+    fn run_execute(
+        &self,
+        tool: &Tool,
+        mut arguments: Value,
+        sink: Option<&Arc<dyn ProgressSink>>,
+    ) -> Result<Value, EngineError> {
         // `args: null` means `{}` (as for every command), so it is not a type violation.
         if let Some(obj) = arguments.as_object_mut() {
             if obj.get("args").is_some_and(Value::is_null) {
@@ -194,11 +212,16 @@ impl Backend {
         let args = arguments.get("args").cloned().unwrap_or(Value::Null);
         // check_tool_args refused unknown ids; resolve an alias to its canonical id.
         let id = find_command(command).map_or(command, |spec| spec.id);
-        self.run(id, args)
+        self.run(id, args, sink)
     }
 
     /// Runs catalog command `id` with the MCP size defaults filled in.
-    fn run(&self, id: &str, mut args: Value) -> Result<Value, EngineError> {
+    fn run(
+        &self,
+        id: &str,
+        mut args: Value,
+        sink: Option<&Arc<dyn ProgressSink>>,
+    ) -> Result<Value, EngineError> {
         if args.is_null() {
             args = Value::Object(serde_json::Map::new());
         }
@@ -209,17 +232,25 @@ impl Backend {
                 }
             }
         }
-        self.engine.execute(id, args)
+        match sink {
+            Some(s) => self.engine.execute_with_progress(id, args, Arc::clone(s)),
+            None => self.engine.execute(id, args),
+        }
     }
 
-    fn run_command_line(&self, tool: &Tool, arguments: Value) -> Result<Line, EngineError> {
+    fn run_command_line(
+        &self,
+        tool: &Tool,
+        arguments: Value,
+        sink: Option<&Arc<dyn ProgressSink>>,
+    ) -> Result<Line, EngineError> {
         check_tool_args(tool, &arguments)?;
         let text = arguments
             .get("text")
             .and_then(Value::as_str)
             .unwrap_or_default();
         match parse_line(text)? {
-            Invocation::Run { command, args } => self.run(command.id, args).map(Line::Ran),
+            Invocation::Run { command, args } => self.run(command.id, args, sink).map(Line::Ran),
             Invocation::Help { command: None } => Ok(Line::Help(format!(
                 "usage: <command> [args]   (help <command> for one command)\n\ncommands:\n{}",
                 cmdline::catalog_help()

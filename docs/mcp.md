@@ -111,8 +111,11 @@ them is answered with `2025-11-25`. `server/discover`'s `supportedVersions` and 
 - Methods: `server/discover`, `initialize`, `ping`, `tools/list`, `tools/call`,
   `resources/list`, `resources/read`, `resources/templates/list` (empty). Capabilities:
   `tools` and `resources`, no `listChanged`, no subscriptions, one page (any `cursor` is
-  `-32602`). Notifications (`notifications/cancelled` included) are accepted and never
-  answered; requests run one at a time, so a cancel cannot interrupt a running command.
+  `-32602`). Inbound notifications (`notifications/cancelled` included) are accepted and
+  never answered; requests run one at a time, so a cancel cannot interrupt a running
+  command. Outbound, the only notification the server sends is `notifications/progress`,
+  for a `tools/call` with a string or integer `progressToken`; all of it goes out before
+  the response.
 - Malformed JSON or non-UTF-8: `-32700`. Not a request object (batch arrays, `id` that is
   `null`, a float, a bool or an object, wrong `jsonrpc`), or a line over 8 MiB (discarded
   without buffering): `-32600`. Unknown method, or one the request's era lacks: `-32601`.
@@ -212,8 +215,13 @@ Rules:
 - Progress (M6.P2b) never enters the envelope: a front end that passes a progress sink
   (`Engine::execute_with_progress`; the CLI's `--progress`, which prints to stderr) gets
   an envelope identical to one without a sink except timings (the `*_ms` members, and a
-  `summary` that quotes them, differ from run to run either way). MCP does not send
-  progress notifications yet.
+  `summary` that quotes them, differ from run to run either way). The server does send
+  progress: a `tools/call` that carries a `progressToken` in `params._meta` (a string or
+  an integer; anything else is treated as no token) gets one `notifications/progress`
+  notification per progress event, each before the response, with `params`
+  `{"progressToken": <the token>, "progress": <n>, "message": <line>}` — `progress` is a
+  server-side counter that goes up by one per event, `message` is the event's line
+  (`command: stage done/total item`), and there is no `total`.
 - `coverage.status` is `complete`, `partial`, or `unknown`. `complete` only when every byte
   of every examined record was decoded. `decoded_subrecords` / `opaque_subrecords` are
   `null` when the command did not count them (never `0` for "not counted").

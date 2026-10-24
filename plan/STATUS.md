@@ -2761,3 +2761,12 @@ Agents append here when they need a change in a crate they do not own.
      Evidence and format notes: `docs/research/materials-lmsw-2026-10-23.md` (its `.mat`
      facts come from installed mods' files; the owner has not ruled on that source
      category).
+- **KK-003 landed (2026-10-24, second local-agent ticket):** the MCP server sends
+  progress. A `tools/call` that carries a string or integer `progressToken` in
+  `params._meta` is executed through `Engine::execute_with_progress` on a worker
+  thread; each progress event goes out as a `notifications/progress` line (the token
+  echoed, `progress` a server-side counter up by one per event, `message` the event's
+  line, no `total`) while the command runs, all before the response, whose envelope is
+  identical to one without a token apart from timings. A token of any other type is
+  ignored, not an error; unparseable lines still answer `-32700`. `handle_line` and
+  `handle_message` are unchanged; three tests in `server.rs`; `docs/mcp.md` updated.
