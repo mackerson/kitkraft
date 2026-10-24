@@ -1,0 +1,82 @@
+id = "KK-003"
+title = "MCP progress notifications"
+timeout_min = 30
+owns = [
+  "crates/mcp/src/",
+  "crates/mcp/tests/",
+  "docs/mcp.md",
+]
+brief = """
+The engine reports progress for long commands (M6.P2b, `crates/engine/src/progress.rs`: read
+its module docs first). `Engine::execute_with_progress(id, args, sink)` calls the sink with
+`Progress {command, stage, done, total, item}` events while the command runs, and the
+result is unchanged. The CLI prints them with `kit --progress`. The MCP server
+(`crates/mcp`) ignores them. `docs/mcp.md` says "MCP does not send progress notifications
+yet". Make it send them.
+
+The protocol (MCP, "Progress"): a request opts in by putting a `progressToken` (a string or
+an integer) in `params._meta`. While the request runs, the server may send notifications
+
+    {"jsonrpc":"2.0","method":"notifications/progress",
+     "params":{"progressToken":<the token>,"progress":<number>,"total":<number, optional>,
+               "message":<string, optional>}}
+
+`progress` must increase with every notification for that token. The engine's `done` count
+restarts at each stage, so do not send `done` as `progress`. Send a counter that goes up by
+one per event. Put `Progress::line()` in `message`, and leave `total` out. Notifications go
+out before the response to that request, never after it. A request without a token gets no
+notifications. The response (the result envelope) must be exactly what it is today.
+
+Where to change it:
+- `crates/mcp/src/server.rs`: `Server::serve` writes one line per response. `tools_call`
+  runs through `Backend::call_tool` (`crates/mcp/src/backend.rs`), which ends in
+  `self.engine.execute(id, args)`. Thread an optional sink through to
+  `execute_with_progress`. Only the `tools/call` path needs it.
+- The sink must be `Send + Sync + 'static`, and the engine calls it from worker threads.
+  `serve`'s writer is borrowed and may not be `Send`. A channel works: the sink sends each
+  event's line, and the request runs on a `std::thread::scope` thread while `serve`'s own
+  thread writes the notification lines as they arrive, then the response. Other designs are
+  fine if notifications reach the output while the command is still running.
+- Keep `handle_line` and `handle_message` working as they are. Many tests use them, and they
+  need no notifications.
+- Update `docs/mcp.md` (the progress bullet, and the methods list if it names notifications
+  the server sends) and the module docs of `server.rs`.
+
+Tests in `server.rs`'s `mod tests`, with these exact names:
+- `progress_token_gets_notifications_before_the_result`: run `serve` over an in-memory
+  input holding one `tools/call` with a `progressToken` (legacy era is simplest, see
+  `legacy(...)`). Use a command that emits progress, for example `roundtrip` on a small plugin
+  the test writes to a temp dir (a TES4 record with its HEDR; `roundtrip` emits a start and an
+  end event). Assert that at least two `notifications/progress` lines come first, carrying the
+  token with `progress` strictly increasing, and that the last line is the response with the
+  request's id.
+- `no_progress_notifications_without_a_token`: the same call without the token writes
+  exactly one line, the response.
+- `progress_leaves_the_result_unchanged`: the response with a token equals the one without,
+  ignoring `*_ms` members and `summary` (as `crates/engine/src/progress.rs`'s own tests do).
+
+Rules: no new dependencies (the sandbox is offline, and `Cargo.lock` is not yours). Never
+panic on input (AGENTS.md "Never panic"): a token that is neither a string nor an integer is
+ignored, not an error. Run `cargo test -p kitkraft-mcp`, then `cargo xtask ci`. Commit when the
+first test passes, then again at the end.
+"""
+
+[[accept]]
+name = "with-token"
+cmd = "cargo test -p kitkraft-mcp --lib -- --exact server::tests::progress_token_gets_notifications_before_the_result 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "without-token"
+cmd = "cargo test -p kitkraft-mcp --lib -- --exact server::tests::no_progress_notifications_without_a_token 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "result-unchanged"
+cmd = "cargo test -p kitkraft-mcp --lib -- --exact server::tests::progress_leaves_the_result_unchanged 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "mcp-all"
+cmd = "cargo test -p kitkraft-mcp"
+
+[[accept]]
+name = "docs"
+cmd = "! grep -q 'progress notifications yet' docs/mcp.md && grep -q 'notifications/progress' docs/mcp.md"

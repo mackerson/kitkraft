@@ -1,0 +1,75 @@
+id = "KK-002"
+title = "Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD"
+timeout_min = 45
+owns = [
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "docs/schema/evidence.toml",
+  "docs/schema/support-matrix.md",
+]
+brief = """
+`kit coverage --matrix` reports a record type `typed-writable` only when
+`docs/schema/evidence.toml` cites a test that writes the type and reads it back. LCTN, TERM,
+PKIN, FACT, COBJ and STAT have such tests in `crates/engine/src/handlers/authoring_tests.rs`.
+ACTI, KYWD, TMLM, QUST and WRLD are written by recipes and prototypes but have no test, so
+the matrix says `not-run` for them. Add the tests and the evidence entries.
+
+Start from `crates/engine/src/handlers/authoring_tests.rs`. Its module docs explain the two
+test shapes, and the existing tests are your template:
+
+- `<type>_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back(sig,
+  layout, component)`. It builds one record with `new` on a synthetic load order, gives every
+  typed member a value, reads it back and runs `validate`. `layout` and `component` pick one
+  base form component layout (the `BFCB` block). Choose them from the type's definition in
+  `crates/schema/defs/<TYPE>.toml` and the shared block in `crates/schema/defs/common/`.
+  Any layout the type allows will do; the existing tests show the names.
+- `<type>_dangling_link_is_reported` calls `dangling(...)` with FormID members set to
+  `MISSING`, and checks that `validate` and `refs` report each. Pick the members that carry
+  links for the type (keywords, menus, conditions, quest targets, worldspace parents).
+
+Add both tests for each of the five types, ten tests in all, with these exact names:
+`acti_new_sets_every_typed_member_and_reads_back`, `acti_dangling_link_is_reported`, and the
+same with `kywd_`, `tmlm_`, `qust_` and `wrld_`. If a type has no FormID member that
+reference integrity covers, say so in a comment and leave out its dangling test. That is
+the only test you may leave out.
+
+Then add a `typed-writable` `pass` entry per type to `docs/schema/evidence.toml`, citing the
+tests as the existing entries do (`test: crates/engine/src/handlers/authoring_tests.rs::<fn>`).
+Add the five types to the typed-writable list in `docs/schema/support-matrix.md`, and update
+the module docs at the top of `authoring_tests.rs`. The gate test
+`every_evidence_pointer_resolves` (in `crates/engine/src/handlers/matrix.rs`) fails if a
+cited test name does not exist.
+
+If a type cannot pass, for example because `new` refuses a member or `validate` reports a
+finding on what `new` wrote, do not edit the engine and do not relax `check_written`. Find
+out why. Put the reason in a comment above that type's test, mark only that test `#[ignore =
+"<the reason>"]`, and leave out that type's evidence entry. The final QA will read the
+reason. Never change or loosen an existing test or the shared helpers' checks. You may add
+parameters to a helper only if every existing caller keeps its behaviour.
+
+Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then
+`cargo xtask ci`. Commit after each type passes.
+"""
+
+[[accept]]
+name = "acti"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::acti_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "kywd"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::kywd_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "tmlm"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::tmlm_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "qust"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::qust_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "wrld"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::wrld_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "dangling-and-evidence"
+cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; miss=sorted({'ACTI','KYWD','TMLM','QUST','WRLD'}-got); print('missing typed-writable evidence:', miss); sys.exit(1 if miss else 0)\""

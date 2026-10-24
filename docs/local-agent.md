@@ -11,12 +11,18 @@ it. Paid usage is limited to the check-ins and the review before a merge.
    terminal:
 
    ```bat
-   wsl -d Ubuntu-24.04 -u root -- bash /mnt/f/AI/Scripts/overnight/harness/kk_setup.sh
+   overnight kk-setup
    ```
 
    It installs Rust 1.99 at `/opt/rust`, mirrors this repo into `/opt/kitkraft/repo.git`, and
    vendors every crate into `/opt/kitkraft/vendor`. The sandbox has no network, so these copies
-   are all it builds from.
+   are all it builds from. It also writes `/opt/kitkraft/paths.env`: where this checkout is and
+   where the Starfield Data folder is. The runner, the grader and the agent's sandbox read every
+   path from it, so nothing assumes drive C:. The checkout is found as `<drive>:\Modding\kitkraft`
+   or `kitcraft`. For a checkout anywhere else, pass it once, `overnight kk-setup
+   F:\path\to\kitkraft`, and it is remembered. The Data folder comes from Steam: its registry
+   entry, then every library in `libraryfolders.vdf`. To override it, run kk_setup.sh with
+   `KK_DATA=...` set.
 2. Close Starfield, LM Studio and any browser that holds GPU memory. Then start the run:
 
    ```bat
@@ -24,6 +30,10 @@ it. Paid usage is limited to the check-ins and the review before a merge.
    ```
 
    That runs ticket `plan/tickets/KK-001.toml` for at most 4 hours, with a grade every 30 minutes.
+   To queue several tickets in one budget, join them with `+`:
+   `overnight kitkraft KK-002+KK-003+KK-004 8`. They run one after another, each from `main`,
+   and each gets an equal share of the time left. A ticket that finishes early leaves its time to
+   the rest, and none starts with less than 30 minutes left.
    Opus checks in at minutes 3, 8 and 26, while the agent is choosing its approach. After that,
    each check-in picks when the next one comes, between 15 and 60 minutes: sooner when the agent
    is stuck or off track. Check-ins see the agent's recent commands and their results as well as
@@ -35,7 +45,7 @@ it. Paid usage is limited to the check-ins and the review before a merge.
    but no accepted QA, a last QA is written for the merge review.
 3. Check on it with `overnight status`, or stop it with `overnight stop`. The final grade still
    runs after a stop.
-4. Results land in `F:\AI\Scripts\overnight\runs\kk-KK-001-<n>\`:
+4. Results land in `F:\AI\Scripts\overnight\runs\kk-KK-001-<date-time>\`, one folder per ticket:
    - `KK-001.bundle`: the agent's commits on branch `ticket/KK-001`.
    - `scores.jsonl`: every grade.
    - `grades\<label>\`: one log per check, plus `grade.json`.
@@ -49,7 +59,7 @@ The local agent never pushes. Review and merge happen on Windows:
 
 ```bat
 cd C:\Modding\kitcraft
-git fetch F:\AI\Scripts\overnight\runs\kk-KK-001-<n>\KK-001.bundle ticket/KK-001:ticket/KK-001
+git fetch F:\AI\Scripts\overnight\runs\kk-KK-001-<date-time>\KK-001.bundle ticket/KK-001:ticket/KK-001
 git log --oneline main..ticket/KK-001
 git diff --stat main ticket/KK-001
 ```
@@ -58,7 +68,7 @@ Read the last QA note in `checkins\` first: it lists what to check by hand. Then
 `cargo xtask ci` on the branch with `KITKRAFT_DATA_DIR` set. The Linux grade cannot see
 Windows-only behaviour, so this second gate matters. Merge only when it is green. A short Claude
 review, `/code-review` on the branch, is the cheap second opinion. After merging, rerun
-`kk_setup.sh` so the next ticket starts from the new `main`.
+`overnight kk-setup` so the next ticket starts from the new `main`.
 
 ## What the grader checks
 
@@ -85,7 +95,7 @@ The score is the share of checks that pass. The ticket is done when all of them 
 
 ## Known limits (2026-10-23)
 
-- Tests that read the Data folder go through WSL's `/mnt/c`, which is slow. A full `cargo test`
+- Tests that read the Data folder go through WSL's `/mnt/<drive>`, which is slow. A full `cargo test`
   took more than 10 minutes on Linux, against about 5 on Windows. Copying the masters onto WSL's
   own disk would speed it up.
 - The window, CK sittings, in-game checks and license rulings stay with Claude or the owner.

@@ -1,0 +1,76 @@
+id = "KK-005"
+title = "validate warns when a location's added persistent reference is temporary"
+timeout_min = 60
+owns = [
+  "crates/engine/src/validate/",
+  "crates/engine/tests/validate_corpus.rs",
+  "docs/validate.md",
+]
+brief = """
+A location (`LCTN`) can list references in `ACPR` ("AddedPersistentRefs", see
+`crates/schema/defs/LCTN.toml`). Each entry holds `Ref` (a placed reference), `WorldOrCell`,
+a grid position and 4 bytes. M5.D2 asks for a new `validate` warning: an `ACPR` entry should
+name a persistent reference, one with record flag `0x400` in a cell's persistent children
+(group type 8). This is an assumption (grade D) until a CK fixture or a game session
+confirms it, so it is a warning, never an error.
+
+Add the rule `location.added-ref-temporary` (warning). It fires when an `ACPR` entry's `Ref`
+names a reference the plugin itself holds in temporary children (group type 9). It names the
+location record, the entry index and the reference. Check only references the plugin holds,
+as `ref.persistence` does. Count an entry naming a master's reference, and add one limitation
+line: "N ACPR entries name master references; their persistence is not checked". Do not look
+inside masters. Do not apply the rule to `LCPR` (PersistentRefs) or `LCSR`: the official
+files name temporary references there thousands of times, which is why `ref.persistence`
+leaves `LCTN` out (`NAMING_TYPES` in `crates/engine/src/validate/cells.rs`).
+
+Start by reading `crates/engine/src/validate/cells.rs`: `ref.persistence` already collects
+the plugin's temporary references (`pass.cells.temporary`) and reports them in `finish`. The
+new rule can reuse that collection. Register it the way the other rules are registered:
+the rule list and its severity in `crates/engine/src/validate/mod.rs`, plus its row in
+`docs/validate.md`'s rule table. Say there that the rule is grade D, and give the official
+files' count (below).
+
+Tests in `crates/engine/src/validate/cells_tests.rs`, with these exact names:
+- `acpr_naming_a_temporary_reference_is_a_warning`: a synthetic plugin with a cell, one
+  temporary `REFR`, and an `LCTN` whose `ACPR` names it. Exactly one
+  `location.added-ref-temporary` warning, naming the location and the reference. Build the
+  plugin as the other tests in that file do.
+- `acpr_naming_a_persistent_reference_is_clean`: the same with the reference in persistent
+  children and flag `0x400`. No finding from the rule.
+- `acpr_naming_a_master_reference_is_a_limitation`: the entry names a form of a master. No
+  finding, and the limitation line.
+
+Then the official files: `crates/engine/tests/validate_corpus.rs`
+`validate_corpus_official_files` validates all 14 and asserts which findings each file has.
+The corpus has 4 `ACPR` entries. If any official one names a temporary reference of its own
+plugin, pin that count in the test, as it pins other warnings, and give it in
+`docs/validate.md`. Do not remove or loosen any existing assertion there. That test reads
+2.5 GB through `KITKRAFT_DATA_DIR`, so it is `#[ignore]`d and run in release. Run it only
+after your unit tests pass, and expect it to take a long time:
+`cargo test --release -p kitkraft-engine --test validate_corpus -- --ignored --exact
+validate_corpus_official_files --nocapture`. Keep its `#[ignore]`.
+
+Never panic (AGENTS.md): an `ACPR` payload that does not decode is already
+`layout.undecoded`, so skip it here. Run `cargo test -p kitkraft-engine --lib validate`, then
+`cargo xtask ci`. Commit when the three unit tests pass.
+"""
+
+[[accept]]
+name = "temporary-warns"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::cells_tests::acpr_naming_a_temporary_reference_is_a_warning 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "persistent-clean"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::cells_tests::acpr_naming_a_persistent_reference_is_clean 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "master-limitation"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::cells_tests::acpr_naming_a_master_reference_is_a_limitation 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "official-files"
+cmd = "cargo test --release -p kitkraft-engine --test validate_corpus -- --ignored --exact validate_corpus_official_files --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'skipped: KITKRAFT_DATA_DIR' /tmp/o"
+
+[[accept]]
+name = "documented"
+cmd = "grep -q 'location.added-ref-temporary' docs/validate.md"

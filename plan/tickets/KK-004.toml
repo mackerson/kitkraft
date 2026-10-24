@@ -1,0 +1,71 @@
+id = "KK-004"
+title = "Clone-sample corpus tests for LCTN and TERM"
+timeout_min = 45
+owns = [
+  "crates/engine/tests/clone_sample_corpus.rs",
+  "crates/engine/src/handlers/newform.rs",
+  "docs/gaps.md",
+  "docs/schema/support-matrix.md",
+]
+brief = """
+M5.D2 and M5.D3 ask for a corpus test: cloning a seeded sample of official locations (LCTN)
+and terminals (TERM) re-encodes identically, apart from what a clone must change. Today
+only synthetic tests cover `clone` for these types. Write the corpus test.
+
+Create `crates/engine/tests/clone_sample_corpus.rs` with two tests, with these exact names:
+`a_sample_of_official_locations_clones_identically` and
+`a_sample_of_official_terminals_clones_identically`. Model the file on
+`crates/engine/tests/mini_site_corpus.rs`: the same lint allowances, `data_dir()` from
+`KITKRAFT_DATA_DIR` (skip with a printed line when it is unset), and one
+`kitkraft_engine::Engine` so `Starfield.esm` is indexed once per test, not once per clone.
+
+Each test:
+1. Lists every record of the type in `Starfield.esm` (the `query` command; see its
+   `args_schema` in `crates/engine/src/lib.rs`), sorts the list by FormID, and takes a
+   deterministic sample: 100 records spread evenly over the list (a fixed stride, no
+   randomness and no new crate).
+2. Clones each into one patch plugin in a temp dir under `CARGO_TARGET_TMPDIR` (the
+   `clone` command: `form`, `edid`, `into`, `plugins: ["Starfield.esm"]`, `data_dir`), with a
+   new EditorID per clone.
+3. Reads the patch back and compares each clone with its source subrecord by subrecord.
+   Parse both with `kitkraft_esm::Plugin`. A clone must change the record's FormID and its
+   `EDID`. Starfield.esm is localized and the patch is not, so `clone` inlines lstrings
+   (`FULL`, `DESC`, ...): an lstring must hold the string table's text (`language` en), not
+   the 4-byte ID. Read `newform.rs`'s module docs and code (the `clone` handler) to find the
+   exact list of what a clone changes. Every other subrecord must be byte-identical, in the
+   same order, with the same count.
+4. Runs `validate` on the patch and asserts 0 errors.
+5. Prints one line: `clone-sample <TYPE>: <n> cloned, <m> identical, <k> explained`.
+
+If a clone differs where it should not, find out why:
+- A bug in `clone` (`crates/engine/src/handlers/newform.rs`): fix it, keep every existing
+  test passing, and add a unit test for the fix in `newform_tests.rs`. Do not change
+  behaviour on Windows, and do not change the output of any other command.
+- An intended difference not in your list (for example, a field `clone` must reset): add it
+  to the test's list of expected changes, with a comment citing the code that makes it.
+- Anything you cannot explain: list it in the test as an exception, by source FormID and
+  subrecord, with a one-line reason. Add a row to `docs/gaps.md` and count it in `<k>`. Keep
+  this list short; the final QA reads every entry.
+
+Then add the two tests as the clone-sample evidence for LCTN and TERM in
+`docs/schema/support-matrix.md`, with the counts the test printed.
+
+These tests read the real Data folder (`/opt/kk-data`, through `KITKRAFT_DATA_DIR`), which
+is slow, so run only them while you work: `cargo test -p kitkraft-engine --test
+clone_sample_corpus -- --include-ignored --nocapture`. If one takes more than about two
+minutes, follow the repository's convention for slow corpus tests and mark it
+`#[ignore = "reads Starfield.esm; slow"]`. The grade runs them with `--include-ignored`
+either way. Then run `cargo xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "lctn-sample"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_locations_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample LCTN: (9[0-9]|1[0-9][0-9]) cloned' /tmp/o"
+
+[[accept]]
+name = "term-sample"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_terminals_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample TERM: (9[0-9]|1[0-9][0-9]) cloned' /tmp/o"
+
+[[accept]]
+name = "newform-unit"
+cmd = "cargo test -p kitkraft-engine --lib newform"
