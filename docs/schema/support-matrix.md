@@ -91,6 +91,12 @@ The proofs:
   type a deliberately dangling link (reference lists, the terminal menu, component and
   condition FormIDs, the vendor location, relations) that `validate`'s `formid.dangling`
   reports and `refs` lists as `missing`.
+- `crates/engine/tests/clone_sample_corpus.rs` (KK-004, ignored, `--include-ignored`): 100
+  official records each, spread evenly by FormID over `Starfield.esm`'s 6,017 LCTN and 368
+  TERM, cloned into one patch per type. `clone-sample LCTN: 100 cloned, 100 identical, 0
+  explained`; `clone-sample TERM: 100 cloned, 100 identical, 0 explained`. A clone changes
+  only the FormID, the `EDID` and the lstrings it inlines from the string tables; every
+  other subrecord is byte-identical and the patch validates with 0 errors.
 
 Known limits: `set` paths do not address the elements of a subrecord whose whole payload is
 an array (LCTN's reference lists, FACT's `PRIS`): such a member is written whole (`hex:`).
