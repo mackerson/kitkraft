@@ -2717,3 +2717,31 @@ Agents append here when they need a change in a crate they do not own.
 - **Lane D7/H2 landed (2026-10-16, M5.D7 and M5.H2 first half; result partial):** `docs/recipes/mini-site.md` + `.toml` (Gate K0 mini-plugin: KYWD/TMLM/TERM/PKIN/ACTI clones, new FACT and LCTN with `LocTypeOutpost` and its own keyword, the scripts recipe's script on the ACTI, three persistent REFRs in the first POI's cell; `KitKraftMiniSite.esm` SHA-256 `10f22dbc...`, validate 0/0, roundtrip identical, every link resolves, 21 probes; `crates/engine/tests/mini_site_corpus.rs`, release `--ignored`). `prototypes/` created (ADR 0011 export rule) with `hostile-fixture/`: a two-stage `QUST` written by `new` (first QUST write; unproven in game), three GLOBs, a scripted controller at the first POI spawning two `LvlStarborn_Aggro` (template `LCharStarborn`) with a cooldown, stage 20 or the trigger GLOB cleans up (`KitKraftHostileFixture.esm` `614beeaa...`, validate 0/0, roundtrip identical, 10 probes). Gaps: a reference cannot be put in a location (`[[set]]` cannot add `XLCN`, `new:` cannot name a `[[place]]`), `KWDA` of a new form only as hex, `testplan` emits no probes for scripted behaviour (README table). Game and save/reload rows not-run.
 - **Fix round W2 landed (2026-10-16, Fable review of lanes G, R, D7/H2 and E):** `gate.rs` binds a confirmation to the id and arguments it was made for (`check` refuses a confirmed request changed afterwards, with a test); the viewport deletes its GL objects (`gl.rs`: partly built scenes on the error path, a dropped tab's scene at the next paint, all at `App::on_exit`); the cockpit masters test asserts `detail: fields` off the catalog; ADR 0007 Amendment 4's "Exists" column corrected (`new`/`clone`/`revert` have `dry_run`, `place` has none: new ticket M7.S6b); hostile-fixture README ends with its Reporting block; `docs/gaps.md` says `deny`, not `forbid`.
 - **KK-001 landed (2026-10-23, first local-agent ticket, ADR 0014):** `cargo xtask ci` passes on Linux as well as Windows. The 20 Linux-only test failures were fixed with platform-neutral test paths, one `cfg_attr(not(windows), ignore)` (the Papyrus compile test), and non-Windows handling of Windows-spelled paths in `io` and `engine`. Windows behaviour is unchanged. Authored by the local Qwen agent in 90 minutes, graded 9/9, reviewed and gated on Windows by Claude.
+- **Apparel pipeline (owner, 2026-10-23) -> KitKraft lanes B, D and T.** The owner plans a
+  clothing mod built by an AI pipeline in its own repository (not this one), with KitKraft
+  as its record, package, deploy and test stage. Mesh export there runs a GPL Starfield
+  geometry bridge as a tool, run only and never read, so the clean-room `.mesh` work here
+  stays open. Scope is whole outfits (biped slot 3), customized by templates, workbench
+  mods or tailoring recipes, across several body types. The owner is researching prior
+  art and body-type targets first, so none of these is scheduled yet. Evidence: the
+  Default profile, 2026-10-23, read only:
+  every sampled vanilla and modded "jacket", "pants", "shirt", "skirt" and "dress" ARMO
+  fills slot 3 (the KZ_AOS and KZ_TCR items fill slots 3 and 5); 209 of the 420 vanilla
+  `Clothes_*` ARMOs have `APPR` `ap_armor_Lining` (`Starfield.esm:022821`), filled with
+  stat OMODs through `OBTS` (`Clothes_Medical_Doctor_01_Medic`); 407 have `OBTE`, and
+  `Clothes_Matteo_Hat` (`030B4B`) uses one with a property 14 swap to `1991B1`.
+  1. Lane B: type `ARMA` (1,238 records, parsed, 0 typed; `docs/record-parity.md`): race,
+     biped slots, the male and female models and whatever body-type data the corpus shows.
+  2. Lane B: name the `BO64` biped slot bits, sourced and corpus-checked (they are a plain
+     `u64` today).
+  3. Lane B: type the record type of `1991B1` (the swap `OBTS` property 14 names) if it is
+     not typed, and confirm which `ObjectModProperty` values an ARMO OMOD can carry
+     (stats only, or a model or material swap).
+  4. Lane D: a read-only `.mesh`/`.nif` reader in `crates/nif` (bounds, vertex and
+     triangle counts, bone names, referenced `.mesh` paths) from the corpus study only
+     (`docs/research/nif-sources-2026-10-16.md`), so `validate`/`package` can check the
+     pipeline's assets instead of trusting them.
+  5. Lane T: apparel probes for `testplan`: equip on the player and on an NPC, a
+     screenshot per body type, the workbench and fabricator menus listing the item.
+  6. Owner experiments (`KitKraft Dev`, disposable save): does the armor workbench list
+     clothing, and does an OMOD on a new attach point change an outfit's look?
