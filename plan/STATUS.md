@@ -2770,3 +2770,11 @@ Agents append here when they need a change in a crate they do not own.
   identical to one without a token apart from timings. A token of any other type is
   ignored, not an error; unparseable lines still answer `-32700`. `handle_line` and
   `handle_message` are unchanged; three tests in `server.rs`; `docs/mcp.md` updated.
+- **KK-004 landed (2026-10-24, local-agent ticket):** `crates/engine/tests/clone_sample_corpus.rs`
+  clones 100 official LCTN and 100 official TERM records (spread evenly by FormID over
+  `Starfield.esm`) into one patch per type and compares each with its source subrecord by
+  subrecord: 100 of 100 identical for both (only the FormID, the `EDID` and the inlined
+  lstrings differ), the patch validating with 0 errors. Both tests are `#[ignore]`: 24 and
+  32 minutes, because each `clone` re-reads `Starfield.esm`. Evidence row in
+  `docs/schema/support-matrix.md`. Authored by the local Qwen agent; three clippy lints fixed
+  and Windows-gated by Claude.

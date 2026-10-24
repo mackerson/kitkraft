@@ -50,11 +50,11 @@ exceptions, merged by hand.
 | Ticket | Title | Source | State |
 | ------ | ----- | ------ | ----- |
 | [KK-001](KK-001.toml) | The gate passes on Linux | the 2026-10-23 trial: 20 tests assume Windows | merged `34e4a55` |
-| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | queued |
-| [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | queued |
-| [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | queued |
-| [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | queued |
-| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | queued |
+| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 continues from `kk/KK-002-wip` |
+| [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | merged `472871e` |
+| [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | merged `1f0940c` |
+| [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | run 1: 2/7, 3 lines (context limits); requeue |
+| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | run 1: 0/6 (scope bug in the ticket); run 2 continues from `kk/KK-006-wip` |
 | [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | queued |
 | [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued after KK-006 |
 
