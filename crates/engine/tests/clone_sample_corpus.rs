@@ -158,7 +158,7 @@ fn first_diff(a: &[u8], b: &[u8]) -> usize {
     a.iter()
         .zip(b)
         .position(|(x, y)| x != y)
-        .unwrap_or_else(|| if a.len() > b.len() { b.len() } else { a.len() })
+        .unwrap_or(a.len().min(b.len()))
 }
 
 /// The writer's lstring inlining (`edit/patch.rs` `inline_lstrings`): each
@@ -371,14 +371,14 @@ fn sample_clones(sig: &str, prefix: &str) {
     let mut patch =
         Plugin::parse(&patch_bytes).unwrap_or_else(|e| panic!("parse {}: {e}", into.display()));
     let mut clones: Vec<Rec> = Vec::new();
-    walk(&mut patch.entries_mut(), sig4, &mut clones);
+    walk(patch.entries_mut(), sig4, &mut clones);
     assert_eq!(clones.len(), src_by_edid.len(), "patch record count");
 
     let src_bytes = std::fs::read(dir.join("Starfield.esm")).unwrap();
     let mut src_plugin =
         Plugin::parse(&src_bytes).unwrap_or_else(|e| panic!("parse Starfield.esm: {e}"));
     let mut sources: Vec<Rec> = Vec::new();
-    walk(&mut src_plugin.entries_mut(), sig4, &mut sources);
+    walk(src_plugin.entries_mut(), sig4, &mut sources);
     let sources_by_id: HashMap<u32, &Rec> = sources.iter().map(|r| (r.hdr.1, r)).collect();
 
     let mut tables = StringTables::new(
@@ -433,9 +433,6 @@ fn sample_clones(sig: &str, prefix: &str) {
             json!({ "plugin": into.display().to_string(), "data_dir": &data }),
         )
         .unwrap_or_else(|e| panic!("validate: {e}"));
-    if v["data"]["errors"].is_null() {
-        eprintln!("validate response: {v}");
-    }
     assert_eq!(v["data"]["errors"], json!(0), "{:#}", v["data"]);
 
     // 5.
