@@ -87,7 +87,8 @@ The score is the share of checks that pass. The ticket is done when all of them 
 ## What the agent can and cannot do
 
 - **Can:** read and edit the repository, run `cargo`, `git`, `python3` and read-only shell tools.
-  It can also read the game's Data folder at `/opt/kk-data` (`KITKRAFT_DATA_DIR`).
+  It can also read the game's Data folder at `/opt/kk-data` (`KITKRAFT_DATA_DIR`), and the
+  pinned xEdit file at `/opt/xedit-ref` when `tools\xedit-ref` sits beside the checkout.
 - **Cannot:** reach the network, add crates, see the grader's results, read `/mnt`, or launch the
   game, MO2 or the Creation Kit.
 - **Should not read:** `plan/STATUS.md` and `plan/execution-plan.md`. They are too large for its

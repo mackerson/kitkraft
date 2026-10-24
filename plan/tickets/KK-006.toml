@@ -1,64 +1,90 @@
 id = "KK-006"
-title = "Inventory definition for LMSW, the layered material swap"
-timeout_min = 45
+title = "Type ARMA and name the biped slot bits"
+timeout_min = 60
 owns = [
-  "crates/schema/defs/LMSW.toml",
-  "crates/schema/src/lib.rs",
-  "crates/schema/tests/defs.rs",
-  "crates/schema/tests/golden/seed.rs",
-  "crates/esm/src/generated/records.rs",
-  "crates/esm/tests/inventory_types.rs",
-  "docs/record-parity.md",
+  "crates/schema/defs/ARMA.toml",
+  "crates/schema/defs/ARMO.toml",
+  "crates/schema/src/",
+  "crates/schema/tests/",
+  "crates/esm/src/generated/",
+  "crates/esm/tests/apparel_types.rs",
+  "docs/schema/items-workshop-family.md",
+  "docs/gaps.md",
 ]
 brief = """
-`LMSW` (layered material swap) has 17,410 records in the 14 official ESMs (12,919 in
-`Starfield.esm`) and no definition: `docs/record-parity.md` lists it with 9 subrecord
-signatures, all unknown. Clothing colourways use it: an ARMO's object template (`OBTS`)
-names an `LMSW` in property 14, and the `LMSW` maps one material path to another. The
-`everyday-outfits` mod needs KitKraft to read and later write these records. This ticket
-is the first step: an inventory definition, exactly like the fourteen of M4.BX2.
+Apparel requests 1 and 2 (plan/STATUS.md, "Apparel pipeline"; summarised here, do not read
+STATUS.md). The owner's clothing mod needs armor addons typed, and the biped slots named.
 
-Start from `crates/schema/defs/LAYR.toml` (an inventory definition: header comment,
-`source = "corpus: ..."`, every member the corpus shows, in corpus order) and
-`crates/schema/defs/README.md` ("Provenance", "Inventory definitions"). Then:
+1. Type `ARMA` (Armor Addon): 1,238 official records, parsed but with no definition today.
+   Write `crates/schema/defs/ARMA.toml`. Model it on `crates/schema/defs/ARMO.toml`: the
+   header comment with its sources and corpus facts, `source`, `evidence`, `confidence`,
+   record `flags`, and one `[[member]]` per subrecord, each with its evidence. Read
+   `crates/schema/defs/README.md` first: it is the definition format.
+2. Name the `BO64` biped slot bits. `ARMO.toml` keeps `BO64` as a plain `u64` today. Make it
+   a `flags` member with `base = "u64"` and named bits, in ARMO and in ARMA. Use one shared
+   definition if the format has them (README.md), not two copies.
 
-1. Add `b"LMSW"` to `TYPES` in `crates/esm/tests/inventory_types.rs` (update the doc
-   comment's list and the array length). Run `cargo test -p kitkraft-esm --release --test
-   inventory_types -- --include-ignored --exact inventory_types_full --nocapture` before
-   writing the definition: it prints, for LMSW, every signature, how often it occurs, its
-   sizes and the subrecord orders. Those printed facts are your source.
-2. Write `crates/schema/defs/LMSW.toml`, `name = "LayeredMaterialSwap"`, from those facts.
-   `EDID` is the shared EditorID zstring (copy LAYR's EDID member and its evidence). Every
-   other payload is `type = "opaque"`, named after its signature, with a `note` giving the
-   observed sizes. In particular `REFL` (Bethesda's reflection data, the swap entries) stays
-   opaque here; a separate ticket decodes it. If the corpus shows component blocks
-   (`BFCB` .. `BFCE`), use `group_ref = "BfcbBlock"` as LAYR does. Cite the inventory run in
-   `source` with the date and the record count. Use only `corpus:` citations; do not read
-   any xEdit file for this ticket.
-3. Register the file: `crates/schema/src/lib.rs` (`BUILTIN_DEFINITIONS`, alphabetical) and
-   whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (it
-   prints the exact lines). Regenerate code with `cargo xtask codegen` and the golden seed as
-   the schema tests describe; never edit `crates/esm/src/generated/records.rs` by hand.
-4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
-   The LMSW row must show the definition's name and 0 unknown.
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas`
+(revision 9fb016884bec138ea6c7b872cec831537d464c3e). ARMA is at about line 9619; the biped
+slot flags at lines 2474-2541; the BO64 struct at 2543-2549. Cite line ranges in
+`evidence` the way ARMO.toml does. Clean-room rule (AGENTS.md): read it for facts (member
+order, types, sizes, names) and write the TOML in your own words. Never copy its code or
+comments into the repository, and keep its `{0x...}` comments out of your reasoning: they
+are wrong past bit 56 (repeated values). The bit index is the position in the list.
 
-Done: the inventory run prints `defined: true` for LMSW with no unplaced, failed or
-re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do not
-change the output of any command for any other record type.
+Slot names: drop the index prefix and spell them in UpperCamelCase as the other `bits`
+lists do: bit 0 `HideHair`, bit 3 `Body`, bit 4 `Hat`, bit 35 `SsBody`. Leave the bits
+upstream calls `Unused` unnamed (unnamed bits are preserved). Bit 63 does not fit a TOML
+integer (they are i64). Find a way the loader accepts it, or leave it unnamed and add a row
+to `docs/gaps.md`; either is fine, but do not change how existing definitions load.
+
+Then check against the corpus. Create `crates/esm/tests/apparel_types.rs`, modelled on
+`crates/esm/tests/inventory_types.rs` (same lint allowances, same checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record).
+Two tests, exact names:
+- `apparel_types_sample`: every ARMA and ARMO in the small files the inventory test uses.
+- `apparel_types_full`: `#[ignore = "reads all 14 official ESMs; run in release"]`, every
+  ARMA and ARMO in all 14. It prints one line per type, exactly
+  `apparel <SIG>: <n> records, <m> identical`, and a slot histogram: for each named slot,
+  how many ARMO records set it. Every sampled clothing ARMO should set `Body` (bit 3);
+  record that count in ARMA.toml's or ARMO.toml's header comment as corpus evidence.
+
+If corpus records disagree with xEdit (a subrecord xEdit lacks, a different size), the
+corpus wins: add the member with a `corpus:` evidence line, as ARMO.toml does for FLLD.
+Anything you cannot type stays `opaque` with a note; do not guess layouts.
+
+Add a test in `crates/schema/tests/defs.rs` named `biped_slot_bits_are_named`: it loads the
+builtin schema and asserts ARMO's and ARMA's `BO64` name bit 0 `HideHair`, bit 3 `Body`,
+bit 4 `Hat` and bit 35 `SsBody`. Add ARMA to the right per-family list in that file if
+one applies (look at how ARMO is listed).
+
+Generated code: `crates/esm/src/generated/records.rs` and the golden file
+`crates/schema/tests/golden/seed.rs` are regenerated, not hand-edited. The test
+`crates/schema/tests/codegen.rs` says how (`KITKRAFT_UPDATE_GOLDEN=1`); find how
+records.rs is produced the same way. Changing BO64 from `u64` to a flags type changes a
+generated field type: fix any compile error it causes, but if that needs a change outside
+your owned paths, stop and write the reason in your last commit message instead.
+
+Add ARMA to `docs/schema/items-workshop-family.md` next to ARMO. Do not regenerate
+`docs/record-parity.md` (it needs a full corpus run of another tool).
+
+While working, run `cargo test -p kitkraft-schema` and `cargo test -p kitkraft-esm --test
+apparel_types`. The full corpus test in release takes several minutes over /mnt; run it
+once your sample passes. Then `cargo xtask ci`. Commit when the sample test passes.
 """
 
 [[accept]]
-name = "lmsw-inventory"
-cmd = "cargo test -p kitkraft-esm --release --test inventory_types -- --include-ignored --exact inventory_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^== LMSW: 17410 records .*defined: true' /tmp/o"
+name = "slots-named"
+cmd = "cargo test -p kitkraft-schema --test defs -- --exact biped_slot_bits_are_named 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
 
 [[accept]]
-name = "schema-defs"
+name = "apparel-sample"
+cmd = "cargo test -p kitkraft-esm --test apparel_types -- --exact apparel_types_sample 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "apparel-full"
+cmd = "cargo test --release -p kitkraft-esm --test apparel_types -- --ignored --exact apparel_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'apparel ARMA: 1[,]?2[0-9][0-9] records, 1[,]?2[0-9][0-9] identical' /tmp/o && grep -Eq 'apparel ARMO: 1[,]?1[0-9][0-9] records' /tmp/o"
+
+[[accept]]
+name = "schema-all"
 cmd = "cargo test -p kitkraft-schema"
-
-[[accept]]
-name = "codegen-fresh"
-cmd = "cargo xtask codegen --check"
-
-[[accept]]
-name = "parity-row"
-cmd = "grep -Eq '^\\| `LMSW` +\\| LayeredMaterialSwap +\\| +17,410 .*\\| +0 \\|$' docs/record-parity.md"
