@@ -1,9 +1,11 @@
 id = "KK-006"
 title = "Type ARMA and name the biped slot bits"
 timeout_min = 60
+base = "kk/KK-006-wip"
 owns = [
   "crates/schema/defs/ARMA.toml",
   "crates/schema/defs/ARMO.toml",
+  "crates/schema/defs/common/BipedSlots.toml",
   "crates/schema/src/",
   "crates/schema/tests/",
   "crates/esm/src/generated/",
@@ -12,6 +14,15 @@ owns = [
   "docs/gaps.md",
 ]
 brief = """
+**Second run (2026-10-24).** The branch starts from the first run's work (the last commit,
+`WIP KK-006`): `crates/schema/defs/common/BipedSlots.toml` is the shared flags definition
+(review it against the xEdit list, then keep it), and ARMO's `BO64` uses it. Not done yet:
+regenerating the code, `ARMA.toml`, the defs test, the corpus test and the docs. Work in
+this order and commit after each step: (1) regenerate and get `cargo test -p
+kitkraft-schema` passing with ARMO alone, (2) `biped_slot_bits_are_named`, (3) `ARMA.toml`,
+(4) `apparel_types.rs`. Write a `corpus:` evidence line only after a test of yours has
+printed the fact it cites; until then cite xEdit and use `confidence = "reference"`.
+
 Apparel requests 1 and 2 (plan/STATUS.md, "Apparel pipeline"; summarised here, do not read
 STATUS.md). The owner's clothing mod needs armor addons typed, and the biped slots named.
 

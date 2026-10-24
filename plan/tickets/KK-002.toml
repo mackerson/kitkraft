@@ -1,12 +1,22 @@
 id = "KK-002"
 title = "Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD"
 timeout_min = 45
+base = "kk/KK-002-wip"
 owns = [
   "crates/engine/src/handlers/authoring_tests.rs",
   "docs/schema/evidence.toml",
   "docs/schema/support-matrix.md",
 ]
 brief = """
+**Second run (2026-10-24).** The branch starts from the first run's work (the last commit,
+`WIP KK-002`): all ten tests are written in `authoring_tests.rs`. The ACTI, KYWD and TMLM
+read-back and dangling tests pass. `qust_new_sets_every_typed_member_and_reads_back` panics
+at its assertion near line 423, and `wrld_new_sets_every_typed_member_and_reads_back` and
+`wrld_dangling_link_is_reported` both panic near line 335. No evidence entries exist yet.
+Start by running the three failing tests and reading their panic messages. Fix the cause
+each one names. Then add the evidence entries and the support-matrix rows (below). Commit
+after each test you fix: the first run lost its place by never committing.
+
 `kit coverage --matrix` reports a record type `typed-writable` only when
 `docs/schema/evidence.toml` cites a test that writes the type and reads it back. LCTN, TERM,
 PKIN, FACT, COBJ and STAT have such tests in `crates/engine/src/handlers/authoring_tests.rs`.
