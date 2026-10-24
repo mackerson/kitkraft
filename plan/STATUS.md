@@ -2745,3 +2745,10 @@ Agents append here when they need a change in a crate they do not own.
      screenshot per body type, the workbench and fabricator menus listing the item.
   6. Owner experiments (`KitKraft Dev`, disposable save): does the armor workbench list
      clothing, and does an OMOD on a new attach point change an outfit's look?
+  7. Lane B (added 2026-10-23, from `C:\Modding\everyday-outfits\docs\material-swaps.md`):
+     type `LMSW` (17,410 records, parsed, 0 typed): its one `REFL` subrecord is Bethesda's
+     reflection format (`BETH`, a `STRT` string table, `TYPE`/`CLAS`/`OBJT`/`LIST`
+     blocks) holding entries that map a key material path to an override material path
+     (`LMS_Clothes_Matteo_Hat`, `1991B1`). Clothing colourways reach it through `OBTS`
+     property 14 (`Clothes_Mei_Devine_NavyTan` `1F1DC9` against `_CreamBlue` `1F1DCE`).
+     `clone` copies an `LMSW` today; `set` cannot edit the paths.
