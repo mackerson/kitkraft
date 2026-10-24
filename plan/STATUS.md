@@ -2752,3 +2752,9 @@ Agents append here when they need a change in a crate they do not own.
      (`LMS_Clothes_Matteo_Hat`, `1991B1`). Clothing colourways reach it through `OBTS`
      property 14 (`Clothes_Mei_Devine_NavyTan` `1F1DC9` against `_CreamBlue` `1F1DCE`).
      `clone` copies an `LMSW` today; `set` cannot edit the paths.
+  8. Lane E (added 2026-10-23): validate packaged `.mat` files (JSON parses, object IDs
+     unique, references defined, textures present, no object ID defined by two plugins),
+     and resolve ARMA models to `.nif`, `.mat`, `.mesh` and textures in `inspect`.
+     Evidence and format notes: `docs/research/materials-lmsw-2026-10-23.md` (its `.mat`
+     facts come from installed mods' files; the owner has not ruled on that source
+     category).
