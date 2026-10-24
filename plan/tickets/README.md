@@ -54,14 +54,18 @@ exceptions, merged by hand.
 | [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | queued |
 | [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | queued |
 | [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | queued |
-| [KK-006](KK-006.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued |
+| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | queued |
 | [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | queued |
+| [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued after KK-006 |
 
-KK-002 and KK-004 both add a section to `docs/schema/support-matrix.md`. Merge one, then
-resolve the other by hand.
+KK-002 and KK-004 both add a section to `docs/schema/support-matrix.md`, and KK-004 and
+KK-006 both may add a row to `docs/gaps.md`. Merge one, then resolve the other by hand.
+Schema tickets read the pinned xEdit file at `/opt/xedit-ref` (`kk-setup` binds
+`<checkout>\..\tools\xedit-ref` when it exists).
 
-KK-006 and KK-007 are the read half of apparel request 7 and do not depend on each other
-(KK-007 reads `REFL` bytes whether or not `LMSW` has a definition). Writing an `LMSW` (`set`
+KK-007 and KK-008 are the read half of apparel request 7 and do not depend on each other
+(KK-007 reads `REFL` bytes whether or not `LMSW` has a definition). KK-008 shares schema
+and generated-code paths with KK-006 (ARMA), so queue it after KK-006 has merged. Writing an `LMSW` (`set`
 on its swap paths, or `new` from entries) is cut after KK-007 lands, on its decoder.
 
 Still to cut, from `docs/foothold/next-sprint.md`: the location and terminal recipes (item 2),

@@ -1,0 +1,64 @@
+id = "KK-008"
+title = "Inventory definition for LMSW, the layered material swap"
+timeout_min = 45
+owns = [
+  "crates/schema/defs/LMSW.toml",
+  "crates/schema/src/lib.rs",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/inventory_types.rs",
+  "docs/record-parity.md",
+]
+brief = """
+`LMSW` (layered material swap) has 17,410 records in the 14 official ESMs (12,919 in
+`Starfield.esm`) and no definition: `docs/record-parity.md` lists it with 9 subrecord
+signatures, all unknown. Clothing colourways use it: an ARMO's object template (`OBTS`)
+names an `LMSW` in property 14, and the `LMSW` maps one material path to another. The
+`everyday-outfits` mod needs KitKraft to read and later write these records. This ticket
+is the first step: an inventory definition, exactly like the fourteen of M4.BX2.
+
+Start from `crates/schema/defs/LAYR.toml` (an inventory definition: header comment,
+`source = "corpus: ..."`, every member the corpus shows, in corpus order) and
+`crates/schema/defs/README.md` ("Provenance", "Inventory definitions"). Then:
+
+1. Add `b"LMSW"` to `TYPES` in `crates/esm/tests/inventory_types.rs` (update the doc
+   comment's list and the array length). Run `cargo test -p kitkraft-esm --release --test
+   inventory_types -- --include-ignored --exact inventory_types_full --nocapture` before
+   writing the definition: it prints, for LMSW, every signature, how often it occurs, its
+   sizes and the subrecord orders. Those printed facts are your source.
+2. Write `crates/schema/defs/LMSW.toml`, `name = "LayeredMaterialSwap"`, from those facts.
+   `EDID` is the shared EditorID zstring (copy LAYR's EDID member and its evidence). Every
+   other payload is `type = "opaque"`, named after its signature, with a `note` giving the
+   observed sizes. In particular `REFL` (Bethesda's reflection data, the swap entries) stays
+   opaque here; a separate ticket decodes it. If the corpus shows component blocks
+   (`BFCB` .. `BFCE`), use `group_ref = "BfcbBlock"` as LAYR does. Cite the inventory run in
+   `source` with the date and the record count. Use only `corpus:` citations; do not read
+   any xEdit file for this ticket.
+3. Register the file: `crates/schema/src/lib.rs` (`BUILTIN_DEFINITIONS`, alphabetical) and
+   whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (it
+   prints the exact lines). Regenerate code with `cargo xtask codegen` and the golden seed as
+   the schema tests describe; never edit `crates/esm/src/generated/records.rs` by hand.
+4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
+   The LMSW row must show the definition's name and 0 unknown.
+
+Done: the inventory run prints `defined: true` for LMSW with no unplaced, failed or
+re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do not
+change the output of any command for any other record type.
+"""
+
+[[accept]]
+name = "lmsw-inventory"
+cmd = "cargo test -p kitkraft-esm --release --test inventory_types -- --include-ignored --exact inventory_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^== LMSW: 17410 records .*defined: true' /tmp/o"
+
+[[accept]]
+name = "schema-defs"
+cmd = "cargo test -p kitkraft-schema"
+
+[[accept]]
+name = "codegen-fresh"
+cmd = "cargo xtask codegen --check"
+
+[[accept]]
+name = "parity-row"
+cmd = "grep -Eq '^\\| `LMSW` +\\| LayeredMaterialSwap +\\| +17,410 .*\\| +0 \\|$' docs/record-parity.md"
