@@ -54,9 +54,15 @@ exceptions, merged by hand.
 | [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | queued |
 | [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | queued |
 | [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | queued |
+| [KK-006](KK-006.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued |
+| [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | queued |
 
 KK-002 and KK-004 both add a section to `docs/schema/support-matrix.md`. Merge one, then
 resolve the other by hand.
+
+KK-006 and KK-007 are the read half of apparel request 7 and do not depend on each other
+(KK-007 reads `REFL` bytes whether or not `LMSW` has a definition). Writing an `LMSW` (`set`
+on its swap paths, or `new` from entries) is cut after KK-007 lands, on its decoder.
 
 Still to cut, from `docs/foothold/next-sprint.md`: the location and terminal recipes (item 2),
 the Cell View's engine-facing tests (item 5). Window, CK-sitting and design-heavy work (M5.D1's

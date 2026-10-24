@@ -1,0 +1,88 @@
+id = "KK-007"
+title = "Decode REFL reflection data losslessly, and show LMSW swap entries in inspect"
+timeout_min = 45
+owns = [
+  "crates/doc/src/refl.rs",
+  "crates/doc/src/lib.rs",
+  "crates/doc/tests/refl_corpus.rs",
+  "crates/engine/src/handlers/inspect.rs",
+  "crates/engine/tests/refl_inspect.rs",
+]
+brief = """
+Several record types store a `REFL` subrecord: Bethesda's reflection serialization, kept
+opaque today (`crates/schema/defs/SUNP.toml`, `ARTO.toml`, `DOOR.toml`, `LIGH.toml`,
+`common/BfcbBlock.toml`). The one that matters now is `LMSW` (layered material swap,
+17,410 official records): its `REFL` maps a key material path to an override material path,
+and clothing colourways reach it through an ARMO's object template. Write a lossless `REFL`
+decoder, as `crates/doc/src/vmad.rs` does for `VMAD`, and show LMSW swap entries in
+`inspect --full`.
+
+Source rule: the layout comes from the official files only (`corpus:`). xEdit describes
+`REFL` in `wbDefinitionsReflection.pas`, which is not an authorized source; do not read it,
+or any other tool's source. Write what you find in the module docs, in your own words.
+
+What one record shows (`Starfield.esm:1991B1`, `LMS_Clothes_Matteo_Hat`, `REFL` 564 bytes;
+the `inspect` command with `full: true` prints its `payload_hex`). The payload is
+a run of chunks, each a 4-byte ASCII tag, a u32 little-endian size, then that many bytes:
+
+- `BETH` (8 bytes): two u32, here 4 and 11 (perhaps a version and the chunk count; check
+  against the corpus).
+- `STRT` (159 bytes): NUL-terminated names (`BGSLayeredMaterialSwap`, `Keywords`,
+  `Entries`, `SwapsCollection`, `BGSLayeredMaterialSwap::Entry`, `Key`,
+  `KeyMaterialPathForm`, `OverrideMaterialPath`, `BSBind::Snapshot`, `Properties`). Other
+  chunks name them by byte offset into this table.
+- `TYPE` (4 bytes): a u32, here 3, followed by that many `CLAS` chunks.
+- `CLAS`: a class: its name's `STRT` offset, then fields, each apparently a name offset
+  (u32), a type (u32; `0xFFFFFF03`-style values look like built-in types, small values like
+  `STRT` offsets of other classes), and two u16 (an offset and a size?).
+- `OBJT` (4 bytes), then `LIST` chunks: the data. In the second `LIST`, each path is a u16
+  length (counting the NUL), then the bytes and a NUL: `Clothes\\Outfit_Sanctum_Priest\\
+  Outfit_Sanctum_Priest_Hat.mat` and `Clothes\\Outfit_Sanctum_Priest\\
+  Outfit_Sanctum_Priest_Hat_Ajun.mat`.
+
+These are observations from one record, not a specification: confirm or correct each on
+the corpus.
+
+1. `crates/doc/src/refl.rs` (`pub mod refl;` in `lib.rs`): `decode(&[u8]) -> Result<Refl,
+   String>` into chunks (tag, payload) with the string table and classes parsed, and
+   `encode(&Refl) -> Vec<u8>` that reproduces the input byte for byte. Keep anything you
+   cannot interpret as raw bytes inside its chunk, so encoding is always lossless. Add
+   `lmsw_entries(&Refl) -> Result<Vec<SwapEntry>, String>` returning each entry's key and
+   override material path (and any other field the data shows) for `LMSW` payloads. No
+   `unsafe`, no panics on bad input (return `Err`), no new crate. Unit tests in the module
+   with a synthetic payload built in the test (not copied game bytes): decode, encode
+   identical, truncated input is an error.
+2. `crates/doc/tests/refl_corpus.rs`, ignored test `every_official_refl_decodes_and_reencodes`,
+   modelled on `crates/doc/tests/authoring_types.rs` for the data dir and on
+   `crates/engine/tests/vmad_corpus.rs` for the file list and statistics. Visit every `REFL`
+   in every record of the 14 official ESMs (compressed records decompressed). Print one line
+   per record type: `refl-corpus <TYPE>: <n> decoded, <m> identical, <e> entries`, where
+   `<e>` counts `lmsw_entries` results (0 for other types). Fail if any `LMSW` `REFL` fails
+   to decode, re-encodes differently, or yields no entry. Other types must decode and
+   re-encode too; if one cannot, print the FormID and reason and explain it in the module
+   docs rather than guessing a layout.
+3. `inspect --full`: for an `LMSW` record's `REFL`, add an `lmsw` object to the subrecord
+   entry with the decoded entries (`key`, `override`), next to how `vmad_json` is attached in
+   `crates/engine/src/handlers/inspect.rs`; on a decode error, `{"error": ...}`. Nothing else
+   in `inspect`'s output changes. Test it in `crates/engine/tests/refl_inspect.rs`, test
+   `inspect_full_shows_lmsw_swap_entries`: inspect `LMS_Clothes_Matteo_Hat` against the
+   Data folder (skip with a printed line when `KITKRAFT_DATA_DIR` is unset) and assert the
+   two paths above. Print `refl-inspect: ok` when it passes.
+
+The corpus test reads 2.5 GB; while you work run it alone in release:
+`cargo test -p kitkraft-doc --release --test refl_corpus -- --include-ignored --nocapture`.
+Then run `cargo xtask ci`. Writing `LMSW` (editing the paths) is a later ticket; do not add
+it here.
+"""
+
+[[accept]]
+name = "refl-unit"
+cmd = "cargo test -p kitkraft-doc --lib refl 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o"
+
+[[accept]]
+name = "refl-corpus"
+cmd = "cargo test -p kitkraft-doc --release --test refl_corpus -- --include-ignored --exact every_official_refl_decodes_and_reencodes --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^refl-corpus LMSW: 17410 decoded, 17410 identical, [1-9][0-9]* entries' /tmp/o"
+
+[[accept]]
+name = "refl-inspect"
+cmd = "cargo test -p kitkraft-engine --test refl_inspect -- --include-ignored --exact inspect_full_shows_lmsw_swap_entries --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q '^refl-inspect: ok' /tmp/o"
