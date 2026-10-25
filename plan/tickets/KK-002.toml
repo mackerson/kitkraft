@@ -1,5 +1,5 @@
 id = "KK-002"
-title = "Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD"
+title = "Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD (QUST and WRLD may be ignored with a reason)"
 timeout_min = 45
 base = "kk/KK-002-wip"
 owns = [
@@ -8,6 +8,14 @@ owns = [
   "docs/schema/support-matrix.md",
 ]
 brief = """
+**Third run (2026-10-25).** ACTI, KYWD and TMLM pass. Two types cannot pass inside this
+ticket, and that is expected: `new` refuses a WRLD (`new.not-top-level`: a worldspace roots
+exterior cells that cannot be written yet), and QUST's read-back fails on a slot misalignment
+in a layout without conditions, which is an engine fix outside your paths. Mark both tests
+`#[ignore = "<the reason>"]` as the rule below says (keep your comment on the QUST layout),
+leave QUST and WRLD out of the evidence and the support matrix, then add the ACTI, KYWD and
+TMLM evidence entries and matrix rows, and run the gate. Commit after each step.
+
 **Second run (2026-10-24).** The branch starts from the first run's work (the last commit,
 `WIP KK-002`): all ten tests are written in `authoring_tests.rs`. The ACTI, KYWD and TMLM
 read-back and dangling tests pass. `qust_new_sets_every_typed_member_and_reads_back` panics
@@ -72,14 +80,15 @@ cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests:
 name = "tmlm"
 cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::tmlm_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
 
+# QUST and WRLD: the test exists and either passes or is #[ignore = "<reason>"]d (the brief's rule)
 [[accept]]
 name = "qust"
-cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::qust_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::qust_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
 
 [[accept]]
 name = "wrld"
-cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::wrld_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::wrld_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
 
 [[accept]]
 name = "dangling-and-evidence"
-cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; miss=sorted({'ACTI','KYWD','TMLM','QUST','WRLD'}-got); print('missing typed-writable evidence:', miss); sys.exit(1 if miss else 0)\""
+cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; miss=sorted({'ACTI','KYWD','TMLM'}-got); print('missing typed-writable evidence:', miss); sys.exit(1 if miss else 0)\""

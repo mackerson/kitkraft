@@ -62,7 +62,7 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | Ticket | Title | Source | State |
 | ------ | ----- | ------ | ----- |
 | [KK-001](KK-001.toml) | The gate passes on Linux | the 2026-10-23 trial: 20 tests assume Windows | merged `34e4a55` |
-| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 (2026-10-25) failed to start (harness bug); requeued from `kk/KK-002-wip` |
+| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 (2026-10-25) failed to start (harness bug); run 3: 4/8 again, because the acceptance demanded QUST and WRLD pass while the brief allowed ignoring them. Acceptance fixed; continues from `kk/KK-002-wip`. Follow-ups to cut: QUST's slot misalignment (engine), `new` for WRLD |
 | [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | merged `472871e` |
 | [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | merged `1f0940c` |
 | [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | merged `f4acf8e` |
