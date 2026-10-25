@@ -562,6 +562,27 @@ fn qust_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+#[test]
+fn qust_probe_subrecord_sequence() {
+    let d = dir("authoring-qust-probe");
+    let p = plan(
+        "QUST",
+        "PlanetContentProperties",
+        "BGSPlanetContentManagerContentProperties_Component",
+    );
+    let r = new_record(&d, "QUST", "KC_ProbeQUST", &p.fields);
+    assert_eq!(r["data"]["validate"]["passed"], json!(true));
+    let bytes = std::fs::read(d.join("New.esp")).unwrap();
+    let plugin = Plugin::parse(&bytes).unwrap();
+    let record = find_record(plugin.entries(), "QUST").unwrap();
+    let subs = record.subrecords().unwrap();
+    eprintln!("plan CTDA keys: {} planned paths", p.paths.len());
+    for (i, s) in subs.iter().enumerate() {
+        eprintln!("{i:2} {}", String::from_utf8_lossy(&s.signature().0));
+    }
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 // `new` refuses a WRLD (newform.rs `new_refused`; asserted by
 // `a_new_exterior_cell_is_refused`): a worldspace roots a world, and a new world's
 // exterior grid and cells are not written yet, so no `new`/`set`/`build` path creates one;
