@@ -9,10 +9,10 @@
 //! - `kitkraft-test.txt`, a console batch file: for each new placed reference, `coc` to its
 //!   interior cell (by the cell's EditorID), `player.moveto` and `prid` on the reference's
 //!   EditorID when it has one (no load-order slot involved; the POI investigation of
-//!   2026-10-15), else on its runtime ID; for each new item, `player.additem`, and for a
-//!   new or overridden `ARMO` a following `player.equipitem` (the outfit must be worn, not
-//!   only owned); for each override of a placed reference, `coc` and `prid`. Runtime IDs
-//!   come from the load order
+//!   2026-10-15), else on its runtime ID; for each new item and each new or overridden
+//!   `ARMO`, `player.additem`, followed for an `ARMO` by `player.equipitem` (the outfit must
+//!   be worn, not only owned); for each override of a placed reference, `coc` and `prid`.
+//!   Runtime IDs come from the load order
 //!   (lane D's `LoadOrder::runtime_id`): confirmed when `load --from-save` adopted a save's
 //!   slots and the plugin is in that load order, else predicted by `runtime-slots-by-scale`
 //!   (and, for a plugin appended to the given load order after the last master-flagged

@@ -2820,5 +2820,5 @@ Agents append here when they need a change in a crate they do not own.
   step is still exactly one probe; other record types, the persistence and report
   sections, and the runtime ID logic are unchanged (the override's runtime ID resolves
   to the base owner's slot). Two tests in `testplan_tests.rs`; all existing `testplan`
-  and `modrun` tests pass unchanged. Authored by the local Qwen agent; reviewed by
-  Claude (the condition parenthesised per the review).
+  and `modrun` tests pass unchanged. Authored by the local Qwen agent (5/5, Opus QA
+  ACCEPT); the module docs corrected, and Windows-gated by Claude.
