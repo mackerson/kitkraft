@@ -2808,3 +2808,17 @@ Agents append here when they need a change in a crate they do not own.
   read the 2.5 GB of plugins). Authored by the local Qwen agent; its `.scratch/` survey files
   dropped, the corpus test made to fail on any `REFL` and pin the `LMSW` counts, and
   Windows-gated by Claude.
+- **KK-010 landed (2026-10-25, local-agent ticket):** `testplan` treats a new or
+  overridden `ARMO` as an outfit, not just an item: the batch gains
+  `player.equipitem <runtime>` after `player.additem <runtime> 1`; the checklist gains
+  the "equip it" (the player wears it; the slots it fills are free of other items) and
+  "look at it" (third person, `tfc` free camera, a screenshot into `observe\`) steps;
+  and `probes.toml` gains the matching rows — an equip probe checking
+  `player.getequipped <runtime>` against `ONE` (answer format grade D) and a `manual`
+  look row ("the outfit's look needs a screenshot and a person"). An override gets the
+  same three steps by its runtime ID instead of the generic `help` step. Each checklist
+  step is still exactly one probe; other record types, the persistence and report
+  sections, and the runtime ID logic are unchanged (the override's runtime ID resolves
+  to the base owner's slot). Two tests in `testplan_tests.rs`; all existing `testplan`
+  and `modrun` tests pass unchanged. Authored by the local Qwen agent; reviewed by
+  Claude (the condition parenthesised per the review).
