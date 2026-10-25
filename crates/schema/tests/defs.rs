@@ -8,7 +8,8 @@ use std::path::Path;
 
 use kitkraft_schema::{
     builtin, load_dir, Cardinality, CommonBody, Confidence, FieldDef, FieldType, Member,
-    Provenance, Signature, BUILTIN_DEFINITIONS, COMMON_DIR, FORBIDDEN_UESP_STARFIELD_PAGES,
+    Provenance, RecordDef, Scalar, Signature, BUILTIN_DEFINITIONS, COMMON_DIR,
+    FORBIDDEN_UESP_STARFIELD_PAGES,
 };
 
 fn defs_dir() -> &'static Path {
@@ -147,15 +148,15 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(
         sigs,
         [
-            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "ANIO", "ARMO", "ARTO", "AVIF", "BIOM",
-            "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "COBJ", "CONT", "CPTH", "DIAL", "DMGT", "DOOR",
-            "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST", "GPOF",
-            "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES", "KEYM", "KYWD", "LAYR", "LCRT", "LCTN",
-            "LIGH", "LSCR", "LVLI", "LVLN", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NAVM", "NPC_",
-            "OMOD", "OTFT", "PACK", "PCBN", "PCCN", "PCMT", "PERK", "PGRE", "PHZD", "PKIN", "PMFT",
-            "PNDT", "PROJ", "QUST", "RACE", "REFR", "RFGP", "RSGD", "RSPJ", "SCEN", "SFBK", "SFPT",
-            "SMBN", "SMEN", "SMQN", "SOUN", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4", "TMLM",
-            "TRAV", "TXST", "WATR", "WEAP", "WKMF", "WRLD", "WWED", "ZOOM"
+            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "ANIO", "ARMA", "ARMO", "ARTO", "AVIF",
+            "BIOM", "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "COBJ", "CONT", "CPTH", "DIAL", "DMGT",
+            "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST",
+            "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES", "KEYM", "KYWD", "LAYR", "LCRT",
+            "LCTN", "LIGH", "LSCR", "LVLI", "LVLN", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NAVM",
+            "NPC_", "OMOD", "OTFT", "PACK", "PCBN", "PCCN", "PCMT", "PERK", "PGRE", "PHZD", "PKIN",
+            "PMFT", "PNDT", "PROJ", "QUST", "RACE", "REFR", "RFGP", "RSGD", "RSPJ", "SCEN", "SFBK",
+            "SFPT", "SMBN", "SMEN", "SMQN", "SOUN", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4",
+            "TMLM", "TRAV", "TXST", "WATR", "WEAP", "WKMF", "WRLD", "WWED", "ZOOM"
         ]
     );
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
@@ -167,6 +168,7 @@ fn builtin_set_loads_and_matches_the_directory() {
             "AttackData",
             "BfcbBlock",
             "BiomeNoiseLayer",
+            "BipedSlots",
             "Bool8",
             "ColorBgra",
             "ColorRgb",
@@ -203,6 +205,48 @@ fn builtin_set_loads_and_matches_the_directory() {
             "Vec3"
         ]
     );
+}
+
+/// The BO64 subrecord of the armor records is a `u64` of the first-person biped slots, and
+/// the shared `BipedSlots` definition names the slots the owner's clothing mod relies on
+/// (the bit index is the slot's position in the xEdit list).
+#[test]
+fn biped_slot_bits_are_named() {
+    let schema = builtin().unwrap();
+    for name in ["ARMO", "ARMA"] {
+        let record = schema.record(sig(name)).unwrap();
+        let FieldType::Flags { base, bits } = bo64_type(record) else {
+            panic!("{name} BO64 is not a flags member")
+        };
+        assert_eq!(*base, Scalar::U64, "{name} BO64 base");
+        for (wanted, value) in [
+            ("HideHair", 1),
+            ("Body", 1i128 << 3),
+            ("Hat", 1i128 << 4),
+            ("SsBody", 1i128 << 35),
+        ] {
+            assert!(
+                bits.iter().any(|b| b.name == wanted && b.value == value),
+                "{name} BO64: bit {value} is not named {wanted}"
+            );
+        }
+    }
+}
+
+/// The record's `BO64` member type, following its shared-type reference.
+fn bo64_type(record: &RecordDef) -> &FieldType {
+    let ty = record
+        .members
+        .iter()
+        .find_map(|m| match m {
+            Member::Subrecord(s) if s.signature == sig("BO64") => Some(&s.ty),
+            _ => None,
+        })
+        .unwrap();
+    match ty {
+        FieldType::Ref { ty, .. } => ty.as_ref(),
+        other => other,
+    }
 }
 
 /// `BUILTIN_DEFINITIONS` has one marked region a tool may regenerate, holding every entry.

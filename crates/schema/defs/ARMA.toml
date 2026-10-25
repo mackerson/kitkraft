@@ -1,0 +1,527 @@
+# ARMA: Armor Addon, the per-gender model layer an armor (ARMO) lists by index in its
+# Addon group. It carries the first-person biped slot bits (BO64), the race, the biped
+# and first-person models for both genders, the skin textures and morphs, the body-part
+# and bone data, and the AVM animation data.
+#
+# Sources (ADR 0005 Amendment 2):
+#   xedit: wbDefinitionsSF1.pas@9fb01688 L9619-L9704 - member order, the record flags,
+#     EDID (L9628), BO64 (L2543-L2549, a u64 of biped slots; the bit names, transcribed
+#     from L2474-L2541, live in the shared BipedSlots definition), RNAM (L9632), DNAM
+#     (L9633-L9641), the two model blocks (L9642-L9651), MOD6/MOD7 (L9653-L9654), the
+#     skin textures and morphs (L9656-L9664), the additional-race list (L9666), SNDD
+#     (L9667), ONAM (L9668), PNAM (L9669), the AVM data block (L9670-L9699, the group
+#     type enum L7031-L7037) and the bone data block (L9700-L9703). Helpers: script data
+#     (L3407-L3411, kept opaque), the base form component block (L5984-L6832, kept raw),
+#     the textured model (wbDefinitionsCommon.pas L9512-L9544, its members unordered),
+#     the MOLM-style swap list (L7000-L7006), the colour remapping index (L3812-L3816),
+#     the model flags (L3801-L3810), the sex enum (wbDefinitionsCommon.pas L8174-L8183).
+#     Upstream ignores FLLD and XFLG in this record (L9704).
+#
+# The 14 official ESMs hold 1,238 ARMA records; the apparel_types scan in
+# crates/esm/tests/apparel_types.rs checks this definition against them: every
+# subrecord is placed, every placed subrecord decodes, and the re-encoding
+# reproduces every record. Each record carries six FLLD light layers (7,428 in
+# total, one per model slot, all 4 bytes), and 380 XFLG model flags occur, each
+# directly after a model's FLLD (all 1 byte).
+signature = "ARMA"
+name = "ArmorAddon"
+source = "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9619-L9704"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2474-L2549",
+]
+confidence = "reference"
+flags = [
+  ["NoUnderarmorScaling", 0x40],
+  ["IsSkin", 0x80],
+  ["IsSkinHands", 0x100],
+  ["NoModel", 0x400],
+  ["HiRes1stPersonOnly", 0x40000000],
+]
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+  "corpus: universal subrecord scan 2026-10-14: all 265,346 EDID payloads in the 14 official ESMs end in their only NUL and are printable ASCII",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "VMAD"
+name = "Scripts"
+type = "opaque"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3407-L3411"]
+note = "script data; its property values are unions by property type, kept raw"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L5984-L6832"]
+note = "base form components"
+
+[[member]]
+sig = "BO64"
+name = "BipedSlots"
+type = "ref:BipedSlots"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L2543-L2549"]
+note = "first-person biped slot bits (64); the named bits live in defs/common/BipedSlots.toml"
+
+[[member]]
+sig = "RNAM"
+name = "Race"
+type = "formid"
+targets = ["RACE"]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9632-L9632"]
+
+[[member]]
+sig = "DNAM"
+name = "Data"
+type = "struct"
+size = 13
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9633-L9641"]
+field = [
+  { name = "WeaponAdjust", type = "f32" },
+  { name = "MalePriority", type = "u8" },
+  { name = "FemalePriority", type = "u8" },
+  { name = "Unknown1", type = "u8" },
+  { name = "Unknown2", type = "u8" },
+  { name = "DetectionSoundValue", type = "u8" },
+  { name = "HealthBarOffset", type = "f32" },
+]
+
+[[member]]
+group = "MaleBipedModel"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+note = "upstream accepts these in any order; listed in the order upstream lists them"
+
+[[member.member]]
+sig = "MOD2"
+name = "FileName"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+
+[[member.member]]
+sig = "MLM1"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "MO2C"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3813-L3813"]
+confidence = "reference"
+note = "not present in the official ARMA records; its position relative to FLLD is not attested"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "corpus: FLLD in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 7,428 occurrences, six per record, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "corpus: XFLG in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 380 occurrences, all 1 byte, each directly after a model's FLLD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MO2F"
+name = "ModelFlags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3810"]
+
+[[member]]
+group = "FemaleBipedModel"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+note = "upstream accepts these in any order; listed in the order upstream lists them"
+
+[[member.member]]
+sig = "MOD3"
+name = "FileName"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+
+[[member.member]]
+sig = "MLM2"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "MO3C"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3814-L3814"]
+confidence = "reference"
+note = "not present in the official ARMA records; its position relative to FLLD is not attested"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "corpus: FLLD in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 7,428 occurrences, six per record, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "corpus: XFLG in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 380 occurrences, all 1 byte, each directly after a model's FLLD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MO3F"
+name = "ModelFlags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3810"]
+
+[[member]]
+group = "MaleFirstPerson"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+note = "upstream accepts these in any order; listed in the order upstream lists them"
+
+[[member.member]]
+sig = "MOD4"
+name = "FileName"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+
+[[member.member]]
+sig = "MLM3"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "MO4C"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3815-L3815"]
+confidence = "reference"
+note = "not present in the official ARMA records; its position relative to FLLD is not attested"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "corpus: FLLD in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 7,428 occurrences, six per record, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "corpus: XFLG in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 380 occurrences, all 1 byte, each directly after a model's FLLD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MO4F"
+name = "ModelFlags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3810"]
+
+[[member]]
+group = "FemaleFirstPerson"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+note = "upstream accepts these in any order; listed in the order upstream lists them"
+
+[[member.member]]
+sig = "MOD5"
+name = "FileName"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9512-L9544"]
+
+[[member.member]]
+sig = "MLM4"
+name = "MaterialSwaps"
+type = "struct"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7000-L7006"]
+field = [
+  { name = "Count", type = "u16" },
+  { name = "Swaps", type = "array", element = "formid", targets = ["LMSW"], count_from = "Count" },
+]
+
+[[member.member]]
+sig = "MO5C"
+name = "ColorRemappingIndex"
+type = "f32"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3816-L3816"]
+confidence = "reference"
+note = "not present in the official ARMA records; its position relative to FLLD is not attested"
+
+[[member.member]]
+sig = "FLLD"
+name = "LightLayer"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+source = "corpus: FLLD in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 7,428 occurrences, six per record, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "XFLG"
+name = "Flags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+source = "corpus: XFLG in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 380 occurrences, all 1 byte, each directly after a model's FLLD"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3804"]
+confidence = "corpus"
+
+[[member.member]]
+sig = "MO5F"
+name = "ModelFlags"
+type = "flags"
+base = "u8"
+bits = [["HasFaceBonesModel", 0x1], ["SupportModelOnlySwap", 0x2]]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3801-L3810"]
+
+[[member]]
+sig = "MOD6"
+name = "MaleAltSkeleton"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9653-L9653"]
+
+[[member]]
+sig = "MOD7"
+name = "FemaleAltSkeleton"
+type = "zstring"
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9654-L9654"]
+note = "not present in the official ARMA records"
+
+[[member]]
+sig = "FLLD"
+name = "LightLayers"
+type = "flags"
+base = "u32"
+bits = [["DefaultLightLayer", 0x1], ["HelmetLight", 0x2], ["ShipInterior", 0x4], ["ShipExterior", 0x8]]
+card = "repeated"
+source = "corpus: FLLD in the ARMA records of the 14 official ESMs, 2026-10-25 scan: 7,428 occurrences, six per record, all 4 bytes"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3818-L3823"]
+confidence = "corpus"
+note = "the light layers of the two alternate-skeleton model slots; each model slot carries exactly one FLLD"
+
+[[member]]
+sig = "NAM0"
+name = "MaleSkinTexture"
+type = "formid"
+targets = ["TXST"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9656-L9656"]
+
+[[member]]
+sig = "NAM1"
+name = "FemaleSkinTexture"
+type = "formid"
+targets = ["TXST"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9657-L9657"]
+
+[[member]]
+sig = "NAM2"
+name = "MaleSkinTextureSwapList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9658-L9658"]
+
+[[member]]
+sig = "NAM3"
+name = "FemaleSkinTextureSwapList"
+type = "formid"
+targets = ["FLST"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9659-L9659"]
+
+[[member]]
+sig = "NAM4"
+name = "MaleWorldMorph"
+type = "formid"
+targets = ["MRPH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9661-L9661"]
+
+[[member]]
+sig = "NAM5"
+name = "MaleFirstPersonMorph"
+type = "formid"
+targets = ["MRPH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9662-L9662"]
+
+[[member]]
+sig = "NAM6"
+name = "FemaleWorldMorph"
+type = "formid"
+targets = ["MRPH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9663-L9663"]
+
+[[member]]
+sig = "NAM7"
+name = "FemaleFirstPersonMorph"
+type = "formid"
+targets = ["MRPH"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9664-L9664"]
+
+[[member]]
+sig = "MODL"
+name = "AdditionalRaces"
+type = "array"
+element = "formid"
+targets = ["RACE"]
+count = "rest"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9666-L9666"]
+note = "the race list is spread over consecutive MODL subrecords (up to three in the official ESMs)"
+
+[[member]]
+sig = "SNDD"
+name = "FootstepSound"
+type = "formid"
+targets = ["FSTS"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9667-L9667"]
+
+[[member]]
+sig = "ONAM"
+name = "ArtObject"
+type = "formid"
+targets = ["ARTO"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9668-L9668"]
+
+[[member]]
+sig = "PNAM"
+name = "BodyPartData"
+type = "formid"
+targets = ["BPTD"]
+card = "optional"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9669-L9669"]
+
+[[member]]
+group = "AvmData"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9670-L9699"]
+note = "an AVM animation entry per block"
+
+[[member.member]]
+sig = "MNAM"
+name = "GroupType"
+type = "enum"
+base = "u32"
+values = [["None", 0], ["Simple", 1], ["Complex", 2], ["Modulation", 3]]
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L7031-L7037"]
+
+[[member.member]]
+sig = "TNAM"
+name = "EntryType"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "SNAM"
+name = "EntrySubType"
+type = "zstring"
+card = "optional"
+
+[[member.member]]
+sig = "VNAM"
+name = "EntryValue"
+type = "zstring"
+card = "optional"
+
+[[member]]
+group = "BoneData"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9700-L9703"]
+
+[[member.member]]
+sig = "BSMP"
+name = "Gender"
+type = "enum"
+base = "u32"
+values = [["Male", 0], ["Female", 1]]
+evidence = ["xedit: wbDefinitionsCommon.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L8174-L8183"]
+
+[[member.member]]
+sig = "BNAM"
+name = "Modifiers"
+type = "array"
+element = "formid"
+targets = ["BMOD"]
+count = "rest"
+card = "repeated"
+evidence = ["xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L9701-L9702"]
+note = "the modifier list is spread over consecutive BNAM subrecords (up to 26 in the official ESMs)"

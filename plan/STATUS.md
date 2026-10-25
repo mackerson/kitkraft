@@ -2761,3 +2761,4 @@ Agents append here when they need a change in a crate they do not own.
      Evidence and format notes: `docs/research/materials-lmsw-2026-10-23.md` (its `.mat`
      facts come from installed mods' files; the owner has not ruled on that source
      category).
+- Landed 2026-10-25: KK-006 ARMA typed, BO64 biped slots named via shared BipedSlots, apparel corpus tests green over all 14 ESMs

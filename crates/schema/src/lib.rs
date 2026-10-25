@@ -54,6 +54,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("AMDL.toml", include_str!("../defs/AMDL.toml")),
     ("AMMO.toml", include_str!("../defs/AMMO.toml")),
     ("ANIO.toml", include_str!("../defs/ANIO.toml")),
+    ("ARMA.toml", include_str!("../defs/ARMA.toml")),
     ("ARMO.toml", include_str!("../defs/ARMO.toml")),
     ("ARTO.toml", include_str!("../defs/ARTO.toml")),
     ("AVIF.toml", include_str!("../defs/AVIF.toml")),
@@ -156,6 +157,10 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     (
         "common/BiomeNoiseLayer.toml",
         include_str!("../defs/common/BiomeNoiseLayer.toml"),
+    ),
+    (
+        "common/BipedSlots.toml",
+        include_str!("../defs/common/BipedSlots.toml"),
     ),
     (
         "common/Bool8.toml",
