@@ -146,6 +146,12 @@ pub const RULES: &[RuleInfo] = &[
         summary: "A reference in temporary children that another record of the plugin names (a quest alias, a location, a script property, a door link): expected persistent (grade D)",
     },
     RuleInfo {
+        id: "location.added-ref-temporary",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "An LCTN ACPR (added persistent refs) entry that names a reference of the plugin in temporary children (group type 9): expected to be persistent (grade D); entries naming a master's reference are counted as a limitation",
+    },
+    RuleInfo {
         id: "cell.actor-without-navmesh",
         severity: Severity::Warning,
         input: Input::Plugin,

@@ -5,8 +5,8 @@
 //! hypothesis until the game is observed. Rules and sources: `docs/validate.md`.
 //!
 //! The walk calls [`on_group`] for every group (with the groups above it), [`on_record`]
-//! for every record of a cell child type, a `CELL` or anything that names a reference, and
-//! [`finish`] once the plugin is read.
+//! for every record of a cell child type, a `CELL`, an `LCTN`, or anything that names a
+//! reference, and [`finish`] once the plugin is read.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::fs::File;
@@ -26,7 +26,7 @@ use super::{Finding, Pass, Severity};
 const DELETED: u32 = 0x0000_0020;
 
 /// The cell rules, by id (the registry has their summaries).
-pub const RULES: [&str; 8] = [
+pub const RULES: [&str; 9] = [
     "cell.missing-parent",
     "ref.orphan",
     "ref.outside-block",
@@ -35,6 +35,7 @@ pub const RULES: [&str; 8] = [
     "cell.actor-without-navmesh",
     "cell.incc",
     "navmesh.unchanged",
+    "location.added-ref-temporary",
 ];
 
 /// What the walk collects for the rules that need the whole plugin.
@@ -62,6 +63,10 @@ pub(super) struct Facts {
     actors: BTreeMap<u32, String>,
     /// Cells with a `NAVM` in this plugin.
     navmeshed: HashSet<u32>,
+    /// `ACPR` (added persistent refs) entries of `LCTN`s, for
+    /// `location.added-ref-temporary`: (location `SIG:FORMID`, entry index, the entry's
+    /// `Ref`, the offset of the entry in the file, when it can be told).
+    added: Vec<(String, usize, u32, Option<u64>)>,
 }
 
 impl Facts {
@@ -212,6 +217,12 @@ pub(super) fn on_record(
     let persistent = r.header.flags & FLAG_PERSISTENT != 0;
     if sig == Signature(*b"CELL") {
         cell_record(pass, path, r, subs, id, findings);
+        return;
+    }
+    // location.added-ref-temporary: the ACPR entries are collected now; whether they name
+    // a temporary reference is decided in finish, when the walk has seen every cell child.
+    if sig == Signature(*b"LCTN") {
+        added_refs(pass, subs, at, id);
         return;
     }
     if !CELL_CHILD_TYPES.contains(&sig) {
@@ -567,8 +578,39 @@ pub(super) fn named_by(pass: &mut Pass<'_>, id: &str, sig: Signature, path: &str
         .or_insert_with(|| (id.to_string(), path.to_string()));
 }
 
-/// The rules that need the whole plugin: `ref.persistence`, `cell.actor-without-navmesh`,
-/// `cell.incc`.
+/// The `ACPR` (added persistent refs) entries of a location, for
+/// `location.added-ref-temporary`: each is 16 bytes (`Ref`, `WorldOrCell`, `GridY`,
+/// `GridX`, 4 bytes); an entry that names no reference (`Ref` 0, "or none") is not
+/// collected. A payload that does not decode is already `layout.undecoded`; its
+/// undecodable tail is skipped here.
+fn added_refs(pass: &mut Pass<'_>, subs: &[Subrecord<'_>], at: Option<u64>, id: &str) {
+    if !pass.on("location.added-ref-temporary") {
+        return;
+    }
+    for s in subs.iter().filter(|s| s.signature() == Signature(*b"ACPR")) {
+        let base = s.data_offset().or(at);
+        for (index, entry) in s.data().as_chunks::<16>().0.iter().enumerate() {
+            let Some(bytes) = entry.get(0..4) else {
+                continue;
+            };
+            let Some(raw) = <[u8; 4]>::try_from(bytes).ok().map(u32::from_le_bytes) else {
+                continue;
+            };
+            if raw == 0 {
+                continue;
+            }
+            let offset = base.and_then(|b| {
+                let i = u64::try_from(index).ok()?;
+                let o = i.checked_mul(16)?;
+                b.checked_add(o)
+            });
+            pass.cells.added.push((id.to_string(), index, raw, offset));
+        }
+    }
+}
+
+/// The rules that need the whole plugin: `ref.persistence`, `location.added-ref-temporary`,
+/// `cell.actor-without-navmesh`, `cell.incc`.
 pub(super) fn finish(
     pass: &Pass<'_>,
     plugin: &Path,
@@ -594,6 +636,41 @@ pub(super) fn finish(
                 format!(
                     "{by} names this reference ({member}), but it is in temporary children: a reference another record names is expected to be persistent (grade D: unverified in game until M4.O2; docs/design/persistence.md)"
                 ),
+            ));
+        }
+    }
+    if pass.on("location.added-ref-temporary") {
+        // M5.D2: an added persistent reference that this plugin holds in temporary
+        // children (group type 9) is expected to be persistent. Only references the
+        // plugin holds are checked, as in ref.persistence; an entry naming a master's
+        // reference is counted, the masters are not read.
+        let mut master_named = 0usize;
+        for (loc, index, raw, offset) in &pass.cells.added {
+            let Target::Form { owner, .. } = pass.space.resolve(*raw) else {
+                continue; // Null, beyond the load order, or unresolvable: no master reference.
+            };
+            if !owner.eq_ignore_ascii_case(&pass.name) {
+                master_named = master_named.saturating_add(1);
+                continue;
+            }
+            let Some(rid) = pass.cells.temporary.get(raw) else {
+                continue; // Not held in temporary children (or not held at all).
+            };
+            findings.push(finding(
+                pass,
+                "location.added-ref-temporary",
+                Severity::Warning,
+                Some(loc.clone()),
+                Some("ACPR".into()),
+                *offset,
+                format!(
+                    "ACPR entry {index} names {rid}, which is in this plugin's temporary children (group type 9): an added persistent reference is expected to be persistent (grade D: unverified in game until a CK fixture confirms it; docs/design/persistence.md)"
+                ),
+            ));
+        }
+        if master_named > 0 {
+            limitations.push(format!(
+                "location.added-ref-temporary: {master_named} ACPR entries name master references; their persistence is not checked"
             ));
         }
     }
