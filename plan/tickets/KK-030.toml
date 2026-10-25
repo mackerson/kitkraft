@@ -1,0 +1,94 @@
+id = "KK-030"
+title = "Engine test support: game-session fakes that front ends can drive"
+timeout_min = 45
+owns = [
+  "crates/engine/src/testing.rs",
+  "crates/engine/src/lib.rs",
+  "crates/engine/src/handlers/game/mod.rs",
+  "crates/engine/src/handlers/game/tests.rs",
+  "docs/game-sessions.md",
+]
+brief = """
+The engine runs agent-driven game sessions through four catalog commands, `game.session`
+(with `start: true` it returns a session id at once), `game.status`, `game.probe` and
+`game.stop` (`crates/engine/src/handlers/game/mod.rs`, module docs first). They are tested
+only inside the engine, against a fake `/console` HTTP endpoint and a fake process host
+from `kitkraft_game::testing` (`crates/game/src/testing.rs`: `FakeConsole`, `FakeHost`,
+`mo2_fixture`, `Fixture`, `FIXTURE_SAVE`). The engine finds the fake host through a
+session slot, `GameHost` (`handlers/game/mod.rs`, `fn host`); see how
+`crates/engine/src/handlers/game/tests.rs` builds one (`fn engine`, `fn console`,
+`fn probes_file`, `fn game_file`, `fn args`, `fn fixture`).
+
+The workbench (`crates/ui-egui`) and the MCP server (`crates/mcp`) must test their game
+buttons and tools against the same fakes, but they may depend on `kitkraft-engine` alone
+(xtask `INTERNAL_ONLY`; `ui-egui` cannot name `kitkraft-game`). Give them a way in: a new
+public module `kitkraft_engine::testing` (`crates/engine/src/testing.rs`, `pub mod
+testing;` in `crates/engine/src/lib.rs`, with module docs saying it is for front ends'
+tests and that nothing in the catalog reaches it).
+
+What it holds:
+
+- `pub struct GameFakes`: a fixture MO2 instance (`mo2_fixture` under
+  `std::env::temp_dir()`, one folder per `tag` and process id), a `FakeConsole` (answers as
+  in `tests.rs` `fn console`), an `Arc<FakeHost>` (running `explorer.exe`; a launch starts
+  `ModOrganizer.exe`, `sfse_loader.exe`, `Starfield.exe`), a probes file and a game-profile
+  file written as `tests.rs` writes them (`probes_file`, `game_file`: the evidence fields
+  filled, the fake endpoint's URL, short timeouts, logs inside the fixture). The probes file
+  has the two rows of `tests.rs` (`T-01`, a `contains` match; `T-02`, a `getpos` number with
+  `screenshot: true`) plus a third: `T-03`, a manual row (`matcher: Some("manual")`, a
+  `reason`, `screenshot: true`, no steps), which the controller reports `inconclusive`
+  with its screenshot.
+- `GameFakes::new(tag: &str) -> Result<GameFakes, String>`: no panics (library code;
+  AGENTS.md "Never panic"), every error as a string.
+- `GameFakes::install(&self, engine: &Engine)`: puts the fake host in the engine's session
+  (`engine.with_session(|s| s.insert(..))`).
+- `GameFakes::session_args(&self, extra: Value) -> Value`: what `tests.rs` `fn args`
+  builds (`mo2`, `probes`, `game`, `profile: "KitKraft Dev"`, `base_save_sha256`,
+  `observe`, `ledger`) with `extra`'s members merged in.
+- Accessors `root()`, `instance()`, `observe()`, `ledger()` (paths), and `launched()`
+  (how many launches the fake host saw).
+- `impl Drop for GameFakes`: removes its folder, ignoring errors.
+
+`GameHost` is declared in `handlers/game/mod.rs`, and `crates/engine/src/handlers.rs`
+declares `mod game;` privately, so `testing.rs` cannot name it there. Do not edit
+`handlers.rs` (another lane's file). Move the `GameHost` struct into `testing.rs`
+(`pub(crate)`), and in `handlers/game/mod.rs` replace the definition with `pub(crate) use
+crate::testing::GameHost;`, so `fn host` and `tests.rs` (`use super::GameHost;`) work
+unchanged. Leave `tests.rs`'s own helpers as they are.
+
+Tests in `testing.rs`, `mod tests`, with these exact names:
+- `fakes_run_a_started_session_through_the_catalog`: a fresh `Engine::with_default_handlers()`,
+  `install`, then `game.session` with `session_args(json!({"start": true}))` returns
+  `data.session`; poll `game.status` (sleep 25 ms between polls, give up after about 400)
+  until `data.phase` is `"idle"`; assert three rows, `T-01` and `T-02` `pass`, `T-03`
+  `inconclusive`, and at least one screenshot whose `path` is a file; then `game.stop`
+  returns a `data.report` with a `ledger_entry`, and `launched()` is 1.
+- `fakes_refuse_the_live_profile_and_clean_up`: `session_args(json!({"profile":
+  "Default", "dry_run": true}))` gives a dry run whose `would_start` is false and whose
+  `refusals` hold one with `rule` `"live-profile"` (as `tests.rs`
+  `every_preflight_refusal_names_its_rule_and_writes_nothing` checks); the same without
+  `dry_run` is an error containing `refused [live-profile]`; after the `GameFakes` is
+  dropped its `root()` no longer exists.
+
+Add one paragraph to `docs/game-sessions.md` naming `kitkraft_engine::testing::GameFakes`
+as the way front ends test against the fakes. Run `cargo test -p kitkraft-engine --lib
+game` and `cargo test -p kitkraft-engine --lib testing`, then `cargo xtask ci`. No new
+dependency (`Cargo.lock` is not yours): `kitkraft-game`, `serde_json` and `toml` are
+already the engine's. Commit when the first test passes, then again at the end.
+"""
+
+[[accept]]
+name = "started-session"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact testing::tests::fakes_run_a_started_session_through_the_catalog 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "live-profile-and-cleanup"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact testing::tests::fakes_refuse_the_live_profile_and_clean_up 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "public-module"
+cmd = "grep -q '^pub mod testing;' crates/engine/src/lib.rs"
+
+[[accept]]
+name = "documented"
+cmd = "grep -q 'GameFakes' docs/game-sessions.md"

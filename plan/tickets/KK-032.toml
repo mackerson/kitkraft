@@ -1,0 +1,101 @@
+id = "KK-032"
+title = "The Cockpit launches a game session and follows it by polling game.status"
+timeout_min = 60
+after = ["KK-031"]
+owns = [
+  "crates/ui-egui/src/panels/cockpit.rs",
+  "crates/ui-egui/src/panels/cockpit/",
+  "crates/ui-egui/src/panels/common.rs",
+  "crates/ui-egui/src/app.rs",
+  "crates/ui-egui/src/prepare.rs",
+  "crates/ui-egui/src/worker.rs",
+  "docs/workbench.md",
+]
+brief = """
+M6.G4, second half. The gate now permits `game.session` (preview `dry_run: true`; the
+writing form `start: true`, confirmed) and `game.stop` (preview `dry_run: true`; writing
+confirmed), and `game.status` is a read (`crates/ui-egui/src/gate.rs`, `PERMITTED_WRITES`
+and `ALLOWLIST`). `crates/ui-egui/src/panels/cockpit/session.rs` has `SessionForm`
+(`preview_request`, `start_request`, `stop_preview`, `stop_request`). The Cockpit's
+"Launch and run probes" and "Stop" buttons are enabled but do nothing yet
+(`panels/cockpit.rs`, the `// the game buttons` block in `ui`, which only sets a notice).
+Wire them, and make the window follow a started session.
+
+The rules (ADR 0007 Amendment 3, `docs/workbench.md` "Cockpit and Coverage"):
+- Launch: fill `SessionForm` (`mo2` and `profile` from the loaded dev profile, as
+  `DeployForm::fill` does from `dev_target`; `probes` and `base_save_sha256` typed by the
+  user; `observe` and `ledger` from the checkout, `<checkout>/observe` and
+  `<checkout>/docs/game-observations.md`, when `CockpitEnv::checkout` is known). Preview
+  first (the dry run's `plan` and `refusals` shown); the confirm box opens only when the
+  dry run says `would_start: true` and the form has not changed since (model on
+  `confirm_gate` and `DeployPlan::can_confirm`); its button builds `start_request` once
+  per click.
+- Follow: `game.session --start` returns `data.session` at once. The window then polls
+  `game.status {id}` every second while the session's `phase` is not `"finished"`: each
+  poll is an ordinary request on the one engine worker (`crate::worker`), never a second
+  worker, thread or process of its own; while one poll is pending no other is queued.
+  Polling stops when the phase is `"finished"`, when `game.status` fails (for example "no
+  session", after a stop), or when the user stops it.
+- Stop: preview (`stop_preview`, shows the dry run's `would` lines), confirm, then the
+  final `game.stop` reply's `data.report` is kept and polling ends.
+- Show: the phase, the row running (`current_row`), how many rows are done, the elapsed
+  seconds, and the last events. Probe rows and screenshots in detail are the next ticket
+  (M6.G5); do not draw them here.
+
+Where:
+- `session.rs`: a toolkit-free `SessionState` (the id, the last status envelope's phase
+  and counts, the stop report, whether a poll is pending, when the last poll went out) with
+  `poll_due(&mut self, now: Instant) -> Option<Request>` (the next `game.status` request
+  when one is due) and `receive_*` methods for the preview, start, status and stop replies,
+  and a `failed()` for an error reply. Drawing goes below a `// ---- drawing` line in the
+  same file and is called from `panels/cockpit.rs` `ui`.
+- `panels/common.rs` `Slot`: new slots for the session's requests (for example
+  `CockpitSession`, `CockpitGameStatus`, `CockpitGameStop`). `app.rs` routes them as it
+  routes the other cockpit slots (`Tab::of_slot`, and `receive`'s `Slot::CockpitStatus |
+  ...` arm), and calls the session's `failed()` from the error branch (as it calls
+  `self.render.failed()` for `Slot::RenderCell`). `prepare.rs` `build` lists them with the
+  other cockpit slots under `View::None`. The poll is driven from `App::ui` each frame (so
+  it runs while another tab is shown): submit `poll_due(Instant::now())` when it returns a
+  request, and `ctx.request_repaint_after` the interval while a session is followed.
+- `worker.rs`: a `#[cfg(test)] pub(crate) fn spawn_with_engine(engine: ReadOnlyEngine,
+  wake: Option<Wake>)` (or an equivalent) so a test can run the worker over the engine's
+  fakes; `Worker::spawn` itself stays as it is. `gate.rs` (not yours) already has
+  `ReadOnlyEngine::with_game_fakes(&GameFakes)` and re-exports `GameFakes` for tests.
+
+Tests in `panels/cockpit/session.rs` `mod tests`, with these exact names:
+- `the_window_follows_a_started_session_on_its_one_worker`: a `GameFakes::new(..)`, a
+  worker from `spawn_with_engine(ReadOnlyEngine::with_game_fakes(&fakes), None)`. Preview
+  with `SessionForm` filled from `fakes.session_args(json!({}))`'s values; the dry run says
+  `would_start: true`; submit `start_request`; the reply gives the id. Then loop with an
+  `Instant` you advance by the interval each turn: submit `poll_due`'s request, and right
+  after it a read (`schema` with `{"type": "WEAP"}`), and take the replies with
+  `Worker::wait`. Assert at least two `game.status` polls, a read served between two of
+  them (the replies come in submission order), `poll_due` returning `None` while a poll is
+  pending, and the phase reaching `"idle"`. Then the stop preview and the confirmed stop;
+  the state holds the report, and `poll_due` returns `None` from then on.
+- `a_finished_session_stops_polling`: toolkit-free, on canned envelopes (shape as the
+  engine's `game.status` handler writes it: `{"command": "game.status", "data":
+  {"session": "2026-10-25-T01", "phase": "finished", "current_row": null, "rows": [],
+  "reruns": [], "screenshots": [], "events": [], "elapsed_secs": 3, "report": {...}}}`):
+  after a `"finished"` status, and separately after `failed()`, `poll_due` returns `None`.
+
+Keep every existing Cockpit test passing; the game buttons' enabled state still comes
+from `game_button` (catalog and gate). Update `docs/workbench.md` "Cockpit and Coverage".
+Rules: nothing in `crates/ui-egui` spawns a process, talks HTTP or names `kitkraft_game`;
+no new dependency; no number literals in sizing calls outside `crate::theme` (the scan
+test `no_color_size_or_spacing_literal_outside_the_theme`); never panic. Run `cargo test
+-p kitkraft-ui-egui --lib cockpit`, then `cargo test -p kitkraft-ui-egui`, then `cargo
+xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "follows-on-one-worker"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::session::tests::the_window_follows_a_started_session_on_its_one_worker 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "stops-polling"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::session::tests::a_finished_session_stops_polling 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "button-wired"
+cmd = "! grep -q 'not wired in this window yet' crates/ui-egui/src/panels/cockpit.rs"

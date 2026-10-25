@@ -1,0 +1,72 @@
+id = "KK-038"
+title = "Table columns resize by dragging the header's edge"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/panels/common.rs",
+  "crates/ui-egui/src/theme/tokens.rs",
+  "crates/ui-egui/src/theme/mod.rs",
+  "docs/design/workbench-style.md",
+  "docs/workbench.md",
+]
+brief = """
+M6.V5's last open item. Every table in the workbench that can grow is a `virtual_table`
+(`crates/ui-egui/src/panels/common.rs`: read `TableRow`, `cell_aligned`, `table_row`,
+`virtual_table`, `virtual_table_for` and the tests
+`a_virtual_table_lays_out_only_the_visible_rows` and
+`a_virtual_table_starts_over_when_new_data_replaces_it`). Its column widths live in
+egui's temp data under the table's id, as `(Vec<f32>, Option<u64>)`, and only grow: each
+column is as wide as the widest content it has shown. `docs/design/workbench-style.md`
+"The table style" says "Column resizing by drag is not built yet".
+Build it, in `common.rs` only, so every table gets it at once.
+
+Behaviour:
+- In the header row, the right edge of each column (the gap between it and the next) is a
+  drag handle (`egui::Sense::drag()`, the horizontal resize cursor on hover). Dragging it
+  sets that column's width; the width never goes below a minimum (a theme size, below).
+- A width the user set sticks: content that is wider no longer grows the column (it is
+  clipped, as cells already are), and narrower content does not shrink it.
+- A double-click on the handle gives the column back to automatic sizing (it grows from
+  its content again).
+- New data (`virtual_table_for`'s `data` key changes) still starts the table over: scroll
+  to the top and every width, user-set ones included, measured afresh, as today.
+- Keep the stored state's meaning clear: for example store `(Vec<f32>, Vec<bool>,
+  Option<u64>)` (widths, user-set flags, data key) or a small struct; update the existing
+  test that reads the temp data (`a_virtual_table_starts_over_when_new_data_replaces_it`)
+  to the new type without loosening what it asserts.
+- The Records split's drag line (`crates/ui-egui/src/panels/records.rs`, the
+  `records-split` interaction and `theme::split_stroke`) is the model for the handle and
+  its line.
+
+Theme rules (tests enforce them): no color or number literal in sizing calls outside
+`crate::theme` (`no_color_size_or_spacing_literal_outside_the_theme` scans every file).
+Take the handle's width from the table's column gap (`table_metrics`) and the minimum
+width from a new `Sizes` token named `column_min` in `theme/tokens.rs` (every
+preset), and list it in `docs/design/workbench-style.md`'s token table
+(`the_style_guide_names_every_token_and_only_tokens` checks the doc and the tokens match).
+
+Test in `common.rs` `mod tests`, with this exact name:
+- `a_column_resized_by_drag_keeps_its_width`: a headless `egui::Context` (as the two tests
+  above), a table whose second column has fixed-width content (a test context has no
+  fonts). Drag the first column's header edge right by some points with
+  `egui::Event::PointerMoved` and `PointerButton` press, move, release over a few frames;
+  the first width grew by about that much. Then rows with wider content in that column do
+  not change it; a double-click on the handle lets it follow content again; and a new data
+  key resets it.
+
+Update "The table style" in `docs/design/workbench-style.md` (how to resize, what resets
+it) and the tables paragraph of `docs/workbench.md`. Do not change any panel file: they
+all draw through `virtual_table`. Run `cargo test -p kitkraft-ui-egui --lib common`, `cargo
+test -p kitkraft-ui-egui --lib theme`, then `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "resize-by-drag"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::common::tests::a_column_resized_by_drag_keeps_its_width 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "starts-over-still"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::common::tests::a_virtual_table_starts_over_when_new_data_replaces_it 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'Column resizing by drag is not built yet' docs/design/workbench-style.md"
+
+[[accept]]
+name = "style-doc-tokens"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact theme::tests::the_style_guide_names_every_token_and_only_tokens 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q 'column_min' docs/design/workbench-style.md"

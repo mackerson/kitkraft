@@ -1,0 +1,112 @@
+id = "KK-031"
+title = "The workbench gate permits game.session (start) and game.stop; game.status allowed"
+timeout_min = 60
+after = ["KK-030"]
+owns = [
+  "crates/ui-egui/src/gate.rs",
+  "crates/ui-egui/src/panels/cockpit.rs",
+  "crates/ui-egui/src/panels/cockpit/",
+  "crates/ui-egui/src/menu.rs",
+  "docs/workbench.md",
+]
+brief = """
+M6.G4, first half. The workbench (`crates/ui-egui`) reaches the engine only through
+`crates/ui-egui/src/gate.rs` (read its module docs and `check_permitted` first). ADR 0007
+Amendment 3 (accepted by the owner) lets the window make six writes, `COCKPIT_SCOPE`;
+today `PERMITTED_WRITES` holds three (`ledger`, `deploy`, `deploy.rollback`). This ticket
+adds `game.session` and `game.stop`, and moves `game.status` (read-only in the catalog)
+from the test's `UNUSED_READ_ONLY` list onto `ALLOWLIST`. `game.probe` stays out (a later
+ticket). The commands are lane C's (`crates/engine/src/handlers/game/mod.rs`; arguments in
+the catalog, `crates/engine/src/lib.rs`, ids `game.session`, `game.status`, `game.stop`).
+
+What the gate checks (Amendment 3's table, "What the cockpit may run in a writing form"):
+- `game.session`: the preview is `dry_run: true` and passes unconfirmed. The writing form
+  is `start: true` with `dry_run` absent or false, and passes only as a confirmed request.
+  A form that is neither (no `start`, no `dry_run`: a synchronous session) is refused with
+  a message saying the window starts sessions with `start: true` and follows them with
+  `game.status`, because a synchronous session would block the window's one engine worker.
+  `profile` naming `Default` (any case, trimmed) is refused in every form; `profile` may be
+  absent (the engine's default is `KitKraft Dev`).
+- `game.stop`: the preview is `dry_run: true`; the writing form (no `dry_run`) only
+  confirmed.
+- Keep `deploy`'s and `deploy.rollback`'s checks exactly as they are. A way that fits the
+  table: give `PermittedWrite` two more fields, for example `writing_requires: &[&str]`
+  (booleans that must be `true` in the writing form; `["start"]` for `game.session`) and
+  `refuse_live_profile: bool` (refuse `profile: Default` without requiring `dev`), and
+  update the struct's docs. Another design is fine if the table's rules hold.
+- The `panel` of both new entries is `panels/cockpit/session.rs`, a new file: a child
+  module of the Cockpit (`pub mod session;` in `panels/cockpit.rs`; it lives in the
+  subfolder because `panels/common.rs` `every_tab_is_drawn_in_the_panel_frame` treats
+  every file directly under `panels/` as a tab). It holds a toolkit-free `SessionForm`
+  (`mo2`, `profile`, `probes`, `base_save_sha256`, `game`, `observe`, `ledger`; empty
+  ones left out of the arguments) with `preview_request()` (`game.session`, `dry_run:
+  true`), `start_request(previewed: &Value) -> Request` (the previewed arguments with
+  `dry_run` dropped and `start: true` added, built with `Request::confirmed("game.session",
+  ..)`), and for a session id `stop_preview(id)` and `stop_request(id)` (confirmed
+  `game.stop`). Model them on `DeployForm` in `panels/cockpit.rs` (`preview_request`,
+  `confirmed_request`). These are the only places outside `gate.rs` that may write
+  `Request::confirmed("game.session"` or `Request::confirmed("game.stop"` (the source scan
+  `only_each_permitted_writes_panel_builds_its_confirmed_request` checks it). No drawing
+  and no button wiring here; that is the next ticket.
+
+Tests the change must update, not weaken:
+- `allowlist_is_disjoint_from_writes_and_writing_equals_it` (gate.rs): `ids` becomes
+  `ledger`, `deploy`, `deploy.rollback`, `game.session`, `game.stop`.
+- `the_ledger_is_one_write_and_needs_a_confirmed_request` (gate.rs): its list of
+  confirmed requests that must be refused drops `game.session` and `game.stop`, which are
+  now permitted; keep the rest.
+- `every_catalog_command_is_either_allowed_writing_or_refused_on_purpose` (gate.rs):
+  `game.status` leaves `UNUSED_READ_ONLY`.
+- `game_buttons_follow_the_catalog_and_the_gate` (panels/cockpit.rs): in its "Today" part,
+  Launch and Stop are enabled; Re-run probe and Screenshot stay disabled with `M6.G5`.
+- `deferred_and_out_of_list_reads_are_disabled_with_their_reason` (menu.rs): check
+  `game.probe` (still "not yet permitted") instead of `game.session`; and `panel_of` in
+  `menu.rs` maps `game.session`, `game.stop` and `game.status` to `Target::Tab("Cockpit")`.
+
+New tests in `gate.rs` `mod tests`, with these exact names:
+- `game_session_previews_unconfirmed_and_starts_only_confirmed`: through `check` only:
+  the dry run passes unconfirmed; `start: true` is refused unconfirmed and passes
+  confirmed; the synchronous form is refused confirmed or not; `profile: "Default"` and
+  `" default "` are refused in the preview and the confirmed start.
+- `game_stop_previews_unconfirmed_and_stops_only_confirmed`: the same for `game.stop`.
+- `a_confirmed_session_starts_and_stops_against_the_fakes`: through `ReadOnlyEngine` over
+  the engine's fakes. `kitkraft_engine::testing::GameFakes` (`crates/engine/src/
+  testing.rs`) gives a fixture MO2 instance, a fake console and host, `install(&Engine)`
+  and `session_args(extra)`. Add `#[cfg(test)] pub(crate) use
+  kitkraft_engine::testing::GameFakes;` and a `#[cfg(test)] pub(crate) fn
+  ReadOnlyEngine::with_game_fakes(f: &GameFakes) -> ReadOnlyEngine` to `gate.rs` (only
+  `gate.rs` may name the engine crate; the test `no_other_file_reaches_the_engine_directly`
+  checks). Build the requests with `SessionForm` from `session.rs` where you can. The dry
+  run passes and writes nothing (the fixture's `observe()` folder does not exist after
+  it); the confirmed start returns `data.session` and `launched()` becomes 1;
+  `game.status` with that id runs (poll until `data.phase` is `"idle"`, 25 ms apart, at
+  most about 400 polls); the confirmed `game.stop` returns `data.report`.
+And in `panels/cockpit/session.rs`, `mod tests`:
+- `the_session_preview_is_a_dry_run_and_the_confirm_starts`: `preview_request` carries
+  `dry_run: true` and no `start`; `start_request` of those arguments carries `start: true`,
+  no `dry_run`, is confirmed (`is_confirmed()`), and passes `gate::check`.
+
+Update `docs/workbench.md` "What it can run (and what it cannot)" and "Cockpit and
+Coverage" to say which game commands the gate permits now and that the buttons are wired
+by the next ticket (M6.G4). Rules: never panic on input; no new dependency; nothing in
+`crates/ui-egui` spawns a process, talks HTTP or names `kitkraft_game` (ADR 0007
+Amendment 3, "The window never launches the game itself"). Run `cargo test -p
+kitkraft-ui-egui --lib gate`, then `cargo test -p kitkraft-ui-egui`, then `cargo xtask ci`.
+Commit when the first new test passes.
+"""
+
+[[accept]]
+name = "session-gate"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact gate::tests::game_session_previews_unconfirmed_and_starts_only_confirmed 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "stop-gate"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact gate::tests::game_stop_previews_unconfirmed_and_stops_only_confirmed 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "against-the-fakes"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact gate::tests::a_confirmed_session_starts_and_stops_against_the_fakes 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "session-form"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::session::tests::the_session_preview_is_a_dry_run_and_the_confirm_starts 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"

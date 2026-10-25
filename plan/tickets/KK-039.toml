@@ -1,0 +1,77 @@
+id = "KK-039"
+title = "Raw JSON of a result held in one buffer and sliced by the visible range"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/envelope.rs",
+  "docs/design/workbench-performance.md",
+]
+brief = """
+M6.P5a's open half. Every result in the workbench shows its `data` as raw JSON below the
+panel. `crates/ui-egui/src/envelope.rs` `Prepared::new` (run on the engine's worker
+thread, `crates/ui-egui/src/prepare.rs`) pretty-prints the whole value into one `String`,
+then copies it into `raw: Vec<String>`, one heap string per line, up to `RAW_LINES`
+(500,000) lines of at most `RAW_LINE_CHARS` (2,000) characters (longer lines cut and ended
+with `...`). The window lays out only the lines scrolled into view
+(`crates/ui-egui/src/panels/common.rs` `raw_lines`, `show_rows`), but a 13 MB `conflicts`
+envelope still costs hundreds of thousands of small allocations, made on the worker and
+freed there (`Worker::dispose`), and a second full copy while they are made.
+
+Make `raw` one buffer: a `RawLines` type (in `envelope.rs`) holding a single `String`
+with every kept line (already cut) and a `Vec<u32>` (or `usize`) of line starts, so a line
+is a `&str` slice of the buffer. Build it in one pass if you can (for example
+`serde_json::to_writer_pretty` into a writer that appends to the buffer, records each line
+start, cuts a line at a character boundary after `RAW_LINE_CHARS` characters, and stops
+after `RAW_LINES` lines), else from the pretty `String` once. Give it the methods its users
+call today, with the same meaning, so no other file changes: `len()`, `is_empty()`,
+`get(range: Range<usize>) -> Option<Vec<&str>>` (what `raw_lines` in `common.rs` iterates;
+`None` when the range is out of bounds, as `Vec::get`), `iter()` over `&str`, plus
+`heap_bytes()` (the buffer's and the offsets' capacity in bytes). `Prepared` keeps its
+derives (`Debug`, `Clone`, `PartialEq`, `Eq`). `raw_truncated` keeps its meaning. Do not
+edit `panels/common.rs` or `prepare.rs` (other tickets own them); if they need a change to
+compile, the API above is not yet the same as `Vec<String>`'s for what they call.
+
+Measure first, before changing the type (AGENTS.md and M6's rule: no performance change
+merges without a before-and-after row in `docs/design/workbench-performance.md`
+"Results"):
+1. Add an ignored test `raw_bench` in `envelope.rs` `mod tests`: build a synthetic
+   envelope of about 30 MB (for example 150,000 rows of a few members, as
+   `a_big_envelope_is_prepared_once_as_view_and_lines` builds 20,000), time
+   `Prepared::new` (median of 5 runs, `std::time::Instant`), and print exactly one line
+   `raw-bench: lines=<n> heap_bytes=<b> median_ms=<t>`. Before the change, compute
+   `heap_bytes` in the test as the sum of each line's capacity plus
+   `size_of::<String>()` per line plus the `Vec`'s own capacity; after it, call
+   `heap_bytes()`.
+2. Run it in release on the current code: `cargo test -p kitkraft-ui-egui --release --lib
+   -- --ignored --exact envelope::tests::raw_bench --nocapture`. Commit the bench.
+3. Change the type, run the bench again, and add two rows to "Results" with the ticket
+   column exactly `M6.P5a raw before` and `M6.P5a raw after`: the build (commit), the
+   machine ("Linux sandbox, release test build, synthetic envelope"; there is no profile,
+   cache or window here, so say so), the measure (`heap_bytes` and `median_ms` of
+   `Prepared::new`), and a note. Numbers are what they are: do not tune the bench to a
+   target. Also say in "Results" that the window rows (T2, I2 in the window) are the
+   owner's to re-run.
+
+Tests, with these exact names:
+- `envelope::tests::raw_lines_share_one_buffer`: a `Prepared` of a small envelope holds
+  its lines in one buffer (`heap_bytes()` is less than the bytes the same lines take as
+  separate `String`s), `get(0..2)` gives the first two lines as `&str`, an out-of-range
+  `get` is `None`, and a line over `RAW_LINE_CHARS` characters (with multi-byte
+  characters) is cut at a character boundary and ends with `...`.
+- The existing `a_big_envelope_is_prepared_once_as_view_and_lines` still passes unchanged.
+
+No new dependency. Never panic (an offset that does not fit `u32` is a reason to use
+`usize`, not to unwrap). Run `cargo test -p kitkraft-ui-egui --lib envelope`, then `cargo
+test -p kitkraft-ui-egui`, then `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "one-buffer"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact envelope::tests::raw_lines_share_one_buffer 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "bench-runs"
+cmd = "cargo test -p kitkraft-ui-egui --release --lib -- --ignored --exact envelope::tests::raw_bench --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^raw-bench: lines=[0-9]+ heap_bytes=[0-9]+ median_ms=' /tmp/o"
+
+[[accept]]
+name = "before-and-after"
+cmd = "grep -q '| M6.P5a raw before |' docs/design/workbench-performance.md && grep -q '| M6.P5a raw after |' docs/design/workbench-performance.md"

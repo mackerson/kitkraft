@@ -1,0 +1,72 @@
+id = "KK-043"
+title = "MCP: a game session started over MCP is followed and stopped across calls"
+timeout_min = 45
+after = ["KK-030"]
+owns = [
+  "crates/mcp/tests/game_session.rs",
+  "crates/mcp/src/tools.rs",
+  "docs/mcp.md",
+]
+brief = """
+AGENTS.md "CLI / MCP / UI parity": every catalog command works the same from `kit`, MCP
+and the window. The four game-session commands (`game.session`, `game.status`,
+`game.probe`, `game.stop`; `crates/engine/src/handlers/game/mod.rs`, module docs first)
+are tested in the engine only. Their point over MCP is that `game.session` with `start:
+true` returns at once and the session lives on in the server's one engine, so an agent
+follows it with `game.status`, re-runs a row with `game.probe` and ends it with
+`game.stop` in later calls (`docs/mcp.md` "The session is process state"). Test that over
+the real stdio protocol, against the engine's fakes.
+
+`kitkraft_engine::testing::GameFakes` (`crates/engine/src/testing.rs`) gives a fixture MO2
+instance, a fake console endpoint and a fake process host: `GameFakes::new(tag)`,
+`install(&Engine)` and `session_args(extra)` (the arguments of a session that passes
+preflight on the fixture). Its probes are `T-01` and `T-02` (pass) and `T-03` (manual,
+`inconclusive` with a screenshot).
+
+A new integration test file `crates/mcp/tests/game_session.rs` (copy the small stdio
+`Client` from `crates/mcp/tests/stdio.rs`: a server on a thread over OS pipes, `request`,
+`finish`; and its `envelope` helper), with these exact test names:
+- `game_session_started_over_mcp_is_followed_and_stopped`: `Engine::with_default_handlers()`,
+  `fakes.install(&engine)`, `Client::start(Server::new(engine))`, a legacy `initialize`
+  (as `legacy_handshake_then_tools` does); `tools/call` `execute` with `game.session` and
+  `session_args(json!({"start": true}))` returns `data.session` and `data.started` true;
+  then `execute` `game.status` with that id, every 25 ms (at most about 400 calls), until
+  `data.phase` is `"idle"`, with three rows and `T-03` `inconclusive`; `execute`
+  `game.probe` of `T-01` returns `data.row.verdict.status` `"pass"`; `execute` `game.stop`
+  returns `data.report.ledger_entry`; a further `game.status` is a tool error (`isError`
+  true) saying there is no such session. `client.finish()` ends cleanly.
+- `a_session_left_running_is_stopped_when_the_server_exits`: start a session, poll to
+  `"idle"`, then `finish()` without `game.stop`: the fixture's ledger (`fakes.ledger()`)
+  gains an entry for it (the engine stops sessions still running when it is dropped,
+  `impl Drop for Running` in `handlers/game/mod.rs`).
+- `game_commands_are_reached_through_execute`: `tools/list` has no shortcut tool for `game.*`, and
+  `execute`'s description lists the four ids (`crates/mcp/src/tools.rs` builds it from the
+  catalog); nothing to add if that holds, so this test pins it.
+
+Also tidy the stale "render" mentions: the `render` row of `docs/mcp.md`'s Tools table
+and the "`render` comes later" sentence on `TOOLS` in `crates/mcp/src/tools.rs` describe a
+tool that ADR 0002 Amendment 1 retired (the viewport is the window's, fed by engine
+commands); say that in one line instead. Add a short section to `docs/mcp.md` headed
+`### Following a game session`: start, status, probe, stop, and that a session still
+running ends (properly stopped, ledger entry written) when the server exits.
+
+No change to `crates/mcp/src/server.rs` or `backend.rs` is expected: if a test shows one
+is needed, make the smallest one and say why in the commit message. No new dependency.
+Run `cargo test -p kitkraft-mcp --test game_session`, then `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "followed-and-stopped"
+cmd = "cargo test -p kitkraft-mcp --test game_session -- --exact game_session_started_over_mcp_is_followed_and_stopped 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "stopped-at-exit"
+cmd = "cargo test -p kitkraft-mcp --test game_session -- --exact a_session_left_running_is_stopped_when_the_server_exits 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "hints"
+cmd = "cargo test -p kitkraft-mcp --test game_session -- --exact game_commands_are_reached_through_execute 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "docs"
+cmd = "! grep -q 'comes later' crates/mcp/src/tools.rs && grep -q '^### Following a game session' docs/mcp.md"

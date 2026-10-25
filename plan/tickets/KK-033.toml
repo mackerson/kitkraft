@@ -1,0 +1,81 @@
+id = "KK-033"
+title = "The Cockpit shows a session's probe rows and screenshots from game.status"
+timeout_min = 60
+after = ["KK-032"]
+owns = [
+  "crates/ui-egui/src/panels/cockpit.rs",
+  "crates/ui-egui/src/panels/cockpit/",
+  "docs/workbench.md",
+]
+brief = """
+M6.G5, first half. The Cockpit starts a game session and follows it by polling
+`game.status` (`crates/ui-egui/src/panels/cockpit/session.rs`, `SessionState`; read its
+module docs first). It shows the phase and counts. Now show what the session found: every
+probe row, and the screenshots `game.status` lists.
+
+`game.status`'s `data` (written by `crates/engine/src/handlers/game/mod.rs` `fn status`;
+there is no shape in `shapes.rs` for it) has `session`, `phase`, `current_row`, `rows`,
+`reruns`, `screenshots`, `events`, `elapsed_secs`, `report`. Each row (and rerun) is
+`{"row": "T-02", "title": ..., "forms": ["X.esm:001000", ...], "commands": [...],
+"expected": ..., "seen": ..., "verdict": {"status": "pass"} | {"status": "fail" |
+"inconclusive" | "not-run", "reason": "..."}, "screenshots": ["T-02-1.png"]}`. Each listed
+screenshot is `{"file": "T-02-1.png", "path": "<observe>/<session>/T-02-1.png"}`. A manual
+row is `not-run` with a reason starting `manual:`, or `inconclusive` when it took a
+screenshot for the owner.
+
+1. A toolkit-free view-model in a new `panels/cockpit/probes.rs` (`pub mod probes;` in
+   `panels/cockpit.rs`, beside `session`): `ProbeRows::from_status(env: &Value, exists:
+   &dyn Fn(&Path) -> bool) -> ProbeRows` with one row per probe (re-runs after, marked
+   so): row id, title, forms, expected, seen, the verdict word and reason, and its
+   screenshots resolved against the listed paths. A screenshot a row names that is not
+   listed, or whose listed path does not exist on disk (`exists`), is shown with the status
+   `inconclusive` and the reason ("listed by game.status but missing on disk", or "not
+   listed"), never left out. Verdict words map to the status component with
+   `panels/cockpit.rs` `status_of`.
+2. Screenshots as images: the window opens only the files at the paths `game.status`
+   returned (ADR 0007 Amendment 2: our own evidence files; it lists no folder of its own).
+   Decode PNG with the `image` crate the crate already depends on (`png` feature, see
+   `crates/ui-egui/src/shots.rs` for how it is used), into an `egui::ColorImage`, then a
+   texture (`ctx.load_texture`) cached per path. A file that does not decode is
+   `inconclusive` with the decoder's reason, never hidden. The decode is a plain function
+   `fn decode_screenshot(bytes: &[u8]) -> Result<egui::ColorImage, String>` so it is tested
+   without a window. No new crate (`egui_extras` image loaders are not listed in ADR 0007).
+3. Drawing, below a `// ---- drawing` line in `probes.rs`, called from the Cockpit's
+   session area: a `virtual_table` (`panels/common.rs`) of the rows with the status
+   component (`theme::status`), each form a link that asks for `Action::Inspect(form)`
+   (model on `panels/common.rs` `form_cell` or `record_actions`), and a row's screenshots
+   below the table when the row is selected, scaled to the panel width. Colors, sizes and
+   gaps come from `crate::theme` (the scan test
+   `no_color_size_or_spacing_literal_outside_the_theme` rejects number literals in sizing
+   calls and color literals).
+
+Tests in `panels/cockpit/probes.rs` `mod tests`, with these exact names:
+- `probe_rows_and_screenshots_come_from_game_status`: a canned `game.status` envelope with
+  three rows (`T-01` pass, `T-02` fail with a reason and one screenshot, `T-03` manual
+  `inconclusive` with one screenshot) and one rerun; `exists` true for both files. Every
+  row is there in order with its verdict and reason, the rerun is marked as one, and each
+  screenshot resolves to its listed path.
+- `a_missing_screenshot_is_inconclusive_never_hidden`: the same with `exists` false for
+  `T-02-1.png` and a row naming a file `screenshots` does not list: both show as
+  `inconclusive` entries with their reasons.
+- `screenshots_decode_or_say_why`: a PNG encoded in the test with the `image` crate (a
+  2 x 2 image) decodes to a 2 x 2 `ColorImage`; the bytes `b"\\x89PNG fake"` (what the
+  engine's fake host writes) give an `Err` with a reason.
+
+Update `docs/workbench.md` "Cockpit and Coverage" (rows, screenshots, how a missing one
+shows). Do not touch `gate.rs`: `game.probe` (re-run, screenshot) is the next ticket. Run
+`cargo test -p kitkraft-ui-egui --lib cockpit`, then `cargo xtask ci`. Commit when the
+first test passes.
+"""
+
+[[accept]]
+name = "rows-and-screenshots"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::probes::tests::probe_rows_and_screenshots_come_from_game_status 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "missing-is-inconclusive"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::probes::tests::a_missing_screenshot_is_inconclusive_never_hidden 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "decode"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::probes::tests::screenshots_decode_or_say_why 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"

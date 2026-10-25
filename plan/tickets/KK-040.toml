@@ -1,0 +1,67 @@
+id = "KK-040"
+title = "The workbench loads the last profile at start, from the index cache"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/app.rs",
+  "docs/workbench.md",
+  "docs/design/workbench-performance.md",
+]
+brief = """
+M6.P3a's open half. `kit-ui` started without arguments opens the Start tab and waits;
+started with `--profile` it loads that profile at once (`crates/ui-egui/src/app.rs`
+`App::new`: the `opts.profile.is_some() || !opts.plugins.is_empty()` branch at the end).
+When the user loads a profile from the Start tab, `App::remember` stores its path in
+`ui.json` (`crates/ui-egui/src/prefs.rs`, `Prefs::profile`). M6.P3a asks that the last
+profile load at start "when one was used before", so the window has its data without a
+click. `load` reads the engine's index cache by default, so a warm start costs about the
+warm load (L2, `docs/design/workbench-performance.md`).
+
+Do it with a pure function in `app.rs`, tested without a window:
+`fn startup_load(opts: &LaunchOptions, prefs: &Prefs, exists: &dyn Fn(&Path) -> bool) ->
+Option<Request>`:
+- launch arguments win: with `--profile` or plugins, today's request (the load form's),
+  as now;
+- otherwise, with `prefs.profile` set: a `load` of that profile, from the cache (no
+  `no_cache`), only when the folder exists (`exists`) and its last path component is not
+  `Default` in any case (the owner's live profile is never loaded on its own; the Start
+  tab still lets the user pick it, read-only);
+- never during the screenshot tour (`crate::shots::SHOTS_ENV` set) or the perf bench
+  (`crate::perf::bench_requested()`), which seed their own loads: pass those in as
+  arguments (for example a `seeded: bool`) so the function stays pure.
+Read the last path component with `Path::file_name` (trailing separators trimmed), not by
+splitting on `\\` or `/`: the gate runs on Linux and the owner's merge gate on Windows
+(KK-001 fixed 20 tests that assumed one of them); build test paths with `Path::join`.
+`App::new` calls it, submits the request on `Slot::Load`, fills the Load form with the
+profile, and opens the Load tab (as for `--profile`); a skipped start-up load leaves the
+Start tab as today, and when it was skipped because the folder is gone or is `Default`, the
+notice line says why once. The Start tab's buttons and M6.P3a's "no second load of the
+same order" (`same_load`, test `a_repeated_load_is_answered_from_the_session`) are
+unchanged.
+
+Tests in `app.rs` `mod tests`, with these exact names:
+- `the_last_profile_loads_at_start`: no launch arguments and `prefs.profile` an existing
+  folder: a `load` request with that `profile`, no `no_cache`, passing `crate::gate::check`.
+- `no_start_up_load_for_default_a_missing_profile_or_launch_arguments`: a profile folder
+  named `Default`, and one named `default`, give `None`; a missing folder gives `None`; seeded
+  (tour or bench) gives `None`; with `--profile X` the request loads `X`, not the prefs
+  profile; with neither prefs nor arguments, `None`.
+
+Docs: `docs/workbench.md` "Launch" (what happens at start, and that `Default` is never
+loaded on its own); `docs/design/workbench-performance.md` "Results", one row with the
+ticket column `M6.P3a start-up load` saying the change and that its window measurement
+(S1 to the Load table drawn, warm) is the owner's to run on the dev box; no number is
+invented. Do not edit `prefs.rs` or `panels/` (no new preference: the remembered profile
+is enough). Run `cargo test -p kitkraft-ui-egui --lib app`, then `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "loads-last-profile"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::tests::the_last_profile_loads_at_start 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "skips"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact app::tests::no_start_up_load_for_default_a_missing_profile_or_launch_arguments 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "perf-row"
+cmd = "grep -q '| M6.P3a start-up load |' docs/design/workbench-performance.md"

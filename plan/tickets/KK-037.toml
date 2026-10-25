@@ -1,0 +1,65 @@
+id = "KK-037"
+title = "Cell View and Render Window in step: open a cell in the viewport, one selection"
+timeout_min = 45
+after = ["KK-036"]
+owns = [
+  "crates/ui-egui/src/panels/render.rs",
+  "crates/ui-egui/src/windows/cell_view.rs",
+  "crates/ui-egui/src/windows/shell.rs",
+  "docs/ck-parity.md",
+  "docs/workbench.md",
+]
+brief = """
+M7.R2's selection sync with M7.W2. The Cell View window (`crates/ui-egui/src/windows/cell_view.rs`,
+`CellViewState`) lists worldspaces, cells and a cell's references from the
+engine's `cell` command; a click on a reference asks for `Action::Select(form)`. The
+Render Window tab (`crates/ui-egui/src/panels/render.rs`, `RenderTab`: read its module
+docs, `CellPick`, `cell_request`, `fn start`, `receive_page`, `follow_inspector`) loads one
+cell through `cell --with-bounds` and draws its references; it follows the Records
+inspector's record (`RenderTab::inspected`, set by the shell each frame), and a click on a
+marker asks for `Action::Select(form)` too. So the inspected record is the one shared
+selection. Put the two windows in step:
+
+1. "Show in Render Window" in the Cell View, for the selected cell: the Render Window
+   loads that cell (its first page, then the rest as `receive_page` already does) and the
+   shell shows the Render Window tab (or brings its window to the front when it floats:
+   `ck_open_tab` in `windows/shell.rs`). Add a `pub(crate) fn show_cell(&mut self, cell:
+   &str) -> Request` on `RenderTab` (sets the picker's text to the cell and calls
+   `start(CellPick::Cell(..))`); the Cell View returns an ask (for example
+   `CellViewAsk::ShowCell(form)`, as `UseInfoAsk` does) and `ck_windows` submits the
+   request with `Slot::RenderCell`, the slot the Render Window's own requests use, so the
+   reply reaches `receive_page` unchanged.
+2. The Cell View marks the selected reference: the row whose `form` is the inspected record
+   is drawn selected, and its list scrolls to it once when the selection changes (so a pick
+   in the viewport shows in the list). A toolkit-free `CellViewState::selected_row(&self,
+   inspected: Option<&str>) -> Option<usize>` gives the index; the drawing uses it.
+3. When the Render Window shows a cell, the Cell View, if open and showing another cell,
+   offers "Show this cell" to follow it, rather than reloading on its own.
+
+Tests, with these exact names:
+- `panels::render::tests::show_cell_loads_it_in_the_render_window`: `show_cell` returns a
+  `cell` request for that cell with `with_bounds: true` that passes `crate::gate::check`;
+  feeding the reply page (use the test helpers already in `render.rs`'s tests,
+  `page_env` and `item`) leaves the tab showing that cell's references.
+- `windows::cell_view::tests::the_cell_view_marks_the_selected_reference`: after a canned
+  `cell` reply with three references, `selected_row(Some(<second form>))` is 1, `None`
+  for a form not in the list or no selection.
+
+Update the `window | Cell View` and `window | Render Window` rows of `docs/ck-parity.md`
+(still `built, unobserved` and `unresearched` respectively; the "Maps to" text names the
+shared selection), and `docs/workbench.md` "CK-style windows". Colors, sizes and gaps from
+`crate::theme` only. Never panic. Run `cargo test -p kitkraft-ui-egui --lib render`, `cargo
+test -p kitkraft-ui-egui --lib cell_view`, then `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "show-cell"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::render::tests::show_cell_loads_it_in_the_render_window 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "marks-selection"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact windows::cell_view::tests::the_cell_view_marks_the_selected_reference 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "show-in-render-window"
+cmd = "grep -q 'Show in Render Window' crates/ui-egui/src/windows/cell_view.rs"

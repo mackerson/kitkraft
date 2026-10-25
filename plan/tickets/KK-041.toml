@@ -1,0 +1,61 @@
+id = "KK-041"
+title = "Measure whether opt-level 2 for dependencies makes debug workbench runs usable"
+timeout_min = 60
+owns = [
+  "crates/ui-egui/src/perf.rs",
+  "docs/design/workbench-performance.md",
+]
+brief = """
+M6.P6a's last open item, measurement only. A debug `kit-ui` is about five times slower
+than release (`docs/workbench.md` "Launch"), so `cargo xtask ui` builds release. The plan
+asks: would `[profile.dev.package."*"] opt-level = 2` in the workspace `Cargo.toml`
+(dependencies optimized, our crates not) make debug runs usable, and what does it cost
+the gate? Adopt it only if the gate's time grows by under 10 percent. You measure and
+recommend; you do not adopt it. `Cargo.toml` must be unchanged at the end (the reviewer
+makes the one-line change if your numbers say so).
+
+1. A headless frame bench in `crates/ui-egui/src/perf.rs` `mod tests`: an ignored test
+   `headless_frame_bench` that runs an `egui::Context` without a window (as
+   `crates/ui-egui/src/panels/common.rs` `a_virtual_table_lays_out_only_the_visible_rows`
+   does: `theme::apply`, `ctx.run_ui` with a `RawInput` of `theme::WINDOW`'s size) for
+   200 frames over a `virtual_table` of 100,000 rows with a few cells each, scrolling by a
+   mouse-wheel event every frame, and prints exactly one line `frame-bench: profile=<debug
+   or release> frames=200 p50_ms=<x> p95_ms=<y> max_ms=<z>` (use this file's own
+   percentile helper; `cfg!(debug_assertions)` tells the profile). `virtual_table` is
+   `pub(crate)` in `crate::panels::common`, so the bench can call it from here.
+2. Measure, on this machine, each number three times and take the median:
+   - A: `cargo test -p kitkraft-ui-egui --lib -- --ignored --exact
+     perf::tests::headless_frame_bench --nocapture` (debug, as the workspace is today);
+   - B: the same with `[profile.dev.package."*"]` and `opt-level = 2` added to the
+     workspace `Cargo.toml` (put it back afterwards);
+   - C: the same with `--release`, for reference;
+   - the build cost: `cargo build --workspace --tests` from a fresh `CARGO_TARGET_DIR` (a
+     new folder under `/tmp`, deleted after) with and without the setting, wall time
+     (`time`). If two clean builds do not fit your time, measure one each and say so.
+3. Add a section "Debug builds and opt-level (M6.P6a)" to
+   `docs/design/workbench-performance.md` with the numbers, and rows in "Results" with
+   the ticket column exactly `M6.P6a debug opt-level 0`, `M6.P6a debug opt-level 2` and
+   `M6.P6a release`: the commit, the machine ("Linux sandbox, headless egui, no GPU, no
+   window"), the frame numbers and the build times. End the section with the
+   recommendation the 10 percent rule gives, and say that the dev box (Windows) may differ
+   and that the window measurement there is the owner's. Do not tune the bench to a
+   result.
+
+Rules: no new dependency; no number literals in sizing calls outside `crate::theme` (the
+scan test `no_color_size_or_spacing_literal_outside_the_theme` covers `perf.rs`; sizes for
+the bench come from `theme`, the row count and frame count are plain constants); never
+panic outside the test. Run the bench as above, then `cargo xtask ci` with `Cargo.toml`
+back as it was.
+"""
+
+[[accept]]
+name = "bench-runs"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --ignored --exact perf::tests::headless_frame_bench --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^frame-bench: profile=debug frames=200 p50_ms=' /tmp/o"
+
+[[accept]]
+name = "rows"
+cmd = "grep -q '| M6.P6a debug opt-level 0 |' docs/design/workbench-performance.md && grep -q '| M6.P6a debug opt-level 2 |' docs/design/workbench-performance.md && grep -q '| M6.P6a release |' docs/design/workbench-performance.md"
+
+[[accept]]
+name = "measured-not-adopted"
+cmd = "grep -q 'Debug builds and opt-level (M6.P6a)' docs/design/workbench-performance.md && ! grep -q 'profile.dev.package' Cargo.toml"

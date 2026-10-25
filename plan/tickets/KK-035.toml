@@ -1,0 +1,80 @@
+id = "KK-035"
+title = "The Ledger form is prefilled from a probe row left inconclusive or manual"
+timeout_min = 45
+owns = [
+  "crates/ui-egui/src/panels/ledger.rs",
+  "docs/workbench.md",
+]
+brief = """
+M6.G6, the view-model half. A game session (`game.session` with `start`, followed with
+`game.status`) runs `probes.toml` rows and gives each a verdict. Rows the controller cannot
+decide are `inconclusive`, or `not-run` with a reason starting `manual:` (a manual row; one
+that took a screenshot for the owner is `inconclusive` with a reason starting `manual:`).
+The owner looks at those and records the result by hand in the ledger
+(`docs/game-observations.md`) through the Ledger tab, the workbench's first write
+(`crates/ui-egui/src/panels/ledger.rs`: read its module docs, `LedgerForm`, `ROWS`,
+`RESULTS`, `preview_request`, `append_request`). Make the form fillable from such a row,
+so the owner only checks and confirms.
+
+`game.status`'s `data.rows[]` (and `data.reruns[]`) entries look like this (written by
+`crates/engine/src/handlers/game/mod.rs` `fn status`; there is no shape for it in
+`shapes.rs`):
+`{"row": "T-03", "title": "the crate is on the shelf", "forms": ["X.esm:001000"],
+"commands": [], "expected": "the crate is on the shelf", "seen": "", "verdict":
+{"status": "inconclusive", "reason": "manual: needs a look; screenshot T-03-1.png is for
+the owner"}, "screenshots": ["T-03-1.png"]}`; `data.screenshots[]` is `{"file":
+"T-03-1.png", "path": "<observe>/<session>/T-03-1.png"}`; `data.session` is the id
+(`2026-10-25-T01`).
+
+Add to `ledger.rs`, in the toolkit-free part:
+- `LedgerForm::from_probe_row(session: &str, row: &Value, screenshots: &Value, file: &str)
+  -> Option<LedgerForm>`: `Some` only for a row whose verdict is `inconclusive`, or
+  `not-run` with a reason starting `manual:`; `None` for `pass`, `fail` and other
+  `not-run` rows. The form: `row: "custom"`, `label` `"<session> <row id>: <title>"`,
+  `result: "note"` (never `pass`: the owner picks pass or fail after looking), `forms` the
+  row's forms (one per line), `note` saying what was expected, what was seen, the verdict
+  and its reason, and each of the row's screenshots by its listed path (a name not listed
+  is named as "not listed"), `profile` the dev profile (`DEV_PROFILE`), `file` as given.
+  The engine's `ledger` schema caps `note` at 2000 and `label` at 200 characters (catalog
+  entry `ledger` in `crates/engine/src/lib.rs`): cut longer text at a character boundary
+  and end it with `...`.
+- `fn probe_rows_to_record(status_env: &Value, file: &str) -> Vec<LedgerForm>`: the forms
+  for every such row of `rows` and `reruns`, in order.
+- On the tab's state (`LedgerTab`, below `// ---- drawing`): `prefill(&mut self, form:
+  LedgerForm)`, which replaces the form, forgets any preview and any confirm box that was
+  open, and remembers which session row it came from so the tab shows one line saying so.
+  Prefilling never writes and never confirms: the owner still clicks Preview, then Append,
+  then the confirm button, and only that click builds `append_request` (ADR 0007
+  Amendment 2; the gate's source scan holds that `Request::confirmed("ledger"` appears only
+  in this file).
+
+Tests in `ledger.rs` `mod tests`, with these exact names:
+- `a_probe_row_left_inconclusive_prefills_the_form`: the row above gives `row` `custom`,
+  `result` `note`, the label with the session and `T-03`, the form, and a note naming the
+  screenshot's path; a `not-run` row with reason `manual: the map UI` is prefilled too.
+- `pass_and_fail_rows_are_not_prefilled`: `pass`, `fail`, and `not-run` with a reason
+  that does not start `manual:` (for example `stopped by game.stop before row T-02`) give
+  `None`; `probe_rows_to_record` on a canned status with one of each kind returns only the
+  inconclusive and manual ones.
+- `a_prefilled_row_still_needs_its_own_confirm`: a prefilled form's `preview_request` is
+  not confirmed and passes `crate::gate::check`; its `append_request` is confirmed; after
+  `LedgerTab::prefill` no preview or confirm box is held.
+
+The button that sends a row here from the Cockpit is a later ticket; do not touch
+`panels/cockpit.rs` or `gate.rs`. Add a sentence to `docs/workbench.md` (the Ledger part of
+"Cockpit and Coverage" or "Panels") on prefilled rows. Never panic on input (a row
+missing members gives `None` or empty text). Run `cargo test -p kitkraft-ui-egui --lib
+ledger`, then `cargo xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "inconclusive-prefills"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::ledger::tests::a_probe_row_left_inconclusive_prefills_the_form 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "decided-rows-not-prefilled"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::ledger::tests::pass_and_fail_rows_are_not_prefilled 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "still-confirmed"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::ledger::tests::a_prefilled_row_still_needs_its_own_confirm 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"

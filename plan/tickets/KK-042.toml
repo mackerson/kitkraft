@@ -1,0 +1,75 @@
+id = "KK-042"
+title = "game.session reports progress: preflight, each phase, each probe row"
+timeout_min = 45
+after = ["KK-030"]
+owns = [
+  "crates/engine/src/handlers/game/mod.rs",
+  "crates/engine/src/handlers/game/tests.rs",
+  "crates/engine/src/progress.rs",
+  "docs/game-sessions.md",
+]
+brief = """
+The engine reports progress for long commands (M6.P2b): read the module docs of
+`crates/engine/src/progress.rs` first (the stage table, `emit`, `current`, `Reporter`).
+`kit --progress` prints the events, MCP sends them as `notifications/progress` to a client
+that asks, and the workbench shows the latest on its status line. `game.session`
+(`crates/engine/src/handlers/game/mod.rs` `fn session`) sends none, though a synchronous
+session runs for minutes (launch, console, save load, every probe row) and M6.G4 asks for
+"progress events for its own steps".
+
+Add them; the result envelope must not change:
+- stage `preflight`: one event (`done` 0, `total` 1, `item` the session id) before the
+  facts are gathered and one (`done` 1) after, in every form (dry run, `start`,
+  synchronous). A refused session still sends the first.
+- synchronous form only (no `start`, no `dry_run`): the controller
+  (`kitkraft_game::controller::run`) runs to the end on the calling thread today and knows nothing of the
+  sink. Run it instead on a `std::thread::scope` thread and, on the calling thread (where
+  the sink lives: `emit` reads a thread-local), poll `shared.snapshot()` (`Shared`,
+  `crates/game/src/controller.rs`) every 50 ms until the thread ends. Send stage `phase`
+  each time `snapshot.phase` changes (`done` the count of phases seen so far, `item` the
+  phase as `game.status` spells it, kebab-case), and stage `probe` each time
+  `snapshot.rows` grows (`done` rows finished, `total` the probe count, `item` the row
+  id). Without a sink (`progress::current()` is `None`), keep today's direct call: no
+  thread, no polling.
+- `start` form: only the `preflight` events; the session's own thread runs after the call
+  returns and the call's sink is gone by then (`game.status` is how front ends follow it).
+Do not change `crates/game` (another crate; not yours), the catalog entry, or the
+envelope. Add the three stages to the table in `progress.rs`'s module docs, and a sentence
+to `docs/game-sessions.md`.
+
+Tests in `crates/engine/src/handlers/game/tests.rs`, with these exact names, against the
+fakes as the other tests there use them (`fn engine`, `fn console`, `fn probes_file`, `fn
+game_file`, `fn args`, `fn fixture`; or `crate::testing::GameFakes`):
+- `a_synchronous_session_reports_each_phase_and_row`: `Engine::execute_with_progress` with
+  a sink that collects events (an `Arc<Mutex<Vec<Progress>>>`): the first event is
+  `preflight` 0/1; then `preflight` 1/1; `phase` events in the controller's order (each
+  `item` a distinct phase); one `probe` event per row with `done` 1, 2, ... and `total`
+  the row count, each `item` a row id; the session's report is `pass` as in
+  `a_synchronous_session_fills_the_ledger_and_leaves_mo2_unchanged`.
+- `a_started_session_reports_its_preflight`: with `start: true`, exactly the two
+  `preflight` events, then `game.stop` it; a dry run sends the two as well.
+- `no_progress_changes_the_session_result`: the same synchronous session run twice on two
+  fixtures, once with a sink and once without, gives envelopes equal after removing the
+  members that differ by run (the session id and dates, paths under the fixture root,
+  `*_ms`/`*_secs` members, `summary`, the ledger text); keep the comparison honest: list
+  what you strip in the test.
+
+Never panic in the handler (a thread that panics is an error result, not a crash). No new
+dependency. Run `cargo test -p kitkraft-engine --lib game`, then `cargo xtask ci`.
+"""
+
+[[accept]]
+name = "sync-progress"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::game::tests::a_synchronous_session_reports_each_phase_and_row 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "start-progress"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::game::tests::a_started_session_reports_its_preflight 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "result-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::game::tests::no_progress_changes_the_session_result 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "documented"
+cmd = "grep -q 'preflight' crates/engine/src/progress.rs"

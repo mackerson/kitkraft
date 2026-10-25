@@ -1,0 +1,80 @@
+id = "KK-034"
+title = "game.probe from the Cockpit: re-run a row, take a screenshot, send a row to the Ledger"
+timeout_min = 60
+after = ["KK-033", "KK-035"]
+owns = [
+  "crates/ui-egui/src/gate.rs",
+  "crates/ui-egui/src/panels/cockpit.rs",
+  "crates/ui-egui/src/panels/cockpit/",
+  "crates/ui-egui/src/panels/common.rs",
+  "crates/ui-egui/src/app.rs",
+  "crates/ui-egui/src/menu.rs",
+  "docs/workbench.md",
+]
+brief = """
+M6.G5, second half, and the wiring of M6.G6. The Cockpit follows a started game session
+(`crates/ui-egui/src/panels/cockpit/session.rs`) and shows its probe rows and screenshots
+(`panels/cockpit/probes.rs`). The gate (`crates/ui-egui/src/gate.rs`, read its module docs
+and `PERMITTED_WRITES`) permits `ledger`, `deploy`, `deploy.rollback`, `game.session` and
+`game.stop`. ADR 0007 Amendment 3 puts `game.probe` in the cockpit's scope too: "its
+dry-run form, if M4.T3 gives it one; otherwise none, and only the confirmed form runs".
+The catalog's `game.probe` (`crates/engine/src/lib.rs`: `{id, row, screenshot?}`) has no
+dry run, so every form writes and only a confirmed request passes.
+
+1. Gate: add `game.probe` to `PERMITTED_WRITES` with a preview kind that says "no preview
+   form" (for example a new `Preview::None` variant whose every request counts as
+   writing), `panel: "panels/cockpit/session.rs"` or `"panels/cockpit/probes.rs"`
+   (whichever file builds its confirmed request; only that file may write
+   `Request::confirmed("game.probe"`). Update the tests that list the permitted ids
+   (`allowlist_is_disjoint_from_writes_and_writing_equals_it`), and
+   `deferred_and_out_of_list_reads_are_disabled_with_their_reason` in `menu.rs`, which
+   checks `game.probe` as "not yet permitted": with all six scope ids permitted, assert
+   instead that a scope id the gate does not permit would get that text, through a scratch
+   `CommandSpec` or by calling the message's function directly; do not just delete the
+   check. `panel_of` in `menu.rs` maps `game.probe` to `Target::Tab("Cockpit")`. In
+   `panels/cockpit.rs` `game_buttons_follow_the_catalog_and_the_gate`, all four game
+   buttons are enabled "today".
+2. The buttons: per probe row, "Re-run" and "Screenshot" (a re-run with `screenshot:
+   true`), enabled while the session's phase is `"idle"` (the engine serves `game.probe`
+   only once its probes are done). A click opens a confirm box saying what will run (the
+   session id, the row, its commands from the status rows, whether a screenshot is taken);
+   only its confirm button builds the confirmed request, once per click. The reply's
+   `data.row` (one row, the same shape as `game.status` rows) is shown as the row's latest
+   rerun; the next `game.status` poll lists it under `reruns` too.
+3. The Ledger: per row that `LedgerForm::from_probe_row` (`panels/ledger.rs`) accepts
+   (inconclusive or manual), a "Record in Ledger" button that sends that form to the
+   Ledger tab: a new `Action::LedgerPrefill(LedgerForm)` in `panels/common.rs`, applied in
+   `app.rs` `apply` by calling `self.ledger.prefill(form)` and switching to the Ledger tab.
+   It writes nothing; the owner still previews and confirms there.
+
+Tests, with these exact names:
+- `gate::tests::game_probe_runs_only_confirmed`: through `check`: `game.probe` unconfirmed
+  is refused with and without `screenshot`; confirmed it passes; a confirmed request whose
+  `row` was changed after the click is refused.
+- `gate::tests::a_rerun_and_a_screenshot_reach_the_engine_against_the_fakes`: a
+  `ReadOnlyEngine::with_game_fakes(&GameFakes::new(..))` session started confirmed and
+  polled to `"idle"` (as `a_confirmed_session_starts_and_stops_against_the_fakes` does);
+  a confirmed `game.probe` of `T-01` returns `data.row.verdict.status` `"pass"`; one with
+  `screenshot: true` adds a screenshot that the next `game.status` lists; then stop it.
+- `panels::cockpit::probes::tests::record_in_ledger_is_offered_only_for_undecided_rows`:
+  on a canned status, the rows offering "Record in Ledger" are exactly the inconclusive and
+  manual ones, and the form each would send is `LedgerForm::from_probe_row`'s.
+
+Update `docs/workbench.md` "What it can run" (six permitted writes) and "Cockpit and
+Coverage". Rules: nothing in `crates/ui-egui` spawns a process, talks HTTP or names
+`kitkraft_game`; no new dependency; theme tokens only for colors and sizes; never panic.
+Run `cargo test -p kitkraft-ui-egui --lib gate`, then `cargo test -p kitkraft-ui-egui`,
+then `cargo xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "probe-gate"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact gate::tests::game_probe_runs_only_confirmed 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "probe-against-the-fakes"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact gate::tests::a_rerun_and_a_screenshot_reach_the_engine_against_the_fakes 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "record-in-ledger"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact panels::cockpit::probes::tests::record_in_ledger_is_offered_only_for_undecided_rows 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"

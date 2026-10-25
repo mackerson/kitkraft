@@ -1,0 +1,93 @@
+id = "KK-036"
+title = "The Cell View window: worldspaces, cells and a cell's references over `cell`"
+timeout_min = 60
+owns = [
+  "crates/ui-egui/src/windows/cell_view.rs",
+  "crates/ui-egui/src/windows/mod.rs",
+  "crates/ui-egui/src/windows/shell.rs",
+  "crates/ui-egui/src/menu.rs",
+  "docs/ck-parity.md",
+  "docs/workbench.md",
+]
+brief = """
+M7.W2. The workbench has CK-style floating windows (`crates/ui-egui/src/windows/`, read
+`mod.rs` and `use_info.rs` first): each a toolkit-free state with request builders and a
+`receive`, plus a drawing part, toggled from the View menu (`WindowKind`, `WindowKind::ALL`)
+and wired in `windows/shell.rs` (`ck_windows` draws them, `ck_submit` sends their
+requests with a `Pending` tag, `ck_receive` routes the replies). Add the Cell View the same
+way, over the engine's read-only `cell` command (already on the gate's `ALLOWLIST`).
+
+`cell` (catalog entry in `crates/engine/src/lib.rs`; handler
+`crates/engine/src/handlers/cell.rs`; data shape `CELL` in `crates/engine/src/shapes.rs`)
+reads the session's loaded order when no `profile` or `plugins` is given (the window sends
+neither). Its modes, by argument:
+- none: `mode: "worlds"`, the worldspaces (`items[]`: `form`, `editor_id`, `cells`,
+  `child_records`, `versions`) and `interior_cells`;
+- `interior: true`: `mode: "interior"`, the interior cells;
+- `world`: `mode: "world"`, that world's exterior cells, each with `x` and `y`;
+- `cell` (or `world`, `x`, `y`): `mode: "cell"`, one cell's references (`form`,
+  `signature`, `editor_id`, `base`, `base_signature`, `base_editor_id`, `position`,
+  `rotation`, `scale`, `persistent`, `group`, `flags`, `deleted`, `plugin`) with
+  `cell_editor_id`, `world`;
+- every mode is paged: `limit` (at most 1000), `next_cursor` (pass it back as `cursor`).
+
+1. `windows/cell_view.rs` (`pub mod cell_view;` in `windows/mod.rs`): `CellViewState`
+   with the list shown on the left (the worldspaces, with "Interior" as a first entry; or
+   one world's exterior cells with their grid) and the selected cell's references on the
+   right, each with paging. Request builders: `worlds()`, `interiors()`, `world(form)`,
+   `cell(form)`, `page(cursor)`, each returning `Option<Request>` and marking the state
+   pending (model on `UseInfoState::follow` and `page`); `receive(result: Result<&Value,
+   String>)` that files the reply by its `data.mode`, keeps the limitations, and on an
+   error shows it. No engine logic: every value comes from the envelope.
+2. The window: `WindowKind::CellView` ("Cell View") in `WindowKind::ALL`, its default
+   position and size, drawn in `ck_windows` like Use Info, its requests sent with a new
+   `Pending::CellView` and routed in `ck_receive`. Opening it with nothing shown asks for
+   the worldspaces once (and says "load a profile first" when the reply says nothing is
+   loaded). Both lists are `virtual_table`s (`crate::panels::common`), with the cell's
+   grid or EditorID and the references' EditorID, base, type, position and `persistent`.
+   A click on a reference asks for `Action::Select(form)` (the shared selection: the
+   Records inspector inspects it and the Render Window selects it when it shows that
+   cell); a double-click asks for `Action::Inspect(form)`. Opening a cell in the Render
+   Window is the next ticket.
+3. `menu.rs` `panel_of`: `"cell" => Target::Window(WindowKind::CellView)`, so the catalog's
+   `View/Cell View...` item opens it.
+4. `docs/ck-parity.md` "Interface parity": the `window | Cell View` row becomes
+   `built, unobserved` (ADR 0012 Amendment 1: built before a CK sitting, never counted as
+   parity), "Maps to" saying what it shows over `cell`, "Evidence" naming the two tests
+   below. `docs/workbench.md` "CK-style windows": a paragraph on it.
+
+Tests in `windows/cell_view.rs` `mod tests`, with these exact names (canned envelopes, each
+checked against the engine's shape first with `crate::gate::{check_shape, data_shape}` as
+`use_info.rs`'s test does):
+- `cell_view_lists_worlds_interiors_and_a_worlds_cells`: a `worlds` reply, then an
+  `interior` reply, then a `world` reply with grid cells, fill the list; each request
+  passes `crate::gate::check`; a second `worlds()` while one is pending asks nothing.
+- `cell_view_reads_a_cells_references_and_pages`: `cell(form)` then a `cell` reply with
+  two references and a `next_cursor`; `page` asks with that cursor and the next reply's
+  references are appended; an error reply clears the view and shows the message.
+And in `windows/mod.rs` `mod tests` (or `menu.rs`'s), the test
+`the_cell_view_is_a_window_and_the_cell_item_opens_it`: `WindowKind::ALL` holds
+`CellView`, and the menu item of `cell` targets it.
+
+Keep the existing window, menu and layout tests passing (update counts that list every
+window). Colors, sizes and gaps from `crate::theme` only (the scan test
+`no_color_size_or_spacing_literal_outside_the_theme`). Never panic on a reply. Run `cargo
+test -p kitkraft-ui-egui --lib windows`, `cargo test -p kitkraft-ui-egui --lib menu`, then
+`cargo xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "lists"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact windows::cell_view::tests::cell_view_lists_worlds_interiors_and_a_worlds_cells 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "references"
+cmd = "cargo test -p kitkraft-ui-egui --lib -- --exact windows::cell_view::tests::cell_view_reads_a_cells_references_and_pages 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "window-and-menu"
+cmd = "cargo test -p kitkraft-ui-egui --lib the_cell_view_is_a_window_and_the_cell_item_opens_it 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "parity-row"
+cmd = "grep -E '^[|] window [|] Cell View' docs/ck-parity.md | grep -q 'built, unobserved'"
