@@ -208,6 +208,164 @@ fn a_save_confirmed_order_gives_confirmed_ids() {
     let _ = std::fs::remove_dir_all(&d);
 }
 
+/// KK-010: a new `ARMO` is an outfit, not just an item: the batch adds and equips it, the
+/// checklist says to equip and look at it, and the probes carry the equip check and a
+/// manual look row, in step with the checklist's numbering.
+#[test]
+fn a_new_armor_is_added_equipped_and_looked_at() {
+    let d = dir("testplan-armor-new");
+    let data = world_master(&d);
+    let plugin = d.join("KC_Outfit.esp");
+    execute(
+        "new",
+        json!({
+            "type": "ARMO", "edid": "KC_Outfit", "fields": {}, "masters": ["World.esm"],
+            "into": plugin.display().to_string(),
+            "plugins": ["World.esm"], "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap();
+    let out = d.join("plan");
+    let r = testplan(&data, &plugin, &out, json!(["World.esm"])).unwrap();
+    // World.esm takes slot 00; the plugin is appended: slot 01, the first new form.
+    assert_eq!(
+        r["data"]["runtime_id_basis"],
+        json!("inferred:runtime-slots-by-scale+masters-load-first")
+    );
+    assert_eq!(r["data"]["forms"][0]["form_id"], json!("01001000"));
+    assert_eq!(r["data"]["forms"][0]["new"], json!(true));
+    assert_eq!(r["data"]["forms"][0]["runtime_id"], json!("01001000"));
+    let batch = std::fs::read_to_string(out.join("kitkraft-test.txt")).unwrap();
+    assert_eq!(
+        batch,
+        "player.additem 01001000 1\r\nplayer.equipitem 01001000\r\n"
+    );
+    let checklist = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    for needle in [
+        "`player.additem 01001000 1`",
+        "`player.equipitem 01001000`: equip it. **Expect:** the player wears it;",
+        "Look at it: third person, `tfc` free camera, a screenshot into",
+    ] {
+        assert!(
+            checklist.contains(needle),
+            "missing `{needle}` in:\n{checklist}"
+        );
+    }
+    let probes_text = std::fs::read_to_string(out.join("probes.toml")).unwrap();
+    let probes = kitkraft_game::probes::ProbeFile::parse(&probes_text).unwrap();
+    assert_eq!(probes.probes.len(), 5);
+    for (i, p) in probes.probes.iter().enumerate() {
+        assert_eq!(p.row, format!("T-{:02}", i + 1));
+    }
+    let add = &probes.probes[0];
+    assert_eq!(add.steps[0].command, "player.additem 01001000 1");
+    assert_eq!(add.steps[1].command, "player.getitemcount 01001000");
+    let equip = &probes.probes[1];
+    assert_eq!(equip.steps[0].command, "player.equipitem 01001000");
+    assert_eq!(equip.steps[1].command, "player.getequipped 01001000");
+    assert_eq!(
+        equip.steps[1].matcher,
+        Some(kitkraft_game::probes::Matcher::Regex)
+    );
+    assert_eq!(
+        equip.steps[1].expected.as_deref(),
+        Some(r">>\s*1(\.0+)?\s*$")
+    );
+    assert!(equip.steps[1].why.as_deref().unwrap().contains("grade D"));
+    let look = &probes.probes[2];
+    assert_eq!(look.matcher.as_deref(), Some("manual"));
+    assert!(look
+        .reason
+        .as_deref()
+        .unwrap()
+        .contains("screenshot and a person"));
+    assert_eq!(r["data"]["probes"]["rows"], json!(5));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// KK-010: an override of an `ARMO` gets the same add, equip and look steps as a new one,
+/// by its runtime ID, and no `help` step.
+#[test]
+fn an_armor_override_is_added_and_equipped() {
+    let d = dir("testplan-armor-override");
+    let data = world_master(&d);
+    // The master owns the armor; `Mod.esp` overrides its name.
+    let master = d.join("Data").join("Armor.esm");
+    execute(
+        "new",
+        json!({
+            "type": "ARMO", "edid": "KC_Outfit", "fields": {"FULL": "KC OUTFIT"},
+            "masters": [],
+            "into": master.display().to_string(),
+            "plugins": ["World.esm"], "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap();
+    let plugin = d.join("Mod.esp");
+    execute(
+        "set",
+        json!({
+            "form": "Armor.esm:00001000", "fields": {"FULL": "KC OUTFIT Red"},
+            "into": plugin.display().to_string(),
+            "plugins": ["Armor.esm"], "data_dir": data.display().to_string(), "no_cache": true,
+        }),
+    )
+    .unwrap();
+    let out = d.join("plan");
+    let r = testplan(&data, &plugin, &out, json!(["Armor.esm"])).unwrap();
+    // Armor.esm takes slot 00; `Mod.esp` is appended: slot 01. The override keeps the
+    // master's stored ID, which resolves to the base owner (Armor.esm): its runtime ID
+    // is the master's slot, 00001000.
+    assert_eq!(
+        r["data"]["runtime_id_basis"],
+        json!("inferred:runtime-slots-by-scale+masters-load-first")
+    );
+    assert_eq!(r["data"]["forms"][0]["form_id"], json!("00001000"));
+    assert_eq!(r["data"]["forms"][0]["new"], json!(false));
+    assert_eq!(r["data"]["forms"][0]["editor_id"], json!("KC_Outfit"));
+    assert_eq!(r["data"]["forms"][0]["runtime_id"], json!("00001000"));
+    let batch = std::fs::read_to_string(out.join("kitkraft-test.txt")).unwrap();
+    assert_eq!(
+        batch,
+        "player.additem 00001000 1\r\nplayer.equipitem 00001000\r\n"
+    );
+    let checklist = std::fs::read_to_string(out.join("checklist.md")).unwrap();
+    for needle in [
+        "`player.additem 00001000 1`",
+        "`player.equipitem 00001000`: equip it. **Expect:** the player wears it;",
+        "Look at it: third person, `tfc` free camera, a screenshot into",
+    ] {
+        assert!(
+            checklist.contains(needle),
+            "missing `{needle}` in:\n{checklist}"
+        );
+    }
+    assert!(
+        !checklist.contains("help "),
+        "a `help` step for the override:\n{checklist}"
+    );
+    let probes_text = std::fs::read_to_string(out.join("probes.toml")).unwrap();
+    let probes = kitkraft_game::probes::ProbeFile::parse(&probes_text).unwrap();
+    assert_eq!(probes.probes.len(), 5);
+    for (i, p) in probes.probes.iter().enumerate() {
+        assert_eq!(p.row, format!("T-{:02}", i + 1));
+    }
+    for p in &probes.probes {
+        for s in &p.steps {
+            assert!(
+                !s.command.starts_with("help "),
+                "a `help` probe step: {}",
+                s.command
+            );
+        }
+    }
+    let equip = &probes.probes[1];
+    assert_eq!(equip.steps[0].command, "player.equipitem 00001000");
+    assert_eq!(equip.steps[1].command, "player.getequipped 00001000");
+    assert_eq!(probes.probes[2].matcher.as_deref(), Some("manual"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
 #[test]
 fn testplan_refuses_mo2_and_missing_inputs() {
     let d = dir("testplan-guard");

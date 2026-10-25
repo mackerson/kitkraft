@@ -6,8 +6,9 @@
 //! Expected values come from the plugin's own records: the reference's EditorID and
 //! runtime ID (`help <EditorID> 4` lists it), its `DATA` position (`getpos x|y|z`, within
 //! [`POSITION_TOLERANCE`]), its initially-disabled flag (`isdisabled`), the base's EditorID
-//! (`getisid`), an item's runtime ID (`player.getitemcount` after `player.additem`), a
-//! form's inline `FULL` (`help "<FULL>" 4`), a quest's stage (`getstage`). The persistence
+//! (`getisid`), an item's runtime ID (`player.getitemcount` after `player.additem`), an
+//! armor's equipped state (`player.getequipped` after `player.equipitem`), a form's inline
+//! `FULL` (`help "<FULL>" 4`), a quest's stage (`getstage`). The persistence
 //! protocol (docs/game-observations.md) becomes `coc`, `save {save}`, `load {save}` and the
 //! return checks; the controller fills `{save}` with its own `KitKraftSession-*` name. A step
 //! with no console getter (an exterior cell, clicking an object without an EditorID,
@@ -302,7 +303,9 @@ pub(super) fn build(plugin: &str, sha: &str, forms: &[Form], id_basis: &IdBasis)
                     "no position or no console target for the reference",
                 )),
             }
-        } else if f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
+        } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
+            || f.signature == "ARMO"
+        {
             let row = next(&mut n);
             match f.runtime {
                 Some(r) => probes.push(probe(
@@ -326,6 +329,43 @@ pub(super) fn build(plugin: &str, sha: &str, forms: &[Form], id_basis: &IdBasis)
                     ids.clone(),
                     "the form has no runtime ID",
                 )),
+            }
+            // Armor is an outfit: it must be worn and looked at, not only owned (new or
+            // overridden).
+            if f.signature == "ARMO" {
+                let row = next(&mut n);
+                match f.runtime {
+                    Some(r) => probes.push(probe(
+                        row,
+                        format!("player.equipitem {}: {what} is worn", hex(r)),
+                        ids.clone(),
+                        false,
+                        vec![
+                            set(format!("player.equipitem {}", hex(r))),
+                            check(
+                                format!("player.getequipped {}", hex(r)),
+                                Matcher::Regex,
+                                ONE.into(),
+                                "the armor is equipped (answer format grade D)",
+                            ),
+                        ],
+                    )),
+                    None => probes.push(manual(
+                        row,
+                        format!("equip {what}"),
+                        ids.clone(),
+                        "the form has no runtime ID",
+                    )),
+                }
+                let row = next(&mut n);
+                probes.push(manual(
+                    row,
+                    format!(
+                        "look at {what}: third person, `tfc` free camera, a screenshot into `observe\\`"
+                    ),
+                    ids.clone(),
+                    "the outfit's look needs a screenshot and a person",
+                ));
             }
         } else {
             let row = next(&mut n);
