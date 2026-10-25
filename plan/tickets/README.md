@@ -62,14 +62,14 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | Ticket | Title | Source | State |
 | ------ | ----- | ------ | ----- |
 | [KK-001](KK-001.toml) | The gate passes on Linux | the 2026-10-23 trial: 20 tests assume Windows | merged `34e4a55` |
-| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 (2026-10-25) failed to start (harness bug); run 3: 4/8 again, because the acceptance demanded QUST and WRLD pass while the brief allowed ignoring them. Acceptance fixed; continues from `kk/KK-002-wip`. Follow-ups to cut: QUST's slot misalignment (engine), `new` for WRLD |
+| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 (2026-10-25) failed to start (harness bug); run 3 (`kk-KK-002-20261025-1330`, the old acceptance): 4/8; it ignored both WRLD tests with a reason and moved QUST to the `PlanetContentProperties` layout, but QUST still fails and no evidence entries were written. Requeued from `kk/KK-002-wip` (`56ee2e1`) with the fixed acceptance and a fourth-run brief: ignore QUST, drop the scratch probe test, write the evidence. Follow-ups to cut: QUST's slot misalignment (engine), `new` for WRLD |
 | [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | merged `472871e` |
 | [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | merged `1f0940c` |
 | [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | merged `f4acf8e` |
-| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | run 1: 0/6 (scope bug in the ticket); run 2 (2026-10-25) failed to start (harness bug); requeued from `kk/KK-006-wip` |
+| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | merged `e7bc2d2` |
 | [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | merged `7313fbf` |
-| [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued after KK-006 |
-| [KK-010](KK-010.toml) | testplan: add, equip and look at new and overridden armor | apparel request 5 | queued |
+| [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued (KK-006 merged) |
+| [KK-010](KK-010.toml) | testplan: add, equip and look at new and overridden armor | apparel request 5 | merged `33307be` |
 | [KK-011](KK-011.toml) | Corpus survey: which object mod properties armor carries | apparel request 3 (second half) | queued |
 | [KK-012](KK-012.toml) | Recipe: a location of your own (`docs/recipes/location.md`) | M5.D2 rest | queued |
 | [KK-013](KK-013.toml) | Recipe: a terminal with its own menus (`docs/recipes/terminal.md`) | M5.D3 rest | queued |
@@ -102,6 +102,9 @@ On 2026-10-25 KK-002 and KK-006 failed to start: the harness did not resolve the
 branch (fixed in the harness). Both are requeued unchanged, still continuing from their WIP
 branches; KK-008 still waits for KK-006 to merge. The same night KK-005 (run 2) and KK-007
 landed.
+
+On the 2026-10-25 13:30 night KK-006 and KK-010 merged; KK-002 is requeued from its WIP
+branch (QUST still fails; ignore it and finish the evidence). KK-008 is runnable now.
 
 KK-002 and KK-004 both add a section to `docs/schema/support-matrix.md`, and KK-004 and
 KK-006 both may add a row to `docs/gaps.md`. Merge one, then resolve the other by hand.

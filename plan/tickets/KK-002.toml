@@ -8,6 +8,14 @@ owns = [
   "docs/schema/support-matrix.md",
 ]
 brief = """
+**Fourth run.** The third run committed the WRLD ignores (done; keep them) and switched
+QUST to the `PlanetContentProperties` layout, but `qust_new_sets_every_typed_member_and_reads_back`
+still panics at its assertion (near line 424). Do not dig further: mark it `#[ignore =
+"<the panic text>"]` with the layout comment kept, and delete the scratch test
+`qust_probe_subrecord_sequence`. Then do what the third run never reached: the ACTI, KYWD
+and TMLM evidence entries, their support-matrix rows, the module docs (QUST is not
+passing), the gate. Commit after each step.
+
 **Third run (2026-10-25).** ACTI, KYWD and TMLM pass. Two types cannot pass inside this
 ticket, and that is expected: `new` refuses a WRLD (`new.not-top-level`: a worldspace roots
 exterior cells that cannot be written yet), and QUST's read-back fails on a slot misalignment
