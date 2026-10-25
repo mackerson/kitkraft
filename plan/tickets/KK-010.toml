@@ -1,0 +1,71 @@
+id = "KK-010"
+title = "testplan: add, equip and look at new and overridden armor"
+timeout_min = 45
+owns = [
+  "crates/engine/src/handlers/testplan.rs",
+  "crates/engine/src/handlers/testplan/",
+  "crates/engine/src/handlers/testplan_tests.rs",
+]
+brief = """
+Apparel request 5 (summarised here; do not read plan/STATUS.md). The owner is building a
+clothing mod (whole outfits, `ARMO` records filling biped slot 3), and KitKraft writes its
+in-game test plan. `testplan` today gives a new item one step: `player.additem <id> 1`, with
+a `player.getitemcount` probe. For armor that proves nothing about the outfit: it must be
+worn and looked at. An *override* of a vanilla `ARMO` (a colourway, a changed object
+template) gets only the generic `help <edid> 4` step today, so nobody puts it on either.
+
+Read `crates/engine/src/handlers/testplan.rs` first: its module docs say what the three
+output files are (`kitkraft-test.txt`, `checklist.md`, `probes.toml`) and that they are
+deterministic. The batch lines are written in `run` (the loop that pushes `player.additem`
+for `ITEMS`), the checklist steps in `checklist`, and the probes in
+`crates/engine/src/handlers/testplan/probes.rs` `build` (helpers `probe`, `check`, `set`,
+`manual`; the matcher constants such as `ONE` and `AT_LEAST_ONE`). Step numbers in the
+checklist and probe rows (`T-<nn>`) must stay in step: each checklist step is one probe.
+
+Change, for `ARMO` only (every other record type's output stays byte-for-byte the same):
+
+1. A **new** `ARMO`: after the existing `player.additem <runtime> 1` line, the batch file
+   gets `player.equipitem <runtime>`. The checklist gets two steps after the add step:
+   "equip it" (**Expect:** the player wears it; the slots it fills are free of other items)
+   and "look at it" (third person, `tfc` free camera, a screenshot into `observe\\`). The
+   probes get the same two rows: an equip probe that runs `player.equipitem <runtime>` and
+   checks `player.getequipped <runtime>` against `ONE` (say in its `why` that the answer
+   format is grade D, as the other console probes do), and a `manual` probe for the look
+   ("the outfit's look needs a screenshot and a person").
+2. An **override** of an `ARMO` (`f.new` false): instead of the `help` step, the same three
+   steps as a new one (add, equip, look), by its runtime ID.
+
+Do not change other item types, references, the persistence or report sections, or the
+runtime ID logic. NPCs and body types are out of scope (a later ticket).
+
+Tests in `crates/engine/src/handlers/testplan_tests.rs`, exact names:
+- `a_new_armor_is_added_equipped_and_looked_at`: a plugin with one new `ARMO` (write it
+  with `new`, `type: "ARMO"`, into a plugin over the synthetic master the other tests in
+  the file use, `place_tests::world_master`); run `testplan`; assert the batch file has the
+  `player.additem` line followed by the `player.equipitem` line for the same ID, the
+  checklist has the equip and look steps, and `probes.toml` has the equip probe (command
+  and matcher) and the manual look probe, rows numbered with no gap.
+- `an_armor_override_is_added_and_equipped`: a plugin that overrides an `ARMO` of its
+  master. If no helper writes a master with an `ARMO`, write one with `new` into an
+  `.esm` in the test's temp dir and use it as the master of a `set` (a changed `FULL`)
+  into a second plugin. Assert the same three steps, and no `help ... 4` step for it.
+
+If `new` needs fields for an `ARMO` to be written, read
+`crates/engine/src/handlers/authoring_tests.rs` (`new_record`, `plan_in`) for how a record
+of a type is built. Every existing test in `testplan_tests.rs` and `modrun_tests.rs` must
+pass unchanged: do not edit their expectations. Update the module docs of `testplan.rs`
+(the list of what the batch file holds). Run `cargo test -p kitkraft-engine --lib
+testplan` while you work, then `cargo xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "new-armor"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::testplan_tests::a_new_armor_is_added_equipped_and_looked_at 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "armor-override"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::testplan_tests::an_armor_override_is_added_and_equipped 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "testplan-and-modrun-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- testplan modrun 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o && grep -q 'equipitem' crates/engine/src/handlers/testplan/probes.rs"

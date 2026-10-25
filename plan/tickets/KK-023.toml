@@ -1,0 +1,70 @@
+id = "KK-023"
+title = "Type FLOR (flora) from the pinned xEdit file, corpus-checked"
+timeout_min = 60
+after = ["KK-022"]
+owns = [
+  "crates/schema/defs/FLOR.toml",
+  "crates/schema/tests/",
+  "crates/esm/src/generated/",
+  "crates/esm/tests/flora_types.rs",
+  "docs/schema/items-workshop-family.md",
+  "docs/record-parity.md",
+  "docs/gaps.md",
+]
+brief = """
+`FLOR` (flora: harvestable plants, 302 official records) has only an lstring-only
+definition: `EDID`, `FULL` and `ATTX` are typed, and 36 of the 39 signatures the corpus
+shows are unknown (`docs/record-parity.md`). Type it, the way KK-006 typed `ARMA`.
+
+Read first: `crates/schema/defs/README.md` (the definition format), then
+`crates/schema/defs/ACTI.toml` (an activator: the closest typed type, with the same shared
+blocks) and `ARMA.toml` (KK-006's, for how a new definition cites xEdit and the corpus).
+The shared blocks are in `crates/schema/defs/common/`: `Model`, `Destructible`,
+`ObjectBounds`, `ObteBlock` (the object template, `OBTE`/`OBTF`/`OBTS`), `Keywords`
+(`KSIZ`/`KWDA`), `BfcbBlock` (`BFCB` .. `BFCE`), `Transforms` and others. Use them by
+`group_ref` or `ref:`; do not copy their members.
+
+Source: the pinned xEdit file, read-only at `/opt/xedit-ref/wbDefinitionsSF1.pas`
+(revision 9fb016884bec138ea6c7b872cec831537d464c3e). `FLOR` is at L11984-L12021; follow
+the helpers it names. Cite line ranges in `source`/`evidence` as ACTI.toml does.
+Clean-room rule (AGENTS.md): read it for facts (member order, types, sizes, names) and
+write the TOML in your own words; never copy its code or comments. Names are ours,
+UpperCamelCase, CK wording where it exists. The corpus wins over xEdit: a subrecord xEdit
+lacks, or a different size, is added from the corpus with a `corpus:` evidence line;
+anything you cannot type stays `opaque` with a note. Write a `corpus:` evidence line only
+after a test of yours has printed the fact it cites; until then cite xEdit with
+`confidence = "reference"`.
+
+Then check it against the corpus: `crates/esm/tests/flora_types.rs`, modelled on KK-006's
+`crates/esm/tests/apparel_types.rs` (same lint allowances and checks: every subrecord
+placed in a member, every placed subrecord decodes, re-encoding reproduces each record).
+One test, `flora_types_full`, `#[ignore = "reads all 14 official ESMs; run in release"]`,
+printing exactly `flora FLOR: <n> records, <m> identical` and, per signature, how many
+records have it. Regenerate code with `cargo xtask codegen` and the golden seed as the
+schema tests describe (`crates/schema/tests/codegen.rs`); never hand-edit generated files.
+Fix whatever `cargo test -p kitkraft-schema` reports. Regenerate `docs/record-parity.md`
+with `cargo xtask parity`: the FLOR row must show 0 unknown. Add a short "Flora" section to
+`docs/schema/items-workshop-family.md` (members, sources, corpus counts, what stays opaque).
+Do not move FLOR between families in `xtask` (out of scope), and do not change any other
+definition.
+
+While working, run `cargo test -p kitkraft-schema` and the corpus test in release:
+`cargo test --release -p kitkraft-esm --test flora_types -- --ignored --nocapture`. Then
+`cargo xtask ci`. Commit after the definition first loads, and after the corpus test passes.
+"""
+
+[[accept]]
+name = "flora-full"
+cmd = "cargo test --release -p kitkraft-esm --test flora_types -- --ignored --exact flora_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^flora FLOR: 302 records, 302 identical' /tmp/o"
+
+[[accept]]
+name = "schema-all"
+cmd = "cargo test -p kitkraft-schema"
+
+[[accept]]
+name = "codegen-fresh"
+cmd = "cargo xtask codegen --check"
+
+[[accept]]
+name = "parity-row"
+cmd = "grep -Eq '^\\| `FLOR` +\\| Flora +\\| +302 .*\\| +0 \\|$' docs/record-parity.md"

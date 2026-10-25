@@ -1,0 +1,85 @@
+id = "KK-019"
+title = "Write LMSW material swaps: swap_overrides on set and clone"
+timeout_min = 60
+after = ["KK-007", "KK-008"]
+owns = [
+  "crates/doc/src/refl.rs",
+  "crates/doc/tests/refl_corpus.rs",
+  "crates/engine/src/edit/mod.rs",
+  "crates/engine/src/edit/swaps.rs",
+  "crates/engine/src/handlers/set.rs",
+  "crates/engine/src/handlers/newform.rs",
+  "crates/engine/src/lib.rs",
+  "crates/engine/tests/lmsw_write_corpus.rs",
+]
+brief = """
+Apparel request 7, the write half (summarised here; do not read plan/STATUS.md). Clothing
+colourways in Starfield are layered material swaps (`LMSW`): an ARMO's object template
+names an `LMSW` (template item property 14), and the `LMSW`'s one `REFL` subrecord maps a
+key material path to an override material path. `LMS_Clothes_Matteo_Hat`
+(`Starfield.esm:1991B1`) maps
+`Clothes/Outfit_Sanctum_Priest/Outfit_Sanctum_Priest_Hat.mat` to
+`Clothes/Outfit_Sanctum_Priest/Outfit_Sanctum_Priest_Hat_Ajun.mat` (stored with
+backslashes). KK-007 wrote a lossless `REFL` decoder (`crates/doc/src/refl.rs`: `decode`,
+`encode`, `lmsw_entries`) and shows the entries in `inspect --full`; KK-008 gave `LMSW` an
+inventory definition (`REFL` opaque). A mod must be able to clone a vanilla swap and point
+its overrides at its own `.mat` files. Make `clone` and `set` take that edit.
+
+Read `crates/doc/src/refl.rs` first, all of it, as KK-007 left it: its module docs say what
+the chunks (`BETH`, `STRT`, `TYPE`/`CLAS`, `OBJT`, `LIST`) hold and how an entry's paths
+are stored (a u16 length counting the NUL, the bytes, a NUL). Then
+`crates/doc/tests/refl_corpus.rs`.
+
+1. `crates/doc/src/refl.rs`: a function that returns a new `Refl` (or its bytes) with
+   chosen entries' override paths replaced, keyed by the entry's key path, recomputing
+   every size the change affects (the string's length prefix, the enclosing chunk sizes),
+   and leaving everything else byte-for-byte. A key that matches no entry, or more than
+   one, is an `Err` naming it. No panics, no `unsafe`, no new crate. Unit tests in the
+   module's `mod tests`, on the synthetic payload KK-007's tests build, exact name
+   `an_override_change_reencodes_and_reads_back`: a longer and a shorter override each
+   encode, decode again, and `lmsw_entries` shows the new override with the same key;
+   chunks the edit does not touch are identical.
+2. `crates/doc/tests/refl_corpus.rs`: a second ignored test,
+   `every_official_lmsw_override_rewrites_to_itself`: for every `LMSW` `REFL` in the 14
+   official ESMs, replace every entry's override with itself through the new function; the
+   bytes must be identical. Print `refl-edit LMSW: <n> rewritten, <m> identical`.
+3. Engine: an argument `swap_overrides`, a JSON array of `{"key": <path>, "override":
+   <path>}`, on `clone` and on `set` (args schemas in `crates/engine/src/lib.rs`). Only for
+   an `LMSW` source (any other type is refused with the reason); each override must end in
+   `.mat` (ASCII case-insensitive), forward slashes are stored as backslashes as the
+   corpus does. Turn it into an ordinary whole-subrecord edit of `REFL` (`hex:` of the new
+   bytes, from the source record's current `REFL`), so `dry_run`, `validate` and the rest
+   of the write path are unchanged; put that conversion in a new
+   `crates/engine/src/edit/swaps.rs`. Read how `set` and `clone` take `fields` and the
+   extra `scripts` argument (`crates/engine/src/handlers/set.rs` `run`,
+   `crates/engine/src/handlers/newform.rs` `run_clone`) and do the same. The result gains
+   `swap_overrides: [{key, from, to}]`. `swap_overrides` and a `fields` edit of `REFL`
+   together are refused. Describe the argument in the module docs of `swaps.rs`.
+
+Test `crates/engine/tests/lmsw_write_corpus.rs`, one test
+`swap_overrides_clone_and_set_an_lmsw`, ignored, skipping with a printed `skip:` line
+without `KITKRAFT_DATA_DIR`, through one `kitkraft_engine::Engine` (model:
+`crates/engine/tests/refl_inspect.rs` from KK-007 and `crates/engine/tests/
+mini_site_corpus.rs`): clone `1991B1` with one override into a temp plugin; `inspect` with
+`full: true` shows the new override and the old key; `validate` 0 errors; `roundtrip`
+with `verify` identical; `set` on `1991B1` into a second plugin with an override does the
+same; an unknown key is refused with an error naming it. Print `lmsw-write: ok`.
+
+Do not change `inspect`'s output, the `LMSW` definition, or any other command. Run the
+unit tests, then the two corpus tests alone in release
+(`cargo test -p kitkraft-doc --release --test refl_corpus -- --include-ignored --exact
+every_official_lmsw_override_rewrites_to_itself --nocapture`), then `cargo xtask ci`.
+Commit when the unit test passes.
+"""
+
+[[accept]]
+name = "refl-edit-unit"
+cmd = "cargo test -p kitkraft-doc --lib -- --exact refl::tests::an_override_change_reencodes_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "refl-edit-corpus"
+cmd = "cargo test -p kitkraft-doc --release --test refl_corpus -- --include-ignored --exact every_official_lmsw_override_rewrites_to_itself --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^refl-edit LMSW: 17410 rewritten, 17410 identical' /tmp/o"
+
+[[accept]]
+name = "lmsw-write"
+cmd = "cargo test -p kitkraft-engine --release --test lmsw_write_corpus -- --include-ignored --exact swap_overrides_clone_and_set_an_lmsw --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q '^lmsw-write: ok' /tmp/o"

@@ -1,0 +1,60 @@
+id = "KK-015"
+title = "Ownership recipe, new-faction variant: a faction of our own owns the cell"
+timeout_min = 45
+owns = [
+  "docs/recipes/ownership.md",
+  "docs/recipes/ownership-faction.toml",
+  "crates/engine/tests/ownership_recipe_corpus.rs",
+]
+brief = """
+M5.D5 asks that the ownership recipe gain a new-faction variant. Today
+`docs/recipes/ownership.toml` overrides a vanilla interior cell's owner (`CELL` `XOWN`) to
+the vanilla `PlayerFaction`. The Foothold claim experiments need the other case: a faction
+the plugin creates owns the cell (the claim terminal prototype's owner). Write it as a
+second spec and a new section of the same recipe, and a corpus test. No engine change.
+
+Read first:
+- `docs/recipes/ownership.md` and `ownership.toml`: the recipe this extends (the cell
+  `CityNewAtlantisFreestarEmbassy`, `Starfield.esm:017307`; `XOWN` is 12 bytes, `Owner` a
+  FormID naming a `FACT` or `NPC_`; the facts table with sources; what is not known).
+- `docs/recipes/mini-site.toml`: a `[[new]]` FACT, and `[[set]]` fields naming a new form
+  with `new:<name>` (as its cell's `XLCN = "new:location"`).
+- `crates/schema/defs/FACT.toml` and `crates/schema/defs/common/OwnerData.toml`.
+- `crates/engine/tests/mini_site_corpus.rs`: how a recipe test builds a spec through one
+  `kitkraft_engine::Engine` (`execute("build", ...)` with the Data folder spliced into the
+  spec's `[load_order]`), then checks `refs`, `validate`, `roundtrip --verify`, a second
+  byte-identical build and the SHA-256 the recipe records.
+
+The spec `docs/recipes/ownership-faction.toml` (version 3, Starfield.esm the only master):
+a `[[new]]` FACT (`name = "owner"`, EditorID `KitKraftRecipeOwnerFaction`) with a `FULL`, and a `[[set]]` of the same
+cell's `XOWN.Owner = "new:owner"`. Give the faction only members you can source from
+`FACT.toml`; a comment on every value.
+
+The recipe: add a section "Variant: a new faction owns the cell" to `ownership.md` with the
+spec, the build, validate, roundtrip and testplan commands, the plugin's size and SHA-256,
+what is known (with sources) and what is not: whether the game treats the player as a
+trespasser or thief in a cell its own new faction owns, and how a player would join it
+(`player.addtofaction <id> 0` in the console is the check, grade D; not run). Keep the
+existing sections as they are.
+
+The test `crates/engine/tests/ownership_recipe_corpus.rs`, one test
+`the_faction_ownership_recipe_builds_and_every_claim_holds`, `#[ignore = "release: indexes
+Starfield.esm"]`, printing `skip: KITKRAFT_DATA_DIR unset` and returning when the Data
+folder is not there. It builds the spec into a temp dir, asserts `passed`, the one new form
+(FormID, type, EditorID), that `refs` on the cell's override shows `XOWN` naming the new
+faction (resolved, not dangling), `validate` 0 errors and 0 warnings, `roundtrip --verify`
+identical, a second build byte-identical, and the SHA-256 equal to a constant the recipe
+also records. Last, it prints `ownership-faction-recipe: ok`.
+
+Run it alone in release:
+`cargo test -p kitkraft-engine --release --test ownership_recipe_corpus -- --include-ignored --nocapture`.
+Then `cargo xtask ci`. Commit when the spec first builds.
+"""
+
+[[accept]]
+name = "recipe-builds"
+cmd = "cargo test -p kitkraft-engine --release --test ownership_recipe_corpus -- --include-ignored --exact the_faction_ownership_recipe_builds_and_every_claim_holds --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q '^ownership-faction-recipe: ok' /tmp/o"
+
+[[accept]]
+name = "recipe-doc"
+cmd = "grep -q 'ownership-faction.toml' docs/recipes/ownership.md && grep -q 'new faction owns the cell' docs/recipes/ownership.md"

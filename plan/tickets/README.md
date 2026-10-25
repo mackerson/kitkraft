@@ -10,6 +10,10 @@ id = "KK-001"                 # also the branch name: ticket/KK-001
 title = "One line"
 timeout_min = 45              # per grading command (default 45)
 gate = "cargo xtask ci"       # default; the Linux gate
+after = ["KK-006"]            # optional: queued only once these have merged to main
+hold = "why"                  # optional: written, but never queued automatically
+budget_h = 1.5                # optional: the run's time cap (default 1.5 h, then overtime)
+base = "kk/KK-002-wip"        # optional: continue an earlier run's branch (default main)
 owns = [                      # the only paths the agent may change (prefixes or globs);
   "crates/engine/src/handlers/",  # plan/STATUS.md's one "Landed" line is always allowed
 ]
@@ -42,10 +46,18 @@ The director A/B (ADR 0014, "Context") is the guide:
 
 ## Queue
 
-`overnight kitkraft KK-002+KK-003+KK-004 8` runs several tickets back to back in one budget
-(`docs/local-agent.md`). Each starts from `main`, so queued tickets must not depend on each
-other, and their `owns` should not overlap. The STATUS line and a shared doc are the
-exceptions, merged by hand.
+`overnight kitkraft auto 8` runs every runnable ticket back to back in one budget
+(`docs/local-agent.md`): not merged (main has no "Merge ticket/<ID>:" commit), not held, and
+every ticket in its `after` merged. It skips a ticket whose `owns` overlaps one already picked
+(each starts from `main` and they would conflict), except a shared Markdown file, merged by
+hand like the STATUS line. `overnight kitkraft KK-002+KK-003 8` runs a list instead.
+
+Before the first run, a preflight drops any ticket whose base doesn't resolve, whose owned
+paths neither exist nor have an existing parent, or whose acceptance commands all pass on the
+base already (one that passes is a warning: it may be vacuous). Each ticket gets up to its
+`budget_h`; when every ticket has had its turn, unfinished ones get an overtime run that
+continues their branch. When the queue ends, the morning merge (an Opus session) reviews each
+run, merges what holds up, runs the Windows gate, pushes `main`, and updates this table.
 
 | Ticket | Title | Source | State |
 | ------ | ----- | ------ | ----- |
@@ -57,6 +69,20 @@ exceptions, merged by hand.
 | [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | run 1: 0/6 (scope bug in the ticket); run 2 (2026-10-25) failed to start (harness bug); requeued from `kk/KK-006-wip` |
 | [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | merged `7313fbf` |
 | [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued after KK-006 |
+| [KK-010](KK-010.toml) | testplan: add, equip and look at new and overridden armor | apparel request 5 | queued |
+| [KK-011](KK-011.toml) | Corpus survey: which object mod properties armor carries | apparel request 3 (second half) | queued |
+| [KK-012](KK-012.toml) | Recipe: a location of your own (`docs/recipes/location.md`) | M5.D2 rest | queued |
+| [KK-013](KK-013.toml) | Recipe: a terminal with its own menus (`docs/recipes/terminal.md`) | M5.D3 rest | queued |
+| [KK-014](KK-014.toml) | Clone-sample corpus tests for PKIN and FACT | M5.D4, M5.D5 rest | queued |
+| [KK-015](KK-015.toml) | Ownership recipe, new-faction variant | M5.D5 rest | queued |
+| [KK-016](KK-016.toml) | `cargo xtask parity` generates the gap matrix headline and checks the family table | M5.D1 rest | after KK-002 |
+| [KK-017](KK-017.toml) | Typed-write tests for CONT, MISC, FLST and LVLI | gap matrix "untested" rows | after KK-002 |
+| [KK-018](KK-018.toml) | validate warns when a model file a record names is nowhere to be found | apparel requests 4 and 8 (asset checks) | after KK-005 |
+| [KK-019](KK-019.toml) | Write LMSW material swaps: `swap_overrides` on `set` and `clone` | apparel request 7 (write half) | after KK-007, KK-008 |
+| [KK-020](KK-020.toml) | Recipe: a clothing colourway (build spec `swap_overrides`) | apparel request 7 | after KK-019 |
+| [KK-021](KK-021.toml) | Typed-write tests for ARMO, ARMA and OTFT | apparel requests 1 and 2 | after KK-006, KK-017 |
+| [KK-022](KK-022.toml) | Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB | record parity (types with no definition) | after KK-008 |
+| [KK-023](KK-023.toml) | Type FLOR (flora) from the pinned xEdit file | record parity (lstring-only FLOR) | after KK-022 |
 | [KK-030](KK-030.toml) | Engine test support: game-session fakes that front ends can drive | M6.G4 to G6 against M4.T3's fakes (next-sprint item 3) | queued |
 | [KK-031](KK-031.toml) | The workbench gate permits `game.session` (start) and `game.stop`; `game.status` allowed | M6.G4, first half | after KK-030 |
 | [KK-032](KK-032.toml) | The Cockpit launches a game session and follows it by polling `game.status` | M6.G4, second half | after KK-031 |
@@ -87,9 +113,39 @@ KK-007 and KK-008 are the read half of apparel request 7 and do not depend on ea
 and generated-code paths with KK-006 (ARMA), so queue it after KK-006 has merged. Writing an `LMSW` (`set`
 on its swap paths, or `new` from entries) is cut after KK-007 lands, on its decoder.
 
-Still to cut, from `docs/foothold/next-sprint.md`: the location and terminal recipes (item 2),
-the Cell View's engine-facing tests (item 5). Window, CK-sitting and design-heavy work (M5.D1's
-generated gap matrix) stays with Claude or the owner.
+KK-010 to KK-023 (engine and data, cut 2026-10-25). Independent, any night: KK-010 to KK-015;
+their `owns` do not overlap each other or the queued tickets, except that KK-014 shares
+`docs/schema/support-matrix.md` with KK-002 and `docs/gaps.md` with KK-006 (sections and
+rows only; merge one, resolve the other by hand). Chains, by `after`:
+
+- typed-write: KK-002 -> KK-017 -> KK-021 (KK-021 also waits on KK-006 for `ARMA` and the
+  `BO64` flags). All three own `authoring_tests.rs` and `docs/schema/evidence.toml`, hence the
+  chain.
+- gap matrix: KK-002 -> KK-016 (it fixes the hand table where KK-002's evidence changed MX).
+- validate: KK-005 -> KK-018 (both own `crates/engine/src/validate/` and the official-files
+  test).
+- material swaps: KK-007 + KK-008 -> KK-019 -> KK-020 (KK-019 owns `set.rs`, `newform.rs` and
+  `crates/engine/src/lib.rs`; KK-020 owns `build/spec.rs` and `handlers/build.rs`).
+- schema: KK-006 -> KK-008 -> KK-022 -> KK-023 (all regenerate `crates/esm/src/generated/` and
+  the golden seed; never two in one night).
+
+`docs/record-parity.md` is generated: KK-016, KK-022 and KK-023 all own it and may run the
+same night. Merge in any order and rerun `cargo xtask parity` on the merged result; never
+merge it by hand. KK-016 changes `xtask/src/parity.rs`, so merge it before regenerating for
+the others.
+
+Decisions taken in the tickets (overturn before queueing if wrong): KK-019's argument name
+`swap_overrides` and its rule that an override must end in `.mat`; KK-018's severity
+(warning) and its scope (`Model.FileName` only); KK-010's probe `player.getequipped`
+(answer format grade D, like the other console probes).
+
+Still to cut, from `docs/foothold/next-sprint.md`: the Cell View's engine-facing tests (item 5,
+the other lane). Next in engine and data once their inputs land: `inspect` of an ARMO's
+addons and their model paths (after KK-006, KK-018); `validate` of `LMSW` override paths
+against shipped `.mat` files, existence only (after KK-018, KK-019); the world-model members
+of ARMO and ARMA in `asset.missing-model`; more inventory definitions (MRPH, CNDF, VTYP,
+MTPT, ASPC) and lstring-only types (AVIF). The hand-written half of the gap matrix (its
+evidence prose) and the `.mat` content rules stay with Claude or the owner.
 
 KK-030 to KK-043 are the workbench and surface lane (M6 lanes V, P and G, M7 lanes W and R,
 `crates/mcp`, `crates/game` through its fakes). Every UI ticket is tested headless: view-model

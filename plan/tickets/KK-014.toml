@@ -1,0 +1,62 @@
+id = "KK-014"
+title = "Clone-sample corpus tests for PKIN and FACT"
+timeout_min = 60
+owns = [
+  "crates/engine/tests/clone_sample_corpus.rs",
+  "docs/schema/support-matrix.md",
+  "docs/gaps.md",
+]
+brief = """
+M5.D4 (pack-ins) and M5.D5 (factions) ask for the corpus test that KK-004 wrote for
+locations and terminals: cloning a deterministic sample of official records re-encodes
+identically, apart from what a clone must change. Add it for `PKIN` and `FACT`.
+
+Start from `crates/engine/tests/clone_sample_corpus.rs` (read all of it). Its body,
+`sample_clones(sig, prefix)`, lists every record of a type in `Starfield.esm` with paged
+`query`, takes 100 records spread evenly by FormID, clones each into one patch, compares
+each clone with its source subrecord by subrecord (FormID, `EDID` and the inlined lstrings
+may change; everything else must be byte-identical, same order, same count), runs
+`validate` (0 errors) and prints `clone-sample <TYPE>: <n> cloned, <m> identical, <k>
+explained`. `EXCEPTIONS` lists unexplained differences by source FormID and subrecord.
+
+Add two tests in that file, with these exact names, in the style of the two that exist
+(`#[ignore = "reads Starfield.esm; slow"]`):
+- `a_sample_of_official_packins_clones_identically` (`PKIN`, prefix `Pkin`),
+- `a_sample_of_official_factions_clones_identically` (`FACT`, prefix `Fact`).
+
+`Starfield.esm` has about 15,000 pack-ins and several hundred factions; the sampling
+already pages, so do not raise the `query` limit. Pack-ins hold base form component blocks
+(`BFCB` .. `BFCE`) whose bodies `clone` copies as stored, and factions hold ranks, relations
+and vendor data. If a clone differs where it should not:
+- an intended difference the comparison does not know (a member `clone` must reset or
+  rewrite): add it to the comparison's expected changes with a comment citing the code in
+  `crates/engine/src/handlers/newform.rs` that makes it;
+- anything else: do **not** change `newform.rs` (it is out of scope here). List it in
+  `EXCEPTIONS` with a one-line reason, add a row to `docs/gaps.md` naming the type, the
+  FormIDs and the subrecord, and count it in `<k>`. Keep the list short; the final QA reads
+  every entry.
+Do not loosen the comparison for `LCTN` or `TERM`: their two tests must still report 100
+identical.
+
+Then add the two tests as the clone-sample evidence for `PKIN` and `FACT` in
+`docs/schema/support-matrix.md`, next to KK-004's rows for LCTN and TERM, with the counts
+the tests printed and their run times.
+
+Each test reads `Starfield.esm` through `KITKRAFT_DATA_DIR` and takes 20 to 30 minutes
+(each clone re-reads the master), so run one at a time:
+`cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact
+a_sample_of_official_factions_clones_identically --nocapture` (the faction one first: fewer
+component blocks). Then `cargo xtask ci`. Commit when the first test passes.
+"""
+
+[[accept]]
+name = "pkin-sample"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_packins_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample PKIN: (9[0-9]|100) cloned' /tmp/o"
+
+[[accept]]
+name = "fact-sample"
+cmd = "cargo test -p kitkraft-engine --test clone_sample_corpus -- --include-ignored --exact a_sample_of_official_factions_clones_identically --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq 'clone-sample FACT: (9[0-9]|100) cloned' /tmp/o"
+
+[[accept]]
+name = "evidence-row"
+cmd = "grep -q 'a_sample_of_official_packins_clones_identically' docs/schema/support-matrix.md && grep -q 'a_sample_of_official_factions_clones_identically' docs/schema/support-matrix.md"

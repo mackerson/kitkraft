@@ -1,6 +1,7 @@
 id = "KK-008"
 title = "Inventory definition for LMSW, the layered material swap"
 timeout_min = 45
+after = ["KK-006"]
 owns = [
   "crates/schema/defs/LMSW.toml",
   "crates/schema/src/lib.rs",

@@ -1,0 +1,69 @@
+id = "KK-011"
+title = "Corpus survey: which object mod properties armor carries"
+timeout_min = 60
+owns = [
+  "crates/esm/tests/armor_omods.rs",
+  "docs/research/armor-omods-2026-10.md",
+]
+brief = """
+Apparel request 3, second half (summarised here; do not read plan/STATUS.md). The owner's
+clothing mod wants to customise outfits with object mods (`OMOD`) and object templates. The
+open question: which `ObjectModProperty` values do armor mods carry in the official files:
+stats only, or also a model or material swap? Evidence so far: 209 of the 420 vanilla
+`Clothes_*` ARMOs have the attach point `APPR` `ap_armor_Lining` (`Starfield.esm:022821`),
+filled with stat OMODs through their object template (`OBTS`); 407 have `OBTE`, and
+`Clothes_Matteo_Hat` (`Starfield.esm:030B4B`) has a template item whose property 14 names
+the layered material swap `Starfield.esm:1991B1` (an `LMSW`). Answer the question from the
+corpus, with a test that prints the facts and a short research note.
+
+Start from `crates/esm/tests/omod_properties.rs`: it already walks every OMOD `DATA` and
+every `OBTS` template item of the 14 official ESMs through the generated types
+(`ObjectModProperty`, its `ValueType`, `Property`, `Value1`), with `property_name` for the
+four-character property codes and the data-dir and file-list setup (`mod common;`). Copy
+its lint allowances and its way of finding the files; do not edit it.
+
+Create `crates/esm/tests/armor_omods.rs` with one test, `armor_omod_properties_full`,
+`#[ignore = "reads all 14 official ESMs; run in release"]`. It must print a line starting
+`skipped: KITKRAFT_DATA_DIR` and return when the variable is unset. It:
+
+1. Collects the armor OMODs, by route, and prints one line per route
+   (`armor-omods route <name>: <n> OMODs`): (a) every OMOD an `ARMO`'s object template
+   names (the template item's includes); (b) every OMOD whose `DATA` attach point keyword is
+   one some `ARMO`'s `APPR` lists. Then one line `armor-omods: <n> OMODs, <m> properties`
+   for the union of the routes.
+2. Prints, for the union's `DATA` properties, one line per property code, sorted:
+   `armor-omod property <CODE>: <count> (value types <list>)`, and for properties whose
+   values are FormIDs (value types 4 and 6), the record types those FormIDs name
+   (`armor-omod property <CODE> targets: <TYPE> <n>, ...`). Resolve a FormID through the
+   record index of the file that holds it (`kitkraft_esm::index`; FormIDs are relative to
+   the holding file's master list).
+3. Prints the same two kinds of line for the properties of `ARMO` template items
+   themselves (`armor-template property ...`), so property 14 and the `LMSW` it names show
+   up with their counts.
+
+The test passes when every record it reads decodes (as `omod_properties.rs` checks) and at
+least one armor OMOD is found. Never panic on a FormID that resolves to nothing: count it
+(`unresolved`) and print the count.
+
+Then write `docs/research/armor-omods-2026-10.md`: the question, how the test answers it
+(name the test and the command), the printed counts, and the answer in a few sentences:
+which property codes armor mods carry, whether any of them is a model, material or `LMSW`
+swap, and which route the vanilla clothing colourways use. Say what is not known (meaning
+in game is not observed; property names are display facts). Source category: `corpus:`
+only. Do not read any other tool's source; xEdit's property-name list in
+`/opt/xedit-ref/wbDefinitionsSF1.pas` (L1959-L1978, the names by record type) may be read
+for facts to name a code, in your own words, never copied.
+
+Run it in release while you work:
+`cargo test -p kitkraft-esm --release --test armor_omods -- --ignored --nocapture`
+(several minutes over the Data folder). Then `cargo xtask ci`. Commit when the test
+first prints the route counts.
+"""
+
+[[accept]]
+name = "survey"
+cmd = "cargo test -p kitkraft-esm --release --test armor_omods -- --ignored --exact armor_omod_properties_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q '^skipped: KITKRAFT_DATA_DIR' /tmp/o && grep -Eq '^armor-omods: [1-9][0-9]* OMODs, [1-9][0-9]* properties' /tmp/o && grep -q '^armor-omod property ' /tmp/o && grep -q '^armor-template property ' /tmp/o"
+
+[[accept]]
+name = "note"
+cmd = "test -f docs/research/armor-omods-2026-10.md && grep -q 'armor_omod_properties_full' docs/research/armor-omods-2026-10.md && grep -q 'LMSW' docs/research/armor-omods-2026-10.md"

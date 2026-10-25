@@ -1,0 +1,72 @@
+id = "KK-022"
+title = "Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB"
+timeout_min = 45
+after = ["KK-008"]
+owns = [
+  "crates/schema/defs/CURV.toml",
+  "crates/schema/defs/REGN.toml",
+  "crates/schema/defs/AVMD.toml",
+  "crates/schema/defs/IPCT.toml",
+  "crates/schema/defs/DFOB.toml",
+  "crates/schema/src/lib.rs",
+  "crates/schema/tests/defs.rs",
+  "crates/schema/tests/golden/seed.rs",
+  "crates/esm/src/generated/records.rs",
+  "crates/esm/tests/inventory_types.rs",
+  "docs/record-parity.md",
+]
+brief = """
+About 90 record types of the official files have no schema definition at all
+(`docs/record-parity.md`, rows whose definition is `-`): KitKraft parses and re-writes them
+but cannot name a single subrecord. An inventory definition (every signature the corpus
+shows, in corpus order and cardinality, every payload `opaque`) is the first step for each;
+KK-008 did one for `LMSW`, M4.BX2 did fourteen. Do five more: `CURV` (29 records, name
+`CurveTable`), `REGN` (4, `Region`), `AVMD` (6,530, `AvmsData`), `IPCT` (1,459, `Impact`) and
+`DFOB` (1,273, `DefaultObject`). `CURV` and `REGN` are the two the Foothold gap matrix names
+as having no definition; the other three are the largest undefined types after `LMSW`.
+
+Start from `crates/schema/defs/LAYR.toml` and `LMSW.toml` (inventory definitions: header
+comment, `source = "corpus: ..."`, every member the corpus shows, in corpus order) and
+`crates/schema/defs/README.md` ("Provenance", "Inventory definitions"). Then:
+
+1. Add the five signatures to `TYPES` in `crates/esm/tests/inventory_types.rs` (update the
+   doc comment's list and the array length). Run
+   `cargo test -p kitkraft-esm --release --test inventory_types -- --include-ignored --exact
+   inventory_types_full --nocapture` before writing a definition: it prints, per type,
+   every signature, how often it occurs, its sizes and the subrecord orders. Those printed
+   facts are your only source.
+2. Write the five files with the names above. `EDID` is the shared EditorID zstring (copy
+   LAYR's EDID member and its evidence, if the type has one). Every other payload is
+   `type = "opaque"`, named after its signature, with a `note` giving the observed sizes.
+   If a type shows base form component blocks (`BFCB` .. `BFCE`), use `group_ref =
+   "BfcbBlock"` as LAYR does; if it shows lstrings (`FULL` in a localized file), check the
+   corpus lstring table in `crates/engine/src/edit/lstrings.rs` and type them as LAYR types
+   its own. Cite the inventory run in `source` with the date and the record count. Use only
+   `corpus:` citations; do not read any xEdit file for this ticket.
+3. Register the files: `crates/schema/src/lib.rs` (`BUILTIN_DEFINITIONS`, alphabetical) and
+   whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (it
+   prints the exact lines). Regenerate code with `cargo xtask codegen` and the golden seed as
+   the schema tests describe; never edit `crates/esm/src/generated/records.rs` by hand.
+4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
+   Each of the five rows must show its definition's name and 0 unknown.
+
+Done: the inventory run prints `defined: true` for each of the five with no unplaced, failed
+or re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do
+not change the output of any command for any other record type.
+"""
+
+[[accept]]
+name = "inventory"
+cmd = "cargo test -p kitkraft-esm --release --test inventory_types -- --include-ignored --exact inventory_types_full --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -Eq '^== CURV: 29 records .*defined: true' /tmp/o && grep -Eq '^== REGN: 4 records .*defined: true' /tmp/o && grep -Eq '^== AVMD: 6530 records .*defined: true' /tmp/o && grep -Eq '^== IPCT: 1459 records .*defined: true' /tmp/o && grep -Eq '^== DFOB: 1273 records .*defined: true' /tmp/o"
+
+[[accept]]
+name = "schema-defs"
+cmd = "cargo test -p kitkraft-schema"
+
+[[accept]]
+name = "codegen-fresh"
+cmd = "cargo xtask codegen --check"
+
+[[accept]]
+name = "parity-rows"
+cmd = "grep -Eq '^\\| `CURV` +\\| CurveTable +\\| +29 .*\\| +0 \\|$' docs/record-parity.md && grep -Eq '^\\| `REGN` +\\| Region +\\| +4 .*\\| +0 \\|$' docs/record-parity.md && grep -Eq '^\\| `AVMD` +\\| AvmsData +\\| +6,530 .*\\| +0 \\|$' docs/record-parity.md && grep -Eq '^\\| `IPCT` +\\| Impact +\\| +1,459 .*\\| +0 \\|$' docs/record-parity.md && grep -Eq '^\\| `DFOB` +\\| DefaultObject +\\| +1,273 .*\\| +0 \\|$' docs/record-parity.md"

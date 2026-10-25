@@ -1,0 +1,80 @@
+id = "KK-013"
+title = "Recipe: a terminal with its own menus (docs/recipes/terminal.md)"
+timeout_min = 60
+owns = [
+  "docs/recipes/terminal.md",
+  "docs/recipes/terminal.toml",
+  "crates/engine/tests/terminal_recipe_corpus.rs",
+]
+brief = """
+M5.D3 asks for a general recipe that shows how to author a terminal (`TERM`) and its menus
+(`TMLM`) with KitKraft: a clone of a vanilla terminal whose menu is a clone of a vanilla
+menu, a menu item that opens a second menu of ours (`new:`), conditions copied as stored.
+The pieces work (the Gate K0 mini-site and the FTH-EXP-03 prototype clone a terminal whose
+`DNAM` names a cloned menu) but no recipe explains them, and no recipe edits menu items.
+Write the recipe, its spec, and a corpus test that builds it and checks every claim. No
+engine change: if something cannot be authored, say so in the recipe; do not edit code
+outside your owned paths.
+
+Read first, as your templates:
+- `docs/recipes/mini-site.toml` and `.md`: `[[clone]]` of `DefaultBlankTerminal_Genesis`
+  (`Starfield.esm:227DA9`, an empty menu) and of the terminal
+  `DefaultBlankComputer_ConsoleSitting_UsePackin` (`Starfield.esm:00351B`) with
+  `DNAM = "new:menu"`, a persistent `[[place]]` in the first POI's cell
+  `CityNewAtlantisApartmentTEMPLATE` (`Starfield.esm:21966F`), the facts table, the build
+  commands and the recorded SHA-256.
+- `prototypes/foothold/exp03-claim-terminal/` (its spec and README): the same with an
+  owner faction and a scripted switch.
+- `crates/schema/defs/TMLM.toml` and `TERM.toml`: the menu's body text (`BSIZ`, `BTXT`),
+  its items (`ISIZ`, then per item `ITXT`, `ISTX`, `ISET`, `ITID`, optional `XLOC`, `UNAM`
+  display text, `TNAM` submenu, conditions), and the terminal's members.
+- `crates/engine/src/edit/fields.rs` module docs: field paths (`SIG[n]` is the n-th
+  occurrence, `.Member`, `[n]` array elements) and value spellings.
+- `crates/engine/tests/mini_site_corpus.rs`: how a recipe test builds a spec through one
+  `kitkraft_engine::Engine` (`execute("build", ...)` with the Data folder spliced into the
+  spec's `[load_order]`), then checks `refs`, `validate`, `roundtrip --verify`, a second
+  byte-identical build and the SHA-256 the recipe records.
+
+The spec `docs/recipes/terminal.toml` (Starfield.esm the only master), with a comment on
+every value saying where it comes from:
+1. `[[clone]]` of a vanilla `TMLM` that has at least two items, one of them a submenu item
+   (`TNAM`); find it with `kit query TMLM` (say in a comment how you chose it). The clone
+   is `KitKraftRecipeTerminalMenu`; its `FULL`, one item's `ITXT` and its `BTXT` text are
+   ours, and the submenu item's `TNAM` names the second menu (`new:submenu`).
+2. `[[clone]]` of `Starfield.esm:227DA9` as `KitKraftRecipeTerminalSubmenu`, its body
+   text ours.
+3. `[[clone]]` of the terminal `Starfield.esm:00351B` as `KitKraftRecipeTerminal`, `FULL`
+   ours, `DNAM = "new:menu"`.
+4. `[[place]]` it, persistent, in `Starfield.esm:21966F`, with an EditorID.
+
+Conditions (`CTDA`) on the cloned menu items stay as stored: say so, and say which
+functions they call (read them with `kit inspect`). If an item text cannot be set through a
+field path, write what failed in the recipe's "Not authored" section and set only what can.
+
+The recipe `docs/recipes/terminal.md`: goal; the facts table (each member written, its
+source from the definitions, what is not known); "Not authored"; build, validate,
+roundtrip and testplan commands; the plugin's size and SHA-256; the in-game steps for the
+owner (KitKraft Dev, disposable save; activate the terminal, open the submenu; not run).
+
+The test `crates/engine/tests/terminal_recipe_corpus.rs`, one test
+`the_terminal_recipe_builds_and_every_claim_holds`, `#[ignore = "release: indexes
+Starfield.esm"]`, printing `skip: KITKRAFT_DATA_DIR unset` and returning when the Data
+folder is not there. It builds the spec into a temp dir, asserts `passed`, the new forms
+(FormID, type, EditorID), the links through `refs` (terminal to menu, menu item to
+submenu, the reference's base), none dangling, the edited texts read back through
+`inspect`, `validate` 0 errors and 0 warnings, `roundtrip --verify` identical, a second
+build byte-identical, and the SHA-256 equal to a constant the recipe also records. Last,
+it prints `terminal-recipe: ok`. The recipe has no script, so it needs no Papyrus compiler.
+
+Run it alone in release:
+`cargo test -p kitkraft-engine --release --test terminal_recipe_corpus -- --include-ignored --nocapture`.
+Then `cargo xtask ci`. Commit when the spec first builds.
+"""
+
+[[accept]]
+name = "recipe-builds"
+cmd = "cargo test -p kitkraft-engine --release --test terminal_recipe_corpus -- --include-ignored --exact the_terminal_recipe_builds_and_every_claim_holds --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q '^terminal-recipe: ok' /tmp/o"
+
+[[accept]]
+name = "recipe-doc"
+cmd = "grep -q 'terminal.toml' docs/recipes/terminal.md && grep -q 'TNAM' docs/recipes/terminal.md && grep -Eq '[0-9a-f]{64}' docs/recipes/terminal.md"

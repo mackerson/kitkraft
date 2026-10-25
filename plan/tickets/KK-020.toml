@@ -1,0 +1,81 @@
+id = "KK-020"
+title = "Recipe: a clothing colourway (build spec swap_overrides, docs/recipes/colourway.md)"
+timeout_min = 60
+after = ["KK-019"]
+owns = [
+  "crates/engine/src/build/spec.rs",
+  "crates/engine/src/handlers/build.rs",
+  "crates/engine/src/handlers/build_v3_tests.rs",
+  "docs/recipes/colourway.md",
+  "docs/recipes/colourway.toml",
+  "crates/engine/tests/colourway_recipe_corpus.rs",
+]
+brief = """
+Apparel request 7, last step (summarised here; do not read plan/STATUS.md). KK-019 made
+`clone` and `set` take `swap_overrides` (`[{key, override}]`) for a layered material swap
+(`LMSW`), turned into a whole-`REFL` edit by `crates/engine/src/edit/swaps.rs`. A mod is
+built from a spec, so `build` must take it too, and the owner needs the recipe that makes
+a colourway: a copy of a vanilla outfit whose object template names a copy of its swap,
+pointing at the mod's own `.mat` files.
+
+The vanilla pattern (corpus): `Clothes_Mei_Devine_NavyTan` (`Starfield.esm:1F1DC9`) and
+`Clothes_Mei_Devine_CreamBlue` (`Starfield.esm:1F1DCE`) list the same four armor addons and
+differ only in their object template's property 14, which names the `LMSW`
+`Starfield.esm:1F1DCA` and `Starfield.esm:1F1DCB` respectively.
+
+1. `build` spec v3: `[[clone]]` and `[[set]]` entries take `swap_overrides`, passed to the
+   same conversion as the `clone` and `set` commands use (read
+   `crates/engine/src/edit/swaps.rs` and its callers in `handlers/set.rs` and
+   `handlers/newform.rs`). The spec types are in `crates/engine/src/build/spec.rs` (the
+   `scripts: Option<Value>` keys show how an extra entry key is declared); entries are
+   turned into edits in `crates/engine/src/handlers/build.rs` (see how `scripts` is
+   handled for `[[clone]]` and `[[set]]`). A `[[new]]` or `[[place]]` with
+   `swap_overrides` is a spec error naming the key. Test in
+   `crates/engine/src/handlers/build_v3_tests.rs`, exact name
+   `swap_overrides_in_a_spec_are_checked_by_entry_kind`: a `[[new]]` with the key is
+   refused with an error naming `swap_overrides`, and a `[[clone]]` of a non-`LMSW` with
+   it is refused with the reason (synthetic master, as the other tests there).
+2. The spec `docs/recipes/colourway.toml` (Starfield.esm the only master): `[[clone]]` of
+   `1F1DCA` as `KitKraftRecipeColourwaySwap` with every entry's override pointing at a path
+   under `KitKraft/Colourway/` (keep each file name, so the `.mat` files are easy to make);
+   `[[clone]]` of `1F1DC9` as `KitKraftRecipeColourwayOutfit`, a `FULL` of ours, and its
+   template item property 14 value set to `new:swap`. Find the field path for that value
+   from `crates/schema/defs/common/ObteBlock.toml` and `ObjectModProperty.toml` and
+   `crates/engine/src/edit/fields.rs`'s module docs (`SIG[n]`, `.Member`, `[n]`; whole
+   arrays as JSON). If no field path can reach it, write it as a whole `OBTS` value instead
+   and say so in the recipe. A comment on every value.
+3. The recipe `docs/recipes/colourway.md`: goal; the facts with sources (`corpus:` reads
+   with `kit inspect --full`); the spec; build, validate, roundtrip and testplan commands;
+   the plugin's size and SHA-256; what is not done: the `.mat` files themselves (the mod
+   ships them; their format is in `docs/research/materials-lmsw-2026-10-23.md`, whose
+   source category the owner has not ruled on, so KitKraft does not write them); the
+   in-game check for the owner (KitKraft Dev, disposable save; not run).
+4. The test `crates/engine/tests/colourway_recipe_corpus.rs`, one test
+   `the_colourway_recipe_builds_and_every_claim_holds`, ignored, skipping with
+   `skip: KITKRAFT_DATA_DIR unset` (model: `crates/engine/tests/mini_site_corpus.rs`):
+   build; `passed`; the two new forms; `refs` from the outfit to the new swap (resolved);
+   `inspect --full` of the swap lists the new overrides with the vanilla keys; `validate`
+   0 errors; `roundtrip --verify` identical; a second build byte-identical; the SHA-256
+   equal to a constant the recipe also records. Print `colourway-recipe: ok`.
+
+Every existing `build` test must pass unchanged. Run `cargo test -p kitkraft-engine --lib
+build_v3`, then the corpus test alone in release
+(`cargo test -p kitkraft-engine --release --test colourway_recipe_corpus -- --include-ignored --nocapture`),
+then `cargo xtask ci`. Commit when the spec test passes.
+"""
+
+[[accept]]
+name = "spec-unit"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::build_v3_tests::swap_overrides_in_a_spec_are_checked_by_entry_kind 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "recipe-builds"
+cmd = "cargo test -p kitkraft-engine --release --test colourway_recipe_corpus -- --include-ignored --exact the_colourway_recipe_builds_and_every_claim_holds --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q '^colourway-recipe: ok' /tmp/o"
+
+[[accept]]
+name = "recipe-doc"
+cmd = "grep -q 'colourway.toml' docs/recipes/colourway.md && grep -q 'swap_overrides' docs/recipes/colourway.toml && grep -Eq '[0-9a-f]{64}' docs/recipes/colourway.md"
+
+[[accept]]
+name = "build-tests-unchanged"
+cmd = "cargo test -p kitkraft-engine --lib -- build_tests build_v3_tests 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o"

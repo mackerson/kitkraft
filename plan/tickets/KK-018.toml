@@ -1,0 +1,86 @@
+id = "KK-018"
+title = "validate warns when a model file a record names is nowhere to be found"
+timeout_min = 60
+after = ["KK-005"]
+owns = [
+  "crates/engine/src/validate/",
+  "crates/engine/tests/validate_corpus.rs",
+  "docs/validate.md",
+]
+brief = """
+The owner's clothing pipeline builds meshes outside KitKraft and hands KitKraft a plugin
+plus loose files to validate, package and deploy (apparel requests 4 and 8; do not read
+plan/STATUS.md). Today `validate` trusts that a record's model file exists. A typo in a
+path ships an invisible item. Add a `validate` warning for it, the way
+`papyrus.missing-script` already checks that an attached script's `.pex` exists.
+
+Add the rule `asset.missing-model` (warning). It fires for a record **of the validated
+plugin** (new forms and overrides it holds; never a master's records) whose model file
+name, the `FileName` member (`MODL`) of the shared `Model` group
+(`crates/schema/defs/common/Model.toml`), wherever a definition uses that group, names a
+file found in none of: loose files next to the plugin (its folder, as a package lays out
+`Data`), loose files in the game Data folder, the plugin's own archives
+(`<stem> - *.ba2`), and the archives of every other plugin in the load order. Read the
+corpus to learn how a stored path maps to an archive entry (in the official files a
+`MODL` value is relative to a top folder, `meshes` it seems; confirm it on the official
+archives and say what you found in `docs/validate.md`). Names compare ASCII
+case-insensitively with `/` and the backslash the same. An empty `FileName` is not a
+finding. The finding names the record, the subrecord and the path, and lists where it
+looked. Only `Model`'s `FileName`: ARMO `MODL` is a 4-byte armor addon FormID, not a path,
+and the world-model members of ARMO and ARMA are a later ticket.
+
+Start by reading `crates/engine/src/validate/attached.rs` (`Sources`: lazy archive listing,
+the search order, `searched()`), `crates/engine/src/validate/scripts.rs`
+(`plugin_archives`, `is_archive`) and how `papyrus.missing-script` is reported and
+registered in `crates/engine/src/validate/mod.rs` (the rule list, its severity, and how a
+rule reads typed members of the plugin's records). Model the new rule on them in a new
+file `crates/engine/src/validate/models.rs` (`pub mod models;` in `mod.rs`); share the
+archive listing rather than copying it if you can do so without changing
+`papyrus.missing-script`'s behaviour. Add the rule's row to `docs/validate.md`'s rule table
+(grade D: that the game looks a model up this way is not observed).
+
+Tests in a new file `crates/engine/src/validate/models_tests.rs` (`#[cfg(test)] mod
+models_tests;` in `mod.rs`), with these exact names, on synthetic plugins built as
+`crates/engine/src/validate/tests.rs` builds them (a `STAT` with a `MODL` is enough):
+- `a_missing_model_file_is_a_warning`: no such file anywhere: exactly one
+  `asset.missing-model` warning naming the path.
+- `a_loose_model_file_next_to_the_plugin_is_found`: the file under `meshes/` beside the
+  plugin: no finding.
+- `an_archived_model_file_is_found`: the file inside a `<stem> - Main.ba2` written in the
+  test with `kitkraft_ba2`'s pack API: no finding.
+
+Then the official files: `crates/engine/tests/validate_corpus.rs`
+`validate_corpus_official_files` validates all 14 and pins each file's findings. Every
+official model should be found in the official archives. Assert the rule's count per file
+in that test explicitly, as it pins other warnings (zero is a count too: the assertion
+names `asset.missing-model`); if some are not found, list a few paths in `docs/validate.md`,
+and explain them if you can. Do not remove or loosen any existing assertion. That test
+reads 2.5 GB through `KITKRAFT_DATA_DIR`, is `#[ignore]`d and runs in release; run it only
+after your unit tests pass:
+`cargo test --release -p kitkraft-engine --test validate_corpus -- --ignored --exact
+validate_corpus_official_files --nocapture`. Keep its `#[ignore]`.
+
+Never panic (AGENTS.md): an archive that does not open is a limitation line, not a crash.
+Run `cargo test -p kitkraft-engine --lib validate`, then `cargo xtask ci`. Commit when the
+three unit tests pass.
+"""
+
+[[accept]]
+name = "missing-warns"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::models_tests::a_missing_model_file_is_a_warning 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "loose-found"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::models_tests::a_loose_model_file_next_to_the_plugin_is_found 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "archived-found"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact validate::models_tests::an_archived_model_file_is_found 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "official-files"
+cmd = "cargo test --release -p kitkraft-engine --test validate_corpus -- --ignored --exact validate_corpus_official_files --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'skipped: KITKRAFT_DATA_DIR' /tmp/o && grep -q 'asset.missing-model' crates/engine/tests/validate_corpus.rs"
+
+[[accept]]
+name = "documented"
+cmd = "grep -q 'asset.missing-model' docs/validate.md"

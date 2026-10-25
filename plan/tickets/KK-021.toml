@@ -1,0 +1,71 @@
+id = "KK-021"
+title = "Typed-write tests for ARMO, ARMA and OTFT"
+timeout_min = 45
+after = ["KK-006", "KK-017"]
+owns = [
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "docs/schema/evidence.toml",
+  "docs/schema/support-matrix.md",
+]
+brief = """
+The owner's clothing mod (apparel requests 1 and 2; do not read plan/STATUS.md) writes
+armor (`ARMO`), armor addons (`ARMA`, typed by KK-006 with the biped slots `BO64` named)
+and outfits (`OTFT`). `kit coverage --matrix` reports a type `typed-writable` only when
+`docs/schema/evidence.toml` cites a test that writes every typed member and reads it back;
+none of the three has one. Add the tests and the evidence entries, exactly as KK-002 and
+KK-017 did for other types.
+
+Start from `crates/engine/src/handlers/authoring_tests.rs`. Its module docs explain the two
+test shapes, and the existing tests are your template:
+
+- `<type>_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back(sig,
+  layout, component)`: one record built with `new` on a synthetic load order, every typed
+  member given a value, read back, re-encoded, `validate`d. `layout` and `component` pick
+  one base form component layout of the `BFCB` block
+  (`crates/schema/defs/common/BfcbBlock.toml`); the existing tests show the names. If a
+  type's definition has no `BFCB` block, read `plan_in` to see what the arguments do and
+  pass what makes it skip the block, with a comment.
+- `<type>_dangling_link_is_reported` calls `dangling(...)` with FormID members set to
+  `MISSING`, and checks that `validate` and `refs` report each. Links to pick, from
+  `crates/schema/defs/ARMO.toml`, `ARMA.toml`, `OTFT.toml`: ARMO's addon list (`MODL`
+  after `INDX`, an `ARMA` FormID) and its keywords; ARMA's race (`RNAM`) and additional
+  races; OTFT's items (`INAM`). Two or three per type.
+
+`BO64` is a `flags` member with `base = "u64"` since KK-006: the helper's sample values
+must give it a valid value; if `sample` or `typed_value` does not handle a `u64` flags
+base, add that case without changing what it does for any other type (every existing test
+must still pass unchanged).
+
+Add both tests for each type, six tests, exact names:
+`armo_new_sets_every_typed_member_and_reads_back`, `armo_dangling_link_is_reported`, and
+the same with `arma_` and `otft_`. Then add a `typed-writable` `pass` entry per type to
+`docs/schema/evidence.toml` (`test: crates/engine/src/handlers/authoring_tests.rs::<fn>`),
+add the three types to the typed-writable list in `docs/schema/support-matrix.md`, and to
+the module docs of `authoring_tests.rs`. `every_evidence_pointer_resolves`
+(`crates/engine/src/handlers/matrix.rs`) fails if a cited test does not exist.
+
+If a type cannot pass (`new` refuses a member, or `validate` finds something in what `new`
+wrote), do not edit the engine or the schema, and do not relax `check_written`. Find out
+why, put the reason in a comment above that test, mark only that test `#[ignore = "<the
+reason>"]`, and leave out that type's evidence entry; the final QA reads the reason. Never
+loosen an existing test.
+
+Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then
+`cargo xtask ci`. Commit after each type passes.
+"""
+
+[[accept]]
+name = "armo"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::armo_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "arma"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::arma_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "otft"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::otft_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "dangling-and-evidence"
+cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && grep -Eq '(armo|arma|otft)_dangling_link_is_reported \\.\\.\\. ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; miss=sorted({'ARMO','ARMA','OTFT'}-got); print('missing typed-writable evidence:', miss); sys.exit(1 if miss else 0)\""

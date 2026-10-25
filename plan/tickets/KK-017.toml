@@ -1,0 +1,75 @@
+id = "KK-017"
+title = "Typed-write tests for CONT, MISC, FLST and LVLI"
+timeout_min = 45
+after = ["KK-002"]
+owns = [
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "docs/schema/evidence.toml",
+  "docs/schema/support-matrix.md",
+]
+brief = """
+`kit coverage --matrix` reports a record type `typed-writable` only when
+`docs/schema/evidence.toml` cites a test that writes the type with every typed member and
+reads it back. Containers (`CONT`), misc items (`MISC`), form lists (`FLST`) and leveled
+items (`LVLI`) are typed-readable but have no such test, so the matrix says `not-run`. They
+are what a mod's loot, crafting inputs and vendor lists are made of. Add the tests and the
+evidence entries, as KK-002 did for ACTI, KYWD, TMLM, QUST and WRLD.
+
+Start from `crates/engine/src/handlers/authoring_tests.rs`. Its module docs explain the two
+test shapes, and the existing tests are your template:
+
+- `<type>_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back(sig,
+  layout, component)`: one record built with `new` on a synthetic load order, every typed
+  member given a value, read back, re-encoded, `validate`d. `layout` and `component` pick
+  one base form component layout (the `BFCB` block, `crates/schema/defs/common/
+  BfcbBlock.toml`); all four types use that block. Any layout the type allows will do; the
+  existing tests show the names (`"ContactShadow", "BGSContactShadowComponent_Component"`).
+- `<type>_dangling_link_is_reported` calls `dangling(...)` with FormID members set to
+  `MISSING`, and checks that `validate` and `refs` report each. Pick the members that
+  carry links for the type, from `crates/schema/defs/<TYPE>.toml` and the shared blocks it
+  uses: container items (`CNTO`, `common/ContainerItems.toml`), leveled entries (`LVLO`),
+  form list entries (`LNAM`), keywords, and so on. Two or three per type.
+
+Add both tests for each of the four types, eight tests, with these exact names:
+`cont_new_sets_every_typed_member_and_reads_back`, `cont_dangling_link_is_reported`, and
+the same with `misc_`, `flst_` and `lvli_`. If a type has no FormID member that reference
+integrity covers, say so in a comment and leave out its dangling test; that is the only
+test you may leave out.
+
+Then add a `typed-writable` `pass` entry per type to `docs/schema/evidence.toml`, citing
+the tests as the existing entries do (`test:
+crates/engine/src/handlers/authoring_tests.rs::<fn>`). Add the four types to the
+typed-writable list in `docs/schema/support-matrix.md` and to the module docs at the top
+of `authoring_tests.rs`. The gate test `every_evidence_pointer_resolves`
+(`crates/engine/src/handlers/matrix.rs`) fails if a cited test name does not exist.
+
+If a type cannot pass, for example because `new` refuses a member or `validate` reports a
+finding on what `new` wrote, do not edit the engine and do not relax `check_written`. Find
+out why. Put the reason in a comment above that type's test, mark only that test `#[ignore
+= "<the reason>"]`, and leave out that type's evidence entry; the final QA reads the
+reason. Never change or loosen an existing test or a shared helper's checks. You may add a
+parameter to a helper only if every existing caller keeps its behaviour.
+
+Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then
+`cargo xtask ci`. Commit after each type passes.
+"""
+
+[[accept]]
+name = "cont"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::cont_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "misc"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::misc_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "flst"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::flst_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "lvli"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::lvli_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "dangling-and-evidence"
+cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && grep -Eq '(cont|misc|flst|lvli)_dangling_link_is_reported \\.\\.\\. ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; miss=sorted({'CONT','MISC','FLST','LVLI'}-got); print('missing typed-writable evidence:', miss); sys.exit(1 if miss else 0)\""

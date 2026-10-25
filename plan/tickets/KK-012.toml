@@ -1,0 +1,76 @@
+id = "KK-012"
+title = "Recipe: a location of your own (docs/recipes/location.md)"
+timeout_min = 60
+owns = [
+  "docs/recipes/location.md",
+  "docs/recipes/location.toml",
+  "crates/engine/tests/location_recipe_corpus.rs",
+]
+brief = """
+M5.D2 asks for a general recipe that shows how to author a location (`LCTN`) with KitKraft:
+a new one and a clone of a vanilla one, with its parent, keywords, persistent-reference
+list and marker. The pieces already work (they are used by the Gate K0 mini-site and the
+FTH-EXP-01 prototype) but no recipe explains them. Write the recipe, its spec, and a corpus
+test that builds it and checks every claim. No engine change: if something cannot be
+authored, say so in the recipe; do not edit code outside your owned paths.
+
+Read first, as your templates:
+- `docs/recipes/mini-site.toml` and `docs/recipes/mini-site.md`: a v3 build spec with
+  `[[new]]` LCTN (FULL, PNAM, KWDA, FNAM, LCPR entries naming `[[place]]`d references with
+  `new:<name>`), a `[[set]]` that gives a vanilla cell `XLCN`, and the recipe's "What
+  KitKraft knows, and from where" table, build commands and recorded SHA-256.
+- `prototypes/foothold/exp01-authored-site/site.toml`: a `[[clone]]` of the vanilla
+  `OutpostOverlayTemplateLocation` (`Starfield.esm:2A39CC`) that gains `PNAM`, `MNAM` (a map
+  marker reference) and `LCPR`, with comments saying where each value comes from.
+- `docs/recipes/ownership.md` for the recipe layout (goal, facts with sources, build, query,
+  in game).
+- `crates/schema/defs/LCTN.toml`: every member, its source and confidence.
+- `crates/engine/tests/mini_site_corpus.rs`: how a recipe test builds a spec through one
+  `kitkraft_engine::Engine` (`execute("build", ...)` with the Data folder spliced into the
+  spec's `[load_order]`), then checks `refs`, `validate`, `roundtrip --verify`, a second
+  byte-identical build and the SHA-256 the recipe records.
+
+The spec `docs/recipes/location.toml` (Starfield.esm the only master), with a comment on
+every value saying where it comes from:
+1. `[[new]]` LCTN `KitKraftRecipeLocation`: `FULL`, `PNAM` the parent
+   (`CityNewAtlantisLocation`, `Starfield.esm:01295A`), `KWDA` a vanilla location-type keyword (the
+   mini-site uses `LocTypeOutpost`, `Starfield.esm:0234F1`; pick one that fits an interior
+   site, with `query` on `KYWD` by EditorID, and say why in the comment), `MNAM` naming a placed marker reference, and `LCPR` listing
+   that reference (entry spelled as the mini-site spells an interior entry).
+2. `[[place]]` one persistent `XMarkerHeading` (`Starfield.esm:000034`) in the first POI's
+   cell `CityNewAtlantisApartmentTEMPLATE` (`Starfield.esm:21966F`), with an EditorID.
+3. `[[set]]` that cell's `XLCN` to the new location.
+4. `[[clone]]` of `Starfield.esm:2A39CC` as `KitKraftRecipeOutpostLocation`, its `FULL`
+   ours and its `PNAM` the new location of step 1.
+
+The recipe `docs/recipes/location.md`: goal; the facts table (each member written, its
+source from `LCTN.toml`, and what is not known); a section on the members the recipe does
+**not** write and why: the eight at `reference` confidence (`VMAD`, `NAM0`, `RCPR`, `RCUR`,
+`RCUN`, `RCSR`, `ACEC`, `RCEC`; most occur in no official LCTN) stay unwritten until a CK
+fixture or the corpus raises them; build, validate, roundtrip and testplan commands; the
+plugin's size and SHA-256; the in-game steps for the owner (KitKraft Dev, disposable save;
+not run). Note that it overrides the same cell as the mini-site, so load one at a time.
+
+The test `crates/engine/tests/location_recipe_corpus.rs`, one test
+`the_location_recipe_builds_and_every_claim_holds`, `#[ignore = "release: indexes
+Starfield.esm"]`, printing `skip: KITKRAFT_DATA_DIR unset` and returning when the Data
+folder is not there. It builds the spec into a temp dir, asserts `passed`, the new forms
+and placed reference (FormID, type, EditorID), the links through `refs` (the location's
+parent, keyword, marker, LCPR entry; the cell's `XLCN`; the clone's parent), none
+dangling, `validate` 0 errors and 0 warnings, `roundtrip --verify` identical, a second build
+byte-identical, and the SHA-256 equal to a constant that the recipe also records. Last, it
+prints `location-recipe: ok`. The recipe has no script, so the test needs no Papyrus
+compiler.
+
+Run it alone in release:
+`cargo test -p kitkraft-engine --release --test location_recipe_corpus -- --include-ignored --nocapture`.
+Then `cargo xtask ci`. Commit when the spec first builds.
+"""
+
+[[accept]]
+name = "recipe-builds"
+cmd = "cargo test -p kitkraft-engine --release --test location_recipe_corpus -- --include-ignored --exact the_location_recipe_builds_and_every_claim_holds --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && grep -q '^location-recipe: ok' /tmp/o"
+
+[[accept]]
+name = "recipe-doc"
+cmd = "grep -q 'location.toml' docs/recipes/location.md && grep -q 'RCPR' docs/recipes/location.md && grep -Eq '[0-9a-f]{64}' docs/recipes/location.md"
