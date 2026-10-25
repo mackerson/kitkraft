@@ -2761,4 +2761,14 @@ Agents append here when they need a change in a crate they do not own.
      Evidence and format notes: `docs/research/materials-lmsw-2026-10-23.md` (its `.mat`
      facts come from installed mods' files; the owner has not ruled on that source
      category).
-- Landed 2026-10-25: KK-006 ARMA typed, BO64 biped slots named via shared BipedSlots, apparel corpus tests green over all 14 ESMs
+- **KK-006 landed (2026-10-25, local-agent ticket):** `ARMA` (Armor Addon) is typed from the
+  pinned xEdit file (`crates/schema/defs/ARMA.toml`), with the corpus's six `FLLD` light
+  layers per record, `XFLG` after a model's `FLLD`, and repeated `MODL`/`BNAM`. The shared
+  `defs/common/BipedSlots.toml` names 53 of the 64 `BO64` biped slot bits (bit 0 `HideHair`,
+  3 `Body`, 4 `Hat`, 35 `SsBody`; the upstream `Unused` bits and bit 63, which does not fit
+  the signed bit values, stay raw: `docs/gaps.md`); `ARMO` and `ARMA` both use it.
+  `crates/esm/tests/apparel_types.rs` places, decodes and re-encodes every `ARMA` and `ARMO`
+  (the ignored full run: 1,238 and 1,168 records, all identical; 756 `ARMO` set `Body`);
+  `biped_slot_bits_are_named` in `crates/schema/tests/defs.rs`. Apparel requests 1 and 2.
+  Authored by the local Qwen agent over two runs (6/6, Opus QA ACCEPT); squashed, and
+  Windows-gated by Claude.
