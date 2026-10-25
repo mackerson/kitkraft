@@ -31,11 +31,12 @@ files contain (our own scan), **D** is a hypothesis to test in the CK or in game
 | TERM | 501 | 5 | VMAD, REFL (effect sequence component), WBDT | OPDS, SNBH, DEFL, XALG, destruction, NTRM, ALSH, ACSH, WTFM, ATTX, RADR, conditions, STRV, object template |
 | TMLM | 974 | 5 | VMAD, CTDA unions, ISET/XLOC padding | - |
 | ARMO | 1,168 | 5 | VMAD, component blocks, Wwise GUIDs | MO2S, MLM4, MO4S, destruction, ETYP, BIDS |
+| ARMA | 1,238 | 5 | VMAD, component blocks | MOD7, MO2C, MO3C, MO4C, MO5C |
 | IDLE | 1,302 | 5 | CTDA unions | - |
 | ANIO | 66 | 2 | VMAD, component blocks | VMAD |
 | CPTH | 152 | 3 | CTDA unions | - |
 
-All 33,939 records decode and re-encode byte-identically, with every subrecord placed in a
+All 35,177 records decode and re-encode byte-identically, with every subrecord placed in a
 member and `Record::extra()` empty for every record (out-of-tree check over the generated
 decoder, all 14 files; no record of these types is compressed). Every other member is
 typed: FormIDs carry their target types (raw, file-relative values; resolution is the doc
@@ -231,8 +232,9 @@ by `validate_corpus_official_files`). Support depth: `docs/schema/support-matrix
 | ISET and XLOC padding | TMLM | Filler bytes with non-zero values (AB AB, AD DE); kept raw so they roundtrip. |
 | Wwise GUIDs | sound slots, ARMO AVSG/AFSG | 16 raw bytes each; nothing in them needs typing. |
 
-Also not typed: BO64 on ARMO is a plain `u64` (64 biped slot bits, names not transcribed);
-XALG is a plain `u64` everywhere (its bit names are marked unverified upstream).
+Also not typed: XALG is a plain `u64` everywhere (its bit names are marked unverified
+upstream). BO64 on ARMO and ARMA is typed by the shared `BipedSlots` definition, whose
+53 named bits leave 10 unnamed bits raw and bit 63 raw as well (`docs/gaps.md`).
 
 Members with positional names because upstream leaves them unnamed: STAT
 `DirectionMaterial.Value2`, TMLM `Inam` (a localized string) and `MenuItem.Lock.Value6`.
