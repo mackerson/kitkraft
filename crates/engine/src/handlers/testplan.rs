@@ -9,8 +9,10 @@
 //! - `kitkraft-test.txt`, a console batch file: for each new placed reference, `coc` to its
 //!   interior cell (by the cell's EditorID), `player.moveto` and `prid` on the reference's
 //!   EditorID when it has one (no load-order slot involved; the POI investigation of
-//!   2026-10-15), else on its runtime ID; for each new item, `player.additem`; for each
-//!   override of a placed reference, `coc` and `prid`. Runtime IDs come from the load order
+//!   2026-10-15), else on its runtime ID; for each new item, `player.additem`, and for a
+//!   new or overridden `ARMO` a following `player.equipitem` (the outfit must be worn, not
+//!   only owned); for each override of a placed reference, `coc` and `prid`. Runtime IDs
+//!   come from the load order
 //!   (lane D's `LoadOrder::runtime_id`): confirmed when `load --from-save` adopted a save's
 //!   slots and the plugin is in that load order, else predicted by `runtime-slots-by-scale`
 //!   (and, for a plugin appended to the given load order after the last master-flagged
@@ -430,12 +432,22 @@ pub(super) fn run(session: &mut Session, args: &Value) -> Result<Outcome, Engine
                 format!("prid {target}"),
                 format!("select {what}, {by}"),
             );
-        } else if f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
+        } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
+            || f.signature == "ARMO"
+        {
             push(
                 &mut batch,
                 format!("player.additem {} 1", hex(runtime)),
                 format!("add {what}, by its runtime ID ({})", id_basis.short),
             );
+            // Armor is an outfit: it must be worn, not only owned (new or overridden).
+            if f.signature == "ARMO" {
+                push(
+                    &mut batch,
+                    format!("player.equipitem {}", hex(runtime)),
+                    format!("equip {what}, by its runtime ID ({})", id_basis.short),
+                );
+            }
         }
     }
 
@@ -642,13 +654,29 @@ fn checklist(
                 );
             }
             n = n.saturating_add(1);
-        } else if f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()) {
+        } else if (f.new && ITEMS.iter().any(|s| s.as_slice() == f.signature.as_bytes()))
+            || f.signature == "ARMO"
+        {
             let _ = writeln!(
                 s,
                 "{n}. `player.additem {runtime} 1` ({}). **Expect:** `{edid}` in the inventory.",
                 id_basis.short
             );
             n = n.saturating_add(1);
+            // Armor is an outfit: it must be worn and looked at, not only owned (new or
+            // overridden).
+            if f.signature == "ARMO" {
+                let _ = writeln!(
+                    s,
+                    "{n}. `player.equipitem {runtime}`: equip it. **Expect:** the player wears it;\n   the slots it fills are free of other items."
+                );
+                n = n.saturating_add(1);
+                let _ = writeln!(
+                    s,
+                    "{n}. Look at it: third person, `tfc` free camera, a screenshot into\n   `observe\\`."
+                );
+                n = n.saturating_add(1);
+            }
         } else {
             let _ = writeln!(
                 s,
