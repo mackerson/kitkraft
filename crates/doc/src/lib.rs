@@ -28,6 +28,7 @@ pub mod lstring;
 pub mod overrides;
 pub mod query;
 pub mod record;
+pub mod refl;
 pub mod search;
 pub mod source;
 pub mod strings;
