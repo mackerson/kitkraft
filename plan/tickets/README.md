@@ -50,13 +50,18 @@ exceptions, merged by hand.
 | Ticket | Title | Source | State |
 | ------ | ----- | ------ | ----- |
 | [KK-001](KK-001.toml) | The gate passes on Linux | the 2026-10-23 trial: 20 tests assume Windows | merged `34e4a55` |
-| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 continues from `kk/KK-002-wip` |
+| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 (2026-10-25) failed to start (harness bug); requeued from `kk/KK-002-wip` |
 | [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | merged `472871e` |
 | [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | merged `1f0940c` |
-| [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | run 1: 2/7, 3 lines (context limits); requeue |
-| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | run 1: 0/6 (scope bug in the ticket); run 2 continues from `kk/KK-006-wip` |
-| [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | queued |
+| [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | merged `f4acf8e` |
+| [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | run 1: 0/6 (scope bug in the ticket); run 2 (2026-10-25) failed to start (harness bug); requeued from `kk/KK-006-wip` |
+| [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | merged `7313fbf` |
 | [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued after KK-006 |
+
+On 2026-10-25 KK-002 and KK-006 failed to start: the harness did not resolve their WIP base
+branch (fixed in the harness). Both are requeued unchanged, still continuing from their WIP
+branches; KK-008 still waits for KK-006 to merge. The same night KK-005 (run 2) and KK-007
+landed.
 
 KK-002 and KK-004 both add a section to `docs/schema/support-matrix.md`, and KK-004 and
 KK-006 both may add a row to `docs/gaps.md`. Merge one, then resolve the other by hand.
