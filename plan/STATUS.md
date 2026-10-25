@@ -2778,3 +2778,16 @@ Agents append here when they need a change in a crate they do not own.
   32 minutes, because each `clone` re-reads `Starfield.esm`. Evidence row in
   `docs/schema/support-matrix.md`. Authored by the local Qwen agent; three clippy lints fixed
   and Windows-gated by Claude.
+- **KK-005 landed (2026-10-25, local-agent ticket):** `location.added-ref-temporary`
+  (warning, grade D, M5.D2): an `LCTN` `ACPR` (added persistent refs) entry that names a
+  reference the plugin holds in temporary children (group type 9) — the finding names
+  the location, the entry index, and the reference; only references the plugin itself
+  holds are checked (reusing `ref.persistence`'s collection), and entries naming a
+  master's reference are counted as a limitation, the masters not read. `LCPR`
+  (preferred refs) and `LCSR` (custom refs) are deliberately not checked: the official
+  files name temporary references there thousands of times, which is why
+  `ref.persistence` leaves `LCTN` out of its naming types. Three synthetic tests in
+  `cells_tests.rs`; the release corpus run pins 6 official findings in
+  `validate_corpus.rs` (SFBGS003 1: LCTN:00010DFB entry 0 names ACHR:FD005C01, a
+  temporary child of the medium-scale plugin itself; SFBGS050 5); `docs/validate.md`
+  rule row and corpus note.

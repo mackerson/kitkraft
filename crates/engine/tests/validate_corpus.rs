@@ -694,6 +694,28 @@ fn validate_corpus_official_files() {
             println!("    layout.group-incomplete: {incomplete} findings, expected 0");
             failures.push(name);
         }
+        // An `LCTN` `ACPR` (added persistent refs) entry naming a reference of the file
+        // in temporary children (group type 9): a warning, grade D (M5.D2); the entries
+        // naming a master's reference are a limitation, not a finding (KK-005,
+        // 2026-10-25: SFBGS003's LCTN:00010DFB entry 0 names ACHR:FD005C01, and
+        // SFBGS050 has five, e.g. LCTN:0001295A entry 0 naming ACHR:0207E760).
+        let added = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "location.added-ref-temporary")
+            .count();
+        let added_expected = match name {
+            "SFBGS003.esm" => 1,
+            "SFBGS050.esm" => 5,
+            _ => 0,
+        };
+        if added != added_expected {
+            println!(
+                "    location.added-ref-temporary: {added} findings, expected {added_expected}"
+            );
+            failures.push(name);
+        }
         let mut unexplained = 0u64;
         for f in data["findings"].as_array().unwrap() {
             if f["severity"] != json!("error") {

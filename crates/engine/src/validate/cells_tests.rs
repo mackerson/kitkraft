@@ -21,7 +21,7 @@ use crate::handlers::place_tests::{
     WORLD,
 };
 
-const RULES: [&str; 8] = super::cells::RULES;
+const RULES: [&str; 9] = super::cells::RULES;
 
 /// A patch of `World.esm` in `data`, each record at its path; `INCC` as given.
 /// Puts `record` under the groups `path`, creating them, with no placement rules.
@@ -122,6 +122,25 @@ fn refr(form_id: u32, flags: u32, base: u32, pos: [f32; 3]) -> Record<'static> {
     )
 }
 
+/// A location (`LCTN`) whose `ACPR` names `refs`: one 16-byte entry per FormID
+/// (`Ref`, `WorldOrCell`, `GridY`, `GridX`, 4 bytes).
+fn lctn_acpr(form_id: u32, refs: &[u32]) -> Record<'static> {
+    let mut bytes = Vec::new();
+    for &raw in refs {
+        bytes.extend_from_slice(&raw.to_le_bytes());
+        bytes.extend_from_slice(&INTERIOR_CELL.to_le_bytes());
+        bytes.extend_from_slice(&0i16.to_le_bytes());
+        bytes.extend_from_slice(&0i16.to_le_bytes());
+        bytes.extend_from_slice(&0u32.to_le_bytes());
+    }
+    rec(
+        b"LCTN",
+        0,
+        form_id,
+        vec![sub(b"EDID", &zstr("TestLocation")), sub(b"ACPR", &bytes)],
+    )
+}
+
 fn check(plugin: &Path) -> Value {
     execute(
         "validate",
@@ -157,7 +176,7 @@ fn a_placed_reference_and_the_master_pass_every_cell_rule() {
     let data = world_master(&d);
     let master = check(&data.join("World.esm"));
     assert_eq!(found(&master), [], "{master:#}");
-    assert_eq!(master["rules"].as_array().unwrap().len(), 8);
+    assert_eq!(master["rules"].as_array().unwrap().len(), 9);
     let (cell, path) = carried_cell();
     let ok = patch(
         &data,
@@ -652,5 +671,95 @@ fn a_persistent_world_actor_is_checked_in_the_exterior_cell_it_stands_in() {
         .as_str()
         .unwrap()
         .contains("exterior cell 00000902 (grid (3, 3)"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+/// M5.D2: an `ACPR` (added persistent refs) entry of a location (`LCTN`) that names a
+/// reference the plugin holds in temporary children (group type 9) is a warning; one
+/// that names a persistent reference is clean; one that names a master's reference is
+/// counted as a limitation.
+#[test]
+fn acpr_naming_a_temporary_reference_is_a_warning() {
+    let d = dir("validate-cells-acpr-temp");
+    let data = world_master(&d);
+    let (cell, path) = carried_cell();
+    let refr = refr(0x0100_0800, 0, 0x800, [1.0, 2.0, 3.0]);
+    let lctn = lctn_acpr(0x0100_0840, &[0x0100_0800]);
+    let p = patch(
+        &data,
+        "TempRef.esm",
+        vec![
+            (cell, path),
+            (refr.clone(), at(&refr, interior())),
+            (lctn, vec![GroupHeader::top(Signature(*b"LCTN"))]),
+        ],
+        Some(1),
+    );
+    let r = check(&p);
+    assert_eq!(
+        found(&r),
+        one("location.added-ref-temporary", "warning", "LCTN:01000840"),
+        "{:#}",
+        r
+    );
+    assert!(r["findings"][0]["message"]
+        .as_str()
+        .unwrap()
+        .contains("ACPR entry 0 names REFR:01000800"));
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn acpr_naming_a_persistent_reference_is_clean() {
+    let d = dir("validate-cells-acpr-persistent");
+    let data = world_master(&d);
+    let (cell, path) = carried_cell();
+    let refr = refr(0x0100_0800, FLAG_PERSISTENT, 0x800, [1.0, 2.0, 3.0]);
+    let lctn = lctn_acpr(0x0100_0840, &[0x0100_0800]);
+    let p = patch(
+        &data,
+        "PersistRef.esm",
+        vec![
+            (cell, path),
+            (refr.clone(), at(&refr, interior())),
+            (lctn, vec![GroupHeader::top(Signature(*b"LCTN"))]),
+        ],
+        Some(1),
+    );
+    assert_eq!(found(&check(&p)), []);
+    let _ = std::fs::remove_dir_all(&d);
+}
+
+#[test]
+fn acpr_naming_a_master_reference_is_a_limitation() {
+    let d = dir("validate-cells-acpr-master");
+    let data = world_master(&d);
+    let (cell, path) = carried_cell();
+    // 0x00000901 is the master's reference in its interior cell.
+    let lctn = lctn_acpr(0x0100_0840, &[0x0000_0901]);
+    let p = patch(
+        &data,
+        "MasterRef.esm",
+        vec![
+            (cell, path),
+            (lctn, vec![GroupHeader::top(Signature(*b"LCTN"))]),
+        ],
+        Some(1),
+    );
+    let r = execute(
+        "validate",
+        json!({"plugin": p.display().to_string(), "rules": RULES}),
+    )
+    .unwrap();
+    assert_eq!(found(&r["data"]), [], "{:#}", r["data"]);
+    assert!(
+        r["limitations"].as_array().unwrap().iter().any(|l| {
+            l.as_str()
+                .unwrap()
+                .starts_with("location.added-ref-temporary: 1 ACPR entries name master references")
+        }),
+        "{:#}",
+        r["limitations"]
+    );
     let _ = std::fs::remove_dir_all(&d);
 }
