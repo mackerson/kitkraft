@@ -5,9 +5,13 @@
 //! The payload is a run of chunks: a 4-byte ASCII tag, a u32 little-endian size, then
 //! exactly that many bytes. `decode` keeps each chunk's raw payload, so `encode`
 //! reproduces the input byte for byte whatever the record type is; `lmsw_entries` reads
-//! the entries of the `LMSW` payloads on top of that.
+//! the entries of the `LMSW` payloads on top of that. [`Refl::strings`] and
+//! [`Refl::classes`] are read off the chunks and `encode` writes only [`Refl::chunks`]:
+//! changing the parsed views changes nothing in the encoding (writing `LMSW` is a later
+//! ticket).
 //!
-//! Layout, verified on every official file (29897 `REFL`s, 17410 of them `LMSW`):
+//! Layout, verified on every official file (29,897 `REFL`s, 17,410 of them `LMSW`;
+//! `refl_corpus` pins the counts below):
 //!
 //! - `BETH`: two u32: a version (4 in every payload) and the total number of chunks in
 //!   the payload.
@@ -36,8 +40,10 @@
 //!   each item a u32 property class id followed by that property's float values, and
 //!   one `0xFFFFFF02` list whose items are the property names, one per value item.
 //!
-//! 2586 `LMSW` payloads hold no swaps at all: 2567 of them hold only material form
-//! references, and 19 hold only empty lists and yield no entries.
+//! The 17,410 `LMSW` payloads hold 17,643 swaps, 24,277 material form references and 18
+//! property values (one each in the 18 payloads with the snapshot pair). 2,586 hold no
+//! swaps at all: 2,567 of them hold only material form references, and 19 hold only
+//! empty lists and yield no entries.
 
 /// One chunk of a `REFL` payload.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -719,6 +725,29 @@ mod tests {
         let p = lmsw_payload();
         for cut in [1, 7, 8, 9, p.len() - 1, p.len() - 4] {
             assert!(decode(&p[..cut]).is_err(), "cut at {cut} should fail");
+        }
+    }
+
+    /// Every prefix, and every single-byte change, of the synthetic payloads either
+    /// decodes or is an `Err`, never a panic; whatever decodes re-encodes identically,
+    /// and `lmsw_entries` on it returns.
+    #[test]
+    fn malformed_payloads_never_panic() {
+        for p in [lmsw_payload(), lmsw_payload_with_property()] {
+            let mut inputs: Vec<Vec<u8>> = (0..p.len()).map(|cut| p[..cut].to_vec()).collect();
+            for i in 0..p.len() {
+                for v in [0x00, 0xFF, p[i] ^ 0x01] {
+                    let mut q = p.clone();
+                    q[i] = v;
+                    inputs.push(q);
+                }
+            }
+            for q in inputs {
+                if let Ok(r) = decode(&q) {
+                    assert_eq!(encode(&r), q);
+                    let _ = lmsw_entries(&r);
+                }
+            }
         }
     }
 

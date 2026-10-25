@@ -9,7 +9,10 @@
 //! `lmsw_entries` results (0 for the other types). A `LMSW` `REFL` that fails to decode,
 //! re-encodes differently, or errors in `lmsw_entries` fails the test; the 19 `LMSW`
 //! payloads that hold only empty lists legitimately yield no entry. A `REFL` of another
-//! type that cannot decode or re-encode is printed with its FormID and reason.
+//! type that cannot decode or re-encode is printed with its FormID and reason, and fails
+//! the test too: all 29,897 official `REFL`s decode and re-encode, so one that does not is
+//! a regression. The `LMSW` shape (swaps, references, properties, and the payloads
+//! without swaps) is pinned to the counts the `refl` module docs give.
 
 #![allow(
     clippy::panic,
@@ -46,10 +49,30 @@ const CORPUS: [&str; 14] = [
 /// The official LMSW records: the count the ticket fixes and the corpus holds.
 const LMSW_TOTAL: u64 = 17410;
 
+/// Every `REFL` subrecord of the 14 official files (2026-10-25).
+const REFL_TOTAL: u64 = 29897;
+
+/// What the `LMSW` entries hold, for the module docs' counts.
+#[derive(Default, Debug, PartialEq, Eq)]
+struct LmswShape {
+    swaps: u64,
+    refs: u64,
+    properties: u64,
+    /// Payloads with no swap.
+    without_swaps: u64,
+    /// Payloads with no swap and no property, only material references.
+    refs_only: u64,
+    /// Payloads with no entry at all (only empty lists).
+    empty: u64,
+    /// Payloads with named property values.
+    with_properties: u64,
+}
+
 #[derive(Default)]
 struct Stats {
     /// Per record type: (decoded, identical, entries).
     per_type: BTreeMap<String, (u64, u64, u64)>,
+    lmsw: LmswShape,
     /// LMSW failures: decode, re-encode and entry errors, with the FormID.
     failures: Vec<String>,
     /// Non-LMSW `REFL`s that cannot decode or re-encode: FormID and reason.
@@ -93,7 +116,22 @@ fn visit(record: &Record<'_>, file: &str, stats: &mut Stats) {
         }
         let entries = if lmsw {
             match refl::lmsw_entries(&r) {
-                Ok(v) => v.len() as u64,
+                Ok(v) => {
+                    let count =
+                        |f: fn(&refl::SwapEntry) -> bool| v.iter().filter(|e| f(e)).count() as u64;
+                    let swaps = count(|e| matches!(e, refl::SwapEntry::Swap { .. }));
+                    let refs = count(|e| matches!(e, refl::SwapEntry::Ref(_)));
+                    let properties = count(|e| matches!(e, refl::SwapEntry::Property { .. }));
+                    let l = &mut stats.lmsw;
+                    l.swaps += swaps;
+                    l.refs += refs;
+                    l.properties += properties;
+                    l.without_swaps += u64::from(swaps == 0);
+                    l.refs_only += u64::from(swaps == 0 && properties == 0 && refs > 0);
+                    l.empty += u64::from(v.is_empty());
+                    l.with_properties += u64::from(properties > 0);
+                    v.len() as u64
+                }
                 Err(e) => {
                     stats.failures.push(format!("{at}: lmsw_entries: {e}"));
                     0
@@ -166,4 +204,27 @@ fn every_official_refl_decodes_and_reencodes() {
     );
     assert_eq!(lmsw.1, LMSW_TOTAL);
     assert!(lmsw.2 > 0);
+    println!("refl-corpus LMSW shape: {:?}", stats.lmsw);
+    // Every other type decodes and re-encodes too, so a failure there is a regression.
+    assert!(
+        stats.notes.is_empty(),
+        "{} non-LMSW REFLs fail to decode or re-encode",
+        stats.notes.len()
+    );
+    let total: u64 = stats.per_type.values().map(|t| t.0).sum();
+    let identical: u64 = stats.per_type.values().map(|t| t.1).sum();
+    assert_eq!((total, identical), (REFL_TOTAL, REFL_TOTAL));
+    // The counts the module docs give.
+    assert_eq!(
+        stats.lmsw,
+        LmswShape {
+            swaps: 17643,
+            refs: 24277,
+            properties: 18,
+            without_swaps: 2586,
+            refs_only: 2567,
+            empty: 19,
+            with_properties: 18,
+        }
+    );
 }
