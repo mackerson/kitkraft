@@ -588,22 +588,21 @@ fn added_refs(pass: &mut Pass<'_>, subs: &[Subrecord<'_>], at: Option<u64>, id: 
         return;
     }
     for s in subs.iter().filter(|s| s.signature() == Signature(*b"ACPR")) {
-        let base = s.data_offset().or(at);
         for (index, entry) in s.data().as_chunks::<16>().0.iter().enumerate() {
-            let Some(bytes) = entry.get(0..4) else {
-                continue;
-            };
-            let Some(raw) = <[u8; 4]>::try_from(bytes).ok().map(u32::from_le_bytes) else {
-                continue;
-            };
+            let [a, b, c, d, ..] = *entry;
+            let raw = u32::from_le_bytes([a, b, c, d]);
             if raw == 0 {
                 continue;
             }
-            let offset = base.and_then(|b| {
-                let i = u64::try_from(index).ok()?;
-                let o = i.checked_mul(16)?;
-                b.checked_add(o)
-            });
+            // The entry's own offset when the subrecord has a source offset; a compressed
+            // record's subrecords have none, so the record's offset, as the other rules give.
+            let offset = s
+                .data_offset()
+                .and_then(|base| {
+                    let o = u64::try_from(index).ok()?.checked_mul(16)?;
+                    base.checked_add(o)
+                })
+                .or(at);
             pass.cells.added.push((id.to_string(), index, raw, offset));
         }
     }
