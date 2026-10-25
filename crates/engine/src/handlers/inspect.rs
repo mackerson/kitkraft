@@ -494,7 +494,8 @@ struct VersionCtx<'a> {
     outside: Option<&'a MasterMap>,
     /// Payload bytes shown per subrecord (`max_bytes`; `full` shows every byte).
     cap: usize,
-    /// `full`: also decode each `VMAD` (scripts, properties, object values).
+    /// `full`: also decode each `VMAD` (scripts, properties, object values) and the
+    /// `LMSW` records' `REFL` (swap entries).
     full: bool,
 }
 
@@ -569,6 +570,31 @@ fn vmad_json(data: &[u8], vc: &VersionCtx<'_>) -> Value {
         }),
         Err(e) => json!({"error": e}),
     }
+}
+
+/// The `REFL` payload of an `LMSW` record as JSON (`inspect --full`): its swap entries
+/// with key and override material paths; `{"error": ...}` when the payload does not
+/// decode or its lists do not parse.
+fn lmsw_json(data: &[u8]) -> Value {
+    use kitkraft_doc::refl::{self, SwapEntry};
+    let r = match refl::decode(data) {
+        Ok(r) => r,
+        Err(e) => return json!({"error": e}),
+    };
+    let entries = match refl::lmsw_entries(&r) {
+        Ok(v) => v,
+        Err(e) => return json!({"error": e}),
+    };
+    let entries = entries
+        .iter()
+        .filter_map(|e| match e {
+            SwapEntry::Swap {
+                key, r#override, ..
+            } => Some(json!({"key": key, "override": r#override})),
+            SwapEntry::Ref(_) | SwapEntry::Property { .. } => None,
+        })
+        .collect::<Vec<_>>();
+    json!({"entries": entries})
 }
 
 /// Where a version handed to [`version_entry`] comes from.
@@ -759,6 +785,11 @@ fn version_subrecords(
         if vc.full && sig == "VMAD" {
             if let Some(obj) = entry.as_object_mut() {
                 obj.insert("vmad".into(), vmad_json(data, vc));
+            }
+        }
+        if vc.full && sig == "REFL" && record_sig == *b"LMSW" {
+            if let Some(obj) = entry.as_object_mut() {
+                obj.insert("lmsw".into(), lmsw_json(data));
             }
         }
         if is_lstring(&sig) {

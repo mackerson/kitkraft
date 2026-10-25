@@ -2778,3 +2778,17 @@ Agents append here when they need a change in a crate they do not own.
   32 minutes, because each `clone` re-reads `Starfield.esm`. Evidence row in
   `docs/schema/support-matrix.md`. Authored by the local Qwen agent; three clippy lints fixed
   and Windows-gated by Claude.
+- **KK-007 landed (2026-10-25, local-agent ticket):** `crates/doc/src/refl.rs` decodes
+  Bethesda's `REFL` serialization losslessly: the chunk run (`BETH`, `STRT`, `TYPE`,
+  `CLAS`, `OBJT`, `LIST`), the NUL-terminated string table, and the class declarations;
+  `encode` reproduces the input byte for byte. `lmsw_entries` reads an `LMSW` payload's
+  entries in payload order: the swaps (key and override material paths, with the key
+  material's form reference), the material form references, and the named property values
+  where the payload shows them. `crates/doc/tests/refl_corpus.rs` walks all 29,897 official
+  `REFL`s (17,410 `LMSW`) in the 14 ESMs: every one decodes and re-encodes byte-identically,
+  and the `LMSW` ones yield 41,938 entries (2,586 payloads hold no swaps: 2,567 hold only
+  material form references, 19 only empty lists). `inspect --full` adds an `lmsw` object to
+  an `LMSW` record's `REFL` subrecord with the swap entries (`key`, `override`); a decode
+  error answers `{"error": ...}`. `crates/engine/tests/refl_inspect.rs` checks the
+  `Starfield.esm:1991B1` swap through `execute`. Both corpus tests are `#[ignore]` (they
+  read the 2.5 GB of plugins).
