@@ -12,11 +12,15 @@ use serde_json::{json, Value};
 use crate::edit::patch_tests::{dir, weapon, write_plugin};
 use crate::execute;
 
-fn sub(sig: &[u8; 4], data: &[u8]) -> Subrecord<'static> {
+pub(super) fn sub(sig: &[u8; 4], data: &[u8]) -> Subrecord<'static> {
     Subrecord::new(Signature(*sig), data.to_vec())
 }
 
-fn record(sig: &[u8; 4], form_id: u32, subs: Vec<Subrecord<'static>>) -> Record<'static> {
+pub(super) fn record(
+    sig: &[u8; 4],
+    form_id: u32,
+    subs: Vec<Subrecord<'static>>,
+) -> Record<'static> {
     Record::new(
         RecordHeader {
             signature: Signature(*sig),
@@ -28,7 +32,7 @@ fn record(sig: &[u8; 4], form_id: u32, subs: Vec<Subrecord<'static>>) -> Record<
     )
 }
 
-fn check(plugin: &Path, rules: &[&str]) -> Value {
+pub(super) fn check(plugin: &Path, rules: &[&str]) -> Value {
     execute(
         "validate",
         json!({"plugin": plugin.display().to_string(), "rules": rules}),
@@ -38,7 +42,7 @@ fn check(plugin: &Path, rules: &[&str]) -> Value {
 }
 
 /// `(rule, severity)` of every finding.
-fn found(data: &Value) -> Vec<(String, String)> {
+pub(super) fn found(data: &Value) -> Vec<(String, String)> {
     data["findings"]
         .as_array()
         .unwrap()
@@ -52,7 +56,7 @@ fn found(data: &Value) -> Vec<(String, String)> {
         .collect()
 }
 
-fn pair(rule: &str, severity: &str) -> (String, String) {
+pub(super) fn pair(rule: &str, severity: &str) -> (String, String) {
     (rule.to_string(), severity.to_string())
 }
 
@@ -77,7 +81,12 @@ fn master(d: &Path) -> PathBuf {
     )
 }
 
-fn patch(d: &Path, name: &str, masters: &[&str], records: Vec<Record<'static>>) -> PathBuf {
+pub(super) fn patch(
+    d: &Path,
+    name: &str,
+    masters: &[&str],
+    records: Vec<Record<'static>>,
+) -> PathBuf {
     write_plugin(d, name, masters, 0, records)
 }
 
@@ -99,11 +108,15 @@ fn a_clean_patch_passes_every_rule() {
     let d = dir("validate-clean");
     master(&d);
     let p = patch(&d, "Clean.esp", &["Master.esm"], vec![good_weapon()]);
+    // The weapon's model file, loose next to the plugin (asset.missing-model).
+    let meshes = d.join("meshes/weapons");
+    std::fs::create_dir_all(&meshes).unwrap();
+    std::fs::write(meshes.join("a.nif"), b"fake nif").unwrap();
     let result = execute("validate", json!({"plugin": p.display().to_string()})).unwrap();
     let data = &result["data"];
     assert_eq!(data["passed"], json!(true), "{data:#}");
     assert_eq!(found(data), Vec::<(String, String)>::new());
-    assert_eq!(data["rules"].as_array().unwrap().len(), 20);
+    assert_eq!(data["rules"].as_array().unwrap().len(), 21);
     assert_eq!(data["masters"][0]["localized"], json!(true));
     let _ = std::fs::remove_dir_all(&d);
 }

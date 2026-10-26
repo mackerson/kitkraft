@@ -63,6 +63,9 @@ pub struct Sources {
     data_dir: Option<PathBuf>,
     /// Lower-case `scripts/a/b.pex` -> (archive index, entry index), once listed.
     index: Option<HashMap<String, (usize, usize)>>,
+    /// Lower-case name of every load-order archive entry (not just `.pex`) -> (archive
+    /// index, entry index), once listed (the model rules' listing).
+    entries: Option<HashMap<String, (usize, usize)>>,
     /// Archives that could not be read, as `path: error`.
     pub unreadable: Vec<String>,
     decls: HashMap<String, Option<(Decl, String)>>,
@@ -93,8 +96,17 @@ fn loose_path(dir: &Path, script: &str) -> PathBuf {
     path
 }
 
-fn normalize(entry: &str) -> String {
+pub(super) fn normalize(entry: &str) -> String {
     entry.replace('\\', "/").to_ascii_lowercase()
+}
+
+/// Record in `unreadable` an archive that could not be read (once; shared by both index
+/// listings). A free function: called through one field while another is borrowed by
+/// the loop.
+fn note_unreadable(unreadable: &mut Vec<String>, msg: String) {
+    if !unreadable.contains(&msg) {
+        unreadable.push(msg);
+    }
 }
 
 impl Sources {
@@ -129,6 +141,7 @@ impl Sources {
             archives,
             data_dir: data_dir.map(Path::to_path_buf),
             index: None,
+            entries: None,
             unreadable: Vec::new(),
             decls: HashMap::new(),
             psc: None,
@@ -136,9 +149,16 @@ impl Sources {
         }
     }
 
-    /// Where the lookup searches, for messages.
+    /// Where this lookup searches (`Scripts` loose, then the load-order archives), for
+    /// messages.
     pub fn searched(&self) -> String {
-        let mut parts: Vec<String> = self.loose.iter().map(|p| p.display().to_string()).collect();
+        self.searched_in(&self.loose)
+    }
+
+    /// Where a lookup over `loose` folders and the load-order archives searched, for
+    /// messages (the model rules' listing).
+    pub fn searched_in(&self, loose: &[PathBuf]) -> String {
+        let mut parts: Vec<String> = loose.iter().map(|p| p.display().to_string()).collect();
         parts.push(format!(
             "{} archive(s) of the load order",
             self.archives.len()
@@ -159,12 +179,41 @@ impl Sources {
                             }
                         }
                     }
-                    Err(e) => self.unreadable.push(format!("{}: {e}", path.display())),
+                    Err(e) => {
+                        note_unreadable(&mut self.unreadable, format!("{}: {e}", path.display()))
+                    }
                 }
             }
             self.index = Some(map);
         }
         self.index.get_or_insert_with(HashMap::new)
+    }
+
+    /// The load-order archive entries (every kind, not just `.pex`), once listed.
+    fn entry_index(&mut self) -> &HashMap<String, (usize, usize)> {
+        if self.entries.is_none() {
+            let mut map = HashMap::new();
+            for (ai, path) in self.archives.iter().enumerate() {
+                match kitkraft_ba2::Archive::open(path) {
+                    Ok((archive, _)) => {
+                        for (ei, e) in archive.entries.iter().enumerate() {
+                            map.entry(normalize(&e.name)).or_insert((ai, ei));
+                        }
+                    }
+                    Err(e) => {
+                        note_unreadable(&mut self.unreadable, format!("{}: {e}", path.display()))
+                    }
+                }
+            }
+            self.entries = Some(map);
+        }
+        self.entries.get_or_insert_with(HashMap::new)
+    }
+
+    /// Whether a load-order archive has an entry with normalized name `n` (every kind,
+    /// not just `.pex`).
+    pub(super) fn entry_contains(&mut self, n: &str) -> bool {
+        self.entry_index().contains_key(n)
     }
 
     /// The compiled script `script`: where it is and its bytes.
@@ -568,12 +617,8 @@ pub fn check(
             shown.join("; ")
         ));
     }
-    if !sources.unreadable.is_empty() {
-        limitations.push(format!(
-            "papyrus rules: archives that could not be read were not searched: {}",
-            sources.unreadable.join("; ")
-        ));
-    }
+    // Unreadable archives are reported once, by the caller (they are shared with the
+    // model rules' listing).
 }
 
 /// The VMAD type byte a declared type takes, or why it cannot be set: `Int` 3, `Float` 4,
