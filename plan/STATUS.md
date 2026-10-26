@@ -2906,3 +2906,4 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   archive holds, explained in `docs/validate.md` and pinned per file in
   `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
   synthetic tests in `models_tests.rs`.
+Landed: KK-090 schema tickets merge cleanly - the defs test derives its record and common lists from the defs directory (via toml_names, headers and the per-file record check kept); LSTRING_ONLY, BX2_INVENTORY and esm TYPES are one entry per line, alphabetical, under #[rustfmt::skip]; no definition or non-test code changed.

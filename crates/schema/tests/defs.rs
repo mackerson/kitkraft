@@ -144,67 +144,33 @@ fn builtin_set_loads_and_matches_the_directory() {
     assert_eq!(*embedded, on_disk);
     // Cached: the same instance every time.
     assert!(std::ptr::eq(embedded, builtin().unwrap()));
-    let sigs: Vec<&str> = embedded.records.keys().map(Signature::as_str).collect();
-    assert_eq!(
-        sigs,
-        [
-            "ACHR", "ACTI", "AFFE", "ALCH", "AMDL", "AMMO", "ANIO", "ARMA", "ARMO", "ARTO", "AVIF",
-            "BIOM", "BOOK", "BPTD", "CELL", "CHAL", "CLAS", "COBJ", "CONT", "CPTH", "DIAL", "DMGT",
-            "DOOR", "ENCH", "EXPL", "FACT", "FLOR", "FLST", "FURN", "FXPD", "GBFM", "GLOB", "GMST",
-            "GPOF", "HAZD", "HDPT", "IDLE", "INFO", "INNR", "IRES", "KEYM", "KYWD", "LAYR", "LCRT",
-            "LCTN", "LIGH", "LSCR", "LVLI", "LVLN", "LVLP", "MESG", "MGEF", "MISC", "MSTT", "NAVM",
-            "NPC_", "OMOD", "OTFT", "PACK", "PCBN", "PCCN", "PCMT", "PERK", "PGRE", "PHZD", "PKIN",
-            "PMFT", "PNDT", "PROJ", "QUST", "RACE", "REFR", "RFGP", "RSGD", "RSPJ", "SCEN", "SFBK",
-            "SFPT", "SMBN", "SMEN", "SMQN", "SOUN", "SPEL", "STAT", "STDT", "SUNP", "TERM", "TES4",
-            "TMLM", "TRAV", "TXST", "WATR", "WEAP", "WKMF", "WRLD", "WWED", "ZOOM"
-        ]
-    );
+    // The expected lists derive from the directory (KK-090): a new definition file
+    // needs no edit of this test, and a file the schema misses still fails it.
+    let mut top = BTreeSet::new();
+    toml_names(defs_dir(), "", &mut top);
+    // The record signatures are the top-level stems, the two header files aside;
+    // their headers are checked below.
+    let record_sigs: Vec<String> = top
+        .iter()
+        .map(|n| n.trim_end_matches(".toml").to_owned())
+        .filter(|s| s != "GRUP" && s != "RECORD")
+        .collect();
+    let sigs: Vec<String> = embedded
+        .records
+        .keys()
+        .map(|s| s.as_str().to_owned())
+        .collect();
+    assert_eq!(sigs, record_sigs);
     let headers: Vec<&str> = embedded.headers.keys().map(String::as_str).collect();
     assert_eq!(headers, ["GroupHeader", "RecordHeader"]);
-    let common: Vec<&str> = embedded.common.keys().map(String::as_str).collect();
-    assert_eq!(
-        common,
-        [
-            "AttackData",
-            "BfcbBlock",
-            "BiomeNoiseLayer",
-            "BipedSlots",
-            "Bool8",
-            "ColorBgra",
-            "ColorRgb",
-            "ColorRgba",
-            "Component",
-            "Condition",
-            "ContainerItems",
-            "Destructible",
-            "Effect",
-            "EnableParent",
-            "FurnitureEntryPoint",
-            "FurnitureMarkerFlags",
-            "FurnitureMarkerParameter",
-            "GroupedPackIn",
-            "Keywords",
-            "LinkedReferences",
-            "Model",
-            "ObjectBounds",
-            "ObjectModProperty",
-            "ObjectPaletteDefaults",
-            "ObteBlock",
-            "OwnerData",
-            "PackageLocation",
-            "PositionRotation",
-            "PropertyValue",
-            "QuestReferenceAlias",
-            "RadioReceiver",
-            "RagdollBone",
-            "ResourceBiomeTier",
-            "ResourceCellTier",
-            "ScriptAttachment",
-            "SoundReference",
-            "Transforms",
-            "Vec3"
-        ]
-    );
+    let mut common_files = BTreeSet::new();
+    toml_names(&defs_dir().join(COMMON_DIR), "", &mut common_files);
+    let common_names: Vec<String> = common_files
+        .iter()
+        .map(|n| n.trim_end_matches(".toml").to_owned())
+        .collect();
+    let common: Vec<String> = embedded.common.keys().cloned().collect();
+    assert_eq!(common, common_names);
 }
 
 /// The BO64 subrecord of the armor records is a `u64` of the first-person biped slots, and
@@ -625,16 +591,43 @@ const CORPUS_LSTRINGS: &[(&str, &str)] = &[
 /// actor family; ACTI, CONT, FURN, IDLE, MISC, MSTT, STAT, TERM and TMLM from the
 /// items/workshop family). DOOR, IRES, LSCR and MESG became M4.BX2 inventories
 /// ([`BX2_INVENTORY`]).
+#[rustfmt::skip]
 const LSTRING_ONLY: &[&str] = &[
-    "ALCH", "AVIF", "BOOK", "BPTD", "DMGT", "ENCH", "EXPL", "FLOR", "FXPD", "GPOF", "HAZD", "HDPT",
-    "KEYM", "PMFT", "WATR",
+    "ALCH",
+    "AVIF",
+    "BOOK",
+    "BPTD",
+    "DMGT",
+    "ENCH",
+    "EXPL",
+    "FLOR",
+    "FXPD",
+    "GPOF",
+    "HAZD",
+    "HDPT",
+    "KEYM",
+    "PMFT",
+    "WATR",
 ];
 
 /// The M4.BX2 inventory definitions: corpus order and cardinality for record types no
 /// family lane owns.
+#[rustfmt::skip]
 const BX2_INVENTORY: &[&str] = &[
-    "ARTO", "DOOR", "IRES", "LAYR", "LIGH", "LSCR", "MESG", "PGRE", "PHZD", "RFGP", "SOUN", "TXST",
-    "WKMF", "WWED",
+    "ARTO",
+    "DOOR",
+    "IRES",
+    "LAYR",
+    "LIGH",
+    "LSCR",
+    "MESG",
+    "PGRE",
+    "PHZD",
+    "RFGP",
+    "SOUN",
+    "TXST",
+    "WKMF",
+    "WWED",
 ];
 
 /// The M4.BX2 inventories whose `OBND` is typed as `ObjectBounds` (fix round W3, the lane R
