@@ -2857,3 +2857,18 @@ Landed 2026-10-26: KK-011 - the armor OMOD property survey: the ignored test
   `KitKraftRecipeLocation.esm` 2,163 bytes, one master (`Starfield.esm`), new forms
   `:001000` to `:001002`. Authored by the local agent; acceptance and `cargo xtask ci`
   green.
+- **KK-013 landed (2026-10-26, local-agent ticket):** the terminal recipe —
+  `docs/recipes/terminal.toml` (three clones: the menu `03D5D7` with our `FULL`, one
+  `BTXT` and the submenu item's `ITXT`, its `TNAM` to the submenu clone; the submenu
+  `227DA9` with our body text, `BSIZ` 1 and `TMVT` `Document`; the terminal `00351B`
+  with our `FULL` and `DNAM` to the menu clone; a persistent `[[place]]` in the first
+  POI cell `21966F`), `Starfield.esm` the only master; `docs/recipes/terminal.md`
+  (the facts table with sources, the link diagram, the build/validate/roundtrip/refs/
+  testplan commands, the owner's in-game steps — not run — and what could not be
+  authored: the sixteen `CTDA` conditions have no field path and stay as stored);
+  and `crates/engine/tests/terminal_recipe_corpus.rs`, one ignored release test through
+  `execute` that checks every claim, including the sixteen copied condition quest links.
+  The plugin `KitKraftRecipeTerminal.esm` is 5,100 bytes, SHA-256
+  4d3bfba83f28254f046e33f47d4a6ae9d00402395c15c1ec8ffc04188c8645d1. Authored by the
+  local Qwen agent; the in-game steps are for the owner (KitKraft Dev, disposable
+  save).
