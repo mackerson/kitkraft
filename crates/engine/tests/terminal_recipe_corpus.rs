@@ -186,6 +186,18 @@ fn the_terminal_recipe_builds_and_every_claim_holds() {
             "condition {i} no longer names UC01_ShipSimQuest"
         );
     }
+    let quest_links = menu
+        .iter()
+        .filter(|e| {
+            e["path"]
+                .as_str()
+                .is_some_and(|p| p.starts_with("CTDA") && p.ends_with(".Parameter1.Quest"))
+        })
+        .count();
+    assert_eq!(
+        quest_links, 16,
+        "the menu clone carries exactly sixteen conditions"
+    );
     let reference = links(&engine, &plugins, &data, &form(0x1003));
     assert_eq!(target(&reference, "NAME.Base"), json!(form(0x1002)));
     for (id, _, _) in FORMS {

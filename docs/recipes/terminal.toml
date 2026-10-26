@@ -19,10 +19,10 @@ plugins = ["Starfield.esm"]
 # first BTXT a localized string ID 0x0000BC3C) and 3 items (ISIZ 3). Item 2 is a submenu
 # item (ISET Type Submenu, Flags CreatesNewWindow) and the only item with a submenu link
 # (TNAM), stored as 03D5E7 UC01_SimShipTerminal_DiagnosticsTerminal; its text ITXT is the
-# record's second ITXT, string ID 0x0000BC37. Every body text and item carries CTDA
-# conditions (functions 59 and 629, quest UC01_ShipSimQuest 2BA648); a clone copies them
+# record's second ITXT, string ID 0x0000BC37. Every item and three of the four body texts
+# carry CTDA conditions (functions 59 and 629, quest UC01_ShipSimQuest 2BA648); a clone copies them
 # as bytes and the schema has no field path into them, so they are kept exactly as stored.
-# Chosen from `kit query TMLM where ISIZ >= 2 and has TNAM and has BTXT` (25 matches):
+# Chosen from `kit query TMLM --where 'ISIZ >= 2 and has TNAM and has BTXT'` (25 matches):
 # this one is a complete menu, so FULL, one BTXT and one ITXT can each be edited in place.
 # Chosen value: FULL "KitKraft Recipe Menu" (over the stored "Main Menu", 0x0000BC3D),
 # BTXT[0] our first body text, ITXT[1] our submenu item's text, TNAM (the record's only
