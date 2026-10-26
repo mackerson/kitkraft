@@ -33,6 +33,47 @@ plugin is an override only (it owns no forms), so it can be dropped from a save.
 `FULL` is written inline (patches are non-localized); everything else is the winner's
 bytes except `XOWN.Owner`.
 
+## Variant: a new faction owns the cell
+
+M5.D5 asks for the other case: not the vanilla owner changed to the vanilla
+`PlayerFaction`, but a faction the plugin itself creates owns the cell (the Foothold
+claim terminal prototype's owner). Spec: `docs/recipes/ownership-faction.toml`; a second
+`[[set]]` of the same cell points `XOWN.Owner` at the new faction with `new:owner`, as
+`docs/recipes/mini-site.toml` names a new location with `new:location`.
+
+| Fact | Source |
+| ---- | ------ |
+| The new faction is `KitKraftOwnershipFaction.esm:001000`: a `FACT`, object `0x1000` of master `01`, EditorID `KitKraftRecipeOwnerFaction`, `FULL` "KitKraft Recipe Owner Faction" | `kit build` of the spec reports the new form; the `edid`, `FULL` and the first `0x001000` allocation are the spec's own values |
+| The cell's winning `XOWN.Owner` names the new faction, resolved, not dangling | `kit refs Starfield.esm:017307 --plugins Starfield.esm --plugins out/recipes/KitKraftOwnershipFaction.esm`: `XOWN.Owner.Owner -> KitKraftOwnershipFaction.esm:001000 FACT KitKraftRecipeOwnerFaction` |
+| `XOWN.Owner` may name a `FACT` (or an `NPC_`) | `xedit: wbDefinitionsCommon.pas@9fb01688#L9367-L9391` (the `OwnerData` shared type, `crates/schema/defs/common/OwnerData.toml`) |
+| A faction with only `FULL` is a shape the corpus holds | `crates/schema/defs/FACT.toml` (`FULL`, the `Name` member, an optional lstring; the 953 corpus FACT records, none compressed) |
+
+The faction carries only members the recipe can source from `FACT.toml`: `FULL`. No
+relations, ranks, crime values or flags are set.
+
+### Build
+
+```text
+kit build docs/recipes/ownership-faction.toml out/recipes/KitKraftOwnershipFaction.esm
+kit validate --plugin out/recipes/KitKraftOwnershipFaction.esm
+kit roundtrip out/recipes/KitKraftOwnershipFaction.esm --verify
+kit testplan out/recipes/KitKraftOwnershipFaction.esm out/recipes/ownership-faction-test --profile <MO2>\profiles\Default
+```
+
+2026-10-26 (release build): 15,228 bytes, SHA-256
+`e3575858608ad4894af50984430879c41d2e2179ccf3358636c07899f1d09af4`, one master (`Starfield.esm`); `validate`
+0 errors and 0 warnings; `roundtrip --verify` identical. The plugin owns one form (the faction) and one override
+(the cell's `XOWN.Owner`); the cell's `FULL` is written inline (patches are
+non-localized); everything else is the winner's bytes except `XOWN.Owner`.
+
+### What is not known
+
+- Whether the game treats the player as a trespasser or a thief in a cell its own new
+  faction owns: **not known**. The override variant's in-game check (above, M4.O4)
+  covers the `PlayerFaction` case only; this case is grade D until an observation.
+- How a player would join the new faction: `player.addtofaction 01001000 0` in the
+  console is the check (grade D; not run).
+
 ## Query by owner
 
 `kit query CELL --where 'XOWN.Owner == Starfield.esm:01C21C' --plugins Starfield.esm
