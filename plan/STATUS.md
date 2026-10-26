@@ -2833,3 +2833,17 @@ Agents append here when they need a change in a crate they do not own.
   to the base owner's slot). Two tests in `testplan_tests.rs`; all existing `testplan`
   and `modrun` tests pass unchanged. Authored by the local Qwen agent (5/5, Opus QA
   ACCEPT); the module docs corrected, and Windows-gated by Claude.
+- **KK-018 landed (2026-10-26, local-agent ticket):** `asset.missing-model` (warning)
+  fires when a record of the validated plugin names, in its shared `Model` group's
+  `FileName` (MODL), a model file found in none of: loose `meshes/` next to the plugin
+  or in `data_dir`, the plugin's own archives, or the archives of its load order
+  (names compare ASCII case-insensitively, `/` and backslash alike; an empty `FileName`
+  is not a finding; ARMO/ARMA world-model members are a later ticket). The archive
+  listing is shared with `papyrus.missing-script` (unreadable archives are reported
+  once, as a limitation line). Official values are stored relative to the top folder
+  `meshes`; the rule gives 578 findings on the 14 official files (555 in
+  `Starfield.esm`, 4 in `SFBGS00D.esm`, 5 in `SFBGS050.esm`, 14 in
+  `ShatteredSpace.esm`, 0 on the other ten) — development leftovers no shipped
+  archive holds, explained in `docs/validate.md` and pinned per file in
+  `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
+  synthetic tests in `models_tests.rs`.
