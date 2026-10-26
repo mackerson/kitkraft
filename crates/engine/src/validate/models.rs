@@ -54,9 +54,7 @@ pub fn zstring(data: &[u8]) -> Option<String> {
         Some(e) => e,
         None => data.len(),
     };
-    let Some(bytes) = data.get(..end) else {
-        return None;
-    };
+    let bytes = data.get(..end)?;
     if bytes.is_empty() {
         return None;
     }
