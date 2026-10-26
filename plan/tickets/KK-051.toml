@@ -3,6 +3,7 @@ title = "Draft three apparel tickets: inspect an ARMO's addons, validate LMSW .m
 timeout_min = 15
 budget_h = 1.25
 gate = "python3 plan/tickets/lint.py plan/tickets/drafts"
+priority = 1                  # tonight's test: can the local agent write tickets?
 owns = [
   "plan/tickets/drafts/armo-inspect-addons.toml",
   "plan/tickets/drafts/lmsw-mat-exists.toml",

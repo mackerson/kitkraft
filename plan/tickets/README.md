@@ -13,6 +13,7 @@ gate = "cargo xtask ci"       # default; the Linux gate
 after = ["KK-006"]            # optional: queued only once these have merged to main
 hold = "why"                  # optional: written, but never queued automatically
 budget_h = 1.5                # optional: the run's time cap (default 1.5 h, then overtime)
+priority = 1                  # optional: auto picks higher first (default 0, then ID order)
 base = "kk/KK-002-wip"        # optional: continue an earlier run's branch (default main)
 owns = [                      # the only paths the agent may change (prefixes or globs);
   "crates/engine/src/handlers/",  # plan/STATUS.md's one "Landed" line is always allowed

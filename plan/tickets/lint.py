@@ -42,7 +42,7 @@ except ImportError:  # pragma: no cover
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 TICKETS = os.path.join(ROOT, "plan", "tickets")
 
-KNOWN_KEYS = {"id", "title", "timeout_min", "gate", "after", "hold", "budget_h", "base", "owns", "brief", "accept"}
+KNOWN_KEYS = {"id", "title", "timeout_min", "gate", "after", "hold", "budget_h", "priority", "base", "owns", "brief", "accept"}
 ACCEPT_KEYS = {"name", "cmd"}
 ID_RE = re.compile(r"^KK-\d{3}$")
 REF_RE = re.compile(r"^(?!-)(?!.*\.\.)(?!.*//)(?!.*@\{)[A-Za-z0-9._/-]+(?<![./])(?<!\.lock)$")

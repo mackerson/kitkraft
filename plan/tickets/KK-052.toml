@@ -3,6 +3,7 @@ title = "Draft two schema tickets: inventory definitions for MRPH, CNDF, VTYP, M
 timeout_min = 15
 budget_h = 1
 gate = "python3 plan/tickets/lint.py plan/tickets/drafts"
+priority = 1                  # tonight's test: can the local agent write tickets?
 owns = [
   "plan/tickets/drafts/inventory-mrph-cndf-vtyp-mtpt-aspc.toml",
   "plan/tickets/drafts/type-avif.toml",
