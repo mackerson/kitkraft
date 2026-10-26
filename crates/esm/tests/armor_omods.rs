@@ -11,15 +11,32 @@
 //! - `attach-point`: every OMOD whose `DATA` attach point keyword is one some `ARMO`'s
 //!   `APPR` lists.
 //!
-//! Records are keyed by the file their FormID *resolves to*, not the file they were read
-//! from: a DLC that overrides a base-game OMOD stores the base record's FormID, so the
-//! override and the original share one key, and the file processed later in the
-//! manifest (the game's load order) holds the data. As in `omod_properties.rs`, every
-//! record read (the `ARMO` and `OMOD` records) must decode with nothing left in `extra`
-//! and re-encode byte for byte. Every FormID that resolves to nothing — template
-//! includes, `APPR` keywords, attach points, and property values — is counted on one
-//! `armor-omods unresolved` line (with a few raw examples per property), never panicked
-//! on. The property tables are sorted by the property code's display name.
+//! FormIDs are raw and file-relative (`docs/load-order.md`, "FormIDs"): the high byte
+//! `0xFE` or `0xFD` marks the small or medium class, whose index is the next 12 or 8
+//! bits and whose object ID is the low 12 or 16 bits; any other high byte is the full
+//! class (index = high byte, 24-bit object ID). The index counts only the reading
+//! file's masters of that class, in master-list order; the index equal to that count,
+//! in the file's own class, names the file itself. A master whose scale is unknown
+//! (not in the corpus) makes every FormID of the file unresolvable, never a guess.
+//! Master names are matched case-insensitively, as `onam.rs` and `crates/doc` do.
+//! `0x00000000` is the null FormID: it is counted as `null`, never as `unresolved`,
+//! and never resolved.
+//!
+//! Records are keyed by the file their FormID *resolves to*, not the file they were
+//! read from: a DLC that overrides a base-game record stores the base record's FormID,
+//! so the override and the original share one key, and the file processed later in the
+//! manifest (the game's load order) holds the data. This holds for `ARMO` records
+//! too: their `APPR` keywords, template includes and template-item properties are
+//! taken from the last file that stores them, so each overridden `ARMO` is counted
+//! once.
+//!
+//! As in `omod_properties.rs`, every record read (the `ARMO` and `OMOD` records) must
+//! decode with nothing left in `extra` and re-encode byte for byte. Every FormID that
+//! resolves to nothing is counted, never panicked on: unresolvable record owners are
+//! counted per file, once per record, in the record-index pass, and the rest —
+//! template includes, `APPR` keywords, attach points, property values — per property,
+//! with a few raw examples. The property tables are sorted by the property code's
+//! display name.
 //!
 //! `cargo test -p kitkraft-esm --release --test armor_omods -- --ignored --nocapture`
 
@@ -45,8 +62,39 @@ use kitkraft_esm::generated::records::{
     Record as Typed,
 };
 use kitkraft_esm::index::{index_file, read_indexed, IndexOptions};
-use kitkraft_esm::tes4::{Tes4, FLAG_LOCALIZED};
+use kitkraft_esm::tes4::{Scale, Tes4, FLAG_LOCALIZED};
 use kitkraft_esm::DecodeLimits;
+
+/// A scale as a map-key tag: `Scale` has no ordering, but owner keys go in `BTreeMap`s.
+fn scale_tag(s: Scale) -> u8 {
+    match s {
+        Scale::Full => 0,
+        Scale::Medium => 1,
+        Scale::Small => 2,
+    }
+}
+
+/// What a raw FormID read from a file names: a record of the corpus, the null FormID,
+/// or nothing.
+enum Ref {
+    /// (owner file, the class of the reference, object ID).
+    Record((String, u8, u32)),
+    /// The null FormID `0x00000000`: not a form.
+    Null,
+    /// Names no file, or names a file but no record in it: counted, never resolved.
+    Unresolved,
+}
+
+/// One `ARMO`'s data, as stored by the last file in the manifest that holds the
+/// record (later in the load order wins).
+struct ArmoInfo {
+    /// The file the data was read from (its master list resolves the raw refs).
+    source: String,
+    /// The `APPR` attach parent slot keywords, raw.
+    appr: Vec<u32>,
+    /// Per `OBTS` item: the `Includes.Mod` FormIDs, raw, and the item's properties.
+    template_items: Vec<(Vec<u32>, Vec<ObjectModProperty>)>,
+}
 
 /// Property entries of one object mod or template item, aggregated by property code.
 #[derive(Default)]
@@ -60,32 +108,84 @@ struct PropAgg {
 
 /// What the routes and the union need from one OMOD `DATA`.
 struct OmodInfo {
-    /// The attach point keyword, resolved to (file, object ID), or `None` when it names
-    /// nothing (counted in `dropped_refs`).
-    attach_point: Option<(String, u32)>,
+    /// The attach point keyword, resolved, or `None` when it names nothing (counted in
+    /// `null_refs` / `dropped_refs`).
+    attach_point: Option<(String, u8, u32)>,
     properties: Vec<ObjectModProperty>,
+}
+
+/// A file's master list and scales: what its FormIDs resolve against.
+#[derive(Clone)]
+struct MasterInfo {
+    /// The master names, in order, lowercased (matched case-insensitively).
+    names: Vec<String>,
+    /// Each master's own scale, aligned with `names`; `None` if the master's file is
+    /// not in the corpus.
+    scales: Vec<Option<Scale>>,
+    /// This file's own scale.
+    own: Option<Scale>,
+}
+
+impl MasterInfo {
+    /// Resolve `raw` as read from `from`.
+    fn resolve(&self, from: &str, raw: u32) -> Ref {
+        if raw == 0 {
+            return Ref::Null;
+        }
+        // A master not in the corpus: no FormID of the file resolves (docs/load-order.md).
+        if self.scales.iter().any(|s| s.is_none()) {
+            return Ref::Unresolved;
+        }
+        let (class, index, oid) = match raw >> 24 {
+            0xFE => (Scale::Small, (raw >> 12) & 0x0FFF, raw & 0x0000_0FFF),
+            0xFD => (Scale::Medium, (raw >> 16) & 0xFF, raw & 0x0000_FFFF),
+            hi => (Scale::Full, hi, raw & 0x00FF_FFFF),
+        };
+        let mut same_class = 0u32;
+        for (name, scale) in self.names.iter().zip(&self.scales) {
+            if *scale == Some(class) {
+                if same_class == index {
+                    return Ref::Record((name.clone(), scale_tag(class), oid));
+                }
+                same_class += 1;
+            }
+        }
+        if index == same_class && self.own == Some(class) {
+            return Ref::Record((from.to_ascii_lowercase(), scale_tag(class), oid));
+        }
+        Ref::Unresolved
+    }
 }
 
 #[derive(Default)]
 struct Survey {
     failures: Vec<String>,
-    /// Every record of the corpus, keyed by (owner file, object ID), to its signature.
-    sig_by_file: BTreeMap<(String, u32), [u8; 4]>,
-    /// Per file: its master list, in order.
-    masters: BTreeMap<String, Vec<String>>,
+    /// Every record of the corpus, keyed by (owner file, class of the reference, object
+    /// ID), to its signature.
+    sig_by_file: BTreeMap<(String, u8, u32), [u8; 4]>,
+    /// Per file (lowercased name): what its FormIDs resolve against.
+    infos: BTreeMap<String, MasterInfo>,
+    /// Per file: records whose owner FormID names no file, counted once each in the
+    /// record-index pass.
+    owners_unresolved: BTreeMap<String, u64>,
     /// The attach parent slot keywords of every `ARMO` `APPR`, resolved.
-    app_keywords: HashSet<(String, u32)>,
+    app_keywords: HashSet<(String, u8, u32)>,
     /// Route `template`: the OMODs the `ARMO` template items name, resolved to
-    /// (owner file, object ID).
-    template_refs: Vec<(String, u32)>,
-    /// Every OMOD, keyed by (owner file, object ID); the value is the file the data was
-    /// read from (later in the manifest, i.e. the load order, wins).
-    omods: BTreeMap<(String, u32), (String, OmodInfo)>,
+    /// (owner file, class, object ID).
+    template_refs: BTreeSet<(String, u8, u32)>,
+    /// Every OMOD, keyed by (owner file, class, object ID); the value is the file the
+    /// data was read from (later in the manifest, i.e. the load order, wins).
+    omods: BTreeMap<(String, u8, u32), (String, OmodInfo)>,
+    /// Every `ARMO`, keyed by (owner file, class, object ID); the value is the last
+    /// file in the manifest that stores the record.
+    armos: BTreeMap<(String, u8, u32), ArmoInfo>,
     /// The properties of the `ARMO` template items, by property code display name.
     template_props: BTreeMap<String, PropAgg>,
-    /// FormIDs that resolve to nothing: template includes, `APPR` keywords, OMOD attach
-    /// points, and record owners that name no file in the load order.
+    /// FormID values that resolve to nothing: template includes, `APPR` keywords, OMOD
+    /// attach points, and property values.
     dropped_refs: u64,
+    /// `0x00000000` values: not forms, not unresolved.
+    null_refs: u64,
 }
 
 impl Survey {
@@ -108,24 +208,6 @@ fn property_name(p: u32) -> String {
     }
 }
 
-/// Resolve a FormID read from file `from` to (holding file, object ID): the high byte
-/// indexes `from`'s master list (0-based); the high byte equal to the master count
-/// names `from` itself. Full-scale files only, as the official ESMs are.
-fn resolve(from: &str, raw: u32, masters: &[String]) -> Option<(String, u32)> {
-    if raw == 0 {
-        return None;
-    }
-    let hi = usize::try_from(raw >> 24).unwrap_or(usize::MAX);
-    let oid = raw & 0x00FF_FFFF;
-    if hi < masters.len() {
-        Some((masters[hi].clone(), oid))
-    } else if hi == masters.len() {
-        Some((from.to_string(), oid))
-    } else {
-        None
-    }
-}
-
 fn tally(agg: &mut BTreeMap<String, PropAgg>, p: &ObjectModProperty, file: &str) {
     let entry = agg.entry(property_name(p.property)).or_default();
     entry.count += 1;
@@ -138,22 +220,24 @@ fn tally(agg: &mut BTreeMap<String, PropAgg>, p: &ObjectModProperty, file: &str)
     }
 }
 
-fn check_file(survey: &mut Survey, name: &str, path: &Path) {
+/// One file: build the record signature map (counting unresolvable owners per file,
+/// once per record), then decode and check every `ARMO` and `OMOD`, keeping their raw
+/// data keyed by owner.
+fn check_file(survey: &mut Survey, name: &str, path: &Path, info: &MasterInfo) {
     let index = index_file(path, &IndexOptions::default()).unwrap();
-    let masters: Vec<String> = Tes4::new(&index.header)
-        .masters()
-        .iter()
-        .map(|m| m.name_lossy())
-        .collect();
-    survey.masters.insert(name.to_string(), masters.clone());
+    let mut owners_unresolved = 0u64;
     for r in index.records.iter().skip(1) {
-        match resolve(name, r.form_id, &masters) {
-            Some(owner) => {
+        match info.resolve(name, r.form_id) {
+            Ref::Record(owner) => {
                 survey.sig_by_file.insert(owner, r.signature.bytes());
             }
-            None => survey.dropped_refs += 1,
+            Ref::Unresolved => owners_unresolved += 1,
+            Ref::Null => {}
         }
     }
+    survey
+        .owners_unresolved
+        .insert(name.to_string(), owners_unresolved);
 
     let localized = index.header.header.flags & FLAG_LOCALIZED != 0;
     let limits = DecodeLimits::default();
@@ -189,49 +273,53 @@ fn check_file(survey: &mut Survey, name: &str, path: &Path) {
         if !same {
             survey.fail(format!("{what}: re-encoding differs"));
         }
-        let Some(owner) = resolve(name, loc.form_id, &masters) else {
-            survey.dropped_refs += 1;
+        // The owner was already counted in the record-index pass; skip without
+        // counting again.
+        let Ref::Record(owner) = info.resolve(name, loc.form_id) else {
             continue;
         };
         match &typed {
             Typed::Armo(armo) => {
-                if let Some(appr) = &armo.attach_parent_slots {
-                    for k in &appr.value.0 {
-                        match resolve(name, k.0, &masters) {
-                            Some(t) => {
-                                survey.app_keywords.insert(t);
-                            }
-                            None => survey.dropped_refs += 1,
-                        }
-                    }
+                let mut appr = Vec::new();
+                if let Some(a) = &armo.attach_parent_slots {
+                    appr = a.value.0.iter().map(|f| f.0).collect();
                 }
+                let mut template_items = Vec::new();
                 for s in &subs {
                     if s.signature == *b"OBTS" {
                         match decode::<ObteBlockCombinationTemplateItem>(s.data, "OBTS", ctx) {
                             Ok(item) => {
-                                for inc in &item.includes {
-                                    match resolve(name, inc.mod_.0, &masters) {
-                                        Some(t) => survey.template_refs.push(t),
-                                        None => survey.dropped_refs += 1,
-                                    }
-                                }
-                                for p in &item.properties {
-                                    tally(&mut survey.template_props, p, name);
-                                }
+                                let includes: Vec<u32> =
+                                    item.includes.iter().map(|i| i.mod_.0).collect();
+                                template_items.push((includes, item.properties));
                             }
                             Err(e) => survey.fail(format!("{what}: OBTS: {e}")),
                         }
                     }
                 }
+                // Keyed by owner, later file in the manifest wins: each overridden
+                // `ARMO` is counted once.
+                survey.armos.insert(
+                    owner,
+                    ArmoInfo {
+                        source: name.to_string(),
+                        appr,
+                        template_items,
+                    },
+                );
             }
             Typed::Omod(_) => {
                 for s in &subs {
                     if s.signature == *b"DATA" {
                         match decode::<OmodData>(s.data, "OMOD.DATA", ctx) {
                             Ok(d) => {
-                                let attach_point = match resolve(name, d.attach_point.0, &masters) {
-                                    Some(t) => Some(t),
-                                    None => {
+                                let attach_point = match info.resolve(name, d.attach_point.0) {
+                                    Ref::Record(t) => Some(t),
+                                    Ref::Null => {
+                                        survey.null_refs += 1;
+                                        None
+                                    }
+                                    Ref::Unresolved => {
                                         survey.dropped_refs += 1;
                                         None
                                     }
@@ -257,21 +345,59 @@ fn check_file(survey: &mut Survey, name: &str, path: &Path) {
     }
 }
 
-/// Print the routes, the union, the unresolved total, and the two property tables.
-/// Returns the union size.
+/// Resolve the `ARMO` data collected per owner: the union of `APPR` keywords, the
+/// template route, and the template-item property table.
+fn finish_armos(survey: &mut Survey) {
+    let mut template_props: BTreeMap<String, PropAgg> = BTreeMap::new();
+    for info in survey.armos.values() {
+        let Some(master) = survey.infos.get(&info.source.to_ascii_lowercase()) else {
+            continue;
+        };
+        for k in &info.appr {
+            match master.resolve(&info.source, *k) {
+                Ref::Record(t) => {
+                    survey.app_keywords.insert(t);
+                }
+                Ref::Null => survey.null_refs += 1,
+                Ref::Unresolved => survey.dropped_refs += 1,
+            }
+        }
+        for (includes, props) in &info.template_items {
+            for raw in includes {
+                match master.resolve(&info.source, *raw) {
+                    Ref::Record(t) => {
+                        survey.template_refs.insert(t);
+                    }
+                    Ref::Null => survey.null_refs += 1,
+                    Ref::Unresolved => survey.dropped_refs += 1,
+                }
+            }
+            for p in props {
+                tally(&mut template_props, p, &info.source);
+            }
+        }
+    }
+    survey.template_props = template_props;
+}
+
+/// Print the per-file owner counts, the routes, the union, the unresolved totals, and
+/// the two property tables. Returns the union size.
 fn finish(survey: &Survey) -> usize {
-    let route_template: HashSet<(String, u32)> = survey.template_refs.iter().cloned().collect();
-    let mut route_attach_point: HashSet<(String, u32)> = HashSet::new();
-    for ((file, oid), (_, info)) in &survey.omods {
+    for (file, n) in &survey.owners_unresolved {
+        println!("armor-omods owners {file}: {n} records whose owner FormID resolves to no file");
+    }
+    let route_template = survey.template_refs.clone();
+    let mut route_attach_point: BTreeSet<(String, u8, u32)> = BTreeSet::new();
+    for ((file, scale, oid), (_, info)) in &survey.omods {
         if info
             .attach_point
             .as_ref()
             .is_some_and(|ap| survey.app_keywords.contains(ap))
         {
-            route_attach_point.insert((file.clone(), *oid));
+            route_attach_point.insert((file.clone(), *scale, *oid));
         }
     }
-    let union: HashSet<(String, u32)> =
+    let union: HashSet<(String, u8, u32)> =
         route_template.union(&route_attach_point).cloned().collect();
     println!("armor-omods route template: {} OMODs", route_template.len());
     println!(
@@ -292,15 +418,36 @@ fn finish(survey: &Survey) -> usize {
     println!("armor-omods: {} OMODs, {} properties", union.len(), total);
     let omod_unresolved = print_props("armor-omod", &props, survey);
     let template_unresolved = print_props("armor-template", &survey.template_props, survey);
+    let owners_total: u64 = survey.owners_unresolved.values().sum();
     println!(
         "armor-omods unresolved: {}",
-        survey.dropped_refs + omod_unresolved + template_unresolved
+        owners_total + survey.dropped_refs + omod_unresolved + template_unresolved
     );
+    println!("armor-omods null: {}", survey.null_refs);
     union.len()
 }
 
+/// The record type a property value's FormID names, resolved through the record index
+/// of the file that holds it; `null` for `0x00000000`; `unresolved` when it names no
+/// record of the corpus.
+fn target_of(survey: &Survey, from: &str, raw: u32) -> String {
+    match survey
+        .infos
+        .get(&from.to_ascii_lowercase())
+        .map(|m| m.resolve(from, raw))
+    {
+        Some(Ref::Record(key)) => survey
+            .sig_by_file
+            .get(&key)
+            .map(|sig| String::from_utf8_lossy(sig).into_owned())
+            .unwrap_or_else(|| "unresolved".to_string()),
+        Some(Ref::Null) => "null".to_string(),
+        Some(Ref::Unresolved) | None => "unresolved".to_string(),
+    }
+}
+
 /// Print one property table, sorted by code display name. Returns how many of the
-/// table's FormID values did not resolve to a record of the corpus.
+/// table's FormID values did not resolve to a record of the corpus (nulls excluded).
 fn print_props(prefix: &str, props: &BTreeMap<String, PropAgg>, survey: &Survey) -> u64 {
     let mut unresolved_total = 0u64;
     for (code, agg) in props {
@@ -317,17 +464,7 @@ fn print_props(prefix: &str, props: &BTreeMap<String, PropAgg>, survey: &Survey)
         let mut targets: BTreeMap<String, u64> = BTreeMap::new();
         let mut unresolved: Vec<(u32, String)> = Vec::new();
         for (raw, from) in &agg.form_refs {
-            let name = survey
-                .masters
-                .get(from)
-                .and_then(|m| {
-                    let (file, oid) = resolve(from, *raw, m)?;
-                    survey
-                        .sig_by_file
-                        .get(&(file, oid))
-                        .map(|sig| String::from_utf8_lossy(sig).into_owned())
-                })
-                .unwrap_or_else(|| "unresolved".to_string());
+            let name = target_of(survey, from, *raw);
             if name == "unresolved" {
                 unresolved.push((*raw, from.clone()));
             }
@@ -367,9 +504,40 @@ fn armor_omod_properties_full() {
         return;
     };
     let mut survey = Survey::default();
+    // Index every file first: a master's scale is its own file's scale, known only
+    // once every file is indexed.
+    let mut infos: Vec<MasterInfo> = Vec::new();
     for f in &files {
-        check_file(&mut survey, &f.name, &f.path);
+        let index = index_file(&f.path, &IndexOptions::default()).unwrap();
+        let tes4 = Tes4::new(&index.header);
+        let names: Vec<String> = tes4
+            .masters()
+            .iter()
+            .map(|m| m.name_lossy().to_ascii_lowercase())
+            .collect();
+        infos.push(MasterInfo {
+            names,
+            scales: vec![],
+            own: tes4.scale(),
+        });
     }
+    let scales_by_file: BTreeMap<String, Option<Scale>> = files
+        .iter()
+        .zip(&infos)
+        .map(|(f, i)| (f.name.to_ascii_lowercase(), i.own))
+        .collect();
+    for (f, info) in files.iter().zip(&mut infos) {
+        info.scales = info
+            .names
+            .iter()
+            .map(|n| scales_by_file.get(n).copied().unwrap_or(None))
+            .collect();
+        survey
+            .infos
+            .insert(f.name.to_ascii_lowercase(), info.clone());
+        check_file(&mut survey, &f.name, &f.path, info);
+    }
+    finish_armos(&mut survey);
     let union = finish(&survey);
     assert!(survey.failures.is_empty(), "{:#?}", survey.failures);
     assert!(union > 0, "no armor OMOD found");
