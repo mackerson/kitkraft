@@ -1,0 +1,39 @@
+# The W4 recipe, new-faction variant (M5.D5): a faction the plugin itself creates owns the
+# cell, instead of an override of the vanilla owner to the vanilla PlayerFaction
+# (docs/recipes/ownership.toml). Build:
+# kit build docs/recipes/ownership-faction.toml out/recipes/KitKraftOwnershipFaction.esm
+# Evidence for every choice: the "Variant" section of docs/recipes/ownership.md.
+version = 3
+
+[load_order]
+# Starfield.esm: the only master; the cell the [[set]] edits is in it, and the new
+# faction goes into the plugin the build writes.
+plugins = ["Starfield.esm"]
+
+[[new]]
+# owner: the cell's new owner, a faction this plugin owns (the Foothold claim
+# prototype's owner faction).
+name = "owner"
+# FACT: a faction is one of the two record types XOWN.Owner may name (a FACT or an
+# NPC_); crates/schema/defs/common/OwnerData.toml.
+type = "FACT"
+# KitKraftRecipeOwnerFaction: the faction's EditorID, the KitKraft prefix the other
+# recipe forms carry.
+edid = "KitKraftRecipeOwnerFaction"
+# FULL: the faction's name (the FACT "Name" member, an optional lstring;
+# crates/schema/defs/FACT.toml) — the only member set, and the only one this
+# recipe needs: no relations, ranks or crime values to source.
+fields = { FULL = "KitKraft Recipe Owner Faction" }
+# M5.D5: the claim that asks for this variant.
+brief = "M5.D5"
+
+[[set]]
+# CityNewAtlantisFreestarEmbassy ("Freestar Collective Embassy"): the same owned interior
+# cell the override recipe edits (docs/recipes/ownership.toml).
+form = "Starfield.esm:017307"
+# XOWN.Owner: the cell's owner, a FormID naming a FACT or an NPC_ (OwnerData); here the
+# new faction above, by its spec name, so the winning version of the cell names a form
+# of this plugin.
+fields = { "XOWN.Owner" = "new:owner" }
+# M5.D5: the claim that asks for this variant.
+brief = "M5.D5"
