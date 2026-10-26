@@ -716,6 +716,19 @@ fn validate_corpus_official_files() {
             );
             failures.push(name);
         }
+        // Every Model-group FileName (MODL) names a model file found loose next to the
+        // plugin, loose in Data, or in a load-order archive (KK-018, 2026-10-26: 0 on
+        // all 14 files).
+        let missing_models = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "asset.missing-model")
+            .count();
+        if missing_models != 0 {
+            println!("    asset.missing-model: {missing_models} findings, expected 0");
+            failures.push(name);
+        }
         let mut unexplained = 0u64;
         for f in data["findings"].as_array().unwrap() {
             if f["severity"] != json!("error") {
