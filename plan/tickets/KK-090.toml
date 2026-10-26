@@ -1,0 +1,58 @@
+id = "KK-090"
+title = "Schema tickets merge cleanly: the defs test derives its record list, shared lists one entry per line"
+timeout_min = 30
+budget_h = 1
+priority = 2                  # before the generated schema tickets (KK-100.., KK-200..)
+owns = [
+  "crates/schema/tests/defs.rs",
+  "crates/esm/tests/inventory_types.rs",
+]
+brief = """
+Two schema tickets (a new definition each, `crates/schema/defs/<SIG>.toml`) should be able
+to run the same night and merge in the morning without hand edits. The generated files
+they share are regenerated at merge (`cargo xtask codegen`, the golden seed with
+`KITKRAFT_UPDATE_GOLDEN=1`, `cargo xtask parity`), and `crates/schema/src/lib.rs`'s
+`BUILTIN_DEFINITIONS` already has one entry per line. Three hand-written lists still make
+every pair of schema tickets conflict, because rustfmt packs them and one new entry reflows
+every line after it. Fix exactly these, in tests only; change no definition and no non-test
+code.
+
+1. `crates/schema/tests/defs.rs`, test `builtin_set_loads_and_matches_the_directory`: it
+   asserts the embedded record signatures and common block names against two hard-coded
+   arrays that every new definition must edit. Derive both expected lists from the
+   directory instead, with the file's existing `toml_names` helper: the record signatures
+   are the top-level `crates/schema/defs/*.toml` stems except the two header files
+   (`GRUP`, `RECORD`; keep the existing `headers` assertion for `GroupHeader` and
+   `RecordHeader`), and the common names are the `crates/schema/defs/common/*.toml` stems.
+   Keep the check that each top-level file defines the record named by its stem (that is
+   what the hard-coded list caught). The test must still fail when a definition file and
+   the schema disagree.
+2. Same file: `LSTRING_ONLY` and `BX2_INVENTORY` (typing tickets remove an entry from
+   them): one entry per line, alphabetical, under `#[rustfmt::skip]` so rustfmt keeps them
+   that way. Leave `CORPUS_LSTRINGS`, `ROUND3` and the rest as they are.
+3. `crates/esm/tests/inventory_types.rs`: `TYPES` (inventory tickets add to it) becomes a
+   slice, `const TYPES: &[&[u8; 4]] = &[ ... ];`, one signature per line, alphabetical,
+   under `#[rustfmt::skip]`; the module doc comment stops listing the fourteen types (say
+   "the record types in `TYPES`") so it never needs an edit either. The tests keep their
+   names and output; `inventory_types_sample` must still pass unchanged.
+
+Do not touch `crates/schema/src/lib.rs`, `xtask/` or any definition. Run `cargo test -p
+kitkraft-schema`, `cargo test -p kitkraft-esm --test inventory_types`, then `cargo xtask
+ci` (it runs `cargo fmt --check` and clippy: `#[rustfmt::skip]` on a `const` item is fine).
+"""
+
+[[accept]]
+name = "schema-defs"
+cmd = "cargo test -p kitkraft-schema --test defs 2>&1 | tee /tmp/o; grep -q 'test builtin_set_loads_and_matches_the_directory ... ok' /tmp/o"
+
+[[accept]]
+name = "record-list-derived"
+cmd = "grep -q 'fn builtin_set_loads_and_matches_the_directory' crates/schema/tests/defs.rs && ! grep -q '\"ACHR\", \"ACTI\", \"AFFE\"' crates/schema/tests/defs.rs && ! grep -q '\"AttackData\",' crates/schema/tests/defs.rs"
+
+[[accept]]
+name = "lists-one-per-line"
+cmd = "grep -Eq '^ *\"ALCH\",$' crates/schema/tests/defs.rs && grep -Eq '^ *\"ARTO\",$' crates/schema/tests/defs.rs && grep -Eq '^ *b\"ARTO\",$' crates/esm/tests/inventory_types.rs && grep -q 'const TYPES: &\\[&\\[u8; 4\\]\\] = &\\[' crates/esm/tests/inventory_types.rs"
+
+[[accept]]
+name = "inventory-sample"
+cmd = "cargo test -p kitkraft-esm --test inventory_types 2>&1 | tee /tmp/o; grep -q 'test inventory_types_sample ... ok' /tmp/o"
