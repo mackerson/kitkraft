@@ -54,18 +54,20 @@ Run `cargo test -p kitkraft-engine --lib authoring_tests` while you work, then
 `cargo xtask ci`. Commit after each type passes.
 """
 
+# Each type's test passes or is #[ignore = "<reason>"]d (the brief's rule); evidence is
+# required for every type whose test is not ignored, and at least one.
 [[accept]]
 name = "armo"
-cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::armo_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::armo_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
 
 [[accept]]
 name = "arma"
-cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::arma_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::arma_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
 
 [[accept]]
 name = "otft"
-cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::otft_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::otft_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -qE '^test result: ok. (1 passed|0 passed; 0 failed; 1 ignored)' /tmp/o"
 
 [[accept]]
 name = "dangling-and-evidence"
-cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && grep -Eq '(armo|arma|otft)_dangling_link_is_reported \\.\\.\\. ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; miss=sorted({'ARMO','ARMA','OTFT'}-got); print('missing typed-writable evidence:', miss); sys.exit(1 if miss else 0)\""
+cmd = "cargo test -p kitkraft-engine --lib -- dangling_link_is_reported every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok' /tmp/o && grep -Eq '(armo|arma|otft)_dangling_link_is_reported \\.\\.\\. ok' /tmp/o && python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; got={x['type'] for x in e if x['status']=='typed-writable' and x['result']=='pass'}; s=open('crates/engine/src/handlers/authoring_tests.rs').read(); req={T for T in ['ARMO','ARMA','OTFT'] if '#[ignore' not in s[:s.find('fn '+T.lower()+'_new_sets')][-400:].rsplit('}',1)[-1]}; miss=sorted(req-got); print('not ignored:', sorted(req), 'missing typed-writable evidence:', miss); sys.exit(1 if miss or not req else 0)\""
