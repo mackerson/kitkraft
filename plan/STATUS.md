@@ -2833,3 +2833,22 @@ Agents append here when they need a change in a crate they do not own.
   to the base owner's slot). Two tests in `testplan_tests.rs`; all existing `testplan`
   and `modrun` tests pass unchanged. Authored by the local Qwen agent (5/5, Opus QA
   ACCEPT); the module docs corrected, and Windows-gated by Claude.
+- **KK-015 landed (2026-10-26, local-agent ticket):** the ownership recipe's
+  new-faction variant (M5.D5): `docs/recipes/ownership-faction.toml` (version 3,
+  `Starfield.esm` the only master) creates the cell's new owner, a `FACT`
+  `KitKraftRecipeOwnerFaction` with a `FULL`, and overrides
+  `CityNewAtlantisFreestarEmbassy` (`Starfield.esm:017307`) so its `XOWN.Owner`
+  names the new faction (`new:owner`); the built plugin is 15,228 bytes,
+  SHA-256 `e3575858608ad4894af50984430879c41d2e2179ccf3358636c07899f1d09af4`,
+  `validate` 0 errors and 0 warnings, `roundtrip --verify` identical, a second
+  build byte-identical. The "Variant: a new faction owns the cell" section of
+  `docs/recipes/ownership.md` records the spec, the build/validate/roundtrip/
+  testplan commands, the size and hash, what is known (with sources) and what
+  is not (the trespasser/thief case in a cell its own new faction owns, whether
+  the game accepts a `FACT` with no `DATA`/`CRVA`, and joining the faction,
+  grade D, not run). `crates/engine/tests/ownership_recipe_corpus.rs` builds
+  the spec on the official `Starfield.esm` through one `Engine` session and
+  checks every claim (the one new `FACT`, the cell's `XOWN` naming the new
+  faction resolved, `validate` 0/0, `roundtrip` identical, a byte-identical
+  second build, and the recorded SHA-256), `#[ignore]` when the Data folder is
+  absent.
