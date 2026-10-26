@@ -1,0 +1,68 @@
+# KK-013 recipe: how to author a terminal (TERM) and its menus (TMLM). A terminal whose
+# menu (DNAM) is a clone of a vanilla terminal menu with body texts and items, one of
+# whose items is a submenu item (TNAM) that opens a second cloned menu; every condition
+# (CTDA) the clones carry is copied as stored. Starfield.esm is the only master.
+#
+# kit build docs/recipes/terminal.toml out/recipes/KitKraftRecipeTerminal.esm
+# Evidence for every choice: docs/recipes/terminal.md.
+#
+# FormIDs: `build` gives [[clone]] entries theirs first, then [[new]], then [[place]],
+# each in spec order, from 0x001000 (master index 01); every one is allocated before
+# anything is written, so a field may name any entry with `new:<name>`, a [[place]] too.
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[clone]]
+# UC01_SimShipTerminal_MainMenu: a vanilla terminal menu with 4 body texts (BSIZ 4, the
+# first BTXT a localized string ID 0x0000BC3C) and 3 items (ISIZ 3). Item 2 is a submenu
+# item (ISET Type Submenu, Flags CreatesNewWindow) and the only item with a submenu link
+# (TNAM), stored as 03D5E7 UC01_SimShipTerminal_DiagnosticsTerminal; its text ITXT is the
+# record's second ITXT, string ID 0x0000BC37. Every body text and item carries CTDA
+# conditions (functions 59 and 629, quest UC01_ShipSimQuest 2BA648); a clone copies them
+# as bytes and the schema has no field path into them, so they are kept exactly as stored.
+# Chosen from `kit query TMLM where ISIZ >= 2 and has TNAM and has BTXT` (25 matches):
+# this one is a complete menu, so FULL, one BTXT and one ITXT can each be edited in place.
+# Chosen value: FULL "KitKraft Recipe Menu" (over the stored "Main Menu", 0x0000BC3D),
+# BTXT[0] our first body text, ITXT[1] our submenu item's text, TNAM (the record's only
+# TNAM) the submenu clone below.
+name = "menu"
+form = "Starfield.esm:03D5D7"
+edid = "KitKraftRecipeTerminalMenu"
+fields = { FULL = "KitKraft Recipe Menu", "BTXT[0]" = "This is the KitKraft recipe terminal menu.", "ITXT[1]" = "Open the Recipe Submenu", TNAM = "new:submenu" }
+brief = "KK-013"
+
+[[clone]]
+# DefaultBlankTerminal_Genesis: the blank terminal menu — FULL "Terminal" (0x0000BF98),
+# TMVT 0 (Folder: no body text), BSIZ 0, ISIZ 0. It becomes the second menu the submenu
+# item opens. Our value: the first body text (the source has none, so this is added at
+# occurrence 0 and BSIZ is counted from it), and TMVT "Document" so the menu shows it.
+name = "submenu"
+form = "Starfield.esm:227DA9"
+edid = "KitKraftRecipeTerminalSubmenu"
+fields = { TMVT = "Document", BTXT = "This is the KitKraft recipe submenu." }
+brief = "KK-013"
+
+[[clone]]
+# DefaultBlankComputer_ConsoleSitting_UsePackin: a vanilla terminal (FULL "Computer",
+# 0x0000AB17) whose menu link DNAM is the blank menu 227DA9 and whose VMAD script is
+# TerminalScript. Our values: FULL and the menu link, which becomes the menu clone above
+# (the mini-site recipe uses the same terminal with the same blank menu).
+name = "terminal"
+form = "Starfield.esm:00351B"
+edid = "KitKraftRecipeTerminal"
+fields = { FULL = "KitKraft Recipe Terminal", DNAM = "new:menu" }
+brief = "KK-013"
+
+# CityNewAtlantisApartmentTEMPLATE ("Player House Apartment"): the terminal's cell. The
+# terminal is placed on the floor (z 4.63) west of the crate at (-17, -4), next to the
+# mini-site's terminal at (-21, -4); persistent, with its own EditorID.
+[[place]]
+name = "terminal_ref"
+base = "new:terminal"
+cell = "Starfield.esm:21966F"
+position = [-25.0, -4.0, 4.63]
+persistent = true
+edid = "KitKraftRecipeTerminalRef"
+brief = "KK-013"
