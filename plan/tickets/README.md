@@ -134,14 +134,14 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | merged `7313fbf` |
 | [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued (KK-006 merged) |
 | [KK-010](KK-010.toml) | testplan: add, equip and look at new and overridden armor | apparel request 5 | merged `33307be` |
-| [KK-011](KK-011.toml) | Corpus survey: which object mod properties armor carries | apparel request 3 (second half) | queued |
-| [KK-012](KK-012.toml) | Recipe: a location of your own (`docs/recipes/location.md`) | M5.D2 rest | queued |
-| [KK-013](KK-013.toml) | Recipe: a terminal with its own menus (`docs/recipes/terminal.md`) | M5.D3 rest | queued |
-| [KK-014](KK-014.toml) | Clone-sample corpus tests for PKIN and FACT | M5.D4, M5.D5 rest | queued |
-| [KK-015](KK-015.toml) | Ownership recipe, new-faction variant | M5.D5 rest | queued |
+| [KK-011](KK-011.toml) | Corpus survey: which object mod properties armor carries | apparel request 3 (second half) | merged `37712ee` (review: the null and unresolved counts cover only the armor union; distinct examples) |
+| [KK-012](KK-012.toml) | Recipe: a location of your own (`docs/recipes/location.md`) | M5.D2 rest | merged `993b766` |
+| [KK-013](KK-013.toml) | Recipe: a terminal with its own menus (`docs/recipes/terminal.md`) | M5.D3 rest | merged `3c66df6` (review: the 16 conditions pinned by count; doc fixes) |
+| [KK-014](KK-014.toml) | Clone-sample corpus tests for PKIN and FACT | M5.D4, M5.D5 rest | merged `a236ffd` |
+| [KK-015](KK-015.toml) | Ownership recipe, new-faction variant | M5.D5 rest | merged `0cdcb08` |
 | [KK-016](KK-016.toml) | `cargo xtask parity` generates the gap matrix headline and checks the family table | M5.D1 rest | after KK-002 |
 | [KK-017](KK-017.toml) | Typed-write tests for CONT, MISC, FLST and LVLI | gap matrix "untested" rows | after KK-002 |
-| [KK-018](KK-018.toml) | validate warns when a model file a record names is nowhere to be found | apparel requests 4 and 8 (asset checks) | after KK-005 |
+| [KK-018](KK-018.toml) | validate warns when a model file a record names is nowhere to be found | apparel requests 4 and 8 (asset checks) | merged `a1d1af6` (review: model fixtures planted in two handler tests outside `owns`, which the new warning broke) |
 | [KK-019](KK-019.toml) | Write LMSW material swaps: `swap_overrides` on `set` and `clone` | apparel request 7 (write half) | after KK-007, KK-008 |
 | [KK-020](KK-020.toml) | Recipe: a clothing colourway (build spec `swap_overrides`) | apparel request 7 | after KK-019 |
 | [KK-021](KK-021.toml) | Typed-write tests for ARMO, ARMA and OTFT | apparel requests 1 and 2 | after KK-006, KK-017 |
@@ -216,6 +216,10 @@ KK-007 and KK-008 are the read half of apparel request 7 and do not depend on ea
 (KK-007 reads `REFL` bytes whether or not `LMSW` has a definition). KK-008 shares schema
 and generated-code paths with KK-006 (ARMA), so queue it after KK-006 has merged. Writing an `LMSW` (`set`
 on its swap paths, or `new` from entries) is cut after KK-007 lands, on its decoder.
+
+On the 2026-10-26 06:10 night KK-011, KK-012, KK-013, KK-014, KK-015 and KK-018 merged
+(KK-011, KK-013 and KK-018 with review commits). KK-019 still waits on KK-008; the ARMO
+addons and world-model tickets in "next in engine and data" now have KK-018's rule.
 
 KK-010 to KK-023 (engine and data, cut 2026-10-25). Independent, any night: KK-010 to KK-015;
 their `owns` do not overlap each other or the queued tickets, except that KK-014 shares
