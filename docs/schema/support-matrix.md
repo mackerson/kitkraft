@@ -97,6 +97,12 @@ The proofs:
   explained`; `clone-sample TERM: 100 cloned, 100 identical, 0 explained`. A clone changes
   only the FormID, the `EDID` and the lstrings it inlines from the string tables; every
   other subrecord is byte-identical and the patch validates with 0 errors.
+- `crates/engine/tests/clone_sample_corpus.rs` (KK-014, ignored, `--include-ignored`): 100
+  official records each, spread evenly by FormID over `Starfield.esm`, cloned into one
+  patch per type. `a_sample_of_official_factions_clones_identically`:
+  `clone-sample FACT: 100 cloned, 100 identical, 0 explained`, over Starfield.esm's 812
+  FACT records, in 959.72 s (about 16 minutes). `a_sample_of_official_packins_clones_identically`
+  is pending; its counts and run time go here when it finishes.
 
 Known limits: `set` paths do not address the elements of a subrecord whose whole payload is
 an array (LCTN's reference lists, FACT's `PRIS`): such a member is written whole (`hex:`).
