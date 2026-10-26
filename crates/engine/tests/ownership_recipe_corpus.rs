@@ -84,8 +84,8 @@ fn the_faction_ownership_recipe_builds_and_every_claim_holds() {
         return;
     };
     let data = dir.display().to_string();
-    let out = std::env::temp_dir()
-        .join(format!("kitkraft-ownership-faction-{}", std::process::id()));
+    let out =
+        std::env::temp_dir().join(format!("kitkraft-ownership-faction-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&out);
     std::fs::create_dir_all(&out).unwrap();
     let engine = Engine::with_default_handlers();
@@ -107,7 +107,12 @@ fn the_faction_ownership_recipe_builds_and_every_claim_holds() {
     assert_eq!(new_forms.len(), 1, "{:#}", b);
     assert_eq!(new_forms[0]["form_id"], json!("01001000"), "{:#}", b);
     assert_eq!(new_forms[0]["signature"], json!("FACT"), "{:#}", b);
-    assert_eq!(new_forms[0]["editor_id"], json!("KitKraftRecipeOwnerFaction"), "{:#}", b);
+    assert_eq!(
+        new_forms[0]["editor_id"],
+        json!("KitKraftRecipeOwnerFaction"),
+        "{:#}",
+        b
+    );
     assert_eq!(b["placed"].as_array().unwrap().len(), 0, "{:#}", b);
     let bytes = std::fs::read(&plugin).unwrap();
     eprintln!(
@@ -126,9 +131,19 @@ fn the_faction_ownership_recipe_builds_and_every_claim_holds() {
         .find(|e| e["path"] == json!("XOWN.Owner.Owner"))
         .unwrap_or_else(|| panic!("no XOWN.Owner link in {cell:#?}"));
     assert_eq!(edge["status"], json!("resolved"), "{:#}", edge);
-    assert_eq!(edge["to"], json!("KitKraftOwnershipFaction.esm:001000"), "{:#}", edge);
+    assert_eq!(
+        edge["to"],
+        json!("KitKraftOwnershipFaction.esm:001000"),
+        "{:#}",
+        edge
+    );
     assert_eq!(edge["to_signature"], json!("FACT"), "{:#}", edge);
-    assert_eq!(edge["to_editor_id"], json!("KitKraftRecipeOwnerFaction"), "{:#}", edge);
+    assert_eq!(
+        edge["to_editor_id"],
+        json!("KitKraftRecipeOwnerFaction"),
+        "{:#}",
+        edge
+    );
 
     // validate, roundtrip, a second build.
     let v = engine
