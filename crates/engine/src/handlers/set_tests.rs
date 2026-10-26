@@ -73,6 +73,11 @@ fn set_through_json_writes_an_inline_name() {
     let data = data(&d);
     let out = d.join("out");
     std::fs::create_dir_all(&out).unwrap();
+    // The WEAP the patch copies names `Weapons\a.nif`; plant the model file loose
+    // next to the patch so asset.missing-model does not fire (KK-018).
+    let meshes = out.join("meshes").join("weapons");
+    std::fs::create_dir_all(&meshes).unwrap();
+    std::fs::write(meshes.join("a.nif"), []).unwrap();
     let target = out.join("Patch.esm");
     let result = set(
         &data,

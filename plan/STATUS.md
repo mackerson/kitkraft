@@ -2892,3 +2892,17 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   faction resolved, `validate` 0/0, `roundtrip` identical, a byte-identical
   second build, and the recorded SHA-256), `#[ignore]` when the Data folder is
   absent.
+- **KK-018 landed (2026-10-26, local-agent ticket):** `asset.missing-model` (warning)
+  fires when a record of the validated plugin names, in its shared `Model` group's
+  `FileName` (MODL), a model file found in none of: loose `meshes/` next to the plugin
+  or in `data_dir`, the plugin's own archives, or the archives of its load order
+  (names compare ASCII case-insensitively, `/` and backslash alike; an empty `FileName`
+  is not a finding; ARMO/ARMA world-model members are a later ticket). The archive
+  listing is shared with `papyrus.missing-script` (unreadable archives are reported
+  once, as a limitation line). Official values are stored relative to the top folder
+  `meshes`; the rule gives 578 findings on the 14 official files (555 in
+  `Starfield.esm`, 4 in `SFBGS00D.esm`, 5 in `SFBGS050.esm`, 14 in
+  `ShatteredSpace.esm`, 0 on the other ten) — development leftovers no shipped
+  archive holds, explained in `docs/validate.md` and pinned per file in
+  `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
+  synthetic tests in `models_tests.rs`.

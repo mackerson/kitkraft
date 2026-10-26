@@ -716,6 +716,29 @@ fn validate_corpus_official_files() {
             );
             failures.push(name);
         }
+        // A Model-group FileName (MODL) names a model file found loose next to the
+        // plugin, loose in Data, or in a load-order archive (KK-018). The official
+        // files name development meshes no shipped archive holds (docs/validate.md
+        // "On the official files"), so the count is pinned per file.
+        let missing_models = data["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter(|f| f["rule"] == "asset.missing-model")
+            .count();
+        let missing_models_expected = match name {
+            "Starfield.esm" => 555,
+            "SFBGS00D.esm" => 4,
+            "SFBGS050.esm" => 5,
+            "ShatteredSpace.esm" => 14,
+            _ => 0,
+        };
+        if missing_models != missing_models_expected {
+            println!(
+                "    asset.missing-model: {missing_models} findings, expected {missing_models_expected}"
+            );
+            failures.push(name);
+        }
         let mut unexplained = 0u64;
         for f in data["findings"].as_array().unwrap() {
             if f["severity"] != json!("error") {

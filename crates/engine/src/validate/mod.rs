@@ -12,6 +12,9 @@ pub mod cells;
 #[cfg(test)]
 mod cells_tests;
 pub mod forms;
+pub mod models;
+#[cfg(test)]
+mod models_tests;
 pub mod scripts;
 #[cfg(test)]
 mod tests;
@@ -204,6 +207,12 @@ pub const RULES: &[RuleInfo] = &[
         severity: Severity::Error,
         input: Input::Plugin,
         summary: "A VMAD property the attached script and its parents do not declare, or whose stored type differs from the declaration (M4.E9); object values are FormIDs, checked by formid.dangling",
+    },
+    RuleInfo {
+        id: "asset.missing-model",
+        severity: Severity::Warning,
+        input: Input::Plugin,
+        summary: "A Model group's FileName (MODL) names no model file loose next to the plugin or in Data, in the plugin's archives, or in the archives of its load order (grade D)",
     },
     RuleInfo {
         id: "papyrus.denylisted-call",
@@ -460,6 +469,11 @@ struct Pass<'a> {
     cells: cells::Facts,
     /// Scripts attached through VMAD, for the papyrus rules (checked after the walk).
     attached: Vec<attached::Attached>,
+    /// Model paths named by a Model group's FileName (MODL), for asset.missing-model
+    /// (checked after the walk).
+    models: Vec<models::ModelRef>,
+    /// Signatures that use the shared Model group, cached (asset.missing-model).
+    model_groups: HashMap<[u8; 4], bool>,
 }
 
 impl Pass<'_> {
@@ -679,6 +693,8 @@ fn validate_plugin(
         limits: options.limits,
         cells: cells::Facts::default(),
         attached: Vec::new(),
+        models: Vec::new(),
+        model_groups: HashMap::new(),
     };
 
     let mut hedr: Option<u32> = None;
@@ -702,19 +718,37 @@ fn validate_plugin(
     if cells::Facts::any(&pass) {
         cells::finish(&pass, path, &mut findings, &mut report.limitations);
     }
-    if !pass.attached.is_empty() {
+    if !pass.attached.is_empty() || !pass.models.is_empty() {
         let masters: Vec<PathBuf> = pass.files.values().filter_map(|f| f.path.clone()).collect();
         let home = options.scripts_home.as_deref().unwrap_or(path);
         let mut sources = attached::Sources::new(Some(home), &masters, options.data_dir.as_deref());
-        attached::check(
-            &pass.attached,
-            &mut sources,
-            &pass.name,
-            pass.on("papyrus.missing-script"),
-            pass.on("papyrus.property-unresolved"),
-            &mut findings,
-            &mut report.limitations,
-        );
+        if !pass.attached.is_empty() {
+            attached::check(
+                &pass.attached,
+                &mut sources,
+                &pass.name,
+                pass.on("papyrus.missing-script"),
+                pass.on("papyrus.property-unresolved"),
+                &mut findings,
+                &mut report.limitations,
+            );
+        }
+        if !pass.models.is_empty() {
+            models::check(
+                &pass.models,
+                &mut sources,
+                &pass.name,
+                Some(home),
+                options.data_dir.as_deref(),
+                &mut findings,
+            );
+        }
+        if !sources.unreadable.is_empty() {
+            report.limitations.push(format!(
+                "archives that could not be read were not searched: {}",
+                sources.unreadable.join("; ")
+            ));
+        }
     }
     report.records = stats.0;
     report.groups = stats.1;
@@ -1127,6 +1161,20 @@ fn check_record(
                     sub_offset(s),
                     format!("the VMAD script list does not decode ({e}); its scripts and properties are not checked"),
                 ),
+            }
+        }
+    }
+
+    // Model paths named by a Model group's FileName (MODL) (asset.missing-model):
+    // collected in the walk, searched after it in the shared sources.
+    if pass.on("asset.missing-model") && models::uses_model_group(sig, &mut pass.model_groups) {
+        for s in subs.iter().filter(|s| s.signature() == Signature(*b"MODL")) {
+            if let Some(path) = models::zstring(s.data()) {
+                pass.models.push(models::ModelRef {
+                    record: id.clone(),
+                    offset: sub_offset(s),
+                    path,
+                });
             }
         }
     }
