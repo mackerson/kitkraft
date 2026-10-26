@@ -2873,3 +2873,22 @@ Landed 2026-10-26: KK-011 - the armor OMOD property survey: the ignored test
   local Qwen agent; the in-game steps are for the owner (KitKraft Dev, disposable
   save).
 Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 identical, 0 explained (959.72 s, 812 FACT in Starfield.esm); clone-sample PKIN: 100 cloned, 100 identical, 0 explained (1154.34 s, 11281 PKIN in Starfield.esm); both patches validate with 0 errors.
+- **KK-015 landed (2026-10-26, local-agent ticket):** the ownership recipe's
+  new-faction variant (M5.D5): `docs/recipes/ownership-faction.toml` (version 3,
+  `Starfield.esm` the only master) creates the cell's new owner, a `FACT`
+  `KitKraftRecipeOwnerFaction` with a `FULL`, and overrides
+  `CityNewAtlantisFreestarEmbassy` (`Starfield.esm:017307`) so its `XOWN.Owner`
+  names the new faction (`new:owner`); the built plugin is 15,228 bytes,
+  SHA-256 `e3575858608ad4894af50984430879c41d2e2179ccf3358636c07899f1d09af4`,
+  `validate` 0 errors and 0 warnings, `roundtrip --verify` identical, a second
+  build byte-identical. The "Variant: a new faction owns the cell" section of
+  `docs/recipes/ownership.md` records the spec, the build/validate/roundtrip/
+  testplan commands, the size and hash, what is known (with sources) and what
+  is not (the trespasser/thief case in a cell its own new faction owns, whether
+  the game accepts a `FACT` with no `DATA`/`CRVA`, and joining the faction,
+  grade D, not run). `crates/engine/tests/ownership_recipe_corpus.rs` builds
+  the spec on the official `Starfield.esm` through one `Engine` session and
+  checks every claim (the one new `FACT`, the cell's `XOWN` naming the new
+  faction resolved, `validate` 0/0, `roundtrip` identical, a byte-identical
+  second build, and the recorded SHA-256), `#[ignore]` when the Data folder is
+  absent.
