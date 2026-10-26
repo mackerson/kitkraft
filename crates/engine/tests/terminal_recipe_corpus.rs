@@ -105,8 +105,7 @@ fn subrecord(data: &Value, sig: &str) -> Value {
         .flat_map(|v| v["subrecords"].as_array().unwrap().iter())
         .find(|s| s["signature"] == json!(sig))
         .cloned()
-        .unwrap_or_else(|| panic!("no {sig} subrecord in {data:#?}"))
-        ["value"]
+        .unwrap_or_else(|| panic!("no {sig} subrecord in {data:#?}"))["value"]
         .clone()
 }
 
@@ -200,7 +199,10 @@ fn the_terminal_recipe_builds_and_every_claim_holds() {
         .unwrap();
     let text = menu["data"].to_string();
     assert!(text.contains("KitKraft Recipe Menu"), "{text}");
-    assert!(text.contains("This is the KitKraft recipe terminal menu."), "{text}");
+    assert!(
+        text.contains("This is the KitKraft recipe terminal menu."),
+        "{text}"
+    );
     assert!(text.contains("Open the Recipe Submenu"), "{text}");
     let submenu = engine
         .execute(
@@ -224,7 +226,9 @@ fn the_terminal_recipe_builds_and_every_claim_holds() {
         )
         .unwrap();
     assert!(
-        terminal["data"].to_string().contains("KitKraft Recipe Terminal"),
+        terminal["data"]
+            .to_string()
+            .contains("KitKraft Recipe Terminal"),
         "{}",
         terminal["data"]
     );
