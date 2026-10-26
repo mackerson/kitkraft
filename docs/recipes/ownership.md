@@ -46,7 +46,7 @@ claim terminal prototype's owner). Spec: `docs/recipes/ownership-faction.toml`; 
 | The new faction is `KitKraftOwnershipFaction.esm:001000`: a `FACT`, object `0x1000` of master `01`, EditorID `KitKraftRecipeOwnerFaction`, `FULL` "KitKraft Recipe Owner Faction" | `kit build` of the spec reports the new form; the `edid`, `FULL` and the first `0x001000` allocation are the spec's own values |
 | The cell's winning `XOWN.Owner` names the new faction, resolved, not dangling | `kit refs Starfield.esm:017307 --plugins Starfield.esm --plugins out/recipes/KitKraftOwnershipFaction.esm`: `XOWN.Owner.Owner -> KitKraftOwnershipFaction.esm:001000 FACT KitKraftRecipeOwnerFaction` |
 | `XOWN.Owner` may name a `FACT` (or an `NPC_`) | `xedit: wbDefinitionsCommon.pas@9fb01688#L9367-L9391` (the `OwnerData` shared type, `crates/schema/defs/common/OwnerData.toml`) |
-| A faction with only `FULL` is a shape the corpus holds | `crates/schema/defs/FACT.toml` (`FULL`, the `Name` member, an optional lstring; the 953 corpus FACT records, none compressed) |
+| A `FACT` with only `FULL` builds and validates clean | `docs/recipes/mini-site.toml` builds the same FULL-only `FACT` (`KitKraftMiniSiteFaction`); this build's `validate` reports 0 errors and 0 warnings; `FULL` is an optional lstring (`crates/schema/defs/FACT.toml`) |
 
 The faction carries only members the recipe can source from `FACT.toml`: `FULL`. No
 relations, ranks, crime values or flags are set.
@@ -71,8 +71,13 @@ non-localized); everything else is the winner's bytes except `XOWN.Owner`.
 - Whether the game treats the player as a trespasser or a thief in a cell its own new
   faction owns: **not known**. The override variant's in-game check (above, M4.O4)
   covers the `PlayerFaction` case only; this case is grade D until an observation.
-- How a player would join the new faction: `player.addtofaction 01001000 0` in the
-  console is the check (grade D; not run).
+- Whether the game accepts a `FACT` that carries no `DATA` or `CRVA` (this faction has
+  only `FULL`): **not observed** — the 953 corpus FACTs all carry `DATA`, `CRVA` and
+  `VENV` (`crates/schema/defs/FACT.toml`).
+- How a player would join the new faction: `player.addtofaction <xx>001000 0` in the
+  console is the check, where `<xx>` is the plugin's load-order index (the built
+  plugin's FormID is `01001000`; in game the leading byte is the plugin's position in
+  the load order) (grade D; not run).
 
 ## Query by owner
 
