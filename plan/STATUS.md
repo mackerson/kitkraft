@@ -2833,4 +2833,4 @@ Agents append here when they need a change in a crate they do not own.
   to the base owner's slot). Two tests in `testplan_tests.rs`; all existing `testplan`
   and `modrun` tests pass unchanged. Authored by the local Qwen agent (5/5, Opus QA
   ACCEPT); the module docs corrected, and Windows-gated by Claude.
-Landed: KK-014 clone-sample corpus tests - FACT passed (clone-sample FACT: 100 cloned, 100 identical, 0 explained; 959.72 s, 812 FACT in Starfield.esm); PKIN run in progress, its counts and run time pending.
+Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 identical, 0 explained (959.72 s, 812 FACT in Starfield.esm); clone-sample PKIN: 100 cloned, 100 identical, 0 explained (1154.34 s, 11281 PKIN in Starfield.esm); both patches validate with 0 errors.
