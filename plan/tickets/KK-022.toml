@@ -1,7 +1,6 @@
 id = "KK-022"
 title = "Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB"
 timeout_min = 45
-after = ["KK-008"]
 owns = [
   "crates/schema/defs/CURV.toml",
   "crates/schema/defs/REGN.toml",

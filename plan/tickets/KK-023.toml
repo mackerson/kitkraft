@@ -1,7 +1,6 @@
 id = "KK-023"
 title = "Type FLOR (flora) from the pinned xEdit file, corpus-checked"
 timeout_min = 60
-after = ["KK-022"]
 owns = [
   "crates/schema/defs/FLOR.toml",
   "crates/schema/tests/",

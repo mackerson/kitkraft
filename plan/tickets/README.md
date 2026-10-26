@@ -230,8 +230,12 @@ rows only; merge one, resolve the other by hand). Chains, by `after`:
   test).
 - material swaps: KK-007 + KK-008 -> KK-019 -> KK-020 (KK-019 owns `set.rs`, `newform.rs` and
   `crates/engine/src/lib.rs`; KK-020 owns `build/spec.rs` and `handlers/build.rs`).
-- schema: KK-006 -> KK-008 -> KK-022 -> KK-023 (all regenerate `crates/esm/src/generated/` and
-  the golden seed; never two in one night).
+- schema: until KK-090 merges, schema tickets run one per night (they all regenerate
+  `crates/esm/src/generated/` and the golden seed, and rustfmt reflows the shared test lists).
+  Once KK-090 has made those lists one entry per line, schema tickets on different record types
+  may run the same night: the pick ignores their overlap on the regenerated and sorted-list
+  files, and the merge rebuilds them ("Generated tickets" above). KK-022 and KK-023 no longer
+  chain on that account.
 
 `docs/record-parity.md` is generated: KK-016, KK-022 and KK-023 all own it and may run the
 same night. Merge in any order and rerun `cargo xtask parity` on the merged result; never
