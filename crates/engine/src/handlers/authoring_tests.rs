@@ -364,6 +364,11 @@ pub(super) fn find_record<'a>(entries: &'a [Entry<'a>], sig: &str) -> Option<&'a
 /// The checks every typed-write test makes (module docs).
 fn writes_and_reads_back(sig: &str, layout: &str, component: &str) {
     let d = dir(&format!("authoring-{}", sig.to_lowercase()));
+    // The Model group's FileName (MODL) reads back as "Typed" (no extension); plant
+    // the file under exactly that name, loose next to the plugin, so
+    // asset.missing-model does not fire (KK-018).
+    std::fs::create_dir_all(d.join("meshes")).unwrap();
+    std::fs::write(d.join("meshes").join("Typed"), []).unwrap();
     let p = plan(sig, layout, component);
     let r = new_record(&d, sig, &format!("KC_New{sig}"), &p.fields);
     assert_eq!(
