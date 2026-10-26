@@ -2833,3 +2833,9 @@ Agents append here when they need a change in a crate they do not own.
   to the base owner's slot). Two tests in `testplan_tests.rs`; all existing `testplan`
   and `modrun` tests pass unchanged. Authored by the local Qwen agent (5/5, Opus QA
   ACCEPT); the module docs corrected, and Windows-gated by Claude.
+Landed 2026-10-26: KK-011 - the armor OMOD property survey: the ignored test
+  `armor_omod_properties_full` (`crates/esm/tests/armor_omods.rs`) walks the 14
+  official ESMs, finds 311 armor OMODs by the template and attach-point routes, and
+  prints their 1,145 DATA properties - mostly stats, plus material swaps (`AMLS` in
+  the OMOD and property 14 in the ARMO template items, both naming `LMSW`); the
+  counts and the answer are in `docs/research/armor-omods-2026-10.md`.

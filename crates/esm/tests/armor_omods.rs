@@ -109,8 +109,10 @@ struct PropAgg {
 /// What the routes and the union need from one OMOD `DATA`.
 struct OmodInfo {
     /// The attach point keyword, resolved, or `None` when it names nothing (counted in
-    /// `null_refs` / `dropped_refs`).
+    /// the null or unresolved totals when the OMOD is in the armor union).
     attach_point: Option<(String, u8, u32)>,
+    /// The attach point is the null FormID (`None` above for that reason).
+    attach_null: bool,
     properties: Vec<ObjectModProperty>,
 }
 
@@ -181,8 +183,8 @@ struct Survey {
     armos: BTreeMap<(String, u8, u32), ArmoInfo>,
     /// The properties of the `ARMO` template items, by property code display name.
     template_props: BTreeMap<String, PropAgg>,
-    /// FormID values that resolve to nothing: template includes, `APPR` keywords, OMOD
-    /// attach points, and property values.
+    /// FormID values that resolve to nothing: template includes and `APPR` keywords
+    /// (the union's attach points and property values are counted in `finish`).
     dropped_refs: u64,
     /// `0x00000000` values: not forms, not unresolved.
     null_refs: u64,
@@ -313,16 +315,11 @@ fn check_file(survey: &mut Survey, name: &str, path: &Path, info: &MasterInfo) {
                     if s.signature == *b"DATA" {
                         match decode::<OmodData>(s.data, "OMOD.DATA", ctx) {
                             Ok(d) => {
-                                let attach_point = match info.resolve(name, d.attach_point.0) {
+                                let resolved = info.resolve(name, d.attach_point.0);
+                                let attach_null = matches!(resolved, Ref::Null);
+                                let attach_point = match resolved {
                                     Ref::Record(t) => Some(t),
-                                    Ref::Null => {
-                                        survey.null_refs += 1;
-                                        None
-                                    }
-                                    Ref::Unresolved => {
-                                        survey.dropped_refs += 1;
-                                        None
-                                    }
+                                    Ref::Null | Ref::Unresolved => None,
                                 };
                                 survey.omods.insert(
                                     owner.clone(),
@@ -330,6 +327,7 @@ fn check_file(survey: &mut Survey, name: &str, path: &Path, info: &MasterInfo) {
                                         name.to_string(),
                                         OmodInfo {
                                             attach_point,
+                                            attach_null,
                                             properties: d.properties,
                                         },
                                     ),
@@ -407,23 +405,35 @@ fn finish(survey: &Survey) -> usize {
 
     let mut props: BTreeMap<String, PropAgg> = BTreeMap::new();
     let mut total = 0u64;
+    // The union's attach points that name nothing: only armor OMODs are counted.
+    let (mut attach_null, mut attach_unresolved) = (0u64, 0u64);
     for key in &union {
         if let Some((from, info)) = survey.omods.get(key) {
+            if info.attach_null {
+                attach_null += 1;
+            } else if info.attach_point.is_none() {
+                attach_unresolved += 1;
+            }
             for p in &info.properties {
                 total += 1;
                 tally(&mut props, p, from);
             }
         }
     }
+    println!("armor-omods read: {} OMODs", survey.omods.len());
     println!("armor-omods: {} OMODs, {} properties", union.len(), total);
     let omod_unresolved = print_props("armor-omod", &props, survey);
     let template_unresolved = print_props("armor-template", &survey.template_props, survey);
     let owners_total: u64 = survey.owners_unresolved.values().sum();
     println!(
         "armor-omods unresolved: {}",
-        owners_total + survey.dropped_refs + omod_unresolved + template_unresolved
+        owners_total
+            + survey.dropped_refs
+            + attach_unresolved
+            + omod_unresolved
+            + template_unresolved
     );
-    println!("armor-omods null: {}", survey.null_refs);
+    println!("armor-omods null: {}", survey.null_refs + attach_null);
     union.len()
 }
 
@@ -473,7 +483,9 @@ fn print_props(prefix: &str, props: &BTreeMap<String, PropAgg>, survey: &Survey)
         let list: Vec<String> = targets.iter().map(|(k, v)| format!("{k} {v}")).collect();
         println!("{prefix} property {} targets: {}", code, list.join(", "));
         if !unresolved.is_empty() {
+            unresolved_total += u64::try_from(unresolved.len()).unwrap_or(u64::MAX);
             unresolved.sort();
+            unresolved.dedup();
             let examples: Vec<String> = unresolved
                 .iter()
                 .take(5)
@@ -485,7 +497,6 @@ fn print_props(prefix: &str, props: &BTreeMap<String, PropAgg>, survey: &Survey)
                 code,
                 examples.join(", ")
             );
-            unresolved_total += u64::try_from(unresolved.len()).unwrap_or(u64::MAX);
         }
     }
     unresolved_total
