@@ -456,3 +456,15 @@ fn a_sample_of_official_locations_clones_identically() {
 fn a_sample_of_official_terminals_clones_identically() {
     sample_clones("TERM", "Term");
 }
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_packins_clones_identically() {
+    sample_clones("PKIN", "Pkin");
+}
+
+#[test]
+#[ignore = "reads Starfield.esm; slow"]
+fn a_sample_of_official_factions_clones_identically() {
+    sample_clones("FACT", "Fact");
+}

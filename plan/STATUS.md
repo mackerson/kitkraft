@@ -2872,3 +2872,4 @@ Landed 2026-10-26: KK-011 - the armor OMOD property survey: the ignored test
   4d3bfba83f28254f046e33f47d4a6ae9d00402395c15c1ec8ffc04188c8645d1. Authored by the
   local Qwen agent; the in-game steps are for the owner (KitKraft Dev, disposable
   save).
+Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 identical, 0 explained (959.72 s, 812 FACT in Starfield.esm); clone-sample PKIN: 100 cloned, 100 identical, 0 explained (1154.34 s, 11281 PKIN in Starfield.esm); both patches validate with 0 errors.
