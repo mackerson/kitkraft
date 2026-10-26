@@ -2906,3 +2906,17 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   archive holds, explained in `docs/validate.md` and pinned per file in
   `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
   synthetic tests in `models_tests.rs`.
+- **KK-050 landed (2026-10-26, local-agent ticket):** the two KK-002 follow-up
+  drafts. `plan/tickets/drafts/qust-slot-alignment.toml`: make
+  `qust_new_sets_every_typed_member_and_reads_back` pass by aligning the Plan's
+  `CTDA` occurrence counts with the engine's slots (the finding that the Plan's
+  walker skips the `Conditions` group nested in the chosen component layout is
+  written as a finding to confirm, not a fact), a new slot-rule unit test in
+  `scaffold.rs`, and the QUST `typed-writable` evidence entry and matrix row.
+  `plan/tickets/drafts/wrld-new.toml`: let `new` write a WRLD as a lone record
+  in its top-level `WRLD` group — the WRLD test's `#[ignore]` removed, the one
+  existing test's "A world stays refused" half flipped to a world written,
+  `clone`'s refusal of worlds unchanged — and a `docs/gaps.md` line that a new
+  world has no cells yet and is not game-tested. Both drafts lint clean
+  (`plan/tickets/lint.py --min 2`), and each one's unit-test acceptance fails on
+  main today.
