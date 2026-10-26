@@ -85,7 +85,7 @@ Not run: these are the owner's steps.
 
 ## What could not be authored
 
-Nothing was refused: every field the recipe wanted to set — the three `FULL`s,
+Nothing was refused: every field the recipe wanted to set — the two `FULL`s,
 `BTXT[0]`, `ITXT[1]`, `TNAM`, `TMVT`, `BSIZ`, `DNAM`, the reference's base, cell,
 position, persistence and EditorID — was set through a field path. What stays as
 stored:
