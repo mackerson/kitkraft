@@ -2839,3 +2839,21 @@ Landed 2026-10-26: KK-011 - the armor OMOD property survey: the ignored test
   prints their 1,145 DATA properties - mostly stats, plus material swaps (`AMLS` in
   the OMOD and property 14 in the ARMO template items, both naming `LMSW`); the
   counts and the answer are in `docs/research/armor-omods-2026-10.md`.
+- **KK-012 landed (2026-10-26, local-agent ticket):** the location recipe,
+  `docs/recipes/location.md`: a v3 spec `docs/recipes/location.toml` (`[[new]]` LCTN
+  `KitKraftRecipeLocation` with `PNAM` the parent `CityNewAtlantisLocation` `01295A`,
+  `KWDA` the interior-house type keyword `LocTypePlayerHouse` `2EF272`, `MNAM` and `LCPR`
+  naming the placed marker; `[[place]]` one persistent `XMarkerHeading` reference
+  `KitKraftRecipeMarker` in the first POI's cell; `[[set]]` that cell's `XLCN`;
+  `[[clone]]` of `OutpostOverlayTemplateLocation` `2A39CC` reparented to the new
+  location), the recipe's facts table from `crates/schema/defs/LCTN.toml` (the eight
+  members at `reference` confidence — `VMAD`, `NAM0`, `RCPR`, `RCUR`, `RCUN`, `RCSR`,
+  `ACEC`, `RCEC` — left unwritten until a CK fixture or the corpus raises them), the
+  in-game steps (not run) and the warning that the recipe overrides the same cell as
+  the mini-site, so the two load one at a time; and the corpus test
+  `crates/engine/tests/location_recipe_corpus.rs` (build, the links through `refs`,
+  `validate` 0/0, `roundtrip --verify`, a byte-identical second build, the SHA-256 the
+  recipe records, `testplan`, `location-recipe: ok`). 2026-10-26 (release):
+  `KitKraftRecipeLocation.esm` 2,163 bytes, one master (`Starfield.esm`), new forms
+  `:001000` to `:001002`. Authored by the local agent; acceptance and `cargo xtask ci`
+  green.
