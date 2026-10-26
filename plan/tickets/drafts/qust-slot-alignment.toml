@@ -1,0 +1,110 @@
+id = "DRAFT"
+title = "new writes every condition group of a QUST: align CTDA occurrence counts with the slots"
+timeout_min = 45
+budget_h = 1.5
+after = ["KK-002"]
+owns = [
+  "crates/engine/src/edit/scaffold.rs",
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "docs/schema/evidence.toml",
+  "docs/schema/support-matrix.md",
+]
+brief = """
+KK-002 (not merged; on its branch `origin/kk/KK-002-wip`, read it with `git show
+origin/kk/KK-002-wip:crates/engine/src/handlers/authoring_tests.rs` and `git log
+--oneline main..origin/kk/KK-002-wip`) adds typed-write tests to
+`crates/engine/src/handlers/authoring_tests.rs`: each test builds one record with `new`,
+giving every typed member a value through the file's `Plan` builder (it walks the
+definition, numbers each signature's occurrences in schema walk order, and collects the
+planned member paths in `p.paths`), reads it back, and checks every planned member was
+written (`check_written`). Its QUST test is marked `#[ignore]`d and this ticket makes it
+pass: remove that `#[ignore]`; the test must pass. Do not loosen `check_written` or any
+existing test to get there; the run may touch the `Plan` builder only to fix what it
+plans (the finding below), and the acceptance below decides.
+
+The test: `qust_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back(
+"QUST", "PlanetContentProperties", "BGSPlanetContentManagerContentProperties_Component")`.
+Its comment, in KK-002's own words: with a base form component layout without conditions
+(`ContactShadow`) the BFCB block's condition slot is left unplanned "and every planned
+CTDA lands one slot early"; `PlanetContentProperties` gives the block conditions so the
+occurrence numbers line up, yet the test still fails with `QUST: members not written:
+["Aliases.Collection.Template.MatchConditions.Data",
+"Aliases.Collection.Template.MatchConditions.StringParameter1",
+"Aliases.Collection.Template.MatchConditions.StringParameter2"]` (the panic at
+`authoring_tests.rs:424` on the branch).
+
+The machinery. `new` (`crates/engine/src/handlers/newform.rs`, `plan_new`) counts how many
+occurrences of each signature the fields name (`crates/engine/src/edit/scaffold.rs`,
+`wanted_slots`) and then places the k-th occurrence of a signature at its k-th slot in
+schema member order (`slot_of`, over the flattened slots of `member_order`: groups
+flattened, every component layout of the BFCB block included in the slot list, `AnyUntil`
+skipped). A QUST (`crates/schema/defs/QUST.toml`) has several condition groups
+(`crates/schema/defs/common/Condition.toml`, members `Data`/`CTDA`, `StringParameter1`/`CIS1`,
+`StringParameter2`/`CIS2`): the one inside the BFCB block's `PlanetContentProperties`
+layout (`crates/schema/defs/common/BfcbBlock.toml`), the quest's own (`DialogueConditions`,
+`StoryManagerConditions`), each stage log entry's and reward's, each objective target's,
+each location alias's match conditions, a planet content request's, and a collection
+alias template's.
+
+Finding to confirm (this is the best read of the code so far, not a settled fact): the two
+sides count differently. The engine's `member_order` flattens every group, so a QUST with
+the `PlanetContentProperties` layout has nine `CTDA` slots: the block's layout condition
+first, then the eight record-level groups in schema order, the last being
+`Aliases.Collection.Template.MatchConditions`. But the test's `Plan` walker skips a
+group when its path is inside a component layout and its name is not the chosen layout
+(`in_component_layout` and `g.name != layout` in the `members` method); the condition
+group nested inside the chosen layout is skipped that way, so the Plan numbers only eight
+CTDAs, the block's condition unplanned. With eight wanted CTDAs, `slot_of` (n > 1) maps
+the k-th wanted CTDA to the k-th slot, so every planned CTDA lands one slot early and the
+ninth slot, the collection template's match condition, receives no subrecord: exactly the
+three missing members above. Confirm this on the branch before touching code: the exact
+semantics of `kitkraft_schema::in_component_layout` for a group nested inside the chosen
+layout, and which side you fix. The fix may live in the engine (`scaffold.rs` /
+`newform.rs`) or in the test's `Plan` (it is owned); whichever you choose, the k-th CTDA
+of the fields must land in the k-th condition group in schema order, the record must
+write the block's condition when the layout has one, and a QUST with a layout without
+conditions (`ContactShadow`) must place every planned CTDA in its own group with nothing
+unplaced. Never loosen `check_written` or any existing test.
+
+Then finish the evidence as KK-002 does for ACTI and the other passing types: add the
+passing QUST's `typed-writable` evidence entry to `docs/schema/evidence.toml` and its
+row to `docs/schema/support-matrix.md` (read both and copy the shape of the ACTI entry and
+row that KK-002's branch adds, or of the other rows already on main).
+
+Add one new engine unit test with the exact name `a_repeated_signature_counts_every_slot_of_a_repeating_group`
+in `crates/engine/src/edit/scaffold.rs` (its `#[cfg(test)]` module), pinning the slot rule
+on a small case: `member_order` plus `slot_of` on a real record type with several
+repeated groups holding the same signature (a QUST's `CTDA` is the shape) must put the
+k-th occurrence at the k-th slot in schema order for every k the definition has a slot
+for, and report `None` only past the last slot when it does not repeat. Do not change any
+other existing test; the existing `new`, `set` and authoring tests must pass unchanged
+(the acceptance below checks their count only grows or holds).
+
+Done means: the `#[ignore]` on `qust_new_sets_every_typed_member_and_reads_back` is gone
+and it passes; the new slot-rule test passes; every existing `new`, `set` and authoring
+test still passes unchanged; the evidence entry and matrix row are in; and the slot rule
+reads in `scaffold.rs` as the rule the fix implements. Do not touch any file outside
+`owns`; do not merge or rebase the KK-002 branch (it merges before this run starts, and
+its tests are the starting point); do not read `plan/STATUS.md` or
+`plan/execution-plan.md`.
+"""
+
+[[accept]]
+name = "qust-passes"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::qust_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "slot-rule-pinned"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact edit::scaffold::tests::a_repeated_signature_counts_every_slot_of_a_repeating_group 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "existing-tests-hold"
+cmd = "cargo test -p kitkraft-engine --lib -- newform authoring scaffold 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o"
+
+[[accept]]
+name = "ignore-gone"
+cmd = "grep -A2 'fn qust_new_sets_every_typed_member_and_reads_back' crates/engine/src/handlers/authoring_tests.rs | grep -v ignore"
+
+[[accept]]
+name = "evidence"
+cmd = "grep -q 'QUST' docs/schema/evidence.toml && grep -q 'QUST' docs/schema/support-matrix.md"
