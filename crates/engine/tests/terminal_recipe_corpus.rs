@@ -96,16 +96,18 @@ fn target(edges: &[Value], path: &str) -> Value {
         .unwrap_or_else(|| panic!("no link {path} in {edges:#?}"))
 }
 
-/// The decoded value of one subrecord of the winning version (`signature` -> `value`).
-fn subrecord(data: &Value, sig: &str) -> Value {
+/// The decoded value of the `n`-th subrecord of the winning version, in file order
+/// (the same order the field path `SIG[n]` counts).
+fn subrecord(data: &Value, sig: &str, n: usize) -> Value {
     data["versions"]
         .as_array()
         .unwrap()
         .iter()
         .flat_map(|v| v["subrecords"].as_array().unwrap().iter())
-        .find(|s| s["signature"] == json!(sig))
+        .filter(|s| s["signature"] == json!(sig))
+        .nth(n)
         .cloned()
-        .unwrap_or_else(|| panic!("no {sig} subrecord in {data:#?}"))["value"]
+        .unwrap_or_else(|| panic!("no {n}-th {sig} subrecord in {data:#?}"))["value"]
         .clone()
 }
 
@@ -204,14 +206,24 @@ fn the_terminal_recipe_builds_and_every_claim_holds() {
         "{text}"
     );
     assert!(text.contains("Open the Recipe Submenu"), "{text}");
+    // The edited occurrences, pinned to their positions: the first body text and the
+    // second item text (the submenu item's).
+    assert_eq!(
+        subrecord(&menu["data"], "BTXT", 0),
+        json!("This is the KitKraft recipe terminal menu.")
+    );
+    assert_eq!(
+        subrecord(&menu["data"], "ITXT", 1),
+        json!("Open the Recipe Submenu")
+    );
     let submenu = engine
         .execute(
             "inspect",
             json!({"form": form(0x1001), "plugins": plugins, "data_dir": data, "full": true}),
         )
         .unwrap();
-    assert_eq!(subrecord(&submenu["data"], "TMVT"), json!(1));
-    assert_eq!(subrecord(&submenu["data"], "BSIZ"), json!(1));
+    assert_eq!(subrecord(&submenu["data"], "TMVT", 0), json!(1));
+    assert_eq!(subrecord(&submenu["data"], "BSIZ", 0), json!(1));
     assert!(
         submenu["data"]
             .to_string()
