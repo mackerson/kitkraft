@@ -36,12 +36,13 @@ brief = "KK-013"
 [[clone]]
 # DefaultBlankTerminal_Genesis: the blank terminal menu — FULL "Terminal" (0x0000BF98),
 # TMVT 0 (Folder: no body text), BSIZ 0, ISIZ 0. It becomes the second menu the submenu
-# item opens. Our value: the first body text (the source has none, so this is added at
-# occurrence 0 and BSIZ is counted from it), and TMVT "Document" so the menu shows it.
+# item opens. Our values: the first body text (the source has none, so this is added at
+# occurrence 0), the body-text count BSIZ 1 — a stored count the schema does not derive
+# from the group, so it is set with the text — and TMVT "Document" so the menu shows it.
 name = "submenu"
 form = "Starfield.esm:227DA9"
 edid = "KitKraftRecipeTerminalSubmenu"
-fields = { TMVT = "Document", BTXT = "This is the KitKraft recipe submenu." }
+fields = { TMVT = "Document", BSIZ = 1, BTXT = "This is the KitKraft recipe submenu." }
 brief = "KK-013"
 
 [[clone]]
