@@ -1,0 +1,78 @@
+# KK-012 recipe (M5.D2): a location of your own — a new LCTN and a clone of a vanilla
+# one, with its parent, a location-type keyword, its marker (MNAM) and its
+# persistent-reference list (LCPR); Starfield.esm the only master.
+# kit build docs/recipes/location.toml out/recipes/KitKraftRecipeLocation.esm
+# Evidence for every choice: docs/recipes/location.md.
+#
+# FormIDs: `build` gives [[clone]] entries theirs first, then [[new]], then [[place]],
+# each in spec order, from 0x001000 (master index 01); every one is allocated before
+# anything is written, so a field may name any entry with `new:<name>`, a [[place]] too.
+#   0x1000 KitKraftRecipeOutpostLocation (the [[clone]])
+#   0x1001 KitKraftRecipeLocation (the [[new]] LCTN)
+#   0x1002 KitKraftRecipeMarker (the [[place]]d REFR)
+version = 3
+
+[load_order]
+plugins = ["Starfield.esm"]
+
+[[new]]
+# The new location of the interior site:
+# FULL ours; parent PNAM CityNewAtlantisLocation, the parent the mini-site's location and
+# the lodge CityNewAtlantisLodgeLocation 27C8ED both name (kit inspect of 01295A and 27C8ED);
+# KWDA the vanilla location-type keyword LocTypePlayerHouse 2EF272, the type the official
+# interior house locations carry — CityAkilaCityPlayerHouseNiceLocation 04B9E2 and
+# CityNeonTradeTowerBayuPenthouseLocation 1F9FAB both have KWDA [2EF272] (found by
+# `kit query KYWD --where 'EDID ~ "LocType"' --plugins Starfield.esm` and `kit inspect` of
+# those locations); MNAM the placed marker below, as the lodge names its map marker (it is
+# the one official LCTN with MNAM); LCPR that one marker, spelled as the mini-site spells
+# an interior entry: the cell, grid 32767 x 32767, FFFFFFFF after it (the lodge's own
+# entries are spelled the same).
+name = "location"
+type = "LCTN"
+edid = "KitKraftRecipeLocation"
+brief = "M5.D2"
+
+[new.fields]
+FULL = "KitKraft Recipe Location"
+PNAM = "Starfield.esm:01295A"
+KWDA = ["Starfield.esm:2EF272"]
+MNAM = "new:marker_ref"
+LCPR = [
+  { Ref = "new:marker_ref", WorldOrCell = "Starfield.esm:21966F", GridY = 32767, GridX = 32767, Bytes12 = "hex:FFFFFFFF" },
+]
+
+[[place]]
+# The site's map marker: XMarkerHeading (Starfield.esm:000034), persistent (an LCPR
+# reference must be persistent, as the mini-site's are), in the first POI's cell
+# CityNewAtlantisApartmentTEMPLATE (Starfield.esm:21966F), on the floor (z 4.63) west of
+# the first POI's crate at (-17, -4), continuing the mini-site's row of placements.
+name = "marker_ref"
+base = "Starfield.esm:000034"
+cell = "Starfield.esm:21966F"
+position = [-25.0, -4.0, 4.63]
+persistent = true
+edid = "KitKraftRecipeMarker"
+brief = "M5.D2"
+
+[[set]]
+# CityNewAtlantisApartmentTEMPLATE has no XLCN (kit inspect: it has only a FULL); it gains
+# one naming the new location, as the mini-site gives it.
+form = "Starfield.esm:21966F"
+fields = { XLCN = "new:location" }
+brief = "M5.D2"
+
+[[clone]]
+# OutpostOverlayTemplateLocation (Starfield.esm:2A39CC), the only LCTN of Starfield.esm
+# with LocTypeOutpost: KWDA [LocTypeOutpost 0234F1], DATA LevelFlags 16 with owner none
+# and levels 0, RNAM 0, ANAM 1.0, TNAM 60 — kept by the clone (kit inspect of 2A39CC;
+# prototypes/foothold/exp01-authored-site/site.toml). Its FULL ("Outpost") is ours here.
+# The clone gains what the template lacks: PNAM, the new location of this recipe, which
+# becomes the outpost location's parent.
+name = "outpost_location"
+form = "Starfield.esm:2A39CC"
+edid = "KitKraftRecipeOutpostLocation"
+brief = "M5.D2"
+
+[clone.fields]
+FULL = "KitKraft Recipe Outpost"
+PNAM = "new:location"
