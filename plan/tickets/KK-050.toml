@@ -1,0 +1,168 @@
+id = "KK-050"
+title = "Draft the KK-002 follow-up tickets: QUST's condition slots, and `new` for a WRLD"
+timeout_min = 15
+budget_h = 1
+gate = "python3 plan/tickets/lint.py plan/tickets/drafts"
+owns = [
+  "plan/tickets/drafts/qust-slot-alignment.toml",
+  "plan/tickets/drafts/wrld-new.toml",
+]
+brief = """
+**You write two ticket drafts, not code.** A ticket is a TOML file the overnight harness gives
+a local agent as one unattended run; in the morning a reviewer reads each draft, preflights
+it and promotes the good ones to `plan/tickets/<ID>.toml`, where a later night runs them.
+Write exactly two files, `plan/tickets/drafts/qust-slot-alignment.toml` and
+`plan/tickets/drafts/wrld-new.toml`, and change nothing else: no Rust, no docs, no other
+ticket. Commit after each draft (`plan: draft qust-slot-alignment`).
+
+## The format
+
+Copy the shape of `plan/tickets/KK-005.toml`, `KK-010.toml` and `KK-018.toml` (tickets that
+ran well; `plan/tickets/README.md`, "Format", has the field list):
+
+- `id = "DRAFT"`, always: the reviewer assigns the ID.
+- `title` (one line), `timeout_min` (minutes per acceptance command, 45 is usual),
+  `budget_h` (about 1.5: the run should fit in one to three hours of Rust compiles),
+  `after = ["KK-002"]` (tickets that must merge first; both drafts need KK-002, below).
+- `owns`: the only paths the run may change: files or folders that exist, or new files in
+  folders that exist. Never `plan/STATUS.md` (always allowed) or anything in `plan/tickets/`.
+- `brief`: what to do and why, in a few paragraphs. The agent that runs it **cannot read
+  `plan/STATUS.md` or `plan/execution-plan.md`**, so the brief carries the context: the files
+  to start from (in backticks, real paths), the facts you found, the rules that matter, what
+  "done" means beyond the commands, and what not to touch.
+- `[[accept]]` tables, each a `name` and a `cmd`. Every command must exit 0 for the ticket
+  to be done. They run as `nobody` in `/src` (a copy of the repo), offline, with `cargo` and
+  `python3`; no window, no game, no network.
+
+## The rules (plan/tickets/README.md, "Writing a good ticket")
+
+- **Vertical and small.** One behaviour, end to end, that a 27B model can finish in one to
+  three hours of Rust compiles. Split anything that touches more than one crate's public API.
+- **Acceptance commands decide.** Write them first; each must **fail on main today** and pass
+  only when the work is done.
+- **Name the starting files**, and test names exactly (`with these exact names: ...`).
+- **Owned paths are enforced**: a change outside `owns` fails the run.
+- **Not vacuous.** A `cargo test` filter that matches no test exits 0. Name the test with
+  `--exact` and check the count, the way KK-005 does:
+  `cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::<name> 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o`.
+  Nothing that can't fail (no `|| true`, no command ending in `tee`).
+
+**The KK-002 lesson.** KK-002 failed three nights in a row because its brief and its
+acceptance disagreed: the brief said a test that cannot pass is marked `#[ignore = "<reason>"]`,
+and the acceptance required that same test to print `1 passed`. If your brief allows
+something (ignoring a test, leaving a type out), the acceptance must allow it too; if the
+acceptance requires it, the brief must not offer a way out. Here both drafts exist to make an
+ignored test pass, so say plainly that the `#[ignore]` is removed and the test must pass.
+
+## Draft 1: `qust-slot-alignment.toml` (engine)
+
+KK-002 adds typed-write tests to `crates/engine/src/handlers/authoring_tests.rs`. Its QUST
+test cannot pass, so KK-002 marks it ignored; this follow-up makes it pass. KK-002 is not
+merged yet: read its work on its branch with `git show
+origin/kk/KK-002-wip:crates/engine/src/handlers/authoring_tests.rs` (and `git log --oneline
+main..origin/kk/KK-002-wip`). The test there:
+
+- `qust_new_sets_every_typed_member_and_reads_back` calls `writes_and_reads_back("QUST",
+  "PlanetContentProperties", "BGSPlanetContentManagerContentProperties_Component")`. It
+  builds one QUST with `new`, giving every typed member a value (the test's `Plan` walks the
+  definition), reads it back and checks every planned member was written.
+- Its comment (in KK-002's own words): with a base form component layout without conditions
+  (`ContactShadow`) the BFCB block's condition slot is left unplanned "and every planned
+  CTDA lands one slot early"; `PlanetContentProperties` gives the block conditions so the
+  occurrence numbers line up, yet the test still fails with:
+  `QUST: members not written: ["Aliases.Collection.Template.MatchConditions.Data",
+  "Aliases.Collection.Template.MatchConditions.StringParameter1",
+  "Aliases.Collection.Template.MatchConditions.StringParameter2"]` (the panic at
+  `authoring_tests.rs:424`).
+
+So `new` places the k-th `CTDA` of a record by counting `CTDA` slots in schema order, and a
+QUST has several condition groups (the BFCB block's, the quest's own, each alias's match
+conditions, a collection alias template's). Read, and name in the draft:
+`crates/engine/src/edit/scaffold.rs` (`slot_of`, `Slot`, how repeated slots and groups are
+counted), `crates/engine/src/handlers/newform.rs` (`plan_new`, `wanted_slots`),
+`crates/engine/src/edit/fields.rs` (how a field path with an occurrence becomes an edit),
+`crates/schema/defs/QUST.toml` and `crates/schema/defs/common/BfcbBlock.toml`. Find, as far
+as an hour allows, where the occurrence count and the slots part ways, and write what you
+found in the brief (as a finding to confirm, not a fact). The draft asks for the engine fix,
+with:
+
+- acceptance that `qust_new_sets_every_typed_member_and_reads_back` passes (`--exact`,
+  `1 passed`; the brief says to remove KK-002's `#[ignore]`);
+- a new engine unit test with a name you choose (check it is new: `grep -rn 'fn <name>'
+  crates`) that pins the slot rule on a small case, in the file that holds the rule;
+- every existing `new`, `set` and authoring test unchanged (for example `cargo test -p
+  kitkraft-engine --lib -- newform authoring scaffold` with a `[1-9][0-9]* passed` check);
+- `owns`: the engine files the fix needs (as few as you can) plus
+  `crates/engine/src/handlers/authoring_tests.rs`, `docs/schema/evidence.toml` and
+  `docs/schema/support-matrix.md` (a passing QUST gets its `typed-writable` evidence entry
+  and matrix row, as KK-002 adds them for ACTI; say so in the brief);
+- the rule the KK-002 brief had: never loosen `check_written` or any existing test.
+
+## Draft 2: `wrld-new.toml` (engine)
+
+`new` refuses a WRLD: `new_refused` in `crates/engine/src/handlers/newform.rs` returns the
+error `new.not-top-level` for every type `nested_or_world` lists except `CELL`, and
+`a_new_exterior_cell_is_refused` in `crates/engine/src/handlers/authoring_world_tests.rs`
+asserts it ("A world stays refused."). KK-002 marks its WRLD test
+`wrld_new_sets_every_typed_member_and_reads_back` ignored for that reason ("a worldspace
+roots a world whose exterior grid and cells are not written yet").
+
+The smallest step, as far as the director could see: let `new` write a WRLD as a lone record
+in its top-level `WRLD` group, with no world children group (no persistent cell, no exterior
+cells; `place` adds those later). The writer already has the case: in
+`crates/esm/src/cells.rs`, `Parent::None` is "a record of a type that lives in its
+top-level group (`WRLD` and `QUST` included)", while `cell_path` builds the world children
+groups only for cells. Read `newform.rs` (`plan_new`, `new_refused`, how a new interior
+`CELL` is let through), `cells.rs` and `crates/schema/defs/WRLD.toml`, confirm or correct
+that, and write the draft for it:
+
+- `new` writes a WRLD (no children); `clone` keeps refusing worlds (out of scope);
+- `a_new_exterior_cell_is_refused` keeps its exterior-cell assertion; its "A world stays
+  refused" half is the one assertion the ticket may change (to: a world is written). Say so
+  in the brief, exactly, and that no other existing test may change;
+- acceptance: `wrld_new_sets_every_typed_member_and_reads_back` passes (`--exact`,
+  `1 passed`, its `#[ignore]` removed), a new test of your naming that a new WRLD is written
+  alone in its top-level group and reads back, and the authoring-world tests still pass;
+- if `validate` reports a finding on the new world (`cell.missing-parent` or another), the
+  draft says what the run must do about it: you decide, and give the reason;
+- a `docs/gaps.md` line (owned) saying a new world has no cells yet and is not game-tested.
+
+If reading the code shows the lone WRLD cannot work (the writer or `validate` needs a
+persistent cell, for example), write instead a smaller ticket that documents why: the
+reason in the WRLD test's `#[ignore]` and a `docs/gaps.md` row, with acceptance that greps
+both, and say in its title that it documents. Either way the file is `wrld-new.toml`.
+
+## Check your work
+
+Run `python3 plan/tickets/lint.py plan/tickets/drafts/<slug>.toml` after each draft and fix
+every error (its warnings are usually right too). For each draft run one of its unit-test
+acceptance commands here and confirm it **fails** now (exit code not 0). Read each brief
+once more as the agent who gets it: can it start without asking anything?
+"""
+
+[[accept]]
+name = "lint"
+cmd = "python3 plan/tickets/lint.py --min 2 plan/tickets/drafts/qust-slot-alignment.toml plan/tickets/drafts/wrld-new.toml"
+
+[[accept]]
+name = "covers"
+cmd = '''python3 -c "
+import tomllib, sys
+bad = []
+for slug, test, path in (('qust-slot-alignment', 'qust_new_sets_every_typed_member_and_reads_back', 'crates/engine/src/handlers/authoring_tests.rs'),
+                         ('wrld-new', 'wrld_new_sets_every_typed_member_and_reads_back', 'crates/engine/src/handlers/newform.rs')):
+    t = tomllib.load(open('plan/tickets/drafts/' + slug + '.toml', 'rb'))
+    cmds = [a.get('cmd', '') for a in t.get('accept', [])]
+    if 'KK-002' not in t.get('after', []):
+        bad.append(slug + ': after must include KK-002')
+    if path not in t.get('owns', []):
+        bad.append(slug + ': owns must include ' + path)
+    if len(t.get('brief', '')) < 1500:
+        bad.append(slug + ': the brief is under 1500 characters')
+    if slug == 'qust-slot-alignment' and not any(test in c and '1 passed' in c and 'ignored' not in c for c in cmds):
+        bad.append(slug + ': acceptance must require ' + test + ' to pass (1 passed, no ignored outlet)')
+    if slug == 'wrld-new' and not any(test in c or 'docs/gaps.md' in c for c in cmds):
+        bad.append(slug + ': acceptance must run ' + test + ' (or, for the documenting ticket, grep docs/gaps.md)')
+print(chr(10).join(bad) or 'both drafts cover their follow-up')
+sys.exit(1 if bad else 0)
+"'''

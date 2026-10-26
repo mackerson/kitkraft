@@ -43,6 +43,33 @@ The director A/B (ADR 0014, "Context") is the guide:
   exits 0. Name the test with `--exact` and check the count:
   `... 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o`. A corpus test that
   skips without `KITKRAFT_DATA_DIR` also passes, so have it print a count and grep for that.
+- **Brief and acceptance agree** (KK-002 failed three nights on this): if the brief lets a test
+  be `#[ignore]`d, the acceptance accepts `1 ignored` for it; if the acceptance requires a test
+  to pass, the brief offers no way out.
+
+`python3 plan/tickets/lint.py [--min N] [--all] FILE_OR_DIR...` (WSL or Linux: Python 3.11+)
+checks these rules and the format: required fields, `after` and `base`, owned paths that
+exist, acceptance that can fail and cannot pass vacuously, test names that are new and that
+the agent may write, repo paths the brief names, and the KK-002 rule. It exits 1 on an error;
+warnings are for a reader to judge. Merged tickets are skipped unless `--all`. Run it on a
+ticket before queueing it.
+
+## Drafts
+
+The local agent can write tickets too. A drafting ticket (KK-050 to KK-052) asks for named
+drafts, `plan/tickets/drafts/<slug>.toml`, and owns exactly those files (so drafting tickets
+don't overlap and can run the same night; its gate is the lint on the folder), each a
+complete ticket with `id = "DRAFT"` (the ID is assigned at promotion); its acceptance is the
+lint on those files with `--min N` plus a check that each covers its topic. Drafts are never
+queued: the backlog reads only `plan/tickets/KK-*.toml`.
+
+The morning merge promotes them (`kk-merge-prompt.md`, "Drafts"): it reviews each draft as
+it would a ticket (scope, acceptance that fails on main and cannot pass vacuously, a brief
+that carries the context, size), runs the lint and `kk_backlog.py preflight <path>` on it,
+moves the good ones to `plan/tickets/<next free ID>.toml` with a row in the table below
+(source "drafted by the local agent (KK-05x)"), fixing small things in passing, and deletes
+the rest with a one-line reason in its report. `plan/tickets/drafts/` is empty on `main`
+after each merge; a rejected draft stays readable in the merge commit.
 
 ## Queue
 
@@ -97,6 +124,9 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-041](KK-041.toml) | Measure whether opt-level 2 for dependencies makes debug runs usable | M6.P6a rest | queued |
 | [KK-042](KK-042.toml) | `game.session` reports progress: preflight, each phase, each probe row | M6.G4 ("progress events for its own steps") | after KK-030 |
 | [KK-043](KK-043.toml) | MCP: a game session started over MCP is followed and stopped across calls | CLI/MCP/UI parity for M4.T3's commands | after KK-030 |
+| [KK-050](KK-050.toml) | Draft the KK-002 follow-ups: QUST's condition slots, `new` for a WRLD (2 drafts) | KK-002's follow-ups to cut | queued |
+| [KK-051](KK-051.toml) | Draft three apparel tickets: ARMO addons in `inspect`, LMSW `.mat` paths, armor world models | "next in engine and data" (below) | queued |
+| [KK-052](KK-052.toml) | Draft two schema tickets: inventory definitions for MRPH, CNDF, VTYP, MTPT, ASPC; type AVIF | "next in engine and data" (below) | queued |
 
 On 2026-10-25 KK-002 and KK-006 failed to start: the harness did not resolve their WIP base
 branch (fixed in the harness). Both are requeued unchanged, still continuing from their WIP
@@ -148,7 +178,9 @@ addons and their model paths (after KK-006, KK-018); `validate` of `LMSW` overri
 against shipped `.mat` files, existence only (after KK-018, KK-019); the world-model members
 of ARMO and ARMA in `asset.missing-model`; more inventory definitions (MRPH, CNDF, VTYP,
 MTPT, ASPC) and lstring-only types (AVIF). The hand-written half of the gap matrix (its
-evidence prose) and the `.mat` content rules stay with Claude or the owner.
+evidence prose) and the `.mat` content rules stay with Claude or the owner. KK-051 and
+KK-052 have the local agent draft these five, and KK-050 KK-002's two follow-ups ("Drafts"
+above); none of the three waits on anything, and the drafts carry the `after` lines.
 
 KK-030 to KK-043 are the workbench and surface lane (M6 lanes V, P and G, M7 lanes W and R,
 `crates/mcp`, `crates/game` through its fakes). Every UI ticket is tested headless: view-model

@@ -1,0 +1,131 @@
+id = "KK-052"
+title = "Draft two schema tickets: inventory definitions for MRPH, CNDF, VTYP, MTPT, ASPC, and type AVIF"
+timeout_min = 15
+budget_h = 1
+gate = "python3 plan/tickets/lint.py plan/tickets/drafts"
+owns = [
+  "plan/tickets/drafts/inventory-mrph-cndf-vtyp-mtpt-aspc.toml",
+  "plan/tickets/drafts/type-avif.toml",
+]
+brief = """
+**You write two ticket drafts, not code.** A ticket is a TOML file the overnight harness
+gives a local agent as one unattended run; in the morning a reviewer reads each draft,
+preflights it and promotes the good ones to `plan/tickets/<ID>.toml`, where a later night
+runs them. Write exactly `plan/tickets/drafts/inventory-mrph-cndf-vtyp-mtpt-aspc.toml` and
+`plan/tickets/drafts/type-avif.toml`, and change nothing else: no Rust, no definitions, no
+docs, no other ticket. Commit after each draft (`plan: draft type-avif`).
+
+## The format
+
+Each draft follows one ticket that already exists, so start by reading them closely:
+`plan/tickets/KK-022.toml` (five inventory definitions) for draft 1 and
+`plan/tickets/KK-023.toml` (typing FLOR from the pinned xEdit file) for draft 2.
+`plan/tickets/README.md`, "Format", has the field list:
+
+- `id = "DRAFT"`, always: the reviewer assigns the ID.
+- `title` (one line), `timeout_min` (minutes per acceptance command; 45 to 60 with a release
+  corpus test), `budget_h` (about 1.5: one to three hours of Rust compiles), `after = [...]`.
+- `owns`: the only paths the run may change: files or folders that exist, or new files in
+  folders that exist. Never `plan/STATUS.md` (always allowed) or anything in `plan/tickets/`.
+- `brief`: what to do and why. The agent that runs it **cannot read `plan/STATUS.md` or
+  `plan/execution-plan.md`**, so the brief carries the context: starting files in backticks,
+  the facts, the source rules, what "done" means, what not to touch.
+- `[[accept]]` tables (`name`, `cmd`); every command must exit 0. They run as `nobody` in
+  `/src` (a copy of the repo), offline, with `cargo`, `python3` and the game's Data folder
+  read-only through `KITKRAFT_DATA_DIR`; no window, no game, no network.
+
+## The rules (plan/tickets/README.md, "Writing a good ticket")
+
+- **Vertical and small**: one behaviour a 27B model finishes in one to three hours of
+  compiles. Five inventory definitions are one ticket (KK-022 is the size); typing one
+  record type from xEdit is one ticket (KK-023).
+- **Acceptance commands decide**: each must **fail on main today** and pass only when done.
+- **Name the starting files**, and test names exactly; check a test name you introduce is
+  new (`grep -rn 'fn <name>' crates`).
+- **Owned paths are enforced.** List every file the run must touch (KK-022's and KK-023's
+  `owns` show which: the definition files, `crates/schema/src/lib.rs`, the schema tests, the
+  golden seed, the generated code, the corpus test, `docs/record-parity.md`).
+- **Not vacuous**: `--exact`, a count (`grep -q '^test result: ok. 1 passed' /tmp/o`), and,
+  for a corpus test that skips without `KITKRAFT_DATA_DIR`, a grep of a line it prints with
+  the record count (`'^== MRPH: 1145 records .*defined: true'` is KK-022's style).
+
+**The KK-002 lesson.** KK-002 failed three nights because its brief let a test be ignored
+while its acceptance required that test to pass. Brief and acceptance must agree: if the
+brief lets a member stay `opaque`, the acceptance must not require it typed.
+
+**Clean room (AGENTS.md).** Inventory definitions cite only the corpus (`corpus:`), as
+KK-022 says. Typing from xEdit reads the pinned file, read-only at
+`/opt/xedit-ref/wbDefinitionsSF1.pas` (revision 9fb016884bec138ea6c7b872cec831537d464c3e),
+for facts only, written as TOML in our own words with `xedit: ...#L<a>-L<b>` citations;
+never copy its code or comments. The corpus wins where they differ.
+
+## Draft 1: `inventory-mrph-cndf-vtyp-mtpt-aspc.toml` (`after = ["KK-023"]`)
+
+Five more inventory definitions, as KK-022 does for CURV, REGN, AVMD, IPCT and DFOB: every
+signature the corpus shows, corpus order and cardinality, payloads `opaque`. The five, from
+`docs/record-parity.md` (no definition today; records, signatures seen):
+`MRPH` 1,145 records (4 signatures), `CNDF` 1,055 (6), `VTYP` 915 (4), `MTPT` 906 (2),
+`ASPC` 814 (16). Names (xEdit's record names, in our UpperCamelCase): `MorphableObject`,
+`ConditionForm`, `VoiceType`, `MaterialPath`, `AcousticSpace`. They come after KK-023
+because the schema tickets (KK-006, KK-008, KK-022, KK-023) all regenerate
+`crates/esm/src/generated/` and the golden seed and must never run the same night; say that
+in the brief. Acceptance as KK-022's: the inventory run prints `defined: true` for all five
+with their record counts, `cargo test -p kitkraft-schema`, `cargo xtask codegen --check`,
+and each `docs/record-parity.md` row with its name and 0 unknown (check KK-022's row regex
+against the table's real columns in `docs/record-parity.md`, and write yours the same way).
+
+## Draft 2: `type-avif.toml` (`after = ["KK-023"]`)
+
+`AVIF` (actor value information, 1,267 official records) has an lstring-only definition,
+`crates/schema/defs/AVIF.toml`: `EDID` and the lstrings (`ANAM`, `FULL`) are typed, and 6 of
+the 9 signatures the corpus shows are unknown (`docs/record-parity.md`). Type it the way
+KK-023 types FLOR: from the pinned xEdit file (AVIF is at L9877-L9953, as `AVIF.toml`
+already cites; follow the helpers it names), corpus-checked by a new ignored release test
+modelled on KK-023's `crates/esm/tests/flora_types.rs` (which KK-023 creates; hence `after`),
+printing `avif AVIF: <n> records, <m> identical`, and the AVIF row of
+`docs/record-parity.md` at 0 unknown. Keep the lstring members exactly as typed today (the
+corpus lstring table, `crates/engine/src/edit/lstrings.rs`, must still match). Name the
+family doc it adds a section to (`docs/schema/actor-family.md` if AVIF is in the actor
+family: check `xtask/src/parity.rs`; else say where). If both drafts are promoted they must
+run on different nights (both regenerate the generated code): add a comment line `# after
+the inventory draft too, once it has an ID: both regenerate crates/esm/src/generated/` at
+the top of this file.
+
+## Check your work
+
+Run `python3 plan/tickets/lint.py plan/tickets/drafts/<slug>.toml` after each draft and fix
+every error (its warnings are usually right too). Run `cargo test -p kitkraft-schema` once to
+see it passes today (the definitions don't exist yet, so your acceptance's definition checks
+must fail): don't run the release corpus commands (they read 2.5 GB). Read each brief once
+more as the agent who gets it: can it start without asking anything?
+"""
+
+[[accept]]
+name = "lint"
+cmd = "python3 plan/tickets/lint.py --min 2 plan/tickets/drafts/inventory-mrph-cndf-vtyp-mtpt-aspc.toml plan/tickets/drafts/type-avif.toml"
+
+[[accept]]
+name = "covers"
+cmd = '''python3 -c "
+import tomllib, sys
+bad = []
+inv = tomllib.load(open('plan/tickets/drafts/inventory-mrph-cndf-vtyp-mtpt-aspc.toml', 'rb'))
+avif = tomllib.load(open('plan/tickets/drafts/type-avif.toml', 'rb'))
+for slug, t in (('inventory', inv), ('type-avif', avif)):
+    if 'KK-023' not in t.get('after', []):
+        bad.append(slug + ': after must include KK-023')
+    if len(t.get('brief', '')) < 1500:
+        bad.append(slug + ': the brief is under 1500 characters')
+cmds = ' '.join(a.get('cmd', '') for a in inv.get('accept', []))
+for sig in ('MRPH', 'CNDF', 'VTYP', 'MTPT', 'ASPC'):
+    if 'crates/schema/defs/' + sig + '.toml' not in inv.get('owns', []):
+        bad.append('inventory: owns must include crates/schema/defs/' + sig + '.toml')
+    if sig not in cmds:
+        bad.append('inventory: no acceptance command checks ' + sig)
+if 'crates/schema/defs/AVIF.toml' not in avif.get('owns', []):
+    bad.append('type-avif: owns must include crates/schema/defs/AVIF.toml')
+if 'avif AVIF' not in ' '.join(a.get('cmd', '') for a in avif.get('accept', [])):
+    bad.append('type-avif: acceptance must grep the corpus line avif AVIF: ...')
+print(chr(10).join(bad) or 'both drafts cover their topic')
+sys.exit(1 if bad else 0)
+"'''

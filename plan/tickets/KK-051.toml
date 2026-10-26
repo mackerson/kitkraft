@@ -1,0 +1,160 @@
+id = "KK-051"
+title = "Draft three apparel tickets: inspect an ARMO's addons, validate LMSW .mat paths, armor world models"
+timeout_min = 15
+budget_h = 1.25
+gate = "python3 plan/tickets/lint.py plan/tickets/drafts"
+owns = [
+  "plan/tickets/drafts/armo-inspect-addons.toml",
+  "plan/tickets/drafts/lmsw-mat-exists.toml",
+  "plan/tickets/drafts/armor-world-models.toml",
+]
+brief = """
+**You write three ticket drafts, not code.** A ticket is a TOML file the overnight harness
+gives a local agent as one unattended run; in the morning a reviewer reads each draft,
+preflights it and promotes the good ones to `plan/tickets/<ID>.toml`, where a later night
+runs them. Write exactly `plan/tickets/drafts/armo-inspect-addons.toml`,
+`plan/tickets/drafts/lmsw-mat-exists.toml` and `plan/tickets/drafts/armor-world-models.toml`,
+and change nothing else: no Rust, no docs, no other ticket. Commit after each draft
+(`plan: draft armo-inspect-addons`).
+
+## The format
+
+Copy the shape of `plan/tickets/KK-005.toml`, `KK-007.toml` and `KK-018.toml` (tickets that
+ran well or were cut carefully; `plan/tickets/README.md`, "Format", has the field list):
+
+- `id = "DRAFT"`, always: the reviewer assigns the ID.
+- `title` (one line), `timeout_min` (minutes per acceptance command; 60 when a command runs
+  the release corpus test), `budget_h` (about 1.5: one to three hours of Rust compiles),
+  `after = [...]`: the tickets that must merge first (below, per draft).
+- `owns`: the only paths the run may change: files or folders that exist, or new files in
+  folders that exist (or that a ticket in `after` creates). Never `plan/STATUS.md` (always
+  allowed) or anything in `plan/tickets/`.
+- `brief`: what to do and why, in a few paragraphs. The agent that runs it **cannot read
+  `plan/STATUS.md` or `plan/execution-plan.md`**, so the brief carries the context: the files
+  to start from (in backticks, real paths), the facts you found, the rules that matter, what
+  "done" means beyond the commands, and what not to touch.
+- `[[accept]]` tables, each a `name` and a `cmd`. Every command must exit 0 for the ticket
+  to be done. They run as `nobody` in `/src` (a copy of the repo), offline, with `cargo`,
+  `python3` and the game's Data folder read-only through `KITKRAFT_DATA_DIR`; no window, no
+  game, no network.
+
+## The rules (plan/tickets/README.md, "Writing a good ticket")
+
+- **Vertical and small.** One behaviour, end to end, that a 27B model can finish in one to
+  three hours of Rust compiles. Split anything that touches more than one crate's public API.
+- **Acceptance commands decide.** Write them first; each must **fail on main today** and pass
+  only when the work is done.
+- **Name the starting files**, and test names exactly (`with these exact names: ...`). Check
+  that every test name you introduce is new: `grep -rn 'fn <name>' crates apps xtask`.
+- **Owned paths are enforced**: a change outside `owns` fails the run.
+- **Not vacuous.** A `cargo test` filter that matches no test exits 0: use `--exact` and
+  check the count, `... 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o`. A
+  corpus test skips (and passes) without `KITKRAFT_DATA_DIR`, so have it print a count and
+  grep that line too, as KK-007's `refl-corpus` does. Nothing that can't fail.
+
+**The KK-002 lesson.** KK-002 failed three nights in a row because its brief and its
+acceptance disagreed: the brief said a test that cannot pass is marked `#[ignore =
+"<reason>"]`, and the acceptance required that test to print `1 passed`. If your brief
+allows something (skipping a case, a limitation instead of a finding), the acceptance must
+allow it too; if the acceptance requires it, the brief must not offer a way out.
+
+## Background: apparel
+
+The owner builds a clothing mod: whole outfits (`ARMO` records, each listing armor addons,
+`ARMA`, which carry the model paths) and colourways (`LMSW` layered material swaps, whose
+`REFL` data maps a key `.mat` path to an override `.mat` path). Merged: KK-006 typed `ARMA`
+(`crates/schema/defs/ARMA.toml`) and the biped slots; KK-007 decodes `REFL` losslessly
+(`crates/doc/src/refl.rs`: `decode`, `lmsw_entries`, `SwapEntry`) and `inspect --full`
+shows an LMSW's entries (`lmsw_json` in `crates/engine/src/handlers/inspect.rs`). Not merged
+yet: KK-018 (`plan/tickets/KK-018.toml`: `validate` rule `asset.missing-model`, in a new
+`crates/engine/src/validate/models.rs`, looking a model up in loose files and archives;
+read its brief, it is the design the drafts below build on) and KK-019
+(`plan/tickets/KK-019.toml`: writing LMSW overrides with `swap_overrides`). Read
+`crates/schema/defs/ARMO.toml` and `ARMA.toml` for the members: an ARMO's `Addon` group
+(`INDX` `Index`, `MODL` `ArmorAddon`, a FormID of an ARMA: a 4-byte FormID, not a path), its
+`MaleWorldModel` (`MOD2` `FileName`) and `FemaleWorldModel` (`MOD4` `FileName`); an ARMA's
+`MaleBipedModel` (`MOD2`), `FemaleBipedModel` (`MOD3`), `MaleFirstPerson` (`MOD4`) and
+`FemaleFirstPerson` (`MOD5`), each with a `FileName`.
+
+## Draft 1: `armo-inspect-addons.toml` (`after = ["KK-018"]`)
+
+`inspect` of an ARMO shows its addons and their model paths: for each `Addon` entry its
+index, the ARMA it names (FormID, EditorID, the plugin that holds it, or that it is
+missing) and that ARMA's model `FileName`s by slot (male, female, first person). Decide the
+JSON shape and write it in the brief, next to how `lmsw_json` is attached in
+`crates/engine/src/handlers/inspect.rs`; nothing else in `inspect`'s output changes. Say
+whether it needs `full: true`, and whether it reports each model as found or not using
+KK-018's lookup (README says this waits on KK-018 for that reason; if you leave it out, say
+why). Tests: a synthetic one (an ARMO and an ARMA written with `new` over the synthetic
+master the engine tests use, as `crates/engine/src/handlers/testplan_tests.rs` builds
+records) and a corpus one in a new file under `crates/engine/tests/`, modelled on KK-007's
+`crates/engine/tests/refl_inspect.rs`, on one official ARMO you pick (give its FormID and
+EditorID in the brief; find one with the `kit` binary or a test of yours, or name how the
+run finds one).
+
+## Draft 2: `lmsw-mat-exists.toml` (`after = ["KK-018", "KK-019"]`)
+
+A `validate` warning when an `LMSW` of the validated plugin names an override material path
+(`lmsw_entries`' override) that is found nowhere: **existence only**, the content of a
+`.mat` is not checked (those rules stay with the owner). Same places to look as KK-018's
+`asset.missing-model` (loose next to the plugin, the Data folder, the plugin's own and the
+load order's archives), sharing its lookup. Say in the brief how a stored path maps to an
+archive entry (a `.mat` path seems relative to a `materials` top folder; the run must
+confirm it on the official archives and write what it found in `docs/validate.md`). Choose
+the rule id (for example `asset.missing-material`), its severity (warning, grade D), the
+finding's text, three unit tests with exact names (missing, loose found, archived found) on
+synthetic plugins, and a pinned count on the official files in
+`crates/engine/tests/validate_corpus.rs` `validate_corpus_official_files` (zero is a count;
+no existing assertion loosened). Owns: `crates/engine/src/validate/`,
+`crates/engine/tests/validate_corpus.rs`, `docs/validate.md`.
+
+## Draft 3: `armor-world-models.toml` (`after = ["KK-018"]`)
+
+KK-018's `asset.missing-model` checks only the shared `Model` group's `FileName`
+(`crates/schema/defs/common/Model.toml`); KK-018 says the world-model members of ARMO and
+ARMA are a later ticket. This is it: the rule also checks an ARMO's `MaleWorldModel` and
+`FemaleWorldModel` `FileName` and an ARMA's four model `FileName`s (above), with the same
+lookup and finding, naming the member path. Unit tests with exact names (an ARMA whose
+female biped model is missing is one warning naming that member; an ARMO world model found
+loose is clean), and the official-files count updated in `validate_corpus_official_files`
+(every official armor model should be found; if not, the run lists a few and explains them in
+`docs/validate.md`). Same owns as draft 2: the two drafts cannot run the same night (the
+queue skips overlapping owns), so add a comment line `# shares crates/engine/src/validate/
+with lmsw-mat-exists: the reviewer orders them` at the top of this file.
+
+## Check your work
+
+Run `python3 plan/tickets/lint.py plan/tickets/drafts/<slug>.toml` after each draft and fix
+every error (its warnings are usually right too). For each draft run one of its unit-test
+acceptance commands here and confirm it **fails** now (exit code not 0); don't run the
+release corpus commands (they read 2.5 GB). Read each brief once more as the agent who gets
+it: can it start without asking anything?
+"""
+
+[[accept]]
+name = "lint"
+cmd = "python3 plan/tickets/lint.py --min 3 plan/tickets/drafts/armo-inspect-addons.toml plan/tickets/drafts/lmsw-mat-exists.toml plan/tickets/drafts/armor-world-models.toml"
+
+[[accept]]
+name = "covers"
+cmd = '''python3 -c "
+import tomllib, sys
+want = {'armo-inspect-addons': ({'KK-018'}, 'crates/engine/src/handlers/inspect.rs', 'Addon'),
+        'lmsw-mat-exists': ({'KK-018', 'KK-019'}, 'crates/engine/src/validate/', 'lmsw_entries'),
+        'armor-world-models': ({'KK-018'}, 'crates/engine/src/validate/', 'MaleWorldModel')}
+bad = []
+for slug, (after, owned, word) in want.items():
+    t = tomllib.load(open('plan/tickets/drafts/' + slug + '.toml', 'rb'))
+    if not after <= set(t.get('after', [])):
+        bad.append(slug + ': after must include ' + ', '.join(sorted(after)))
+    if owned not in t.get('owns', []):
+        bad.append(slug + ': owns must include ' + owned)
+    if len(t.get('brief', '')) < 1500:
+        bad.append(slug + ': the brief is under 1500 characters')
+    if word not in t.get('brief', ''):
+        bad.append(slug + ': the brief never names ' + word)
+    if not any('--exact' in a.get('cmd', '') for a in t.get('accept', [])):
+        bad.append(slug + ': no acceptance command names a test with --exact')
+print(chr(10).join(bad) or 'all three drafts cover their topic')
+sys.exit(1 if bad else 0)
+"'''
