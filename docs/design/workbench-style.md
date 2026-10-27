@@ -76,6 +76,7 @@ Field widths are points; scroll views are table rows, so their height follows th
 | `sizes.doc_cell_mid` | 360 | 360 | a Help table cell, 3 to 4 columns |
 | `sizes.doc_cell_narrow` | 232 | 232 | a Help table cell, 5 or more columns |
 | `sizes.pane_min` | 320 | 320 | the narrowest Records pane |
+| `sizes.column_min` | 48 | 48 | the narrowest a table column may be when its header edge is dragged |
 | `sizes.split_default` | 0.45 | 0.45 | the inspector's share of the Records tab until dragged |
 
 The window opens at `WINDOW` = 1400 x 900 points (the screenshot tour uses the same size).
@@ -176,7 +177,15 @@ high, zebra when `density.zebra`; columns are as wide as their widest content so
 never wrap; the scroll position survives a repaint. In a row, `cell` adds a left-aligned
 cell and `num` a number: monospace, right-aligned. FormIDs, signatures, offsets and raw
 values are monospace. A short fixed table (key and value pairs, the review steps, the
-evidence of one coverage row) is `theme::table`. Column resizing by drag is not built yet.
+evidence of one coverage row) is `theme::table`. In a virtual table, the
+gap after each header column but the last is a drag handle: the
+horizontal resize cursor on hover, the line in the model of the Records
+split's. Dragging it right sets that column's width, never below
+`sizes.column_min`. A width the user set sticks: wider content is
+clipped, narrower content does not shrink it; a double-click on the
+handle gives the column back to automatic sizing. New data (a new data
+key) starts the table over: the scroll is back at the top and every
+width, user-set ones included, is measured afresh.
 
 ## The panel frame (M6.V5)
 

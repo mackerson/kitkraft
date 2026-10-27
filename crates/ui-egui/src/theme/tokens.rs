@@ -101,6 +101,8 @@ pub struct Sizes {
     /// The Records inspector's share of the tab's width until it is dragged (then
     /// `records_split` in `ui.json`).
     pub split_default: f32,
+    /// The narrowest a table column may be, when its header edge is dragged.
+    pub column_min: f32,
 }
 
 /// Spacing tokens in points, each a [`SPACE`] value.
@@ -415,6 +417,7 @@ const SIZES: Sizes = Sizes {
     doc_cell_narrow: 232.0,
     pane_min: 320.0,
     split_default: 0.45,
+    column_min: 48.0,
 };
 
 const fn rgb(hex: u32) -> Rgb {
