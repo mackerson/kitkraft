@@ -162,6 +162,9 @@ pub struct SetEntry {
     pub brief: Option<String>,
     /// Scripts to attach (version 3, M4.E9), as the `scripts` argument takes them.
     pub scripts: Option<Value>,
+    /// Material-swap overrides of an `LMSW` (version 3, KK-019), as the
+    /// `swap_overrides` argument takes them.
+    pub swap_overrides: Option<Value>,
 }
 
 /// A `[[place]]` entry (version 3): a new placed reference, as `kit place` takes it.
@@ -235,6 +238,9 @@ pub struct CloneEntry {
     pub brief: Option<String>,
     /// Scripts to attach (M4.E9).
     pub scripts: Option<Value>,
+    /// Material-swap overrides of an `LMSW` (KK-019), as the `swap_overrides` argument
+    /// takes them.
+    pub swap_overrides: Option<Value>,
 }
 
 /// An `[[import]]` entry (version 3): every `NAVM` of a Creation Kit plugin, imported
@@ -582,6 +588,7 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
             &at,
             &[
                 "name", "form", "plugin", "edid", "fields", "brief", "note", "scripts",
+                "swap_overrides",
             ],
         )?;
         optional_string(t, "note", &at)?;
@@ -600,6 +607,7 @@ fn clones(root: &toml::Table) -> Result<Vec<CloneEntry>, SpecError> {
             },
             brief: optional_string(t, "brief", &at)?,
             scripts: t.get("scripts").map(to_json),
+            swap_overrides: t.get("swap_overrides").map(to_json),
         });
     }
     Ok(out)
@@ -985,17 +993,21 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
             ];
             if version >= 3 {
                 allowed.push("scripts");
+                allowed.push("swap_overrides");
             }
             only_keys(t, &at, &allowed)?;
             optional_string(t, "note", &at)?;
         }
         let scripts = t.get("scripts").map(to_json);
+        let swap_overrides = t.get("swap_overrides").map(to_json);
         sets.push(SetEntry {
             key: at.clone(),
             form: string(t, "form", &at)?.to_string(),
             plugin: optional_string(t, "plugin", &at)?,
-            // A version 3 entry may attach scripts and set no field.
-            edits: if scripts.is_some() && !t.contains_key("fields") {
+            // A version 3 entry may attach scripts or swap overrides and set no field.
+            edits: if (scripts.is_some() || swap_overrides.is_some())
+                && !t.contains_key("fields")
+            {
                 Vec::new()
             } else {
                 fields(t, &at)?
@@ -1003,6 +1015,7 @@ pub fn parse(text: &str) -> Result<Spec, SpecError> {
             allow_reference: boolean(t, "allow_reference", &at)?,
             brief: optional_string(t, "brief", &at)?,
             scripts,
+            swap_overrides,
         });
     }
     if version == 1 && rules.is_empty() && sets.is_empty() {
