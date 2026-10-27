@@ -374,7 +374,10 @@ mod tests {
         );
         // The first two lines, as &str slices of the buffer; out of bounds is None.
         let two = p.raw.get(0..2).unwrap_or_default();
+        assert_eq!(two.len(), 2);
         assert_eq!(two.first().copied(), Some("{"));
+        // The second line as `get` returns it, as `iter` sees it: the same slice.
+        assert_eq!(two.get(1).copied(), p.raw.iter().nth(1));
         assert!(p.raw.get(p.raw.len()..p.raw.len() + 1).is_none());
         assert!(p.raw.get(999_999..1_000_000).is_none());
         // The long line is cut at a character boundary, on its first RAW_LINE_CHARS
