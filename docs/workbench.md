@@ -340,6 +340,15 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     Dev`; the engine refuses `Default`) and the date (empty: today in UTC).
   - For `C<n>` and `POI` it shows the ledger's own template row (`O5-<nn>`, `O2-06`): the
     check and what it expects. "from template" fills in that row's FormIDs.
+  - A probe row a game session left `inconclusive`, or `not-run` with a reason starting
+    `manual:`, prefills the form as a `custom` row with a `note` result: the label
+    `<session> <row id>: <title>`, the row's FormIDs, and a note naming what was
+    expected, what was seen, the verdict and its reason, and each of the row's
+    screenshots by its listed path (a name not listed is named "not listed"), cut at
+    a character boundary to the engine's `note` and `label` caps; the tab shows one
+    line naming the session row the form came from, and nothing is written until the
+    owner previews, appends and confirms the row (the Cockpit button that sends a row
+    here is a later ticket).
   - **Preview** runs `ledger` without `confirm` and shows the text it would append, and
     which entry it goes into (`game-<yyyymmdd>-<nn>: workbench ledger, <date>, <profile>`,
     new or continued). Nothing is written.

@@ -2906,3 +2906,14 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   archive holds, explained in `docs/validate.md` and pinned per file in
   `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
   synthetic tests in `models_tests.rs`.
+Landed 2026-10-26: KK-035 - the Ledger form is prefilled from a probe row left
+  inconclusive or manual (M6.G6, the view-model half): `LedgerForm::from_probe_row`
+  and `probe_rows_to_record` (`crates/ui-egui/src/panels/ledger.rs`) build a `custom`
+  row with result `note`, label `<session> <row id>: <title>`, the row's forms one
+  per line, and a note naming what was expected, seen, the verdict and its reason
+  and each screenshot by its listed path (`not listed` otherwise), cut at a
+  character boundary to the engine's `note`/`label` caps (2000/200);
+  `LedgerTab::prefill` replaces the form, forgets any preview and confirm box and
+  shows one line naming the session row, and prefilling never writes or confirms
+  (the Cockpit's button is a later ticket). One sentence in `docs/workbench.md`;
+  three tests in `ledger.rs`.
