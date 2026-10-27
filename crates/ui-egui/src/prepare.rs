@@ -107,7 +107,10 @@ pub(crate) fn build(
             | Slot::CockpitRoundtrip
             | Slot::CockpitMasters
             | Slot::CockpitDeploy
-            | Slot::CockpitRollback => View::None,
+            | Slot::CockpitRollback
+            | Slot::CockpitSession
+            | Slot::CockpitGameStatus
+            | Slot::CockpitGameStop => View::None,
         },
     };
     Built { prepared, view }

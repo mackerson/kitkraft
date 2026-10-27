@@ -11,10 +11,12 @@
 //! engine worker (`crate::worker`); a poll is one ordinary `game.status` on it, never a
 //! second worker, thread or process.
 
+use std::path::Path;
 use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 
+use super::{dev_target, session_confirm_gate, CockpitEnv, DevTarget};
 use crate::gate::Request;
 
 /// The interval between two `game.status` polls: one per second (M6.G4).
@@ -117,6 +119,26 @@ impl SessionForm {
     pub fn stop_request(id: &str) -> Request {
         Request::confirmed("game.stop", json!({"id": id}))
     }
+
+    /// Fills `mo2` and `profile` from the loaded profile, and — when `checkout` is
+    /// known — `observe` and `ledger` from the checkout's standard places (already
+    /// filled fields stay as they are).
+    pub fn fill(&mut self, target: &DevTarget, checkout: Option<&Path>) {
+        self.mo2.clone_from(&target.mo2);
+        self.profile.clone_from(&target.profile);
+        if let Some(c) = checkout {
+            if self.observe.trim().is_empty() {
+                self.observe = c.join("observe").display().to_string();
+            }
+            if self.ledger.trim().is_empty() {
+                self.ledger = c
+                    .join("docs")
+                    .join("game-observations.md")
+                    .display()
+                    .to_string();
+            }
+        }
+    }
 }
 
 /// The result of a `game.session` dry run: what the confirm box shows, and the
@@ -139,22 +161,25 @@ pub struct SessionPreview {
 impl SessionPreview {
     /// The preview from the request it ran and the dry run's reply.
     pub fn from_reply(request: &Request, env: &Value) -> Self {
-        let refusals = env["data"]["refusals"]
-            .as_array()
+        let data = env.get("data");
+        let refusals = data
+            .and_then(|d| d.get("refusals"))
+            .and_then(Value::as_array)
             .map(|r| {
                 r.iter()
                     .map(|r| {
                         format!(
                             "[{}] {}",
-                            r["rule"].as_str().unwrap_or("?"),
-                            r["message"].as_str().unwrap_or("")
+                            r.get("rule").and_then(Value::as_str).unwrap_or("?"),
+                            r.get("message").and_then(Value::as_str).unwrap_or("")
                         )
                     })
                     .collect()
             })
             .unwrap_or_default();
-        let plan = env["data"]["plan"]
-            .as_object()
+        let plan = data
+            .and_then(|d| d.get("plan"))
+            .and_then(Value::as_object)
             .map(|p| {
                 let mut lines = Vec::new();
                 if let Some(s) = p.get("session").and_then(Value::as_str) {
@@ -167,11 +192,26 @@ impl SessionPreview {
                     lines.push(format!("profile: {pr}"));
                 }
                 if let Some(pr) = p.get("probes") {
-                    let rows = pr["rows"].as_array().map_or(0, |r| r.len());
-                    lines.push(format!("probes: {} ({} rows)", pr["path"].as_str().unwrap_or_default(), rows));
+                    let rows = pr
+                        .get("rows")
+                        .and_then(Value::as_array)
+                        .map_or(0, |r| r.len());
+                    lines.push(format!(
+                        "probes: {} ({} rows)",
+                        pr.get("path").and_then(Value::as_str).unwrap_or_default(),
+                        rows
+                    ));
                 }
-                if let Some(bs) = p.get("base_save").and_then(|b| b["name"].as_str()) {
-                    lines.push(format!("base save: {} ({})", bs, p["base_save"]["sha256"].as_str().unwrap_or_default()));
+                if let Some(bs) = p
+                    .get("base_save")
+                    .and_then(|b| b.get("name").and_then(Value::as_str))
+                {
+                    let sha = p
+                        .get("base_save")
+                        .and_then(|b| b.get("sha256"))
+                        .and_then(Value::as_str)
+                        .unwrap_or_default();
+                    lines.push(format!("base save: {bs} ({sha})"));
                 }
                 if let Some(e) = p.get("ends").and_then(Value::as_str) {
                     lines.push(format!("ends: {e}"));
@@ -181,10 +221,17 @@ impl SessionPreview {
             .unwrap_or_default();
         Self {
             args: request.args.clone(),
-            would_start: env["data"]["would_start"] == json!(true),
+            would_start: data
+                .and_then(|d| d.get("would_start"))
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
             refusals,
             plan,
-            summary: env["data"]["summary"].as_str().unwrap_or_default().to_string(),
+            summary: data
+                .and_then(|d| d.get("summary"))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
         }
     }
 }
@@ -205,16 +252,30 @@ pub struct SessionStopPreview {
 impl SessionStopPreview {
     /// The preview from the dry run's reply.
     pub fn from_reply(env: &Value) -> Self {
-        let data = &env["data"];
+        let data = env.get("data");
         Self {
-            id: data["session"].as_str().unwrap_or_default().to_string(),
-            phase: data["phase"].as_str().map(str::to_string),
-            would: data["would"]
-                .as_array()
-                .map(|w| w.iter().filter_map(Value::as_str).map(str::to_string).collect())
+            id: data
+                .and_then(|d| d.get("session"))
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string(),
+            phase: data
+                .and_then(|d| d.get("phase"))
+                .and_then(Value::as_str)
+                .map(str::to_string),
+            would: data
+                .and_then(|d| d.get("would"))
+                .and_then(Value::as_array)
+                .map(|w| {
+                    w.iter()
+                        .filter_map(Value::as_str)
+                        .map(str::to_string)
+                        .collect()
+                })
                 .unwrap_or_default(),
-            remaining: data["remaining_rows_become"]
-                .as_str()
+            remaining: data
+                .and_then(|d| d.get("remaining_rows_become"))
+                .and_then(Value::as_str)
                 .unwrap_or_default()
                 .to_string(),
         }
@@ -251,6 +312,8 @@ pub struct SessionState {
     /// The end report (`data.report` of the last status or of the stop), kept when
     /// present.
     pub report: Option<Value>,
+    /// The session was stopped by its confirmed `game.stop` (its report may be absent).
+    pub stopped: bool,
     /// A `game.status` is on the worker now; while it is, no other one is queued.
     pub poll_pending: bool,
     /// When the last poll went out; `None` before the first.
@@ -268,11 +331,12 @@ pub struct SessionState {
 }
 
 impl SessionState {
-    /// A session is started and still to be followed: not `finished`, not stopped
-    /// (no report yet), and its polls have not failed.
+    /// A session is started and still to be followed: not `finished`, not stopped,
+    /// not reported, and its polls have not failed.
     pub fn following(&self) -> bool {
         self.id.is_some()
             && self.phase.as_deref() != Some("finished")
+            && !self.stopped
             && self.report.is_none()
             && self.poll_error.is_none()
     }
@@ -281,9 +345,7 @@ impl SessionState {
     /// out, none while one is pending, and none once the session is done or its polls
     /// failed.
     pub fn poll_due(&mut self, now: Instant) -> Option<Request> {
-        let Some(id) = self.id.as_deref() else {
-            return None;
-        };
+        let id = self.id.as_deref()?;
         if !self.following() || self.poll_pending {
             return None;
         }
@@ -299,10 +361,18 @@ impl SessionState {
         Some(Request::new("game.status", json!({"id": id})))
     }
 
+    /// `data.dry_run`, if it is `true`.
+    fn dry_run(env: &Value) -> bool {
+        env.get("data")
+            .and_then(|d| d.get("dry_run"))
+            .and_then(Value::as_bool)
+            .unwrap_or(false)
+    }
+
     /// The reply to a `game.session` request: the dry run or the start, by
     /// `data.dry_run`.
     pub fn receive_session(&mut self, request: &Request, env: &Value) {
-        if env["data"]["dry_run"] == json!(true) {
+        if Self::dry_run(env) {
             self.receive_preview(request, env);
         } else {
             self.receive_start(env);
@@ -317,13 +387,18 @@ impl SessionState {
     /// The start's reply: the id comes back at once, and the following starts (the
     /// first poll is due right away).
     pub fn receive_start(&mut self, env: &Value) {
-        self.id = env["data"]["session"].as_str().map(str::to_string);
+        self.id = env
+            .get("data")
+            .and_then(|d| d.get("session"))
+            .and_then(Value::as_str)
+            .map(str::to_string);
         self.phase = None;
         self.current_row = None;
         self.rows_done = 0;
         self.elapsed_secs = None;
         self.events.clear();
         self.report = None;
+        self.stopped = false;
         self.pending = None;
         self.poll_error = None;
         self.poll_pending = false;
@@ -334,41 +409,367 @@ impl SessionState {
     /// pending.
     pub fn receive_status(&mut self, env: &Value) {
         self.poll_pending = false;
-        let data = &env["data"];
-        self.phase = data["phase"].as_str().map(str::to_string);
-        self.current_row = data["current_row"].as_str().map(str::to_string);
-        self.rows_done = data["rows"].as_array().map_or(0, |r| r.len());
-        self.elapsed_secs = data["elapsed_secs"].as_u64();
-        self.events = data["events"]
-            .as_array()
-            .map(|e| e.iter().filter_map(Value::as_str).map(str::to_string).collect())
+        let Some(data) = env.get("data") else {
+            return;
+        };
+        self.phase = data
+            .get("phase")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        self.current_row = data
+            .get("current_row")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        self.rows_done = data
+            .get("rows")
+            .and_then(Value::as_array)
+            .map_or(0, |r| r.len());
+        self.elapsed_secs = data.get("elapsed_secs").and_then(Value::as_u64);
+        self.events = data
+            .get("events")
+            .and_then(Value::as_array)
+            .map(|e| {
+                e.iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
             .unwrap_or_default();
-        if data["report"].is_object() {
-            self.report = Some(data["report"].clone());
+        if let Some(report) = data.get("report") {
+            if report.is_object() {
+                self.report = Some(report.clone());
+            }
         }
     }
 
     /// The reply to a `game.stop` request: the dry run or the confirmed stop, by
     /// `data.dry_run`. The confirmed stop's report is kept, and the following ends.
     pub fn receive_stop(&mut self, env: &Value) {
-        if env["data"]["dry_run"] == json!(true) {
+        if Self::dry_run(env) {
             self.stop_preview = Some(SessionStopPreview::from_reply(env));
             return;
         }
-        // The confirmed stop: its report is kept, and the following ends.
-        if env["data"]["report"].is_object() {
-            self.report = Some(env["data"]["report"].clone());
+        // The confirmed stop: the session is stopped (the report is kept when
+        // present), and the following ends.
+        if let Some(report) = env.get("data").and_then(|d| d.get("report")) {
+            if report.is_object() {
+                self.report = Some(report.clone());
+            }
         }
+        self.stopped = true;
         self.pending = None;
         self.poll_pending = false;
     }
 
-    /// An error reply for the session's requests: polling stops (the shell keeps the
-    /// error in its results).
-    pub fn failed(&mut self) {
+    /// An error reply to one of the session's requests: only a failed status poll or
+    /// a failed start ends the following — a failed preview (of the start or of the
+    /// stop) leaves it in place. The error stays in the slot's result.
+    pub fn failed(&mut self, request: &Request) {
         self.poll_pending = false;
-        if self.id.is_some() && self.report.is_none() {
-            self.poll_error = Some("the status polls failed; polling stopped".to_string());
+        let poll = request.id == "game.status";
+        let start = request.id == "game.session"
+            && request.args.get("dry_run").and_then(Value::as_bool) != Some(true);
+        if (poll || start)
+            && self.id.is_some()
+            && self.report.is_none()
+            && self.poll_error.is_none()
+        {
+            self.poll_error = Some(if poll {
+                "the status polls failed; polling stopped".to_string()
+            } else {
+                "the start failed; nothing to follow".to_string()
+            });
+        }
+    }
+}
+
+// ---- drawing ---------------------------------------------------------------------------
+
+use eframe::egui::{self, RichText, ScrollArea, TextEdit};
+
+use crate::panels::common::{Action, Slot, TabCtx};
+use crate::theme::{self, Field, Status, View};
+
+/// The session's drawing (M6.G4): the form, the previews with their confirm boxes,
+/// and the session being followed — its phase, the row running, the rows done, the
+/// elapsed time and the last events. No probe rows and no screenshots: those land
+/// with M6.G5.
+pub(crate) fn session_ui(
+    ui: &mut egui::Ui,
+    ctx: &mut TabCtx<'_>,
+    env: &CockpitEnv<'_>,
+    form: &mut SessionForm,
+    state: &mut SessionState,
+) {
+    let busy = ctx.busy;
+    ui.label(theme::subheading(ui, "Game session (M6.G4)"));
+    let target = dev_target(env.loaded_profile);
+    match &target {
+        Ok(t) => {
+            theme::status(
+                ui,
+                Status::Pass,
+                &format!("target: profile `{}` of {}", t.profile, t.mo2),
+            );
+            if form.mo2.trim().is_empty() && form.profile.trim().is_empty() {
+                form.fill(t, env.checkout);
+            }
+        }
+        Err(e) => {
+            theme::status_line(ui, Status::Warn, e);
+        }
+    }
+    let wide = theme::width(ui, Field::Long);
+    theme::form_grid(ui, "cockpit-session-form").show(ui, |ui| {
+        ui.label("probes");
+        ui.add(TextEdit::singleline(&mut form.probes).desired_width(wide));
+        ui.end_row();
+        ui.label("base save sha256");
+        ui.add(TextEdit::singleline(&mut form.base_save_sha256).desired_width(wide));
+        ui.end_row();
+        ui.label("MO2 instance");
+        ui.add(TextEdit::singleline(&mut form.mo2).desired_width(wide));
+        ui.end_row();
+        ui.label("profile");
+        ui.add(TextEdit::singleline(&mut form.profile).desired_width(wide));
+        ui.end_row();
+        ui.label("observe");
+        ui.add(TextEdit::singleline(&mut form.observe).desired_width(wide));
+        ui.end_row();
+        ui.label("ledger");
+        ui.add(TextEdit::singleline(&mut form.ledger).desired_width(wide));
+        ui.end_row();
+    });
+    ui.horizontal_wrapped(|ui| {
+        if ui
+            .add_enabled(
+                !busy && state.id.is_none(),
+                egui::Button::new("Preview session"),
+            )
+            .on_hover_text("game.session --dry-run: the plan and every refusal; writes nothing")
+            .on_disabled_hover_text("a session is started: stop it first")
+            .clicked()
+        {
+            state.pending = None;
+            ctx.actions
+                .push(Action::Submit(Slot::CockpitSession, form.preview_request()));
+        }
+        let gate_s = session_confirm_gate(form, &target, state.preview.as_ref());
+        let open_s = ui
+            .add_enabled(
+                !busy && state.pending.is_none() && gate_s.is_ok(),
+                egui::Button::new("Launch..."),
+            )
+            .on_disabled_hover_text(gate_s.as_ref().err().cloned().unwrap_or_default());
+        if open_s.clicked() {
+            state.pending = Some(SessionAction::Start);
+        }
+        ui.separator();
+        match state.id.clone() {
+            Some(id) => {
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Preview stop"))
+                    .on_hover_text("game.stop --dry-run: the would lines; writes nothing")
+                    .clicked()
+                {
+                    state.pending = None;
+                    ctx.actions.push(Action::Submit(
+                        Slot::CockpitGameStop,
+                        SessionForm::stop_preview(&id),
+                    ));
+                }
+                let open_t = ui
+                    .add_enabled(
+                        !busy
+                            && state.pending.is_none()
+                            && state.stop_preview.as_ref().is_some_and(|p| p.id == id),
+                        egui::Button::new("Stop..."),
+                    )
+                    .on_disabled_hover_text("preview the stop first (Preview stop)");
+                if open_t.clicked() {
+                    state.pending = Some(SessionAction::Stop);
+                }
+            }
+            None => {
+                ui.weak("no session is started: nothing to stop");
+            }
+        }
+    });
+    // Confirm closed: the preview arrived, but its gate no longer passes.
+    if state.pending.is_none() {
+        if let Some(p) = &state.preview {
+            if let Err(why) = session_confirm_gate(form, &target, Some(p)) {
+                theme::status_line(
+                    ui,
+                    Status::NotRun,
+                    &format!("Launch: confirm closed: {why}"),
+                );
+            }
+        }
+        if let Some(p) = &state.stop_preview {
+            if state.id.as_deref() != Some(p.id.as_str()) {
+                theme::status_line(
+                    ui,
+                    Status::NotRun,
+                    &format!(
+                        "Stop: confirm closed: session `{}` is no longer the started one",
+                        p.id
+                    ),
+                );
+            }
+        }
+    }
+
+    // The confirm boxes: re-checked every frame; their buttons build the confirmed
+    // request once per click (this file is the gate's PERMITTED_WRITES place).
+    let mut close = false;
+    if let Some(action) = state.pending {
+        match action {
+            SessionAction::Start => {
+                let p = state.preview.as_ref();
+                match session_confirm_gate(form, &target, p) {
+                    Ok(args) if p.is_some() => {
+                        egui::Frame::group(ui.style()).show(ui, |ui| {
+                            theme::status_line(
+                                ui,
+                                Status::Warn,
+                                &format!(
+                                    "Launch the session in profile `{}`? The dry run would start it; nothing is written until the one click.",
+                                    form.profile.trim()
+                                ),
+                            );
+                            if let Some(p) = p {
+                                if !p.plan.is_empty() {
+                                    ScrollArea::vertical()
+                                        .id_salt("cockpit-session-confirm-plan")
+                                        .max_height(theme::view_height(ui, View::Short))
+                                        .show(ui, |ui| {
+                                            for l in &p.plan {
+                                                ui.monospace(l);
+                                            }
+                                        });
+                                }
+                                for r in &p.refusals {
+                                    theme::status_line(ui, Status::Warn, r);
+                                }
+                            }
+                            ui.horizontal(|ui| {
+                                if ui
+                                    .add_enabled(
+                                        !busy,
+                                        egui::Button::new(RichText::new("Confirm: launch").strong()),
+                                    )
+                                    .clicked()
+                                {
+                                    ctx.actions.push(Action::Submit(
+                                        Slot::CockpitSession,
+                                        SessionForm::start_request(&args),
+                                    ));
+                                    close = true;
+                                }
+                                if ui.button("Cancel").clicked() {
+                                    close = true;
+                                }
+                            });
+                        });
+                    }
+                    _ => close = true,
+                }
+            }
+            SessionAction::Stop => match state.stop_preview.as_ref() {
+                Some(p) if state.id.as_deref() == Some(p.id.as_str()) => {
+                    egui::Frame::group(ui.style()).show(ui, |ui| {
+                        theme::status_line(
+                            ui,
+                            Status::Warn,
+                            &format!("Stop session `{}`? It does this, and nothing else:", p.id),
+                        );
+                        if !p.would.is_empty() {
+                            ScrollArea::vertical()
+                                .id_salt("cockpit-session-confirm-stop")
+                                .max_height(theme::view_height(ui, View::Short))
+                                .show(ui, |ui| {
+                                    for l in &p.would {
+                                        ui.monospace(l);
+                                    }
+                                });
+                        }
+                        if !p.remaining.is_empty() {
+                            ui.weak(&p.remaining);
+                        }
+                        ui.horizontal(|ui| {
+                            let id = p.id.clone();
+                            if ui
+                                .add_enabled(
+                                    !busy,
+                                    egui::Button::new(RichText::new("Confirm: stop").strong()),
+                                )
+                                .clicked()
+                            {
+                                ctx.actions.push(Action::Submit(
+                                    Slot::CockpitGameStop,
+                                    SessionForm::stop_request(&id),
+                                ));
+                                close = true;
+                            }
+                            if ui.button("Cancel").clicked() {
+                                close = true;
+                            }
+                        });
+                    });
+                }
+                _ => close = true,
+            },
+        }
+    }
+    if close {
+        state.pending = None;
+    }
+
+    // The session being followed: phase, the row running, the rows done, the elapsed
+    // time, the last events and the end report. No probe rows, no screenshots (M6.G5).
+    if state.id.is_some() {
+        theme::table(ui, "cockpit-session").show(ui, |ui| {
+            ui.label("session");
+            ui.weak(state.id.as_deref().unwrap_or_default());
+            ui.end_row();
+            ui.label("phase");
+            ui.weak(state.phase.as_deref().unwrap_or("unknown"));
+            ui.end_row();
+            ui.label("current row");
+            ui.weak(state.current_row.as_deref().unwrap_or("none"));
+            ui.end_row();
+            ui.label("rows done");
+            ui.weak(state.rows_done.to_string());
+            ui.end_row();
+            ui.label("elapsed");
+            ui.weak(match state.elapsed_secs {
+                Some(s) => format!("{s} s"),
+                None => "unknown".to_string(),
+            });
+            ui.end_row();
+            ui.label("events");
+            if state.events.is_empty() {
+                ui.weak("none yet");
+            } else {
+                ScrollArea::vertical()
+                    .id_salt("cockpit-session-events")
+                    .max_height(theme::view_height(ui, View::Short))
+                    .show(ui, |ui| {
+                        for e in state.events.iter().rev().take(8) {
+                            ui.weak(e);
+                        }
+                    });
+            }
+            ui.end_row();
+            if let Some(report) = &state.report {
+                ui.label("report");
+                ui.monospace(crate::envelope::short(report));
+                ui.end_row();
+            }
+        });
+        if let Some(err) = &state.poll_error {
+            theme::status_line(ui, Status::Warn, err);
         }
     }
 }
@@ -438,12 +839,20 @@ mod tests {
 
         // The first poll is due right away, and none while it is pending.
         let now = Instant::now();
-        let due = s.poll_due(now).expect("a poll is due right after the start");
+        let due = s
+            .poll_due(now)
+            .expect("a poll is due right after the start");
         assert_eq!(due.id, "game.status");
         assert_eq!(due.args["id"], json!("2026-10-25-T01"));
         assert!(s.poll_pending);
-        assert!(s.poll_due(now).is_none(), "one poll is pending: no other is due");
-        assert!(s.poll_due(now + POLL_INTERVAL).is_none(), "still the same pending poll");
+        assert!(
+            s.poll_due(now).is_none(),
+            "one poll is pending: no other is due"
+        );
+        assert!(
+            s.poll_due(now + POLL_INTERVAL).is_none(),
+            "still the same pending poll"
+        );
 
         // The finished status ends the following: its report is kept, no more polls.
         let finished = json!({
@@ -464,7 +873,10 @@ mod tests {
         assert_eq!(s.phase.as_deref(), Some("finished"));
         assert!(s.report.is_some(), "the report is kept");
         assert!(!s.following());
-        assert!(s.poll_due(now + POLL_INTERVAL).is_none(), "finished: no more polls");
+        assert!(
+            s.poll_due(now + POLL_INTERVAL).is_none(),
+            "finished: no more polls"
+        );
 
         // Separately: a failed status poll stops the following too, and it stays
         // stopped past the interval.
@@ -487,7 +899,10 @@ mod tests {
         s.receive_status(&probing);
         assert!(s.following(), "a probing session is still followed");
         assert!(s.poll_due(now).is_some(), "a poll is due after a status");
-        s.failed();
+        s.failed(&Request::new(
+            "game.status",
+            json!({"id": "2026-10-25-T01"}),
+        ));
         assert!(s.poll_error.is_some(), "the failure is remembered");
         assert!(!s.following());
         assert!(s.poll_due(now).is_none(), "failed: no poll");
@@ -572,7 +987,7 @@ mod tests {
                 .unwrap();
             assert_eq!(read["data"]["defined"], json!(true), "{read}");
             polls = polls.saturating_add(1);
-            now = now + POLL_INTERVAL;
+            now += POLL_INTERVAL;
         }
         assert!(
             polls >= 2,
