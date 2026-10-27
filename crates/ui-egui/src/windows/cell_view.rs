@@ -438,8 +438,6 @@ use crate::theme::{self, Status, View};
 
 /// What the Cell View window asks for.
 pub enum CellViewAsk {
-    /// Show the worldspaces (the left list's first page).
-    Worlds,
     /// Show the interior cells.
     Interiors,
     /// Show `form`'s exterior cells (the left list).

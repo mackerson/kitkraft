@@ -85,6 +85,7 @@ fn panel_of(id: &str) -> Option<Target> {
         "profiles" => Target::Tab("Start"),
         "inspect" | "query" => Target::Tab("Records"),
         "refs" => Target::Window(WindowKind::UseInfo),
+        "cell" => Target::Window(WindowKind::CellView),
         "planet" => Target::Tab("Planet"),
         "diff" | "conflicts" => Target::Tab("Diff"),
         "validate" | "roundtrip" => Target::Tab("Validate"),
@@ -525,5 +526,12 @@ mod tests {
         assert!(ba2.contains("kit ba2 list"), "{ba2}");
         let session = target(gate::find_command("game.session").unwrap()).unwrap_err();
         assert!(session.contains("not yet permitted"), "{session}");
+    }
+
+    #[test]
+    fn the_cell_view_is_a_window_and_the_cell_item_opens_it() {
+        use crate::windows::WindowKind;
+        assert!(WindowKind::ALL.contains(&WindowKind::CellView));
+        assert_eq!(panel_of("cell"), Some(Target::Window(WindowKind::CellView)));
     }
 }

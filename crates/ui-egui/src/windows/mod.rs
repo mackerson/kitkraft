@@ -29,14 +29,16 @@ pub enum WindowKind {
     Warnings,
     UseInfo,
     EditDialog,
+    CellView,
 }
 
 impl WindowKind {
     /// Every window, in View-menu order.
-    pub const ALL: [WindowKind; 3] = [
+    pub const ALL: [WindowKind; 4] = [
         WindowKind::Warnings,
         WindowKind::UseInfo,
         WindowKind::EditDialog,
+        WindowKind::CellView,
     ];
 
     /// Title and `ui.json` key.
@@ -45,6 +47,7 @@ impl WindowKind {
             WindowKind::Warnings => "Warnings",
             WindowKind::UseInfo => "Use Info",
             WindowKind::EditDialog => "Edit Dialog",
+            WindowKind::CellView => "Cell View",
         }
     }
 
@@ -54,6 +57,7 @@ impl WindowKind {
             WindowKind::Warnings => [24.0, 420.0],
             WindowKind::UseInfo => [520.0, 110.0],
             WindowKind::EditDialog => [700.0, 90.0],
+            WindowKind::CellView => [24.0, 170.0],
         }
     }
 
@@ -63,6 +67,7 @@ impl WindowKind {
             WindowKind::Warnings => [760.0, 320.0],
             WindowKind::UseInfo => [640.0, 360.0],
             WindowKind::EditDialog => [620.0, 520.0],
+            WindowKind::CellView => [920.0, 420.0],
         }
     }
 }
@@ -128,6 +133,9 @@ pub fn layout_to_json(layout: &BTreeMap<String, WinState>) -> Value {
 pub enum Pending {
     /// `refs --incoming` for the Use Info window.
     UseInfo,
+    /// A `cell` request (worlds, interiors, a world's cells, a cell's references,
+    /// or their next page) for the Cell View window.
+    CellView,
     /// `schema` of a record type, for a default edit-dialog layout.
     Schema(String),
 }
@@ -150,6 +158,7 @@ pub struct Shell {
     pub tickets: BTreeMap<u64, Pending>,
     pub warnings: warnings::WarningsState,
     pub use_info: use_info::UseInfoState,
+    pub cell_view: cell_view::CellViewState,
     pub dialog: crate::dialogs::DialogState,
     /// The screenshot tour's own steps (after the tabs).
     pub tour_step: usize,
