@@ -194,8 +194,12 @@ Each panel shows the following under its result:
 - Coverage. A count of `null` is shown as "not counted".
 - Every limitation, always on screen. A long limitation is cut to one line, and you can
   hover to see all of it.
-- The panel's own rows.
-- The evidence table: the first 300 ranges, collapsed by default.
+- The panel's own rows, in a virtual table: only the rows scrolled into view are laid
+  out, the header stays on top, columns are as wide as their widest content so far and
+  never wrap. The gap after each header column is a drag handle: dragging it sets the
+  column's width, which then sticks against wider content; a double-click gives the
+  column back to automatic sizing, and a new result starts the table over.
+- The evidence table: all its ranges, collapsed by default.
 - The raw `data` JSON, collapsed by default. It is formatted once when the result arrives
   and drawn only where it is scrolled into view, so a big result does not slow the window;
   it is cut after 500,000 lines and lines after 2,000 characters (the MCP call has all).
