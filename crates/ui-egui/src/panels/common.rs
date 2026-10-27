@@ -144,11 +144,22 @@ pub(crate) fn debug_title(build: &BuildInfo) -> Option<String> {
         .then(|| format!("{WINDOW_TITLE} - debug build (slow; `cargo xtask ui` builds release)"))
 }
 
+/// The state of one [`virtual_table`], kept in egui's temp data under the table's id:
+/// the column widths, the columns the user fixed by dragging a header edge (they no
+/// longer follow content), the data key the widths were measured for, and whether a
+/// column grew this frame.
+#[derive(Debug, Clone, Default)]
+pub(crate) struct TableState {
+    widths: Vec<f32>,
+    user_set: Vec<bool>,
+    data: Option<u64>,
+    grew: bool,
+}
+
 /// One row of a [`virtual_table`]: its cells, added left to right with [`TableRow::cell`].
 pub(crate) struct TableRow<'a> {
     ui: &'a mut egui::Ui,
-    widths: &'a mut Vec<f32>,
-    grew: &'a mut bool,
+    state: &'a mut TableState,
     x: f32,
     top: f32,
     height: f32,
@@ -173,10 +184,11 @@ impl TableRow<'_> {
     fn cell_aligned<R>(&mut self, right: bool, add: impl FnOnce(&mut egui::Ui) -> R) -> R {
         let col = self.col;
         self.col = self.col.saturating_add(1);
-        if self.widths.len() <= col {
-            self.widths.resize(col.saturating_add(1), 0.0);
+        if self.state.widths.len() <= col {
+            self.state.widths.resize(col.saturating_add(1), 0.0);
+            self.state.user_set.resize(col.saturating_add(1), false);
         }
-        let width = self.widths.get(col).copied().unwrap_or(0.0);
+        let width = self.state.widths.get(col).copied().unwrap_or(0.0);
         let cell =
             egui::Rect::from_min_size(egui::pos2(self.x, self.top), egui::vec2(width, self.height));
         // Unbounded to the right, so nothing wraps; clipped to the cell. A right-aligned
@@ -195,14 +207,68 @@ impl TableRow<'_> {
         child.set_clip_rect(cell.intersect(self.ui.clip_rect()));
         let out = add(&mut child);
         let used = child.min_rect().width();
-        if used > width {
-            if let Some(w) = self.widths.get_mut(col) {
+        // A column the user set by drag keeps its width: wider content is clipped,
+        // narrower content does not shrink it.
+        if used > width && !self.state.user_set.get(col).copied().unwrap_or(false) {
+            if let Some(w) = self.state.widths.get_mut(col) {
                 *w = used;
             }
-            *self.grew = true;
+            self.state.grew = true;
         }
         self.x += width + self.gap;
         out
+    }
+
+    /// The drag handle in the gap after column `col` (the header row only): dragging it
+    /// right sets the column's width, never below `sizes.column_min`; the width then
+    /// sticks until a double-click on the handle gives the column back to automatic
+    /// sizing. `Sense::click_and_drag` (not `drag`) because the double-click needs the
+    /// click sense; the handle is otherwise the Records split's drag line, in model.
+    fn handle(&mut self, col: usize) {
+        let min_w = theme::active(self.ui.ctx()).sizes.column_min;
+        let left = self.x - self.gap;
+        let rect = egui::Rect::from_min_max(
+            egui::pos2(left, self.top),
+            egui::pos2(self.x, self.top + self.height),
+        );
+        let resp = self
+            .ui
+            .interact(
+                rect,
+                self.ui.id().with(("col-resize", col)),
+                egui::Sense::click_and_drag(),
+            )
+            .on_hover_cursor(egui::CursorIcon::ResizeHorizontal);
+        if resp.dragged() {
+            let delta = resp.drag_delta();
+            if delta.x != 0.0 {
+                // A horizontal drag sets the column's width: it follows the pointer's
+                // movement, never below `sizes.column_min`, and then sticks.
+                if let Some(w) = self.state.widths.get_mut(col) {
+                    *w = (*w + delta.x).max(min_w);
+                }
+                if let Some(f) = self.state.user_set.get_mut(col) {
+                    *f = true;
+                }
+                self.state.grew = true;
+            }
+        }
+        // A double-click gives the column back to automatic sizing: its width is
+        // measured afresh from the content on the next frame (columns only grow).
+        if resp.double_clicked() {
+            if let Some(f) = self.state.user_set.get_mut(col) {
+                *f = false;
+            }
+            if let Some(w) = self.state.widths.get_mut(col) {
+                *w = 0.0;
+            }
+            self.state.grew = true;
+        }
+        // The handle's line, in the model of the Records split's drag line.
+        let hot = resp.hovered() || resp.dragged();
+        self.ui
+            .painter()
+            .vline(left + self.gap * 0.5, rect.y_range(), theme::split_stroke(self.ui, hot));
     }
 }
 
@@ -221,13 +287,12 @@ fn table_metrics(ui: &egui::Ui) -> (f32, f32) {
 /// Draws one row of a [`virtual_table`] at the next place in `ui`.
 fn table_row(
     ui: &mut egui::Ui,
-    widths: &mut Vec<f32>,
-    grew: &mut bool,
+    state: &mut TableState,
     zebra: bool,
     add: impl FnOnce(&mut TableRow<'_>),
 ) {
     let (height, gap) = table_metrics(ui);
-    let total: f32 = widths.iter().map(|w| w + gap).sum();
+    let total: f32 = state.widths.iter().map(|w| w + gap).sum();
     let (rect, _) = ui.allocate_exact_size(
         egui::vec2(total.max(ui.available_width()), height),
         egui::Sense::hover(),
@@ -238,8 +303,7 @@ fn table_row(
     }
     let mut row = TableRow {
         ui,
-        widths,
-        grew,
+        state,
         x: rect.min.x,
         top: rect.min.y,
         height,
@@ -247,6 +311,19 @@ fn table_row(
         col: 0,
     };
     add(&mut row);
+}
+
+/// The header row of a [`virtual_table`]: the header cells and, in the gap after every
+/// column but the last, the drag handle that resizes it.
+fn table_header(ui: &mut egui::Ui, state: &mut TableState, header: &[&str]) {
+    table_row(ui, state, false, |r| {
+        for (i, h) in header.iter().enumerate() {
+            r.cell(|ui| ui.strong(*h));
+            if i.saturating_add(1) < header.len() {
+                r.handle(i);
+            }
+        }
+    });
 }
 
 /// A table that lays out only the rows scrolled into view (M6.P4), so a page of 1000
@@ -270,8 +347,8 @@ pub(crate) fn virtual_table(
 /// A [`virtual_table`] over data that a new request replaces (a new query, a type pick):
 /// `data` names the data shown (the caller bumps it when new data arrives). When it
 /// differs from the last frame's, the table starts over: scrolled to the top and the left,
-/// and its column widths, which otherwise only grow, measured afresh (Fable review of wave
-/// 3, finding 4).
+/// and its column widths, which otherwise only grow, measured afresh — user-set widths
+/// included (Fable review of wave 3, finding 4).
 pub(crate) fn virtual_table_for(
     ui: &mut egui::Ui,
     id: impl std::hash::Hash + std::fmt::Debug,
@@ -282,13 +359,14 @@ pub(crate) fn virtual_table_for(
     mut row: impl FnMut(&mut TableRow<'_>, usize),
 ) -> egui::Rect {
     let id = ui.make_persistent_id(("virtual-table", id));
-    let (mut widths, last): (Vec<f32>, Option<u64>) =
-        ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
-    let replaced = last.is_some_and(|k| k != data);
+    let mut state: TableState = ui.data_mut(|d| d.get_temp(id)).unwrap_or_default();
+    let replaced = state.data.is_some_and(|k| k != data);
     if replaced {
-        widths.clear();
+        state.widths.clear();
+        state.user_set.clear();
     }
-    let mut grew = false;
+    state.data = Some(data);
+    state.grew = false;
     let zebra = theme::active(ui.ctx()).density.zebra;
     let (height, _) = table_metrics(ui);
     let max_height = theme::view_height(ui, view);
@@ -300,11 +378,7 @@ pub(crate) fn virtual_table_for(
     }
     let rect = across
         .show(ui, |ui| {
-            table_row(ui, &mut widths, &mut grew, false, |r| {
-                for h in header {
-                    r.cell(|ui| ui.strong(*h));
-                }
-            });
+            table_header(ui, &mut state, header);
             let mut down = ScrollArea::vertical()
                 .id_salt((id, "v"))
                 .max_height(max_height)
@@ -315,13 +389,14 @@ pub(crate) fn virtual_table_for(
             down.show_rows(ui, height, rows, |ui, range| {
                 for i in range {
                     let stripe = zebra && i & 1 == 1;
-                    table_row(ui, &mut widths, &mut grew, stripe, |r| row(r, i));
+                    table_row(ui, &mut state, stripe, |r| row(r, i));
                 }
             })
             .inner_rect
         })
         .inner;
-    ui.data_mut(|d| d.insert_temp(id, (widths, Some(data))));
+    let grew = state.grew;
+    ui.data_mut(|d| d.insert_temp(id, state));
     if grew || replaced {
         ui.ctx().request_repaint();
     }
@@ -857,8 +932,8 @@ mod tests {
                 });
                 let id = ui.make_persistent_id(("virtual-table", "t"));
                 widths = ui
-                    .data_mut(|d| d.get_temp::<(Vec<f32>, Option<u64>)>(id))
-                    .map(|(w, _)| w)
+                    .data_mut(|d| d.get_temp::<TableState>(id))
+                    .map(|s| s.widths)
                     .unwrap_or_default();
             });
             out.textures_delta.clear();
