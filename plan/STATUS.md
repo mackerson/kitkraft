@@ -2921,3 +2921,17 @@ Landed 2026-10-26: KK-035 - the Ledger form is prefilled from a probe row left
   three tests in `ledger.rs`.
 - **KK-036 landed (2026-10-27, local-agent ticket):** the Cell View window (M7.W2): worldspaces (with "Interior" as a first entry), interior cells, or one world's exterior cells with their grid in the left list; the selected cell's references (EditorID, base, type, position, persistent) in the right list; both paged over `cell` (`crates/ui-egui/src/windows/cell_view.rs`, `WindowKind::CellView`, `Pending::CellView`; the catalog's `cell` item opens it); reopening it while an error is shown asks for the worldspaces again; the `ck-parity.md` row is `built, unobserved` (ADR 0012 Amendment 1). Tests `windows::cell_view::tests::cell_view_lists_worlds_interiors_and_a_worlds_cells`, `cell_view_reads_a_cells_references_and_pages`, `menu::tests::the_cell_view_is_a_window_and_the_cell_item_opens_it`, `reopening_the_cell_view_clears_the_error_so_it_asks_again`.
 Landed: KK-038 drag-resize for virtual_table columns (crates/ui-egui/src/panels/common.rs only) - the gap after each header column but the last is a drag handle (the resize cursor on hover, the Records split's line); dragging it sets that column's width, never below the new sizes.column_min (48, every preset); a user-set width sticks (wider content clipped, narrower does not shrink); a double-click gives the column back to automatic sizing; a new data key starts the table over (scroll to the top, every width, user-set included, measured afresh); the state is a TableState in egui's temp data under the table's id, which also names its handles; a_column_resized_by_drag_keeps_its_width drives drag, double-click and reset headlessly, and a_virtual_table_starts_over_when_new_data_replaces_it reads the new type without loosening; sizes.column_min is in the style guide (Sizes table, "The table style") and docs/workbench.md's rows bullet.
+- **KK-050 landed (2026-10-26, local-agent ticket):** the two KK-002 follow-up
+  drafts. `plan/tickets/drafts/qust-slot-alignment.toml`: make
+  `qust_new_sets_every_typed_member_and_reads_back` pass by aligning the Plan's
+  `CTDA` occurrence counts with the engine's slots (the finding that the Plan's
+  walker skips the `Conditions` group nested in the chosen component layout is
+  written as a finding to confirm, not a fact), a new slot-rule unit test in
+  `scaffold.rs`, and the QUST `typed-writable` evidence entry and matrix row.
+  `plan/tickets/drafts/wrld-new.toml`: let `new` write a WRLD as a lone record
+  in its top-level `WRLD` group — the WRLD test's `#[ignore]` removed, the one
+  existing test's "A world stays refused" half flipped to a world written,
+  `clone`'s refusal of worlds unchanged — and a `docs/gaps.md` line that a new
+  world has no cells yet and is not game-tested. Both drafts lint clean
+  (`plan/tickets/lint.py --min 2`), and each one's unit-test acceptance fails on
+  main today.

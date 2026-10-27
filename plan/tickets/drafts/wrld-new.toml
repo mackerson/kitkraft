@@ -1,0 +1,105 @@
+id = "DRAFT"
+title = "new writes a WRLD: a lone worldspace in its top-level group, no cells yet"
+timeout_min = 45
+budget_h = 1.5
+after = ["KK-002"]
+owns = [
+  "crates/engine/src/handlers/newform.rs",
+  "crates/engine/src/handlers/authoring_tests.rs",
+  "crates/engine/src/handlers/authoring_world_tests.rs",
+  "docs/gaps.md",
+]
+brief = """
+`new` refuses a WRLD today. In `crates/engine/src/handlers/newform.rs`, `new_refused`
+is `&sig != b"CELL" && nested_or_world(sig)`, and `nested_or_world` lists the cell and
+quest children types plus `INFO`, `CELL`, `WRLD`, `TES4` and `LAND`; the refusal reads
+`new.not-top-level: {at}: a {text} lives in a world, cell or quest's children (use
+`place` for references); `new` writes records of their own top-level group, and interior
+cells`. The existing test `a_new_exterior_cell_is_refused` in
+`crates/engine/src/handlers/authoring_world_tests.rs` asserts both halves of the
+refusal: a `new` of a `CELL` without the Interior flag is refused with
+`new.cell-exterior` and writes nothing, and then, under the comment `// A world stays
+refused.`, a `new` of `{"type": "WRLD", "edid": "KC_World", ...}` is refused with
+`new.not-top-level`.
+
+This ticket lets `new` write a WRLD as a lone record in its top-level `WRLD` group: no
+world children group — no persistent cell, no exterior cells (`place` adds those later).
+The writer already has the case: in `crates/esm/src/cells.rs`, `Parent::None` is
+documented as "Nothing: a record of a type that lives in its top-level group (`WRLD`
+and `QUST` included)", and the writer's refusal set for it (`nested_only`: the cell
+and quest children types plus `INFO` and `CELL`) does not include WRLD, so
+`placement` accepts a lone WRLD, and `plan_new` already writes an accepted type under a
+top-level path with no parents. The engine change is small: let WRLD through
+`new_refused` exactly the way the interior `CELL` is already let through, and update
+the module doc, the `new_refused` doc and the refusal wording that speak of "interior
+cells" so they name the worldspace too. `clone` keeps refusing worlds: `plan_clone`
+uses the same `nested_or_world` and stays as it is (out of scope).
+
+On the KK-002 branch (it merges before this run starts; its tests are the starting
+point), the typed-write test `wrld_new_sets_every_typed_member_and_reads_back` in
+`crates/engine/src/handlers/authoring_tests.rs` is marked `#[ignore = "`new` refuses a
+WRLD (new.not-top-level): a worldspace roots a world whose exterior grid and cells are
+not written yet"]`. This ticket removes that `#[ignore]`; the test must pass. Do not
+un-ignore `wrld_dangling_link_is_reported`, which carries the same `#[ignore]` text:
+it stays ignored, and it is not part of this ticket. Update the module-doc note in
+`authoring_tests.rs` that says a WRLD's typed-writable row awaits that writer.
+
+The one existing test this ticket may change is `a_new_exterior_cell_is_refused` in
+`crates/engine/src/handlers/authoring_world_tests.rs`, and only its "A world stays
+refused" half: the exterior-cell half (the `new.cell-exterior` refusal and the
+`!into.exists()` check) stays exactly as it is, and the world half becomes: the WRLD
+`new` succeeds, the plugin validates with no findings, and `New.esp` holds the WRLD.
+No other existing test may change.
+
+The `validate` decision, stated up front: a lone WRLD must validate with zero findings,
+and the run must not loosen, add or change any validate rule (validate is not owned).
+The reason: the only rule that could fire on a world, `cell.missing-parent`
+(`crates/engine/src/validate/cells.rs`), fires only when a world or cell children group
+is present in the plugin and its parent record is in neither the plugin nor the
+masters; a lone WRLD has no children group at all, and no rule requires a world to have
+a persistent cell. If `validate` nevertheless reports a finding on the new world, that
+finding refutes the ticket's premise: do not loosen `check_written` and do not add an
+exception to silence it — let the acceptance fail with the finding visible in its
+output, and report the finding's text and rule in the run's report so the follow-up can
+decide.
+
+Add one new test with the exact name `a_new_world_is_written_alone_in_its_top_level_group`
+in `crates/engine/src/handlers/authoring_world_tests.rs`: on the file's existing
+`world_master` fixture, `new` a WRLD with a few fields (for example `RNAM`, `FULL` and
+the `DATA` flags), assert success and a clean validate, and assert the WRLD is written
+alone in its top-level group: with the file's index helpers, the same way
+`cell_new_sets_every_typed_member_and_reads_back` reads `index_bytes`,
+`index.group_path` and the `(group_type, label)` pairs, the WRLD record's group path is
+exactly the single top-level group the writer writes for such a record (`GroupHeader::top`
+in `crates/esm/src/cells.rs`) — no world children group, no persistent cell, no exterior
+cells — and the field values read back.
+
+Add a line to `docs/gaps.md` (owned by this ticket), matching the file's existing line
+shape: a new world has no cells yet — `new` writes the WRLD alone, without a persistent
+cell and without an exterior grid or cells, and `place` is expected to add them — and
+a new world is not game-tested.
+
+Done means: `wrld_new_sets_every_typed_member_and_reads_back` passes (its `#[ignore]`
+removed); `a_new_world_is_written_alone_in_its_top_level_group` passes;
+`a_new_exterior_cell_is_refused` passes with only its "A world stays refused" half
+changed; every other existing test passes unchanged; the gaps line is in. Do not touch
+any file outside `owns`; do not change `clone`'s refusal of worlds; do not merge or
+rebase the KK-002 branch (it merges before this run starts, and its tests are the
+starting point); do not read `plan/STATUS.md` or `plan/execution-plan.md`.
+"""
+
+[[accept]]
+name = "wrld-passes"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_tests::wrld_new_sets_every_typed_member_and_reads_back 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "alone-top-level"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::authoring_world_tests::a_new_world_is_written_alone_in_its_top_level_group 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "existing-world-tests-hold"
+cmd = "cargo test -p kitkraft-engine --lib -- authoring_world 2>&1 | tee /tmp/o; grep -Eq '^test result: ok. [1-9][0-9]* passed' /tmp/o"
+
+[[accept]]
+name = "gaps"
+cmd = "grep -qi 'no cells yet' docs/gaps.md && grep -qi 'game-tested' docs/gaps.md"
