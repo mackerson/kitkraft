@@ -496,4 +496,117 @@ mod tests {
             "failed: still no poll a second later"
         );
     }
+
+    /// M6.G4: the window follows a session it started, on the engine's one worker:
+    /// the dry run says `would_start`, the start gives the id at once, every poll is
+    /// an ordinary `game.status` on that worker with a read right behind it (the
+    /// replies come back in submission order), and the stop keeps the report.
+    #[test]
+    fn the_window_follows_a_started_session_on_its_one_worker() {
+        use crate::gate::{GameFakes, ReadOnlyEngine};
+        use crate::worker::Worker;
+
+        const WAIT: Duration = Duration::from_secs(60);
+
+        let fakes = GameFakes::new("cockpit-follow").unwrap();
+        let mut worker: Worker =
+            Worker::spawn_with_engine(ReadOnlyEngine::with_game_fakes(&fakes), None).unwrap();
+        let form = SessionForm::from_args(&fakes.session_args(json!({})));
+        let mut state = SessionState::default();
+
+        // The preview: the dry run says `would_start`.
+        let preview = form.preview_request();
+        worker.submit(preview.clone()).unwrap();
+        let env = worker
+            .wait(WAIT)
+            .expect("the preview reply is due")
+            .result
+            .unwrap();
+        state.receive_session(&preview, &env);
+        let pv = state.preview.as_ref().expect("the preview is stored");
+        assert!(pv.would_start, "{}", pv.summary);
+        assert!(
+            pv.plan.iter().any(|l| l.starts_with("probes")),
+            "{:?}",
+            pv.plan
+        );
+
+        // The start: the id comes back at once.
+        let start = SessionForm::start_request(&pv.args);
+        worker.submit(start.clone()).unwrap();
+        let env = worker
+            .wait(WAIT)
+            .expect("the start reply is due")
+            .result
+            .unwrap();
+        state.receive_session(&start, &env);
+        let id = state.id.clone().expect("the start gave the id");
+
+        // The following: each turn submits the due poll and, right after it, a read;
+        // no poll is due while one is pending.
+        let mut now = Instant::now();
+        let mut polls = 0u64;
+        let mut turns = 0u64;
+        while state.phase.as_deref() != Some("idle") {
+            turns = turns.saturating_add(1);
+            assert!(turns < 400, "still running after {turns} turns");
+            let poll = state.poll_due(now).expect("a poll is due this turn");
+            assert!(
+                state.poll_due(now).is_none(),
+                "no second poll while one is pending"
+            );
+            worker.submit(poll).unwrap();
+            worker
+                .submit(Request::new("schema", json!({"type": "WEAP"})))
+                .unwrap();
+            let status = worker
+                .wait(WAIT)
+                .expect("the poll reply is due")
+                .result
+                .unwrap();
+            state.receive_status(&status);
+            let read = worker
+                .wait(WAIT)
+                .expect("the read reply is due")
+                .result
+                .unwrap();
+            assert_eq!(read["data"]["defined"], json!(true), "{read}");
+            polls = polls.saturating_add(1);
+            now = now + POLL_INTERVAL;
+        }
+        assert!(
+            polls >= 2,
+            "{polls} polls: at least two, with a read served between them"
+        );
+
+        // The stop: the preview's `would` lines, then the confirmed stop; the report
+        // is kept, and polling ends.
+        let stop = SessionForm::stop_preview(&id);
+        worker.submit(stop).unwrap();
+        let env = worker
+            .wait(WAIT)
+            .expect("the stop preview reply is due")
+            .result
+            .unwrap();
+        state.receive_stop(&env);
+        let sp = state
+            .stop_preview
+            .as_ref()
+            .expect("the stop preview is stored");
+        assert_eq!(sp.id, id);
+        assert!(!sp.would.is_empty(), "{:?}", sp.would);
+        worker.submit(SessionForm::stop_request(&id)).unwrap();
+        let env = worker
+            .wait(WAIT)
+            .expect("the stop reply is due")
+            .result
+            .unwrap();
+        state.receive_stop(&env);
+        assert!(state.report.is_some(), "the stop's report is kept");
+        assert!(!state.following());
+        assert!(
+            state.poll_due(now).is_none(),
+            "after the stop, no more polls are due"
+        );
+    }
 }
