@@ -900,6 +900,67 @@ fn fact_dangling_link_is_reported() {
     );
 }
 
+#[test]
+fn cont_dangling_link_is_reported() {
+    // The container's item (the `Item` field of a CNTO entry), its snap template and
+    // its snap behavior.
+    dangling(
+        "CONT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("CNTO.Item", json!(MISSING)),
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+        ],
+        &["Item", "SNTP", "SNBH"],
+    );
+}
+
+#[test]
+fn misc_dangling_link_is_reported() {
+    // The snap template, the snap behavior and the featured-item message.
+    dangling(
+        "MISC",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+            ("FIMD", json!(MISSING)),
+        ],
+        &["SNTP", "SNBH", "FIMD"],
+    );
+}
+
+#[test]
+fn flst_dangling_link_is_reported() {
+    // The form list's entry and the list it adds to.
+    dangling(
+        "FLST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LNAM", json!(MISSING)), ("ANAM", json!(MISSING))],
+        &["LNAM", "ANAM"],
+    );
+}
+
+#[test]
+fn lvli_dangling_link_is_reported() {
+    // A leveled entry's item, the default item and the snap behavior.
+    dangling(
+        "LVLI",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("LVLO.Item", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+        ],
+        &["Item", "DEFL", "SNBH"],
+    );
+}
+
 /// The whole-array payloads the hex tests write: (record, subrecord, bytes, what the
 /// refusal and the finding must say). ACPR and LCPR entries are 16 bytes (Ref,
 /// WorldOrCell, two i16 grid values, 4 bytes), PRIS entries 20 (five REFR FormIDs), and
