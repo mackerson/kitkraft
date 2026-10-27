@@ -266,9 +266,11 @@ impl TableRow<'_> {
         }
         // The handle's line, in the model of the Records split's drag line.
         let hot = resp.hovered() || resp.dragged();
-        self.ui
-            .painter()
-            .vline(left + self.gap * 0.5, rect.y_range(), theme::split_stroke(self.ui, hot));
+        self.ui.painter().vline(
+            left + self.gap * 0.5,
+            rect.y_range(),
+            theme::split_stroke(self.ui, hot),
+        );
     }
 }
 
@@ -983,31 +985,32 @@ mod tests {
         let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::Vec2::from(theme::WINDOW));
         // One frame over `data`, both cells fixed-width (a test context has no fonts to
         // measure text), with the given pointer events; returns the column widths.
-        let frame = |data: u64, first_w: f32, second_w: f32, events: Vec<egui::Event>| -> Vec<f32> {
-            let raw = egui::RawInput {
-                screen_rect: Some(screen),
-                events,
-                ..Default::default()
-            };
-            let mut widths = Vec::new();
-            let mut out = ctx.run_ui(raw, |ui| {
-                virtual_table_for(ui, "t", data, &["a", "b"], 10, View::Medium, |r, _| {
-                    r.cell(|ui| {
-                        ui.allocate_exact_size(egui::vec2(first_w, 8.0), egui::Sense::hover())
+        let frame =
+            |data: u64, first_w: f32, second_w: f32, events: Vec<egui::Event>| -> Vec<f32> {
+                let raw = egui::RawInput {
+                    screen_rect: Some(screen),
+                    events,
+                    ..Default::default()
+                };
+                let mut widths = Vec::new();
+                let mut out = ctx.run_ui(raw, |ui| {
+                    virtual_table_for(ui, "t", data, &["a", "b"], 10, View::Medium, |r, _| {
+                        r.cell(|ui| {
+                            ui.allocate_exact_size(egui::vec2(first_w, 8.0), egui::Sense::hover())
+                        });
+                        r.cell(|ui| {
+                            ui.allocate_exact_size(egui::vec2(second_w, 8.0), egui::Sense::hover())
+                        });
                     });
-                    r.cell(|ui| {
-                        ui.allocate_exact_size(egui::vec2(second_w, 8.0), egui::Sense::hover())
-                    });
+                    let id = ui.make_persistent_id(("virtual-table", "t"));
+                    widths = ui
+                        .data_mut(|d| d.get_temp::<TableState>(id))
+                        .map(|s| s.widths)
+                        .unwrap_or_default();
                 });
-                let id = ui.make_persistent_id(("virtual-table", "t"));
-                widths = ui
-                    .data_mut(|d| d.get_temp::<TableState>(id))
-                    .map(|s| s.widths)
-                    .unwrap_or_default();
-            });
-            out.textures_delta.clear();
-            widths
-        };
+                out.textures_delta.clear();
+                widths
+            };
         let press = |pos: egui::Pos2| egui::Event::PointerButton {
             button: egui::PointerButton::Primary,
             pressed: true,
