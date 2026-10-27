@@ -385,8 +385,11 @@ impl SessionState {
     }
 
     /// The start's reply: the id comes back at once, and the following starts (the
-    /// first poll is due right away).
+    /// first poll is due right away). The start's dry run and any stop preview are
+    /// spent: a second launch needs a new preview, and only once this session ends.
     pub fn receive_start(&mut self, env: &Value) {
+        self.preview = None;
+        self.stop_preview = None;
         self.id = env
             .get("data")
             .and_then(|d| d.get("session"))
@@ -469,7 +472,8 @@ impl SessionState {
         let poll = request.id == "game.status";
         let start = request.id == "game.session"
             && request.args.get("dry_run").and_then(Value::as_bool) != Some(true);
-        if (poll || start)
+        // A refused second start never cuts off the session still followed.
+        if (poll || (start && !self.following()))
             && self.id.is_some()
             && self.report.is_none()
             && self.poll_error.is_none()
@@ -543,7 +547,7 @@ pub(crate) fn session_ui(
     ui.horizontal_wrapped(|ui| {
         if ui
             .add_enabled(
-                !busy && state.id.is_none(),
+                !busy && !state.following(),
                 egui::Button::new("Preview session"),
             )
             .on_hover_text("game.session --dry-run: the plan and every refusal; writes nothing")
@@ -557,10 +561,14 @@ pub(crate) fn session_ui(
         let gate_s = session_confirm_gate(form, &target, state.preview.as_ref());
         let open_s = ui
             .add_enabled(
-                !busy && state.pending.is_none() && gate_s.is_ok(),
+                !busy && !state.following() && state.pending.is_none() && gate_s.is_ok(),
                 egui::Button::new("Launch..."),
             )
-            .on_disabled_hover_text(gate_s.as_ref().err().cloned().unwrap_or_default());
+            .on_disabled_hover_text(if state.following() {
+                "a session is started: stop it first".to_string()
+            } else {
+                gate_s.as_ref().err().cloned().unwrap_or_default()
+            });
         if open_s.clicked() {
             state.pending = Some(SessionAction::Start);
         }
@@ -568,7 +576,10 @@ pub(crate) fn session_ui(
         match state.id.clone() {
             Some(id) => {
                 if ui
-                    .add_enabled(!busy, egui::Button::new("Preview stop"))
+                    .add_enabled(
+                        !busy && state.following(),
+                        egui::Button::new("Preview stop"),
+                    )
                     .on_hover_text("game.stop --dry-run: the would lines; writes nothing")
                     .clicked()
                 {
@@ -581,6 +592,7 @@ pub(crate) fn session_ui(
                 let open_t = ui
                     .add_enabled(
                         !busy
+                            && state.following()
                             && state.pending.is_none()
                             && state.stop_preview.as_ref().is_some_and(|p| p.id == id),
                         egui::Button::new("Stop..."),
@@ -628,7 +640,7 @@ pub(crate) fn session_ui(
             SessionAction::Start => {
                 let p = state.preview.as_ref();
                 match session_confirm_gate(form, &target, p) {
-                    Ok(args) if p.is_some() => {
+                    Ok(args) if p.is_some() && !state.following() => {
                         egui::Frame::group(ui.style()).show(ui, |ui| {
                             theme::status_line(
                                 ui,
@@ -910,6 +922,34 @@ mod tests {
             s.poll_due(now + POLL_INTERVAL).is_none(),
             "failed: still no poll a second later"
         );
+    }
+
+    /// KK-032 review: the start spends its dry run, so the confirm cannot launch a
+    /// second session, and a refused second start leaves the followed one followed.
+    #[test]
+    fn a_started_session_spends_its_preview() {
+        let form = SessionForm {
+            mo2: "M".into(),
+            ..Default::default()
+        };
+        let preview = form.preview_request();
+        let dry = json!({
+            "command": "game.session",
+            "data": {"dry_run": true, "would_start": true, "plan": [], "refusals": []}
+        });
+        let mut s = SessionState::default();
+        s.receive_session(&preview, &dry);
+        assert!(s.preview.is_some());
+        s.receive_start(&started_env());
+        assert!(s.preview.is_none(), "the start spends the dry run");
+        assert!(s.stop_preview.is_none());
+        assert!(s.following());
+        s.failed(&SessionForm::start_request(&preview.args));
+        assert!(
+            s.poll_error.is_none(),
+            "a refused second start: still followed"
+        );
+        assert!(s.following());
     }
 
     /// M6.G4: the window follows a session it started, on the engine's one worker:
