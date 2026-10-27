@@ -25,12 +25,15 @@ the controller refuses a live session. The console tools are not installed eithe
 | `kit game stop <id> [--dry-run]` | yes | Ends the session: game ended, logs copied, profile verified, ledger entry; `--dry-run` says what it would do |
 
 Each command is one `CommandSpec`, so the CLI, MCP and the workbench (M6.G4) share one
-implementation. A front end that stays open follows a session through `game.status`, and
-it needs no second engine worker. A started session belongs to the engine that started
-it. When that engine goes away, the session is stopped properly: the game is ended, the
-profile verified and the ledger entry written. With the one-shot `kit` CLI that happens
-as soon as the command returns, so use the synchronous form there and `--start` from MCP
-or the window.
+implementation. `game.session` also reports progress as it runs: a `preflight` event
+before and after the facts are gathered (in every form, and a refused session still
+sends the first), and, in the synchronous form, a `phase` event each time the controller
+changes phase and a `probe` event each time a probe row finishes. A front end that
+stays open follows a session through `game.status`, and it needs no second engine
+worker. A started session belongs to the engine that started it. When that engine goes
+away, the session is stopped properly: the game is ended, the profile verified and
+the ledger entry written. With the one-shot `kit` CLI that happens as soon as the
+command returns, so use the synchronous form there and `--start` from MCP or the window.
 
 ## Preflight (every condition refuses, naming its rule)
 

@@ -17,7 +17,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use kitkraft_game::console::HttpConsole;
-use kitkraft_game::controller::{self, Deps, Plan, Report, Shared};
+use kitkraft_game::controller::{self, Deps, Phase, Plan, Report, Shared, Snapshot};
 use kitkraft_game::host::{Host, SystemHost};
 use kitkraft_game::preflight::{self, BaseSave, Facts, PluginFacts, Refusal};
 use kitkraft_game::probes::ProbeFile;
@@ -30,6 +30,7 @@ use serde_json::{json, Value};
 use super::{failed, str_arg};
 use crate::envelope::{Coverage, Outcome};
 use crate::exec::EngineError;
+use crate::progress::Reporter;
 use crate::session::Session;
 
 /// The dev profile a session runs on when the call names none.
@@ -124,6 +125,35 @@ fn plugin_stem(name: &str) -> &str {
         .unwrap_or(name)
 }
 
+/// The session id and save name, decided before the facts are gathered, so the
+/// `preflight` progress events can name the session even when it is refused.
+fn session_identity(
+    session: &Session,
+    args: &Value,
+    id: &str,
+) -> Result<(String, String, String), EngineError> {
+    let fail = |m: String| failed(id, m);
+    let game = GameProfile::named(
+        args.get("game")
+            .and_then(Value::as_str)
+            .unwrap_or("starfield"),
+    )
+    .map_err(|e| fail(e.to_string()))?;
+    let cwd = std::env::current_dir().map_err(|e| fail(e.to_string()))?;
+    let observe_root = args
+        .get("observe")
+        .and_then(Value::as_str)
+        .map_or_else(|| cwd.join("observe"), PathBuf::from);
+    let taken: Vec<String> = session
+        .get::<Sessions>()
+        .map(|s| s.map.keys().cloned().collect())
+        .unwrap_or_default();
+    let date = controller::today_utc();
+    let (session_id, session_save) =
+        controller::next_session(&observe_root, &date, &game.saves.session_prefix, &taken);
+    Ok((date, session_id, session_save))
+}
+
 /// Everything a session needs, read and checked, before anything is written.
 struct Prepared {
     plan: Plan,
@@ -131,7 +161,14 @@ struct Prepared {
     limitations: Vec<String>,
 }
 
-fn prepare(session: &Session, args: &Value, id: &str) -> Result<Prepared, EngineError> {
+fn prepare(
+    session: &Session,
+    args: &Value,
+    id: &str,
+    date: &str,
+    session_id: &str,
+    session_save: &str,
+) -> Result<Prepared, EngineError> {
     let fail = |m: String| failed(id, m);
     let mo2 = PathBuf::from(str_arg(id, args, "mo2")?);
     let instance = Instance::read(&mo2).map_err(|e| fail(e.to_string()))?;
@@ -257,14 +294,6 @@ fn prepare(session: &Session, args: &Value, id: &str) -> Result<Prepared, Engine
             message: e.to_string(),
         });
     }
-    let taken: Vec<String> = session
-        .get::<Sessions>()
-        .map(|s| s.map.keys().cloned().collect())
-        .unwrap_or_default();
-    let date = controller::today_utc();
-    let (session_id, session_save) =
-        controller::next_session(&observe_root, &date, &game.saves.session_prefix, &taken);
-
     // Backups: the list files, every INI of the profile, the base save.
     let mut backups: Vec<PathBuf> = [
         "modlist.txt",
@@ -361,10 +390,10 @@ fn prepare(session: &Session, args: &Value, id: &str) -> Result<Prepared, Engine
             "what the console prints for each probe command is grade D until M4.T1 observes it".to_string(),
         ))
         .collect();
-    let observe = observe_root.join(&session_id);
+    let observe = observe_root.join(session_id);
     let plan = Plan {
-        session: session_id,
-        date,
+        session: session_id.to_string(),
+        date: date.to_string(),
         timeouts: game.timeouts.clone(),
         mod_manager: mo2.join(&game.executables.mod_manager),
         instance: mo2,
@@ -373,7 +402,7 @@ fn prepare(session: &Session, args: &Value, id: &str) -> Result<Prepared, Engine
         ledger: Some(ledger),
         base_save: base_name,
         base_save_sha256: base_sha.unwrap_or_default(),
-        session_save,
+        session_save: session_save.to_string(),
         plugins: vec![(probes.plugin.clone(), probes.sha256.clone())],
         probes,
         probes_path,
@@ -397,10 +426,71 @@ fn report_json(report: &Report) -> Value {
     serde_json::to_value(report).unwrap_or(Value::Null)
 }
 
+/// A phase as `game.status` spells it (kebab-case).
+fn phase_name(phase: Phase) -> String {
+    serde_json::to_value(phase)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_string))
+        .unwrap_or_default()
+}
+
+/// A synchronous session with a sink: the controller runs on a scoped thread, and the
+/// calling thread — where the sink lives, since `progress::current` reads a thread-local —
+/// polls the shared state every 50 ms, sending a `phase` event per phase change and one
+/// `probe` event per row as it finishes, then reads the state one last time after the
+/// thread has ended, so a phase or row that lands between the last poll and the finish
+/// still gets its event. A thread that panics is an error result, not a crash: the scope
+/// does not propagate the panic, and `join` hands it back as `Err`.
+fn run_with_progress(
+    plan: &Plan,
+    deps: Deps,
+    shared: &Arc<Shared>,
+    reporter: &Reporter,
+) -> Result<Report, EngineError> {
+    const ID: &str = "game.session";
+    let total = plan.probes.probes.len();
+    let shared = Arc::clone(shared);
+    let worker = Arc::clone(&shared);
+    let mut last_phase = shared.snapshot().phase;
+    let mut rows_seen = 0usize;
+    let mut phases_seen = 0usize;
+    let mut emit = |snap: &Snapshot| {
+        if snap.phase != last_phase {
+            last_phase = snap.phase;
+            phases_seen = phases_seen.saturating_add(1);
+            let name = phase_name(last_phase);
+            reporter.emit("phase", phases_seen, None, Some(&name));
+        }
+        if let Some(rows) = snap.rows.get(rows_seen..) {
+            for row in rows {
+                rows_seen = rows_seen.saturating_add(1);
+                reporter.emit("probe", rows_seen, Some(total), Some(&row.row));
+            }
+        }
+    };
+    std::thread::scope(|scope| {
+        let handle = scope.spawn(move || controller::run(plan, deps, &worker));
+        loop {
+            emit(&shared.snapshot());
+            if handle.is_finished() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(50));
+        }
+        emit(&shared.snapshot());
+        handle
+            .join()
+            .map_err(|_| failed(ID, "the session thread panicked"))
+    })
+}
+
 /// `game.session`.
 pub(super) fn session(session: &mut Session, args: &Value) -> Result<Outcome, EngineError> {
     const ID: &str = "game.session";
-    let prepared = prepare(session, args, ID)?;
+    let (date, session_id, session_save) = session_identity(session, args, ID)?;
+    crate::progress::emit("preflight", 0, Some(1), Some(&session_id));
+    let prepared = prepare(session, args, ID, &date, &session_id, &session_save)?;
+    crate::progress::emit("preflight", 1, Some(1), Some(&session_id));
     let Prepared {
         plan,
         refusals,
@@ -465,7 +555,10 @@ pub(super) fn session(session: &mut Session, args: &Value) -> Result<Outcome, En
             limitations,
         ));
     }
-    let report = controller::run(&plan, deps, &shared);
+    let report = match crate::progress::current() {
+        Some(reporter) => run_with_progress(&plan, deps, &shared, &reporter)?,
+        None => controller::run(&plan, deps, &shared),
+    };
     Ok(outcome(
         json!({
             "session": plan.session, "report": report_json(&report),
