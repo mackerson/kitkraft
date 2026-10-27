@@ -318,6 +318,50 @@ mod tests {
         assert_eq!(EnvelopeView::from_value(&json!({})).build, None);
     }
 
+    /// M6.P5a bench: the raw lines of a ~30 MB synthetic envelope, `Prepared::new`
+    /// timed (median of 5 release runs). Ignored: run with
+    /// `cargo test -p kitkraft-ui-egui --release --lib -- --ignored --exact
+    /// envelope::tests::raw_bench --nocapture`.
+    #[test]
+    #[ignore]
+    fn raw_bench() {
+        let rows: Vec<Value> = (0..150_000)
+            .map(|i| {
+                json!({
+                    "form": format!("A.esm:{i:06X}"),
+                    "edid": "x".repeat(120),
+                    "note": "y".repeat(40)
+                })
+            })
+            .collect();
+        let env = json!({"command": "query", "data": {"summary": "150000 matched", "rows": rows},
+            "coverage": {"status": "complete"}, "limitations": [], "evidence": []});
+        let mut ms: Vec<u128> = Vec::new();
+        let mut p = Prepared::new(Some(&env), None);
+        for _ in 0..5 {
+            let t = std::time::Instant::now();
+            p = Prepared::new(Some(&env), None);
+            ms.push(t.elapsed().as_nanos());
+        }
+        ms.sort_unstable_by_key(|n| *n);
+        let Some(&median) = ms.get(2) else {
+            return;
+        };
+        let lines = p.raw.len();
+        // The lines' heap before the one-buffer change: each line's String capacity,
+        // the 24-byte String header per line, and the Vec's own capacity.
+        let heap_bytes: usize = p
+            .raw
+            .iter()
+            .map(|l| l.capacity() + std::mem::size_of::<String>())
+            .sum::<usize>()
+            + p.raw.capacity() * std::mem::size_of::<String>();
+        println!(
+            "raw-bench: lines={lines} heap_bytes={heap_bytes} median_ms={}",
+            median as f64 / 1.0e6
+        );
+    }
+
     #[test]
     fn a_bare_object_is_unknown_not_complete() {
         let v = EnvelopeView::from_value(&json!({}));
