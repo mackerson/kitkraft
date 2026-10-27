@@ -1,5 +1,5 @@
-//! The game session form (M6.G4, first half; ADR 0007 Amendment 3): toolkit-free, no
-//! drawing and no button wiring yet (the wiring is the next ticket).
+//! The game session (M6.G4, second half; ADR 0007 Amendment 3): the form, the state
+//! the window follows, and its drawing (below the `// ---- drawing` line).
 //!
 //! The gate lets the window start a session with `game.session` in its writing form
 //! (`start: true`, `dry_run` absent) only as a confirmed request, follow it with
@@ -7,12 +7,18 @@
 //! (its preview is `dry_run: true`). This file is the one panel that builds the
 //! confirmed `game.session` and `game.stop` requests (the gate's source scan holds it):
 //! [`SessionForm::start_request`] for the start, [`SessionForm::stop_request`] for the
-//! stop. The window never launches the game itself: the requests go through
-//! `gate::ReadOnlyEngine` and the engine runs them.
+//! stop. The window never launches the game itself: every request goes through the one
+//! engine worker (`crate::worker`); a poll is one ordinary `game.status` on it, never a
+//! second worker, thread or process.
+
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Map, Value};
 
 use crate::gate::Request;
+
+/// The interval between two `game.status` polls: one per second (M6.G4).
+pub const POLL_INTERVAL: Duration = Duration::from_secs(1);
 
 /// The session form: where the probes and the game come from, which profile runs them,
 /// and where the session writes (empty fields stay out of the arguments; the engine
@@ -56,7 +62,7 @@ impl SessionForm {
     }
 
     /// The session's arguments: the filled fields, trimmed; empty ones left out.
-    fn args(&self) -> Map<String, Value> {
+    pub(crate) fn args(&self) -> Map<String, Value> {
         let mut a = Map::new();
         for (k, v) in [
             ("mo2", &self.mo2),
@@ -113,6 +119,260 @@ impl SessionForm {
     }
 }
 
+/// The result of a `game.session` dry run: what the confirm box shows, and the
+/// arguments its button sends (with `dry_run` dropped and `start: true` added).
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionPreview {
+    /// The arguments it ran with.
+    pub args: Value,
+    /// `data.would_start`.
+    pub would_start: bool,
+    /// `data.refusals`, one `[rule] message` line each.
+    pub refusals: Vec<String>,
+    /// The plan's key lines: the session, its instance and profile, the probes and
+    /// their rows, the base save, and how the session ends.
+    pub plan: Vec<String>,
+    /// `data.summary`.
+    pub summary: String,
+}
+
+impl SessionPreview {
+    /// The preview from the request it ran and the dry run's reply.
+    pub fn from_reply(request: &Request, env: &Value) -> Self {
+        let refusals = env["data"]["refusals"]
+            .as_array()
+            .map(|r| {
+                r.iter()
+                    .map(|r| {
+                        format!(
+                            "[{}] {}",
+                            r["rule"].as_str().unwrap_or("?"),
+                            r["message"].as_str().unwrap_or("")
+                        )
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let plan = env["data"]["plan"]
+            .as_object()
+            .map(|p| {
+                let mut lines = Vec::new();
+                if let Some(s) = p.get("session").and_then(Value::as_str) {
+                    lines.push(format!("session {s}"));
+                }
+                if let Some(i) = p.get("instance").and_then(Value::as_str) {
+                    lines.push(format!("instance: {i}"));
+                }
+                if let Some(pr) = p.get("profile").and_then(Value::as_str) {
+                    lines.push(format!("profile: {pr}"));
+                }
+                if let Some(pr) = p.get("probes") {
+                    let rows = pr["rows"].as_array().map_or(0, |r| r.len());
+                    lines.push(format!("probes: {} ({} rows)", pr["path"].as_str().unwrap_or_default(), rows));
+                }
+                if let Some(bs) = p.get("base_save").and_then(|b| b["name"].as_str()) {
+                    lines.push(format!("base save: {} ({})", bs, p["base_save"]["sha256"].as_str().unwrap_or_default()));
+                }
+                if let Some(e) = p.get("ends").and_then(Value::as_str) {
+                    lines.push(format!("ends: {e}"));
+                }
+                lines
+            })
+            .unwrap_or_default();
+        Self {
+            args: request.args.clone(),
+            would_start: env["data"]["would_start"] == json!(true),
+            refusals,
+            plan,
+            summary: env["data"]["summary"].as_str().unwrap_or_default().to_string(),
+        }
+    }
+}
+
+/// The result of a `game.stop` dry run: the `would` lines its confirm box shows.
+#[derive(Debug, Clone, PartialEq)]
+pub struct SessionStopPreview {
+    /// The session id it previews.
+    pub id: String,
+    /// The phase it showed, if any.
+    pub phase: Option<String>,
+    /// The `would` lines, in order.
+    pub would: Vec<String>,
+    /// `data.remaining_rows_become`.
+    pub remaining: String,
+}
+
+impl SessionStopPreview {
+    /// The preview from the dry run's reply.
+    pub fn from_reply(env: &Value) -> Self {
+        let data = &env["data"];
+        Self {
+            id: data["session"].as_str().unwrap_or_default().to_string(),
+            phase: data["phase"].as_str().map(str::to_string),
+            would: data["would"]
+                .as_array()
+                .map(|w| w.iter().filter_map(Value::as_str).map(str::to_string).collect())
+                .unwrap_or_default(),
+            remaining: data["remaining_rows_become"]
+                .as_str()
+                .unwrap_or_default()
+                .to_string(),
+        }
+    }
+}
+
+/// What a session's confirm box is open for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionAction {
+    /// The confirmed `game.session` start.
+    Start,
+    /// The confirmed `game.stop`.
+    Stop,
+}
+
+/// What the window knows about the game session it started, toolkit-free: the drawing
+/// below the `// ---- drawing` line reads it, and the shell drives it through
+/// [`Self::poll_due`] and the `receive_*` methods on its one engine worker.
+#[derive(Debug, Clone, Default)]
+pub struct SessionState {
+    /// The session id (`data.session` of the start reply); kept after a stop so the
+    /// report stays drawn.
+    pub id: Option<String>,
+    /// The last status's phase (kebab-case), if a status arrived.
+    pub phase: Option<String>,
+    /// The row running now, if the last status named one.
+    pub current_row: Option<String>,
+    /// The rows done so far (the last status's `rows`).
+    pub rows_done: usize,
+    /// The seconds the session has run, from the last status.
+    pub elapsed_secs: Option<u64>,
+    /// The last status's events, in order.
+    pub events: Vec<String>,
+    /// The end report (`data.report` of the last status or of the stop), kept when
+    /// present.
+    pub report: Option<Value>,
+    /// A `game.status` is on the worker now; while it is, no other one is queued.
+    pub poll_pending: bool,
+    /// When the last poll went out; `None` before the first.
+    pub last_poll: Option<Instant>,
+    /// The last `game.session` dry run, if one arrived.
+    pub preview: Option<SessionPreview>,
+    /// The last `game.stop` dry run, if one arrived.
+    pub stop_preview: Option<SessionStopPreview>,
+    /// The confirm box is open for this action (its button builds the confirmed
+    /// request once per click).
+    pub pending: Option<SessionAction>,
+    /// A `game.status` failed (for example "no session" after a stop): polling
+    /// stopped, and why.
+    pub poll_error: Option<String>,
+}
+
+impl SessionState {
+    /// A session is started and still to be followed: not `finished`, not stopped
+    /// (no report yet), and its polls have not failed.
+    pub fn following(&self) -> bool {
+        self.id.is_some()
+            && self.phase.as_deref() != Some("finished")
+            && self.report.is_none()
+            && self.poll_error.is_none()
+    }
+
+    /// The next `game.status` request when one is due: a second after the last went
+    /// out, none while one is pending, and none once the session is done or its polls
+    /// failed.
+    pub fn poll_due(&mut self, now: Instant) -> Option<Request> {
+        let Some(id) = self.id.as_deref() else {
+            return None;
+        };
+        if !self.following() || self.poll_pending {
+            return None;
+        }
+        let due = match self.last_poll {
+            Some(t) => now.saturating_duration_since(t) >= POLL_INTERVAL,
+            None => true,
+        };
+        if !due {
+            return None;
+        }
+        self.poll_pending = true;
+        self.last_poll = Some(now);
+        Some(Request::new("game.status", json!({"id": id})))
+    }
+
+    /// The reply to a `game.session` request: the dry run or the start, by
+    /// `data.dry_run`.
+    pub fn receive_session(&mut self, request: &Request, env: &Value) {
+        if env["data"]["dry_run"] == json!(true) {
+            self.receive_preview(request, env);
+        } else {
+            self.receive_start(env);
+        }
+    }
+
+    /// The dry run's reply: what the confirm box shows and checks.
+    pub fn receive_preview(&mut self, request: &Request, env: &Value) {
+        self.preview = Some(SessionPreview::from_reply(request, env));
+    }
+
+    /// The start's reply: the id comes back at once, and the following starts (the
+    /// first poll is due right away).
+    pub fn receive_start(&mut self, env: &Value) {
+        self.id = env["data"]["session"].as_str().map(str::to_string);
+        self.phase = None;
+        self.current_row = None;
+        self.rows_done = 0;
+        self.elapsed_secs = None;
+        self.events.clear();
+        self.report = None;
+        self.pending = None;
+        self.poll_error = None;
+        self.poll_pending = false;
+        self.last_poll = None;
+    }
+
+    /// A `game.status` reply: the phase and counts to show; a poll is no longer
+    /// pending.
+    pub fn receive_status(&mut self, env: &Value) {
+        self.poll_pending = false;
+        let data = &env["data"];
+        self.phase = data["phase"].as_str().map(str::to_string);
+        self.current_row = data["current_row"].as_str().map(str::to_string);
+        self.rows_done = data["rows"].as_array().map_or(0, |r| r.len());
+        self.elapsed_secs = data["elapsed_secs"].as_u64();
+        self.events = data["events"]
+            .as_array()
+            .map(|e| e.iter().filter_map(Value::as_str).map(str::to_string).collect())
+            .unwrap_or_default();
+        if data["report"].is_object() {
+            self.report = Some(data["report"].clone());
+        }
+    }
+
+    /// The reply to a `game.stop` request: the dry run or the confirmed stop, by
+    /// `data.dry_run`. The confirmed stop's report is kept, and the following ends.
+    pub fn receive_stop(&mut self, env: &Value) {
+        if env["data"]["dry_run"] == json!(true) {
+            self.stop_preview = Some(SessionStopPreview::from_reply(env));
+            return;
+        }
+        // The confirmed stop: its report is kept, and the following ends.
+        if env["data"]["report"].is_object() {
+            self.report = Some(env["data"]["report"].clone());
+        }
+        self.pending = None;
+        self.poll_pending = false;
+    }
+
+    /// An error reply for the session's requests: polling stops (the shell keeps the
+    /// error in its results).
+    pub fn failed(&mut self) {
+        self.poll_pending = false;
+        if self.id.is_some() && self.report.is_none() {
+            self.poll_error = Some("the status polls failed; polling stopped".to_string());
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -150,6 +410,90 @@ mod tests {
         assert_eq!(
             thin.preview_request().args,
             json!({"mo2": "M", "dry_run": true})
+        );
+    }
+
+    /// The start reply's `data.session` (the canned reply the ticket gives the state).
+    fn started_env() -> Value {
+        json!({
+            "command": "game.session",
+            "data": {
+                "session": "2026-10-25-T01",
+                "started": true,
+                "observe": "observe/",
+                "summary": "session started"
+            }
+        })
+    }
+
+    /// M6.G4: a started session asks for its first poll at once — and then stops
+    /// asking, on a `"finished"` status (the envelope shape the engine's
+    /// `game.status` handler writes) and, separately, once the polls fail.
+    #[test]
+    fn a_finished_session_stops_polling() {
+        let mut s = SessionState::default();
+        assert!(s.poll_due(Instant::now()).is_none(), "no session yet");
+        s.receive_start(&started_env());
+        assert_eq!(s.id.as_deref(), Some("2026-10-25-T01"));
+
+        // The first poll is due right away, and none while it is pending.
+        let now = Instant::now();
+        let due = s.poll_due(now).expect("a poll is due right after the start");
+        assert_eq!(due.id, "game.status");
+        assert_eq!(due.args["id"], json!("2026-10-25-T01"));
+        assert!(s.poll_pending);
+        assert!(s.poll_due(now).is_none(), "one poll is pending: no other is due");
+        assert!(s.poll_due(now + POLL_INTERVAL).is_none(), "still the same pending poll");
+
+        // The finished status ends the following: its report is kept, no more polls.
+        let finished = json!({
+            "command": "game.status",
+            "data": {
+                "session": "2026-10-25-T01",
+                "phase": "finished",
+                "current_row": null,
+                "rows": [],
+                "reruns": [],
+                "screenshots": [],
+                "events": [],
+                "elapsed_secs": 3,
+                "report": {"rows": 4}
+            }
+        });
+        s.receive_status(&finished);
+        assert_eq!(s.phase.as_deref(), Some("finished"));
+        assert!(s.report.is_some(), "the report is kept");
+        assert!(!s.following());
+        assert!(s.poll_due(now + POLL_INTERVAL).is_none(), "finished: no more polls");
+
+        // Separately: a failed status poll stops the following too, and it stays
+        // stopped past the interval.
+        let mut s = SessionState::default();
+        s.receive_start(&started_env());
+        let probing = json!({
+            "command": "game.status",
+            "data": {
+                "session": "2026-10-25-T01",
+                "phase": "probing",
+                "current_row": "row 1",
+                "rows": ["row 1"],
+                "reruns": [],
+                "screenshots": [],
+                "events": ["row 1 done"],
+                "elapsed_secs": 1,
+                "report": null
+            }
+        });
+        s.receive_status(&probing);
+        assert!(s.following(), "a probing session is still followed");
+        assert!(s.poll_due(now).is_some(), "a poll is due after a status");
+        s.failed();
+        assert!(s.poll_error.is_some(), "the failure is remembered");
+        assert!(!s.following());
+        assert!(s.poll_due(now).is_none(), "failed: no poll");
+        assert!(
+            s.poll_due(now + POLL_INTERVAL).is_none(),
+            "failed: still no poll a second later"
         );
     }
 }
