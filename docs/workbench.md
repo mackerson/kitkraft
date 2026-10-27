@@ -169,7 +169,7 @@ What the workbench writes, all of it:
 
 `load` still fills the engine's own index cache, as it does for the CLI and MCP.
 
-### Cockpit and Coverage (M6.G2, M6.G3, M6.G7, M6.G8)
+### Cockpit and Coverage (M6.G2, M6.G3, M6.G4, M6.G7, M6.G8)
 
 - **Cockpit**: pick the plugin under review from the checkout's `out\` (or type a path).
   **Review** runs `validate`, `roundtrip --verify`, then the plugin against its masters
@@ -184,9 +184,15 @@ What the workbench writes, all of it:
   panel reads the dev mod back. The ledger entries naming the plugin's file (or the
   SHA-256 the deploy preview reports) are listed. The game buttons (Launch and run
   probes, Stop, Re-run probe, Screenshot) take their state from the catalog and the
-  gate: Launch and Stop are enabled now (M6.G4); their previews and confirmed requests
-  are built by `panels/cockpit/session.rs` (`SessionForm`), and the button wiring is the
-  next ticket. Re-run probe and Screenshot stay disabled with M6.G5.
+  gate: Launch and Stop are wired now (M6.G4). Launch previews with `game.session
+  --dry-run` (its plan and every refusal), and its confirm box opens only while the dry
+  run said `would_start` for the arguments the form still holds; Stop previews with
+  `game.stop --dry-run` (its `would` lines) and confirms the same way. While a session
+  is started, the window follows it with a `game.status` poll every second over the one
+  engine worker, and shows the phase, the current row, the rows done, the elapsed
+  seconds and the last events — no probe rows and no screenshots (M6.G5). Polling stops
+  when the phase is `finished`, when a status fails, or on the confirmed stop (whose
+  report is kept). Re-run probe and Screenshot stay disabled with M6.G5.
 - **Coverage**: `coverage --matrix` with optional record types, plugin and evidence file;
   one row per type with the six statuses as status components, a filter by type, and a
   click on a type lists each cell's evidence pointers and whether they resolve.
