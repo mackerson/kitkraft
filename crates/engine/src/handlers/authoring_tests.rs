@@ -582,6 +582,17 @@ fn armo_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+#[test]
+fn arma_new_sets_every_typed_member_and_reads_back() {
+    // The biped slots (BO64) are a u64 flags member since KK-006: its sample is the whole
+    // 8-byte value, written whole as the other flags members are.
+    writes_and_reads_back(
+        "ARMA",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
 // `new`'s member order flattens every layout group of the BFCB block, and the block's
 // PlanetContentProperties layout is its only condition slot (common/BfcbBlock.toml), so
 // that slot precedes the record's top-level Conditions group. This plan numbers the
@@ -977,6 +988,19 @@ fn armo_dangling_link_is_reported() {
         "BGSContactShadowComponent_Component",
         &[("MODL", json!(MISSING)), ("KWDA", json!([MISSING]))],
         &["MODL", "KWDA"],
+    );
+}
+
+#[test]
+fn arma_dangling_link_is_reported() {
+    // The race (RNAM, a single FormID) and the additional races (MODL, a formid array,
+    // set whole as a JSON array of its elements).
+    dangling(
+        "ARMA",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("RNAM", json!(MISSING)), ("MODL", json!([MISSING]))],
+        &["RNAM", "MODL"],
     );
 }
 
