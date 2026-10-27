@@ -656,7 +656,9 @@ fn no_progress_changes_the_session_result() {
                         .map(|(k, val)| (k, norm(val, root)))
                         .collect(),
                 ),
-                Value::Array(list) => Value::Array(list.into_iter().map(|v| norm(v, root)).collect()),
+                Value::Array(list) => {
+                    Value::Array(list.into_iter().map(|v| norm(v, root)).collect())
+                }
                 Value::String(s) => Value::String(s.replace(root, "<root>")),
                 other => other,
             }
