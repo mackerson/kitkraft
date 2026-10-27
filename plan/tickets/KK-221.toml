@@ -1,8 +1,8 @@
-id = "DRAFT"
+id = "KK-221"
 title = "new writes a WRLD: a lone worldspace in its top-level group, no cells yet"
 timeout_min = 45
 budget_h = 1.5
-after = ["KK-002"]
+after = ["KK-002", "KK-220"]
 owns = [
   "crates/engine/src/handlers/newform.rs",
   "crates/engine/src/handlers/authoring_tests.rs",
@@ -35,13 +35,13 @@ the module doc, the `new_refused` doc and the refusal wording that speak of "int
 cells" so they name the worldspace too. `clone` keeps refusing worlds: `plan_clone`
 uses the same `nested_or_world` and stays as it is (out of scope).
 
-On the KK-002 branch (it merges before this run starts; its tests are the starting
-point), the typed-write test `wrld_new_sets_every_typed_member_and_reads_back` in
+On main (KK-002 merged), the typed-write test `wrld_new_sets_every_typed_member_and_reads_back` in
 `crates/engine/src/handlers/authoring_tests.rs` is marked `#[ignore = "`new` refuses a
 WRLD (new.not-top-level): a worldspace roots a world whose exterior grid and cells are
-not written yet"]`. This ticket removes that `#[ignore]`; the test must pass. Do not
-un-ignore `wrld_dangling_link_is_reported`, which carries the same `#[ignore]` text:
-it stays ignored, and it is not part of this ticket. Update the module-doc note in
+not written yet"]`. This ticket removes that `#[ignore]`; the test must pass.
+`wrld_dangling_link_is_reported` carries the same `#[ignore]` text, which this change
+makes untrue: run it without the ignore; if it passes, remove its `#[ignore]` too; if it
+fails, keep it ignored with the new panic text as the reason (it is not required to pass). Update the module-doc note in
 `authoring_tests.rs` that says a WRLD's typed-writable row awaits that writer.
 
 The one existing test this ticket may change is `a_new_exterior_cell_is_refused` in
@@ -83,9 +83,9 @@ Done means: `wrld_new_sets_every_typed_member_and_reads_back` passes (its `#[ign
 removed); `a_new_world_is_written_alone_in_its_top_level_group` passes;
 `a_new_exterior_cell_is_refused` passes with only its "A world stays refused" half
 changed; every other existing test passes unchanged; the gaps line is in. Do not touch
-any file outside `owns`; do not change `clone`'s refusal of worlds; do not merge or
-rebase the KK-002 branch (it merges before this run starts, and its tests are the
-starting point); do not read `plan/STATUS.md` or `plan/execution-plan.md`.
+any file outside `owns`; do not change `clone`'s refusal of worlds. Run `cargo test -p
+kitkraft-engine --lib authoring` while you work, then `cargo xtask ci`. Commit when the
+first test passes.
 """
 
 [[accept]]

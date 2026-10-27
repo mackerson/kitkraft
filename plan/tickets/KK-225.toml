@@ -1,9 +1,8 @@
-# after the inventory draft too, once it has an ID: both regenerate crates/esm/src/generated/
-id = "DRAFT"
+id = "KK-225"
 title = "Type AVIF (actor value information) from the pinned xEdit file, corpus-checked"
 timeout_min = 60
 budget_h = 1.5
-after = ["KK-023"]
+after = ["KK-023", "KK-224"]
 owns = [
   "crates/schema/defs/AVIF.toml",
   "crates/schema/tests/",

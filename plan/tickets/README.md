@@ -126,7 +126,7 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | Ticket | Title | Source | State |
 | ------ | ----- | ------ | ----- |
 | [KK-001](KK-001.toml) | The gate passes on Linux | the 2026-10-23 trial: 20 tests assume Windows | merged `34e4a55` |
-| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | run 1: 4/8, no commits; run 2 (2026-10-25) failed to start (harness bug); run 3 (`kk-KK-002-20261025-1330`, the old acceptance): 4/8; it ignored both WRLD tests with a reason and moved QUST to the `PlanetContentProperties` layout, but QUST still fails and no evidence entries were written. Requeued from `kk/KK-002-wip` (`56ee2e1`) with the fixed acceptance and a fourth-run brief: ignore QUST, drop the scratch probe test, write the evidence. Follow-ups to cut: QUST's slot misalignment (engine), `new` for WRLD |
+| [KK-002](KK-002.toml) | Typed-write tests for ACTI, KYWD, TMLM, QUST and WRLD | next-sprint item 2 (evidence entries) | merged `83ce824` (fourth run, squashed with its WIP commits; review: the QUST layout comment says its theory is unconfirmed). ACTI, KYWD, TMLM typed-writable; QUST read-back and both WRLD tests ignored with reasons; follow-ups KK-220 (QUST slots) and KK-221 (`new` for WRLD) |
 | [KK-003](KK-003.toml) | MCP progress notifications | next-sprint item 6 (M6.P2b rest) | merged `472871e` |
 | [KK-004](KK-004.toml) | Clone-sample corpus tests for LCTN and TERM | next-sprint item 2 (M5.D2, M5.D3 rest) | merged `1f0940c` |
 | [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | merged `f4acf8e` |
@@ -147,24 +147,24 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-021](KK-021.toml) | Typed-write tests for ARMO, ARMA and OTFT | apparel requests 1 and 2 | after KK-006, KK-017 |
 | [KK-022](KK-022.toml) | Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB | record parity (types with no definition) | after KK-008 |
 | [KK-023](KK-023.toml) | Type FLOR (flora) from the pinned xEdit file | record parity (lstring-only FLOR) | after KK-022 |
-| [KK-030](KK-030.toml) | Engine test support: game-session fakes that front ends can drive | M6.G4 to G6 against M4.T3's fakes (next-sprint item 3) | queued |
+| [KK-030](KK-030.toml) | Engine test support: game-session fakes that front ends can drive | M6.G4 to G6 against M4.T3's fakes (next-sprint item 3) | merged `5bdb830` |
 | [KK-031](KK-031.toml) | The workbench gate permits `game.session` (start) and `game.stop`; `game.status` allowed | M6.G4, first half | after KK-030 |
 | [KK-032](KK-032.toml) | The Cockpit launches a game session and follows it by polling `game.status` | M6.G4, second half | after KK-031 |
 | [KK-033](KK-033.toml) | The Cockpit shows a session's probe rows and screenshots | M6.G5, first half | after KK-032 |
 | [KK-034](KK-034.toml) | `game.probe` from the Cockpit: re-run, screenshot, send a row to the Ledger | M6.G5 second half, M6.G6 wiring | after KK-033 and KK-035 |
-| [KK-035](KK-035.toml) | The Ledger form is prefilled from a probe row left inconclusive or manual | M6.G6 | queued |
-| [KK-036](KK-036.toml) | The Cell View window over `cell` | M7.W2 (next-sprint item 5) | queued |
+| [KK-035](KK-035.toml) | The Ledger form is prefilled from a probe row left inconclusive or manual | M6.G6 | merged `bfddeb9` |
+| [KK-036](KK-036.toml) | The Cell View window over `cell` | M7.W2 (next-sprint item 5) | merged `1f0eee0` |
 | [KK-037](KK-037.toml) | Cell View and Render Window in step: open a cell in the viewport, one selection | M7.R2 selection sync | after KK-036 |
-| [KK-038](KK-038.toml) | Table columns resize by dragging the header's edge | M6.V5 rest | queued |
+| [KK-038](KK-038.toml) | Table columns resize by dragging the header's edge | M6.V5 rest | merged `a4aaf48` |
 | [KK-039](KK-039.toml) | Raw JSON held in one buffer and sliced by the visible range | M6.P5a rest | queued |
 | [KK-040](KK-040.toml) | The workbench loads the last profile at start, from the index cache | M6.P3a rest | queued |
 | [KK-041](KK-041.toml) | Measure whether opt-level 2 for dependencies makes debug runs usable | M6.P6a rest | queued |
 | [KK-042](KK-042.toml) | `game.session` reports progress: preflight, each phase, each probe row | M6.G4 ("progress events for its own steps") | after KK-030 |
 | [KK-043](KK-043.toml) | MCP: a game session started over MCP is followed and stopped across calls | CLI/MCP/UI parity for M4.T3's commands | after KK-030 |
-| [KK-050](KK-050.toml) | Draft the KK-002 follow-ups: QUST's condition slots, `new` for a WRLD (2 drafts) | KK-002's follow-ups to cut | queued |
-| [KK-051](KK-051.toml) | Draft three apparel tickets: ARMO addons in `inspect`, LMSW `.mat` paths, armor world models | "next in engine and data" (below) | queued |
-| [KK-052](KK-052.toml) | Draft two schema tickets: inventory definitions for MRPH, CNDF, VTYP, MTPT, ASPC; type AVIF | "next in engine and data" (below) | queued |
-| [KK-090](KK-090.toml) | Schema tickets merge cleanly: the defs test derives its record list, shared lists one entry per line | the generated-file overlap (above, "Generated tickets") | queued (priority 2) |
+| [KK-050](KK-050.toml) | Draft the KK-002 follow-ups: QUST's condition slots, `new` for a WRLD (2 drafts) | KK-002's follow-ups to cut | merged `9fb420c`; drafts promoted as KK-220 and KK-221 (review: briefs updated for KK-002 having merged, QUST evidence check made exact) |
+| [KK-051](KK-051.toml) | Draft three apparel tickets: ARMO addons in `inspect`, LMSW `.mat` paths, armor world models | "next in engine and data" (below) | merged `dd29fd3` (QA: CHANGES, fixed at promotion); armo-inspect-addons promoted as KK-222 (brief: where `lmsw` attaches, `lo.resolve`), armor-world-models as KK-223; lmsw-mat-exists rejected (vanilla materials live in the `.cdb`, so the rule would warn on every swap to a vanilla material) |
+| [KK-052](KK-052.toml) | Draft two schema tickets: inventory definitions for MRPH, CNDF, VTYP, MTPT, ASPC; type AVIF | "next in engine and data" (below) | merged `368342b` (review: committed the run's uncommitted parity-row fix); promoted as KK-224 (inventory) and KK-225 (AVIF) |
+| [KK-090](KK-090.toml) | Schema tickets merge cleanly: the defs test derives its record list, shared lists one entry per line | the generated-file overlap (above, "Generated tickets") | merged `66108e2` |
 | [KK-100](KK-100.toml) | Inventory definitions for SFTR, TRNS, PDCL, EFSQ and STMP | generated by plan/tickets/generate.py inventory | queued |
 | [KK-101](KK-101.toml) | Inventory definitions for ATMO, KSSM, BMOD, FFKW and LTEX | generated by plan/tickets/generate.py inventory | queued |
 | [KK-102](KK-102.toml) | Inventory definitions for LVLB, AMBS, IPDS, IMGS and MUST | generated by plan/tickets/generate.py inventory | queued |
@@ -198,6 +198,12 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-217](KK-217.toml) | Type GPOF (GameplayOption) from the pinned xEdit file, corpus-checked | generated by plan/tickets/generate.py depth | queued |
 | [KK-218](KK-218.toml) | Type SOUN and WKMF from the pinned xEdit file, corpus-checked | generated by plan/tickets/generate.py depth | queued |
 | [KK-219](KK-219.toml) | Type RFGP (ReferenceGroup) from the pinned xEdit file, corpus-checked | generated by plan/tickets/generate.py depth | queued |
+| [KK-220](KK-220.toml) | `new` writes every condition group of a QUST: align CTDA occurrence counts with the slots | drafted by the local agent (KK-050) | queued |
+| [KK-221](KK-221.toml) | `new` writes a WRLD: a lone worldspace in its top-level group, no cells yet | drafted by the local agent (KK-050) | after KK-220 |
+| [KK-222](KK-222.toml) | `inspect` shows an ARMO's addons and each addon's model paths | drafted by the local agent (KK-051) | queued |
+| [KK-223](KK-223.toml) | validate checks the ARMO and ARMA world and biped model files | drafted by the local agent (KK-051) | queued |
+| [KK-224](KK-224.toml) | Inventory definitions for MRPH, CNDF, VTYP, MTPT and ASPC | drafted by the local agent (KK-052) | after KK-023 |
+| [KK-225](KK-225.toml) | Type AVIF (actor value information) from the pinned xEdit file, corpus-checked | drafted by the local agent (KK-052) | after KK-023 and KK-224 |
 
 On 2026-10-25 KK-002 and KK-006 failed to start: the harness did not resolve their WIP base
 branch (fixed in the harness). Both are requeued unchanged, still continuing from their WIP

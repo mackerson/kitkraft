@@ -1,4 +1,4 @@
-id = "DRAFT"
+id = "KK-220"
 title = "new writes every condition group of a QUST: align CTDA occurrence counts with the slots"
 timeout_min = 45
 budget_h = 1.5
@@ -11,17 +11,16 @@ owns = [
   "docs/schema/support-matrix.md",
 ]
 brief = """
-KK-002 (not merged; on its branch `origin/kk/KK-002-wip`, read it with `git show
-origin/kk/KK-002-wip:crates/engine/src/handlers/authoring_tests.rs` and `git log
---oneline main..origin/kk/KK-002-wip`) adds typed-write tests to
+KK-002 (merged on main) added typed-write tests to
 `crates/engine/src/handlers/authoring_tests.rs`: each test builds one record with `new`,
 giving every typed member a value through the file's `Plan` builder (it walks the
 definition, numbers each signature's occurrences in schema walk order, and collects the
 planned member paths in `p.paths`), reads it back, and checks every planned member was
-written (`check_written`). On the branch the QUST test is a live `#[test]` — the two
-`#[ignore]`d tests there are the WRLD ones, which this ticket does not touch — and it
-fails today as described below; this ticket makes it pass. The test must pass, and it
-must not be left failing or ignored. Do not loosen `check_written` or any existing test
+written (`check_written`). On main the QUST read-back test is `#[ignore]`d with the
+failure below (the two WRLD tests are ignored too; this ticket does not touch them).
+Remove the QUST test's `#[ignore = ...]` line first and run it: it fails as described
+below; this ticket makes it pass. The test must pass, and it must not be left failing
+or ignored. Do not loosen `check_written` or any existing test
 to get there; the run may touch the `Plan` builder only to fix what it plans (the
 finding below), and the acceptance below decides.
 
@@ -33,8 +32,8 @@ CTDA lands one slot early"; `PlanetContentProperties` gives the block conditions
 occurrence numbers line up, yet the test still fails with `QUST: members not written:
 ["Aliases.Collection.Template.MatchConditions.Data",
 "Aliases.Collection.Template.MatchConditions.StringParameter1",
-"Aliases.Collection.Template.MatchConditions.StringParameter2"]` (the panic at
-`authoring_tests.rs:424` on the branch).
+"Aliases.Collection.Template.MatchConditions.StringParameter2"]` (the ignore reason on
+main quotes this panic).
 
 The machinery. `new` (`crates/engine/src/handlers/newform.rs`, `plan_new`) counts how many
 occurrences of each signature the fields name (`crates/engine/src/edit/scaffold.rs`,
@@ -69,7 +68,8 @@ side you fix. The fix may live in the engine (`scaffold.rs` /
 of the fields must land in the k-th condition group in schema order, the record must
 write the block's condition when the layout has one, and a QUST with a layout without
 conditions (`ContactShadow`) must place every planned CTDA in its own group with nothing
-unplaced. Never loosen `check_written` or any existing test.
+unplaced. Never loosen `check_written` or any existing test. Update the comment above the
+QUST test to say what the cause was.
 
 Then record the evidence, the way the other passing types have it on main: add the
 passing QUST's `typed-writable` entry to `docs/schema/evidence.toml` — an `[[entry]]`
@@ -79,6 +79,9 @@ copying the shape of the entries already there (LCTN, COBJ and the rest) — and
 update QUST's row in `docs/schema/support-matrix.md` (its per-type sections and "The
 proofs" list describe each type's proof; read the file and follow its shape). With the
 entry in, QUST's row in the generated `coverage --matrix` reads `typed-writable: pass`.
+The existing gate test `every_evidence_pointer_resolves` (in
+`crates/engine/src/handlers/matrix.rs`) is a guard: it fails if a cited test name does not
+exist, and the acceptance runs it.
 
 Add one new engine unit test with the exact name `a_repeated_signature_counts_every_slot_of_a_repeating_group`
 in `crates/engine/src/edit/scaffold.rs` (add `#[cfg(test)] mod tests` at the end of the
@@ -94,9 +97,9 @@ Done means: `qust_new_sets_every_typed_member_and_reads_back` passes (not ignore
 left failing); the new slot-rule test passes; every existing `new`, `set` and authoring
 test still passes unchanged; the evidence entry and matrix row are in; and the slot rule
 reads in `scaffold.rs` as the rule the fix implements. Do not touch any file outside
-`owns`; do not merge or rebase the KK-002 branch (it merges before this run starts, and
-its tests are the starting point); do not read `plan/STATUS.md` or
-`plan/execution-plan.md`.
+`owns`. Run `cargo test -p kitkraft-engine --lib authoring_tests` and `cargo test -p
+kitkraft-engine --lib scaffold` while you work, then `cargo xtask ci`. Commit when the
+QUST test passes.
 """
 
 [[accept]]
@@ -113,4 +116,4 @@ cmd = "cargo test -p kitkraft-engine --lib -- newform authoring scaffold 2>&1 | 
 
 [[accept]]
 name = "evidence"
-cmd = "grep -q 'QUST' docs/schema/evidence.toml && grep -q 'QUST' docs/schema/support-matrix.md"
+cmd = "python3 -c \"import tomllib,sys; e=tomllib.load(open('docs/schema/evidence.toml','rb'))['entry']; ok=any(x['type']=='QUST' and x['status']=='typed-writable' and x['result']=='pass' and any('qust_new_sets_every_typed_member_and_reads_back' in v for v in x['evidence']) for x in e); print('QUST typed-writable evidence:', ok); sys.exit(0 if ok else 1)\" && cargo test -p kitkraft-engine --lib -- every_evidence_pointer_resolves 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"

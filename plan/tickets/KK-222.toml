@@ -1,4 +1,4 @@
-id = "DRAFT"
+id = "KK-222"
 title = "inspect shows an ARMO's addons and each addon's model paths"
 timeout_min = 60
 budget_h = 1.5
@@ -9,9 +9,10 @@ owns = [
 ]
 brief = """
 `inspect` (the handler in `crates/engine/src/handlers/inspect.rs`) shows one record: its
-subrecords, and — only when the caller passes `full: true` — decoded extras attached as keys
-on the record's JSON. KK-007 does this for an `LMSW`'s `REFL`: `lmsw_json` in inspect.rs is
-inserted as an `lmsw` key on the record when `full` is set and the record is an `LMSW`. This
+subrecords, and — only when the caller passes `full: true` — decoded extras. KK-007 does this
+for an `LMSW`'s `REFL`: in the subrecord loop (`if vc.full && sig == "REFL" && record_sig ==
+*b"LMSW"`), `lmsw_json`'s result is inserted as an `lmsw` key on that `REFL` subrecord's
+entry. This
 ticket adds the armour analogue for `ARMO` records: `inspect` of an `ARMO` shows its addons
 and each addon's model paths.
 
@@ -21,10 +22,10 @@ names carries the model paths (read `crates/schema/defs/ARMA.toml`): `MaleBipedM
 (`MOD2`), `FemaleBipedModel` (`MOD3`), `MaleFirstPerson` (`MOD4`) and `FemaleFirstPerson`
 (`MOD5`), each a `FileName`.
 
-Attach an `addons` key to the `ARMO` record's output object (the object holding the `record`
-and `subrecords` fields), the way `lmsw_json`'s result is attached: a helper builds the JSON
-and it is inserted only when `full` is true and the record's signature is `ARMO`. It needs
-`full: true` — the same gate as `lmsw`. Nothing else in `inspect`'s output changes.
+Unlike `lmsw`, attach one `addons` key to the `ARMO` version's own output object (the
+object holding its `subrecords` array), not to a subrecord entry: a helper builds the JSON
+and it is inserted only when `full` is true and the record's signature is `ARMO` — the same
+`full` gate as `lmsw`. Nothing else in `inspect`'s output changes.
 
 The JSON shape (decided here):
     "addons": [
@@ -38,8 +39,8 @@ The JSON shape (decided here):
       }
     ]
 For each `Addon` entry: `index` is its `INDX`; resolve the `MODL` FormID to the `ARMA` with
-the same load-order reference resolution `inspect` already uses for references (see how
-`lstring_json` and `formref` resolve a FormID in inspect.rs). If the `ARMA` is found, `arma`
+the same load-order lookup `inspect` already uses (`lo.resolve(index, loc.form_id)` in
+inspect.rs, near the start of the handler). If the `ARMA` is found, `arma`
 is `{ "formid", "editor_id", "plugin" }` (the plugin that holds it); if it is not found
 anywhere in the load order, `arma` is the string `"missing"`. `models` holds the four
 `FileName`s by slot — `male`, `female`, `male_first_person`, `female_first_person`; an empty
@@ -62,7 +63,7 @@ array has one entry with the right `index`, `arma.formid`/`editor_id`/`plugin`, 
 KK-007's `crates/engine/tests/refl_inspect.rs` (how it opens the official files through
 `KITKRAFT_DATA_DIR` and runs the handler). With this exact name:
 `inspect_full_shows_armo_addons_and_models` — `#[ignore]`d, run with `--include-ignored`;
-find the first official `ARMO` that has at least one `Addon` entry, run `inspect` on it with
+find the first official `ARMO` that has at least one `Addon` entry and an EditorID, run `inspect` on it with
 `full: true`, and print exactly one line: `armo-inspect: first official ARMO with addons
 formid=0x<8 uppercase hex> addons=<N> editor_id=<EditorID>` (its FormID and its addon count).
 Never panic (AGENTS.md): if `KITKRAFT_DATA_DIR` is unset, print

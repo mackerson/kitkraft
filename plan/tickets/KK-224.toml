@@ -1,4 +1,4 @@
-id = "DRAFT"
+id = "KK-224"
 title = "Inventory definitions for MRPH, CNDF, VTYP, MTPT and ASPC"
 timeout_min = 45
 budget_h = 1.5
@@ -31,8 +31,9 @@ Start from `crates/schema/defs/LAYR.toml` and `LMSW.toml` (inventory definitions
 comment, `source = "corpus: ..."`, every member the corpus shows, in corpus order) and
 `crates/schema/defs/README.md` ("Provenance", "Inventory definitions"). Then:
 
-1. Add the five signatures to `TYPES` in `crates/esm/tests/inventory_types.rs` (update the
-   doc comment's list and the array length). Run
+1. Add the five signatures to `TYPES` in `crates/esm/tests/inventory_types.rs` (a slice,
+   one `b"SIG",` per line, alphabetical, under `#[rustfmt::skip]`; the doc comment needs no
+   edit). Run
    `cargo test -p kitkraft-esm --release --test inventory_types -- --include-ignored --exact
    inventory_types_full --nocapture` before writing a definition: it prints, per type,
    every signature, how often it occurs, its sizes and the subrecord orders. Those printed
@@ -46,8 +47,9 @@ comment, `source = "corpus: ..."`, every member the corpus shows, in corpus orde
    them as LAYR types its own. Cite the inventory run in `source` with the date and the
    record count. Use only `corpus:` citations; do not read any xEdit file for this ticket.
 3. Register the files: `crates/schema/src/lib.rs` (`BUILTIN_DEFINITIONS`, alphabetical) and
-   whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (it
-   prints the exact lines). Regenerate code with `cargo xtask codegen` and the golden seed
+   whatever `cargo test -p kitkraft-schema` then reports as missing in `tests/defs.rs` (its
+   record list is derived from the directory since KK-090, so likely nothing; the lists
+   there are one entry per line). Regenerate code with `cargo xtask codegen` and the golden seed
    as the schema tests describe; never edit `crates/esm/src/generated/records.rs` by hand.
 4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
    Each of the five rows must show its definition's name and 0 unknown.

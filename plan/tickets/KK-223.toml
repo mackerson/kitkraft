@@ -1,5 +1,4 @@
-# shares crates/engine/src/validate/ with lmsw-mat-exists: the reviewer orders them
-id = "DRAFT"
+id = "KK-223"
 title = "validate checks the ARMO and ARMA world and biped model files, not just the shared Model group"
 timeout_min = 60
 budget_h = 1.5
