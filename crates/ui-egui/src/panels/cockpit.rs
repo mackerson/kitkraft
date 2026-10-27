@@ -18,8 +18,9 @@
 //!   or its SHA-256 (the hash comes from the deploy preview: the engine hashes the
 //!   source, the window computes nothing).
 //! - **Game session** buttons (M6.G4 to M6.G6): their state is read from the catalog
-//!   and the gate ([`game_button`]); until the window permits them they are disabled with
-//!   the ticket that turns them on.
+//!   and the gate ([`game_button`]). `game.session` and `game.stop` are permitted now
+//!   (M6.G4): [`session::SessionForm`] builds their previews and confirmed requests;
+//!   the button wiring is the next ticket. `game.probe` stays disabled with M6.G5.
 
 use std::path::{Path, PathBuf};
 
@@ -30,6 +31,9 @@ use crate::gate::{self, Request, LIVE_PROFILE};
 use crate::panels::diff::DiffView;
 use crate::panels::start::instance_of_profile;
 use crate::panels::validate::{RoundtripView, ValidateView};
+
+/// The game session's form and request builders (M6.G4, first half); no drawing yet.
+pub mod session;
 
 /// Where agents and builds put plugins, under the checkout.
 pub const OUT_DIR: &str = "out";
@@ -2317,10 +2321,16 @@ mod tests {
             let s = game_button(*b, &implemented, &yes);
             assert!(s.enabled, "{}", s.reason);
         }
-        // Today: lane C's commands are in the catalog; the gate does not permit them.
+        // Today: game.session and game.stop are in the catalog and the gate permits
+        // them (M6.G4); game.probe stays disabled with M6.G5.
         for s in game_buttons() {
-            assert!(!s.enabled, "{}: {}", s.id, s.reason);
             assert!(gate::find_command(s.id).is_some(), "{}", s.id);
+            if s.id == "game.probe" {
+                assert!(!s.enabled, "{}: {}", s.id, s.reason);
+                assert!(s.reason.contains("M6.G5"), "{}: {}", s.id, s.reason);
+            } else {
+                assert!(s.enabled, "{}: {}", s.id, s.reason);
+            }
         }
     }
 
