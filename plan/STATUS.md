@@ -2936,3 +2936,4 @@ Landed: KK-038 drag-resize for virtual_table columns (crates/ui-egui/src/panels/
   (`plan/tickets/lint.py --min 2`), and each one's unit-test acceptance fails on
   main today.
 Landed 2026-10-26: KK-052 - two ticket drafts in `plan/tickets/drafts/` for the morning merge: inventory definitions for MRPH, CNDF, VTYP, MTPT and ASPC, and typing AVIF (actor value information) from the pinned xEdit file; both `after = ["KK-023"]`, both lint clean (0 errors, 0 warnings), covers check passes, `cargo test -p kitkraft-schema` green.
+Landed: KK-090 schema tickets merge cleanly - the defs test derives its record and common lists from the defs directory (via toml_names, headers and the per-file record check kept); LSTRING_ONLY, BX2_INVENTORY and esm TYPES are one entry per line, alphabetical, under #[rustfmt::skip]; no definition or non-test code changed.

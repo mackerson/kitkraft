@@ -1,8 +1,8 @@
-//! The M4.BX2 inventory definitions (DOOR LIGH IRES MESG LAYR RFGP PGRE PHZD WKMF LSCR SOUN
-//! WWED ARTO TXST) against the official ESMs, read in place through the record index (see
-//! docs/corpus.md and `crates/schema/defs/README.md`, "Inventory definitions").
+//! The M4.BX2 inventory definitions (the record types in `TYPES`) against the official ESMs,
+//! read in place through the record index (see docs/corpus.md and
+//! `crates/schema/defs/README.md`, "Inventory definitions").
 //!
-//! Every record of the fourteen types is read with [`read_indexed`] (compressed ones
+//! Every record of the types in `TYPES` is read with [`read_indexed`] (compressed ones
 //! decompressed), decoded through its generated type and encoded again. The checks:
 //!
 //! - every subrecord is placed in a member (nothing left unnamed: the inventory lists every
@@ -14,7 +14,7 @@
 //! record and payload sizes, and the distinct subrecord orders (runs collapsed), which the
 //! definitions cite.
 //!
-//! - `inventory_types_sample` runs in `cargo test`: every record of the fourteen types in
+//! - `inventory_types_sample` runs in `cargo test`: every record of the types in `TYPES` in
 //!   `SFBGS003.esm` and `SFBGS004.esm`.
 //! - `inventory_types_full` (ignored) runs all 14 files, every record; run it in release:
 //!   `cargo test -p kitkraft-esm --release --test inventory_types -- --ignored --nocapture`
@@ -41,9 +41,22 @@ use kitkraft_esm::index::{index_file, read_indexed, IndexOptions};
 use kitkraft_esm::tes4::FLAG_LOCALIZED;
 use kitkraft_esm::DecodeLimits;
 
-const TYPES: [&[u8; 4]; 14] = [
-    b"DOOR", b"LIGH", b"IRES", b"MESG", b"LAYR", b"RFGP", b"PGRE", b"PHZD", b"WKMF", b"LSCR",
-    b"SOUN", b"WWED", b"ARTO", b"TXST",
+#[rustfmt::skip]
+const TYPES: &[&[u8; 4]] = &[
+    b"ARTO",
+    b"DOOR",
+    b"IRES",
+    b"LAYR",
+    b"LIGH",
+    b"LSCR",
+    b"MESG",
+    b"PGRE",
+    b"PHZD",
+    b"RFGP",
+    b"SOUN",
+    b"TXST",
+    b"WKMF",
+    b"WWED",
 ];
 
 #[derive(Default)]
@@ -323,7 +336,7 @@ fn inventory_types_full() {
     }
     report(&stats, 12);
     assert_clean(&stats);
-    for ty in TYPES {
+    for ty in TYPES.iter().copied() {
         assert!(stats.contains_key(&key(*ty)), "no {} record", key(*ty));
     }
 }
