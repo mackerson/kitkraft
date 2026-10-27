@@ -221,3 +221,13 @@ complete.
 | O4-19 | manual | as O4-18 in a never-resets location |
 | O4-20 | manual | a procedural site landed on twice (PS-32) |
 | O4-21 | manual | needs M4.E9 (PS-39) |
+
+## Testing against the fakes
+
+The workbench and the MCP server test their game buttons and tools against the same
+fakes the engine's own tests use: `kitkraft_engine::testing::GameFakes` stands up a
+fixture MO2 instance, a fake `/console` endpoint and a fake process host under
+`std::env::temp_dir()` (one folder per `tag` and process id), `install` puts the fake
+host into an engine's session, `session_args` builds the `game.session` arguments with
+extras such as `start` or `dry_run` merged in, and the fakes remove their folder when
+dropped.
