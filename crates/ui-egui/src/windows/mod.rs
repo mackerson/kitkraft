@@ -5,6 +5,8 @@
 //! reachable while the CK layout grows (a dock layout comes only if a CK sitting shows
 //! docks; director assumption pending the owner).
 //!
+//! - [`cell_view`]: the Cell View window (M7.W2), `cell`'s worldspaces, cells and
+//!   references.
 //! - [`warnings`]: the Warnings window (M7.M4), `validate` findings and `load` problems.
 //! - [`use_info`]: the Use Info window (M7.W5), `refs --incoming` of the selected record.
 //! - `shell.rs` is the glue the window shell (`app.rs`) declares as its own child module,
@@ -12,6 +14,7 @@
 //!
 //! The edit dialog's framework lives in `crate::dialogs`.
 
+pub mod cell_view;
 pub mod use_info;
 pub mod warnings;
 
