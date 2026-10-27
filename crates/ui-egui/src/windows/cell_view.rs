@@ -691,9 +691,11 @@ impl CellViewState {
                     if let Some(target) = scroll_to.take() {
                         let pitch = row_height + ui.spacing().item_spacing.y;
                         let top = ui.max_rect().min.y + (target as f32 - i as f32) * pitch;
+                        // A row-sized rect: only its y-range aims the scroll, so
+                        // the width is the row height, which is a theme size.
                         let rect = egui::Rect::from_min_size(
                             egui::pos2(ui.max_rect().min.x, top),
-                            egui::vec2(1.0, row_height),
+                            egui::vec2(row_height, row_height),
                         );
                         ui.scroll_to_rect(rect, Some(egui::Align::Center));
                     }
