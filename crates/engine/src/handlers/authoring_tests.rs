@@ -560,6 +560,26 @@ fn flst_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+// `new`'s member order flattens every layout group of the BFCB block, and the block's
+// PlanetContentProperties layout is its only condition slot (common/BfcbBlock.toml), so
+// that slot precedes the record's top-level Conditions group. This plan numbers the
+// condition occurrences by walking the definition with only the chosen layout's members
+// in the block (ContactShadow: FLCS): occurrence 0 the top-level group, occurrence 1 the
+// Entries' group. The engine writes them one slot early — occurrence 0 into the block
+// (the matcher places it at `BfcbBlock.PlanetContentProperties.Conditions.*`) and
+// occurrence 1 into the top-level group — and never writes the entries' conditions.
+// Aligning `new`'s block slots with the chosen component layout is the engine fix,
+// outside this ticket.
+#[ignore = "LVLI: members not written: [\"Entries.Conditions.Data\", \"Entries.Conditions.StringParameter1\", \"Entries.Conditions.StringParameter2\"]"]
+#[test]
+fn lvli_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "LVLI",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
 // KYWD has no base form component block of its own, so the layout and component name are
 // inert here; every other typed member of the definition is written and read back.
 #[test]
