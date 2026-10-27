@@ -26,6 +26,9 @@ pub(crate) struct GameHost(pub(crate) Arc<dyn Host>);
 pub struct GameFakes {
     root: PathBuf,
     fixture: Fixture,
+    /// The fake /console endpoint; never read after setup, the field keeps the
+    /// server thread alive until the fakes drop.
+    #[allow(dead_code)]
     console: FakeConsole,
     host: Arc<FakeHost>,
     probes: PathBuf,
@@ -68,8 +71,8 @@ impl GameFakes {
         engine.with_session(|s| s.insert(GameHost(host)));
     }
 
-    /// The arguments `game.session` takes on these fakes, with `extra`'s members merged
-    /// in (`start`, `dry_run`, ...).
+    /// The arguments `game.session` takes on these fakes, with the object members of
+    /// `extra` merged in (`start`, `dry_run`, ...).
     pub fn session_args(&self, extra: Value) -> Value {
         let mut a = json!({
             "mo2": self.fixture.instance.display().to_string(),
@@ -80,9 +83,9 @@ impl GameFakes {
             "observe": self.fixture.observe_root.display().to_string(),
             "ledger": self.fixture.ledger.display().to_string(),
         });
-        if let Some(extra) = extra.as_object() {
+        if let (Some(extra), Some(args)) = (extra.as_object(), a.as_object_mut()) {
             for (k, v) in extra {
-                a[k] = v.clone();
+                args.insert(k.to_string(), v.clone());
             }
         }
         a
@@ -117,7 +120,6 @@ impl GameFakes {
 impl Drop for GameFakes {
     fn drop(&mut self) {
         // The fake /console server stops when the console is dropped.
-        let _ = &self.console;
         let _ = std::fs::remove_dir_all(&self.root);
     }
 }
@@ -236,10 +238,7 @@ mod tests {
                 let rows = s["data"]["rows"].as_array().unwrap();
                 assert_eq!(rows.len(), 3, "{rows:?}");
                 let verdict = |row: &str| {
-                    rows.iter()
-                        .find(|x| x["row"] == json!(row))
-                        .unwrap()
-                        ["verdict"]["status"]
+                    rows.iter().find(|x| x["row"] == json!(row)).unwrap()["verdict"]["status"]
                         .clone()
                 };
                 assert_eq!(verdict("T-01"), json!("pass"));
@@ -287,7 +286,10 @@ mod tests {
             "{refusals:?}"
         );
         let err = engine
-            .execute("game.session", fakes.session_args(json!({"profile": "Default"})))
+            .execute(
+                "game.session",
+                fakes.session_args(json!({"profile": "Default"})),
+            )
             .unwrap_err()
             .to_string();
         assert!(err.contains("refused [live-profile]"), "{err}");
