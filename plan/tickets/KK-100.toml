@@ -2,6 +2,7 @@
 id = "KK-100"
 title = "Inventory definitions for SFTR, TRNS, PDCL, EFSQ and STMP"
 timeout_min = 45
+base = "kk/KK-100-wip"
 owns = [
   "crates/schema/defs/SFTR.toml",
   "crates/schema/defs/TRNS.toml",
@@ -16,6 +17,13 @@ owns = [
   "docs/record-parity.md",
 ]
 brief = """
+You continue a run that ran out of time (branch `kk/KK-100-wip`; merge main into it first):
+the five signatures are in `TYPES`, `EFSQ.toml` is written and in `BUILTIN_DEFINITIONS`,
+`PDCL.toml` and `TRNS.toml` are written but not registered, `SFTR` and `STMP` are not
+started, and `tests/defs.rs`, the golden seed and `docs/record-parity.md` are not updated
+(the golden seed test fails). Re-check the three written files against a fresh inventory
+run, then finish steps 2 to 4 below. Commit after each step.
+
 89 record types of the official files have no schema definition at all
 (`docs/record-parity.md`, rows whose definition is `-`): KitKraft parses and re-writes them
 but cannot name a single subrecord. An inventory definition (every signature the corpus
