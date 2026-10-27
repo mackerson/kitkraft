@@ -139,7 +139,8 @@ question for M3.
 | `record_schema`  | `schema`'s args (`{type?, member?, deep?}`) | What the schema defines for a record type: members with type, source citation and confidence (M2.F9) |
 | `roundtrip`      | `roundtrip`'s args (`{plugin, verify?, decode?, out?, overwrite?, data_dir?}`) | Parse and rewrite a plugin; `verify` demands identical bytes, `decode` inflates compressed bodies strictly |
 
-There is no `render` tool: ADR 0002 Amendment 1 retired it — the viewport is the window's (L5 view code), fed by engine commands.
+There is no `render` tool: ADR 0002 Amendment 1 retired it (the viewport is the window's
+L5 view code, fed by engine commands).
 
 Tool shapes are generated from the catalog (`tools.rs`): a shortcut's `inputSchema` is its
 command's `args_schema` verbatim and its description is the command's `summary` (plus
@@ -1310,8 +1311,8 @@ the session then lives in the server's one engine, so an agent follows it in lat
 `game.status {id}` until `data.phase` is `idle` (then `rows` carries every row's verdict),
 `game.probe {id, row}` to re-run one row while the session is open, and `game.stop {id}` to
 end it (its `report.ledger_entry` names the entry appended to the ledger). A session still
-running when the server exits is not abandoned: the engine stops it properly on drop — the
-game ended, the profile verified, the ledger entry written — before the process ends.
+running when the server exits is not abandoned: the engine stops it properly on drop (the
+game ended, the profile verified, the ledger entry written) before the process ends.
 
 ### `mod.run` (lane T round 2, M4.T10; CLI `kit mod run <spec>`)
 
