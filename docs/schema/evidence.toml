@@ -123,6 +123,36 @@ status = "typed-writable"
 result = "pass"
 evidence = ["test: crates/engine/tests/overhaul_build.rs::the_overhaul_spec_plans_and_builds_on_the_real_records"]
 
+[[entry]]
+type = "ACTI"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::acti_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::acti_dangling_link_is_reported",
+]
+note = "KK-002: new with every typed leaf member, read back identically, validate with no finding; dangling SNTP, SNBH, DEFL reported"
+
+[[entry]]
+type = "KYWD"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::kywd_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::kywd_dangling_link_is_reported",
+]
+note = "KK-002: new with every typed leaf member, read back identically, validate with no finding; dangling DATA (the attached resource) reported"
+
+[[entry]]
+type = "TMLM"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::tmlm_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::tmlm_dangling_link_is_reported",
+]
+note = "KK-002: new with every typed leaf member, read back identically, validate with no finding; dangling TNAM, BNAM, XLOC.Key reported"
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.
