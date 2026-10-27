@@ -635,35 +635,33 @@ fn no_progress_changes_the_session_result() {
         .unwrap();
     // Stripped, and why: `session` (the session id, which names the date) and
     // `summary` (which quotes the id and the timings); `ledger_entry` and
-    // `ledger_text` (the entry names the date and the fixture paths); `backups`,
-    // `logs` and `written` (every value names a path under the fixture root, and the
-    // two runs use two roots); every `*_ms`/`*_secs` member (timings differ by run).
-    fn untimed(mut v: Value) -> Value {
-        fn strip(v: &mut Value) {
+    // `ledger_text` (the entry names the date and the fixture paths); every
+    // `*_ms`/`*_secs` member (timings differ by run). The two runs use two fixture
+    // roots, so every root is replaced by a placeholder; the paths under it
+    // (`backups`, `logs`, `written`) are then compared by name and count.
+    fn untimed(v: Value, root: &Path) -> Value {
+        let root = root.to_str().unwrap();
+        fn norm(v: Value, root: &str) -> Value {
             match v {
-                Value::Object(map) => {
-                    map.retain(|k, _| {
-                        !k.ends_with("_ms")
-                            && !k.ends_with("_secs")
-                            && !matches!(
-                                k.as_str(),
-                                "session"
-                                    | "summary"
-                                    | "ledger_entry"
-                                    | "ledger_text"
-                                    | "backups"
-                                    | "logs"
-                                    | "written"
-                            )
-                    });
-                    map.values_mut().for_each(strip);
-                }
-                Value::Array(list) => list.iter_mut().for_each(strip),
-                _ => {}
+                Value::Object(map) => Value::Object(
+                    map.into_iter()
+                        .filter(|(k, _)| {
+                            !k.ends_with("_ms")
+                                && !k.ends_with("_secs")
+                                && !matches!(
+                                    k.as_str(),
+                                    "session" | "summary" | "ledger_entry" | "ledger_text"
+                                )
+                        })
+                        .map(|(k, val)| (k, norm(val, root)))
+                        .collect(),
+                ),
+                Value::Array(list) => Value::Array(list.into_iter().map(|v| norm(v, root)).collect()),
+                Value::String(s) => Value::String(s.replace(root, "<root>")),
+                other => other,
             }
         }
-        strip(&mut v);
-        v
+        norm(v, root)
     }
     assert_eq!(
         with["data"]["report"]["status"],
@@ -671,8 +669,8 @@ fn no_progress_changes_the_session_result() {
         "{with}"
     );
     assert_eq!(
-        untimed(with),
-        untimed(without),
+        untimed(with, &f1.root),
+        untimed(without, &f2.root),
         "the sink changed the result"
     );
     std::fs::remove_dir_all(&f1.root).unwrap();
