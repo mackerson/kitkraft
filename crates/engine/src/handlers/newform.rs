@@ -568,11 +568,19 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
     let loaded = acquire(session, args, ID)?;
     guard(ID, loaded, &into)?;
     let limits = DecodeLimits::default();
-    let (copy, origin, _, unrelated) = plan_clone(ID, loaded, &req, &limits)?;
+    let (mut copy, origin, _, unrelated) = plan_clone(ID, loaded, &req, &limits)?;
+    // The material swap, as a whole-REFL edit of the LMSW's current REFL (KK-019).
+    let swap_report = if let Some(swaps) = args.get("swap_overrides").filter(|s| !s.is_null()) {
+        let (edit, report) = crate::edit::swaps::convert(ID, &copy.record, swaps, &copy.edits)?;
+        copy.edits.push(edit);
+        Some(report)
+    } else {
+        None
+    };
     target_edid(ID, &into, ID, &req.edid)?;
     let mut limitations = loaded.limitations.clone();
     extend_once(&mut limitations, unrelated);
-    commit(
+    let mut result = commit(
         ID,
         loaded,
         &into,
@@ -581,5 +589,11 @@ pub(super) fn run_clone(session: &mut Session, args: &Value) -> Result<Outcome, 
         limitations,
         &[origin],
         dry_run,
-    )
+    )?;
+    if let Some(obj) = result.data.as_object_mut() {
+        if let Some(report) = swap_report {
+            obj.insert("swap_overrides".into(), Value::Array(report));
+        }
+    }
+    Ok(result)
 }
