@@ -1,9 +1,10 @@
 //! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
 //! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the QUST
-//! read-back and the two WRLD tests are ignored) and CONT, MISC, FLST and LVLI (KK-017,
-//! 2026-10-27; the LVLI read-back is ignored) (`docs/schema/support-matrix.md`, the
-//! typed-writable evidence of `docs/schema/evidence.toml`).
+//! read-back and the two WRLD tests are ignored), CONT, MISC, FLST and LVLI (KK-017,
+//! 2026-10-27; the LVLI read-back is ignored) and ARMO, ARMA and OTFT (KK-021,
+//! 2026-10-27) (`docs/schema/support-matrix.md`, the typed-writable evidence of
+//! `docs/schema/evidence.toml`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
 //! from scratch with `new` on the synthetic load order of the `set` tests (`Source.esm`
@@ -14,8 +15,8 @@
 //! written plugin is read back: every member is placed where the definition puts it,
 //! nothing is left raw (`extra`), the record re-encodes byte for byte, the field values
 //! read back as written, and `validate` passes with no finding of any rule (so no
-//! `layout.undecoded`) and no unchecked subrecord beyond the whole-opaque members written
-//! (upstream gives them no layout).
+//! `layout.undecoded`) and no unchecked subrecord beyond the whole-opaque members and the
+//! structs of opaque fields only written (upstream gives them no layout).
 //!
 //! Each `*_dangling_link_is_reported` test writes the same record with FormIDs naming a
 //! form the master lacks (`Source.esm:000FFF`) in the members reference integrity covers
@@ -49,7 +50,8 @@ const MISSING: &str = "Source.esm:000FFF";
 const FORM_VERSION: u16 = 582;
 
 /// A record plan: the `new` fields, the member paths written, the field edits to read
-/// back, the whole-opaque members written.
+/// back, the unchecked subrecords written (whole-opaque members and opaque-field-only
+/// structs).
 #[derive(Default)]
 pub(super) struct Plan {
     /// The master FormID edits name (`<master>:000801`); `Source.esm` when empty.
@@ -177,6 +179,16 @@ fn deref(ty: &FieldType) -> &FieldType {
     }
 }
 
+/// The deref'd type is a non-empty struct every field of which is `Opaque` (ARMO's AVSG and
+/// AFSG Wwise GUIDs): whole-opaque like a `FieldType::Opaque`, nested one level in.
+fn all_opaque_struct(ty: &FieldType) -> bool {
+    matches!(
+        deref(ty),
+        FieldType::Struct { fields }
+            if !fields.is_empty() && fields.iter().all(|f| matches!(f.ty, FieldType::Opaque { .. }))
+    )
+}
+
 /// A typed JSON value for a whole scalar, FormID or string subrecord (what `set` takes),
 /// and the decoded value it reads back as.
 fn typed_value(ty: &FieldType, form2: &str) -> Option<(Value, Decoded)> {
@@ -228,7 +240,9 @@ impl Plan {
             self.fields.insert(key, v);
             return;
         }
-        if sub.ty.is_opaque() {
+        // What validate counts as an unchecked subrecord: a whole-opaque member, and a
+        // struct of opaque fields only (ARMO's AVSG and AFSG Wwise GUIDs).
+        if sub.ty.is_opaque() || all_opaque_struct(&sub.ty) {
             self.opaque += 1;
         }
         // A whole scalar, FormID or string: its typed value (occurrence 0 only, so the
@@ -555,6 +569,35 @@ fn misc_new_sets_every_typed_member_and_reads_back() {
 fn flst_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
         "FLST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn armo_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "ARMO",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn arma_new_sets_every_typed_member_and_reads_back() {
+    // The biped slots (BO64) are a u64 flags member since KK-006: its sample is the whole
+    // 8-byte value, written whole as the other flags members are.
+    writes_and_reads_back(
+        "ARMA",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn otft_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "OTFT",
         "ContactShadow",
         "BGSContactShadowComponent_Component",
     );
@@ -942,6 +985,45 @@ fn flst_dangling_link_is_reported() {
         "BGSContactShadowComponent_Component",
         &[("LNAM", json!(MISSING)), ("ANAM", json!(MISSING))],
         &["LNAM", "ANAM"],
+    );
+}
+
+#[test]
+fn armo_dangling_link_is_reported() {
+    // The armor addon (the Addon group's MODL, after INDX) and the keyword list (a formid
+    // array, set whole as a JSON array of its elements).
+    dangling(
+        "ARMO",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("MODL", json!(MISSING)), ("KWDA", json!([MISSING]))],
+        &["MODL", "KWDA"],
+    );
+}
+
+#[test]
+fn arma_dangling_link_is_reported() {
+    // The race (RNAM, a single FormID) and the additional races (MODL, a formid array,
+    // set whole as a JSON array of its elements).
+    dangling(
+        "ARMA",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("RNAM", json!(MISSING)), ("MODL", json!([MISSING]))],
+        &["RNAM", "MODL"],
+    );
+}
+
+#[test]
+fn otft_dangling_link_is_reported() {
+    // The outfit items (INAM, a formid array of armor and leveled item lists, set whole
+    // as a JSON array of its elements).
+    dangling(
+        "OTFT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("INAM", json!([MISSING, MISSING]))],
+        &["INAM"],
     );
 }
 

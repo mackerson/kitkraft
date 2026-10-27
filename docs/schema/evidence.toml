@@ -183,6 +183,36 @@ evidence = [
 ]
 note = "KK-017: new with every typed leaf member, read back identically, validate with no finding; dangling LNAM, ANAM reported"
 
+[[entry]]
+type = "ARMO"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::armo_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::armo_dangling_link_is_reported",
+]
+note = "KK-021: new with every typed leaf member, read back identically, validate with no finding; dangling MODL, KWDA reported"
+
+[[entry]]
+type = "ARMA"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::arma_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::arma_dangling_link_is_reported",
+]
+note = "KK-021: new with every typed leaf member, read back identically, validate with no finding; dangling RNAM, MODL reported"
+
+[[entry]]
+type = "OTFT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::otft_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::otft_dangling_link_is_reported",
+]
+note = "KK-021: new with every typed leaf member, read back identically, validate with no finding; dangling INAM reported"
+
 # LVLI has no entry: its read-back test is #[ignore]d (a BFCB block condition-slot
 # misalignment in `new`, an engine fix outside KK-017); its dangling-link test passes
 # but a dangling test alone is not a typed-writable row.
