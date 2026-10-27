@@ -159,6 +159,8 @@ a before-and-after row for the measures it targets.
 | 2026-10-16 | M6.P1 before (window) | kit-ui `ddd8e1c4...`, `753eeb9` (main `54fddac` + the trace) | Kitkraft Dev (16, 7,490,111) | warm / cold | see "Window measurements" | | | three runs each; the window table below |
 | 2026-10-16 | M6.P2a..P7 after (window) | kit-ui `96b544c1...`, `36848f7` | as above | warm / cold | see "Window measurements" | | | three runs each, same bench, same machine state |
 | 2026-10-16 | after, merged with main | kit-ui `eb21a11a...`, `0e664d7` | as above | warm / cold | see "Window measurements" | | | Diff now asks `conflicts` for `detail: fields` (9.0 MB instead of 13.5 MB) |
+| 2026-10-27 | M6.P5a raw before | release test build, commit `a63c6b3` (no kit-ui SHA-256) | none (synthetic envelope) | none | `Prepared::new` on the synthetic envelope: heap_bytes=47882862 (500,000 lines kept) | 96.43 ms | - | Linux sandbox, release test build, synthetic envelope (150,000 rows, ~30 MB; 600,006 pretty lines truncated to 500,000); no profile, no cache, no window; median of 5 runs. The window rows (T2, I2 in the window) are the owner's to re-run |
+| 2026-10-27 | M6.P5a raw after | release test build, commit `d97b712` (no kit-ui SHA-256) | as above | as above | as above: heap_bytes=27799950 (500,000 lines kept) | 89.59 ms | - | as above; the one buffer (`RawLines`) cuts the raw lines' heap from 47,882,862 to 27,799,950 bytes (-42%) and `Prepared::new` from 96.43 ms to 89.59 ms |
 
 Neither the roadmap baseline nor the review re-run applied the three-run rule; M6.P1's
 rows are the first that must. The lane D round 3 rows are medians of three CLI runs
