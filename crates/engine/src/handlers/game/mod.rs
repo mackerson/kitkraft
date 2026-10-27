@@ -17,7 +17,7 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use kitkraft_game::console::HttpConsole;
-use kitkraft_game::controller::{self, Deps, Phase, Plan, Report, Shared};
+use kitkraft_game::controller::{self, Deps, Phase, Plan, Report, Shared, Snapshot};
 use kitkraft_game::host::{Host, SystemHost};
 use kitkraft_game::preflight::{self, BaseSave, Facts, PluginFacts, Refusal};
 use kitkraft_game::probes::ProbeFile;
@@ -437,8 +437,10 @@ fn phase_name(phase: Phase) -> String {
 /// A synchronous session with a sink: the controller runs on a scoped thread, and the
 /// calling thread — where the sink lives, since `progress::current` reads a thread-local —
 /// polls the shared state every 50 ms, sending a `phase` event per phase change and one
-/// `probe` event per row as it finishes. A thread that panics is an error result, not a
-/// crash: the scope does not propagate the panic, and `join` hands it back as `Err`.
+/// `probe` event per row as it finishes, then reads the state one last time after the
+/// thread has ended, so a phase or row that lands between the last poll and the finish
+/// still gets its event. A thread that panics is an error result, not a crash: the scope
+/// does not propagate the panic, and `join` hands it back as `Err`.
 fn run_with_progress(
     plan: &Plan,
     deps: Deps,
@@ -452,27 +454,30 @@ fn run_with_progress(
     let mut last_phase = shared.snapshot().phase;
     let mut rows_seen = 0usize;
     let mut phases_seen = 0usize;
+    let mut emit = |snap: &Snapshot| {
+        if snap.phase != last_phase {
+            last_phase = snap.phase;
+            phases_seen = phases_seen.saturating_add(1);
+            let name = phase_name(last_phase);
+            reporter.emit("phase", phases_seen, None, Some(&name));
+        }
+        if let Some(rows) = snap.rows.get(rows_seen..) {
+            for row in rows {
+                rows_seen = rows_seen.saturating_add(1);
+                reporter.emit("probe", rows_seen, Some(total), Some(&row.row));
+            }
+        }
+    };
     std::thread::scope(|scope| {
         let handle = scope.spawn(move || controller::run(plan, deps, &worker));
         loop {
-            let snap = shared.snapshot();
-            if snap.phase != last_phase {
-                last_phase = snap.phase;
-                phases_seen = phases_seen.saturating_add(1);
-                let name = phase_name(last_phase);
-                reporter.emit("phase", phases_seen, None, Some(&name));
-            }
-            if let Some(rows) = snap.rows.get(rows_seen..) {
-                for row in rows {
-                    rows_seen = rows_seen.saturating_add(1);
-                    reporter.emit("probe", rows_seen, Some(total), Some(&row.row));
-                }
-            }
+            emit(&shared.snapshot());
             if handle.is_finished() {
                 break;
             }
             std::thread::sleep(Duration::from_millis(50));
         }
+        emit(&shared.snapshot());
         handle
             .join()
             .map_err(|_| failed(ID, "the session thread panicked"))
