@@ -122,8 +122,11 @@ impl<B: Send + 'static> std::fmt::Debug for Worker<B> {
 }
 
 impl<B: Send + 'static> Worker<B> {
-    /// Starts the engine thread with an empty session.
-    pub fn spawn(wake: Option<Wake>) -> std::io::Result<Self> {
+    /// Starts the engine thread, building its engine with `make` on the thread itself.
+    fn spawn_with(
+        make: impl FnOnce() -> ReadOnlyEngine + Send + 'static,
+        wake: Option<Wake>,
+    ) -> std::io::Result<Self> {
         let (job_tx, job_rx) = channel::<Msg<B>>();
         let (reply_tx, reply_rx) = channel::<Reply<B>>();
         let stop = Arc::new(AtomicBool::new(false));
@@ -134,7 +137,7 @@ impl<B: Send + 'static> Worker<B> {
         let thread = std::thread::Builder::new()
             .name("kitkraft-engine".to_string())
             .spawn(move || {
-                let engine = ReadOnlyEngine::new();
+                let engine = make();
                 while let Ok(msg) = job_rx.recv() {
                     let job = match msg {
                         Msg::Dispose(value) => {
@@ -168,6 +171,21 @@ impl<B: Send + 'static> Worker<B> {
             running,
             thread: Some(thread),
         })
+    }
+
+    /// Starts the engine thread with an empty session.
+    pub fn spawn(wake: Option<Wake>) -> std::io::Result<Self> {
+        Self::spawn_with(ReadOnlyEngine::new, wake)
+    }
+
+    /// Starts the engine thread with `engine` (tests run the worker over the engine's
+    /// fakes); [`Self::spawn`] stays the window's entry.
+    #[cfg(test)]
+    pub(crate) fn spawn_with_engine(
+        engine: ReadOnlyEngine,
+        wake: Option<Wake>,
+    ) -> std::io::Result<Self> {
+        Self::spawn_with(move || engine, wake)
     }
 
     /// Queues `request`. A request the gate refuses never reaches the thread: the refusal
@@ -355,10 +373,27 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    use crate::gate::GameFakes;
+
     const WAIT: Duration = Duration::from_secs(60);
 
     fn worker() -> Worker {
         Worker::spawn(None).unwrap()
+    }
+
+    /// M6.G4: the test-only spawn runs the worker over the engine's fakes, so the
+    /// cockpit's follow test can drive a real session through it.
+    #[test]
+    fn a_test_worker_runs_over_the_fakes() {
+        let fakes = GameFakes::new("worker-fakes").unwrap();
+        let mut worker: Worker =
+            Worker::spawn_with_engine(ReadOnlyEngine::with_game_fakes(&fakes), None).unwrap();
+        worker
+            .submit(Request::new("schema", json!({"type": "WEAP"})))
+            .unwrap();
+        let reply = worker.wait(WAIT).unwrap();
+        let env = reply.result.unwrap();
+        assert_eq!(env["data"]["defined"], true, "{env}");
     }
 
     #[test]

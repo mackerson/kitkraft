@@ -48,6 +48,10 @@ pub(crate) enum Slot {
     CockpitMasters,
     CockpitDeploy,
     CockpitRollback,
+    // M6.G4: the game session's preview/start, its status poll, and its stop.
+    CockpitSession,
+    CockpitGameStatus,
+    CockpitGameStop,
     Coverage,
     // Lane R (M7.R2): the Render Window's cell, a page at a time.
     RenderCell,

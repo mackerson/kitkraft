@@ -17,10 +17,13 @@
 //! - **Ledger**: the entries of `docs/game-observations.md` that name the plugin's file
 //!   or its SHA-256 (the hash comes from the deploy preview: the engine hashes the
 //!   source, the window computes nothing).
-//! - **Game session** buttons (M6.G4 to M6.G6): their state is read from the catalog
-//!   and the gate ([`game_button`]). `game.session` and `game.stop` are permitted now
-//!   (M6.G4): [`session::SessionForm`] builds their previews and confirmed requests;
-//!   the button wiring is the next ticket. `game.probe` stays disabled with M6.G5.
+//! - **Game session** (M6.G4): the window starts a session with `game.session`
+//!   (previewed `dry_run: true`, started only from the confirm box's button,
+//!   [`session::SessionForm::start_request`]), follows it by polling `game.status`
+//!   once a second on its one engine worker ([`session::SessionState::poll_due`]),
+//!   and ends it with `game.stop` (previewed, confirmed, its report kept). The
+//!   buttons' enabled state is read from the catalog and the gate
+//!   ([`game_button`]); `game.probe` stays disabled with M6.G5.
 
 use std::path::{Path, PathBuf};
 
@@ -421,6 +424,53 @@ pub fn confirm_gate(
         });
     }
     Ok(plan.args.clone())
+}
+
+/// Why the session's start confirm box stays closed, or `Ok` with the previewed
+/// arguments its button sends (the start is built from them, once per click). It
+/// opens only for a loaded dev profile that is not `Default`, a form whose `mo2` and
+/// `profile` are that profile's, and a dry run that said `would_start` for exactly
+/// the arguments the confirm would send.
+pub fn session_confirm_gate(
+    form: &session::SessionForm,
+    target: &Result<DevTarget, String>,
+    preview: Option<&session::SessionPreview>,
+) -> Result<Value, String> {
+    let target = target.as_ref().map_err(Clone::clone)?;
+    if !same_path(&form.mo2, &target.mo2) {
+        return Err(format!(
+            "`mo2` ({}) is not the loaded profile's instance ({}): the confirm box stays closed",
+            form.mo2.trim(),
+            target.mo2
+        ));
+    }
+    if !form
+        .profile
+        .trim()
+        .eq_ignore_ascii_case(target.profile.trim())
+    {
+        return Err(format!(
+            "`profile` ({}) is not the loaded profile ({}): the confirm box stays closed",
+            form.profile.trim(),
+            target.profile
+        ));
+    }
+    let Some(preview) = preview else {
+        return Err("preview first: the dry run lists the plan and every refusal".to_string());
+    };
+    let mut previewed = preview.args.clone();
+    if let Some(m) = previewed.as_object_mut() {
+        m.remove("dry_run");
+    }
+    if Value::Object(form.args()) != previewed {
+        return Err("the form changed since the preview: preview again".to_string());
+    }
+    if !preview.would_start {
+        return Err(
+            "the dry run would not start (the refusals, above): nothing to confirm".to_string(),
+        );
+    }
+    Ok(preview.args.clone())
 }
 
 /// One dev mod in a `deploy.status` result.
@@ -848,6 +898,10 @@ pub(crate) struct CockpitTab {
     pub rollback: Option<DeployPlan>,
     /// The confirm box open for this write and these previewed arguments.
     pub pending: Option<(WriteKind, Value)>,
+    /// The session's form: where the probes and the game come from (M6.G4).
+    pub session_form: session::SessionForm,
+    /// What the window knows about the session it started (M6.G4).
+    pub session: session::SessionState,
 }
 
 impl CockpitTab {
@@ -1134,7 +1188,44 @@ impl CockpitTab {
                         .on_hover_text(&b.reason)
                         .on_disabled_hover_text(&b.reason);
                     if r.clicked() {
-                        *ctx.notice = Some(format!("{}: not wired in this window yet", b.id));
+                        match b.id {
+                            // Preview first: the dry run's plan and refusals, below.
+                            "game.session" => {
+                                if let Ok(t) = dev_target(env.loaded_profile) {
+                                    if self.session_form.mo2.trim().is_empty()
+                                        && self.session_form.profile.trim().is_empty()
+                                    {
+                                        self.session_form.fill(&t, env.checkout);
+                                    }
+                                }
+                                self.session.pending = None;
+                                ctx.actions.push(Action::Submit(
+                                    Slot::CockpitSession,
+                                    self.session_form.preview_request(),
+                                ));
+                            }
+                            // Preview first: the dry run's `would` lines, below.
+                            "game.stop" => match self.session.id.clone() {
+                                Some(id) => {
+                                    self.session.pending = None;
+                                    ctx.actions.push(Action::Submit(
+                                        Slot::CockpitGameStop,
+                                        session::SessionForm::stop_preview(&id),
+                                    ));
+                                }
+                                None => {
+                                    *ctx.notice =
+                                        Some("no session is started: nothing to stop".to_string())
+                                }
+                            },
+                            // `game.probe` reaches the gate with M6.G5.
+                            _ => {
+                                *ctx.notice = Some(format!(
+                                    "`{}`: its preview and confirm land with M6.G5",
+                                    b.id
+                                ))
+                            }
+                        }
                     }
                 }
             });
@@ -1147,8 +1238,12 @@ impl CockpitTab {
             for r in reasons {
                 ui.weak(r);
             }
-            ui.weak("no session started: the window starts one with game.session --start and follows it with game.status (M6.G4)");
         });
+
+        theme::gap(ui);
+
+        // -- the game session (M6.G4)
+        self.session_ui(ui, ctx, env);
 
         // -- the review summary
         let name = file_name(&self.plugin);
@@ -1366,6 +1461,11 @@ impl CockpitTab {
                 },
             );
         }
+    }
+
+    /// The game session (M6.G4, second half): the drawing lives in [`session`].
+    fn session_ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {
+        session::session_ui(ui, ctx, env, &mut self.session_form, &mut self.session);
     }
 
     fn deploy_ui(&mut self, ui: &mut egui::Ui, ctx: &mut TabCtx<'_>, env: &CockpitEnv<'_>) {

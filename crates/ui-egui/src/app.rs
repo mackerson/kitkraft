@@ -28,6 +28,7 @@ use crate::panels::schema::SchemaTab;
 use crate::panels::start::{instance_of_profile, profiles_request, StartProfile, StartTab};
 use crate::panels::validate::ValidateTab;
 // Lane G (M6).
+use crate::panels::cockpit::session::POLL_INTERVAL;
 use crate::panels::cockpit::{CockpitEnv, CockpitTab};
 use crate::panels::coverage::CoverageTab;
 use crate::perf::{self, Frames, Wheel};
@@ -101,7 +102,10 @@ impl Tab {
             | Slot::CockpitRoundtrip
             | Slot::CockpitMasters
             | Slot::CockpitDeploy
-            | Slot::CockpitRollback => Tab::Cockpit,
+            | Slot::CockpitRollback
+            | Slot::CockpitSession
+            | Slot::CockpitGameStatus
+            | Slot::CockpitGameStop => Tab::Cockpit,
             Slot::Coverage => Tab::Coverage,
             Slot::RenderCell => Tab::Render,
         }
@@ -685,6 +689,12 @@ impl App {
                             self.submit(s, r);
                         }
                     }
+                    // M6.G4: the session's replies join its state directly (no view).
+                    Slot::CockpitSession => {
+                        self.cockpit.session.receive_session(&reply.request, env)
+                    }
+                    Slot::CockpitGameStatus => self.cockpit.session.receive_status(env),
+                    Slot::CockpitGameStop => self.cockpit.session.receive_stop(env),
                     _ => {}
                 },
                 // Lane R (M7.R2): the next page of the cell, until the draw cap.
@@ -696,6 +706,13 @@ impl App {
             }
         } else if slot == Slot::RenderCell {
             self.render.failed();
+        } else if matches!(
+            slot,
+            Slot::CockpitSession | Slot::CockpitGameStatus | Slot::CockpitGameStop
+        ) {
+            // Only a failed poll (or a failed start) ends the following; a failed
+            // preview leaves it in place. The error stays in the slot's result.
+            self.cockpit.session.failed(&reply.request);
         }
         // Replies arrive in submission order, so the session now is the one this
         // request ran against.
@@ -1055,6 +1072,16 @@ impl eframe::App for App {
         let busy = self.worker.is_busy();
         if busy {
             ui.ctx().request_repaint_after(Duration::from_millis(250));
+        }
+        // M6.G4: the session's following runs on every frame, even while another tab
+        // is shown: submit the poll that is due (one ordinary request on the same
+        // worker), and keep the window painting at the interval while a session is
+        // followed.
+        if let Some(poll) = self.cockpit.session.poll_due(Instant::now()) {
+            self.submit(Slot::CockpitGameStatus, poll);
+        }
+        if self.cockpit.session.following() {
+            ui.ctx().request_repaint_after(POLL_INTERVAL);
         }
         self.ck_menu_bar(ui);
         self.top_bar(ui);
