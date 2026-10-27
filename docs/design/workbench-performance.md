@@ -161,6 +161,9 @@ a before-and-after row for the measures it targets.
 | 2026-10-16 | after, merged with main | kit-ui `eb21a11a...`, `0e664d7` | as above | warm / cold | see "Window measurements" | | | Diff now asks `conflicts` for `detail: fields` (9.0 MB instead of 13.5 MB) |
 | 2026-10-27 | M6.P5a raw before | release test build, commit `a63c6b3` (no kit-ui SHA-256) | none (synthetic envelope) | none | `Prepared::new` on the synthetic envelope: heap_bytes=47882862 (500,000 lines kept) | 96.43 ms | - | Linux sandbox, release test build, synthetic envelope (150,000 rows, ~30 MB; 600,006 pretty lines truncated to 500,000); no profile, no cache, no window; median of 5 runs. The window rows (T2, I2 in the window) are the owner's to re-run |
 | 2026-10-27 | M6.P5a raw after | release test build, commit `d97b712` (no kit-ui SHA-256) | as above | as above | as above: heap_bytes=27799950 (500,000 lines kept) | 89.59 ms | - | as above; the one buffer (`RawLines`) cuts the raw lines' heap from 47,882,862 to 27,799,950 bytes (-42%) and `Prepared::new` from 96.43 ms to 89.59 ms |
+| 2026-10-27 | M6.P6a debug opt-level 0 | debug test build, commit `e1c4151` (no kit-ui SHA-256) | none (headless bench: 200 frames over a 100,000-row table, one wheel step per frame) | none | `headless_frame_bench` frame time | p50 1.30 / p95 1.60 ms | 3.27 ms | Linux sandbox, headless egui, no GPU, no window; median of 3 runs; a fresh `cargo build --workspace --tests` takes 54.79 s wall |
+| 2026-10-27 | M6.P6a debug opt-level 2 | as above, `[profile.dev.package."*"] opt-level = 2` (reverted after measuring) | as above | none | as above | p50 0.12 / p95 0.19 ms | 0.81 ms | as above; dependencies at opt-level 2, workspace crates at the dev defaults (the bench still reports `profile=debug`); the fresh build takes 97.20 s wall (+77 percent) |
+| 2026-10-27 | M6.P6a release | release test build, commit `e1c4151` | as above | none | as above | p50 0.05 / p95 0.08 ms | 0.65 ms | as above; release profile, for reference |
 
 Neither the roadmap baseline nor the review re-run applied the three-run rule; M6.P1's
 rows are the first that must. The lane D round 3 rows are medians of three CLI runs
@@ -243,3 +246,39 @@ minimized on this box; the screenshot tour launched that way finished all 13 tab
 window does open minimized it is restored within the first 10 s, and the tour waits for
 the restore instead of hanging. The window asks for focus once; Windows granted it in
 every run (`window focus focused=Some(true)`).
+
+## Debug builds and opt-level (M6.P6a)
+
+**Question.** A debug `kit-ui` is about five times slower than release (`docs/workbench.md`
+"Launch"), so `cargo xtask ui` builds release. Would `[profile.dev.package."*"]
+opt-level = 2` in the workspace `Cargo.toml` (dependencies optimized, our crates not) make
+debug runs usable, and what would it cost the gate? Adopt only if the gate's time grows by
+under 10 percent. This ticket measures and recommends; it does not adopt (`Cargo.toml` is
+unchanged).
+
+**How.** `perf::tests::headless_frame_bench` (an ignored test, commit `e1c4151`): a headless
+`egui::Context` without a window, `theme::apply` once, then `ctx.run_ui` for 200 frames with
+a `RawInput` of `theme::WINDOW`'s size over a `virtual_table` of 100,000 rows with three
+cells each, scrolling by one mouse-wheel step over the table's rectangle every frame. Three
+runs per profile; the medians are below and in the Results rows. Build cost: a fresh
+`cargo build --workspace --tests` in a new target folder (a gitignored `.scratch/` folder;
+this sandbox has no writable `/tmp`), deleted afterwards, wall time; one build each (not
+three), so the build times are single runs.
+
+| Profile | p50 | p95 | max |
+| ------- | --- | --- | --- |
+| debug, opt-level 0 (as today) | 1.30 ms | 1.60 ms | 3.27 ms |
+| debug, dependencies opt-level 2 | 0.12 ms | 0.19 ms | 0.81 ms |
+| release (reference) | 0.05 ms | 0.08 ms | 0.65 ms |
+
+Machine: Linux sandbox, headless egui, no GPU, no window.
+
+**Build cost.** The fresh build takes 54.79 s wall without the setting and 97.20 s with it:
+**+77 percent**. The gate's dominant cost is compiling the dev-profile dependency tree (its
+build, clippy and test steps all compile it), so the gate would grow by far more than 10
+percent (inferred from the fresh build; the gate itself was not timed).
+
+**Result.** With the setting the frame times fall about elevenfold (p50 1.30 ms to 0.12 ms):
+debug runs would be usable. The 10 percent rule says **do not adopt** — the build cost grows
+77 percent. The setting was reverted after measuring. The dev box (Windows) may differ, and
+the window measurement there (a real window with a GPU, as the M6.P1 rows) is the owner's.

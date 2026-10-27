@@ -293,4 +293,68 @@ mod tests {
         w.inject(&mut raw);
         assert_eq!(raw.events.len(), 2);
     }
+
+    /// KK-041: a headless frame bench (M6.P6a's measurement). It runs `egui::Context`
+    /// without a window, as `panels::common::a_virtual_table_lays_out_only_the_visible_rows`
+    /// does: `theme::apply` once, then `ctx.run_ui` with a `RawInput` of `theme::WINDOW`'s
+    /// size, for 200 frames over a `virtual_table` of 100,000 rows with a few cells each,
+    /// scrolling by one mouse-wheel step over the table's rectangle every frame (the
+    /// first frame, which has no rectangle yet, gets none). It prints exactly one line:
+    /// `frame-bench: profile=<debug or release> frames=200 p50_ms=<x> p95_ms=<y>
+    /// max_ms=<z>`, the profile read from `cfg!(debug_assertions)`, the percentiles from
+    /// this file's own [`percentiles`].
+    #[test]
+    #[ignore]
+    fn headless_frame_bench() {
+        use crate::panels::common::virtual_table;
+        use crate::theme::{self, Mode, Preset, View};
+        use eframe::egui;
+
+        const FRAMES: usize = 200;
+        const ROWS: usize = 100_000;
+
+        let ctx = egui::Context::default();
+        theme::apply(&ctx, &Preset::Workbench.theme(), Mode::Light);
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::Vec2::from(theme::WINDOW));
+
+        let mut table = None;
+        let mut samples = Vec::with_capacity(FRAMES);
+        for _ in 0..FRAMES {
+            let mut raw = egui::RawInput {
+                screen_rect: Some(screen),
+                ..Default::default()
+            };
+            Wheel {
+                target: table,
+                step: -40.0,
+            }
+            .inject(&mut raw);
+            let t0 = Instant::now();
+            let mut out = ctx.run_ui(raw, |ui| {
+                table = Some(virtual_table(
+                    ui,
+                    "bench",
+                    &["a", "b", "c"],
+                    ROWS,
+                    View::Medium,
+                    |r, i| {
+                        r.cell(|ui| ui.label(format!("row {i}")));
+                        r.cell(|ui| ui.monospace(format!("{i:05}")));
+                        r.num(i.to_string());
+                    },
+                ));
+            });
+            samples.push((t0.elapsed().as_secs_f64() * 1000.0) as f32);
+            out.textures_delta.clear();
+        }
+        let (p50, p95, max) = percentiles(&samples).unwrap();
+        let profile = if cfg!(debug_assertions) {
+            "debug"
+        } else {
+            "release"
+        };
+        println!(
+            "frame-bench: profile={profile} frames={FRAMES} p50_ms={p50:.2} p95_ms={p95:.2} max_ms={max:.2}"
+        );
+    }
 }
