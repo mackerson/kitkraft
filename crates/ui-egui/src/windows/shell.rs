@@ -23,6 +23,7 @@ use crate::gate::Request;
 use crate::menu::{self, MenuPick, Target};
 use crate::panels::cockpit::CockpitEnv;
 use crate::panels::common::{Action, Slot, TabCtx};
+use crate::windows::cell_view::CellViewAsk;
 use crate::windows::use_info::UseInfoAsk;
 use crate::windows::warnings::{self, WarningsAsk};
 use crate::windows::{self, Pending, WinSpec, WindowKind};
@@ -159,6 +160,7 @@ impl App {
         let result = reply.result.as_ref().map_err(ToString::to_string);
         match self.shell.tickets.remove(&reply.ticket) {
             Some(Pending::UseInfo) => self.shell.use_info.receive(result),
+            Some(Pending::CellView) => self.shell.cell_view.receive(result),
             Some(Pending::Schema(sig)) => self.shell.dialog.receive_schema(&sig, result),
             None => {}
         }
@@ -266,6 +268,72 @@ impl App {
                     self.ck_submit(Pending::UseInfo, req);
                 }
             }
+            None => {}
+        }
+
+        // Cell View (M7.W2): worldspaces, cells and references over `cell`.
+        let mut cell_ask = None;
+        if self.shell.is_open(WindowKind::CellView) {
+            // Reopening it while an error is shown asks for the worldspaces again.
+            if !self.shell.cell_view_open {
+                self.shell.cell_view.on_reopen();
+            }
+            self.shell.cell_view_open = true;
+            // Opening it with nothing shown asks for the worldspaces once.
+            if self.shell.cell_view.list_mode.is_none()
+                && self.shell.cell_view.cell.is_none()
+                && !self.shell.cell_view.list_pending
+            {
+                if let Some(req) = self.shell.cell_view.worlds() {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            let kind = WindowKind::CellView;
+            let state = self
+                .shell
+                .layout
+                .entry(kind.title().to_string())
+                .or_default();
+            let c = &self.shell.cell_view;
+            windows::floating(
+                ctx,
+                state,
+                &mut self.shell.dirty,
+                WinSpec {
+                    key: kind.title(),
+                    title: kind.title(),
+                    default_pos: kind.default_pos(),
+                    default_size: kind.default_size(),
+                    focus: is_focus(kind.title()),
+                },
+                |ui| cell_ask = c.ui(ui, busy),
+            );
+        } else {
+            self.shell.cell_view_open = false;
+        }
+        match cell_ask {
+            Some(CellViewAsk::Interiors) => {
+                if let Some(req) = self.shell.cell_view.interiors() {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::World(form)) => {
+                if let Some(req) = self.shell.cell_view.world(&form) {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::Cell(form)) => {
+                if let Some(req) = self.shell.cell_view.cell(&form) {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::Page(cursor)) => {
+                if let Some(req) = self.shell.cell_view.page(cursor) {
+                    self.ck_submit(Pending::CellView, req);
+                }
+            }
+            Some(CellViewAsk::Select(form)) => actions.push(Action::Select(form)),
+            Some(CellViewAsk::Inspect(form)) => actions.push(Action::Inspect(form)),
             None => {}
         }
 
@@ -452,6 +520,8 @@ impl App {
         // the image and frame 6 waits for it.
         let waiting = self.worker.is_busy()
             || self.shell.use_info.pending
+            || self.shell.cell_view.list_pending
+            || self.shell.cell_view.refs_pending
             || !self.shell.dialog.pending.is_empty();
         let settled = self
             .shell

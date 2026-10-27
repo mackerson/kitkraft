@@ -392,7 +392,7 @@ cargo test --release -p kitkraft-ui-egui --test dev_profile -- --ignored --nocap
     viewport draws only on input (or once on request), so "frames" stays still while
     nothing moves.
 
-## CK-style windows (M7.M0, M7.M1, M7.M4, M7.W3, M7.W5)
+## CK-style windows (M7.M0, M7.M1, M7.M4, M7.W2, M7.W3, M7.W5)
 
 **Decision (M7.M0, lane M, 2026-10-16; director assumption pending the owner):** the
 Creation Kit's windows are reproduced as floating `egui::Window`s inside the one main
@@ -428,6 +428,12 @@ windows. A dock layout comes only if sitting 1 (M7.O2) shows the CK's docks. Cod
 - **Use Info (M7.W5)**: `refs --incoming` of the inspected record, following the
   selection while open (one request per new selection), paged; limitations folded under
   one line; double-click a referrer to inspect it.
+- **Cell View (M7.W2)**: the left list shows `cell`'s worldspaces, with "Interior"
+  as a first entry, the interior cells, or one world's exterior cells with their
+  grid; the right list shows the selected cell's references (EditorID, base, type,
+  position, persistent); both paged. Opening it asks for the worldspaces once and
+  says "load a profile first" while nothing is loaded; a click on a reference
+  selects it (the shared selection), a double-click inspects it.
 - **Edit dialog (M7.W3)**: the inspected record's winning version, read-only, its typed
   fields grouped by tab and group per `crates/ui-egui/layouts/<TYPE>.toml` (WEAP, ACTI,
   LCTN, TERM, FACT, PKIN, CELL, REFR ship now); any other type gets a default layout
