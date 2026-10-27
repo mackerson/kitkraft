@@ -2906,3 +2906,4 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   archive holds, explained in `docs/validate.md` and pinned per file in
   `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
   synthetic tests in `models_tests.rs`.
+Landed 2026-10-26: KK-052 - two ticket drafts in `plan/tickets/drafts/` for the morning merge: inventory definitions for MRPH, CNDF, VTYP, MTPT and ASPC, and typing AVIF (actor value information) from the pinned xEdit file; both `after = ["KK-023"]`, both lint clean (0 errors, 0 warnings), covers check passes, `cargo test -p kitkraft-schema` green.
