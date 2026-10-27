@@ -1,0 +1,120 @@
+# AVMD: AvmsData, inventory definition (M4.BX2, KK-022).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official AVMD record (6530 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, run 2026-10-27): which
+#     subrecords occur, in which order and how often. Every member is listed because the
+#     corpus has it, and every official record decodes with nothing left unplaced and
+#     re-encodes byte for byte.
+#
+# An inventory: EDID is typed, the base form component frame is the shared BfcbBlock, and
+# every other payload is opaque (named after its signature, a placeholder) until a family
+# lane transcribes the record from the pinned xEdit file (docs/gaps.md). The middle of the
+# record is a run of animation entries (LNAM, an optional VNAM and NNAM per entry); the
+# entries alternate with no other member between them, so they sit in one repeated group.
+signature = "AVMD"
+name = "AvmsData"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official AVMD record (6530) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, the component block frame shared, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6530 of 6530 official AVMD records (6530 occurrences), 18..103 bytes"
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1 of 6530 official AVMD records (3 BFCB blocks), 19..26 bytes"
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "MNAM"
+name = "Mnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6530 of 6530 official AVMD records (6530 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "YNAM"
+name = "Ynam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6530 of 6530 official AVMD records (6530 occurrences), 6..91 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "TNAM"
+name = "Tnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6530 of 6530 official AVMD records (6530 occurrences), 6..91 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "ITMC"
+name = "Itmc"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6530 of 6530 official AVMD records (6530 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+group = "AvmData"
+card = "repeated"
+note = "one animation entry per block; every entry is an LNAM, an optional VNAM and an NNAM in that order, and the entries run consecutively between ITMC and MODT"
+
+[[member.member]]
+sig = "LNAM"
+name = "Lnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6490 of 6530 official AVMD records (46000 occurrences), 4..91 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.member]]
+sig = "VNAM"
+name = "Vnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 2682 of 6530 official AVMD records (12872 occurrences), 19..127 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member.member]]
+sig = "NNAM"
+name = "Nnam"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6490 of 6530 official AVMD records (46000 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "MODT"
+name = "Modt"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 6530 of 6530 official AVMD records (6530 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "AVMP"
+name = "Avmp"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 3 of 6530 official AVMD records (3 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"

@@ -1,0 +1,124 @@
+# IPCT: Impact, inventory definition (M4.BX2, KK-022).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official IPCT record (1459 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, run 2026-10-27): which
+#     subrecords occur, in which order and how often. Every member is listed because the
+#     corpus has it, and every official record decodes with nothing left unplaced and
+#     re-encodes byte for byte.
+#
+# An inventory: EDID is typed, the base form component frame is the shared BfcbBlock, and
+# every other payload is opaque (named after its signature, a placeholder) until a family
+# lane transcribes the record from the pinned xEdit file (docs/gaps.md). Two official
+# records have no EDID, and the component blocks sit between the EDID and the rest of the
+# record (or lead the record when there is no EDID).
+signature = "IPCT"
+name = "Impact"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official IPCT record (1459) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (M4.BX2): corpus order and cardinality; EDID typed, the component block frame shared, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1457 of 1459 official IPCT records (1457 occurrences), 11..68 bytes"
+confidence = "corpus"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1027 of 1459 official IPCT records (1314 BFCB blocks), 25..27 bytes"
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "MODL"
+name = "Modl"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1069 of 1459 official IPCT records (1069 occurrences), 24..49 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "FLLD"
+name = "Fldl"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1459 of 1459 official IPCT records (1459 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1459 of 1459 official IPCT records (1459 occurrences), 24 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "GNAM"
+name = "Gnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 181 of 1459 official IPCT records (181 occurrences), 4..16 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "HNAM"
+name = "Hnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 16 of 1459 official IPCT records (16 occurrences), 16 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "DODT"
+name = "Dodt"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 301 of 1459 official IPCT records (301 occurrences), 24 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "IDSH"
+name = "Idsh"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1370 of 1459 official IPCT records (1370 occurrences), 40 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "IDP1"
+name = "Idp1"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 543 of 1459 official IPCT records (543 occurrences), 40 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "IDP3"
+name = "Idp3"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 489 of 1459 official IPCT records (489 occurrences), 40 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
+
+[[member]]
+sig = "FNAM"
+name = "Fnam"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 68 of 1459 official IPCT records (68 occurrences), 4 bytes"
+confidence = "corpus"
+note = "payload not decoded (M4.BX2 inventory)"
