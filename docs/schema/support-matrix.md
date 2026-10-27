@@ -46,7 +46,7 @@ that is still pending is not a row.
 
 Seeded 2026-10-15 from what `main` proves:
 
-- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC and FLST
+- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC, FLST, ARMO, ARMA and OTFT
   (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
   AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
@@ -231,3 +231,28 @@ written, a slot misalignment that is an engine fix outside this ticket; its dang
 test, `lvli_dangling_link_is_reported` (`LVLO.Item`, `DEFL`, `SNBH`), passes, but a
 dangling test alone is not a typed-writable row, so LVLI has no evidence entry while the
 read-back is ignored.
+
+## ARMO, ARMA and OTFT (KK-021, 2026-10-27)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), each on the
+`ContactShadow` component layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| ARMO | not-run | pass |
+| ARMA | not-run | pass |
+| OTFT | not-run | pass |
+
+- `armo_new_sets_every_typed_member_and_reads_back`,
+  `arma_new_sets_every_typed_member_and_reads_back` and
+  `otft_new_sets_every_typed_member_and_reads_back`: `new` with every typed leaf member
+  of the definition, read back byte for byte, `validate` with no finding. ARMO's AVSG
+  and AFSG Wwise GUID subrecords are structs of opaque fields only, which `validate`
+  counts as unchecked subrecords, so the read-back allows them unchecked; ARMA's biped
+  slots (`BO64`) are a u64 flags member (KK-006), written whole as the other flags
+  members are.
+- `armo_dangling_link_is_reported` (the armor addon `MODL`, the keywords `KWDA`),
+  `arma_dangling_link_is_reported` (the race `RNAM`, the additional races `MODL`) and
+  `otft_dangling_link_is_reported` (the outfit items `INAM`): each link is reported by
+  `validate`'s `formid.dangling` and listed as `missing` by `refs`.
