@@ -77,4 +77,4 @@ cmd = "cargo xtask codegen --check"
 
 [[accept]]
 name = "parity-row"
-cmd = "grep -Eq '^\\| `AVIF` +\\| ActorValueInformation +\\| +1,267 .*\\| +0 \\|$' docs/record-parity.md"
+cmd = "grep -Eq '^\\| `AVIF` +\\| ActorValueInformation +\\| +1,267 +\\| +[0-9,]+ +\\| +9 +\\| +[0-9]+ +\\| +[0-9]+ +\\| +0 +\\|$' docs/record-parity.md"
