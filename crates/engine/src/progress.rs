@@ -18,6 +18,9 @@
 //! | `scan`          | `conflicts`, before the override table is scanned       | -                    |
 //! | `validate`      | `validate` and `build`, before the rules run            | the plugin           |
 //! | `classes`, `rules`, `write` | `build`, one per class, one per rule, then the write | the class or rule key |
+//! | `preflight`     | `game.session`, before and after the facts are gathered (0/1 and 1/1, in every form; a refused session sends the first) | the session id |
+//! | `phase`         | `game.session` (synchronous form), once per phase change of the running controller | the phase, as `game.status` spells it |
+//! | `probe`         | `game.session` (synchronous form), one per probe row as it finishes | the row id |
 //!
 //! Index events arrive in the order plugins finish (largest files start first), with
 //! `done` counting up by one; they come from the indexing worker threads, so a sink must
