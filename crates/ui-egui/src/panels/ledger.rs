@@ -748,6 +748,23 @@ mod tests {
         );
         assert_eq!(f.profile, DEV_PROFILE);
         assert_eq!(f.file, file);
+        // The note and label are cut at a character boundary to the engine's caps
+        // (2000 and 200 characters), even for multi-byte text.
+        let long = json!({
+            "row": "T-11",
+            "title": "é".repeat(200),
+            "forms": [],
+            "commands": [],
+            "expected": "é".repeat(2100),
+            "seen": "",
+            "verdict": {"status": "inconclusive", "reason": ""},
+            "screenshots": []
+        });
+        let l = LedgerForm::from_probe_row("2026-10-25-T01", &long, &shots, file).unwrap();
+        assert_eq!(l.note.chars().count(), 2000);
+        assert!(l.note.ends_with("..."));
+        assert_eq!(l.label.chars().count(), 200);
+        assert!(l.label.ends_with("..."));
         // A not-run row with a manual: reason is prefilled too.
         let manual = json!({
             "row": "T-07",
