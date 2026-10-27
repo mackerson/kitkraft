@@ -274,6 +274,10 @@ impl App {
         // Cell View (M7.W2): worldspaces, cells and references over `cell`.
         let mut cell_ask = None;
         if self.shell.is_open(WindowKind::CellView) {
+            // The shared selection and the cell the Render Window shows, as
+            // owned copies so the window closure borrows neither of them.
+            let inspected = self.ck_selected();
+            let rendered = self.render.shown_cell().map(str::to_string);
             // Reopening it while an error is shown asks for the worldspaces again.
             if !self.shell.cell_view_open {
                 self.shell.cell_view.on_reopen();
@@ -294,7 +298,7 @@ impl App {
                 .layout
                 .entry(kind.title().to_string())
                 .or_default();
-            let c = &self.shell.cell_view;
+            let c = &mut self.shell.cell_view;
             windows::floating(
                 ctx,
                 state,
@@ -306,7 +310,9 @@ impl App {
                     default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
-                |ui| cell_ask = c.ui(ui, busy),
+                |ui| {
+                    cell_ask = c.ui(ui, busy, inspected.as_deref(), rendered.as_deref())
+                },
             );
         } else {
             self.shell.cell_view_open = false;
@@ -326,6 +332,16 @@ impl App {
                 if let Some(req) = self.shell.cell_view.cell(&form) {
                     self.ck_submit(Pending::CellView, req);
                 }
+            }
+            Some(CellViewAsk::ShowCell(form)) => {
+                // The Render Window's own slot, so the reply reaches its
+                // `receive_page` unchanged; the tab (or floating window)
+                // comes to the front with it.
+                actions.push(Action::Submit(
+                    Slot::RenderCell,
+                    self.render.show_cell(&form),
+                ));
+                self.ck_open_tab("Render Window");
             }
             Some(CellViewAsk::Page(cursor)) => {
                 if let Some(req) = self.shell.cell_view.page(cursor) {
