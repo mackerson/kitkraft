@@ -23,15 +23,15 @@ M4.BX2 inventory definitions (in *container/other*): DOOR, LIGH, IRES, MESG, LAY
 | quest           |           10 |          10 |   267,549 |  3,900,604 |    50,107 |   202,104 |
 | actor           |            9 |           9 |    13,350 |  1,211,611 |     2,833 |         6 |
 | items           |           12 |          12 |    33,939 |    378,130 |    10,517 |    21,492 |
-| container/other |          123 |          33 |   252,710 |     82,211 |   464,819 |   532,809 |
-| **Total**       |          186 |          96 | 7,490,102 | 46,637,732 | 2,542,312 | 1,239,517 |
+| container/other |          123 |          35 |   252,710 |    131,226 |   482,316 |   466,297 |
+| **Total**       |          186 |          98 | 7,490,102 | 46,686,747 | 2,559,809 | 1,173,005 |
 
 ## Corpus and method
 
 - Corpus: the 14 files of `corpus/manifest.toml` (recorded 2026-10-14, manifest hash
   `fnv1a64:ab0c6a61395d23b1`), read in place from `KITKRAFT_DATA_DIR`; each file's
   size was checked against the manifest (the SHA-256 is not re-verified here).
-- Schema: 96 record definitions, defs hash `fnv1a64:6abfef683a5abdda` (the hash named in
+- Schema: 98 record definitions, defs hash `fnv1a64:495bbaffe26acdf8` (the hash named in
   `crates/esm/src/generated/records.rs`).
 - Counts come from `kit coverage <file> --json` (M1.14). Compressed records **were
   examined**: each was decompressed with the default `DecodeLimits` and its subrecords
@@ -63,7 +63,7 @@ Columns:
 | `DIAL`        | DialogTopic             |    87,031 |          0 |    15 |    14 |      0 |       1 |
 | `CELL`        | Cell                    |    40,251 |     32,230 |    34 |    31 |      2 |       1 |
 | `STAT`        | Static                  |    22,296 |          0 |    32 |    24 |      3 |       5 |
-| `LMSW`        | -                       |    17,410 |          0 |     9 |     0 |      0 |       9 |
+| `LMSW`        | LayeredMaterialSwap     |    17,410 |          0 |     9 |     4 |      1 |       4 |
 | `PKIN`        | PackIn                  |    15,128 |          0 |    41 |    38 |      3 |       0 |
 | `ACHR`        | PlacedNpc               |    14,731 |          0 |    29 |    24 |      2 |       3 |
 | `LAYR`        | Layer                   |    10,424 |          0 |     7 |     4 |      3 |       0 |
@@ -98,7 +98,7 @@ Columns:
 | `IDLE`        | IdleAnimation           |     1,302 |          0 |     9 |     9 |      0 |       0 |
 | `DFOB`        | -                       |     1,273 |          0 |     3 |     0 |      0 |       3 |
 | `AVIF`        | ActorValueInformation   |     1,267 |          0 |     9 |     3 |      0 |       6 |
-| `ARMA`        | -                       |     1,238 |          0 |    39 |     0 |      0 |      39 |
+| `ARMA`        | ArmorAddon              |     1,238 |          0 |    39 |    36 |      1 |       2 |
 | `ARMO`        | Armor                   |     1,168 |          0 |    41 |    39 |      2 |       0 |
 | `MRPH`        | -                       |     1,145 |          0 |     4 |     0 |      0 |       4 |
 | `SOUN`        | SoundMarker             |     1,133 |          0 |     8 |     3 |      5 |       0 |
@@ -242,9 +242,9 @@ Columns:
 | `OVIS`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
 | `SCCO`        | -                       |         1 |          0 |     5 |     0 |      0 |       5 |
 | `SPGD`        | -                       |         1 |          0 |     3 |     0 |      0 |       3 |
-| **186 types** | 96 defined              | 7,490,102 |    136,741 | 2,797 | 1,638 |    192 |     967 |
+| **186 types** | 98 defined              | 7,490,102 |    136,741 | 2,797 | 1,678 |    194 |     925 |
 
-Subrecord occurrences: 50,419,561 in total; 46,637,732 typed (0 of them failed to decode), 2,542,312 opaque, 1,239,517 unknown.
+Subrecord occurrences: 50,419,561 in total; 46,686,747 typed (0 of them failed to decode), 2,559,809 opaque, 1,173,005 unknown.
 
 ## Decoded through the definitions
 
@@ -265,6 +265,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `DIAL`    | DialogTopic             |        87,031 |    527,548 |      0 |         0 |         0 |                   0 |    527,548 |       0 |        0 |
 | `CELL`    | Cell                    |        40,251 |    265,596 |      0 |         0 |         1 |                   0 |    265,595 |       0 |        0 |
 | `STAT`    | Static                  |        22,296 |    193,425 |      0 |         0 |         0 |                   0 |    193,425 |       0 |        0 |
+| `LMSW`    | LayeredMaterialSwap     |        17,410 |     21,239 |      0 |         0 |         0 |                   0 |     21,239 |       0 |        0 |
 | `PKIN`    | PackIn                  |        15,128 |    142,177 |      0 |         0 |         0 |                   0 |    142,177 |       0 |        0 |
 | `ACHR`    | PlacedNpc               |        14,731 |     85,331 |      0 |         0 |         0 |                   0 |     85,331 |       0 |        0 |
 | `LAYR`    | Layer                   |        10,424 |     10,430 |      0 |         0 |         0 |                   0 |     10,430 |       0 |        0 |
@@ -295,6 +296,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `BOOK`    | Book                    |         1,368 |      4,858 |      0 |         0 |         0 |                   0 |      4,858 |       0 |        0 |
 | `IDLE`    | IdleAnimation           |         1,302 |      7,626 |      0 |         0 |         0 |                   0 |      7,626 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |         1,267 |      1,509 |      0 |         0 |         0 |                   0 |      1,509 |       0 |        0 |
+| `ARMA`    | ArmorAddon              |         1,238 |     27,776 |      0 |         0 |    18,000 |                   0 |      9,776 |       0 |        0 |
 | `ARMO`    | Armor                   |         1,168 |     30,359 |      0 |         0 |         0 |                   0 |     30,359 |       0 |        0 |
 | `SOUN`    | SoundMarker             |         1,133 |      1,135 |      0 |         0 |         0 |                   0 |      1,135 |       0 |        0 |
 | `FURN`    | Furniture               |         1,045 |     23,136 |      0 |         0 |         4 |                   0 |     23,132 |       0 |        0 |
@@ -354,7 +356,7 @@ occurrence is placed in (by position, as the decoder places it; lane B round 4).
 | `CLAS`    | Class                   |             8 |         32 |      0 |         0 |         0 |                   0 |         32 |       0 |        0 |
 | `INNR`    | InstanceNamingRules     |             8 |      2,628 |      0 |         0 |         0 |                   0 |      2,628 |       0 |        0 |
 | `PCMT`    | PlanetContentTree       |             5 |         27 |      0 |         0 |         0 |                   0 |         27 |       0 |        0 |
-| **Total** |                         |     7,444,869 | 46,637,732 |      0 |         0 |       685 |                   0 | 46,637,047 |       0 |        0 |
+| **Total** |                         |     7,463,517 | 46,686,747 |      0 |         0 |    18,685 |                   0 | 46,668,062 |       0 |        0 |
 
 ## Definitions by confidence
 
@@ -376,6 +378,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `AMDL`    | AimModel                |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
 | `AMMO`    | Ammunition              |             67 |    63 |      4 |        12 |                   0 |     55 |       0 |        0 |
 | `ANIO`    | AnimatedObject          |             41 |    37 |      4 |         2 |                   0 |     39 |       0 |        0 |
+| `ARMA`    | ArmorAddon              |             83 |    79 |      4 |        40 |                   0 |     43 |       0 |        0 |
 | `ARMO`    | Armor                   |             85 |    81 |      4 |        11 |                   0 |     74 |       0 |        0 |
 | `ARTO`    | ArtObject               |             47 |    33 |     14 |         0 |                   0 |     47 |       0 |        0 |
 | `AVIF`    | ActorValueInformation   |              3 |     3 |      0 |         0 |                   0 |      3 |       0 |        0 |
@@ -414,6 +417,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `LCRT`    | LocationRefType         |             42 |    37 |      5 |         5 |                   0 |     37 |       0 |        0 |
 | `LCTN`    | Location                |             71 |    66 |      5 |         8 |                   0 |     63 |       0 |        0 |
 | `LIGH`    | Light                   |             49 |    34 |     15 |         0 |                   0 |     49 |       0 |        0 |
+| `LMSW`    | LayeredMaterialSwap     |             35 |    31 |      4 |         0 |                   0 |     35 |       0 |        0 |
 | `LSCR`    | LoadScreen              |              4 |     2 |      2 |         0 |                   0 |      4 |       0 |        0 |
 | `LVLI`    | LeveledItem             |             68 |    64 |      4 |         9 |                   0 |     59 |       0 |        0 |
 | `LVLN`    | LeveledNpc              |             60 |    55 |      5 |         7 |                   0 |     53 |       0 |        0 |
@@ -465,7 +469,7 @@ occurrence check fails when a `corpus` (or better) member never occurs, and when
 | `WRLD`    | Worldspace              |             71 |    66 |      5 |         7 |                   0 |     64 |       0 |        0 |
 | `WWED`    | WwiseEventData          |              4 |     1 |      3 |         0 |                   0 |      4 |       0 |        0 |
 | `ZOOM`    | Zoom                    |             35 |    32 |      3 |         0 |                   0 |     35 |       0 |        0 |
-| **Total** |                         |          4,038 | 3,659 |    379 |       250 |                   2 |  3,786 |       0 |        0 |
+| **Total** |                         |          4,156 | 3,769 |    387 |       290 |                   2 |  3,864 |       0 |        0 |
 
 ## Subrecords outside the definitions
 
@@ -477,6 +481,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `DIAL`: `OPDS` (1)
 - `CELL`: `MOD2` (4)
 - `STAT`: `FLTR` (116), `INTV` (116), `KSIZ` (10,587), `KWDA` (10,587), `VLMS` (2)
+- `LMSW`: `FLTR` (1,201), `INTV` (1,201), `KSIZ` (61), `KWDA` (61)
 - `ACHR`: `KSIZ` (262), `KWDA` (262), `OPDS` (1,024)
 - `SCEN`: `ACBS` (1,183), `AIDT` (13), `ALLA` (413), `ATAC` (804), `ATTR` (1,183), `ATXT` (20), `BIPL` (159), `BNAM` (804), `BTXT` (179), `CITC` (1,032), `CNAM` (30), `DATA` (33,478), `DMAX` (32,323), `DMIN` (32,323), `DOFT` (6), `DTGT` (6,689), `ESCE` (26,088), `ESCS` (26,088), `FLAV` (804), `FLMV` (1,347), `HTID` (28,171), `INTT` (1,032), `LCEP` (1,032), `LVCR` (833), `LVLO` (159), `MPCD` (3), `NVCI` (25), `OCOR` (52), `PAPI` (57), `PAPN` (60), `PASP` (57), `PLRL` (34), `PNST` (69), `PPST` (42), `QUAL` (744), `REPL` (572), `SHRT` (8), `SOFT` (9), `SPOR` (4), `SSPN` (479), `STRV` (411), `UNAM` (1), `VCLR` (1,376), `VENC` (238), `VNML` (384), `VTXT` (5), `WED0` (1,178), `WED1` (1)
 - `NPC_`: `FLTR` (6)
@@ -493,6 +498,7 @@ Signatures seen in records of a defined type that its definition does not name
 - `FLST`: `FLTR` (44), `INTV` (44)
 - `BOOK`: `BFCB` (810), `BFCE` (810), `CNAM` (1,368), `DATA` (1,368), `DNAM` (1,368), `FLLD` (1,368), `GNAM` (187), `INAM` (1,020), `KSIZ` (1,351), `KWDA` (1,351), `MODL` (1,365), `MOLM` (127), `OBND` (1,368), `ODTY` (1,368), `PDSH` (1,062), `PTT2` (1,341), `PUSH` (1,063), `REFL` (810), `VMAD` (218), `XALG` (1,263), `XFLG` (134)
 - `AVIF`: `AVFL` (1,267), `NAM0` (1,267), `NAM1` (1,185), `NAM2` (35), `NAM3` (35), `NLDT` (387)
+- `ARMA`: `KSIZ` (1), `KWDA` (1)
 - `FURN`: `VCCD` (2), `VCMT` (2), `VCSB` (2), `VCTT` (2), `VMRT` (2), `VWWD` (2)
 - `WRLD`: `SNAM` (580)
 - `DOOR`: `FLTR` (1), `INTV` (1)

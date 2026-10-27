@@ -94,6 +94,7 @@ pub const BUILTIN_DEFINITIONS: &[(&str, &str)] = &[
     ("LCRT.toml", include_str!("../defs/LCRT.toml")),
     ("LCTN.toml", include_str!("../defs/LCTN.toml")),
     ("LIGH.toml", include_str!("../defs/LIGH.toml")),
+    ("LMSW.toml", include_str!("../defs/LMSW.toml")),
     ("LSCR.toml", include_str!("../defs/LSCR.toml")),
     ("LVLI.toml", include_str!("../defs/LVLI.toml")),
     ("LVLN.toml", include_str!("../defs/LVLN.toml")),
