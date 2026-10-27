@@ -2906,3 +2906,25 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   archive holds, explained in `docs/validate.md` and pinned per file in
   `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
   synthetic tests in `models_tests.rs`.
+- **KK-038 landed (2026-10-27, local-agent ticket):** drag-resize for the
+  columns of every `virtual_table` (`crates/ui-egui/src/panels/common.rs` only,
+  the panels draw through it): the gap after each header column but the last
+  is a drag handle (the horizontal resize cursor on hover, the line in the
+  model of the Records split's, `theme::split_stroke`). Dragging it sets that
+  column's width, never below the new `sizes.column_min` token (48, every
+  preset); a user-set width sticks — wider content is clipped, narrower does
+  not shrink — a double-click on the handle gives the column back to
+  automatic sizing, and a new data key starts the table over (scroll to the
+  top, every width, user-set included, measured afresh). The state is a
+  `TableState` in egui's temp data under the table's id (widths, user-set
+  flags, the data key, a repaint flag);
+  `a_virtual_table_starts_over_when_new_data_replaces_it` reads it without
+  loosening. `a_column_resized_by_drag_keeps_its_width` drives a headless
+  table: the pointer settles over the handle first (egui hit-tests a frame's
+  events against the previous frame's widget rects), presses, drags 30 points
+  right over a few frames and releases — the width grew by about that much
+  and sticks against wider content — then a double-click and a new data key.
+  `sizes.column_min` is in the style guide's Sizes table beside `pane_min`,
+  the table style section says how to resize and what resets, and
+  `docs/workbench.md`'s rows bullet names the handle (the evidence line no
+  longer says "the first 300 ranges", the cut is gone).
