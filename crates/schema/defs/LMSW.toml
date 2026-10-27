@@ -1,0 +1,49 @@
+# LMSW: LayeredMaterialSwap, inventory definition (KK-008).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the inventory scan of every official LMSW record (17410 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full, 2026-10-27): which
+#     subrecords occur, in which order and how often. Every member is listed because the
+#     corpus has it, and every official record decodes with nothing left unplaced and
+#     re-encodes byte for byte.
+#   uesp-skyrim: the EDID string convention (M2.B2); the shared BfcbBlock group keeps its
+#     own provenance.
+#
+# An inventory: EDID and the component block frame are typed; every other payload is
+# opaque (named after its signature, a placeholder) until a family lane decodes the
+# record (docs/gaps.md). The REFL payload is Bethesda's reflection data — the material
+# swap entries themselves — and stays opaque here; a separate ticket decodes it.
+# Inside component blocks (kept raw by BfcbBlock): FLCS FLTR INTV KSIZ KWDA.
+signature = "LMSW"
+name = "LayeredMaterialSwap"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official LMSW record (17410) decodes with every subrecord placed and re-encodes identically"
+confidence = "corpus"
+note = "inventory definition (KK-008): corpus order and cardinality; EDID and component frames typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 17408 of 17410 official LMSW records (17408 occurrences), 2..120 bytes"
+evidence = [
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+note = "2 official records lack it"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 1263 of 17410 official LMSW records (1915 occurrences, 0..2 per record), BFCB frame 25..36 bytes"
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "REFL"
+name = "Refl"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 17410 of 17410 official LMSW records (17410 occurrences), 208..11112 bytes"
+confidence = "corpus"
+note = "reflection data (the swap entries); stays opaque, a separate ticket decodes it"

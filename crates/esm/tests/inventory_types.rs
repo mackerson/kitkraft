@@ -48,6 +48,7 @@ const TYPES: &[&[u8; 4]] = &[
     b"IRES",
     b"LAYR",
     b"LIGH",
+    b"LMSW",
     b"LSCR",
     b"MESG",
     b"PGRE",
