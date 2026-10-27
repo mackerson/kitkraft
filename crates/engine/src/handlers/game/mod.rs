@@ -35,9 +35,7 @@ use crate::session::Session;
 /// The dev profile a session runs on when the call names none.
 const DEV_PROFILE: &str = "KitKraft Dev";
 
-/// The process host sessions use; tests put a fake one in the session.
-#[derive(Clone)]
-pub(crate) struct GameHost(pub(crate) Arc<dyn Host>);
+pub(crate) use crate::testing::GameHost;
 
 /// The sessions started with `start`, by id.
 #[derive(Default)]

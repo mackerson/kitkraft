@@ -33,6 +33,7 @@ mod params;
 pub mod progress;
 mod session;
 pub mod shapes;
+pub mod testing;
 pub mod validate;
 
 pub use args::Violation;
