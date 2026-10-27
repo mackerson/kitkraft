@@ -1,0 +1,84 @@
+id = "DRAFT"
+title = "inspect shows an ARMO's addons and each addon's model paths"
+timeout_min = 60
+budget_h = 1.5
+after = ["KK-018"]
+owns = [
+  "crates/engine/src/handlers/inspect.rs",
+  "crates/engine/tests/armo_inspect.rs",
+]
+brief = """
+`inspect` (the handler in `crates/engine/src/handlers/inspect.rs`) shows one record: its
+subrecords, and — only when the caller passes `full: true` — decoded extras attached as keys
+on the record's JSON. KK-007 does this for an `LMSW`'s `REFL`: `lmsw_json` in inspect.rs is
+inserted as an `lmsw` key on the record when `full` is set and the record is an `LMSW`. This
+ticket adds the armour analogue for `ARMO` records: `inspect` of an `ARMO` shows its addons
+and each addon's model paths.
+
+An `ARMO`'s `Addon` group (read `crates/schema/defs/ARMO.toml`) is repeated: each entry is an
+`INDX` (a u16 index) and a `MODL` (a 4-byte FormID of an `ARMA` — not a path). The `ARMA` it
+names carries the model paths (read `crates/schema/defs/ARMA.toml`): `MaleBipedModel`
+(`MOD2`), `FemaleBipedModel` (`MOD3`), `MaleFirstPerson` (`MOD4`) and `FemaleFirstPerson`
+(`MOD5`), each a `FileName`.
+
+Attach an `addons` key to the `ARMO` record's output object (the object holding the `record`
+and `subrecords` fields), the way `lmsw_json`'s result is attached: a helper builds the JSON
+and it is inserted only when `full` is true and the record's signature is `ARMO`. It needs
+`full: true` — the same gate as `lmsw`. Nothing else in `inspect`'s output changes.
+
+The JSON shape (decided here):
+    "addons": [
+      {
+        "index": 0,
+        "arma": { "formid": "0x00012345", "editor_id": "SomeArmor", "plugin": "Mod.esm" },
+        "models": {
+          "male": "meshes/...", "female": "meshes/...",
+          "male_first_person": "meshes/...", "female_first_person": "meshes/..."
+        }
+      }
+    ]
+For each `Addon` entry: `index` is its `INDX`; resolve the `MODL` FormID to the `ARMA` with
+the same load-order reference resolution `inspect` already uses for references (see how
+`lstring_json` and `formref` resolve a FormID in inspect.rs). If the `ARMA` is found, `arma`
+is `{ "formid", "editor_id", "plugin" }` (the plugin that holds it); if it is not found
+anywhere in the load order, `arma` is the string `"missing"`. `models` holds the four
+`FileName`s by slot — `male`, `female`, `male_first_person`, `female_first_person`; an empty
+`FileName` is the empty string. When `arma` is `"missing"` there is no `ARMA` to read, so
+`models` is the empty object `{}`.
+
+This deliberately does not report each model as found or not: that is `validate`'s job
+(`asset.missing-model`, KK-018), and running that lookup here would duplicate it and widen
+the ticket. `inspect` shows what the record names; `validate` says whether it exists. The
+ticket still waits on KK-018 because it reports exactly the model members KK-018 (and the
+armour-world-models ticket) check, so the two stay consistent on which paths matter.
+
+Tests. (1) Synthetic, in inspect.rs's `mod tests`, building an `ARMO` and an `ARMA` with
+`new` over the synthetic master the engine tests use, the way
+`crates/engine/src/handlers/testplan_tests.rs` builds records (read it for the pattern). With
+this exact name: `an_armo_inspect_shows_addons_and_their_model_paths` — an `ARMO` with one
+`Addon` pointing at the `ARMA`; run `inspect` on it with `full: true`; assert the `addons`
+array has one entry with the right `index`, `arma.formid`/`editor_id`/`plugin`, and the four
+`models` paths. (2) Corpus, in a new file `crates/engine/tests/armo_inspect.rs` modelled on
+KK-007's `crates/engine/tests/refl_inspect.rs` (how it opens the official files through
+`KITKRAFT_DATA_DIR` and runs the handler). With this exact name:
+`inspect_full_shows_armo_addons_and_models` — `#[ignore]`d, run with `--include-ignored`;
+find the first official `ARMO` that has at least one `Addon` entry, run `inspect` on it with
+`full: true`, and print exactly one line: `armo-inspect: first official ARMO with addons
+formid=0x<8 uppercase hex> addons=<N> editor_id=<EditorID>` (its FormID and its addon count).
+Never panic (AGENTS.md): if `KITKRAFT_DATA_DIR` is unset, print
+`armo-inspect: skipped (no KITKRAFT_DATA_DIR)` and pass.
+
+Read `crates/engine/src/handlers/inspect.rs` first (the `lmsw_json` attachment and the
+reference resolution), then `crates/schema/defs/ARMO.toml` and `ARMA.toml`. Run `cargo test
+-p kitkraft-engine --lib -- --exact
+handlers::inspect::tests::an_armo_inspect_shows_addons_and_their_model_paths`, then the
+corpus test, then `cargo xtask ci`. Commit when the synthetic test passes.
+"""
+
+[[accept]]
+name = "synthetic"
+cmd = "cargo test -p kitkraft-engine --lib -- --exact handlers::inspect::tests::an_armo_inspect_shows_addons_and_their_model_paths 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o"
+
+[[accept]]
+name = "corpus"
+cmd = "cargo test -p kitkraft-engine --test armo_inspect -- --include-ignored --exact inspect_full_shows_armo_addons_and_models --nocapture 2>&1 | tee /tmp/o; grep -q '^test result: ok. 1 passed' /tmp/o && ! grep -q 'skipped (no KITKRAFT_DATA_DIR)' /tmp/o && grep -Eq '^armo-inspect: first official ARMO with addons formid=0x[0-9A-F]{8} addons=[1-9][0-9]* editor_id=\\S+' /tmp/o"
