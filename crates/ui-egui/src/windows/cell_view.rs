@@ -643,7 +643,10 @@ impl CellViewState {
             }
             // The Render Window shows another cell: offer to follow it.
             if let Some(s) = shown.filter(|s| s != c) {
-                if ui.add_enabled(!busy, egui::Button::new("Show this cell")).clicked() {
+                if ui
+                    .add_enabled(!busy, egui::Button::new("Show this cell"))
+                    .clicked()
+                {
                     *ask = Some(CellViewAsk::Cell(s.to_string()));
                 }
             }
@@ -673,8 +676,11 @@ impl CellViewState {
                 let marked = Some(i) == sel;
                 let fill = |ui: &mut egui::Ui| {
                     if marked {
-                        ui.painter()
-                            .rect_filled(ui.max_rect(), radius, theme::color(theme::palette(ui).surface.selection));
+                        ui.painter().rect_filled(
+                            ui.max_rect(),
+                            radius,
+                            theme::color(theme::palette(ui).surface.selection),
+                        );
                     }
                 };
                 let id = row.cell(|ui| {
@@ -989,10 +995,7 @@ mod tests {
         s.receive(Ok(&env));
         assert_eq!(s.refs.len(), 3);
         // The inspected record (the second reference) is the row marked.
-        assert_eq!(
-            s.selected_row(Some("Starfield.esm:0A6F07")),
-            Some(1)
-        );
+        assert_eq!(s.selected_row(Some("Starfield.esm:0A6F07")), Some(1));
         // A form not in the list, and no selection, mark nothing.
         assert_eq!(s.selected_row(Some("Starfield.esm:0A6F09")), None);
         assert_eq!(s.selected_row(None), None);

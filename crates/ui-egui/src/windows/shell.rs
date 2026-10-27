@@ -310,9 +310,7 @@ impl App {
                     default_size: kind.default_size(),
                     focus: is_focus(kind.title()),
                 },
-                |ui| {
-                    cell_ask = c.ui(ui, busy, inspected.as_deref(), rendered.as_deref())
-                },
+                |ui| cell_ask = c.ui(ui, busy, inspected.as_deref(), rendered.as_deref()),
             );
         } else {
             self.shell.cell_view_open = false;

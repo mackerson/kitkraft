@@ -968,13 +968,12 @@ mod tests {
             .expect("a second page");
         assert_eq!(next.args["cell"], "Test.esm:000900");
         assert_eq!(next.args["cursor"], "cur");
-        assert!(
-            tab.receive_page(cell::parse_page(&page_env(
+        assert!(tab
+            .receive_page(cell::parse_page(&page_env(
                 &[item("Test.esm:000903", [80.0, 0.0, 0.0], "LIGH")],
                 None
             )))
-            .is_none()
-        );
+            .is_none());
         assert!(!tab.loading);
         // The frame builds the markers: the cell's references are in the viewport.
         run(&ctx, &mut tab, Vec::new());
