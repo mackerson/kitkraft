@@ -2906,18 +2906,4 @@ Landed: KK-014 clone-sample corpus tests - clone-sample FACT: 100 cloned, 100 id
   archive holds, explained in `docs/validate.md` and pinned per file in
   `validate_corpus_official_files`. Rule row in `docs/validate.md` (grade D); three
   synthetic tests in `models_tests.rs`.
-- **KK-038 landed (2026-10-27, local-agent ticket):** drag-resize for the
-  columns of every `virtual_table` (`crates/ui-egui/src/panels/common.rs`
-  only): the gap after each header column but the last is a drag handle
-  (the resize cursor on hover, the Records split's line); dragging it sets
-  that column's width, never below the new `sizes.column_min` (48, every
-  preset). A user-set width sticks (wider content is clipped, narrower does
-  not shrink); a double-click gives the column back to automatic sizing; a
-  new data key starts the table over (scroll to the top, every width,
-  user-set included, measured afresh). The state is a `TableState` in egui's
-  temp data under the table's id.
-  `a_column_resized_by_drag_keeps_its_width` drives drag, double-click and
-  reset headlessly;
-  `a_virtual_table_starts_over_when_new_data_replaces_it` reads the new type
-  without loosening. `sizes.column_min` is in the style guide (Sizes table,
-  "The table style"); `docs/workbench.md`'s rows bullet names the handle.
+Landed: KK-038 drag-resize for virtual_table columns (crates/ui-egui/src/panels/common.rs only) - the gap after each header column but the last is a drag handle (the resize cursor on hover, the Records split's line); dragging it sets that column's width, never below the new sizes.column_min (48, every preset); a user-set width sticks (wider content clipped, narrower does not shrink); a double-click gives the column back to automatic sizing; a new data key starts the table over (scroll to the top, every width, user-set included, measured afresh); the state is a TableState in egui's temp data under the table's id, which also names its handles; a_column_resized_by_drag_keeps_its_width drives drag, double-click and reset headlessly, and a_virtual_table_starts_over_when_new_data_replaces_it reads the new type without loosening; sizes.column_min is in the style guide (Sizes table, "The table style") and docs/workbench.md's rows bullet.
