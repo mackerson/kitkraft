@@ -378,7 +378,7 @@ pub fn swap_overrides(r: &Refl, swaps: &[(String, String)]) -> Result<Refl, Stri
                 "the override for key {key} does not fit its u16 length"
             ));
         };
-        let mut bytes = Vec::with_capacity(len as usize);
+        let mut bytes = Vec::with_capacity(usize::from(len));
         bytes.extend_from_slice(&len.to_le_bytes());
         bytes.extend_from_slice(override_.as_bytes());
         bytes.push(0);
