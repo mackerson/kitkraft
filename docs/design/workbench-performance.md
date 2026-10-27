@@ -262,7 +262,8 @@ a `RawInput` of `theme::WINDOW`'s size over a `virtual_table` of 100,000 rows wi
 cells each, scrolling by one mouse-wheel step over the table's rectangle every frame. Three
 runs per profile; the medians are below and in the Results rows. Build cost: a fresh
 `cargo build --workspace --tests` in a new target folder (a gitignored `.scratch/` folder;
-this sandbox has no writable `/tmp`), deleted afterwards, wall time.
+this sandbox has no writable `/tmp`), deleted afterwards, wall time; one build each (not
+three), so the build times are single runs.
 
 | Profile | p50 | p95 | max |
 | ------- | --- | --- | --- |
