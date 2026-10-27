@@ -45,7 +45,9 @@ impl Tool {
     }
 }
 
-/// Tools exposed by `kit mcp`, in the order `tools/list` returns them. `render` comes later.
+/// Tools exposed by `kit mcp`, in the order `tools/list` returns them. There is no
+/// `render` tool (ADR 0002 Amendment 1 retired it): the viewport is the window's, fed by
+/// engine commands.
 pub const TOOLS: &[Tool] = &[
     Tool {
         name: "execute",
