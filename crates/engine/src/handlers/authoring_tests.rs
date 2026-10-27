@@ -1,7 +1,8 @@
 //! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
-//! `authoring_world_tests.rs`) and ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the QUST
-//! read-back and the two WRLD tests are ignored) (`docs/schema/support-matrix.md`, the
+//! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the QUST
+//! read-back and the two WRLD tests are ignored) and CONT, MISC, FLST and LVLI (KK-017,
+//! 2026-10-27; the LVLI read-back is ignored) (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
@@ -19,8 +20,9 @@
 //! Each `*_dangling_link_is_reported` test writes the same record with FormIDs naming a
 //! form the master lacks (`Source.esm:000FFF`) in the members reference integrity covers
 //! for the type (reference lists, menus, component and condition FormIDs, vendor
-//! location), and checks that `validate`'s `formid.dangling` names every one of them and
-//! `refs` lists each as a `missing` link.
+//! location, container and leveled item entries, form list entries), and checks that
+//! `validate`'s `formid.dangling` names every one of them and `refs` lists each as a
+//! `missing` link.
 
 #![allow(clippy::arithmetic_side_effects)]
 
@@ -526,6 +528,15 @@ fn fact_new_sets_every_typed_member_and_reads_back() {
 fn acti_new_sets_every_typed_member_and_reads_back() {
     writes_and_reads_back(
         "ACTI",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn cont_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "CONT",
         "ContactShadow",
         "BGSContactShadowComponent_Component",
     );
