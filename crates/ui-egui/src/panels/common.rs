@@ -972,6 +972,83 @@ mod tests {
         assert_eq!(again.1, fresh.1);
     }
 
+    /// KK-038: the gap after a header column is a drag handle. Dragging it right sets
+    /// the column's width, which then sticks (wider content no longer grows it); a
+    /// double-click on the handle gives the column back to automatic sizing; a new data
+    /// key resets it, user-set widths included.
+    #[test]
+    fn a_column_resized_by_drag_keeps_its_width() {
+        let ctx = egui::Context::default();
+        theme::apply(&ctx, &Preset::Workbench.theme(), Mode::Light);
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::Vec2::from(theme::WINDOW));
+        // One frame over `data`, both cells fixed-width (a test context has no fonts to
+        // measure text), with the given pointer events; returns the column widths.
+        let frame = |data: u64, first_w: f32, second_w: f32, events: Vec<egui::Event>| -> Vec<f32> {
+            let raw = egui::RawInput {
+                screen_rect: Some(screen),
+                events,
+                ..Default::default()
+            };
+            let mut widths = Vec::new();
+            let mut out = ctx.run_ui(raw, |ui| {
+                virtual_table_for(ui, "t", data, &["a", "b"], 10, View::Medium, |r, _| {
+                    r.cell(|ui| {
+                        ui.allocate_exact_size(egui::vec2(first_w, 8.0), egui::Sense::hover())
+                    });
+                    r.cell(|ui| {
+                        ui.allocate_exact_size(egui::vec2(second_w, 8.0), egui::Sense::hover())
+                    });
+                });
+                let id = ui.make_persistent_id(("virtual-table", "t"));
+                widths = ui
+                    .data_mut(|d| d.get_temp::<TableState>(id))
+                    .map(|s| s.widths)
+                    .unwrap_or_default();
+            });
+            out.textures_delta.clear();
+            widths
+        };
+        let press = |pos: egui::Pos2| egui::Event::PointerButton {
+            button: egui::PointerButton::Primary,
+            pressed: true,
+            pos,
+            modifiers: egui::Modifiers::NONE,
+        };
+        let release = |pos: egui::Pos2| egui::Event::PointerButton {
+            button: egui::PointerButton::Primary,
+            pressed: false,
+            pos,
+            modifiers: egui::Modifiers::NONE,
+        };
+        // Measured afresh: the first column is as wide as its content, so the handle in
+        // the gap after it sits at x 40..52 in the header row (Workbench's 12 gap).
+        assert_eq!(frame(0, 40.0, 20.0, Vec::new()), vec![40.0, 20.0]);
+        let at = |x: f32| egui::pos2(x, 10.0);
+        // egui hit-tests a frame's pointer events against the previous frame's widget
+        // rects, so the pointer settles over the handle first; the press lands on the
+        // next frame, when the handle's rect is already where it will be.
+        frame(0, 40.0, 20.0, vec![egui::Event::PointerMoved(at(46.0))]);
+        // Press the handle and drag it right 30 over a few frames, then release.
+        frame(0, 40.0, 20.0, vec![press(at(46.0))]);
+        for x in [56.0, 66.0, 76.0] {
+            frame(0, 40.0, 20.0, vec![egui::Event::PointerMoved(at(x))]);
+        }
+        frame(0, 40.0, 20.0, vec![release(at(76.0))]);
+        // The first width grew by about the drag distance...
+        let dragged = frame(0, 40.0, 20.0, Vec::new())[0];
+        assert!((66.0..=74.0).contains(&dragged));
+        // ...and sticks: wider content no longer grows the column...
+        assert_eq!(frame(0, 300.0, 20.0, Vec::new()), vec![dragged, 20.0]);
+        // ...and a double-click on the handle gives the column back to automatic sizing
+        // (measured afresh, which is 300 now). The pointer is still on the handle.
+        for _ in 0..2 {
+            frame(0, 300.0, 20.0, vec![press(at(76.0)), release(at(76.0))]);
+        }
+        assert_eq!(frame(0, 300.0, 20.0, Vec::new()), vec![300.0, 20.0]);
+        // A new data key resets it: measured afresh, the user-set flag gone with it.
+        assert_eq!(frame(1, 40.0, 20.0, Vec::new()), vec![40.0, 20.0]);
+    }
+
     /// Fable review of the wave 3 fix round, follow-up (a): every table whose rows a new
     /// request replaces passes a data key ([`virtual_table_for`]) that its tab bumps when
     /// the result arrives (`app.rs`, `receive`), so none keeps a stale scroll or widths.
