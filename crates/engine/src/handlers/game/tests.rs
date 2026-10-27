@@ -6,7 +6,7 @@
 #![allow(clippy::arithmetic_side_effects)]
 
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use kitkraft_game::probes::{Matcher, Probe, ProbeFile, Step, FORMAT};
@@ -473,4 +473,208 @@ fn the_cli_spells_them_kit_game_verb() {
     assert_eq!(args, json!({"id": "X", "row": "T-03", "screenshot": true}));
     assert!(crate::find_command("game.stop").unwrap().writes);
     assert!(!crate::find_command("game.status").unwrap().writes);
+}
+
+#[test]
+fn a_synchronous_session_reports_each_phase_and_row() {
+    use crate::progress::Progress;
+    let c = console();
+    let f = fixture("progress-sync");
+    let probes = probes_file(&f);
+    let game = game_file(&f, &c);
+    let (e, host) = engine(&["explorer.exe"]);
+    let seen: Arc<Mutex<Vec<Progress>>> = Arc::new(Mutex::new(Vec::new()));
+    let log = Arc::clone(&seen);
+    let r = e
+        .execute_with_progress(
+            "game.session",
+            args(&f, &probes, &game, json!({})),
+            Arc::new(move |p: &Progress| log.lock().unwrap().push(p.clone())),
+        )
+        .unwrap();
+    let events = seen.lock().unwrap().clone();
+    // preflight before and after the facts are gathered, naming the session.
+    let id = r["data"]["session"].as_str().unwrap().to_string();
+    assert_eq!(
+        (events[0].stage, events[0].done, events[0].total),
+        ("preflight", 0, Some(1)),
+        "{events:?}"
+    );
+    assert_eq!(
+        (events[1].stage, events[1].done, events[1].total),
+        ("preflight", 1, Some(1)),
+        "{events:?}"
+    );
+    assert_eq!(events[0].item, Some(id.clone()), "{events:?}");
+    assert_eq!(events[1].item, Some(id), "{events:?}");
+    // The phases, in the controller's order, each once (a fast run may pass some).
+    let order = [
+        "backing-up",
+        "launching",
+        "waiting-for-console",
+        "loading-save",
+        "probing",
+        "stopping",
+        "finished",
+    ];
+    let mut positions = Vec::new();
+    for p in events.iter().filter(|e| e.stage == "phase") {
+        let name = p.item.as_deref().unwrap();
+        let pos = order
+            .iter()
+            .position(|o| *o == name)
+            .unwrap_or_else(|| panic!("not a phase: {name}"));
+        assert!(positions.last() < Some(&pos), "out of order: {events:?}");
+        positions.push(pos);
+    }
+    assert!(!positions.is_empty(), "no phase events: {events:?}");
+    // One probe event per row, counting up, the total the row count.
+    let rows: Vec<&Progress> = events.iter().filter(|e| e.stage == "probe").collect();
+    assert_eq!(rows.len(), 2, "{events:?}");
+    for (i, p) in rows.iter().enumerate() {
+        assert_eq!(p.done, (i + 1) as u64, "{events:?}");
+        assert_eq!(p.total, Some(2), "{events:?}");
+    }
+    assert_eq!(rows[0].item.as_deref(), Some("T-01"), "{events:?}");
+    assert_eq!(rows[1].item.as_deref(), Some("T-02"), "{events:?}");
+    // The report is what a session without a sink gives.
+    let report = &r["data"]["report"];
+    assert_eq!(report["status"], json!({"status": "pass"}), "{report}");
+    assert_eq!(report["rows"].as_array().unwrap().len(), 2);
+    assert_eq!(host.launched().len(), 1);
+    std::fs::remove_dir_all(&f.root).unwrap();
+}
+
+#[test]
+fn a_started_session_reports_its_preflight() {
+    use crate::progress::Progress;
+    let c = console();
+    let f = fixture("progress-start");
+    let probes = probes_file(&f);
+    let game = game_file(&f, &c);
+    let (e, _) = engine(&["explorer.exe"]);
+    let seen: Arc<Mutex<Vec<Progress>>> = Arc::new(Mutex::new(Vec::new()));
+    let log = Arc::clone(&seen);
+    let r = e
+        .execute_with_progress(
+            "game.session",
+            args(&f, &probes, &game, json!({"start": true})),
+            Arc::new(move |p: &Progress| log.lock().unwrap().push(p.clone())),
+        )
+        .unwrap();
+    let id = r["data"]["session"].as_str().unwrap().to_string();
+    // Exactly the two preflight events: the session's thread runs after the call,
+    // when the call's sink is gone (game.status is how front ends follow it).
+    let events = seen.lock().unwrap().clone();
+    assert_eq!(events.len(), 2, "{events:?}");
+    for (i, p) in events.iter().enumerate() {
+        assert_eq!(
+            (p.stage, p.done, p.total),
+            ("preflight", i as u64, Some(1)),
+            "{events:?}"
+        );
+        assert_eq!(p.item, Some(id.clone()), "{events:?}");
+    }
+    let stopped = e.execute("game.stop", json!({"id": id})).unwrap();
+    assert!(stopped["data"]["report"]["status"].is_object(), "{stopped}");
+    // A dry run sends the two as well.
+    let f2 = fixture("progress-dry");
+    let probes2 = probes_file(&f2);
+    let game2 = game_file(&f2, &c);
+    let (e2, _) = engine(&[]);
+    let seen2: Arc<Mutex<Vec<Progress>>> = Arc::new(Mutex::new(Vec::new()));
+    let log2 = Arc::clone(&seen2);
+    let dry = e2
+        .execute_with_progress(
+            "game.session",
+            args(&f2, &probes2, &game2, json!({"dry_run": true})),
+            Arc::new(move |p: &Progress| log2.lock().unwrap().push(p.clone())),
+        )
+        .unwrap();
+    assert_eq!(dry["data"]["would_start"], json!(true), "{dry}");
+    let events2 = seen2.lock().unwrap().clone();
+    assert_eq!(events2.len(), 2, "{events2:?}");
+    for (i, p) in events2.iter().enumerate() {
+        assert_eq!(
+            (p.stage, p.done, p.total),
+            ("preflight", i as u64, Some(1)),
+            "{events2:?}"
+        );
+    }
+    std::fs::remove_dir_all(&f.root).unwrap();
+    std::fs::remove_dir_all(&f2.root).unwrap();
+}
+
+#[test]
+fn no_progress_changes_the_session_result() {
+    use crate::progress::Progress;
+    let c = console();
+    let f1 = fixture("progress-with");
+    let p1 = probes_file(&f1);
+    let g1 = game_file(&f1, &c);
+    let (e1, _) = engine(&["explorer.exe"]);
+    let seen: Arc<Mutex<Vec<Progress>>> = Arc::new(Mutex::new(Vec::new()));
+    let log = Arc::clone(&seen);
+    let with = e1
+        .execute_with_progress(
+            "game.session",
+            args(&f1, &p1, &g1, json!({})),
+            Arc::new(move |p: &Progress| log.lock().unwrap().push(p.clone())),
+        )
+        .unwrap();
+    // The sink really ran: preflight, then phases and rows of the live session.
+    let events = seen.lock().unwrap().clone();
+    assert!(events.len() >= 3, "{events:?}");
+    assert_eq!(events[0].stage, "preflight", "{events:?}");
+    let f2 = fixture("progress-without");
+    let p2 = probes_file(&f2);
+    let g2 = game_file(&f2, &c);
+    let (e2, _) = engine(&["explorer.exe"]);
+    let without = e2
+        .execute("game.session", args(&f2, &p2, &g2, json!({})))
+        .unwrap();
+    // Stripped, and why: `session` (the session id, which names the date) and
+    // `summary` (which quotes the id and the timings); `ledger_entry` and
+    // `ledger_text` (the entry names the date and the fixture paths); `backups`,
+    // `logs` and `written` (every value names a path under the fixture root, and the
+    // two runs use two roots); every `*_ms`/`*_secs` member (timings differ by run).
+    fn untimed(mut v: Value) -> Value {
+        fn strip(v: &mut Value) {
+            match v {
+                Value::Object(map) => {
+                    map.retain(|k, _| {
+                        !k.ends_with("_ms")
+                            && !k.ends_with("_secs")
+                            && !matches!(
+                                k.as_str(),
+                                "session"
+                                    | "summary"
+                                    | "ledger_entry"
+                                    | "ledger_text"
+                                    | "backups"
+                                    | "logs"
+                                    | "written"
+                            )
+                    });
+                    map.values_mut().for_each(strip);
+                }
+                Value::Array(list) => list.iter_mut().for_each(strip),
+                _ => {}
+            }
+        }
+        strip(&mut v);
+        v
+    }
+    assert_eq!(
+        with["data"]["report"]["status"],
+        json!({"status": "pass"}),
+        "{with}"
+    );
+    assert_eq!(
+        untimed(with),
+        untimed(without),
+        "the sink changed the result"
+    );
+    std::fs::remove_dir_all(&f1.root).unwrap();
+    std::fs::remove_dir_all(&f2.root).unwrap();
 }
