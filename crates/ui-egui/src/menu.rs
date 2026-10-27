@@ -92,7 +92,8 @@ fn panel_of(id: &str) -> Option<Target> {
         "coverage" => Target::Tab("Coverage"),
         "schema" => Target::Tab("Schema"),
         "ledger" => Target::Tab("Ledger"),
-        "deploy" | "deploy.rollback" | "deploy.status" => Target::Tab("Cockpit"),
+        "deploy" | "deploy.rollback" | "deploy.status"
+        | "game.session" | "game.stop" | "game.status" => Target::Tab("Cockpit"),
         _ => return None,
     })
 }
@@ -524,8 +525,12 @@ mod tests {
         let ba2 = target(gate::find_command("ba2.list").unwrap()).unwrap_err();
         assert!(ba2.contains("read-only list"), "{ba2}");
         assert!(ba2.contains("kit ba2 list"), "{ba2}");
-        let session = target(gate::find_command("game.session").unwrap()).unwrap_err();
-        assert!(session.contains("not yet permitted"), "{session}");
+        let probe = target(gate::find_command("game.probe").unwrap()).unwrap_err();
+        assert!(probe.contains("not yet permitted"), "{probe}");
+        // M6.G4: the permitted game commands and the status read all live in the Cockpit.
+        for id in ["game.session", "game.stop", "game.status"] {
+            assert_eq!(panel_of(id), Some(Target::Tab("Cockpit")), "{id}");
+        }
     }
 
     #[test]

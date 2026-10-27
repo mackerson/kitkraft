@@ -18,7 +18,12 @@
 //! `deploy` and `deploy.rollback` the gate also checks what it can from the arguments
 //! alone: `dev: true`, and `profile` present (writing form) and never `Default`. The
 //! panel compares `mo2` and `profile` with the loaded dev profile; the engine refuses
-//! `Default` on its own, from MO2's active profile.
+//! `Default` on its own, from MO2's active profile. For `game.session` the writing form
+//! is `start: true` with `dry_run` absent or false, and a form that has neither (a
+//! synchronous session) is refused in every form: the window starts sessions with
+//! `start: true` and follows them with `game.status`, because a synchronous session
+//! would block the window's one engine worker; `profile` naming `Default` is refused in
+//! every form of `game.session`. For `game.stop` the writing form is `dry_run` absent.
 //!
 //! This is also the only file of the crate that names the engine crate at all: a test
 //! scans every other source file (and the integration tests) for the token, so neither a
@@ -49,6 +54,10 @@ pub use kitkraft_engine::Progress;
 pub use kitkraft_engine::{catalog, CommandSpec, Status as CommandStatus};
 #[cfg(test)]
 pub(crate) use kitkraft_engine::{parse_line, Invocation};
+/// The engine's fake game session (M6.G4): a fixture MO2 instance, a fake console and a
+/// fake process host, for the gate's tests against the fakes.
+#[cfg(test)]
+pub(crate) use kitkraft_engine::testing::GameFakes;
 
 /// One command the workbench may run, with the arguments that would make it write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -157,6 +166,13 @@ pub const ALLOWLIST: &[Allowed] = &[
         require_true: &[],
         why: "reads worldspaces, cells and one cell's references (with their bases' OBND)",
     },
+    // Lane C (M4.T3): the Cockpit follows its started sessions with it (M6.G4).
+    Allowed {
+        id: "game.status",
+        refuse_args: &[],
+        require_true: &[],
+        why: "reads a started game session's phase, the row running, the probe rows so far, the screenshots taken, the events and the report once it has finished (lane C, M4.T3; M6.G4)",
+    },
 ];
 
 /// Writing commands the workbench runs only in a non-writing form: every argument that
@@ -193,8 +209,8 @@ pub const WRITING: &[&str] = &[
     "deploy.disable",
     "roundtrip",
     "ledger",
-    // Lane C (M4.T3): classified only, so the catalog and this list agree; the window may
-    // not run them until M6.G4/G5 add them with their confirmations.
+    // Lane C (M4.T3): the window may run `game.session` and `game.stop` with their
+    // confirmations (M6.G4); `game.probe` waits on M6.G5.
     "game.session",
     "game.probe",
     "game.stop",
@@ -228,6 +244,12 @@ pub struct PermittedWrite {
     /// refused as `Default` in any form (`deploy`, `deploy.rollback`: Amendment 3, "What
     /// the gate checks").
     pub dev_profile: bool,
+    /// Booleans that must be `true` in the writing form (`game.session`'s `start`); a
+    /// form that is not the preview and lacks one is refused (M6.G4).
+    pub writing_requires: &'static [&'static str],
+    /// Refuse `profile` naming the live profile (any case, trimmed) in every form,
+    /// without requiring `dev` or a profile (`game.session`: M6.G4).
+    pub refuse_live_profile: bool,
     /// What it writes, and why it is allowed.
     pub why: &'static str,
 }
@@ -257,6 +279,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         preview: Preview::WritesWhen("confirm"),
         panel: "panels/ledger.rs",
         dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: false,
         why: "appends one dated row to docs/game-observations.md, a repo doc (not game data); the engine refuses any other path; one confirm click per row (Amendment 2)",
     },
     PermittedWrite {
@@ -264,6 +288,8 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         preview: Preview::PreviewWhen("dry_run"),
         panel: "panels/cockpit.rs",
         dev_profile: true,
+        writing_requires: &[],
+        refuse_live_profile: false,
         why: "copies one plugin or package into the isolated MO2 mod `KitKraft Dev - <plugin>` (ADR 0009); the engine refuses Default, profiles, plugins.txt and every other mod (Amendment 3, M6.G3)",
     },
     PermittedWrite {
@@ -271,7 +297,28 @@ pub const PERMITTED_WRITES: &[PermittedWrite] = &[
         preview: Preview::PreviewWhen("dry_run"),
         panel: "panels/cockpit.rs",
         dev_profile: true,
+        writing_requires: &[],
+        refuse_live_profile: false,
         why: "swaps one dev mod's `.previous` deployment back in, keeping the replaced one as the new previous: the way back from a deploy (Amendment 3, M6.G3)",
+    },
+    // M6.G4: the game session's start and stop (`game.probe` joins with M6.G5).
+    PermittedWrite {
+        id: "game.session",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "panels/cockpit/session.rs",
+        dev_profile: false,
+        writing_requires: &["start"],
+        refuse_live_profile: true,
+        why: "starts an agent-driven game session on the dev profile (ADR 0010); the window starts it with `start: true` and follows it with `game.status` (Amendment 3, M6.G4)",
+    },
+    PermittedWrite {
+        id: "game.stop",
+        preview: Preview::PreviewWhen("dry_run"),
+        panel: "panels/cockpit/session.rs",
+        dev_profile: false,
+        writing_requires: &[],
+        refuse_live_profile: false,
+        why: "ends a started game session: remaining rows not-run, the game ended, logs copied, the profile files restored if changed, one ledger entry (Amendment 3, M6.G4)",
     },
 ];
 
@@ -398,7 +445,8 @@ fn object(args: &Value) -> Result<Option<&Map<String, Value>>, RunError> {
 
 /// The check of one [`PERMITTED_WRITES`] entry: its preview passes like a read, its
 /// writing form only confirmed; `deploy*` also need `dev: true` and a profile that is not
-/// `Default`.
+/// `Default`, and `game.session` refuses `Default` in every form and accepts only the
+/// `start: true` writing form (M6.G4).
 fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError> {
     let args = object(&request.args)?;
     let writes = match p.preview {
@@ -429,11 +477,31 @@ fn check_permitted(p: &PermittedWrite, request: &Request) -> Result<(), RunError
             }
         }
     }
-    if writes && !request.is_confirmed() {
-        return Err(RunError::Refused(format!(
-            "`{}` in its writing form is sent only from its panel's confirm button ({}; ADR 0007 Amendment 3)",
-            p.id, p.panel
-        )));
+    if p.refuse_live_profile {
+        if let Some(Value::String(name)) = args.and_then(|m| m.get("profile")) {
+            if name.trim().eq_ignore_ascii_case(LIVE_PROFILE) {
+                return Err(RunError::Refused(format!(
+                    "`{}`: `{LIVE_PROFILE}` is the owner's live game and never a target; use the dev profile",
+                    p.id
+                )));
+            }
+        }
+    }
+    if writes {
+        for name in p.writing_requires {
+            if args.and_then(|m| m.get(*name)) != Some(&Value::Bool(true)) {
+                return Err(RunError::Refused(format!(
+                    "`{}`: the window starts sessions with `start: true` and follows them with `game.status`; a synchronous session would block the window's one engine worker",
+                    p.id
+                )));
+            }
+        }
+        if !request.is_confirmed() {
+            return Err(RunError::Refused(format!(
+                "`{}` in its writing form is sent only from its panel's confirm button ({}; ADR 0007 Amendment 3)",
+                p.id, p.panel
+            )));
+        }
     }
     Ok(())
 }
@@ -542,6 +610,17 @@ impl ReadOnlyEngine {
 }
 
 #[cfg(test)]
+impl ReadOnlyEngine {
+    /// A gate over an engine with `f`'s fixture installed (M6.G4): the gate's checks run
+    /// against the fakes, the engine itself is untouched.
+    pub(crate) fn with_game_fakes(f: &GameFakes) -> Self {
+        let engine = Self::new();
+        f.install(&engine.engine);
+        engine
+    }
+}
+
+#[cfg(test)]
 #[allow(clippy::arithmetic_side_effects)]
 mod tests {
     use super::*;
@@ -642,9 +721,12 @@ mod tests {
             .collect();
         let permitted_ids: BTreeSet<&str> = ids.iter().copied().collect();
         assert_eq!(runnable_writes, permitted_ids);
-        // M6.G3: the ledger and the dev deployment and its rollback; the game.* ids join
-        // with M6.G4 and M6.G5.
-        assert_eq!(ids, ["ledger", "deploy", "deploy.rollback"]);
+        // M6.G3: the ledger and the dev deployment and its rollback; M6.G4 adds the game
+        // session's start and stop; `game.probe` joins with M6.G5.
+        assert_eq!(
+            ids,
+            ["ledger", "deploy", "deploy.rollback", "game.session", "game.stop"]
+        );
         for p in PERMITTED_WRITES {
             assert!(
                 Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -808,11 +890,6 @@ mod tests {
             ("set", json!({"form": "x", "fields": {}, "into": "y.esp"})),
             ("roundtrip", json!({"plugin": "x.esm", "verify": true})),
             ("testplan", json!({})),
-            (
-                "game.session",
-                json!({"mo2": "m", "probes": "p", "dry_run": true}),
-            ),
-            ("game.stop", json!({"id": "x", "dry_run": true})),
         ] {
             let e = check(&Request::confirmed(id, a));
             assert!(matches!(e, Err(RunError::Refused(_))), "{id}: {e:?}");
@@ -895,6 +972,162 @@ mod tests {
         }
     }
 
+    /// `game.session` (ADR 0007 Amendment 3, "What the cockpit may run in a writing
+    /// form"; M6.G4): the dry run passes unconfirmed; the writing form is `start: true`
+    /// with `dry_run` absent or false, and only confirmed; a form with neither
+    /// (a synchronous session) is refused, confirmed or not; `profile` naming `Default`
+    /// (any case, trimmed) is refused in every form.
+    #[test]
+    fn game_session_previews_unconfirmed_and_starts_only_confirmed() {
+        let base = json!({"mo2": "m", "probes": "p"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        // Preview: a dry run, with or without a profile, passes unconfirmed.
+        assert!(
+            check(&Request::new("game.session", with(json!({"dry_run": true}))))
+                .is_ok()
+        );
+        assert!(check(&Request::new(
+            "game.session",
+            with(json!({"dry_run": true, "profile": "KitKraft Dev"}))
+        ))
+        .is_ok());
+        // Writing form: `start: true` with `dry_run` absent or false; only confirmed.
+        for w in [
+            json!({"start": true}),
+            json!({"start": true, "dry_run": false}),
+            json!({"start": true, "profile": "KitKraft Dev"}),
+        ] {
+            let e = check(&Request::new("game.session", with(w.clone())));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button")),
+                "{w}: {e:?}"
+            );
+            assert!(
+                check(&Request::confirmed("game.session", with(w.clone()))).is_ok(),
+                "{w}"
+            );
+        }
+        // The synchronous form (neither `start` nor `dry_run`) is refused, confirmed or
+        // not: it would block the window's one engine worker.
+        for sync in [json!({}), json!({"profile": "KitKraft Dev"})] {
+            for req in [
+                Request::new("game.session", with(sync.clone())),
+                Request::confirmed("game.session", with(sync)),
+            ] {
+                let e = check(&req).unwrap_err();
+                assert!(
+                    matches!(&e, RunError::Refused(m) if m.contains("one engine worker")),
+                    "{e:?}"
+                );
+            }
+        }
+        // `profile` naming `Default` (any case, trimmed) is refused in every form.
+        for d in ["Default", "default", " DEFAULT "] {
+            for extra in [
+                json!({"profile": d, "dry_run": true}),
+                json!({"profile": d, "start": true}),
+            ] {
+                for confirmed in [false, true] {
+                    let req = if confirmed {
+                        Request::confirmed("game.session", with(extra.clone()))
+                    } else {
+                        Request::new("game.session", with(extra.clone()))
+                    };
+                    let e = check(&req).unwrap_err();
+                    assert!(
+                        matches!(&e, RunError::Refused(m) if m.contains("live game")),
+                        "{d} confirmed={confirmed}: {e:?}"
+                    );
+                }
+            }
+        }
+    }
+
+    /// `game.stop` (ADR 0007 Amendment 3; M6.G4): the dry run passes unconfirmed; the
+    /// writing form (no `dry_run`) only confirmed.
+    #[test]
+    fn game_stop_previews_unconfirmed_and_stops_only_confirmed() {
+        let base = json!({"id": "2026-10-27-T1"});
+        let with = |extra: Value| {
+            let mut a = base.clone();
+            for (k, v) in extra.as_object().unwrap() {
+                a[k] = v.clone();
+            }
+            a
+        };
+        // Preview: a dry run, unconfirmed.
+        assert!(check(&Request::new("game.stop", with(json!({"dry_run": true})))).is_ok());
+        // Writing form: refused unconfirmed, passes confirmed.
+        for w in [json!({}), json!({"dry_run": false})] {
+            let e = check(&Request::new("game.stop", with(w.clone())));
+            assert!(
+                matches!(&e, Err(RunError::Refused(m)) if m.contains("confirm button")),
+                "{w}: {e:?}"
+            );
+            assert!(
+                check(&Request::confirmed("game.stop", with(w.clone()))).is_ok(),
+                "{w}"
+            );
+        }
+    }
+
+    /// Through the gate and the engine on the fakes' fixture MO2 instance (never the
+    /// owner's): the preview writes nothing; the confirmed start returns the session id
+    /// and launches once; `game.status` follows it to `idle`; the confirmed stop returns
+    /// the report (M6.G4).
+    #[test]
+    fn a_confirmed_session_starts_and_stops_against_the_fakes() {
+        use std::time::Duration;
+
+        use crate::panels::cockpit::session::SessionForm;
+
+        let fakes = GameFakes::new("gate-session").unwrap();
+        let engine = ReadOnlyEngine::with_game_fakes(&fakes);
+        let form = SessionForm::from_args(&fakes.session_args(json!(null)));
+        // The preview: a dry run that passes unconfirmed and writes nothing.
+        let preview = form.preview_request();
+        let env = engine.run(&preview).unwrap();
+        assert_eq!(env["data"]["dry_run"], json!(true), "{env}");
+        assert_eq!(env["data"]["would_start"], json!(true), "{env}");
+        assert!(
+            !fakes.observe().exists(),
+            "the dry run wrote into {}",
+            fakes.observe().display()
+        );
+        // The confirm: the previewed arguments with `dry_run` dropped and `start: true`
+        // added, built by the panel, not here.
+        let start = SessionForm::start_request(&preview.args);
+        assert!(start.is_confirmed());
+        let env = engine.run(&start).unwrap();
+        assert_eq!(env["data"]["started"], json!(true), "{env}");
+        let id = env["data"]["session"].as_str().unwrap().to_string();
+        // Follow it with `game.status` until the session is `idle`.
+        let mut polls = 0;
+        loop {
+            let env = engine
+                .run(&Request::new("game.status", json!({"id": id})))
+                .unwrap();
+            polls += 1;
+            if env["data"]["phase"] == json!("idle") {
+                break;
+            }
+            assert!(polls < 400, "still running after {polls} polls: {env}");
+            std::thread::sleep(Duration::from_millis(25));
+        }
+        // Stop it: the preview, then the confirmed stop and its report.
+        assert!(engine.run(&SessionForm::stop_preview(&id)).is_ok());
+        let stopped = engine.run(&SessionForm::stop_request(&id)).unwrap();
+        assert!(stopped["data"]["report"].is_object(), "{stopped}");
+        // The start launched the fake game once (the session thread is joined now).
+        assert_eq!(fakes.launched(), 1);
+    }
+
     /// Through the gate and the engine on a synthetic MO2 instance (never the owner's):
     /// the preview writes nothing, the confirmed deploy and rollback write, and the
     /// engine refuses on its own when MO2's active profile is `Default`, whatever the
@@ -954,8 +1187,6 @@ mod tests {
             "papyrus.disasm",
             "papyrus.events",
             "strings.dump",
-            // Lane C (M4.T3); M6.G2/G4 use it.
-            "game.status",
         ];
         for spec in catalog() {
             let listed = ALLOWLIST.iter().any(|a| a.id == spec.id);
@@ -1104,7 +1335,17 @@ mod tests {
                 found.push("names `Engine`; go through gate::ReadOnlyEngine".into());
             }
         }
-        for needle in [".execute(", "execute_in(", "with_session(", "Session"] {
+        // `Session` as a whole identifier (the engine's session handle; a longer word
+        // such as `SessionForm` is fine, as `ReadOnlyEngine` is above).
+        for (at, _) in text.match_indices("Session") {
+            let before = text[..at].chars().next_back();
+            let after = text[at + "Session".len()..].chars().next();
+            let word = |c: Option<char>| c.is_some_and(|c| c.is_alphanumeric() || c == '_');
+            if !(word(before) || word(after)) {
+                found.push("names `Session`; go through gate::ReadOnlyEngine".into());
+            }
+        }
+        for needle in [".execute(", "execute_in(", "with_session("] {
             if text.contains(needle) {
                 found.push(format!("names `{needle}`; go through gate::ReadOnlyEngine"));
             }
