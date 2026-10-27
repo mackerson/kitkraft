@@ -1,7 +1,8 @@
 //! Typed write and reference integrity for LCTN, TERM, PKIN and FACT (lane D, 2026-10-15),
 //! COBJ and STAT (lane D round 4, 2026-10-16; REFR, ACHR and CELL are in
-//! `authoring_world_tests.rs`) and ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the QUST
-//! read-back and the two WRLD tests are ignored) (`docs/schema/support-matrix.md`, the
+//! `authoring_world_tests.rs`), ACTI, KYWD, TMLM and QUST (KK-002, 2026-10-24; the QUST
+//! read-back and the two WRLD tests are ignored) and CONT, MISC, FLST and LVLI (KK-017,
+//! 2026-10-27; the LVLI read-back is ignored) (`docs/schema/support-matrix.md`, the
 //! typed-writable evidence of `docs/schema/evidence.toml`).
 //!
 //! Each `*_new_sets_every_typed_member_and_reads_back` test builds one record of the type
@@ -19,8 +20,9 @@
 //! Each `*_dangling_link_is_reported` test writes the same record with FormIDs naming a
 //! form the master lacks (`Source.esm:000FFF`) in the members reference integrity covers
 //! for the type (reference lists, menus, component and condition FormIDs, vendor
-//! location), and checks that `validate`'s `formid.dangling` names every one of them and
-//! `refs` lists each as a `missing` link.
+//! location, container and leveled item entries, form list entries), and checks that
+//! `validate`'s `formid.dangling` names every one of them and `refs` lists each as a
+//! `missing` link.
 
 #![allow(clippy::arithmetic_side_effects)]
 
@@ -531,6 +533,53 @@ fn acti_new_sets_every_typed_member_and_reads_back() {
     );
 }
 
+#[test]
+fn cont_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "CONT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn misc_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "MISC",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+#[test]
+fn flst_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "FLST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
+// `new`'s member order flattens every layout group of the BFCB block, and the block's
+// PlanetContentProperties layout is its only condition slot (common/BfcbBlock.toml), so
+// that slot precedes the record's top-level Conditions group. This plan numbers the
+// condition occurrences by walking the definition with only the chosen layout's members
+// in the block (ContactShadow: FLCS): occurrence 0 the top-level group, occurrence 1 the
+// Entries' group. The engine writes them one slot early — occurrence 0 into the block
+// (the matcher places it at `BfcbBlock.PlanetContentProperties.Conditions.*`) and
+// occurrence 1 into the top-level group — and never writes the entries' conditions.
+// Aligning `new`'s block slots with the chosen component layout is the engine fix,
+// outside this ticket.
+#[ignore = "LVLI: members not written: [\"Entries.Conditions.Data\", \"Entries.Conditions.StringParameter1\", \"Entries.Conditions.StringParameter2\"]"]
+#[test]
+fn lvli_new_sets_every_typed_member_and_reads_back() {
+    writes_and_reads_back(
+        "LVLI",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+    );
+}
+
 // KYWD has no base form component block of its own, so the layout and component name are
 // inert here; every other typed member of the definition is written and read back.
 #[test]
@@ -848,6 +897,67 @@ fn fact_dangling_link_is_reported() {
             ("VEND", json!(MISSING)),
         ],
         &["XNAM", "PackageLocation.Value", "Parameter1", "VEND"],
+    );
+}
+
+#[test]
+fn cont_dangling_link_is_reported() {
+    // The container's item (the `Item` field of a CNTO entry), its snap template and
+    // its snap behavior.
+    dangling(
+        "CONT",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("CNTO.Item", json!(MISSING)),
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+        ],
+        &["Item", "SNTP", "SNBH"],
+    );
+}
+
+#[test]
+fn misc_dangling_link_is_reported() {
+    // The snap template, the snap behavior and the featured-item message.
+    dangling(
+        "MISC",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("SNTP", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+            ("FIMD", json!(MISSING)),
+        ],
+        &["SNTP", "SNBH", "FIMD"],
+    );
+}
+
+#[test]
+fn flst_dangling_link_is_reported() {
+    // The form list's entry and the list it adds to.
+    dangling(
+        "FLST",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[("LNAM", json!(MISSING)), ("ANAM", json!(MISSING))],
+        &["LNAM", "ANAM"],
+    );
+}
+
+#[test]
+fn lvli_dangling_link_is_reported() {
+    // A leveled entry's item, the default item and the snap behavior.
+    dangling(
+        "LVLI",
+        "ContactShadow",
+        "BGSContactShadowComponent_Component",
+        &[
+            ("LVLO.Item", json!(MISSING)),
+            ("DEFL", json!(MISSING)),
+            ("SNBH", json!(MISSING)),
+        ],
+        &["Item", "DEFL", "SNBH"],
     );
 }
 
