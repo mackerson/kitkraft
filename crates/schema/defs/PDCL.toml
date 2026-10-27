@@ -1,0 +1,132 @@
+# PDCL: ProjectedDecal, inventory definition (KK-100).
+#
+# Sources (ADR 0004, ADR 0005):
+#   corpus: the KK-100 scan of every official PDCL record (732 in the 14 ESMs,
+#     crates/esm/tests/inventory_types.rs, inventory_types_full): which subrecords occur, in
+#     which order and how often. Every member is listed because the corpus has it, and every
+#     official record decodes with nothing left unplaced and re-encodes byte for byte.
+#   xedit: the PDCL definition of wbDefinitionsSF1.pas at the pinned revision (L15829-L15869),
+#     cited per member for its position where it lists the subrecord.
+#   uesp-skyrim / universal scan: the EDID string convention (M2.B2); the shared
+#     BfcbBlock group keeps its own provenance.
+#
+# An inventory: EDID and the component block frame are typed; every other payload is opaque
+# (named after its signature, a placeholder) until a family lane transcribes the record from
+# the pinned xEdit file (docs/gaps.md). Members xEdit lists that no official record has are
+# left out; a plugin that has one keeps it raw.
+# Inside component blocks (kept raw by BfcbBlock): KSIZ KWDA REFL.
+signature = "PDCL"
+name = "ProjectedDecal"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: every official PDCL record (732) decodes with every subrecord placed and re-encodes identically"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15829-L15869",
+]
+confidence = "corpus"
+note = "inventory definition (KK-100): corpus order and cardinality; EDID and the component block frame typed, every other payload opaque"
+
+[[member]]
+sig = "EDID"
+name = "EditorId"
+type = "zstring"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 728 of 732 official PDCL records (728 occurrences), 16..58 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15849-L15849",
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L3182-L3182",
+  "uesp-skyrim: https://en.uesp.net/wiki/Skyrim_Mod:File_Format_Conventions",
+]
+confidence = "corpus"
+
+[[member]]
+sig = "OBND"
+name = "Obnd"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 732 of 732 official PDCL records (732 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15851-L15851",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 24 bytes"
+
+[[member]]
+sig = "ODTY"
+name = "Odty"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 732 of 732 official PDCL records (732 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15852-L15852",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 4 bytes"
+
+[[member]]
+sig = "OPDS"
+name = "Opds"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 58 of 732 official PDCL records (58 occurrences), 80 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15853-L15853",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 80 bytes"
+
+[[member]]
+sig = "PTT2"
+name = "Ptt2"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 7 of 732 official PDCL records (7 occurrences), 32 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15854-L15854",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 32 bytes"
+
+[[member]]
+sig = "SNBH"
+name = "Snbh"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 2 of 732 official PDCL records (2 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15856-L15856",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 4 bytes"
+
+[[member]]
+group_ref = "BfcbBlock"
+card = "repeated"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 63 of 732 official PDCL records (63 occurrences), 25..27 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15859-L15859",
+]
+confidence = "corpus"
+note = "base form components; the component data stays raw"
+
+[[member]]
+sig = "DODT"
+name = "Dodt"
+type = "opaque"
+card = "optional"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 726 of 732 official PDCL records (726 occurrences), 4 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15860-L15860",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 4 bytes"
+
+[[member]]
+sig = "DATA"
+name = "Data"
+type = "opaque"
+card = "required"
+source = "corpus: inventory_types_full (crates/esm/tests/inventory_types.rs), 2026-10-27: in 732 of 732 official PDCL records (732 occurrences), 24 bytes"
+evidence = [
+  "xedit: wbDefinitionsSF1.pas@9fb016884bec138ea6c7b872cec831537d464c3e#L15861-L15861",
+]
+confidence = "corpus"
+note = "payload not decoded (KK-100 inventory); 24 bytes"
