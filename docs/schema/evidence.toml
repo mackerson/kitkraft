@@ -153,6 +153,40 @@ evidence = [
 ]
 note = "KK-002: new with every typed leaf member, read back identically, validate with no finding; dangling TNAM, BNAM, XLOC.Key reported"
 
+[[entry]]
+type = "CONT"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::cont_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::cont_dangling_link_is_reported",
+]
+note = "KK-017: new with every typed leaf member, read back identically, validate with no finding; dangling CNTO item, SNTP, SNBH reported"
+
+[[entry]]
+type = "MISC"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::misc_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::misc_dangling_link_is_reported",
+]
+note = "KK-017: new with every typed leaf member, read back identically, validate with no finding; dangling SNTP, SNBH, FIMD reported"
+
+[[entry]]
+type = "FLST"
+status = "typed-writable"
+result = "pass"
+evidence = [
+  "test: crates/engine/src/handlers/authoring_tests.rs::flst_new_sets_every_typed_member_and_reads_back",
+  "test: crates/engine/src/handlers/authoring_tests.rs::flst_dangling_link_is_reported",
+]
+note = "KK-017: new with every typed leaf member, read back identically, validate with no finding; dangling LNAM, ANAM reported"
+
+# LVLI has no entry: its read-back test is #[ignore]d (a BFCB block condition-slot
+# misalignment in `new`, an engine fix outside KK-017); its dangling-link test passes
+# but a dangling test alone is not a typed-writable row.
+
 # CK-differential-tested: none. The CK sessions (M3.O1, M4.O1) are deferred.
 
 # Game-runtime-tested: the owner's sessions on the KitKraft Dev profile.

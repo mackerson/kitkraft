@@ -46,8 +46,9 @@ that is still pending is not a row.
 
 Seeded 2026-10-15 from what `main` proves:
 
-- typed-writable: LCTN, TERM, PKIN, FACT (`crates/engine/src/handlers/authoring_tests.rs`),
-  GLOB (`newform_tests.rs`), WEAP, AMDL, OMOD (`tests/overhaul_build.rs`);
+- typed-writable: LCTN, TERM, PKIN, FACT, CONT, MISC and FLST
+  (`crates/engine/src/handlers/authoring_tests.rs`), GLOB (`newform_tests.rs`), WEAP,
+  AMDL, OMOD (`tests/overhaul_build.rs`);
 - game-runtime-tested: WEAP (the rename, ledger `game-20261014-01`, and overhaul build 2,
   STATUS "M3.O5 result"), AMDL and OMOD (overhaul build 2), CELL and REFR (the first POI,
   STATUS "M4.O2 result"). CONT is not: the POI's crate is a STAT;
@@ -200,3 +201,33 @@ match conditions (`Aliases.Collection.Template.MatchConditions.{Data, StringPara
 StringParameter2}`) are not written, a slot misalignment that is an engine fix outside
 this ticket; and `new` refuses a WRLD (a worldspace roots exterior cells that are not
 written yet).
+
+## CONT, MISC, FLST and LVLI (KK-017, 2026-10-27)
+
+Typed-writable, in the pattern of the LCTN to FACT tests above
+(`crates/engine/src/handlers/authoring_tests.rs`), each on the
+`ContactShadow` component layout:
+
+| Type | typed-writable before | after |
+| ---- | --------------------- | ----- |
+| CONT | not-run | pass |
+| MISC | not-run | pass |
+| FLST | not-run | pass |
+
+- `cont_new_sets_every_typed_member_and_reads_back`,
+  `misc_new_sets_every_typed_member_and_reads_back` and
+  `flst_new_sets_every_typed_member_and_reads_back`: `new` with every typed leaf member
+  of the definition, read back byte for byte, `validate` with no finding.
+- `cont_dangling_link_is_reported` (a CNTO entry's item, `SNTP`, `SNBH`),
+  `misc_dangling_link_is_reported` (`SNTP`, `SNBH`, `FIMD`) and
+  `flst_dangling_link_is_reported` (`LNAM`, `ANAM`): each link is reported by
+  `validate`'s `formid.dangling` and listed as `missing` by `refs`.
+
+LVLI stays out of the list: `lvli_new_sets_every_typed_member_and_reads_back` is
+`#[ignore]`d because `new`'s member order flattens every layout group of the BFCB block,
+and the block's `PlanetContentProperties` layout is its only condition slot, so that slot
+precedes the record's top-level `Conditions` group and the entries' conditions are never
+written, a slot misalignment that is an engine fix outside this ticket; its dangling-link
+test, `lvli_dangling_link_is_reported` (`LVLO.Item`, `DEFL`, `SNBH`), passes, but a
+dangling test alone is not a typed-writable row, so LVLI has no evidence entry while the
+read-back is ignored.
