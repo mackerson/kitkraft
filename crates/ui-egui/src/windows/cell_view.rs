@@ -45,7 +45,7 @@ pub struct RefRow {
     pub form: String,
     pub signature: Option<String>,
     pub editor_id: Option<String>,
-    /// The base's EditorID (or formref), as the envelope named it.
+    /// The base's form (its formref), or its EditorID when the envelope has none.
     pub base: Option<String>,
     /// "x, y, z", when the reference has a position.
     pub position: Option<String>,
@@ -163,6 +163,17 @@ impl CellViewState {
         } else {
             None
         }
+    }
+
+    /// The window was reopened: if an error is shown, clear it and the list's
+    /// mode, so the window asks for the worldspaces again.
+    pub fn on_reopen(&mut self) {
+        if self.error.is_none() {
+            return;
+        }
+        self.error = None;
+        self.list_mode = None;
+        self.list_world = None;
     }
 
     fn begin_list(&mut self, mode: ListMode, world: Option<&str>) {
@@ -812,5 +823,20 @@ mod tests {
             Some("no load order: pass --profile <MO2 profile dir> \
                   or --plugins <file>...")
         );
+    }
+
+    #[test]
+    fn reopening_the_cell_view_clears_the_error_so_it_asks_again() {
+        let mut s = CellViewState::default();
+        s.worlds().unwrap();
+        s.receive(Err("no load order: pass --profile <MO2 profile dir> ...".into()));
+        assert!(s.error.is_some());
+        // The error stays while the window stays open (no re-ask every frame).
+        assert!(s.list_mode.is_some());
+        s.on_reopen();
+        assert!(s.error.is_none());
+        assert!(s.list_mode.is_none());
+        // ...and the window asks for the worldspaces again.
+        assert!(s.worlds().is_some());
     }
 }

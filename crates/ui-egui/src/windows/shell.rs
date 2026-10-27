@@ -274,6 +274,11 @@ impl App {
         // Cell View (M7.W2): worldspaces, cells and references over `cell`.
         let mut cell_ask = None;
         if self.shell.is_open(WindowKind::CellView) {
+            // Reopening it while an error is shown asks for the worldspaces again.
+            if !self.shell.cell_view_open {
+                self.shell.cell_view.on_reopen();
+            }
+            self.shell.cell_view_open = true;
             // Opening it with nothing shown asks for the worldspaces once.
             if self.shell.cell_view.list_mode.is_none()
                 && self.shell.cell_view.cell.is_none()
@@ -303,6 +308,8 @@ impl App {
                 },
                 |ui| cell_ask = c.ui(ui, busy),
             );
+        } else {
+            self.shell.cell_view_open = false;
         }
         match cell_ask {
             Some(CellViewAsk::Interiors) => {

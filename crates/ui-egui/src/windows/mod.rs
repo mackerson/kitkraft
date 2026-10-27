@@ -159,6 +159,8 @@ pub struct Shell {
     pub warnings: warnings::WarningsState,
     pub use_info: use_info::UseInfoState,
     pub cell_view: cell_view::CellViewState,
+    /// The Cell View was open on the last frame (its error clears on reopen).
+    pub cell_view_open: bool,
     pub dialog: crate::dialogs::DialogState,
     /// The screenshot tour's own steps (after the tabs).
     pub tour_step: usize,
