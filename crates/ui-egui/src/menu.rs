@@ -92,8 +92,8 @@ fn panel_of(id: &str) -> Option<Target> {
         "coverage" => Target::Tab("Coverage"),
         "schema" => Target::Tab("Schema"),
         "ledger" => Target::Tab("Ledger"),
-        "deploy" | "deploy.rollback" | "deploy.status"
-        | "game.session" | "game.stop" | "game.status" => Target::Tab("Cockpit"),
+        "deploy" | "deploy.rollback" | "deploy.status" | "game.session" | "game.stop"
+        | "game.status" => Target::Tab("Cockpit"),
         _ => return None,
     })
 }

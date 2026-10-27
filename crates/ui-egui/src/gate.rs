@@ -47,6 +47,10 @@ pub(crate) use kitkraft_engine::shapes::{check_shape, data_shape};
 /// The envelope's value markers (M4.W0, `docs/mcp.md` "Data shapes and markers"): the
 /// view-models format a value by its `kind`, never by its shape.
 pub use kitkraft_engine::shapes::{kind as marker, KIND};
+/// The engine's fake game session (M6.G4): a fixture MO2 instance, a fake console and a
+/// fake process host, for the gate's tests against the fakes.
+#[cfg(test)]
+pub(crate) use kitkraft_engine::testing::GameFakes;
 /// A progress event from a long command (M6.P2b), for the worker's status line (M6.P2a).
 pub use kitkraft_engine::Progress;
 /// The catalog itself, read by the menu bar (M7.M1, `crate::menu`): ids, labels,
@@ -54,10 +58,6 @@ pub use kitkraft_engine::Progress;
 pub use kitkraft_engine::{catalog, CommandSpec, Status as CommandStatus};
 #[cfg(test)]
 pub(crate) use kitkraft_engine::{parse_line, Invocation};
-/// The engine's fake game session (M6.G4): a fixture MO2 instance, a fake console and a
-/// fake process host, for the gate's tests against the fakes.
-#[cfg(test)]
-pub(crate) use kitkraft_engine::testing::GameFakes;
 
 /// One command the workbench may run, with the arguments that would make it write.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -725,7 +725,13 @@ mod tests {
         // session's start and stop; `game.probe` joins with M6.G5.
         assert_eq!(
             ids,
-            ["ledger", "deploy", "deploy.rollback", "game.session", "game.stop"]
+            [
+                "ledger",
+                "deploy",
+                "deploy.rollback",
+                "game.session",
+                "game.stop"
+            ]
         );
         for p in PERMITTED_WRITES {
             assert!(
@@ -988,10 +994,11 @@ mod tests {
             a
         };
         // Preview: a dry run, with or without a profile, passes unconfirmed.
-        assert!(
-            check(&Request::new("game.session", with(json!({"dry_run": true}))))
-                .is_ok()
-        );
+        assert!(check(&Request::new(
+            "game.session",
+            with(json!({"dry_run": true}))
+        ))
+        .is_ok());
         assert!(check(&Request::new(
             "game.session",
             with(json!({"dry_run": true, "profile": "KitKraft Dev"}))
@@ -1028,7 +1035,7 @@ mod tests {
             }
         }
         // `profile` naming `Default` (any case, trimmed) is refused in every form.
-        for d in ["Default", "default", " DEFAULT "] {
+        for d in ["Default", "default", " default ", " DEFAULT "] {
             for extra in [
                 json!({"profile": d, "dry_run": true}),
                 json!({"profile": d, "start": true}),

@@ -90,7 +90,7 @@ M6.G1 and M6.G3):
   with `out` or `overwrite`.
 - **The permitted writes** (`gate::PERMITTED_WRITES`, inside `gate::COCKPIT_SCOPE`, the six
   commands ADR 0007 Amendment 3 names: `ledger`, `deploy`, `deploy.rollback`,
-  `game.session`, `game.probe`, `game.stop`). Today three of them are permitted, each
+  `game.session`, `game.probe`, `game.stop`). Today five of them are permitted, each
   with a preview that passes like a read and a writing form that passes only as a request
   built by `Request::confirmed`, which one panel file per command makes, once per
   confirm click:
@@ -100,6 +100,8 @@ M6.G1 and M6.G3):
   | `ledger` | `confirm` absent or false | `confirm: true`, confirmed | Ledger (`panels/ledger.rs`) |
   | `deploy` (`--dev`) | `dry_run: true` | `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit.rs`) |
   | `deploy.rollback` | `dry_run: true` | as `deploy` | Cockpit |
+  | `game.session` | `dry_run: true` | `start: true`, `dry_run` absent or false, confirmed | Cockpit (`panels/cockpit/session.rs`) |
+  | `game.stop` | `dry_run: true` | no `dry_run`, confirmed | Cockpit |
 
   For `deploy` and `deploy.rollback` the gate also requires `dev: true` in every form,
   refuses `profile` = `Default` (any case) in every form, and requires `profile` in the
@@ -109,12 +111,21 @@ M6.G1 and M6.G3):
   change, or ran with other arguments. The engine refuses `Default` on its own, from
   MO2's active profile, whatever the arguments say. The engine itself refuses any ledger
   file but `<checkout>\docs\game-observations.md`.
-  `game.session`, `game.probe` and `game.stop` are in the catalog (M4.T3) but not yet
-  permitted: their Cockpit buttons stay disabled with M6.G4 or M6.G5 as the reason.
+  `game.session` and `game.stop` are permitted now (M6.G4). For `game.session` the
+  writing form is `start: true` with `dry_run` absent or false: the window starts
+  sessions with `start: true` and follows them with `game.status`, because a
+  synchronous session would block the window's one engine worker. A form that is
+  neither the preview nor that writing form (no `start`, no `dry_run`) is refused
+  confirmed or not; the gate also refuses `profile` = `Default` (any case, trimmed) in
+  every form of `game.session`, while `profile` may be absent (the engine's default is
+  `KitKraft Dev`). `game.stop`'s writing form is like `deploy`'s: no `dry_run`,
+  confirmed. `game.probe` is not yet permitted: its Cockpit buttons (Re-run probe,
+  Screenshot) stay disabled with M6.G5 as the reason. `game.status` is on the allowlist:
+  it is how the window follows a started session.
 - **Refused before the engine sees the request:** every other catalog command and alias.
   That includes `set`, `build` (in every mode, including `--plan`), `new`, `clone`, `place`,
   `package`, `testplan`, `overhaul.scaffold`, `ba2.*`, `strings.*`, `papyrus.*`,
-  `game.*` and (M7, ADR 0007 Amendment 4, proposed) the editor's writes.
+  `game.probe` and (M7, ADR 0007 Amendment 4, proposed) the editor's writes.
 
 Tests enforce this in six ways:
 
@@ -172,7 +183,10 @@ What the workbench writes, all of it:
   the reasons above), whose button sends the one confirmed request; after a write the
   panel reads the dev mod back. The ledger entries naming the plugin's file (or the
   SHA-256 the deploy preview reports) are listed. The game buttons (Launch and run
-  probes, Stop, Re-run probe, Screenshot) take their state from the catalog and the gate.
+  probes, Stop, Re-run probe, Screenshot) take their state from the catalog and the
+  gate: Launch and Stop are enabled now (M6.G4); their previews and confirmed requests
+  are built by `panels/cockpit/session.rs` (`SessionForm`), and the button wiring is the
+  next ticket. Re-run probe and Screenshot stay disabled with M6.G5.
 - **Coverage**: `coverage --matrix` with optional record types, plugin and evidence file;
   one row per type with the six statuses as status components, a filter by type, and a
   click on a type lists each cell's evidence pointers and whether they resolve.
