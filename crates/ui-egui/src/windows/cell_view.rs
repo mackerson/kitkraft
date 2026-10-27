@@ -147,9 +147,7 @@ impl CellViewState {
     /// names (each side's "next page" button passes its own `*_next`); asking
     /// nothing when no side wants that cursor.
     pub fn page(&mut self, cursor: Option<String>) -> Option<Request> {
-        let Some(cursor) = cursor else {
-            return None;
-        };
+        let cursor = cursor?;
         if self.list_mode.is_some() && self.list_next.as_deref() == Some(cursor.as_str()) {
             let req = self.list_request(Some(cursor.clone()))?;
             self.list_page_cursor = Some(cursor);
@@ -322,7 +320,10 @@ impl CellViewState {
         self.list_page_cursor = None;
         self.list_mode = Some(ListMode::World);
         self.list_world = text(data, "world");
-        let entries: Vec<Entry> = items(data).into_iter().filter_map(world_cell_entry).collect();
+        let entries: Vec<Entry> = items(data)
+            .into_iter()
+            .filter_map(world_cell_entry)
+            .collect();
         self.file_list(entries, data, append);
     }
 
@@ -491,7 +492,10 @@ impl CellViewState {
                 });
             });
         }
-        if self.list_mode.is_none() && self.cell.is_none() && !self.list_pending && !self.refs_pending
+        if self.list_mode.is_none()
+            && self.cell.is_none()
+            && !self.list_pending
+            && !self.refs_pending
         {
             theme::status_line(ui, Status::NotRun, "load a profile first");
             return None;
@@ -529,12 +533,7 @@ impl CellViewState {
 
     /// The list on the left: worldspaces (with "Interior" first), the interior
     /// cells, or one world's exterior cells with their grid, paged.
-    fn left_list(
-        &self,
-        ui: &mut egui::Ui,
-        busy: bool,
-        ask: &mut Option<CellViewAsk>,
-    ) {
+    fn left_list(&self, ui: &mut egui::Ui, busy: bool, ask: &mut Option<CellViewAsk>) {
         let heading = match self.list_mode {
             Some(ListMode::Worlds) => "worldspaces",
             Some(ListMode::Interior) => "interior cells",
@@ -587,12 +586,7 @@ impl CellViewState {
     }
 
     /// The references on the right: the selected cell's, paged.
-    fn right_refs(
-        &self,
-        ui: &mut egui::Ui,
-        busy: bool,
-        ask: &mut Option<CellViewAsk>,
-    ) {
+    fn right_refs(&self, ui: &mut egui::Ui, busy: bool, ask: &mut Option<CellViewAsk>) {
         let Some(c) = &self.cell else {
             theme::status_line(ui, Status::NotRun, "click a cell in the list");
             return;
@@ -795,7 +789,10 @@ mod tests {
         assert!(s.refs[1].persistent);
         assert_eq!(s.refs_total, 4);
         assert_eq!(s.refs_next.as_deref(), Some("c1"));
-        assert_eq!(s.cell_editor_id.as_deref(), Some("CityNewAtlantisApartmentTEMPLATE"));
+        assert_eq!(
+            s.cell_editor_id.as_deref(),
+            Some("CityNewAtlantisApartmentTEMPLATE")
+        );
         assert!(s.cell_world.is_none());
 
         // No side wants a cursor it has not been given.
@@ -820,8 +817,10 @@ mod tests {
         assert!(s.cell.is_none() && s.cell_editor_id.is_none());
         assert_eq!(
             s.error.as_deref(),
-            Some("no load order: pass --profile <MO2 profile dir> \
-                  or --plugins <file>...")
+            Some(
+                "no load order: pass --profile <MO2 profile dir> \
+                  or --plugins <file>..."
+            )
         );
     }
 
@@ -829,7 +828,9 @@ mod tests {
     fn reopening_the_cell_view_clears_the_error_so_it_asks_again() {
         let mut s = CellViewState::default();
         s.worlds().unwrap();
-        s.receive(Err("no load order: pass --profile <MO2 profile dir> ...".into()));
+        s.receive(Err(
+            "no load order: pass --profile <MO2 profile dir> ...".into()
+        ));
         assert!(s.error.is_some());
         // The error stays while the window stays open (no re-ask every frame).
         assert!(s.list_mode.is_some());
