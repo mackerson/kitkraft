@@ -132,31 +132,31 @@ run, merges what holds up, runs the Windows gate, pushes `main`, and updates thi
 | [KK-005](KK-005.toml) | validate warns when a location's added persistent reference is temporary | M5.D2 rest | merged `f4acf8e` |
 | [KK-006](KK-006.toml) | Type ARMA and name the biped slot bits | apparel requests 1 and 2 | merged `e7bc2d2` |
 | [KK-007](KK-007.toml) | Decode REFL losslessly; LMSW swap entries in `inspect --full` | apparel request 7 | merged `7313fbf` |
-| [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | queued (KK-006 merged) |
+| [KK-008](KK-008.toml) | Inventory definition for LMSW, the layered material swap | apparel request 7 (`everyday-outfits`) | merged `479cdfa` (parity's Record types row still counts the 4 BFCB-internal signatures as unknown; the ticket's grep matched the Decoded row) |
 | [KK-010](KK-010.toml) | testplan: add, equip and look at new and overridden armor | apparel request 5 | merged `33307be` |
 | [KK-011](KK-011.toml) | Corpus survey: which object mod properties armor carries | apparel request 3 (second half) | merged `37712ee` (review: the null and unresolved counts cover only the armor union; distinct examples) |
 | [KK-012](KK-012.toml) | Recipe: a location of your own (`docs/recipes/location.md`) | M5.D2 rest | merged `993b766` |
 | [KK-013](KK-013.toml) | Recipe: a terminal with its own menus (`docs/recipes/terminal.md`) | M5.D3 rest | merged `3c66df6` (review: the 16 conditions pinned by count; doc fixes) |
 | [KK-014](KK-014.toml) | Clone-sample corpus tests for PKIN and FACT | M5.D4, M5.D5 rest | merged `a236ffd` |
 | [KK-015](KK-015.toml) | Ownership recipe, new-faction variant | M5.D5 rest | merged `0cdcb08` |
-| [KK-016](KK-016.toml) | `cargo xtask parity` generates the gap matrix headline and checks the family table | M5.D1 rest | after KK-002 |
-| [KK-017](KK-017.toml) | Typed-write tests for CONT, MISC, FLST and LVLI | gap matrix "untested" rows | after KK-002 |
+| [KK-016](KK-016.toml) | `cargo xtask parity` generates the gap matrix headline and checks the family table | M5.D1 rest | merged `d689876` (record-parity.md regenerated in the merge) |
+| [KK-017](KK-017.toml) | Typed-write tests for CONT, MISC, FLST and LVLI | gap matrix "untested" rows | merged `14800e4`, review `c921095` (the gap-matrix family table's CONT, MISC, FLST cells follow MX). LVLI read-back ignored with its reason: `new` writes the entries' conditions one slot early (BFCB block condition slot), an engine fix |
 | [KK-018](KK-018.toml) | validate warns when a model file a record names is nowhere to be found | apparel requests 4 and 8 (asset checks) | merged `a1d1af6` (review: model fixtures planted in two handler tests outside `owns`, which the new warning broke) |
-| [KK-019](KK-019.toml) | Write LMSW material swaps: `swap_overrides` on `set` and `clone` | apparel request 7 (write half) | after KK-007, KK-008 |
+| [KK-019](KK-019.toml) | Write LMSW material swaps: `swap_overrides` on `set` and `clone` | apparel request 7 (write half) | queued (KK-007, KK-008 merged) |
 | [KK-020](KK-020.toml) | Recipe: a clothing colourway (build spec `swap_overrides`) | apparel request 7 | after KK-019 |
-| [KK-021](KK-021.toml) | Typed-write tests for ARMO, ARMA and OTFT | apparel requests 1 and 2 | after KK-006, KK-017 |
-| [KK-022](KK-022.toml) | Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB | record parity (types with no definition) | after KK-008 |
+| [KK-021](KK-021.toml) | Typed-write tests for ARMO, ARMA and OTFT | apparel requests 1 and 2 | queued (KK-006, KK-017 merged) |
+| [KK-022](KK-022.toml) | Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB | record parity (types with no definition) | requeued from `kk/KK-022-wip`: the definitions decode the corpus, but every `source` count was invented, not taken from an inventory run (AVMD claims 46,000 LNAM in 25,938 subrecords); the QA said CHANGES three times. Brief now says to merge main, rewrite each source from the run, and what parity counts as unknown |
 | [KK-023](KK-023.toml) | Type FLOR (flora) from the pinned xEdit file | record parity (lstring-only FLOR) | after KK-022 |
 | [KK-030](KK-030.toml) | Engine test support: game-session fakes that front ends can drive | M6.G4 to G6 against M4.T3's fakes (next-sprint item 3) | merged `5bdb830` |
-| [KK-031](KK-031.toml) | The workbench gate permits `game.session` (start) and `game.stop`; `game.status` allowed | M6.G4, first half | after KK-030 |
-| [KK-032](KK-032.toml) | The Cockpit launches a game session and follows it by polling `game.status` | M6.G4, second half | after KK-031 |
+| [KK-031](KK-031.toml) | The workbench gate permits `game.session` (start) and `game.stop`; `game.status` allowed | M6.G4, first half | merged `b28ea17` (note: the source scan's `Session` needle is now whole-word so `SessionForm` passes) |
+| [KK-032](KK-032.toml) | The Cockpit launches a game session and follows it by polling `game.status` | M6.G4, second half | queued (KK-031 merged) |
 | [KK-033](KK-033.toml) | The Cockpit shows a session's probe rows and screenshots | M6.G5, first half | after KK-032 |
 | [KK-034](KK-034.toml) | `game.probe` from the Cockpit: re-run, screenshot, send a row to the Ledger | M6.G5 second half, M6.G6 wiring | after KK-033 and KK-035 |
 | [KK-035](KK-035.toml) | The Ledger form is prefilled from a probe row left inconclusive or manual | M6.G6 | merged `bfddeb9` |
 | [KK-036](KK-036.toml) | The Cell View window over `cell` | M7.W2 (next-sprint item 5) | merged `1f0eee0` |
-| [KK-037](KK-037.toml) | Cell View and Render Window in step: open a cell in the viewport, one selection | M7.R2 selection sync | after KK-036 |
+| [KK-037](KK-037.toml) | Cell View and Render Window in step: open a cell in the viewport, one selection | M7.R2 selection sync | merged `4275765` |
 | [KK-038](KK-038.toml) | Table columns resize by dragging the header's edge | M6.V5 rest | merged `a4aaf48` |
-| [KK-039](KK-039.toml) | Raw JSON held in one buffer and sliced by the visible range | M6.P5a rest | queued |
+| [KK-039](KK-039.toml) | Raw JSON held in one buffer and sliced by the visible range | M6.P5a rest | merged `fe7aea5` |
 | [KK-040](KK-040.toml) | The workbench loads the last profile at start, from the index cache | M6.P3a rest | queued |
 | [KK-041](KK-041.toml) | Measure whether opt-level 2 for dependencies makes debug runs usable | M6.P6a rest | queued |
 | [KK-042](KK-042.toml) | `game.session` reports progress: preflight, each phase, each probe row | M6.G4 ("progress events for its own steps") | after KK-030 |
@@ -226,6 +226,10 @@ on its swap paths, or `new` from entries) is cut after KK-007 lands, on its deco
 On the 2026-10-26 06:10 night KK-011, KK-012, KK-013, KK-014, KK-015 and KK-018 merged
 (KK-011, KK-013 and KK-018 with review commits). KK-019 still waits on KK-008; the ARMO
 addons and world-model tickets in "next in engine and data" now have KK-018's rule.
+
+On the 2026-10-27 02:38 night KK-008, KK-016, KK-017, KK-031, KK-037 and KK-039 merged
+(KK-017 with a review commit on the gap matrix). KK-022 is requeued from its WIP branch;
+KK-023 still waits on it. KK-019, KK-021 and KK-032 are runnable now.
 
 KK-010 to KK-023 (engine and data, cut 2026-10-25). Independent, any night: KK-010 to KK-015;
 their `owns` do not overlap each other or the queued tickets, except that KK-014 shares

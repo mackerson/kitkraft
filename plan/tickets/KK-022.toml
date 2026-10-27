@@ -1,6 +1,7 @@
 id = "KK-022"
 title = "Inventory definitions for CURV, REGN, AVMD, IPCT and DFOB"
 timeout_min = 45
+base = "kk/KK-022-wip"
 owns = [
   "crates/schema/defs/CURV.toml",
   "crates/schema/defs/REGN.toml",
@@ -47,7 +48,22 @@ comment, `source = "corpus: ..."`, every member the corpus shows, in corpus orde
    prints the exact lines). Regenerate code with `cargo xtask codegen` and the golden seed as
    the schema tests describe; never edit `crates/esm/src/generated/records.rs` by hand.
 4. Regenerate `docs/record-parity.md` with `cargo xtask parity` (it reads the Data folder).
-   Each of the five rows must show its definition's name and 0 unknown.
+   Each of the five rows of "Decoded through the definitions" must show its definition's
+   name and 0 failed. The "Record types" row may still count signatures inside
+   `BFCB` .. `BFCE` blocks as unknown: parity counts them so (KK-008's LMSW row shows 4);
+   leave `common/BfcbBlock.toml` alone.
+
+Continuing from `kk/KK-022-wip` (the 2026-10-27 run; the merge review did not take it).
+The five files, the `TYPES` entries and the registration are there, and the inventory test
+passes, but the counts in every `source` were never taken from an inventory run: `AVMD.toml`
+claims 46,000 `LNAM` and 46,000 `NNAM`, while `docs/record-parity.md` decodes 25,938 AVMD
+subrecords in all, and `IPCT`'s members add up to more than its 4,085. First merge `main`
+into the branch (it now has KK-008's `LMSW`; take either side of `records.rs`, `seed.rs` and
+`record-parity.md` and regenerate them as step 3 and 4 say; keep both sides' entries in the
+sorted lists). Then run the inventory command teed to a file, and rewrite every member's
+`source` (records with it, occurrences, sizes) from what it prints for that type; remove any
+member the run does not print, and keep the corpus order and groups it shows. Name
+`IPCT`'s `FLLD` member `Flld` (as DOOR, ARTO, RACE and LIGH do), not `Fldl`.
 
 Done: the inventory run prints `defined: true` for each of the five with no unplaced, failed
 or re-encode lines, and `cargo xtask ci` passes. Do not change any other definition, and do
